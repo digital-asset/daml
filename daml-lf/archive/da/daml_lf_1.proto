@@ -28,6 +28,8 @@
 // * 5 -- 2019-05-22: Relax serializability constraints for contract ids
 //        2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
 //        2019-05-24: Make actors in exercise optional
+// * dev (special staging area for the next version to be released)
+//        2019-05-27: Add enum type.
 
 
 syntax = "proto3";
@@ -530,6 +532,17 @@ message Expr {
     Expr variant_arg = 3;
   }
 
+   // Enum construction ('ExpEnumCon')
+   message EnumCon {
+
+     // Name of the type constructor name
+     TypeConName tycon = 1;
+
+     // name of the enum constructor
+     // *Must be a valid identifier*
+     string enum_con = 2;
+   }
+
   // Tuple Construction ('ExpTupleCon')
   message TupleCon {
     // Field names and their associated values.
@@ -680,6 +693,9 @@ message Expr {
     // Variant construction ('ExpVariantCon')
     VariantCon variant_con = 8;
 
+    // Enum construction ('ExpEnumCon')
+    EnumCon enum_con = 28;
+
     // Tuple construction ('ExpTupleCon')
     TupleCon tuple_con = 9;
 
@@ -750,6 +766,17 @@ message CaseAlt {
     string binder = 3;
   }
 
+  // Enum pattern
+  message Enum {
+
+    // name of the type constructor
+    TypeConName con = 1;
+
+    // name of the variant constructor
+    // *Must be a valid identifier*
+    string constructors = 2;
+  }
+
   // Non empty list pattern
   message Cons {
     // name of the binder for the head
@@ -818,7 +845,8 @@ message Update {
     string choice = 2;
     // contract id
     Expr cid = 3;
-    // actors, optional since DAML-LF 1.5
+    // actors
+    // *optional since DAML-LF 1.5*
     Expr actor = 4;
     // argument
     Expr arg = 5;
@@ -1018,18 +1046,24 @@ message DefTemplate {
 // Data type definition
 message DefDataType {
   message Fields {
-    repeated FieldWithType fields = 1; // *must be non-empty*
+    repeated FieldWithType fields = 1;
+  }
+
+  message EnumConstructor {
+    repeated string constructors = 1;
   }
 
   // name of the defined data type
   DottedName name = 1;
 
   // type parameters
+  // *Must be empty if enum field is set*
   repeated TypeVarWithKind params = 2;
 
   oneof DataCons {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
+    EnumConstructor enum = 7; //  *available since version dev*
   }
 
   // If true, this data type preserves serializability in the sense that when

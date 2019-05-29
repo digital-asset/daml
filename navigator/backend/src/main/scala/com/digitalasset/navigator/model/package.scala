@@ -98,6 +98,10 @@ package object model {
   type DamlLfVariant = DamlLfIface.Variant.FWT
   val DamlLfVariant = DamlLfIface.Variant
 
+  /** A user-defined DAML-LF enum */
+  type DamlLfEnum = DamlLfIface.Enum
+  val DamlLfEnum = DamlLfIface.Enum
+
   type DamlLfFieldWithType = DamlLfIface.FieldWithType
 
   type DamlLfTypeLookup = DamlLfIdentifier => Option[DamlLfDefDataType]

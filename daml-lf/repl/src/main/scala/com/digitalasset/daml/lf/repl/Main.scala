@@ -639,11 +639,13 @@ object Repl {
       case ValueDecimal(d) => EPrimLit(PLDecimal(d))
       case ValueVariant(_, variant, value) =>
         EVariantCon(dummyTyApp, variant, valueToExpr(value))
+      case ValueEnum(_, constructor) =>
+        EVariantCon(dummyTyApp, constructor, EUnit)
       case ValueRecord(_, fs) =>
         ETupleCon(fs.map(kv => (kv._1.get, valueToExpr(kv._2))))
       case ValueTuple(fs) =>
         ETupleCon(fs.map(kv => (kv._1, valueToExpr(kv._2))))
-      case ValueUnit => EPrimCon(PCUnit)
+      case ValueUnit => EUnit
       case ValueBool(b) => EPrimCon(if (b) PCTrue else PCFalse)
       case ValueList(xs) =>
         ECons(TTyCon(dummyTyCon), xs.map(valueToExpr).toImmArray, ENil(TTyCon(dummyTyCon)))

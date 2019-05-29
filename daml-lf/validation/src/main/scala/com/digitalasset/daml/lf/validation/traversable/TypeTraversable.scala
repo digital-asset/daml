@@ -139,6 +139,7 @@ private[validation] object TypeTraversable {
         template.foreach(foreach(_, f))
       case DDataType(serializable @ _, params @ _, DataVariant(variants)) =>
         variants.values.foreach(f)
+      case DDataType(serializable @ _, params @ _, DataEnum(values @ _)) =>
       case DValue(typ, noPartyLiterals @ _, body, isTest @ _) =>
         f(typ)
         foreach(body, f)

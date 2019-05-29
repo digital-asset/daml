@@ -962,7 +962,8 @@ object Ledger {
           fs.foreach {
             case (_, v) => collect(v)
           }
-        case ValueVariant(_, _, value) => collect(value)
+        case ValueVariant(_, _, arg) => collect(arg)
+        case _: ValueEnum => ()
         case ValueList(vs) =>
           vs.foreach(collect)
         case ValueContractId(coid) =>
@@ -1012,6 +1013,7 @@ object Ledger {
         case ValueContractId(coid) =>
           val acoid = contractIdToAbsoluteContractId(commitPrefix, coid)
           ValueContractId(acoid)
+        case vEnum: ValueEnum => vEnum
         case vlit: ValueInt64 => vlit
         case vlit: ValueDecimal => vlit
         case vlit: ValueText => vlit

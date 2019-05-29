@@ -23,6 +23,7 @@ object ValueVersions
   private[this] val minOptional = ValueVersion("2")
   private[value] val minContractIdStruct = ValueVersion("3")
   private[this] val minMap = ValueVersion("4")
+  private[this] val minEnum = ValueVersion("dev")
 
   def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {
     import com.digitalasset.daml.lf.transaction.VersionTimeline.{maxVersion => maxVV}
@@ -50,6 +51,8 @@ object ValueVersions
                 go(maxVV(minOptional, currentVersion), ImmArray(x.toList) ++: values)
               case ValueMap(map) =>
                 go(maxVV(minMap, currentVersion), map.values ++: values)
+              case ValueEnum(_, _) =>
+                go(maxVV(minEnum, currentVersion), values)
               // tuples are a no-no
               case ValueTuple(fields) =>
                 Left(s"Got tuple when trying to assign version. Fields: $fields")

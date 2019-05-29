@@ -18,10 +18,6 @@ final case class VisibleTransaction(
 
   private type MapStringSet[T] = Map[String, Set[T]]
 
-  /* FixMe(RH): Drop or uncomment
-  def disclosureByNodeIdStr: MapStringSet[String] = disclosureByNodeId.map {
-    case (k, v) => k -> v.map(_.underlyingString)
-  }*/
 }
 
 object VisibleTransaction {

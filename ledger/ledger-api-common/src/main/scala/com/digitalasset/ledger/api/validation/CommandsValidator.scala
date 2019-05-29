@@ -22,7 +22,8 @@ import com.digitalasset.ledger.api.v1.value.{
   Value,
   List => ApiList,
   Map => ApiMap,
-  Variant => ApiVariant
+  Variant => ApiVariant,
+  Enum => ApiEnum
 }
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -103,7 +104,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
           templateId <- requirePresence(e.value.templateId, "template_id")
           validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
           contractId <- requireLedgerString(e.value.contractId, "contract_id")
-          choice <- requireIdentifier(e.value.choice, "choice")
+          choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
           validatedValue <- validateValue(value)
         } yield
@@ -120,7 +121,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
           createArguments <- requirePresence(ce.value.createArguments, "create_arguments")
           recordId <- validateOptionalIdentifier(createArguments.recordId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
-          choice <- requireIdentifier(ce.value.choice, "choice")
+          choice <- requireName(ce.value.choice, "choice")
           value <- requirePresence(ce.value.choiceArgument, "value")
           validatedChoiceArgument <- validateValue(value)
         } yield
@@ -175,11 +176,16 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
       } yield Lf.ValueRecord(recId, fields)
     case Sum.Variant(ApiVariant(variantId, constructor, value)) =>
       for {
-        validatedConstructor <- requireIdentifier(constructor, "constructor")
+        validatedVariantId <- validateOptionalIdentifier(variantId)
+        validatedConstructor <- requireName(constructor, "constructor")
         v <- requirePresence(value, "value")
         validatedValue <- validateValue(v)
-        validatedVariantId <- validateOptionalIdentifier(variantId)
       } yield Lf.ValueVariant(validatedVariantId, validatedConstructor, validatedValue)
+    case Sum.Enum(ApiEnum(enumId, value)) =>
+      for {
+        validatedEnumId <- validateOptionalIdentifier(enumId)
+        validatedValue <- requireName(value, "value")
+      } yield Lf.ValueEnum(validatedEnumId, validatedValue)
     case Sum.List(ApiList(elems)) =>
       elems
         .foldLeft[Either[StatusRuntimeException, BackStack[domain.Value]]](Right(BackStack.empty))(

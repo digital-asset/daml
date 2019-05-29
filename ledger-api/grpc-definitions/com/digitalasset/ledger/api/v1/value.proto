@@ -65,6 +65,9 @@ message Value {
 
     // The Map type
     Map map = 16;
+
+    // The Enum type
+    Enum enum = 17;
   }
 }
 
@@ -129,6 +132,18 @@ message Variant {
   // The value encoded within the Variant.
   // Required
   Value value = 3;
+}
+
+// A value with finite set of alternative representations.
+message Enum {
+
+  // Omitted from the transaction stream when verbose streaming is not enabled.
+  // Optional when submitting commands.
+  Identifier enum_id = 1;
+
+  // Determines which of the Variant's alternatives is encoded in this message.
+  // Required
+  string constructor = 2;
 }
 
 // A homogenous collection of values.

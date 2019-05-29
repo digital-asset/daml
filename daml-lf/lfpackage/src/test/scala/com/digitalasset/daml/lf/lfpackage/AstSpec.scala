@@ -7,6 +7,7 @@ import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
 import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.lfpackage.Util._
 import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -37,7 +38,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     val template = Template(
       param = Name.assertFromString("x"),
-      precond = eTrue,
+      precond = ETrue,
       signatories = eParties,
       agreementText = eText,
       choices = Map.empty,
@@ -49,7 +50,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     val recordDefWithTemplate =
       DDataType(true, ImmArray.empty, DataRecord(ImmArray.empty, Some(template)))
     val variantDef = DDataType(true, ImmArray.empty, DataVariant(ImmArray.empty))
-    val valDef = DValue(tUnit, false, eUnit, false)
+    val valDef = DValue(TUnit, false, EUnit, false)
 
     def defName(s: String) = DottedName.assertFromSegments(Iterable(s))
 
@@ -154,8 +155,8 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       consuming = true,
       controllers = eParties,
       selfBinder = Name.assertFromString("self"),
-      argBinder = (None, tUnit),
-      returnType = tUnit,
+      argBinder = (None, TUnit),
+      returnType = TUnit,
       update = EUpdate(UpdatePure(typ, expr)),
     )
 
@@ -166,13 +167,13 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
       Template(
         param = Name.assertFromString("x"),
-        precond = eTrue,
+        precond = ETrue,
         signatories = eParties,
         agreementText = eText,
         choices = List(
-          choice1 -> builder(choice1, tUnit, eUnit),
-          choice2 -> builder(choice2, tBool, eTrue),
-          choice3 -> builder(choice3, tText, eText)
+          choice1 -> builder(choice1, TUnit, EUnit),
+          choice2 -> builder(choice2, TBool, ETrue),
+          choice3 -> builder(choice3, TText, eText)
         ),
         observers = eParties,
         key = None
@@ -181,13 +182,13 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       an[ParseError] shouldBe thrownBy(
         Template(
           param = Name.assertFromString("x"),
-          precond = eTrue,
+          precond = ETrue,
           signatories = eParties,
           agreementText = eText,
           choices = List(
-            choice1 -> builder(choice1, tUnit, eUnit),
-            choice2 -> builder(choice2, tBool, eTrue),
-            choice1 -> builder(choice1, tText, eText)
+            choice1 -> builder(choice1, TUnit, EUnit),
+            choice2 -> builder(choice2, TBool, ETrue),
+            choice1 -> builder(choice1, TText, eText)
           ),
           observers = eParties,
           key = None
@@ -198,12 +199,7 @@ class AstSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   private val modName1 = DottedName.assertFromString("Mod1")
   private val modName2 = DottedName.assertFromString("Mod2")
 
-  private val tUnit = TBuiltin(BTUnit)
-  private val tBool = TBuiltin(BTUnit)
-  private val tText = TBuiltin(BTUnit)
   private val eParties = ENil(TBuiltin(BTParty))
   private val eText = EPrimLit(PLText("some text"))
-  private val eUnit = EPrimCon(PCUnit)
-  private val eTrue = EPrimCon(PCTrue)
 
 }

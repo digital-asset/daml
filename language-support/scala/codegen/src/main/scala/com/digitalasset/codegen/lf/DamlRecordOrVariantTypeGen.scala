@@ -484,6 +484,9 @@ object DamlRecordOrVariantTypeGen {
     val (klass, companion) = typeDecl.dataType match {
       case iface.Record(fields) => toScalaDamlRecordType(fields)
       case iface.Variant(fields) => toScalaDamlVariantType(fields.toList)
+      case iface.Enum(values @ _) =>
+        // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+        throw new NotImplementedError("Enum types not supported")
     }
 
     val filePath = damlScalaName.toFileName

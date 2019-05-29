@@ -17,8 +17,8 @@ private[validation] object Typing {
 
   /* Typing */
 
-  private def checkUniq[A](xs: Iterator[A], mkDuplicatorError: A => ValidationError): Unit = {
-    (Set.empty[A] /: xs)((acc, x) => if (acc(x)) throw mkDuplicatorError(x) else acc + x)
+  private def checkUniq[A](xs: Iterator[A], mkError: A => ValidationError): Unit = {
+    (Set.empty[A] /: xs)((acc, x) => if (acc(x)) throw mkError(x) else acc + x)
     ()
   }
 
@@ -181,13 +181,16 @@ private[validation] object Typing {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
           Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+        def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
         cons match {
           case DataRecord(fields, template) =>
             env.checkRecordType(fields)
             template.foreach(
               env.checkTemplate(TypeConName(pkgId, QualifiedName(mod.name, dfnName)), _))
           case DataVariant(fields) =>
-            env.checkDVariantType(fields)
+            env.checkVariantType(fields)
+          case DataEnum(values) =>
+            env.checkEnumType(tyConName, params, values)
         }
       case (dfnName, dfn: DValue) =>
         Env(mod.languageVersion, world, ContextDefValue(pkgId, mod.name, dfnName)).checkDValue(dfn)
@@ -230,9 +233,18 @@ private[validation] object Typing {
 
     /* Typing Ops*/
 
-    def checkDVariantType(variants: ImmArray[(VariantConName, Type)]): Unit = {
+    def checkVariantType(variants: ImmArray[(VariantConName, Type)]): Unit = {
       checkUniq[VariantConName](variants.keys, EDuplicateVariantCon(ctx, _))
       variants.values.foreach(checkType(_, KStar))
+    }
+
+    def checkEnumType[X](
+        tyConName: TypeConName,
+        params: ImmArray[X],
+        values: ImmArray[EnumConName]
+    ): Unit = {
+      if (params.nonEmpty) throw EIllegalHigherEnumType(ctx, tyConName)
+      checkUniq[Name](values.iterator, EDuplicateEnumCon(ctx, _))
     }
 
     def checkDValue(dfn: DValue): Unit = dfn match {
@@ -375,6 +387,14 @@ private[validation] object Typing {
           ()
         case _ =>
           throw EExpectedVariantType(ctx, typ.tycon)
+      }
+
+    private def checkEnumCon(typConName: TypeConName, con: EnumConName): Unit =
+      lookupDataType(ctx, typConName).cons match {
+        case DataEnum(enumType) =>
+          if (!enumType.toSeq.contains(con)) throw EUnknownEnumCon(ctx, con)
+        case _ =>
+          throw EExpectedEnumType(ctx, typConName)
       }
 
     private def typeOfRecProj(typ0: TypeConApp, field: FieldName, record: Expr): Type =
@@ -689,6 +709,9 @@ private[validation] object Typing {
       case EVariantCon(tycon, variant, arg) =>
         checkVariantCon(tycon, variant, arg)
         typeConAppToType(tycon)
+      case EEnumCon(tyCon, constructor) =>
+        checkEnumCon(tyCon, constructor)
+        TTyCon(tyCon)
       case ETupleCon(fields) =>
         typeOfTupleCon(fields)
       case ETupleProj(field, tuple) =>

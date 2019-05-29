@@ -61,6 +61,9 @@ private[validation] object Collision {
       case dDef @ Ast.DDataType(_, _, Ast.DataVariant(variants)) =>
         val variantDef = NVarDef(module, defName, dDef)
         variantDef :: variants.toList.map { case (name, _) => NVarCon(variantDef, name) }
+      case dDef @ Ast.DDataType(_, _, Ast.DataEnum(values)) =>
+        val enumDef = NEnumDef(module, defName, dDef)
+        enumDef :: values.toList.map(NEnumCon(enumDef, _))
       case _: Ast.DValue =>
         // ignore values
         // List(NValDef(module, defName, vDef))

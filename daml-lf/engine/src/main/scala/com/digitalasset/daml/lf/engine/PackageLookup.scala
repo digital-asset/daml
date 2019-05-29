@@ -30,6 +30,8 @@ object PackageLookup {
           Right((dataTyp.params, rec))
         case _: DataVariant =>
           Left(Error(s"Expecting record for identifier $identifier, got variant"))
+        case _: DataEnum =>
+          Left(Error(s"Expecting record for identifier $identifier, got enum"))
       }
     }
 
@@ -42,6 +44,21 @@ object PackageLookup {
           Right((dataTyp.params, v))
         case _: DataRecord =>
           Left(Error(s"Expecting variant for identifier $identifier, got record"))
+        case _: DataEnum =>
+          Left(Error(s"Expecting variant for identifier $identifier, got enum"))
+      }
+    }
+
+  def lookupEnum(pkg: Package, identifier: QualifiedName): Either[Error, DataEnum] =
+    lookupDataType(pkg, identifier).flatMap { dataTyp =>
+      dataTyp.cons match {
+        case v: DataEnum =>
+          Right(v)
+        case _: DataVariant =>
+          Left(Error(s"Expecting enum for identifier $identifier, got variant"))
+        case _: DataRecord =>
+          Left(Error(s"Expecting enum for identifier $identifier, got record"))
+
       }
     }
 
@@ -53,7 +70,9 @@ object PackageLookup {
         case DataRecord(_, None) =>
           Left(Error(s"Got record with no template when looking up $identifier"))
         case _: DataVariant =>
-          Left(Error(s"Got variant when looking up $identifier -- variants can't be templates"))
+          Left(Error(s"Expecting template for identifier $identifier, got variant"))
+        case _: DataEnum =>
+          Left(Error(s"Expecting template for identifier $identifier, got enum"))
       }
     } yield tpl
 }

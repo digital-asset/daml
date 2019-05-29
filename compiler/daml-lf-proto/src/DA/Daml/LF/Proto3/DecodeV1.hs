@@ -76,6 +76,9 @@ decodeDataCons = \case
     DataRecord <$> mapM (decodeFieldWithType FieldName) (V.toList fs)
   LF1.DefDataTypeDataConsVariant (LF1.DefDataType_Fields fs) ->
     DataVariant <$> mapM (decodeFieldWithType VariantConName) (V.toList fs)
+  LF1.DefDataTypeDataConsEnum _ ->
+   -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
+    Left (ParseError "Enum type not supported")
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
@@ -289,6 +292,9 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
       <$> mayDecode "Expr_VariantConTycon" mbTycon decodeTypeConApp
       <*> decodeName VariantConName variant
       <*> mayDecode "Expr_VariantConVariantArg" mbArg decodeExpr
+  LF1.ExprSumEnumCon _ ->
+   -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
+    Left (ParseError "Enum types not supported")
   LF1.ExprSumTupleCon (LF1.Expr_TupleCon fields) ->
     ETupleCon
       <$> mapM decodeFieldWithExpr (V.toList fields)

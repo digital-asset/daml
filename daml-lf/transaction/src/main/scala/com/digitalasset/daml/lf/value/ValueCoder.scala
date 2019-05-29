@@ -329,6 +329,20 @@ object ValueCoder {
                 )
             ValueVariant(id, identifier(variant.getConstructor), go(newNesting, variant.getValue))
 
+          case proto.Value.SumCase.ENUM =>
+            val enum = protoValue.getEnum
+            val id =
+              if (enum.getEnumId == ValueOuterClass.Identifier.getDefaultInstance) None
+              else
+                decodeIdentifier(enum.getEnumId).fold(
+                  { err =>
+                    throw Err(err.errorMessage)
+                  }, { id =>
+                    Some(id)
+                  }
+                )
+            ValueEnum(id, identifier(enum.getValue))
+
           case proto.Value.SumCase.RECORD =>
             val record = protoValue.getRecord
             val id =
@@ -428,6 +442,7 @@ object ValueCoder {
                 _.setContractId(_),
                 _.setContractIdStruct(_))
               .build()
+
           case ValueList(elems) =>
             val listBuilder = proto.List.newBuilder()
             elems.foreach(elem => {
@@ -435,6 +450,7 @@ object ValueCoder {
               ()
             })
             builder.setList(listBuilder).build()
+
           case ValueRecord(id, fields) =>
             val protoFields = fields
               .map(
@@ -448,10 +464,8 @@ object ValueCoder {
               )
               .toSeq
               .asJava
-
             val recordBuilder = proto.Record.newBuilder().addAllFields(protoFields)
             id.foreach(i => recordBuilder.setRecordId(encodeIdentifier(i)))
-
             builder
               .setRecord(recordBuilder)
               .build()
@@ -460,15 +474,22 @@ object ValueCoder {
             val protoVar = proto.Variant
               .newBuilder()
               .setConstructor(con)
-            protoVar.setValue(go(newNesting, v))
+              .setValue(go(newNesting, v))
             id.foreach(i => protoVar.setVariantId(encodeIdentifier(i)))
             builder.setVariant(protoVar).build()
-          case ValueTuple(fields) =>
-            throw Err(s"Trying to serialize tuple, which are not serializable. Fields: $fields")
+
+          case ValueEnum(id, value) =>
+            val protoEnum = proto.Enum
+              .newBuilder()
+              .setValue(value)
+            id.foreach(i => protoEnum.setEnumId(encodeIdentifier(i)))
+            builder.setEnum(protoEnum).build()
+
           case ValueOptional(mbV) =>
             val protoOption = proto.Optional.newBuilder()
             mbV.foreach(v => protoOption.setValue(go(newNesting, v)))
             builder.setOptional(protoOption).build()
+
           case ValueMap(map) =>
             val protoMap = proto.Map.newBuilder()
             map.toImmArray.foreach {
@@ -482,6 +503,9 @@ object ValueCoder {
                 ()
             }
             builder.setMap(protoMap).build()
+
+          case ValueTuple(fields) =>
+            throw Err(s"Trying to serialize tuple, which are not serializable. Fields: $fields")
         }
       }
     }

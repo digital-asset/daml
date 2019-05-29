@@ -168,6 +168,9 @@ final case class EDuplicateVariantCon(context: Context, conName: VariantConName)
     extends ValidationError {
   protected def prettyInternal: String = s"duplicate variant constructor: $conName"
 }
+final case class EDuplicateEnumCon(context: Context, conName: EnumConName) extends ValidationError {
+  protected def prettyInternal: String = s"duplicate enum constructor: $conName"
+}
 final case class EEmptyConsFront(context: Context) extends ValidationError {
   protected def prettyInternal: String = s"empty Cons front"
 }
@@ -186,9 +189,15 @@ final case class EExpectedVariantType(context: Context, conName: TypeConName)
     extends ValidationError {
   protected def prettyInternal: String = s"expected variant type: ${conName.qualifiedName}"
 }
+final case class EExpectedEnumType(context: Context, conName: TypeConName) extends ValidationError {
+  protected def prettyInternal: String = s"expected enum type: ${conName.qualifiedName}"
+}
 final case class EUnknownVariantCon(context: Context, conName: VariantConName)
     extends ValidationError {
   protected def prettyInternal: String = s"unknown variant constructor: $conName"
+}
+final case class EUnknownEnumCon(context: Context, conName: EnumConName) extends ValidationError {
+  protected def prettyInternal: String = s"unknown enum constructor: $conName"
 }
 final case class EUnknownField(context: Context, fieldName: FieldName) extends ValidationError {
   protected def prettyInternal: String = s"unknown field: $fieldName"
@@ -284,6 +293,13 @@ final case class EKeyOperationForTemplateWithNoKey(context: Context, template: T
 }
 final case class EIllegalKeyExpression(context: Context, expr: Expr) extends ValidationError {
   protected def prettyInternal: String = s"illegal template key expression"
+}
+final case class EIllegalHigherEnumType(context: Context, defn: TypeConName)
+    extends ValidationError {
+  protected def prettyInternal: String = s"illegal higher order enum type"
+}
+final case class EIllegalEnumArgument(context: Context, typ: Type) extends ValidationError {
+  protected def prettyInternal: String = s"illegal non Unit enum argument"
 }
 sealed abstract class PartyLiteralRef extends Product with Serializable
 final case class PartyLiteral(party: Party) extends PartyLiteralRef

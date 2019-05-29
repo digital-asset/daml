@@ -158,6 +158,9 @@ case class PackageRegistry(
           fields.foldLeft(deps)((r, field) => foldType(field._2, r, instantiatesRemaining))
         case DamlLfVariant(fields) =>
           fields.foldLeft(deps)((r, field) => foldType(field._2, r, instantiatesRemaining))
+        case DamlLfEnum(_) =>
+          // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+          throw new NotImplementedError("Enum types not supported")
       }
     }
 

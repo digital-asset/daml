@@ -40,6 +40,12 @@ object Util {
     }
   }
 
+  val TUnit = TBuiltin(BTUnit)
+
+  val TBool = TBuiltin(BTBool)
+
+  val TText = TBuiltin(BTText)
+
   val TList = new ParametricType1(BTList)
 
   val TOptional = new ParametricType1(BTOptional)
@@ -51,5 +57,13 @@ object Util {
   val TScenario = new ParametricType1(BTScenario)
 
   val TContractId = new ParametricType1(BTContractId)
+
+  val EUnit = EPrimCon(PCUnit)
+
+  val ETrue = EPrimCon(PCTrue)
+
+  val EFalse = EPrimCon(PCFalse)
+
+  def EBool(b: Boolean): EPrimCon = if (b) ETrue else EFalse
 
 }

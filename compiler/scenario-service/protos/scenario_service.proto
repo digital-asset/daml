@@ -267,6 +267,11 @@ message Variant {
   Value value = 3;
 }
 
+message Enum {
+  Identifier enum_id = 1;
+  string constructor = 2;
+}
+
 message List {
   repeated Value elements = 1;
 }
@@ -298,6 +303,7 @@ message Value {
     int32 date = 13;
     Optional optional = 15;
     Map map = 16;
+    Enum enum = 17;
 
     // An unserializable value, e.g. closure. Contains a description of the value.
     string unserializable = 14;

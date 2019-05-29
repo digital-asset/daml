@@ -68,6 +68,9 @@ object project {
                 fields
                   .find(f => f._1 == nextCursor.current)
                   .toRight(UnknownProperty("variant", nextCursor, value))
+              case DamlLfEnum(_) =>
+                // FixMe (RH) https://github.com/digital-asset/daml/issues/105
+                throw new NotImplementedError("Enum types not supported")
             }
           } yield {
             (nextField._2, nextCursor)

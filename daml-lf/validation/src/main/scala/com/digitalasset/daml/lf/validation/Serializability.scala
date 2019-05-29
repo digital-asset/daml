@@ -107,14 +107,14 @@ private[validation] object Serializability {
     val context = ContextDefDataType(tyCon.tycon)
     val env = (Env(version, world, context, SRDataType, tyCon) /: params.iterator)(_.introVar(_))
     val typs = dataCons match {
-      case DataVariant(variants) if variants.isEmpty =>
-        env.unserializable(URUninhabitatedType)
       case DataVariant(variants) =>
-        variants.iterator.map(_._2)
+        if (variants.isEmpty) env.unserializable(URUninhabitatedType)
+        else variants.iterator.map(_._2)
+      case DataEnum(_) =>
+        Iterator.empty
       case DataRecord(fields, _) =>
         fields.iterator.map(_._2)
     }
-
     typs.foreach(env.checkType)
   }
 

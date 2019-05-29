@@ -25,7 +25,8 @@ import com.digitalasset.ledger.api.v1.value.{
   Map => ApiMap,
   Record => ApiRecord,
   Value => ApiValue,
-  Variant => ApiVariant
+  Variant => ApiVariant,
+  Enum => ApiEnum,
 }
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
@@ -122,15 +123,19 @@ object LfEngineToApi {
           ApiValue(
             ApiValue.Sum.Variant(
               ApiVariant(
-                if (verbose) {
-                  tycon.map(toApiIdentifier)
-                } else {
-                  None
-                },
+                tycon.filter(_ => verbose).map(toApiIdentifier),
                 variant,
                 Some(x)
               )))
         }
+      case Lf.ValueEnum(tyCon, value) =>
+        Right(
+          ApiValue(
+            ApiValue.Sum.Enum(
+              ApiEnum(
+                tyCon.filter(_ => verbose).map(toApiIdentifier),
+                value
+              ))))
       case Lf.ValueRecord(tycon, fields) =>
         traverseEitherStrictly(fields.toSeq) { field =>
           lfValueToApiValue(verbose, field._2) map { x =>

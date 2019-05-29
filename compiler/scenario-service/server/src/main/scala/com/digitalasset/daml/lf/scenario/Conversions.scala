@@ -590,13 +590,17 @@ case class Conversions(homePackageId: Ref.PackageId) {
         )
       case V.ValueVariant(tycon, variant, value) =>
         val vbuilder = Variant.newBuilder
-        tycon.map(x => vbuilder.setVariantId(convertIdentifier(x)))
+        tycon.foreach(x => vbuilder.setVariantId(convertIdentifier(x)))
         builder.setVariant(
           vbuilder
             .setConstructor(variant)
             .setValue(convertValue(value))
             .build
         )
+      case V.ValueEnum(tycon, constructor) =>
+        val eBuilder = Enum.newBuilder.setConstructor(constructor)
+        tycon.foreach(x => eBuilder.setEnumId(convertIdentifier(x)))
+        builder.setEnum(eBuilder.build)
       case V.ValueContractId(coid) =>
         coid match {
           case V.AbsoluteContractId(acoid) =>
