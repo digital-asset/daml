@@ -333,16 +333,16 @@ convertGenericTemplate env x
     = do
         polyType <- convertType env polyType
         monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
-        let (unwrapSelf, wrapSelf)
-                | isReflCo unwrapCo = (EVar self, EVar self)
+        (unwrapTpl, wrapTpl) <- convertCoercion env unwrapCo
+        let (unwrapCid, wrapCid)
+                | isReflCo unwrapCo = (id, id)
                 | otherwise =
-                    ( mkEApps (EBuiltin BECoerceContractId) [TyArg monoType, TyArg polyType, TmArg (EVar self)]
-                    , mkEApps (EBuiltin BECoerceContractId) [TyArg polyType, TyArg monoType, TmArg (EVar self)]
+                    ( ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [monoType, polyType]
+                    , ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [polyType, monoType]
                     )
         let tplLocation = Nothing
         let tplTypeCon = qualObject monoTyCon
         let tplParam = this
-        (unwrapTpl, wrapTpl) <- convertCoercion env unwrapCo
         let applyThis e = ETmApp e $ unwrapTpl $ EVar this
         tplSignatories <- applyThis <$> convertExpr env (Var signatories)
         tplObservers <- applyThis <$> convertExpr env (Var observers)
@@ -362,7 +362,7 @@ convertGenericTemplate env x
                     t -> unhandled "choice consumption type" t
                 let chcConsuming = consumptionType == PreConsuming
                 let chcSelfBinder = self
-                let applySelf e = ETmApp e unwrapSelf
+                let applySelf e = ETmApp e $ unwrapCid $ EVar self
                 let chcArgBinder = (arg, argType)
                 let applyArg e = e `ETmApp` EVar (fst chcArgBinder)
                 let chcReturnType = resType
@@ -380,11 +380,11 @@ convertGenericTemplate env x
                 let exercise
                       | envLfVersion env `supports` featureExerciseActorsOptional =
                         mkETmLams [(self, TContractId polyType), (arg, argType)] $
-                          EUpdate $ UExercise monoTyCon chcName wrapSelf Nothing (EVar arg)
+                          EUpdate $ UExercise monoTyCon chcName (wrapCid $ EVar self) Nothing (EVar arg)
                       | otherwise =
                         mkETmLams [(self, TContractId polyType), (arg, argType)] $
-                          EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $
-                          EUpdate $ UExercise monoTyCon chcName wrapSelf (Just chcControllers) (EVar arg)
+                          EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon $ wrapCid $ EVar self) $
+                          EUpdate $ UExercise monoTyCon chcName (wrapCid $ EVar self) (Just chcControllers) (EVar arg)
                 pure (TemplateChoice{..}, [consumption, controllers, action, exercise])
             convertGenericChoice es = unhandled "generic choice" es
         (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 4 choices)
@@ -393,8 +393,8 @@ convertGenericTemplate env x
         observers <- convertExpr env (Var observers)
         ensure <- convertExpr env (Var ensure)
         agreement <- convertExpr env (Var agreement)
-        let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapSelf
-        let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon wrapSelf) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
+        let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapCid $ EVar self
+        let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon $ wrapCid $ EVar self) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
         dictCon <- convertExpr env dictCon
         tyArgs <- mapM (convertArg env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
