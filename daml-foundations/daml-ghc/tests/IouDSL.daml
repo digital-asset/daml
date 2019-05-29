@@ -52,6 +52,8 @@ class IouInstance where
   archiveIou : ContractId Iou -> Update ()
   archiveIou cid = exerciseIouArchive cid Archive
 
+  consumptionIouArchive : PreConsuming Iou
+  consumptionIouArchive = PreConsuming
   controllerIouArchive : Iou -> Archive -> [Party]
   controllerIouArchive this@Iou{..} arg@Archive = signatoryIou this
   actionIouArchive : ContractId Iou -> Iou -> Archive -> Update ()
@@ -60,6 +62,8 @@ class IouInstance where
   exerciseIouArchive : ContractId Iou -> Archive -> Update ()
   exerciseIouArchive = error "code will be injected by the compiler"
 
+  consumptionIouBurn : PreConsuming Iou
+  consumptionIouBurn = PreConsuming
   controllerIouBurn : Iou -> Burn -> [Party]
   controllerIouBurn this@Iou{..} arg@Burn = [owner]
   actionIouBurn : ContractId Iou -> Iou -> Burn -> Update ()

@@ -62,6 +62,8 @@ class Template t => ProposalInstance t where
     archiveProposal : ContractId (Proposal t) -> Update ()
     archiveProposal cid = exerciseProposalArchive cid Archive
 
+    consumptionProposalArchive : PreConsuming (Proposal t)
+    consumptionProposalArchive = PreConsuming
     controllerProposalArchive : Proposal t -> Archive -> [Party]
     controllerProposalArchive this@Proposal{..} arg@Archive = signatoryProposal this
     actionProposalArchive : ContractId (Proposal t) -> Proposal t -> Archive -> Update ()
@@ -70,6 +72,8 @@ class Template t => ProposalInstance t where
     exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
     exerciseProposalArchive = error "code will be injected by the compiler"
 
+    consumptionProposalAccept : PreConsuming (Proposal t)
+    consumptionProposalAccept = PreConsuming
     controllerProposalAccept : Proposal t -> Accept -> [Party]
     controllerProposalAccept this@Proposal{..} arg@Accept = receivers
     actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
