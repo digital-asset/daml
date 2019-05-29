@@ -428,53 +428,17 @@ encodeTemplate version Template{..} =
     , P.defTemplateAgreement = encodeExpr version tplAgreement
     , P.defTemplateChoices = encodeNameMap encodeTemplateChoice version tplChoices
     , P.defTemplateLocation = encodeSourceLoc <$> tplLocation
-    , P.defTemplateKey = fmap (encodeTemplateKey version tplParam) tplKey
+    , P.defTemplateKey = fmap (encodeTemplateKey version) tplKey
     }
 
-encodeTemplateKey :: Version -> ExprVarName -> TemplateKey -> P.DefTemplate_DefKey
-encodeTemplateKey version templateVar TemplateKey{..} = P.DefTemplate_DefKey
+encodeTemplateKey :: Version -> TemplateKey -> P.DefTemplate_DefKey
+encodeTemplateKey version TemplateKey{..} = P.DefTemplate_DefKey
   { P.defTemplate_DefKeyType = encodeType version tplKeyType
   , P.defTemplate_DefKeyKeyExpr =
-      if version `supports` featureComplexContractKeys
-      then
           Just $ P.DefTemplate_DefKeyKeyExprComplexKey $ encodeExpr' version tplKeyBody
-      else
-          case exprToKeyExpr templateVar tplKeyBody of
-              Left err -> error err
-              Right x -> Just $ P.DefTemplate_DefKeyKeyExprKey $ encodeKeyExpr version x
   , P.defTemplate_DefKeyMaintainers = encodeExpr version tplKeyMaintainers
   }
 
-
-data KeyExpr =
-    KeyExprProjections ![(TypeConApp, FieldName)]
-  | KeyExprRecord !TypeConApp ![(FieldName, KeyExpr)]
-
-encodeKeyExpr :: Version -> KeyExpr -> P.KeyExpr
-encodeKeyExpr version = P.KeyExpr . Just . \case
-    KeyExprProjections projs -> P.KeyExprSumProjections $ P.KeyExpr_Projections $ V.fromList $ do
-      (tyCon, fld) <- projs
-      return (P.KeyExpr_Projection (encodeTypeConApp version tyCon) (encodeName unFieldName fld))
-    KeyExprRecord tyCon flds -> P.KeyExprSumRecord $ P.KeyExpr_Record (encodeTypeConApp version tyCon) $ V.fromList $ do
-      (fldName, ke) <- flds
-      return $ P.KeyExpr_RecordField (encodeName unFieldName fldName) $ Just $ encodeKeyExpr version ke
-
-exprToKeyExpr ::  ExprVarName -> Expr -> Either String KeyExpr
-exprToKeyExpr tplParameter = \case
-  ELocation _loc expr ->
-    exprToKeyExpr tplParameter expr
-  EVar var -> if var == tplParameter
-    then Right (KeyExprProjections [])
-    else Left ("Expecting variable " ++ show tplParameter ++ " in key expression, got " ++ show var)
-  ERecProj tyCon fld e -> do
-    keyExpr <- exprToKeyExpr tplParameter e
-    case keyExpr of
-      KeyExprProjections projs -> return (KeyExprProjections (projs ++ [(tyCon, fld)]))
-      KeyExprRecord{} -> Left "Trying to project out of a record in key expression"
-  ERecCon tyCon flds -> do
-    keyFlds <- mapM (\(lbl, e) -> (lbl, ) <$> exprToKeyExpr tplParameter e) flds
-    return (KeyExprRecord tyCon keyFlds)
-  e -> Left ("Bad key expression " ++ show e)
 
 encodeTemplateChoice :: Version -> TemplateChoice -> P.TemplateChoice
 encodeTemplateChoice version TemplateChoice{..} =
