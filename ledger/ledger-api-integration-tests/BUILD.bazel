@@ -85,6 +85,9 @@ da_scala_library(
 da_scala_test_suite(
     name = "ledger-api-integration-tests",
     size = "large",
+    # WARNING: srcs list has to be explicit here! It can not be added via deps, due to
+    # test discovery mechanism in the test_suite macro working only on sources.
+    srcs = glob(["src/test/itsuite/**/*.scala"]),
     data = [
         "//ledger/sandbox:Test.dar",
     ],
@@ -98,7 +101,6 @@ da_scala_test_suite(
     ],
     deps = [
         ":default-it-logback-config",
-        ":ledger-api-integration-tests-as-library",
         ":ledger-api-integration-tests-lib",
     ] + dependencies,
 )
