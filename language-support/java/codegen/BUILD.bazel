@@ -88,7 +88,6 @@ da_scala_test(
 daml_compile(
     name = "test-daml",
     main_src = "src/test/daml/test.daml",
-    target = "1.3",
 )
 
 jar_jar(
