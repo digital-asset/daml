@@ -1,5 +1,5 @@
 Data Transformations and Choices
---------------------------------
+================================
 
 In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving and re-creating the contract with the updated data. That works because the accountant is the sole signatory on the `Account` contract defined there. But what if the accountant wanted to allow the bank to change their own telephone number, or what if the owner of a CashBalance should be able to transfer ownership to someone else?
 
@@ -26,7 +26,7 @@ There's a lot to unpack in the above.
 
 There is nothing here indicating that the current ``Contact`` should be archived. That's because choices are *consuming* by default. That means when the above choice is exercised on a contract, that contract is archived.
 
-If you paid a lot of attention in :doc:`3_data`, you may have noticed that the ``create`` statement returns an ``Update (ContractId Contact)``, not a ``ContractId Contact``. As a ``do`` block always returns the value of the last statement within it, the whole ``do`` block returns an ``Update``, but the return type on the choice is just a ``ContractId Contact``. This is a conveneience. Choices *always* return an ``Update`` so for readability it's omitted on the type declaration of a choice.
+If you paid a lot of attention in :doc:`3_Data`, you may have noticed that the ``create`` statement returns an ``Update (ContractId Contact)``, not a ``ContractId Contact``. As a ``do`` block always returns the value of the last statement within it, the whole ``do`` block returns an ``Update``, but the return type on the choice is just a ``ContractId Contact``. This is a conveneience. Choices *always* return an ``Update`` so for readability it's omitted on the type declaration of a choice.
 
 Now to exercise the new choice in a scenario:
 
@@ -49,7 +49,7 @@ Up to this point all the contracts only involved one party. ``party`` may have b
 
 .. literalinclude:: daml/4_Transformations/Contact.daml
   :language: daml
-  :start-after: -- DELEGATION_TEST__BEGIN
+  :start-after: -- DELEGATION_TEST_BEGIN
   :end-before: -- DELEGATION_TEST_END
 
 If you open the scenario view in the IDE, you will notice that Bob sees the ``Contact``. Controllers specified via ``controller c can`` syntax become *observers* of the contract. More on *observers* later, but in short, they get to see any changes to the contract.
@@ -142,3 +142,8 @@ A Simple Cash Model
 -------------------
 
 With the power of choices, you can build you first interesting model: Issuance of cash Ious (I owe you). The model presented here is simpler than the one in :doc:`3_Data` as it's not concerned with the location of the physical cash, but merely with liabilities.
+
+.. literalinclude:: daml/4_Transformations/SimpleIou.daml
+  :language: daml
+
+The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.

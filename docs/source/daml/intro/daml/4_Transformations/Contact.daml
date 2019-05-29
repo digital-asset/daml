@@ -67,4 +67,4 @@ choice_test = scenario do
   submit owner do
     new_contact <- fetch new_contact_Cid
     assert (new_contact.address == "1-10 Bobstreet")
--- DELEGATION_TEST_BEGIN
+-- DELEGATION_TEST_END

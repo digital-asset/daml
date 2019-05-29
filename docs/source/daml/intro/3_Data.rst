@@ -175,7 +175,7 @@ Contract keys
 
 DAML's type system let's you store richly structured data on DAML templates, but just like most database schemas have more than one table, DAML contract models often have multiple templates that reference each other. For example, you may not want to store your bank and account information on each individual cash balance, but instead store those separately.
 
-You have already met the type ``ContractId a``, which references a contract of type ``a``. The below shows a contract model where ``Account`` is split out into a separate template and referenced by ``ContractId`, but it also highlights a big problem with that kind of reference: Just like data, contracts are immutable. They can only be created and archived. That makes contract ids very unstable, and can cause stale references.
+You have already met the type ``ContractId a``, which references a contract of type ``a``. The below shows a contract model where ``Account`` is split out into a separate template and referenced by ``ContractId``, but it also highlights a big problem with that kind of reference: Just like data, contracts are immutable. They can only be created and archived. That makes contract ids very unstable, and can cause stale references.
 
 .. literalinclude:: daml/3_Data/IDRef.daml
   :language: daml
