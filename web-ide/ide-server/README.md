@@ -9,7 +9,7 @@ the tagged version should match what is configured in `web-ide/proxy/config.json
 We haven't uploaded to github yet, so you must first create an image (mentioned above).
 
 * To run the IDE server (with ports enabled)
-`docker run --rm -i -t -P {IMAGE_ID}`
+`docker run --rm -i -t -p 8443:8443 {IMAGE_ID}`
 
 * To bash into the image without automatically running IDE server
 `docker run --rm --user root -i -t -P {IMAGE_ID} /bin/bash`

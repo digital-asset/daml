@@ -1,32 +1,43 @@
-ARG DAML_VERSION=0.12.16
+FROM openjdk:8-slim
 
-FROM "digitalasset/daml-sdk:${DAML_VERSION}-master"
-
-#strange but true...if we simply redeclare the arg defined before FROM it is visible after FROM
-ARG DAML_VERSION
-
-RUN da list
+ARG DAML_VERSION=0.12.21
 USER root
-# Install VS Code's deps, libxkbfile-dev and libsecret-1-dev
-RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - &&\
-    apt-get update && apt-get install -y \
+
+RUN addgroup --gid 1000 sdk && \
+    adduser --gecos "" --uid 1000 --gid 1000 \
+            --home /home/sdk --shell /bin/bash \
+            --disabled-password \
+            sdk
+
+RUN apt-get update -y && \
+        apt-get -y install \
+        curl \
         procps \
         nodejs \
-        libxkbfile-dev \
+        # Install VS Code's deps, libxkbfile-dev and libsecret-1-dev
+        libxkbfile-dev \ 
         libsecret-1-dev &&\
+    curl -sL https://deb.nodesource.com/setup_8.x | bash - &&\
+    apt-get clean &&\
     apt-get remove -y --allow-remove-essential apt
-
+ 
 USER sdk
 ENV CODESERVER_SHA256=4fe5b4d10d3048a5e5aa3e0772c09ece56241b91e76eeaa7404b4da292442881\
-    CODESERVER_VERSION=1.939-vsc1.33.1
-RUN mkdir -p /home/sdk/.local/share/code-server/extensions/ &&\
+    CODESERVER_VERSION=1.939-vsc1.33.1\
+    PATH="${PATH}:/home/sdk/.daml/bin"
+    
+RUN cd /home/sdk/ &&\
+    curl -Lo - "https://github.com/digital-asset/daml/releases/download/v${DAML_VERSION}/daml-sdk-${DAML_VERSION}-linux.tar.gz" | tar xzvf - --strip-components 1 &&\
+    ls -l &&\
+    bash install.sh &&\
+    mkdir -p /home/sdk/.local/share/code-server/extensions/ &&\
     mkdir -p /home/sdk/.local/share/code-server/User/ &&\
     mkdir /home/sdk/workspace &&\
     curl -Lo - "https://github.com/codercom/code-server/releases/download/${CODESERVER_VERSION}/code-server${CODESERVER_VERSION}-linux-x64.tar.gz" | tar xzvf - --strip-components 1 "code-server${CODESERVER_VERSION}-linux-x64/code-server" &&\
     echo "${CODESERVER_SHA256} code-server" | sha256sum -c &&\
-    mv ./code-server /home/sdk/.da/bin/ &&\
-    ln -s /home/sdk/.da/packages/daml-extension/10${DAML_VERSION} /home/sdk/.local/share/code-server/extensions/da-vscode-daml-extension &&\
-    cp -R /home/sdk/.da/packages/quickstart-java/10${DAML_VERSION}/daml/* /home/sdk/workspace/ 
+    mv ./code-server /home/sdk/.daml/bin/ &&\
+    ln -s /home/sdk/.daml/sdk/${DAML_VERSION}/studio /home/sdk/.local/share/code-server/extensions/da-vscode-daml-extension &&\
+    cp -R /home/sdk/.daml/sdk/${DAML_VERSION}/templates/quickstart-java/daml/* /home/sdk/workspace/ 
 
 COPY ./settings.json /home/sdk/.local/share/code-server/User/settings.json
 # Don't let the user change the keybindings file
