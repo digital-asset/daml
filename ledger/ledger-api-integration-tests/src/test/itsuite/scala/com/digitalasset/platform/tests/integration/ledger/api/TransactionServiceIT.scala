@@ -859,6 +859,33 @@ class TransactionServiceIT
           }
       }
 
+      "allow fetching a contract that has been created in the same transaction" in allFixtures {
+        context =>
+          val createAndFetchTid = templateIds.createAndFetch
+          for {
+            createdEvent <- context.submitCreate(
+              "CreateAndFetch_Create",
+              createAndFetchTid,
+              List("p" -> party.asParty).asRecordFields,
+              party)
+            cid = createdEvent.contractId
+            exerciseTx <- context.submitExercise(
+              "CreateAndFetch_Run",
+              createAndFetchTid,
+              Value(Value.Sum.Record(Record())),
+              "CreateAndFetch_Run",
+              cid,
+              party
+            )
+          } yield {
+            val events = exerciseTx.events.map(_.event)
+            val (created, archived) = events.partition(_.isCreated)
+            created should have length 1
+            getHead(archived).archived.value.contractId shouldEqual cid
+          }
+
+      }
+
     }
 
     "ledger Ids don't match" should {

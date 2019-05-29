@@ -717,13 +717,13 @@ private class PostgresLedgerDao(
   private val ContractDataParser = (ledgerString("id")
     ~ ledgerString("transaction_id")
     ~ ledgerString("workflow_id").?
-    ~ date("recorded_at")
+    ~ date("effective_at")
     ~ binaryStream("contract")
     ~ binaryStream("key").? map (flatten))
 
   private val SQL_SELECT_CONTRACT =
     SQL(
-      "select c.*, le.recorded_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
+      "select c.*, le.effective_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
@@ -760,13 +760,13 @@ private class PostgresLedgerDao(
           InputStream,
           Option[InputStream]))(implicit conn: Connection) =
     contractResult match {
-      case (coid, transactionId, workflowId, createdAt, contractStream, keyStreamO) =>
+      case (coid, transactionId, workflowId, ledgerEffectiveTime, contractStream, keyStreamO) =>
         val witnesses = lookupWitnesses(coid)
         val divulgences = lookupDivulgences(coid)
 
         Contract(
           AbsoluteContractId(coid),
-          createdAt.toInstant,
+          ledgerEffectiveTime.toInstant,
           transactionId,
           workflowId,
           witnesses,
@@ -851,7 +851,7 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(
-      "select c.*, le.recorded_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
+      "select c.*, le.effective_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
 
   override def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot] = {
 

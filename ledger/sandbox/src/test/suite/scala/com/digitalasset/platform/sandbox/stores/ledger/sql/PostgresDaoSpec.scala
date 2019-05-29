@@ -10,7 +10,12 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
-import com.digitalasset.daml.lf.transaction.Node.{KeyWithMaintainers, NodeCreate, NodeExercises}
+import com.digitalasset.daml.lf.transaction.Node.{
+  KeyWithMaintainers,
+  NodeCreate,
+  NodeExercises,
+  NodeFetch
+}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
@@ -43,10 +48,10 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.language.implicitConversions
-
 import com.digitalasset.ledger.api.domain.LedgerId
 
 //TODO: use scalacheck when we have generators available for contracts and transactions
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class PostgresDaoSpec
     extends AsyncWordSpec
     with Matchers
@@ -270,6 +275,80 @@ class PostgresDaoSpec
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
         _ <- ledgerDao.storeLedgerEntry(
+          offset,
+          offset + 1,
+          PersistenceEntry.Transaction(transaction, Map.empty, Map.empty))
+        entry <- ledgerDao.lookupLedgerEntry(offset)
+        endingOffset <- ledgerDao.lookupLedgerEnd()
+      } yield {
+        entry shouldEqual Some(transaction)
+        endingOffset shouldEqual (startingOffset + 1)
+      }
+    }
+
+    "be able to load contracts within a transaction" in {
+      val offset = nextOffset()
+      val absCid = AbsoluteContractId(s"cId$offset")
+      val let = Instant.now
+      val contractInstance = ContractInst(
+        Identifier(
+          Ref.PackageId.assertFromString("packageId"),
+          Ref.QualifiedName(
+            Ref.ModuleName.assertFromString("moduleName"),
+            Ref.DottedName.assertFromString("name"))),
+        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+        agreement
+      )
+
+      val transactionId = s"trId$offset"
+      val contract = Contract(
+        absCid,
+        let,
+        transactionId,
+        Some("workflowId"),
+        Set(alice, bob),
+        Map(alice -> transactionId, bob -> transactionId),
+        contractInstance,
+        None
+      )
+
+      val transaction = LedgerEntry.Transaction(
+        s"commandId$offset",
+        transactionId,
+        s"appID$offset",
+        "Alice",
+        Some("workflowId"),
+        let,
+        // normally the record time is some time after the ledger effective time
+        let.plusMillis(42),
+        GenTransaction(
+          Map(
+            event1 -> NodeCreate(
+              absCid,
+              contractInstance,
+              None,
+              Set(alice, bob),
+              Set(alice, bob),
+              None
+            ),
+            event2 -> NodeFetch(
+              absCid,
+              contractInstance.template,
+              None,
+              Some(Set(alice, bob)),
+              Set(alice, bob),
+              Set(alice, bob)
+            )
+          ),
+          ImmArray(event1, event2),
+          Set.empty
+        ),
+        Map(event1 -> Set("Alice", "Bob"), event2 -> Set("Alice", "In", "Chains"))
+      )
+
+      for {
+        startingOffset <- ledgerDao.lookupLedgerEnd()
+        resp <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
           PersistenceEntry.Transaction(transaction, Map.empty, Map.empty))

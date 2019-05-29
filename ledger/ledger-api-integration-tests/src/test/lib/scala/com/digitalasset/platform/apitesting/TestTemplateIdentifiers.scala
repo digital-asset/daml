@@ -119,6 +119,8 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
       "Test.MaintainerNotSignatory",
       moduleName = "Test",
       entityName = "MaintainerNotSignatory")
+  val createAndFetch =
+    Identifier(testPackageId, "Test.CreateAndFetch", "Test", "CreateAndFetch")
   val allTemplates =
     List(
       dummy,
@@ -134,6 +136,7 @@ final case class TestTemplateIdentifiers(testPackageId: String) {
       divulgence1,
       divulgence2,
       witnesses,
-      maintainerNotSignatory
+      maintainerNotSignatory,
+      createAndFetch
     )
 }
