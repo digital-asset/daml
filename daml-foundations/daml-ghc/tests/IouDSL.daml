@@ -6,7 +6,7 @@
 daml 1.2
 module IouDSL where
 
-import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, fetchByKey, archive, exercise)
+import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, archive, fetchByKey, lookupByKey, exercise)
 import DA.Assert
 import GenericTemplates
 import ProposalDSL
@@ -94,6 +94,9 @@ test = scenario do
     fetchByKey @(Proposal Iou) ([bank], "present")
   propId' === propId
   prop' === prop
+  mbPropId <- submit bank do
+    lookupByKey @(Proposal Iou) ([bank], "present")
+  mbPropId === Some propId
   iouId <- submit alice do
     exercise propId Accept
   iou' <- submit alice do

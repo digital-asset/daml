@@ -10,7 +10,7 @@
 daml 1.2
 module GenTemplCompat where
 
-import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, fetchByKey, archive, exercise)
+import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, archive, fetchByKey, lookupByKey, exercise)
 import DA.Assert
 import GenericTemplates
 
@@ -32,6 +32,7 @@ instance FactInstance => Template Fact where
 instance FactInstance => TemplateKey Fact (Party, Text) where
     key = keyFact
     fetchByKey = fetchByKeyFact
+    lookupByKey = lookupByKeyFact
 
 instance FactInstance => Choice Fact Archive () where
     exercise = exerciseFactArchive
@@ -73,6 +74,8 @@ class FactInstance where
     maintainerFact HasKey key = [fst key]
     fetchByKeyFact : (Party, Text) -> Update (ContractId Fact, Fact)
     fetchByKeyFact = error "code will be injected by the compiler"
+    lookupByKeyFact : (Party, Text) -> Update (Optional (ContractId Fact))
+    lookupByKeyFact = error "code will be injected by the compiler"
 
     consumptionFactArchive : PreConsuming Fact
     consumptionFactArchive = PreConsuming
@@ -119,6 +122,8 @@ test = scenario do
     (factId', fact') <- submit alice do fetchByKey @Fact (alice, "Answer")
     factId' === factId
     fact' === fact
+    mbFactId <- submit alice do lookupByKey @Fact (alice, "Answer")
+    mbFactId === Some factId
     submit alice do archive factId
     submitMustFail alice do fetch factId
 

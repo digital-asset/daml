@@ -350,7 +350,7 @@ convertGenericTemplate env x
         let tplAgreement = mkEmptyText
         archive <- convertExpr env (Var archive)
         (tplKey, key, choices) <- case keyAndChoices of
-                hasKey : key : maintainers : _fetchByKey : choices
+                hasKey : key : maintainers : _fetchByKey : _lookupByKey : choices
                     | TypeCon (Is "HasKey") _ <- varType hasKey -> do
                         _ :-> keyType <- convertType env (varType key)
                         hasKey <- convertExpr env (Var hasKey)
@@ -367,7 +367,14 @@ convertGenericTemplate env x
                                     [ (FieldName "_1", unwrapCid $ ETupleProj selfField $ EVar res)
                                     , (FieldName "_2", unwrapTpl $ ETupleProj thisField $ EVar res)
                                     ]
-                        pure (Just $ TemplateKey keyType (applyThis key) (ETmApp maintainers hasKey), [hasKey, key, maintainers, fetchByKey], choices)
+                        let lookupByKey =
+                                ETmLam (mkVar "key", keyType) $
+                                EUpdate $ UBind (Binding (res, TOptional (TContractId monoType)) $ EUpdate $ ULookupByKey $ RetrieveByKey monoTyCon $ EVar $ mkVar "key") $
+                                EUpdate $ UPure (TOptional (TContractId polyType)) $ ECase (EVar res)
+                                    [ CaseAlternative CPNone $ ENone (TContractId polyType)
+                                    , CaseAlternative (CPSome self) $ ESome (TContractId polyType) $ unwrapCid $ EVar self
+                                    ]
+                        pure (Just $ TemplateKey keyType (applyThis key) (ETmApp maintainers hasKey), [hasKey, key, maintainers, fetchByKey, lookupByKey], choices)
                 choices -> pure (Nothing, [], choices)
         let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
             convertGenericChoice [consumption, controllers, action, _exercise] = do
