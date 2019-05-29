@@ -23,7 +23,7 @@ import {
     CodeLensRequest,
     PublishDiagnosticsNotification,
     PublishDiagnosticsParams
-} from 'vscode-languageclient/lib/protocol';
+} from 'vscode-languageserver-protocol';
 
 import * as Rx from 'rxjs';
 import { filter } from 'rxjs/operators';
@@ -185,7 +185,7 @@ export class DamlConnection {
      * @param uri URI of the document.
      * @param position Position in the document.
      */
-    public definition(uri: string, position: types.Position): Thenable<types.Definition> {
+    public definition(uri: string, position: types.Position) {
         return this.connection.sendRequest(
           DefinitionRequest.type,
           { textDocument: { uri: uri }, position: position }

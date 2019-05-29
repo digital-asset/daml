@@ -8,7 +8,7 @@ import { NotificationType } from 'vscode-jsonrpc';
 
 import * as events from 'events';
 import { DamlConnection, WorkspaceValidationsParams } from './connection';
-import * as protocol from 'vscode-languageclient/lib/protocol';
+import * as protocol from 'vscode-languageserver-protocol';
 import * as utils from './utils';
 import * as path from 'path';
 
