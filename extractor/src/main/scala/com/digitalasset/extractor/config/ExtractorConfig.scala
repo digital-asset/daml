@@ -40,3 +40,8 @@ object ExtractorConfig {
 }
 
 final case class TemplateConfig(moduleName: String, entityName: String)
+
+object TemplateConfig {
+  implicit val templateConfigOrdering: Ordering[TemplateConfig] =
+    Ordering.by(TemplateConfig.unapply)
+}

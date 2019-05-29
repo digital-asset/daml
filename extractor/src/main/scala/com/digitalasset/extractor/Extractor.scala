@@ -4,7 +4,7 @@
 package com.digitalasset.extractor
 
 import akka.actor.ActorSystem
-import akka.stream.{ActorMaterializer, KillSwitches}
+import akka.stream.{KillSwitches, ActorMaterializer}
 import akka.stream.scaladsl.{RestartSource, Sink}
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.Main.log
@@ -12,10 +12,13 @@ import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.ledger.LedgerReader
 import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.ledger.types.TransactionTree._
+import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
 import com.digitalasset.extractor.targets.Target
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.extractor.writers.Writer.RefreshPackages
-import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
+import com.digitalasset.extractor.helpers.TemplateIds
+import com.digitalasset.extractor.helpers.FutureUtil.toFuture
+import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, AkkaExecutionSequencerPool}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
@@ -33,9 +36,7 @@ import scala.concurrent.Future
 import scala.util.control.NonFatal
 import scalaz._
 import Scalaz._
-import com.digitalasset.extractor.helpers.TemplateIds
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
-import com.digitalasset.extractor.helpers.FutureUtil.toFuture
+
 import scalaz.syntax.tag._
 
 class Extractor[T <: Target](config: ExtractorConfig, target: T) {

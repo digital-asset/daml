@@ -41,7 +41,7 @@ object ConfigParser {
       ledgerHost: String = "127.0.0.1",
       ledgerPort: Int = 6865,
       party: ExtractorConfig.Parties = OneAnd(Party assertFromString "placeholder", Nil),
-      templateConfigs: Seq[TemplateConfig] = Seq.empty,
+      templateConfigs: Set[TemplateConfig] = Set.empty,
       from: Option[String] = None,
       to: Option[String] = None,
       tlsPem: Option[String] = None,
@@ -181,7 +181,9 @@ object ConfigParser {
 
       opt[Seq[TemplateConfig]]('t', "templates")
         .optional()
-        .action((x, c) => c.copy(templateConfigs = x))
+        .validate(x =>
+          validateUniqueElements(x, s"The list of templates must contain unique elements"))
+        .action((x, c) => c.copy(templateConfigs = x.toSet))
         .valueName("<module1>:<entity1>,<module2>:<entity2>...")
         .text("The list of templates to subscribe for. Optional, defaults to all ledger templates.")
 
@@ -315,12 +317,6 @@ object ConfigParser {
     }
   }
 
-  private def parseTemplateConfig(s: String) = {
-    s.split(':') match {
-      case Array(module, entity) => TemplateConfig(module, entity)
-    }
-  }
-
   def showUsage(): Unit =
     configParser.showUsage()
 
@@ -328,4 +324,8 @@ object ConfigParser {
     val valid = Try(Paths.get(path).toFile.canRead).getOrElse(false)
     if (valid) Right(()) else Left(message)
   }
+
+  private def validateUniqueElements[A](x: Seq[A], message: => String): Either[String, Unit] =
+    if (x.size != x.toSet.size) Left(message)
+    else Right(())
 }
