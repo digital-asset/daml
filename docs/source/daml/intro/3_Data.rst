@@ -92,7 +92,7 @@ Note the type annotation on ``empty : List Int = []``. It's necessary because ``
 Records
 ~~~~~~~
 
-Records can be thought of as named tuples with named fields. They are declared using the ``data`` keyword: ``data T = C with``, where ``T`` is the type name and ``C`` is the type constructor. In practice, it's a good idea to always use the same name for type and type constructor.
+Records can be thought of as named tuples with named fields. They are declared using the ``data`` keyword: ``data T = C with``, where ``T`` is the type name and ``C`` is the data constructor. In practice, it's a good idea to always use the same name for type and data constructor.
 
 .. literalinclude:: daml/3_Data/Record.daml
   :language: daml
@@ -138,7 +138,7 @@ The way to read the declaration of ``Location`` is "*A Location either has value
   :start-after: -- OPTIONAL_BEGIN
   :end-before: -- OPTIONAL_END
 
-Variant types where none of the type constructors take a parameter are called enums:
+Variant types where none of the data constructors take a parameter are called enums:
 
 .. literalinclude:: daml/3_Data/Variants.daml
   :language: daml
@@ -167,6 +167,8 @@ All data in DAML is immutable, meaning once a value is created, it will never ch
 ``changed_record`` and ``better_changed_record`` are each a copy of ``eq_record`` with the field ``my_int`` changed. ``better_changed_record`` shows the recommended way to change fields on a record. The syntax is almost the same as for a new record, but the record name is replaced with the old value: ``eq_record with`` instead of ``EqRecord with``. The ``with`` block no longer needs to give values to all fields of ``EqRecord``. Any missing fields are taken from ``eq_record``.
 
 Throughout the scenario, ``eq_record`` never changes. The expression ``"Zero" :: eq_record.my_list`` doesn't change the list in-place, but creates a new list, which is ``eq_record.my_list`` with an extra element in the beginning.
+
+.. _contract_keys:
 
 Contract keys
 -------------

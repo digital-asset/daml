@@ -1,0 +1,5 @@
+daml 1.2
+module SimpleIou where
+
+template SimpleIou
+  with
