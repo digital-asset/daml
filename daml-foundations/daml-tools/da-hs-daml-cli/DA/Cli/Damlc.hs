@@ -133,6 +133,13 @@ cmdInspect =
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
     cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt
 
+cmdInspectMore :: Mod CommandFields Command
+cmdInspectMore = 
+    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dalf" <> fullDesc
+    where
+      cmd = execVisual <$> inputFileOpt
+
+
 cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =
     command "build" $
@@ -429,6 +436,12 @@ execClean projectOpts = do
             removeAndWarn "dist"
             putStrLn "Removed build artifacts."
 
+execVisual :: FilePath -> IO ()
+execVisual dalfFilePath = do
+    bytes <- B.readFile dalfFilePath
+    (pkgId, _) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes
+    putStrLn (show pkgId)
+
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
 
@@ -682,6 +695,7 @@ options numProcessors =
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
+        <> cmdInspectMore
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean
