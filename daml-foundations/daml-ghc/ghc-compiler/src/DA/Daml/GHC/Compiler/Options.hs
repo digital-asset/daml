@@ -73,7 +73,7 @@ data Options = Options
 toCompileOpts :: Options -> Compile.IdeOptions
 toCompileOpts Options{..} =
     Compile.IdeOptions
-      { optPreprocessor = damlPreprocessor
+      { optPreprocessor = damlPreprocessor optMbPackageName
       , optGhcSession = do
             env <- liftIO $ runGhcFast $ do
                 setupDamlGHC optImportPath optMbPackageName optGhcCustomOpts

@@ -8,6 +8,7 @@ module DA.Daml.GHC.Compiler.Preprocessor
   ) where
 
 import           DA.Daml.GHC.Compiler.Records
+import           DA.Daml.GHC.Compiler.Generics
 
 import DA.Daml.GHC.Compiler.UtilGHC
 
@@ -26,13 +27,13 @@ isInternal (GHC.moduleNameString -> x)
     x `elem` ["Control.Exception.Base", "Data.String", "LibraryModules", "DA.Types"]
 
 mayImportInternal :: [GHC.ModuleName]
-mayImportInternal = map GHC.mkModuleName ["Prelude", "DA.Time", "DA.Date", "DA.Record", "DA.TextMap"]
+mayImportInternal = map GHC.mkModuleName ["Prelude", "DA.Time", "DA.Date", "DA.Record", "DA.TextMap", "Special"]
 
 -- | Apply all necessary preprocessors
-damlPreprocessor :: GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
-damlPreprocessor x
-    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], x)
-    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor x)
+damlPreprocessor :: Maybe String -> GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
+damlPreprocessor mbPkgName x
+    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], genericsPreprocessor mbPkgName x)
+    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ genericsPreprocessor mbPkgName $ importDamlPreprocessor x)
     where name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 
