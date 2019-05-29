@@ -28,6 +28,7 @@
 // * 5 -- 2019-05-22: Relax serializability constraints for contract ids
 //        2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
 //        2019-05-24: Make actors in exercise optional
+// * dev (special staging area for the next version to be released)
 //        2019-05-27: Add enum type.
 
 
