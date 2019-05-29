@@ -195,11 +195,15 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
           callProcessQuiet damlName ["new", quickstartDir, "quickstart-java"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
           callProcessQuiet damlName ["build", "-o", "target/daml/iou.dar"]
-    , testCase "daml test" $ withCurrentDirectory quickstartDir $
+    ] <>
+    (if isWindows then [] else -- We seem to have an issue where grpc_init sometimes locks up and the
+    -- whole test times out. Tracked in https://github.com/digital-asset/daml/issues/1354
+    [ testCase "daml test" $ withCurrentDirectory quickstartDir $
           callProcessQuiet damlName ["test"]
     , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
           callProcessQuiet damlName ["damlc", "test", "--files", "daml/Main.daml"]
-    , testCase "sandbox startup" $
+    ]) <>
+    [ testCase "sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
