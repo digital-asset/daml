@@ -76,6 +76,7 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //daml-foundations/daml-ghc:daml-ghc-deterministic `
     //daml-foundations/daml-ghc:examples-memory `
     //daml-foundations/daml-ghc:module-tree-memory `
+    //daml-foundations/daml-ghc:tasty-test `
     //daml-foundations/daml-tools/da-hs-daml-cli `
     //daml-foundations/daml-tools/da-hs-damlc-app/...
     # Disabled since there seems to be an issue with starting up the scenario service.
