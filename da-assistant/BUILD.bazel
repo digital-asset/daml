@@ -5,7 +5,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
 load("//bazel_tools:packaging/packaging.bzl", "package_app")
 load("@ai_formation_hazel//:hazel.bzl", "hazel_binary")
 
-da_cli_version = "114-7582c1a0bd"
+da_cli_version = "115-c2bae7375a"
 
 da_cli_version_flag = '-DDA_CLI_VERSION="%s"' % da_cli_version
 
