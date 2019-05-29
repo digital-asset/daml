@@ -17,7 +17,7 @@ DAML Studio
 DAML Compiler
 ~~~~~~~~~~~~~
 
-- **BREAKING CHANGE**: Drop support for DAML-LF 1.2. Compiling to DAML-LF 1.3 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
+- **BREAKING CHANGE**: Drop support for DAML-LF 1.2 and 1.3. Compiling to DAML-LF 1.4 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
 
 SQL Extractor
 ~~~~~~~~~~~~~
