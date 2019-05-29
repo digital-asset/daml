@@ -83,11 +83,11 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
       _ = log.trace("Handling packages...")
 
       packageStore <- fetchPackages(client, writer)
+      allTemplateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
+      _ = log.info(s"All available template ids: {}", allTemplateIds)
 
-      templateIds <- Future.successful(
-        TemplateIds.intersection(
-          TemplateIds.getTemplateIds(packageStore.values.toSet),
-          config.templateConfigs.toSet))
+      requestedTemplateIds <- Future.successful(
+        TemplateIds.intersection(allTemplateIds, config.templateConfigs))
 
       streamUntil: Option[LedgerOffset] = config.to match {
         case SnapshotEndSetting.Head => Some(endOffset)
@@ -98,7 +98,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
 
       _ = log.info("Handling transactions...")
 
-      _ <- streamTransactions(client, writer, streamUntil, templateIds)
+      _ <- streamTransactions(client, writer, streamUntil, requestedTemplateIds)
 
       _ = log.info("Done...")
     } yield ()
@@ -131,7 +131,9 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     val filters =
       if (templateIds.isEmpty) Filters.defaultInstance
       else new Filters(inclusive = Some(InclusiveFilters(templateIds.toSeq)))
-    TransactionFilter(config.parties.toList.map(_ -> filters)(breakOut))
+    val result = TransactionFilter(config.parties.toList.map(_ -> filters)(breakOut))
+    log.info(s"Setting transaction filter: {}", result)
+    result
   }
 
   private def streamTransactions(
