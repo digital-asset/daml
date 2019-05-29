@@ -19,7 +19,6 @@ import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import           DA.Service.Daml.LanguageServer.Common
 import qualified DA.Service.Logger                     as Logger
 
-import qualified Data.Aeson                            as Aeson
 import qualified Data.Text.Extended                    as T
 
 import           Development.IDE.Types.LSP as Compiler
@@ -30,7 +29,7 @@ handle
     :: Logger.Handle IO
     -> Compiler.IdeState
     -> TextDocumentPositionParams
-    -> IO (Either a Aeson.Value)
+    -> IO (Maybe Hover)
 handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
     mbResult <- case uriToFilePath' uri of
         Just filePath -> do
@@ -42,12 +41,11 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
 
     case mbResult of
         Just (mbRange, contents) ->
-            pure $ Right $ Aeson.toJSON
-                  $ Hover
+            pure $ Just $ Hover
                         (HoverContentsMS $ List $ map showHoverInformation contents)
                         mbRange
 
-        Nothing -> pure $ Right Aeson.Null
+        Nothing -> pure Nothing
   where
     showHoverInformation :: Compiler.HoverText -> MarkedString
     showHoverInformation = \case

@@ -26,7 +26,6 @@ import Language.Haskell.LSP.Types hiding
     ( CodeLens
     , DocumentSymbol
     , Hover
-    , Initialize
     , Shutdown
     , SignatureHelp
     , WorkspaceSymbol
@@ -53,10 +52,9 @@ data ServerCapabilities = ServerCapabilities
 
 -- | Request sent by the client to the server.
 data ServerRequest
-    = Initialize      !InitializeParams
-    | Shutdown
+    = Shutdown
     | KeepAlive
-    | Completion      !TextDocumentPositionParams
+    | Completion      !CompletionParams
     | SignatureHelp   !TextDocumentPositionParams
     | Hover           !TextDocumentPositionParams
     | Definition      !TextDocumentPositionParams
@@ -90,7 +88,6 @@ data ServerNotification
 
 instance JsonRpc.FromRequest ServerRequest where
     parseParams = \case
-        "initialize"                         -> parseTo Initialize
         "shutdown"                           -> Just $ const $ return Shutdown
         "textDocument/completion"            -> parseTo Completion
         "textDocument/hover"                 -> parseTo Hover
@@ -125,7 +122,7 @@ data InitializeResult = InitializeResult
     }
 -- | Notification sent by the language server to the client.
 data ClientNotification
-    = ShowMessage LogMessageParams
+    = ShowMessage ShowMessageParams
     | LogMessage LogMessageParams
     | SendTelemetry Aeson.Value
     | PublishDiagnostics PublishDiagnosticsParams

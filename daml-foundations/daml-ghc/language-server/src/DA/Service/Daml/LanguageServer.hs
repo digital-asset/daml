@@ -3,6 +3,7 @@
 
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell    #-}
 
 module DA.Service.Daml.LanguageServer
@@ -43,6 +44,8 @@ import           Development.IDE.Types.LSP as Compiler
 import qualified Network.URI                               as URI
 
 import qualified System.Exit
+
+import Language.Haskell.LSP.Messages
 
 ------------------------------------------------------------------------
 -- Types
@@ -98,51 +101,29 @@ data WorkspaceValidationsParams = WorkspaceValidationsParams
 deriveDAToJSON "_wvp" ''WorkspaceValidationsParams
 
 ------------------------------------------------------------------------
--- Server capabilities
-------------------------------------------------------------------------
-
-serverCapabilities :: ServerCapabilities
-serverCapabilities = ServerCapabilities
-    { scTextDocumentSync                 = Just TdSyncFull
-    , scHoverProvider                    = True
-    , scCompletionProvider               = Nothing
-    , scSignatureHelpProvider            = Nothing
-    , scDefinitionProvider               = True
-    , scReferencesProvider               = False
-    , scDocumentHighlightProvider        = False
-    , scDocumentSymbolProvider           = False
-    , scWorkspaceSymbolProvider          = False
-    , scCodeActionProvider               = False
-    , scCodeLensProvider                 = True
-    , scDocumentFormattingProvider       = False
-    , scDocumentRangeFormattingProvider  = False
-    , scDocumentOnTypeFormattingProvider = False
-    , scRenameProvider                   = False
-    }
-
-------------------------------------------------------------------------
 -- Request handlers
 ------------------------------------------------------------------------
 
-handleRequest :: IHandle () LF.Package -> ServerRequest -> IO (Either ErrorCode Aeson.Value)
-handleRequest (IHandle _stateRef loggerH compilerH _notifChan) = \case
-    Initialize _params -> do
-        pure $ Right $ Aeson.toJSON $ InitializeResult serverCapabilities
-
+handleRequest
+    :: IHandle () LF.Package
+    -> (forall resp. resp -> ResponseMessage resp)
+    -> (ErrorCode -> ResponseMessage ())
+    -> ServerRequest
+    -> IO FromServerMessage
+handleRequest (IHandle _stateRef loggerH compilerH _notifChan) makeResponse makeErrorResponse = \case
     Shutdown -> do
       Logger.logInfo loggerH "Shutdown request received, terminating."
       System.Exit.exitSuccess
 
-    KeepAlive ->
-      pure $ Right Aeson.Null
+    KeepAlive -> pure $ RspCustomServer $ makeResponse Aeson.Null
 
-    Definition      params -> LS.Definition.handle         loggerH compilerH params
-    Hover           params -> LS.Hover.handle              loggerH compilerH params
-    CodeLens        params -> LS.CodeLens.handle           loggerH compilerH params
+    Definition params -> RspDefinition . makeResponse <$> LS.Definition.handle loggerH compilerH params
+    Hover params -> RspHover . makeResponse <$> LS.Hover.handle loggerH compilerH params
+    CodeLens params -> RspCodeLens . makeResponse <$> LS.CodeLens.handle loggerH compilerH params
 
     req -> do
         Logger.logJson loggerH Logger.Warning ("Method not found" :: T.Text, req)
-        pure $ Left MethodNotFound
+        pure $ RspError $ makeErrorResponse MethodNotFound
 
 
 handleNotification :: IHandle () LF.Package -> ServerNotification -> IO ()

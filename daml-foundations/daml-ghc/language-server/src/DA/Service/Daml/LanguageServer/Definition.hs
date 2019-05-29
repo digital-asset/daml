@@ -15,17 +15,14 @@ import Development.IDE.Types.Diagnostics
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Service.Logger                     as Logger
 
-import qualified Data.Aeson                            as Aeson
 import qualified Data.Text.Extended                    as T
-
-import qualified Development.IDE.Types.Location as Base
 
 -- | Go to the definition of a variable.
 handle
     :: Logger.Handle IO
     -> Compiler.IdeState
     -> TextDocumentPositionParams
-    -> IO (Either a Aeson.Value)
+    -> IO LocationResponseParams
 handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
 
 
@@ -39,7 +36,7 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
 
     case mbResult of
         Nothing ->
-            pure $ Right $ Aeson.toJSON ([] :: [Base.Location])
+            pure $ MultiLoc []
 
         Just loc ->
-            pure $ Right $ Aeson.toJSON loc
+            pure $ SingleLoc loc
