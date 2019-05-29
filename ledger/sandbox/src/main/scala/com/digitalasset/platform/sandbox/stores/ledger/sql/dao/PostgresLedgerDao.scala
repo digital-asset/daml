@@ -459,7 +459,12 @@ private class PostgresLedgerDao(
         "recorded_at" -> tx.recordedAt,
         "transaction" -> transactionSerializer
           .serialiseTransaction(tx.transaction)
-          .getOrElse(sys.error(s"failed to serialise transaction! trId: ${tx.transactionId}"))
+          .fold(
+            err =>
+              sys.error(
+                s"Failed to serialise transaction! trId: ${tx.transactionId}. Details: ${err.errorMessage}."),
+            identity
+          )
       )
       .execute()
 
