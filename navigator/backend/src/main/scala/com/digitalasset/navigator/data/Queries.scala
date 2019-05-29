@@ -48,7 +48,8 @@ object Queries {
             choice TEXT DEFAULT NULL,
             argument_value JSON DEFAULT NULL,
             acting_parties JSON DEFAULT NULL,
-            is_consuming INTEGER DEFAULT NULL
+            is_consuming INTEGER DEFAULT NULL,
+            agreement_text TEXT DEFAULT NULL
           )
       """
 

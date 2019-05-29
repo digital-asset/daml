@@ -9,6 +9,12 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Navigator
+~~~~~~~~~~~
+
+- Fixed a regression where Navigator console was not able to inspect contracts and events.
+  See `#1454 <https://github.com/digital-asset/daml/issues/1454>`__.
+
 0.12.22 - 2019-05-29
 --------------------
 
