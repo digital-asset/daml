@@ -38,11 +38,9 @@ TESTMAIN=$(rlocation "$TEST_WORKSPACE/$3")
 TESTDIR="$(dirname $TESTMAIN)"
 TESTDAR="$TESTDIR/Main.dar"
 
-TARGET="1.3"
-
 REGEX_HIDE_HASHES="s,@[a-z0-9]{8},@XXXXXXXX,g"
 
-$DAMLC package --debug --target $TARGET $TESTMAIN 'main' -o $TESTDAR
+$DAMLC package --debug $TESTMAIN 'main' -o $TESTDAR
 
 $REPL test Test:run $TESTDAR | sed '1d' | sed -E "$REGEX_HIDE_HASHES" > ${TESTDIR}/ACTUAL.ledger
 

@@ -29,22 +29,19 @@ mustFailAt 'Alice' [Test:123]
 
 TX #10 1969-12-31T23:58:20Z [Test:128]
 #10:0
-│   archived by #11:1
-│   referenced by #11:0, #11:1
+│   archived by #11:0
+│   referenced by #11:0
 │   known to (since): Alice (#10), Bob (#10)
 └─> create Test:ToTwoParties@XXXXXXXX
     with: { p = 'Alice', p2 = 'Bob' } value-version: 1
 
 TX #11 1969-12-31T23:58:20Z [Test:129]
 #11:0
-└─> ensure active #10:0
-
-#11:1
 │   known to (since): Alice (#11), Bob (#11)
 └─> Bob exercises Convert:Test:ToTwoParties@XXXXXXXX on #10:0
     with {  } value-version: 1
     children:
-    #11:2
+    #11:1
     │   known to (since): Alice (#11), Bob (#11)
     └─> create Test:TwoParties@XXXXXXXX
         with: { p = 'Alice', p2 = 'Bob' } value-version: 1
@@ -88,4 +85,4 @@ TX #21 1969-12-31T23:58:20Z [Test:345]
 mustFailAt 'Alice' [Test:346]
 
 active contracts:
-   #4:0, #7:0, #11:2, #13:0, #16:0, #18:0, #21:0
+   #4:0, #7:0, #11:1, #13:0, #16:0, #18:0, #21:0
