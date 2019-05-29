@@ -18,24 +18,29 @@ module DA.Ledger.Services( -- WIP: Ledger API services
     completions,
     submitCommands,
 
+    resetService,
+
     ) where
 
-import Control.Concurrent
-import Control.Exception (Exception,SomeException,catch,throwIO)
+import Control.Concurrent(forkIO)
+import Control.Exception(Exception,SomeException,catch,throwIO)
+import Control.Monad (when)
 import Control.Monad.Fix (fix)
-import qualified Data.Map as Map(empty,singleton)
-import qualified Data.Vector as Vector(toList,fromList)
+import qualified Control.Retry as Retry
+import qualified Data.Map as Map
+import qualified Data.Vector as Vector
+
+import DA.Ledger.Types hiding(Completion)
+import DA.Ledger.LowLevel(Completion)
+import DA.Ledger.Stream
+import DA.Ledger.PastAndFuture
+import DA.Ledger.Convert(lowerCommands,raiseTransaction)
+import DA.Ledger.LowLevel hiding(Commands,Transaction)
+import qualified DA.Ledger.LowLevel as LL
 
 import qualified Proto3.Suite(fromByteString)
 import qualified DA.Daml.LF.Ast           as LF(Package)
 import qualified DA.Daml.LF.Proto3.Decode as Decode(decodePayload)
-
-import DA.Ledger.Stream
-import DA.Ledger.PastAndFuture
-import DA.Ledger.Types
-import DA.Ledger.Convert(lowerCommands,raiseTransaction)
-import DA.Ledger.LowLevel hiding(Commands,Transaction)
-import qualified DA.Ledger.LowLevel as LL
 
 data LedgerHandle = LedgerHandle {
     log :: String -> IO (),
@@ -43,12 +48,28 @@ data LedgerHandle = LedgerHandle {
     lid :: LedgerId
     }
 
+instance Show LedgerHandle where
+    show LedgerHandle{port,lid} = show(port,lid)
+
 identity :: LedgerHandle -> LedgerId
 identity LedgerHandle{lid} = lid
 
+myRetry :: IO a -> IO a
+myRetry io =
+    Retry.recoverAll retryPolicy $ \rs -> do
+    when (enableDevPrint && Retry.rsIterNumber rs > 0) $ print rs
+    io
+    where
+        enableDevPrint = False
+        retryPolicy =
+            -- do not wait for more than 10 secs
+            Retry.limitRetriesByCumulativeDelay (10 * 1000 * 1000) $
+            Retry.capDelay (1 * 1000 * 1000) $ -- wait at most one second
+            Retry.exponentialBackoff (25 * 1000)
+
 connectLogging :: (String -> IO ()) -> Port -> IO LedgerHandle
 connectLogging log port = wrapE "connect" $ do
-    lid <- getLedgerIdentity port
+    lid <- myRetry (getLedgerIdentity port)
     return $ LedgerHandle {log, port, lid}
 
 getLedgerIdentity :: Port -> IO LedgerId
@@ -156,7 +177,7 @@ streamToList h@LedgerHandle{log} stream = do
 
 
 -- TODO: return (HL) [Completion]
-completions :: LedgerHandle -> ApplicationId -> [Party] -> IO (Stream LL.Completion)
+completions :: LedgerHandle -> ApplicationId -> [Party] -> IO (Stream Completion)
 completions LedgerHandle{port,lid} aid partys = wrapE "completions" $ do
     stream <- newStream
     let request = mkCompletionStreamRequest lid aid partys
@@ -248,3 +269,21 @@ instance Exception LedgerApiException
 
 wrapE :: String -> IO a -> IO a
 wrapE tag io = io `catch` \e -> throwIO (LedgerApiException {tag,underlying=e})
+
+----------------------------------------------------------------------
+-- reset
+
+resetServiceH :: LedgerHandle -> IO ()
+resetServiceH LedgerHandle{port,lid} = wrapE "resetService" $ do
+    LL.withGRPCClient (config port) $ \client -> do
+        service <- LL.resetServiceClient client
+        let ResetService {resetServiceReset=rpc} = service
+        let request = ResetRequest (unLedgerId lid)
+        response <- rpc (ClientNormalRequest request timeout mdm)
+        Empty{} <- unwrap response
+        return ()
+
+resetService :: (String -> IO ()) -> Port -> IO ()
+resetService log port = do
+    h <- connectLogging log port
+    resetServiceH h

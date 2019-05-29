@@ -3,92 +3,62 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DA.Ledger.Tests (main) where
+module DA.Ledger.Tests (main)
+where
 
+import Control.Concurrent (MVar,newMVar,takeMVar,withMVar)
 import Control.Exception (SomeException, try)
-import Control.Monad(unless)
+import Control.Monad (unless)
+import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,resetSandbox,withSandbox)
 import Data.List (isPrefixOf,isInfixOf)
-import Data.Text.Lazy(Text)
-import System.Random(randomIO)
-import System.Time.Extra
-import Test.Tasty as Tasty (TestTree, defaultMain, testGroup)
-import Test.Tasty.HUnit as Tasty (assertEqual, assertBool, assertFailure, testCase)
+import Data.Text.Lazy (Text)
+import System.Environment.Blank (setEnv)
+import System.Random (randomIO)
+import System.Time.Extra (timeout)
+import Test.Tasty as Tasty (TestName,TestTree,defaultMain,testGroup,withResource)
+import Test.Tasty.HUnit as Tasty (assertBool,assertEqual,assertFailure,testCase)
+import qualified DA.Ledger.Sandbox as Sandbox(port)
 import qualified Data.Text.Lazy as Text (pack,unpack)
-import qualified Data.UUID as UUID
+import qualified Data.UUID as UUID (toString)
 
-import DA.Ledger as Ledger
-import DA.Ledger.Sandbox as Sandbox(SandboxSpec (..), port, withSandbox)
-import DA.Ledger.LowLevel as LL(Completion(..))
+import DA.Ledger as Ledger -- module under test; import everything
 
-expectException :: IO a -> IO SomeException
-expectException io =
-    try io >>= \case
-        Right _ -> assertFailure "exception was expected"
-        Left (e::SomeException) -> return e
-
-assertExceptionTextContains :: SomeException -> String -> IO ()
-assertExceptionTextContains e frag =
-    unless (frag `isInfixOf` show e) (assertFailure msg)
-    where msg = "expected frag: " ++ frag ++ "\n contained in: " ++ show e
+----------------------------------------------------------------------
+--main...
 
 main :: IO ()
-main = Tasty.defaultMain tests
-
-spec1 :: SandboxSpec
-spec1 = SandboxSpec {dar}
-    where dar = "language-support/hs/bindings/quickstart.dar"
+main = do
+    setEnv "TASTY_NUM_THREADS" "1" True
+    Tasty.defaultMain tests
 
 tests :: TestTree
-tests = testGroup "Haskell Ledger Bindings" [
-    t1, t3,
-    t4, t4_1,
-    t5, t6
-    -- TODO: we really need sandboxes shared between tests..
-    --,t1,t1,t1,t1,t1,t1
+tests = testGroupWithSandbox "Haskell Ledger Bindings" [
+    tConnect,
+    tPastFuture, -- After this test, there is a big delay when resetting the service.
+    tSubmitBad,
+    tSubmitGood,
+    tListPackages,
+    tGetPackage
     ]
 
-connect :: Port -> IO LedgerHandle
-connect = Ledger.connectLogging putStrLn
+----------------------------------------------------------------------
+-- tests...
 
-t1 :: Tasty.TestTree
-t1 = testCase "connect, ledgerid" $ do
-    withSandbox spec1 $ \sandbox -> do
-        h <- connect (Sandbox.port sandbox)
+tConnect :: WithSandbox -> TestTree
+tConnect withSandbox =
+    testCase "connect, ledgerid" $
+    withSandbox $ \sandbox -> do
+        h <- connect sandbox
         let lid = Ledger.identity h
-        let got = Text.unpack $ Ledger.unLedgerId lid
+        let got = Text.unpack $ unLedgerId lid
         assertBool "bad ledgerId" (looksLikeSandBoxLedgerId got)
-            where looksLikeSandBoxLedgerId s =
-                      "sandbox-" `isPrefixOf` s && length s == 44
+            where looksLikeSandBoxLedgerId s = "sandbox-" `isPrefixOf` s && length s == 44
 
-t4 :: Tasty.TestTree
-t4 = testCase "submit bad package id" $ do
-    withSandbox spec1 $ \sandbox -> do
-        h <- connect (Sandbox.port sandbox)
-        e <- expectException (submitCommand h alice command)
-        assertExceptionTextContains e "Couldn't find package"
-            where command =  createIOU pid alice "A-coin" 100
-                  pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
-
-t4_1 :: Tasty.TestTree
-t4_1 = testCase "submit good package id" $ do
-    withSandbox spec1 $ \sandbox -> do
-        h <- connect (Sandbox.port sandbox)
-        -- TODO: Use Ledger.getPackage to find the correct package with the "Iou" contract.
-        [pid,_,_] <- Ledger.listPackages h -- for now assume it's in the 1st of the 3 listed packages.
-        let command =  createIOU pid alice "A-coin" 100
-        completions <- Ledger.completions h myAid [alice]
-        --(cs1,_) <- Ledger.getStreamContents completions
-        --assertEqual "before submit 1" [] cs1
-        cid1 <- submitCommand h alice command
-        Right comp1 <- takeStream completions --TODO: timeout of blocking take?
-        let LL.Completion{completionCommandId} = comp1
-        let cid1' = CommandId completionCommandId
-        assertEqual "submit1" cid1' cid1
-
-t3 :: Tasty.TestTree
-t3 = testCase "past/future" $ do
-    withSandbox spec1 $ \sandbox -> do
-        h <- connect (Sandbox.port sandbox)
+tPastFuture :: WithSandbox -> Tasty.TestTree
+tPastFuture withSandbox =
+    testCase "past/future" $ do
+    withSandbox $ \sandbox -> do
+        h <- connect sandbox
         [pid,_,_] <- Ledger.listPackages h
         let command =  createIOU pid alice "A-coin" 100
         PastAndFuture{past=past1,future=future1} <- Ledger.getTransactionsPF h alice
@@ -102,21 +72,66 @@ t3 = testCase "past/future" $ do
         assertEqual "future becomes the past" [x1] past2
         assertEqual "continuing future matches" y1 y2
 
-t5 :: Tasty.TestTree
-t5 = testCase "package service, listPackages" $ do
-    withSandbox spec1 $ \sandbox -> do
-        h <- connect (Sandbox.port sandbox)
+tSubmitBad :: WithSandbox -> Tasty.TestTree
+tSubmitBad withSandbox =
+    testCase "submit bad package id" $ do
+    withSandbox $ \sandbox -> do
+        h <- connect sandbox
+        e <- expectException (submitCommand h alice command)
+        assertExceptionTextContains e "Couldn't find package"
+            where command =  createIOU pid alice "A-coin" 100
+                  pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
+
+tSubmitGood :: WithSandbox -> Tasty.TestTree
+tSubmitGood withSandbox =
+    testCase "submit good package id" $ do
+    withSandbox $ \sandbox -> do
+        h <- connect sandbox
+        [pid,_,_] <- Ledger.listPackages h -- assume packageId is the 1st of the 3 listed packages.
+        let command =  createIOU pid alice "A-coin" 100
+        completions <- Ledger.completions h myAid [alice]
+        cid1 <- submitCommand h alice command
+        Right comp1 <- takeStream completions
+        let Completion{completionCommandId} = comp1
+        let cid1' = CommandId completionCommandId
+        assertEqual "submit1" cid1' cid1
+
+tListPackages :: WithSandbox -> Tasty.TestTree
+tListPackages withSandbox =
+    testCase "package service, listPackages" $ do
+    withSandbox $ \sandbox -> do
+        h <- connect sandbox
         ids <- Ledger.listPackages h
         assertEqual "#packages" 3 (length ids)
 
-t6 :: Tasty.TestTree -- WIP (Ledger.getPackage not working yet)
-t6 = testCase "package service, get Package" $ do
-    withSandbox spec1 $ \sandbox -> do
-        h <- connect (Sandbox.port sandbox)
+tGetPackage :: WithSandbox -> Tasty.TestTree
+tGetPackage withSandbox =
+    testCase "package service, get Package" $ do
+    withSandbox $ \sandbox -> do
+        h <- connect sandbox
         ids <- Ledger.listPackages h
         ps <- mapM (Ledger.getPackage h) ids
         assertEqual "#packages" 3 (length ps)
-        return ()
+
+----------------------------------------------------------------------
+-- misc expectation combinators
+
+expectException :: IO a -> IO SomeException
+expectException io =
+    try io >>= \case
+        Right _ -> assertFailure "exception was expected"
+        Left (e::SomeException) -> return e
+
+assertExceptionTextContains :: SomeException -> String -> IO ()
+assertExceptionTextContains e frag =
+    unless (frag `isInfixOf` show e) (assertFailure msg)
+    where msg = "expected frag: " ++ frag ++ "\n contained in: " ++ show e
+
+----------------------------------------------------------------------
+-- misc ledger ops/commands
+
+connect :: Sandbox -> IO LedgerHandle
+connect sandbox = Ledger.connectLogging putStrLn (Sandbox.port sandbox)
 
 alice :: Ledger.Party
 alice = Ledger.Party "Alice"
@@ -125,8 +140,6 @@ createIOU :: PackageId -> Party -> Text -> Int -> Command
 createIOU quickstart party currency quantity = CreateCommand {tid,args}
     where
         tid = TemplateId (Identifier quickstart mod ent)
-        -- TODO: use package-service to find package-id
-        -- da run damlc inspect-dar target/quickstart.dar
         mod = ModuleName "Iou"
         ent = EntityName "Iou"
         args = Record Nothing [
@@ -154,3 +167,51 @@ myAid = ApplicationId ":my-application:"
 
 randomCid :: IO CommandId
 randomCid = do fmap (CommandId . Text.pack . UUID.toString) randomIO
+
+----------------------------------------------------------------------
+-- test with/out shared sandboxes...
+
+enableSharing :: Bool
+enableSharing = True
+
+specQuickstart :: SandboxSpec
+specQuickstart = SandboxSpec {dar}
+    where dar = "language-support/hs/bindings/quickstart.dar"
+
+testGroupWithSandbox :: TestName -> [WithSandbox -> TestTree] -> TestTree
+testGroupWithSandbox name tests =
+    if enableSharing
+    then
+        -- waits to run in the one shared sandbox, after first doing a reset
+        withResource acquireShared releaseShared $ \resource -> do
+        testGroup name $ map (\f -> f (withShared resource)) tests
+    else
+        -- runs in it's own freshly (and very slowly!) spun-up sandbox
+        testGroup name $ map (\f -> f (withSandbox specQuickstart)) tests
+
+----------------------------------------------------------------------
+-- SharedSandbox
+
+type WithSandbox = (Sandbox -> IO ()) -> IO ()
+
+data SharedSandbox = SharedSandbox (MVar Sandbox)
+
+acquireShared :: IO SharedSandbox
+acquireShared = do
+    sandbox <- startSandbox specQuickstart
+    mv <- newMVar sandbox
+    return $ SharedSandbox mv
+
+releaseShared :: SharedSandbox -> IO ()
+releaseShared (SharedSandbox mv) = do
+    sandbox <- takeMVar mv
+    shutdownSandbox sandbox
+
+withShared :: IO SharedSandbox -> WithSandbox
+withShared resource f = do
+    SharedSandbox mv <- resource
+    withMVar mv $ \sandbox -> do
+        resetSandbox sandbox
+        f sandbox
+
+
