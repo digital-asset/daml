@@ -7,7 +7,7 @@
 daml 1.2
 module GenericTemplates where
 
-import Prelude hiding (Template (..), Choice (..), Archive (..), create, fetch, archive, exercise)
+import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, fetchByKey, archive, exercise)
 
 class Template t where
   signatory : t -> [Party]
@@ -17,6 +17,11 @@ class Template t where
   create : t -> Update (ContractId t)
   fetch : ContractId t -> Update t
   archive : ContractId t -> Update ()
+
+class Template t => TemplateKey t k | t -> k where
+  key : t -> k
+  fetchByKey : k -> Update (ContractId t, t)
+
 
 class Template t => Choice t c r | t c -> r where
   exercise : ContractId t -> c -> Update r
@@ -29,3 +34,5 @@ data NonConsuming t = NonConsuming {}
 data PreConsuming t = PreConsuming {}
 
 data PostConsuming t = PostConsuming {}
+
+data HasKey t = HasKey {}

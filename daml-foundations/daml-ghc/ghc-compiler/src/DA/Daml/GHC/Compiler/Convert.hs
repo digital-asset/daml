@@ -327,7 +327,7 @@ convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM (Template, LF.Expr)
 convertGenericTemplate env x
     | (dictCon, args) <- collectArgs x
     , (tyArgs, args) <- span isTypeArg args
-    , Just (superClassDicts, signatories : observers : ensure : agreement : create : fetch : archive : choices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
+    , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
     , Just (polyType, _) <- splitFunTy_maybe (varType create)
     , Just (monoTyCon, unwrapCo) <- findMonoTyp polyType
     = do
@@ -348,10 +348,29 @@ convertGenericTemplate env x
         tplObservers <- applyThis <$> convertExpr env (Var observers)
         let tplPrecondition = ETrue
         let tplAgreement = mkEmptyText
-        let tplKey = Nothing
         archive <- convertExpr env (Var archive)
+        (tplKey, key, choices) <- case keyAndChoices of
+                hasKey : key : maintainers : _fetchByKey : choices
+                    | TypeCon (Is "HasKey") _ <- varType hasKey -> do
+                        _ :-> keyType <- convertType env (varType key)
+                        hasKey <- convertExpr env (Var hasKey)
+                        key <- convertExpr env (Var key)
+                        maintainers <- convertExpr env (Var maintainers)
+                        let selfField = FieldName "contractId"
+                        let thisField = FieldName "contract"
+                        tupleTyCon <- qDA_Types env $ mkTypeCon ["Tuple2"]
+                        let tupleType = TypeConApp tupleTyCon [TContractId polyType, polyType]
+                        let fetchByKey =
+                                ETmLam (mkVar "key", keyType) $
+                                EUpdate $ UBind (Binding (res, TTuple [(selfField, TContractId monoType), (thisField, monoType)]) $ EUpdate $ UFetchByKey $ RetrieveByKey monoTyCon $ EVar $ mkVar "key") $
+                                EUpdate $ UPure (typeConAppToType tupleType) $ ERecCon tupleType
+                                    [ (FieldName "_1", unwrapCid $ ETupleProj selfField $ EVar res)
+                                    , (FieldName "_2", unwrapTpl $ ETupleProj thisField $ EVar res)
+                                    ]
+                        pure (Just $ TemplateKey keyType (applyThis key) (ETmApp maintainers hasKey), [hasKey, key, maintainers, fetchByKey], choices)
+                choices -> pure (Nothing, [], choices)
         let convertGenericChoice :: [Var] -> ConvertM (TemplateChoice, [LF.Expr])
-            convertGenericChoice [consumption, controllers, action, exercise] = do
+            convertGenericChoice [consumption, controllers, action, _exercise] = do
                 TContractId _ :-> _ :-> argType@(TConApp argTCon _) :-> TUpdate resType <- convertType env (varType action)
                 let chcLocation = Nothing
                 let chcName = ChoiceName $ T.intercalate "." $ unTypeConName $ qualObject argTCon
@@ -398,7 +417,7 @@ convertGenericTemplate env x
         dictCon <- convertExpr env dictCon
         tyArgs <- mapM (convertArg env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
-        let tmArgs = map (TmArg . ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive] ++ concat choices
+        let tmArgs = map (TmArg . ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive] ++ key ++ concat choices
         let dict = mkEApps dictCon $ tyArgs ++ tmArgs
         pure (Template{..}, dict)
   where
@@ -587,6 +606,26 @@ convertBind env (NonRec name x)
     | DFunId _ <- idDetails name
     , TypeCon (QIsTpl "Template") [t] <- varType name
     = withRange (convNameLoc name) $ liftA2 (++) (convertTemplate env x) (convertBind2 env (NonRec name x))
+    -- NOTE(MH, #1387): If we decide to do the rewriting of maintainers from
+    -- `this` to `key` for generic templates as well, this code will do
+    -- some part of the job. Currently, it would only work for non-generic
+    -- templates though.  I'd like to leave it here until we've made a
+    -- decision so I don't have to figure it out again.
+    -- | Just tplName <- stripPrefix "$dmmaintainerFromKey" (is name)
+    -- = do
+    --     name'@(_, splitTForalls -> (tvs, _dictType :-> hasKeyType :-> keyType :-> _)) <- convValWithType env name
+    --     key <- envFindBindString env ("$dmkey" ++ tplName)
+    --     maintainer <- envFindBindString env ("$dmmaintainer" ++ tplName)
+    --     case (key, maintainer) of
+    --       (Lam keyDict (Lam keyThis keyExpr), Lam maintainerDict (Lam maintainerThis maintainerExpr)) -> do
+    --         unless (keyDict == maintainerDict) $
+    --           unhandled "generic template key with different dict binders" (keyDict, maintainerDict)
+    --         keyExpr <- convertKeyExpr env keyThis keyExpr
+    --         maintainerExpr <- convertKeyExpr env maintainerThis maintainerExpr
+    --         maintainerExpr <- rewriteMaintainer env keyExpr maintainerExpr
+    --         maintainerDict <- convVarWithType env maintainerDict
+    --         pure [defValue name name' $ mkETyLams tvs $ mkETmLams [maintainerDict, (mkVar "_", hasKeyType), (mkVar "$key", keyType)] maintainerExpr]
+    --       _ -> unhandled "generic template key definition" name
     | DFunId _ <- idDetails name
     , TypeCon (Is tplInst) _ <- varType name
     , "Instance" `isSuffixOf` tplInst
