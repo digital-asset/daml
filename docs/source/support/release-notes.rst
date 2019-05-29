@@ -14,6 +14,12 @@ DAML Integration Kit
 
 - Added new CLI flag ``--all-tests`` to the :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` to run all default and optional tests.
 
+Sandbox
+~~~~~~~
+
+- Introduced a new API for party management.
+  See `#1312 <https://github.com/digital-asset/daml/issues/1312>`__.
+
 .. _release-0-12-24:
 
 0.12.24 - 2019-06-06
@@ -78,7 +84,6 @@ Sandbox
 ~~~~~~~
 
 - Added recovery around failing ledger entry persistence queries using Postgres. See `#1505 <https://github.com/digital-asset/daml/pull/1505>`__.
-
 
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
