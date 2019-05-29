@@ -11,7 +11,7 @@ module ProposalDSL
   , ProposalInstance
   ) where
 
-import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, fetchByKey, archive, exercise)
+import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, archive, fetchByKey, lookupByKey, exercise)
 import DA.List
 import DA.Text
 import GenericTemplates
@@ -35,7 +35,7 @@ instance ProposalInstance t => Template (Proposal t) where
 instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
     key = keyProposal
     fetchByKey = fetchByKeyProposal
-
+    lookupByKey = lookupByKeyProposal
 
 data Accept = Accept{}
   deriving (Eq, Show)
@@ -75,6 +75,8 @@ class Template t => ProposalInstance t where
     maintainerProposal HasKey key = fst key
     fetchByKeyProposal : ([Party], Text) -> Update (ContractId (Proposal t), Proposal t)
     fetchByKeyProposal = error "code will be injected by the compiler"
+    lookupByKeyProposal : ([Party], Text) -> Update (Optional (ContractId (Proposal t)))
+    lookupByKeyProposal = error "code will be injected by the compiler"
 
     consumptionProposalArchive : PreConsuming (Proposal t)
     consumptionProposalArchive = PreConsuming
