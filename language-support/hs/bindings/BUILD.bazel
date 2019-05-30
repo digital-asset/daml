@@ -25,7 +25,6 @@ da_haskell_library(
         "//daml-lf/archive:daml_lf_haskell_proto",
         "//ledger-api/grpc-definitions:ledger-api-haskellpb",
         "//nix/third-party/gRPC-haskell:grpc-haskell",
-        "//nix/third-party/gRPC-haskell/core:grpc-haskell-core",
     ],
 )
 

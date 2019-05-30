@@ -4,7 +4,7 @@
 module DA.Ledger.LowLevel(module X) where -- Low level GRPC and Generated Haskell code
 
 import Network.GRPC.HighLevel.Generated as X
-import Network.GRPC.LowLevel as X(ClientCall,clientCallCancel)
+import Network.GRPC.HighLevel as X
 
 import Proto3.Suite.Types as X
 
