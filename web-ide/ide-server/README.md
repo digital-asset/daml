@@ -2,11 +2,13 @@
 This is the dockerfile for creating and image with DAML SDK and the [code-server](https://github.com/codercom/code-server) IDE
 
 ### Building
-Under the main daml directory `docker build --rm -t digitalasset/daml-webide:0.11.19-master web-ide/ide-server/`
-the tagged version should match what is configured in `web-ide/proxy/config.json` if you want to run locally.
+Under the main daml directory 
+```
+docker build --rm -t digitalasset/daml-webide:latest web-ide/ide-server/
+```
 
 ### Running
-We haven't uploaded to github yet, so you must first create an image (mentioned above).
+Currently, images are in a private DA repo `digitalasset/daml-webide`. However, you can build the image as mentioned above
 
 * To run the IDE server (with ports enabled)
 `docker run --rm -i -t -p 8443:8443 {IMAGE_ID}`

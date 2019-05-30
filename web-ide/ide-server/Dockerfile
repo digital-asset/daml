@@ -1,6 +1,9 @@
 FROM openjdk:8-slim
 
 ARG DAML_VERSION=0.12.21
+ARG CODESERVER_SHA256=4fe5b4d10d3048a5e5aa3e0772c09ece56241b91e76eeaa7404b4da292442881
+ARG CODESERVER_VERSION=1.939-vsc1.33.1
+
 USER root
 
 RUN addgroup --gid 1000 sdk && \
@@ -22,13 +25,10 @@ RUN apt-get update -y && \
     apt-get remove -y --allow-remove-essential apt
  
 USER sdk
-ENV CODESERVER_SHA256=4fe5b4d10d3048a5e5aa3e0772c09ece56241b91e76eeaa7404b4da292442881\
-    CODESERVER_VERSION=1.939-vsc1.33.1\
-    PATH="${PATH}:/home/sdk/.daml/bin"
+ENV PATH="${PATH}:/home/sdk/.daml/bin"
     
 RUN cd /home/sdk/ &&\
     curl -Lo - "https://github.com/digital-asset/daml/releases/download/v${DAML_VERSION}/daml-sdk-${DAML_VERSION}-linux.tar.gz" | tar xzvf - --strip-components 1 &&\
-    ls -l &&\
     bash install.sh &&\
     mkdir -p /home/sdk/.local/share/code-server/extensions/ &&\
     mkdir -p /home/sdk/.local/share/code-server/User/ &&\
