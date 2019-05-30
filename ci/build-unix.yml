@@ -45,10 +45,10 @@ steps:
       pathtoPublish: 'bazel-testlogs/'
       artifactName: 'Test logs'
 
-  - bash: <(curl -s https://blackducksoftware.github.io/hub-detect/hub-detect.sh) --detect.docker.image=alpine:latest --detect.blackduck.signature.scanner.disabled=true --blackduck.blackduck.offline.mode=true --detect.docker.passthrough.imageinspector.service.start=true --blackduck.api.token=$(BLACKDUCK_HUB_CREDENTIALS) --logging.level.com.blackducksoftware.integration=INFO --blackduck.url=https://digitalasset.blackducksoftware.com
+  - bash: bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/master/synopsys-detect) ci-build digitalasset_daml master --logging.level.com.synopsys.integration=DEBUG --detect.blackduck.signature.scanner.exclusion.name.patterns=node_modules,nixpkgs-snapshot --detect.blackduck.signature.scanner.exclusion.pattern.search.depth=10 detect.cleanup=false --detect.hub.signature.scanner.exclusion.name.patterns=node_modules,nixpkgs-snapshot --detect.python.python3=true --detect.excluded.detector.types=NUGET --detect.bazel.target=//...
     displayName: 'Blackduck Scan'
     env:
-      BLACKDUCK_HUB_CREDENTIALS: $(BLACKDUCK_HUB_CREDENTIALS)
+      BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
 
   - bash: ci/release.sh
     displayName: 'Release'
