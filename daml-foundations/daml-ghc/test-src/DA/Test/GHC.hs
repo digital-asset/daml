@@ -49,6 +49,7 @@ import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
 import           System.Process (readProcess)
+import           System.IO
 import           System.IO.Extra
 import           System.Info.Extra (isWindows)
 import           Text.Read
@@ -82,6 +83,7 @@ mainAll = mainWithVersions (delete versionDev supportedInputVersions)
 mainWithVersions :: [Version] -> IO ()
 mainWithVersions versions =
   with (SS.startScenarioService (\_ -> pure ()) Logger.makeNopHandle) $ \scenarioService -> do
+  hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
   let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
