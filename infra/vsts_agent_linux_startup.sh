@@ -13,9 +13,6 @@ trap "shutdown -h now" EXIT
 # replace the default nameserver to not use the metadata server
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 
-# block the metadata server for non-root processes
-iptables -A OUTPUT -m owner ! --uid-owner root -d 169.254.169.254 -j DROP
-
 # delete self
 rm -vf "$0"
 
@@ -29,7 +26,6 @@ apt-get install -qy \
   netcat
 
 curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
-systemctl restart google-fluentd.service
 
 ## Install the VSTS agent
 groupadd --gid 3000 vsts
