@@ -258,12 +258,14 @@ clientReader :: Client
              -> TimeoutSeconds
              -> ByteString -- ^ The body of the request
              -> MetadataMap -- ^ Metadata to send with the request
+             -> (ClientCall -> IO ())
              -> ClientReaderHandler
              -> IO (Either GRPCIOError ClientReaderResult)
-clientReader cl@Client{ clientCQ = cq } rm tm body initMeta f =
+clientReader cl@Client{ clientCQ = cq } rm tm body initMeta fCC f =
   withClientCall cl rm tm go
   where
-    go (unsafeCC -> c) = runExceptT $ do
+    go cc@(unsafeCC -> c) = runExceptT $ do
+      liftIO $ fCC cc
       void $ runOps' c cq [ OpSendInitialMetadata initMeta
                           , OpSendMessage body
                           , OpSendCloseFromClient
