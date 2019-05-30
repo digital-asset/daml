@@ -17,15 +17,12 @@ import com.digitalasset.extractor.targets.Target
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.extractor.writers.Writer.RefreshPackages
 import com.digitalasset.extractor.helpers.TemplateIds
+import com.digitalasset.extractor.helpers.TransactionTreeTrimmer
 import com.digitalasset.extractor.helpers.FutureUtil.toFuture
 import com.digitalasset.grpc.adapter.{ExecutionSequencerFactory, AkkaExecutionSequencerPool}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction_filter.{
-  Filters,
-  InclusiveFilters,
-  TransactionFilter
-}
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.digitalasset.ledger.api.{v1 => api}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration._
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
@@ -125,13 +122,11 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     } yield packageStore
   }
 
-  private def selectTransactions(
-      parties: ExtractorConfig.Parties,
-      templateIds: Set[Identifier]): TransactionFilter = {
-    val filters =
-      if (templateIds.isEmpty) Filters.defaultInstance
-      else new Filters(inclusive = Some(InclusiveFilters(templateIds.toSeq)))
-    val result = TransactionFilter(config.parties.toList.map(_ -> filters)(breakOut))
+  private def selectTransactions(parties: ExtractorConfig.Parties): TransactionFilter = {
+    // Template filtration is not supported on GetTransactionTrees RPC
+    // we will have to filter out template on client-side.
+    val templateSelection = Filters.defaultInstance
+    val result = TransactionFilter(config.parties.toList.map(_ -> templateSelection)(breakOut))
     log.info(s"Setting transaction filter: {}", result)
     result
   }
@@ -140,8 +135,16 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
       client: LedgerClient,
       writer: Writer,
       streamUntil: Option[LedgerOffset],
-      templateIds: Set[Identifier]
+      requestedTemplateIds: Set[api.value.Identifier]
   ): Future[Unit] = {
+    log.info("Requested template IDs: {}", requestedTemplateIds)
+
+    val trim: api.transaction.TransactionTree => api.transaction.TransactionTree =
+      if (requestedTemplateIds.isEmpty) identity
+      else TransactionTreeTrimmer.trim(requestedTemplateIds)
+
+    val nonEmpty: api.transaction.TransactionTree => Boolean = _.eventsById.nonEmpty
+
     RestartSource
       .onFailuresWithBackoff(
         minBackoff = 3.seconds,
@@ -153,10 +156,12 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
           .getTransactionTrees(
             LedgerOffset(startOffSet),
             streamUntil,
-            selectTransactions(config.parties, templateIds),
+            selectTransactions(config.parties),
             verbose = true
           )
           .via(killSwitch.flow)
+          .map(trim)
+          .filter(nonEmpty)
           .map(
             _.convert.fold(
               e => throw DataIntegrityError(e),

@@ -4,7 +4,6 @@
 package com.digitalasset.extractor.ledger.types
 
 import com.digitalasset.ledger.api.{v1 => api}
-import scalaz.\/
 
 final case class Identifier(packageId: String, name: String)
 
@@ -18,10 +17,4 @@ object Identifier {
         apiIdentifier.moduleName + separator.toString + apiIdentifier.entityName
       )
   }
-
-  def product(identifier: Identifier): String \/ (String, String, String) =
-    identifier.name.split(separator) match {
-      case Array(module, entity) => \/.right((identifier.packageId, module, entity))
-      case _ => \/.left(s"Cannot unpack Identifier: $identifier")
-    }
 }
