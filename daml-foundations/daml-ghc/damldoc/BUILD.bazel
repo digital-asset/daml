@@ -58,6 +58,7 @@ da_haskell_library(
     deps = [
         "//daml-foundations/daml-ghc/damldoc",
         "//daml-foundations/daml-ghc/ghc-compiler",
+        "//daml-foundations/daml-ghc/test-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
