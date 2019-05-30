@@ -71,6 +71,9 @@ tPastFuture withSandbox =
         assertEqual "past is initially empty" [] past1
         assertEqual "future becomes the past" [x1] past2
         assertEqual "continuing future matches" y1 y2
+        closeStream future1 gone
+        closeStream future2 gone
+        where gone = Abnormal "client gone"
 
 tSubmitBad :: WithSandbox -> Tasty.TestTree
 tSubmitBad withSandbox =

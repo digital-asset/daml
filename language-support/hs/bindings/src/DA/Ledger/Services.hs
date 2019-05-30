@@ -191,10 +191,11 @@ completions LedgerHandle{port,lid} aid partys = wrapE "completions" $ do
 sendToStream :: a -> (b -> [Either Closed c]) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
 sendToStream request f stream rpc = do
     ClientReaderResponse _meta _code _details <- rpc $
-        ClientReaderRequest request timeout mdm $ \ _mdm recv -> fix $
-        \again -> do
-            either <- recv
-            case either of
+        ClientReaderRequestCC request timeout mdm
+        (\cc -> onClose stream $ \_cancel -> clientCallCancel cc)
+        $ \_mdm recv -> do
+          fix $ \again -> do
+            recv >>= \case
                 Left e -> do
                     writeStream stream (Left (Abnormal (show e)))
                     return ()
