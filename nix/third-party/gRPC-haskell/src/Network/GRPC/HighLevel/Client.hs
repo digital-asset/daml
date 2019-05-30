@@ -111,13 +111,13 @@ clientRequest client (RegisteredMethod method) (ClientWriterRequest timeout meta
         Right parsedRsp ->
           ClientWriterResponse parsedRsp initMD_ trailMD_ rspCode_ details_
 clientRequest client (RegisteredMethod method) (ClientReaderRequestCC req timeout meta fCC handler) =
-    mkResponse <$> LL.clientReader client method timeout (BL.toStrict (toLazyByteString req)) meta fCC (\m recv -> handler m (convertRecv recv))
+    mkResponse <$> LL.clientReaderCC client method timeout (BL.toStrict (toLazyByteString req)) meta fCC (\m recv -> handler m (convertRecv recv))
   where
     mkResponse (Left ioError_) = ClientErrorResponse (ClientIOError ioError_)
     mkResponse (Right (meta_, rspCode_, details_)) =
       ClientReaderResponse meta_ rspCode_ details_
 clientRequest client (RegisteredMethod method) (ClientReaderRequest req timeout meta handler) =
-    mkResponse <$> LL.clientReader client method timeout (BL.toStrict (toLazyByteString req)) meta (const $ return ()) (\m recv -> handler m (convertRecv recv))
+    mkResponse <$> LL.clientReader client method timeout (BL.toStrict (toLazyByteString req)) meta (\m recv -> handler m (convertRecv recv))
   where
     mkResponse (Left ioError_) = ClientErrorResponse (ClientIOError ioError_)
     mkResponse (Right (meta_, rspCode_, details_)) =

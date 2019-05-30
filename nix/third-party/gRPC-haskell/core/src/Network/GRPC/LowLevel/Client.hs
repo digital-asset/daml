@@ -253,15 +253,15 @@ compileNormalRequestResults x =
 type ClientReaderHandler = MetadataMap -> StreamRecv ByteString -> IO ()
 type ClientReaderResult  = (MetadataMap, C.StatusCode, StatusDetails)
 
-clientReader :: Client
-             -> RegisteredMethod 'ServerStreaming
-             -> TimeoutSeconds
-             -> ByteString -- ^ The body of the request
-             -> MetadataMap -- ^ Metadata to send with the request
-             -> (ClientCall -> IO ())
-             -> ClientReaderHandler
-             -> IO (Either GRPCIOError ClientReaderResult)
-clientReader cl@Client{ clientCQ = cq } rm tm body initMeta fCC f =
+clientReaderCC :: Client
+               -> RegisteredMethod 'ServerStreaming
+               -> TimeoutSeconds
+               -> ByteString -- ^ The body of the request
+               -> MetadataMap -- ^ Metadata to send with the request
+               -> (ClientCall -> IO ())
+               -> ClientReaderHandler
+               -> IO (Either GRPCIOError ClientReaderResult)
+clientReaderCC cl@Client{ clientCQ = cq } rm tm body initMeta fCC f =
   withClientCall cl rm tm go
   where
     go cc@(unsafeCC -> c) = runExceptT $ do
@@ -273,6 +273,16 @@ clientReader cl@Client{ clientCQ = cq } rm tm body initMeta fCC f =
       srvMD <- recvInitialMetadata c cq
       liftIO $ f srvMD (streamRecvPrim c cq)
       recvStatusOnClient c cq
+
+clientReader :: Client
+             -> RegisteredMethod 'ServerStreaming
+             -> TimeoutSeconds
+             -> ByteString -- ^ The body of the request
+             -> MetadataMap -- ^ Metadata to send with the request
+             -> ClientReaderHandler
+             -> IO (Either GRPCIOError ClientReaderResult)
+clientReader cl rm tm body initMeta f =
+  clientReaderCC cl rm tm body initMeta fCC f where fCC _ = return ()
 
 --------------------------------------------------------------------------------
 -- clientWriter (client side of client streaming mode)
