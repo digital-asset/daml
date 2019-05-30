@@ -30,6 +30,7 @@ mapListPF f PastAndFuture{past=past0,future=future0} = do
 mapListStream :: (a -> IO [b]) -> Stream a -> IO (Stream b)
 mapListStream f source = do
     target <- newStream
+    onClose target (closeStream source)
     let loop = do
             takeStream source >>= \case
                 Left closed -> writeStream target (Left closed)

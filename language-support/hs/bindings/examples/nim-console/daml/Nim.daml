@@ -5,7 +5,7 @@ daml 1.2
 
 module Nim where
 
-import DA.List as List(splitAt)
+import DA.List(splitAt)
 
 template GameOffer
     with
@@ -17,11 +17,13 @@ template GameOffer
         choice GameOffer_Accept : ContractId GameInProgress with acceptor : Party
             controller acceptor
             do
-                if not (acceptor `elem` offerees)
+                if acceptor `notElem` offerees
                     then error "acceptor not an offeree"
-                    else create GameInProgress { game = Game {player1 = offerer,
-                                                              player2 = acceptor,
-                                                              piles = initPiles } }
+                    else create GameInProgress with
+                        game = Game with
+                             player1 = offerer
+                             player2 = acceptor
+                             piles = initPiles
 
 template GameInProgress
     with
@@ -33,34 +35,33 @@ template GameInProgress
             Game_Take : ContractId GameInProgress with move : Move do
                 case playMove move game of
                     Left m -> error m
-                    Right game' -> create this with game = game'
+                    Right game -> create this with game
 
-data Game = Game {
-    player1 : Party,
-    player2 : Party,
+data Game = Game with
+    player1 : Party
+    player2 : Party
     piles : [Int]
-    } deriving (Eq,Show)
+        deriving (Eq,Show)
 
 initPiles = [7,5,3]
 
-initGameState : Party -> Party -> Game
-initGameState player1 player2 = Game { player1, player2, piles = initPiles }
-
-data Move = Move { pileNum : Int, howMany : Int } deriving (Eq,Show)
+data Move = Move with
+    pileNum : Int
+    howMany : Int
+        deriving (Eq,Show)
 
 type RejectionMessage = String
 
 playMove : Move -> Game -> Either RejectionMessage Game
 playMove Move{pileNum,howMany} Game{player1,player2,piles} =
     if pileNum < 1 || pileNum > length piles then Left "no such pile" else
-    case List.splitAt (pileNum - 1) piles of
+    case splitAt (pileNum - 1) piles of
         (xs,selected::ys)
             | howMany < 1 -> Left "must take at least 1"
             | howMany > 3 -> Left "may only take 1,2 or 3"
             | selected < howMany -> Left "not that many in pile"
-            | otherwise ->
-              Right $ Game { player1 = player2,
-                             player2 = player1,
-                             piles = xs ++ [selected - howMany] ++ ys }
-        _ ->
-            Left "failed to split, should never happen"
+            | otherwise -> Right Game with
+                                player1 = player2
+                                player2 = player1
+                                piles = xs ++ [selected - howMany] ++ ys
+        _ -> Left "failed to split, should never happen"

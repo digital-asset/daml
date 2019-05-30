@@ -95,10 +95,10 @@ lowerRecord = \case
 
 lowerRecordField :: RecordField -> LL.RecordField
 lowerRecordField = \case
-    RecordField{label,value} ->
+    RecordField{label,fieldValue} ->
         LL.RecordField {
         recordFieldLabel = label,
-        recordFieldValue = Just (lowerValue value) }
+        recordFieldValue = Just (lowerValue fieldValue) }
 
 
 -- raise
@@ -174,8 +174,8 @@ raiseRecordField :: LL.RecordField -> Perhaps RecordField
 raiseRecordField = \case
     LL.RecordField{recordFieldLabel,recordFieldValue} -> do
         let label = recordFieldLabel
-        value <- perhaps "recordFieldValue" recordFieldValue >>= raiseValue
-        return RecordField{label,value}
+        fieldValue <- perhaps "recordFieldValue" recordFieldValue >>= raiseValue
+        return RecordField{label,fieldValue}
 
 -- TODO: more cases here
 raiseValue :: LL.Value -> Perhaps Value

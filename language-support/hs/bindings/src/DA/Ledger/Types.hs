@@ -157,7 +157,7 @@ data Record
 data RecordField
     = RecordField {
         label :: Text,
-        value :: Value } deriving (Eq,Ord,Show)
+        fieldValue :: Value } deriving (Eq,Ord,Show)
 
 data Variant
     = Variant {
