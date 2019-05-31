@@ -58,24 +58,25 @@ object ApiServices {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  //TODO: collapse all the index services
   def create(
       config: SandboxConfig,
       writeService: WriteService,
-      configurationService: IndexConfigurationService,
-      identityService: IdentityProvider,
-      packagesService: IndexPackagesService,
-      activeContractsService: IndexActiveContractsService,
-      transactionsService: IndexTransactionsService,
-      contractStore: ContractStore,
-      completionsService: IndexCompletionsService,
+      indexService: IndexService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
       implicit mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): Future[ApiServices] = {
-
     implicit val ec: ExecutionContext = mat.system.dispatcher
+
+    // still trying to keep it tidy in case we want to split it later
+    val configurationService: IndexConfigurationService = indexService
+    val identityService: IdentityProvider = indexService
+    val packagesService: IndexPackagesService = indexService
+    val activeContractsService: IndexActiveContractsService = indexService
+    val transactionsService: IndexTransactionsService = indexService
+    val contractStore: ContractStore = indexService
+    val completionsService: IndexCompletionsService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
       val context = SandboxContext.fromConfig(config)

@@ -48,14 +48,7 @@ class SandboxIndexService(
     templateStore: IndexPackagesService,
     contractStore: ContractStore)(implicit mat: Materializer)
     extends ParticipantState.WriteService
-    with IdentityProvider
-    with IndexActiveContractsService
-    with IndexTransactionsService
-    with IndexCompletionsService
-    with IndexConfigurationService
-    with IndexPackagesService
-    with ContractStore {
-
+    with IndexService {
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
   override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =

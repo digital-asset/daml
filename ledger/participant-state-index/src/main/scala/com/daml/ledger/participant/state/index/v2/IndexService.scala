@@ -9,6 +9,6 @@ trait IndexService
     with IndexCompletionsService
     with IndexTransactionsService
     with IndexActiveContractsService
-    with IndexTimeService
     with ContractStore
     with IdentityProvider
+//with IndexTimeService //TODO: this needs some further discussion as the TimeService is actually optional
