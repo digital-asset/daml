@@ -81,5 +81,8 @@
     "typescript-collections": "1.2.5",
     "uuidjs": "3.5.3",
     "whatwg-fetch": "^2.0.3"
+  },
+  "resolutions":{
+    "fstream": "1.0.12"
   }
 }
