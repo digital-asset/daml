@@ -22,7 +22,7 @@
     "grunt-contrib-uglify": "4.0.0",
     "grunt-contrib-watch": "1.1.0",
     "grunt-exec": "3.0.0",
-    "grunt-open": "0.2.3",
+    "grunt-open": "0.2.4",
     "http-proxy": "^1.17.0",
     "matchdep": "2.0.0",
     "node-cache": "^4.2.0",
