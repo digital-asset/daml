@@ -122,7 +122,7 @@ handleRequest (IHandle _stateRef loggerH compilerH _notifChan) makeResponse make
     CodeLens params -> RspCodeLens . makeResponse <$> LS.CodeLens.handle loggerH compilerH params
 
     req -> do
-        Logger.logJson loggerH Logger.Warning ("Method not found" :: T.Text, req)
+        Logger.logWarning loggerH ("Method not found" <> T.pack (show req))
         pure $ RspError $ makeErrorResponse MethodNotFound
 
 
