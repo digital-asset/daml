@@ -38,7 +38,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 
 class GrpcTransactionService(
-    protected val service: TransactionService with AutoCloseable,
+    protected val service: TransactionService with AutoCloseable, //TODO: when is this closed?
     val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
     identifierResolver: IdentifierResolver)(

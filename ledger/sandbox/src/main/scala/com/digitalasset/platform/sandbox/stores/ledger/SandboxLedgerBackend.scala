@@ -8,12 +8,6 @@ import java.util.concurrent.CompletionStage
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.CompletionEvent.{
-  Checkpoint,
-  CommandAccepted,
-  CommandRejected
-}
-import com.daml.ledger.participant.state.index.v2.RejectionReason._
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.daml.lf.data.Ref
@@ -21,6 +15,12 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.ledger.api.domain
+import com.digitalasset.ledger.api.domain.CompletionEvent.{
+  Checkpoint,
+  CommandAccepted,
+  CommandRejected
+}
+import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain._
 import com.digitalasset.ledger.backend.api.v1.{ApplicationId => _, RejectionReason => _, _}
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
@@ -43,7 +43,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     with ParticipantState.WriteService
     with ActiveContractsService
     with TransactionsService
-    with CompletionsService {
+    with IndexCompletionsService {
 
   override def ledgerSyncEvents(
       offset: Option[LedgerSyncOffset]): Source[LedgerSyncEvent, NotUsed] =

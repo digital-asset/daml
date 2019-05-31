@@ -101,7 +101,7 @@ class SandboxTransactionService private (
   }
 
   override def getFlatTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[Transaction] = {
+      request: GetTransactionByEventIdRequest): Future[Transaction] =
     SandboxEventIdFormatter
       .split(request.eventId.unwrap)
       .fold(
@@ -112,11 +112,9 @@ class SandboxTransactionService private (
         case TransactionIdWithIndex(transactionId, _) =>
           lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
-  }
 
-  override def getFlatTransactionById(request: GetTransactionByIdRequest): Future[Transaction] = {
+  override def getFlatTransactionById(request: GetTransactionByIdRequest): Future[Transaction] =
     lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
-  }
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd()

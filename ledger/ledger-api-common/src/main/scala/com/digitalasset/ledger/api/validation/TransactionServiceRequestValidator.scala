@@ -56,22 +56,21 @@ class TransactionServiceRequestValidator(
         .fold[Result[Option[domain.LedgerOffset]]](rightNone)(end =>
           LedgerOffsetValidator.validate(end, "end").map(Some(_)))
       _ <- requireKnownParties(req.getFilter)
-    } yield {
-
+    } yield
       PartialValidation(
         ledgerId,
         filter,
         convertedBegin,
         convertedEnd,
         req.traceContext.map(toBrave))
-    }
+
   }
 
   private def offsetIsBeforeEndIfAbsolute(
       offsetType: String,
       ledgerOffset: LedgerOffset,
       ledgerEnd: LedgerOffset.Absolute,
-      offsetOrdering: Ordering[LedgerOffset.Absolute]): Result[Unit] = {
+      offsetOrdering: Ordering[LedgerOffset.Absolute]): Result[Unit] =
     ledgerOffset match {
       case abs: LedgerOffset.Absolute if offsetOrdering.gt(abs, ledgerEnd) =>
         Left(
@@ -79,7 +78,6 @@ class TransactionServiceRequestValidator(
             s"$offsetType offset ${abs.value} is after ledger end ${ledgerEnd.value}"))
       case _ => Right(())
     }
-  }
 
   private def requireParties(parties: Traversable[String]): Result[Set[Party]] =
     parties.foldLeft[Result[Set[Party]]](Right(Set.empty)) { (acc, partyTxt) =>
@@ -89,6 +87,7 @@ class TransactionServiceRequestValidator(
       } yield parties + party
     }
 
+  //TODO PartyValidator
   private def requireKnownParties(transactionFilter: TransactionFilter): Result[Unit] =
     requireParties(transactionFilter.filtersByParty.keys).flatMap(requireKnownParties)
 
@@ -98,6 +97,7 @@ class TransactionServiceRequestValidator(
       Left(invalidArgument(s"Unknown parties: ${unknownParties.mkString("[", ", ", "]")}"))
     else Right(())
   }
+
   def validate(
       req: GetTransactionsRequest,
       ledgerEnd: LedgerOffset.Absolute,
