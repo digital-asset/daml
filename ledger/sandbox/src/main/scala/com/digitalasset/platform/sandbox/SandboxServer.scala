@@ -222,7 +222,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         (s"sql", Ledger.metered(ledger))
     }
 
-    val ledgerBackend = new SandboxIndexService(ledger, config.timeModel)
+    val ledgerBackend = new SandboxIndexService(ledger, config.timeModel, context.templateStore)
     val contractStore = new SandboxContractStore(ledger)
 
     val stopHeartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
@@ -236,7 +236,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
               ledgerBackend,
               ledgerBackend,
               ledgerBackend,
-              context.packageService,
+              ledgerBackend,
               ledgerBackend,
               ledgerBackend,
               contractStore,

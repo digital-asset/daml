@@ -9,7 +9,7 @@ import com.digitalasset.platform.sandbox.damle.SandboxTemplateStore
 
 case class SandboxContext(
     config: SandboxConfig,
-    packageService: IndexPackagesService,
+    templateStore: IndexPackagesService,
     packageContainer: DamlPackageContainer)
 
 object SandboxContext {
@@ -17,8 +17,8 @@ object SandboxContext {
     Cli.parse(args).map(fromConfig)
 
   def fromConfig(config: SandboxConfig): SandboxContext = {
-    val ts = SandboxTemplateStore(config.damlPackageContainer)
-    SandboxContext(config, ts, config.damlPackageContainer)
+    val templateStore = SandboxTemplateStore(config.damlPackageContainer)
+    SandboxContext(config, templateStore, config.damlPackageContainer)
   }
 
   /** Parses the arguments into a SandboxContext object. In case of failure calls System.exit()! */

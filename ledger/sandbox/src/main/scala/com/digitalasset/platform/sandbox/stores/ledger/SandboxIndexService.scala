@@ -8,12 +8,13 @@ import java.util.concurrent.CompletionStage
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2._
+import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.CompletionEvent.{
   Checkpoint,
@@ -39,13 +40,15 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-class SandboxIndexService(ledger: Ledger, timeModel: TimeModel)(implicit mat: Materializer)
+class SandboxIndexService(ledger: Ledger, timeModel: TimeModel, templateStore: IndexPackagesService)(
+    implicit mat: Materializer)
     extends ParticipantState.WriteService
     with IdentityProvider
     with IndexActiveContractsService
     with IndexTransactionsService
     with IndexCompletionsService
-    with IndexConfigurationService {
+    with IndexConfigurationService
+    with IndexPackagesService {
 
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
@@ -329,5 +332,11 @@ class SandboxIndexService(ledger: Ledger, timeModel: TimeModel)(implicit mat: Ma
       case _: backend.api.v1.RejectionReason.DuplicateCommandId =>
         DuplicateCommandId(rr.description)
     }
+
+  override def listPackages(): Future[Set[PackageId]] =
+    templateStore.listPackages()
+
+  override def getPackage(packageId: PackageId): Future[Option[Archive]] =
+    templateStore.getPackage(packageId)
 
 }
