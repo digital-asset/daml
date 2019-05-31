@@ -1,9 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- TODO MarkedString is deprecated in LSP protocol so we should move to MarkupContent at some point.
-{-# OPTIONS_GHC -Wno-deprecations #-}
-
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Display information on hover.
@@ -42,16 +39,16 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
     case mbResult of
         Just (mbRange, contents) ->
             pure $ Just $ Hover
-                        (HoverContentsMS $ List $ map showHoverInformation contents)
+                        (HoverContents $ MarkupContent MkMarkdown $ T.intercalate sectionSeparator $ map showHoverInformation contents)
                         mbRange
 
         Nothing -> pure Nothing
   where
-    showHoverInformation :: Compiler.HoverText -> MarkedString
+    showHoverInformation :: Compiler.HoverText -> T.Text
     showHoverInformation = \case
-        Compiler.HoverHeading h -> PlainString ("***" <> h <> "***:")
-        Compiler.HoverDamlCode damlCode -> CodeString $ LanguageString
-            { _language = damlLanguageIdentifier
-            , _value = damlCode
-            }
-        Compiler.HoverMarkdown md -> PlainString md
+        Compiler.HoverDamlCode damlCode -> T.unlines
+            [ "```" <> damlLanguageIdentifier
+            , damlCode
+            , "```"
+            ]
+        Compiler.HoverMarkdown md -> md
