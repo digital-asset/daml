@@ -31,6 +31,5 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/da-hs-base",
-        "//libs-haskell/da-hs-json-rpc",
     ],
 )
