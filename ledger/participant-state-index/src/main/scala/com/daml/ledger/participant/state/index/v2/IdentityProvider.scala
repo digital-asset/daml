@@ -10,6 +10,6 @@ import scala.concurrent.Future
   * Serves as a backend to implement
   * [[com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService]]
   **/
-trait IdentityService {
+trait IdentityProvider {
   def getLedgerId(): Future[LedgerId]
 }

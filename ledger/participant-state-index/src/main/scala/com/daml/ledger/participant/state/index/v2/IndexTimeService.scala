@@ -10,6 +10,6 @@ import com.digitalasset.daml.lf.data.Time
 /** Serves as a backend to implement
   * [[com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService]]
   */
-trait TimeService {
+trait IndexTimeService {
   def getLedgerRecordTimeStream(): Source[Time.Timestamp, NotUsed]
 }

@@ -10,6 +10,6 @@ import akka.stream.scaladsl.Source
   * Serves as a backend to implement
   * [[com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService]]
   **/
-trait ConfigurationService {
+trait IndexConfigurationService {
   def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed]
 }

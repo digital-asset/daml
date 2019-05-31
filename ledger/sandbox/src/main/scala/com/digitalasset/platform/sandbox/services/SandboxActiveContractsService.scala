@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
   ActiveContractSetSnapshot,
-  ActiveContractsService => ACSBackend
+  IndexActiveContractsService => ACSBackend
 }
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId

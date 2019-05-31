@@ -11,7 +11,7 @@ import scala.concurrent.Future
   * Serves as a backend to implement
   * [[com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService]]
   **/
-trait ActiveContractsService {
+trait IndexActiveContractsService {
 
   def getActiveContractSetSnapshot(
       filter: TransactionFilter

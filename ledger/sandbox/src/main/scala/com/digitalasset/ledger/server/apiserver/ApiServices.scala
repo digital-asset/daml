@@ -7,10 +7,10 @@ import akka.NotUsed
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
-  ActiveContractsService,
-  ConfigurationService,
-  IdentityService,
-  PackagesService
+  IndexActiveContractsService,
+  IndexConfigurationService,
+  IdentityProvider,
+  IndexPackagesService
 }
 import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.WriteService
@@ -63,25 +63,25 @@ object ApiServices {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   //TODO: this is here only temporarily
-  def configurationService(config: SandboxConfig) = new ConfigurationService {
+  def configurationService(config: SandboxConfig) = new IndexConfigurationService {
     override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
       Source
         .single(LedgerConfiguration(config.timeModel.minTtl, config.timeModel.maxTtl))
         .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
   }
 
-  def identityService(ledgerId: LedgerId): IdentityService =
+  def identityService(ledgerId: LedgerId): IdentityProvider =
     () => Future.successful(ledgerId)
 
   def create(
       config: SandboxConfig,
       ledgerBackend: LedgerBackend, //eventually this should not be needed!
       writeService: WriteService,
-      configurationService: ConfigurationService,
-      identityService: IdentityService,
-      packagesService: PackagesService,
-      activeContractsService: ActiveContractsService,
-      transactionsService: TransactionsService,
+      configurationService: IndexConfigurationService,
+      identityService: IdentityProvider,
+      packagesService: IndexPackagesService,
+      activeContractsService: IndexActiveContractsService,
+      transactionsService: IndexTransactionsService,
       contractStore: ContractStore,
       completionsService: IndexCompletionsService,
       engine: Engine,

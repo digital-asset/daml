@@ -3,13 +3,12 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-//TODO: rename all subtraits to contain "Index" prefix in a follow-up PR!
 trait IndexService
-    extends PackagesService
-    with ConfigurationService
+    extends IndexPackagesService
+    with IndexConfigurationService
     with IndexCompletionsService
-    with TransactionsService
-    with ActiveContractsService
+    with IndexTransactionsService
+    with IndexActiveContractsService
+    with IndexTimeService
     with ContractStore
-    with IdentityService
-    with TimeService
+    with IdentityProvider

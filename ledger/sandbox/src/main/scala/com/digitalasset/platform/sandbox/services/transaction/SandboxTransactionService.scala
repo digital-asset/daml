@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.TransactionsService
+import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain._
@@ -29,7 +29,7 @@ object SandboxTransactionService {
 
   def createApiService(
       ledgerId: LedgerId,
-      transactionsService: TransactionsService,
+      transactionsService: IndexTransactionsService,
       identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
@@ -43,7 +43,7 @@ object SandboxTransactionService {
 }
 
 class SandboxTransactionService private (
-    transactionsService: TransactionsService,
+    transactionsService: IndexTransactionsService,
     parallelism: Int = 4)(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,

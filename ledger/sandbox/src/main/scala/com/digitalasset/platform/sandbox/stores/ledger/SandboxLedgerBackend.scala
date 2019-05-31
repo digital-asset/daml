@@ -41,8 +41,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
     with ParticipantState.WriteService
-    with ActiveContractsService
-    with TransactionsService
+    with IndexActiveContractsService
+    with IndexTransactionsService
     with IndexCompletionsService {
 
   override def ledgerSyncEvents(
