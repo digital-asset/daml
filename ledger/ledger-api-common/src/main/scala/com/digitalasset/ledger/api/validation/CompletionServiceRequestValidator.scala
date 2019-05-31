@@ -19,6 +19,8 @@ import com.digitalasset.platform.server.api.validation.ErrorFactories._
 class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: PartyNameChecker)
     extends FieldValidations {
 
+  private val partyValidator = new PartyValidator(partyNameChecker)
+
   def validateCompletionStreamRequest(request: GrpcCompletionStreamRequest)
     : Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
@@ -28,15 +30,15 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
         .fromString(nonEmptyAppId)
         .left
         .map(invalidField("application_id", _))
-      partiez <- requireNonEmpty(request.parties, "parties")
+      nonEmptyParties <- requireNonEmpty(request.parties, "parties")
+      knownParties <- partyValidator.requireKnownParties(nonEmptyParties)
       offset <- FieldValidations.requirePresence(request.offset, "offset")
       convertedOffset <- LedgerOffsetValidator.validate(offset, "offset")
     } yield
       CompletionStreamRequest(
         ledgerId,
         ApplicationId(appId),
-        partiez.toSet
-          .map(p => Ref.Party.assertFromString(p)), //TODO: validate parties using the PartyNameChecker
+        knownParties,
         convertedOffset
       )
 
