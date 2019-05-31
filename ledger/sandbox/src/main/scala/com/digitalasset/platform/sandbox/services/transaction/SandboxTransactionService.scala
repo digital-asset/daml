@@ -49,7 +49,6 @@ class SandboxTransactionService private (
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends TransactionService
-    with AutoCloseable
     with ErrorFactories {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -153,7 +152,5 @@ class SandboxTransactionService private (
               .withDescription("Transaction not found, or not visible.")
               .asRuntimeException())
       }
-
-  override def close(): Unit = ()
 
 }

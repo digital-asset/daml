@@ -50,7 +50,6 @@ class SandboxCommandCompletionService private (
       .via(Slf4JLog(logger, s"Serving response for completion subscription $subscriptionId"))
   }
 
-  //TODO: this seems completely redundant!
   override def getLedgerEnd(ledgerId: domain.LedgerId): Future[LedgerOffset.Absolute] =
     completionsService.currentLedgerEnd
 
