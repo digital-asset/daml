@@ -294,7 +294,7 @@ object ConfigParser {
         from,
         to,
         cliParams.party,
-        cliParams.templateConfigs.toSet,
+        cliParams.templateConfigs,
         tlsConfig,
       )
 
@@ -326,6 +326,5 @@ object ConfigParser {
   }
 
   private def validateUniqueElements[A](x: Seq[A], message: => String): Either[String, Unit] =
-    if (x.size != x.toSet.size) Left(message)
-    else Right(())
+    Either.cond(x.size == x.toSet.size, (), message)
 }

@@ -40,8 +40,12 @@ object ExtractorConfig {
 }
 
 final case class TemplateConfig(moduleName: String, entityName: String)
+    extends Ordered[TemplateConfig] {
 
-object TemplateConfig {
-  implicit val templateConfigOrdering: Ordering[TemplateConfig] =
-    Ordering.by(TemplateConfig.unapply)
+  override def compare(that: TemplateConfig): Int = {
+    val a: (String, String) = (this.moduleName, this.entityName)
+    val b: (String, String) = (that.moduleName, that.entityName)
+    val O = implicitly[Ordering[(String, String)]]
+    O.compare(a, b)
+  }
 }
