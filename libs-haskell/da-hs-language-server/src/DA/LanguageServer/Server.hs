@@ -99,7 +99,7 @@ convToServerNotif not = case not of
 convClientMsg :: LSP.FromClientMessage -> Maybe (Either ServerNotification (ServerRequest, LspId))
 convClientMsg msg = case msg of
     LSP.ReqInitialize m -> unknownReq m
-    LSP.ReqShutdown m -> Just $ Right $ (Shutdown, reqId m)
+    LSP.ReqShutdown m -> Just $ Right (Shutdown, reqId m)
 
     LSP.ReqHover m -> toReq Hover m
 
@@ -136,7 +136,7 @@ convClientMsg msg = case msg of
     LSP.ReqExecuteCommand m -> unknownReq m
     LSP.ReqWillSaveWaitUntil m -> unknownReq m
     LSP.ReqCustomClient m -> case reqMethod m of
-        "daml/keepAlive" -> Just $ Right $ (KeepAlive, reqId m)
+        "daml/keepAlive" -> Just $ Right (KeepAlive, reqId m)
         _ -> unknownReq m
 
     LSP.NotInitialized m -> unknownNot m
@@ -155,10 +155,10 @@ convClientMsg msg = case msg of
 
     LSP.RspApplyWorkspaceEdit _ -> Nothing
     LSP.RspFromClient _ -> Nothing
-  where toReq constr msg = Just $ Right $ (constr $ reqParams msg, reqId msg)
+  where toReq constr msg = Just $ Right (constr $ reqParams msg, reqId msg)
         toNot constr msg = Just $ Left $ constr $ notParams msg
         unknownReq (LSP.RequestMessage _ id method params) =
-            Just $ Right $ (UnknownRequest (TL.toStrict $ Aeson.encodeToLazyText method) (Aeson.toJSON params), id)
+            Just $ Right (UnknownRequest (TL.toStrict $ Aeson.encodeToLazyText method) (Aeson.toJSON params), id)
         unknownNot (LSP.NotificationMessage _ method params) =
             Just $ Left $ UnknownNotification (TL.toStrict $ Aeson.encodeToLazyText method) (Aeson.toJSON params)
         -- Type-restricted wrappers to make DuplicateRecordFields less annoying.
