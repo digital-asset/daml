@@ -460,10 +460,12 @@ execVisual dalfFilePath = do
     (pkID, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes  -- LF.PackageId, LF.Package
     let world =  AST.initWorldSelf [(pkID, lfPkg)] version1_4  lfPkg -- world 
     case moduleFromWorld world of 
-        Right mod -> putStrLn (show (choices))
+        Right mod ->  putStrLn ( show (headTplName) ++ "->" ++ show choiceNames)
             where  
                 templates = templatesFromModule mod
                 choices = templateChoicesFromTemplate (head templates)
+                headTplName = LF.unTypeConName $ LF.tplTypeCon (head templates)
+                choiceNames = map (LF.unChoiceName . LF.chcName) choices
         Left err -> error(show err )
 
 lfVersionString :: LF.Version -> String
