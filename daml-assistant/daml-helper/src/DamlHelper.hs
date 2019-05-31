@@ -542,7 +542,9 @@ navigatorConfig parties =
        object ["users" .= object (map (\p -> p .= object [ "party" .= p ]) parties)]
 
 installExtension :: FilePath -> FilePath -> IO ()
-installExtension src target =
+installExtension src target = do
+    -- Create .vscode/extensions if it does not already exist.
+    createDirectoryIfMissing True (takeDirectory target)
     catchJust
         (guard . isAlreadyExistsError)
         install
@@ -551,8 +553,6 @@ installExtension src target =
      where
          install
              | isWindows = do
-                   -- Create .vscode/extensions if it does not already exist.
-                   createDirectoryIfMissing True (takeDirectory target)
                    -- We create the directory to throw an isAlreadyExistsError.
                    createDirectory target
                    copyDirectory src target
