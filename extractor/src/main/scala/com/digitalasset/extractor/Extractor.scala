@@ -125,7 +125,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
     // Template filtration is not supported on GetTransactionTrees RPC
     // we will have to filter out templates on the client-side.
     val templateSelection = Filters.defaultInstance
-    TransactionFilter(config.parties.toList.map(_ -> templateSelection)(breakOut))
+    TransactionFilter(parties.toList.map(_ -> templateSelection)(breakOut))
   }
 
   private def streamTransactions(
