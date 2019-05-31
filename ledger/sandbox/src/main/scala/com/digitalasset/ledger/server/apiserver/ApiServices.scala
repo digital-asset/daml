@@ -18,7 +18,6 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
@@ -69,9 +68,6 @@ object ApiServices {
         .single(LedgerConfiguration(config.timeModel.minTtl, config.timeModel.maxTtl))
         .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
   }
-
-  def identityService(ledgerId: LedgerId): IdentityProvider =
-    () => Future.successful(ledgerId)
 
   def create(
       config: SandboxConfig,

@@ -21,7 +21,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
   CommandRejected
 }
 import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.api.domain._
+import com.digitalasset.ledger.api.domain.{LedgerId, _}
 import com.digitalasset.ledger.backend.api.v1.{ApplicationId => _, RejectionReason => _, _}
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
   AcceptedTransaction,
@@ -41,9 +41,12 @@ import scala.concurrent.{ExecutionContext, Future}
 class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
     with ParticipantState.WriteService
+    with IdentityProvider
     with IndexActiveContractsService
     with IndexTransactionsService
     with IndexCompletionsService {
+
+  override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
   override def ledgerSyncEvents(
       offset: Option[LedgerSyncOffset]): Source[LedgerSyncEvent, NotUsed] =
