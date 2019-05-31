@@ -11,7 +11,7 @@ import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
-import com.digitalasset.platform.sandbox.services.SandboxSubmissionService
+import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.{
   CommandExecutorImpl,
@@ -52,7 +52,7 @@ trait TestHelpers {
 
     val backend = new SandboxLedgerBackend(ledger)
     val contractStore = new SandboxContractStore(ledger)
-    SandboxSubmissionService.createApiService(
+    ApiSubmissionService.create(
       ledgerId,
       damlPackageContainer,
       IdentifierResolver(pkgId => Future.successful(damlPackageContainer.getPackage(pkgId))),

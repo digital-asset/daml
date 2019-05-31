@@ -25,9 +25,9 @@ import com.digitalasset.ledger.api.v1.transaction_service.{TransactionServiceLog
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object SandboxTransactionService {
+object ApiTransactionService {
 
-  def createApiService(
+  def create(
       ledgerId: LedgerId,
       transactionsService: IndexTransactionsService,
       identifierResolver: IdentifierResolver)(
@@ -36,13 +36,13 @@ object SandboxTransactionService {
       esf: ExecutionSequencerFactory)
     : GrpcTransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
-      new SandboxTransactionService(transactionsService),
+      new ApiTransactionService(transactionsService),
       ledgerId,
       PartyNameChecker.AllowAllParties,
       identifierResolver) with TransactionServiceLogging
 }
 
-class SandboxTransactionService private (
+class ApiTransactionService private (
     transactionsService: IndexTransactionsService,
     parallelism: Int = 4)(
     implicit executionContext: ExecutionContext,

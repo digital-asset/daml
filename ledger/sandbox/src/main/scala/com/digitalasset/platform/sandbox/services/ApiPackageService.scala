@@ -24,7 +24,7 @@ import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SandboxPackageService private (backend: IndexPackagesService)
+class ApiPackageService private (backend: IndexPackagesService)
     extends PackageService
     with GrpcApiService {
   override def bindService(): ServerServiceDefinition =
@@ -84,11 +84,10 @@ class SandboxPackageService private (backend: IndexPackagesService)
 
 }
 
-object SandboxPackageService {
-  def createApiService(ledgerId: LedgerId, backend: IndexPackagesService)(
-      implicit ec: ExecutionContext)
+object ApiPackageService {
+  def create(ledgerId: LedgerId, backend: IndexPackagesService)(implicit ec: ExecutionContext)
     : PackageService with BindableService with PackageServiceLogging =
-    new PackageServiceValidation(new SandboxPackageService(backend), ledgerId) with BindableService
+    new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService
     with PackageServiceLogging {
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, DEC)

@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SandboxCommandCompletionService private (
+class ApiCommandCompletionService private (
     completionsService: IndexCompletionsService
 )(
     implicit ec: ExecutionContext,
@@ -55,15 +55,15 @@ class SandboxCommandCompletionService private (
 
 }
 
-object SandboxCommandCompletionService {
-  def createApiService(ledgerId: LedgerId, completionsService: IndexCompletionsService)(
+object ApiCommandCompletionService {
+  def create(ledgerId: LedgerId, completionsService: IndexCompletionsService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory): GrpcCommandCompletionService
     with BindableService
     with AutoCloseable
     with CommandCompletionServiceLogging = {
-    val impl: CommandCompletionService = new SandboxCommandCompletionService(completionsService)
+    val impl: CommandCompletionService = new ApiCommandCompletionService(completionsService)
 
     new GrpcCommandCompletionService(ledgerId, impl, PartyNameChecker.AllowAllParties)
     with BindableService with CommandCompletionServiceLogging {

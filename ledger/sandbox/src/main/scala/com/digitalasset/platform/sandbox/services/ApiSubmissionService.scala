@@ -37,11 +37,11 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-object SandboxSubmissionService {
+object ApiSubmissionService {
 
   type RecordUpdate = Either[LfError, (Transaction, BlindingInfo)]
 
-  def createApiService(
+  def create(
       ledgerId: LedgerId,
       packageContainer: DamlPackageContainer,
       identifierResolver: IdentifierResolver,
@@ -52,7 +52,7 @@ object SandboxSubmissionService {
       commandExecutor: CommandExecutor)(implicit ec: ExecutionContext, mat: ActorMaterializer)
     : GrpcCommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
-      new SandboxSubmissionService(
+      new ApiSubmissionService(
         packageContainer,
         contractStore,
         writeService,
@@ -69,7 +69,7 @@ object SandboxSubmissionService {
 
 }
 
-class SandboxSubmissionService private (
+class ApiSubmissionService private (
     packageContainer: DamlPackageContainer,
     contractStore: ContractStore,
     writeService: WriteService,

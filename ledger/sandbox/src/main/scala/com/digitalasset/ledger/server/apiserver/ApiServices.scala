@@ -24,12 +24,12 @@ import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.services._
-import com.digitalasset.platform.sandbox.services.transaction.SandboxTransactionService
+import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
-import com.digitalasset.platform.server.services.command.ReferenceCommandService
-import com.digitalasset.platform.server.services.identity.LedgerIdentityService
-import com.digitalasset.platform.server.services.testing.{ReferenceTimeService, TimeServiceBackend}
+import com.digitalasset.platform.server.services.command.ApiCommandService
+import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
+import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
 import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -101,7 +101,7 @@ object ApiServices {
       val identifierResolver: IdentifierResolver = new IdentifierResolver(packageResolver)
 
       val apiSubmissionService =
-        SandboxSubmissionService.createApiService(
+        ApiSubmissionService.create(
           ledgerId,
           context.packageContainer,
           identifierResolver,
@@ -115,23 +115,22 @@ object ApiServices {
       logger.info(EngineInfo.show)
 
       val apiTransactionService =
-        SandboxTransactionService
-          .createApiService(ledgerId, transactionsService, identifierResolver)
+        ApiTransactionService.create(ledgerId, transactionsService, identifierResolver)
 
       val apiLedgerIdentityService =
-        LedgerIdentityService.createApiService(() => identityService.getLedgerId())
+        ApiLedgerIdentityService.create(() => identityService.getLedgerId())
 
-      val apiPackageService = SandboxPackageService.createApiService(ledgerId, packagesService)
+      val apiPackageService = ApiPackageService.create(ledgerId, packagesService)
 
       val apiConfigurationService =
-        LedgerConfigurationService.createApiService(ledgerId, configurationService)
+        ApiLedgerConfigurationService.create(ledgerId, configurationService)
 
       val apiCompletionService =
-        SandboxCommandCompletionService
-          .createApiService(ledgerId, completionsService)
+        ApiCommandCompletionService
+          .create(ledgerId, completionsService)
 
-      val apiCommandService = ReferenceCommandService.createApiService(
-        ReferenceCommandService.Configuration(
+      val apiCommandService = ApiCommandService.create(
+        ApiCommandService.Configuration(
           ledgerId,
           config.commandConfig.inputBufferSize,
           config.commandConfig.maxParallelSubmissions,
@@ -142,7 +141,7 @@ object ApiServices {
           config.commandConfig.commandTtl
         ),
         // Using local services skips the gRPC layer, improving performance.
-        ReferenceCommandService.LowLevelCommandServiceAccess.LocalServices(
+        ApiCommandService.LowLevelCommandServiceAccess.LocalServices(
           CommandSubmissionFlow(
             apiSubmissionService.submit,
             config.commandConfig.maxParallelSubmissions),
@@ -155,14 +154,13 @@ object ApiServices {
       )
 
       val apiActiveContractsService =
-        SandboxActiveContractsService
-          .createApiService(ledgerId, activeContractsService, identifierResolver)
+        ApiActiveContractsService.create(ledgerId, activeContractsService, identifierResolver)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map { tsb =>
-          ReferenceTimeService.createApiService(
+          ApiTimeService.create(
             ledgerId,
             tsb,
             config.timeProviderType == TimeProviderType.StaticAllowBackwards
