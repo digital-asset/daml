@@ -59,6 +59,10 @@ import           System.IO
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 import DA.Cli.Damlc.Test
 import DA.Bazel.Runfiles
+import DA.Daml.LF.Ast.World as AST 
+import DA.Daml.LF.Ast.Version
+import qualified Data.NameMap               as NM
+-- import Debug.Trace
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -436,11 +440,31 @@ execClean projectOpts = do
             removeAndWarn "dist"
             putStrLn "Removed build artifacts."
 
+-- choiceRetTypes :: LF.TemplateChoice -> LF.Type
+
+
+templatesFromModule :: LF.Module -> [LF.Template]
+templatesFromModule mod = NM.toList $ LF.moduleTemplates mod
+
+templateChoicesFromTemplate :: LF.Template -> [LF.TemplateChoice]
+templateChoicesFromTemplate tpl = NM.toList $ LF.tplChoices tpl
+
+moduleFromWorld :: AST.World -> Either AST.LookupError LF.Module
+moduleFromWorld world = AST.lookupModule (LF.Qualified LF.PRSelf moduleName () ) world
+    where 
+        moduleName = LF.ModuleName ["Setup"] -- something that will have to be looked up from daml.yaml
+
 execVisual :: FilePath -> IO ()
 execVisual dalfFilePath = do
     bytes <- B.readFile dalfFilePath
-    (pkgId, _) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes
-    putStrLn (show pkgId)
+    (pkID, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes  -- LF.PackageId, LF.Package
+    let world =  AST.initWorldSelf [(pkID, lfPkg)] version1_4  lfPkg -- world 
+    case moduleFromWorld world of 
+        Right mod -> putStrLn (show (choices))
+            where  
+                templates = templatesFromModule mod
+                choices = templateChoicesFromTemplate (head templates)
+        Left err -> error(show err )
 
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
