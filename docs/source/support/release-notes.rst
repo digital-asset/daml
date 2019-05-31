@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- Add ``enumerate`` function.
+
 Navigator
 ~~~~~~~~~~~
 
