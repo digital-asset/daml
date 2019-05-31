@@ -11,9 +11,11 @@ import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.CompletionEvent.{
@@ -40,15 +42,19 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-class SandboxIndexService(ledger: Ledger, timeModel: TimeModel, templateStore: IndexPackagesService)(
-    implicit mat: Materializer)
+class SandboxIndexService(
+    ledger: Ledger,
+    timeModel: TimeModel,
+    templateStore: IndexPackagesService,
+    contractStore: ContractStore)(implicit mat: Materializer)
     extends ParticipantState.WriteService
     with IdentityProvider
     with IndexActiveContractsService
     with IndexTransactionsService
     with IndexCompletionsService
     with IndexConfigurationService
-    with IndexPackagesService {
+    with IndexPackagesService
+    with ContractStore {
 
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
@@ -333,10 +339,23 @@ class SandboxIndexService(ledger: Ledger, timeModel: TimeModel, templateStore: I
         DuplicateCommandId(rr.description)
     }
 
+  // IndexPackagesService
   override def listPackages(): Future[Set[PackageId]] =
     templateStore.listPackages()
 
   override def getPackage(packageId: PackageId): Future[Option[Archive]] =
     templateStore.getPackage(packageId)
+
+  // ContractStore
+  override def lookupActiveContract(
+      submitter: Ref.Party,
+      contractId: AbsoluteContractId
+  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+    contractStore.lookupActiveContract(submitter, contractId)
+
+  override def lookupContractKey(
+      submitter: Party,
+      key: GlobalKey): Future[Option[AbsoluteContractId]] =
+    contractStore.lookupContractKey(submitter, key)
 
 }

@@ -51,12 +51,15 @@ trait TestHelpers {
       ActiveContractsInMemory.empty,
       ImmArray.empty)
 
+    val contractStore = new SandboxContractStore(ledger)
+
     val writeService = new SandboxIndexService(
       ledger,
       TimeModel.reasonableDefault,
-      SandboxTemplateStore(damlPackageContainer))
+      SandboxTemplateStore(damlPackageContainer),
+      contractStore
+    )
 
-    val contractStore = new SandboxContractStore(ledger)
     ApiSubmissionService.create(
       ledgerId,
       damlPackageContainer,
