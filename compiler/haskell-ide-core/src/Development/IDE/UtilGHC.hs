@@ -76,7 +76,9 @@ fakeDynFlags = defaultDynFlags settings ([], [])
                    , sPlatformConstants=platformConstants
                    , sToolSettings=toolSettings
                    }
-        fileSettings = FileSettings {}
+        fileSettings = FileSettings {
+          -- fileSettings_tmpDir="."
+          }
         toolSettings = ToolSettings {
           toolSettings_opt_P_fingerprint=fingerprint0
           }
@@ -100,3 +102,4 @@ fakeDynFlags = defaultDynFlags settings ([], [])
           PlatformConstants {
             pc_DYNAMIC_BY_DEFAULT=False
           , pc_WORD_SIZE=8
+          }
