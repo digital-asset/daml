@@ -8,6 +8,7 @@ da_haskell_library(
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
         "aeson",
+        "async",
         "attoparsec",
         "base",
         "bytestring",
@@ -16,6 +17,7 @@ da_haskell_library(
         "containers",
         "data-default",
         "exceptions",
+        "extra",
         "haskell-lsp",
         "haskell-lsp-types",
         "mtl",

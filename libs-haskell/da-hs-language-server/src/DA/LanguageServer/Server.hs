@@ -11,6 +11,8 @@ module DA.LanguageServer.Server
 
 import Control.Monad
 import Control.Concurrent
+import Control.Concurrent.Async
+import Control.Concurrent.Extra
 import Control.Concurrent.STM
 
 import Data.Default
@@ -60,13 +62,24 @@ runServer loggerH reqHandler notifHandler notifChan = do
     -- the language server tests without the redirection.
     putStr " " >> hFlush stdout
     clientMsgChan <- newTChanIO
-    void $ LSP.runWithHandles
-        stdin
-        newStdout
-        (const $ Right (), handleInit clientMsgChan)
-        (handlers clientMsgChan)
-        options
-        Nothing
+    -- These barriers are signaled when the threads reading from these chans exit.
+    -- This should not happen but if it does, we will make sure that the whole server
+    -- dies and can be restarted instead of losing threads silently.
+    clientMsgBarrier <- newBarrier
+    notifBarrier <- newBarrier
+    void $ waitAnyCancel =<< traverse async
+        [ void $ LSP.runWithHandles
+            stdin
+            newStdout
+            ( const $ Right ()
+            , handleInit (signalBarrier clientMsgBarrier ()) (signalBarrier notifBarrier ()) clientMsgChan
+            )
+            (handlers clientMsgChan)
+            options
+            Nothing
+        , void $ waitBarrier clientMsgBarrier
+        , void $ waitBarrier notifBarrier
+        ]
     where
         reqHandler' :: (ServerRequest, LspId) -> IO LSP.FromServerMessage
         reqHandler' (req, reqId) =
@@ -74,15 +87,15 @@ runServer loggerH reqHandler notifHandler notifChan = do
                 (\res -> ResponseMessage "2.0" (responseId reqId) (Just res) Nothing)
                 (\err -> ResponseMessage "2.0" (responseId reqId) Nothing (Just $ ResponseError err "" Nothing))
                 req
-        handleInit :: TChan LSP.FromClientMessage -> LSP.LspFuncs () -> IO (Maybe LSP.ResponseError)
-        handleInit clientMsgChan LSP.LspFuncs{..} = do
-            _ <- forkIO $ forever $ do
+        handleInit :: IO () -> IO () -> TChan LSP.FromClientMessage -> LSP.LspFuncs () -> IO (Maybe LSP.ResponseError)
+        handleInit exitClientMsg exitNotif clientMsgChan LSP.LspFuncs{..} = do
+            _ <- flip forkFinally (const exitClientMsg) $ forever $ do
                 msg <- atomically $ readTChan clientMsgChan
                 case convClientMsg msg of
                     Nothing -> Logger.logError loggerH $ "Unknown client msg: " <> T.pack (show msg)
                     Just (Left notif) -> notifHandler notif
                     Just (Right req) -> sendFunc =<< reqHandler' req
-            _ <- forkIO $ forever $ do
+            _ <- flip forkFinally (const exitNotif) $ forever $ do
                 notif <- atomically $ readTChan notifChan
                 sendFunc $ convToServerNotif notif
             pure Nothing
