@@ -11,12 +11,10 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.sandbox.persistence.PostgresAround
 import com.digitalasset.platform.sandbox.services.SandboxFixture
-
 import scalaz.OneAnd
 import cats.effect.{ContextShift, IO}
 import doobie._
 import doobie.implicits._
-
 import org.scalatest._
 
 import scala.concurrent.{Await, ExecutionContext}
@@ -33,12 +31,13 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     SnapshotEndSetting.Head,
     OneAnd(Party assertFromString "Bob", List.empty),
+    Set.empty,
     TlsConfiguration(
       enabled = false,
       None,
       None,
-      None
-    )
+      None,
+    ),
   )
 
   protected def configureExtractor(ec: ExtractorConfig): ExtractorConfig = ec

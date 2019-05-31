@@ -58,7 +58,7 @@ object Event {
     def convert: String \/ CreatedEvent = {
       for {
         apiTemplateId <- createdTemplateIdLens(apiEvent)
-        templateId <- apiTemplateId.convert
+        templateId <- \/.right(apiTemplateId.convert)
         apiRecord <- createdArgumentsLens(apiEvent)
         createArguments <- apiRecord.convert
       } yield
@@ -76,7 +76,7 @@ object Event {
     def convert: String \/ ExercisedEvent = {
       for {
         apiTemplateId <- exercisedTemplateIdLens(apiEvent)
-        templateId <- apiTemplateId.convert
+        templateId <- \/.right(apiTemplateId.convert)
         apiChoiceArg <- exercisedChoiceArgLens(apiEvent)
         choiceArg <- apiChoiceArg.convert
       } yield

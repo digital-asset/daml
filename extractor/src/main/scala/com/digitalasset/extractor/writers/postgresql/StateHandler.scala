@@ -3,12 +3,11 @@
 
 package com.digitalasset.extractor.writers.postgresql
 
-import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
+import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting, TemplateConfig}
 import com.digitalasset.extractor.json.JsonConverters._
 import com.digitalasset.extractor.targets.PostgreSQLTarget
 import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-
 import doobie._
 import doobie.implicits._
 import cats.data.OptionT
@@ -17,7 +16,6 @@ import io.circe._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.parser._
-
 import scalaz._
 import Scalaz._
 
@@ -30,7 +28,8 @@ object StateHandler {
       target: PostgreSQLTarget,
       from: LedgerOffset,
       to: SnapshotEndSetting,
-      party: String)
+      party: String,
+      templateConfigs: List[TemplateConfig])
 
   case class Status(
       ledgerId: String,
@@ -102,7 +101,8 @@ object StateHandler {
       target.copy(connectUrl = "**masked**", user = "**masked**", password = "**masked**"),
       config.from,
       config.to,
-      config.partySpec
+      config.partySpec,
+      config.templateConfigs.toList.sorted
     )
   }
 
@@ -135,6 +135,11 @@ object StateHandler {
         previousStatus.startUpParameters.party,
         config.partySpec,
         "`--party`"
+      )
+      _ <- validateParam(
+        previousStatus.startUpParameters.templateConfigs,
+        config.templateConfigs.toList.sorted,
+        "`--templates`"
       )
       _ <- validateParam(
         previousStatus.startUpParameters.target.outputFormat,

@@ -36,6 +36,10 @@ SQL Extractor
   for all three parties in the database.
   See `#1360 <https://github.com/digital-asset/daml/pull/1360>`__.
 
+- The extractor ``--templates`` option to specify template IDs in the format:
+  ``<module1>:<entity1>,<module2>:<entity2>``. If not provided, extractor subscribes to all available templates.
+  See `#1352 <https://github.com/digital-asset/daml/issues/1352>`__.
+
 Sandbox
 ~~~~~~~
 

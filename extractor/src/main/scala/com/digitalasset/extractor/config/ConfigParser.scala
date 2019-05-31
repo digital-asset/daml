@@ -41,11 +41,12 @@ object ConfigParser {
       ledgerHost: String = "127.0.0.1",
       ledgerPort: Int = 6865,
       party: ExtractorConfig.Parties = OneAnd(Party assertFromString "placeholder", Nil),
+      templateConfigs: Set[TemplateConfig] = Set.empty,
       from: Option[String] = None,
       to: Option[String] = None,
       tlsPem: Option[String] = None,
       tlsCrt: Option[String] = None,
-      tlsCaCrt: Option[String] = None
+      tlsCaCrt: Option[String] = None,
   )
 
   private val configParser: OptionParser[CliParams] =
@@ -178,6 +179,14 @@ object ConfigParser {
         .text("The party or parties whose contract data should be extracted.\n" +
           s"${colSpacer}Specify multiple parties separated by a comma, e.g. Foo,Bar")
 
+      opt[Seq[TemplateConfig]]('t', "templates")
+        .optional()
+        .validate(x =>
+          validateUniqueElements(x, s"The list of templates must contain unique elements"))
+        .action((x, c) => c.copy(templateConfigs = x.toSet))
+        .valueName("<module1>:<entity1>,<module2>:<entity2>...")
+        .text("The list of templates to subscribe for. Optional, defaults to all ledger templates.")
+
       opt[String]("from")
         .action((x, c) => c.copy(from = Some(x)))
         .optional()
@@ -285,7 +294,8 @@ object ConfigParser {
         from,
         to,
         cliParams.party,
-        tlsConfig
+        cliParams.templateConfigs.toSet,
+        tlsConfig,
       )
 
       val target = cliParams.target match {
@@ -314,4 +324,8 @@ object ConfigParser {
     val valid = Try(Paths.get(path).toFile.canRead).getOrElse(false)
     if (valid) Right(()) else Left(message)
   }
+
+  private def validateUniqueElements[A](x: Seq[A], message: => String): Either[String, Unit] =
+    if (x.size != x.toSet.size) Left(message)
+    else Right(())
 }
