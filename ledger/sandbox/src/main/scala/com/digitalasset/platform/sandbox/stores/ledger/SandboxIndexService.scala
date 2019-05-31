@@ -40,8 +40,7 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class SandboxIndexService(ledger: Ledger, timeModel: TimeModel)(implicit mat: Materializer)
-    extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
-    with ParticipantState.WriteService
+    extends ParticipantState.WriteService
     with IdentityProvider
     with IndexActiveContractsService
     with IndexTransactionsService
@@ -55,8 +54,7 @@ class SandboxIndexService(ledger: Ledger, timeModel: TimeModel)(implicit mat: Ma
       .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
       .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
 
-  override def ledgerSyncEvents(
-      offset: Option[LedgerSyncOffset]): Source[LedgerSyncEvent, NotUsed] =
+  private def ledgerSyncEvents(offset: Option[LedgerSyncOffset]): Source[LedgerSyncEvent, NotUsed] =
     ledger
       .ledgerEntries(offset.map(_.toLong))
       .map { case (o, item) => toLedgerSyncEvent(o, item) }
@@ -81,9 +79,6 @@ class SandboxIndexService(ledger: Ledger, timeModel: TimeModel)(implicit mat: Ma
               }
           )
       }(mat.executionContext)
-
-  override def getCurrentLedgerEnd: Future[LedgerSyncOffset] =
-    Future.successful(LedgerString.fromLong(ledger.ledgerEnd))
 
   private def toUpdateEvent(
       cId: Value.AbsoluteContractId,
@@ -121,8 +116,6 @@ class SandboxIndexService(ledger: Ledger, timeModel: TimeModel)(implicit mat: Ma
         )
     }
 
-  override def close(): Unit = {} // nothing to close here as we do not own Ledger
-
   private def toAcceptedTransaction(offset: Long, t: LedgerEntry.Transaction) = t match {
     case LedgerEntry.Transaction(
         commandId,
@@ -148,7 +141,7 @@ class SandboxIndexService(ledger: Ledger, timeModel: TimeModel)(implicit mat: Ma
       )
   }
 
-  override def getTransactionById(
+  private def getTransactionById(
       transactionId: TransactionIdString): Future[Option[AcceptedTransaction]] =
     ledger
       .lookupTransaction(transactionId)
@@ -262,7 +255,7 @@ class SandboxIndexService(ledger: Ledger, timeModel: TimeModel)(implicit mat: Ma
     t.copy(offset = LedgerString.fromLong(t.offset.toLong + 1))
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
-    getCurrentLedgerEnd.map(LedgerOffset.Absolute)(DEC)
+    Future.successful(LedgerOffset.Absolute(LedgerString.fromLong(ledger.ledgerEnd)))
 
   override def getTransactionById(
       transactionId: TransactionId,
