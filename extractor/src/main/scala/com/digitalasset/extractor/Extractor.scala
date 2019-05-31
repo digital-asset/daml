@@ -33,7 +33,6 @@ import scala.concurrent.Future
 import scala.util.control.NonFatal
 import scalaz._
 import Scalaz._
-
 import scalaz.syntax.tag._
 
 class Extractor[T <: Target](config: ExtractorConfig, target: T) {
@@ -143,8 +142,6 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
       if (requestedTemplateIds.isEmpty) identity
       else TransactionTreeTrimmer.trim(requestedTemplateIds)
 
-    val nonEmpty: api.transaction.TransactionTree => Boolean = _.eventsById.nonEmpty
-
     RestartSource
       .onFailuresWithBackoff(
         minBackoff = 3.seconds,
@@ -161,13 +158,9 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
           )
           .via(killSwitch.flow)
           .map(trim)
-          .filter(nonEmpty)
-          .map(
-            _.convert.fold(
-              e => throw DataIntegrityError(e),
-              identity
-            )
-          )
+          .collect {
+            case t if nonEmpty(t) => convertTransactionTree(t)
+          }
           .mapAsync(parallelism = 1) { t =>
             writer
               .handleTransaction(t)
@@ -183,6 +176,11 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
       .runWith(Sink.ignore)
       .void
   }
+
+  private def nonEmpty(t: api.transaction.TransactionTree): Boolean = t.eventsById.nonEmpty
+
+  private def convertTransactionTree(t: api.transaction.TransactionTree): TransactionTree =
+    t.convert.fold(e => throw DataIntegrityError(e), identity)
 
   /**
     * We encountered a transaction that reference a previously not witnessed type.

@@ -10,11 +10,11 @@ import com.digitalasset.ledger.api.v1.value.Identifier
 object TransactionTreeTrimmer {
   def trim(templateIds: Set[Identifier]): TransactionTree => TransactionTree = {
     val shouldKeep: TreeEvent.Kind => Boolean = containsTemplateId(templateIds.map(asTuple))
-    transactionTree =>
+    transactionTree: TransactionTree =>
       {
         val eventsById = transactionTree.eventsById.filter(kv => shouldKeep(kv._2.kind))
         val eventIds = eventsById.keySet
-        val rootEventIds = transactionTree.rootEventIds.filter(id => eventIds(id))
+        val rootEventIds = transactionTree.rootEventIds.filter(eventIds)
         transactionTree.copy(eventsById = eventsById, rootEventIds = rootEventIds)
       }
   }
