@@ -227,6 +227,9 @@ instance Pretty BuiltinExpr where
     BEInt64FromText -> "FROM_TEXT_INT64"
     BEDecimalFromText -> "FROM_TEXT_DECIMAL"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
+    BECodePointsFromText -> "FROM_TEXT_CODE_POINTS"
+    BECodePointsToText -> "TO_TEXT_CODE_POINTS"
+
     BECoerceContractId -> "COERCE_CONTRACT_ID"
     where
       epochToText fmt secs =

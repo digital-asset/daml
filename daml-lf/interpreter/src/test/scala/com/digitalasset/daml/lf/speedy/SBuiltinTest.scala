@@ -21,8 +21,8 @@ import scala.language.implicitConversions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks {
 
-  import SBuiltinTest._
   import Decimal.{toString => str}
+  import SBuiltinTest._
 
   "Integer operations" - {
 
@@ -419,6 +419,81 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       }
     }
 
+    "TO_TEXT_CODE_POINTS" - {
+
+      "accepts legal code points" in {
+        val testCases = Table(
+          "codePoints",
+          0x000000, // smallest code point
+          0x000061,
+          0x00007F, // biggest ASCII code point
+          0x000080, // smallest non-ASCII code point
+          0x0000E9,
+          0x008EE0,
+          0x00D7FF, // smallest surrogate - 1
+          0x00E000, // biggest surrogate + 1
+          0x00E568,
+          0x00FFFF, // biggest code point of the Basic Multilingual Plan
+          0x010000, // smallest code point of the Supplementary Plan 1
+          0x01D81A,
+          0x01FFFF, // biggest code point of the Supplementary Plan 1
+          0x020000, // smallest code point of the Supplementary Plan 2
+          0x0245AD,
+          0x02FFFF, // biggest code point of the Supplementary Plan 2
+          0x030000, // smallest code point of the Supplementary Plan 3
+          0x03AE2D,
+          0x03FFFF, // biggest code point of the Supplementary Plan 3
+          0x040000, // smallest code point of the Supplementary Plans 4-13
+          0x09EA6D,
+          0x0DFFFF, // biggest code point of the Supplementary Plans 4-13
+          0x0E0000, // smallest code point of the Supplementary Plan 14
+          0x0EAE2D,
+          0x0EFFFF, // biggest code point of the Supplementary Plan 14
+          0x0F0000, // smallest code point of the Supplementary Plans 15-16
+          0x10AE2D,
+          0x10FFFF // biggest code point of the Supplementary Plans 15-16
+        )
+
+        forEvery(testCases)(cp =>
+          eval(e"""TO_TEXT_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldBe Right(
+            SText("'" + new String(Character.toChars(cp)) + "'")))
+      }
+
+      "rejects surrogate code points " in {
+        val testCases = Table(
+          "surrogate",
+          0x00D800, // smallest surrogate
+          0x00D924,
+          0x00DBFF, // biggest high surrogate
+          0x00DC00, // smallest low surrogate
+          0x00DDE0,
+          0x00DFFF // biggest surrogate
+        )
+
+        forEvery(testCases)(cp =>
+          eval(e"""TO_TEXT_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldBe 'left)
+      }
+
+      "rejects to small or to big code points" in {
+        val testCases = Table(
+          "codepoint",
+          Long.MinValue,
+          Int.MinValue,
+          -0x23456L
+            - 2L,
+          -1L,
+          Character.MAX_CODE_POINT + 1L,
+          Character.MAX_CODE_POINT + 2L,
+          0x345678L,
+          Int.MaxValue,
+          Long.MaxValue
+        )
+
+        forEvery(testCases)(cp =>
+          eval(e"""TO_TEXT_CODE_POINTS ${intList('\''.toLong, cp, '\''.toLong)}""") shouldBe 'left)
+
+      }
+    }
   }
 
   "Timestamp operations" - {
