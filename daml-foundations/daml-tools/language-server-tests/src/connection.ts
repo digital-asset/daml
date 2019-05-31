@@ -97,7 +97,6 @@ export class DamlConnection {
     public initialize(rootPath: string): Thenable<InitializeResult>  {
         return this.connection.sendRequest(InitializeRequest.type, <InitializeParams> {
             processId: process.pid,
-            rootPath: '/tmp',
             capabilities: {},
             initializationOptions: null,
         });
