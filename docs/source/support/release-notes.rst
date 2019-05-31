@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: By default ``damlc test`` must be executed in a project and will test the whole project. Testing individual files, potentially outside a project, requires passing the new ``--files`` flag.
+
 Navigator
 ~~~~~~~~~~~
 
