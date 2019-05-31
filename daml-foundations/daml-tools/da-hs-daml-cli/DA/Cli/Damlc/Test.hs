@@ -45,7 +45,7 @@ execTest inFiles color mbJUnitOutput cliOptions = do
     opts <- Compiler.mkOptions cliOptions
     let eventLogger (EventFileDiagnostics (fp, diags)) = printDiagnostics $ map (fp,) diags
         eventLogger _ = return ()
-    Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \h -> do
+    Managed.with (Compiler.newIdeState' opts (Just eventLogger) loggerH) $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         testRun h inFiles lfVersion color mbJUnitOutput
         diags <- CompilerService.getDiagnostics h

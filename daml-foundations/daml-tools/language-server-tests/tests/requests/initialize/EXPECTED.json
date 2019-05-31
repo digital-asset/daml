@@ -2,7 +2,7 @@
   "capabilities": {
     "textDocumentSync": {
       "openClose": true,
-      "change": 1,
+      "change": 2,
       "willSave": true,
       "save": {
         "includeText": false

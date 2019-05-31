@@ -94,6 +94,7 @@ data ShakeTestEnv = ShakeTestEnv
     { steTestDirPath :: FilePath -- canonical absolute path of temporary test directory
     , steService :: API.IdeState
     , steVirtualResources :: TVar (Map VirtualResource T.Text)
+    , steFileVersions :: TVar (Map FilePath Int)
     }
 
 -- | Monad for specifying Shake API tests. This type is abstract.
@@ -105,14 +106,17 @@ runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError Sha
 runShakeTest mbScenarioService (ShakeTest m) = do
     options <- defaultOptionsIO Nothing -- TODO: improve?
     virtualResources <- newTVarIO Map.empty
+    fileVersions <- newTVarIO Map.empty
     let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
         eventLogger _ = pure ()
-    service <- API.initialise (mainRule options) (Just (atomically . eventLogger)) Logger.makeNopHandle options mbScenarioService
+    vfs <- API.makeVFSHandle
+    service <- API.initialise (mainRule options) (Just (atomically . eventLogger)) Logger.makeNopHandle options vfs mbScenarioService
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
                 , steTestDirPath = testDirPath
                 , steVirtualResources = virtualResources
+                , steFileVersions = fileVersions
                 }
         runReaderT (runExceptT m) ste
 
@@ -189,9 +193,20 @@ setBufferNotModified absPath = setBufferModifiedMaybe absPath Nothing
 -- | (internal) Notify compiler service that buffer is either modified or not.
 setBufferModifiedMaybe :: FilePath -> Maybe T.Text -> ShakeTest ()
 setBufferModifiedMaybe absPath maybeText = ShakeTest $ do
-    now <- liftIO Clock.getCurrentTime
     service <- Reader.asks steService
-    liftIO $ API.setBufferModified service absPath (maybeText, now)
+    case maybeText of
+        Nothing -> liftIO $ API.setBufferModified service absPath Nothing
+        Just content -> do
+            versions <- Reader.asks steFileVersions
+            version <- liftIO $ nextVersion versions absPath
+            liftIO $ API.setBufferModified service absPath (Just (content, version))
+    where
+        nextVersion :: TVar (Map FilePath Int) -> FilePath -> IO Int
+        nextVersion versions fp = atomically $ do
+            m <- readTVar versions
+            let m' = Map.insertWith (+) fp 1 m
+            writeTVar versions m'
+            pure $ m' Map.! fp
 
 -- | (internal) Get diagnostics.
 getDiagnostics :: ShakeTest [D.FileDiagnostic]

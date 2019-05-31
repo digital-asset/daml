@@ -126,9 +126,10 @@ getIntegrationTests registerTODO scenarioService version = do
     opts <- fmap (\opts ->  opts { optThreads = 0 }) $ defaultOptionsIO (Just version)
 
     -- initialise the compiler service
+    vfs <- Compile.makeVFSHandle
     pure $
       withResource
-      (Compile.initialise (Compile.mainRule opts) (Just (\_ -> pure ())) IdeLogger.makeNopHandle opts (Just scenarioService))
+      (Compile.initialise (Compile.mainRule opts) (Just (\_ -> pure ())) IdeLogger.makeNopHandle opts vfs (Just scenarioService))
       Compile.shutdown $ \service ->
       withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
         map (testCase args version service outdir registerTODO) allTestFiles

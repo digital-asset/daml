@@ -7,6 +7,7 @@ module DA.Service.Daml.Compiler.Impl.Handle
   (-- * compilation handle providers
     IdeState
   , newIdeState
+  , newIdeState'
   , setFilesOfInterest
   , onFileModified
   , setOpenVirtualResources
@@ -57,12 +58,12 @@ import Data.List
 import Data.Maybe
 import Safe
 
-import           Data.Time.Clock
 import           Data.Traversable                           (for)
 
 import qualified Development.IDE.Logger as IdeLogger
 import           Development.IDE.State.API               (IdeState)
 import qualified Development.IDE.State.API               as CompilerService
+import Development.IDE.State.FileStore
 import qualified Development.IDE.State.Rules.Daml as CompilerService
 import qualified Development.IDE.State.Shake as Shake
 import           Development.IDE.Types.Diagnostics as Base
@@ -151,7 +152,12 @@ instance Shake.IsIdeGlobal GlobalPkgMap
 newIdeState :: Options
             -> Maybe (Event -> IO ())
             -> Logger.Handle IO
-            -> Managed IdeState
+            -- This type is rather awkward. The reason for this is that
+            -- we can only fully initialize the IdeState once we get the
+            -- LspFuncs in the initialize callback.
+            -- We should move away from Managed (we only use it for the scenario service)
+            -- and then refactor this.
+            -> Managed (VFSHandle -> IO IdeState)
 newIdeState compilerOpts mbEventHandler loggerH = do
     mbScenarioService <-
         for (guard (optScenarioService compilerOpts) >> mbEventHandler) $ \eventHandler ->
@@ -163,7 +169,22 @@ newIdeState compilerOpts mbEventHandler loggerH = do
     let rule = do
             CompilerService.mainRule compilerOpts
             Shake.addIdeGlobal $ GlobalPkgMap pkgMap
-    liftIO $ CompilerService.initialise rule mbEventHandler (toIdeLogger loggerH) compilerOpts mbScenarioService
+    pure $ \vfs -> liftIO $ CompilerService.initialise
+        rule
+        mbEventHandler
+        (toIdeLogger loggerH)
+        compilerOpts
+        vfs
+        mbScenarioService
+
+-- Wrapper for the common case where we are not using the internal VFS from haskell-lsp.
+newIdeState' :: Options
+            -> Maybe (Event -> IO ())
+            -> Logger.Handle IO
+            -> Managed IdeState
+newIdeState' compilerOpts mbEventHandler loggerH = do
+    getHandle <- newIdeState compilerOpts mbEventHandler loggerH
+    liftIO $ getHandle =<< makeVFSHandle
 
 -- | Adapter to the IDE logger module.
 toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle
@@ -258,12 +279,11 @@ compileFile service fp = do
 onFileModified
     :: IdeState
     -> FilePath
-    -> Maybe T.Text
+    -> Maybe (T.Text, Int)
     -> IO ()
-onFileModified service fp mcontents = do
+onFileModified service fp mbContents = do
     CompilerService.logDebug service $ "File modified " <> T.pack (show fp)
-    time <- liftIO getCurrentTime
-    CompilerService.setBufferModified service fp (mcontents, time)
+    CompilerService.setBufferModified service fp mbContents
 
 newtype UseDalf = UseDalf{unUseDalf :: Bool}
 
