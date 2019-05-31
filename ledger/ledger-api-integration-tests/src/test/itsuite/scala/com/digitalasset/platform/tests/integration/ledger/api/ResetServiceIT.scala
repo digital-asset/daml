@@ -8,17 +8,18 @@ import java.io.File
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
+  IsStatusException,
   SuiteResourceManagementAroundEach,
   MockMessages => M
 }
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.platform.apitesting.MultiLedgerFixture
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.services.TestCommands
 import com.digitalasset.platform.sandbox.utils.InfiniteRetries
+import io.grpc.Status
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
@@ -51,16 +52,15 @@ class ResetServiceIT
   "ResetService" when {
     "state is reset" should {
 
-      "return a new ledger ID" in allFixtures { ctx =>
+      "return a new ledger ID" in allFixtures { ctx1 =>
+        val lid1 = ctx1.ledgerId
         for {
-          lid1 <- ctx.ledgerIdentityService.getLedgerIdentity(GetLedgerIdentityRequest())
-          lid1Bis <- ctx.ledgerIdentityService.getLedgerIdentity(GetLedgerIdentityRequest())
-          lid2 <- ctx.reset()
-          lid3 <- ctx.reset()
+          ctx2 <- ctx1.reset()
+          lid2 = ctx2.ledgerId
+          throwable <- ctx1.reset().failed
         } yield {
-          lid1 shouldEqual lid1Bis
-          lid1.ledgerId should not equal lid2
-          lid2 should not equal lid3
+          lid1 should not equal lid2
+          IsStatusException(Status.Code.NOT_FOUND)(throwable)
         }
       }
 

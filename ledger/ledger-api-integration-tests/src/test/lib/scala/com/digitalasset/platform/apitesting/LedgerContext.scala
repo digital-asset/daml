@@ -153,7 +153,7 @@ object LedgerContext {
 
     private val logger = LoggerFactory.getLogger(this.getClass)
 
-    val cachedLedgerId: domain.LedgerId =
+    val ledgerId: domain.LedgerId =
       configuredLedgerId match {
         case LedgerIdMode.Static(id) => id
         case LedgerIdMode.Dynamic() =>
@@ -163,8 +163,6 @@ object LedgerContext {
               .getLedgerIdentity(GetLedgerIdentityRequest())
               .ledgerId)
       }
-
-    def ledgerId: domain.LedgerId = cachedLedgerId
 
     final def reset()(implicit system: ActorSystem, mat: Materializer): Future[LedgerContext] = {
       implicit val ec: ExecutionContext = mat.executionContext
