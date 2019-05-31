@@ -73,9 +73,9 @@ final case class IndexState(
         case u: Update.PartyAddedToParticipant =>
           Right(state.copy(hostedParties = state.hostedParties + u.party))
 
-        case Update.PublicPackageUploaded(archive) =>
+        case Update.PublicPackagesUploaded(archives) =>
           val newPackages =
-            state.packages + (PackageId.assertFromString(archive.getHash) -> archive)
+            state.packages ++ archives.map(a => (PackageId.assertFromString(a.getHash) -> a))
 
           val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
           Right(

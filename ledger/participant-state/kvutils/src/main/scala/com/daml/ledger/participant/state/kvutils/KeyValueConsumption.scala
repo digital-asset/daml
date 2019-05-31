@@ -17,6 +17,8 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
+import scala.collection.JavaConverters._
+
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
   * key-value based ledger.
   */
@@ -38,8 +40,13 @@ object KeyValueConsumption {
     val recordTime = parseTimestamp(entry.getRecordTime)
 
     entry.getPayloadCase match {
-      case DamlLogEntry.PayloadCase.ARCHIVE =>
-        Update.PublicPackageUploaded(entry.getArchive)
+      case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
+        Update.PublicPackagesUploaded(
+          entry.getPackageUploadEntry.getArchivesList.asScala.toList,
+          entry.getPackageUploadEntry.getSourceDescription,
+          entry.getPackageUploadEntry.getParticipantId,
+          recordTime
+        )
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
         txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime)

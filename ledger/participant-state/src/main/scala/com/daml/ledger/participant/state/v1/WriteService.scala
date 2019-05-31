@@ -95,6 +95,9 @@ trait WriteService {
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): CompletionStage[SubmissionResult]
+//  def submitPackages(
+//       packageMeta: PackageMeta,//??
+//       packages: List[SubmittedPackage]): CompletionStage[SubmissionResult]
 
   /**
     * Adds a new party to the set managed by the ledger.
