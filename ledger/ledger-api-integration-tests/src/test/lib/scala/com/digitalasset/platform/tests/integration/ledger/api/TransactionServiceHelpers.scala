@@ -24,7 +24,6 @@ import org.scalatest.Matchers
 import scalaz.syntax.tag._
 import scala.concurrent.Future
 
-
 trait TransactionServiceHelpers extends Matchers {
   lazy val defaultDar: File = PlatformApplications.Config.defaultDarFile
 

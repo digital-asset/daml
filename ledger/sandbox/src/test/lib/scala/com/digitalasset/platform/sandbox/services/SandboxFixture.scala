@@ -10,7 +10,10 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, LedgerIdentityServiceGrpc}
+import com.digitalasset.ledger.api.v1.ledger_identity_service.{
+  GetLedgerIdentityRequest,
+  LedgerIdentityServiceGrpc
+}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.common.LedgerIdMode
@@ -34,10 +37,11 @@ trait SandboxFixture extends SuiteResource[Channel] {
   protected def channel: Channel = suiteResource.value
 
   protected def ledgerIdOnServer: domain.LedgerId =
-    domain.LedgerId(LedgerIdentityServiceGrpc
-      .blockingStub(channel)
-      .getLedgerIdentity(GetLedgerIdentityRequest())
-      .ledgerId)
+    domain.LedgerId(
+      LedgerIdentityServiceGrpc
+        .blockingStub(channel)
+        .getLedgerIdentity(GetLedgerIdentityRequest())
+        .ledgerId)
 
   protected def getTimeProviderForClient(
       implicit mat: Materializer,

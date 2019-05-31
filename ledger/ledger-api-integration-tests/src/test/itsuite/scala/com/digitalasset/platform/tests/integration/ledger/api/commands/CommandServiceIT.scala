@@ -26,11 +26,14 @@ class CommandServiceIT
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll {
 
-  private def request(ctx: LedgerContext,
-                      id: String = UUID.randomUUID().toString,
-                      ledgerId: Option[String] = None) =
+  private def request(
+      ctx: LedgerContext,
+      id: String = UUID.randomUUID().toString,
+      ledgerId: Option[String] = None) =
     MockMessages.submitAndWaitRequest
-      .update(_.commands.ledgerId := ledgerId.getOrElse(ctx.ledgerId.unwrap), _.commands.commandId := id)
+      .update(
+        _.commands.ledgerId := ledgerId.getOrElse(ctx.ledgerId.unwrap),
+        _.commands.commandId := id)
       .copy(traceContext = None)
 
   "Commands Service" when {
@@ -111,7 +114,8 @@ class CommandServiceIT
       "fail SubmitAndWaitForTransactionId with not found if ledger id is invalid" in allFixtures {
         ctx =>
           ctx.commandService
-            .submitAndWaitForTransactionId(request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
+            .submitAndWaitForTransactionId(
+              request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
             .failed map {
             IsStatusException(Status.NOT_FOUND)(_)
           }
@@ -129,7 +133,8 @@ class CommandServiceIT
       "fail SubmitAndWaitForTransactionTree with not found if ledger id is invalid" in allFixtures {
         ctx =>
           ctx.commandService
-            .submitAndWaitForTransactionTree(request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
+            .submitAndWaitForTransactionTree(
+              request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
             .failed map {
             IsStatusException(Status.NOT_FOUND)(_)
           }

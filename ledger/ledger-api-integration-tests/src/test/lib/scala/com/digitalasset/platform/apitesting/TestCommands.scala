@@ -6,7 +6,11 @@ package com.digitalasset.platform.apitesting
 import java.util
 
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.MockMessages.{applicationId, ledgerEffectiveTime, maximumRecordTime}
+import com.digitalasset.ledger.api.testing.utils.MockMessages.{
+  applicationId,
+  ledgerEffectiveTime,
+  maximumRecordTime
+}
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -45,7 +49,10 @@ trait TestCommands extends TestTemplateIds {
       _.commands.maximumRecordTime := maxRecordTime
     )
 
-  protected def dummyCommands(ledgerId: domain.LedgerId, commandId: String, party: String = "party") =
+  protected def dummyCommands(
+      ledgerId: domain.LedgerId,
+      commandId: String,
+      party: String = "party") =
     buildRequest(
       ledgerId,
       commandId,

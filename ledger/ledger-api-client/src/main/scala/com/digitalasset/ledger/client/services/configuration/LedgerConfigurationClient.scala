@@ -8,7 +8,10 @@ import akka.stream.scaladsl.Source
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.v1.ledger_configuration_service.{GetLedgerConfigurationRequest, LedgerConfiguration}
+import com.digitalasset.ledger.api.v1.ledger_configuration_service.{
+  GetLedgerConfigurationRequest,
+  LedgerConfiguration
+}
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 
 import scalaz.syntax.tag._

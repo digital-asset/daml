@@ -118,11 +118,7 @@ class TransactionServiceIT
         val elemsToTake = 10L
 
         for {
-          _ <- insertCommands(
-            getTrackerFlow(context),
-            "cancellation-test",
-            14,
-            context.ledgerId)
+          _ <- insertCommands(getTrackerFlow(context), "cancellation-test", 14, context.ledgerId)
           transactions <- context.transactionClient
             .getTransactions(ledgerBegin, None, getAllContracts)
             .take(elemsToTake)

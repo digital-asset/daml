@@ -42,7 +42,10 @@ class AcsBench extends TestCommands with InfAwait {
     }
   }
 
-  private def getContractIds(state: PerfBenchState, template: Identifier, ledgerId: domain.LedgerId) =
+  private def getContractIds(
+      state: PerfBenchState,
+      template: Identifier,
+      ledgerId: domain.LedgerId) =
     new ActiveContractSetClient(ledgerId, state.ledger.acsService)(state.esf)
       .getActiveContracts(MockMessages.transactionFilter)
       .map(extractContractId(_, template))

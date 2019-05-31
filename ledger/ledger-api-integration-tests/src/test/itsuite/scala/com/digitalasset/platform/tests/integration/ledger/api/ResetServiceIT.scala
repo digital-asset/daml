@@ -54,8 +54,7 @@ class ResetServiceIT
       "return a new ledger ID" in allFixtures { ctx =>
         for {
           lid1 <- ctx.ledgerIdentityService.getLedgerIdentity(GetLedgerIdentityRequest())
-          lid1Bis <- ctx.ledgerIdentityService.getLedgerIdentity(
-            GetLedgerIdentityRequest())
+          lid1Bis <- ctx.ledgerIdentityService.getLedgerIdentity(GetLedgerIdentityRequest())
           lid2 <- ctx.reset()
           lid3 <- ctx.reset()
         } yield {

@@ -128,8 +128,9 @@ class CommandClientIT
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { ctx =>
         Source
-          .single(
-            Ctx(1, submitRequestWithId(1.toString).update(_.commands.ledgerId := testNotLedgerId.unwrap)))
+          .single(Ctx(
+            1,
+            submitRequestWithId(1.toString).update(_.commands.ledgerId := testNotLedgerId.unwrap)))
           .via(ctx.commandClientWithoutTime(testNotLedgerId).submissionFlow)
           .runWith(Sink.head)
           .map(err => IsStatusException(Status.NOT_FOUND)(err.value.failure.exception))

@@ -9,7 +9,11 @@ import java.util
 
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.MockMessages.{applicationId, ledgerEffectiveTime, maximumRecordTime}
+import com.digitalasset.ledger.api.testing.utils.MockMessages.{
+  applicationId,
+  ledgerEffectiveTime,
+  maximumRecordTime
+}
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest

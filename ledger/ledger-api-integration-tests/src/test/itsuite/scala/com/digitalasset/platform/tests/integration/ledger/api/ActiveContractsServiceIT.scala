@@ -54,16 +54,13 @@ class ActiveContractsServiceIT
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(30000, Millis)), scaled(Span(500, Millis)))
 
-  private def client(
-      ctx: LedgerContext): ActiveContractSetClient =
+  private def client(ctx: LedgerContext): ActiveContractSetClient =
     new ActiveContractSetClient(ctx.ledgerId, ctx.acsService)
 
-  private def commandClient(
-      ctx: LedgerContext): SynchronousCommandClient =
+  private def commandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
 
-  private def transactionClient(
-      ctx: LedgerContext): TransactionClient =
+  private def transactionClient(ctx: LedgerContext): TransactionClient =
     new TransactionClient(ctx.ledgerId, ctx.transactionService)
 
   private def submitRequest(ctx: LedgerContext, request: SubmitAndWaitRequest) =

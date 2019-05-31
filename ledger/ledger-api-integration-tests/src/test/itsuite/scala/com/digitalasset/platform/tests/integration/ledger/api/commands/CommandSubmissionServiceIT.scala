@@ -41,8 +41,8 @@ class CommandSubmissionServiceIT
     "commands arrive with extreme TTLs" should {
 
       "successfully submit commands" in allFixtures { implicit c =>
-        c.commandSubmissionService.submit(SubmitRequest(
-          Some(submitRequest.getCommands.withLedgerId(c.ledgerId.unwrap)))) map { _ =>
+        c.commandSubmissionService.submit(
+          SubmitRequest(Some(submitRequest.getCommands.withLedgerId(c.ledgerId.unwrap)))) map { _ =>
           succeed
         }
       }

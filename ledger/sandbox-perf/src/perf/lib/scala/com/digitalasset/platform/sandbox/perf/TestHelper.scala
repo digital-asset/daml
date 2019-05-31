@@ -124,8 +124,7 @@ trait TestHelper {
       state: PerfBenchState,
       workflowId: String,
       templateId: Identifier): Source[String, Future[String]] =
-    new ActiveContractSetClient(state.ledger.ledgerId, state.ledger.acsService)(
-      state.esf)
+    new ActiveContractSetClient(state.ledger.ledgerId, state.ledger.acsService)(state.esf)
       .getActiveContracts(transactionFilter)
       .filter(_.workflowId == workflowId)
       .mapConcat(extractContractId(templateId))

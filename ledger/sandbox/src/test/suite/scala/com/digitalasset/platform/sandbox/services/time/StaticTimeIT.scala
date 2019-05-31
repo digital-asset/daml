@@ -8,7 +8,11 @@ import java.lang
 import java.util.concurrent.Callable
 
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, IsStatusException, SuiteResourceManagementAroundAll}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  IsStatusException,
+  SuiteResourceManagementAroundAll
+}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.platform.sandbox.TestExecutionSequencerFactory

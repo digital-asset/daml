@@ -72,7 +72,8 @@ class FailingCommandsIT
           client <- ctx.commandClient()
           tracker <- client.trackCommands[Int](List(failingRequest.getCommands.party))
           result <- Source
-            .single(Ctx(submittedCtx, failingRequest.update(_.commands.ledgerId := ctx.ledgerId.unwrap)))
+            .single(
+              Ctx(submittedCtx, failingRequest.update(_.commands.ledgerId := ctx.ledgerId.unwrap)))
             .via(tracker)
             .runWith(Sink.head)
         } yield {

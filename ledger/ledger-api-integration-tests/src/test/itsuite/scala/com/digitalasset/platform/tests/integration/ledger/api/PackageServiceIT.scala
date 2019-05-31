@@ -6,7 +6,11 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import java.util.UUID
 
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, IsStatusException, SuiteResourceManagementAroundAll}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  IsStatusException,
+  SuiteResourceManagementAroundAll
+}
 import com.digitalasset.ledger.api.v1.package_service.PackageStatus
 import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
@@ -48,7 +52,9 @@ class PackageServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        new PackageClient(domain.LedgerId(s"not-${context.ledgerId.unwrap}"), context.packageService)
+        new PackageClient(
+          domain.LedgerId(s"not-${context.ledgerId.unwrap}"),
+          context.packageService)
           .listPackages()
           .failed map {
           IsStatusException(Status.NOT_FOUND)(_)
