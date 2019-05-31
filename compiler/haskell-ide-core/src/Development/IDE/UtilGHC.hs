@@ -22,10 +22,11 @@ import Fingerprint
 import GHC
 import GhcMonad
 import GhcPlugins
-import Platform
 import Data.IORef
 import Control.Exception
 import FileCleanup
+import Platform
+import ToolSettings
 
 ----------------------------------------------------------------------
 -- GHC setup
@@ -62,25 +63,68 @@ runGhcEnv env act = do
         cleanTempFiles dflags
         cleanTempDirs dflags
 
-
--- Fake DynFlags which are mostly undefined, but define enough to do a little bit
+-- Fake DynFlags which are mostly undefined, but define enough to do a
+-- little bit.
 fakeDynFlags :: DynFlags
 fakeDynFlags = defaultDynFlags settings ([], [])
     where
         settings = Settings
-            {sTargetPlatform = Platform
-                {platformWordSize = 8
-                ,platformOS = OSUnknown
-                ,platformUnregisterised = True
-                }
-            ,sPlatformConstants = PlatformConstants
-                {pc_DYNAMIC_BY_DEFAULT = False
-                ,pc_WORD_SIZE = 8
-                }
+                   { sGhcNameVersion=ghcNameVersion
+                   , sFileSettings=fileSettings
+                   , sTargetPlatform=platform
+                   , sPlatformMisc=platformMisc
+                   , sPlatformConstants=platformConstants
+                   , sToolSettings=toolSettings
+                   }
+        fileSettings = FileSettings {
+          -- fileSettings_tmpDir="."
+          }
+        toolSettings = ToolSettings {
+          toolSettings_opt_P_fingerprint=fingerprint0
+          }
+        ghcNameVersion =
+          GhcNameVersion{
+          ghcNameVersion_programName="ghc"
+          , ghcNameVersion_projectVersion=cProjectVersion
+          }
+        platformMisc = PlatformMisc {
 #ifndef GHC_STABLE
-            ,sIntegerLibraryType = IntegerSimple
+          platformMisc_integerLibraryType=IntegerSimple
 #endif
-            ,sProjectVersion = cProjectVersion
-            ,sProgramName = "ghc"
-            ,sOpt_P_fingerprint = fingerprint0
-            }
+          }
+        platform =
+          Platform{
+            platformWordSize=8
+          , platformOS=OSUnknown
+          , platformUnregisterised=True
+        }
+        platformConstants =
+          PlatformConstants {
+            pc_DYNAMIC_BY_DEFAULT=False
+          , pc_WORD_SIZE=8
+          -- , pc_STD_HDR_SIZE=1
+          -- , pc_TAG_BITS=3
+          -- , pc_BLOCKS_PER_MBLOCK=252
+          -- , pc_BLOCK_SIZE=4096
+          -- , pc_MIN_PAYLOAD_SIZE=1
+          -- , pc_MAX_Real_Vanilla_REG=6
+          -- , pc_MAX_Vanilla_REG=10
+          -- , pc_MAX_Real_Long_REG=0
+          }
+
+--             {sTargetPlatform = Platform
+--                 {platformWordSize = 8
+--                 ,platformOS = OSUnknown
+--                 ,platformUnregisterised = True
+--                 }
+--             ,sPlatformConstants = PlatformConstants
+--                 {pc_DYNAMIC_BY_DEFAULT = False
+--                 ,pc_WORD_SIZE = 8
+--                 }
+-- #ifndef GHC_STABLE
+--             ,sIntegerLibraryType = IntegerSimple
+-- #endif
+--             ,sProjectVersion = cProjectVersion
+--             ,sProgramName = "ghc"
+--             ,sOpt_P_fingerprint = fingerprint0
+--             }

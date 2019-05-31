@@ -164,10 +164,10 @@ setPackageDbs paths dflags =
         [PackageDB $ PkgConfFile $ path </> "package.conf.d" | path <- paths] ++ [NoGlobalPackageDB, ClearPackageDBs]
     , pkgDatabase = if null paths then Just [] else Nothing
       -- if we don't load any packages set the package database to empty and loaded.
-    , settings = (settings dflags)
-        {sTopDir = case paths of p:_ -> p; _ -> error "No package db path available but used $topdir"
-        , sSystemPackageConfig = case paths of p:_ -> p; _ -> error "No package db path available but used system package config"
-        }
+    , fileSettings = (sFileSettings (settings dflags)){
+            fileSettings_topDir=case paths of p:_ -> p; _ -> error "No package db path available but used $topdir"
+          , fileSettings_systemPackageConfig=case paths of p:_ -> p; _ -> error "No package db path available but used system package config"
+      }
     }
 
 setPackageImports :: Bool -> [(String, ModRenaming)] -> DynFlags -> DynFlags
