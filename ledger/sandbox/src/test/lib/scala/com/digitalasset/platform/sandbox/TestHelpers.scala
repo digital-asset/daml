@@ -17,7 +17,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
   CommandExecutorImpl,
   Ledger,
   SandboxContractStore,
-  SandboxLedgerBackend
+  SandboxIndexService
 }
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.services.time.TimeModel
@@ -50,7 +50,7 @@ trait TestHelpers {
       ActiveContractsInMemory.empty,
       ImmArray.empty)
 
-    val backend = new SandboxLedgerBackend(ledger)
+    val backend = new SandboxIndexService(ledger, TimeModel.reasonableDefault)
     val contractStore = new SandboxContractStore(ledger)
     ApiSubmissionService.create(
       ledgerId,

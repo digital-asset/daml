@@ -3,23 +3,20 @@
 
 package com.digitalasset.ledger.server.apiserver
 
-import akka.NotUsed
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
+  IdentityProvider,
   IndexActiveContractsService,
   IndexConfigurationService,
-  IdentityProvider,
-  IndexPackagesService
+  IndexPackagesService,
+  _
 }
-import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
-import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.services._
@@ -36,7 +33,7 @@ import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 trait ApiServices extends AutoCloseable {
   val services: Iterable[BindableService]
@@ -61,17 +58,9 @@ object ApiServices {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  //TODO: this is here only temporarily
-  def configurationService(config: SandboxConfig) = new IndexConfigurationService {
-    override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
-      Source
-        .single(LedgerConfiguration(config.timeModel.minTtl, config.timeModel.maxTtl))
-        .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
-  }
-
+  //TODO: collapse all the index services
   def create(
       config: SandboxConfig,
-      ledgerBackend: LedgerBackend, //eventually this should not be needed!
       writeService: WriteService,
       configurationService: IndexConfigurationService,
       identityService: IdentityProvider,

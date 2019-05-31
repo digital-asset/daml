@@ -22,31 +22,38 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
 }
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, _}
-import com.digitalasset.ledger.backend.api.v1.{ApplicationId => _, RejectionReason => _, _}
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
   AcceptedTransaction,
   Heartbeat,
   RejectedCommand
 }
+import com.digitalasset.ledger.backend.api.v1.{ApplicationId => _, RejectionReason => _, _}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.services.transaction.TransactionConversion
+import com.digitalasset.platform.services.time.TimeModel
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
-class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
+class SandboxIndexService(ledger: Ledger, timeModel: TimeModel)(implicit mat: Materializer)
     extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
     with ParticipantState.WriteService
     with IdentityProvider
     with IndexActiveContractsService
     with IndexTransactionsService
-    with IndexCompletionsService {
+    with IndexCompletionsService
+    with IndexConfigurationService {
 
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
+
+  override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
+    Source
+      .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
+      .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
 
   override def ledgerSyncEvents(
       offset: Option[LedgerSyncOffset]): Source[LedgerSyncEvent, NotUsed] =
