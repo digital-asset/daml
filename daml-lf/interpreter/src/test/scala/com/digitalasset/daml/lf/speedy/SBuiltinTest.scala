@@ -188,7 +188,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
   "Decimal operations" - {
 
-    val maxDecimal = Decimal.max
+    val maxDecimal = Decimal.MaxValue
 
     val minPosDecimal = BigDecimal("0000000000000000000000000000.0000000001")
     val bigBigDecimal = BigDecimal("8765432109876543210987654321.0987654321")

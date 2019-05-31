@@ -446,7 +446,7 @@ message PrimLit {
     sfixed64 timestamp = 5;
 
     // Party literal ('LitParty')
-    // *Must be a SimpleString*
+    // *Must be a PartyId string*
     string party = 7;
 
     // Date literal ('Date')

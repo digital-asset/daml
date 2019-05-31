@@ -138,7 +138,7 @@ object Ref {
       underscore. We use them to represent [PackageId]s and [Party] literals. In this way, we avoid
       empty identifiers, escaping problems, and other similar pitfalls.
     */
-  val Party = ConcatenableMatchingStringModule("-_ ".contains(_))
+  val Party = ConcatenableMatchingStringModule(":-_ ".contains(_))
   type Party = Party.T
 
   /** Reference to a package via a package identifier. The identifier is the ascii7
