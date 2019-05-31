@@ -83,7 +83,7 @@ object ApiServices {
       activeContractsService: ActiveContractsService,
       transactionsService: TransactionsService,
       contractStore: ContractStore,
-      completionsService: CompletionsService,
+      completionsService: IndexCompletionsService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
@@ -127,7 +127,8 @@ object ApiServices {
         LedgerConfigurationService.createApiService(ledgerId, configurationService)
 
       val apiCompletionService =
-        SandboxCommandCompletionService.createApiService(ledgerId, completionsService)
+        SandboxCommandCompletionService
+          .createApiService(ledgerId, completionsService)
 
       val apiCommandService = ReferenceCommandService.createApiService(
         ReferenceCommandService.Configuration(
@@ -145,10 +146,7 @@ object ApiServices {
           CommandSubmissionFlow(
             apiSubmissionService.submit,
             config.commandConfig.maxParallelSubmissions),
-          r =>
-            apiCompletionService.service
-              .asInstanceOf[SandboxCommandCompletionService]
-              .completionStreamSource(r),
+          r => apiCompletionService.completionStreamSource(r),
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           apiTransactionService.getTransactionById,
           apiTransactionService.getFlatTransactionById

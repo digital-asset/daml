@@ -49,7 +49,6 @@ class SandboxTransactionService private (
     materializer: Materializer,
     esf: ExecutionSequencerFactory)
     extends TransactionService
-    with AutoCloseable
     with ErrorFactories {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -101,7 +100,7 @@ class SandboxTransactionService private (
   }
 
   override def getFlatTransactionByEventId(
-      request: GetTransactionByEventIdRequest): Future[Transaction] = {
+      request: GetTransactionByEventIdRequest): Future[Transaction] =
     SandboxEventIdFormatter
       .split(request.eventId.unwrap)
       .fold(
@@ -112,11 +111,9 @@ class SandboxTransactionService private (
         case TransactionIdWithIndex(transactionId, _) =>
           lookUpFlatByTransactionId(TransactionId(transactionId), request.requestingParties)
       }
-  }
 
-  override def getFlatTransactionById(request: GetTransactionByIdRequest): Future[Transaction] = {
+  override def getFlatTransactionById(request: GetTransactionByIdRequest): Future[Transaction] =
     lookUpFlatByTransactionId(request.transactionId, request.requestingParties)
-  }
 
   override def getLedgerEnd(ledgerId: String): Future[LedgerOffset.Absolute] =
     transactionsService.currentLedgerEnd()
@@ -155,7 +152,5 @@ class SandboxTransactionService private (
               .withDescription("Transaction not found, or not visible.")
               .asRuntimeException())
       }
-
-  override def close(): Unit = ()
 
 }

@@ -57,7 +57,7 @@ package object v1 {
 
   }
 
-  sealed trait CompletionEvent extends Product with Serializable {
+  sealed abstract class CompletionEvent extends Product with Serializable {
     def offset: Offset
   }
 
