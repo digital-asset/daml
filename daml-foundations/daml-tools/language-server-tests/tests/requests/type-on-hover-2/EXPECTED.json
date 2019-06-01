@@ -1,10 +1,8 @@
 {
-  "contents": [
-    {
-      "value": ": Decimal",
-      "language": "daml"
-    }
-  ],
+  "contents": {
+    "kind": "markdown",
+    "value": "```daml\n: Decimal\n```\n"
+  },
   "range": {
     "start": {
       "line": 8,

@@ -15,6 +15,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.concurrent.Future
 
+//TODO: this class is only needed by DamlOnXCommandCompletionService.scala. Must be deleted once that's gone!
 class CommandCompletionServiceValidation(
     val service: CommandCompletionService with AutoCloseable,
     val ledgerId: LedgerId)

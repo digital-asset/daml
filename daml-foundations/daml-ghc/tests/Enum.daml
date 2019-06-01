@@ -18,6 +18,7 @@ main = scenario do
   assert $ [Tue .. Thu] == [Tue,Wed,Thu]
   assert $ [Mon, Wed ..] == [Mon,Wed,Fri,Sun]
   assert $ [Mon,Wed .. Sat] == [Mon,Wed,Fri]
+  assert $ enumerate == [Mon,Tue,Wed,Thu,Fri,Sat,Sun]
   alice <- getParty "alice"
   submitMustFail alice $ do
     () <- return () -- otherwise succ raises the error too early

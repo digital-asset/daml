@@ -443,6 +443,10 @@ lookup  key ((x,y)::xys)
     | key == x          =  Some y
     | otherwise         =  lookup key xys
 
+-- | Generate a list containing all values of a given enumeration.
+enumerate : (Enum a, Bounded a) => [a]
+enumerate = [minBound .. maxBound]
+
 -- | `zip` takes two lists and returns a list of corresponding pairs.
 -- If one list is shorter, the excess elements of the longer list are discarded.
 zip : [a] -> [b] -> [(a, b)]

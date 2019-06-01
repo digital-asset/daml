@@ -26,32 +26,6 @@ package object v2 {
     )
   }
 
-  sealed trait CompletionEvent extends Product with Serializable {
-    def offset: LedgerOffset.Absolute
-    def recordTime: Instant
-  }
-
-  object CompletionEvent {
-
-    final case class Checkpoint(offset: LedgerOffset.Absolute, recordTime: Instant)
-        extends CompletionEvent
-
-    final case class CommandAccepted(
-        offset: LedgerOffset.Absolute,
-        recordTime: Instant,
-        commandId: CommandId,
-        transactionId: TransactionId)
-        extends CompletionEvent
-
-    final case class CommandRejected(
-        offset: LedgerOffset.Absolute,
-        recordTime: Instant,
-        commandId: CommandId,
-        reason: RejectionReason)
-        extends CompletionEvent
-
-  }
-
   final case class ActiveContractSetSnapshot(
       takenAt: LedgerOffset.Absolute,
       activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed])
