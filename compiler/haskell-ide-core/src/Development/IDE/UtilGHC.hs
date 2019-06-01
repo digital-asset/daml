@@ -26,7 +26,9 @@ import Data.IORef
 import Control.Exception
 import FileCleanup
 import Platform
+#ifndef GHC_STABLE
 import ToolSettings
+#endif
 
 ----------------------------------------------------------------------
 -- GHC setup
@@ -69,37 +71,34 @@ fakeDynFlags :: DynFlags
 fakeDynFlags = defaultDynFlags settings ([], [])
     where
         settings = Settings
-                   { sGhcNameVersion=ghcNameVersion
-                   , sFileSettings=fileSettings
-                   , sTargetPlatform=platform
-                   , sPlatformMisc=platformMisc
-                   , sPlatformConstants=platformConstants
-                   , sToolSettings=toolSettings
-                   }
-        fileSettings = FileSettings {
-          -- fileSettings_tmpDir="."
-          }
-        toolSettings = ToolSettings {
-          toolSettings_opt_P_fingerprint=fingerprint0
-          }
-        ghcNameVersion =
-          GhcNameVersion{
-          ghcNameVersion_programName="ghc"
-          , ghcNameVersion_projectVersion=cProjectVersion
-          }
-        platformMisc = PlatformMisc {
-#ifndef GHC_STABLE
-          platformMisc_integerLibraryType=IntegerSimple
+                   { sTargetPlatform = platform
+                   , sPlatformConstants = platformConstants
+#ifdef GHC_STABLE
+                   , sProgramName = "ghc"
+                   , sProjectVersion = cProjectVersion
+                   , sOpt_P_fingerprint = fingerprint0
+#else
+                   , sGhcNameVersion = GhcNameVersion
+                       { ghcNameVersion_programName = "ghc"
+                       , ghcNameVersion_projectVersion = cProjectVersion
+                       }
+                   , sFileSettings = FileSettings
+                       { -- fileSettings_tmpDir = "."
+                       }
+                   , sPlatformMisc = PlatformMisc
+                       { platformMisc_integerLibraryType = IntegerSimple
+                       }
+                   , sToolSettings = ToolSettings
+                       { toolSettings_opt_P_fingerprint = fingerprint0
+                       }
 #endif
-          }
-        platform =
-          Platform{
-            platformWordSize=8
+                   }
+        platform = Platform
+          { platformWordSize=8
           , platformOS=OSUnknown
           , platformUnregisterised=True
-        }
-        platformConstants =
-          PlatformConstants {
-            pc_DYNAMIC_BY_DEFAULT=False
+          }
+        platformConstants = PlatformConstants
+          { pc_DYNAMIC_BY_DEFAULT=False
           , pc_WORD_SIZE=8
           }
