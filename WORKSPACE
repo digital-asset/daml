@@ -491,7 +491,7 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("0.20190601", "18b20e32476de024099c0346da037f4b171cef4971cea2cb02d23954e0272fe5", "eea867613e475ccae1a1a362869c834f2d66f08191c9b5f6b165d5f0ff10406d") +
+            hazel_ghclibs("foo", "18b20e32476de024099c0346da037f4b171cef4971cea2cb02d23954e0272fe5", "eea867613e475ccae1a1a362869c834f2d66f08191c9b5f6b165d5f0ff10406d") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
