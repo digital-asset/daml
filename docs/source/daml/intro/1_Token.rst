@@ -50,7 +50,7 @@ Templates are declared starting with the ``template`` keyword and take a name as
 Signatories
 -----------
 
-The ``signatory`` keyword specifies the *signatories* of a contract instance. Every contract must have at least one signatory. The *authority* of all the signatories of a contract are required to create or archive it again -- just like a real contract. Furthermore, DAML ledgers *guarantee* that parties see all transactions where their transaction is used, which means that signatories of a contract are guaranteed to see the creation and archival of that contract.
+The ``signatory`` keyword specifies the *signatories* of a contract instance. Every contract must have at least one signatory. The *authority* of all the signatories of a contract are required to create or archive it again -- just like a real contract. Furthermore, DAML ledgers *guarantee* that parties see all transactions where their authority is used, which means that signatories of a contract are guaranteed to see the creation and archival of that contract.
 
 Next Up
 -------
