@@ -131,7 +131,7 @@ Exercises
 
 1. Write a template for a second type of Token.
 2. Write a scenario with two parties and two types of tokens, creating one token of each type for each party and archiving one token for each party, leaving one token of each type in the final ledger view.
-3. in :ref:`archiving` the you tested that Bob cannot archive Alice's token. Can you guess why the submit fails? How can you find out why the submit fails?
+3. in :ref:`archiving` you tested that Bob cannot archive Alice's token. Can you guess why the submit fails? How can you find out why the submit fails?
 
   .. hint::
 
