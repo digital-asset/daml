@@ -49,10 +49,11 @@ import qualified Data.ByteString.Lazy as LBS
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as UTFBS
 import Data.Time as Time
-import Data.UUID
+import Data.UUID (UUID)
+import qualified Data.UUID as UUID
 import Control.Concurrent.Extra
 import Control.Monad.Managed
-import Control.Exception
+import Control.Exception.Safe
 import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Class
@@ -289,13 +290,11 @@ sendLogQueue ::
     RunSync ->
     IO ()
 sendLogQueue gcp@GCPState{..} runSync = do
-  let lgr = Lgr.logJson $ envLogger _env
-      lgString = lgr Lgr.Error
   toSend <- popLogQueue gcp
   -- return True on success
   let handleResult = \case
           Left (err :: SomeException) -> do
-              lgString $ displayException err
+              logException (envLogger _env) err
               pushLogQueue gcp toSend
           Right [] ->
               pure ()
@@ -310,6 +309,9 @@ sendLogQueue gcp@GCPState{..} runSync = do
       Async ->
           void $
           forkFinally send (handleResult)
+
+logException :: Exception e => Lgr.Handle m -> e -> m ()
+logException handle e = Lgr.logJson handle Lgr.Error $ displayException e
 
 
 --------------------------------------------------------------------------------
@@ -333,28 +335,31 @@ fetchMachineID = do
     fp <- fmap (</> ".machine_id") damlDir
     let generateID = do
         mID <- randomIO
-        BS.writeFile fp $ encodeUtf8 $ toText mID
+        BS.writeFile fp $ encodeUtf8 $ UUID.toText mID
         pure mID
     exists <- doesFileExist fp
     if exists
        then do
-        uid <- fromText . decodeUtf8 <$> BS.readFile fp
+        uid <- UUID.fromText . decodeUtf8 <$> BS.readFile fp
         maybe generateID pure uid
        else
         generateID
 
 -- | If it hasn't already been done log that the user has opted out of telemetry
-logOptOut :: IO ()
-logOptOut = do
+logOptOut :: Lgr.Handle IO -> IO ()
+logOptOut hnd = do
     fp <- fmap (</> ".opted_out") damlDir
     exists <- doesFileExist fp
     env <- initialiseEnv
     let msg :: T.Text = "Opted out of telemetry"
     optOut <- createLog env Lgr.Info msg
     unless exists do
-        res <- sendLogs [optOut]
-        when (Prelude.null res) $
-            writeFile fp ""
+        res <- try $ do
+            res <- sendLogs [optOut]
+            when (null res) $ writeFile fp ""
+        case res of
+            Left (err :: SomeException) -> logException hnd err
+            Right () -> pure ()
 
 -- | Reads the data file but doesn't check the values are valid
 readDF :: UTFBS.ByteString -> Maybe DataFile

@@ -35,6 +35,7 @@ da_haskell_library(
         "pretty",
         "random",
         "safe",
+        "safe-exceptions",
         "stm",
         "tar-conduit",
         "tasty-hunit",
