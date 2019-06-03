@@ -146,7 +146,7 @@ manipulation_demo = scenario do
       my_dec = 2.5
       my_list = ["One", "Two", "Three"]
 
-    -- An inefficient way to change `eq_record`
+    -- A verbose way to change `eq_record`
     changed_record = EqRecord with
       my_txt = eq_record.my_txt
       my_int = 3
