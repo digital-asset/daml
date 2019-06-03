@@ -12,7 +12,7 @@ module Intro_1_Token where
 -- who holds the `Token` stored in field `owner`.
 template Token
   -- Each `template` has a `with` block defining the data type of the data
-  -- stored on am instance of that contract.
+  -- stored on an instance of that contract.
   -- Blocks are indicated through indentation. The `template` is a block so
   -- `with` is indented. The contents of the `with` block are indented further.
   with
