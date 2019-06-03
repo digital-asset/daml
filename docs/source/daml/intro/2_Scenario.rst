@@ -59,7 +59,9 @@ The big title reading ``Intro_2_Scenario:Token`` is the identifier of the type o
 
 The first columns, labelled vertically show which parties know about which contracts. In this simple scenario, the sole party "Alice" knows about the contract she created.
 
-The second column shows the status of the contract, either ``active`` or ``archived``. The remaining columns show the contract arguments, with one column per field. As expected, field ``owner`` is ``'Alice'``. The single quotation marks indicate that ``Alice`` is a party.
+The second column shows the ID of the contract. This will be explained later.
+
+The third column shows the status of the contract, either ``active`` or ``archived``. The remaining columns show the contract arguments, with one column per field. As expected, field ``owner`` is ``'Alice'``. The single quotation marks indicate that ``Alice`` is a party.
 
 To run the same test from the command line, save your module in a file ``Intro_2_Scenario.daml`` and run ``daml damlc -- test Intro_2_Scenario.daml``. If your file contains more than one scenario, all of them will be run.
 
