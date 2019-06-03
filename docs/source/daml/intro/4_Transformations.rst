@@ -18,7 +18,7 @@ Choices as Methods
 There's a lot to unpack in the above.
 
 - The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the party that may *exercise* them. The line starts a new block in which multiple choices can be defined.
-- ``UpdateTelephone`` is the name of a choic. It starts a new block in which that choice is defined.
+- ``UpdateTelephone`` is the name of a choice. It starts a new block in which that choice is defined.
 - ``: ContractId Contact`` is the return type of the choice. This choice archives the current ``Contact`` and creates a new one. It returns a reference to the new contract in the form of a ``ContractId Contact``
 - The following ``with`` block is that of a record. Just like with templates, in the background, a new record type is declared: ``data UpdateTelephone = UpdateTelephone with``
 - The `do` starts a block defining the action the choice should perform when exercised. In this case a new ``Contact`` is created.
