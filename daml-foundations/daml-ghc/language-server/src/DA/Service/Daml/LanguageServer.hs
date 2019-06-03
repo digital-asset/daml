@@ -10,7 +10,6 @@ module DA.Service.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import           Control.Concurrent                        (threadDelay)
 import qualified Control.Concurrent.Async                  as Async
 import           Control.Concurrent.STM                    (TChan, atomically, newTChanIO,
                                                             readTChan, writeTChan)
@@ -259,17 +258,7 @@ runLanguageServer handleBuild loggerH = Managed.runManaged $ do
       }
     liftIO $ Async.race_
       (eventSlinger loggerH eventChan notifChan)
-      (Async.race_
-        (forever $ do
-            -- Send keep-alive notifications once a second in order to detect
-            -- when the parent has exited.
-            threadDelay (1000*1000)
-            atomically $ writeTChan notifChan
-              $ CustomNotification "daml/keepAlive"
-              $ Aeson.object []
-        )
-        (runServer loggerH (handleRequest ihandle) (handleNotification ihandle) notifChan)
-      )
+      (runServer loggerH (handleRequest ihandle) (handleNotification ihandle) notifChan)
 
 -- | Event slinger slings compiler events to the client as notifications.
 eventSlinger
