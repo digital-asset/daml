@@ -5,6 +5,7 @@ package com.digitalasset.platform.tests.integration.ledger.api.commands
 
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{applicationId, party}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -29,6 +30,7 @@ import com.digitalasset.platform.services.time.TimeProviderType.WallClock
 import com.digitalasset.util.Ctx
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scalaz.syntax.tag._
 import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -41,12 +43,12 @@ class CommandCompletionServiceIT
 
   private def completionSource(
       completionService: CommandCompletionService,
-      ledgerId: String,
+      ledgerId: domain.LedgerId,
       applicationId: String,
       parties: Seq[String],
       offset: LedgerOffset): Source[CompletionStreamElement, NotUsed] =
     CommandCompletionSource(
-      CompletionStreamRequest(ledgerId, applicationId, parties, Some(offset)),
+      CompletionStreamRequest(ledgerId.unwrap, applicationId, parties, Some(offset)),
       completionService.completionStream)
 
   "Commands Completion Service" when {

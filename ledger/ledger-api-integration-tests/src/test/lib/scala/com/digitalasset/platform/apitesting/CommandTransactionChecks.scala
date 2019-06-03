@@ -44,6 +44,7 @@ import org.scalatest.Inside._
 import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 
+import scalaz.syntax.tag._
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -857,12 +858,12 @@ abstract class CommandTransactionChecks
         LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
       val partyFilter = TransactionFilter(Map(party -> Filters(None)))
 
-      def newRequest(cmd: CreateAndExerciseCommand) = submitRequest
+      def newRequest(context: LedgerContext, cmd: CreateAndExerciseCommand) = submitRequest
         .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(cmd))))
-        .update(_.commands.ledgerId := config.assertStaticLedgerId)
+        .update(_.commands.ledgerId := context.ledgerId.unwrap)
 
       "process valid commands successfully" in allFixtures{ c =>
-        val request = newRequest(validCreateAndExercise)
+        val request = newRequest(c, validCreateAndExercise)
 
         for {
           GetLedgerEndResponse(Some(currentEnd)) <- c.transactionClient.getLedgerEnd
@@ -899,7 +900,7 @@ abstract class CommandTransactionChecks
 
       "fail for invalid create arguments" in allFixtures{ implicit c =>
         val createAndExercise = validCreateAndExercise.copy(createArguments = Some(Record()))
-        val request = newRequest(createAndExercise)
+        val request = newRequest(c, createAndExercise)
 
         val response = submitCommand(c, request)
         response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
@@ -908,7 +909,7 @@ abstract class CommandTransactionChecks
       "fail for invalid choice arguments" in allFixtures{ implicit c =>
         val createAndExercise =
           validCreateAndExercise.copy(choiceArgument = Some(Value(Value.Sum.Bool(false))))
-        val request = newRequest(createAndExercise)
+        val request = newRequest(c, createAndExercise)
           .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(createAndExercise))))
 
         val response = submitCommand(c, request)
@@ -918,7 +919,7 @@ abstract class CommandTransactionChecks
       "fail for an invalid choice" in allFixtures{ implicit c =>
         val createAndExercise = validCreateAndExercise.copy(choice = "DoesNotExist")
 
-        val request = newRequest(createAndExercise)
+        val request = newRequest(c, createAndExercise)
           .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(createAndExercise))))
 
         val response = submitCommand(c, request)

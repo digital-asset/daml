@@ -8,6 +8,7 @@ import java.time.Instant
 import java.util
 
 import com.digitalasset.api.util.TimestampConversion
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{
   applicationId,
   ledgerEffectiveTime,
@@ -25,6 +26,8 @@ import com.digitalasset.platform.sandbox.TestTemplateIdentifiers
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.google.protobuf.timestamp.{Timestamp => GTimestamp}
 
+import scalaz.syntax.tag._
+
 // TODO(mthvedt): Delete this old copy when we finish migrating to ledger-api-integration-tests.
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 trait TestCommands {
@@ -39,7 +42,7 @@ trait TestCommands {
   }
 
   protected def buildRequest(
-      ledgerId: String,
+      ledgerId: domain.LedgerId,
       commandId: String,
       commands: Seq[Command],
       let: GTimestamp = ledgerEffectiveTime,
@@ -47,14 +50,14 @@ trait TestCommands {
       appId: String = applicationId) =
     M.submitRequest.update(
       _.commands.commandId := commandId,
-      _.commands.ledgerId := ledgerId,
+      _.commands.ledgerId := ledgerId.unwrap,
       _.commands.applicationId := appId,
       _.commands.commands := commands,
       _.commands.ledgerEffectiveTime := let,
       _.commands.maximumRecordTime := maxRecordTime
     )
 
-  protected def dummyCommands(ledgerId: String, commandId: String) =
+  protected def dummyCommands(ledgerId: domain.LedgerId, commandId: String) =
     buildRequest(
       ledgerId,
       commandId,
@@ -128,7 +131,7 @@ trait TestCommands {
         CreateCommand(Some(templateIds.parameterShowcase), Option(paramShowcaseArgs)))))
   )
 
-  protected def oneKbCommandRequest(ledgerId: String, commandId: String) =
+  protected def oneKbCommandRequest(ledgerId: domain.LedgerId, commandId: String) =
     buildRequest(ledgerId, commandId, List(oneKbCommand(templateIds.textContainer)))
 
   protected def exerciseWithUnit(

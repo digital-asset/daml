@@ -28,6 +28,7 @@ import io.grpc.StatusRuntimeException
 import org.scalatest.concurrent.Waiters
 import org.scalatest.{Assertion, Inside, Matchers, OptionValues}
 
+import scalaz.syntax.tag._
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
@@ -549,7 +550,7 @@ class LedgerTestingHelpers(
 
   def submitRequestWithId(commandId: String): SubmitRequest =
     M.submitRequest.update(
-      _.commands.modify(_.copy(commandId = commandId, ledgerId = context.ledgerId)))
+      _.commands.modify(_.copy(commandId = commandId, ledgerId = context.ledgerId.unwrap)))
 
   // Exercise a choice and return all resulting create events.
   def simpleExercise(

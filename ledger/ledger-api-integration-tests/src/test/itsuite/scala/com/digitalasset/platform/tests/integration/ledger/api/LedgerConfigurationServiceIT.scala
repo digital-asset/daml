@@ -4,6 +4,7 @@
 package com.digitalasset.platform.tests.integration.ledger.api
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
@@ -18,6 +19,7 @@ import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
+import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LedgerConfigurationServiceIT
@@ -32,10 +34,8 @@ class LedgerConfigurationServiceIT
 
   override def timeLimit: Span = 5.seconds
 
-  private def client(
-      ctx: LedgerContext,
-      ledgerId: String = config.assertStaticLedgerId): LedgerConfigurationClient =
-    new LedgerConfigurationClient(ledgerId, ctx.ledgerConfigurationService)
+  private def client(ctx: LedgerContext): LedgerConfigurationClient =
+    new LedgerConfigurationClient(ctx.ledgerId, ctx.ledgerConfigurationService)
 
   "Ledger Configuration Service" when {
 
@@ -50,7 +50,9 @@ class LedgerConfigurationServiceIT
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        client(context, "not " + config.assertStaticLedgerId).getLedgerConfiguration
+        new LedgerConfigurationClient(
+          domain.LedgerId("not" + context.ledgerId.unwrap),
+          context.ledgerConfigurationService).getLedgerConfiguration
           .runWith(Sink.head)(materializer)
           .failed map { ex =>
           IsStatusException(Status.NOT_FOUND.getCode)(ex)

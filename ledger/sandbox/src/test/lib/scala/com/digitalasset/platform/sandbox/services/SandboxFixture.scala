@@ -8,6 +8,7 @@ import java.io.File
 import akka.stream.Materializer
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{Resource, SuiteResource}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.{
   GetLedgerIdentityRequest,
@@ -21,6 +22,7 @@ import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import io.grpc.Channel
 import org.scalatest.Suite
 
+import scalaz.syntax.tag._
 import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.util.Try
@@ -34,17 +36,18 @@ trait SandboxFixture extends SuiteResource[Channel] {
 
   protected def channel: Channel = suiteResource.value
 
-  protected def ledgerIdOnServer: String =
-    LedgerIdentityServiceGrpc
-      .blockingStub(channel)
-      .getLedgerIdentity(GetLedgerIdentityRequest())
-      .ledgerId
+  protected def ledgerIdOnServer: domain.LedgerId =
+    domain.LedgerId(
+      LedgerIdentityServiceGrpc
+        .blockingStub(channel)
+        .getLedgerIdentity(GetLedgerIdentityRequest())
+        .ledgerId)
 
   protected def getTimeProviderForClient(
       implicit mat: Materializer,
       esf: ExecutionSequencerFactory): TimeProvider = {
     Try(TimeServiceGrpc.stub(channel))
-      .map(StaticTime.updatedVia(_, ledgerIdOnServer)(mat, esf))
+      .map(StaticTime.updatedVia(_, ledgerIdOnServer.unwrap)(mat, esf))
       .fold[TimeProvider](_ => TimeProvider.UTC, Await.result(_, 30.seconds))
   }
 
@@ -63,7 +66,7 @@ trait SandboxFixture extends SuiteResource[Channel] {
 
   protected def scenario: Option[String] = None
 
-  protected def ledgerId: String = ledgerIdOnServer
+  protected def ledgerId: domain.LedgerId = ledgerIdOnServer
 
   private lazy val sandboxResource = new SandboxServerResource(config)
 

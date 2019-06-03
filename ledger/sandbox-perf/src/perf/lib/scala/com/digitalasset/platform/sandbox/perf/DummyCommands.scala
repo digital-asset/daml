@@ -5,12 +5,13 @@ package com.digitalasset.platform.sandbox.perf
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.platform.sandbox.services.TestCommands
 
 trait DummyCommands extends TestCommands {
 
-  protected def dummyCreates(ledgerId: String): Source[SubmitAndWaitRequest, NotUsed] = {
+  protected def dummyCreates(ledgerId: domain.LedgerId): Source[SubmitAndWaitRequest, NotUsed] = {
     val templates = templateIds
     Source
       .unfold(0) { i =>

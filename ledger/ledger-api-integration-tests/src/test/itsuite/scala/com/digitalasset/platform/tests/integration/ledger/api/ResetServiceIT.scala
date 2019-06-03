@@ -15,8 +15,6 @@ import com.digitalasset.ledger.api.testing.utils.{
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
-import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
-import com.digitalasset.ledger.api.v1.testing.reset_service.ResetRequest
 import com.digitalasset.platform.apitesting.MultiLedgerFixture
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.services.TestCommands
@@ -34,7 +32,7 @@ class ResetServiceIT
     with InfiniteRetries
     with Matchers
     with AkkaBeforeAndAfterAll
-    with MultiLedgerFixture
+    with MultiLedgerFixture // TODO: this suite shoul not be using LedgerContext, as it is smart and hides too much of the reset mechanism
     with ScalaFutures
     with TestCommands
     with SuiteResourceManagementAroundEach {
@@ -54,18 +52,14 @@ class ResetServiceIT
   "ResetService" when {
     "state is reset" should {
 
-      "return a new ledger ID" in allFixtures { ctx =>
+      "return a new ledger ID" in allFixtures { ctx1 =>
+        val lid1 = ctx1.ledgerId
         for {
-          lid1 <- ctx.ledgerIdentityService.getLedgerIdentity(GetLedgerIdentityRequest())
-          lid1SecondInstance <- ctx.ledgerIdentityService.getLedgerIdentity(
-            GetLedgerIdentityRequest())
-          lid2 <- ctx.reset()
-          lid3 <- ctx.reset()
-          throwable <- ctx.resetService.reset(ResetRequest(lid1.ledgerId)).failed
+          ctx2 <- ctx1.reset()
+          lid2 = ctx2.ledgerId
+          throwable <- ctx1.reset().failed
         } yield {
-          lid1 shouldEqual lid1SecondInstance
-          lid1.ledgerId should not equal lid2
-          lid2 should not equal lid3
+          lid1 should not equal lid2
           IsStatusException(Status.Code.NOT_FOUND)(throwable)
         }
       }
@@ -80,8 +74,10 @@ class ResetServiceIT
             val events = responses.flatMap(extractEvents)
             events.size shouldBe 3
           }
-          _ <- ctx.reset()
-          newSnapshot <- ctx.acsClient.getActiveContracts(allTemplatesForParty).runWith(Sink.seq)
+          newContext <- ctx.reset()
+          newSnapshot <- newContext.acsClient
+            .getActiveContracts(allTemplatesForParty)
+            .runWith(Sink.seq)
         } yield {
           newSnapshot.size shouldBe 1
           val newEvents = newSnapshot.flatMap(extractEvents)

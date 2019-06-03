@@ -19,6 +19,8 @@ import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
+import scalaz.syntax.tag._
+
 class CommandSubmissionServiceIT
     extends AsyncWordSpec
     with SuiteResourceManagementAroundAll
@@ -39,8 +41,8 @@ class CommandSubmissionServiceIT
     "commands arrive with extreme TTLs" should {
 
       "successfully submit commands" in allFixtures { implicit c =>
-        c.commandSubmissionService.submit(SubmitRequest(
-          Some(submitRequest.getCommands.withLedgerId(config.assertStaticLedgerId)))) map { _ =>
+        c.commandSubmissionService.submit(
+          SubmitRequest(Some(submitRequest.getCommands.withLedgerId(c.ledgerId.unwrap)))) map { _ =>
           succeed
         }
       }
