@@ -67,7 +67,7 @@ There's quite a lot of information on the ``CashBalance`` above and it would be 
 Tuples
 ~~~~~~
 
-A common task is to group values in a generic way. Take, for example a key-value pair with a ``Text`` key and an ``Int`` value. In DAML, you could use a two-tuple of type ``(Text, Int)`` to do so. If you wanted to express a coordinate in three dimensions, you could group three ``Decimal`` values using a three-tuple ``(Decimal, Decimal, Decimal)``.
+A common task is to group values in a generic way. Take, for example, a key-value pair with a ``Text`` key and an ``Int`` value. In DAML, you could use a two-tuple of type ``(Text, Int)`` to do so. If you wanted to express a coordinate in three dimensions, you could group three ``Decimal`` values using a three-tuple ``(Decimal, Decimal, Decimal)``.
 
 
 .. literalinclude:: daml/3_Data/Tuple.daml
