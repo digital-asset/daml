@@ -45,7 +45,11 @@ deps.bzl            @digital-asset/empty
 /templates/         @digital-asset/empty
 
 # Runtime
-/daml-lf/           @digital-asset/empty
+/daml-lf/           @leo-da @S11001001
+/daml-lf/governance.rst @bitonic @remyhaemmerle-da @S11001001
+/daml-lf/archive/da/ @bitonic @remyhaemmerle-da
+/daml-lf/spec/      @bitonic @remyhaemmerle-da @S11001001
+/daml-lf/validation/ @remyhaemmerle-da
 /ledger/            @digital-asset/empty
 /ledger-api/        @digital-asset/empty
 
@@ -53,11 +57,11 @@ deps.bzl            @digital-asset/empty
 /language-support/          @digital-asset/empty
 /language-support/java/     @digital-asset/empty @gerolf-da @nicholassmith-da
 /language-support/js/       @digital-asset/empty
-/language-support/scala/    @digital-asset/empty
+/language-support/scala/    @leo-da @S11001001
 /scala-protoc-plugins/      @digital-asset/empty
 
 # Tools
-/extractor/         @digital-asset/empty
+/extractor/         @leo-da @S11001001
 /navigator/         @digital-asset/empty
 /web-ide/           @digital-asset/empty
 
