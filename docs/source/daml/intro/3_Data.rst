@@ -108,7 +108,7 @@ In the ``assert`` statements above, we always compared values of in-built types.
   :start-after: -- EQ_TEST_BEGIN
   :end-before: -- EQ_TEST_END
 
-``Eq`` is a so-called type-class, which can be thought of like an interface in other languages. There are some other type-classes that can be derived automatically. Most prominently ``Show`` to get access to the function ``show``, equivalent to ``toString`` in many languages, and ``Ord``, which gives access to comparison operators ``<``, ``>``, ``<=``, ``>=``.
+``Eq`` is a so-called type-class, which can be thought of as like an interface in other languages: it is the mechanism by which we can define a set of functions (`==` and `/=` in the case of `Eq`) to work on multiple types, with a specific implementation for each type they can apply to. There are some other type-classes that can be derived automatically. Most prominently, ``Show`` to get access to the function ``show``, equivalent to ``toString`` in many languages, and ``Ord``, which gives access to comparison operators ``<``, ``>``, ``<=``, ``>=``.
 
 It's a good idea to always derive ``Eq`` and ``Show`` using ``deriving (Eq, Show)``. The record types created using ``template T with`` do this automatically.
 
