@@ -14,9 +14,22 @@ import Data.Maybe
 import "ghc-lib-parser" DataCon
 import "ghc-lib-parser" FastString
 import "ghc-lib" GHC
+import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" Outputable
-import "ghc-lib-parser" PrelNames
+import "ghc-lib-parser" PrelNames hiding
+    (
+    gHC_GENERICS
+    , gHC_TYPES
+    , k1DataCon_RDR
+    , l1DataCon_RDR
+    , m1DataCon_RDR
+    , r1DataCon_RDR
+    , u1DataCon_RDR
+    , prodDataCon_RDR
+    , to_RDR
+    , from_RDR
+    )
+
 import "ghc-lib-parser" RdrName
 import "ghc-lib" TcGenDeriv
 import "ghc-lib-parser" Util
@@ -84,10 +97,65 @@ genericsPreprocessor mbPkgName (L l src) =
                              deriv_clause_strategy
                              (L l2 $ filter (not . isGeneric) derive_clause_tys))
                 _other -> clause
+
         isGeneric :: LHsSigType GhcPs -> Bool
         isGeneric (HsIB _ (L _ (HsTyVar _ _ (L _ (Unqual name)))))
             | name `elem` [nameOccName n | n <- genericClassNames] = True
         isGeneric _other = False
+
+
+-- | TODO (drsk) Add support for Gen1. For now we only support Gen0
+gen1Error :: a
+gen1Error = error "Generation of Generic1 not supported."
+
+gADTError :: a
+gADTError = error "Can't generate generic instances for data types with GADT's"
+
+extError :: a
+extError = error "Can't generate generic instances for extended AST"
+
+-- NOTE (drsk) Our Generics is located in DA.Generics instead of GHC.Generics. Also some of the used
+-- data types are in daml-stdlib and not in ghc-prim. Hence the need for the following RdrName
+-- definitions coming from ghc-parser PrelNames.
+
+stdlibUnitId :: UnitId
+stdlibUnitId = fsToUnitId (fsLit "daml-stdlib")
+
+mkStdlibModule :: FastString -> Module
+mkStdlibModule m = mkModule stdlibUnitId (mkModuleNameFS m)
+
+gHC_GENERICS :: Module
+gHC_GENERICS = mkStdlibModule (fsLit "DA.Generics")
+
+gHC_TYPES :: Module
+gHC_TYPES = mkStdlibModule (fsLit "Prelude")
+
+u1DataCon_RDR, _par1DataCon_RDR, _rec1DataCon_RDR,
+  k1DataCon_RDR, m1DataCon_RDR, l1DataCon_RDR, r1DataCon_RDR,
+  prodDataCon_RDR, _comp1DataCon_RDR,
+  _unPar1_RDR, _unRec1_RDR, _unK1_RDR, _unComp1_RDR,
+  from_RDR, _from1_RDR, to_RDR, _to1_RDR :: RdrName
+u1DataCon_RDR    = dataQual_RDR gHC_GENERICS (fsLit "U1")
+_par1DataCon_RDR  = dataQual_RDR gHC_GENERICS (fsLit "Par1")
+_rec1DataCon_RDR  = dataQual_RDR gHC_GENERICS (fsLit "Rec1")
+k1DataCon_RDR    = dataQual_RDR gHC_GENERICS (fsLit "K1")
+m1DataCon_RDR    = dataQual_RDR gHC_GENERICS (fsLit "M1")
+
+l1DataCon_RDR     = dataQual_RDR gHC_GENERICS (fsLit "L1")
+r1DataCon_RDR     = dataQual_RDR gHC_GENERICS (fsLit "R1")
+
+prodDataCon_RDR   = dataQual_RDR gHC_GENERICS (fsLit "P1")
+_comp1DataCon_RDR  = dataQual_RDR gHC_GENERICS (fsLit "Comp1")
+
+_unPar1_RDR  = varQual_RDR gHC_GENERICS (fsLit "unPar1")
+_unRec1_RDR  = varQual_RDR gHC_GENERICS (fsLit "unRec1")
+_unK1_RDR    = varQual_RDR gHC_GENERICS (fsLit "unK1")
+_unComp1_RDR = varQual_RDR gHC_GENERICS (fsLit "unComp1")
+
+from_RDR  = varQual_RDR gHC_GENERICS (fsLit "from")
+_from1_RDR = varQual_RDR gHC_GENERICS (fsLit "from1")
+to_RDR    = varQual_RDR gHC_GENERICS (fsLit "to")
+_to1_RDR   = varQual_RDR gHC_GENERICS (fsLit "to1")
 
 
 -- | Generate a generic instance for a data type.
@@ -239,8 +307,7 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
             , not (null rec) = mkPromotedTy gHC_TYPES "True"
             | RecCon (L _ _rec) <- con_args = mkPromotedTy gHC_TYPES "False"
     metaConsTy0 (L _ ConDeclGADT {}) = gADTError
-    metaConsTy0 (L _ XConDecl {}) =
-        error "Can't generate generic instance for extended AST"
+    metaConsTy0 (L _ XConDecl {}) = extError
     metaSelTy0 :: Maybe [LFieldOcc GhcPs] -> LHsType GhcPs -> LHsType GhcPs
     metaSelTy0 mbLbs a =
         mkHsAppTys
@@ -250,11 +317,11 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
         mbRecordName
             | Just [l] <- mbLbs =
                 mkHsAppTy
-                    (mkGenPromotedTy "Just")
+                    (mkPromotedTy gHC_TYPES "Some")
                     (mkStrLit $
                      occNameString $
                      rdrNameOcc $ unLoc $ rdrNameFieldOcc $ unLoc l)
-            | otherwise = mkGenPromotedTy "Nothing"
+            | otherwise = mkPromotedTy gHC_TYPES "None"
         HsSrcBang _st su ss = getBangStrictness a
         srcUnpackedness =
             case su of
@@ -267,13 +334,12 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
                 SrcStrict -> mkGenCon sourceStrictDataConName
                 NoSrcStrict -> mkGenCon noSourceStrictnessDataConName
         decidedStrictness = mkGenCon decidedLazyDataConName -- TODO (drsk) we don't know decided strictness at parsing, we need to remove the field.
-generateGenericInstanceFor _genClass _n _pkgName _mod _tyVars XHsDataDefn {} =
-    error "Can't generate generic instance for extended AST"
+generateGenericInstanceFor _genClass _n _pkgName _mod _tyVars XHsDataDefn {} = extError
 
 
 -- Bindings for the Generic instance.
 --
--- NOTE (drsk) Most of the code below is copied from GHC with minor tweaks for our scenario
+-- NOTE (drsk) Most of the code below is copied from GHC with minor tweaks for our case
 ----------------------------------------------------------------------------------------------------
 
 type US = Int   -- Local unique supply, just a plain Int
@@ -289,7 +355,6 @@ data GenericKind_ = Gen0_ | Gen1_ TyVar
 -- as above, but using a single datacon's name for "the" parameter
 data GenericKind_DC = Gen0_DC | Gen1_DC TyVar
 
-
 forgetArgVar :: GenericKind_DC -> GenericKind
 forgetArgVar Gen0_DC   = Gen0
 forgetArgVar Gen1_DC{} = Gen1
@@ -298,14 +363,7 @@ forgetArgVar Gen1_DC{} = Gen1
 -- match that datacon's name for it.
 gk2gkDC :: GenericKind_ -> ConDecl GhcPs -> GenericKind_DC
 gk2gkDC Gen0_   _ = Gen0_DC
-gk2gkDC Gen1_{} d = gen1Error -- Gen1_DC $ last $ dataConUnivTyVars d
-
--- | TODO (drsk) Add support for Gen1. For now we only support Gen0
-gen1Error :: a
-gen1Error = error "Generation of Generic1 not supported."
-
-gADTError :: a
-gADTError = error "Can't generate generic instances for data types with GADT's"
+gk2gkDC Gen1_{} _d = gen1Error -- Gen1_DC $ last $ dataConUnivTyVars d
 
 mkBindsRep :: GenericKind -> SrcSpan -> HsDataDefn GhcPs -> LHsBinds GhcPs
 mkBindsRep gk loc dataDef =
@@ -384,6 +442,7 @@ mk1Sum gk_ us i n datacon = (from_alt, to_alt)
 
     datacon_rdr | ConDeclH98{..} <- datacon = unLoc con_name
                 | ConDeclGADT{} <- datacon = gADTError
+                | XConDecl{} <- datacon = extError
 
     from_alt     = (nlConVarPat datacon_rdr datacon_vars, from_alt_rhs)
     from_alt_rhs = genLR_E i n (mkProd_E gk_ us' datacon_varTys)
@@ -427,7 +486,6 @@ genLR_E i n e
 --------------------------------------------------------------------------------
 -- Dealing with products
 --------------------------------------------------------------------------------
-
 -- Build a product expression
 mkProd_E :: GenericKind_DC    -- Generic or Generic1?
          -> US                -- Base for unique names
@@ -444,10 +502,10 @@ mkProd_E gk_ _ varTys = mkM1_E (foldBal prod appVars)
     prod a b = prodDataCon_RDR `nlHsApps` [a,b]
 
 wrapArg_E :: GenericKind_DC -> (RdrName, LBangType GhcPs) -> LHsExpr GhcPs
-wrapArg_E Gen0_DC          (var, ty) = mkM1_E $
+wrapArg_E Gen0_DC          (var, _ty) = mkM1_E $
                             k1DataCon_RDR `nlHsVarApps` [var]
                          -- This M1 is meta-information for the selector
-wrapArg_E (Gen1_DC argVar) (var, ty) = gen1Error -- mkM1_E $
+wrapArg_E (Gen1_DC _argVar) (_var, _ty) = gen1Error -- mkM1_E $
                             --converter ty `nlHsApp` nlHsVar var
                          ---- This M1 is meta-information for the selector
   --where converter = argTyFold argVar $ ArgTyAlg
@@ -471,7 +529,7 @@ mkProd_P gk _ varTys = mkM1_P (foldBal prod appVars)
     prod a b = nlParPat $ prodDataCon_RDR `nlConPat` [a,b]
 
 wrapArg_P :: GenericKind -> RdrName -> LBangType GhcPs -> LPat GhcPs
-wrapArg_P Gen0 v ty = mkM1_P (nlParPat $ k1DataCon_RDR `nlConVarPat` [v])
+wrapArg_P Gen0 v _ty = mkM1_P (nlParPat $ k1DataCon_RDR `nlConVarPat` [v])
                    -- This M1 is meta-information for the selector
 wrapArg_P Gen1 v _  = nlParPat $ m1DataCon_RDR `nlConVarPat` [v]
 
@@ -493,8 +551,8 @@ mkM1_E e = nlHsVar m1DataCon_RDR `nlHsApp` e
 mkM1_P :: LPat GhcPs -> LPat GhcPs
 mkM1_P p = nlParPat $ m1DataCon_RDR `nlConPat` [p]
 
-nlHsCompose :: LHsExpr GhcPs -> LHsExpr GhcPs -> LHsExpr GhcPs
-nlHsCompose x y = compose_RDR `nlHsApps` [x, y]
+_nlHsCompose :: LHsExpr GhcPs -> LHsExpr GhcPs -> LHsExpr GhcPs
+_nlHsCompose x y = compose_RDR `nlHsApps` [x, y]
 
 -- | Variant of foldr1 for producing balanced lists
 foldBal :: (a -> a -> a) -> [a] -> a

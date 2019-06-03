@@ -66,7 +66,6 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
           "GHC.Tuple",
           "GHC.Err",
           "GHC.Base",
-          "GHC.Generics",
           "LibraryModules"
         )
     }

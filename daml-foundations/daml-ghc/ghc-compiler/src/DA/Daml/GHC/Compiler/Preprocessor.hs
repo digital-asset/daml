@@ -27,13 +27,21 @@ isInternal (GHC.moduleNameString -> x)
     x `elem` ["Control.Exception.Base", "Data.String", "LibraryModules", "DA.Types"]
 
 mayImportInternal :: [GHC.ModuleName]
-mayImportInternal = map GHC.mkModuleName ["Prelude", "DA.Time", "DA.Date", "DA.Record", "DA.TextMap", "Special"]
+mayImportInternal =
+    map GHC.mkModuleName
+        [ "Prelude"
+        , "DA.Time"
+        , "DA.Date"
+        , "DA.Record"
+        , "DA.TextMap"
+        , "DA.Generics"
+        ]
 
 -- | Apply all necessary preprocessors
 damlPreprocessor :: Maybe String -> GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
 damlPreprocessor mbPkgName x
-    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], genericsPreprocessor mbPkgName x)
-    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ genericsPreprocessor mbPkgName $ importDamlPreprocessor x)
+    | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], x)
+    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ x)
     where name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 
