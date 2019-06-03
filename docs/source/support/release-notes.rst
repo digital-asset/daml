@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Drop support for DAML-LF 1.3. Compiling to DAML-LF 1.4 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all. (The ledger server still supports DAML-LF 1.3.)
+
 DAML Standard Library
 ~~~~~~~~~~~~~~~~~~~~~
 

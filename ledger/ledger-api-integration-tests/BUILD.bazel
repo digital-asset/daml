@@ -148,7 +148,6 @@ TEST_FILES = [
     daml_compile(
         name = name,
         main_src = "src/test/semanticsuite/daml/%s.daml" % name,
-        target = "1.3",
         visibility = ["//visibility:public"],
     )
     for name in TEST_FILES

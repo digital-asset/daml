@@ -16,13 +16,11 @@ load("//language-support/scala/codegen:codegen.bzl", "dar_to_scala")
 daml_compile(
     name = "MyMain",
     main_src = "src/main/daml/MyMain.daml",
-    target = "1.3",
 )
 
 daml_compile(
     name = "MySecondMain",
     main_src = "src/main/daml/MySecondMain.daml",
-    target = "1.3",
 )
 
 dar_to_scala(

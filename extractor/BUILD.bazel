@@ -51,7 +51,6 @@ TEST_DARS = [
     daml_compile(
         name = darmod,
         main_src = "src/test/resources/damls/%s.daml" % darmod,
-        target = "1.3",
     )
     for darmod in TEST_DARS
 ]

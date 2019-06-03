@@ -49,7 +49,6 @@ da_scala_library(
 daml_compile(
     name = "LargeTransaction",
     main_src = "src/perf/resources/damls/LargeTransaction.daml",
-    target = "1.3",
     visibility = ["//visibility:public"],
 )
 
