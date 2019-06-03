@@ -54,7 +54,7 @@ daml_compile(
 
 [
     sh_test(
-        name = "test-scenario-1-3-" + file.split("/")[2],
+        name = "test-scenario-1-dev-" + file.split("/")[2],
         size = "medium",
         srcs = ["scenario/test.sh"],
         args = [
@@ -72,5 +72,5 @@ daml_compile(
             "@bazel_tools//tools/bash/runfiles",
         ],
     )
-    for file in glob(["scenario/daml-1.3/*/Test.daml"])
+    for file in glob(["scenario/daml-1.dev/*/Test.daml"])
 ]
