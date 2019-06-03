@@ -74,8 +74,10 @@ class ResetServiceIT
             val events = responses.flatMap(extractEvents)
             events.size shouldBe 3
           }
-          _ <- ctx.reset()
-          newSnapshot <- ctx.acsClient.getActiveContracts(allTemplatesForParty).runWith(Sink.seq)
+          newContext <- ctx.reset()
+          newSnapshot <- newContext.acsClient
+            .getActiveContracts(allTemplatesForParty)
+            .runWith(Sink.seq)
         } yield {
           newSnapshot.size shouldBe 1
           val newEvents = newSnapshot.flatMap(extractEvents)
