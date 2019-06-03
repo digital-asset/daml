@@ -12,7 +12,7 @@ template Token
 -- introduces a block.
 token_test = scenario do
 
-  -- The `getParty` function allows the specification of perties in a `scenario` context.
+  -- The `getParty` function allows the specification of parties in a `scenario` context.
   -- The `<-` notation _binds_ the result to a variable.
   alice <- getParty "Alice"
 
