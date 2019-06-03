@@ -28,7 +28,7 @@ You have already encountered the type ``Party`` in :doc:`1_Token` and ``Text`` a
 - ``Int``
   Stores signed 64-bit integers. For example, ``-123``.
 - ``Decimal``
-  Stores fixed-point number with precision 38 and scale 10. For example, ``0.0000000001`` or ``-9999999999999999999999999999.9999999999``.
+  Stores fixed-point number with precision 38 and scale 10, i.e. 28 digits before and 10 digits after the decimal point. For example, ``0.0000000001`` or ``-9999999999999999999999999999.9999999999``.
 - ``Bool``
   Stores ``True`` or ``False``.
 - ``Date``
