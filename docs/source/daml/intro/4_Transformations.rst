@@ -136,7 +136,7 @@ With that new background, it's time to take a look at the transaction view of th
 
 There are four commits corresponding to the four ``submit`` statements in the scenario. Within each commit, we see that it's actually actions that have ids of the form ``#commit_number:action_number``. Contract ids are just the id of their ``create`` action. Commits ``#2`` and ``#4`` contain ``exercise`` actions with ids ``#2:1`` and ``#4:1``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:2`` and ``#4:2``, are indented and found below a line reading ``children:``, making the tree structure apparent.
 
-The are a few extra ``fetch`` nodes scattered around. These are inserted as activeness checks. As they have no effect, it's safe not to worry about them.
+There are a few extra ``fetch`` nodes scattered around. These are inserted as activeness checks. As they have no effect, it's safe not to worry about them.
 
 A Simple Cash Model
 -------------------
