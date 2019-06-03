@@ -10,7 +10,20 @@
 # For more information please visit https://daml.com/ and https://docs.daml.com/
 #
 
+#
+# USAGE:
+#    get-daml.sh            Download and install the latest DAML SDK release.
+#    get-daml.sh VERSION    Download and install given version of DAML SDK.
+#
+
+ARG1="$1"
+  # We do this here before setting -u because we don't want
+  # to have an error when testing this argument later.
+
 set -eu
+  # Fail whenever a subcommand fails, and fail whenever we
+  # use an undefined variable.
+
 cleanup() {
   echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
 }
@@ -40,15 +53,20 @@ if [ -n "$MISSING" ]; then
 fi
 
 #
-# Determine latest SDK version
+# Determine SDK version
 #
-echo "Determining latest SDK version..."
-readonly VERSION="$(curl -sS https://github.com/digital-asset/daml/releases/latest | sed 's/^.*github.com\/digital-asset\/daml\/releases\/tag\/v//' | sed 's/".*$//')"
-if [ -z "$VERSION" ] ; then
-  echo "Failed to determine latest SDK version."
-  exit 1
+if [ -z "$ARG1" ] ; then
+  echo "Determining latest SDK version..."
+  readonly VERSION="$(curl -sS https://github.com/digital-asset/daml/releases/latest | sed 's/^.*github.com\/digital-asset\/daml\/releases\/tag\/v//' | sed 's/".*$//')"
+  if [ -z "$VERSION" ] ; then
+    echo "Failed to determine latest SDK version."
+    exit 1
+  fi
+  echo "Latest SDK version is $VERSION"
+else
+  readonly VERSION="$ARG1"
+  echo "Installing SDK version $VERSION"
 fi
-echo "Latest SDK version is $VERSION."
 
 #
 # Determine operating system.
@@ -70,8 +88,8 @@ fi
 readonly TARBALL="daml-sdk-$VERSION-$OS.tar.gz"
 readonly URL="https://github.com/digital-asset/daml/releases/download/v$VERSION/$TARBALL"
 
-echo "$(tput setaf 3)Downloading latest DAML SDK. This may take a while.$(tput sgr 0)"
-curl -L $URL --output $TARBALL --progress-bar
+echo "$(tput setaf 3)Downloading DAML SDK. This may take a while.$(tput sgr 0)"
+curl -SLf $URL --output $TARBALL --progress-bar
 if [ ! -f $TARBALL ] ; then
   echo "Failed to download SDK tarball."
   exit 1
