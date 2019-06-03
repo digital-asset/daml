@@ -27,7 +27,8 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
 
   protected val baseConfig = ExtractorConfig(
     "127.0.0.1",
-    666, // doesn't matter, will/must be overriden in the test cases
+    ledgerPort = 666, // doesn't matter, will/must be overridden in the test cases
+    ledgerInboundMessageSizeMax = 50 * 1024 * 1024,
     LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN)),
     SnapshotEndSetting.Head,
     OneAnd(Party assertFromString "Bob", List.empty),
