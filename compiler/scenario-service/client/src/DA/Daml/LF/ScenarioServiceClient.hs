@@ -6,7 +6,7 @@ module DA.Daml.LF.ScenarioServiceClient
   , LowLevel.TimeoutSeconds
   , LowLevel.findServerJar
   , Handle
-  , start
+  , withScenarioService
   , Context(..)
   , LowLevel.ContextId
   , getNewCtx
@@ -23,9 +23,8 @@ module DA.Daml.LF.ScenarioServiceClient
 import Control.Concurrent.Extra
 import Control.DeepSeq
 import Control.Exception
-import Control.Monad.Managed
+import Control.Monad.IO.Class
 import qualified Data.ByteString as BS
-import Data.Foldable
 import Data.Hashable
 import Data.IORef
 import qualified Data.Map.Strict as MS
@@ -57,17 +56,17 @@ data Handle = Handle
   , hContextId :: LowLevel.ContextId
   }
 
-start :: Options -> Managed (Either LowLevel.BackendError Handle)
-start hOptions = do
-  hLowLevelHandle <- LowLevel.start (toLowLevelOpts hOptions)
-  hLoadedPackages <- liftIO $ newIORef S.empty
-  hLoadedModules <- liftIO $ newIORef MS.empty
-  ctxIdOrErr <- managed $ bracket
-    (LowLevel.newCtx hLowLevelHandle)
-    (traverse_ (LowLevel.deleteCtx hLowLevelHandle))
-  hConcurrencySem <- liftIO $ newQSem (optMaxConcurrency hOptions)
-  hContextLock <- liftIO newLock
-  pure (fmap (\hContextId -> Handle {..}) ctxIdOrErr)
+withScenarioService :: Options -> (Handle -> IO a) -> IO a
+withScenarioService hOptions f =
+  LowLevel.withScenarioService (toLowLevelOpts hOptions) $ \hLowLevelHandle ->
+  bracket
+     (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
+     (LowLevel.deleteCtx hLowLevelHandle) $ \hContextId -> do
+         hLoadedPackages <- liftIO $ newIORef S.empty
+         hLoadedModules <- liftIO $ newIORef MS.empty
+         hConcurrencySem <- liftIO $ newQSem (optMaxConcurrency hOptions)
+         hContextLock <- liftIO newLock
+         f Handle {..}
 
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)

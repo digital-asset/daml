@@ -10,7 +10,6 @@ module DA.Cli.Damlc (main) where
 
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
-import qualified Control.Monad.Managed             as Managed
 import DA.Cli.Damlc.Base
 import Data.Maybe
 import Control.Exception
@@ -22,7 +21,8 @@ import           DA.Cli.Damlc.Command.Damldoc      (cmdDamlDoc)
 import           DA.Cli.Args
 import qualified DA.Pretty
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
-import DA.Daml.GHC.Compiler.Options (projectPackageDatabase, basePackages)
+import DA.Service.Daml.Compiler.Impl.Scenario (withScenarioService)
+import DA.Daml.GHC.Compiler.Options (EnableScenarioService(..), projectPackageDatabase, basePackages)
 import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -38,7 +38,6 @@ import qualified Data.ByteString                   as B
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Char8 as BSC
 import Data.FileEmbed (embedFile)
-import Data.Functor
 import qualified Data.Set as Set
 import qualified Data.List.Split as Split
 import qualified Data.Text as T
@@ -89,7 +88,7 @@ cmdCompile numProcessors =
     cmd = execCompile
         <$> inputFileOpt
         <*> outputFileOpt
-        <*> optionsParser numProcessors optPackageName
+        <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
 
 cmdTest :: Int -> Mod CommandFields Command
 cmdTest numProcessors =
@@ -106,7 +105,7 @@ cmdTest numProcessors =
       <*> filesOpt
       <*> fmap UseColor colorOutput
       <*> junitOutput
-      <*> optionsParser numProcessors optPackageName
+      <*> optionsParser numProcessors (EnableScenarioService True) optPackageName
     filesOpt = optional (flag' () (long "files" <> help filesDoc) *> many inputFileOpt)
     filesDoc = "Only run test declarations in the specified files."
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
@@ -142,7 +141,7 @@ cmdBuild numProcessors =
     cmd =
         execBuild
             <$> projectOpts "daml build"
-            <*> optionsParser numProcessors (pure Nothing)
+            <*> optionsParser numProcessors (EnableScenarioService False) (pure Nothing)
             <*> optionalOutputFileOpt
             <*> initPkgDbOpt
 
@@ -171,7 +170,7 @@ cmdPackage numProcessors =
     cmd = execPackage
         <$> projectOpts "daml damlc package"
         <*> inputFileOpt
-        <*> optionsParser numProcessors (Just <$> packageNameOpt)
+        <*> optionsParser numProcessors (EnableScenarioService False) (Just <$> packageNameOpt)
         <*> optionalOutputFileOpt
         <*> dumpPom
         <*> optUseDalf
@@ -203,40 +202,40 @@ execLicense = B.putStr licenseData
 execIde :: Telemetry
         -> Debug
         -> Command
-execIde telemetry (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
+execIde telemetry (Debug debug) = NS.withSocketsDo $ do
     let threshold =
             if debug
             then Logger.Debug
             -- info is used pretty extensively for debug messages in our code base so
             -- I've set the no debug threshold at warning
             else Logger.Warning
-    loggerH <- Managed.liftIO $ Logger.IO.newIOLogger
+    loggerH <- Logger.IO.newIOLogger
       stderr
       (Just 5000)
       -- NOTE(JM): ^ Limit the message length to 5000 characters as VSCode
       -- performance will be significatly impacted by large log output.
       threshold
       "LanguageServer"
-    loggerH <-
-      case telemetry of
-          OptedIn -> Logger.GCP.gcpLogger (>= Logger.Warning) loggerH
-          OptedOut -> liftIO $ Logger.GCP.logOptOut loggerH $> loggerH
-          Undecided -> pure loggerH
-
+    let withLogger f = case telemetry of
+            OptedIn -> Logger.GCP.withGcpLogger (>= Logger.Warning) loggerH f
+            OptedOut -> do
+                Logger.GCP.logOptOut loggerH
+                f loggerH
+            Undecided -> f loggerH
     opts <- liftIO $ defaultOptionsIO Nothing
-
-    Managed.liftIO $ do
-      execInit (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
-      Daml.LanguageServer.runLanguageServer
-        (Compiler.newIdeState opts) loggerH
+    withLogger $ \loggerH ->
+        withScenarioService loggerH $ \scenarioService -> do
+            execInit (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
+            Daml.LanguageServer.runLanguageServer loggerH
+                (getIdeState opts (Just scenarioService) loggerH)
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
 execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
     loggerH <- getLogger opts "compile"
     inputFile <- relativize inputFile
     opts' <- Compiler.mkOptions opts
-    Managed.with (Compiler.newIdeState' opts' Nothing loggerH) $ \handle -> do
-        errOrDalf <- runExceptT $ Compiler.compileFile handle inputFile
+    Compiler.withIdeState opts' loggerH (const $ pure ()) $ \hDamlGhc -> do
+        errOrDalf <- runExceptT $ Compiler.compileFile hDamlGhc inputFile
         either (reportErr "DAML-1.2 to LF compilation failed") write errOrDalf
   where
     write bs
@@ -345,7 +344,6 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
         let opts = options'
                     { optMbPackageName = Just pName
                     , optWriteInterface = True
-                    , optScenarioService = False
                     }
         loggerH <- getLogger opts "package"
         let confFile =
@@ -356,11 +354,11 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pDependencies
         let eventLogger (EventFileDiagnostics (fp, diags)) = printDiagnostics $ map (fp,) diags
             eventLogger _ = return ()
-        Managed.with (Compiler.newIdeState' opts (Just eventLogger) loggerH) $ \handle -> do
+        Compiler.withIdeState opts loggerH eventLogger $ \compilerH -> do
             darOrErr <-
                 runExceptT $
                 Compiler.buildDar
-                    handle
+                    compilerH
                     pMain
                     pExposedModules
                     pName
@@ -443,7 +441,7 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
     loggerH <- getLogger opts "package"
     filePath <- relativize filePath
     opts' <- Compiler.mkOptions opts
-    Managed.with (Compiler.newIdeState' opts' Nothing loggerH) $ buildDar filePath
+    Compiler.withIdeState opts' loggerH (const $ pure ()) $ buildDar filePath
   where
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
@@ -573,9 +571,9 @@ optPackageName = optional $ strOption $
     <> long "package-name"
 
 -- | Parametrized by the type of pkgname parser since we want that to be different for
--- "package"
-optionsParser :: Int -> Parser (Maybe String) -> Parser Compiler.Options
-optionsParser numProcessors parsePkgName = Compiler.Options
+-- "package".
+optionsParser :: Int -> EnableScenarioService -> Parser (Maybe String) -> Parser Compiler.Options
+optionsParser numProcessors enableScenarioService parsePkgName = Compiler.Options
     <$> optImportPath
     <*> optPackageDir
     <*> parsePkgName
@@ -587,7 +585,7 @@ optionsParser numProcessors parsePkgName = Compiler.Options
     <*> lfVersionOpt
     <*> optDebugLog
     <*> (concat <$> many optGhcCustomOptions)
-    <*> optScenarioService
+    <*> pure enableScenarioService
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
@@ -657,14 +655,6 @@ optionsParser numProcessors parsePkgName = Compiler.Options
         long "ghc-option" <>
         metavar "OPTION" <>
         help "Options to pass to the underlying GHC"
-
-    optScenarioService :: Parser Bool
-    optScenarioService =
-        flagYesNoAuto
-            "scenario-service"
-            True
-            "Run with scenario service."
-            internal
 
 options :: Int -> Parser Command
 options numProcessors =
