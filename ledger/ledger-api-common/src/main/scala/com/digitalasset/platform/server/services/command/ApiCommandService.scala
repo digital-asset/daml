@@ -34,7 +34,7 @@ import com.digitalasset.ledger.client.services.commands.{
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
-import com.digitalasset.platform.server.services.command.ReferenceCommandService.LowLevelCommandServiceAccess
+import com.digitalasset.platform.server.services.command.ApiCommandService.LowLevelCommandServiceAccess
 import com.digitalasset.util.Ctx
 import com.digitalasset.util.akkastreams.MaxInFlight
 import com.google.protobuf.empty.Empty
@@ -47,9 +47,9 @@ import scala.util.Try
 
 import scalaz.syntax.tag._
 
-class ReferenceCommandService private (
+class ApiCommandService private (
     lowLevelCommandServiceAccess: LowLevelCommandServiceAccess,
-    configuration: ReferenceCommandService.Configuration)(
+    configuration: ApiCommandService.Configuration)(
     implicit grpcExecutionContext: ExecutionContext,
     actorMaterializer: ActorMaterializer,
     esf: ExecutionSequencerFactory)
@@ -187,7 +187,7 @@ class ReferenceCommandService private (
     }
   }
 
-  override def toString: String = ReferenceCommandService.getClass.getSimpleName
+  override def toString: String = ApiCommandService.getClass.getSimpleName
 
   private val (treeById, flatById) = {
     lowLevelCommandServiceAccess match {
@@ -205,9 +205,9 @@ class ReferenceCommandService private (
   }
 }
 
-object ReferenceCommandService {
+object ApiCommandService {
 
-  def createApiService(
+  def create(
       configuration: Configuration,
       svcAccess: LowLevelCommandServiceAccess,
       identifierResolver: IdentifierResolver)(
@@ -216,7 +216,7 @@ object ReferenceCommandService {
       esf: ExecutionSequencerFactory
   ): CommandServiceGrpc.CommandService with BindableService with CommandServiceLogging =
     new GrpcCommandService(
-      new ReferenceCommandService(svcAccess, configuration),
+      new ApiCommandService(svcAccess, configuration),
       configuration.ledgerId,
       identifierResolver
     ) with CommandServiceLogging

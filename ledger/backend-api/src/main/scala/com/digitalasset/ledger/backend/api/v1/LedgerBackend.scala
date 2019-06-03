@@ -65,6 +65,7 @@ import scala.concurrent.Future
   * the newly committed transaction.
   *
   */
+//TODO: do we need this trait? and the whole module?
 trait LedgerBackend extends AutoCloseable {
 
   /** Return the stream of ledger events starting from and including the given offset.

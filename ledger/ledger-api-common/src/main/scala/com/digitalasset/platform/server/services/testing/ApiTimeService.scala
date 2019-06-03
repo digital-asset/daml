@@ -25,7 +25,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NoStackTrace
 
-class ReferenceTimeService private (
+class ApiTimeService private (
     val ledgerId: LedgerId,
     backend: TimeServiceBackend,
     allowSettingTimeBackwards: Boolean
@@ -128,13 +128,13 @@ class ReferenceTimeService private (
   }
 }
 
-object ReferenceTimeService {
-  def createApiService(
+object ApiTimeService {
+  def create(
       ledgerId: LedgerId,
       backend: TimeServiceBackend,
       allowSettingTimeBackwards: Boolean = false)(
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory): TimeService with BindableService with TimeServiceLogging =
-    new ReferenceTimeService(ledgerId, backend, allowSettingTimeBackwards) with TimeServiceLogging
+    new ApiTimeService(ledgerId, backend, allowSettingTimeBackwards) with TimeServiceLogging
 }

@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.TransactionsService
+import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain._
@@ -25,25 +25,25 @@ import com.digitalasset.ledger.api.v1.transaction_service.{TransactionServiceLog
 
 import scala.concurrent.{ExecutionContext, Future}
 
-object SandboxTransactionService {
+object ApiTransactionService {
 
-  def createApiService(
+  def create(
       ledgerId: LedgerId,
-      transactionsService: TransactionsService,
+      transactionsService: IndexTransactionsService,
       identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
     : GrpcTransactionService with BindableService with TransactionServiceLogging =
     new GrpcTransactionService(
-      new SandboxTransactionService(transactionsService),
+      new ApiTransactionService(transactionsService),
       ledgerId,
       PartyNameChecker.AllowAllParties,
       identifierResolver) with TransactionServiceLogging
 }
 
-class SandboxTransactionService private (
-    transactionsService: TransactionsService,
+class ApiTransactionService private (
+    transactionsService: IndexTransactionsService,
     parallelism: Int = 4)(
     implicit executionContext: ExecutionContext,
     materializer: Materializer,

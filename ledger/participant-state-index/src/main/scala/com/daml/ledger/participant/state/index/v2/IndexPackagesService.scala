@@ -12,7 +12,7 @@ import scala.concurrent.Future
   * Serves as a backend to implement
   * [[com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService]]
   */
-trait PackagesService {
+trait IndexPackagesService {
   def listPackages(): Future[Set[PackageId]]
 
   def getPackage(packageId: PackageId): Future[Option[Archive]]

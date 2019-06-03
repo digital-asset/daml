@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.services
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2.ConfigurationService
+import com.daml.ledger.participant.state.index.v2.IndexConfigurationService
 import com.digitalasset.api.util.DurationConversion._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -18,7 +18,7 @@ import io.grpc.{BindableService, ServerServiceDefinition}
 
 import scala.concurrent.ExecutionContext
 
-class LedgerConfigurationService private (configurationService: ConfigurationService)(
+class ApiLedgerConfigurationService private (configurationService: IndexConfigurationService)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer)
     extends LedgerConfigurationServiceAkkaGrpc
@@ -41,14 +41,14 @@ class LedgerConfigurationService private (configurationService: ConfigurationSer
     LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)
 }
 
-object LedgerConfigurationService {
-  def createApiService(ledgerId: LedgerId, configurationService: ConfigurationService)(
+object ApiLedgerConfigurationService {
+  def create(ledgerId: LedgerId, configurationService: IndexConfigurationService)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer)
     : GrpcApiService with BindableService with LedgerConfigurationServiceLogging =
     new LedgerConfigurationServiceValidation(
-      new LedgerConfigurationService(configurationService),
+      new ApiLedgerConfigurationService(configurationService),
       ledgerId) with BindableService with LedgerConfigurationServiceLogging {
       override def bindService(): ServerServiceDefinition =
         LedgerConfigurationServiceGrpc.bindService(this, DirectExecutionContext)

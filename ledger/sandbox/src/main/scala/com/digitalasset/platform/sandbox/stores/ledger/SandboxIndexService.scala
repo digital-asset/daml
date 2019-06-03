@@ -8,12 +8,15 @@ import java.util.concurrent.CompletionStage
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.index.v2._
+import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{LedgerString, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.CompletionEvent.{
   Checkpoint,
@@ -21,32 +24,39 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
   CommandRejected
 }
 import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.api.domain._
-import com.digitalasset.ledger.backend.api.v1.{ApplicationId => _, RejectionReason => _, _}
+import com.digitalasset.ledger.api.domain.{LedgerId, _}
 import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.{
   AcceptedTransaction,
   Heartbeat,
   RejectedCommand
 }
+import com.digitalasset.ledger.backend.api.v1.{ApplicationId => _, RejectionReason => _, _}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.services.transaction.TransactionConversion
+import com.digitalasset.platform.services.time.TimeModel
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
-class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
-    extends LedgerBackend //TODO: remove this later so we can rely on sole participant state interfaces
-    with ParticipantState.WriteService
-    with ActiveContractsService
-    with TransactionsService
-    with IndexCompletionsService {
+class SandboxIndexService(
+    ledger: Ledger,
+    timeModel: TimeModel,
+    templateStore: IndexPackagesService,
+    contractStore: ContractStore)(implicit mat: Materializer)
+    extends ParticipantState.WriteService
+    with IndexService {
+  override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
-  override def ledgerSyncEvents(
-      offset: Option[LedgerSyncOffset]): Source[LedgerSyncEvent, NotUsed] =
+  override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
+    Source
+      .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
+      .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
+
+  private def ledgerSyncEvents(offset: Option[LedgerSyncOffset]): Source[LedgerSyncEvent, NotUsed] =
     ledger
       .ledgerEntries(offset.map(_.toLong))
       .map { case (o, item) => toLedgerSyncEvent(o, item) }
@@ -71,9 +81,6 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
               }
           )
       }(mat.executionContext)
-
-  override def getCurrentLedgerEnd: Future[LedgerSyncOffset] =
-    Future.successful(LedgerString.fromLong(ledger.ledgerEnd))
 
   private def toUpdateEvent(
       cId: Value.AbsoluteContractId,
@@ -111,8 +118,6 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
         )
     }
 
-  override def close(): Unit = {} // nothing to close here as we do not own Ledger
-
   private def toAcceptedTransaction(offset: Long, t: LedgerEntry.Transaction) = t match {
     case LedgerEntry.Transaction(
         commandId,
@@ -138,7 +143,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       )
   }
 
-  override def getTransactionById(
+  private def getTransactionById(
       transactionId: TransactionIdString): Future[Option[AcceptedTransaction]] =
     ledger
       .lookupTransaction(transactionId)
@@ -252,7 +257,7 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
     t.copy(offset = LedgerString.fromLong(t.offset.toLong + 1))
 
   override def currentLedgerEnd(): Future[LedgerOffset.Absolute] =
-    getCurrentLedgerEnd.map(LedgerOffset.Absolute)(DEC)
+    Future.successful(LedgerOffset.Absolute(LedgerString.fromLong(ledger.ledgerEnd)))
 
   override def getTransactionById(
       transactionId: TransactionId,
@@ -326,5 +331,24 @@ class SandboxLedgerBackend(ledger: Ledger)(implicit mat: Materializer)
       case _: backend.api.v1.RejectionReason.DuplicateCommandId =>
         DuplicateCommandId(rr.description)
     }
+
+  // IndexPackagesService
+  override def listPackages(): Future[Set[PackageId]] =
+    templateStore.listPackages()
+
+  override def getPackage(packageId: PackageId): Future[Option[Archive]] =
+    templateStore.getPackage(packageId)
+
+  // ContractStore
+  override def lookupActiveContract(
+      submitter: Ref.Party,
+      contractId: AbsoluteContractId
+  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+    contractStore.lookupActiveContract(submitter, contractId)
+
+  override def lookupContractKey(
+      submitter: Party,
+      key: GlobalKey): Future[Option[AbsoluteContractId]] =
+    contractStore.lookupContractKey(submitter, key)
 
 }

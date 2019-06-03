@@ -22,7 +22,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
-abstract class LedgerIdentityService private (getLedgerId: () => Future[LedgerId])
+abstract class ApiLedgerIdentityService private (getLedgerId: () => Future[LedgerId])
     extends GrpcLedgerIdentityService
     with GrpcApiService {
 
@@ -47,8 +47,8 @@ abstract class LedgerIdentityService private (getLedgerId: () => Future[LedgerId
     LedgerIdentityServiceGrpc.bindService(this, DirectExecutionContext)
 }
 
-object LedgerIdentityService {
-  def createApiService(getLedgerId: () => Future[LedgerId])
-    : LedgerIdentityService with BindableService with LedgerIdentityServiceLogging =
-    new LedgerIdentityService(getLedgerId) with LedgerIdentityServiceLogging
+object ApiLedgerIdentityService {
+  def create(getLedgerId: () => Future[LedgerId])
+    : ApiLedgerIdentityService with BindableService with LedgerIdentityServiceLogging =
+    new ApiLedgerIdentityService(getLedgerId) with LedgerIdentityServiceLogging
 }

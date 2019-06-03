@@ -8,7 +8,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
   ActiveContractSetSnapshot,
-  ActiveContractsService => ACSBackend
+  IndexActiveContractsService => ACSBackend
 }
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -30,7 +30,7 @@ import scala.concurrent.ExecutionContext
 
 import scalaz.syntax.tag._
 
-class SandboxActiveContractsService private (
+class ApiActiveContractsService private (
     backend: ACSBackend,
     identifierResolver: IdentifierResolver,
     parallelism: Int = Runtime.getRuntime.availableProcessors)(
@@ -92,20 +92,17 @@ class SandboxActiveContractsService private (
     ActiveContractsServiceGrpc.bindService(this, DirectExecutionContext)
 }
 
-object SandboxActiveContractsService {
+object ApiActiveContractsService {
   type TransactionId = String
   type WorkflowId = String
 
-  def createApiService(
-      ledgerId: LedgerId,
-      backend: ACSBackend,
-      identifierResolver: IdentifierResolver)(
+  def create(ledgerId: LedgerId, backend: ACSBackend, identifierResolver: IdentifierResolver)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
     : ActiveContractsService with BindableService with ActiveContractsServiceLogging =
     new ActiveContractsServiceValidation(
-      new SandboxActiveContractsService(backend, identifierResolver)(ec, mat, esf),
+      new ApiActiveContractsService(backend, identifierResolver)(ec, mat, esf),
       ledgerId
     ) with BindableService with ActiveContractsServiceLogging {
       override def bindService(): ServerServiceDefinition =

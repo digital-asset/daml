@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.services
 
-import com.daml.ledger.participant.state.index.v2.PackagesService
+import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf.{Archive, HashFunction}
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -24,7 +24,7 @@ import com.digitalasset.ledger.api.v1.package_service.HashFunction.{
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SandboxPackageService private (backend: PackagesService)
+class ApiPackageService private (backend: IndexPackagesService)
     extends PackageService
     with GrpcApiService {
   override def bindService(): ServerServiceDefinition =
@@ -84,10 +84,10 @@ class SandboxPackageService private (backend: PackagesService)
 
 }
 
-object SandboxPackageService {
-  def createApiService(ledgerId: LedgerId, backend: PackagesService)(implicit ec: ExecutionContext)
+object ApiPackageService {
+  def create(ledgerId: LedgerId, backend: IndexPackagesService)(implicit ec: ExecutionContext)
     : PackageService with BindableService with PackageServiceLogging =
-    new PackageServiceValidation(new SandboxPackageService(backend), ledgerId) with BindableService
+    new PackageServiceValidation(new ApiPackageService(backend), ledgerId) with BindableService
     with PackageServiceLogging {
       override def bindService(): ServerServiceDefinition =
         PackageServiceGrpc.bindService(this, DEC)

@@ -12,6 +12,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer.{
@@ -35,8 +36,6 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
-
-import com.digitalasset.ledger.api.domain.LedgerId
 
 object SandboxServer {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -222,8 +221,9 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         (s"sql", Ledger.metered(ledger))
     }
 
-    val ledgerBackend = new SandboxLedgerBackend(ledger)
     val contractStore = new SandboxContractStore(ledger)
+    val indexService =
+      new SandboxIndexService(ledger, config.timeModel, context.templateStore, contractStore)
 
     val stopHeartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
@@ -233,15 +233,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           ApiServices
             .create(
               config,
-              ledgerBackend,
-              ledgerBackend,
-              ApiServices.configurationService(config),
-              ApiServices.identityService(ledgerId),
-              context.packageService,
-              ledgerBackend,
-              ledgerBackend,
-              contractStore,
-              ledgerBackend,
+              indexService, // write service
+              indexService,
               SandboxServer.engine,
               timeProvider,
               timeServiceBackendO

@@ -11,19 +11,20 @@ import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
-import com.digitalasset.platform.sandbox.services.SandboxSubmissionService
+import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.{
   CommandExecutorImpl,
   Ledger,
   SandboxContractStore,
-  SandboxLedgerBackend
+  SandboxIndexService
 }
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.services.time.TimeModel
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.sandbox.damle.SandboxTemplateStore
 
 object TestDar {
   val dalfFile: File = new File("ledger/sandbox/Test.dar")
@@ -50,14 +51,21 @@ trait TestHelpers {
       ActiveContractsInMemory.empty,
       ImmArray.empty)
 
-    val backend = new SandboxLedgerBackend(ledger)
     val contractStore = new SandboxContractStore(ledger)
-    SandboxSubmissionService.createApiService(
+
+    val writeService = new SandboxIndexService(
+      ledger,
+      TimeModel.reasonableDefault,
+      SandboxTemplateStore(damlPackageContainer),
+      contractStore
+    )
+
+    ApiSubmissionService.create(
       ledgerId,
       damlPackageContainer,
       IdentifierResolver(pkgId => Future.successful(damlPackageContainer.getPackage(pkgId))),
       contractStore,
-      backend,
+      writeService,
       TimeModel.reasonableDefault,
       timeProvider,
       new CommandExecutorImpl(Engine(), damlPackageContainer)
