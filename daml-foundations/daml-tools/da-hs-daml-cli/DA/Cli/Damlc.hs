@@ -220,7 +220,7 @@ execIde telemetry (Debug debug) = NS.withSocketsDo $ Managed.runManaged $ do
     loggerH <-
       case telemetry of
           OptedIn -> Logger.GCP.gcpLogger (>= Logger.Warning) loggerH
-          OptedOut -> liftIO $ Logger.GCP.logOptOut $> loggerH
+          OptedOut -> liftIO $ Logger.GCP.logOptOut loggerH $> loggerH
           Undecided -> pure loggerH
 
     opts <- liftIO $ defaultOptionsIO Nothing
