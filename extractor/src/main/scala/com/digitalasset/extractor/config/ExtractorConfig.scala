@@ -4,12 +4,12 @@
 package com.digitalasset.extractor.config
 
 import java.util.UUID
-import scalaz.OneAnd
+
+import scalaz.{OneAnd, Order}
 import scalaz.syntax.foldable._
 import scalaz.syntax.functor._
 import scalaz.std.list._
 import scalaz.std.string._
-
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -44,4 +44,7 @@ final case class TemplateConfig(moduleName: String, entityName: String)
 object TemplateConfig {
   implicit val templateConfigOrdering: Ordering[TemplateConfig] =
     Ordering.by(TemplateConfig.unapply)
+
+  implicit val templateConfigOrder: Order[TemplateConfig] =
+    Order.fromScalaOrdering
 }

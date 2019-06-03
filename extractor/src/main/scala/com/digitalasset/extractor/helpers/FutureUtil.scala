@@ -4,13 +4,13 @@
 package com.digitalasset.extractor.helpers
 
 import scalaz.{NonEmptyList, Show, ValidationNel, \/}
+import scalaz.syntax.show._
 import scala.concurrent.Future
 
 object FutureUtil {
   def toFuture[E: Show, A](a: E \/ A): Future[A] = {
-    val E = implicitly[Show[E]]
     a.fold(
-      e => Future.failed(new RuntimeException(E.shows(e))),
+      e => Future.failed(new RuntimeException(e.shows)),
       a => Future.successful(a)
     )
   }
@@ -22,7 +22,6 @@ object FutureUtil {
     )
 
   private def formatErrors[E: Show](es: NonEmptyList[E]): String = {
-    val E = implicitly[Show[E]]
-    es.map(e => E.shows(e)).list.toList.mkString(", ")
+    es.map(e => e.shows).list.toList.mkString(", ")
   }
 }

@@ -123,11 +123,9 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
 
   private def selectTransactions(parties: ExtractorConfig.Parties): TransactionFilter = {
     // Template filtration is not supported on GetTransactionTrees RPC
-    // we will have to filter out template on client-side.
+    // we will have to filter out templates on the client-side.
     val templateSelection = Filters.defaultInstance
-    val result = TransactionFilter(config.parties.toList.map(_ -> templateSelection)(breakOut))
-    log.info(s"Setting transaction filter: {}", result)
-    result
+    TransactionFilter(parties.toList.map(_ -> templateSelection)(breakOut))
   }
 
   private def streamTransactions(
@@ -137,6 +135,9 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
       requestedTemplateIds: Set[api.value.Identifier]
   ): Future[Unit] = {
     log.info("Requested template IDs: {}", requestedTemplateIds)
+
+    val transactionFilter = selectTransactions(config.parties)
+    log.info(s"Setting transaction filter: {}", transactionFilter)
 
     val trim: api.transaction.TransactionTree => api.transaction.TransactionTree =
       if (requestedTemplateIds.isEmpty) identity
@@ -153,7 +154,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
           .getTransactionTrees(
             LedgerOffset(startOffSet),
             streamUntil,
-            selectTransactions(config.parties),
+            transactionFilter,
             verbose = true
           )
           .via(killSwitch.flow)
