@@ -75,7 +75,7 @@ A common task is to group values in a generic way. Take, for example, a key-valu
   :start-after: -- TUPLE_TEST_BEGIN
   :end-before: -- TUPLE_TEST_END
 
-Note how the data can be accessed either through functions ``fst``, ``snd``, ``fst3``, ``snd3``, ``thd3``, or via a dot-syntax with field names ``_1``, ``_2``, ``_3``, etc.
+Note how the data can be accessed either through functions ``fst``, ``snd``, ``fst3``, ``snd3``, ``thd3``, or via a dot-syntax with field names ``_1``, ``_2``, ``_3``, etc. DAML supports tuples with up to 20 elements, but accessor functions like ``fst`` are only included for 2- and 3-tuples.
 
 Lists
 ~~~~~
