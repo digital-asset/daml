@@ -131,7 +131,7 @@ Suppose now that you also wanted to keep track of cash in hand. Cash in hand doe
   :start-after: -- CASH_BALANCE_BEGIN
   :end-before: -- CASH_BALANCE_END
 
-The way to read the declaration of ``Location`` is "*A Location either has value* ``InHand`` *OR has a value* ``InAccount a`` *where* ``a`` *is of type Account*". This is quite an explicit way to say that there may or may not be an ``Account`` associated with a ``CashBalance`` and gives both cases suggestive names. The generic way would be to use the built-in ``Optional`` type. The ``None`` value of type ``Optional a`` is the closest DAML has to a ``null`` value.
+The way to read the declaration of ``Location`` is "*A Location either has value* ``InHand`` *OR has a value* ``InAccount a`` *where* ``a`` *is of type Account*". This is quite an explicit way to say that there may or may not be an ``Account`` associated with a ``CashBalance`` and gives both cases suggestive names. Another option would be to use the built-in ``Optional`` type. The ``None`` value of type ``Optional a`` is the closest DAML has to a ``null`` value.
 
 .. literalinclude:: daml/3_Data/Variants.daml
   :language: daml
