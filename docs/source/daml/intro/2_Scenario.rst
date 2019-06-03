@@ -1,7 +1,7 @@
 Scenarios
 =========
 
-In this section you will test the ``Token`` model from :doc:`1_Token` using DAML's inbuilt ``scenario`` language. You'll learn about the basic feature of scenarios:
+In this section you will test the ``Token`` model from :doc:`1_Token` using DAML's inbuilt ``scenario`` language. You'll learn about the basic features of scenarios:
 
 - Getting parties
 - Submitting transactions
