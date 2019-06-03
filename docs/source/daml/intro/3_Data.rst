@@ -182,7 +182,7 @@ You have already met the type ``ContractId a``, which references a contract of t
   :start-after: -- ID_REF_TEST_BEGIN
   :end-before: -- ID_REF_TEST_END
 
-Note the use of the ``fetch`` function in the above, which retrieves the arguments of an active contract from its contract id. Also take note that for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant fetches a the arguments of the old account, archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
+Note the use of the ``fetch`` function in the above, which retrieves the arguments of an active contract from its contract id. Also take note that for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant fetches the arguments of the old account, archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
 
 DAML allows the definition of stable keys using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with a uniqueness constraint on that key and the ability to look up contracts by key.
 
