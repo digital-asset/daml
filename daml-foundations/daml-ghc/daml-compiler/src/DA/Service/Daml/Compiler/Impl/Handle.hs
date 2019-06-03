@@ -279,7 +279,7 @@ compileFile service fp = do
 onFileModified
     :: IdeState
     -> FilePath
-    -> Maybe (T.Text, Int)
+    -> Maybe T.Text
     -> IO ()
 onFileModified service fp mbContents = do
     CompilerService.logDebug service $ "File modified " <> T.pack (show fp)

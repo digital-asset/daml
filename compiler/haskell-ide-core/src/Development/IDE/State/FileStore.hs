@@ -17,7 +17,7 @@ module Development.IDE.State.FileStore(
 import           StringBuffer
 import Development.IDE.Orphans()
 
-import Control.Concurrent.STM
+import Control.Concurrent.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Text as T
@@ -44,7 +44,7 @@ import Language.Haskell.LSP.VFS
 -- like `setBufferModified` we abstract over the VFS implementation.
 data VFSHandle = VFSHandle
     { getVirtualFile :: Uri -> IO (Maybe VirtualFile)
-    , setVirtualFileContents :: Uri -> T.Text -> Int -> IO ()
+    , setVirtualFileContents :: Uri -> T.Text -> IO ()
     , removeVirtualFile :: Uri -> IO ()
     }
 
@@ -52,20 +52,21 @@ instance IsIdeGlobal VFSHandle
 
 makeVFSHandle :: IO VFSHandle
 makeVFSHandle = do
-    vfsVar <- newTVarIO Map.empty
+    vfsVar <- newVar (1, Map.empty)
     pure VFSHandle
         { getVirtualFile = \uri -> do
-              vfs <- readTVarIO vfsVar
+              (_nextVersion, vfs) <- readVar vfsVar
               pure $ Map.lookup uri vfs
-        , setVirtualFileContents = \uri content version ->
-              atomically $ modifyTVar vfsVar $ Map.insert uri (VirtualFile version (Rope.fromText content) Nothing)
-        , removeVirtualFile = \uri -> atomically $ modifyTVar vfsVar $ Map.delete uri
+        , setVirtualFileContents = \uri content ->
+              modifyVar_ vfsVar $ \(nextVersion, vfs) ->
+                  pure (nextVersion + 1, Map.insert uri (VirtualFile nextVersion (Rope.fromText content) Nothing) vfs)
+        , removeVirtualFile = \uri -> modifyVar_ vfsVar $ \(nextVersion, vfs) -> pure (nextVersion, Map.delete uri vfs)
         }
 
 makeLSPVFSHandle :: LspFuncs c -> VFSHandle
 makeLSPVFSHandle lspFuncs = VFSHandle
     { getVirtualFile = getVirtualFileFunc lspFuncs
-    , setVirtualFileContents = \_ _ _ -> pure ()
+    , setVirtualFileContents = \_ _ -> pure ()
     -- ^ Handled internally by haskell-lsp.
     , removeVirtualFile = \_ -> pure ()
     -- ^ Handled internally by haskell-lsp.
@@ -152,12 +153,12 @@ fileStoreRules vfs = do
 
 
 -- | Notify the compiler service of a modified buffer
-setBufferModified :: IdeState -> FilePath -> Maybe (T.Text, Int) -> IO ()
+setBufferModified :: IdeState -> FilePath -> Maybe T.Text -> IO ()
 setBufferModified state absFile mbContents = do
     VFSHandle{..} <- getIdeGlobalState state
     case mbContents of
         Nothing -> removeVirtualFile (filePathToUri absFile)
-        Just (contents, version) -> setVirtualFileContents (filePathToUri absFile) contents version
+        Just contents -> setVirtualFileContents (filePathToUri absFile) contents
     void $ shakeRun state []
 
 

@@ -20,7 +20,6 @@ import           DA.LanguageServer.Protocol
 import           DA.LanguageServer.Server
 
 import Control.Monad
-import Data.Maybe
 import Data.List.Extra
 import Control.Monad.IO.Class
 import qualified DA.Daml.LF.Ast as LF
@@ -154,8 +153,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH _notifChan) = \c
           Just filePath -> do
             mbVirtual <- getVirtualFileFunc lspFuncs uri
             let contents = maybe "" (Rope.toText . (_text :: VirtualFile -> Rope.Rope)) mbVirtual
-            Compiler.onFileModified compilerH filePath
-                (Just (contents, fromMaybe 0 $ _version (docId :: VersionedTextDocumentIdentifier)))
+            Compiler.onFileModified compilerH filePath (Just contents)
             Logger.logInfo loggerH
               $ "Updated text document: " <> T.show filePath
 
@@ -183,7 +181,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH _notifChan) = \c
     -- When we have parallel compilation we could manage the state
     -- changes in STM so that we can atomically change the state.
     -- Internally it should be done via the IO oracle. See PROD-2808.
-    handleDidOpenFile (TextDocumentItem uri _ version contents) = do
+    handleDidOpenFile (TextDocumentItem uri _ _ contents) = do
         Just filePath <- pure $ Compiler.uriToFilePath' uri
         documents <- atomicModifyIORef' stateRef $
           \state -> let documents = S.insert filePath $ sOpenDocuments state
@@ -194,7 +192,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH _notifChan) = \c
 
 
         -- Update the file contents
-        Compiler.onFileModified compilerH filePath (Just (contents, version))
+        Compiler.onFileModified compilerH filePath (Just contents)
 
         -- Update the list of open files
         Compiler.setFilesOfInterest compilerH (S.toList documents)

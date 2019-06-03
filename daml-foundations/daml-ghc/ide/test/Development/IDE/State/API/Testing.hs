@@ -94,7 +94,6 @@ data ShakeTestEnv = ShakeTestEnv
     { steTestDirPath :: FilePath -- canonical absolute path of temporary test directory
     , steService :: API.IdeState
     , steVirtualResources :: TVar (Map VirtualResource T.Text)
-    , steFileVersions :: TVar (Map FilePath Int)
     }
 
 -- | Monad for specifying Shake API tests. This type is abstract.
@@ -106,7 +105,6 @@ runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError Sha
 runShakeTest mbScenarioService (ShakeTest m) = do
     options <- defaultOptionsIO Nothing -- TODO: improve?
     virtualResources <- newTVarIO Map.empty
-    fileVersions <- newTVarIO Map.empty
     let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
@@ -116,7 +114,6 @@ runShakeTest mbScenarioService (ShakeTest m) = do
                 { steService = service
                 , steTestDirPath = testDirPath
                 , steVirtualResources = virtualResources
-                , steFileVersions = fileVersions
                 }
         runReaderT (runExceptT m) ste
 
@@ -196,17 +193,7 @@ setBufferModifiedMaybe absPath maybeText = ShakeTest $ do
     service <- Reader.asks steService
     case maybeText of
         Nothing -> liftIO $ API.setBufferModified service absPath Nothing
-        Just content -> do
-            versions <- Reader.asks steFileVersions
-            version <- liftIO $ nextVersion versions absPath
-            liftIO $ API.setBufferModified service absPath (Just (content, version))
-    where
-        nextVersion :: TVar (Map FilePath Int) -> FilePath -> IO Int
-        nextVersion versions fp = atomically $ do
-            m <- readTVar versions
-            let m' = Map.insertWith (+) fp 1 m
-            writeTVar versions m'
-            pure $ m' Map.! fp
+        Just content -> liftIO $ API.setBufferModified service absPath (Just content)
 
 -- | (internal) Get diagnostics.
 getDiagnostics :: ShakeTest [D.FileDiagnostic]
