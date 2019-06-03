@@ -449,24 +449,39 @@ templatesFromModule mod = NM.toList $ LF.moduleTemplates mod
 templateChoicesFromTemplate :: LF.Template -> [LF.TemplateChoice]
 templateChoicesFromTemplate tpl = NM.toList $ LF.tplChoices tpl
 
-moduleFromWorld :: AST.World -> Either AST.LookupError LF.Module
-moduleFromWorld world = AST.lookupModule (LF.Qualified LF.PRSelf moduleName () ) world
+-- moduleFromWorld :: AST.World -> Either AST.LookupError LF.Module
+-- moduleFromWorld world = AST.lookupModule (LF.Qualified LF.PRSelf moduleName () ) world
+--     where 
+--         moduleName = LF.ModuleName ["Cash"] -- something that will have to be looked up from daml.yaml
+
+listOfModules :: NM.NameMap LF.Module -> [LF.Module]
+listOfModules modules =  (NM.toList modules)
+
+templateName :: LF.Template -> [String]
+templateName tpl = map T.unpack (LF.unTypeConName $ LF.tplTypeCon tpl)
+
+choiceName :: LF.TemplateChoice -> String
+choiceName choice = T.unpack (LF.unChoiceName $ LF.chcName choice)
+
+moduleAndTemplates :: LF.Module -> [String]
+moduleAndTemplates mod = res
     where 
-        moduleName = LF.ModuleName ["Setup"] -- something that will have to be looked up from daml.yaml
+        templates = templatesFromModule mod
+        templatesWithchoices = map (\t -> (t, templateChoicesFromTemplate t)) templates
+        modName = unlines (map T.unpack (LF.unModuleName $ LF.moduleName mod))
+        res = map (\(t , c) -> modName ++ "->" ++ unlines(templateName t) ++"->" ++ unlines (map choiceName c) ) templatesWithchoices
 
 execVisual :: FilePath -> IO ()
 execVisual dalfFilePath = do
     bytes <- B.readFile dalfFilePath
     (pkID, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes  -- LF.PackageId, LF.Package
-    let world =  AST.initWorldSelf [(pkID, lfPkg)] version1_4  lfPkg -- world 
-    case moduleFromWorld world of 
-        Right mod ->  putStrLn ( show (headTplName) ++ "->" ++ show choiceNames)
-            where  
-                templates = templatesFromModule mod
-                choices = templateChoicesFromTemplate (head templates)
-                headTplName = LF.unTypeConName $ LF.tplTypeCon (head templates)
-                choiceNames = map (LF.unChoiceName . LF.chcName) choices
-        Left err -> error(show err )
+    let _ =  AST.initWorldSelf [(pkID, lfPkg)] version1_4  lfPkg -- world
+        modules = listOfModules $ LF.packageModules lfPkg
+        res = map moduleAndTemplates modules
+    putStrLn (show res)
+
+        
+
 
 lfVersionString :: LF.Version -> String
 lfVersionString = DA.Pretty.renderPretty
