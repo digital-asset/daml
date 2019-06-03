@@ -1,0 +1,140 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Intro_5_Restrictions where
+
+import DA.Date
+import DA.Text as T
+import DA.Time
+
+
+data Cash = Cash with
+  currency : Text
+  amount : Decimal
+    deriving (Eq, Show)
+
+-- RESTRICTED_IOU_BEGIN
+template SimpleIou
+  with
+    issuer : Party
+    owner : Party
+    cash : Cash
+  where
+    signatory issuer
+
+    ensure cash.amount > 0.0
+        && T.length cash.currency == 3
+        && T.isUpper cash.currency
+-- RESTRICTED_IOU_END
+
+-- TRANSFER_CHOICE_BEGIN
+    controller owner can
+      Transfer
+        : ContractId SimpleIou
+        with
+          newOwner : Party
+        do
+          assertMsg "newOwner cannot be equal to owner." (owner /= newOwner)
+          create this with owner = newOwner
+-- TRANSFER_CHOICE_END
+
+-- REDEEM_CHOICE_BEGIN
+    controller owner can
+      Redeem
+        : ()
+        do
+          now <- getTime
+          let
+            today = toDateUTC now
+            dow = dayOfWeek today
+            timeofday = now `subTime` time today 0 0 0
+            hrs = convertRelTimeToMicroseconds timeofday / 3600000000
+          assertMsg
+            ("Cannot redeem outside business hours. Current time: " <> show timeofday)
+            (hrs >= 8 && hrs <= 18)
+          case dow of
+            Saturday -> abort "Cannot redeem on a Saturday."
+            Sunday -> abort "Cannot redeem on a Sunday."
+            _ -> return ()
+-- REDEEM_CHOICE_END
+
+-- RESTRICTIONS_TEST_BEGIN
+test_restrictions = scenario do
+  alice <- getParty "Alice"
+  bob <- getParty "Bob"
+  dora <- getParty "Dora"
+
+  -- Dore can't issue negative Ious
+  submitMustFail dora do
+    create SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = -100.0
+        currency = "USD"
+
+  -- Or even zero Ious
+  submitMustFail dora do
+    create SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 0.0
+        currency = "USD"
+
+  -- Nor positive Ious with invalid currencies
+  submitMustFail dora do
+    create SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "Swiss Francs"
+
+  -- But positive Ious still work, of course
+  iou <- submit dora do
+    create SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+-- RESTRICTIONS_TEST_END
+
+-- TRANSFER_TEST_BEGIN
+  -- Alice can't transfer to herself
+  submitMustFail alice do
+    exercise iou Transfer with
+      newOwner = alice
+
+  -- but can transfer to bob
+  iou2 <- submit alice do
+    exercise iou Transfer with
+      newOwner = bob
+-- TRANSFER_TEST_END
+
+
+-- REDEEM_TEST_BEGIN
+  -- June 1st 2019 is a Saturday
+  passToDate (date 2019 Jun 1)
+  -- Bob cannot redeem on a Saturday
+  submitMustFail bob do
+    exercise iou2 Redeem
+
+  -- Not even at mid-day
+  pass (hours 12)
+  -- Bob cannot redeem on a Saturday
+  submitMustFail bob do
+    exercise iou2 Redeem
+
+  -- Bob also cannot redeem at 6am on a Monday
+  pass (hours 42)
+  submitMustFail bob do
+    exercise iou2 Redeem
+
+  -- Bob can redeem 8am on Monday.
+  pass (hours 2)
+  submit bob do
+    exercise iou2 Redeem
+-- REDEEM_TEST_END

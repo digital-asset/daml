@@ -66,7 +66,7 @@ It's time for a bit more theory. in :doc:`1_Token` you learned about the high-le
 - A ``fetch`` action  checks the existence and activeness of a contract
 - An ``exercise`` action contains the choice arguments and a transaction called the *consequences*. Exercises come in two *kinds* called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
 
-The consequences of exercise nodes turn each transaction into an ordered tree of (sub-) transactions, or, equivalently, a forest of actions. Actions are in one-to-one correspondence with proper sub-transactions. 
+The consequences of exercise nodes turn each transaction into an ordered tree of (sub-) transactions, or, equivalently, a forest of actions. Actions are in one-to-one correspondence with proper sub-transactions.
 
 Each contract has an implicit choice ``Archive`` with the signatories as controllers and ``archive cid`` is just shorthand for ``exercise cid Archive``.
 
@@ -141,6 +141,8 @@ There are four commits corresponding to the four ``submit`` statements in the sc
 
 There are a few extra ``fetch`` nodes scattered around. These are inserted as activeness checks. As they have no effect, it's safe not to worry about them.
 
+.. _simple_iou:
+
 A Simple Cash Model
 -------------------
 
@@ -150,4 +152,3 @@ With the power of choices, you can build you first interesting model: Issuance o
   :language: daml
 
 The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.
-
