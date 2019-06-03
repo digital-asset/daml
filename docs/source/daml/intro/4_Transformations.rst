@@ -1,3 +1,6 @@
+.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 Data Transformations and Choices
 ================================
 
@@ -147,3 +150,4 @@ With the power of choices, you can build you first interesting model: Issuance o
   :language: daml
 
 The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.
+

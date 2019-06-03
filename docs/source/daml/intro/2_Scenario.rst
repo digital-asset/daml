@@ -1,3 +1,6 @@
+.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 Scenarios
 =========
 
@@ -141,3 +144,4 @@ Next Steps
 ----------
 
 In :doc:`3_Data` you will learn about DAML's type system and how one can think of templates as tables and contracts as database rows.
+

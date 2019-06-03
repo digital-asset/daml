@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 daml 1.2
 module Contact where
 
@@ -68,3 +71,4 @@ choice_test = scenario do
     new_contact <- fetch new_contact_Cid
     assert (new_contact.address == "1-10 Bobstreet")
 -- DELEGATION_TEST_END
+

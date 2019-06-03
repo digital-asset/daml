@@ -1,3 +1,6 @@
+.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 Data Types
 ==========
 
@@ -200,3 +203,4 @@ Next Up
 -------
 
 You are now able to define data schemas for the ledger, read, write and delete data from the ledger and use keys to reference and look up data in a stable fashion. In :doc:`4_Transformations` you'll learn how to define data transformations and give other parties the right to manipulate data in restricted ways.
+

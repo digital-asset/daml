@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 daml 1.2
 module Record where
 
@@ -168,3 +171,4 @@ manipulation_demo = scenario do
   -- The list on `record_with_changed_list` is a new one.
   assert (record_with_changed_list.my_list == ["Zero", "One", "Two", "Three"])
 -- MANIPULATION_END
+

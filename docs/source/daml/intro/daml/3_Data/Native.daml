@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 daml 1.2
 module Native where
 
@@ -55,3 +58,4 @@ cash_balance_test = scenario do
       bank_address = "High Street"
       bank_telephone = "012 3456 789"
 -- CASH_BALANCE_END
+

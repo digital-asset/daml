@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 daml 1.2
 module Intro_2_Scenario where
 
@@ -93,3 +96,4 @@ token_test_3 = do
   submit alice do
     archive alice_token
 -- TOKEN_TEST_3_END
+

@@ -1,3 +1,6 @@
+.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. SPDX-License-Identifier: Apache-2.0
+
 An Introduction to DAML
 =======================
 
@@ -22,3 +25,4 @@ Next: :doc:`1_Token`.
   5_Restrictions
   6_Parties
   7_Composing
+

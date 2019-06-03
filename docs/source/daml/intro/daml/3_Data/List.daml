@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 daml 1.2
 module List where
 
@@ -26,3 +29,4 @@ list_test = scenario do
   -- `::` adds an element to the beginning of a list.
   assert (1 :: 2 :: 3 :: 4 :: 5 :: empty == 1 :: 2 :: many)
 -- LIST_TEST_END
+

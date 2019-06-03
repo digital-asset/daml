@@ -1,3 +1,6 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 daml 1.2
 module Tuple where
 
@@ -17,3 +20,4 @@ tuple_test = scenario do
   assert (my_coordinate == (fst3 my_coordinate, snd3 my_coordinate, thd3 my_coordinate))
   assert (my_coordinate == (my_coordinate._1, my_coordinate._2, my_coordinate._3))
 -- TUPLE_TEST_END
+
