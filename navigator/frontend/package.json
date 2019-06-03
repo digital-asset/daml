@@ -7,9 +7,6 @@
   "author": "Digital Asset (Switzerland) GmbH and/or its affiliates",
   "contributors": [
     "Carl Baatz <carl.baatz@digitalasset.com>",
-    "Mathias Hässig <mathias.haessig@ergon.ch>",
-    "Nicolas Gagliani <nicolas.gagliani@digitalasset.com>",
-    "Szabolcs Rodek <szabolcs.rodek@digitalasset.com>",
     "Robert Autenrieth <rautenrieth@digitalasset.com>"
   ],
   "scripts": {
