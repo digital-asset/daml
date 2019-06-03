@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Drop support for DAML-LF 1.3. Compiling to DAML-LF 1.4 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
+
 DAML Standard Library
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -33,7 +38,6 @@ DAML Compiler
 
 - **BREAKING CHANGE**: Drop support for DAML-LF 1.2. Compiling to DAML-LF 1.3 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
 - **BREAKING CHANGE**: By default ``damlc test`` must be executed in a project and will test the whole project. Testing individual files, potentially outside a project, requires passing the new ``--files`` flag.
-- **BREAKING CHANGE**: Drop support for DAML-LF 1.2 and 1.3. Compiling to DAML-LF 1.4 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
 
 SQL Extractor
 ~~~~~~~~~~~~~
