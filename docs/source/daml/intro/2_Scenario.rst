@@ -88,7 +88,7 @@ The scenario failed, as expected, but it aborted at the first failure so it only
   :start-after: -- TOKEN_TEST_2_BEGIN
   :end-before: -- TOKEN_TEST_2_END
 
-``submitMustFail`` never has an impact on the ledger so the resulting tabular scenario view just shows the two Tokens resulting from the successful ``submit`` statements. Note the new column for Bob as well as the visibilities. Alice and Bob cannot see each others Tokens.
+``submitMustFail`` never has an impact on the ledger so the resulting tabular scenario view just shows the two Tokens resulting from the successful ``submit`` statements. Note the new column for Bob as well as the visibilities. Alice and Bob cannot see each others' Tokens.
 
 .. _archiving:
 
