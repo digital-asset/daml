@@ -52,7 +52,7 @@ Despite its simplicity, there are quite a few things to note in this scenario:
 3. None of the variables have type annotations. That's because DAML is very good at *inferring* types. The compiler knows that ``123`` is an ``Int`` so if you declare ``my_int = 123``, it can infer that ``my_int`` is also an ``Int`` so you don't have to write ``my_int : Int = 123``. You can always add type annotations to aid readability, and sometimes, in case of ambiguity, have to.
 4. The ``assert`` function is an action that takes a boolean value and succeeds with ``True`` and fails with ``False``. Try putting ``assert False`` somewhere in a scenario and see what happens to the scenario result.
 
-With tempates and these native types, it's already possible to write a schema akin to table in relational database. Below, ``Token`` is extended into a simple ``CashBalance``, administered by a party in the role of an accountant.
+With templates and these native types, it's already possible to write a schema akin to a table in a relational database. Below, ``Token`` is extended into a simple ``CashBalance``, administered by a party in the role of an accountant.
 
 .. literalinclude:: daml/3_Data/Native.daml
   :language: daml
