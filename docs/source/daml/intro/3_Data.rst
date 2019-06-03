@@ -38,7 +38,7 @@ You have already encountered the type ``Party`` in :doc:`1_Token` and ``Text`` a
 - ``RelTime``
   Stores a difference in time.
 
-The below scenario instantiates each one of these types manipulates it where appropriate and tests the result.
+The below scenario instantiates each one of these types, manipulates it where appropriate, and tests the result.
 
 .. literalinclude:: daml/3_Data/Native.daml
   :language: daml
