@@ -1,0 +1,44 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE EmptyCase #-}
+
+
+
+daml 1.2
+module Generics where
+
+import Prelude
+import DA.Generics
+
+----------------------------------------------------------------------------------------------------
+-- Non-recursive data structures
+----------------------------------------------------------------------------------------------------
+
+data Void deriving Generic
+
+data Unit = Unit () deriving (Generic, Eq)
+
+data Nested a = Nested {nestedL : NestedL a, nestedR : NestedR} deriving Generic
+
+data NestedL a = NestedL {unNestedL : a} deriving Generic
+
+data NestedR = NestedRA | NestedRB Int deriving Generic
+
+type GenericNested a = Rec0 a :*: (U1 :+: Rec0 Int)
+
+----------------------------------------------------------------------------------------------------
+-- Recursive data strucutres
+----------------------------------------------------------------------------------------------------
+
+data Tree a = Leaf a | Node (Node0 a) deriving (Generic, Eq)
+data Node0 a = Node0 {l : Tree a, r : Tree a} deriving (Generic, Eq)
+
+testTree : Tree Int
+testTree = Node $ Node0 (Leaf 1) (Node $ Node0 (Leaf 2) (Leaf 3))
+
+test = scenario do
+  assert $ (to $ from $ Unit ()) == Unit ()
+  assert $ (to $ from testTree) == testTree
