@@ -80,14 +80,14 @@ Note how the data can be accessed either through functions ``fst``, ``snd``, ``f
 Lists
 ~~~~~
 
-Lists in DAML take a single type parameter defining the type of thing in the list. So you can have a list of integers ``List Int`` or a list of strings ``List Text``, but not a list mixing integers and strings. That's because DAML is statically and strongly typed. When you get an element out of a list, the compiler needs to know what type that element has. The below scenario instantiates a few lists of integers and demonstrates the most important list functions.
+Lists in DAML take a single type parameter defining the type of thing in the list. So you can have a list of integers ``[Int]`` or a list of strings ``[Text]``, but not a list mixing integers and strings. That's because DAML is statically and strongly typed. When you get an element out of a list, the compiler needs to know what type that element has. The below scenario instantiates a few lists of integers and demonstrates the most important list functions.
 
 .. literalinclude:: daml/3_Data/List.daml
   :language: daml
   :start-after: -- LIST_TEST_BEGIN
   :end-before: -- LIST_TEST_END
 
-Note the type annotation on ``empty : List Int = []``. It's necessary because ``[]`` is ambiguous. It could be a list of integers or of strings, but the compiler needs to know which it is.
+Note the type annotation on ``empty : [Int] = []``. It's necessary because ``[]`` is ambiguous. It could be a list of integers or of strings, but the compiler needs to know which it is.
 
 Records
 ~~~~~~~

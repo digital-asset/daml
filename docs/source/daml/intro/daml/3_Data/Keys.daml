@@ -78,7 +78,7 @@ id_ref_test = scenario do
       bank = account.bank with
         telephone = "098 7654 321"
 
-  -- The `account` field on the balance is now stale.
+  -- Thanks to contract keys, the current account contract is fetched
   submit accountant do
     balance <- fetch balanceCid
     (cid, account) <- fetchByKey @Account balance.account

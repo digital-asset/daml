@@ -81,7 +81,7 @@ However, if you open the scenario view for that scenario you, are faced with the
 
 .. figure:: images/2_Scenario/failure.png
 
-The scenario failed, as expected, but it aborted at the first failure so it only tested that Alice can't create a token for Bob. The second ``submit`` statement was never reached. To test for failing submits and keep the scenario running thereafter, DAML has the ``submitMustFail`` function:
+The scenario failed, as expected, but it aborted at the first failure so it only tested that Alice can't create a token for Bob. The second ``submit`` statement was never reached. To test for failing submits and keep the scenario running thereafter, or fail if the submission succeeds, DAML has the ``submitMustFail`` function:
 
 .. literalinclude:: daml/Intro_2_Scenario.daml
   :language: daml
