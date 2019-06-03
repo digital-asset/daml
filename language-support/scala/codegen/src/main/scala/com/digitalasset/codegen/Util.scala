@@ -12,7 +12,6 @@ import java.io.File
 import scala.reflect.runtime.universe._
 import scala.collection.generic.CanBuildFrom
 import scala.collection.TraversableLike
-import scala.util.matching.Regex
 import scalaz.{Tree => _, _}
 import scalaz.std.list._
 
@@ -31,8 +30,6 @@ abstract class Util(val packageName: String, val outputDir: File) { self =>
   type TemplateInterface
 
   type RefType = TypeConNameOrPrimType
-
-  val roots: Seq[Regex] = Nil
 
   val iface: Interface
 

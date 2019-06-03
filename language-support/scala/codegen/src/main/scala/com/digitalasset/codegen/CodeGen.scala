@@ -10,7 +10,6 @@ import iface.{Type => _, _}
 import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
 import java.io._
 
-import scala.collection.breakOut
 import com.digitalasset.codegen.dependencygraph._
 import com.digitalasset.codegen.exception.PackageInterfaceException
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
@@ -29,7 +28,9 @@ import scalaz.syntax.std.option._
 import scalaz.syntax.bind._
 import scalaz.syntax.traverse1._
 
+import scala.collection.breakOut
 import scala.util.{Failure, Success}
+import scala.util.matching.Regex
 
 object CodeGen {
 
@@ -83,17 +84,17 @@ object CodeGen {
       mode: Mode,
       roots: Seq[String]): ValidationNel[String, Unit] =
     decodeInterfaces(files).map { ifaces: NonEmptyList[EnvironmentInterface] =>
-      val combinedIface: EnvironmentInterface = combineEnvInterfaces(ifaces)
-      packageInterfaceToScalaCode(util(mode, packageName, combinedIface, outputDir, roots))
+      val combinedIface: EnvironmentInterface =
+        combineEnvInterfaces(ifaces map filterTemplatesBy(roots map (_.r)))
+      packageInterfaceToScalaCode(util(mode, packageName, combinedIface, outputDir))
     }
 
   private def util(
       mode: Mode,
       packageName: String,
       iface: EnvironmentInterface,
-      outputDir: File,
-      roots: Seq[String] = Seq()): Util = mode match {
-    case Novel => LFUtil(packageName, iface, outputDir, roots.map(_.r))
+      outputDir: File): Util = mode match {
+    case Novel => LFUtil(packageName, iface, outputDir)
   }
 
   private def decodeInterfaces(
@@ -141,6 +142,26 @@ object CodeGen {
 
   private def combineEnvInterfaces(as: NonEmptyList[EnvironmentInterface]): EnvironmentInterface =
     as.suml1
+
+  // Template names can be filtered by given regexes (default: use all templates)
+  // If a template does not match any regex, it becomes a "normal" datatype.
+  private[this] def filterTemplatesBy(regexes: Seq[Regex])(
+      ei: EnvironmentInterface): EnvironmentInterface = {
+
+    def matchesRoots(qualName: Ref.Identifier): Boolean =
+      regexes.exists(_.findFirstIn(qualName.qualifiedName.qualifiedName).isDefined)
+    // scala-2.13-M4: _.matches(qualName.qualifiedName.qualifiedName)
+
+    if (regexes.isEmpty) ei
+    else {
+      val EnvironmentInterface(tds) = ei
+      EnvironmentInterface(tds transform {
+        case (id, tpl @ InterfaceType.Template(_, _)) if !matchesRoots(id) =>
+          InterfaceType.Normal(tpl.`type`)
+        case (_, other) => other
+      })
+    }
+  }
 
   private def packageInterfaceToScalaCode(util: Util): Unit = {
     val interface = util.iface
