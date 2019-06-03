@@ -449,35 +449,49 @@ templatesFromModule mod = NM.toList $ LF.moduleTemplates mod
 templateChoicesFromTemplate :: LF.Template -> [LF.TemplateChoice]
 templateChoicesFromTemplate tpl = NM.toList $ LF.tplChoices tpl
 
--- moduleFromWorld :: AST.World -> Either AST.LookupError LF.Module
--- moduleFromWorld world = AST.lookupModule (LF.Qualified LF.PRSelf moduleName () ) world
---     where 
---         moduleName = LF.ModuleName ["Cash"] -- something that will have to be looked up from daml.yaml
-
 listOfModules :: NM.NameMap LF.Module -> [LF.Module]
 listOfModules modules =  (NM.toList modules)
 
-templateName :: LF.Template -> [String]
-templateName tpl = map T.unpack (LF.unTypeConName $ LF.tplTypeCon tpl)
+data RefT = RefT 
+    {    chName :: T.Text
+        ,tplName :: [T.Text]
+        ,chRetName :: [T.Text]
+    } deriving (Show)
 
-choiceName :: LF.TemplateChoice -> String
-choiceName choice = T.unpack (LF.unChoiceName $ LF.chcName choice)
+choiceRetTypes :: LF.World -> LF.Template  -> LF.TemplateChoice -> RefT
+choiceRetTypes _world tpl choice = RefT cname tplName rest
+    where
+        tplName = LF.unTypeConName $ LF.tplTypeCon tpl
+        cname = LF.unChoiceName $ LF.chcName choice
+        rest = case LF.chcReturnType choice of 
+                LF.TVar _  ->  []
+                LF.TCon a  ->  case LF.lookupDataType a _world of 
+                    Right LF.DefDataType{..} -> LF.unTypeConName dataTypeCon
+                    Left _ -> []
+                LF.TApp _ _ ->  []
+                LF.TBuiltin _  ->  []
+                _ -> []
 
-moduleAndTemplates :: LF.Module -> [String]
-moduleAndTemplates mod = res
+choiceRetTypesH :: LF.World -> LF.Template -> [LF.TemplateChoice] -> [RefT]
+choiceRetTypesH world  tpl chs = map (\c -> choiceRetTypes world tpl c ) chs 
+
+moduleAndTemplates :: LF.World -> LF.Module -> [RefT]
+moduleAndTemplates world mod = retTypess
     where 
         templates = templatesFromModule mod
         templatesWithchoices = map (\t -> (t, templateChoicesFromTemplate t)) templates
-        modName = unlines (map T.unpack (LF.unModuleName $ LF.moduleName mod))
-        res = map (\(t , c) -> modName ++ "->" ++ unlines(templateName t) ++"->" ++ unlines (map choiceName c) ) templatesWithchoices
+        retTypess = concatMap (\(t, chs) -> choiceRetTypesH world t chs ) templatesWithchoices
+
+ppShow :: RefT -> String
+ppShow RefT{..} = unlines (map (T.unpack) tplName) ++  ">->" ++ T.unpack chName ++ " >->" ++ unlines (map (T.unpack) chRetName) 
 
 execVisual :: FilePath -> IO ()
 execVisual dalfFilePath = do
     bytes <- B.readFile dalfFilePath
     (pkID, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes  -- LF.PackageId, LF.Package
-    let _ =  AST.initWorldSelf [(pkID, lfPkg)] version1_4  lfPkg -- world
+    let world =  AST.initWorldSelf [(pkID, lfPkg)] version1_4  lfPkg -- world
         modules = listOfModules $ LF.packageModules lfPkg
-        res = map moduleAndTemplates modules
+        res = map (\m ->  map ppShow (moduleAndTemplates world m) ) modules
     putStrLn (show res)
 
         
