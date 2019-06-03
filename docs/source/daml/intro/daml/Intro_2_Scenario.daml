@@ -28,7 +28,7 @@ token_test = scenario do
 
   -- If a single statement in a scenario fails, the whole scenario fails at that point.
   -- To test failure of more than one submission in a single scenario, we need a different
-  -- keyword `submitMustFail`, which succeeds, if the transaction submitted fails.
+  -- keyword `submitMustFail`, which succeeds when the submitted transaction fails.
   -- Alice and Bob cannot issue Tokens to each other, as neither has the authority to put
   -- the other's signature on the Token.
   submitMustFail alice do
