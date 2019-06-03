@@ -157,7 +157,7 @@ Manipulating Data
 
 You've got all the ingredients to build rich types expressing the data you want to be able to write to the ledger, and you have seen how to create new values and read fields from values. But how do you manipulate values once created?
 
-All data in DAML is immutable, meaning once a value is created, it will never change. Rather than changing values, one creates new values based on old ones with some changes applied. Whilst contracts and records may feel a bit like objects in object oriented langauges, they behave quite different in this respect.
+All data in DAML is immutable, meaning once a value is created, it will never change. Rather than changing values, one creates new values based on old ones with some changes applied.
 
 .. literalinclude:: daml/3_Data/Record.daml
   :language: daml
