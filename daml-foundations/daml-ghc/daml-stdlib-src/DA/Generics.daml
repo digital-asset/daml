@@ -1423,7 +1423,6 @@ data MetaCons0 = MetaCons0 {name :: Symbol, fixity :: FixityI, hasRecordSelector
 data MetaSel0 = MetaSel0 {  mbRecordName :: Optional Symbol
                           , sourceUnpackedness :: SourceUnpackedness
                           , sourceStrictness :: SourceStrictness
-                          , decidedStrictness ::DecidedStrictness
                           }
 
 --------------------------------------------------------------------------------

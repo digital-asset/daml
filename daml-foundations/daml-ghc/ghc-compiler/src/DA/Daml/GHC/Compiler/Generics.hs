@@ -221,8 +221,7 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     mkC :: LConDecl GhcPs -> LHsType GhcPs
     mkC c@(L _ ConDeclH98 {..}) = mkHsAppTys c1 [metaConsTy c, prod con_args]
     mkC (L _ ConDeclGADT {}) = gADTError
-    mkC (L _ XConDecl {}) =
-        error "Can't generate generic instance for extended AST"
+    mkC (L _ XConDecl {}) = extError
     prod :: HsConDeclDetails GhcPs -> LHsType GhcPs
     prod (PrefixCon as)
         | null as = u1
@@ -312,7 +311,7 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     metaSelTy0 mbLbs a =
         mkHsAppTys
             ms0
-            [mbRecordName, srcUnpackedness, srcStrictness, decidedStrictness]
+            [mbRecordName, srcUnpackedness, srcStrictness]
       where
         mbRecordName
             | Just [l] <- mbLbs =
@@ -333,7 +332,6 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
                 SrcLazy -> mkGenCon sourceLazyDataConName
                 SrcStrict -> mkGenCon sourceStrictDataConName
                 NoSrcStrict -> mkGenCon noSourceStrictnessDataConName
-        decidedStrictness = mkGenCon decidedLazyDataConName -- TODO (drsk) we don't know decided strictness at parsing, we need to remove the field.
 generateGenericInstanceFor _genClass _n _pkgName _mod _tyVars XHsDataDefn {} = extError
 
 
