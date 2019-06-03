@@ -107,7 +107,8 @@ runShakeTest mbScenarioService (ShakeTest m) = do
     virtualResources <- newTVarIO Map.empty
     let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
         eventLogger _ = pure ()
-    service <- API.initialise (mainRule options) (Just (atomically . eventLogger)) Logger.makeNopHandle options mbScenarioService
+    vfs <- API.makeVFSHandle
+    service <- API.initialise (mainRule options) (Just (atomically . eventLogger)) Logger.makeNopHandle options vfs mbScenarioService
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
@@ -189,9 +190,10 @@ setBufferNotModified absPath = setBufferModifiedMaybe absPath Nothing
 -- | (internal) Notify compiler service that buffer is either modified or not.
 setBufferModifiedMaybe :: FilePath -> Maybe T.Text -> ShakeTest ()
 setBufferModifiedMaybe absPath maybeText = ShakeTest $ do
-    now <- liftIO Clock.getCurrentTime
     service <- Reader.asks steService
-    liftIO $ API.setBufferModified service absPath (maybeText, now)
+    case maybeText of
+        Nothing -> liftIO $ API.setBufferModified service absPath Nothing
+        Just content -> liftIO $ API.setBufferModified service absPath (Just content)
 
 -- | (internal) Get diagnostics.
 getDiagnostics :: ShakeTest [D.FileDiagnostic]

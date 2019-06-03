@@ -6,6 +6,7 @@
 {-# LANGUAGE RankNTypes #-}
 module DA.LanguageServer.Server
   ( runServer
+  , Handlers(..)
   ) where
 
 
@@ -37,19 +38,24 @@ import qualified Language.Haskell.LSP.Types as LSP
 -- Server execution
 ------------------------------------------------------------------------
 
+data Handlers = Handlers
+    { requestHandler
+           :: (forall resp. resp -> ResponseMessage resp)
+           -> (ErrorCode -> ResponseMessage ())
+           -> ServerRequest
+           -> IO LSP.FromServerMessage
+    , notificationHandler
+           :: ServerNotification -> IO ()
+    }
+
 runServer
     :: Logger.Handle IO
-    -> ((forall resp. resp -> ResponseMessage resp) ->
-        (ErrorCode -> ResponseMessage ()) ->
-        ServerRequest ->
-        IO LSP.FromServerMessage)
-    -- ^ Request handler for language server requests
-    -> (ServerNotification -> IO ())
+    -> (LSP.LspFuncs () -> IO Handlers)
     -- ^ Notification handler for language server notifications
     -> TChan ClientNotification
     -- ^ Channel for notifications towards the client
     -> IO ()
-runServer loggerH reqHandler notifHandler notifChan = do
+runServer loggerH getHandlers notifChan = do
     -- DEL-6257: Move stdout to another file descriptor and duplicate stderr
     -- to stdout. This guards against stray prints from corrupting the JSON-RPC
     -- message stream.
@@ -81,20 +87,19 @@ runServer loggerH reqHandler notifHandler notifChan = do
         , void $ waitBarrier notifBarrier
         ]
     where
-        reqHandler' :: (ServerRequest, LspId) -> IO LSP.FromServerMessage
-        reqHandler' (req, reqId) =
-            reqHandler
-                (\res -> ResponseMessage "2.0" (responseId reqId) (Just res) Nothing)
-                (\err -> ResponseMessage "2.0" (responseId reqId) Nothing (Just $ ResponseError err "" Nothing))
-                req
         handleInit :: IO () -> IO () -> TChan LSP.FromClientMessage -> LSP.LspFuncs () -> IO (Maybe LSP.ResponseError)
-        handleInit exitClientMsg exitNotif clientMsgChan LSP.LspFuncs{..} = do
+        handleInit exitClientMsg exitNotif clientMsgChan lspFuncs@LSP.LspFuncs{..} = do
+            Handlers{..} <- getHandlers lspFuncs
+            let requestHandler' (req, reqId) = requestHandler
+                    (\res -> ResponseMessage "2.0" (responseId reqId) (Just res) Nothing)
+                    (\err -> ResponseMessage "2.0" (responseId reqId) Nothing (Just $ ResponseError err "" Nothing))
+                    req
             _ <- flip forkFinally (const exitClientMsg) $ forever $ do
                 msg <- atomically $ readTChan clientMsgChan
                 case convClientMsg msg of
                     Nothing -> Logger.logError loggerH $ "Unknown client msg: " <> T.pack (show msg)
-                    Just (Left notif) -> notifHandler notif
-                    Just (Right req) -> sendFunc =<< reqHandler' req
+                    Just (Left notif) -> notificationHandler notif
+                    Just (Right req) -> sendFunc =<< requestHandler' req
             _ <- flip forkFinally (const exitNotif) $ forever $ do
                 notif <- atomically $ readTChan notifChan
                 sendFunc $ convToServerNotif notif
@@ -205,7 +210,7 @@ options :: LSP.Options
 options = def
     { LSP.textDocumentSync = Just TextDocumentSyncOptions
           { _openClose = Just True
-          , _change = Just TdSyncFull
+          , _change = Just TdSyncIncremental
           , _willSave = Just True
           , _willSaveWaitUntil = Nothing
           , _save = Just $ SaveOptions $ Just False

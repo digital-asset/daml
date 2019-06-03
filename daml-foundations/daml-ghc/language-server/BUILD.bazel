@@ -19,6 +19,7 @@ da_haskell_library(
         "haskell-lsp-types",
         "managed",
         "network-uri",
+        "rope-utf16-splay",
         "safe",
         "safe-exceptions",
         "stm",

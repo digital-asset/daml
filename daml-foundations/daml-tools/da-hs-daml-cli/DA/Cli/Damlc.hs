@@ -235,8 +235,8 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
     loggerH <- getLogger opts "compile"
     inputFile <- relativize inputFile
     opts' <- Compiler.mkOptions opts
-    Managed.with (Compiler.newIdeState opts' Nothing loggerH) $ \hDamlGhc -> do
-        errOrDalf <- runExceptT $ Compiler.compileFile hDamlGhc inputFile
+    Managed.with (Compiler.newIdeState' opts' Nothing loggerH) $ \handle -> do
+        errOrDalf <- runExceptT $ Compiler.compileFile handle inputFile
         either (reportErr "DAML-1.2 to LF compilation failed") write errOrDalf
   where
     write bs
@@ -356,11 +356,11 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pDependencies
         let eventLogger (EventFileDiagnostics (fp, diags)) = printDiagnostics $ map (fp,) diags
             eventLogger _ = return ()
-        Managed.with (Compiler.newIdeState opts (Just eventLogger) loggerH) $ \compilerH -> do
+        Managed.with (Compiler.newIdeState' opts (Just eventLogger) loggerH) $ \handle -> do
             darOrErr <-
                 runExceptT $
                 Compiler.buildDar
-                    compilerH
+                    handle
                     pMain
                     pExposedModules
                     pName
@@ -443,8 +443,7 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
     loggerH <- getLogger opts "package"
     filePath <- relativize filePath
     opts' <- Compiler.mkOptions opts
-    Managed.with (Compiler.newIdeState opts' Nothing loggerH) $
-      buildDar filePath
+    Managed.with (Compiler.newIdeState' opts' Nothing loggerH) $ buildDar filePath
   where
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
