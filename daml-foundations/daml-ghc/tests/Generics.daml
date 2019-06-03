@@ -2,15 +2,11 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE NoImplicitPrelude #-}
 {-# LANGUAGE EmptyCase #-}
-
-
 
 daml 1.2
 module Generics where
 
-import Prelude
 import DA.Generics
 
 ----------------------------------------------------------------------------------------------------
@@ -30,7 +26,7 @@ data NestedR = NestedRA | NestedRB Int deriving Generic
 type GenericNested a = Rec0 a :*: (U1 :+: Rec0 Int)
 
 ----------------------------------------------------------------------------------------------------
--- Recursive data strucutres
+-- Recursive data structures
 ----------------------------------------------------------------------------------------------------
 
 data Tree a = Leaf a | Node (Node0 a) deriving (Generic, Eq)

@@ -41,7 +41,7 @@ mayImportInternal =
 damlPreprocessor :: Maybe String -> GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
 damlPreprocessor mbPkgName x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], x)
-    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName $ x)
+    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName x)
     where name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 

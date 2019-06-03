@@ -2,8 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 
-{-# LANGUAGE RecordWildCards #-}
-
 module DA.Daml.GHC.Compiler.Generics
     ( genericsPreprocessor
     ) where
@@ -17,17 +15,16 @@ import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
 import "ghc-lib-parser" PrelNames hiding
-    (
-    gHC_GENERICS
+    ( from_RDR
+    , gHC_GENERICS
     , gHC_TYPES
     , k1DataCon_RDR
     , l1DataCon_RDR
     , m1DataCon_RDR
-    , r1DataCon_RDR
-    , u1DataCon_RDR
     , prodDataCon_RDR
+    , r1DataCon_RDR
     , to_RDR
-    , from_RDR
+    , u1DataCon_RDR
     )
 
 import "ghc-lib-parser" RdrName
@@ -44,29 +41,34 @@ genericsPreprocessor mbPkgName (L l src) =
             { hsmodDecls =
                   map dropGenericDeriv (hsmodDecls src) ++
                   [ generateGenericInstanceFor
-                      t
-                      n
+                      genericsType
+                      name
                       (fromMaybe "Main" mbPkgName)
+                      -- We check in the preprocessor that this error case never happens.
                       (fromMaybe (error "Missing module name") $ hsmodName src)
                       tys
-                      d
-                  | (t, n, tys, d) <- dataDecls
+                      dataDef
+                  | (genericsType, name, tys, dataDef) <- dataDeclsWithGenericDeriv
                   ]
             }
-    -- the data declarations deriving generic instances
   where
-    dataDecls =
+    -- the data declarations deriving generic instances
+    dataDeclsWithGenericDeriv =
         [ (name, tcdLName, tcdTyVars, tcdDataDefn)
-        | L _ (TyClD _x (DataDecl {..})) <- hsmodDecls src
+        | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
         , d <- unLoc $ dd_derivs tcdDataDefn
         , (HsIB _ (L _ (HsTyVar _ _ (L _ (Unqual name))))) <-
               unLoc $ deriv_clause_tys $ unLoc d
         , name `elem` [nameOccName n | n <- genericClassNames]
         ]
+    -- drop the generic deriving clauses from the parsed source otherwise GHC will try to process
+    -- them.
     dropGenericDeriv :: LHsDecl GhcPs -> LHsDecl GhcPs
     dropGenericDeriv decl =
         case decl of
-            L loc (TyClD x (DataDecl tcdDExt tcdLName tcdTyVars tcdFixity (HsDataDefn dd_ext dd_ND dd_ctxt dd_cType dd_kindSig dd_cons (L loc2 derivs)))) ->
+            L loc (TyClD x (DataDecl tcdDExt tcdLName tcdTyVars tcdFixity
+                              (HsDataDefn dd_ext dd_ND dd_ctxt dd_cType dd_kindSig dd_cons
+                                (L loc2 derivs)))) ->
                 L
                     loc
                     (TyClD
@@ -99,8 +101,8 @@ genericsPreprocessor mbPkgName (L l src) =
                 _other -> clause
 
         isGeneric :: LHsSigType GhcPs -> Bool
-        isGeneric (HsIB _ (L _ (HsTyVar _ _ (L _ (Unqual name)))))
-            | name `elem` [nameOccName n | n <- genericClassNames] = True
+        isGeneric (HsIB _ (L _ (HsTyVar _ _ (L _ (Unqual name))))) =
+            name `elem` [nameOccName n | n <- genericClassNames]
         isGeneric _other = False
 
 
@@ -167,7 +169,7 @@ generateGenericInstanceFor ::
     -> LHsQTyVars GhcPs
     -> HsDataDefn GhcPs
     -> LHsDecl GhcPs
-generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataDef@HsDataDefn {} =
+generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataDef@HsDataDefn{} =
     L loc $ InstD NoExt (ClsInstD {cid_d_ext = NoExt, cid_inst = instDecl})
   where
     instDecl =
@@ -183,13 +185,19 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     genKind
         | genClass == nameOccName genClassName = Gen0
         | genClass == nameOccName gen1ClassName = Gen1
-        | otherwise = error $ "Deriving generic instance for non-generic class"
+        | otherwise = error "Deriving generic instance for non-generic class"
+        -- This can't happen since we only call "generateGenericInstanceFor" for generic
+        -- derivations.
+
     -- Tag something with the location of the data type we're creating a generic instance for.
     mkLoc = L loc
+
+    -- The typeclass type: data Foo a b ... deriving Generic => Generic (Foo a b) (FooRep a b)
     typ =
         mkHsAppTys
             (mkLoc $ HsTyVar NoExt NotPromoted $ mkLoc (Unqual genClass))
             [tycon, repType]
+    -- The type for which we construct a generic instance
     tycon =
         mkHsAppTys (mkLoc $ HsTyVar NoExt NotPromoted name) $
         hsLTyVarBndrsToTypes tyVars
@@ -225,17 +233,17 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     prod :: HsConDeclDetails GhcPs -> LHsType GhcPs
     prod (PrefixCon as)
         | null as = u1
-        | otherwise = foldBal mkProd $ [mkS Nothing $ mkRec0 a | a <- as]
+        | otherwise = foldBal mkProd [mkS Nothing $ mkRec0 a | a <- as]
     prod (RecCon (L _ fs)) =
-        foldBal mkProd $
-        [ mkS (Just cd_fld_names) $ mkRec0 $ cd_fld_type
-        | (L _ (ConDeclField {..})) <- fs
+        foldBal mkProd
+        [ mkS (Just cd_fld_names) $ mkRec0 cd_fld_type
+        | L _ ConDeclField {..} <- fs
         ]
     prod (InfixCon a b) = mkProd (mkRec0 a) (mkRec0 b)
-    -- | We don't have no unboxed types, so nothing to do here.
+    -- | We don't have unboxed types, so nothing to do here.
     mkRec0 :: LBangType GhcPs -> LHsType GhcPs
     mkRec0 t = mkHsAppTy rec0 t
-    -- | Type variables defined in GHC.Generics
+    -- | Type variables defined in DA.Generics
     mkGenTy :: Name -> LHsType GhcPs
     mkGenTy name =
         mkLoc $
@@ -251,15 +259,12 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
 
     mkStrLit :: String -> LHsType GhcPs
     mkStrLit n = mkLoc $ HsTyLit NoExt $ HsStrTy (SourceText n) (mkFastString n)
-    mkGenPromotedTy :: String -> LHsType GhcPs
-    mkGenPromotedTy n =
-        mkLoc $
-        HsTyVar NoExt IsPromoted $
-        mkLoc $ Qual (moduleName gHC_GENERICS) $ mkDataOcc n
     mkPromotedTy :: Module -> String -> LHsType GhcPs
     mkPromotedTy m n =
         mkLoc $
         HsTyVar NoExt IsPromoted $ mkLoc $ Qual (moduleName m) $ mkDataOcc n
+    mkGenPromotedTy :: String -> LHsType GhcPs
+    mkGenPromotedTy n = mkPromotedTy gHC_GENERICS n
     d1 = mkGenTy d1TyConName
     v1 = mkGenTy v1TyConName
     c1 = mkGenTy c1TyConName
@@ -297,7 +302,8 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
         n = mkStrLit $ occNameString $ rdrNameOcc $ unLoc con_name
         fixity
             | PrefixCon {} <- con_args = mkGenPromotedTy "PrefixI"
-            | InfixCon {} <- con_args = mkGenPromotedTy "PrefixI" -- TODO (drsk) where is the fixity noted?
+            | InfixCon {} <- con_args = mkGenPromotedTy "PrefixI"
+            -- TODO (drsk) where is the fixity noted? For now put it to PrefixI.
             | RecCon {} <- con_args = mkGenPromotedTy "PrefixI"
         hasRecordSelectors
             | PrefixCon {} <- con_args = mkPromotedTy gHC_TYPES "False"
@@ -338,7 +344,9 @@ generateGenericInstanceFor _genClass _n _pkgName _mod _tyVars XHsDataDefn {} = e
 -- Bindings for the Generic instance.
 --
 -- NOTE (drsk) Most of the code below is copied from GHC with minor tweaks for our case
-----------------------------------------------------------------------------------------------------
+-- https://gitlab.haskell.org/ghc/ghc.git 4ba73e00c4887b58d85131601a15d00608acaa60
+-- compiler/typecheck/TcGenGernerics.hs
+---------------------------------------------------------------------------------------
 
 type US = Int   -- Local unique supply, just a plain Int
 type Alt = (LPat GhcPs, LHsExpr GhcPs)
