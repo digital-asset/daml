@@ -63,7 +63,7 @@ It's time for a bit more theory. in :doc:`1_Token` you learned about the high-le
 - A ``fetch`` action  checks the existence and activeness of a contract
 - An ``exercise`` action contains the choice arguments and a transaction called the *consequences*. Exercises come in two *kinds* called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
 
-The consequences of exercise nodes turn each transaction into an ordered forest of actions, with each action forming a sub-transaction with that action as the root.
+The consequences of exercise nodes turn each transaction into an ordered tree of (sub-) transactions, or, equivalently, a forest of actions. Actions are in one-to-one correspondence with proper sub-transactions. 
 
 Each contract has an implicit choice ``Archive`` with the signatories as controllers and ``archive cid`` is just shorthand for ``exercise cid Archive``.
 
