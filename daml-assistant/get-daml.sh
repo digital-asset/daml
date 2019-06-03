@@ -16,14 +16,7 @@
 #    get-daml.sh VERSION    Download and install given version of DAML SDK.
 #
 
-ARG1="$1"
-  # We do this here before setting -u because we don't want
-  # to have an error when testing this argument later.
-
 set -eu
-  # Fail whenever a subcommand fails, and fail whenever we
-  # use an undefined variable.
-
 cleanup() {
   echo "$(tput setaf 3)FAILED TO INSTALL!$(tput sgr 0)"
 }
@@ -55,7 +48,7 @@ fi
 #
 # Determine SDK version
 #
-if [ -z "$ARG1" ] ; then
+if [ -z "${1:-}" ] ; then
   echo "Determining latest SDK version..."
   readonly VERSION="$(curl -sS https://github.com/digital-asset/daml/releases/latest | sed 's/^.*github.com\/digital-asset\/daml\/releases\/tag\/v//' | sed 's/".*$//')"
   if [ -z "$VERSION" ] ; then
@@ -64,7 +57,7 @@ if [ -z "$ARG1" ] ; then
   fi
   echo "Latest SDK version is $VERSION"
 else
-  readonly VERSION="$ARG1"
+  readonly VERSION="$1"
   echo "Installing SDK version $VERSION"
 fi
 
