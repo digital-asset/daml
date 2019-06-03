@@ -99,7 +99,7 @@ Archival of contracts works just like creation, but using ``archive`` instead of
 
 Contract references have type ``ContractId a`` in DAML, where ``a`` is a *type parameter* representing the type of contract that the id refers to. A reference to a ``Token`` would be a ``ContractId Token``, for example.
 
-To ``archive`` the Token Alice has created, you need to get a handle on its contract id. In scenarios, this is again done using ``<-`` notation. Why this works is discussed in :doc:`5_Restrictions`. The scenario first checks that Bob cannot archive Alice's Token and then Alice successfully archives it.
+To ``archive`` the Token Alice has created, you need to get a handle on its contract id. In scenarios, this is again done using ``<-`` notation, because the contract ID needs to be retrieved from the ledger. How this works is discussed in :doc:`5_Restrictions`. The scenario first checks that Bob cannot archive Alice's Token and then Alice successfully archives it.
 
 .. literalinclude:: daml/Intro_2_Scenario.daml
   :language: daml
