@@ -1,19 +1,18 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.server.services.transaction
+package com.digitalasset.platform.sandbox.stores.ledger
 
-import com.digitalasset.daml.lf.data.{Ref => LfRef}
 import com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
-import com.digitalasset.ledger.backend.api.v1.LedgerSyncEvent.AcceptedTransaction
 import com.digitalasset.platform.api.v1.event.EventOps.getEventIndex
 import com.digitalasset.platform.common.{PlatformTypes => P}
 import com.digitalasset.platform.participant.util.EventFilter.TemplateAwareFilter
 import com.digitalasset.platform.server.services.transaction.TransactionFiltration.RichTransactionFilter
+import com.digitalasset.platform.server.services.transaction.TransientContractRemover
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -23,7 +22,8 @@ import scala.collection.breakOut
 trait TransactionConversion {
 
   def acceptedToDomainFlat(
-      trans: AcceptedTransaction,
+      offset: domain.LedgerOffset.Absolute,
+      trans: LedgerEntry.Transaction,
       filter: domain.TransactionFilter
   ): Option[domain.Transaction] = {
     val tx = trans.transaction.mapNodeId(domain.EventId(_))
@@ -40,25 +40,25 @@ trait TransactionConversion {
       .flatMap(eventFilter.filterCreateOrArchiveWitnesses(_).toList)
 
     val submitterIsSubscriber =
-      trans.submitter
-        .map(LfRef.Party.assertFromString)
-        .exists(eventFilter.isSubmitterSubscriber)
+      eventFilter.isSubmitterSubscriber(trans.submittingParty)
+
     if (filteredEvents.nonEmpty || submitterIsSubscriber) {
       Some(
         domain.Transaction(
           domain.TransactionId(trans.transactionId),
-          Tag.subst(trans.commandId).filter(_ => submitterIsSubscriber),
-          Tag.subst(trans.workflowId),
-          trans.recordTime,
+          if (submitterIsSubscriber) Some(domain.CommandId(trans.commandId)) else None,
+          trans.workflowId.map(domain.WorkflowId(_)),
+          trans.recordedAt,
           filteredEvents,
-          domain.LedgerOffset.Absolute(trans.offset),
+          offset,
           None
         ))
     } else None
   }
 
   def acceptedToDomainTree(
-      trans: AcceptedTransaction,
+      offset: domain.LedgerOffset.Absolute,
+      trans: LedgerEntry.Transaction,
       filter: domain.TransactionFilter): Option[domain.TransactionTree] = {
 
     val tx = trans.transaction.mapNodeId(domain.EventId(_))
@@ -80,16 +80,16 @@ trait TransactionConversion {
           events,
           allEvents.roots.toList
             .sortBy(evid => getEventIndex(evid.unwrap)))
-      val subscriberIsSubmitter = trans.submitter
-        .map(LfRef.Party.assertFromString)
-        .exists(TemplateAwareFilter(filter).isSubmitterSubscriber(_))
+
+      val subscriberIsSubmitter =
+        TemplateAwareFilter(filter).isSubmitterSubscriber(trans.submittingParty)
 
       domain.TransactionTree(
         domain.TransactionId(trans.transactionId),
-        Tag.subst(trans.commandId).filter(_ => subscriberIsSubmitter),
+        if (subscriberIsSubmitter) Some(domain.CommandId(trans.commandId)) else None,
         Tag.subst(trans.workflowId),
-        trans.recordTime,
-        domain.LedgerOffset.Absolute(trans.offset),
+        trans.recordedAt,
+        offset,
         byId,
         roots,
         None

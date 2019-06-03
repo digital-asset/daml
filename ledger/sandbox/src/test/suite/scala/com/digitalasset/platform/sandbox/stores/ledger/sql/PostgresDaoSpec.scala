@@ -26,7 +26,6 @@ import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
-import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
@@ -48,7 +47,7 @@ import org.scalatest.{AsyncWordSpec, Matchers}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.language.implicitConversions
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 
 //TODO: use scalacheck when we have generators available for contracts and transactions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
