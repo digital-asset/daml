@@ -138,7 +138,7 @@ private class SqlLedger(
     queue
       .watchCompletion()
       .onComplete {
-        case Failure(t) => logger.warn(s"$name queue has been closed with a failure!", t)
+        case Failure(t) => logger.error(s"$name queue has been closed with a failure!", t)
         case _ => ()
       }(DEC)
 
