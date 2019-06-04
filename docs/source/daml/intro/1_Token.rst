@@ -43,7 +43,7 @@ The type of a contract that can be created, and who has the right to do so, is d
 
 .. literalinclude:: daml/Intro_1_Token.daml
   :language: daml
-  :lines: 13,18,22,26,31
+  :lines: 16,21,25,29,34
   :caption: A Token template
 
 Templates are declared starting with the ``template`` keyword and take a name as an argument. DAML is whitespace-aware and uses layout to structure *blocks*. Everything that's below the first line is indented, and thus part of the template's body.
