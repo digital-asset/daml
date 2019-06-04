@@ -50,7 +50,9 @@ You declare a template starting with the ``template`` keyword, which takes a nam
 
 DAML is whitespace-aware and uses layout to structure *blocks*. Everything that's below the first line is indented, and thus part of the template's body.
 
-*Contracts* on a DAML ledger contain data, often referred to as the *create arguments* or simply *arguments*. The ``with`` block starting in the second line defines the data type of the create arguments of a contract of type ``Token`` by listing field names and their types. The single colon ``:`` is read as "of type" so we can read the first three lines as "template Token with field owner of type ``Party``. ``Token`` contracts have a single field ``owner`` of type ``Party``. The fields declared in a template's ``with`` block are in scope in the rest of the template body, which is contained in a ``where`` block.
+*Contracts* contain data, referred to as the *create arguments* or simply *arguments*. The ``with`` block defines the data type of the create arguments by listing field names and their types. The single colon ``:`` means "of type", so you can read this as "template ``Token`` with a field ``owner`` of type ``Party``".
+
+``Token`` contracts have a single field ``owner`` of type ``Party``. The fields declared in a template's ``with`` block are in scope in the rest of the template body, which is contained in a ``where`` block.
 
 Signatories
 -----------
