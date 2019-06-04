@@ -33,7 +33,11 @@ You declare a ``Scenario`` a top-level variable and introduce it using ``scenari
 
 Before you can create any ``Token`` contracts, you need some parties on the test ledger. The above scenario uses the function ``getParty`` to put a party called "Alice" in a variable ``alice``. There are two things of note there:
 
-1. Note of the use of ``<-`` instead of ``=``. The reason for that is that depending on the ledger the scenario is running on, ``getParty`` may have to look up a party identity or create a new party. ``getParty`` is an ``Action`` that can only be performed once the ``Scenario`` is run in the context of a ledger and ``<-`` means "run the action and bind the result". More on ``Actions`` and ``do`` blocks in :doc:`5_Restrictions`.
+- Use of ``<-`` instead of ``=``.
+
+  The reason for that is ``getParty`` is an ``Action`` that can only be performed once the ``Scenario`` is run in the context of a ledger. ``<-`` means "run the action and bind the result". It can only be run in that context because, depending on the ledger the scenario is running on, ``getParty`` may have to look up a party identity or create a new party.
+  
+  More on ``Actions`` and ``do`` blocks in :doc:`5_Restrictions`.
 
    If that doesn't quite make sense yet, for the time being you can think of this arrow as extracting the right-hand-side value from the ledger and storing it into the variable on the left.
 2. The argument ``"Alice"`` to ``getParty`` does not have to be enclosed in brackets. Functions in DAML are called using the syntax ``fn arg1 arg2 arg3``.
