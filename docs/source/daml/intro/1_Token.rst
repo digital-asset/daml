@@ -21,6 +21,8 @@ For this section:
 DAML Ledger Basics
 ------------------
 
+There are a few basic concepts you need to understand before you take a look at the DAML file you downloaded.
+
 Like most structures called ledgers, a DAML Ledger is just a list of *commits*. When we say *commit*, we mean the final result of when a *party* successfully *submits* a *transaction* to the ledger. 
 
 *Transaction* is a concept we'll cover in more detail through this introduction. The most basic examples are the creation and archival of a *contract*.
