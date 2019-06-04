@@ -29,7 +29,7 @@ Below is a basic scenario that creates a ``Token`` for a party called "Alice".
   :start-after: -- TOKEN_TEST_1_BEGIN
   :end-before: -- TOKEN_TEST_1_END
 
-A ``Scenario`` is declared as a top-level variable and introduced using ``scenario do``. ``do`` always starts a block, so the rest of the scenario is indented.
+You declare a ``Scenario`` a top-level variable and introduce it using ``scenario do``. ``do`` always starts a block, so the rest of the scenario is indented.
 
 Before you can create any ``Token`` contracts, you need some parties on the test ledger. In the above scenario, the function ``getParty`` is used to put a party called "Alice" in a valiable ``alice``. There are two things of note there:
 
