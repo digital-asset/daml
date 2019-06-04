@@ -131,6 +131,17 @@ private class SqlLedger(
       SourceQueueWithComplete[Long => PersistenceEntry],
       SourceQueueWithComplete[Long => PersistenceEntry]) = createQueues()
 
+  watchForFailures(checkpointQueue, "checkpoint")
+  watchForFailures(persistenceQueue, "persistence")
+
+  private def watchForFailures(queue: SourceQueueWithComplete[_], name: String) =
+    queue
+      .watchCompletion()
+      .onComplete {
+        case Failure(t) => logger.error(s"$name queue has been closed with a failure!", t)
+        case _ => ()
+      }(DEC)
+
   private def createQueues(): (
       SourceQueueWithComplete[Long => PersistenceEntry],
       SourceQueueWithComplete[Long => PersistenceEntry]) = {
@@ -170,6 +181,12 @@ private class SqlLedger(
               ledgerDao
                 .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))
                 .map(_ => ())(DEC)
+                .recover {
+                  case t =>
+                    //recovering from the failure so the persistence stream doesn't die
+                    logger.error(s"Failed to persist entry with offset: $offset", t)
+                    ()
+                }
           })
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
@@ -177,12 +194,11 @@ private class SqlLedger(
             dispatcher.signalNewHead(headRef) //signalling downstream subscriptions
           }(DEC)
       }
-      .toMat(Sink.ignore)(
-        Keep.left[
-          (
-              SourceQueueWithComplete[Long => PersistenceEntry],
-              SourceQueueWithComplete[Long => PersistenceEntry]),
-          Future[Done]])
+      .toMat(Sink.ignore)(Keep.left[
+        (
+            SourceQueueWithComplete[Long => PersistenceEntry],
+            SourceQueueWithComplete[Long => PersistenceEntry]),
+        Future[Done]])
       .run()
   }
 
@@ -191,9 +207,8 @@ private class SqlLedger(
     ledgerDao.close()
   }
 
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] = {
+  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     dispatcher.startingAt(offset.getOrElse(0))
-  }
 
   override def ledgerEnd: Long = headRef
 
@@ -270,7 +285,7 @@ private class SqlLedger(
       }
     }
 
-  private def enqueue(f: Long => PersistenceEntry): Future[SubmissionResult] = {
+  private def enqueue(f: Long => PersistenceEntry): Future[SubmissionResult] =
     persistenceQueue
       .offer(f)
       .transform {
@@ -283,7 +298,6 @@ private class SqlLedger(
         case Success(QueueOfferResult.Failure(e)) => Failure(e)
         case Failure(f) => Failure(f)
       }(DEC)
-  }
 
   override def lookupTransaction(
       transactionId: Ref.TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
