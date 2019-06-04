@@ -28,12 +28,11 @@ import Data.Maybe
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
 import           Development.IDE.Functions.GHCError
-import           Development.Shake                        hiding (Diagnostic, Env, newCache)
-import           Development.IDE.Types.LSP as Compiler
-
-import           UniqSupply
-
 import           Development.IDE.State.Shake
+import           Development.IDE.Types.LSP as Compiler
+import           Development.Shake                        hiding (Diagnostic, Env, newCache)
+import           System.FilePath
+import           UniqSupply
 
 
 -- | Environment threaded through the Shake actions.
@@ -111,7 +110,7 @@ setFilesOfInterest :: IdeState -> Set FilePath -> IO ()
 setFilesOfInterest state files = do
     Env{..} <- getIdeGlobalState state
     -- update vars synchronously
-    modifyVar_ envOfInterestVar $ const $ return files
+    modifyVar_ envOfInterestVar $ const $ return (Set.map normalise files)
 
     -- run shake to update results regarding the files of interest
     void $ shakeRun state []
