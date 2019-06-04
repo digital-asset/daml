@@ -443,9 +443,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "8625d6565f28a609ab26ee4d3b2a114ac4c9d65d"
+HASKELL_LSP_COMMIT = "f9e4f732bbbb016f5f45cb6377bb46170a923924"
 
-HASKELL_LSP_HASH = "93395695b9cbc9661e731847ede01ad7cf91db1b0fc1cb3abb31ebebe1115424"
+HASKELL_LSP_HASH = "ddf5a27f013036807fcc57d7f27043fcf05fbad2c7e7924b6715f3b15172d229"
 
 hazel_repositories(
     core_packages = dicts.add(
@@ -521,6 +521,13 @@ hazel_repositories(
                 HASKELL_LSP_HASH,
                 name = "haskell-lsp-types",
                 directory = "/haskell-lsp-types/",
+            ) +
+            # This corresponds to our custom-methods branch which makes
+            # lsp-test work with our custom-methods of haskell-lsp.
+            hazel_github(
+                "lsp-test",
+                "d1466cdc32433148b9800f0829f5b79d36b0c8a9",
+                "19f78910ec7b805c75f905127726e4574bffa58707f196bd2f5d03821caf9c98",
             ),
         pkgs = packages,
     ),
