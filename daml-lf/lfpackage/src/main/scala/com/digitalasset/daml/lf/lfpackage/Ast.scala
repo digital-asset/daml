@@ -444,6 +444,8 @@ object Ast {
   // Match on variant
   final case class CPVariant(tycon: TypeConName, variant: VariantConName, binder: ExprVarName)
       extends CasePat
+  // Match on enum
+  final case class CPEnum(tycon: TypeConName, constructor: EnumConName) extends CasePat
   // Match on primitive constructor.
   final case class CPPrimCon(pc: PrimCon) extends CasePat
   // Match on an empty list.

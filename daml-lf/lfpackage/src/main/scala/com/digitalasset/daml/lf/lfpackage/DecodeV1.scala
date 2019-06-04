@@ -470,6 +470,9 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
             decodeTypeConName(variant.getCon),
             name(variant.getVariant),
             name(variant.getBinder))
+        case PLF.CaseAlt.SumCase.ENUM =>
+          val enum = lfCaseAlt.getEnum
+          CPEnum(decodeTypeConName(enum.getCon), name(enum.getConstructor))
         case PLF.CaseAlt.SumCase.PRIM_CON =>
           CPPrimCon(decodePrimCon(lfCaseAlt.getPrimCon))
         case PLF.CaseAlt.SumCase.NIL =>

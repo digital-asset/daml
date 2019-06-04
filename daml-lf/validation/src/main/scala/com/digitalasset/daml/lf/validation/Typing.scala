@@ -484,6 +484,22 @@ private[validation] object Typing {
             throw EExpectedVariantType(ctx, patnTCon)
         }
 
+      case CPEnum(patnTCon, con) =>
+        val DDataType(_, _, dataCons) = lookupDataType(ctx, patnTCon)
+        dataCons match {
+          case DataEnum(enumCons) =>
+            if (!enumCons.toSeq.contains(con)) throw EUnknownEnumCon(ctx, con)
+            scrutType match {
+              case TTyCon(scrutTCon) =>
+                if (scrutTCon != patnTCon) throw ETypeConMismatch(ctx, patnTCon, scrutTCon)
+                this
+              case _ =>
+                throw EExpectedDataType(ctx, scrutType)
+            }
+          case _ =>
+            throw EExpectedVariantType(ctx, patnTCon)
+        }
+
       case CPPrimCon(con) =>
         val conType = typeOfPRimCon(con)
         if (!alphaEquiv(scrutType, conType))

@@ -137,6 +137,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpVarCon
         E"Λ (σ : ⋆). λ (e : σ) → (( Mod:Tree:Leaf @σ e ))" ->
           T"∀ (σ : ⋆). σ  → (( Mod:Tree σ ))",
+        // ExpEnumCon
+        E"(( Mod:Color:Blue ))" ->
+          T"Mod:Color",
         // ExpTupleCon
         E"Λ (τ₁ : ⋆) (τ₂ : ⋆). λ (e₁ : τ₁) (e₂ : τ₂)  →  (( ⟨ f₁ = e₁, f₂ = e₂ ⟩ ))" ->
           T"∀ (τ₁ : ⋆) (τ₂ : ⋆). τ₁ → τ₂ → (( ⟨ f₁: τ₁, f₂: τ₂ ⟩ ))",
@@ -149,6 +152,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpCaseVariant
         E"Λ (τ : ⋆). λ (e : Mod:Tree τ) → (( case e of Mod:Tree:Node x → (x).left | Mod:Tree:Leaf x -> e ))" ->
           T"∀ (τ : ⋆). Mod:Tree τ →  ((  Mod:Tree τ  ))",
+        // ExpCaseEnum
+        E"λ (e : Mod:Color) → (( case e of Mod:Color:Red → True | Mod:Color:Green → False | Mod:Color:Blue → False  ))" ->
+          T"Mod:Color → (( Bool ))",
         // ExpCaseNil & ExpCaseCons
         E"Λ (τ : ⋆) (σ : ⋆). λ (e : List τ) (c: σ) (f: τ → List τ → σ) → (( case e of Nil → c | Cons x y → f x y ))" ->
           T"∀ (τ : ⋆) (σ : ⋆). List τ → σ → (τ → List τ → σ) → (( σ ))",
@@ -397,11 +403,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     "reject ill formed template definition" in {
       import com.digitalasset.daml.lf.archive.{LanguageMajorVersion => LVM, LanguageVersion => LV}
-
-      /*
-      (Mod:T8Bis { person = (Mod:T {name} this), party = (Mod:T {person} this) })
-      \ (p: Party) -> Cons @Party [(Mod:T {person} this), 'Alice'] (Nil @Party)
-       */
 
       val pkg =
         p"""
@@ -714,6 +715,8 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
          record R (a: *) = {f1: Int64, f2: List a } ;
 
          variant Tree (a: *) =  Node : < left: Mod:Tree a, right: Mod:Tree a > | Leaf : a ;
+
+         enum Color = Red | Green | Blue ;
 
          record T = {person: Party, name: Text };
          template (this : T) =  {
