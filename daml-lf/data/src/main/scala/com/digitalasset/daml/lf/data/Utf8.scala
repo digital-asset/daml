@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 
 import scala.annotation.tailrec
+import scala.collection.JavaConverters._
 
 // The DAML-LF strings are supposed to be UTF-8 while standard java strings are UTF16
 // Note number of UTF16 operations are not Utf8 equivalent (for instance length, charAt, ordering ...)
@@ -58,6 +59,30 @@ object Utf8 {
       } else xs.length - ys.length
 
     lp(0)
+  }
+
+  def unpack(s: String): ImmArray[Long] =
+    ImmArray(s.codePoints().iterator().asScala.map(_.toLong).toIterable)
+
+  @throws[IllegalArgumentException]
+  def pack(codePoints: ImmArray[Long]): String = {
+    val builder = new StringBuilder()
+    for (cp <- codePoints) {
+      if (Character.MIN_VALUE <= cp && cp < Character.MIN_SURROGATE ||
+        Character.MAX_SURROGATE < cp && cp <= Character.MAX_VALUE) {
+        // cp is a legal code point from the Basic Multilingual Plan,
+        // then it needs only one UTF16 Char to be encoded.
+        builder += cp.toChar
+      } else if (Character.MAX_VALUE < cp && cp <= Character.MAX_CODE_POINT) {
+        // cp is from one of the Supplementary Plans,
+        // then it needs 2 UTF16 Char to be encoded.
+        builder += Character.highSurrogate(cp.toInt)
+        builder += Character.lowSurrogate(cp.toInt)
+      } else {
+        throw new IllegalArgumentException(s"invalid code point 0x${cp.toHexString}.")
+      }
+    }
+    builder.result()
   }
 
 }

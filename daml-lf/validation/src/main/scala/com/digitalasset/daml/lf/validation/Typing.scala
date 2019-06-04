@@ -120,9 +120,11 @@ private[validation] object Typing {
       BToTextDate -> (TDate ->: TText),
       BSHA256Text -> (TText ->: TText),
       BToQuotedTextParty -> (TParty ->: TText),
+      BToTextCodePoints -> (TList(TInt64) ->: TText),
       BFromTextParty -> (TText ->: TOptional(TParty)),
       BFromTextInt64 -> (TText ->: TOptional(TInt64)),
       BFromTextDecimal -> (TText ->: TOptional(TDecimal)),
+      BFromTextCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
       BLessInt64 -> tComparison(BTInt64),
