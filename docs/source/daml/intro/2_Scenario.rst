@@ -40,7 +40,7 @@ Before you can create any ``Token`` contracts, you need some parties on the test
   More on ``Actions`` and ``do`` blocks in :doc:`5_Restrictions`.
 
    If that doesn't quite make sense yet, for the time being you can think of this arrow as extracting the right-hand-side value from the ledger and storing it into the variable on the left.
-2. The argument ``"Alice"`` to ``getParty`` does not have to be enclosed in brackets. Functions in DAML are called using the syntax ``fn arg1 arg2 arg3``.
+- The argument ``"Alice"`` to ``getParty`` does not have to be enclosed in brackets. You call functions in DAML using the syntax ``function arg1 arg2 arg3``.
 
 With a variable ``alice`` of type ``Party`` in hand, you can submit your first transaction. Unsurprisingly, this is done using the ``submit`` function. ``submit`` takes two arguments: A Party and an ``Update``. Just like ``Scenario`` is a recipe for a test, ``Update`` is a recipe for a transaction. ``create Token with owner = alice`` is an ``Update``, which translates to the transaction creating a ``Token`` with owner Alice. You'll learn all about the syntax ``Token with owner = alice`` in :doc:`3_Data`.
 
