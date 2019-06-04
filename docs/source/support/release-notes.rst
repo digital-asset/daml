@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+SQL Extractor
+~~~~~~~~~~~~~
+
+- Improving logging. See `#1518 <https://github.com/digital-asset/daml/pull/1518>`__.
+
 DAML Compiler
 ~~~~~~~~~~~~~
 
