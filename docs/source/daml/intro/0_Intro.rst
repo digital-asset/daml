@@ -1,7 +1,7 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-An Introduction to DAML
+An introduction to DAML
 =======================
 
 DAML is a smart contract language designed to build composable applications on an abstract :ref:`da-ledgers`. In this introduction, you will build an asset-holding and -trading application, and in the process learn about the structure of a DAML Ledger, and how to write DAML applications that run on any DAML Ledger implementation. You will gain an overview over most important language features, how they relate to the :ref:`da-ledgers` and how to use the DAML SDK Tools to write, test, compile, package and ship your application.
