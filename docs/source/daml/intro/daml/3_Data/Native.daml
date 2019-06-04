@@ -13,7 +13,7 @@ native_test = scenario do
   bob <- getParty "Bob"
   let
     my_int = -123
-    my_dec = 0.0000000001
+    my_dec = 0.001
     my_text = "Alice"
     my_bool = False
     my_date = date 2020 Jan 01
@@ -22,7 +22,7 @@ native_test = scenario do
 
   assert (alice /= bob)
   assert (-my_int == 123)
-  assert (10000000000.0 * my_dec == 1.0)
+  assert (1000.0 * my_dec == 1.0)
   assert (not my_bool)
   assert (addDays my_date 1 == date 2020 Jan 02)
   assert (addRelTime my_time my_rel_time == time (addDays my_date 1) 00 00 00)

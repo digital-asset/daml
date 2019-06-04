@@ -4,11 +4,19 @@
 Data Types
 ==========
 
-Contract templates specify the types of contracts that can be created on the ledger, and what data they hold in their arguments (see :doc:`1_Token`). The scenario view in the IDE displays the current ledger state by showing one table per template, with one row per contract of that type and one column per field in the arguments. This analogy is a useful one. Templates specify a data schema for the ledger, with each template corresponding to a table, each field in the ``with`` block of a template corresponding to a column in that table, and each contract instance of that type corresponding to a table row.
+In :doc:`1_Token`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
+
+In :doc:`2_Scenario`, you learnt about the scenario view in DAML Studio, which displays the current ledger state. It shows one table per template, with one row per contract of that type and one column per field in the arguments.
+
+This actually provides a useful way of thinking about templates: like tables in databases. Templates specify a data schema for the ledger:
+
+- each template corresponds to a table
+- each field in the ``with`` block of a template corresponds to a column in that table
+- each contract instance of that type corresponds to a table row
 
 In this section, you'll learn how to create rich data schemas for your ledger. Specifically you'll learn about:
 
-- DAML's built-in and *native* data types
+- DAML's built-in and native data types
 - Record types
 - Derivation of standard properties
 - Variants
@@ -20,10 +28,10 @@ After this section, you should be able to use a DAML ledger as a simple database
 Native Types
 ------------
 
-You have already encountered the type ``Party`` in :doc:`1_Token` and ``Text`` and ``ContractId`` in :doc:`2_Scenario`.
+You have already encountered a few native DAML types: ``Party`` in :doc:`1_Token`, and ``Text`` and ``ContractId`` in :doc:`2_Scenario`. Here are those native types and more:
 
 - ``Party``
-  Stores the identity of an entity that is able to act on the ledger.
+  Stores the identity of an entity that is able to act on the ledger, in the sense that they can sign contracts and submit transactions. In general, ``Party`` is Oblique.
 - ``Text``
   Stores a unicode character string like ``"Alice"``.
 - ``ContractId a``
@@ -31,7 +39,7 @@ You have already encountered the type ``Party`` in :doc:`1_Token` and ``Text`` a
 - ``Int``
   Stores signed 64-bit integers. For example, ``-123``.
 - ``Decimal``
-  Stores fixed-point number with precision 38 and scale 10, i.e. 28 digits before and 10 digits after the decimal point. For example, ``0.0000000001`` or ``-9999999999999999999999999999.9999999999``.
+  Stores fixed-point number with 28 digits before and 10 digits after the decimal point. For example, ``0.0000000001`` or ``-9999999999999999999999999999.9999999999``.
 - ``Bool``
   Stores ``True`` or ``False``.
 - ``Date``
@@ -50,10 +58,18 @@ The below scenario instantiates each one of these types, manipulates it where ap
 
 Despite its simplicity, there are quite a few things to note in this scenario:
 
-1. the ``import`` statements at the top import two packages from the DAML Standard Library, which contain all the date and time related functions we use here. More on packages, imports and the standard library later.
-2. Most of the variables are declared inside a ``let`` block. That's because the ``scenario do`` block expects scenario actions like ``submit`` or ``getParty``. An integer like ``123`` is not an action, it's a pure expression we can evaluate without any ledger. The ``let`` can be thought of as turning variable declaration into an action.
-3. None of the variables have type annotations. That's because DAML is very good at *inferring* types. The compiler knows that ``123`` is an ``Int`` so if you declare ``my_int = 123``, it can infer that ``my_int`` is also an ``Int`` so you don't have to write ``my_int : Int = 123``. You can always add type annotations to aid readability, and sometimes, in case of ambiguity, have to.
-4. The ``assert`` function is an action that takes a boolean value and succeeds with ``True`` and fails with ``False``. Try putting ``assert False`` somewhere in a scenario and see what happens to the scenario result.
+- The ``import`` statements at the top import two packages from the DAML Standard Library, which contain all the date and time related functions we use here. More on packages, imports and the standard library later.
+- Most of the variables are declared inside a ``let`` block.
+
+  That's because the ``scenario do`` block expects scenario actions like ``submit`` or ``getParty``. An integer like ``123`` is not an action, it's a pure expression, something we can evaluate without any ledger. You can think of the ``let`` as turning variable declaration into an action.
+- None of the variables have annotations to say what type they are.
+
+  That's because DAML is very good at *inferring* types. The compiler knows that ``123`` is an ``Int``, so if you declare ``my_int = 123``, it can infer that ``my_int`` is also an ``Int``. This means you don't have to write the type annotation ``my_int : Int = 123``.
+  
+   However, if the type is ambiguous so that the compiler can't infer it, you do have to add a type annotation. And you can always choose to add them to aid readability.
+- The ``assert`` function is an action that takes a boolean value and succeeds with ``True`` and fails with ``False``.
+
+  Try putting ``assert False`` somewhere in a scenario and see what happens to the scenario result.
 
 With templates and these native types, it's already possible to write a schema akin to a table in a relational database. Below, ``Token`` is extended into a simple ``CashBalance``, administered by a party in the role of an accountant.
 
@@ -78,12 +94,21 @@ A common task is to group values in a generic way. Take, for example, a key-valu
   :start-after: -- TUPLE_TEST_BEGIN
   :end-before: -- TUPLE_TEST_END
 
-Note how the data can be accessed either through functions ``fst``, ``snd``, ``fst3``, ``snd3``, ``thd3``, or via a dot-syntax with field names ``_1``, ``_2``, ``_3``, etc. DAML supports tuples with up to 20 elements, but accessor functions like ``fst`` are only included for 2- and 3-tuples.
+You can access the data in the tuples using:
+
+- functions ``fst``, ``snd``, ``fst3``, ``snd3``, ``thd3``
+- a dot-syntax with field names ``_1``, ``_2``, ``_3``, etc.
+
+DAML supports tuples with up to 20 elements, but accessor functions like ``fst`` are only included for 2- and 3-tuples.
 
 Lists
 ~~~~~
 
-Lists in DAML take a single type parameter defining the type of thing in the list. So you can have a list of integers ``[Int]`` or a list of strings ``[Text]``, but not a list mixing integers and strings. That's because DAML is statically and strongly typed. When you get an element out of a list, the compiler needs to know what type that element has. The below scenario instantiates a few lists of integers and demonstrates the most important list functions.
+Lists in DAML take a single type parameter defining the type of thing in the list. So you can have a list of integers ``[Int]`` or a list of strings ``[Text]``, but not a list mixing integers and strings.
+
+That's because DAML is statically and strongly typed. When you get an element out of a list, the compiler needs to know what type that element has.
+
+The below scenario instantiates a few lists of integers and demonstrates the most important list functions.
 
 .. literalinclude:: daml/3_Data/List.daml
   :language: daml
@@ -95,7 +120,7 @@ Note the type annotation on ``empty : [Int] = []``. It's necessary because ``[]`
 Records
 ~~~~~~~
 
-Records can be thought of as named tuples with named fields. They are declared using the ``data`` keyword: ``data T = C with``, where ``T`` is the type name and ``C`` is the data constructor. In practice, it's a good idea to always use the same name for type and data constructor.
+You can think of records as named tuples with named fields. Declare them using the ``data`` keyword: ``data T = C with``, where ``T`` is the type name and ``C`` is the data constructor. In practice, it's a good idea to always use the same name for type and data constructor.
 
 .. literalinclude:: daml/3_Data/Record.daml
   :language: daml
@@ -104,14 +129,16 @@ Records can be thought of as named tuples with named fields. They are declared u
 
 You'll notice that the syntax to declare records is very similar to the syntax used to declare templates. That's no accident because a template is really just a special record. When you write ``template Token with``, one of the things that happens in the background is that this becomes a ``data Token = Token with``.
 
-In the ``assert`` statements above, we always compared values of in-built types. If you wrote ``assert (my_record == my_record)`` in the scenario, you may be surprised to get an error message ``No instance for (Eq MyRecord) arising from a use of ‘==’``. Equality in DAML is always value equality and we haven't written a function to check value equality for ``MyRecord`` values. But don't worry, you don't have to implement this rather obvious function yourself. The compiler is smart enough to do it for you.
+In the ``assert`` statements above, we always compared values of in-built types. If you wrote ``assert (my_record == my_record)`` in the scenario, you may be surprised to get an error message ``No instance for (Eq MyRecord) arising from a use of ‘==’``. Equality in DAML is always value equality and we haven't written a function to check value equality for ``MyRecord`` values. But don't worry, you don't have to implement this rather obvious function yourself. The compiler is smart enough to do it for you, if you use ``deriving (Eq)``:
 
 .. literalinclude:: daml/3_Data/Record.daml
   :language: daml
   :start-after: -- EQ_TEST_BEGIN
   :end-before: -- EQ_TEST_END
 
-``Eq`` is a so-called type-class, which can be thought of as like an interface in other languages: it is the mechanism by which we can define a set of functions (`==` and `/=` in the case of `Eq`) to work on multiple types, with a specific implementation for each type they can apply to. There are some other type-classes that can be derived automatically. Most prominently, ``Show`` to get access to the function ``show``, equivalent to ``toString`` in many languages, and ``Ord``, which gives access to comparison operators ``<``, ``>``, ``<=``, ``>=``.
+``Eq`` is what is called a *type-class*. You can think of a type-class as being like an interface in other languages: it is the mechanism by which you can define a set of functions (for example, ``==`` and ``/=`` in the case of ``Eq``) to work on multiple types, with a specific implementation for each type they can apply to.
+
+There are some other type-classes that the compiler can derive automatically. Most prominently, ``Show`` to get access to the function ``show`` (equivalent to ``toString`` in many languages) and ``Ord``, which gives access to comparison operators ``<``, ``>``, ``<=``, ``>=``.
 
 It's a good idea to always derive ``Eq`` and ``Show`` using ``deriving (Eq, Show)``. The record types created using ``template T with`` do this automatically.
 
@@ -134,7 +161,9 @@ Suppose now that you also wanted to keep track of cash in hand. Cash in hand doe
   :start-after: -- CASH_BALANCE_BEGIN
   :end-before: -- CASH_BALANCE_END
 
-The way to read the declaration of ``Location`` is "*A Location either has value* ``InHand`` *OR has a value* ``InAccount a`` *where* ``a`` *is of type Account*". This is quite an explicit way to say that there may or may not be an ``Account`` associated with a ``CashBalance`` and gives both cases suggestive names. Another option would be to use the built-in ``Optional`` type. The ``None`` value of type ``Optional a`` is the closest DAML has to a ``null`` value.
+The way to read the declaration of ``Location`` is "*A Location either has value* ``InHand`` *OR has a value* ``InAccount a`` *where* ``a`` *is of type Account*". This is quite an explicit way to say that there may or may not be an ``Account`` associated with a ``CashBalance`` and gives both cases suggestive names.
+
+Another option is to use the built-in ``Optional`` type. The ``None`` value of type ``Optional a`` is the closest DAML has to a ``null`` value:
 
 .. literalinclude:: daml/3_Data/Variants.daml
   :language: daml
@@ -148,7 +177,9 @@ Variant types where none of the data constructors take a parameter are called en
   :start-after: -- ENUM_BEGIN
   :end-before: -- ENUM_END
 
-Accessing data in variants requires distinguishing the different possible cases. It is no longer possible to access the account number of a ``Location`` directly, for example, as there may be no account number in case of ``InHand``. Instead, use *pattern matching* and either throw errors or return compatible types for all cases.
+To access the data in variants, you need to distinguish the different possible cases. For example, you can no longer access the account number of a ``Location`` directly, because if it is ``InHand``, there may be no account number. 
+
+To do this, you can use *pattern matching* and either throw errors or return compatible types for all cases:
 
 .. literalinclude:: daml/3_Data/Variants.daml
   :language: daml
@@ -160,7 +191,7 @@ Manipulating Data
 
 You've got all the ingredients to build rich types expressing the data you want to be able to write to the ledger, and you have seen how to create new values and read fields from values. But how do you manipulate values once created?
 
-All data in DAML is immutable, meaning once a value is created, it will never change. Rather than changing values, one creates new values based on old ones with some changes applied.
+All data in DAML is immutable, meaning once a value is created, it will never change. Rather than changing values, you create new values based on old ones with some changes applied:
 
 .. literalinclude:: daml/3_Data/Record.daml
   :language: daml
@@ -176,31 +207,37 @@ Throughout the scenario, ``eq_record`` never changes. The expression ``"Zero" ::
 Contract keys
 -------------
 
-DAML's type system lets you store richly structured data on DAML templates, but just like most database schemas have more than one table, DAML contract models often have multiple templates that reference each other. For example, you may not want to store your bank and account information on each individual cash balance, but instead store those separately.
+DAML's type system lets you store richly structured data on DAML templates, but just like most database schemas have more than one table, DAML contract models often have multiple templates that reference each other. For example, you may not want to store your bank and account information on each individual cash balance contract, but instead store those on separate contracts.
 
-You have already met the type ``ContractId a``, which references a contract of type ``a``. The below shows a contract model where ``Account`` is split out into a separate template and referenced by ``ContractId``, but it also highlights a big problem with that kind of reference: Just like data, contracts are immutable. They can only be created and archived. That makes contract ids very unstable, and can cause stale references.
+You have already met the type ``ContractId a``, which references a contract of type ``a``. The below shows a contract model where ``Account`` is split out into a separate template and referenced by ``ContractId``, but it also highlights a big problem with that kind of reference: just like data, contracts are immutable. They can only be created and archived, so if you want to change the data on a contract, you end up archiving the original contract and creating a new one with the changed data. That makes contract IDs very unstable, and can cause stale references.
 
 .. literalinclude:: daml/3_Data/IDRef.daml
   :language: daml
   :start-after: -- ID_REF_TEST_BEGIN
   :end-before: -- ID_REF_TEST_END
 
-Note the use of the ``fetch`` function in the above, which retrieves the arguments of an active contract from its contract id. Also take note that for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant fetches the arguments of the old account, archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
+The scenario above use the ``fetch`` function, which retrieves the arguments of an active contract using its contract ID.
 
-DAML allows the definition of stable keys using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with a uniqueness constraint on that key and the ability to look up contracts by key.
+Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant fetches the arguments of the old account, archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
+
+You can define *stable* keys for contracts using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with the ability to look up contracts by key, and a uniqueness constraint in the sense that only one contract of a given template and with a given key value can be active at a time.
 
 .. literalinclude:: daml/3_Data/Keys.daml
   :language: daml
   :start-after: -- KEY_TEST_BEGIN
   :end-before: -- KEY_TEST_END
 
-Since DAML is a distributed system, there is no global entity that can guarantee uniqueness, which is why each ``key`` expression must come with a ``maintainer`` expression. ``maintainer`` takes one or several parties, all of which have to be signatories of the contract and be part of the key. That way the index can be partitioned amongst sets of maintainers, and each set of maintainers can independently ensure the uniqueness constraint on their piece of the index.
+Since DAML is designed to run on distributed systems, you have to assume that there is no global entity that can guarantee uniqueness, which is why each ``key`` expression must come with a ``maintainer`` expression. ``maintainer`` takes one or several parties, all of which have to be signatories of the contract and be part of the key. That way the index can be partitioned amongst sets of maintainers, and each set of maintainers can independently ensure the uniqueness constraint on their piece of the index.
 
-Note how the ``fetch`` in the final ``submit`` block has become a ``fetchByKey @Account``. ``fetchByKey @Account`` takes a value of type `AccountKey` and returns a tuple ``(ContractId Account, Account)`` if the lookup was successful or fails the transaction otherwise. Since a single type could be used as the key for multiple templates, the compiler needs to be told what type of contract is being fetched using the ``@Account`` notation.
+Note how the ``fetch`` in the final ``submit`` block has become a ``fetchByKey @Account``. ``fetchByKey @Account`` takes a value of type ``AccountKey`` and returns a tuple ``(ContractId Account, Account)`` if the lookup was successful or fails the transaction otherwise.
+
+Since a single type could be used as the key for multiple templates, you need to tell the compiler what type of contract is being fetched by using the ``@Account`` notation.
 
 
 Next Up
 -------
 
-You are now able to define data schemas for the ledger, read, write and delete data from the ledger and use keys to reference and look up data in a stable fashion. In :doc:`4_Transformations` you'll learn how to define data transformations and give other parties the right to manipulate data in restricted ways.
+You can now define data schemas for the ledger, read, write and delete data from the ledger, and use keys to reference and look up data in a stable fashion.
+
+In :doc:`4_Transformations` you'll learn how to define data transformations and give other parties the right to manipulate data in restricted ways.
 

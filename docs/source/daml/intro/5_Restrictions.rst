@@ -33,7 +33,7 @@ The ``ensure`` keyword takes a single expression of type ``Bool``. If you wanted
 Assertions and Errors
 ---------------------
 
-A second common kind of restriction is one on data transformations. For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``owner`` transfers to themselves. This can be revented using an ``assert`` statement, which you have already encountered in the context of scenarios. ``assert`` does not return an informative error so often it's better to use the function ``assertMsg``, which takes a custom error message:
+A second common kind of restriction is one on data transformations. For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``owner`` transfers to themselves. This can be prevented using an ``assert`` statement, which you have already encountered in the context of scenarios. ``assert`` does not return an informative error so often it's better to use the function ``assertMsg``, which takes a custom error message:
 
 .. literalinclude:: daml/Intro_5_Restrictions.daml
   :language: daml

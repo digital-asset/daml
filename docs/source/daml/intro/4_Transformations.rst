@@ -4,14 +4,16 @@
 Data Transformations and Choices
 ================================
 
-In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving and re-creating the contract with the updated data. That works because the accountant is the sole signatory on the `Account` contract defined there. But what if the accountant wanted to allow the bank to change their own telephone number, or what if the owner of a CashBalance should be able to transfer ownership to someone else?
+In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving and re-creating the contract with the updated data. That works because the accountant is the sole signatory on the `Account` contract defined there.
+
+But what if the accountant wanted to allow the bank to change their own telephone number? Or what if the owner of a CashBalance should be able to transfer ownership to someone else?
 
 In this section you will learn about how to define simple data transformations using *choices* and how to delegate the right to *exercise* these choices to other parties.
 
 Choices as Methods
 ------------------
 
-*Choices* are permissioned functions that result in an `Update`. Using choices, authority can be passed around allowing the construction of complex transactions. The simplest choices can be thought of simply as methods on objects, with templates as classes and contracts as objects. Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one and create a new one, you can provide them a convenience method on ``Contact``:
+*Choices* are part of a contract template. They're permissioned functions that result in an ``Update``. Using choices, authority can be passed around, allowing the construction of complex transactions. The simplest choices can be thought of simply as methods on objects, with templates as classes and contracts as objects. Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one and create a new one, you can provide them a convenience method on ``Contact``:
 
 .. literalinclude:: daml/4_Transformations/Contact.daml
   :language: daml
@@ -20,14 +22,16 @@ Choices as Methods
 
 There's a lot to unpack in the above.
 
-- The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the party that may *exercise* them. The line starts a new block in which multiple choices can be defined.
+- The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the only party that is allowed *exercise* them. The line starts a new block in which multiple choices can be defined.
 - ``UpdateTelephone`` is the name of a choice. It starts a new block in which that choice is defined.
-- ``: ContractId Contact`` is the return type of the choice. This choice archives the current ``Contact`` and creates a new one. It returns a reference to the new contract in the form of a ``ContractId Contact``
+- ``: ContractId Contact`` is the return type of the choice.
+
+  This particular choice archives the current ``Contact``, and creates a new one. What it returns is a reference to the new contract, in the form of a ``ContractId Contact``
 - The following ``with`` block is that of a record. Just like with templates, in the background, a new record type is declared: ``data UpdateTelephone = UpdateTelephone with``
-- The `do` starts a block defining the action the choice should perform when exercised. In this case a new ``Contact`` is created.
+- The ``do`` starts a block defining the action the choice should perform when exercised. In this case a new ``Contact`` is created.
 - The new ``Contact`` is created using ``this with``. ``this`` is a special value available within the ``where`` block of templates and takes the value of the current contract's arguments.
 
-There is nothing here indicating that the current ``Contact`` should be archived. That's because choices are *consuming* by default. That means when the above choice is exercised on a contract, that contract is archived.
+There is nothing here explicitly saying that the current ``Contact`` should be archived. That's because choices are *consuming* by default. That means when the above choice is exercised on a contract, that contract is archived.
 
 If you paid a lot of attention in :doc:`3_Data`, you may have noticed that the ``create`` statement returns an ``Update (ContractId Contact)``, not a ``ContractId Contact``. As a ``do`` block always returns the value of the last statement within it, the whole ``do`` block returns an ``Update``, but the return type on the choice is just a ``ContractId Contact``. This is a conveneience. Choices *always* return an ``Update`` so for readability it's omitted on the type declaration of a choice.
 
@@ -38,12 +42,14 @@ Now to exercise the new choice in a scenario:
   :start-after: -- CHOICE_TEST_BEGIN
   :end-before: -- CHOICE_TEST_END
 
-Choices are exercised using the ``exercise`` function, which takes a ``ContractId a``, and a value of type ``c``, where ``c`` is a choice on template ``a``. Since ``c`` is just a record, you can also just fill in the choice parameters using the ``with`` syntax you are already familiar with. ``exercise`` returns an ``Update r`` where ``r`` is the return type specified on the choice, allowing the new ``ContractId Contact`` to be stored in the variable ``new_acontactCid``.
+You exercise choices using the ``exercise`` function, which takes a ``ContractId a``, and a value of type ``c``, where ``c`` is a choice on template ``a``. Since ``c`` is just a record, you can also just fill in the choice parameters using the ``with`` syntax you are already familiar with.
+
+``exercise`` returns an ``Update r`` where ``r`` is the return type specified on the choice, allowing the new ``ContractId Contact`` to be stored in the variable ``new_contactCid``.
 
 Choices as Delegation
 ---------------------
 
-Up to this point all the contracts only involved one party. ``party`` may have been stored as ``Party`` field in the above, which suggests they are actors on the ledger, but they couldn't see the contracts, nor change them in any way. It would be reasonable for the party for which a ``Contact`` is stored to be able to update their own address and telephone number. The below demonstrates this using an ``UpdateAddress`` choice and corresponding extension of the scenario:
+Up to this point all the contracts only involved one party. ``party`` may have been stored as ``Party`` field in the above, which suggests they are actors on the ledger, but they couldn't see the contracts, nor change them in any way. It would be reasonable for the party for which a ``Contact`` is stored to be able to update their own address and telephone number. In other words, the ``owner`` of a ``Contact`` should be able to *delegate* the right to perform a certain kind of data transformation to ``party``. The below demonstrates this using an ``UpdateAddress`` choice and corresponding extension of the scenario:
 
 .. literalinclude:: daml/4_Transformations/Contact.daml
   :language: daml
@@ -60,7 +66,7 @@ If you open the scenario view in the IDE, you will notice that Bob sees the ``Co
 Choices in the Ledger Model
 ---------------------------
 
-It's time for a bit more theory. in :doc:`1_Token` you learned about the high-level structure of a DAML ledger. With choices and the `exercise` function, you have the next important ingredient. A *transaction* is a list of *actions*, and there are just three kinds of action: ``create``, ``exercise`` and ``fetch``. All actions are performed on a contract.
+In :doc:`1_Token` you learned about the high-level structure of a DAML ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions. A *transaction* is a list of *actions*, and there are just three kinds of action: ``create``, ``exercise`` and ``fetch``. All actions are performed on a contract.
 
 - A ``create`` action contains the contract arguments and changes the contract's status from *inexistent* to *active*.
 - A ``fetch`` action  checks the existence and activeness of a contract

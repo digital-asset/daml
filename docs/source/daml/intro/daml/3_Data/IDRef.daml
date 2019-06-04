@@ -67,7 +67,8 @@ id_ref_test = scenario do
       bank = account.bank with
         telephone = "098 7654 321"
 
-  -- The `account` field on the balance is now stale.
+  -- The `account` field on the balance now refers to the archived
+  -- contract, so this will fail.
   submitMustFail accountant do
     balance <- fetch balanceCid
     fetch balance.account
