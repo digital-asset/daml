@@ -34,7 +34,7 @@ Code comments in DAML are introduced with `--`:
 
 .. literalinclude:: daml/Intro_1_Token.daml
   :language: daml
-  :lines: 1-6
+  :lines: 4-9
 
 Templates
 ---------
