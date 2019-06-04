@@ -46,6 +46,7 @@ da_scala_test_suite(
         "//daml-lf/lfpackage",
         "//daml-lf/parser",
         "//daml-lf/transaction",
+        "//daml-lf/validation",
     ],
 )
 
