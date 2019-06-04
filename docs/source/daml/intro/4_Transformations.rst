@@ -13,14 +13,14 @@ In this section you will learn about how to define simple data transformations u
 Choices as Methods
 ------------------
 
-*Choices* are part of a contract template. They're permissioned functions that result in an ``Update``. Using choices, authority can be passed around, allowing the construction of complex transactions. The simplest choices can be thought of simply as methods on objects, with templates as classes and contracts as objects. Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one and create a new one, you can provide them a convenience method on ``Contact``:
+If you think of templates as classes and contracts as objects, where are the methods? Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one and create a new one, you can provide them a convenience method on ``Contact``:
 
 .. literalinclude:: daml/4_Transformations/Contact.daml
   :language: daml
   :start-after: -- CHOICE_BEGIN
   :end-before: -- CHOICE_END
 
-There's a lot to unpack in the above.
+The above defines a *choice* called ``UpdateTelephone``. Choices are part of a contract template. They're permissioned functions that result in an ``Update``. Using choices, authority can be passed around, allowing the construction of complex transactions. Let's unpack in the above.
 
 - The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the only party that is allowed *exercise* them. The line starts a new block in which multiple choices can be defined.
 - ``UpdateTelephone`` is the name of a choice. It starts a new block in which that choice is defined.
