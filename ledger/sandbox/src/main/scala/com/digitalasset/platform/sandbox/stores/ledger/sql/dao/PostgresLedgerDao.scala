@@ -721,15 +721,31 @@ private class PostgresLedgerDao(
       case List(party, tid) =>
         Party.assertFromString(party) -> TransactionIdString.assertFromString(tid)
     }.toMap)
+    ~ list[String]("maintainers").map(_.map(Party.assertFromString))
     ~ binaryStream("contract")
     ~ binaryStream("key").? map (flatten))
 
   private val SQL_SELECT_CONTRACT =
     SQL(
-      "select c.*, le.effective_at, array_agg(witness) witnesses, coalesce(array_agg(array[d.party, d.transaction_id]) filter (where d.party is not null), array[]::varchar[][]) divulgences from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id inner join contract_witnesses w on c.id = w.contract_id left join contract_divulgences d on c.id = d.contract_id where id={contract_id} and archive_offset is null group by c.id, le.effective_at")
-
-  private val SQL_SELECT_KEY_MAINTAINERS =
-    SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
+      """
+        |select
+        |   c.*,
+        |   le.effective_at,
+        |   array_agg(witness) witnesses,
+        |   coalesce(array_agg(array[d.party, d.transaction_id]) filter (where d.party is not null), array[]::varchar[][]) divulgences,
+        |   case when c.key is not null
+        |        then array(select m.maintainer from contract_key_maintainers m where m.contract_id = c.id)
+        |	       else array[]::varchar[]
+        |   end maintainers
+        |from contracts c
+        |   inner join ledger_entries le
+        |       on c.transaction_id = le.transaction_id
+        |   inner join contract_witnesses w
+        |       on c.id = w.contract_id
+        |   left join contract_divulgences d
+        |       on c.id = d.contract_id
+        |where id={contract_id} and archive_offset is null
+        |group by c.id, le.effective_at""".stripMargin)
 
   private def lookupActiveContractSync(contractId: AbsoluteContractId)(
       implicit conn: Connection): Option[Contract] =
@@ -751,6 +767,7 @@ private class PostgresLedgerDao(
           Date,
           List[Party],
           Map[Party, TransactionIdString],
+          List[Party],
           InputStream,
           Option[InputStream]))(implicit conn: Connection) =
     contractResult match {
@@ -761,6 +778,7 @@ private class PostgresLedgerDao(
           ledgerEffectiveTime,
           witnesses,
           divulgences,
+          keyMaintainers,
           contractStream,
           keyStreamO) =>
         Contract(
@@ -774,20 +792,13 @@ private class PostgresLedgerDao(
             .deserialiseContractInstance(ByteStreams.toByteArray(contractStream))
             .getOrElse(sys.error(s"failed to deserialise contract! cid:$coid")),
           keyStreamO.map(keyStream => {
-            val keyMaintainers = lookupKeyMaintainers(coid)
             val keyValue = valueSerializer
               .deserialiseValue(ByteStreams.toByteArray(keyStream))
               .getOrElse(sys.error(s"failed to deserialise key value! cid:$coid"))
-            KeyWithMaintainers(keyValue, keyMaintainers)
+            KeyWithMaintainers(keyValue, keyMaintainers.toSet)
           })
         )
     }
-
-  private def lookupKeyMaintainers(coid: String)(implicit conn: Connection) =
-    SQL_SELECT_KEY_MAINTAINERS
-      .on("contract_id" -> coid)
-      .as(party("maintainer").*)
-      .toSet
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
     "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
@@ -834,7 +845,25 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(
-      "select c.*, le.effective_at, array_agg(w.witness) witnesses, coalesce(array_agg(array[d.party, d.transaction_id]) filter (where d.party is not null), array[]::varchar[][]) divulgences from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id inner join contract_witnesses w on c.id = w.contract_id left join contract_divulgences d on c.id = d.contract_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset}) group by c.id, le.effective_at")
+      """
+        |select
+        |   c.*,
+        |   le.effective_at,
+        |   array_agg(w.witness) witnesses,
+        |   coalesce(array_agg(array[d.party, d.transaction_id]) filter (where d.party is not null), array[]::varchar[][]) divulgences,
+        |   case when c.key is not null
+        |        then array(select m.maintainer from contract_key_maintainers m where m.contract_id = c.id)
+        |	       else array[]::varchar[]
+        |   end maintainers
+        |from contracts c
+        |   inner join ledger_entries le
+        |       on c.transaction_id = le.transaction_id
+        |   inner join contract_witnesses w
+        |       on c.id = w.contract_id
+        |   left join contract_divulgences d
+        |       on c.id = d.contract_id
+        |where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})
+        |group by c.id, le.effective_at""".stripMargin)
 
   override def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot] = {
 
