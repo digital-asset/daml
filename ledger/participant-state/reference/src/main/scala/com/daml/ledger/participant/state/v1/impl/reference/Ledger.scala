@@ -329,6 +329,13 @@ class Ledger(timeModel: TimeModel, timeProvider: TimeProvider)(implicit mat: Act
     }
   }
 
+  /** Allocate a new party on the ledger */
+  override def allocateParty(
+      hint: Option[String],
+      displayName: Option[String]): CompletionStage[PartyAllocationResult] =
+    // TODO: Implement party management
+    CompletableFuture.completedFuture(PartyAllocationResult.NotSupported)
+
   /**
     * Shutdown this ledger implementation, stopping the heartbeat tasks and closing
     * all subscription streams.

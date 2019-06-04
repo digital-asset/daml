@@ -312,6 +312,13 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
       SubmissionResult.Acknowledged
     })
 
+  /** Allocate a party on the ledger */
+  override def allocateParty(
+      hint: Option[String],
+      displayName: Option[String]): CompletionStage[PartyAllocationResult] =
+    // TODO: Implement party management
+    CompletableFuture.completedFuture(PartyAllocationResult.NotSupported)
+
   /** Back-channel for uploading DAML-LF archives.
     * Currently participant-state interfaces do not specify an admin
     * interface to upload packages.
