@@ -31,7 +31,7 @@ A contract is *active* from the point where there is a committed transaction tha
 
 .. Graphic with timeline inactive -> create -> active -> archive -> inactive
 
-DAML specifies what transactions are legal on a DAML Ledger.
+DAML specifies what transactions are legal on a DAML Ledger. The rules the DAML code specifies are collectively called a *DAML model* or *contract model*.
 
 DAML Files and Modules
 ----------------------
