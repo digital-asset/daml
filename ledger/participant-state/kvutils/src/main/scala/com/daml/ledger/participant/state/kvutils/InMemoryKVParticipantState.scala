@@ -323,7 +323,6 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     // TODO: Implement party management
     CompletableFuture.completedFuture(PartyAllocationResult.NotSupported)
 
-
   /** Upload DAML-LF packages to the ledger.
     */
   override def uploadPublicPackages(

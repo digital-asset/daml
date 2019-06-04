@@ -131,8 +131,6 @@
   type: jar
 - target: //ledger/participant-state:participant-state
   type: jar-scala
-- target: //ledger/participant-state/reference:reference
-  type: jar-scala
 - target: //ledger/participant-state-index:participant-state-index
   type: jar-scala
 - target: //ledger/participant-state-index/reference:reference
