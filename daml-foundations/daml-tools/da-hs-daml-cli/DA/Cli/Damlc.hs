@@ -158,7 +158,7 @@ cmdInit =
     command "init" $
     info (helper <*> cmd) $ progDesc "Initialize a DAML project" <> fullDesc
   where
-    cmd = execInit <$> projectOpts "daml damlc init" <*> pure (InitPkgDb True)
+    cmd = execInit <$> lfVersionOpt <*> projectOpts "daml damlc init" <*> pure (InitPkgDb True)
 
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
@@ -225,7 +225,8 @@ execIde telemetry (Debug debug) = NS.withSocketsDo $ do
     opts <- liftIO $ defaultOptionsIO Nothing
     withLogger $ \loggerH ->
         withScenarioService loggerH $ \scenarioService -> do
-            execInit (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
+            -- TODO we should allow different LF versions in the IDE.
+            execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
             Daml.LanguageServer.runLanguageServer loggerH
                 (getIdeState opts (Just scenarioService) loggerH)
 
@@ -278,8 +279,8 @@ withPackageConfig f = do
 
 -- | If we're in a daml project, read the daml.yaml field and create the project local package
 -- database. Otherwise do nothing.
-execInit :: ProjectOpts -> InitPkgDb -> IO ()
-execInit projectOpts (InitPkgDb shouldInit) =
+execInit :: LF.Version -> ProjectOpts -> InitPkgDb -> IO ()
+execInit lfVersion projectOpts (InitPkgDb shouldInit) =
     when shouldInit $
     withProjectRoot' projectOpts $ \_relativize -> do
         isProject <- doesFileExist projectConfigName
@@ -288,7 +289,7 @@ execInit projectOpts (InitPkgDb shouldInit) =
           case parseProjectConfig project of
               Left err -> throwIO err
               Right PackageConfigFields {..} -> do
-                  createProjectPackageDb LF.versionDefault pDependencies
+                  createProjectPackageDb lfVersion pDependencies
 
 -- | Create the project package database containing the given dar packages.
 createProjectPackageDb :: LF.Version -> [FilePath] -> IO ()
@@ -337,7 +338,7 @@ createProjectPackageDb lfVersion fps = do
 
 execBuild :: ProjectOpts -> Compiler.Options -> Maybe FilePath -> InitPkgDb -> IO ()
 execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts $ \_relativize -> do
-    execInit projectOpts initPkgDb
+    execInit (optDamlLfVersion options) projectOpts initPkgDb
     withPackageConfig $ \PackageConfigFields {..} -> do
         putStrLn $ "Compiling " <> pMain <> " to a DAR."
         options' <- mkOptions options
