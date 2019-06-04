@@ -39,7 +39,7 @@ Code comments in DAML are introduced with `--`:
 Templates
 ---------
 
-The type of a contract that can be created, and who has the right to do so, is defined in a ``template``. *Contracts* are instances of *templates*.
+A ``template`` defines a type of contract that can be created, and who has the right to do so. *Contracts* are instances of *templates*.
 
 .. literalinclude:: daml/Intro_1_Token.daml
   :language: daml
