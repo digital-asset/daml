@@ -28,7 +28,7 @@ Each `.daml` file defines a *DAML Module*. At the top of each DAML file is a pra
 
 .. literalinclude:: daml/Intro_1_Token.daml
   :language: daml
-  :lines: 3, 6
+  :lines: 6, 9
 
 Code comments in DAML are introduced with `--`:
 
