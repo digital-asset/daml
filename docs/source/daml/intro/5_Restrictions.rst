@@ -33,11 +33,7 @@ The ``ensure`` keyword takes a single expression of type ``Bool``. If you wanted
 Assertions and Errors
 ---------------------
 
-<<<<<<< HEAD
-A second common kind of restriction is one on data transformations. For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``owner`` transfers to themselves. This can be prevented using an ``assert`` statement, which you have already encountered in the context of scenarios. ``assert`` does not return an informative error so often it's better to use the function ``assertMsg``, which takes a custom error message:
-=======
 A second common kind of restriction is one on data transformations. For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``owner`` transfers to themselves. You can prevent that using an ``assert`` statement, which you have already encountered in the context of scenarios. ``assert`` does not return an informative error so often it's better to use the function ``assertMsg``, which takes a custom error message:
->>>>>>> Attempt to explain Actions/Monads
 
 .. literalinclude:: daml/Intro_5_Restrictions.daml
   :language: daml
@@ -130,3 +126,30 @@ Not only are ``Update`` and ``Scenario`` examples of ``Action``, they are both e
 Each has a special action ``abort txt`` which takes on type ``Update ()`` or ``Scenario ()`` depending on context and represents failure. Transactions and scenarios succeed or fail *atomically* as a whole so an occurrence of an ``abort`` action will always fail the entire evaluation of the current ``Scenario`` or ``Update``.
 
 The last expression in the ``do`` block of the ``Redeem`` choice is a pattern matching expression on ``dow``. It has type ``Update ()`` and is either an ``abort`` or ``return`` depending on the day of week. So during the week, it's a no-op and on weekends, it's the special failure action. Thanks to the atomicity of transactions, no transaction can ever make use of the ``Redeem`` choice on weekends.
+
+A sample Action
+---------------
+
+If the above didn't make complete sense, here's another example. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped and based on the ``Heads`` and ``Tails`` results, a value of type ``a`` is calulated.
+
+.. literalinclude:: daml/Intro_5_Restrictions.daml
+  :language: daml
+  :start-after: -- COIN_BEGIN
+  :end-before: -- COIN_END
+
+A ``CoinGame a`` exposes a function ``game`` which takes a ``Coin`` and returns a new ``Coin`` and a result ``a``. More on the ``->`` syntax for functions later.
+
+``Coin`` and ``game`` are deliberately left obscure in the above. All you have is an action ``getCoin`` to get your hands on a ``Coin`` in a ``Scenario`` context and an action ``flipCoin`` to get a ``Face`` in a ``GameState`` context. You can't play the game on pen and paper as you don't have a coin, but you can write down the rules of a game:
+
+.. literalinclude:: daml/Intro_5_Restrictions.daml
+  :language: daml
+  :start-after: -- COIN_SCENARIO_BEGIN
+  :end-before: -- COIN_SCENARIO_END
+
+The ``game`` expression is a game in which a coin is flipped three times. If all three tosses return ``Heads``, the result is ``"Win"``, or else ``"Loss"``.
+
+In a ``Scenario`` context you can get a ``Coin``, which is actually a pseudo-random number generator based on LET, and run the game.
+
+*Somehow* the ``Coin`` is threaded through the various actions. If you want to look through the looking glass and understand in-depth what's going on, you can look at the :download:`source file <daml/Intro_5_Restrictions.daml>` to see how the ``CoinGame`` action is implemented, though be warned that the implementation uses a lot of DAML features we haven't introduced in this course yet.
+
+More generally, if you want to learn more about Actions (aka Monads), we recommend a general course on functional programming, and Haskell in particular.
