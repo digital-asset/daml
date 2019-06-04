@@ -234,6 +234,7 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     prod (PrefixCon as)
         | null as = u1
         | otherwise = foldBal mkProd [mkS Nothing $ mkRec0 a | a <- as]
+    prod (RecCon (L _ fs)) | null fs = u1
     prod (RecCon (L _ fs)) =
         foldBal mkProd
         [ mkS (Just cd_fld_names) $ mkRec0 cd_fld_type

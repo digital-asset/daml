@@ -17,6 +17,8 @@ data Void deriving Generic
 
 data Unit = Unit () deriving (Generic, Eq)
 
+data UnitRec = UnitRec {} deriving (Generic, Eq)
+
 data Nested a = Nested {nestedL : NestedL a, nestedR : NestedR} deriving Generic
 
 data NestedL a = NestedL {unNestedL : a} deriving Generic
@@ -37,4 +39,5 @@ testTree = Node $ Node0 (Leaf 1) (Node $ Node0 (Leaf 2) (Leaf 3))
 
 test = scenario do
   assert $ (to $ from $ Unit ()) == Unit ()
+  assert $ (to $ from $ UnitRec {}) == UnitRec {}
   assert $ (to $ from testTree) == testTree
