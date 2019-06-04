@@ -32,9 +32,9 @@ build.sh            @digital-asset/empty
 deps.bzl            @digital-asset/empty
 
 # Language
-/compiler/          @digital-asset/empty
-/daml-foundations/  @digital-asset/empty
-/libs-haskell/      @digital-asset/empty
+/compiler/          @hurryabit
+/daml-foundations/  @hurryabit
+/libs-haskell/      @hurryabit
 /ghc-lib/           @digital-asset/empty
 
 # SDK
