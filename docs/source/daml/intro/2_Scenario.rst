@@ -36,11 +36,12 @@ Before you can create any ``Token`` contracts, you need some parties on the test
 - Use of ``<-`` instead of ``=``.
 
   The reason for that is ``getParty`` is an ``Action`` that can only be performed once the ``Scenario`` is run in the context of a ledger. ``<-`` means "run the action and bind the result". It can only be run in that context because, depending on the ledger the scenario is running on, ``getParty`` may have to look up a party identity or create a new party.
-  
+
   More on ``Actions`` and ``do`` blocks in :doc:`5_Restrictions`.
 
-   If that doesn't quite make sense yet, for the time being you can think of this arrow as extracting the right-hand-side value from the ledger and storing it into the variable on the left.
-- The argument ``"Alice"`` to ``getParty`` does not have to be enclosed in brackets. You call functions in DAML using the syntax ``function arg1 arg2 arg3``.
+
+  If that doesn't quite make sense yet, for the time being you can think of this arrow as extracting the right-hand-side value from the ledger and storing it into the variable on the left.
+- The argument ``"Alice"`` to ``getParty`` does not have to be enclosed in brackets. Functions in DAML are called using the syntax ``fn arg1 arg2 arg3``.
 
 With a variable ``alice`` of type ``Party`` in hand, you can submit your first transaction. Unsurprisingly, you do this using the ``submit`` function. ``submit`` takes two arguments: a ``Party`` and an ``Update``.
 
@@ -74,7 +75,7 @@ What this display means:
 
 - The second column shows the ID of the contract. This will be explained later.
 
-- The third column shows the status of the contract, either ``active`` or ``archived``. 
+- The third column shows the status of the contract, either ``active`` or ``archived``.
 - The remaining columns show the contract arguments, with one column per field. As expected, field ``owner`` is ``'Alice'``. The single quotation marks indicate that ``Alice`` is a party.
 
 To run the same test from the command line, save your module in a file ``Intro_2_Scenario.daml`` and run ``daml damlc -- test Intro_2_Scenario.daml``. If your file contains more than one scenario, all of them will be run.
@@ -115,7 +116,7 @@ Archiving contracts works just like creating them, but using ``archive`` instead
 
 References to contracts have the type ``ContractId a``, where ``a`` is a *type parameter* representing the type of contract that the ID refers to. For example, a reference to a ``Token`` would be a ``ContractId Token``.
 
-To ``archive`` the Token Alice has created, you need to get a handle on its contract ID. In scenarios, you do this using ``<-`` notation. That's because the contract ID needs to be retrieved from the ledger. How this works is discussed in :doc:`5_Restrictions`. 
+To ``archive`` the Token Alice has created, you need to get a handle on its contract ID. In scenarios, you do this using ``<-`` notation. That's because the contract ID needs to be retrieved from the ledger. How this works is discussed in :doc:`5_Restrictions`.
 
 This scenario first checks that Bob cannot archive Alice's Token and then Alice successfully archives it:
 

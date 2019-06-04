@@ -152,3 +152,46 @@ test_restrictions = scenario do
   submitMustFail alice do
     exercise iou3 Redeem
   -- CAUSALITY_TEST_END
+
+-- DO_DEMO_BEGIN
+sub_scenario1 : Scenario (ContractId SimpleIou) = scenario do
+  alice <- getParty "Alice"
+  dora <- getParty "Dora"
+
+  submit dora do
+    create SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+sub_scenario2 : Scenario Int = scenario do
+  getParty "Nobody"
+  pass (days 1)
+  pass (days (-1))
+  return 42
+
+sub_scenario3 : Scenario (ContractId SimpleIou) = scenario do
+  bob <- getParty "Bob"
+  dora <- getParty "Dora"
+
+  submit dora do
+    create SimpleIou with
+      issuer = dora
+      owner = bob
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+main_scenario : Scenario () = scenario do
+  dora <- getParty "Dora"
+
+  iou1 <- sub_scenario1
+  sub_scenario2
+  iou2 <- sub_scenario3
+
+  submit dora do
+    archive iou1
+    archive iou2
+-- DO_DEMO_END

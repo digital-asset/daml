@@ -2,21 +2,21 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Adding constraints to a contract
-==============================
+================================
 
-Oftentimes, contract models will have constraints on the data stored or the allowed data transformations. In this section, you will learn about the two main mechanisms provided in DAML:
+Oftentimes, contract models will have constraints on the data stored, or the allowed data transformations. In this section, you will learn about the two main mechanisms provided in DAML:
 
 1. The ``ensure`` keyword.
 2. The ``assert``, ``abort`` and ``error`` keywords.
 
-To make sense of the latter, you'll also learn more about the ``Update`` type and ``do`` blocks, which will be good preparation for :doc:`7_Composing`, where you will use ``do`` blocks to compose choices into complex transactions.
+To make sense of the latter, you'll also learn more about the ``Update`` and ``Scenario`` types and ``do`` blocks, which will be good preparation for :doc:`7_Composing`, where you will use ``do`` blocks to compose choices into complex transactions.
 
 Lastly, you will learn about time on the ledger and in scenarios.
 
 Template Pre-Conditions
 -----------------------
 
-The first kind of restriction one commonly puts on the contract model are called *template pre-conditions*. These are simply restrictions on the data that can be stored on a contract from that template. Suppose, for examples, that the ``SimpleIou`` contract from :ref:`simple_iou` should only be able to store positive amounts. This can be enforced using the ``ensure`` keyword.
+The first kind of restriction you may want to put on the contract model are called *template pre-conditions*. These are simply restrictions on the data that can be stored on a contract from that template. Suppose, for examples, that the ``SimpleIou`` contract from :ref:`simple_iou` should only be able to store positive amounts. This can be enforced using the ``ensure`` keyword.
 
 .. literalinclude:: daml/Intro_5_Restrictions.daml
   :language: daml
@@ -33,7 +33,11 @@ The ``ensure`` keyword takes a single expression of type ``Bool``. If you wanted
 Assertions and Errors
 ---------------------
 
+<<<<<<< HEAD
 A second common kind of restriction is one on data transformations. For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``owner`` transfers to themselves. This can be prevented using an ``assert`` statement, which you have already encountered in the context of scenarios. ``assert`` does not return an informative error so often it's better to use the function ``assertMsg``, which takes a custom error message:
+=======
+A second common kind of restriction is one on data transformations. For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``owner`` transfers to themselves. You can prevent that using an ``assert`` statement, which you have already encountered in the context of scenarios. ``assert`` does not return an informative error so often it's better to use the function ``assertMsg``, which takes a custom error message:
+>>>>>>> Attempt to explain Actions/Monads
 
 .. literalinclude:: daml/Intro_5_Restrictions.daml
   :language: daml
@@ -45,7 +49,7 @@ A second common kind of restriction is one on data transformations. For example,
   :start-after: -- TRANSFER_TEST_BEGIN
   :end-before: -- TRANSFER_TEST_END
 
-In a similar vein, one can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` during business hours on week days. The choice doesn't do anything other than archiving the ``SimpleIou``. The assumption here is that actual cash changes hands off-ledger.
+In a similar vein, yu can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` during business hours on week days. The choice doesn't do anything other than archiving the ``SimpleIou``. The assumption here is that actual cash changes hands off-ledger.
 
 .. literalinclude:: daml/Intro_5_Restrictions.daml
   :language: daml
@@ -57,14 +61,16 @@ In a similar vein, one can write a ``Redeem`` choice, which allows the ``owner``
   :start-after: -- REDEEM_TEST_BEGIN
   :end-before: -- REDEEM_TEST_END
 
-There are quite a few new time-related functions here so it's time to talk about time on DAML ledgers. There's also quite a lot going on inside the ``do`` block of the ``Redeem`` choice, with several uses of the ``<-`` operator, which deserves a proper explanation at this point.
+There are quite a few new time-related functions from the `DA.Time` and `DA.Date` libraries here. Their names should be reasonably descriptive so they won't be covered here, but given that you have to assume that DAML is run in a distributed setting, we will still discuss time in DAML.
+
+There's also quite a lot going on inside the ``do`` block of the ``Redeem`` choice, with several uses of the ``<-`` operator. ``do`` blocks and ``<-`` deserve a proper explanation at this point.
 
 Time on DAML ledgers
 --------------------
 
-Each transaction on a DAML ledger has two timestamps called the *ledger effective time (LET)* and the *record time (RT)*. The ledger effective time is set by the submitter of a transaction, the record time is set by the consensus protocoll. Each DAML ledger has a policy on the allowed difference between LET and RT called the *skew*. The submitter has to take a good guess at what the record time will be. If it's too far off, the transaction will be rejected.
+Each transaction on a DAML ledger has two timestamps called the *ledger effective time (LET)* and the *record time (RT)*. The ledger effective time is set by the submitter of a transaction, the record time is set by the consensus protocol. Each DAML ledger has a policy on the allowed difference between LET and RT called the *skew*. The submitter has to take a good guess at what the record time will be. If it's too far off, the transaction will be rejected.
 
-``getTime`` is an action that gets the LET from the ledger. In the above example, that time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18. Suppose now that the ledger had a skew of 10 seconds, but a submission took less than 4 seconds to commit. At 18:00:05, Alice could submit a transaction to redeem an Iou with a LET of 17:59:59. It would be a valid trasnaction and be committed successfully as ``hrs == 17`` and ``LET - RT < 10 seconds``. Time therefore has to be considered slightly fuzzy in DAML, with the fuzzyness depending on the skew parameter.
+``getTime`` is an action that gets the LET from the ledger. In the above example, that time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18. Suppose now that the ledger had a skew of 10 seconds, but a submission took less than 4 seconds to commit. At 18:00:05, Alice could submit a transaction with a LET of 17:59:59 to redeem an Iou. It would be a valid trasnaction and be committed successfully as ``getTime`` will return 17:59:59 so ``hrs == 17``. Since RT will be before 18:00:09, ``LET - RT < 10 seconds`` and the transaction won't be rejected. Time therefore has to be considered slightly fuzzy in DAML, with the fuzzyness depending on the skew parameter.
 
 In scenarios, record and ledger effective time are always equal and they can be set using the functions ``passToDate`` and ``pass``. ``passToDate`` takes a date sets the time to midnight (UTC) of that date. ``pass`` takes a ``Reltime``, a relative time and moves the ledger by that much.
 
@@ -80,16 +86,16 @@ Actions and ``do`` blocks
 
 You have come across ``do`` blocks and ``<-`` notations in two contexts by now: ``Scenario`` and ``Update``. Both of these are examples of an ``Action``, also called a *Monad* in functional programming.
 
-Expressions in DAML are pure in the sense that they have no side-effects. They neither read nor modify any external state. If you know the value of all variables in scope and write an expression, you can work out the value of that expression on pen and paper. All the expressions you've seen that used the ``<-`` notation were not like that.
+Expressions in DAML are pure in the sense that they have no side-effects. They neither read nor modify any external state. If you know the value of all variables in scope and write an expression, you can work out the value of that expression on pen and paper. The expressions you've seen that used the ``<-`` notation are not like that.
 
 ``getTime`` is a good example. There is nothing in scope that could inform the value of ``now`` so there is no expression ``expr`` that you could put on the right hand side of ``now = expr``. To get the ledger effective time, you need to be in the context of a submitted transaction and then look at that context.
 
-Similarly, you've come across ``fetch``. If you have ``cid : ContractId Account`` in scope and you come across the expression ``fetch cid``, you can't evaluate that to an ``Account`` so you can't write ``account = fetch cid``. To do so, you'd have to have a ledger on scope on which to look up that contract id.
+Similarly, you've come across ``fetch``. If you have ``cid : ContractId Account`` in scope and you come across the expression ``fetch cid``, you can't evaluate that to an ``Account`` so you can't write ``account = fetch cid``. To do so, you'd have to have a ledger you can look that contract id up on.
 
-Actions are a way to handle such "impure" expressions. ``Action a`` is a type class with a single parameter ``a`` and ``Update`` and ``Scenario`` are instances of ``Action``. A value of such a type ``m a`` where ``m`` is an instance of ``Action`` can be interpreted as "a recipe for an action of type ``m``, which, when executed, returns a value ``a``".
+Actions are a way to handle such "impure" expressions. ``Action a`` is a type class with a single parameter ``a``, and ``Update`` and ``Scenario`` are instances of ``Action``. A value of such a type ``m a`` where ``m`` is an instance of ``Action`` can be interpreted as "a recipe for an action of type ``m``, which, when executed, returns a value ``a``". You can always write a recipe using just pen and paper, but you can't cook it up unless you are in the context of a kitchen with the right ingredients and utensils.
 
 - An ``Update a`` is "a recipe to update a DAML ledger, which, when committed, returns a value of type ``a``". An update to a DAML ledger is a transaction so equivalently, an ``Update a`` is "a recipe to construct a transaction, which, when executed in the context of a ledger, returns a value of type ``a``".
-- A ``Scenario a`` is "a recipe to submit transactions to a test ledger, which, when performed against a ledger, returns a value of type ``a``".
+- A ``Scenario a`` is "a recipe for a test, which, when performed against a ledger, returns a value of type ``a``".
 
 Expressions like ``getTime``, ``getParty``, ``pass``, ``submit``, ``create`` and ``exercise`` should make more sense in that light. For example:
 
@@ -100,4 +106,27 @@ Expressions like ``getTime``, ``getParty``, ``pass``, ``submit``, ``create`` and
 
 Any DAML ledger knows how to perform actions of type ``Update a``. Only some know how to run scenarions, meaning they can perform actions of type ``Scenario a``.
 
-A transacion is a list of actions so a transaction followed by another transaction is again a transaction. Similarly, a scenario is a list of interactions with the ledger (``submit``, ``getParty``, ``pass``, etc.) so a scenario followed by another scenario is again a scenario. This is where ``do`` blocks come in.
+An action followed by another action, possibly depending on the result of the first action, is just another action. Specifically:
+
+- A transacion is a list of actions so a transaction followed by another transaction is again a transaction.
+- A scenario is a list of interactions with the ledger (``submit``, ``getParty``, ``pass``, etc.) so a scenario followed by another scenario is again a scenario.
+
+This is where ``do`` blocks come in. ``do`` blocks allow you to combine small actions in to bigger actions, using the results of earlier actions in later ones.
+
+.. literalinclude:: daml/Intro_5_Restrictions.daml
+  :language: daml
+  :start-after: -- DO_DEMO_BEGIN
+  :end-before: -- DO_DEMO_END
+
+Above, we see ``do`` blocks in action for both ``Scenario`` and ``Update``.
+
+You may already have noticed the use of ``return`` in the redeem choice. ``return x`` is a no-op action which returns value ``x`` so ``return 42 : Update Int``. Since ``do`` blocks always return the value of their last action, ``sub_scenario2 : Scenario Int``.
+
+Failing Actions
+---------------
+
+Not only are ``Update`` and ``Scenario`` examples of ``Action``, they are both examples of actions that can fail, e.g. because a transaction is illegal or the party retrieved via ``getParty`` doesn't exist on the ledger.
+
+Each has a special action ``abort txt`` which takes on type ``Update ()`` or ``Scenario ()`` depending on context and represents failure. Transactions and scenarios succeed or fail *atomically* as a whole so an occurrence of an ``abort`` action will always fail the entire evaluation of the current ``Scenario`` or ``Update``.
+
+The last expression in the ``do`` block of the ``Redeem`` choice is a pattern matching expression on ``dow``. It has type ``Update ()`` and is either an ``abort`` or ``return`` depending on the day of week. So during the week, it's a no-op and on weekends, it's the special failure action. Thanks to the atomicity of transactions, no transaction can ever make use of the ``Redeem`` choice on weekends.
