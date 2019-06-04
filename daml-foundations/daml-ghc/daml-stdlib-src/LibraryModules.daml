@@ -17,6 +17,7 @@ import DA.Experimental.Map
 import DA.Experimental.Set
 import DA.Foldable
 import DA.Functor
+import DA.Generics
 import DA.HKTemplate
 import DA.Internal.Assert
 import DA.Internal.Compatible
