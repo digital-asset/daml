@@ -21,7 +21,11 @@ For this section:
 DAML Ledger Basics
 ------------------
 
-Like most structures called ledgers, a DAML Ledger is a list of *commits*. A *commit* is the final result of the *submission* of a *transaction* by a *party*. The most basic *transactions* are the creation and archival of a *contract*. A contract is *active* on the ledger, if there is a committed transaction that creates it, but there is no commit that archives it again.
+Like most structures called ledgers, a DAML Ledger is just a list of *commits*. When we say *commit*, we mean the final result of when a *party* successfully *submits* a *transaction* to the ledger. 
+
+*Transaction* is a concept we'll cover in more detail through this introduction. The most basic examples are the creation and archival of a *contract*.
+
+A contract is *active* from the point where there is a committed transaction that creates it, up to the point where there is a committed transaction that *archives* it again.
 
 .. Graphic with timeline inactive -> create -> active -> archive -> inactive
 
