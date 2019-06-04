@@ -13,6 +13,11 @@ CODEOWNERS  @bitonic @neil-da @hurryabit @cbaatz-da
 azure-pipelines.yml @garyverhaegen-da
 azure-cron.yml      @garyverhaegen-da
 
+# Language
+/compiler/          @hurryabit
+/daml-foundations/  @hurryabit
+/libs-haskell/      @hurryabit
+
 # Runtime
 /daml-lf/           @leo-da @S11001001
 /daml-lf/governance.rst @bitonic @remyhaemmerle-da @S11001001
