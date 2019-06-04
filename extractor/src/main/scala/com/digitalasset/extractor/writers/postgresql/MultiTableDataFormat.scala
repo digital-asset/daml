@@ -8,14 +8,12 @@ import com.digitalasset.daml.lf.iface.reader.InterfaceType
 import com.digitalasset.daml.lf.iface.Record
 import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
 import com.digitalasset.extractor.ledger.types._
-import com.digitalasset.extractor.logging.Logging
 import com.digitalasset.extractor.Types.{DataIntegrityError, FullyAppliedType}
 import com.digitalasset.extractor.Types.FullyAppliedType._
 import com.digitalasset.extractor.Types.FullyAppliedType.ops._
 import com.digitalasset.extractor.writers.postgresql.DataFormat.TemplateInfo
 import com.digitalasset.extractor.writers.postgresql.DataFormatState.MultiTableState
 import com.digitalasset.extractor.writers.Writer.RefreshPackages
-
 import cats.implicits._
 import doobie.implicits._
 import doobie.free.connection
@@ -29,8 +27,7 @@ class MultiTableDataFormat(
     /*splat: Int, */ schemaPerPackage: Boolean,
     mergeIdentical: Boolean,
     stripPrefix: Option[String]
-) extends DataFormat[MultiTableState]
-    with Logging {
+) extends DataFormat[MultiTableState] {
   import Queries._
   import Queries.MultiTable._
 
