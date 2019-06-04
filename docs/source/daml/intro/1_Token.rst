@@ -46,7 +46,9 @@ A ``template`` defines a type of contract that can be created, and who has the r
   :lines: 16,21,25,29,34
   :caption: A simple template
 
-Templates are declared starting with the ``template`` keyword and take a name as an argument. DAML is whitespace-aware and uses layout to structure *blocks*. Everything that's below the first line is indented, and thus part of the template's body.
+You declare a template starting with the ``template`` keyword, which takes a name as an argument.
+
+DAML is whitespace-aware and uses layout to structure *blocks*. Everything that's below the first line is indented, and thus part of the template's body.
 
 *Contracts* on a DAML ledger contain data, often referred to as the *create arguments* or simply *arguments*. The ``with`` block starting in the second line defines the data type of the create arguments of a contract of type ``Token`` by listing field names and their types. The single colon ``:`` is read as "of type" so we can read the first three lines as "template Token with field owner of type ``Party``. ``Token`` contracts have a single field ``owner`` of type ``Party``. The fields declared in a template's ``with`` block are in scope in the rest of the template body, which is contained in a ``where`` block.
 
