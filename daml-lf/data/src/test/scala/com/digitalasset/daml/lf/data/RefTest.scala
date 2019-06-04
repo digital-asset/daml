@@ -73,80 +73,58 @@ class RefTest extends FreeSpec with Matchers {
 
   "Party and PackageId" - {
 
-    val simpleChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ "
-
-    "accepts simple characters" in {
-      for (c <- simpleChars) {
-        Party.fromString(s"the character $c is simple") shouldBe 'right
-        PackageId.fromString(s"the character $c is simple") shouldBe 'right
-      }
-    }
-
-    "rejects the empty string" in {
-      Party.fromString("") shouldBe 'left
-      PackageId.fromString("") shouldBe 'left
-    }
-
-    "rejects non simple US-ASCII characters" in {
-      for (c <- '\u0001' to '\u007f' if !simpleChars.contains(c)) {
-        Party.fromString(s"the US-ASCII character $c is not simple") shouldBe 'left
-        PackageId.fromString(s"the US-ASCII character $c is not simple") shouldBe 'left
-      }
-    }
-
-    "rejects no US-ASCII characters" in {
-      for (c <- '\u0080' to '\u00ff') {
-        Party.fromString(s"the character '$c' is not US-ASCII") shouldBe 'left
-        PackageId.fromString(s"the character '$c' is not US-ASCII") shouldBe 'left
-      }
-      for (s <- List(
-          "español",
-          "東京",
-          "Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))"
-        )) {
-        Party.fromString(s) shouldBe 'left
-        PackageId.fromString(s) shouldBe 'left
-      }
-    }
-  }
-
-  "LedgerString" - {
-
+    val packageIdChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ "
+    val partyIdChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:-_ "
     val ledgerStringChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-# "
 
-    "accepts simple characters" in {
-      for (c <- ledgerStringChars) {
-        LedgerString.fromString(s"the_character_${c}_should_be_accepted") shouldBe 'right
-      }
-    }
+    def makeString(c: Char): String = s"the character $c is not US-ASCII"
 
     "rejects the empty string" in {
+      PackageId.fromString("") shouldBe 'left
+      Party.fromString("") shouldBe 'left
       LedgerString.fromString("") shouldBe 'left
     }
 
-    "reject too long string" in {
-      LedgerString.fromString("a" * 255) shouldBe 'right
-      LedgerString.fromString("a" * 256) shouldBe 'left
-      LedgerString.fromString("a" * 500) shouldBe 'left
-    }
-
-    "rejects non allowed US-ASCII characters" in {
-      for (c <- '\u0001' to '\u007f' if !ledgerStringChars.contains(c)) {
-        LedgerString.fromString(s"the_character_${c}_should_be_rejected") shouldBe 'left
+    "treats US-ASCII characters as expected" in {
+      for (c <- '\u0001' to '\u007f') {
+        val s = makeString(c)
+        PackageId.fromString(s) shouldBe (if (packageIdChars.contains(c)) 'right else 'left)
+        Party.fromString(s) shouldBe (if (partyIdChars.contains(c)) 'right else 'left)
+        LedgerString.fromString(s) shouldBe (if (ledgerStringChars.contains(c)) 'right else 'left)
       }
     }
 
     "rejects no US-ASCII characters" in {
+
+      val negativeTestCase = makeString('a')
+
+      PackageId.fromString(negativeTestCase) shouldBe 'right
+      Party.fromString(negativeTestCase) shouldBe 'right
+      LedgerString.fromString(negativeTestCase) shouldBe 'right
+
       for (c <- '\u0080' to '\u00ff') {
-        LedgerString.fromString(s"the_character_${c}_should_be_rejected") shouldBe 'left
+        val positiveTestCase = makeString(c)
+        PackageId.fromString(positiveTestCase) shouldBe 'left
+        Party.fromString(positiveTestCase) shouldBe 'left
+        LedgerString.fromString(positiveTestCase) shouldBe 'left
       }
-      for (s <- List(
+      for (positiveTestCase <- List(
           "español",
           "東京",
           "Λ (τ : ⋆) (σ: ⋆ → ⋆). λ (e : ∀ (α : ⋆). σ α) → (( e @τ ))"
         )) {
-        LedgerString.fromString(s) shouldBe 'left
+        Party.fromString(positiveTestCase) shouldBe 'left
+        PackageId.fromString(positiveTestCase) shouldBe 'left
       }
+    }
+
+    "LedgerString should reject too long strings" in {
+      val negativeTestCase = "a" * 255
+      val positiveTestCase1 = "a" * 256
+      val positiveTestCase2 = "a" * 500
+      LedgerString.fromString(negativeTestCase) shouldBe 'right
+      LedgerString.fromString(positiveTestCase1) shouldBe 'left
+      LedgerString.fromString(positiveTestCase2) shouldBe 'left
     }
   }
 }

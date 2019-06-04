@@ -27,10 +27,12 @@ abstract class DecimalModule {
     cast(BigDecimal(new java.math.BigDecimal(x, MathContext.UNLIMITED)))
 
   // we use these to compare only, therefore set the precision to unlimited to make sure
-  // we can compare every number we're given
-  val max: T = unlimitedBigDecimal("9999999999999999999999999999.9999999999")
+  // we can compare every number we're given.
+  private val max: BigDecimal = unlimitedBigDecimal("9999999999999999999999999999.9999999999")
+  private val min: BigDecimal = unlimitedBigDecimal("-9999999999999999999999999999.9999999999")
 
-  val min: T = unlimitedBigDecimal("-9999999999999999999999999999.9999999999")
+  val MaxValue: T = assertFromBigDecimal(max)
+  val MinValue: T = assertFromBigDecimal(min)
 
   /** Checks that a `T` falls between `min` and `max`, and
     * round the number according to `scale`. Note that it does _not_
