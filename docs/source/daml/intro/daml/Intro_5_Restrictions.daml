@@ -138,3 +138,17 @@ test_restrictions = scenario do
   submit bob do
     exercise iou2 Redeem
 -- REDEEM_TEST_END
+
+  -- CAUSALITY_TEST_BEGIN
+  iou3 <- submit dora do
+    create SimpleIou with
+      issuer = dora
+      owner = alice
+      cash = Cash with
+        amount = 100.0
+        currency = "USD"
+
+  pass (days (-3))
+  submitMustFail alice do
+    exercise iou3 Redeem
+  -- CAUSALITY_TEST_END
