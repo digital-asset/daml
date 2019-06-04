@@ -131,12 +131,16 @@ private class SqlLedger(
       SourceQueueWithComplete[Long => PersistenceEntry],
       SourceQueueWithComplete[Long => PersistenceEntry]) = createQueues()
 
-  checkpointQueue
-    .watchCompletion()
-    .foreach(_ => logger.warn("checkpoint queue has been closed!"))(DEC)
-  persistenceQueue
-    .watchCompletion()
-    .foreach(_ => logger.warn("persistence queue has been closed!"))(DEC)
+  watchForFailures(checkpointQueue, "checkpoint")
+  watchForFailures(persistenceQueue, "persistence")
+
+  private def watchForFailures(queue: SourceQueueWithComplete[_], name: String) =
+    queue
+      .watchCompletion()
+      .onComplete {
+        case Failure(t) => logger.warn(s"$name queue has been closed with a failure!", t)
+        case _ => ()
+      }(DEC)
 
   private def createQueues(): (
       SourceQueueWithComplete[Long => PersistenceEntry],
