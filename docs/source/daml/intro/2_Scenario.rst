@@ -20,7 +20,7 @@ For this section, start a new module called ``Intro_2_Scenario`` and copy across
 Scenario Basics
 ---------------
 
-A ``Scenario`` is like a recipe for a test, in which the submission of transactions by parties, as well as some external information like party identities and ledger time can be scripted.
+A ``Scenario`` is like a recipe for a test, where you can script different parties submitting a series of transactions, to check that your templates behave as you'd expect. You can also script some some external information like party identities, and ledger time.
 
 Below is a basic scenario that creates a ``Token`` for a party called "Alice".
 
