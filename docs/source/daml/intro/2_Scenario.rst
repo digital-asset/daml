@@ -31,7 +31,7 @@ Below is a basic scenario that creates a ``Token`` for a party called "Alice".
 
 You declare a ``Scenario`` a top-level variable and introduce it using ``scenario do``. ``do`` always starts a block, so the rest of the scenario is indented.
 
-Before you can create any ``Token`` contracts, you need some parties on the test ledger. In the above scenario, the function ``getParty`` is used to put a party called "Alice" in a valiable ``alice``. There are two things of note there:
+Before you can create any ``Token`` contracts, you need some parties on the test ledger. The above scenario uses the function ``getParty`` to put a party called "Alice" in a variable ``alice``. There are two things of note there:
 
 1. Note of the use of ``<-`` instead of ``=``. The reason for that is that depending on the ledger the scenario is running on, ``getParty`` may have to look up a party identity or create a new party. ``getParty`` is an ``Action`` that can only be performed once the ``Scenario`` is run in the context of a ledger and ``<-`` means "run the action and bind the result". More on ``Actions`` and ``do`` blocks in :doc:`5_Restrictions`.
 
