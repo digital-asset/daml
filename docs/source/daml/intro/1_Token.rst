@@ -34,7 +34,7 @@ A contract is *active* from the point where there is a committed transaction tha
 DAML Files and Modules
 ----------------------
 
-Each `.daml` file defines a *DAML Module*. At the top of each DAML file is a pragma informing the compiler of the language version and the module name:
+Each ``.daml`` file defines a *DAML Module*. At the top of each DAML file is a pragma informing the compiler of the language version and the module name:
 
 .. literalinclude:: daml/Intro_1_Token.daml
   :language: daml
