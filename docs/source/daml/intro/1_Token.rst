@@ -1,7 +1,7 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-A Token Contract
+A token contract
 ================
 
 The first DAML model you will write is a pretty useless one -- a self-issued, non-transferrable token. It represents the minimal possible DAML model and as such serves as an illustration of the most basic concepts:
