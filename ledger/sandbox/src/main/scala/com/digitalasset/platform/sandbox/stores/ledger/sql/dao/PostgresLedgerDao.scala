@@ -20,7 +20,6 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.util.DirectExecutionContext
-
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
 import com.digitalasset.ledger.backend.api.v1.RejectionReason._
 import com.digitalasset.platform.sandbox.stores._
@@ -41,7 +40,6 @@ import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.Try
 import scala.util.control.NonFatal
-
 import scalaz.syntax.tag._
 
 private class PostgresLedgerDao(
@@ -718,23 +716,17 @@ private class PostgresLedgerDao(
     ~ ledgerString("transaction_id")
     ~ ledgerString("workflow_id").?
     ~ date("effective_at")
+    ~ list[String]("witnesses").map(_.map(Party.assertFromString))
+    ~ list[List[String]]("divulgences").map(_.map {
+      case List(party, tid) =>
+        Party.assertFromString(party) -> TransactionIdString.assertFromString(tid)
+    }.toMap)
     ~ binaryStream("contract")
     ~ binaryStream("key").? map (flatten))
 
   private val SQL_SELECT_CONTRACT =
     SQL(
-      "select c.*, le.effective_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
-
-  private val SQL_SELECT_WITNESS =
-    SQL("select witness from contract_witnesses where contract_id={contract_id}")
-
-  private val DivulgenceParser = (party("party")
-    ~ long("ledger_offset")
-    ~ ledgerString("transaction_id") map (flatten))
-
-  private val SQL_SELECT_DIVULGENCE =
-    SQL(
-      "select party, ledger_offset, transaction_id from contract_divulgences where contract_id={contract_id}")
+      "select c.*, le.effective_at, array_agg(witness) witnesses, coalesce(array_agg(array[d.party, d.transaction_id]) filter (where d.party is not null), array[]::varchar[][]) divulgences from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id inner join contract_witnesses w on c.id = w.contract_id left join contract_divulgences d on c.id = d.contract_id where id={contract_id} and archive_offset is null group by c.id, le.effective_at")
 
   private val SQL_SELECT_KEY_MAINTAINERS =
     SQL("select maintainer from contract_key_maintainers where contract_id={contract_id}")
@@ -757,19 +749,26 @@ private class PostgresLedgerDao(
           TransactionIdString,
           Option[WorkflowId],
           Date,
+          List[Party],
+          Map[Party, TransactionIdString],
           InputStream,
           Option[InputStream]))(implicit conn: Connection) =
     contractResult match {
-      case (coid, transactionId, workflowId, ledgerEffectiveTime, contractStream, keyStreamO) =>
-        val witnesses = lookupWitnesses(coid)
-        val divulgences = lookupDivulgences(coid)
-
+      case (
+          coid,
+          transactionId,
+          workflowId,
+          ledgerEffectiveTime,
+          witnesses,
+          divulgences,
+          contractStream,
+          keyStreamO) =>
         Contract(
           AbsoluteContractId(coid),
           ledgerEffectiveTime.toInstant,
           transactionId,
           workflowId,
-          witnesses,
+          witnesses.toSet,
           divulgences,
           contractSerializer
             .deserialiseContractInstance(ByteStreams.toByteArray(contractStream))
@@ -783,22 +782,6 @@ private class PostgresLedgerDao(
           })
         )
     }
-
-  private def lookupWitnesses(coid: String)(implicit conn: Connection): Set[Party] =
-    SQL_SELECT_WITNESS
-      .on("contract_id" -> coid)
-      .as(party("witness").*)
-      .toSet
-
-  private def lookupDivulgences(coid: String)(
-      implicit conn: Connection): Map[Party, TransactionIdString] =
-    SQL_SELECT_DIVULGENCE
-      .on("contract_id" -> coid)
-      .as(DivulgenceParser.*)
-      .map {
-        case (party, _, transaction_id) => party -> transaction_id
-      }
-      .toMap
 
   private def lookupKeyMaintainers(coid: String)(implicit conn: Connection) =
     SQL_SELECT_KEY_MAINTAINERS
@@ -851,7 +834,7 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(
-      "select c.*, le.effective_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
+      "select c.*, le.effective_at, array_agg(w.witness) witnesses, coalesce(array_agg(array[d.party, d.transaction_id]) filter (where d.party is not null), array[]::varchar[][]) divulgences from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id inner join contract_witnesses w on c.id = w.contract_id left join contract_divulgences d on c.id = d.contract_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset}) group by c.id, le.effective_at")
 
   override def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot] = {
 
