@@ -12,7 +12,11 @@ To begin with, you're going to write a very small DAML template, which represent
 - Contracts
 - Signatories
 
-For this section, create a new file called ``Intro_1_Token.daml`` and open it in DAML Studio. If you have installed the DAML SDK, you can start it with ``daml studio`` from a terminal or just open VS Code. Alternatively, use the :download:`supplied source file <daml/Intro_1_Token.daml>`.
+For this section:
+
+ 1. Create a directory for this project.
+ 2. Create a new file called ``Intro_1_Token.daml`` or the :download:`supplied source file <daml/Intro_1_Token.daml>`.
+ 3. Open DAML Studio with ``daml studio`` from a terminal or just open VS Code. 
 
 DAML Ledger Basics
 ------------------
