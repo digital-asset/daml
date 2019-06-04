@@ -874,13 +874,13 @@ class TransactionServiceIT
           val createAndFetchTid = templateIds.createAndFetch
           for {
             createdEvent <- context.submitCreate(
-              "CreateAndFetch_Create",
+              s"CreateAndFetch_Create-$runSuffix",
               createAndFetchTid,
               List("p" -> party.asParty).asRecordFields,
               party)
             cid = createdEvent.contractId
             exerciseTx <- context.submitExercise(
-              "CreateAndFetch_Run",
+              s"CreateAndFetch_Run-$runSuffix",
               createAndFetchTid,
               Value(Value.Sum.Record(Record())),
               "CreateAndFetch_Run",
@@ -1499,7 +1499,11 @@ class TransactionServiceIT
       prefix: String,
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
-    helpers.insertCommands(getTrackerFlow(context), prefix, commandsPerSection, context.ledgerId)
+    helpers.insertCommands(
+      context.commandService.submitAndWaitForTransactionId,
+      prefix,
+      commandsPerSection,
+      context.ledgerId)
   }
 
   private def insertCommandsUnique(
