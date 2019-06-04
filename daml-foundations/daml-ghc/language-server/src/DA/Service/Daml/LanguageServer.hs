@@ -131,7 +131,7 @@ handleRequest (IHandle _stateRef loggerH compilerH _notifChan) makeResponse make
 handleNotification :: LspFuncs () -> IHandle () LF.Package -> ServerNotification -> IO ()
 handleNotification lspFuncs (IHandle stateRef loggerH compilerH _notifChan) = \case
 
-    DidOpenTextDocument (DidOpenTextDocumentParams item) ->
+    DidOpenTextDocument (DidOpenTextDocumentParams item) -> do
         case URI.parseURI $ T.unpack $ getUri $ _uri (item :: TextDocumentItem) of
           Just uri
               | URI.uriScheme uri == "file:"
@@ -149,6 +149,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH _notifChan) = \c
 
     DidChangeTextDocument (DidChangeTextDocumentParams docId _) -> do
         let uri = _uri (docId :: VersionedTextDocumentIdentifier)
+
         case Compiler.uriToFilePath' uri of
           Just filePath -> do
             mbVirtual <- getVirtualFileFunc lspFuncs uri
@@ -163,9 +164,11 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH _notifChan) = \c
 
     DidCloseTextDocument (DidCloseTextDocumentParams (TextDocumentIdentifier uri)) ->
         case URI.parseURI $ T.unpack $ getUri uri of
-          Just uri
-              | URI.uriScheme uri == "file:" -> handleDidCloseFile (URI.unEscapeString $ URI.uriPath uri)
-              | URI.uriScheme uri == "daml:" -> handleDidCloseVirtualResource uri
+          Just uri'
+              | URI.uriScheme uri' == "file:" -> do
+                    Just fp <- pure $ Compiler.uriToFilePath' uri
+                    handleDidCloseFile fp
+              | URI.uriScheme uri' == "daml:" -> handleDidCloseVirtualResource uri'
               | otherwise -> Logger.logWarning loggerH $ "Unknown scheme in URI: " <> T.show uri
 
           _ -> Logger.logError loggerH
@@ -280,7 +283,7 @@ eventSlinger loggerH eventChan notifChan =
                 writeTChan notifChan
                     $ PublishDiagnostics
                     $ PublishDiagnosticsParams
-                    (Compiler.filePathToUri fp)
+                    (Compiler.filePathToUri' fp)
                     (List $ nubOrd diags)
                 pure Nothing
 
