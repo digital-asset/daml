@@ -1,7 +1,7 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Restricting the Contract Model
+Adding constraints to a contract
 ==============================
 
 Oftentimes, contract models will have constraints on the data stored or the allowed data transformations. In this section, you will learn about the two main mechanisms provided in DAML:
