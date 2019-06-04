@@ -111,7 +111,7 @@ convToServerNotif not = case not of
     LogMessage p -> wrap LSP.NotLogMessage LSP.WindowLogMessage p
     SendTelemetry p -> wrap LSP.NotTelemetry LSP.TelemetryEvent p
     PublishDiagnostics p -> wrap LSP.NotPublishDiagnostics LSP.TextDocumentPublishDiagnostics p
-    CustomNotification method p -> wrap LSP.NotCustomServer method p
+    CustomNotification method p -> wrap LSP.NotCustomServer (CustomServerMethod method) p
     where wrap constr method params = constr $ LSP.NotificationMessage "2.0" method params
 
 convClientMsg :: LSP.FromClientMessage -> Maybe (Either ServerNotification (ServerRequest, LspId))
@@ -154,7 +154,7 @@ convClientMsg msg = case msg of
     LSP.ReqExecuteCommand m -> unknownReq m
     LSP.ReqWillSaveWaitUntil m -> unknownReq m
     LSP.ReqCustomClient m -> case reqMethod m of
-        "daml/keepAlive" -> Just $ Right (KeepAlive, reqId m)
+        CustomClientMethod "daml/keepAlive" -> Just $ Right (KeepAlive, reqId m)
         _ -> unknownReq m
 
     LSP.NotInitialized m -> unknownNot m
