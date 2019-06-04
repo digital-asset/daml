@@ -56,9 +56,9 @@ object ReferenceServer extends App {
   config.archiveFiles.foreach { f =>
     val archives = archivesFromDar(f)
     archives.foreach { archive =>
-      logger.info(s"Uploading archive ${archive.getHash}...")
+      logger.info(s"Uploading package ${archive.getHash}...")
     }
-    ledger.uploadArchives(archives, "uploaded on startup by participant")
+    ledger.uploadPublicPackages(archives, "uploaded on startup by participant")
   }
 
   ledger.getLedgerInitialConditions

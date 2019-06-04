@@ -44,7 +44,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
         }
     }
 
-    "provide update after uploadArchive" in {
+    "provide update after uploadPublicPackages" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
 
@@ -61,10 +61,10 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
             assert(update.sourceDescription == sourceDescription)
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)
-          case _ => fail("unexpected update message after an archive upload")
+          case _ => fail("unexpected update message after a package upload")
         }
 
-      ps.uploadArchives(List(archive), sourceDescription)
+      ps.uploadPublicPackages(List(archive), sourceDescription)
       waitForUpdateFuture
     }
 

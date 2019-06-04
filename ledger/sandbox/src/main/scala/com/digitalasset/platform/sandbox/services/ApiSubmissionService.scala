@@ -5,7 +5,12 @@ package com.digitalasset.platform.sandbox.services
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.daml.ledger.participant.state.v2.SubmissionResult.{Acknowledged, Overloaded}
+
+import com.daml.ledger.participant.state.v2.SubmissionResult.{
+  Acknowledged,
+  Overloaded,
+  NotSupported
+}
 import com.daml.ledger.participant.state.v2.{
   SubmissionResult,
   SubmitterInfo,
@@ -110,6 +115,12 @@ class ApiSubmissionService private (
               s"Submission of command {} has failed due to back pressure",
               commands.commandId.unwrap)
             Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+
+          case Success(NotSupported) =>
+            logger.debug(
+              s"Submission of command {} has failed, call not supported",
+              commands.commandId.unwrap)
+            Failure(Status.UNIMPLEMENTED.asRuntimeException)
 
           case Failure(error) =>
             logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)

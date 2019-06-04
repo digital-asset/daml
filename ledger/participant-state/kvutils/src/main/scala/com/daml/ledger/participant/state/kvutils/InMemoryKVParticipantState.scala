@@ -323,17 +323,19 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     // TODO: Implement party management
     CompletableFuture.completedFuture(PartyAllocationResult.NotSupported)
 
-  /** Back-channel for uploading DAML-LF archives.
-    * Currently participant-state interfaces do not specify an admin
-    * interface to upload packages.
-    * See issue https://github.com/digital-asset/daml/issues/347.
+
+  /** Upload DAML-LF packages to the ledger.
     */
-  def uploadArchives(archives: List[Archive], sourceDescription: String): Unit = {
-    commitActorRef ! CommitSubmission(
-      allocateEntryId,
-      KeyValueSubmission.archivesToSubmission(archives, sourceDescription, participantId)
-    )
-  }
+  override def uploadPublicPackages(
+      archives: List[Archive],
+      sourceDescription: String): CompletionStage[SubmissionResult] =
+    CompletableFuture.completedFuture({
+      commitActorRef ! CommitSubmission(
+        allocateEntryId,
+        KeyValueSubmission.archivesToSubmission(archives, sourceDescription, participantId)
+      )
+      SubmissionResult.Acknowledged
+    })
 
   /** Retrieve the static initial conditions of the ledger, containing
     * the ledger identifier and the initial ledger record time.
