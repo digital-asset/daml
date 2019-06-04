@@ -776,7 +776,7 @@ message CaseAlt {
 
     // name of the variant constructor
     // *Must be a valid identifier*
-    string constructors = 2;
+    string constructor = 2;
   }
 
   // Non empty list pattern
@@ -804,6 +804,7 @@ message CaseAlt {
     Cons cons = 5;
     Unit none = 7; // * Available since version 1*
     Some some = 8; // * Available since version 1*
+    Enum enum = 9; // * Available since version dev*
   }
 
   Expr body = 6;
@@ -1051,7 +1052,7 @@ message DefDataType {
     repeated FieldWithType fields = 1;
   }
 
-  message EnumConstructor {
+  message EnumConstructors {
     repeated string constructors = 1;
   }
 
@@ -1065,7 +1066,7 @@ message DefDataType {
   oneof DataCons {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
-    EnumConstructor enum = 7; //  *available since version dev*
+    EnumConstructors enum = 7; //  *available since version dev*
   }
 
   // If true, this data type preserves serializability in the sense that when

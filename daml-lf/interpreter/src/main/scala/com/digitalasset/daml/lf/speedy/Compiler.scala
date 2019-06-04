@@ -328,6 +328,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   withBinder(binder) { _ =>
                     SCaseAlt(SCPVariant(tycon, variant), translate(expr))
                   }
+
+                case CPEnum(tycon, constructor) =>
+                  SCaseAlt(SCPEnum(tycon, constructor), translate(expr))
+
                 case CPNil =>
                   SCaseAlt(SCPNil, translate(expr))
 

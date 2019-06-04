@@ -425,6 +425,9 @@ decodeCaseAlt LF1.CaseAlt{..} = do
         <$> mayDecode "caseAlt_VariantCon" caseAlt_VariantCon decodeTypeConName
         <*> decodeName VariantConName caseAlt_VariantVariant
         <*> decodeName ExprVarName caseAlt_VariantBinder
+    LF1.CaseAltSumEnum _ ->
+      -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
+      Left (ParseError "Enum type not supported")
     LF1.CaseAltSumPrimCon (Proto.Enumerated (Right pcon)) ->
       CPEnumCon <$> decodePrimCon pcon
     LF1.CaseAltSumPrimCon (Proto.Enumerated (Left idx)) ->
