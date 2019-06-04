@@ -25,8 +25,6 @@ data NestedL a = NestedL {unNestedL : a} deriving Generic
 
 data NestedR = NestedRA | NestedRB Int deriving Generic
 
-type GenericNested a = Rec0 a :*: (U1 :+: Rec0 Int)
-
 ----------------------------------------------------------------------------------------------------
 -- Recursive data structures
 ----------------------------------------------------------------------------------------------------
@@ -34,10 +32,11 @@ type GenericNested a = Rec0 a :*: (U1 :+: Rec0 Int)
 data Tree a = Leaf a | Node (Node0 a) deriving (Generic, Eq)
 data Node0 a = Node0 {l : Tree a, r : Tree a} deriving (Generic, Eq)
 
-testTree : Tree Int
-testTree = Node $ Node0 (Leaf 1) (Node $ Node0 (Leaf 2) (Leaf 3))
-
 test = scenario do
-  assert $ (to $ from $ Unit ()) == Unit ()
-  assert $ (to $ from $ UnitRec {}) == UnitRec {}
-  assert $ (to $ from testTree) == testTree
+  assert $ (from $ Unit ()) == M1 ( M1 (M1 (K1 ()))) && to (M1 ( M1 (M1 (K1 ())))) == Unit ()
+  assert $ (from $ UnitRec) == M1 (M1 U1) && to (M1 (M1 U1)) == UnitRec
+  assert $ (from $ Leaf 1) == M1 (L1 (M1 (M1 (K1 1)))) && to (M1 (L1 (M1 (M1 (K1 1))))) == Leaf 1
+  assert $ (from $ Node (Node0 {l = Leaf 1, r = Leaf 2})) == M1 (R1 (M1 (M1 (K1 (Node0 {l = Leaf 1, r = Leaf 2})))))
+              && to (M1 (R1 (M1 (M1 (K1 (Node0 {l = Leaf 1, r = Leaf 2})))))) == Node (Node0 {l = Leaf 1, r = Leaf 2})
+  assert $ (from $ Node0 {l = Leaf 1, r = Leaf 2}) == M1 (M1 (P1 (M1 (K1 (Leaf 1))) (M1 (K1 (Leaf 2)))))
+              && to (M1 (M1 (P1 (M1 (K1 (Leaf 1))) (M1 (K1 (Leaf 2)))))) == Node0 {l = Leaf 1, r = Leaf 2}
