@@ -128,7 +128,7 @@ In the IDE scenario runner, committed transactions are numbered sequentially. Th
 
 Transaction ``#0`` has one *sub-transaction* ``#0:0``, which the arrow indicates is a ``create`` of a ``Token``. Identifiers ``#X:Y`` can be read as ``commit X, sub-transaction Y``. All transactions have this format in the scenario runner. However, this is a testing feature. Transaction and Contract IDs should be considered opaque in general. The lines above and below ``create Intro_2_Scenario:Token`` give additional information:
 
-- ``consumed by: #2:1`` indicates that the contract is archived in sub-transaction ``1`` of commit ``2``.
+- ``consumed by: #2:1`` tells you that the contract is archived in sub-transaction ``1`` of commit ``2``.
 - ``referenced by #2:0, #2:1`` tells you that the contract was used in other transactions and lists their ids.
 - ``known to (since): 'Alice' (#0)`` tells you who knows about the contract. The fact that ``'Alice'`` appears in the list is equivalent to a ``x`` in the tabular view. The ``(#0)`` gives you the additional information that ``Alice`` learned about the contract in commit ``#0``.
 - Everything following ``with`` shows the create arguments.
