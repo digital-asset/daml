@@ -25,7 +25,7 @@ import qualified Data.NameMap as NM
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Optics (moduleModuleRef)
-import DA.Daml.LF.Ast.Pretty
+import DA.Daml.LF.Ast.Pretty ()
 import DA.Daml.LF.Ast.Version
 
 -- | The 'World' contains all imported packages together with (a subset of)
@@ -114,10 +114,10 @@ lookupChoice (tplRef, chName) world = do
 
 instance Pretty LookupError where
   pPrint = \case
-    LEPackage pkgId -> "unknown package:" <-> prettyName pkgId
-    LEModule PRSelf modName -> "unknown module:" <-> prettyDottedName modName
-    LEModule (PRImport pkgId) modName -> "unknown module:" <-> prettyName pkgId <> ":" <> prettyDottedName modName
-    LEDataType datRef -> "unknown data type:" <-> prettyQualified prettyDottedName datRef
-    LEValue valRef-> "unknown value:" <-> prettyQualified prettyName valRef
-    LETemplate tplRef -> "unknown template:" <-> prettyQualified prettyDottedName tplRef
-    LEChoice tplRef chName -> "unknown choice:" <-> prettyQualified prettyDottedName tplRef <> ":" <> prettyName chName
+    LEPackage pkgId -> "unknown package:" <-> pretty pkgId
+    LEModule PRSelf modName -> "unknown module:" <-> pretty modName
+    LEModule (PRImport pkgId) modName -> "unknown module:" <-> pretty pkgId <> ":" <> pretty modName
+    LEDataType datRef -> "unknown data type:" <-> pretty datRef
+    LEValue valRef-> "unknown value:" <-> pretty valRef
+    LETemplate tplRef -> "unknown template:" <-> pretty tplRef
+    LEChoice tplRef chName -> "unknown choice:" <-> pretty tplRef <> ":" <> pretty chName
