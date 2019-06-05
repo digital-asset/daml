@@ -58,7 +58,7 @@ tests damlDir tmpDir = testGroup "Integration tests"
               $ sourceFileBS releaseTarball
               .| Zlib.ungzip
               .| Tar.Conduit.untar (Tar.Conduit.restoreFile throwError tarballDir)
-          callProcessQuiet (tarballDir </> "daml" </> "daml") ["install", "--activate", "--set-path=no", tarballDir]
+          callProcessQuiet (tarballDir </> "daml" </> damlInstallerName) ["install", "--activate", "--set-path=no", tarballDir]
     , testCase "daml version" $ callProcessQuiet damlName ["version"]
     , testCase "daml --help" $ callProcessQuiet damlName ["--help"]
     , testCase "daml new --list" $ callProcessQuiet damlName ["new", "--list"]
@@ -207,7 +207,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess (adjustCP (proc damlName ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }) $
+          withCreateProcess ((proc damlName ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }) $
               \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
               addr : _ <- getAddrInfo
@@ -236,11 +236,11 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess (adjustCP (proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", "target/daml/iou.dar"]) { std_out = UseHandle devNull1 }) $
+          withCreateProcess ((proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", "target/daml/iou.dar"]) { std_out = UseHandle devNull1 }) $
               \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
               restPort :: Int <- fromIntegral <$> getFreePort
-              withCreateProcess (adjustCP (proc "mvn" [mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }) $
+              withCreateProcess ((proc "mvn" [mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }) $
                   \_ _ _ ph -> race_ (waitForProcess' "mvn" [] ph) $ do
                   let url = "http://localhost:" <> show restPort <> "/iou"
                   waitForHttpServer (threadDelay 1000000) url
@@ -289,28 +289,21 @@ cleanTests baseDir = testGroup "daml clean"
                                 , unlines (map ("       "++) filesAtEnd)
                                 ]
 
--- | Bazel tests are run in a bash environment with cmd.exe not in PATH. This results in ShellCommand
--- failing so instead we patch ShellCommand and RawCommand to call bash directly.
-adjustCP :: CreateProcess -> CreateProcess
-adjustCP cp =  cp { cmdspec = cmdspec' }
-    where
-        cmdspec' = if isWindows
-            then case cmdspec cp of
-                RawCommand cmd args -> RawCommand "bash" ["-c", unwords $ map (\s -> "'" <> s <> "'") $ cmd : args]
-                ShellCommand cmd -> RawCommand "bash" ["-c", cmd]
-            else cmdspec cp
-
--- | Since we run in bash and not in cmd.exe "daml" won’t look for "daml.cmd"
--- so we use "daml.cmd" directly. Also look at the docs for `adjustCP`.
+-- | Since we run in bash and not in cmd.exe "daml" won’t look for "daml.cmd" so we use "daml.cmd" directly.
 damlName :: String
 damlName
     | isWindows = "daml.cmd"
     | otherwise = "daml"
 
+damlInstallerName :: String
+damlInstallerName
+    | isWindows = "daml.exe"
+    | otherwise = "daml"
+
 -- | Like call process but hides stdout.
 callProcessQuiet :: FilePath -> [String] -> IO ()
 callProcessQuiet cmd args = do
-    (exit, _out, err) <- readCreateProcessWithExitCode (adjustCP $ proc cmd args) ""
+    (exit, _out, err) <- readCreateProcessWithExitCode (proc cmd args) ""
     hPutStr stderr err
     unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit cmd args
 
