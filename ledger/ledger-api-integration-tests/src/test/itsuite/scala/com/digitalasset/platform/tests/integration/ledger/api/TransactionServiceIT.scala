@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.types.Ledger
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import com.digitalasset.ledger.api.domain.EventId
+import com.digitalasset.ledger.api.domain.{EventId, LedgerId}
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, _}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -19,6 +19,7 @@ import com.digitalasset.ledger.api.testing.utils.{
   MockMessages,
   SuiteResourceManagementAroundAll
 }
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
@@ -37,6 +38,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Value,
   Variant
 }
+import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.api.v1.event.EventOps._
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
@@ -55,8 +57,6 @@ import scalaz.{ICons, NonEmptyList, Tag}
 
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.Future
-import com.digitalasset.ledger.api.domain.LedgerId
-
 import scala.util.Random
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -1500,10 +1500,19 @@ class TransactionServiceIT
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
     helpers.insertCommands(
-      context.commandService.submitAndWaitForTransactionId,
+      request => applyTimeAndSubmit(request, context),
       prefix,
       commandsPerSection,
       context.ledgerId)
+  }
+
+  private def applyTimeAndSubmit(req: SubmitAndWaitRequest, context: LedgerContext) = {
+    context.commandClient().flatMap { client =>
+      val ttl = Duration.ofMillis(config.commandConfiguration.commandTtl.toMillis)
+      val updater = new CommandUpdater(client.timeProviderO, ttl, true)
+      val reqToSend = req.copy(commands = req.commands.map(updater.applyOverrides))
+      context.commandService.submitAndWaitForTransactionId(reqToSend)
+    }
   }
 
   private def insertCommandsUnique(

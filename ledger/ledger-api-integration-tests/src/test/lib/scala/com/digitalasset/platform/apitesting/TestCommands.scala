@@ -29,11 +29,7 @@ class TestTemplateIds(config: PlatformApplications.Config) {
   lazy val defaultDar: File = config.darFiles.head.toFile
   lazy val parsedPackageId: String =
     UniversalArchiveReader().readFile(defaultDar).get.main._1
-  lazy val templateIds: TestTemplateIdentifiers = {
-    println(defaultDar)
-    println(parsedPackageId)
-    new TestTemplateIdentifiers(parsedPackageId)
-  }
+  lazy val templateIds: TestTemplateIdentifiers = new TestTemplateIdentifiers(parsedPackageId)
 }
 
 class TestCommands(config: PlatformApplications.Config) {
