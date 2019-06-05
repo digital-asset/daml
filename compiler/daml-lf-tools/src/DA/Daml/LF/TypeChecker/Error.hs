@@ -142,7 +142,7 @@ instance Pretty SerializabilityRequirement where
 
 instance Pretty UnserializabilityReason where
   pPrint = \case
-    URFreeVar v -> "free type variable" <-> prettyName v
+    URFreeVar v -> "free type variable" <-> pretty v
     URFunction -> "function type"
     URForall -> "higher-ranked type"
     URUpdate -> "Update"
@@ -153,8 +153,8 @@ instance Pretty UnserializabilityReason where
     URMap -> "unapplied Map"
     URContractId -> "ContractId not applied to a template type"
     URDataType tcon ->
-      "unserializable data type" <-> prettyQualified prettyDottedName tcon
-    URHigherKinded v k -> "higher-kinded type variable" <-> prettyName v <:> pretty k
+      "unserializable data type" <-> pretty tcon
+    URHigherKinded v k -> "higher-kinded type variable" <-> pretty v <:> pretty k
     URUninhabitatedType -> "variant type without constructors"
 
 instance Pretty Error where
@@ -165,15 +165,15 @@ instance Pretty Error where
       , nest 2 (pretty err)
       ]
 
-    EUnknownTypeVar v -> "unknown type variable: " <> prettyName v
-    EShadowingTypeVar v -> "shadowing type variable: " <> prettyName v
-    EUnknownExprVar v -> "unknown expr variable: " <> prettyName v
+    EUnknownTypeVar v -> "unknown type variable: " <> pretty v
+    EShadowingTypeVar v -> "shadowing type variable: " <> pretty v
+    EUnknownExprVar v -> "unknown expr variable: " <> pretty v
     EUnknownDefinition e -> pretty e
     ETypeConAppWrongArity tapp -> "wrong arity in typecon application: " <> string (show tapp)
-    EDuplicateField name -> "duplicate field: " <> prettyName name
-    EDuplicateVariantCon name -> "duplicate variant constructor: " <> prettyName name
-    EDuplicateModule mname -> "duplicate module: " <> prettyDottedName mname
-    EDuplicateScenario name -> "duplicate scenario: " <> prettyName name
+    EDuplicateField name -> "duplicate field: " <> pretty name
+    EDuplicateVariantCon name -> "duplicate variant constructor: " <> pretty name
+    EDuplicateModule mname -> "duplicate module: " <> pretty mname
+    EDuplicateScenario name -> "duplicate scenario: " <> pretty name
     EExpectedRecordType tapp ->
       vcat [ "expected record type:", "* found: ", nest 4 $ string (show tapp) ]
     EFieldMismatch tapp rexpr ->
@@ -184,9 +184,9 @@ instance Pretty Error where
       , "* record expression: "
       , nest 4 (string $ show rexpr)
       ]
-    EExpectedVariantType qname -> "expected variant type: " <> prettyQualified prettyDottedName qname
-    EUnknownVariantCon name -> "unknown variant constructor: " <> prettyName name
-    EUnknownField name -> "unknown field: " <> prettyName name
+    EExpectedVariantType qname -> "expected variant type: " <> pretty qname
+    EUnknownVariantCon name -> "unknown variant constructor: " <> pretty name
+    EUnknownField name -> "unknown field: " <> pretty name
     EExpectedTupleType foundType ->
       "expected tuple type, but found: " <> pretty foundType
 
@@ -222,9 +222,9 @@ instance Pretty Error where
       vcat
       [ "type constructor mismatch:"
       , "* expected: "
-      , nest 4 (prettyQualified prettyDottedName expected)
+      , nest 4 (pretty expected)
       , "* found: "
-      , nest 4 (prettyQualified prettyDottedName found)
+      , nest 4 (pretty found)
       ]
     EExpectedDataType foundType ->
       "expected data type, but found: " <> pretty foundType
@@ -233,13 +233,13 @@ instance Pretty Error where
     EEmptyCase -> "empty case"
     EExpectedTemplatableType tpl ->
       "expected monomorphic record type in template definition, but found:"
-      <-> prettyDottedName tpl
+      <-> pretty tpl
     EImportCycle mods ->
-      "found import cycle:" $$ vcat (map (\m -> "*" <-> prettyDottedName m) mods)
+      "found import cycle:" $$ vcat (map (\m -> "*" <-> pretty m) mods)
     EDataTypeCycle tycons ->
-      "found data type cycle:" $$ vcat (map (\t -> "*" <-> prettyDottedName t) tycons)
+      "found data type cycle:" $$ vcat (map (\t -> "*" <-> pretty t) tycons)
     EValueCycle names ->
-      "found value cycle:" $$ vcat (map (\n -> "*" <-> prettyName n) names)
+      "found value cycle:" $$ vcat (map (\n -> "*" <-> pretty n) names)
     EExpectedSerializableType reason foundType info ->
       vcat
       [ "expected serializable type:"
@@ -263,13 +263,13 @@ instance Pretty Error where
         badRefsDoc =
           vcat $
             "Found forbidden references to functions containing party literals:"
-            : map (\badRef -> "*" <-> prettyQualified prettyName badRef) badRefs
+            : map (\badRef -> "*" <-> pretty badRef) badRefs
     ENonValueDefinition badSubExprs -> do
       vcat $ ("definition is not a value:" :) $ do
         (reason, expr) <- badSubExprs
         [string ("* " ++ reason), nest 4 (pretty expr)]
     EKeyOperationOnTemplateWithNoKey tpl -> do
-      "tried to perform key lookup or fetch on template " <> prettyQualified prettyDottedName tpl
+      "tried to perform key lookup or fetch on template " <> pretty tpl
     EInvalidKeyExpression expr ->
       vcat
       [ "expected valid key expression:"
@@ -286,8 +286,8 @@ instance Pretty Context where
     ContextNone ->
       string "<none>"
     ContextDefDataType m dt ->
-      hsep [ "data type", prettyDottedName (moduleName m) <> "." <>  prettyDottedName (dataTypeCon dt) ]
+      hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
     ContextTemplate m t p ->
-      hsep [ "template", prettyDottedName (moduleName m) <> "." <>  prettyDottedName (tplTypeCon t), string (show p) ]
+      hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
     ContextDefValue m v ->
-      hsep [ "value", prettyDottedName (moduleName m) <> "." <> prettyName (fst $ dvalBinder v) ]
+      hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
