@@ -18,11 +18,9 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger._
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain.RejectionReason._
+import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.platform.common.util.DirectExecutionContext
-
-import com.digitalasset.ledger.backend.api.v1.RejectionReason
-import com.digitalasset.ledger.backend.api.v1.RejectionReason._
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
@@ -41,7 +39,6 @@ import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.Try
 import scala.util.control.NonFatal
-
 import scalaz.syntax.tag._
 
 private class PostgresLedgerDao(

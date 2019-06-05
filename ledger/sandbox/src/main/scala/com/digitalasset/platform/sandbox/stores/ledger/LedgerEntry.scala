@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger._
-import com.digitalasset.ledger.backend.api.v1.RejectionReason
+import com.digitalasset.ledger.api.domain.RejectionReason
 
 sealed abstract class LedgerEntry extends Product with Serializable {
   def recordedAt: Instant
@@ -18,7 +18,6 @@ sealed abstract class LedgerEntry extends Product with Serializable {
   def maybeCommandId: Option[CommandId]
 }
 
-//TODO: use domain types here, see: com.digitalasset.ledger.api.domain.*
 object LedgerEntry {
 
   final case class Rejection(
