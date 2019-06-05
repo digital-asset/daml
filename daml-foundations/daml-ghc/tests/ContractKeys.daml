@@ -1,7 +1,9 @@
 -- Check that the compiler bits of contract keys work.
--- @SINCE-LF 1.3
+-- @SINCE-LF 1.4
 daml 1.2
 module ContractKeys where
+
+import DA.Assert
 
 template AccountInvitation with
     account : Account
@@ -19,7 +21,7 @@ template Account with
   where
     signatory [bank, accountHolder]
 
-    key (bank, accountNumber._1, this.accountNumber._2) : (Party, Text, Int)
+    key (bank, accountNumber._1 <> show (this.accountNumber._2)) : (Party, Text)
     maintainer key._1
 
 test = scenario do
@@ -29,7 +31,7 @@ test = scenario do
             bank
             accountHolder = alice
             accountNumber = ("CH", 123)
-    let accountKey = (bank, "CH", 123)
+    let accountKey = key account
     invitationCid <- submit bank do
         create AccountInvitation with account
     accountCid <- submit alice do
@@ -37,9 +39,9 @@ test = scenario do
 
     accountCid' <- submit bank do
         lookupByKey accountKey
-    assert $ accountCid' == Some accountCid
+    accountCid' === Some accountCid
 
     (accountCid', account') <- submit bank do
         fetchByKey accountKey
-    assert $ accountCid' == accountCid
-    assert $ account' == account
+    accountCid' === accountCid
+    account' === account
