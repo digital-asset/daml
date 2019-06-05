@@ -6,24 +6,23 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.Transaction.{TContractId, NodeId, Value}
+import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
+import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   Resource,
   SuiteResourceManagementAroundEach
 }
-import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
 import com.digitalasset.platform.testing.MultiResourceBase
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
-
-import com.digitalasset.ledger.api.domain.LedgerId
 
 import scala.concurrent.duration._
 import scala.language.implicitConversions
@@ -77,17 +76,21 @@ class TransactionMRTComplianceIT
           Map.empty,
           ImmArray.empty,
           Set.empty)
-      val submission = TransactionSubmission(
-        "cmdId",
-        Some("wfid"),
-        "submitter",
-        LET,
-        MRT,
-        "appId",
-        emptyBlinding,
-        dummyTransaction)
 
-      ledger.publishTransaction(submission).map(_ shouldBe SubmissionResult.Acknowledged)
+      val submitterInfo = SubmitterInfo(
+        Ref.Party.assertFromString("submitter"),
+        Ref.LedgerString.assertFromString("appId"),
+        Ref.LedgerString.assertFromString("cmdId"),
+        Timestamp.assertFromInstant(MRT)
+      )
+      val transactionMeta = TransactionMeta(
+        Timestamp.assertFromInstant(LET),
+        Some(Ref.LedgerString.assertFromString("wfid"))
+      )
+
+      ledger
+        .publishTransaction(submitterInfo, transactionMeta, dummyTransaction)
+        .map(_ shouldBe SubmissionResult.Acknowledged)
       ledger
         .ledgerEntries(None)
         .runWith(Sink.head)

@@ -55,6 +55,7 @@ data BuiltinCommand
     = Version VersionOptions
     | Exec String [String]
     | Install InstallOptions
+    | Uninstall SdkVersion
     deriving (Eq, Show)
 
 data Command

@@ -10,7 +10,6 @@ module DA.Cli.Damlc.Test (
     ) where
 
 import Control.Monad.Except
-import qualified Control.Monad.Managed             as Managed
 import qualified DA.Pretty
 import DA.Cli.Damlc.Base
 import Data.Maybe
@@ -45,7 +44,7 @@ execTest inFiles color mbJUnitOutput cliOptions = do
     opts <- Compiler.mkOptions cliOptions
     let eventLogger (EventFileDiagnostics (fp, diags)) = printDiagnostics $ map (fp,) diags
         eventLogger _ = return ()
-    Managed.with (Compiler.newIdeState' opts (Just eventLogger) loggerH) $ \h -> do
+    Compiler.withIdeState opts loggerH eventLogger $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         testRun h inFiles lfVersion color mbJUnitOutput
         diags <- CompilerService.getDiagnostics h

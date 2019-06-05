@@ -97,7 +97,6 @@ def daml_ghc_integration_test(name, main_function):
             "ghc-lib-parser",
             "lens",
             "lens-aeson",
-            "managed",
             "optparse-applicative",
             "process",
             "proto3-suite",

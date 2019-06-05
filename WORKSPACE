@@ -443,9 +443,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "8625d6565f28a609ab26ee4d3b2a114ac4c9d65d"
+HASKELL_LSP_COMMIT = "f9e4f732bbbb016f5f45cb6377bb46170a923924"
 
-HASKELL_LSP_HASH = "93395695b9cbc9661e731847ede01ad7cf91db1b0fc1cb3abb31ebebe1115424"
+HASKELL_LSP_HASH = "ddf5a27f013036807fcc57d7f27043fcf05fbad2c7e7924b6715f3b15172d229"
 
 hazel_repositories(
     core_packages = dicts.add(
@@ -491,7 +491,7 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("0.20190601", "18b20e32476de024099c0346da037f4b171cef4971cea2cb02d23954e0272fe5", "eea867613e475ccae1a1a362869c834f2d66f08191c9b5f6b165d5f0ff10406d") +
+            hazel_ghclibs("0.20190604.1", "283372061a51a6524f2c2940dc328985317cb5134a2beb8fd2a847a9e6e157d5", "522ab61c7fe386e8c8c2d396d063bc5b690e33b056defbb8304141890ec6786e") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
@@ -521,6 +521,13 @@ hazel_repositories(
                 HASKELL_LSP_HASH,
                 name = "haskell-lsp-types",
                 directory = "/haskell-lsp-types/",
+            ) +
+            # This corresponds to our custom-methods branch which makes
+            # lsp-test work with our custom-methods of haskell-lsp.
+            hazel_github(
+                "lsp-test",
+                "4a665666642cebb574fad5035e5e22385e6eae12",
+                "4c46f21139b96ce49251a958db8061ee76a108defb43ee0082ba765339b09b0c",
             ),
         pkgs = packages,
     ),

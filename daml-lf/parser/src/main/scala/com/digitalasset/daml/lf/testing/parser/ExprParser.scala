@@ -21,7 +21,7 @@ private[parser] object ExprParser {
       eRecCon |
       eRecProj |
       eRecUpd |
-      eVariantCon |
+      eVariantOrEnumCon |
       eTupleCon |
       eTupleUpd |
       eTupleProj |
@@ -123,10 +123,14 @@ private[parser] object ExprParser {
         ERecUpd(tConApp, fName, record, fValue)
     }
 
-  private lazy val eVariantCon: Parser[Expr] =
-    fullIdentifier ~ (`:` ~> id) ~ rep(argTyp) ~! expr0 ^^ {
-      case tName ~ vName ~ argsTyp ~ arg =>
+  private lazy val eVariantOrEnumCon: Parser[Expr] =
+    fullIdentifier ~ (`:` ~> id) ~ rep(argTyp) ~ opt(expr0) ^^ {
+      case tName ~ vName ~ argsTyp ~ Some(arg) =>
         EVariantCon(TypeConApp(tName, ImmArray(argsTyp)), vName, arg)
+      case _ ~ _ ~ argsTyp ~ None if argsTyp.nonEmpty =>
+        throw new java.lang.Error("enum type do not take type parameters")
+      case tName ~ vName ~ _ ~ None =>
+        EEnumCon(tName, vName)
     }
 
   private lazy val eTupleCon: Parser[Expr] =
@@ -174,9 +178,11 @@ private[parser] object ExprParser {
       `cons` ~>! id ~ id ^^ { case x1 ~ x2 => CPCons(x1, x2) } |
       `none` ^^^ CPNone |
       `some` ~>! id ^^ CPSome |
-      (fullIdentifier <~ `:`) ~ id ~ id ^^ {
-        case tyCon ~ vName ~ x =>
+      (fullIdentifier <~ `:`) ~ id ~ opt(id) ^^ {
+        case tyCon ~ vName ~ Some(x) =>
           CPVariant(tyCon, vName, x)
+        case tyCon ~ vName ~ None =>
+          CPEnum(tyCon, vName)
       } |
       Token.`_` ^^^ CPDefault
 
@@ -228,9 +234,11 @@ private[parser] object ExprParser {
     "TO_TEXT_PARTY" -> BToTextParty,
     "TO_TEXT_DATE" -> BToTextDate,
     "TO_QUOTED_TEXT_PARTY" -> BToQuotedTextParty,
+    "TO_TEXT_CODE_POINTS" -> BToTextCodePoints,
     "FROM_TEXT_PARTY" -> BFromTextParty,
     "FROM_TEXT_INT64" -> BFromTextInt64,
     "FROM_TEXT_DECIMAL" -> BFromTextDecimal,
+    "FROM_TEXT_CODE_POINTS" -> BFromTextCodePoints,
     "ERROR" -> BError,
     "LESS_INT64" -> BLessInt64,
     "LESS_DECIMAL" -> BLessDecimal,

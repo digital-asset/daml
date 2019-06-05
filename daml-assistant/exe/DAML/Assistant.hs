@@ -197,6 +197,9 @@ handleCommand env@Env{..} = \case
     Builtin (Install options) -> wrapErr "Installing the SDK." $ do
         install options envDamlPath envProjectPath
 
+    Builtin (Uninstall version) -> do
+        uninstallVersion env version
+
     Builtin (Exec cmd args) -> do
         wrapErr "Running executable in daml environment." $ do
             path <- fromMaybe cmd <$> findExecutable cmd

@@ -3,6 +3,7 @@
 
 module DA.Daml.GHC.Compiler.Options
     ( Options(..)
+    , EnableScenarioService(..)
     , defaultOptionsIO
     , defaultOptions
     , mkOptions
@@ -64,16 +65,20 @@ data Options = Options
     -- ^ Whether to enable debugging output
   , optGhcCustomOpts :: [String]
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
-  , optScenarioService :: Bool
-    -- ^ disable scenario service when False, but not necessarily enabled when True
+  , optScenarioService :: EnableScenarioService
+    -- ^ Controls whether the scenario service is started.
   } deriving Show
+
+
+newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
+    deriving Show
 
 -- | Convert to the DAML-independent CompileOpts type.
 -- TODO (MK) Cleanup as part of the Options vs CompileOpts cleanup
 toCompileOpts :: Options -> Compile.IdeOptions
 toCompileOpts Options{..} =
     Compile.IdeOptions
-      { optPreprocessor = damlPreprocessor
+      { optPreprocessor = damlPreprocessor optMbPackageName
       , optGhcSession = do
             env <- liftIO $ runGhcFast $ do
                 setupDamlGHC optImportPath optMbPackageName optGhcCustomOpts
@@ -217,7 +222,7 @@ defaultOptions mbVersion =
         , optDamlLfVersion = fromMaybe LF.versionDefault mbVersion
         , optDebug = False
         , optGhcCustomOpts = []
-        , optScenarioService = True
+        , optScenarioService = EnableScenarioService True
         }
 
 getBaseDir :: IO FilePath

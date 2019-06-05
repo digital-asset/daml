@@ -25,7 +25,6 @@ da_haskell_library(
         "gitrev",
         "lens-aeson",
         "lens",
-        "managed",
         "memory",
         "mtl",
         "network",

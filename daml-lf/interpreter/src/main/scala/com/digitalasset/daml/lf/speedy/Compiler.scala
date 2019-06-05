@@ -190,9 +190,11 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BToTextParty => SBToText
               case BToTextDate => SBToText
               case BToQuotedTextParty => SBToQuotedTextParty
+              case BToTextCodePoints => SBToTextCodePoints
               case BFromTextParty => SBFromTextParty
               case BFromTextInt64 => SBFromTextInt64
               case BFromTextDecimal => SBFromTextDecimal
+              case BFromTextCodePoints => SBFromTextCodePoints
 
               case BSHA256Text => SBSHA256Text
 
@@ -326,6 +328,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   withBinder(binder) { _ =>
                     SCaseAlt(SCPVariant(tycon, variant), translate(expr))
                   }
+
+                case CPEnum(tycon, constructor) =>
+                  SCaseAlt(SCPEnum(tycon, constructor), translate(expr))
+
                 case CPNil =>
                   SCaseAlt(SCPNil, translate(expr))
 

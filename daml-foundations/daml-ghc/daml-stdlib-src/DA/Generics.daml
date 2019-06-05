@@ -40,7 +40,7 @@ daml 1.2
 -- <http://hackage.haskell.org/package/generic-deriving> package, which
 -- contains many useful generic functions.
 
-module GHC.Generics (
+module DA.Generics (
 -- * Introduction
 --
 -- |
@@ -725,7 +725,6 @@ module GHC.Generics (
   , Fixity(..), FixityI(..), Associativity(..), prec
   , SourceUnpackedness(..), SourceStrictness(..), DecidedStrictness(..)
   , Meta(..), MetaData0(..), MetaCons0(..), MetaSel0(..)
-  , Maybe(..)
 
   -- * Generic type classes
   , Generic(..), Generic1(..)
@@ -758,6 +757,7 @@ import GHC.Show    ( Show(..), showString )
 import GHC.CString (fromString)
 import GHC.Integer.Type (fromInteger)
 import Control.Exception.Base
+import DA.Internal.Prelude (Optional(..))
 
 -- | The kind of types with values. For example @Int :: Type@.
 -- [DA] copied from ghc-prim/GHC/Types.hs. Usually set to
@@ -1420,13 +1420,10 @@ data Meta = MetaData MetaData0
 
 data MetaData0 = MetaData0 {name :: Symbol, module_ :: Symbol, package :: Symbol, isNewType :: Bool}
 data MetaCons0 = MetaCons0 {name :: Symbol, fixity :: FixityI, hasRecordSelectors :: Bool}
-data MetaSel0 = MetaSel0 {  mbRecordName :: Maybe Symbol
+data MetaSel0 = MetaSel0 {  mbRecordName :: Optional Symbol
                           , sourceUnpackedness :: SourceUnpackedness
                           , sourceStrictness :: SourceStrictness
-                          , decidedStrictness ::DecidedStrictness
                           }
-
-data Maybe a = Just a | Nothing
 
 --------------------------------------------------------------------------------
 -- Derived instances

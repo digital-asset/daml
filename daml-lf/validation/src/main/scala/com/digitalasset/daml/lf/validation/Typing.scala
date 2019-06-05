@@ -120,9 +120,11 @@ private[validation] object Typing {
       BToTextDate -> (TDate ->: TText),
       BSHA256Text -> (TText ->: TText),
       BToQuotedTextParty -> (TParty ->: TText),
+      BToTextCodePoints -> (TList(TInt64) ->: TText),
       BFromTextParty -> (TText ->: TOptional(TParty)),
       BFromTextInt64 -> (TText ->: TOptional(TInt64)),
       BFromTextDecimal -> (TText ->: TOptional(TDecimal)),
+      BFromTextCodePoints -> (TText ->: TList(TInt64)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
       BLessInt64 -> tComparison(BTInt64),
@@ -475,6 +477,22 @@ private[validation] object Typing {
                 if (scrutTCon != patnTCon) throw ETypeConMismatch(ctx, patnTCon, scrutTCon)
                 val subst = TypeSubst((tparams.map(_._1) zip scrutTArgs).toMap)
                 introExprVar(varName, subst(conArgType))
+              case _ =>
+                throw EExpectedDataType(ctx, scrutType)
+            }
+          case _ =>
+            throw EExpectedVariantType(ctx, patnTCon)
+        }
+
+      case CPEnum(patnTCon, con) =>
+        val DDataType(_, _, dataCons) = lookupDataType(ctx, patnTCon)
+        dataCons match {
+          case DataEnum(enumCons) =>
+            if (!enumCons.toSeq.contains(con)) throw EUnknownEnumCon(ctx, con)
+            scrutType match {
+              case TTyCon(scrutTCon) =>
+                if (scrutTCon != patnTCon) throw ETypeConMismatch(ctx, patnTCon, scrutTCon)
+                this
               case _ =>
                 throw EExpectedDataType(ctx, scrutType)
             }

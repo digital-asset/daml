@@ -18,7 +18,6 @@ import qualified Data.Text.Extended  as T
 
 import Data.Either
 import Control.Monad
-import Control.Monad.Managed (with)
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
@@ -29,7 +28,7 @@ import qualified DA.Service.Logger.Impl.Pure as Logger
 import Development.IDE.State.API.Testing
 
 main :: IO ()
-main = with (SS.startScenarioService (\_ -> pure ()) Logger.makeNopHandle) $ \scenarioService -> do
+main = SS.withScenarioService Logger.makeNopHandle $ \scenarioService -> do
   -- The scenario service is a shared resource so running tests in parallel doesn’t work properly.
   setEnv "TASTY_NUM_THREADS" "1" True
   -- The startup of the scenario service is fairly expensive so instead of launching a separate

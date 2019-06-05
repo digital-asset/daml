@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import akka.stream.{KillSwitches, ActorMaterializer}
 import akka.stream.scaladsl.{RestartSource, Sink}
 import com.digitalasset.extractor.Types._
-import com.digitalasset.extractor.Main.log
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
 import com.digitalasset.extractor.ledger.LedgerReader
 import com.digitalasset.extractor.ledger.types.TransactionTree
@@ -33,9 +32,10 @@ import scala.concurrent.Future
 import scala.util.control.NonFatal
 import scalaz._
 import Scalaz._
+import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.tag._
 
-class Extractor[T <: Target](config: ExtractorConfig, target: T) {
+class Extractor[T <: Target](config: ExtractorConfig, target: T) extends StrictLogging {
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
@@ -58,7 +58,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
 
       writer = Writer(config, target, client.ledgerId.unwrap)
 
-      _ = log.info(s"Connected to ledger ${client.ledgerId}\n\n")
+      _ = logger.info(s"Connected to ledger ${client.ledgerId}\n\n")
 
       endResponse <- client.transactionClient.getLedgerEnd
 
@@ -66,7 +66,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
         throw new RuntimeException("Failed to get ledger end: response did not contain an offset.")
       )
 
-      _ = log.trace(s"Ledger end: ${endResponse}")
+      _ = logger.trace(s"Ledger end: ${endResponse}")
 
       _ = startOffSet = config.from.value
 
@@ -76,11 +76,11 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
 
       _ = lastOffset.foreach(l => startOffSet = LedgerOffset.Value.Absolute(l))
 
-      _ = log.trace("Handling packages...")
+      _ = logger.trace("Handling packages...")
 
       packageStore <- fetchPackages(client, writer)
       allTemplateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
-      _ = log.info(s"All available template ids: {}", allTemplateIds)
+      _ = logger.info(s"All available template ids: ${allTemplateIds}")
 
       requestedTemplateIds <- Future.successful(
         TemplateIds.intersection(allTemplateIds, config.templateConfigs))
@@ -92,19 +92,19 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
           Some(LedgerOffset(LedgerOffset.Value.Absolute(offset)))
       }
 
-      _ = log.info("Handling transactions...")
+      _ = logger.info("Handling transactions...")
 
       _ <- streamTransactions(client, writer, streamUntil, requestedTemplateIds)
 
-      _ = log.info("Done...")
+      _ = logger.info("Done...")
     } yield ()
 
     result flatMap { _ =>
-      log.info("Success: extraction finished, exiting...")
+      logger.info("Success: extraction finished, exiting...")
       shutdown()
     } recoverWith {
       case NonFatal(fail) =>
-        log.error(s"FAILURE:\n$fail.\nExiting...")
+        logger.error(s"FAILURE:\n$fail.\nExiting...")
         shutdown *> Future.failed(fail)
     }
   }
@@ -134,10 +134,10 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
       streamUntil: Option[LedgerOffset],
       requestedTemplateIds: Set[api.value.Identifier]
   ): Future[Unit] = {
-    log.info("Requested template IDs: {}", requestedTemplateIds)
+    logger.info(s"Requested template IDs: ${requestedTemplateIds}")
 
     val transactionFilter = selectTransactions(config.parties)
-    log.info(s"Setting transaction filter: {}", transactionFilter)
+    logger.info(s"Setting transaction filter: ${transactionFilter}")
 
     val trim: api.transaction.TransactionTree => api.transaction.TransactionTree =
       if (requestedTemplateIds.isEmpty) identity
@@ -149,7 +149,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
         maxBackoff = 30.seconds,
         randomFactor = 0.2 // adds 20% "noise" to vary the intervals slightly
       ) { () =>
-        log.info(s"Starting streaming transactions from ${startOffSet}...")
+        logger.info(s"Starting streaming transactions from ${startOffSet}...")
         client.transactionClient
           .getTransactionTrees(
             LedgerOffset(startOffSet),
@@ -194,7 +194,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
   )(
       c: RefreshPackages
   ): Future[Unit] = {
-    log.info(
+    logger.info(
       s"Encountered a previously unwitnessed type: ${c.missing}." +
         s" Refreshing packages..."
     )
@@ -228,13 +228,11 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) {
 
     config.tlsConfig.client
       .fold {
-        log.debug(
-          "Connecting to {}:{}, using a plaintext connection",
-          config.ledgerHost,
-          config.ledgerPort)
+        logger.debug(
+          s"Connecting to ${config.ledgerHost}:${config.ledgerPort}, using a plaintext connection")
         builder.usePlaintext()
       } { sslContext =>
-        log.debug("Connecting to {}:{}, using TLS", config.ledgerHost, config.ledgerPort)
+        logger.debug(s"Connecting to ${config.ledgerHost}:${config.ledgerPort}, using TLS")
         builder.sslContext(sslContext).negotiationType(NegotiationType.TLS)
       }
 

@@ -27,7 +27,6 @@ da_haskell_library(
         "http-conduit",
         "http-types",
         "lens",
-        "managed",
         "monad-control",
         "mtl",
         "optparse-applicative",
@@ -65,7 +64,6 @@ da_haskell_test(
     srcs = glob(["tests/**/*.hs"]),
     hazel_deps = [
         "aeson",
-        "managed",
         "tasty",
         "base",
         "directory",

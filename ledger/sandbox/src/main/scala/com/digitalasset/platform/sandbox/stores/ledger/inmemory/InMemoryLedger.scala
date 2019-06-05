@@ -7,14 +7,19 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v1.{
+  SubmissionResult,
+  SubmittedTransaction,
+  SubmitterInfo,
+  TransactionMeta
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.TransactionIdString
+import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId}
-import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
+import com.digitalasset.ledger.api.domain.{ApplicationId, CommandId, LedgerId, RejectionReason}
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
@@ -79,71 +84,86 @@ class InMemoryLedger(
       ()
     })
 
-  override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
+  override def publishTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction): Future[SubmissionResult] =
     Future.successful(
       this.synchronized[SubmissionResult] {
         val (newDeduplicator, isDuplicate) =
-          deduplicator.checkAndAdd(ApplicationId(tx.applicationId), CommandId(tx.commandId))
+          deduplicator.checkAndAdd(
+            ApplicationId(submitterInfo.applicationId),
+            CommandId(submitterInfo.commandId))
         deduplicator = newDeduplicator
         if (isDuplicate)
           logger.warn(
             "Ignoring duplicate submission for applicationId {}, commandId {}",
-            tx.applicationId: Any,
-            tx.commandId)
+            submitterInfo.applicationId: Any,
+            submitterInfo.commandId)
         else
-          handleSuccessfulTx(entries.toTransactionId, tx)
+          handleSuccessfulTx(entries.toTransactionId, submitterInfo, transactionMeta, transaction)
 
         SubmissionResult.Acknowledged
       }
     )
 
   private def handleSuccessfulTx(
-      transactionId: TransactionIdString,
-      tx: TransactionSubmission): Unit = {
+      trId: TransactionIdString,
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction): Unit = {
     val recordTime = timeProvider.getCurrentTime
-    if (recordTime.isAfter(tx.maximumRecordTime)) {
+    if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
       // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
       // than the time window between LET and MRT allows for.
       // See https://github.com/digital-asset/daml/issues/987
       handleError(
-        tx,
+        submitterInfo,
         RejectionReason.TimedOut(
-          s"RecordTime $recordTime is after MaxiumRecordTime ${tx.maximumRecordTime}"))
+          s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime.toInstant}"))
     } else {
       val toAbsCoid: ContractId => AbsoluteContractId =
-        SandboxEventIdFormatter.makeAbsCoid(transactionId)
-      val mappedTx = tx.transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
+        SandboxEventIdFormatter.makeAbsCoid(trId)
+
+      //note, that this cannot fail as it's already validated
+      val blindingInfo = Blinding
+        .checkAuthorizationAndBlind(transaction, Set(submitterInfo.submitter))
+        .fold(authorisationError => sys.error(authorisationError.detailMsg), identity)
+
+      val mappedTx = transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(
-        let = tx.ledgerEffectiveTime,
-        workflowId = tx.workflowId,
-        transactionId = transactionId,
-        transaction = mappedTx,
-        explicitDisclosure = tx.blindingInfo.explicitDisclosure,
-        localImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure,
-        globalImplicitDisclosure = tx.blindingInfo.globalImplicitDisclosure,
+        transactionMeta.ledgerEffectiveTime.toInstant,
+        trId,
+        transactionMeta.workflowId,
+        mappedTx,
+        blindingInfo.explicitDisclosure,
+        blindingInfo.localImplicitDisclosure,
+        blindingInfo.globalImplicitDisclosure,
       )
       acsRes match {
         case Left(err) =>
-          handleError(tx, RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
+          handleError(
+            submitterInfo,
+            RejectionReason.Inconsistent(s"Reason: ${err.mkString("[", ", ", "]")}"))
         case Right(newAcs) =>
           acs = newAcs
           val recordTx = mappedTx
-            .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
+            .mapNodeId(SandboxEventIdFormatter.fromTransactionId(trId, _))
           val recordBlinding =
-            tx.blindingInfo.explicitDisclosure.map {
+            blindingInfo.explicitDisclosure.map {
               case (nid, parties) =>
-                (SandboxEventIdFormatter.fromTransactionId(transactionId, nid), parties)
+                (SandboxEventIdFormatter.fromTransactionId(trId, nid), parties)
             }
           val entry = LedgerEntry
             .Transaction(
-              tx.commandId,
-              transactionId,
-              tx.applicationId,
-              tx.submitter,
-              tx.workflowId,
-              tx.ledgerEffectiveTime,
+              submitterInfo.commandId,
+              trId,
+              submitterInfo.applicationId,
+              submitterInfo.submitter,
+              transactionMeta.workflowId,
+              transactionMeta.ledgerEffectiveTime.toInstant,
               recordTime,
               recordTx,
               recordBlinding
@@ -155,10 +175,15 @@ class InMemoryLedger(
 
   }
 
-  private def handleError(tx: TransactionSubmission, reason: RejectionReason): Unit = {
+  private def handleError(submitterInfo: SubmitterInfo, reason: RejectionReason): Unit = {
     logger.warn(s"Publishing error to ledger: ${reason.description}")
     entries.publish(
-      Rejection(timeProvider.getCurrentTime, tx.commandId, tx.applicationId, tx.submitter, reason)
+      Rejection(
+        timeProvider.getCurrentTime,
+        submitterInfo.commandId,
+        submitterInfo.applicationId,
+        submitterInfo.submitter,
+        reason)
     )
     ()
   }

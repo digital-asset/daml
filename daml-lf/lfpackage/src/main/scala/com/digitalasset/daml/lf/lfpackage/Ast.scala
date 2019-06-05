@@ -296,103 +296,105 @@ object Ast {
 
   sealed abstract class BuiltinFunction(val arity: Int) extends Product with Serializable
 
-  final case object BTrace extends BuiltinFunction(2) // :: ∀a. Text -> a -> a
+  final case object BTrace extends BuiltinFunction(2) // : ∀a. Text -> a -> a
 
   // Decimal arithmetic
-  final case object BAddDecimal extends BuiltinFunction(2) // ∷ Decimal → Decimal → Decimal
-  final case object BSubDecimal extends BuiltinFunction(2) // ∷ Decimal → Decimal → Decimal
-  final case object BMulDecimal extends BuiltinFunction(2) // ∷ Decimal → Decimal → Decimal
-  final case object BDivDecimal extends BuiltinFunction(2) // ∷ Decimal → Decimal → Decimal
-  final case object BRoundDecimal extends BuiltinFunction(2) // ∷ Integer → Decimal → Decimal
+  final case object BAddDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
+  final case object BSubDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
+  final case object BMulDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
+  final case object BDivDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Decimal
+  final case object BRoundDecimal extends BuiltinFunction(2) // : Integer → Decimal → Decimal
 
   // Int64 arithmetic
-  final case object BAddInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Int64
-  final case object BSubInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Int64
-  final case object BMulInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Int64
-  final case object BDivInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Int64
-  final case object BModInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Int64
-  final case object BExpInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Int64
+  final case object BAddInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
+  final case object BSubInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
+  final case object BMulInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
+  final case object BDivInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
+  final case object BModInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
+  final case object BExpInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Int64
 
   // Conversions
-  final case object BInt64ToDecimal extends BuiltinFunction(1) // ∷ Int64 → Decimal
-  final case object BDecimalToInt64 extends BuiltinFunction(1) // ∷ Decimal → Int64
-  final case object BDateToUnixDays extends BuiltinFunction(1) // :: Date -> Int64
-  final case object BUnixDaysToDate extends BuiltinFunction(1) // :: Int64 -> Date
-  final case object BTimestampToUnixMicroseconds extends BuiltinFunction(1) // :: Timestamp -> Int64
-  final case object BUnixMicrosecondsToTimestamp extends BuiltinFunction(1) // :: Int64 -> Timestamp
+  final case object BInt64ToDecimal extends BuiltinFunction(1) // : Int64 → Decimal
+  final case object BDecimalToInt64 extends BuiltinFunction(1) // : Decimal → Int64
+  final case object BDateToUnixDays extends BuiltinFunction(1) // : Date -> Int64
+  final case object BUnixDaysToDate extends BuiltinFunction(1) // : Int64 -> Date
+  final case object BTimestampToUnixMicroseconds extends BuiltinFunction(1) // : Timestamp -> Int64
+  final case object BUnixMicrosecondsToTimestamp extends BuiltinFunction(1) // : Int64 -> Timestamp
 
   // Folds
-  final case object BFoldl extends BuiltinFunction(3) // ∷ ∀a b. (b → a → b) → b → List a → b
-  final case object BFoldr extends BuiltinFunction(3) // ∷ ∀a b. (a → b → b) → b → List a → b
+  final case object BFoldl extends BuiltinFunction(3) // : ∀a b. (b → a → b) → b → List a → b
+  final case object BFoldr extends BuiltinFunction(3) // : ∀a b. (a → b → b) → b → List a → b
 
   // Maps
-  final case object BMapEmpty extends BuiltinFunction(0) // :: ∀ a. Map a
-  final case object BMapInsert extends BuiltinFunction(3) // :: ∀ a. Text -> a -> Map a -> Map a
-  final case object BMapLookup extends BuiltinFunction(2) // :: ∀ a. Text -> Map a -> Optional a
-  final case object BMapDelete extends BuiltinFunction(2) // :: ∀ a. Text -> Map a -> Map a
-  final case object BMapToList extends BuiltinFunction(1) // :: ∀ a. Map a -> [Text]
-  final case object BMapSize extends BuiltinFunction(1) // :: ∀ a. Map a -> Int64
+  final case object BMapEmpty extends BuiltinFunction(0) // : ∀ a. Map a
+  final case object BMapInsert extends BuiltinFunction(3) // : ∀ a. Text -> a -> Map a -> Map a
+  final case object BMapLookup extends BuiltinFunction(2) // : ∀ a. Text -> Map a -> Optional a
+  final case object BMapDelete extends BuiltinFunction(2) // : ∀ a. Text -> Map a -> Map a
+  final case object BMapToList extends BuiltinFunction(1) // : ∀ a. Map a -> [Text]
+  final case object BMapSize extends BuiltinFunction(1) // : ∀ a. Map a -> Int64
 
   // Text functions
-  final case object BExplodeText extends BuiltinFunction(1) // ∷ Text → List Char
-  final case object BImplodeText extends BuiltinFunction(1) // :: List Text -> Text
-  final case object BAppendText extends BuiltinFunction(2) // ∷ Text → Text → Text
+  final case object BExplodeText extends BuiltinFunction(1) // : Text → List Char
+  final case object BImplodeText extends BuiltinFunction(1) // : List Text -> Text
+  final case object BAppendText extends BuiltinFunction(2) // : Text → Text → Text
 
-  final case object BToTextInt64 extends BuiltinFunction(1) // ∷ Int64 → Text
-  final case object BToTextDecimal extends BuiltinFunction(1) // ∷ Decimal → Text
-  final case object BToTextText extends BuiltinFunction(1) // ∷ Text → Text
-  final case object BToTextTimestamp extends BuiltinFunction(1) // ∷ Timestamp → Text
-  final case object BToTextParty extends BuiltinFunction(1) // ∷ Party → Text
-  final case object BToTextDate extends BuiltinFunction(1) // :: Date -> Text
-  final case object BToQuotedTextParty extends BuiltinFunction(1) // :: Party -> Text
-  final case object BFromTextParty extends BuiltinFunction(1) // :: Text -> Optional Party
-  final case object BFromTextInt64 extends BuiltinFunction(1) // :: Text -> Optional Int64
-  final case object BFromTextDecimal extends BuiltinFunction(1) // :: Text -> Optional Decimal
+  final case object BToTextInt64 extends BuiltinFunction(1) //  Int64 → Text
+  final case object BToTextDecimal extends BuiltinFunction(1) // : Decimal → Text
+  final case object BToTextText extends BuiltinFunction(1) // : Text → Text
+  final case object BToTextTimestamp extends BuiltinFunction(1) // : Timestamp → Text
+  final case object BToTextParty extends BuiltinFunction(1) // : Party → Text
+  final case object BToTextDate extends BuiltinFunction(1) // : Date -> Text
+  final case object BToQuotedTextParty extends BuiltinFunction(1) // : Party -> Text
+  final case object BToTextCodePoints extends BuiltinFunction(1) // : [Int64] -> Text
+  final case object BFromTextParty extends BuiltinFunction(1) // : Text -> Optional Party
+  final case object BFromTextInt64 extends BuiltinFunction(1) // : Text -> Optional Int64
+  final case object BFromTextDecimal extends BuiltinFunction(1) // : Text -> Optional Decimal
+  final case object BFromTextCodePoints extends BuiltinFunction(1) // : Text -> List Int64
 
-  final case object BSHA256Text extends BuiltinFunction(arity = 1) // :: Text -> Text
+  final case object BSHA256Text extends BuiltinFunction(arity = 1) // : Text -> Text
 
   // Errors
-  final case object BError extends BuiltinFunction(1) // ∷ ∀a. Text → a
+  final case object BError extends BuiltinFunction(1) // : ∀a. Text → a
 
   // Comparisons
-  final case object BLessInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Bool
-  final case object BLessDecimal extends BuiltinFunction(2) // ∷ Decimal → Decimal → Bool
-  final case object BLessText extends BuiltinFunction(2) // ∷ Text → Text → Bool
-  final case object BLessTimestamp extends BuiltinFunction(2) // ∷ Timestamp → Timestamp → Bool
-  final case object BLessDate extends BuiltinFunction(2) // ∷ Date → Date → Bool
-  final case object BLessParty extends BuiltinFunction(2) // ∷ Party → Party → Bool
+  final case object BLessInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
+  final case object BLessDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BLessText extends BuiltinFunction(2) // : Text → Text → Bool
+  final case object BLessTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
+  final case object BLessDate extends BuiltinFunction(2) // : Date → Date → Bool
+  final case object BLessParty extends BuiltinFunction(2) // : Party → Party → Bool
 
-  final case object BLessEqInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Bool
-  final case object BLessEqDecimal extends BuiltinFunction(2) // ∷ Decimal → Decimal → Bool
-  final case object BLessEqText extends BuiltinFunction(2) // ∷ Text → Text → Bool
-  final case object BLessEqTimestamp extends BuiltinFunction(2) // ∷ Timestamp → Timestamp → Bool
-  final case object BLessEqDate extends BuiltinFunction(2) // ∷ Date → Date → Bool
-  final case object BLessEqParty extends BuiltinFunction(2) // ∷ Party → Party → Bool
+  final case object BLessEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
+  final case object BLessEqDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BLessEqText extends BuiltinFunction(2) // : Text → Text → Bool
+  final case object BLessEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
+  final case object BLessEqDate extends BuiltinFunction(2) // : Date → Date → Bool
+  final case object BLessEqParty extends BuiltinFunction(2) // : Party → Party → Bool
 
-  final case object BGreaterInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Bool
-  final case object BGreaterDecimal extends BuiltinFunction(2) // ∷ Decimal → Decimal → Bool
-  final case object BGreaterText extends BuiltinFunction(2) // ∷ Text → Text → Bool
-  final case object BGreaterTimestamp extends BuiltinFunction(2) // ∷ Timestamp → Timestamp → Bool
-  final case object BGreaterDate extends BuiltinFunction(2) // ∷ Date → Date → Bool
-  final case object BGreaterParty extends BuiltinFunction(2) // ∷ Party → Party → Bool
+  final case object BGreaterInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
+  final case object BGreaterDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BGreaterText extends BuiltinFunction(2) // : Text → Text → Bool
+  final case object BGreaterTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
+  final case object BGreaterDate extends BuiltinFunction(2) // : Date → Date → Bool
+  final case object BGreaterParty extends BuiltinFunction(2) // : Party → Party → Bool
 
-  final case object BGreaterEqInt64 extends BuiltinFunction(2) // ∷ Int64 → Int64 → Bool
-  final case object BGreaterEqDecimal extends BuiltinFunction(2) // ∷ Decimal → Decimal → Bool
-  final case object BGreaterEqText extends BuiltinFunction(2) // ∷ Text → Text → Bool
-  final case object BGreaterEqTimestamp extends BuiltinFunction(2) // ∷ Timestamp → Timestamp → Bool
-  final case object BGreaterEqDate extends BuiltinFunction(2) // ∷ Date → Date → Bool
-  final case object BGreaterEqParty extends BuiltinFunction(2) // ∷ Party → Party → Bool
+  final case object BGreaterEqInt64 extends BuiltinFunction(2) // : Int64 → Int64 → Bool
+  final case object BGreaterEqDecimal extends BuiltinFunction(2) // : Decimal → Decimal → Bool
+  final case object BGreaterEqText extends BuiltinFunction(2) // : Text → Text → Bool
+  final case object BGreaterEqTimestamp extends BuiltinFunction(2) // : Timestamp → Timestamp → Bool
+  final case object BGreaterEqDate extends BuiltinFunction(2) // : Date → Date → Bool
+  final case object BGreaterEqParty extends BuiltinFunction(2) // : Party → Party → Bool
 
-  final case object BEqualInt64 extends BuiltinFunction(2) // :: Int64 -> Int64 -> Bool
-  final case object BEqualDecimal extends BuiltinFunction(2) // :: Decimal -> Decimal -> Bool
-  final case object BEqualText extends BuiltinFunction(2) // :: Text -> Text -> Bool
-  final case object BEqualTimestamp extends BuiltinFunction(2) // :: Timestamp -> Timestamp -> Bool
-  final case object BEqualDate extends BuiltinFunction(2) // :: Date -> Date -> Bool
-  final case object BEqualParty extends BuiltinFunction(2) // :: Party -> Party -> Bool
-  final case object BEqualBool extends BuiltinFunction(2) // :: Bool -> Bool -> Bool
-  final case object BEqualList extends BuiltinFunction(3) // :: ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
-  final case object BEqualContractId extends BuiltinFunction(2) // :: ∀a. ContractId a -> ContractId a -> Bool
-  final case object BCoerceContractId extends BuiltinFunction(1) // :: ∀a b. ContractId a -> ContractId b
+  final case object BEqualInt64 extends BuiltinFunction(2) // : Int64 -> Int64 -> Bool
+  final case object BEqualDecimal extends BuiltinFunction(2) // : Decimal -> Decimal -> Bool
+  final case object BEqualText extends BuiltinFunction(2) // : Text -> Text -> Bool
+  final case object BEqualTimestamp extends BuiltinFunction(2) // : Timestamp -> Timestamp -> Bool
+  final case object BEqualDate extends BuiltinFunction(2) // : Date -> Date -> Bool
+  final case object BEqualParty extends BuiltinFunction(2) // : Party -> Party -> Bool
+  final case object BEqualBool extends BuiltinFunction(2) // : Bool -> Bool -> Bool
+  final case object BEqualList extends BuiltinFunction(3) // : ∀a. (a -> a -> Bool) -> List a -> List a -> Bool
+  final case object BEqualContractId extends BuiltinFunction(2) // : ∀a. ContractId a -> ContractId a -> Bool
+  final case object BCoerceContractId extends BuiltinFunction(1) // : ∀a b. ContractId a -> ContractId b
 
   //
   // Update expressions
@@ -442,6 +444,8 @@ object Ast {
   // Match on variant
   final case class CPVariant(tycon: TypeConName, variant: VariantConName, binder: ExprVarName)
       extends CasePat
+  // Match on enum
+  final case class CPEnum(tycon: TypeConName, constructor: EnumConName) extends CasePat
   // Match on primitive constructor.
   final case class CPPrimCon(pc: PrimCon) extends CasePat
   // Match on an empty list.

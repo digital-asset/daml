@@ -73,7 +73,7 @@ setOpenVirtualResources state resources = do
 
 initialise
     :: Rules ()
-    -> Maybe (Event -> IO ())
+    -> (Event -> IO ())
     -> Logger.Handle
     -> Options
     -> VFSHandle
