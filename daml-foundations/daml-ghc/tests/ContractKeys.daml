@@ -20,8 +20,7 @@ template Account with
     signatory [bank, accountHolder]
 
     key (bank, accountNumber._1, this.accountNumber._2) : (Party, Text, Int)
-    -- NOTE(MH): This duplication is intended to test both `this.bank` and `bank`.
-    maintainer [this.bank, bank]
+    maintainer key._1
 
 test = scenario do
     bank <- getParty "Bank"

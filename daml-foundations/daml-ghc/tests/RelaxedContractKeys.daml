@@ -22,8 +22,7 @@ template Account with
     signatory [bank, accountHolder]
 
     key (bank, accountNumber._1 <> show (this.accountNumber._2)) : (Party, Text)
-    -- NOTE(MH): This duplication is intended to test both `this.bank` and `bank`.
-    maintainer [this.bank, bank]
+    maintainer key._1
 
 test = scenario do
     bank <- getParty "Bank"
@@ -46,12 +45,3 @@ test = scenario do
         fetchByKey accountKey
     accountCid' === accountCid
     account' === account
-
-template Singleton with
-    signatories : [Party]
-  where
-    signatory signatories
-    -- NOTE(MH): Check that the compiler rediscovers the sub-expression
-    -- of `key` in `maintainer`.
-    key (signatory this) : [Party]
-    maintainer (signatory this)
