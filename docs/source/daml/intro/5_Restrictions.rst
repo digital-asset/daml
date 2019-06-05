@@ -13,22 +13,32 @@ To make sense of the latter, you'll also learn more about the ``Update`` and ``S
 
 Lastly, you will learn about time on the ledger and in scenarios.
 
+:download:`Download the source file for this section here. <daml/Intro_5_Restrictions.daml>`
+
 Template preconditions
------------------------
+----------------------
 
 The first kind of restriction you may want to put on the contract model are called *template pre-conditions*. These are simply restrictions on the data that can be stored on a contract from that template. Suppose, for examples, that the ``SimpleIou`` contract from :ref:`simple_iou` should only be able to store positive amounts. This can be enforced using the ``ensure`` keyword.
 
 .. literalinclude:: daml/Intro_5_Restrictions.daml
   :language: daml
   :start-after: -- RESTRICTED_IOU_BEGIN
+  :end-before: &&
+
+The ``ensure`` keyword takes a single expression of type ``Bool``. If you wanted to add more restrictions, you can use logical operators ``&&``, ``||`` and ``not`` to build up expressions. The below shows the additional restriction that currencies are three capital letters.
+
+
+.. literalinclude:: daml/Intro_5_Restrictions.daml
+  :language: daml
+  :start-after: ensure
   :end-before: -- RESTRICTED_IOU_END
+
 
 .. literalinclude:: daml/Intro_5_Restrictions.daml
   :language: daml
   :start-after: -- RESTRICTIONS_TEST_BEGIN
   :end-before: -- RESTRICTIONS_TEST_END
 
-The ``ensure`` keyword takes a single expression of type ``Bool``. If you wanted to add more restrictions, you can use logical operators ``&&``, ``||`` and ``not`` to build up expressions. The above shows the additional restriction that currencies are three capital letters.
 
 Assertions and Errors
 ---------------------
@@ -71,7 +81,7 @@ Each transaction on a DAML ledger has two timestamps called the *ledger effectiv
 Time in scenarios
 ~~~~~~~~~~~~~~~~~
 
-In scenarios, record and ledger effective time are always equal. You can set them using the following functions: 
+In scenarios, record and ledger effective time are always equal. You can set them using the following functions:
 
 - ``passToDate``, which takes a date sets the time to midnight (UTC) of that date and ``pass``
 - ``pass``, which takes a ``Reltime`` (a relative time) and moves the ledger by that much
