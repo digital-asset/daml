@@ -307,7 +307,7 @@ class PlatformStore(
 
     val builder = NettyChannelBuilder
       .forAddress(platformHost, platformPort)
-      .maxInboundMessageSize(50 * 1024 * 1024)
+      .maxInboundMessageSize(ledgerMaxInbound)
     configuration.sslContext match {
       case None => {
         log.info("Connecting to {}:{}, using a plaintext connection", platformHost, platformPort)
