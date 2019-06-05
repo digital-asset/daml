@@ -21,7 +21,7 @@ import scala.collection.breakOut
 
 trait TransactionConversion {
 
-  def acceptedToDomainFlat(
+  def ledgerEntryToDomainFlat(
       offset: domain.LedgerOffset.Absolute,
       trans: LedgerEntry.Transaction,
       filter: domain.TransactionFilter
@@ -56,7 +56,7 @@ trait TransactionConversion {
     } else None
   }
 
-  def acceptedToDomainTree(
+  def ledgerEntryToDomainTree(
       offset: domain.LedgerOffset.Absolute,
       trans: LedgerEntry.Transaction,
       filter: domain.TransactionFilter): Option[domain.TransactionTree] = {

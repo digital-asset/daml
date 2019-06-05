@@ -102,7 +102,7 @@ class SandboxIndexAndWriteService(
     acceptedTransactions(begin, endAt)
       .mapConcat {
         case (offset, transaction) =>
-          TransactionConversion.acceptedToDomainTree(offset, transaction, filter).toList
+          TransactionConversion.ledgerEntryToDomainTree(offset, transaction, filter).toList
       }
 
   override def transactions(
@@ -112,7 +112,7 @@ class SandboxIndexAndWriteService(
     acceptedTransactions(begin, endAt)
       .mapConcat {
         case (offset, transaction) =>
-          TransactionConversion.acceptedToDomainFlat(offset, transaction, filter).toList
+          TransactionConversion.ledgerEntryToDomainFlat(offset, transaction, filter).toList
       }
 
   private class OffsetConverter {
@@ -183,7 +183,7 @@ class SandboxIndexAndWriteService(
     getTransactionById(transactionId.unwrap)
       .map(_.flatMap {
         case (offset, transaction) =>
-          TransactionConversion.acceptedToDomainFlat(
+          TransactionConversion.ledgerEntryToDomainFlat(
             LedgerOffset.Absolute(LedgerString.assertFromString(offset.toString)),
             transaction,
             filter)
@@ -198,7 +198,7 @@ class SandboxIndexAndWriteService(
     getTransactionById(transactionId.unwrap)
       .map(_.flatMap {
         case (offset, transaction) =>
-          TransactionConversion.acceptedToDomainTree(
+          TransactionConversion.ledgerEntryToDomainTree(
             LedgerOffset.Absolute(LedgerString.assertFromString(offset.toString)),
             transaction,
             filter)
