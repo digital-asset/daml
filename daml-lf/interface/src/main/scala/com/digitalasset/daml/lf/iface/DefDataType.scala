@@ -66,8 +66,8 @@ object DataType {
             Traverse[Record].traverse(r)(f).widen
           case v @ Variant(_) =>
             Traverse[Variant].traverse(v)(g).widen
-          case Enum(vs) =>
-            Applicative[G].pure(Enum(vs))
+          case e: Enum =>
+            Applicative[G].pure(e)
         }
     }
 

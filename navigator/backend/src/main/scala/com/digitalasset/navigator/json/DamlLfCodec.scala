@@ -4,8 +4,8 @@
 package com.digitalasset.navigator.json
 
 import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
-import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.navigator.json.Util._
+import com.digitalasset.navigator.{model => Model}
 import spray.json._
 
 /**
@@ -27,6 +27,7 @@ object DamlLfCodec {
   private[this] final val propArgs: String = "args"
   private[this] final val propVars: String = "vars"
   private[this] final val propFields: String = "fields"
+  private[this] final val propConstructors: String = "constructors"
 
   private[this] final val tagTypeCon: String = "typecon"
   private[this] final val tagTypeVar: String = "typevar"
@@ -43,6 +44,7 @@ object DamlLfCodec {
   private[this] final val tagTypeUnit: String = "unit"
   private[this] final val tagTypeRecord: String = "record"
   private[this] final val tagTypeVariant: String = "variant"
+  private[this] final val tagTypeEnum: String = "enum"
   private[this] final val tagTypeOptional: String = "optional"
   private[this] final val tagTypeMap: String = "map"
 
@@ -115,8 +117,10 @@ object DamlLfCodec {
             .toVector)
       )
     case e: Model.DamlLfEnum =>
-      // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-      throw new NotImplementedError("Enum types not supported")
+      JsObject(
+        propType -> JsString(tagTypeEnum),
+        propConstructors -> JsArray(e.constructors.map(JsString(_)).toVector)
+      )
   }
 
   def damlLfDefDataTypeToJsValue(value: Model.DamlLfDefDataType): JsValue = JsObject(
@@ -183,6 +187,9 @@ object DamlLfCodec {
                   nameField(f, propName, "DamlLfVariant"),
                   jsValueToDamlLfType(anyField(f, propValue, "DamlLfVariant")))): _*)
         )
+      case `tagTypeEnum` =>
+        val constructors = arrayField(value, propConstructors, "DamlLfEnum")
+        Model.DamlLfEnum(Model.DamlLfImmArraySeq(constructors: _*).map(asName(_, "DamlLfEnum")))
       case t =>
         deserializationError(
           s"Can't read ${value.prettyPrint} as DamlLfDataType, unknown type '$t'")

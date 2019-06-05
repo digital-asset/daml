@@ -37,29 +37,32 @@ package object filter {
       ps: DamlLfTypeLookup): Either[DotNotFailure, Boolean] = {
 
     @annotation.tailrec
-    def loop(
-        parameter: DamlLfType,
-        cursor: PropertyCursor,
-        ps: DamlLfTypeLookup): Either[DotNotFailure, Boolean] =
+    def loop(parameter: DamlLfType, cursor: PropertyCursor): Either[DotNotFailure, Boolean] =
       parameter match {
         case tc: DamlLfTypeCon =>
-          val next = for {
-            ddt <- ps(tc.name.identifier)
-            nextCursor <- cursor.next
-            //nextField   <- tc.instantiate(ddt) match {
-            nextField <- damlLfInstantiate(tc, ddt) match {
-              case DamlLfRecord(fields) => fields.find(f => f._1 == nextCursor.current)
-              case DamlLfVariant(fields) => fields.find(f => f._1 == nextCursor.current)
-              case DamlLfEnum(_) =>
-                // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-                throw new NotImplementedError("Enum types not supported")
+          val nextOrResult =
+            (ps(tc.name.identifier).map(damlLfInstantiate(tc, _)), cursor.next) match {
+              case (Some(DamlLfRecord(fields)), Some(nextCursor)) =>
+                fields
+                  .collectFirst {
+                    case (nextCursor.current, fType) => fType -> nextCursor
+                  }
+                  .toLeft(false)
+              case (Some(DamlLfVariant(fields)), Some(nextCursor)) =>
+                fields
+                  .collectFirst {
+                    case (nextCursor.current, fType) => fType -> nextCursor
+                  }
+                  .toLeft(false)
+              case (Some(DamlLfEnum(constructors)), _) =>
+                Right(constructors.exists(checkContained(_, expectedValue)))
+              case (None, _) | (_, None) =>
+                Right(false)
             }
-          } yield {
-            (nextField._2, nextCursor)
-          }
-          next match {
-            case Some((nextType, nextCursor)) => loop(nextType, nextCursor, ps)
-            case None => Right(false)
+
+          nextOrResult match {
+            case Right(r) => Right(r)
+            case Left((typ, nextCursor)) => loop(typ, nextCursor)
           }
 
         case DamlLfTypeVar(name) => Right(checkContained(name, expectedValue))
@@ -84,7 +87,7 @@ package object filter {
           Right(checkContained("map", expectedValue))
       }
 
-    loop(rootParam, cursor.prev.get, ps)
+    loop(rootParam, cursor.prev.get)
   }
 
   def checkArgument(
@@ -120,6 +123,15 @@ package object filter {
                 case "__constructor" => Right(checkContained(constructor, expectedValue))
                 case "__value" => loop(value, nextCursor)
                 case `constructor` => loop(value, nextCursor)
+                case _ => Right(false)
+              }
+          }
+        case ApiEnum(_, constructor) =>
+          cursor.next match {
+            case None => Right(false)
+            case Some(nextCursor) =>
+              nextCursor.current match {
+                case "__constructor" => Right(checkContained(constructor, expectedValue))
                 case _ => Right(false)
               }
           }

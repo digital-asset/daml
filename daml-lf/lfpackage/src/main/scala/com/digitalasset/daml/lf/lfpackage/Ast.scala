@@ -485,7 +485,7 @@ object Ast {
   final case class DataRecord(fields: ImmArray[(FieldName, Type)], optTemplate: Option[Template])
       extends DataCons
   final case class DataVariant(variants: ImmArray[(VariantConName, Type)]) extends DataCons
-  final case class DataEnum(values: ImmArray[EnumConName]) extends DataCons
+  final case class DataEnum(constructors: ImmArray[EnumConName]) extends DataCons
 
   case class TemplateKey(
       typ: Type,

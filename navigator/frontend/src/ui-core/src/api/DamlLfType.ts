@@ -37,7 +37,8 @@ export type DamlLFFieldWithType = { name: string, value: DamlLfType }
 
 export type DamlLfRecord    = { type: 'record', fields: DamlLFFieldWithType[] }
 export type DamlLfVariant   = { type: 'variant', fields: DamlLFFieldWithType[] }
-export type DamlLfDataType  = DamlLfRecord | DamlLfVariant
+export type DamlLfEnum      = { type: 'enum', constructors: string[] }
+export type DamlLfDataType  = DamlLfRecord | DamlLfVariant | DamlLfEnum
 
 export type DamlLfDefDataType = { dataType: DamlLfDataType, typeVars: string[] }
 
@@ -112,9 +113,10 @@ export function instantiate(tc: DamlLfTypeCon, ddt: DamlLfDefDataType): DamlLfDa
 
   switch (ddt.dataType.type) {
     case 'record':  return { type: 'record',
-      fields: ddt.dataType.fields.map((f) => ({name: f.name, value: mapTypeVars(f.value, (n) => typeMap[n.name])})) }
+      fields: ddt.dataType.fields.map((f) => ({name: f.name, value: mapTypeVars(f.value, (n) => typeMap[n.name])})) };
     case 'variant': return { type: 'variant',
-      fields: ddt.dataType.fields.map((f) => ({name: f.name, value: mapTypeVars(f.value, (n) => typeMap[n.name])})) }
+      fields: ddt.dataType.fields.map((f) => ({name: f.name, value: mapTypeVars(f.value, (n) => typeMap[n.name])})) };
+    case 'enum': return {type : 'enum', constructors: ddt.dataType.constructors };
     default: throw new NonExhaustiveMatch(ddt.dataType)
   }
 }

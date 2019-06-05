@@ -1,26 +1,20 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-import {
-  ChoicesButton,
-  ContractColumn,
-} from '@da/ui-core';
-import { DamlLfDataType, DamlLFFieldWithType } from '@da/ui-core/lib/api/DamlLfType';
-import { DamlLfValueRecord } from '@da/ui-core/lib/api/DamlLfValue';
+import {ChoicesButton, ContractColumn} from '@da/ui-core';
+import {DamlLFFieldWithType, DamlLfRecord} from '@da/ui-core/lib/api/DamlLfType';
 import * as DamlLfValueF from '@da/ui-core/lib/api/DamlLfValue';
 import * as React from 'react';
 import Link from '../../components/Link'
 import * as Routes from '../../routes'
-import {
-  Contract,
-} from './data';
+import {Contract} from './data';
 
-function formatField(field: DamlLFFieldWithType, argument: DamlLfValueRecord): string {
+function formatField(field: DamlLFFieldWithType, argument: DamlLfValueF.DamlLfValueRecord): string {
   const valueField = argument.fields.filter((f) => f.label === field.name)[0];
   return valueField ? JSON.stringify(DamlLfValueF.toJSON(valueField.value)) : '???';
 }
 
-function makeColumns(param: DamlLfDataType): ContractColumn<Contract>[] {
+function makeColumns(param: DamlLfRecord): ContractColumn<Contract>[] {
   return param.fields.map((field) => (
     {
       key: `argument.${field.name}`,
@@ -35,7 +29,7 @@ function makeColumns(param: DamlLfDataType): ContractColumn<Contract>[] {
   ));
 }
 
-export default (param: DamlLfDataType): ContractColumn<Contract>[] => [
+export default (param: DamlLfRecord): ContractColumn<Contract>[] => [
   {
     key: 'id',
     title: 'ID',
