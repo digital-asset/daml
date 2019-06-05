@@ -526,8 +526,8 @@ hazel_repositories(
             # lsp-test work with our custom-methods of haskell-lsp.
             hazel_github(
                 "lsp-test",
-                "d1466cdc32433148b9800f0829f5b79d36b0c8a9",
-                "19f78910ec7b805c75f905127726e4574bffa58707f196bd2f5d03821caf9c98",
+                "4a665666642cebb574fad5035e5e22385e6eae12",
+                "4c46f21139b96ce49251a958db8061ee76a108defb43ee0082ba765339b09b0c",
             ),
         pkgs = packages,
     ),
