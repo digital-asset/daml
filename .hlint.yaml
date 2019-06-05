@@ -93,9 +93,12 @@
 #   - {name: [Data.Set, Data.HashSet], as: Set} # if you import Data.Set qualified, it must be as 'Set'
 #   - {name: Control.Arrow, within: []} # Certain modules are banned entirely
 #
-# - functions:
-#   - {name: unsafePerformIO, within: []} # unsafePerformIO can only appear in no modules
-
+- functions:
+  - {name: unsafePerformIO, within: [DA.Daml.GHC.Compiler.UtilGHC]}
+  - {name: unsafeInterleaveIO, within: []}
+  - {name: unsafeDupablePerformIO, within: []}
+  - {name: setCurrentDirectory, within: [DAML.Assistant.Tests]}
+  - {name: unsafeCoerce, within: []}
 
 # Add custom hints for this project
 #
