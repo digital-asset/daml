@@ -15,7 +15,7 @@ SQL Extractor
 - 50MiB is no longer hard-coded on extractor input for sandbox or any other server,
   permitting large packages; e.g. pass ``--ledger-api-inbound-message-size-max 62914560``
   to extractor to get a 60MiB limit.
-  See `#1501 <https://github.com/digital-asset/daml/pull/1501>`__.
+  See `#1520 <https://github.com/digital-asset/daml/pull/1520>`__.
 - Improving logging. See `#1518 <https://github.com/digital-asset/daml/pull/1518>`__.
 
 DAML Language
@@ -41,6 +41,10 @@ Navigator
 
 - Fixed a regression where Navigator console was not able to inspect contracts and events.
   See `#1454 <https://github.com/digital-asset/daml/issues/1454>`__.
+- 50MiB is no longer hard-coded on extractor input for sandbox or any other server,
+  permitting large packages; e.g. pass ``--ledger-api-inbound-message-size-max 62914560``
+  to extractor to get a 60MiB limit.
+  See `#1520 <https://github.com/digital-asset/daml/pull/1520>`__.
 
 
 Sandbox
