@@ -260,10 +260,11 @@ instance Applicative CoinGame where
   f <*> x = CoinGame with
     play = (\c ->
         let
-          (nc1, rx) = x.play c
-          (nc2, rf) = f.play nc1
+          (nc1, rf) = f.play c
+          (nc2, rx) = x.play nc1
         in (nc2, rf rx)
       )
+
 instance Action CoinGame where
   x >>= f = CoinGame with
     play = (\c ->

@@ -168,3 +168,8 @@ In a ``Scenario`` context you can get a ``Coin``, which is actually a pseudo-ran
 *Somehow* the ``Coin`` is threaded through the various actions. If you want to look through the looking glass and understand in-depth what's going on, you can look at the :download:`source file <daml/Intro_5_Restrictions.daml>` to see how the ``CoinGame`` action is implemented, though be warned that the implementation uses a lot of DAML features we haven't introduced yet in this introduction.
 
 More generally, if you want to learn more about Actions (aka Monads), we recommend a general course on functional programming, and Haskell in particular.
+
+Next Up
+-------
+
+You can now specify a precise data and data-transformation model for DAML ledgers. In :doc:`6_Parties`, you will learn how to properly involve multiple parties in contracts, how authority works in DAML, and how to build contract models with strong guarantees in contexts with mutually distrusting entities.

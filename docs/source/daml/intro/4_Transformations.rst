@@ -160,3 +160,8 @@ With the power of choices, you can build you first interesting model: Issuance o
   :language: daml
 
 The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.
+
+Next Up
+-------
+
+You can now store and transform data on the ledger, even giving other parties specific write access through choices. In :doc:`5_Restrictions`, you will learn how to restrict data and transformations further. In that context, you will also learn about time on DAML ledgers, ``do`` blocks and ``<-`` notation within those.
