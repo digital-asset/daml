@@ -4,6 +4,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
 import java.sql.Connection
+import java.time.Instant
 import java.util.Date
 
 import akka.stream.Materializer
@@ -16,7 +17,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
-import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.util.DirectExecutionContext
@@ -357,8 +358,9 @@ private class PostgresLedgerDao(
         disclosure) =>
       final class AcsStoreAcc extends ActiveContracts[AcsStoreAcc] {
 
-        override def lookupContract(cid: AbsoluteContractId) =
-          lookupActiveContractSync(cid).map(_.toActiveContract)
+        override def lookupContractDetails(cid: AbsoluteContractId)
+          : Option[(Instant, Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])] =
+          lookupActiveContractDetails(cid)
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 
@@ -799,6 +801,49 @@ private class PostgresLedgerDao(
           })
         )
     }
+
+  private val ActiveContractDetailsParser = (ledgerString("id")
+    ~ date("effective_at")
+    ~ list[String]("maintainers").map(_.map(Party.assertFromString))
+    ~ binaryStream("key").? map (flatten))
+
+  private val SQL_SELECT_ACTIVE_CONTRACT_DETAILS =
+    SQL(
+      """select
+          |   c.id,
+          |   le.effective_at,
+          |   c.key,
+          |   case when c.key is not null
+          |        then array(select m.maintainer from contract_key_maintainers m where m.contract_id = c.id)
+          |	    else array[]::varchar[]
+          |   end maintainers
+          |from contracts c
+          |   inner join ledger_entries le
+          |       on c.transaction_id = le.transaction_id
+          |where id={contract_id} and archive_offset is null""".stripMargin)
+
+  private def lookupActiveContractDetails(contractId: AbsoluteContractId)(implicit conn: Connection)
+    : Option[(Instant, Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])] = {
+    SQL_SELECT_ACTIVE_CONTRACT_DETAILS
+      .on("contract_id" -> contractId.coid)
+      .as(ActiveContractDetailsParser.singleOpt)
+      .map(mapActiveContractDetails)
+  }
+
+  private def mapActiveContractDetails(
+      activeContractDetailsResult: (ContractIdString, Date, List[Party], Option[InputStream]))(
+      implicit conn: Connection)
+    : (Instant, Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]]) = {
+
+    val (coid, let, mainainers, keyStreamO) = activeContractDetailsResult
+    val key = keyStreamO.map(keyStream => {
+      val keyValue = valueSerializer
+        .deserialiseValue(ByteStreams.toByteArray(keyStream))
+        .getOrElse(sys.error(s"failed to deserialise key value! cid:$coid"))
+      KeyWithMaintainers(keyValue, mainainers.toSet)
+    })
+    (let.toInstant, key)
+  }
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
     "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")

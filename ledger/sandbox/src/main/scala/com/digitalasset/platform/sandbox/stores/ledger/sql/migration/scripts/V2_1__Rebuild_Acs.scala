@@ -6,6 +6,7 @@ package db.migration
 
 import java.io.InputStream
 import java.sql.Connection
+import java.time.Instant
 import java.util.Date
 
 import akka.stream.scaladsl.Source
@@ -17,6 +18,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.backend.api.v1.RejectionReason
@@ -344,8 +346,9 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
       final class AcsStoreAcc extends ActiveContracts[AcsStoreAcc] {
 
-        override def lookupContract(cid: AbsoluteContractId) =
-          lookupActiveContractSync(cid).map(_.toActiveContract)
+        override def lookupContractDetails(cid: AbsoluteContractId): Option[
+          (Instant, Option[KeyWithMaintainers[Value.VersionedValue[AbsoluteContractId]]])] =
+          lookupActiveContractSync(cid).map(c => (c.let, c.key))
 
         override def keyExists(key: GlobalKey): Boolean = selectContractKey(key).isDefined
 

@@ -31,7 +31,9 @@ case class ActiveContractsInMemory(
     keys: Map[GlobalKey, AbsoluteContractId])
     extends ActiveContracts[ActiveContractsInMemory] {
 
-  override def lookupContract(cid: AbsoluteContractId) = contracts.get(cid)
+  override def lookupContractDetails(cid: AbsoluteContractId)
+    : Option[(Instant, Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])] =
+    contracts.get(cid).map(c => (c.let, c.key))
 
   override def keyExists(key: GlobalKey) = keys.contains(key)
 
@@ -139,13 +141,15 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
             // created after the current let.
             def contractCheck(
                 cid: AbsoluteContractId,
-                prefetchedContract: Option[Option[ActiveContract]],
+                prefetchedContract: Option[Option[(
+                    Instant,
+                    Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])]],
                 predType: PredicateType): Option[SequencingError] =
-              prefetchedContract.getOrElse(acc.lookupContract(cid)) match {
+              prefetchedContract.getOrElse(acc.lookupContractDetails(cid)) match {
                 case None => Some(InactiveDependencyError(cid, predType))
-                case Some(otherTx) =>
-                  if (otherTx.let.isAfter(let)) {
-                    Some(TimeBeforeError(cid, otherTx.let, let, predType))
+                case Some((otherLet, _)) =>
+                  if (otherLet.isAfter(let)) {
+                    Some(TimeBeforeError(cid, otherLet, let, predType))
                   } else {
                     None
                   }
@@ -187,11 +191,11 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                 }
               case ne: N.NodeExercises.WithTxValue[Nid, AbsoluteContractId] =>
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
-                val contract = acc.lookupContract(absCoid)
+                val details = acc.lookupContractDetails(absCoid)
                 ats.copy(
-                  errs = contractCheck(absCoid, Some(contract), Exercise).fold(errs)(errs + _),
+                  errs = contractCheck(absCoid, Some(details), Exercise).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {
-                    acc.removeContract(absCoid, contract.flatMap(_.key) match {
+                    acc.removeContract(absCoid, details.flatMap(_._2) match {
                       case None => None
                       case Some(key) => Some(GlobalKey(ne.templateId, key.key))
                     })
@@ -213,7 +217,8 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
 }
 
 trait ActiveContracts[+Self] { this: ActiveContracts[Self] =>
-  def lookupContract(cid: AbsoluteContractId): Option[ActiveContract]
+  def lookupContractDetails(cid: AbsoluteContractId)
+    : Option[(Instant, Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])]
   def keyExists(key: GlobalKey): Boolean
   def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]): Self
   def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]): Self
