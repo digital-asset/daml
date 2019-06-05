@@ -11,11 +11,7 @@ import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.config.{
-  CommandConfiguration,
-  DamlPackageContainer,
-  SandboxConfig
-}
+import com.digitalasset.platform.sandbox.config.{CommandConfiguration, SandboxConfig}
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import scalaz.NonEmptyList
 
@@ -118,7 +114,7 @@ object PlatformApplications {
       address = None,
       port = selectedPort,
       None,
-      damlPackageContainer = DamlPackageContainer(config.darFiles.map(_.toFile)),
+      damlPackages = config.darFiles.map(_.toFile),
       timeProviderType = config.timeProviderType,
       timeModel = config.timeModel,
       commandConfig = config.commandConfiguration,

@@ -11,6 +11,7 @@ compileDependencies = [
     "//3rdparty/jvm/com/typesafe/akka:akka_stream",
     "//daml-lf/archive:daml_lf_java_proto",
     "//daml-lf/data",
+    "//daml-lf/lfpackage",
     "//daml-lf/transaction",
     "//ledger/ledger-api-domain",
 ]

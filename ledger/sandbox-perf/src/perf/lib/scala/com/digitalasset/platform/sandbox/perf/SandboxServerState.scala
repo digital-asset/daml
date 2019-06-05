@@ -4,7 +4,7 @@
 package com.digitalasset.platform.sandbox.perf
 
 import com.digitalasset.platform.sandbox.SandboxServer
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 
 class SandboxServerState {
 
@@ -14,7 +14,7 @@ class SandboxServerState {
   def setup(): Unit = {
     _app = SandboxServer(
       SandboxConfig.default
-        .copy(port = 0, damlPackageContainer = DamlPackageContainer(List.empty)))
+        .copy(port = 0, damlPackages = List.empty))
   }
 
   def close(): Unit = {

@@ -13,11 +13,11 @@ import com.digitalasset.daml.lf.language.Ast.{DDataType, DValue, Definition}
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.slf4j.LoggerFactory
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
+import com.digitalasset.platform.sandbox.damle.SandboxPackageStore
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.breakOut
@@ -53,7 +53,7 @@ object ScenarioLoader {
     *                 matching scenarios.
     */
   def fromScenario(
-      packages: DamlPackageContainer,
+      packages: SandboxPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String)
     : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Instant) = {
@@ -92,7 +92,7 @@ object ScenarioLoader {
   }
 
   private def buildScenarioLedger(
-      packages: DamlPackageContainer,
+      packages: SandboxPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
@@ -134,14 +134,14 @@ object ScenarioLoader {
   }
 
   private def identifyScenario(
-      packages: DamlPackageContainer,
+      packages: SandboxPackageStore,
       scenario: String,
       candidateScenarios: List[(Ref.DefinitionRef, Definition)])
     : (Ref.DefinitionRef, Definition) = {
     candidateScenarios match {
       case Nil =>
         throw new RuntimeException(
-          s"Couldn't find scenario $scenario in packages ${packages.packages.keys.toList}")
+          s"Couldn't find scenario $scenario in packages ${packages.listLfPackagesSync().keys.toList}")
       case candidate :: Nil => candidate
       case candidates =>
         throw new RuntimeException(
@@ -150,36 +150,42 @@ object ScenarioLoader {
   }
 
   private def getCandidateScenarios(
-      packages: DamlPackageContainer,
+      packages: SandboxPackageStore,
       scenarioQualName: Ref.QualifiedName
   ): List[(Ref.Identifier, Definition)] = {
-    packages.packages.flatMap {
-      case (packageId, pkg) =>
-        pkg.lookupIdentifier(scenarioQualName) match {
-          case Right(x) => List((Ref.Identifier(packageId, scenarioQualName), x))
-          case Left(_) => List()
-        }
-    }(breakOut)
+    packages
+      .listLfPackagesSync()
+      .flatMap {
+        case (packageId, _) =>
+          val pkg = packages.getLfPackageSync(packageId).get
+          pkg.lookupIdentifier(scenarioQualName) match {
+            case Right(x) => List((Ref.Identifier(packageId, scenarioQualName), x))
+            case Left(_) => List()
+          }
+      }(breakOut)
   }
 
   private def getScenarioQualifiedName(
-      packages: DamlPackageContainer,
+      packages: SandboxPackageStore,
       scenario: String
   ): Ref.QualifiedName = {
     Ref.QualifiedName.fromString(scenario) match {
       case Left(err) =>
         logger.warn(
           "Dot-separated scenario specification is deprecated. Names are Module.Name:Inner.Name, with a colon between module name and the name of the definition. Falling back to deprecated name resolution.")
-        packages.packages.iterator
+        packages
+          .listLfPackagesSync()
+          .iterator
           .map {
-            case (_, pkg) => DeprecatedIdentifier.lookup(pkg, scenario)
+            case (pkgId, _) =>
+              DeprecatedIdentifier.lookup(packages.getLfPackageSync(pkgId).get, scenario)
           }
           .collectFirst {
             case Right(qualifiedName) => qualifiedName
           }
           .getOrElse {
             throw new RuntimeException(
-              s"Cannot find scenario $scenario in packages ${packages.packages.keys.mkString("[", ", ", "]")}. Try using Module.Name:Inner.Name style scenario name specification.")
+              s"Cannot find scenario $scenario in packages ${packages.listLfPackagesSync().keys.mkString("[", ", ", "]")}. Try using Module.Name:Inner.Name style scenario name specification.")
           }
       case Right(x) => x
     }

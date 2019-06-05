@@ -16,7 +16,8 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
+import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -26,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 object SandboxDamle {
 
   def consume[A](result: Result[A])(
-      packageContainer: DamlPackageContainer,
+      getPackage: Ref.PackageId => Future[Option[Package]],
       getContract: Value.AbsoluteContractId => Future[
         Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]],
       lookupKey: GlobalKey => Future[Option[AbsoluteContractId]])(
@@ -35,7 +36,7 @@ object SandboxDamle {
     def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] = {
       result match {
         case ResultNeedPackage(packageId, resume) =>
-          resolveStep(resume(packageContainer.getPackage(packageId)))
+          getPackage(packageId).flatMap(mbPkg => resolveStep(resume(mbPkg)))
         case ResultDone(r) => Future.successful(Right(r))
         case ResultNeedKey(key, resume) =>
           lookupKey(key).flatMap(mbcoid => resolveStep(resume(mbcoid)))

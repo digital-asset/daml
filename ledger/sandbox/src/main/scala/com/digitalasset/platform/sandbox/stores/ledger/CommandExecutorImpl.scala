@@ -14,13 +14,14 @@ import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import scalaz.syntax.tag._
+import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.lfpackage.Ast.Package
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class CommandExecutorImpl(engine: Engine, packageContainer: DamlPackageContainer)(
+class CommandExecutorImpl(engine: Engine, getPackage: PackageId => Future[Option[Package]])(
     implicit ec: ExecutionContext)
     extends CommandExecutor {
 
@@ -33,7 +34,7 @@ class CommandExecutorImpl(engine: Engine, packageContainer: DamlPackageContainer
       commands: Commands)
     : Future[Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]] = {
     SandboxDamle
-      .consume(engine.submit(commands))(packageContainer, getContract, lookupKey)
+      .consume(engine.submit(commands))(getPackage, getContract, lookupKey)
       .map { submission =>
         (for {
           updateTx <- submission

@@ -6,8 +6,10 @@ package com.digitalasset.platform.sandbox.services
 import java.io.File
 import java.time.Instant
 import java.util
+import java.util.zip.ZipFile
 
 import com.digitalasset.api.util.TimestampConversion
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{
   applicationId,
@@ -23,9 +25,7 @@ import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, Party, Text, Timestamp}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value, Variant}
 import com.digitalasset.platform.sandbox.TestTemplateIdentifiers
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.google.protobuf.timestamp.{Timestamp => GTimestamp}
-
 import scalaz.syntax.tag._
 
 // TODO(mthvedt): Delete this old copy when we finish migrating to ledger-api-integration-tests.
@@ -36,9 +36,7 @@ trait TestCommands {
 
   @transient
   protected def templateIds = {
-    val container = DamlPackageContainer(List(darFile))
-    val testArchive = container.archives.head._2
-    new TestTemplateIdentifiers(testArchive.getHash)
+    new TestTemplateIdentifiers(DarReader().readArchive(new ZipFile(darFile)).get.main._1)
   }
 
   protected def buildRequest(

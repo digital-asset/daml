@@ -13,12 +13,15 @@ import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
 import com.daml.ledger.participant.state.v2.{
   PartyAllocationResult,
   SubmittedTransaction,
+  UploadDarResult,
   WriteService
 }
 import com.daml.ledger.participant.state.{v2 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.lfpackage.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
@@ -32,7 +35,9 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
 import com.digitalasset.ledger.api.domain.{LedgerId, _}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
+import com.digitalasset.platform.sandbox.damle.SandboxPackageStore
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
+import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
@@ -144,7 +149,7 @@ object SandboxIndexAndWriteService {
 private class SandboxIndexAndWriteService(
     ledger: Ledger,
     timeModel: TimeModel,
-    templateStore: IndexPackagesService,
+    packageStore: SandboxPackageStore,
     contractStore: ContractStore)(implicit mat: Materializer)
     extends IndexService
     with WriteService {
@@ -346,11 +351,21 @@ private class SandboxIndexAndWriteService(
   }
 
   // IndexPackagesService
-  override def listPackages(): Future[Map[PackageId, PackageInfo]] =
-    templateStore.listPackages()
+  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
+    packageStore.listLfPackages()
 
-  override def getPackage(packageId: PackageId): Future[Option[Archive]] =
-    templateStore.getPackage(packageId)
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    packageStore.getLfArchive(packageId)
+
+  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
+    packageStore.getLfPackage(packageId)
+
+  // PackageWriteService
+  override def uploadDar(
+      knownSince: Instant,
+      sourceDescription: String,
+      payload: Array[Byte]): CompletionStage[UploadDarResult] =
+    packageStore.uploadDar(knownSince, sourceDescription, payload)
 
   // ContractStore
   override def lookupActiveContract(

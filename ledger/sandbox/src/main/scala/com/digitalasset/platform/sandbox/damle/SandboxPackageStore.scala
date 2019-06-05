@@ -3,38 +3,113 @@
 
 package com.digitalasset.platform.sandbox.damle
 
-import com.daml.ledger.participant.state.index.v2.{PackageInfo, IndexPackagesService}
+import java.io.{File, FileOutputStream}
+import java.time.Instant
+import java.util.concurrent.{CompletableFuture, CompletionStage}
+import java.util.zip.ZipFile
+
+import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
+import com.daml.ledger.participant.state.v1.{PackageWriteService, UploadDarResult}
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
+import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
+import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
+import com.digitalasset.daml.lf.archive.Reader.ParseError
 
-import scala.collection.breakOut
+import scala.collection.mutable
 import scala.collection.immutable.Map
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
+import scalaz.syntax.traverse._
+import scalaz.std.list._
+import scalaz.std.either._
 
-private class SandboxPackageStore(packageContainer: DamlPackageContainer)
-    extends IndexPackagesService {
+class SandboxPackageStore() extends IndexPackagesService with PackageWriteService {
+  private val packageInfos: mutable.Map[PackageId, PackageDetails] = mutable.Map()
+  private val packages: mutable.Map[PackageId, Ast.Package] = mutable.Map()
+  private val archives: mutable.Map[PackageId, Archive] = mutable.Map()
 
-  private val packageInfos: Map[PackageId, PackageInfo] =
-    packageContainer.archives.map {
-      case (size, archive) => (PackageId.assertFromString(archive.getHash), PackageInfo(size))
-    }(breakOut)
+  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
+    Future.successful(listLfPackagesSync())
 
-  private val packages: Map[PackageId, Archive] =
-    packageContainer.archives.map {
-      case (_, archive) =>
-        (PackageId.assertFromString(archive.getHash), archive)
-    }(breakOut)
+  def listLfPackagesSync(): Map[PackageId, PackageDetails] = this.synchronized {
+    Map() ++ packageInfos
+  }
 
-  override def listPackages(): Future[Map[PackageId, PackageInfo]] =
-    Future.successful(packageInfos)
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    Future.successful(getLfArchiveSync(packageId))
 
-  override def getPackage(packageId: PackageId): Future[Option[Archive]] =
-    Future.successful(packages.get(packageId))
+  def getLfArchiveSync(packageId: PackageId): Option[Archive] = this.synchronized {
+    archives.get(packageId)
+  }
 
+  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
+    Future.successful(getLfPackageSync(packageId))
+
+  def getLfPackageSync(packageId: PackageId): Option[Ast.Package] = this.synchronized {
+    packages.get(packageId)
+  }
+
+  override def uploadDar(
+      knownSince: Instant,
+      sourceDescription: String,
+      packageBytes: Array[Byte]): CompletionStage[UploadDarResult] = this.synchronized {
+    // TODO this should probably be asynchronous
+    val file = File.createTempFile("put-package", ".dar")
+    val result = bracket(Try(new FileOutputStream(file)))(fos => Try(fos.close()))
+      .flatMap { fos =>
+        Try(fos.write(packageBytes))
+      }
+      .map { _ =>
+        putDarFile(knownSince, sourceDescription, file)
+      }
+    result match {
+      case Success(Right(details @ _)) =>
+        // TODO(FM) I'd like to include the details above but i get a strange error
+        // about mismatching PackageId type
+        CompletableFuture.completedFuture(UploadDarResult.Ok())
+      case Success(Left(err)) =>
+        CompletableFuture.completedFuture(UploadDarResult.InvalidPackage(err))
+      case Failure(exception) =>
+        // Java 8 does not have CompletableFuture#failed
+        val future: CompletableFuture[UploadDarResult] = new CompletableFuture()
+        future.completeExceptionally(exception)
+        future
+    }
+  }
+
+  def putDarFile(
+      knownSince: Instant,
+      sourceDescription: String,
+      file: File): Either[String, Map[PackageId, PackageDetails]] = this.synchronized {
+    DarReader { case (size, x) => Try(Archive.parseFrom(x)).map(ar => (size, ar)) }
+      .readArchive(new ZipFile(file))
+      .fold(t => Left(s"Failed to parse DAR from $file: $t"), dar => Right(dar.all))
+      .flatMap {
+        _ traverseU {
+          case (size, archive) =>
+            try {
+              Right((size, archive, Decode.decodeArchive(archive)._2))
+            } catch {
+              case err: ParseError => Left(s"Could not parse archive $archive.getHash: $err")
+            }
+        }
+      }
+      .map { pkgs =>
+        Map(pkgs map {
+          case (size, archive, pkg) =>
+            val pkgId = PackageId.assertFromString(archive.getHash)
+            val details = PackageDetails(size, knownSince, sourceDescription)
+            packageInfos += (pkgId -> details)
+            archives += (pkgId -> archive)
+            packages += (pkgId -> pkg)
+            (pkgId, details)
+        }: _*)
+      }
+  }
 }
 
 object SandboxPackageStore {
-  def apply(packageContainer: DamlPackageContainer): IndexPackagesService =
-    new SandboxPackageStore(packageContainer)
+  def apply(): SandboxPackageStore = new SandboxPackageStore()
 }

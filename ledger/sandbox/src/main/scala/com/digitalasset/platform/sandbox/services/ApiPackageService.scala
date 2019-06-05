@@ -33,14 +33,14 @@ class ApiPackageService private (backend: IndexPackagesService)
   override def close(): Unit = ()
 
   override def listPackages(request: ListPackagesRequest): Future[ListPackagesResponse] =
-    backend.listPackages().map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
+    backend.listLfPackages().map(p => ListPackagesResponse(p.keys.toSeq))(DEC)
 
   override def getPackage(request: GetPackageRequest): Future[GetPackageResponse] =
     withValidatedPackageId(
       request.packageId,
       pId =>
         backend
-          .getPackage(pId)
+          .getLfArchive(pId)
           .flatMap(_.fold(Future.failed[GetPackageResponse](Status.NOT_FOUND.asRuntimeException()))(
             archive => Future.successful(toGetPackageResponse(archive))))(DEC)
     )
@@ -51,7 +51,7 @@ class ApiPackageService private (backend: IndexPackagesService)
       request.packageId,
       pId =>
         backend
-          .listPackages()
+          .listLfPackages()
           .map { packages =>
             val result = if (packages.contains(pId)) {
               PackageStatus.REGISTERED
