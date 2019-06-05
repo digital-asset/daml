@@ -139,8 +139,9 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
             // created after the current let.
             def contractCheck(
                 cid: AbsoluteContractId,
+                prefetchedContract: Option[Option[ActiveContract]],
                 predType: PredicateType): Option[SequencingError] =
-              acc lookupContract cid match {
+              prefetchedContract.getOrElse(acc.lookupContract(cid)) match {
                 case None => Some(InactiveDependencyError(cid, predType))
                 case Some(otherTx) =>
                   if (otherTx.let.isAfter(let)) {
@@ -153,7 +154,9 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
             node match {
               case nf: N.NodeFetch[AbsoluteContractId] =>
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nf.coid)
-                AddTransactionState(Some(acc), contractCheck(absCoid, Fetch).fold(errs)(errs + _))
+                AddTransactionState(
+                  Some(acc),
+                  contractCheck(absCoid, None, Fetch).fold(errs)(errs + _))
               case nc: N.NodeCreate.WithTxValue[AbsoluteContractId] =>
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
                 val activeContract = ActiveContract(
@@ -184,10 +187,11 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                 }
               case ne: N.NodeExercises.WithTxValue[Nid, AbsoluteContractId] =>
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(ne.targetCoid)
+                val contract = acc.lookupContract(absCoid)
                 ats.copy(
-                  errs = contractCheck(absCoid, Exercise).fold(errs)(errs + _),
+                  errs = contractCheck(absCoid, Some(contract), Exercise).fold(errs)(errs + _),
                   acc = Some(if (ne.consuming) {
-                    acc.removeContract(absCoid, (acc lookupContract absCoid).flatMap(_.key) match {
+                    acc.removeContract(absCoid, contract.flatMap(_.key) match {
                       case None => None
                       case Some(key) => Some(GlobalKey(ne.templateId, key.key))
                     })
