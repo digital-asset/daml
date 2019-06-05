@@ -6,7 +6,6 @@ module DataLimit(main) where
 import Test.Tasty
 import Test.Tasty.HUnit
 import DA.Service.Logger.Impl.GCP
-import Control.Monad.Managed
 import Data.Maybe
 import System.Directory
 import qualified Data.Text as T
@@ -37,11 +36,10 @@ fakeSend :: a -> IO ()
 fakeSend _ = pure ()
 
 cleanUp :: Maybe String -> IO ()
-cleanUp s = runManaged $ do
-  pth <- dfPath
-  liftIO $ removeFile pth
+cleanUp s = withDfPath $ \pth -> do
+  removeFile pth
   case s of
-      Just x -> liftIO $ unsetEnv x
+      Just x -> unsetEnv x
       Nothing -> pure ()
 
 -- | The CI env doesn't have a home directory so set and unset it if it doesn't exist

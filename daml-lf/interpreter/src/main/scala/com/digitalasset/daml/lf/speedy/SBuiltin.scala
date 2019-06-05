@@ -287,6 +287,13 @@ object SBuiltin {
     }
   }
 
+  final case object SBToTextCodePoints extends SBuiltin(1) {
+    override def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val codePoints = args.get(0).asInstanceOf[SList].list.map(_.asInstanceOf[SInt64].value)
+      machine.ctrl = CtrlValue(SText(Utf8.pack(codePoints.toImmArray)))
+    }
+  }
+
   final case object SBFromTextParty extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       val v = args.get(0).asInstanceOf[SText]
@@ -330,6 +337,14 @@ object SBuiltin {
     }
   }
 
+  final case object SBFromTextCodePoints extends SBuiltin(1) {
+    override def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val string = args.get(0).asInstanceOf[SText].value
+      val codePoints = Utf8.unpack(string)
+      machine.ctrl = CtrlValue(SList(FrontStack(codePoints.map(SInt64))))
+    }
+  }
+
   final case object SBSHA256Text extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(args.get(0) match {
@@ -342,7 +357,6 @@ object SBuiltin {
 
   final case object SBMapEmpty extends SBuiltin(0) {
     private val result = CtrlValue(SMap(HashMap.empty))
-
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = result
     }

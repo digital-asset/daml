@@ -17,7 +17,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.{
   CommandExecutorImpl,
   Ledger,
   SandboxContractStore,
-  SandboxIndexService
+  SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.services.time.TimeModel
@@ -53,7 +53,7 @@ trait TestHelpers {
 
     val contractStore = new SandboxContractStore(ledger)
 
-    val writeService = new SandboxIndexService(
+    val writeService = new SandboxIndexAndWriteService(
       ledger,
       TimeModel.reasonableDefault,
       SandboxTemplateStore(damlPackageContainer),

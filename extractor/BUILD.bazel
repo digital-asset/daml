@@ -35,6 +35,7 @@ compileDependencies = [
     "//3rdparty/jvm/com/typesafe/akka:akka_stream",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "//3rdparty/jvm/com/typesafe/scala_logging",
     "//3rdparty/jvm/io/circe:circe_core",
     "//3rdparty/jvm/io/circe:circe_generic",
     "//3rdparty/jvm/io/circe:circe_parser",

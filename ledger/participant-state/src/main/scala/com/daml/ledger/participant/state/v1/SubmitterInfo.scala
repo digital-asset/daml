@@ -30,5 +30,5 @@ final case class SubmitterInfo(
     submitter: Party,
     applicationId: ApplicationId,
     commandId: CommandId,
-    maxRecordTime: Timestamp,
+    maxRecordTime: Timestamp //TODO: this should be a regular Instant
 )

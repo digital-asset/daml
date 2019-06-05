@@ -9,10 +9,27 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+SQL Extractor
+~~~~~~~~~~~~~
+
+- 50MiB is no longer hard-coded on extractor input for sandbox or any other server,
+  permitting large packages; e.g. pass ``--ledger-api-inbound-message-size-max 62914560``
+  to extractor to get a 60MiB limit.
+  See `#1501 <https://github.com/digital-asset/daml/pull/1501>`__.
+- Improving logging. See `#1518 <https://github.com/digital-asset/daml/pull/1518>`__.
+
+DAML Language
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Contract key maintainers must now explicitly be computed from the contract key using the implicit ``key`` variable. For instance, if you have ``key (bank, accountId) : (Party, Text)`` and want ``bank`` to be the maintainer, you have to write ``maintainer key._1`` (before, you could write ``maintainer bank``).
+
 DAML Compiler
 ~~~~~~~~~~~~~
 
 - **BREAKING CHANGE**: Drop support for DAML-LF 1.3. Compiling to DAML-LF 1.4 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all. (The ledger server still supports DAML-LF 1.3.)
+
+- Fix initialization of package-db for non-default DAML-LF versions.
+  This fixes issues when using "daml build --target 1.3" (or other target versions).
 
 DAML Standard Library
 ~~~~~~~~~~~~~~~~~~~~~
@@ -24,6 +41,13 @@ Navigator
 
 - Fixed a regression where Navigator console was not able to inspect contracts and events.
   See `#1454 <https://github.com/digital-asset/daml/issues/1454>`__.
+
+
+Sandbox
+~~~~~~~
+
+- Added recovery around failing ledger entry persistence queries using Postgres. See `#1505 <https://github.com/digital-asset/daml/pull/1505>`__.
+
 
 0.12.22 - 2019-05-29
 --------------------
@@ -55,7 +79,7 @@ Sandbox
 ~~~~~~~
 
 - Fixed a bug in the SQL backend that caused transactions with a fetch node referencing a contract created in the same transaction to be rejected.
-  See [issue #1435](https://github.com/digital-asset/daml/issues/1435).
+  See `issue #1435 <https://github.com/digital-asset/daml/issues/1435>`__.
 
 0.12.21 - 2019-05-28
 --------------------

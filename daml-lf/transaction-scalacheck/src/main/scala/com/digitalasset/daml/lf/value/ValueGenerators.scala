@@ -93,8 +93,8 @@ object ValueGenerators {
     Gen
       .frequency(
         (1, Gen.const(BigDecimal("0.0"))),
-        (1, Gen.const(Decimal.max)),
-        (1, Gen.const(Decimal.min)),
+        (1, Gen.const(Decimal.MaxValue)),
+        (1, Gen.const(Decimal.MinValue)),
         (5, bd)
       )
       .map(d => ValueDecimal(Decimal.assertFromBigDecimal(d)))

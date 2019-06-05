@@ -5,6 +5,9 @@ daml 1.2
 module Reference where
 type ExampleReturnType = ()
 
+exampleFunction : (Party, Text) -> Party
+exampleFunction key = key._1
+
 -- start template intro snippet
 template NameOfTemplate
 -- end template intro snippet
@@ -34,7 +37,7 @@ template NameOfTemplate
 -- end template agree snippet
 -- start contract key snippet
     key (exampleParty, exampleParam) : (Party, Text)
-    maintainer exampleParty
+    maintainer (exampleFunction key)
 -- end contract key snippet
 -- start template choice snippet
     -- option 1 for specifying choices: choice name first

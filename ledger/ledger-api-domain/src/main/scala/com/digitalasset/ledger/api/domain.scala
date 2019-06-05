@@ -252,6 +252,11 @@ object domain {
   type LedgerId = String @@ LedgerIdTag
   val LedgerId: Tag.TagOf[LedgerIdTag] = Tag.of[LedgerIdTag]
 
+  sealed trait ParticipantIdTag
+
+  type ParticipantId = String @@ ParticipantIdTag
+  val ParticipantId: Tag.TagOf[ParticipantIdTag] = Tag.of[ParticipantIdTag]
+
   sealed trait ApplicationIdTag
 
   type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
@@ -269,4 +274,10 @@ object domain {
       maximumRecordTime: Instant,
       commands: LfCommands)
 
+  /**
+    * @param party The stable unique identifier of a DAML party.
+    * @param displayName Human readable name associated with the party. Might not be unique.
+    * @param isLocal True if party is hosted by the backing participant.
+    */
+  case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
 }

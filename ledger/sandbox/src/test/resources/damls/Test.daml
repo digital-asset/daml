@@ -303,7 +303,7 @@ template TextKey
     observer tkDisclosedTo
 
     key (tkParty, tkKey) : (Party, Text)
-    maintainer tkParty
+    maintainer key._1
 
     controller tkParty can
       TextKeyChoice : ()
@@ -414,7 +414,7 @@ template Delegated
   where
     signatory owner
     key (owner, k) : (Party, Text)
-    maintainer owner
+    maintainer key._1
 
 template Delegation
   with
@@ -517,7 +517,7 @@ template MaintainerNotSignatory
     signatory p
 
     key q: Party
-    maintainer q
+    maintainer key
 
 template CreateAndFetch
   with

@@ -32,7 +32,7 @@ template Account with
     observer observers
 
     key (bank, number) : AccountKey
-    maintainer bank
+    maintainer key._1
 -- end contract key setup snippet
 
     choice Withdraw : ContractId Cash with

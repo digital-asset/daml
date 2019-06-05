@@ -4,15 +4,14 @@
 package com.digitalasset.daml.lf.data
 
 import org.scalacheck.Gen
-import org.scalacheck.Prop.forAll
+import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
-import scala.Ordering.Implicits._
 import scala.collection.JavaConverters._
 import scala.util.Random
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class Utf8Spec extends WordSpec with Matchers {
+class Utf8Spec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   private def codepointToString(cp: Int): String =
     Character.toChars(cp).mkString
@@ -37,8 +36,8 @@ class Utf8Spec extends WordSpec with Matchers {
   private val strings =
     Gen.listOf(codepoints).map(_.mkString)
 
-  // All the valid Unicode codepoints in increasing order converted in string
-  private val validCodepoints =
+  // All the legal codepoints in increasing order converted in string
+  private val legalCodePoints =
     ((Character.MIN_CODE_POINT to Character.MIN_HIGH_SURROGATE) ++
       (Character.MAX_LOW_SURROGATE + 1 until Character.MAX_CODE_POINT))
       .map(codepointToString)
@@ -55,7 +54,7 @@ class Utf8Spec extends WordSpec with Matchers {
         ImmArray(s.codePoints().iterator().asScala.map(codepointToString(_)).toIterable)
 
       forAll(strings) { s =>
-        naiveExplode(s) == Utf8.explode(s)
+        naiveExplode(s) shouldBe Utf8.explode(s)
       }
 
     }
@@ -75,13 +74,13 @@ class Utf8Spec extends WordSpec with Matchers {
 
     "be reflexive" in {
       forAll(strings) { x =>
-        Utf8.Ordering.compare(x, x) == 0
+        Utf8.Ordering.compare(x, x) shouldBe 0
       }
     }
 
     "consistent when flipping its arguments" in {
       forAll(strings, strings) { (x, y) =>
-        Utf8.Ordering.compare(x, y).signum == -Utf8.Ordering.compare(y, x).signum
+        Utf8.Ordering.compare(x, y).signum shouldBe -Utf8.Ordering.compare(y, x).signum
       }
     }
 
@@ -90,13 +89,13 @@ class Utf8Spec extends WordSpec with Matchers {
 
       forAll(strings, strings, strings) { (x_, y_, z_) =>
         val List(x, y, z) = List(x_, y_, z_).sorted(Utf8.Ordering)
-        lteq(x, y) && lteq(y, z) && lteq(x, z)
+        lteq(x, y) && lteq(y, z) && lteq(x, z) shouldBe true
       }
     }
 
-    "respect Unicode ordering on individual codepoints" in {
+    "respect Unicode ordering on individual code points" in {
 
-      val shuffledCodepoints = new Random(0).shuffle(validCodepoints)
+      val shuffledCodepoints = new Random(0).shuffle(legalCodePoints)
 
       // Sort according Utf16
       val negativeCase = shuffledCodepoints.sorted
@@ -104,8 +103,8 @@ class Utf8Spec extends WordSpec with Matchers {
       // Sort according our ad hoc ordering
       val positiveCase = shuffledCodepoints.sorted(Utf8.Ordering)
 
-      negativeCase shouldNot be(validCodepoints)
-      positiveCase shouldBe validCodepoints
+      negativeCase shouldNot be(legalCodePoints)
+      positiveCase shouldBe legalCodePoints
 
     }
 
@@ -115,18 +114,68 @@ class Utf8Spec extends WordSpec with Matchers {
       val naiveOrdering =
         Ordering.by((s: String) => s.codePoints().toArray.toIterable)
 
-      forAll(Gen.listOfN(20, strings)) { list =>
-        list.sorted(naiveOrdering) == list.sorted(Utf8.Ordering)
+      forAll { list: List[String] =>
+        list.sorted(naiveOrdering) shouldBe list.sorted(Utf8.Ordering)
       }
 
     }
 
-    "be strict on individual codepoints" in {
-      (validCodepoints zip validCodepoints.tail).foreach {
+    "be strict on individual code points" in {
+      (legalCodePoints zip legalCodePoints.tail).foreach {
         case (x, y) => Utf8.Ordering.compare(x, y) should be < 0
       }
     }
 
+  }
+
+  "pack" should {
+
+    def makeImmArray(cp: Long) = ImmArray('-'.toLong, cp, '-'.toLong)
+
+    "properly converts any legal code points" in {
+      for (cp <- (Character.MIN_CODE_POINT until Character.MIN_SURROGATE) ++
+          ((Character.MAX_SURROGATE + 1) to Character.MAX_CODE_POINT))
+        Utf8.pack(makeImmArray(cp.toLong)) shouldBe "-" + new String(Character.toChars(cp)) + "-"
+    }
+
+    "reject any surrogate code point" in {
+      for (cp <- Character.MIN_SURROGATE to Character.MAX_SURROGATE)
+        an[IllegalArgumentException] should be thrownBy Utf8.pack(makeImmArray(cp.toLong))
+    }
+
+    "reject too small or too big code points" in {
+      val testCases = List(
+        Long.MinValue,
+        Int.MinValue.toLong,
+        Character.MIN_CODE_POINT - 2L,
+        Character.MIN_CODE_POINT - 1L,
+        Character.MAX_CODE_POINT + 1L,
+        Character.MAX_CODE_POINT + 2L,
+        Int.MaxValue.toLong,
+        Long.MaxValue
+      )
+
+      for (cp <- testCases)
+        an[IllegalArgumentException] should be thrownBy Utf8.pack(makeImmArray(cp))
+    }
+
+    "packs properly" in {
+      Utf8.pack(ImmArray.empty) shouldBe ""
+      Utf8.pack(ImmArray(0x00061, 0x000b6, 0x02031, 0x1f602)) shouldBe "a¶‱😂"
+    }
+  }
+
+  "unpack" should {
+    "unpacks properly" in {
+      Utf8.pack(ImmArray.empty) shouldBe ""
+      Utf8.unpack("a¶‱😂") shouldBe ImmArray(0x00061, 0x000b6, 0x02031, 0x1f602)
+    }
+  }
+
+  "pack and unpack" should {
+    "form an isomorphism between strings and sequences of legal code points" in {
+      forAll(strings)(s => Utf8.pack(Utf8.unpack(s)) shouldBe s)
+    }
   }
 
 }

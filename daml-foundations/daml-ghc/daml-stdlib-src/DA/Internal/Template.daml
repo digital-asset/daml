@@ -184,7 +184,7 @@ class Template c => TemplateKey c k | c -> k where
     key : c -> k
 
     -- | The maintainers of the contract key.
-    maintainer : c -> [Party]
+    maintainer : k -> [Party]
 
     -- | HIDE
     internalFetchByKey : k -> Update (Pair "contractId" "contract" (ContractId c) c)

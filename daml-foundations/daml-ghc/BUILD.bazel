@@ -53,7 +53,6 @@ da_haskell_test(
     hazel_deps = [
         "base",
         "directory",
-        "managed",
         "tasty-hunit",
         "text",
     ],

@@ -22,7 +22,6 @@ da_haskell_library(
         "filepath",
         "hashable",
         "lens",
-        "managed",
         "mtl",
         "process",
         "proto3-suite",

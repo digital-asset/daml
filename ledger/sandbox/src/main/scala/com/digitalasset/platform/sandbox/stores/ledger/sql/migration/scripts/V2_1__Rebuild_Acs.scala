@@ -19,8 +19,8 @@ import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger._
-import com.digitalasset.ledger.backend.api.v1.RejectionReason
-import com.digitalasset.ledger.backend.api.v1.RejectionReason._
+import com.digitalasset.ledger.api.domain.RejectionReason
+import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry

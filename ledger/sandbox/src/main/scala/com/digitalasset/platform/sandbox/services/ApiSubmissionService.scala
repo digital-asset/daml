@@ -13,15 +13,12 @@ import com.daml.ledger.participant.state.v1.{
   WriteService
 }
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Error => LfError}
-import com.digitalasset.daml.lf.transaction.BlindingInfo
+import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
@@ -136,19 +133,15 @@ class ApiSubmissionService private (
       submissionResult <- handleResult(res)
     } yield submissionResult
 
-  private def handleResult(res: scala.Either[ErrorCause, TransactionSubmission]) =
+  private def handleResult(
+      res: scala.Either[ErrorCause, (SubmitterInfo, TransactionMeta, Transaction.Transaction)]) =
     res match {
-      case Right(ts) =>
+      case Right((submitterInfo, transactionMeta, transaction)) =>
         FutureConverters.toScala(
           writeService.submitTransaction(
-            SubmitterInfo(
-              Ref.Party.assertFromString(ts.submitter),
-              ts.applicationId,
-              ts.commandId,
-              Timestamp.assertFromInstant(ts.maximumRecordTime)
-            ),
-            TransactionMeta(Timestamp.assertFromInstant(ts.ledgerEffectiveTime), ts.workflowId),
-            ts.transaction
+            submitterInfo,
+            transactionMeta,
+            transaction
           ))
       case Left(err) => Future.failed(grpcError(toStatus(err)))
     }

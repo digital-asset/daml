@@ -17,11 +17,11 @@ reaches a limit it will stop being sent. This will retry whenever a new message
 is added.
 -}
 module DA.Service.Logger.Impl.GCP (
-    gcpLogger
+    withGcpLogger
   , logOptOut
   -- * Test hooks
   , sendData
-  , dfPath
+  , withDfPath
   , test
   ) where
 
@@ -31,6 +31,7 @@ import Data.Tuple
 import Text.Read(readMaybe)
 import Data.Aeson as Aeson
 import Control.Monad
+import Control.Monad.IO.Class
 import GHC.Stack
 import System.Directory
 import System.Environment
@@ -52,7 +53,6 @@ import Data.Time as Time
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
 import Control.Concurrent.Extra
-import Control.Monad.Managed
 import Control.Exception.Safe
 import System.IO.Unsafe (unsafePerformIO)
 import Control.Monad.Trans.State
@@ -82,15 +82,16 @@ initialiseEnv = Env <$> fallBackLogger <*> randomIO
 -- | retains the normal logging capacities of the handle but adds logging
 --   to GCP
 --   will attempt to flush the logs
-gcpLogger ::
+withGcpLogger ::
     HasCallStack =>
     (Lgr.Priority -> Bool) -- ^ if this is true log to GCP
     -> Lgr.Handle IO
-    -> Managed (Lgr.Handle IO)
-gcpLogger p hnd =
-    fmap snd $ managed $ bracket
+    -> (Lgr.Handle IO -> IO a)
+    -> IO a
+withGcpLogger p hnd f =
+    bracket
       initialiseState
-      (\(gcp,_) -> flushLogsGCP gcp Lgr.Info logsFlushed)
+      (\(gcp,_) -> flushLogsGCP gcp Lgr.Info logsFlushed) $ f . snd
   where
 
   initialiseState :: HasCallStack => IO (GCPState, Lgr.Handle IO)
@@ -417,26 +418,26 @@ damlDir = do
 
 -- | Get the filename, this is locked until the managed monad is run
 --   the file is guaranteed to exist
-dfPath :: Managed FilePath
-dfPath = do
-  dir <- liftIO damlDir
-  pth <- managed $ \action ->
-    withLock dataLock $ action $ dir </> ".sent_data"
-  exists <- liftIO $ doesFileExist pth
-  let zeroDF = showDF <$> emptyDF
-  unless exists
-    $ liftIO $ BS.writeFile pth =<< zeroDF
-  pure pth
+withDfPath :: (FilePath -> IO a) -> IO a
+withDfPath f = do
+  dir <- damlDir
+  withLock dataLock $ do
+      let pth = dir </> ".sent_data"
+      exists <- doesFileExist pth
+      let zeroDF = showDF <$> emptyDF
+      unless exists $ (BS.writeFile pth =<< zeroDF)
+      f pth
 
-overDataSent :: StateT DataSent IO r
-             -> Managed r
-overDataSent st = do
-  pth <- dfPath
-  contents <- liftIO $ BS.readFile pth
-  df <- liftIO $ validDF $ readDF contents
-  (ret, sentOut) <- liftIO $ runStateT st $ sent df
-  liftIO $ BS.writeFile pth $ showDF df{sent=sentOut}
-  pure ret
+withOverDataSent
+    :: StateT DataSent IO r
+    -> (r -> IO a)
+    -> IO a
+withOverDataSent st f = withDfPath $ \pth -> do
+  contents <- BS.readFile pth
+  df <- validDF $ readDF contents
+  (ret, sentOut) <- runStateT st $ sent df
+  BS.writeFile pth $ showDF df{sent=sentOut}
+  f ret
 
 
 
@@ -447,7 +448,7 @@ sendData :: forall a.
             (LBS.ByteString -> IO a)
          -> LBS.ByteString
          -> IO (Maybe a)
-sendData f js = with (overDataSent wrk) pure where
+sendData f js = withOverDataSent wrk pure where
   reqSize :: DataSent
   reqSize = LBS.length js
   wrk :: StateT DataSent IO (Maybe a)
@@ -473,8 +474,7 @@ sendData f js = with (overDataSent wrk) pure where
 --------------------------------------------------------------------------------
 -- | These are not in the test suite because it hits an external endpoint
 test :: IO ()
-test = runManaged do
-    (hnd :: Lgr.Handle IO) <- gcpLogger (Lgr.Error ==) Lgr.Pure.makeNopHandle
+test = withGcpLogger (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \hnd -> do
     let lg = Lgr.logError hnd
     let (ls :: [T.Text]) = replicate 13 $ "I like short songs!"
     liftIO do
