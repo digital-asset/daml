@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.23 - 2019-06-05
+--------------------
+
 SQL Extractor
 ~~~~~~~~~~~~~
 
