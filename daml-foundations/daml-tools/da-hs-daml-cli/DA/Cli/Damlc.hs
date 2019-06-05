@@ -7,7 +7,8 @@
 
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Damlc (main) where
-
+import Debug.Trace
+import DA.Pretty (renderPretty)
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
 import qualified Control.Monad.Managed             as Managed
@@ -16,6 +17,7 @@ import Data.Maybe
 import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
 import Codec.Archive.Zip
+import qualified Data.Set as DS
 import qualified Da.DamlLf as PLF
 import           DA.Cli.Damlc.BuildInfo
 import           DA.Cli.Damlc.Command.Damldoc      (cmdDamlDoc)
@@ -62,7 +64,6 @@ import DA.Bazel.Runfiles
 import DA.Daml.LF.Ast.World as AST 
 import DA.Daml.LF.Ast.Version
 import qualified Data.NameMap               as NM
--- import Debug.Trace
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -440,50 +441,75 @@ execClean projectOpts = do
             removeAndWarn "dist"
             putStrLn "Removed build artifacts."
 
--- choiceRetTypes :: LF.TemplateChoice -> LF.Type
-
 
 templatesFromModule :: LF.Module -> [LF.Template]
 templatesFromModule mod = NM.toList $ LF.moduleTemplates mod
 
-templateChoicesFromTemplate :: LF.Template -> [LF.TemplateChoice]
-templateChoicesFromTemplate tpl = NM.toList $ LF.tplChoices tpl
-
 listOfModules :: NM.NameMap LF.Module -> [LF.Module]
 listOfModules modules =  (NM.toList modules)
 
-data RefT = RefT 
-    {    chName :: T.Text
-        ,tplName :: [T.Text]
-        ,chRetName :: [T.Text]
-    } deriving (Show)
+data Action = ACreate (LF.Qualified LF.TypeConName) 
+            | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
 
-choiceRetTypes :: LF.World -> LF.Template  -> LF.TemplateChoice -> RefT
-choiceRetTypes _world tpl choice = RefT cname tplName rest
-    where
-        tplName = LF.unTypeConName $ LF.tplTypeCon tpl
-        cname = LF.unChoiceName $ LF.chcName choice
-        rest = case LF.chcReturnType choice of 
-                LF.TVar _  ->  []
-                LF.TCon a  ->  case LF.lookupDataType a _world of 
-                    Right LF.DefDataType{..} -> LF.unTypeConName dataTypeCon
-                    Left _ -> []
-                LF.TApp _ _ ->  []
-                LF.TBuiltin _  ->  []
-                _ -> []
 
-choiceRetTypesH :: LF.World -> LF.Template -> [LF.TemplateChoice] -> [RefT]
-choiceRetTypesH world  tpl chs = map (\c -> choiceRetTypes world tpl c ) chs 
+startFromUpdate :: DS.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> DS.Set Action
+startFromUpdate seen world update = case update of 
+    LF.UPure _ e -> startFromExpr seen world e
+    LF.UBind (LF.Binding _ e1) e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
+    LF.UCreate tpl e -> Set.singleton (ACreate tpl) `Set.union` startFromExpr seen world e
+    LF.UExercise tpl chc e1 e2 e3 -> Set.singleton (AExercise tpl chc) `Set.union` startFromExpr seen world e1 `Set.union` maybe Set.empty (startFromExpr seen world) e2 `Set.union` startFromExpr seen world e3
+    LF.UFetch _ ctIdEx -> startFromExpr seen world ctIdEx
+    LF.UGetTime -> Set.empty
+    LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
+    LF.ULookupByKey _ -> Set.empty
+    LF.UFetchByKey _ -> Set.empty
 
-moduleAndTemplates :: LF.World -> LF.Module -> [RefT]
+    -- 
+
+startFromExpr :: DS.Set (LF.Qualified LF.ExprValName) -> LF.World  -> LF.Expr -> DS.Set Action
+startFromExpr seen world e = trace ("startFromExpr " ++ renderPretty e) $ case e of
+    LF.EVar _ -> Set.empty
+    LF.EVal ref->  case LF.lookupValue ref world of 
+        Right LF.DefValue{..}  
+            | ref `Set.member` seen  -> Set.empty
+            | otherwise -> trace ("Going into " ++ show ref) $ startFromExpr (Set.insert ref seen)  world dvalBody
+        Left _ -> error "This should not happen"
+    LF.EBuiltin _ -> Set.empty
+    LF.ERecCon _ flds -> Set.unions $ map (\(_, exp) -> startFromExpr seen world exp) flds
+    LF.ERecProj _ _ recEx -> startFromExpr seen world recEx
+    LF.ETupleUpd _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
+    LF.EVariantCon _ _ varg -> startFromExpr seen world varg
+    LF.ETupleCon tcon -> Set.unions $ map (\(_, exp) -> startFromExpr seen world exp) tcon
+    LF.ETupleProj _ tupExpr -> startFromExpr seen world tupExpr
+    LF.ERecUpd _ _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
+    LF.ETmApp tmExpr tmpArg -> startFromExpr seen world tmExpr `Set.union` startFromExpr seen world tmpArg
+    LF.ETyApp tAppExpr _ -> startFromExpr seen world tAppExpr
+    LF.ETmLam _ tmlB -> startFromExpr seen world tmlB
+    LF.ETyLam _ lambdy -> startFromExpr seen world lambdy
+    LF.ECase cas casel -> startFromExpr seen world cas `Set.union` Set.unions ( map ( startFromExpr seen world . LF.altExpr ) casel)
+    LF.ELet (LF.Binding _ e1) e2 -> startFromExpr seen  world e1 `Set.union` startFromExpr seen world e2
+    LF.ENil _ -> Set.empty
+    LF.ECons _ consH consT -> startFromExpr seen world consH `Set.union` startFromExpr seen world consT
+    LF.ESome _ smBdy -> startFromExpr seen world smBdy
+    LF.ENone _ -> Set.empty
+    LF.EUpdate upd -> startFromUpdate seen world upd
+    LF.EScenario _ -> Set.empty
+    LF.ELocation _ e1 -> startFromExpr seen world e1
+    -- x -> Set.unions $ map startFromExpr $ children x
+
+startFromChoice :: LF.World -> LF.TemplateChoice -> DS.Set Action
+startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
+
+templatePossibleUpdates :: LF.World -> LF.Template -> DS.Set Action
+templatePossibleUpdates world tpl = Set.unions $ map (startFromChoice world) (NM.toList (LF.tplChoices tpl))
+
+moduleAndTemplates :: LF.World -> LF.Module -> [(LF.TypeConName ,DS.Set Action)]
 moduleAndTemplates world mod = retTypess
     where 
         templates = templatesFromModule mod
-        templatesWithchoices = map (\t -> (t, templateChoicesFromTemplate t)) templates
-        retTypess = concatMap (\(t, chs) -> choiceRetTypesH world t chs ) templatesWithchoices
+        -- templatesWithchoices = map (\t -> (t, templateChoicesFromTemplate t)) templates
+        retTypess = map (\t-> (LF.tplTypeCon t, templatePossibleUpdates world t )) templates
 
-ppShow :: RefT -> String
-ppShow RefT{..} = unlines (map (T.unpack) tplName) ++  ">->" ++ T.unpack chName ++ " >->" ++ unlines (map (T.unpack) chRetName) 
 
 execVisual :: FilePath -> IO ()
 execVisual dalfFilePath = do
@@ -491,7 +517,8 @@ execVisual dalfFilePath = do
     (pkID, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes  -- LF.PackageId, LF.Package
     let world =  AST.initWorldSelf [(pkID, lfPkg)] version1_4  lfPkg -- world
         modules = listOfModules $ LF.packageModules lfPkg
-        res = map (\m ->  map ppShow (moduleAndTemplates world m) ) modules
+        -- res = map (\m ->  map ppShow (moduleAndTemplates world m) ) modules
+        res = map (moduleAndTemplates world) modules
     putStrLn (show res)
 
         
