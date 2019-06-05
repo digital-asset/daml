@@ -29,8 +29,8 @@ class LotsOfPartiesIT
     with AsyncTimeLimitedTests
     with Matchers {
 
-  protected val testTemplateIds = new TestTemplateIds(config)
-  protected val templateIds = testTemplateIds.templateIds
+  protected lazy val testTemplateIds = new TestTemplateIds(config)
+  protected lazy val templateIds = testTemplateIds.templateIds
 
   private val numParties = 1024
   private val allParties: List[String] =
