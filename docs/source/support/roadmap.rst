@@ -14,8 +14,6 @@ We plan to update this roadmap roughly every three months.
 
   `Read more on GitHub <https://github.com/digital-asset/daml/issues/1387>`__.
 - **Tools to suggest improvements to DAML code**
-
-  Static analysis to suggest ways users can improve their DAML code.
 ..
 ..  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
 - **Upgrading contracts**
@@ -23,9 +21,9 @@ We plan to update this roadmap roughly every three months.
   Improved support for the workflows of upgrading contracts that already exist on the ledger.
 ..
 ..  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
-- **Tools for static visualisation**
+- **Tools for visualisation**
 
-   Tools that allow users to visualise the static workflow and lifecycle of contracts.
+  Tools that allow users to visualise the static workflow and lifecycle of contracts.
 ..
 ..  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
 - **Improve app portability between DAML ledgers**
@@ -35,7 +33,7 @@ We plan to update this roadmap roughly every three months.
   `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
 - **Ledger API authentication**
 
-  Add Ledger API authentication for all DAML Ledgers.
+  Add Ledger API authentication for all DAML ledgers.
 
   `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
 - **JavaScript ecosystem**
@@ -43,11 +41,6 @@ We plan to update this roadmap roughly every three months.
   Improve the currently experimental Node.js bindings so they are stable, and add higher-level abstractions to capture recurring usage patterns.
 
   `Read more on GitHub <https://github.com/digital-asset/daml-js>`__.
-.. - **Native installers**
-
-..   Allow users to install the SDK using native installers like ``homebrew`` and ``apt-get``.
-
-..   `Read more on GitHub <https://github.com/digital-asset/daml/issues/117>`__.
 - **DAML-on-X self-service package: Beta release**
 
   Make it easier for external developers to integrate DAML with other ledgers.
