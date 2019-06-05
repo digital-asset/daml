@@ -101,6 +101,7 @@ object SandboxServer {
   }
 }
 
+//TODO: move ledger into the index service!
 class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
 
   case class ApiServerState(
@@ -221,13 +222,12 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         (s"sql", Ledger.metered(ledger))
     }
 
-    val contractStore = new SandboxContractStore(ledger)
-    val indexService =
-      new SandboxIndexAndWriteService(
+    val indexAndWriteService =
+      SandboxIndexAndWriteService.create(
         ledger,
         config.timeModel,
-        context.templateStore,
-        contractStore)
+        context.templateStore
+      )
 
     val stopHeartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
@@ -237,8 +237,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           ApiServices
             .create(
               config,
-              indexService, // write service
-              indexService,
+              indexAndWriteService, // write service
+              indexAndWriteService, // index service
               SandboxServer.engine,
               timeProvider,
               timeServiceBackendO

@@ -35,7 +35,19 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{Future, Promise}
 
-class SandboxIndexAndWriteService(
+object SandboxIndexAndWriteService {
+  //TODO: create factories for in-memory and postgres versions
+  //TODO: life-cycles?
+  def create(ledger: Ledger, timeModel: TimeModel, templateStore: IndexPackagesService)(
+      implicit mat: Materializer): ParticipantState.WriteService with IndexService = {
+    val contractStore = new SandboxContractStore(ledger)
+
+    new SandboxIndexAndWriteService(ledger, timeModel, templateStore, contractStore)
+  }
+
+}
+
+private class SandboxIndexAndWriteService(
     ledger: Ledger,
     timeModel: TimeModel,
     templateStore: IndexPackagesService,

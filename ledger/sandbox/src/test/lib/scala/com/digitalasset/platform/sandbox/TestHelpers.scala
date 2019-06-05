@@ -10,21 +10,20 @@ import akka.stream.ActorMaterializer
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
+import com.digitalasset.platform.sandbox.damle.SandboxTemplateStore
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.{
   CommandExecutorImpl,
   Ledger,
-  SandboxContractStore,
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.services.time.TimeModel
 
 import scala.concurrent.{ExecutionContext, Future}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.sandbox.damle.SandboxTemplateStore
 
 object TestDar {
   val dalfFile: File = new File("ledger/sandbox/Test.dar")
@@ -51,14 +50,13 @@ trait TestHelpers {
       ActiveContractsInMemory.empty,
       ImmArray.empty)
 
-    val contractStore = new SandboxContractStore(ledger)
-
-    val writeService = new SandboxIndexAndWriteService(
+    val writeService = SandboxIndexAndWriteService.create(
       ledger,
       TimeModel.reasonableDefault,
-      SandboxTemplateStore(damlPackageContainer),
-      contractStore
+      SandboxTemplateStore(damlPackageContainer)
     )
+
+    val contractStore = writeService
 
     ApiSubmissionService.create(
       ledgerId,
