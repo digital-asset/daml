@@ -46,6 +46,8 @@ module DA.Text
   , DA.Text.parseInt
   , DA.Text.parseDecimal
   , DA.Text.sha256
+  , DA.Text.toCodePoints
+  , DA.Text.fromCodePoints
   ) where
 
 import Prelude
@@ -331,3 +333,12 @@ sha256 = primitive @"BESha256Text"
 -- ```
 reverse : Text -> Text
 reverse = implode . P.reverse . explode
+
+-- | Convert a `Text` into a sequence of unicode code points.
+toCodePoints : Text -> [Int]
+toCodePoints = primitive @"BECodePointsFromText"
+
+-- | Convert a sequence of unicode code points into a `Text`. Raises an
+-- exception if any of the code points is invalid.
+fromCodePoints : [Int] -> Text
+fromCodePoints = primitive @"BECodePointsToText"
