@@ -10,7 +10,7 @@ We plan to update this roadmap roughly every three months.
 
 - **Generic templates**
 
-  Support for writing generic templates - for example, a generic ``Proposal`` template that could be a ``Proposal<Iou>``.
+  Support for writing generic templates - for example, a generic ``Proposal`` workflow that could be instantiated as a ``Proposal Iou`` to propose an ``Iou``.
 
   `Read more on GitHub <https://github.com/digital-asset/daml/issues/1387>`__.
 - **Tools to suggest improvements to DAML code**
