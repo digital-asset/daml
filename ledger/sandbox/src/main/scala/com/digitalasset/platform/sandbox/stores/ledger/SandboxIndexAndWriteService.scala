@@ -35,7 +35,7 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{Future, Promise}
 
-class SandboxIndexService(
+class SandboxIndexAndWriteService(
     ledger: Ledger,
     timeModel: TimeModel,
     templateStore: IndexPackagesService,
