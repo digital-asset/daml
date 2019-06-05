@@ -21,6 +21,8 @@ import Data.Maybe
 import Data.Foldable
 import Options.Applicative.Extended
 import System.Environment
+import Data.Either.Extra
+import Control.Exception.Safe
 
 -- | Parse command line arguments without SDK command info. Returns Nothing if
 -- any error occurs, meaning the command may not be parseable without SDK command
@@ -66,6 +68,7 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
     [ subparser -- visible commands
         $  builtin "version" "Display DAML version information" mempty (Version <$> versionParser <**> helper)
         <> builtin "install" "Install the specified DAML SDK version" mempty (Install <$> installParser <**> helper)
+        <> builtin "uninstall" "Uninstall the specified DAML SDK version" mempty (Uninstall <$> uninstallParser <**> helper)
         <> foldMap dispatch visible
     , subparser -- hidden commands
         $  internal
@@ -87,5 +90,14 @@ installParser = InstallOptions
     <*> fmap SetPath (flagYesNoAuto "set-path" True "Adjust PATH automatically. This option only has an effect on Windows." idm)
     where
         iflag p name opts desc = fmap p (switch (long name <> help desc <> opts))
+
+uninstallParser :: Parser SdkVersion
+uninstallParser =
+    argument readSdkVersion (metavar "VERSION" <> help "The SDK version to uninstall.")
+
+
+readSdkVersion :: ReadM SdkVersion
+readSdkVersion =
+    eitherReader (mapLeft displayException . parseVersion . pack)
 
 
