@@ -184,6 +184,7 @@ object TransactionGenerator {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     agreementText <- Gen.option(Gen.asciiStr)
+    contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
     parties <- Gen.listOf(nonEmptyId)
@@ -194,6 +195,7 @@ object TransactionGenerator {
           eventId,
           contractId,
           Some(scalaTemplateId),
+          contractKey.fold[Option[Value]](None)(c => Some(c._1)),
           Some(scalaRecord),
           parties,
           agreementText = agreementText)),
@@ -203,7 +205,9 @@ object TransactionGenerator {
         javaTemplateId,
         contractId,
         javaRecord,
-        agreementText.map(Optional.of[String]).getOrElse(Optional.empty()))
+        agreementText.map(Optional.of[String]).getOrElse(Optional.empty()),
+        contractKey.fold(Optional.empty[data.Value])(c => Optional.of[data.Value](c._2))
+      )
     )
 
   val archivedEventGen: Gen[(Archived, data.ArchivedEvent)] = for {

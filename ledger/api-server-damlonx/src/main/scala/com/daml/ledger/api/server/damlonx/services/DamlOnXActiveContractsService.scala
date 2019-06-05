@@ -94,6 +94,14 @@ class DamlOnXActiveContractsService private (
         a.contractId.coid, // FIXME(JM): Does EventId == ContractId make sense here?
         a.contractId.coid,
         Some(LfEngineToApi.toApiIdentifier(a.templateId)),
+        a.contractKey.map(
+          LfEngineToApi
+            .lfContractKeyToApiValue(verbose, _)
+            .fold(
+              err =>
+                throw new RuntimeException(
+                  s"Unexpected error when converting stored contract: $err"),
+              identity)),
         Some(
           LfEngineToApi
             .lfValueToApiRecord(verbose = verbose, a.argument.value)

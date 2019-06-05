@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Decimal
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
+import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.v1.commands.{
   Command => ApiCommand,
@@ -28,6 +29,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Variant => ApiVariant,
   Enum => ApiEnum,
 }
+
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 
@@ -203,6 +205,11 @@ object LfEngineToApi {
       maximumRecordTime,
       cmdss.toSeq)
   }
+
+  def lfContractKeyToApiValue(
+      verbose: Boolean,
+      lf: KeyWithMaintainers[Lf.VersionedValue[Lf.AbsoluteContractId]]): Either[String, ApiValue] =
+    lfVersionedValueToApiValue(verbose, lf.key)
 
   /** This traversal fails the identity law so is unsuitable for [[scalaz.Traverse]].
     * It is, nevertheless, what is meant sometimes.

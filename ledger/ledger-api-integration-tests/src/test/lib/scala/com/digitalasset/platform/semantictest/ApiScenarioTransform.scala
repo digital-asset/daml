@@ -6,6 +6,7 @@ package com.digitalasset.platform.semantictest
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, ContractIdString, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value, ValueVersions}
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -15,7 +16,7 @@ import com.digitalasset.ledger.api.v1.event.{
 }
 import com.digitalasset.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.value.{Record, Value => ApiValue}
-import com.digitalasset.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
+import com.digitalasset.ledger.api.validation.CommandsValidator
 import com.digitalasset.platform.common.{PlatformTypes => P}
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
 import io.grpc.StatusRuntimeException
@@ -58,9 +59,6 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
       LedgerId(ledgerId),
       IdentifierResolver(_ => Future.successful(None))
     )
-
-  private val validator =
-    new SubmitRequestValidator(commandsValidator)
 
   private def recordToLfValue[Cid](record: Record) =
     toLfValue(ApiValue(ApiValue.Sum.Record(record)))
@@ -106,6 +104,9 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
               P.mn(createdEvent.getTemplateId.moduleName),
               P.dn(createdEvent.getTemplateId.entityName))
           ),
+          // conversion is imperfect as maintainers are not determinable from events yet
+          createdEvent.contractKey.map(key =>
+            toLfVersionedValue(key).fold(throw _, KeyWithMaintainers(_, Set.empty))),
           value,
           createdEvent.agreementText.getOrElse(""),
           // conversion is imperfect as stakeholders are not determinable from events yet

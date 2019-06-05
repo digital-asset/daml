@@ -16,7 +16,8 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.digitalasset.ledger.api.v1.trace_context.TraceContext
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
+import com.digitalasset.ledger.api.v1.value.Value.Sum.Text
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.util.Random
@@ -55,6 +56,7 @@ object MockMessages {
   val eventIdExercised = "eventIdExercise"
   val contractId = "contractId"
   val contractIdOther = contractId + "Other"
+  def contractKey = Value(Text("contractKey"))
   val packageId = "packageId"
   val templateName = "templateName"
   val choice = "choice"

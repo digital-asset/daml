@@ -30,14 +30,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, ContractId}
-import com.digitalasset.ledger.api.v1.value.{
-  Identifier,
-  Optional,
-  Record,
-  RecordField,
-  Value,
-  Variant
-}
+import com.digitalasset.ledger.api.v1.value.{Identifier, Optional, Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.api.v1.event.EventOps._
@@ -479,7 +472,6 @@ class TransactionServiceIT
         val template = templateIds.parameterShowcase
         val arg = paramShowcaseArgs(templateIds.testPackageId)
 
-        val variant = Value(Value.Sum.Variant(Variant(None, "SomeInteger", 1.asInt64)))
         for {
           create <- c.submitCreate(
             s"Creating_contract_with_a_multitude_of_verbose_param_types-${runSuffix}",
@@ -694,6 +686,45 @@ class TransactionServiceIT
           resultF.map(_.agreementText shouldBe Some(""))
       }
 
+      "do not expose the contract key in CreatedEvents for templates that do not have them" in allFixtures {
+        c =>
+          val resultF = c.submitCreate(
+            "Creating_CallablePayout_contract_for_contract_key_test",
+            templateIds.callablePayout,
+            List(
+              RecordField("giver", party1.asParty),
+              RecordField("receiver", party2.asParty)
+            ),
+            party1
+          )
+
+          resultF.map(_.contractKey shouldBe None)
+      }
+
+      "expose the contract key in CreatedEvents for templates that have them" in allFixtures { c =>
+        val resultF = c.submitCreate(
+          "Creating_TextKey_contract_for_contract_key_test",
+          templateIds.textKey,
+          List(
+            RecordField("tkParty", party1.asParty),
+            RecordField("tkKey", "some-fancy-key".asText),
+            RecordField("tkDisclosedTo", Seq.empty[Value].asList)
+          ),
+          party1
+        )
+
+        resultF.map(
+          _.contractKey shouldBe Some(
+            Value(
+              Value.Sum.Record(
+                Record(
+                  None,
+                  Vector(
+                    RecordField("", Some(party1.asParty)),
+                    RecordField("", Some("some-fancy-key".asText))))))
+          ))
+      }
+
       "accept exercising a well-authorized multi-actor choice" in allFixtures { c =>
         val List(operator, receiver, giver) = List(party1, party2, party3)
         val triProposalArg = mkTriProposalArg(operator, receiver, giver)
@@ -724,7 +755,7 @@ class TransactionServiceIT
 
       "accept exercising a well-authorized multi-actor choice with coinciding controllers" in allFixtures {
         c =>
-          val List(operator, receiver, giver) = List(party1, party2, party3)
+          val List(operator, _, giver) = List(party1, party2, party3)
           val triProposalArg = mkTriProposalArg(operator, giver, giver)
           val expectedArg = triProposalArg.map(_.copy(label = ""))
           for {

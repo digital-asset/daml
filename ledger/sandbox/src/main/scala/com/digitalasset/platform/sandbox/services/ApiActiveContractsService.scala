@@ -66,6 +66,14 @@ class ApiActiveContractsService private (
                             create.eventId.unwrap,
                             create.contractId.coid,
                             Some(LfEngineToApi.toApiIdentifier(create.templateId)),
+                            create.contractKey.map(
+                              LfEngineToApi
+                                .lfVersionedValueToApiValue(verbose = request.verbose, _)
+                                .fold(
+                                  err =>
+                                    throw new RuntimeException(
+                                      s"Unexpected error when converting stored contract: $err"),
+                                  identity)),
                             Some(
                               LfEngineToApi
                                 .lfValueToApiRecord(

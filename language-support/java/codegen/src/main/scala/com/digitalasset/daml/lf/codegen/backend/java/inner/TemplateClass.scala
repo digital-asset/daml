@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import java.util.Optional
 
 import com.daml.ledger.javaapi
-import com.daml.ledger.javaapi.data.{ContractId, CreatedEvent}
+import com.daml.ledger.javaapi.data.{ContractId, CreatedEvent, Value}
 import com.digitalasset.daml.lf.codegen.TypeWithContext
 import com.digitalasset.daml.lf.codegen.backend.java.ObjectMethods
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
@@ -62,8 +62,10 @@ private[inner] object TemplateClass extends StrictLogging {
   private val idFieldName = "id"
   private val dataFieldName = "data"
   private val agreementFieldName = "agreementText"
+  private val contractKeyFieldName = "contractKey"
 
   private val optionalString = ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
+  private val optionalValue = ParameterizedTypeName.get(classOf[Optional[_]], classOf[Value])
 
   private def generateContractClass(templateClassName: ClassName): TypeSpec = {
     val contractIdClassName = ClassName.bestGuess("ContractId")
@@ -72,6 +74,7 @@ private[inner] object TemplateClass extends StrictLogging {
     classBuilder.addField(contractIdClassName, idFieldName, Modifier.PUBLIC, Modifier.FINAL)
     classBuilder.addField(templateClassName, dataFieldName, Modifier.PUBLIC, Modifier.FINAL)
     classBuilder.addField(optionalString, agreementFieldName, Modifier.PUBLIC, Modifier.FINAL)
+    classBuilder.addField(optionalValue, contractKeyFieldName, Modifier.PUBLIC, Modifier.FINAL)
     classBuilder.addSuperinterface(ClassName.get(classOf[javaapi.data.Contract]))
     val constructorBuilder = MethodSpec
       .constructorBuilder()
@@ -79,9 +82,11 @@ private[inner] object TemplateClass extends StrictLogging {
       .addParameter(contractIdClassName, idFieldName)
       .addParameter(templateClassName, dataFieldName)
       .addParameter(optionalString, agreementFieldName)
+      .addParameter(optionalValue, contractKeyFieldName)
     constructorBuilder.addStatement("this.$L = $L", idFieldName, idFieldName)
     constructorBuilder.addStatement("this.$L = $L", dataFieldName, dataFieldName)
     constructorBuilder.addStatement("this.$L = $L", agreementFieldName, agreementFieldName)
+    constructorBuilder.addStatement("this.$L = $L", contractKeyFieldName, contractKeyFieldName);
     val constructor = constructorBuilder.build()
 
     classBuilder.addMethod(constructor)
@@ -111,9 +116,8 @@ private[inner] object TemplateClass extends StrictLogging {
       .returns(className)
       .addParameter(classOf[String], "contractId")
       .addParameter(classOf[javaapi.data.Record], "record$")
-      .addParameter(
-        ParameterizedTypeName.get(classOf[Optional[_]], classOf[String]),
-        agreementFieldName)
+      .addParameter(optionalString, agreementFieldName)
+      .addParameter(optionalValue, contractKeyFieldName)
       .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
       .addStatement(
         "$T $L = $T.fromValue(record$$)",
@@ -121,11 +125,13 @@ private[inner] object TemplateClass extends StrictLogging {
         dataFieldName,
         templateClassName)
       .addStatement(
-        "return new $T($L, $L, $L)",
+        "return new $T($L, $L, $L, $L)",
         className,
         idFieldName,
         dataFieldName,
-        agreementFieldName)
+        agreementFieldName,
+        contractKeyFieldName
+      )
       .build()
 
   private[inner] def generateFromIdAndRecordDeprecated(
@@ -146,10 +152,11 @@ private[inner] object TemplateClass extends StrictLogging {
         dataFieldName,
         templateClassName)
       .addStatement(
-        "return new $T($L, $L, $T.empty())",
+        "return new $T($L, $L, $T.empty(), $T.empty())",
         className,
         idFieldName,
         dataFieldName,
+        classOf[Optional[_]],
         classOf[Optional[_]])
       .build()
 
@@ -163,7 +170,7 @@ private[inner] object TemplateClass extends StrictLogging {
       .returns(className)
       .addParameter(classOf[CreatedEvent], "event")
       .addStatement(
-        "return fromIdAndRecord(event.getContractId(), event.getArguments(), event.getAgreementText())")
+        "return fromIdAndRecord(event.getContractId(), event.getArguments(), event.getAgreementText(), event.getContractKey())")
       .build()
   }
 

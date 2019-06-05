@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.codegen.backend.java.inner
 import java.util.Optional
 
 import com.daml.ledger.javaapi
+import com.daml.ledger.javaapi.data.Value
 import com.squareup.javapoet.{ClassName, ParameterizedTypeName, TypeName}
 import javax.lang.model.element.Modifier
 import org.scalatest.{FlatSpec, Matchers, OptionValues, TryValues}
@@ -25,9 +26,9 @@ final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues w
     fromIdAndRecord.returnType shouldEqual className
   }
 
-  it should "generate a method taking exactly a template identifier and a record" in {
+  it should "generate a method taking exactly a template identifier, a record, an agreement text and a contract key" in {
     val parameters = fromIdAndRecord.parameters.asScala.map(p => p.name -> p.`type`)
-    parameters should contain only ("contractId" -> string, "record$" -> record, "agreementText" -> optionalString)
+    parameters should contain only ("contractId" -> string, "record$" -> record, "agreementText" -> optionalString, "contractKey" -> optionalValue)
   }
 
   private[this] val className = ClassName.bestGuess("Test")
@@ -39,5 +40,7 @@ final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues w
   private[this] val record = TypeName.get(classOf[javaapi.data.Record])
   private[this] val optionalString =
     ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
+  private[this] val optionalValue =
+    ParameterizedTypeName.get(classOf[Optional[_]], classOf[Value])
 
 }

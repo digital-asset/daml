@@ -197,7 +197,7 @@ object Node {
             targetCoid2,
             templateId2,
             choiceId2,
-            optLocation2 @ _,
+            _,
             consuming2,
             actingParties2,
             chosenValue2,
@@ -213,7 +213,7 @@ object Node {
           exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2)
       }
       case nl: NodeLookupByKey[Cid, Val] => {
-        case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>
+        case NodeLookupByKey(templateId2, _, key2, result2) =>
           import nl._
           templateId == templateId2 &&
           key === key2 && result === result2
