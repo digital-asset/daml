@@ -9,6 +9,7 @@ module DAML.Assistant.Install
     , versionInstall
     , getLatestVersion
     , install
+    , uninstallVersion
     ) where
 
 import DAML.Assistant.Types
@@ -130,11 +131,7 @@ installExtracted env@InstallEnv{..} sourcePath =
                 exitFailure
 
             requiredIO "Failed to set file modes for SDK to remove." $ do
-                walkRecursive (unwrapSdkPath targetPath) WalkCallbacks
-                    { walkOnFile = setRemoveFileMode
-                    , walkOnDirectoryPre = setRemoveFileMode
-                    , walkOnDirectoryPost = const (pure ())
-                    }
+                setWritableRecursive (unwrapSdkPath targetPath)
 
         when (sourcePath /= targetPath) $ do -- should be true 99.9% of the time,
                                             -- but in that 0.1% this check prevents us
@@ -217,11 +214,19 @@ setSdkFileMode path = do
     sourceMode <- fileMode <$> getFileStatus path
     setFileMode path (intersectFileModes fileModeMask sourceMode)
 
--- | Add write permissions to allow for removal.
-setRemoveFileMode :: FilePath -> IO ()
-setRemoveFileMode path = do
+-- | Add write permissions to file or directory.
+setWritable :: FilePath -> IO ()
+setWritable path = do
     sourceMode <- fileMode <$> getFileStatus path
     setFileMode path (unionFileModes ownerWriteMode sourceMode)
+
+setWritableRecursive :: FilePath -> IO ()
+setWritableRecursive path =
+    walkRecursive path WalkCallbacks
+        { walkOnFile = setWritable
+        , walkOnDirectoryPre = setWritable
+        , walkOnDirectoryPost = const (pure ())
+        }
 
 -- | File mode mask to be applied to installed SDK files.
 fileModeMask :: FileMode
@@ -233,6 +238,9 @@ fileModeMask = foldl1 unionFileModes
     , otherReadMode
     , otherExecuteMode
     ]
+
+
+
 
 -- | Copy an extracted SDK release directory and install it.
 copyAndInstall :: InstallEnv -> FilePath -> IO ()
@@ -391,4 +399,33 @@ install options damlPath projectPathM = do
                 pathInstall env arg
             else
                 throwIO (assistantErrorBecause "Invalid install target. Expected version, path, 'project' or 'latest'." ("target = " <> pack arg))
+
+-- | Uninstall a specific SDK version.
+uninstallVersion :: Env -> SdkVersion -> IO ()
+uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
+    let (SdkPath path) = defaultSdkPath envDamlPath sdkVersion
+
+    exists <- doesDirectoryExist path
+    if exists then do
+        when (Just (DamlAssistantSdkVersion sdkVersion) == envDamlAssistantSdkVersion) $ do
+            hPutStr stderr . unlines $
+                [ "Cannot uninstall currently activated DAML SDK version."
+                , "Please activate a different SDK version and try again."
+                , "To activate a different version, run:"
+                , ""
+                , "    daml install VERSION --activate"
+                ] -- TODO (FAFM): suggest a version that will work.
+            exitFailure
+
+        requiredIO "Failed to set write permission for SDK files to remove." $ do
+            setWritableRecursive path
+
+        requiredIO "Failed to remove SDK files." $ do
+            removePathForcibly path
+
+        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " is uninstalled.")
+
+    else do
+        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " not installed.")
+
 
