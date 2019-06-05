@@ -34,7 +34,7 @@ template NameOfTemplate
 -- end template agree snippet
 -- start contract key snippet
     key (exampleParty, exampleParam) : (Party, Text)
-    maintainer exampleParty
+    maintainer (exampleFunction key)
 -- end contract key snippet
 -- start template choice snippet
     -- option 1 for specifying choices: choice name first
