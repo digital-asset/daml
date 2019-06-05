@@ -57,7 +57,7 @@ object InterfaceReader {
     def addVariant(k: QualifiedName, tyVars: ImmArraySeq[Ref.Name], a: Variant.FWT): State =
       this.copy(typeDecls = this.typeDecls.updated(k, InterfaceType.Normal(DefDataType(tyVars, a))))
 
-    def addEnum[E](k: QualifiedName, tyVars: ImmArraySeq[Ref.Name], a: Enum) =
+    def addEnum(k: QualifiedName, tyVars: ImmArraySeq[Ref.Name], a: Enum) =
       this.copy(typeDecls = this.typeDecls.updated(k, InterfaceType.Normal(DefDataType(tyVars, a))))
 
     def removeRecord(k: QualifiedName): Option[(Record.FWT, State)] =
@@ -187,9 +187,9 @@ object InterfaceReader {
     : InterfaceReaderError.Tree \/ (QualifiedName, ImmArraySeq[Ref.Name], Enum) =
     (locate('name, rootErrOf[ErrorLoc](fullName(m, a.getName))).validation |@|
       locate('typeParams, typeParams(a)).validation |@|
-      locate('constructors, rootErrOf[ErrorLoc](constructors(a))).validation) {
+      locate('constructors, rootErrOf[ErrorLoc](enumConstructors(a))).validation) {
       (k, tyVars, constructors) =>
-        (k, tyVars.toSeq, Enum(constructors.toSeq))
+        (k, tyVars.toSeq, Enum(constructors))
     }.disjunction
 
   private[this] def recordOrVariant[Z](
@@ -288,8 +288,8 @@ object InterfaceReader {
       ctx: Context): InterfaceReaderError \/ FieldWithType =
     type_(a.getType, ctx).flatMap(t => name(a.getField).map(_ -> t))
 
-  private def constructors(as: DamlLf1.DefDataType): InterfaceReaderError \/ ImmArray[Name] =
-    ImmArray(as.getEnum.getConstructorsList.asScala).toSeq.traverseU(name).map(_.toImmArray)
+  private def enumConstructors(as: DamlLf1.DefDataType): InterfaceReaderError \/ ImmArraySeq[Name] =
+    ImmArray(as.getEnum.getConstructorsList.asScala).toSeq.traverseU(name)
 
   /**
     * `Fun`, `Forall` and `Tuple` should never appear in Records and Variants

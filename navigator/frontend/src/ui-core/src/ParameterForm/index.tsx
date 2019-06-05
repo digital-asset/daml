@@ -13,7 +13,7 @@ import {
   DamlLfType,
   DamlLfTypeCon,
   DamlLfTypePrim,
-  DamlLfVariant
+  DamlLfVariant,
 } from '../api/DamlLfType';
 import {
   DamlLfValue,
