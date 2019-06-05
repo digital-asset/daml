@@ -13,17 +13,19 @@ import com.digitalasset.platform.semantictest.SandboxSemanticTestsLfRunner
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.platform.testing.LedgerBackend
 import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceIT
-import org.scalatest.Args
 import org.scalatest.time.{Seconds, Span}
+import org.scalatest.{Args, Suite}
+
+import scala.util.control.NonFatal
 
 object LedgerApiTestTool {
+  val semanticTestsResource = "/ledger/ledger-api-integration-tests/SemanticTests.dar"
+  val integrationTestResource = "/ledger/sandbox/Test.dar"
+  val testResources = List(
+    integrationTestResource,
+    semanticTestsResource,
+  )
   def main(args: Array[String]): Unit = {
-    val semanticTestsResource = "/ledger/ledger-api-integration-tests/SemanticTests.dar"
-    val integrationTestResource = "/ledger/sandbox/Test.dar"
-    val testResources = List(
-      integrationTestResource,
-      semanticTestsResource,
-    )
 
     val toolConfig = Cli
       .parse(args)
@@ -31,51 +33,60 @@ object LedgerApiTestTool {
 
     if (toolConfig.extract) {
       extractTestFiles(testResources)
-      System.exit(0)
+      sys.exit(0)
+    }
+
+    val commonConfig = PlatformApplications.Config.default
+      .withTimeProvider(TimeProviderType.WallClock)
+      .withLedgerIdMode(LedgerIdMode.Dynamic())
+      .withRemoteApiEndpoint(
+        RemoteApiEndpoint.default
+          .withHost(toolConfig.host)
+          .withPort(toolConfig.port)
+          .withTlsConfig(toolConfig.tlsConfig))
+
+    val suites = suiteDefinitions(commonConfig)
+
+    if (toolConfig.listTests) {
+      println(s"The following tests are available: \n${suites.keySet.toList.sorted.mkString("\n")}")
+      sys.exit(0)
     }
 
     var failed = false
 
     try {
+
+      val suitesToRun = (if (toolConfig.included.isEmpty) suites.keySet else toolConfig.included)
+        .filterNot(toolConfig.excluded)
+
+      if (suitesToRun.isEmpty) {
+        println("No tests to run.")
+        sys.exit(0)
+      }
+
       val reporter = new ToolReporter(toolConfig.verbose)
       val sorter = new ToolSorter
 
-      val semanticTestFile = resourceAsFile(semanticTestsResource)
+      suitesToRun
+        .find(n => !suites.contains(n))
+        .foreach { unknownSuite =>
+          println(s"Unknown Test: $unknownSuite")
+          sys.exit(-1)
+        }
 
-      val commonConfig = PlatformApplications.Config.default
-        .withTimeProvider(TimeProviderType.WallClock)
-        .withLedgerIdMode(LedgerIdMode.Dynamic())
-        .withRemoteApiEndpoint(
-          RemoteApiEndpoint.default
-            .withHost(toolConfig.host)
-            .withPort(toolConfig.port)
-            .withTlsConfig(toolConfig.tlsConfig))
-
-      var semanticTestsRunner = new SandboxSemanticTestsLfRunner {
-        override def suiteName: String = "Semantic Tests"
-        override def actorSystemName = "SandboxSemanticTestsLfRunnerTestToolActorSystem"
-
-        override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-        override implicit lazy val patienceConfig: PatienceConfig = PatienceConfig(
-          Span(60L, Seconds))
-
-        override protected def config: Config = commonConfig.withDarFile(semanticTestFile)
+      suitesToRun.foreach { suiteName =>
+        try {
+          suites(suiteName)()
+            .run(None, Args(reporter = reporter, distributedTestSorter = Some(sorter)))
+        } catch {
+          case NonFatal(t) =>
+            println(s"Error while executing test [$suiteName]: ${t.getMessage}")
+        }
+        ()
       }
-      semanticTestsRunner.run(None, Args(reporter = reporter, distributedTestSorter = Some(sorter)))
-
-      val integrationTestFile = resourceAsFile(integrationTestResource)
-      val tsit = new TransactionServiceIT {
-        override def suiteName: String = "Transaction Service Tests"
-        override def actorSystemName = "TransactionServiceITTestToolActorSystem"
-        override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-
-        override protected def config: Config = commonConfig.withDarFile(integrationTestFile)
-      }
-      tsit.run(None, Args(reporter = reporter, distributedTestSorter = Some(sorter)))
-
       reporter.printStatistics
     } catch {
-      case (t: Throwable) =>
+      case NonFatal(t) =>
         failed = true
         if (!toolConfig.mustFail) throw t
     }
@@ -88,9 +99,47 @@ object LedgerApiTestTool {
     }
   }
 
+  private def suiteDefinitions(
+      commonConfig: PlatformApplications.Config): Map[String, () => Suite] = {
+    val semanticTestsRunner = lazyInit(
+      "SemanticTests",
+      name =>
+        new SandboxSemanticTestsLfRunner {
+          override def suiteName: String = name
+          override def actorSystemName = "SandboxSemanticTestsLfRunnerTestToolActorSystem"
+
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override implicit lazy val patienceConfig: PatienceConfig =
+            PatienceConfig(Span(60L, Seconds))
+
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(semanticTestsResource))
+      }
+    )
+
+    val transactionServiceIT = lazyInit(
+      "TransactionServiceTests",
+      name =>
+        new TransactionServiceIT {
+          override def suiteName: String = name
+          override def actorSystemName = "TransactionServiceITTestToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    Map(semanticTestsRunner, transactionServiceIT)
+  }
+
+  def lazyInit[A](name: String, factory: String => A): (String, () => A) = {
+    (name, () => factory(name))
+  }
+
   private def resourceAsFile(testResource: String): Path = {
     val integrationTestResourceStream =
-      Option(getClass.getResourceAsStream(testResource)).flatMap(Option(_))
+      Option(getClass.getResourceAsStream(testResource))
     require(
       integrationTestResourceStream.isDefined,
       "Unable to load the required test DAR from resources.")

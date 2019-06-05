@@ -14,7 +14,10 @@ final case class Config(
     verbose: Boolean,
     timeoutScaleFactor: Double,
     extract: Boolean,
-    tlsConfig: Option[TlsConfiguration]
+    tlsConfig: Option[TlsConfiguration],
+    excluded: Set[String],
+    included: Set[String],
+    listTests: Boolean
 )
 
 object Config {
@@ -26,6 +29,9 @@ object Config {
     verbose = false,
     timeoutScaleFactor = 1.0,
     extract = false,
-    tlsConfig = None
+    tlsConfig = None,
+    excluded = Set.empty,
+    included = Set.empty,
+    listTests = false
   )
 }

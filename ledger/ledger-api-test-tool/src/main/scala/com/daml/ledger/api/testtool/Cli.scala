@@ -80,6 +80,19 @@ object Cli {
       .text("""Extract a DAR necessary to test a DAML ledger and exit without running tests.
               |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin)
 
+    opt[Seq[String]]("exclude")
+      .action((ex, c) => c.copy(excluded = ex.toSet))
+      .text("""A comma-separated list of tests that should NOT be run. By default, no tests are excluded.""")
+
+    opt[Seq[String]]("include")
+      .action((inc, c) => c.copy(included = inc.toSet))
+      .text(
+        """A comma-separated list of tests that should be run. By default, all tests are run.""")
+
+    opt[Unit]("list")
+      .action((_, c) => c.copy(listTests = true))
+      .text("""Lists all available tests that can be used in the include and exclude options.""")
+
   }
 
   def parse(args: Array[String]): Option[Config] =
