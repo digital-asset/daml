@@ -14,6 +14,11 @@ SQL Extractor
 
 - Improving logging. See `#1518 <https://github.com/digital-asset/daml/pull/1518>`__.
 
+DAML Language
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Contract key maintainers must now explicitly be computed from the contract key using the implicit ``key`` variable. For instance, if you have ``key (bank, accountId) : (Party, Text)`` and want ``bank`` to be the maintainer, you have to write ``maintainer key._1`` (before, you could write ``maintainer bank``).
+
 DAML Compiler
 ~~~~~~~~~~~~~
 
