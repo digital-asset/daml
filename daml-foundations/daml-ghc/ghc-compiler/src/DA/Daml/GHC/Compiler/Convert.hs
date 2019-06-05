@@ -525,11 +525,9 @@ convertChoice _ _ x = unhandled "Choice body" x
 convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
 convertKey env o@(Var (QIsTpl "C:TemplateKey") `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
     keyType <- convertType env keyType
-    key <- envFindBind env key
-    key <- (`ETmApp` EVar (mkVar "this")) <$> convertExpr env key
-    maintainer <- envFindBind env maintainer
-    maintainer <- convertExpr env maintainer
-    pure $ TemplateKey keyType key maintainer
+    key <- envFindBind env key >>= convertExpr env
+    maintainer <- envFindBind env maintainer >>= convertExpr env
+    pure $ TemplateKey keyType (key `ETmApp` EVar (mkVar "this")) maintainer
 convertKey _ o = unhandled "Template key definition" o
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
