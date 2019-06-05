@@ -6,6 +6,16 @@ trigger: none
 pr: none
 
 jobs:
+  - job: latest_webide
+    timeoutInMinutes: 20
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: ci/check-update-build-webide.sh
+        displayName: 'Check for updated SDK and build webide with latest version'
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
   - job: docs
     timeoutInMinutes: 50
     pool:
