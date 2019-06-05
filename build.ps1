@@ -39,7 +39,7 @@ bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution
     @haskell_c2hs//... `
     //3rdparty/... `
     //nix/third-party/gRPC-haskell:grpc-haskell `
-    //daml-assistant:daml `
+    //daml-assistant/... `
     //daml-foundations/... `
     //compiler/... `
     //daml-lf/... `
@@ -68,7 +68,7 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //ledger/ledger-api-common/... `
     //ledger-api/... `
     //navigator/backend/... `
-    //daml-assistant/integration-tests/... `
+    //daml-assistant/... `
     //daml-foundations/daml-ghc:daml-ghc-deterministic `
     //daml-foundations/daml-ghc:compile-subdir `
     //daml-foundations/daml-ghc:bond-trading-memory `

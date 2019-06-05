@@ -24,7 +24,6 @@ import qualified Test.Tasty.HUnit as Tasty
 import qualified Test.Tasty.QuickCheck as Tasty
 import qualified Data.Text as T
 import Test.Tasty.QuickCheck ((==>))
-import System.Info (os)
 import Data.Maybe
 import Control.Exception.Safe
 import Control.Monad
@@ -85,29 +84,34 @@ assertError ctxPattern msgPattern action = do
 
 testGetDamlPath :: Tasty.TestTree
 testGetDamlPath = Tasty.testGroup "DAML.Assistant.Env.getDamlPath"
+    [ Tasty.testCase "getDamlPath returns DAML_HOME" $ do
+            withSystemTempDirectory "test-getDamlPath" $ \expected -> do
+                DamlPath got <- withEnv [(damlPathEnvVar, Just expected)] getDamlPath
+                Tasty.assertEqual "daml home path" expected got
+        , if isWindows
+            then testGetDamlPathWindows
+            else testGetDamlPathPosix
+    ]
+
+testGetDamlPathWindows :: Tasty.TestTree
+testGetDamlPathWindows = Tasty.testGroup "windows-specific tests"
     [ Tasty.testCase "getDamlPath gets app user data directory by default" $ do
-        withSystemTempDirectory "test-getDamlPath" $ \base -> do
-            let baseVar | "linux"   <- os = "HOME"
-                        | "darwin"  <- os = "HOME"
-                        | "mingw32" <- os = "APPDATA"
-                        | otherwise = error ("unknown os " <> os)
-            let folder  | "linux"   <- os = ".daml"
-                        | "darwin"  <- os = ".daml"
-                        | "mingw32" <- os = "daml"
-                        | otherwise = error ("unknown os " <> os)
+             DamlPath got <- withEnv [ (damlPathEnvVar, Nothing)] getDamlPath
+             let expectedSuffix = "\\AppData\\Roaming\\daml"
+             let failureMsg = "daml home path - " ++ show got ++ " does not end with: " ++ show expectedSuffix
+             Tasty.assertBool failureMsg $ expectedSuffix `isSuffixOf` got
+     ]
 
-            let expected = base </> folder
-            createDirectory expected
-            DamlPath got <- withEnv [ (baseVar, Just base)
-                                    , (damlPathEnvVar, Nothing)
-                                    ] getDamlPath
-            Tasty.assertEqual "daml home path" expected got
-
-    , Tasty.testCase "getDamlPath returns DAML_HOME" $ do
-        withSystemTempDirectory "test-getDamlPath" $ \expected -> do
-            DamlPath got <- withEnv [(damlPathEnvVar, Just expected)] getDamlPath
-            Tasty.assertEqual "daml home path" expected got
-
+testGetDamlPathPosix :: Tasty.TestTree
+testGetDamlPathPosix = Tasty.testGroup "posix-specific tests"
+    [ Tasty.testCase "getDamlPath gets app user data directory by default" $ do
+            withSystemTempDirectory "test-getDamlPath" $ \base -> do
+                 let expected = base </> ".daml"
+                 createDirectory expected
+                 DamlPath got <- withEnv [ ("HOME", Just base)
+                                         , (damlPathEnvVar, Nothing)
+                                         ] getDamlPath
+                 Tasty.assertEqual "daml home path" expected got
     ]
 
 testGetProjectPath :: Tasty.TestTree
@@ -380,9 +384,8 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
             createDirectoryIfMissing True "source"
             createDirectoryIfMissing True ("source" </> "daml")
             writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
-            writeFileUTF8 ("source" </> "daml" </> "daml") "" -- daml "binary" for --activate
-            createSymbolicLink ("daml" </> "daml") ("source" </> "daml-link")
-                -- check if symbolic links are handled correctly
+            -- daml / daml.exe "binary" for --activate
+            writeFileUTF8 ("source" </> "daml" </> if isWindows then "daml.exe" else "daml") ""
 
             runConduitRes $
                 yield "source"
@@ -398,7 +401,34 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
 
 testInstallUnix :: Tasty.TestTree
 testInstallUnix = Tasty.testGroup "unix-specific tests"
-    [ Tasty.testCase "reject an absolute symlink in a tarball" $ do
+    [ Tasty.testCase "initial install a tarball from symlink" $ do
+              withSystemTempDirectory "test-install" $ \ base -> do
+                  let damlPath = DamlPath (base </> "daml")
+                      options = InstallOptions
+                          { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                          , iActivate = ActivateInstall True
+                          , iQuiet = QuietInstall True
+                          , iForce = ForceInstall False
+                          , iSetPath = SetPath False
+                          }
+
+                  setCurrentDirectory base
+                  createDirectoryIfMissing True "source"
+                  createDirectoryIfMissing True ("source" </> "daml")
+                  writeFileUTF8 ("source" </> sdkConfigName) "version: 0.0.0-test"
+                  writeFileUTF8 ("source" </> "daml" </> "daml") "" -- daml "binary" for --activate
+                  createSymbolicLink ("daml" </> "daml") ("source" </> "daml-link")
+                      -- check if symbolic links are handled correctly
+
+                  runConduitRes $
+                      yield "source"
+                      .| void Tar.tarFilePath
+                      .| Zlib.gzip
+                      .| sinkFile "source.tar.gz"
+
+                  install options damlPath Nothing,
+
+      Tasty.testCase "reject an absolute symlink in a tarball" $ do
         withSystemTempDirectory "test-install" $ \ base -> do
             let damlPath = DamlPath (base </> "daml")
                 options = InstallOptions
