@@ -46,7 +46,8 @@ object PlatformStore {
       platformPort: Int,
       tlsConfig: Option[TlsConfiguration],
       timeProviderType: TimeProviderType,
-      applicationInfo: ApplicationInfo
+      applicationInfo: ApplicationInfo,
+      ledgerMaxInbound: Int
   ): Props =
     Props(
       classOf[PlatformStore],
@@ -54,7 +55,8 @@ object PlatformStore {
       platformPort,
       tlsConfig,
       timeProviderType,
-      applicationInfo)
+      applicationInfo,
+      ledgerMaxInbound)
 
   type PlatformTime = Instant
 
@@ -81,7 +83,8 @@ class PlatformStore(
     platformPort: Int,
     tlsConfig: Option[TlsConfiguration],
     timeProviderType: TimeProviderType,
-    applicationInfo: ApplicationInfo
+    applicationInfo: ApplicationInfo,
+    ledgerMaxInbound: Int
 ) extends Actor
     with ActorLogging
     with Stash {

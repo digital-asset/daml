@@ -238,7 +238,8 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
         arguments.platformPort,
         arguments.tlsConfig,
         arguments.time,
-        applicationInfo))
+        applicationInfo,
+        arguments.ledgerInboundMessageSizeMax))
     config.parties.foreach(store ! Subscribe(_))
 
     def graphQL: GraphQLHandler = DefaultGraphQLHandler(customEndpoints, Some(store))
