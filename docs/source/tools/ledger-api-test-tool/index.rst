@@ -35,21 +35,21 @@ Run the following command to fetch the tool:
 
 This will create a file ``ledger-api-test-tool.jar`` in your current directory.
 
-Extracting ``.dar`` file required to run the tests
+Extracting ``.dar`` files required to run the tests
 ======================================================
 
 Before you can run the Ledger API test tool on your ledger, you need to load a
 specific set of DAML templates onto your ledger.
 
-#. To obtain the corresponding ``.dar`` file, run:
+#. To obtain the corresponding ``.dar`` files, run:
 
    .. code-block:: console
 
      $ java -jar ledger-api-test-tool.jar --extract
 
-   This creates a file ``SemanticTests.dar`` in the current directory.
+   This writes all ``.dar`` files required for the tests into the current directory.
 
-#. Load ``SemanticTests.dar`` into your Ledger.
+#. Load all ``.dar`` files into your Ledger.
 
 Running the tool against a custom Ledger API endpoint
 =====================================================
@@ -70,6 +70,8 @@ For example
 If any test embedded in the tool fails, it will print out details of the failure
 for further debugging.
 
+
+
 Exploring options the tool provides
 ===================================
 
@@ -79,7 +81,22 @@ Run the tool with ``--help`` flag to obtain the list of options the tool provide
 
    $ java -jar ledger-api-test-tool.jar  --help
 
-|
+Filtering tests
+~~~~~~~~~~~~~~~
+
+You can list the available tests with the ``--list`` flag. By default, all tests are run, unless you explicitly specify which tests to run with the ``--include`` flag. To exclude tests, use the ``--exclude`` flag.
+
+This command only runs the test ``SemanticTests``:
+
+.. code-block:: console
+
+   $ java -jar ledger-api-test-tool.jar --include SemanticTests
+
+This command runs all tests except the test ``TransactionServiceTests``:
+
+.. code-block:: console
+
+   $ java -jar ledger-api-test-tool.jar --exclude TransactionServiceTests
 
 Try out the Ledger API Test Tool against DAML Sandbox
 =====================================================
@@ -90,7 +107,7 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
    .. code-block:: console
 
      $ java -jar ledger-api-test-tool.jar --extract
-     $ da sandbox -- SemanticTests.dar
+     $ da sandbox -- *.dar
      $ java -jar ledger-api-test-tool.jar
 
 This should always succeed, as the Sandbox is tested to correctly implement the

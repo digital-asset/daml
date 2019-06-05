@@ -20,6 +20,17 @@ Navigator
 - Fixed a regression where Navigator console was not able to inspect contracts and events.
   See `#1454 <https://github.com/digital-asset/daml/issues/1454>`__.
 
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- The :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` now also runs ``TransactionServiceIT`` as part of the conformance tests.
+  This requires to load additional ``.dar`` files into the ledger under test. Please refer to the updated instructions in the documentation.
+- Added new CLI options to the :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`:
+
+  - ``--list`` prints all available tests to the console
+  - ``--include`` takes a comma-separated list of test names that should be run
+  - ``--exclude`` takes a comma-separated list of test names that should not be run
+
 0.12.22 - 2019-05-29
 --------------------
 

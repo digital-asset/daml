@@ -398,17 +398,17 @@ implementation of the :doc:`Ledger API
 </app-dev/index>`. For example, it will show you if
 there are consistency or conformance problem with your implementation.
 
-Assuming that your Ledger API endpoint is accessible at ``localhost:6864``, you can use the tool in the following manner:
+Assuming that your Ledger API endpoint is accessible at ``localhost:6865``, you can use the tool in the following manner:
 
 #. Obtain the tool:
 
    ``curl -L 'https://bintray.com/api/v1/content/digitalassetsdk/DigitalAssetSDK/com/daml/ledger/testtool/ledger-api-test-tool_2.12/$latest/ledger-api-test-tool_2.12-$latest.jar?bt_package=sdk-components' -o ledger-api-test-tool.jar``
 
-#. Obtain the DAML archive required to run the tests:
+#. Obtain the DAML archives required to run the tests:
 
    ``java -jar ledger-api-test-tool.jar --extract``
 
-#. Load ``SemanticTests.dar`` which was created in the current directory into your Ledger.
+#. Load all ``.dar`` files extracted in the current directory into your Ledger.
 
 #. Run the tool against your ledger:
 
