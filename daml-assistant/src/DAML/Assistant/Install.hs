@@ -423,9 +423,9 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
         requiredIO "Failed to remove SDK files." $ do
             removePathForcibly path
 
-        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " is uninstalled.")
+        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " has been uninstalled.")
 
     else do
-        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " not installed.")
+        putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " is not installed.")
 
 
