@@ -197,60 +197,16 @@ main_scenario : Scenario () = scenario do
     archive iou2
 -- DO_DEMO_END
 
-type Coin = Int
-
-flipCoin = CoinGame with
-  runGame = (\c ->
-    let
-      s = next c
-    in
-      (s, toEnum @Face (s % 2))
-    )
-
-
-next : Int -> Int
-next s = (48271 * s) % 2147483647
-
 -- COIN_BEGIN
 data Face = Heads | Tails
   deriving (Eq, Show, Enum)
 
 data CoinGame a = CoinGame with
-  runGame : Coin -> (Coin, a)
+  play : Coin -> (Coin, a)
 
 flipCoin : CoinGame Face
 getCoin : Scenario Coin
 -- COIN_END
-
-getCoin = do
-  t <- getTime
-  let clk = convertRelTimeToMicroseconds $ subTime t (datetime 1970 Jan 1 0 0 0)
-  let s = (67826523 + clk) % 2147483647
-  return $ next s
-
-instance Functor CoinGame where
-  fmap f gs = CoinGame with
-    runGame = (\c -> second f (gs.runGame c))
-
-instance Applicative CoinGame where
-  pure x = CoinGame with
-    runGame = (\c -> (c, x))
-
-  f <*> x = CoinGame with
-    runGame = (\c ->
-        let
-          (nc1, rx) = x.runGame c
-          (nc2, rf) = f.runGame nc1
-        in (nc2, rf rx)
-      )
-instance Action CoinGame where
-  x >>= f = CoinGame with
-    runGame = (\c ->
-        let
-          (nc1, rx) = x.runGame c
-          ng = f rx
-        in ng.runGame nc1
-      )
 
 -- COIN_SCENARIO_BEGIN
 coin_test = scenario do
@@ -267,7 +223,52 @@ coin_test = scenario do
       if all (== Heads) [f1r, f2r, f3r]
         then return "Win"
         else return "Loss"
-    (newCoin, result) = game.runGame coin
+    (newCoin, result) = game.play coin
 
   assert (result == "Win")
 -- COIN_SCENARIO_END
+
+-- What follows is the implementation of the CoinGame Action.
+-- Don't worry if this doesn't make sense yet.
+type Coin = Int
+
+flipCoin = CoinGame with
+  play = (\c ->
+    let
+      s = next c
+    in
+      (s, toEnum @Face (s % 2))
+    )
+
+next : Int -> Int
+next s = (48271 * s) % 2147483647
+
+getCoin = do
+  t <- getTime
+  let clk = convertRelTimeToMicroseconds $ subTime t (datetime 1970 Jan 1 0 0 0)
+  let s = (67826523 + clk) % 2147483647
+  return $ next s
+
+instance Functor CoinGame where
+  fmap f gs = CoinGame with
+    play = (\c -> second f (gs.play c))
+
+instance Applicative CoinGame where
+  pure x = CoinGame with
+    play = (\c -> (c, x))
+
+  f <*> x = CoinGame with
+    play = (\c ->
+        let
+          (nc1, rx) = x.play c
+          (nc2, rf) = f.play nc1
+        in (nc2, rf rx)
+      )
+instance Action CoinGame where
+  x >>= f = CoinGame with
+    play = (\c ->
+        let
+          (nc1, rx) = x.play c
+          ng = f rx
+        in ng.play nc1
+      )

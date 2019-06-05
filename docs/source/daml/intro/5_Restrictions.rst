@@ -152,19 +152,19 @@ If the above didn't make complete sense, here's another example. ``CoinGame a`` 
   :start-after: -- COIN_BEGIN
   :end-before: -- COIN_END
 
-A ``CoinGame a`` exposes a function ``game`` which takes a ``Coin`` and returns a new ``Coin`` and a result ``a``. More on the ``->`` syntax for functions later.
+A ``CoinGame a`` exposes a function ``play`` which takes a ``Coin`` and returns a new ``Coin`` and a result ``a``. More on the ``->`` syntax for functions later.
 
-``Coin`` and ``game`` are deliberately left obscure in the above. All you have is an action ``getCoin`` to get your hands on a ``Coin`` in a ``Scenario`` context and an action ``flipCoin`` to get a ``Face`` in a ``GameState`` context. You can't play the game on pen and paper as you don't have a coin, but you can write down the rules of a game:
+``Coin`` and ``play`` are deliberately left obscure in the above. All you have is an action ``getCoin`` to get your hands on a ``Coin`` in a ``Scenario`` context and an action ``flipCoin`` which represents the simplest possible game: A single coin flip resulting in a  ``Face``. You can't play any ``CoinGame`` game on pen and paper as you don't have a coin, but you can write down a script or recipe for a game:
 
 .. literalinclude:: daml/Intro_5_Restrictions.daml
   :language: daml
   :start-after: -- COIN_SCENARIO_BEGIN
   :end-before: -- COIN_SCENARIO_END
 
-The ``game`` expression is a game in which a coin is flipped three times. If all three tosses return ``Heads``, the result is ``"Win"``, or else ``"Loss"``.
+The ``game`` expression is a ``CoinGame`` in which a coin is flipped three times. If all three tosses return ``Heads``, the result is ``"Win"``, or else ``"Loss"``.
 
-In a ``Scenario`` context you can get a ``Coin``, which is actually a pseudo-random number generator based on LET, and run the game.
+In a ``Scenario`` context you can get a ``Coin``, which is actually a pseudo-random number generator based on LET, and play the game.
 
-*Somehow* the ``Coin`` is threaded through the various actions. If you want to look through the looking glass and understand in-depth what's going on, you can look at the :download:`source file <daml/Intro_5_Restrictions.daml>` to see how the ``CoinGame`` action is implemented, though be warned that the implementation uses a lot of DAML features we haven't introduced in this course yet.
+*Somehow* the ``Coin`` is threaded through the various actions. If you want to look through the looking glass and understand in-depth what's going on, you can look at the :download:`source file <daml/Intro_5_Restrictions.daml>` to see how the ``CoinGame`` action is implemented, though be warned that the implementation uses a lot of DAML features we haven't introduced yet in this introduction.
 
 More generally, if you want to learn more about Actions (aka Monads), we recommend a general course on functional programming, and Haskell in particular.
