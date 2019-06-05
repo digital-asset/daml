@@ -24,6 +24,7 @@ object SnapshotEndSetting {
 final case class ExtractorConfig(
     ledgerHost: String,
     ledgerPort: Int,
+    ledgerInboundMessageSizeMax: Int,
     from: LedgerOffset,
     to: SnapshotEndSetting,
     parties: ExtractorConfig.Parties,

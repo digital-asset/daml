@@ -224,7 +224,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) extends StrictL
   private def createClient: Future[LedgerClient] = {
     val builder: NettyChannelBuilder = NettyChannelBuilder
       .forAddress(config.ledgerHost, config.ledgerPort)
-      .maxInboundMessageSize(50 * 1024 * 1024) // 50 MiBytes
+      .maxInboundMessageSize(config.ledgerInboundMessageSizeMax)
 
     config.tlsConfig.client
       .fold {

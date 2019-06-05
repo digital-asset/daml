@@ -40,6 +40,7 @@ object ConfigParser {
       postgresStripPrefix: Option[String] = None,
       ledgerHost: String = "127.0.0.1",
       ledgerPort: Int = 6865,
+      ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024, // 50 MiBytes
       party: ExtractorConfig.Parties = OneAnd(Party assertFromString "placeholder", Nil),
       templateConfigs: Set[TemplateConfig] = Set.empty,
       from: Option[String] = None,
@@ -173,6 +174,12 @@ object ConfigParser {
         .valueName("<p>")
         .text("The port of the Ledger host. Default is 6865.")
 
+      opt[Int]("ledger-api-inbound-message-size-max").optional
+        .validate(x => Either.cond(x > 0, (), "Message size must be positive"))
+        .action((x, c) => c.copy(ledgerInboundMessageSizeMax = x))
+        .valueName("<bytes>")
+        .text("Maximum message size from the ledger API. Default is 52428800 (50MiB).")
+
       opt[ExtractorConfig.Parties]("party")
         .required()
         .action((x, c) => c.copy(party = x))
@@ -290,7 +297,8 @@ object ConfigParser {
 
       val config = ExtractorConfig(
         cliParams.ledgerHost,
-        cliParams.ledgerPort,
+        ledgerPort = cliParams.ledgerPort,
+        ledgerInboundMessageSizeMax = cliParams.ledgerInboundMessageSizeMax,
         from,
         to,
         cliParams.party,

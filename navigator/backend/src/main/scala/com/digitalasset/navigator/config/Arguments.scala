@@ -29,7 +29,8 @@ case class Arguments(
     configFile: Option[Path] = None,
     startConsole: Boolean = false,
     startWebServer: Boolean = false,
-    useDatabase: Boolean = false
+    useDatabase: Boolean = false,
+    ledgerInboundMessageSizeMax: Int = 50 * 1024 * 1024 // 50 MiB
 )
 
 trait ArgumentsHelper { self: OptionParser[Arguments] =>
@@ -124,6 +125,16 @@ object Arguments {
             arguments.copy(
               useDatabase = true
           ))
+
+      opt[Int]("ledger-api-inbound-message-size-max")
+        .hidden()
+        .text("Maximum message size from the ledger API. Default is 52428800 (50MiB).")
+        .valueName("<bytes>")
+        .validate(x => Either.cond(x > 0, (), "Buffer size must be positive"))
+        .action((x, arguments) =>
+          arguments.copy(
+            ledgerInboundMessageSizeMax = x
+        ))
 
       cmd("server")
         .text("serve data from platform")
