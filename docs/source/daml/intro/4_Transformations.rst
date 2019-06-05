@@ -1,19 +1,21 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Data Transformations and Choices
+Transforming data using choices
 ================================
 
-In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving and re-creating the contract with the updated data. That works because the accountant is the sole signatory on the `Account` contract defined there.
+In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving the contract and re-creating it with the updated data. That works because the accountant is the sole signatory on the ``Account`` contract defined there.
 
-But what if the accountant wanted to allow the bank to change their own telephone number? Or what if the owner of a CashBalance should be able to transfer ownership to someone else?
+But what if the accountant wanted to allow the bank to change their own telephone number? Or what if the owner of a ``CashBalance`` should be able to transfer ownership to someone else?
 
 In this section you will learn about how to define simple data transformations using *choices* and how to delegate the right to *exercise* these choices to other parties.
 
 Choices as Methods
 ------------------
 
-If you think of templates as classes and contracts as objects, where are the methods? Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one and create a new one, you can provide them a convenience method on ``Contact``:
+If you think of templates as classes and contracts as objects, where are the methods?
+
+Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one and create a new one, you can provide them a convenience method on ``Contact``:
 
 .. literalinclude:: daml/4_Transformations/Contact.daml
   :language: daml

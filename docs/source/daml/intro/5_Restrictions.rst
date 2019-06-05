@@ -13,7 +13,7 @@ To make sense of the latter, you'll also learn more about the ``Update`` and ``S
 
 Lastly, you will learn about time on the ledger and in scenarios.
 
-Template Pre-Conditions
+Template preconditions
 -----------------------
 
 The first kind of restriction you may want to put on the contract model are called *template pre-conditions*. These are simply restrictions on the data that can be stored on a contract from that template. Suppose, for examples, that the ``SimpleIou`` contract from :ref:`simple_iou` should only be able to store positive amounts. This can be enforced using the ``ensure`` keyword.
@@ -68,9 +68,18 @@ Each transaction on a DAML ledger has two timestamps called the *ledger effectiv
 
 ``getTime`` is an action that gets the LET from the ledger. In the above example, that time is taken apart into day of week and hour of day using standard library functions from ``DA.Date`` and ``DA.Time``. The hour of the day is checked to be in the range from 8 to 18. Suppose now that the ledger had a skew of 10 seconds, but a submission took less than 4 seconds to commit. At 18:00:05, Alice could submit a transaction with a LET of 17:59:59 to redeem an Iou. It would be a valid trasnaction and be committed successfully as ``getTime`` will return 17:59:59 so ``hrs == 17``. Since RT will be before 18:00:09, ``LET - RT < 10 seconds`` and the transaction won't be rejected. Time therefore has to be considered slightly fuzzy in DAML, with the fuzzyness depending on the skew parameter.
 
-In scenarios, record and ledger effective time are always equal and they can be set using the functions ``passToDate`` and ``pass``. ``passToDate`` takes a date sets the time to midnight (UTC) of that date. ``pass`` takes a ``Reltime``, a relative time and moves the ledger by that much.
+Time in scenarios
+~~~~~~~~~~~~~~~~~
 
-On a distributed DAML ledger, there are no guarantees that ledger effective time or relative time are strictly increasing. The only guarantee is that ledger effective time is increasing with causality. If a transaction ``TX2`` depends on a transaction ``TX1``, then the ledger enforces that the LET of ``TX2`` is greater than or equal to that of ``TX1``:
+In scenarios, record and ledger effective time are always equal. You can set them using the following functions: 
+
+- ``passToDate``, which takes a date sets the time to midnight (UTC) of that date and ``pass``
+- ``pass``, which takes a ``Reltime`` (a relative time) and moves the ledger by that much
+
+Time on ledgers
+~~~~~~~~~~~~~~~~~
+
+On a distributed DAML ledger, there are no guarantees that ledger effective time or relative time are strictly increasing. The only guarantee is that ledger effective time is increasing with causality. That is, if a transaction ``TX2`` depends on a transaction ``TX1``, then the ledger enforces that the LET of ``TX2`` is greater than or equal to that of ``TX1``:
 
 .. literalinclude:: daml/Intro_5_Restrictions.daml
   :language: daml
@@ -80,11 +89,17 @@ On a distributed DAML ledger, there are no guarantees that ledger effective time
 Actions and ``do`` blocks
 -------------------------
 
-You have come across ``do`` blocks and ``<-`` notations in two contexts by now: ``Scenario`` and ``Update``. Both of these are examples of an ``Action``, also called a *Monad* in functional programming.
+You have come across ``do`` blocks and ``<-`` notations in two contexts by now: ``Scenario`` and ``Update``. Both of these are examples of an ``Action``, also called a *Monad* in functional programming. ``Actions`` can be constructed in a convenient way using ``do`` notation. Understanding ``Actions`` and ``do`` blocks is therefore crucial to being able to construct correct contract models and test.
 
 Expressions in DAML are pure in the sense that they have no side-effects. They neither read nor modify any external state. If you know the value of all variables in scope and write an expression, you can work out the value of that expression on pen and paper. The expressions you've seen that used the ``<-`` notation are not like that.
 
-``getTime`` is a good example. There is nothing in scope that could inform the value of ``now`` so there is no expression ``expr`` that you could put on the right hand side of ``now = expr``. To get the ledger effective time, you need to be in the context of a submitted transaction and then look at that context.
+``getTime`` is a good example of an ``Action``. Here's the example we used earlier
+
+.. code-block:: daml
+
+   now <- getTime
+
+You cannot work out the value of ``now`` based on any variable in scope. To put it another way, there is no expression ``expr`` that you could put on the right hand side of ``now = expr``. To get the ledger effective time, you must be in the context of a submitted transaction, and then look at that context.
 
 Similarly, you've come across ``fetch``. If you have ``cid : ContractId Account`` in scope and you come across the expression ``fetch cid``, you can't evaluate that to an ``Account`` so you can't write ``account = fetch cid``. To do so, you'd have to have a ledger you can look that contract id up on.
 
@@ -93,7 +108,7 @@ Actions are a way to handle such "impure" expressions. ``Action a`` is a type cl
 - An ``Update a`` is "a recipe to update a DAML ledger, which, when committed, returns a value of type ``a``". An update to a DAML ledger is a transaction so equivalently, an ``Update a`` is "a recipe to construct a transaction, which, when executed in the context of a ledger, returns a value of type ``a``".
 - A ``Scenario a`` is "a recipe for a test, which, when performed against a ledger, returns a value of type ``a``".
 
-Expressions like ``getTime``, ``getParty``, ``pass``, ``submit``, ``create`` and ``exercise`` should make more sense in that light. For example:
+Expressions like ``getTime``, ``getParty party``, ``pass time``, ``submit party update``, ``create contract`` and ``exercise choice`` should make more sense in that light. For example:
 
 - ``getTime : Update Time`` is the recipe for an empty transaction that also happens to return a value of type ``Time``.
 - ``pass (days 10) : Scenario ()`` is a recipe for a transaction that doesn't submit any transactions, but has the side-effect of changing the LET of the test ledger. It returns ``()``, also called ``Unit`` and can be thought of as a zero-tuple.
