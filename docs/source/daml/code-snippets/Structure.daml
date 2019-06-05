@@ -4,6 +4,8 @@
 daml 1.2
 module Structure where
 
+exampleFunction : (Party, Text) -> Party
+exampleFunction key = key._1
 
 -- start of template outline snippet
 template NameOfTemplate

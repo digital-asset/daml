@@ -5,6 +5,9 @@ daml 1.2
 module Reference where
 type ExampleReturnType = ()
 
+exampleFunction : (Party, Text) -> Party
+exampleFunction key = key._1
+
 -- start template intro snippet
 template NameOfTemplate
 -- end template intro snippet
