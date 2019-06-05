@@ -7,8 +7,6 @@
 
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Damlc (main) where
-import Debug.Trace
-import DA.Pretty (renderPretty)
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
 import DA.Cli.Damlc.Base
@@ -16,7 +14,6 @@ import Data.Maybe
 import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
 import Codec.Archive.Zip
-import qualified Data.Set as DS
 import qualified Da.DamlLf as PLF
 import           DA.Cli.Damlc.BuildInfo
 import           DA.Cli.Damlc.Command.Damldoc      (cmdDamlDoc)
@@ -63,7 +60,10 @@ import DA.Bazel.Runfiles
 import DA.Daml.LF.Ast.World as AST 
 import DA.Daml.LF.Ast.Version
 import qualified Data.NameMap               as NM
-
+-- import Debug.Trace
+import DA.Pretty (renderPretty)
+-- import qualified Data.Either as DE
+import qualified Data.Set as DS
 --------------------------------------------------------------------------------
 -- Commands
 --------------------------------------------------------------------------------
@@ -141,7 +141,7 @@ cmdInspectMore :: Mod CommandFields Command
 cmdInspectMore = 
     command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dalf" <> fullDesc
     where
-      cmd = execVisual <$> inputFileOpt
+      cmd = execVisual <$> inputFileOpt <*> inputFileOpt
 
 
 cmdBuild :: Int -> Mod CommandFields Command
@@ -441,11 +441,6 @@ execClean projectOpts = do
             putStrLn "Removed build artifacts."
 
 
-templatesFromModule :: LF.Module -> [LF.Template]
-templatesFromModule mod = NM.toList $ LF.moduleTemplates mod
-
-listOfModules :: NM.NameMap LF.Module -> [LF.Module]
-listOfModules modules =  (NM.toList modules)
 
 data Action = ACreate (LF.Qualified LF.TypeConName) 
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -466,12 +461,12 @@ startFromUpdate seen world update = case update of
     -- 
 
 startFromExpr :: DS.Set (LF.Qualified LF.ExprValName) -> LF.World  -> LF.Expr -> DS.Set Action
-startFromExpr seen world e = trace ("startFromExpr " ++ renderPretty e) $ case e of
+startFromExpr seen world e = case e of
     LF.EVar _ -> Set.empty
     LF.EVal ref->  case LF.lookupValue ref world of 
         Right LF.DefValue{..}  
             | ref `Set.member` seen  -> Set.empty
-            | otherwise -> trace ("Going into " ++ show ref) $ startFromExpr (Set.insert ref seen)  world dvalBody
+            | otherwise -> startFromExpr (Set.insert ref seen)  world dvalBody
         Left _ -> error "This should not happen"
     LF.EBuiltin _ -> Set.empty
     LF.ERecCon _ flds -> Set.unions $ map (\(_, exp) -> startFromExpr seen world exp) flds
@@ -506,21 +501,43 @@ moduleAndTemplates :: LF.World -> LF.Module -> [(LF.TypeConName ,DS.Set Action)]
 moduleAndTemplates world mod = retTypess
     where 
         templates = templatesFromModule mod
-        -- templatesWithchoices = map (\t -> (t, templateChoicesFromTemplate t)) templates
         retTypess = map (\t-> (LF.tplTypeCon t, templatePossibleUpdates world t )) templates
 
+listOfModules :: NM.NameMap LF.Module -> [LF.Module]
+listOfModules modules =  (NM.toList modules)
 
-execVisual :: FilePath -> IO ()
-execVisual dalfFilePath = do
-    bytes <- B.readFile dalfFilePath
-    (pkID, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes  -- LF.PackageId, LF.Package
-    let world =  AST.initWorldSelf [(pkID, lfPkg)] version1_4  lfPkg -- world
-        modules = listOfModules $ LF.packageModules lfPkg
-        -- res = map (\m ->  map ppShow (moduleAndTemplates world m) ) modules
-        res = map (moduleAndTemplates world) modules
-    putStrLn (show res)
+templatesFromModule :: LF.Module -> [LF.Template]
+templatesFromModule mod = NM.toList $ LF.moduleTemplates mod
 
-        
+dalfsInDar :: Archive -> [BSL.ByteString]
+dalfsInDar dar = [fromEntry e | e <- zEntries dar, ".dalf" `isExtensionOf` eRelativePath e]
+
+dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
+dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
+    Right a -> a
+    Left err -> error (show err)
+
+dalfsToWorld :: [BSL.ByteString] -> LF.Package -> LF.World
+dalfsToWorld dalfs pkg = AST.initWorldSelf pkgs version1_4 pkg
+    where 
+        pkgs = map dalfBytesToPakage dalfs
+
+darToWorld :: FilePath -> LF.Package -> IO LF.World
+darToWorld darFilePath pkg = do
+    bytes <- B.readFile darFilePath
+    let dalfs = dalfsInDar (toArchive $ BSL.fromStrict bytes)
+    return (dalfsToWorld dalfs pkg )
+
+execVisual :: FilePath -> FilePath -> IO ()
+execVisual darFilePath dalfFile = do
+    bytes <- B.readFile dalfFile
+    (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes 
+
+    world <- darToWorld darFilePath lfPkg
+    putStrLn "done"
+    let modules = listOfModules $ LF.packageModules lfPkg
+        ress = concatMap (moduleAndTemplates world) modules
+    putStrLn (show ress)
 
 
 lfVersionString :: LF.Version -> String
