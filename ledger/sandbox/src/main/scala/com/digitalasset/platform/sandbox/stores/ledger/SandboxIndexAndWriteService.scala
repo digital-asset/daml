@@ -161,7 +161,7 @@ class SandboxIndexAndWriteService(
                   .filter(_._1 < end.toLong)
             }
             // we MUST do the offset comparison BEFORE collecting only the accepted transactions,
-            // because currentLedgerEnd refers to the offset of the mixed set of LedgerSyncEvents (e.g. completions, transactions, ...).
+            // because currentLedgerEnd refers to the offset of the mixed set of LedgerEntries (e.g. completions, transactions, ...).
             // If we don't do this, the response stream will linger until a transaction is committed AFTER the end offset.
             // The immediate effect is that integration tests will not complete within the timeout.
             finalStream.collect {
