@@ -14,18 +14,12 @@ We plan to update this roadmap roughly every three months.
 
   `Read more on GitHub <https://github.com/digital-asset/daml/issues/1387>`__.
 - **Tools to suggest improvements to DAML code**
-..
-..  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
 - **Upgrading contracts**
 
   Improved support for the workflows of upgrading contracts that already exist on the ledger.
-..
-..  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
 - **Tools for visualisation**
 
   Tools that allow users to visualise the static workflow and lifecycle of contracts.
-..
-..  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
 - **Improve app portability between DAML ledgers**
 
   Add a DAML-on-X certification tool that tests that DAML ledgers implement all DAML functionality, and document a portable approach to DAML application testing.
