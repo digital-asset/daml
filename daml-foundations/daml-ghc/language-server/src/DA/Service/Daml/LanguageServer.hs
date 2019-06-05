@@ -3,18 +3,17 @@
 
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell    #-}
 
 module DA.Service.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import           Control.Concurrent                        (threadDelay)
 import qualified Control.Concurrent.Async                  as Async
 import           Control.Concurrent.STM                    (TChan, atomically, newTChanIO,
                                                             readTChan, writeTChan)
 import Control.Exception.Safe
-import qualified Control.Monad.Managed                     as Managed
 
 import           DA.LanguageServer.Protocol
 import           DA.LanguageServer.Server
@@ -22,7 +21,6 @@ import           DA.LanguageServer.Server
 import Control.Monad
 import Data.List.Extra
 import Control.Monad.IO.Class
-import Safe
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
@@ -34,15 +32,21 @@ import DAML.Project.Consts
 import qualified Data.Aeson                                as Aeson
 import           Data.Aeson.TH.Extended                    (deriveDAToJSON)
 import           Data.IORef                                (IORef, atomicModifyIORef', newIORef)
+import qualified Data.Rope.UTF16 as Rope
 import qualified Data.Set                                  as S
 import qualified Data.Text.Extended                        as T
 
+import Development.IDE.State.FileStore
 import qualified Development.IDE.Types.Diagnostics as Compiler
 import           Development.IDE.Types.LSP as Compiler
 
 import qualified Network.URI                               as URI
 
 import qualified System.Exit
+
+import Language.Haskell.LSP.Core (LspFuncs(..))
+import Language.Haskell.LSP.Messages
+import Language.Haskell.LSP.VFS
 
 ------------------------------------------------------------------------
 -- Types
@@ -98,61 +102,39 @@ data WorkspaceValidationsParams = WorkspaceValidationsParams
 deriveDAToJSON "_wvp" ''WorkspaceValidationsParams
 
 ------------------------------------------------------------------------
--- Server capabilities
-------------------------------------------------------------------------
-
-serverCapabilities :: ServerCapabilities
-serverCapabilities = ServerCapabilities
-    { scTextDocumentSync                 = Just TdSyncFull
-    , scHoverProvider                    = True
-    , scCompletionProvider               = Nothing
-    , scSignatureHelpProvider            = Nothing
-    , scDefinitionProvider               = True
-    , scReferencesProvider               = False
-    , scDocumentHighlightProvider        = False
-    , scDocumentSymbolProvider           = False
-    , scWorkspaceSymbolProvider          = False
-    , scCodeActionProvider               = False
-    , scCodeLensProvider                 = True
-    , scDocumentFormattingProvider       = False
-    , scDocumentRangeFormattingProvider  = False
-    , scDocumentOnTypeFormattingProvider = False
-    , scRenameProvider                   = False
-    }
-
-------------------------------------------------------------------------
 -- Request handlers
 ------------------------------------------------------------------------
 
-handleRequest :: IHandle () LF.Package -> ServerRequest -> IO (Either ErrorCode Aeson.Value)
-handleRequest (IHandle _stateRef loggerH compilerH _notifChan) = \case
-    Initialize _params -> do
-        pure $ Right $ Aeson.toJSON $ InitializeResult serverCapabilities
-
+handleRequest
+    :: IHandle () LF.Package
+    -> (forall resp. resp -> ResponseMessage resp)
+    -> (ErrorCode -> ResponseMessage ())
+    -> ServerRequest
+    -> IO FromServerMessage
+handleRequest (IHandle _stateRef loggerH compilerH _notifChan) makeResponse makeErrorResponse = \case
     Shutdown -> do
       Logger.logInfo loggerH "Shutdown request received, terminating."
       System.Exit.exitSuccess
 
-    KeepAlive ->
-      pure $ Right Aeson.Null
+    KeepAlive -> pure $ RspCustomServer $ makeResponse Aeson.Null
 
-    Definition      params -> LS.Definition.handle         loggerH compilerH params
-    Hover           params -> LS.Hover.handle              loggerH compilerH params
-    CodeLens        params -> LS.CodeLens.handle           loggerH compilerH params
+    Definition params -> RspDefinition . makeResponse <$> LS.Definition.handle loggerH compilerH params
+    Hover params -> RspHover . makeResponse <$> LS.Hover.handle loggerH compilerH params
+    CodeLens params -> RspCodeLens . makeResponse <$> LS.CodeLens.handle loggerH compilerH params
 
     req -> do
-        Logger.logJson loggerH Logger.Warning ("Method not found" :: T.Text, req)
-        pure $ Left MethodNotFound
+        Logger.logWarning loggerH ("Method not found" <> T.pack (show req))
+        pure $ RspError $ makeErrorResponse MethodNotFound
 
 
-handleNotification :: IHandle () LF.Package -> ServerNotification -> IO ()
-handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
+handleNotification :: LspFuncs () -> IHandle () LF.Package -> ServerNotification -> IO ()
+handleNotification lspFuncs (IHandle stateRef loggerH compilerH _notifChan) = \case
 
-    DidOpenTextDocument (DidOpenTextDocumentParams item) ->
+    DidOpenTextDocument (DidOpenTextDocumentParams item) -> do
         case URI.parseURI $ T.unpack $ getUri $ _uri (item :: TextDocumentItem) of
           Just uri
               | URI.uriScheme uri == "file:"
-              -> handleDidOpenFile (URI.unEscapeString (URI.uriPath uri)) (_text (item :: TextDocumentItem))
+              -> handleDidOpenFile item
 
               | URI.uriScheme uri == "daml:"
               -> handleDidOpenVirtualResource uri
@@ -164,14 +146,14 @@ handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
           _ -> Logger.logError loggerH $ "Invalid URI in DidOpenTextDocument: "
                     <> T.show (_uri (item :: TextDocumentItem))
 
-    DidChangeTextDocument (DidChangeTextDocumentParams docId (List changes)) ->
-        case Compiler.uriToFilePath' $ _uri (docId :: VersionedTextDocumentIdentifier) of
-          Just filePath -> do
-            -- ISSUE DEL-3281: Add support for incremental synchronisation
-            -- to language server.
-            let newContents = fmap (\ev -> _text (ev :: TextDocumentContentChangeEvent)) $ lastMay changes
-            Compiler.onFileModified compilerH filePath newContents
+    DidChangeTextDocument (DidChangeTextDocumentParams docId _) -> do
+        let uri = _uri (docId :: VersionedTextDocumentIdentifier)
 
+        case Compiler.uriToFilePath' uri of
+          Just filePath -> do
+            mbVirtual <- getVirtualFileFunc lspFuncs uri
+            let contents = maybe "" (Rope.toText . (_text :: VirtualFile -> Rope.Rope)) mbVirtual
+            Compiler.onFileModified compilerH filePath (Just contents)
             Logger.logInfo loggerH
               $ "Updated text document: " <> T.show filePath
 
@@ -181,9 +163,11 @@ handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
 
     DidCloseTextDocument (DidCloseTextDocumentParams (TextDocumentIdentifier uri)) ->
         case URI.parseURI $ T.unpack $ getUri uri of
-          Just uri
-              | URI.uriScheme uri == "file:" -> handleDidCloseFile (URI.unEscapeString $ URI.uriPath uri)
-              | URI.uriScheme uri == "daml:" -> handleDidCloseVirtualResource uri
+          Just uri'
+              | URI.uriScheme uri' == "file:" -> do
+                    Just fp <- pure $ Compiler.uriToFilePath' uri
+                    handleDidCloseFile fp
+              | URI.uriScheme uri' == "daml:" -> handleDidCloseVirtualResource uri'
               | otherwise -> Logger.logWarning loggerH $ "Unknown scheme in URI: " <> T.show uri
 
           _ -> Logger.logError loggerH
@@ -199,12 +183,15 @@ handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
     -- When we have parallel compilation we could manage the state
     -- changes in STM so that we can atomically change the state.
     -- Internally it should be done via the IO oracle. See PROD-2808.
-    handleDidOpenFile filePath contents = do
+    handleDidOpenFile (TextDocumentItem uri _ _ contents) = do
+        Just filePath <- pure $ Compiler.uriToFilePath' uri
         documents <- atomicModifyIORef' stateRef $
           \state -> let documents = S.insert filePath $ sOpenDocuments state
                     in ( state { sOpenDocuments = documents }
                        , documents
                        )
+
+
 
         -- Update the file contents
         Compiler.onFileModified compilerH filePath (Just contents)
@@ -256,77 +243,52 @@ handleNotification (IHandle stateRef loggerH compilerH _notifChan) = \case
 -- Server execution
 ------------------------------------------------------------------------
 
-runLanguageServer  :: (  Maybe (Compiler.Event -> IO ())
-                      -> Logger.Handle IO
-                      -> Managed.Managed Compiler.IdeState
-                      )
-                   -> Logger.Handle IO
-                   -> IO ()
-runLanguageServer handleBuild loggerH = Managed.runManaged $ do
+runLanguageServer
+    :: Logger.Handle IO
+    -> ((Compiler.Event -> IO ()) -> VFSHandle -> IO Compiler.IdeState)
+    -> IO ()
+runLanguageServer loggerH getIdeState = do
     sdkVersion <- liftIO (getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)"))
     liftIO $ Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
     notifChan <- liftIO newTChanIO
     eventChan <- liftIO newTChanIO
     state     <- liftIO $ newIORef $ State S.empty S.empty
-    compilerH <- handleBuild (Just (atomically . writeTChan eventChan)) loggerH
-
-    let ihandle = IHandle {
-        ihState = state
-      , ihLoggerH = loggerH
-      , ihCompilerH = compilerH
-      , ihNotifChan = notifChan
-      }
+    let getHandlers lspFuncs = do
+            compilerH <- getIdeState (atomically . writeTChan eventChan) (makeLSPVFSHandle lspFuncs)
+            let ihandle = IHandle
+                    { ihState = state
+                    , ihLoggerH = loggerH
+                    , ihCompilerH = compilerH
+                    , ihNotifChan = notifChan
+                    }
+            pure $ Handlers (handleRequest ihandle) (handleNotification lspFuncs ihandle)
     liftIO $ Async.race_
-      (eventSlinger loggerH eventChan notifChan)
-      (Async.race_
-        (forever $ do
-            -- Send keep-alive notifications once a second in order to detect
-            -- when the parent has exited.
-            threadDelay (1000*1000)
-            atomically $ writeTChan notifChan
-              $ CustomNotification "daml/keepAlive"
-              $ Aeson.object []
-        )
-        (runServer loggerH (handleRequest ihandle) (handleNotification ihandle) notifChan)
-      )
+      (eventSlinger eventChan notifChan)
+      (runServer loggerH getHandlers notifChan)
 
 -- | Event slinger slings compiler events to the client as notifications.
 eventSlinger
-    :: Logger.Handle IO
-    -> TChan Compiler.Event
+    :: TChan Compiler.Event
     -> TChan ClientNotification
     -> IO ()
-eventSlinger loggerH eventChan notifChan =
-    forever $ do
-        mbFatalErr <- atomically $ readTChan eventChan >>= \case
+eventSlinger eventChan notifChan =
+    forever $
+        atomically $ readTChan eventChan >>= \case
             Compiler.EventFileDiagnostics (fp, diags) -> do
                 writeTChan notifChan
                     $ PublishDiagnostics
                     $ PublishDiagnosticsParams
-                    (Compiler.filePathToUri fp)
+                    (Compiler.filePathToUri' fp)
                     (List $ nubOrd diags)
-                pure Nothing
 
             Compiler.EventVirtualResourceChanged vr content -> do
                 writeTChan notifChan
                     $ CustomNotification virtualResourceChangedNotification
                     $ Aeson.toJSON
                     $ VirtualResourceChangedParams (Compiler.virtualResourceToUri vr) content
-                pure Nothing
 
             Compiler.EventFileValidation finishedValidations totalValidations -> do
                 writeTChan notifChan
                     $ CustomNotification workspaceValidationsNotification
                     $ Aeson.toJSON
                     $ WorkspaceValidationsParams finishedValidations totalValidations
-                pure Nothing
-
-            Compiler.EventFatalError err ->
-                pure (Just err)
-
-        case mbFatalErr of
-          Just err -> do
-            Logger.logError loggerH $ "Fatal error in compiler: " <> err
-            System.Exit.exitFailure
-          Nothing ->
-            pure ()

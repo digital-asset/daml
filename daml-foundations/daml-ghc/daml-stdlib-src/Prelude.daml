@@ -7,7 +7,7 @@ daml 1.2
 module Prelude (module X) where
 
 import DA.Internal.Prelude as X hiding (TextMap)
-import DA.Internal.LF as X
+import DA.Internal.LF as X hiding (Pair(..), unpackPair)
 import DA.Internal.Template as X
 import DA.Internal.Compatible as X
 import DA.Internal.Assert as X

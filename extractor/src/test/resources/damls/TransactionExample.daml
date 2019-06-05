@@ -36,9 +36,37 @@ template RightOfUseOffer
           create RightOfUseAgreement
             with landlord; tenant; address; expirationDate
 
+template DummyTemplateWeDontSubscribeFor
+  with
+    party1: Party
+    party2: Party
+  where
+    signatory party1
+
 example = scenario do
   bob <- getParty "Bob"
   alice <- getParty "Alice"
+
+  -- Alice offers Bob room at Blaha Lujza Square, Budapest
+  offer <- submit alice do
+    create RightOfUseOffer with
+      landlord = alice
+      tenant = bob
+      address = "Blaha Lujza Square, Budapest"
+      expirationDate = date 2020 Jan 1
+
+  -- Bob accepts the offer, which creates a RightOfUseAgreement
+  submit bob do
+    exercise offer Accept
+
+templateFilterTest = scenario do
+  bob <- getParty "Bob"
+  alice <- getParty "Alice"
+
+  submit alice do
+    create DummyTemplateWeDontSubscribeFor with
+        party1 = alice
+        party2 = bob
 
   -- Alice offers Bob room at Blaha Lujza Square, Budapest
   offer <- submit alice do

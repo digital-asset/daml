@@ -16,6 +16,8 @@ import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Matchers}
 
+import scalaz.syntax.tag._
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandServiceIT
     extends AsyncWordSpec
@@ -27,9 +29,11 @@ class CommandServiceIT
   private def request(
       ctx: LedgerContext,
       id: String = UUID.randomUUID().toString,
-      ledgerId: String = config.assertStaticLedgerId) =
+      ledgerId: Option[String] = None) =
     MockMessages.submitAndWaitRequest
-      .update(_.commands.ledgerId := ledgerId, _.commands.commandId := id)
+      .update(
+        _.commands.ledgerId := ledgerId.getOrElse(ctx.ledgerId.unwrap),
+        _.commands.commandId := id)
       .copy(traceContext = None)
 
   "Commands Service" when {
@@ -101,7 +105,7 @@ class CommandServiceIT
 
       "fail with not found if ledger id is invalid" in allFixtures { ctx =>
         ctx.commandService
-          .submitAndWait(request(ctx, ledgerId = UUID.randomUUID().toString))
+          .submitAndWait(request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
           .failed map {
           IsStatusException(Status.NOT_FOUND)(_)
         }
@@ -110,7 +114,8 @@ class CommandServiceIT
       "fail SubmitAndWaitForTransactionId with not found if ledger id is invalid" in allFixtures {
         ctx =>
           ctx.commandService
-            .submitAndWaitForTransactionId(request(ctx, ledgerId = UUID.randomUUID().toString))
+            .submitAndWaitForTransactionId(
+              request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
             .failed map {
             IsStatusException(Status.NOT_FOUND)(_)
           }
@@ -119,7 +124,7 @@ class CommandServiceIT
       "fail SubmitAndWaitForTransaction with not found if ledger id is invalid" in allFixtures {
         ctx =>
           ctx.commandService
-            .submitAndWaitForTransaction(request(ctx, ledgerId = UUID.randomUUID().toString))
+            .submitAndWaitForTransaction(request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
             .failed map {
             IsStatusException(Status.NOT_FOUND)(_)
           }
@@ -128,7 +133,8 @@ class CommandServiceIT
       "fail SubmitAndWaitForTransactionTree with not found if ledger id is invalid" in allFixtures {
         ctx =>
           ctx.commandService
-            .submitAndWaitForTransactionTree(request(ctx, ledgerId = UUID.randomUUID().toString))
+            .submitAndWaitForTransactionTree(
+              request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
             .failed map {
             IsStatusException(Status.NOT_FOUND)(_)
           }

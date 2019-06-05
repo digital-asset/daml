@@ -443,9 +443,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "4dfbe392ab235048bb42991a5e259ff5f317244f"
+HASKELL_LSP_COMMIT = "f9e4f732bbbb016f5f45cb6377bb46170a923924"
 
-HASKELL_LSP_HASH = "164311a83a7fc8a733c71354b87e3e6425afbbbba033a64f38e88b81c32c1fbd"
+HASKELL_LSP_HASH = "ddf5a27f013036807fcc57d7f27043fcf05fbad2c7e7924b6715f3b15172d229"
 
 hazel_repositories(
     core_packages = dicts.add(
@@ -491,7 +491,7 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("0.20190523.1", "e54804e854ba9ed33ab3a4889e245996ebc20f369fbcc7a02bfa6912643f6d57", "79be5d2fc2803a6c1d786a1d98296cda64194fc9cf30ccffa294b87f885cfbdf") +
+            hazel_ghclibs("0.20190604.1", "283372061a51a6524f2c2940dc328985317cb5134a2beb8fd2a847a9e6e157d5", "522ab61c7fe386e8c8c2d396d063bc5b690e33b056defbb8304141890ec6786e") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
@@ -507,21 +507,27 @@ hazel_repositories(
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
             hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
             hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
-            # This is a version of haskell-lsp that has not yet been released and contains
-            # a few fixes for the uri <-> filepath conversion.
-            hazel_github_external(
-                "alanz",
+            # This corresponds to our custom-methods branch that adds support for custom RPC methods
+            # like daml/keepAlive. Once the corresponding PR has been merged
+            # https://github.com/alanz/haskell-lsp/pull/171 we can switch back to upstream.
+            hazel_github(
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
             ) +
-            hazel_github_external(
-                "alanz",
+            hazel_github(
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
                 name = "haskell-lsp-types",
                 directory = "/haskell-lsp-types/",
+            ) +
+            # This corresponds to our custom-methods branch which makes
+            # lsp-test work with our custom-methods of haskell-lsp.
+            hazel_github(
+                "lsp-test",
+                "4a665666642cebb574fad5035e5e22385e6eae12",
+                "4c46f21139b96ce49251a958db8061ee76a108defb43ee0082ba765339b09b0c",
             ),
         pkgs = packages,
     ),

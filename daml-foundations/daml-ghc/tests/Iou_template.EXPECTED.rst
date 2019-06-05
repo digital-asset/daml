@@ -1,6 +1,6 @@
 
 
-.. _module-ioutemplate-80440:
+.. _module-ioutemplate-98694:
 
 Module Iou_template
 -------------------
@@ -9,7 +9,7 @@ Module Iou_template
 Templates
 ^^^^^^^^^
 
-.. _template-ioutemplate-iou-86035:
+.. _template-ioutemplate-iou-32396:
 
 template **Iou**
 
@@ -83,7 +83,7 @@ template **Iou**
 Functions
 ^^^^^^^^^
 
-.. _function-ioutemplate-main-42433:
+.. _function-ioutemplate-main-13221:
 
 **main**
   :   A single test scenario covering all functionality that ``Iou`` implements.

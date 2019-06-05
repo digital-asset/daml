@@ -159,6 +159,7 @@ typeOfBuiltin = \case
   BEGreater   btype  -> pure $ tComparison btype
   BEGreaterEq btype  -> pure $ tComparison btype
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
+  BECodePointsToText -> pure $ TList TInt64 :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BEPartyFromText    -> pure $ TText :-> TOptional TParty
   BEInt64FromText    -> do
@@ -167,6 +168,7 @@ typeOfBuiltin = \case
   BEDecimalFromText  -> do
       checkFeature featureNumberFromText
       pure $ TText :-> TOptional TDecimal
+  BECodePointsFromText -> pure $ TText :-> TList TInt64
   BEAddDecimal       -> pure $ tBinop TDecimal
   BESubDecimal       -> pure $ tBinop TDecimal
   BEMulDecimal       -> pure $ tBinop TDecimal
@@ -529,26 +531,6 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkValidKeyExpr :: MonadGamma m => Expr -> m ()
-checkValidKeyExpr = \case
-  ELocation _loc expr ->
-    checkValidKeyExpr expr
-  ERecCon _typ recordExpr -> do
-      traverse_ (checkValidKeyExpr . snd) recordExpr
-  expr ->
-    checkValidProjectionsKey expr
-
-checkValidProjectionsKey :: MonadGamma m => Expr -> m ()
-checkValidProjectionsKey = \case
-  ELocation _loc expr ->
-    checkValidProjectionsKey expr
-  EVar _var ->
-    pure ()
-  ERecProj _typ _field rec ->
-    checkValidProjectionsKey rec
-  expr ->
-    throwWithContext (EInvalidKeyExpression expr)
-
 checkFeature :: MonadGamma m => Feature -> m ()
 checkFeature feature = do
     version <- getLfVersion
@@ -559,9 +541,6 @@ checkTemplateKey :: MonadGamma m => ExprVarName -> Qualified TypeConName -> Temp
 checkTemplateKey param tcon TemplateKey{..} = do
     introExprVar param (TCon tcon) $ do
       checkType tplKeyType KStar
-      version <- getLfVersion
-      unless (version `supports` featureComplexContractKeys) $
-          checkValidKeyExpr tplKeyBody
       checkExpr tplKeyBody tplKeyType
     checkExpr tplKeyMaintainers (tplKeyType :-> TList TParty)
 

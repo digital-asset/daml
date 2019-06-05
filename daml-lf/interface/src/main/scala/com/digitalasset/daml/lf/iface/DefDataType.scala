@@ -113,7 +113,7 @@ object Variant extends FWTLike[Variant] {
     }
 }
 
-final case class Enum(values: ImmArraySeq[Ref.Name]) extends DataType[Nothing, Nothing] {
+final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Nothing, Nothing] {
 
   /** Widen to DataType, in Java. */
   def asDataType[RT, PVT]: DataType[RT, PVT] = this

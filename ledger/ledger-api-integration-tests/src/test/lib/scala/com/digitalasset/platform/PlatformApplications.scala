@@ -50,16 +50,6 @@ object PlatformApplications {
       "Max TTL's granularity is subsecond. Ledger Server does not support subsecond granularity for this configuration - please use whole seconds."
     )
 
-    import scalaz.syntax.tag._
-
-    @SuppressWarnings(Array("org.wartremover.warts.StringPlusAny"))
-    def assertStaticLedgerId: String =
-      ledgerId match {
-        case LedgerIdMode.Static(ledgerId) => ledgerId.unwrap
-        case _ =>
-          throw new IllegalArgumentException("Unsupported ledger id config: " + ledgerId)
-      }
-
     def withDarFile(path: Path) = copy(darFiles = List(path))
 
     def withDarFiles(path: List[Path]) = copy(darFiles = path)

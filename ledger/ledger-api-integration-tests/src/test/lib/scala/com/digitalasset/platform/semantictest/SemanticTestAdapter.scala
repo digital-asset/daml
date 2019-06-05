@@ -25,6 +25,7 @@ import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.tests.integration.ledger.api.LedgerTestingHelpers
 import com.google.protobuf.timestamp.Timestamp
 
+import scalaz.syntax.tag._
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -44,12 +45,12 @@ class SemanticTestAdapter(
 
   private def ttlSeconds = 10
 
-  private val tr = new ApiScenarioTransform(ledgerId, packages)
+  private val tr = new ApiScenarioTransform(ledgerId.unwrap, packages)
 
   private def apiCommand(submitterName: String, cmds: Commands) =
     LfEngineToApi.lfCommandToApiCommand(
       submitterName,
-      ledgerId,
+      ledgerId.unwrap,
       cmds.commandsReference,
       "applicationId",
       Some(LfEngineToApi.toTimestamp(cmds.ledgerEffectiveTime.toInstant)),
@@ -83,7 +84,7 @@ class SemanticTestAdapter(
       time <- getTime
       _ <- lc.timeService.setTime(
         SetTimeRequest(
-          ledgerId,
+          ledgerId.unwrap,
           Some(time),
           Some(TimestampConversion.fromInstant(
             TimestampConversion.toInstant(time).plus(dtMicros, ChronoUnit.MICROS)))
@@ -100,7 +101,7 @@ class SemanticTestAdapter(
 
   private def getTime: Future[Timestamp] = {
     ClientAdapter
-      .serverStreaming(GetTimeRequest(ledgerId), lc.timeService.getTime)
+      .serverStreaming(GetTimeRequest(ledgerId.unwrap), lc.timeService.getTime)
       .map(_.getCurrentTime)
       .runWith(Sink.head)
   }

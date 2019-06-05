@@ -302,46 +302,65 @@ We first define two types of *strings*::
   String character escape sequences:
     EscapedStrChar  ∈  \\\n|\\\r|\\\"|\\\\          -- EscapedStrChar
 
-*Strings* are possibly empty sequences of `Unicode
+*Strings* are possibly empty sequences of legal `Unicode
 <https://en.wikipedia.org/wiki/Unicode>` code points where the line
 feed character ``\n``, the carriage return character ``\r``, the
 double quote character ``\"``, and the backslash character ``\\`` must
-be escaped with backslash ``\\`` .
+be escaped with backslash ``\\``. DAML-LF considers legal `Unicode
+code point <https://unicode.org/glossary/#code_point>` that is not a
+`Surrogate Code Point
+<https://unicode.org/glossary/#surrogate_code_point>`, in other words
+any code point with an integer value in the range from
+`0x000000` to `0x00D7FF` or in the range from `0x00DFFF` to `0x10FFFF`
+(bounds included).
 
-Then, we define the so-called *simple strings*. Simple strings are
-non-empty US-ASCII strings built with letters, digits, space, minus
-and, underscore. We use them in instances when we want to avoid empty
-identifiers, escaping problems, and other similar pitfalls. ::
 
-  Simple strings
-      SimpleString ::= ' SimpleChars '              -- SimpleString
+Then, we define the so-called *PackageId strings* and *PartyId
+strings*.  Those are non-empty strings built with a limited set of
+US-ASCII characters (See the rules `PackageIdChar` and `PartyIdChar`
+below for the exact sets of characters). We use those string in
+instances when we want to avoid empty identifiers, escaping problems,
+and other similar pitfalls. ::
 
-  Sequences of simple characters
-       SimpleChars ::= SimpleChar                   -- SimpleChars
-                    |  SimpleChars SimpleChar
+  PackageId strings
+   PackageIdString ::= ' PackageIdChars '             -- PackageIdString
 
-   Simple characters
-        SimpleChar  ∈  [a-zA-Z0-9\-_ ]              -- SimpleChar
+  Sequences of PackageId character
+    PackageIdChars ::= PackageIdChar                  -- PackageIdChars
+                    |  PackageIdChars PackageIdChar
+
+  PackageId character
+     PackageIdChar  ∈  [a-zA-Z0-9\-_ ]               -- PackageIdChar
+
+  PartyId strings
+     PartyIdString ::= ' PartyIdChars '               -- PartyIdString
+
+  Sequences of PartyId character
+      PartyIdChars ::= PartyIdChar                    -- PartyIdChars
+                    |  PartyIdChars PartyIdChar
+
+  PartyId character
+       PartyIdChar  ∈  [a-zA-Z0-9:\-_ ]              -- PartyIdChar
 
 We can now define all the literals that a program can handle::
 
   64-bits integer literals:
-        LitInt64  ∈ (-?)[0-9]+                      -- LitInt64:
+        LitInt64  ∈ (-?)[0-9]+                       -- LitInt64:
 
   Decimal literals:
       LitDecimal  ∈  ([+-]?)\d{1,28}(.[0-9]\d{1-10})?  -- LitDecimal
 
   Date literals:
-         LitDate  ∈  \d{4}-\d{4}-\d{4}              -- LitDate
+         LitDate  ∈  \d{4}-\d{4}-\d{4}               -- LitDate
 
   UTC timestamp literals:
      LitTimestamp ∈ \d{4}-\d{4}-\d{4}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
-                                                    -- LitTimestamp
+                                                     -- LitTimestamp
   UTF8 string literals:
-         LitText ::= String                         -- LitText
+         LitText ::= String                          -- LitText
 
   Party literals:
-        LitParty ::= SimpleString                   -- LitParty
+        LitParty ::= PartyIdString                   -- LitParty
 
 The literals represent actual DAML-LF values:
 
@@ -393,8 +412,8 @@ In the following, we will use identifiers to represent *built-in
 functions*, term and type *variable names*, record and tuple *field
 names*, *variant constructors*, and *template choices*. On the other
 hand, we will use names to represent *type constructors*, *value
-references*, and *module names*. Finally, we will use simple strings
-as *package identifiers*.  ::
+references*, and *module names*. Finally, we will use PackageId
+strings as *package identifiers*.  ::
 
   Expression variables
         x, y, z ::= Ident                           -- VarExp
@@ -427,7 +446,7 @@ as *package identifiers*.  ::
            cid                                      -- ContractId
 
   Package identifiers
-           pid  ::=  SimpleString                   -- PkgId
+           pid  ::=  PackageIdString                -- PkgId
 
 We do not specify an explicit syntax for contract identifiers as it is
 not possible to refer to them statically within a program. In
@@ -2026,12 +2045,18 @@ Decimal functions
 
 * ``MUL_DECIMAL : 'Decimal' → 'Decimal' → 'Decimal'``
 
-  Multiplies the two decimals. Throws an error in case of overflow.
+  Multiplies the two decimals and rounds the result to the closest
+  multiple of ``10⁻¹⁰`` using `banker's rounding convention
+  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.
+  Throws an error in case of overflow.
 
 * ``DIV_DECIMAL : 'Decimal' → 'Decimal' → 'Decimal'``
 
-  Divides the first decimal by the second one. Throws an error in
-  case of overflow.
+  Divides the first decimal by the second one and rounds the result to
+  the closest multiple of ``10⁻¹⁰`` using `banker's rounding
+  convention
+  <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_. Throws
+  an error in case of overflow.
 
 * ``ROUND_DECIMAL : 'Int64' → 'Decimal' → 'Decimal'``
 
@@ -2285,7 +2310,7 @@ Party functions
 
   Returns the string representation of the party. This function,
   together with ``FROM_TEXT_PARTY``, forms an isomorphism between
-  `simple strings <Literals_>`_ and parties. In other words,
+  `PartyId strings <Literals_>`_ and parties. In other words,
   the following equations hold::
 
     ∀ p. FROM_TEXT_PARTY (TO_TEXT_PARTY p) = 'Some' p
@@ -2296,7 +2321,7 @@ Party functions
 * ``FROM_TEXT_PARTY : 'Text' → 'Optional' 'Party'``
 
   Given the string representation of the party, returns the party,
-  if the input string is a `simple string <Literals_>`_.
+  if the input string is a `PartyId strings <Literals_>`_.
 
   [*Available since version 1.2*]
 

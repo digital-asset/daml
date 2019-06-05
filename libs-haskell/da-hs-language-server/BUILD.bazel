@@ -8,13 +8,17 @@ da_haskell_library(
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
         "aeson",
+        "async",
         "attoparsec",
         "base",
         "bytestring",
         "conduit",
         "conduit-extra",
         "containers",
+        "data-default",
         "exceptions",
+        "extra",
+        "haskell-lsp",
         "haskell-lsp-types",
         "mtl",
         "scientific",
@@ -27,6 +31,5 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/da-hs-base",
-        "//libs-haskell/da-hs-json-rpc",
     ],
 )

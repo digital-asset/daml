@@ -16,7 +16,7 @@ class Valuable a where
     toRecord :: a -> Record
     toRecord =
         Record Nothing
-        . map (\v -> RecordField {label = "", value = v})
+        . map (RecordField "") --(\v -> RecordField {label = "", value = v})
         . (\case VList vs -> vs; v -> [v])
         . toValue
 
@@ -24,7 +24,7 @@ class Valuable a where
     fromRecord =
         fromValue
         . VList
-        . map (\RecordField{value} -> value)
+        . map fieldValue --(\RecordField{value} -> value)
         . fields
 
 instance Valuable Int where
@@ -37,4 +37,4 @@ instance Valuable Party where
 
 instance Valuable a => Valuable [a] where
     toValue = VList . map toValue
-    fromValue = (mapM fromValue =<<) . \case VList vs -> Just vs; _ -> Nothing
+    fromValue = \case VList vs -> mapM fromValue vs; _ -> Nothing

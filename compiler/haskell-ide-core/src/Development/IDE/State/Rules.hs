@@ -164,7 +164,7 @@ data Priority
 getParsedModuleRule :: Rules ()
 getParsedModuleRule =
     define $ \GetParsedModule file -> do
-        contents <- getFileContents file
+        (_, contents) <- getFileContents file
         packageState <- use_ GhcSession ""
         opt <- getOpts
         liftIO $ Compile.parseModule opt packageState file contents
@@ -306,7 +306,7 @@ getHieFileRule =
     defineNoFile $ \(GetHieFile f) -> do
         u <- liftIO $ mkSplitUniqSupply 'a'
         let nameCache = initNameCache u []
-        liftIO $ fmap fst $ readHieFile nameCache f
+        liftIO $ fmap (hie_file_result . fst) $ readHieFile nameCache f
 
 -- | A rule that wires per-file rules together
 mainRule :: Rules ()

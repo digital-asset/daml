@@ -9,6 +9,42 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+SQL Extractor
+~~~~~~~~~~~~~
+
+- Improving logging. See `#1518 <https://github.com/digital-asset/daml/pull/1518>`__.
+
+DAML Language
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Contract key maintainers must now explicitly be computed from the contract key using the implicit ``key`` variable. For instance, if you have ``key (bank, accountId) : (Party, Text)`` and want ``bank`` to be the maintainer, you have to write ``maintainer key._1`` (before, you could write ``maintainer bank``).
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Drop support for DAML-LF 1.3. Compiling to DAML-LF 1.4 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all. (The ledger server still supports DAML-LF 1.3.)
+
+- Fix initialization of package-db for non-default DAML-LF versions.
+  This fixes issues when using "daml build --target 1.3" (or other target versions).
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+
+- Add ``enumerate`` function.
+
+Navigator
+~~~~~~~~~~~
+
+- Fixed a regression where Navigator console was not able to inspect contracts and events.
+  See `#1454 <https://github.com/digital-asset/daml/issues/1454>`__.
+
+
+Sandbox
+~~~~~~~
+
+- Added recovery around failing ledger entry persistence queries using Postgres. See `#1505 <https://github.com/digital-asset/daml/pull/1505>`__.
+
+
 0.12.22 - 2019-05-29
 --------------------
 
@@ -21,6 +57,7 @@ DAML Compiler
 ~~~~~~~~~~~~~
 
 - **BREAKING CHANGE**: Drop support for DAML-LF 1.2. Compiling to DAML-LF 1.3 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
+- **BREAKING CHANGE**: By default ``damlc test`` must be executed in a project and will test the whole project. Testing individual files, potentially outside a project, requires passing the new ``--files`` flag.
 
 SQL Extractor
 ~~~~~~~~~~~~~
@@ -30,11 +67,15 @@ SQL Extractor
   for all three parties in the database.
   See `#1360 <https://github.com/digital-asset/daml/pull/1360>`__.
 
+- The extractor ``--templates`` option to specify template IDs in the format:
+  ``<module1>:<entity1>,<module2>:<entity2>``. If not provided, extractor subscribes to all available templates.
+  See `#1352 <https://github.com/digital-asset/daml/issues/1352>`__.
+
 Sandbox
 ~~~~~~~
 
 - Fixed a bug in the SQL backend that caused transactions with a fetch node referencing a contract created in the same transaction to be rejected.
-  See [issue #1435](https://github.com/digital-asset/daml/issues/1435).
+  See `issue #1435 <https://github.com/digital-asset/daml/issues/1435>`__.
 
 0.12.21 - 2019-05-28
 --------------------

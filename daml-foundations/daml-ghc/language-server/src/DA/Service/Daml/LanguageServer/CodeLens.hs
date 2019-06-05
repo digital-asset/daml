@@ -9,14 +9,15 @@ module DA.Service.Daml.LanguageServer.CodeLens
     ) where
 
 import           DA.LanguageServer.Protocol
+import Language.Haskell.LSP.Types
 
+import Data.Foldable
 import Data.Maybe
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import           DA.Service.Daml.LanguageServer.Common
 import qualified DA.Service.Logger                     as Logger
 import Development.IDE.Types.Diagnostics
 
-import qualified Data.Aeson                            as Aeson
 import qualified Data.Text.Extended                    as T
 
 -- | Gather code lenses like scenario execution for a DAML file.
@@ -24,7 +25,7 @@ handle
     :: Logger.Handle IO
     -> Compiler.IdeState
     -> CodeLensParams
-    -> IO (Either a Aeson.Value)
+    -> IO (List CodeLens)
 handle loggerH compilerH (CodeLensParams (TextDocumentIdentifier uri)) = do
     mbResult <- case uriToFilePath' uri of
         Just filePath -> do
@@ -33,4 +34,4 @@ handle loggerH compilerH (CodeLensParams (TextDocumentIdentifier uri)) = do
           pure $ mapMaybe virtualResourceToCodeLens vrs
         Nothing       -> pure []
 
-    pure $ Right $ Aeson.toJSON mbResult
+    pure $ List $ toList mbResult

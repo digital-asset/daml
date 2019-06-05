@@ -4,6 +4,7 @@
 module DA.Ledger.LowLevel(module X) where -- Low level GRPC and Generated Haskell code
 
 import Network.GRPC.HighLevel.Generated as X
+import Network.GRPC.HighLevel as X
 
 import Proto3.Suite.Types as X
 
@@ -26,5 +27,8 @@ import Com.Digitalasset.Ledger.Api.V1.Transaction as X
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter as X
 import Com.Digitalasset.Ledger.Api.V1.TransactionService as X
 import Com.Digitalasset.Ledger.Api.V1.Value as X
+
+import Com.Digitalasset.Ledger.Api.V1.Testing.ResetService as X
+import Com.Digitalasset.Ledger.Api.V1.Testing.TimeService as X
 
 import Da.DamlLf as X hiding (HashFunction,HashFunctionSHA256)

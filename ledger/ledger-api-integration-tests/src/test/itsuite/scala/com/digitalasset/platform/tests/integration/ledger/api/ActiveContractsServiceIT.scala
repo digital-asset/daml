@@ -3,8 +3,6 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils._
@@ -30,6 +28,8 @@ import org.scalatest.time.SpanSugar._
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Assertion, AsyncWordSpec, Matchers, OptionValues}
 
+import scalaz.syntax.tag._
+
 /**
   * There are not many tests here, because restarting the fixtures is very expensive.
   * This will likely remain the case in the near future.
@@ -54,20 +54,14 @@ class ActiveContractsServiceIT
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(30000, Millis)), scaled(Span(500, Millis)))
 
-  private def client(
-      ctx: LedgerContext,
-      ledgerId: String = config.assertStaticLedgerId): ActiveContractSetClient =
-    new ActiveContractSetClient(domain.LedgerId(ledgerId), ctx.acsService)
+  private def client(ctx: LedgerContext): ActiveContractSetClient =
+    new ActiveContractSetClient(ctx.ledgerId, ctx.acsService)
 
-  private def commandClient(
-      ctx: LedgerContext,
-      ledgerId: String = config.assertStaticLedgerId): SynchronousCommandClient =
+  private def commandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
 
-  private def transactionClient(
-      ctx: LedgerContext,
-      ledgerId: String = config.assertStaticLedgerId): TransactionClient =
-    new TransactionClient(domain.LedgerId(ledgerId), ctx.transactionService)
+  private def transactionClient(ctx: LedgerContext): TransactionClient =
+    new TransactionClient(ctx.ledgerId, ctx.transactionService)
 
   private def submitRequest(ctx: LedgerContext, request: SubmitAndWaitRequest) =
     commandClient(ctx).submitAndWait(request)
@@ -102,7 +96,7 @@ class ActiveContractsServiceIT
       case ce @ CreatedEvent(_, _, Some(`template`), _, _, _) => ce
     }.size should equal(occurrence)
 
-  def threeCommands(ledgerId: String, commandId: String): SubmitAndWaitRequest =
+  def threeCommands(ledgerId: domain.LedgerId, commandId: String): SubmitAndWaitRequest =
     super.dummyCommands(ledgerId, commandId, "Alice").toWait
 
   private def filter = TransactionFilter(Map(config.parties.head -> Filters()))
@@ -110,7 +104,9 @@ class ActiveContractsServiceIT
   "Active Contract Set Service" when {
     "asked for active contracts" should {
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
-        client(context, UUID.randomUUID().toString)
+        new ActiveContractSetClient(
+          domain.LedgerId(s"not-${context.ledgerId.unwrap}"),
+          context.acsService)
           .getActiveContracts(filter)
           .runWith(Sink.head)(materializer)
           .failed map { ex =>

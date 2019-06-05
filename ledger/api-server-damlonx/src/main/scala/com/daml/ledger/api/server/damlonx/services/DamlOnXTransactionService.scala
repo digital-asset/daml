@@ -34,7 +34,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.platform.server.api._
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
-import com.digitalasset.platform.server.services.transaction.{TransactionConversion => _, _}
+import com.digitalasset.platform.server.services.transaction.{_}
 import io.grpc._
 import org.slf4j.LoggerFactory
 import scalaz.Tag

@@ -23,6 +23,7 @@ import Development.Shake
 
 import qualified Development.IDE.Logger as Logger
 import Development.IDE.State.Service hiding (initialise)
+import Development.IDE.State.FileStore
 import qualified Development.IDE.State.Service as IDE
 import Development.IDE.State.Shake
 import Development.IDE.Types.LSP
@@ -70,16 +71,19 @@ setOpenVirtualResources state resources = do
     modifyVar_ envOpenVirtualResources $ const $ return resources
     void $ shakeRun state []
 
-initialise :: Rules ()
-           -> Maybe (Event -> IO ())
-           -> Logger.Handle
-           -> Options
-           -> Maybe SS.Handle
-           -> IO IdeState
-initialise mainRule toDiags logger options scenarioService =
+initialise
+    :: Rules ()
+    -> (Event -> IO ())
+    -> Logger.Handle
+    -> Options
+    -> VFSHandle
+    -> Maybe SS.Handle
+    -> IO IdeState
+initialise mainRule toDiags logger options vfs scenarioService =
     IDE.initialise
         (do addIdeGlobal =<< liftIO (mkDamlEnv options scenarioService)
             mainRule)
         toDiags
         logger
         (toCompileOpts options)
+        vfs

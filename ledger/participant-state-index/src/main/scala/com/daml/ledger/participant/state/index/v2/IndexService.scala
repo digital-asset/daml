@@ -4,11 +4,12 @@
 package com.daml.ledger.participant.state.index.v2
 
 trait IndexService
-    extends PackagesService
-    with ConfigurationService
-    with CompletionsService
-    with TransactionsService
-    with ActiveContractsService
+    extends IndexPackagesService
+    with IndexConfigurationService
+    with IndexCompletionsService
+    with IndexTransactionsService
+    with IndexActiveContractsService
     with ContractStore
-    with IdentityService
-    with TimeService
+    with IdentityProvider
+//with IndexTimeService //TODO: this needs some further discussion as the TimeService is actually optional
+    with PartyManagementService

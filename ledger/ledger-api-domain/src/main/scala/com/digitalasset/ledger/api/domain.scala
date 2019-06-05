@@ -6,6 +6,7 @@ package com.digitalasset.ledger.api
 import java.time.Instant
 
 import brave.propagation.TraceContext
+
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.Event.{CreateOrArchiveEvent, CreateOrExerciseEvent}
 import scalaz.{@@, Tag}
@@ -142,33 +143,72 @@ object domain {
       traceContext: Option[TraceContext])
       extends TransactionBase
 
+  sealed trait CompletionEvent extends Product with Serializable {
+    def offset: LedgerOffset.Absolute
+    def recordTime: Instant
+  }
+
+  object CompletionEvent {
+
+    final case class Checkpoint(offset: LedgerOffset.Absolute, recordTime: Instant)
+        extends CompletionEvent
+
+    final case class CommandAccepted(
+        offset: LedgerOffset.Absolute,
+        recordTime: Instant,
+        commandId: CommandId,
+        transactionId: TransactionId)
+        extends CompletionEvent
+
+    final case class CommandRejected(
+        offset: LedgerOffset.Absolute,
+        recordTime: Instant,
+        commandId: CommandId,
+        reason: RejectionReason)
+        extends CompletionEvent
+  }
+
+  sealed trait RejectionReason {
+    val description: String
+  }
+
+  object RejectionReason {
+
+    /** The transaction relied on contracts being active that were no longer
+      * active at the point where it was sequenced.
+      */
+    final case class Inconsistent(description: String) extends RejectionReason
+
+    /** The Participant node did not have sufficient resource quota with the
+      * to submit the transaction.
+      */
+    final case class OutOfQuota(description: String) extends RejectionReason
+
+    /** The transaction submission timed out.
+      *
+      * This means the 'maximumRecordTime' was smaller than the recordTime seen
+      * in an event in the Participant node.
+      */
+    final case class TimedOut(description: String) extends RejectionReason
+
+    /** The transaction submission was disputed.
+      *
+      * This means that the underlying ledger and its validation logic
+      * considered the transaction potentially invalid. This can be due to a bug
+      * in the submission or validiation logic, or due to malicious behaviour.
+      */
+    final case class Disputed(description: String) extends RejectionReason
+
+    /** The participant node has already seen a command with the same commandId
+      * during its implementation specific deduplication window.
+      *
+      * TODO (SM): explain in more detail how command de-duplication should
+      * work.
+      */
+    final case class DuplicateCommandId(description: String) extends RejectionReason
+  }
+
   type Value = Lf[Lf.AbsoluteContractId]
-
-  final case class CommandStatus(
-      code: Int,
-      message: String
-  )
-
-  object CommandStatus {
-    val OK = CommandStatus(0, "")
-  }
-
-  sealed abstract class CommandCompletion extends Product with Serializable
-
-  object CommandCompletion {
-
-    final case class Success(commandId: CommandId) extends CommandCompletion
-
-    final case class Checkpoint(recordTime: Instant) extends CommandCompletion
-
-    final case class Failure(commandId: CommandId, commandStatus: CommandStatus)
-        extends CommandCompletion {
-      require(
-        commandStatus.code != 0,
-        s"Attempted to create Failure for command $commandId with '0' (success) internal status. Message: ${commandStatus.message}.")
-    }
-
-  }
 
   final case class RecordField(label: Option[Label], value: Value)
 
@@ -212,6 +252,11 @@ object domain {
   type LedgerId = String @@ LedgerIdTag
   val LedgerId: Tag.TagOf[LedgerIdTag] = Tag.of[LedgerIdTag]
 
+  sealed trait ParticipantIdTag
+
+  type ParticipantId = String @@ ParticipantIdTag
+  val ParticipantId: Tag.TagOf[ParticipantIdTag] = Tag.of[ParticipantIdTag]
+
   sealed trait ApplicationIdTag
 
   type ApplicationId = Ref.LedgerString @@ ApplicationIdTag
@@ -229,4 +274,10 @@ object domain {
       maximumRecordTime: Instant,
       commands: LfCommands)
 
+  /**
+    * @param party The stable unique identifier of a DAML party.
+    * @param displayName Human readable name associated with the party. Might not be unique.
+    * @param isLocal True if party is hosted by the backing participant.
+    */
+  case class PartyDetails(party: Ref.Party, displayName: Option[String], isLocal: Boolean)
 }

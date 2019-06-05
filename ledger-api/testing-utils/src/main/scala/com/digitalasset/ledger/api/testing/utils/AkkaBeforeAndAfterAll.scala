@@ -9,6 +9,7 @@ import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.scalatest.{BeforeAndAfterAll, Suite}
+import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Await, ExecutionContext}
 import scala.concurrent.duration._
@@ -16,6 +17,7 @@ import scala.concurrent.duration._
 trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
   self: Suite =>
   protected def actorSystemName = this.getClass.getSimpleName
+  private val logger = LoggerFactory.getLogger(getClass)
 
   private val executorContext = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor(
@@ -23,7 +25,7 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
         .setDaemon(true)
         .setNameFormat(s"${actorSystemName}-thread-pool-worker-%d")
         .setUncaughtExceptionHandler((thread, _) =>
-          println(s"got an uncaught exception on thread: ${thread.getName}"))
+          logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
         .build()))
 
   protected implicit val system: ActorSystem =

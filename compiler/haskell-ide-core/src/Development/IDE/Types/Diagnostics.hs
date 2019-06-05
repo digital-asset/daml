@@ -28,7 +28,7 @@ module Development.IDE.Types.Diagnostics (
   showDiagnostics,
   showDiagnosticsColored,
   defDiagnostic,
-  filePathToUri,
+  filePathToUri',
   uriToFilePath',
   ProjectDiagnostics,
   emptyDiagnostics,
@@ -44,11 +44,10 @@ import Data.Either.Combinators
 import Data.Maybe as Maybe
 import Data.Foldable
 import qualified Data.Map as Map
-import Data.Time.Clock
-import Data.Time.Clock.POSIX
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
 import qualified Data.SortedList as SL
+import Network.URI (escapeURIString)
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import qualified Language.Haskell.LSP.Types as LSP
 import Language.Haskell.LSP.Types as LSP (
@@ -69,8 +68,20 @@ import Development.IDE.Types.Location
 -- So we have our own wrapper here that supports empty filepaths.
 uriToFilePath' :: Uri -> Maybe FilePath
 uriToFilePath' uri
-    | uri == filePathToUri "" = Just ""
+    | uri == filePathToUri' "" = Just ""
     | otherwise = LSP.uriToFilePath uri
+
+-- TODO This is a temporary hack: VSCode escapes ':' in URIs while haskell-lsp’s filePathToUri doesn't.
+-- This causes issues since haskell-lsp stores the original URI in the VFS while we roundtrip once via
+-- uriToFilePath' and filePathToUri before we look it up again. At that point : will be unescaped in the URI
+-- so the lookup fails. The long-term solution here is to avoid roundtripping URIs but that is a larger task
+-- so for now we have our own version of filePathToUri that does escape colons.
+filePathToUri' :: FilePath -> Uri
+filePathToUri' fp =
+    case T.stripPrefix "file:" (getUri uri) of
+        Just suffix -> Uri $ T.pack $ "file:" <> escapeURIString (/= ':') (T.unpack suffix)
+        Nothing -> uri
+    where uri = filePathToUri fp
 
 ideErrorText :: FilePath -> T.Text -> FileDiagnostic
 ideErrorText fp = errorDiag fp "Ide Error"
@@ -179,18 +190,16 @@ emptyDiagnostics = ProjectDiagnostics mempty
 setStageDiagnostics ::
   Show stage =>
   FilePath ->
-  Maybe UTCTime ->
+  Maybe Int ->
   -- ^ the time that the file these diagnostics originate from was last edited
   stage ->
   [LSP.Diagnostic] ->
   ProjectDiagnostics stage ->
   ProjectDiagnostics stage
 setStageDiagnostics fp timeM stage diags (ProjectDiagnostics ds) =
-    ProjectDiagnostics $ updateDiagnostics ds uri posixTime diagsBySource
+    ProjectDiagnostics $ updateDiagnostics ds uri timeM diagsBySource
     where
         diagsBySource = Map.singleton (Just $ T.pack $ show stage) (SL.toSortedList diags)
-        posixTime :: Maybe Int
-        posixTime = fmap (fromEnum . utcTimeToPOSIXSeconds) timeM
         uri = filePathToUri fp
 
 fromUri :: LSP.Uri -> FilePath

@@ -57,6 +57,7 @@ data ClientRequest (streamType :: GRPCMethodType) request response where
   -- | The final field will be invoked once, and it should repeatedly
   -- invoke its final argument (of type @(StreamRecv response)@)
   -- in order to obtain the streaming response incrementally.
+  ClientReaderRequestCC :: request -> TimeoutSeconds -> MetadataMap -> (LL.ClientCall -> IO ()) -> (MetadataMap -> StreamRecv response -> IO ()) -> ClientRequest 'ServerStreaming request response
   ClientReaderRequest :: request -> TimeoutSeconds -> MetadataMap -> (MetadataMap -> StreamRecv response -> IO ()) -> ClientRequest 'ServerStreaming request response
   ClientBiDiRequest :: TimeoutSeconds -> MetadataMap -> (MetadataMap -> StreamRecv response -> StreamSend request -> WritesDone -> IO ()) -> ClientRequest 'BiDiStreaming request response
 
@@ -109,6 +110,12 @@ clientRequest client (RegisteredMethod method) (ClientWriterRequest timeout meta
         Left err -> ClientErrorResponse (ClientErrorNoParse err)
         Right parsedRsp ->
           ClientWriterResponse parsedRsp initMD_ trailMD_ rspCode_ details_
+clientRequest client (RegisteredMethod method) (ClientReaderRequestCC req timeout meta fCC handler) =
+    mkResponse <$> LL.clientReaderCC client method timeout (BL.toStrict (toLazyByteString req)) meta fCC (\m recv -> handler m (convertRecv recv))
+  where
+    mkResponse (Left ioError_) = ClientErrorResponse (ClientIOError ioError_)
+    mkResponse (Right (meta_, rspCode_, details_)) =
+      ClientReaderResponse meta_ rspCode_ details_
 clientRequest client (RegisteredMethod method) (ClientReaderRequest req timeout meta handler) =
     mkResponse <$> LL.clientReader client method timeout (BL.toStrict (toLazyByteString req)) meta (\m recv -> handler m (convertRecv recv))
   where

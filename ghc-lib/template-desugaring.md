@@ -174,7 +174,7 @@ The next contract exercises the so-called "contract keys" feature of DAML. Contr
 ```haskell
 class Template c => TemplateKey c k | c -> k where
   key : c ->
-  maintainer : c -> [Party]
+  maintainer : k -> [Party]
 ```
 In the following `Enrollment` contract, there are no choices but there are declarations of `key` and `maintainer`.
 ```haskell
@@ -197,7 +197,7 @@ template Enrollment
   where
       signatory reg.student, reg.course.institution
       key reg : Registration
-      maintainer reg.course.institution
+      maintainer key.course.institution
 ```
 What the above desugars to is shown below.
 ```haskell
@@ -209,5 +209,5 @@ instance Template Enrollment where
 
 instance TemplateKey Enrollment Registration where
   key this@Enrollment{..} = reg
-  maintainer this@Enrollment{..} = concat [toParties reg.course.institution]
+  maintainer key = concat [toParties key.course.institution]
 ```

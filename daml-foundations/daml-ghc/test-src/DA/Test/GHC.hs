@@ -26,7 +26,6 @@ import           Control.DeepSeq
 import           Control.Exception.Extra
 import           Control.Monad
 import           Control.Monad.IO.Class
-import Control.Monad.Managed
 import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as SS
@@ -49,6 +48,7 @@ import           System.Directory.Extra
 import           System.Environment.Blank (setEnv)
 import           System.FilePath
 import           System.Process (readProcess)
+import           System.IO
 import           System.IO.Extra
 import           System.Info.Extra (isWindows)
 import           Text.Read
@@ -80,8 +80,8 @@ mainAll :: IO ()
 mainAll = mainWithVersions (delete versionDev supportedInputVersions)
 
 mainWithVersions :: [Version] -> IO ()
-mainWithVersions versions =
-  with (SS.startScenarioService (\_ -> pure ()) Logger.makeNopHandle) $ \scenarioService -> do
+mainWithVersions versions = SS.withScenarioService Logger.makeNopHandle $ \scenarioService -> do
+  hSetEncoding stdout utf8
   setEnv "TASTY_NUM_THREADS" "1" True
   todoRef <- newIORef DList.empty
   let registerTODO (TODO s) = modifyIORef todoRef (`DList.snoc` ("TODO: " ++ s))
@@ -124,9 +124,10 @@ getIntegrationTests registerTODO scenarioService version = do
     opts <- fmap (\opts ->  opts { optThreads = 0 }) $ defaultOptionsIO (Just version)
 
     -- initialise the compiler service
+    vfs <- Compile.makeVFSHandle
     pure $
       withResource
-      (Compile.initialise (Compile.mainRule opts) (Just (\_ -> pure ())) IdeLogger.makeNopHandle opts (Just scenarioService))
+      (Compile.initialise (Compile.mainRule opts) (const $ pure ()) IdeLogger.makeNopHandle opts vfs (Just scenarioService))
       Compile.shutdown $ \service ->
       withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
         map (testCase args version service outdir registerTODO) allTestFiles

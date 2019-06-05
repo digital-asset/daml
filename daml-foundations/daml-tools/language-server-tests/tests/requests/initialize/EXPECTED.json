@@ -1,17 +1,18 @@
 {
   "capabilities": {
-    "workspaceSymbolProvider": false,
-    "textDocumentSync": 1,
-    "documentRangeFormattingProvider": false,
-    "documentHighlightProvider": false,
-    "renameProvider": false,
+    "textDocumentSync": {
+      "openClose": true,
+      "change": 2,
+      "willSave": true,
+      "save": {
+        "includeText": false
+      }
+    },
+    "workspace": {},
     "definitionProvider": true,
     "hoverProvider": true,
-    "codeActionProvider": false,
-    "codeLensProvider": true,
-    "documentOnTypeFormattingProvider": false,
-    "documentSymbolProvider": false,
-    "documentFormattingProvider": false,
-    "referencesProvider": false
+    "codeLensProvider": {
+      "resolveProvider": false
+    }
   }
 }

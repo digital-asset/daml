@@ -18,6 +18,7 @@ import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
 
+import scalaz.syntax.tag._
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
@@ -31,23 +32,17 @@ class CommandServiceBackPressureIT
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll {
 
-  private def submitAndWaitRequest(
-      ctx: LedgerContext,
-      id: String = UUID.randomUUID().toString,
-      ledgerId: String = config.assertStaticLedgerId) =
+  private def submitAndWaitRequest(ctx: LedgerContext, id: String = UUID.randomUUID().toString) =
     MockMessages.submitAndWaitRequest
       .update(
-        _.commands.ledgerId := ledgerId,
+        _.commands.ledgerId := ctx.ledgerId.unwrap,
         _.commands.commandId := id,
         _.optionalTraceContext := None)
 
-  private def submitRequest(
-      ctx: LedgerContext,
-      id: String = UUID.randomUUID().toString,
-      ledgerId: String = config.assertStaticLedgerId) =
+  private def submitRequest(ctx: LedgerContext, id: String = UUID.randomUUID().toString) =
     MockMessages.submitRequest
       .update(
-        _.commands.ledgerId := ledgerId,
+        _.commands.ledgerId := ctx.ledgerId.unwrap,
         _.commands.commandId := id,
         _.optionalTraceContext := None)
 

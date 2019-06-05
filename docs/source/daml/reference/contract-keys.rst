@@ -4,8 +4,6 @@
 Contract keys
 #############
 
-.. note:: Note that this is an initial version of contract keys, and that some details of how you specify keys and maintainers will be changing soon. Specifically, you'll no longer have to include the maintainer in the key: this will be done automatically for you.
-
 Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contract instances, using the parameters to the template - similar to a primary key for a database.
 
 You can use contract keys to stably refer to a contract, even through iterations of instances of it.
@@ -20,16 +18,14 @@ Here's an example of setting up a contract key for a bank account, to act as a b
 What can be a contract key
 **************************
 
-The key can be an arbitrary expression but it **must** include every party that you specify as a ``maintainer`` (see `Specifying maintainers`_ below).
-
-For example, with ``maintainer bank``, ``key (bank, number) : (Party, Text)`` is valid; but wouldn't be if you removed ``bank`` from the key.
+The key can be an arbitrary expression but it **must** include every party that you want to use as a ``maintainer`` (see `Specifying maintainers`_ below).
 
 It's best to use simple types for your keys like ``Text`` or ``Int``, rather than a list or more complex type.
 
 Specifying maintainers
 **********************
 
-If you specify a contract key for a template, you must also specify a ``maintainer`` or maintainers, in a similar way to specifying signatories or observers. Maintainers are the parties that know about all of the keys that they are party to, and are used by the engine to guarantee uniqueness of contract keys.  The maintainers **must** be signatories of the contract.
+If you specify a contract key for a template, you must also specify a ``maintainer`` or maintainers, in a similar way to specifying signatories or observers.  However, maintainers are computed from the ``key`` instead of the template arguments.  In the example above, the ``bank`` is ultimately the maintainer of the key.  Maintainers are the parties that know about all of the keys that they are party to, and are used by the engine to guarantee uniqueness of contract keys.  The maintainers **must** be signatories of the contract.
 
 Keys are unique to their maintainers. For example, say you have a key that you're using as the identifer for a ``BankAccount`` contract. You might have ``key (bank, accountId) : (Party, Text)``. When you create a new bank account, the contract key ensures that no-one else can have an account with the same ``accountID`` at that bank. But that doesn't apply to other banks: for a contract with a different bank as maintainer, you could happily re-use that ``accountID``.
 
@@ -87,11 +83,3 @@ Because different templates can use the same key type, you need to specify the t
 Use ``exerciseByKey`` to exercise a choice on a contract identified by its ``key`` (compared to ``exercise``, which lets you exercise a contract identified by its ``ContractId``). To run ``exerciseByKey`` you need authorization from the controllers of the choice and at least one of the key maintainers.
 
 Because different templates can use the same key type, you need to specify the type of the contract you are trying to fetch using the ``@ContractType`` syntax.
-
-Error messages
-**************
-
-If you don't include the ``maintainer`` in your ``key``, you'll see the following error::
-
-   Failure to process DAML program, this feature is not currently supported.
-   Unbound reference to this in maintainer with evar.

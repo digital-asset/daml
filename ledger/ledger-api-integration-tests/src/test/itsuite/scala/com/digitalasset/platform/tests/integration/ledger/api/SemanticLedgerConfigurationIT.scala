@@ -25,6 +25,8 @@ import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
+
+import scalaz.syntax.tag._
 import scalapb.lenses
 import scalapb.lenses.Lens
 
@@ -41,10 +43,8 @@ class SemanticLedgerConfigurationIT
 
   override def timeLimit: Span = 5.seconds
 
-  private def configClient(
-      ctx: LedgerContext,
-      ledgerId: String = config.assertStaticLedgerId): LedgerConfigurationClient =
-    new LedgerConfigurationClient(ledgerId, ctx.ledgerConfigurationService)
+  private def configClient(ctx: LedgerContext): LedgerConfigurationClient =
+    new LedgerConfigurationClient(ctx.ledgerId, ctx.ledgerConfigurationService)
 
   private def newSyncClient(commandService: CommandService) =
     new SynchronousCommandClient(commandService)
@@ -64,10 +64,11 @@ class SemanticLedgerConfigurationIT
   }
 
   private def createRequest(
+      ctx: LedgerContext,
       changes: Lens[SubmitAndWaitRequest, SubmitAndWaitRequest] => lenses.Mutation[
         SubmitAndWaitRequest]): SubmitAndWaitRequest = {
     submitAndWaitRequest.update(
-      _.commands.ledgerId := config.assertStaticLedgerId,
+      _.commands.ledgerId := ctx.ledgerId.unwrap,
       _.commands.commandId := newCommandId(),
       changes
     )
@@ -80,6 +81,7 @@ class SemanticLedgerConfigurationIT
           config <- configClient(context).getLedgerConfiguration.runWith(Sink.head)(materializer)
           syncClient = newSyncClient(context.commandService)
           request = createRequest(
+            context,
             _.commands.maximumRecordTime.seconds := (ledgerEffectiveTime.seconds + config.minTtl.value.seconds))
           resp <- syncClient.submitAndWait(request)
         } yield (resp should equal(Empty()))
@@ -90,6 +92,7 @@ class SemanticLedgerConfigurationIT
           config <- configClient(context).getLedgerConfiguration.runWith(Sink.head)(materializer)
           syncClient = newSyncClient(context.commandService)
           request = createRequest(
+            context,
             _.commands.maximumRecordTime.seconds := ledgerEffectiveTime.seconds + config.minTtl.value.seconds - 1)
 
           resp <- syncClient.submitAndWait(request)
@@ -108,6 +111,7 @@ class SemanticLedgerConfigurationIT
           config <- configClient(context).getLedgerConfiguration.runWith(Sink.head)(materializer)
           syncClient = newSyncClient(context.commandService)
           request = createRequest(
+            context,
             _.commands.maximumRecordTime.seconds := ledgerEffectiveTime.seconds + config.maxTtl.value.seconds)
           resp <- syncClient.submitAndWait(request)
         } yield (resp should equal(Empty()))
@@ -118,6 +122,7 @@ class SemanticLedgerConfigurationIT
           config <- configClient(context).getLedgerConfiguration.runWith(Sink.head)(materializer)
           syncClient = newSyncClient(context.commandService)
           request = createRequest(
+            context,
             _.commands.maximumRecordTime.seconds := ledgerEffectiveTime.seconds + config.maxTtl.value.seconds + 1)
           resp <- syncClient.submitAndWait(request)
         } yield (resp)

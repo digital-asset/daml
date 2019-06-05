@@ -1,9 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- TODO MarkedString is deprecated in LSP protocol so we should move to MarkupContent at some point.
-{-# OPTIONS_GHC -Wno-deprecations #-}
-
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Display information on hover.
@@ -19,7 +16,6 @@ import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import           DA.Service.Daml.LanguageServer.Common
 import qualified DA.Service.Logger                     as Logger
 
-import qualified Data.Aeson                            as Aeson
 import qualified Data.Text.Extended                    as T
 
 import           Development.IDE.Types.LSP as Compiler
@@ -30,7 +26,7 @@ handle
     :: Logger.Handle IO
     -> Compiler.IdeState
     -> TextDocumentPositionParams
-    -> IO (Either a Aeson.Value)
+    -> IO (Maybe Hover)
 handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
     mbResult <- case uriToFilePath' uri of
         Just filePath -> do
@@ -42,18 +38,17 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
 
     case mbResult of
         Just (mbRange, contents) ->
-            pure $ Right $ Aeson.toJSON
-                  $ Hover
-                        (HoverContentsMS $ List $ map showHoverInformation contents)
+            pure $ Just $ Hover
+                        (HoverContents $ MarkupContent MkMarkdown $ T.intercalate sectionSeparator $ map showHoverInformation contents)
                         mbRange
 
-        Nothing -> pure $ Right Aeson.Null
+        Nothing -> pure Nothing
   where
-    showHoverInformation :: Compiler.HoverText -> MarkedString
+    showHoverInformation :: Compiler.HoverText -> T.Text
     showHoverInformation = \case
-        Compiler.HoverHeading h -> PlainString ("***" <> h <> "***:")
-        Compiler.HoverDamlCode damlCode -> CodeString $ LanguageString
-            { _language = damlLanguageIdentifier
-            , _value = damlCode
-            }
-        Compiler.HoverMarkdown md -> PlainString md
+        Compiler.HoverDamlCode damlCode -> T.unlines
+            [ "```" <> damlLanguageIdentifier
+            , damlCode
+            , "```"
+            ]
+        Compiler.HoverMarkdown md -> md

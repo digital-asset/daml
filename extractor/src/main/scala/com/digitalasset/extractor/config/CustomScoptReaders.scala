@@ -14,8 +14,18 @@ import scala.collection.breakOut
 import scala.collection.generic.CanBuildFrom
 
 private[extractor] object CustomScoptReaders {
-  implicit def partyRead: Read[Party] = reads { s =>
+  implicit val partyRead: Read[Party] = reads { s =>
     Party fromString s fold (e => throw new IllegalArgumentException(e), identity)
+  }
+
+  implicit val templateConfigRead: Read[TemplateConfig] = reads { s =>
+    s.split(':') match {
+      case Array(moduleName, entityName) =>
+        TemplateConfig(moduleName, entityName)
+      case _ =>
+        throw new IllegalArgumentException(
+          s"Expected TemplateConfig string: '<moduleName>:<entityName>', got: '$s'")
+    }
   }
 
   implicit def nonEmptySeqRead[F[_], A](

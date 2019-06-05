@@ -23,7 +23,6 @@ import com.digitalasset.ledger.api.validation.{PartyNameChecker, TransactionServ
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.LfEngineToApi
-import com.digitalasset.platform.server.api.ProxyCloseable
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.validation.{
   ErrorFactories,
@@ -38,7 +37,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 
 class GrpcTransactionService(
-    protected val service: TransactionService with AutoCloseable,
+    protected val service: TransactionService,
     val ledgerId: LedgerId,
     partyNameChecker: PartyNameChecker,
     identifierResolver: IdentifierResolver)(
@@ -46,7 +45,6 @@ class GrpcTransactionService(
     protected val mat: Materializer)
     extends ApiTransactionService
     with TransactionServiceAkkaGrpc
-    with ProxyCloseable
     with GrpcApiService
     with ErrorFactories
     with FieldValidations {
@@ -248,6 +246,7 @@ class GrpcTransactionService(
           .fold(_ => throw new RuntimeException("Error converting exercise result"), identity)),
     )
   }
+
   private def domainToApiArchive(archive: domain.Event.ArchivedEvent): ArchivedEvent = {
     import archive._
     ArchivedEvent(

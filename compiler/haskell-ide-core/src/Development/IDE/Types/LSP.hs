@@ -16,9 +16,7 @@ import Development.IDE.Types.Diagnostics
 
 -- | Different types of content we can show on hover.
 data HoverText
-    = HoverHeading !T.Text
-      -- ^ A header that explains the content below it.
-    | HoverDamlCode !T.Text
+    = HoverDamlCode !T.Text
       -- ^ Highlighted DAML-Code
     | HoverMarkdown !T.Text
       -- ^ Markdown text.
@@ -26,7 +24,6 @@ data HoverText
 
 getHoverTextContent :: HoverText -> T.Text
 getHoverTextContent = \case
-    HoverHeading t -> t
     HoverDamlCode t -> t
     HoverMarkdown t -> t
 
@@ -55,7 +52,4 @@ data Event
     | EventFileValidation Int Int
       -- ^ @EventFileValidation finishedValidations totalValidations @
       -- How many validations have we finished of how many total.
-    | EventFatalError !T.Text
-      -- ^ @EventFatalError reason@: A fatal error occurred in the compiler and
-      -- the compiler cannot continue.
       deriving Show

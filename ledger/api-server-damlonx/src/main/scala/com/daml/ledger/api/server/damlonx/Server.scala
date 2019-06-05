@@ -17,8 +17,8 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
-import com.digitalasset.platform.server.services.command.ReferenceCommandService
-import com.digitalasset.platform.server.services.identity.LedgerIdentityService
+import com.digitalasset.platform.server.services.command.ApiCommandService
+import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import io.grpc.BindableService
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -99,11 +99,11 @@ object Server {
       DamlOnXTransactionService.create(ledgerId, indexService, identifierResolver)
 
     val identityService =
-      LedgerIdentityService.createApiService(() => Future.successful(domain.LedgerId(ledgerId)))
+      ApiLedgerIdentityService.create(() => Future.successful(domain.LedgerId(ledgerId)))
 
     // FIXME(JM): hard-coded values copied from SandboxConfig.
-    val commandService = ReferenceCommandService.createApiService(
-      ReferenceCommandService.Configuration(
+    val commandService = ApiCommandService.create(
+      ApiCommandService.Configuration(
         domain.LedgerId(ledgerId),
         512, // config.commandConfig.inputBufferSize,
         128, // config.commandConfig.maxParallelSubmissions,
@@ -114,7 +114,7 @@ object Server {
         20.seconds // config.commandConfig.commandTtl
       ),
       // Using local services skips the gRPC layer, improving performance.
-      ReferenceCommandService.LowLevelCommandServiceAccess.LocalServices(
+      ApiCommandService.LowLevelCommandServiceAccess.LocalServices(
         CommandSubmissionFlow(
           submissionService.submit,
           128 /* config.commandConfig.maxParallelSubmissions */ ),

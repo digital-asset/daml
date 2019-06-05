@@ -16,6 +16,8 @@ import com.digitalasset.util.Ctx
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
+import scalaz.syntax.tag._
+
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class FailingCommandsIT
     extends AsyncWordSpec
@@ -47,7 +49,7 @@ class FailingCommandsIT
 
           val cmd1 = SubmitAndWaitRequest(
             failingRequest.commands.map(
-              _.update(_.ledgerId := testNotLedgerId, _.commandId := "sync ledgerId 1")))
+              _.update(_.ledgerId := testNotLedgerId.unwrap, _.commandId := "sync ledgerId 1")))
           val result1F = ctx.commandService.submitAndWait(cmd1).failed
           val result2F = ctx.commandService
             .submitAndWait(cmd1.update(_.commands.commandId := "sync ledgerId 2"))
@@ -70,7 +72,8 @@ class FailingCommandsIT
           client <- ctx.commandClient()
           tracker <- client.trackCommands[Int](List(failingRequest.getCommands.party))
           result <- Source
-            .single(Ctx(submittedCtx, failingRequest.update(_.commands.ledgerId := ctx.ledgerId)))
+            .single(
+              Ctx(submittedCtx, failingRequest.update(_.commands.ledgerId := ctx.ledgerId.unwrap)))
             .via(tracker)
             .runWith(Sink.head)
         } yield {
@@ -83,7 +86,7 @@ class FailingCommandsIT
       "return the failures for commands that fail via sync service" in allFixtures { ctx =>
         val cmd1 = SubmitAndWaitRequest(
           failingRequest.commands.map(
-            _.update(_.ledgerId := ctx.ledgerId, _.commandId := "wrong template id 1")))
+            _.update(_.ledgerId := ctx.ledgerId.unwrap, _.commandId := "wrong template id 1")))
         val cmd2 = cmd1.update(_.commands.commandId := "wrong template id 2")
         assertCommandsResultInSameError(ctx, cmd1, cmd2, Status.Code.INVALID_ARGUMENT)
       }
@@ -93,7 +96,7 @@ class FailingCommandsIT
           val cmd = SubmitAndWaitRequest(
             failingRequest.commands.map(
               _.update(
-                _.ledgerId := ctx.ledgerId,
+                _.ledgerId := ctx.ledgerId.unwrap,
                 _.commandId := "wrong template id and same commandId")))
 
           assertCommandsResultInSameError(ctx, cmd, cmd, Status.Code.INVALID_ARGUMENT)

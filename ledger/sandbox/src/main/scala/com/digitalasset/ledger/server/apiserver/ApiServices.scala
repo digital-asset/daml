@@ -3,33 +3,29 @@
 
 package com.digitalasset.ledger.server.apiserver
 
-import akka.NotUsed
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.{
-  ActiveContractsService,
-  ConfigurationService,
-  IdentityService,
-  PackagesService
+  IdentityProvider,
+  IndexActiveContractsService,
+  IndexConfigurationService,
+  IndexPackagesService,
+  _
 }
-import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v1.WriteService
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
-import com.digitalasset.ledger.backend.api.v1.LedgerBackend
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.services._
-import com.digitalasset.platform.sandbox.services.transaction.SandboxTransactionService
+import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
-import com.digitalasset.platform.server.services.command.ReferenceCommandService
-import com.digitalasset.platform.server.services.identity.LedgerIdentityService
-import com.digitalasset.platform.server.services.testing.{ReferenceTimeService, TimeServiceBackend}
+import com.digitalasset.platform.server.services.command.ApiCommandService
+import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
+import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
 import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
@@ -37,7 +33,7 @@ import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 trait ApiServices extends AutoCloseable {
   val services: Iterable[BindableService]
@@ -62,35 +58,25 @@ object ApiServices {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  //TODO: this is here only temporarily
-  def configurationService(config: SandboxConfig) = new ConfigurationService {
-    override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
-      Source
-        .single(LedgerConfiguration(config.timeModel.minTtl, config.timeModel.maxTtl))
-        .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
-  }
-
-  def identityService(ledgerId: LedgerId): IdentityService =
-    () => Future.successful(ledgerId)
-
   def create(
       config: SandboxConfig,
-      ledgerBackend: LedgerBackend, //eventually this should not be needed!
       writeService: WriteService,
-      configurationService: ConfigurationService,
-      identityService: IdentityService,
-      packagesService: PackagesService,
-      activeContractsService: ActiveContractsService,
-      transactionsService: TransactionsService,
-      contractStore: ContractStore,
-      completionsService: CompletionsService,
+      indexService: IndexService,
       engine: Engine,
       timeProvider: TimeProvider,
       optTimeServiceBackend: Option[TimeServiceBackend])(
       implicit mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): Future[ApiServices] = {
-
     implicit val ec: ExecutionContext = mat.system.dispatcher
+
+    // still trying to keep it tidy in case we want to split it later
+    val configurationService: IndexConfigurationService = indexService
+    val identityService: IdentityProvider = indexService
+    val packagesService: IndexPackagesService = indexService
+    val activeContractsService: IndexActiveContractsService = indexService
+    val transactionsService: IndexTransactionsService = indexService
+    val contractStore: ContractStore = indexService
+    val completionsService: IndexCompletionsService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
       val context = SandboxContext.fromConfig(config)
@@ -101,7 +87,7 @@ object ApiServices {
       val identifierResolver: IdentifierResolver = new IdentifierResolver(packageResolver)
 
       val apiSubmissionService =
-        SandboxSubmissionService.createApiService(
+        ApiSubmissionService.create(
           ledgerId,
           context.packageContainer,
           identifierResolver,
@@ -115,22 +101,22 @@ object ApiServices {
       logger.info(EngineInfo.show)
 
       val apiTransactionService =
-        SandboxTransactionService
-          .createApiService(ledgerId, transactionsService, identifierResolver)
+        ApiTransactionService.create(ledgerId, transactionsService, identifierResolver)
 
       val apiLedgerIdentityService =
-        LedgerIdentityService.createApiService(() => identityService.getLedgerId())
+        ApiLedgerIdentityService.create(() => identityService.getLedgerId())
 
-      val apiPackageService = SandboxPackageService.createApiService(ledgerId, packagesService)
+      val apiPackageService = ApiPackageService.create(ledgerId, packagesService)
 
       val apiConfigurationService =
-        LedgerConfigurationService.createApiService(ledgerId, configurationService)
+        ApiLedgerConfigurationService.create(ledgerId, configurationService)
 
       val apiCompletionService =
-        SandboxCommandCompletionService.createApiService(ledgerId, completionsService)
+        ApiCommandCompletionService
+          .create(ledgerId, completionsService)
 
-      val apiCommandService = ReferenceCommandService.createApiService(
-        ReferenceCommandService.Configuration(
+      val apiCommandService = ApiCommandService.create(
+        ApiCommandService.Configuration(
           ledgerId,
           config.commandConfig.inputBufferSize,
           config.commandConfig.maxParallelSubmissions,
@@ -141,14 +127,11 @@ object ApiServices {
           config.commandConfig.commandTtl
         ),
         // Using local services skips the gRPC layer, improving performance.
-        ReferenceCommandService.LowLevelCommandServiceAccess.LocalServices(
+        ApiCommandService.LowLevelCommandServiceAccess.LocalServices(
           CommandSubmissionFlow(
             apiSubmissionService.submit,
             config.commandConfig.maxParallelSubmissions),
-          r =>
-            apiCompletionService.service
-              .asInstanceOf[SandboxCommandCompletionService]
-              .completionStreamSource(r),
+          r => apiCompletionService.completionStreamSource(r),
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           apiTransactionService.getTransactionById,
           apiTransactionService.getFlatTransactionById
@@ -157,14 +140,13 @@ object ApiServices {
       )
 
       val apiActiveContractsService =
-        SandboxActiveContractsService
-          .createApiService(ledgerId, activeContractsService, identifierResolver)
+        ApiActiveContractsService.create(ledgerId, activeContractsService, identifierResolver)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 
       val apiTimeServiceOpt =
         optTimeServiceBackend.map { tsb =>
-          ReferenceTimeService.createApiService(
+          ApiTimeService.create(
             ledgerId,
             tsb,
             config.timeProviderType == TimeProviderType.StaticAllowBackwards

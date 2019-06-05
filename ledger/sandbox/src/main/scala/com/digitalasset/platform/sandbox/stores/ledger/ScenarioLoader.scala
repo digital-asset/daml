@@ -18,7 +18,6 @@ import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.slf4j.LoggerFactory
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
-import com.digitalasset.ledger.backend.api.v1.NodeId
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.breakOut
@@ -271,6 +270,7 @@ object ScenarioLoader {
   private def absCidWithHash(a: AbsoluteContractId): AbsoluteContractId =
     AbsoluteContractId(Ref.ContractIdString.concat(`#`, a.coid))
 
-  private def nodeIdWithHash(nid: L.ScenarioNodeId): NodeId = Ref.ContractIdString.concat(`#`, nid)
+  private def nodeIdWithHash(nid: L.ScenarioNodeId): com.digitalasset.ledger.EventId =
+    Ref.ContractIdString.concat(`#`, nid)
 
 }

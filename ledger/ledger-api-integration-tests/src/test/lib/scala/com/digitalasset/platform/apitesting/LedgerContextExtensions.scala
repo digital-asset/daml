@@ -15,6 +15,7 @@ import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Va
 import com.digitalasset.ledger.client.configuration.CommandClientConfiguration
 import com.digitalasset.platform.tests.integration.ledger.api.LedgerTestingHelpers
 import org.scalatest.{Assertion, Matchers, OptionValues}
+import scalaz.syntax.tag._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,7 +28,7 @@ object LedgerContextExtensions extends Matchers with OptionValues {
     def command(commandId: String, individualCommands: Seq[Command]): SubmitRequest =
       MockMessages.submitRequest.update(
         _.commands.commandId := commandId,
-        _.commands.ledgerId := context.ledgerId,
+        _.commands.ledgerId := context.ledgerId.unwrap,
         _.commands.commands := individualCommands)
 
     def testingHelpers(implicit mat: ActorMaterializer): LedgerTestingHelpers = {

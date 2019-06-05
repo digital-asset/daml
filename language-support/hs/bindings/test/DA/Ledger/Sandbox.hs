@@ -6,7 +6,8 @@ module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selecte
     Sandbox(port),
     startSandbox,
     shutdownSandbox,
-    withSandbox
+    withSandbox,
+    resetSandbox
     ) where
 
 import Trace
@@ -19,6 +20,8 @@ import Data.List.Extra(splitOn)
 import GHC.IO.Handle (Handle, hGetLine)
 import System.Process (CreateProcess (..), ProcessHandle, StdStream (CreatePipe), createProcess, getPid, interruptProcessGroupOf, proc, waitForProcess)
 import System.Time.Extra (Seconds, timeout)
+import DA.Ledger as Ledger
+
 
 data SandboxSpec = SandboxSpec {dar :: String}
 
@@ -112,3 +115,7 @@ timeoutError n tag io =
         Just x -> return x
         Nothing -> do
             fail $ "Timeout: " <> tag <> ", after " <> show n <> " seconds."
+
+resetSandbox :: Sandbox-> IO ()
+resetSandbox Sandbox{port} = do
+    Ledger.resetService Trace.trace port

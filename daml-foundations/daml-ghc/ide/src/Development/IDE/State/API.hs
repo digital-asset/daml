@@ -23,6 +23,9 @@ module Development.IDE.State.API
     , getDependencies
     , logDebug
     , logSeriousError
+    , VFSHandle(..)
+    , makeVFSHandle
+    , makeLSPVFSHandle
     ) where
 
 import           Development.IDE.Types.LSP

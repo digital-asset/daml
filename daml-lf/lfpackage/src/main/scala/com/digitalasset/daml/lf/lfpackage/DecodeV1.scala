@@ -470,6 +470,9 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
             decodeTypeConName(variant.getCon),
             name(variant.getVariant),
             name(variant.getBinder))
+        case PLF.CaseAlt.SumCase.ENUM =>
+          val enum = lfCaseAlt.getEnum
+          CPEnum(decodeTypeConName(enum.getCon), name(enum.getConstructor))
         case PLF.CaseAlt.SumCase.PRIM_CON =>
           CPPrimCon(decodePrimCon(lfCaseAlt.getPrimCon))
         case PLF.CaseAlt.SumCase.NIL =>
@@ -745,9 +748,11 @@ object DecodeV1 {
       TO_TEXT_PARTY -> (BToTextParty -> "2"),
       TO_TEXT_TEXT -> (BToTextText -> "0"),
       TO_QUOTED_TEXT_PARTY -> (BToQuotedTextParty -> "0"),
+      TO_TEXT_CODE_POINTS -> (BToTextCodePoints -> "dev"),
       FROM_TEXT_PARTY -> (BFromTextParty -> "2"),
       FROM_TEXT_INT64 -> (BFromTextInt64 -> "5"),
       FROM_TEXT_DECIMAL -> (BFromTextDecimal -> "5"),
+      FROM_TEXT_CODE_POINTS -> (BFromTextCodePoints -> "dev"),
       SHA256_TEXT -> (BSHA256Text -> "2"),
       DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> "0"),
       EXPLODE_TEXT -> (BExplodeText -> "0"),

@@ -27,7 +27,8 @@ import qualified Data.Char as C
 type Anchor = T.Text
 
 moduleAnchor :: Modulename -> Anchor
-moduleAnchor m = T.intercalate "-" ["module", convertModulename m, hashText m]
+-- calculating a hash on String instead of Data.Text as hash output of the later is different on Windows than other OSes
+moduleAnchor m = T.intercalate "-" ["module", convertModulename m, hashText $ T.unpack m]
 
 convertModulename :: Modulename -> T.Text
 convertModulename = T.toLower . T.replace "." "-" . T.replace "_" ""
@@ -48,7 +49,8 @@ functionAnchor     = anchor "function"
 
 
 anchor :: Hashable v => T.Text -> Modulename -> T.Text -> v -> Anchor
-anchor k m n v = T.intercalate "-" [k, convertModulename m, expandOps n, hashText (k,m,n,v)]
+-- calculating a hash on String instead of Data.Text as hash output of the later is different on Windows than other OSes
+anchor k m n v = T.intercalate "-" [k, convertModulename m, expandOps n, hashText (T.unpack k, T.unpack m, T.unpack n, v)]
   where
     expandOps :: T.Text -> T.Text
     expandOps = T.pack . replaceEmpty . concatMap expandOp . T.unpack

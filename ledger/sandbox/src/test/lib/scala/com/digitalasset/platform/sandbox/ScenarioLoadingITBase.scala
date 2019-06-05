@@ -50,16 +50,16 @@ abstract class ScenarioLoadingITBase
     with SandboxFixture
     with SuiteResourceManagementAroundEach {
 
-  private def newACClient(ledgerId: String) =
-    new ActiveContractSetClient(LedgerId(ledgerId), ActiveContractsServiceGrpc.stub(channel))
+  private def newACClient(ledgerId: LedgerId) =
+    new ActiveContractSetClient(ledgerId, ActiveContractsServiceGrpc.stub(channel))
 
   private def newSyncClient = new SynchronousCommandClient(CommandServiceGrpc.stub(channel))
 
   private def submitRequest(request: SubmitAndWaitRequest) =
     newSyncClient.submitAndWait(request)
 
-  private def newTransactionClient(ledgerId: String): TransactionClient = {
-    new TransactionClient(LedgerId(ledgerId), TransactionServiceGrpc.stub(channel))
+  private def newTransactionClient(ledgerId: LedgerId): TransactionClient = {
+    new TransactionClient(ledgerId, TransactionServiceGrpc.stub(channel))
   }
 
   override implicit def patienceConfig: PatienceConfig =

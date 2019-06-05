@@ -22,6 +22,7 @@ da_haskell_library(
         "ghc-lib-parser",
         "ghc-lib",
         "hashable",
+        "haskell-lsp",
         "haskell-lsp-types",
         "mtl",
         "shake",

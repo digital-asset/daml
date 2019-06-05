@@ -9,14 +9,19 @@ import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import akka.{Done, NotUsed}
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v1.{
+  SubmissionResult,
+  SubmittedTransaction,
+  SubmitterInfo,
+  TransactionMeta
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.backend.api.v1.{RejectionReason, TransactionSubmission}
+import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
@@ -50,7 +55,6 @@ import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
-
 import scalaz.syntax.tag._
 
 sealed abstract class SqlStartMode extends Product with Serializable
@@ -131,6 +135,17 @@ private class SqlLedger(
       SourceQueueWithComplete[Long => PersistenceEntry],
       SourceQueueWithComplete[Long => PersistenceEntry]) = createQueues()
 
+  watchForFailures(checkpointQueue, "checkpoint")
+  watchForFailures(persistenceQueue, "persistence")
+
+  private def watchForFailures(queue: SourceQueueWithComplete[_], name: String) =
+    queue
+      .watchCompletion()
+      .onComplete {
+        case Failure(t) => logger.error(s"$name queue has been closed with a failure!", t)
+        case _ => ()
+      }(DEC)
+
   private def createQueues(): (
       SourceQueueWithComplete[Long => PersistenceEntry],
       SourceQueueWithComplete[Long => PersistenceEntry]) = {
@@ -170,6 +185,12 @@ private class SqlLedger(
               ledgerDao
                 .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))
                 .map(_ => ())(DEC)
+                .recover {
+                  case t =>
+                    //recovering from the failure so the persistence stream doesn't die
+                    logger.error(s"Failed to persist entry with offset: $offset", t)
+                    ()
+                }
           })
           .map { _ =>
             //note that we can have holes in offsets in case of the storing of an entry failed for some reason
@@ -177,12 +198,11 @@ private class SqlLedger(
             dispatcher.signalNewHead(headRef) //signalling downstream subscriptions
           }(DEC)
       }
-      .toMat(Sink.ignore)(
-        Keep.left[
-          (
-              SourceQueueWithComplete[Long => PersistenceEntry],
-              SourceQueueWithComplete[Long => PersistenceEntry]),
-          Future[Done]])
+      .toMat(Sink.ignore)(Keep.left[
+        (
+            SourceQueueWithComplete[Long => PersistenceEntry],
+            SourceQueueWithComplete[Long => PersistenceEntry]),
+        Future[Done]])
       .run()
   }
 
@@ -191,9 +211,8 @@ private class SqlLedger(
     ledgerDao.close()
   }
 
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] = {
+  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     dispatcher.startingAt(offset.getOrElse(0))
-  }
 
   override def ledgerEnd: Long = headRef
 
@@ -216,61 +235,69 @@ private class SqlLedger(
       .offer(_ => PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(time)))
       .map(_ => ())(DEC) //this never pushes back, see createQueues above!
 
-  override def publishTransaction(tx: TransactionSubmission): Future[SubmissionResult] =
+  override def publishTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction): Future[SubmissionResult] =
     enqueue { offset =>
       val transactionId = Ref.LedgerString.fromLong(offset)
       val toAbsCoid: ContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(transactionId)
 
-      val mappedTx = tx.transaction
+      val mappedTx = transaction
         .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
         .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
 
-      val mappedDisclosure = tx.blindingInfo.explicitDisclosure
+      //note, that this cannot fail as it's already validated
+      val blindingInfo = Blinding
+        .checkAuthorizationAndBlind(transaction, Set(submitterInfo.submitter))
+        .fold(authorisationError => sys.error(authorisationError.detailMsg), identity)
+
+      val mappedDisclosure = blindingInfo.explicitDisclosure
         .map {
           case (nodeId, parties) =>
             SandboxEventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
         }
 
-      val mappedLocalImplicitDisclosure = tx.blindingInfo.localImplicitDisclosure.map {
+      val mappedLocalImplicitDisclosure = blindingInfo.localImplicitDisclosure.map {
         case (k, v) => SandboxEventIdFormatter.fromTransactionId(transactionId, k) -> v
       }
 
       val recordTime = timeProvider.getCurrentTime
-      if (recordTime.isAfter(tx.maximumRecordTime)) {
+      if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
         // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
         // than the time window between LET and MRT allows for.
         // See https://github.com/digital-asset/daml/issues/987
         PersistenceEntry.Rejection(
           LedgerEntry.Rejection(
             recordTime,
-            tx.commandId,
-            tx.applicationId,
-            tx.submitter,
+            submitterInfo.commandId,
+            submitterInfo.applicationId,
+            submitterInfo.submitter,
             RejectionReason.TimedOut(
-              s"RecordTime $recordTime is after MaximumRecordTime ${tx.maximumRecordTime}")
+              s"RecordTime $recordTime is after MaximumRecordTime ${submitterInfo.maxRecordTime.toInstant}")
           )
         )
       } else {
         PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
-            tx.commandId,
+            submitterInfo.commandId,
             transactionId,
-            tx.applicationId,
-            tx.submitter,
-            tx.workflowId,
-            tx.ledgerEffectiveTime,
+            submitterInfo.applicationId,
+            submitterInfo.submitter,
+            transactionMeta.workflowId,
+            transactionMeta.ledgerEffectiveTime.toInstant,
             recordTime,
             mappedTx,
             mappedDisclosure
           ),
           mappedLocalImplicitDisclosure,
-          tx.blindingInfo.globalImplicitDisclosure
+          blindingInfo.globalImplicitDisclosure
         )
       }
     }
 
-  private def enqueue(f: Long => PersistenceEntry): Future[SubmissionResult] = {
+  private def enqueue(f: Long => PersistenceEntry): Future[SubmissionResult] =
     persistenceQueue
       .offer(f)
       .transform {
@@ -283,7 +310,6 @@ private class SqlLedger(
         case Success(QueueOfferResult.Failure(e)) => Failure(e)
         case Failure(f) => Failure(f)
       }(DEC)
-  }
 
   override def lookupTransaction(
       transactionId: Ref.TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =

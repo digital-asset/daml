@@ -2,7 +2,10 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | Test utils
-module DA.Test.Util (standardizeQuotes) where
+module DA.Test.Util (
+    standardizeQuotes,
+    standardizeEoL
+) where
 
 import qualified Data.Text as T
 
@@ -13,3 +16,6 @@ standardizeQuotes msg = let
         repl '`' = '\''
         repl  c   = c
     in  T.map repl msg
+
+standardizeEoL :: T.Text -> T.Text
+standardizeEoL = T.replace (T.singleton '\r') T.empty
