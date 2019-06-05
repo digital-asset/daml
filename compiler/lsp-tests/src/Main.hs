@@ -7,18 +7,19 @@ module Main (main) where
 
 import DA.Bazel.Runfiles
 import qualified Data.Text as T
-import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
+import System.Environment.Blank
 
 import Daml.Lsp.Test.Util
 
 main :: IO ()
 main = do
+    setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
         mainWorkspace </> "daml-foundations" </> "daml-tools" </>
         "da-hs-damlc-app" </> "da-hs-damlc-app"
@@ -37,7 +38,7 @@ main = do
         conf = defaultConfig
             -- If you uncomment this you can see all messages
             -- which can be quite useful for debugging.
-            -- { logMessages = True }
+            -- { logMessages = True, logColor = False, logStdErr = True }
 
 diagnosticTests :: (forall a. Session a -> IO a) -> TestTree
 diagnosticTests run = testGroup "diagnostics"
