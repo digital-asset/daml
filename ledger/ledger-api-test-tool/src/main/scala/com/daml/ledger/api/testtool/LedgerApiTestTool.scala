@@ -45,10 +45,15 @@ object LedgerApiTestTool {
           .withPort(toolConfig.port)
           .withTlsConfig(toolConfig.tlsConfig))
 
-    val suites = suiteDefinitions(commonConfig)
+    val default = defaultTests(commonConfig)
+    val optional = optionalTests(commonConfig)
+
+    val allTests = default ++ optional
 
     if (toolConfig.listTests) {
-      println(s"The following tests are available: \n${suites.keySet.toList.sorted.mkString("\n")}")
+      println("Tests marked with * are run by default.\n")
+      println(default.keySet.toSeq.sorted.map(_ + " *").mkString("\n"))
+      println(optional.keySet.toSeq.sorted.mkString("\n"))
       sys.exit(0)
     }
 
@@ -56,10 +61,10 @@ object LedgerApiTestTool {
 
     try {
 
-      val suitesToRun = (if (toolConfig.included.isEmpty) suites.keySet else toolConfig.included)
+      val testsToRun = (if (toolConfig.included.isEmpty) default.keySet else toolConfig.included)
         .filterNot(toolConfig.excluded)
 
-      if (suitesToRun.isEmpty) {
+      if (testsToRun.isEmpty) {
         println("No tests to run.")
         sys.exit(0)
       }
@@ -67,28 +72,29 @@ object LedgerApiTestTool {
       val reporter = new ToolReporter(toolConfig.verbose)
       val sorter = new ToolSorter
 
-      suitesToRun
-        .find(n => !suites.contains(n))
+      testsToRun
+        .find(n => !allTests.contains(n))
         .foreach { unknownSuite =>
           println(s"Unknown Test: $unknownSuite")
-          sys.exit(-1)
+          sys.exit(1)
         }
 
-      suitesToRun.foreach { suiteName =>
+      testsToRun.foreach { suiteName =>
         try {
-          suites(suiteName)()
+          allTests(suiteName)()
             .run(None, Args(reporter = reporter, distributedTestSorter = Some(sorter)))
         } catch {
           case NonFatal(t) =>
-            println(s"Error while executing test [$suiteName]: ${t.getMessage}")
+            failed = true
         }
         ()
       }
+
+      failed |= reporter.statistics.testsStarted != reporter.statistics.testsSucceeded
       reporter.printStatistics
     } catch {
-      case NonFatal(t) =>
+      case NonFatal(t) if toolConfig.mustFail =>
         failed = true
-        if (!toolConfig.mustFail) throw t
     }
 
     if (toolConfig.mustFail) {
@@ -96,19 +102,24 @@ object LedgerApiTestTool {
       else
         throw new RuntimeException(
           "None of the scenarios failed, yet the --must-fail flag was specified!")
+    } else {
+      if (failed) {
+        sys.exit(1)
+      }
     }
   }
 
-  private def suiteDefinitions(
-      commonConfig: PlatformApplications.Config): Map[String, () => Suite] = {
+  private def defaultTests(commonConfig: PlatformApplications.Config): Map[String, () => Suite] = {
     val semanticTestsRunner = lazyInit(
       "SemanticTests",
       name =>
         new SandboxSemanticTestsLfRunner {
           override def suiteName: String = name
-          override def actorSystemName = "SandboxSemanticTestsLfRunnerTestToolActorSystem"
+
+          override def actorSystemName = s"${name}TestToolActorSystem"
 
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+
           override implicit lazy val patienceConfig: PatienceConfig =
             PatienceConfig(Span(60L, Seconds))
 
@@ -116,13 +127,16 @@ object LedgerApiTestTool {
             commonConfig.withDarFile(resourceAsFile(semanticTestsResource))
       }
     )
+    Map(semanticTestsRunner)
+  }
+  private def optionalTests(commonConfig: PlatformApplications.Config): Map[String, () => Suite] = {
 
     val transactionServiceIT = lazyInit(
       "TransactionServiceTests",
       name =>
         new TransactionServiceIT {
           override def suiteName: String = name
-          override def actorSystemName = "TransactionServiceITTestToolActorSystem"
+          override def actorSystemName = s"${name}ToolActorSystem"
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
 
           override protected def config: Config =
@@ -130,7 +144,7 @@ object LedgerApiTestTool {
       }
     )
 
-    Map(semanticTestsRunner, transactionServiceIT)
+    Map(transactionServiceIT)
   }
 
   def lazyInit[A](name: String, factory: String => A): (String, () => A) = {

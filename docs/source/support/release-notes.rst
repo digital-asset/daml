@@ -23,7 +23,7 @@ Navigator
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
 
-- The :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` now also runs ``TransactionServiceIT`` as part of the conformance tests.
+- The :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` can now optionally run ``TransactionServiceIT`` as part of the conformance tests.
   This means you need to load additional ``.dar`` files into the ledger under test. Please refer to the updated instructions in the :doc:`documentation </tools/ledger-api-test-tool/index>`.
 - Added new CLI options to the :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`:
 

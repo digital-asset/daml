@@ -70,8 +70,6 @@ For example
 If any test embedded in the tool fails, it will print out details of the failure
 for further debugging.
 
-
-
 Exploring options the tool provides
 ===================================
 
@@ -84,19 +82,19 @@ Run the tool with ``--help`` flag to obtain the list of options the tool provide
 Filtering tests
 ~~~~~~~~~~~~~~~
 
-You can list the available tests with the ``--list`` flag. By default, all tests are run, unless you explicitly specify which tests to run with the ``--include`` flag. To exclude tests, use the ``--exclude`` flag.
+You can list the available tests with the ``--list`` flag. Some tests are not run by default. You can run them with the ``--include`` flag. To exclude tests, use the ``--exclude`` flag.
 
-This command only runs the test ``SemanticTests``:
-
-.. code-block:: console
-
-   $ java -jar ledger-api-test-tool.jar --include SemanticTests
-
-This command runs all tests except the test ``TransactionServiceTests``:
+This command only runs the test ``TestA``:
 
 .. code-block:: console
 
-   $ java -jar ledger-api-test-tool.jar --exclude TransactionServiceTests
+   $ java -jar ledger-api-test-tool.jar --include TestA
+
+This command runs all tests except the test ``TestB``:
+
+.. code-block:: console
+
+   $ java -jar ledger-api-test-tool.jar --exclude TestB
 
 Try out the Ledger API Test Tool against DAML Sandbox
 =====================================================
