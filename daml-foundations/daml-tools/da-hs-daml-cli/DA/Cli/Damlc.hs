@@ -506,7 +506,7 @@ moduleAndTemplates world mod = retTypess
         retTypess = map (\t-> (LF.tplTypeCon t, templatePossibleUpdates world t )) templates
 
 listOfModules :: NM.NameMap LF.Module -> [LF.Module]
-listOfModules modules =  (NM.toList modules)
+listOfModules modules = NM.toList modules
 
 templatesFromModule :: LF.Module -> [LF.Template]
 templatesFromModule mod = NM.toList $ LF.moduleTemplates mod
@@ -530,25 +530,27 @@ darToWorld darFilePath pkg = do
     let dalfs = dalfsInDar (toArchive $ BSL.fromStrict bytes)
     return (dalfsToWorld dalfs pkg )
 
-
-src, box :: String -> Dot NodeId
-src     label = node $ [ ("shape","none"),("label",label) ]
-box     label = node $ [ ("shape","box"),("style","rounded"),("label",label) ]
--- diamond label = node $ [("shape","diamond"),("label",label),("fontsize","10")]
-
 prettyAction :: Action -> String
 prettyAction (ACreate  tpl) = DAP.renderPretty tpl 
 prettyAction (AExercise  tpl _ ) = DAP.renderPretty tpl
 
-prettyTemplateWithAction :: (LF.TypeConName ,DS.Set Action) -> String
-prettyTemplateWithAction (tplCon, actions) =  DAP.renderPretty tplCon ++ "->" ++ show(DS.map prettyAction actions)
+-- prettyTemplateWithAction :: (LF.TypeConName ,DS.Set Action) -> String
+-- prettyTemplateWithAction (tplCon, actions) =  DAP.renderPretty tplCon ++ "->" ++ show(DS.map prettyAction actions)
 
-dotGraphTemplateAndActionHelper :: (LF.TypeConName ,DS.Set Action) -> [(String,String)]
-dotGraphTemplateAndActionHelper (tplCon, actions) = DS.elems (DS.map (\a -> (tplStr, prettyAction a)) actions)
+src :: String -> Dot NodeId
+src label = node [ ("shape","none"),("label",label) ]
+
+dotGraphTemplateAndActionHelper :: (LF.TypeConName ,DS.Set Action) -> (String, [String])
+dotGraphTemplateAndActionHelper (tplCon, actions) = (tplStr, actionsStrs)
     where 
-        tplStr = DAP.renderPretty tplCon
+        tplStr =  DAP.renderPretty tplCon
+        actionsStrs = DS.elems $ DS.map prettyAction actions
 
--- dotLayoutGen :: [(String,String)] -> []
+nodeToDot :: NodeId -> String -> Dot ()
+nodeToDot a b = do
+    n2 <- src b
+    a .->. n2
+
 
 execVisual :: FilePath -> FilePath -> IO ()
 execVisual darFilePath dalfFile = do
@@ -559,23 +561,14 @@ execVisual darFilePath dalfFile = do
     putStrLn "done"
     let modules = listOfModules $ LF.packageModules lfPkg
         res = concatMap (moduleAndTemplates world) modules
-        ppString = map prettyTemplateWithAction res
-    putStrLn (show ppString)
+        -- ppString = map prettyTemplateWithAction res
+        dotThing = map dotGraphTemplateAndActionHelper res
     putStrLn $ showDot $ do
         attribute ("size","40,15")
         attribute ("rankdir","LR")
-        refSpec <- src "S"
-        tarSpec <- src "T"
-        same [refSpec,tarSpec]
-
-        c1 <- box "S"
-        c2 <- box "C"
-        c3 <- box "F"
-        same [c1,c2,c3]
-
-        refSpec .->. c1
-        tarSpec .->. c2
-        tarSpec .->. c3
+        forM_ dotThing $ \(tplName, actions) -> do
+            tName <- src tplName
+            mapM (\a -> nodeToDot tName a ) actions
 
 
 
