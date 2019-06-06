@@ -7,29 +7,38 @@ module Main (main) where
 
 import DA.Bazel.Runfiles
 import qualified Data.Text as T
-import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
 import System.FilePath
+import System.Info.Extra
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
+import System.Environment.Blank
 
 import Daml.Lsp.Test.Util
 
 main :: IO ()
 main = do
+    setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
         mainWorkspace </> "daml-foundations" </> "daml-tools" </>
         "da-hs-damlc-app" </> "da-hs-damlc-app"
-    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide") fullCaps dir s
+    let runNoScenarios s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps dir s
+        _runWithScenarios s
+            -- We are currently seeing issues with GRPC FFI calls which make everything
+            -- that uses the scenario service extremely flaky and forces us to disable it on
+            -- CI. Once https://github.com/digital-asset/daml/issues/1354 is fixed we can
+            -- also run scenario tests on Windows.
+            | isWindows = pure ()
+            | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps dir s
     defaultMain $ testGroup "LSP"
-        [ diagnosticTests run
+        [ diagnosticTests runNoScenarios
         ]
     where
         conf = defaultConfig
             -- If you uncomment this you can see all messages
             -- which can be quite useful for debugging.
-            -- { logMessages = True }
+            -- { logMessages = True, logColor = False, logStdErr = True }
 
 diagnosticTests :: (forall a. Session a -> IO a) -> TestTree
 diagnosticTests run = testGroup "diagnostics"

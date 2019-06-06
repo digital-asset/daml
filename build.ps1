@@ -78,7 +78,8 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //daml-foundations/daml-ghc:module-tree-memory `
     //daml-foundations/daml-ghc:tasty-test `
     //daml-foundations/daml-tools/da-hs-daml-cli `
-    //daml-foundations/daml-tools/da-hs-damlc-app/...
+    //daml-foundations/daml-tools/da-hs-damlc-app/... `
+    //compiler/lsp-tests/...
     # Disabled since there seems to be an issue with starting up the scenario service.
     # See https://github.com/digital-asset/daml/issues/1354
     # //daml-foundations/daml-ghc:daml-ghc-shake-test-ci

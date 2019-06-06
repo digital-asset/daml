@@ -7,9 +7,12 @@
 -- | Compiles, generates and creates scenarios for DAML-LF
 module DA.Service.Daml.Compiler.Impl.Scenario (
     SS.Handle
+  , EnableScenarioService(..)
   , withScenarioService
+  , withScenarioService'
   ) where
 
+import DA.Daml.GHC.Compiler.Options
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Service.Logger                          as Logger
 import           Control.Monad.IO.Class                     (liftIO)
@@ -31,3 +34,12 @@ withScenarioService loggerH f = do
           , optLogError = wrapLog Logger.logError
           }
     SS.withScenarioService opts f
+
+withScenarioService'
+    :: EnableScenarioService
+    -> Logger.Handle IO
+    -> (Maybe SS.Handle -> IO a)
+    -> IO a
+withScenarioService' (EnableScenarioService enable) loggerH f
+    | enable = withScenarioService loggerH (f . Just)
+    | otherwise = f Nothing

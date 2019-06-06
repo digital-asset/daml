@@ -7,7 +7,9 @@ module Daml.Lsp.Test.Util
     , cursorPosition
     , expectDiagnostics
     , damlId
+    , openDoc'
     , replaceDoc
+    , module Language.Haskell.LSP.Test
     ) where
 
 import Control.Applicative.Combinators
@@ -15,13 +17,14 @@ import Control.Lens
 import Control.Monad
 import Control.Monad.IO.Class
 import qualified Data.Text as T
-import Language.Haskell.LSP.Test hiding (message)
+import Language.Haskell.LSP.Test hiding (message, openDoc')
 import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens
 import Test.Tasty.HUnit
 
 import DA.Test.Util
+import Development.IDE.Types.Diagnostics
 
 -- | Convenient grouping of 0-based line number, 0-based column number.
 type Cursor = (Int, Int)
@@ -60,3 +63,13 @@ replaceDoc :: TextDocumentIdentifier -> T.Text -> Session ()
 replaceDoc docId contents =
     changeDoc docId [TextDocumentContentChangeEvent Nothing Nothing contents]
 
+
+openDoc' :: FilePath -> String -> T.Text -> Session TextDocumentIdentifier
+openDoc' file languageId contents = do
+    uri <- getDocUri file
+    Just fp <- pure $ uriToFilePath uri
+    -- We have our own version of openDoc to ensure that it uses filePathToUri'
+    let uri = filePathToUri' fp
+    let item = TextDocumentItem uri (T.pack languageId) 0 contents
+    sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams item)
+    pure $ TextDocumentIdentifier uri

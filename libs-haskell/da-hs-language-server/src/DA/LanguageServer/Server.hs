@@ -199,7 +199,9 @@ handlers chan = def
     , LSP.didCloseTextDocumentNotificationHandler = emit LSP.NotDidCloseTextDocument
     , LSP.didSaveTextDocumentNotificationHandler = emit LSP.NotDidSaveTextDocument
     , LSP.initializedHandler = emit LSP.NotInitialized
-    , LSP.exitNotificationHandler = emit LSP.NotExit
+    , LSP.exitNotificationHandler = Nothing
+    -- If the exit notification handler is set to `Nothing`
+    -- haskell-lsp will take care of shutting down the server for us.
     , LSP.customRequestHandler = emit LSP.ReqCustomClient
     }
     where

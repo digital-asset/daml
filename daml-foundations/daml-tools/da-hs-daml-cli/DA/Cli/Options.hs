@@ -11,9 +11,11 @@ import Options.Applicative.Extended
 import Data.List
 import Text.Read
 import qualified DA.Pretty           as Pretty
+import DA.Daml.GHC.Compiler.Options
 import qualified DA.Daml.LF.Ast.Version as LF
 import DAML.Project.Consts
 import DAML.Project.Types
+
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -312,3 +314,7 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
         projectCheckOpt cmdName = fmap (ProjectCheck cmdName) . switch $
                help "Check if running in DAML project."
             <> long "project-check"
+
+enableScenarioOpt :: Parser EnableScenarioService
+enableScenarioOpt = EnableScenarioService <$>
+    flagYesNoAuto "scenarios" True "Enable/disable support for running scenarios" idm
