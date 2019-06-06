@@ -19,7 +19,7 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
   protected def actorSystemName = this.getClass.getSimpleName
   private val logger = LoggerFactory.getLogger(getClass)
 
-  private val executorContext = ExecutionContext.fromExecutorService(
+  private lazy val executorContext = ExecutionContext.fromExecutorService(
     Executors.newSingleThreadExecutor(
       new ThreadFactoryBuilder()
         .setDaemon(true)
@@ -28,10 +28,10 @@ trait AkkaBeforeAndAfterAll extends BeforeAndAfterAll {
           logger.error(s"got an uncaught exception on thread: ${thread.getName}"))
         .build()))
 
-  protected implicit val system: ActorSystem =
+  protected implicit lazy val system: ActorSystem =
     ActorSystem(actorSystemName, defaultExecutionContext = Some(executorContext))
 
-  protected implicit val materializer: ActorMaterializer = ActorMaterializer()
+  protected implicit lazy val materializer: ActorMaterializer = ActorMaterializer()
 
   override protected def afterAll(): Unit = {
     materializer.shutdown()

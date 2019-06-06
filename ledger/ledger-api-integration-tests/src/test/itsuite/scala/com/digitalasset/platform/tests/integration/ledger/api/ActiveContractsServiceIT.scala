@@ -27,7 +27,6 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.SpanSugar._
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Assertion, AsyncWordSpec, Matchers, OptionValues}
-
 import scalaz.syntax.tag._
 
 /**
@@ -46,10 +45,12 @@ class ActiveContractsServiceIT
     with ScalaFutures
     with AsyncTimeLimitedTests
     with Matchers
-    with OptionValues
-    with TestCommands {
+    with OptionValues {
 
   override def timeLimit: Span = 60.seconds
+
+  protected val testCommands = new TestCommands(config)
+  protected val templateIds = testCommands.templateIds
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(30000, Millis)), scaled(Span(500, Millis)))
@@ -97,7 +98,7 @@ class ActiveContractsServiceIT
     }.size should equal(occurrence)
 
   def threeCommands(ledgerId: domain.LedgerId, commandId: String): SubmitAndWaitRequest =
-    super.dummyCommands(ledgerId, commandId, "Alice").toWait
+    testCommands.toWait(testCommands.dummyCommands(ledgerId, commandId, "Alice"))
 
   private def filter = TransactionFilter(Map(config.parties.head -> Filters()))
 
@@ -190,11 +191,13 @@ class ActiveContractsServiceIT
           contractId = extractContractId(responses1)
           _ <- submitRequest(
             ctx,
-            buildRequest(
-              ctx.ledgerId,
-              "exercise-test-exercised",
-              Seq(exerciseWithUnit(templateIds.dummy, contractId, "DummyChoice1")),
-              "Alice").toWait)
+            testCommands.toWait(
+              testCommands.buildRequest(
+                ctx.ledgerId,
+                "exercise-test-exercised",
+                Seq(testCommands.exerciseWithUnit(templateIds.dummy, contractId, "DummyChoice1")),
+                "Alice"))
+          )
           responses2 <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
@@ -223,11 +226,12 @@ class ActiveContractsServiceIT
         val resultsF = for {
           _ <- submitRequest(
             ctx,
-            buildRequest(
-              ctx.ledgerId,
-              "commandId1",
-              Seq(createWithOperator(templateIds.dummy, "Alice")),
-              "Alice").toWait)
+            testCommands.toWait(
+              testCommands.buildRequest(
+                ctx.ledgerId,
+                "commandId1",
+                Seq(testCommands.createWithOperator(templateIds.dummy, "Alice")),
+                "Alice")))
           responses1 <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
@@ -236,11 +240,12 @@ class ActiveContractsServiceIT
           offset = extractOffset(responses1)
           _ <- submitRequest(
             ctx,
-            buildRequest(
-              ctx.ledgerId,
-              "commandId2",
-              Seq(createWithOperator(templateIds.dummyWithParam, "Alice")),
-              "Alice").toWait
+            testCommands.toWait(
+              testCommands.buildRequest(
+                ctx.ledgerId,
+                "commandId2",
+                Seq(testCommands.createWithOperator(templateIds.dummyWithParam, "Alice")),
+                "Alice"))
           )
           responses2 <- transactionClient(ctx)
             .getTransactions(
@@ -283,8 +288,12 @@ class ActiveContractsServiceIT
     "multi-party request comes" should {
       "return the correct set of related contracts" in allFixtures { ctx =>
         val resultsF = for {
-          _ <- submitRequest(ctx, dummyCommands(ctx.ledgerId, "acsCommand-1", "Alice").toWait)
-          _ <- submitRequest(ctx, dummyCommands(ctx.ledgerId, "acsCommand-2", "Bob").toWait)
+          _ <- submitRequest(
+            ctx,
+            testCommands.toWait(testCommands.dummyCommands(ctx.ledgerId, "acsCommand-1", "Alice")))
+          _ <- submitRequest(
+            ctx,
+            testCommands.toWait(testCommands.dummyCommands(ctx.ledgerId, "acsCommand-2", "Bob")))
           allContractsForAlice <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,

@@ -46,8 +46,10 @@ class CommandStaticTimeIT
     with ScalaFutures
     with SuiteResourceManagementAroundAll
     with MultiLedgerCommandUtils
-    with TestTemplateIds
     with OptionValues {
+
+  protected val testTemplateIds = new TestTemplateIds(config)
+  protected val templateIds = testTemplateIds.templateIds
 
   override def timeLimit: Span = 15.seconds
 

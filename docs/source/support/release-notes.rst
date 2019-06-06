@@ -58,6 +58,17 @@ Sandbox
 - Added recovery around failing ledger entry persistence queries using Postgres. See `#1505 <https://github.com/digital-asset/daml/pull/1505>`__.
 
 
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- The :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` can now optionally run ``TransactionServiceIT`` as part of the conformance tests.
+  This means you need to load additional ``.dar`` files into the ledger under test. Please refer to the updated instructions in the :doc:`documentation </tools/ledger-api-test-tool/index>`.
+- Added new CLI options to the :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`:
+
+  - ``--list`` prints all available tests to the console
+  - ``--include`` takes a comma-separated list of test names that should be run
+  - ``--exclude`` takes a comma-separated list of test names that should not be run
+
 0.12.22 - 2019-05-29
 --------------------
 

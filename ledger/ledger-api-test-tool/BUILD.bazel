@@ -64,6 +64,7 @@ da_scala_binary(
     resources = [
         "src/main/resources/logback.xml",
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
     ],
     tags = [
         "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",

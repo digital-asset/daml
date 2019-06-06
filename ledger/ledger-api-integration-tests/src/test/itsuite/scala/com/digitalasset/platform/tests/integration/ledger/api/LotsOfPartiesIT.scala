@@ -27,8 +27,10 @@ class LotsOfPartiesIT
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests
-    with Matchers
-    with TestTemplateIds {
+    with Matchers {
+
+  protected lazy val testTemplateIds = new TestTemplateIds(config)
+  protected lazy val templateIds = testTemplateIds.templateIds
 
   private val numParties = 1024
   private val allParties: List[String] =
