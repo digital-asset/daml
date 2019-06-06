@@ -5,7 +5,7 @@ package com.digitalasset.extractor
 
 import com.digitalasset.extractor.services.ExtractorFixture
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
-import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
+import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -18,7 +18,7 @@ import java.io.File
 class VeryLargeArchiveSpec
     extends FlatSpec
     with Suite
-    with PostgresAroundAll
+    with PostgresAroundEach
     with SuiteResourceManagementAroundAll
     with ExtractorFixture
     with Matchers {
