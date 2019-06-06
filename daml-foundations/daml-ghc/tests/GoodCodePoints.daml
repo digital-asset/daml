@@ -7,6 +7,9 @@
 daml 1.2
 module GoodCodePoints where
 
+import DA.Assert
+import DA.Text qualified as T
+
 testCodePoints = scenario do
     T.toCodePoints "Hello" === [72, 101, 108, 108, 111]
     T.fromCodePoints [87, 111, 114, 108, 100] === "World"
