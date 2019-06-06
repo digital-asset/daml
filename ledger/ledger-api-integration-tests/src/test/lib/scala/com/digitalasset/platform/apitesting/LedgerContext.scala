@@ -18,6 +18,8 @@ import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsSe
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
+import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
+import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
@@ -27,10 +29,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissi
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc
 import com.digitalasset.ledger.api.v1.ledger_configuration_service.LedgerConfigurationServiceGrpc.LedgerConfigurationService
 import com.digitalasset.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc.LedgerIdentityService
-import com.digitalasset.ledger.api.v1.ledger_identity_service.{
-  GetLedgerIdentityRequest,
-  LedgerIdentityServiceGrpc
-}
+import com.digitalasset.ledger.api.v1.ledger_identity_service.{GetLedgerIdentityRequest, LedgerIdentityServiceGrpc}
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
 import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
@@ -56,7 +55,6 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 import scala.util.Success
 import scala.concurrent.duration._
-
 import scalaz.syntax.tag._
 
 trait LedgerContext {
@@ -91,6 +89,7 @@ trait LedgerContext {
   def acsClient: ActiveContractSetClient
   def reflectionService: ServerReflectionGrpc.ServerReflectionStub
   def partyManagementService: PartyManagementService
+  def packageManagementService: PackageManagementService
 
   /**
     * resetService is protected on purpose, to disallow moving an instance of LedgerContext into an invalid state,
@@ -226,6 +225,9 @@ object LedgerContext {
 
     override def partyManagementService: PartyManagementService =
       PartyManagementServiceGrpc.stub(channel)
+
+    override def packageManagementService: PackageManagementService =
+      PackageManagementServiceGrpc.stub(channel)
   }
 
   object SingleChannelContext {

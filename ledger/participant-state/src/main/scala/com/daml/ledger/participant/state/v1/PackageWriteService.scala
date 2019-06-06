@@ -46,7 +46,6 @@ trait PackageWriteService {
   // to re-encode them to provide the size, and the size might potentially be
   // different from the original size, which would be quite confusing.
   def uploadDar(
-      knownSince: Instant,
       sourceDescription: String,
       payload: Array[Byte]): CompletionStage[UploadDarResult]
 }

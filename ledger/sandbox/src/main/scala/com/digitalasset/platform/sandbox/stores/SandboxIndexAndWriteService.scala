@@ -3,7 +3,6 @@
 
 package com.digitalasset.platform.sandbox.stores
 
-import java.time.Instant
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
@@ -362,10 +361,9 @@ private class SandboxIndexAndWriteService(
 
   // PackageWriteService
   override def uploadDar(
-      knownSince: Instant,
       sourceDescription: String,
       payload: Array[Byte]): CompletionStage[UploadDarResult] =
-    packageStore.uploadDar(knownSince, sourceDescription, payload)
+    packageStore.uploadDar(ledger.getCurrentTime(), sourceDescription, payload)
 
   // ContractStore
   override def lookupActiveContract(

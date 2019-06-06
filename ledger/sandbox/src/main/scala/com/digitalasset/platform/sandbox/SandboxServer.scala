@@ -35,7 +35,6 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
-import scala.language.postfixOps
 
 object SandboxServer {
   private val logger = LoggerFactory.getLogger(this.getClass)

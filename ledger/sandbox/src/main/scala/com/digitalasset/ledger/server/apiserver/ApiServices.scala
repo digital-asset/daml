@@ -20,6 +20,7 @@ import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRe
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
 import com.digitalasset.platform.sandbox.config.{CommandConfiguration, DamlPackageContainer, SandboxConfig}
 import com.digitalasset.platform.sandbox.services._
+import com.digitalasset.platform.sandbox.services.admin.ApiPackageManagementService
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
 import com.digitalasset.platform.sandbox.services.admin.ApiPartyManagementService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
@@ -154,6 +155,9 @@ object ApiServices {
       val apiPartyManagementService =
         ApiPartyManagementService.createApiService(partyManagementService, writeService)
 
+      val apiPackageManagementService =
+        ApiPackageManagementService.createApiService(indexService, writeService)
+
       new ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
@@ -166,7 +170,8 @@ object ApiServices {
           apiCommandService,
           apiActiveContractsService,
           apiReflectionService,
-          apiPartyManagementService
+          apiPartyManagementService,
+          apiPackageManagementService
         ))
     }
   }

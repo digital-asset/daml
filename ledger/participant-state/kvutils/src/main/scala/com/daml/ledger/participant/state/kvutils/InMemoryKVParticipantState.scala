@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.time.{Clock, Instant}
+import java.time.Clock
 import java.util.UUID
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
@@ -388,7 +388,6 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
   override def uploadDar(
-      knownSince: Instant,
       sourceDescription: String,
       payload: Array[Byte]): CompletionStage[UploadDarResult] =
     sys.error(s"Dar upload not implemented")

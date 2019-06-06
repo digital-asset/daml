@@ -9,7 +9,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipFile
 
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
-import com.daml.ledger.participant.state.v1.{PackageWriteService, UploadDarResult}
+import com.daml.ledger.participant.state.v1.UploadDarResult
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -25,7 +25,7 @@ import scalaz.syntax.traverse._
 import scalaz.std.list._
 import scalaz.std.either._
 
-class SandboxPackageStore() extends IndexPackagesService with PackageWriteService {
+class SandboxPackageStore() extends IndexPackagesService {
   private val packageInfos: mutable.Map[PackageId, PackageDetails] = mutable.Map()
   private val packages: mutable.Map[PackageId, Ast.Package] = mutable.Map()
   private val archives: mutable.Map[PackageId, Archive] = mutable.Map()
@@ -51,7 +51,7 @@ class SandboxPackageStore() extends IndexPackagesService with PackageWriteServic
     packages.get(packageId)
   }
 
-  override def uploadDar(
+  def uploadDar(
       knownSince: Instant,
       sourceDescription: String,
       packageBytes: Array[Byte]): CompletionStage[UploadDarResult] = this.synchronized {
