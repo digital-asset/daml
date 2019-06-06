@@ -9,6 +9,14 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Studio
+~~~~~~~~~~~
+
+- Fix errors due to unhandled ``$/cancelRequest`` and ``textDocument/willSave``
+  requests from showing up in the output tab in VSCode. These errors also caused
+  an automatic switch from the problems tab to the output tab which should now
+  no longer happen.
+
 .. _release-0-12-23:
 
 0.12.23 - 2019-06-05

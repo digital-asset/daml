@@ -3,7 +3,6 @@
     "textDocumentSync": {
       "openClose": true,
       "change": 2,
-      "willSave": true,
       "save": {
         "includeText": false
       }
