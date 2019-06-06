@@ -52,14 +52,13 @@ ALPHA (current status)
     status.
   - The architecture is likely to change due to learnings from pioneers like
     you! Where possible we strive to make these changes backwards compatible.
-    This might though not always be possible.
+    though this might not always be possible.
   - The documentation might be spotty in some places, and you might have to
     infer some of the documentation from the code.
   - Some of our code might be fresh off the press and might therefore have a
     higher rate of bugs.
 
-  That said: we highly value your feedback and input to direct our attention
-  to where it provides the most value!
+  That said: we highly value your feedback and input on where you find DAML software and this integration kit most useful.
   You can get into contact with us using the feedback form on this
   documentation page or by creating issues or pull-requests against the `digital-asset/daml
   <https://github.com/digital-asset/daml>`__ GitHub repository.
