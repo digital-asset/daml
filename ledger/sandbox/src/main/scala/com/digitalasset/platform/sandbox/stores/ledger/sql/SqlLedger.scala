@@ -9,7 +9,7 @@ import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import akka.{Done, NotUsed}
-import com.daml.ledger.participant.state.v1.{
+import com.daml.ledger.participant.state.v2.{
   SubmissionResult,
   SubmittedTransaction,
   SubmitterInfo,

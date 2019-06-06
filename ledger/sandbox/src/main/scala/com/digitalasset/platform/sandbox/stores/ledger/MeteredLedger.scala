@@ -7,7 +7,7 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.{
+import com.daml.ledger.participant.state.v2.{
   SubmissionResult,
   SubmittedTransaction,
   SubmitterInfo,

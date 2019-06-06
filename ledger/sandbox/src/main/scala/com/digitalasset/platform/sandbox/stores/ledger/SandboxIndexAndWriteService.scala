@@ -10,12 +10,12 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
-import com.daml.ledger.participant.state.v1.{
+import com.daml.ledger.participant.state.v2.{
   PartyAllocationResult,
   SubmittedTransaction,
   WriteService
 }
-import com.daml.ledger.participant.state.{v1 => ParticipantState}
+import com.daml.ledger.participant.state.{v2 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
