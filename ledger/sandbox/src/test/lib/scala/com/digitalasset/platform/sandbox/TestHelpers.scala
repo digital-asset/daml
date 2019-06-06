@@ -13,11 +13,11 @@ import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxTemplateStore
+import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import com.digitalasset.platform.sandbox.stores.ledger.{
   CommandExecutorImpl,
-  Ledger,
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
@@ -42,28 +42,26 @@ trait TestHelpers {
       implicit ec: ExecutionContext,
       mat: ActorMaterializer) = {
 
+    implicit val mm: MetricsManager = MetricsManager()
+
     val ledgerId = LedgerId("sandbox-ledger")
 
-    val ledger = Ledger.inMemory(
-      ledgerId,
-      TimeProvider.Constant(Instant.EPOCH),
-      ActiveContractsInMemory.empty,
-      ImmArray.empty)
-
-    val writeService = SandboxIndexAndWriteService.create(
-      ledger,
-      TimeModel.reasonableDefault,
-      SandboxTemplateStore(damlPackageContainer)
-    )
-
-    val contractStore = writeService
+    val indexAndWriteService = SandboxIndexAndWriteService
+      .inMemory(
+        ledgerId,
+        TimeModel.reasonableDefault,
+        TimeProvider.Constant(Instant.EPOCH),
+        ActiveContractsInMemory.empty,
+        ImmArray.empty,
+        SandboxTemplateStore(damlPackageContainer)
+      )
 
     ApiSubmissionService.create(
       ledgerId,
       damlPackageContainer,
       IdentifierResolver(pkgId => Future.successful(damlPackageContainer.getPackage(pkgId))),
-      contractStore,
-      writeService,
+      indexAndWriteService.indexService,
+      indexAndWriteService.writeService,
       TimeModel.reasonableDefault,
       timeProvider,
       new CommandExecutorImpl(Engine(), damlPackageContainer)

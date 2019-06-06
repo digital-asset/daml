@@ -7,7 +7,6 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
@@ -15,12 +14,7 @@ import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.SandboxServer.{
-  asyncTolerance,
-  createInitialState,
-  logger,
-  scheduleHeartbeats
-}
+import com.digitalasset.platform.sandbox.SandboxServer.{asyncTolerance, createInitialState, logger}
 import com.digitalasset.platform.sandbox.banner.Banner
 import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -50,27 +44,6 @@ object SandboxServer {
   // We memoize the engine between resets so we avoid the expensive
   // repeated validation of the sames packages after each reset
   private val engine = Engine()
-
-  private def scheduleHeartbeats(timeProvider: TimeProvider, onTimeChange: Instant => Future[Unit])(
-      implicit mat: ActorMaterializer,
-      ec: ExecutionContext) =
-    timeProvider match {
-      case timeProvider: TimeProvider.UTC.type =>
-        val interval = 1.seconds
-        logger.debug(s"Scheduling heartbeats in intervals of {}", interval)
-        val cancelable = Source
-          .tick(0.seconds, interval, ())
-          .mapAsync[Unit](1)(
-            _ => onTimeChange(timeProvider.getCurrentTime)
-          )
-          .to(Sink.ignore)
-          .run()
-        () =>
-          val _ = cancelable.cancel()
-      case _ =>
-        () =>
-          ()
-    }
 
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(config: SandboxConfig, context: SandboxContext)
@@ -106,16 +79,14 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
   case class ApiServerState(
       ledgerId: LedgerId,
-      apiServer: ApiServer,
-      ledger: Ledger,
-      stopHeartbeats: () => Unit
+      apiServer: ApiServer, //TODO: can this also be a pure AutoClosable?
+      indexAndWriteService: AutoCloseable
   ) extends AutoCloseable {
     def port: Int = apiServer.port
 
     override def close: Unit = {
-      stopHeartbeats()
       apiServer.close() //fully tear down the old server.
-      ledger.close()
+      indexAndWriteService.close()
     }
   }
 
@@ -186,7 +157,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
     val context = SandboxContext.fromConfig(config)
 
-    val (acs, records, mbLedgerTime) = createInitialState(config, context)
+    val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, context)
 
     val (timeProvider, timeServiceBackendO: Option[TimeServiceBackend]) =
       (mbLedgerTime, config.timeProviderType) match {
@@ -199,37 +170,38 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           (ts, Some(ts))
       }
 
-    val (ledgerType, ledger) = config.jdbcUrl match {
-      case None =>
-        ("in-memory", Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, records)))
+    val (ledgerType, indexAndWriteServiceF) = config.jdbcUrl match {
       case Some(jdbcUrl) =>
-        val ledgerF = Ledger.postgres(
-          jdbcUrl,
+        "postgres" -> SandboxIndexAndWriteService.postgres(
           ledgerId,
+          jdbcUrl,
+          config.timeModel,
           timeProvider,
           acs,
-          records,
+          ledgerEntries,
+          SqlStartMode.ContinueIfExists,
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
-          startMode
+          context.templateStore
         )
 
-        val ledger = Try(Await.result(ledgerF, asyncTolerance)).fold(t => {
-          val msg = "Could not start PostgreSQL persistence layer"
-          logger.error(msg, t)
-          sys.error(msg)
-        }, identity)
-
-        (s"sql", Ledger.metered(ledger))
+      case None =>
+        "in-memory" -> Future.successful(
+          SandboxIndexAndWriteService.inMemory(
+            ledgerId,
+            config.timeModel,
+            timeProvider,
+            acs,
+            ledgerEntries,
+            context.templateStore
+          ))
     }
 
-    val indexAndWriteService =
-      SandboxIndexAndWriteService.create(
-        ledger,
-        config.timeModel,
-        context.templateStore
-      )
-
-    val stopHeartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
+    val indexAndWriteService = Try(Await.result(indexAndWriteServiceF, asyncTolerance))
+      .fold(t => {
+        val msg = "Could not create SandboxIndexAndWriteService"
+        logger.error(msg, t)
+        sys.error(msg)
+      }, identity)
 
     val apiServer = Await.result(
       LedgerApiServer.create(
@@ -237,15 +209,15 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           ApiServices
             .create(
               config,
-              indexAndWriteService, // write service
-              indexAndWriteService, // index service
+              indexAndWriteService.writeService,
+              indexAndWriteService.indexService,
               SandboxServer.engine,
               timeProvider,
               timeServiceBackendO
                 .map(
                   TimeServiceBackend.withObserver(
                     _,
-                    ledger.publishHeartbeat
+                    indexAndWriteService.publishHeartbeat
                   ))
             )(am, esf)
             .map(_.withServices(List(resetService))),
@@ -260,8 +232,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     val newState = ApiServerState(
       ledgerId,
       apiServer,
-      ledger,
-      stopHeartbeats
+      indexAndWriteService
     )
 
     Banner.show(Console.out)
