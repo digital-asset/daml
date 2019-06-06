@@ -72,6 +72,7 @@ da_haskell_test(
     hazel_deps = [
         "async",
         "base",
+        "filepath",
         "directory",
         "extra",
         "process",
@@ -87,5 +88,6 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/hs/bindings:hs-ledger",
+        "//libs-haskell/bazel-runfiles",
     ],
 )

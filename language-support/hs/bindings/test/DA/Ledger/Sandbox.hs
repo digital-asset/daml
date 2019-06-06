@@ -14,12 +14,14 @@ import Trace
 
 import Control.Monad(when)
 import Control.Exception (bracket, evaluate, onException)
+import DA.Bazel.Runfiles
 import DA.Ledger (Port (..), unPort)
 import Data.List (isInfixOf)
 import Data.List.Extra(splitOn)
 import GHC.IO.Handle (Handle, hGetLine)
 import System.Process (CreateProcess (..), ProcessHandle, StdStream (CreatePipe), createProcess, getPid, interruptProcessGroupOf, proc, waitForProcess)
 import System.Time.Extra (Seconds, timeout)
+import System.FilePath
 import DA.Ledger as Ledger
 
 
@@ -30,16 +32,16 @@ data Sandbox = Sandbox { port :: Port, proh :: ProcessHandle }
 selectedPort :: Int
 selectedPort = 0 --dynamic port selection
 
-sandboxProcess :: SandboxSpec -> CreateProcess
-sandboxProcess SandboxSpec{dar} =
-    proc binary [ dar, "--port", show selectedPort]
-    where
-        binary = "ledger/sandbox/sandbox-binary"
+sandboxProcess :: SandboxSpec -> IO CreateProcess
+sandboxProcess SandboxSpec{dar} = do
+    binary <- locateRunfiles (mainWorkspace </> "ledger/sandbox/sandbox-binary")
+    pure $ proc binary [ dar, "--port", show selectedPort]
 
 startSandboxProcess :: SandboxSpec -> IO (ProcessHandle,Maybe Handle)
 startSandboxProcess spec = do
+    processRecord <- sandboxProcess spec
     (_,hOutOpt,_,proh) <-
-        createProcess (sandboxProcess spec) {
+        createProcess processRecord {
         std_out = CreatePipe,
         std_err = CreatePipe, -- Question: ought the pipe to be drained?
         create_group = True  -- To avoid sending INT to ourself
@@ -94,7 +96,7 @@ discoverListeningPort hOpt = do
 
 startSandbox :: SandboxSpec-> IO Sandbox
 startSandbox spec = do
-    (proh,hOpt) <-startSandboxProcess spec
+    (proh,hOpt) <- startSandboxProcess spec
     port <-
         timeoutError 30 "Didn't discover sandbox port" (discoverListeningPort hOpt)
         `onException` shutdownSandboxProcess proh

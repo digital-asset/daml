@@ -44,10 +44,11 @@ bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution
     //compiler/... `
     //daml-lf/... `
     //extractor/... `
-    //language-support/java/testkit:testkit `
-    //language-support/java/bindings/... `
-    //language-support/java/bindings-rxjava/... `
-    //language-support/java/codegen/... `
+    //language-support/codegen-common:test `
+    //language-support/codegen-main/... `
+    //language-support/hs/bindings/... `
+    //language-support/java/... `
+    //language-support/scala/... `
     //ledger/... `
     //ledger-api/... `
     //navigator/backend/... `
@@ -63,9 +64,9 @@ bazel shutdown
 
 bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `
     //daml-lf/... `
-    //language-support/java/bindings/... `
-    //language-support/java/bindings-rxjava/... `
-    //language-support/java/codegen/... `
+    //language-support/codegen-common:test `
+    //language-support/java/... `
+    //language-support/scala/... `
     //ledger/ledger-api-client/... `
     //ledger/ledger-api-common/... `
     //ledger-api/... `
