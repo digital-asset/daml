@@ -22,7 +22,7 @@ import           DA.Cli.Args
 import qualified DA.Pretty
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import DA.Service.Daml.Compiler.Impl.Scenario
-import DA.Daml.GHC.Compiler.Options (EnableScenarioService(..), projectPackageDatabase, basePackages)
+import DA.Daml.GHC.Compiler.Options
 import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -223,7 +223,11 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
                 Logger.GCP.logOptOut loggerH
                 f loggerH
             Undecided -> f loggerH
-    opts <- liftIO $ fmap (\opt -> opt { optScenarioService = enableScenarioService }) $ defaultOptionsIO Nothing
+    opts <- defaultOptionsIO Nothing
+    opts <- pure $ opts
+        { optScenarioService = enableScenarioService
+        , optScenarioValidation = ScenarioValidationLight
+        }
     withLogger $ \loggerH ->
         withScenarioService' enableScenarioService loggerH $ \mbScenarioService -> do
             -- TODO we should allow different LF versions in the IDE.
@@ -588,6 +592,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Compiler.Option
     <*> optDebugLog
     <*> (concat <$> many optGhcCustomOptions)
     <*> pure enableScenarioService
+    <*> pure (optScenarioValidation $ defaultOptions Nothing)
   where
     optImportPath :: Parser [FilePath]
     optImportPath =

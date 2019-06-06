@@ -121,7 +121,11 @@ getIntegrationTests registerTODO scenarioService version = do
     let outdir = "daml-foundations/daml-ghc/output"
     createDirectoryIfMissing True outdir
 
-    opts <- fmap (\opts ->  opts { optThreads = 0 }) $ defaultOptionsIO (Just version)
+    opts <- defaultOptionsIO (Just version)
+    opts <- pure $ opts
+        { optThreads = 0
+        , optScenarioValidation = ScenarioValidationFull
+        }
 
     -- initialise the compiler service
     vfs <- Compile.makeVFSHandle
