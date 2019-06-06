@@ -365,12 +365,36 @@ case object LedgerApiV1 {
       }
       choice <- dt.fields
         .find(f => f._1 == variant.constructor)
-        .toRight(GenericConversionError(s"Unknown choice ${variant.constructor}"))
+        .toRight(GenericConversionError(s"Unknown enum constructor ${variant.constructor}"))
       argument <- readArgument(value, choice._2, ctx)
     } yield {
       Model.ApiVariant(Some(typeCon.name.identifier), variant.constructor, argument)
     }
   }
+
+  private def readEnumArgument(
+      enum: V1.value.Enum,
+      typ: Model.DamlLfType,
+      ctx: Context
+  ): Result[Model.ApiEnum] =
+    for {
+      typeCon <- typ match {
+        case t @ Model.DamlLfTypeCon(_, _) => Right(t)
+        case _ => Left(GenericConversionError(s"Cannot read $enum as $typ"))
+      }
+      ddt <- ctx.templates
+        .damlLfDefDataType(typeCon.name.identifier)
+        .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
+      dt <- typeCon.instantiate(ddt) match {
+        case v @ iface.Enum(_) => Right(v)
+        case iface.Record(_) | iface.Variant(_) =>
+          Left(GenericConversionError(s"Enum expected"))
+      }
+      _ <- Either.cond(
+        dt.constructors.contains(enum.constructor),
+        (),
+        GenericConversionError(s"Unknown choice ${enum.constructor}"))
+    } yield Model.ApiEnum(Some(typeCon.name.identifier), enum.constructor)
 
   private def readArgument(
       value: V1.value.Value,
@@ -393,6 +417,7 @@ case object LedgerApiV1 {
       case (VS.Map(v), t) => readMapArgument(v, t, ctx)
       case (VS.Record(v), t) => readRecordArgument(v, t, ctx)
       case (VS.Variant(v), t) => readVariantArgument(v, t, ctx)
+      case (VS.Enum(v), t) => readEnumArgument(v, t, ctx)
       case (VS.Empty, _) => Left(GenericConversionError("Argument value is empty"))
       case (_, _) => Left(GenericConversionError(s"Cannot read argument $value as $typ"))
     }
@@ -422,6 +447,8 @@ case object LedgerApiV1 {
     value match {
       case arg: Model.ApiRecord => writeRecordArgument(arg).map(a => Value(Value.Sum.Record(a)))
       case arg: Model.ApiVariant => writeVariantArgument(arg).map(a => Value(Value.Sum.Variant(a)))
+      case Model.ApiEnum(id, cons) =>
+        Right(Value(Value.Sum.Enum(V1.value.Enum(id.map(_.asApi), cons))))
       case arg: Model.ApiList => writeListArgument(arg).map(a => Value(Value.Sum.List(a)))
       case Model.ApiBool(v) => Right(Value(Value.Sum.Bool(v)))
       case Model.ApiInt64(v) => Right(Value(Value.Sum.Int64(v)))

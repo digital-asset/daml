@@ -34,9 +34,9 @@ case class PackageRegistry(
   )
 
   def withPackages(interfaces: List[DamlLfIface.Interface]): PackageRegistry = {
-    val newPackages: Map[DamlLfRef.PackageId, DamlLfPackage] = interfaces
+    val newPackages = interfaces
       .filterNot(p => packages.contains(p.packageId))
-      .map(p => {
+      .map { p =>
         val typeDefs = p.typeDecls.collect {
           case (qname, DamlLfIface.reader.InterfaceType.Normal(t)) =>
             DamlLfIdentifier(p.packageId, qname) -> t
@@ -48,8 +48,7 @@ case class PackageRegistry(
             DamlLfIdentifier(p.packageId, qname) -> template(p.packageId, qname, r, t)
         }
         p.packageId -> DamlLfPackage(p.packageId, typeDefs, templates)
-      })
-      .toMap
+      }
 
     val newTemplates = newPackages
       .map(_._2.templates)
@@ -159,8 +158,7 @@ case class PackageRegistry(
         case DamlLfVariant(fields) =>
           fields.foldLeft(deps)((r, field) => foldType(field._2, r, instantiatesRemaining))
         case DamlLfEnum(_) =>
-          // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-          throw new NotImplementedError("Enum types not supported")
+          deps
       }
     }
 

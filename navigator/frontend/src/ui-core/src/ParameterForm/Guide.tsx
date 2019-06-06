@@ -73,8 +73,8 @@ const exampleRecord: DamlLfRecord = {
     { name: 'bool parameter', value: DamlLfTypeF.bool() },
   ],
 };
-const exampleRecordDef: DamlLfDefDataType = { dataType: exampleRecord, typeVars: []}
-const exampleRecordTc: DamlLfTypeCon = { type: 'typecon', name: exampleRecordId, args: [] }
+const exampleRecordDef: DamlLfDefDataType = { dataType: exampleRecord, typeVars: []};
+const exampleRecordTc: DamlLfTypeCon = { type: 'typecon', name: exampleRecordId, args: [] };
 
 const typeProvider: TypeProvider = {
   fetchType(id: DamlLfIdentifier,
@@ -85,7 +85,7 @@ const typeProvider: TypeProvider = {
       onResult(id, undefined);
     }
   },
-}
+};
 
 export interface State {
   value: DamlLfValue;

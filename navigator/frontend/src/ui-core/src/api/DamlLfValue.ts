@@ -3,7 +3,7 @@
 
 import * as Moment from 'moment';
 import { NonExhaustiveMatch } from '../util'
-import { DamlLfDataType, DamlLfIdentifier, DamlLfRecord, DamlLfType, DamlLfVariant } from './DamlLfType';
+import {DamlLfEnum, DamlLfIdentifier, DamlLfRecord, DamlLfType, DamlLfVariant} from './DamlLfType';
 
 // --------------------------------------------------------------------------------------------------------------------
 // Type definitions
@@ -27,6 +27,7 @@ export type DamlLfValueOptional   = { type: 'optional', value: DamlLfValue | nul
 export type DamlLfValueList       = { type: 'list', value: DamlLfValue[] }
 export type DamlLfValueRecord     = { type: 'record', id: DamlLfIdentifier, fields: DamlLfRecordField[] }
 export type DamlLfValueVariant    = { type: 'variant', id: DamlLfIdentifier, constructor: string, value: DamlLfValue }
+export type DamlLfValueEnum       = { type: 'enum', id: DamlLfIdentifier, constructor: string }
 export type DamlLfValueUndefined  = { type: 'undefined' }
 export type DamlLfValueMap        = { type: 'map', value: DamlLfValueMapEntry[] }
 export type DamlLfValueMapEntry   = { key: string, value: DamlLfValue }
@@ -46,6 +47,7 @@ export type DamlLfValue
   | DamlLfValueMap
   | DamlLfValueRecord
   | DamlLfValueVariant
+  | DamlLfValueEnum
   | DamlLfValueUndefined
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -73,6 +75,9 @@ export function record(id: DamlLfIdentifier, fields: DamlLfRecordField[]): DamlL
 }
 export function variant(id: DamlLfIdentifier, constructor: string, value: DamlLfValue): DamlLfValueVariant {
   return { type: 'variant', id, constructor, value }
+}
+export function enumCon(id: DamlLfIdentifier, constructor: string): DamlLfValueEnum {
+  return { type: 'enum', id, constructor }
 }
 export function undef(): DamlLfValueUndefined { return valueUndef }
 
@@ -138,6 +143,12 @@ export function evalPath(value: DamlLfValue, path: string[], index: number = 0):
         return value;
       } else if (path[index] === value.constructor) {
         return evalPath(value.value, path, index + 1);
+      } else {
+        return notFound;
+      }
+    case 'enum':
+      if (isLast){
+        return value;
       } else {
         return notFound;
       }
@@ -212,6 +223,8 @@ export function toJSON(value: DamlLfValue): JSON {
       return r;
     case 'variant':
       return {[value.constructor]: toJSON(value.value)};
+    case 'enum' :
+      return value.constructor;
     case 'map':
       return value.value.map((e) => ({key: e.key, value: toJSON(e.value)}));
     case 'undefined': return '???';
@@ -219,19 +232,14 @@ export function toJSON(value: DamlLfValue): JSON {
   }
 }
 
-export function initialDataTypeValue(id: DamlLfIdentifier, dataType: DamlLfRecord): DamlLfValueRecord;
-export function initialDataTypeValue(id: DamlLfIdentifier, dataType: DamlLfVariant): DamlLfValueVariant;
-export function initialDataTypeValue(id: DamlLfIdentifier, dataType: DamlLfDataType):
-  DamlLfValueRecord | DamlLfValueVariant;
-export function initialDataTypeValue(id: DamlLfIdentifier, dataType: DamlLfDataType):
-  DamlLfValueRecord | DamlLfValueVariant {
-  switch (dataType.type) {
-    case 'record': return record(id,
-      dataType.fields.map((f) => ({label: f.name, value: initialValue(f.value)})));
-    case 'variant': return variant(id,
-      dataType.fields[0].name, initialValue(dataType.fields[0].value));
-    default: throw new NonExhaustiveMatch(dataType);
-  }
+export function initialRecordValue(id: DamlLfIdentifier, dataType: DamlLfRecord): DamlLfValueRecord {
+  return record(id, dataType.fields.map((f) => ({label: f.name, value: initialValue(f.value)})));
+}
+export function initialVariantValue(id: DamlLfIdentifier, dataType: DamlLfVariant): DamlLfValueVariant {
+  return variant(id, dataType.fields[0].name, initialValue(dataType.fields[0].value));
+}
+export function initialEnumValue(id: DamlLfIdentifier, dataType: DamlLfEnum): DamlLfValueEnum {
+  return enumCon(id, dataType.constructors[0]);
 }
 
 const momentDateFormat = 'YYYY-MM-DD';
