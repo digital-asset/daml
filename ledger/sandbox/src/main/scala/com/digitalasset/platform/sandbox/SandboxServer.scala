@@ -178,7 +178,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           timeProvider,
           acs,
           ledgerEntries,
-          SqlStartMode.ContinueIfExists,
+          startMode,
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
           context.templateStore
         )
