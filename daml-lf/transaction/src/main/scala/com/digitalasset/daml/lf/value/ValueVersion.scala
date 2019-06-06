@@ -53,6 +53,7 @@ object ValueVersions
               case ValueEnum(_, _) =>
                 // FixMe (RH) https://github.com/digital-asset/daml/issues/105
                 throw new NotImplementedError("Enum types not supported")
+              // tuples are a no-no
               case ValueTuple(fields) =>
                 Left(s"Got tuple when trying to assign version. Fields: $fields")
             }
