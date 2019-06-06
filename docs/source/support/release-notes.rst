@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+.. _release-0-12-24:
+
+0.12.24 - 2019-06-06
+--------------------
+
 DAML Studio
 ~~~~~~~~~~~
 
@@ -16,6 +21,10 @@ DAML Studio
   requests from showing up in the output tab in VSCode. These errors also caused
   an automatic switch from the problems tab to the output tab which should now
   no longer happen.
+
+- Note that upgrading the VSCode extension requires launching it via
+  ``daml studio``. If you launch VSCode directly, you might get issues
+  due to an outdated extension.
 
 .. _release-0-12-23:
 
