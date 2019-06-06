@@ -195,12 +195,6 @@ infixl 4 <$>
 data Optional a  =  None | Some a
     deriving (Eq, Ord, Show)
 
--- | The `TextMap a` type represents an associative array from keys of type
--- `Text` to values of type `a`.
-data TextMap a =
-  -- | HIDE
-  TextMap
-
 instance Functor Optional where
     fmap _ None       = None
     fmap f (Some a)      = Some (f a)
