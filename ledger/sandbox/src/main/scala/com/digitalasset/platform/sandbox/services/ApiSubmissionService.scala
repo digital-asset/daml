@@ -5,8 +5,8 @@ package com.digitalasset.platform.sandbox.services
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.daml.ledger.participant.state.v1.SubmissionResult.{Acknowledged, Overloaded}
-import com.daml.ledger.participant.state.v1.{
+import com.daml.ledger.participant.state.v2.SubmissionResult.{Acknowledged, Overloaded}
+import com.daml.ledger.participant.state.v2.{
   SubmissionResult,
   SubmitterInfo,
   TransactionMeta,

@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
-import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
