@@ -1,3 +1,6 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
 -- Check that invalid code points cause failure.
 -- @ERROR invalid code point
 -- @SINCE-LF 1.6
