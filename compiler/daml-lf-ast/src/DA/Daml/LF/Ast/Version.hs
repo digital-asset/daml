@@ -28,6 +28,11 @@ version1_4 = V1 $ PointStable 4
 version1_5 :: Version
 version1_5 = V1 $ PointStable 5
 
+-- TODO(MH): Roll this when freezing DAML-LF 1.6.
+version1_6 :: Version
+version1_6 = versionDev
+-- version1_6 = V1 $ PointStable 6
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_5
@@ -61,6 +66,9 @@ featureExerciseActorsOptional = Feature "Optional exercise actors" version1_5
 -- we should remove `legacyParse{Int, Decimal}` from `DA.Text` as well.
 featureNumberFromText :: Feature
 featureNumberFromText = Feature "Number parsing functions" version1_5
+
+featureTextCodePoints :: Feature
+featureTextCodePoints = Feature "Conversion between text and code points" version1_6
 
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
