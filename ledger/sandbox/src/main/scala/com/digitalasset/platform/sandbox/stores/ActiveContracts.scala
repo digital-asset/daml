@@ -35,6 +35,8 @@ case class ActiveContractsInMemory(
     : Option[(Instant, Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])] =
     contracts.get(cid).map(c => (c.let, c.key))
 
+  def lookupContract(cid: AbsoluteContractId): Option[ActiveContract] = contracts.get(cid)
+
   override def keyExists(key: GlobalKey) = keys.contains(key)
 
   override def addContract(cid: AbsoluteContractId, c: ActiveContract, keyO: Option[GlobalKey]) =
