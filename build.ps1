@@ -47,6 +47,7 @@ bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution
     //language-support/java/testkit:testkit `
     //language-support/java/bindings/... `
     //language-support/java/bindings-rxjava/... `
+    //language-support/java/codegen/... `
     //ledger/... `
     //ledger-api/... `
     //navigator/backend/... `
@@ -64,6 +65,7 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //daml-lf/... `
     //language-support/java/bindings/... `
     //language-support/java/bindings-rxjava/... `
+    //language-support/java/codegen/... `
     //ledger/ledger-api-client/... `
     //ledger/ledger-api-common/... `
     //ledger-api/... `

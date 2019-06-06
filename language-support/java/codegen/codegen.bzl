@@ -24,14 +24,14 @@ def dar_to_java(**kwargs):
         outs = [mangle(src_jar)],
         cmd = """
             $(execpath //language-support/java/codegen:codegen) -o {gen_out} -d com.daml.ledger.javaapi.TestDecoder {gen_in}
-            $(execpath @local_jdk//:bin/jar) -cf $@ -C {gen_out} .
+            $(execpath @bazel_tools//tools/jdk:jar) -cf $@ -C {gen_out} .
         """.format(
             gen_in = "$(location %s)=%s" % (dar, package_prefix),
             gen_out = src_out,
         ),
         tools = [
             "//language-support/java/codegen:codegen",
-            "@local_jdk//:bin/jar",
+            "@bazel_tools//tools/jdk:jar",
         ],
     )
 

@@ -25,6 +25,7 @@ import com.daml.ledger.javaapi.data.{
   Transaction,
   Unit => DamlUnit
 }
+import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
   GetLedgerEndRequest,
@@ -44,10 +45,11 @@ import tests.wolpertinger.{Color, Wolpertinger}
 import scala.collection.JavaConverters._
 import scala.language.implicitConversions
 import com.digitalasset.ledger.api.domain.LedgerId
-@SuppressWarnings(Array("org.wartremover.warts.Any"))
-class CodegenLedgerTest extends FlatSpec with Matchers {
 
-  def testDalf = new File("language-support/java/codegen/ledger-tests-model.dar")
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
+class CodegenLedgerTest extends FlatSpec with Matchers with BazelRunfiles {
+
+  def testDalf = new File(rlocation("language-support/java/codegen/ledger-tests-model.dar"))
 
   val LedgerID = "ledger-test"
   def withClient(testCode: Channel => Assertion): Assertion = {
