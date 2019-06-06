@@ -143,6 +143,7 @@ da_scala_test_suite(
         "//extractor:PrimitiveTypes.dar",
         "//extractor:RecordsAndVariants.dar",
         "//extractor:TransactionExample.dar",
+        "//extractor:VeryLargeArchive.dar",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
