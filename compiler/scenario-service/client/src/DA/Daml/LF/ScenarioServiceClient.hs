@@ -8,6 +8,7 @@ module DA.Daml.LF.ScenarioServiceClient
   , Handle
   , withScenarioService
   , Context(..)
+  , LowLevel.LightValidation(..)
   , LowLevel.ContextId
   , getNewCtx
   , deleteCtx
@@ -72,6 +73,7 @@ data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
   , ctxPackages :: [(LF.PackageId, BS.ByteString)]
   , ctxDamlLfVersion :: LF.Version
+  , ctxLightValidation :: LowLevel.LightValidation
   }
 
 getNewCtx :: Handle -> Context -> IO (Either LowLevel.BackendError LowLevel.ContextId)
@@ -94,6 +96,7 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ do
       loadPackages
       (S.toList unloadPackages)
       ctxDamlLfVersion
+      ctxLightValidation
   writeIORef hLoadedPackages newLoadedPackages
   writeIORef hLoadedModules ctxModules
   res <- LowLevel.updateCtx hLowLevelHandle hContextId ctxUpdate

@@ -36,6 +36,10 @@ final case class ApiVariant(
     constructor: String,
     value: ApiValue)
     extends ApiValue
+final case class ApiEnum(
+    enumId: Option[DamlLfIdentifier],
+    constructor: String
+) extends ApiValue
 final case class ApiList(elements: List[ApiValue]) extends ApiValue
 final case class ApiOptional(value: Option[ApiValue]) extends ApiValue
 final case class ApiMap(value: SortedLookupList[ApiValue]) extends ApiValue

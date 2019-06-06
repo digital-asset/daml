@@ -30,6 +30,7 @@
 //        2019-05-24: Make actors in exercise optional
 // * dev (special staging area for the next version to be released)
 //        2019-05-27: Add enum type.
+//        2019-06-04: Add BuiltinFunction.{TO_TEXT_CODE_POINTS, FROM_TEXT_CODE_POINTS}
 
 
 syntax = "proto3";
@@ -406,7 +407,7 @@ enum BuiltinFunction {
 
   COERCE_CONTRACT_ID = 102;
 
-  // Next id is 107. 106 is FROM_TEXT_CODEPOINTS.
+  // Next id is 107. 106 is FROM_TEXT_CODE_POINTS.
 }
 
 // Builtin literals

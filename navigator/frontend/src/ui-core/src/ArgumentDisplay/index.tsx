@@ -50,6 +50,15 @@ const ArgumentDisplay = (props: Props): JSX.Element => {
         </NestedForm>
       );
     }
+    case 'enum' : {
+      return (
+        <NestedForm level={level}>
+          <LabeledElement key={'type'} label={`Type (${argument.id.name})`} className={className}>
+            <span>{argument.constructor}</span>
+          </LabeledElement>
+        </NestedForm>
+      );
+    }
     case 'list': {
       return (
         <NestedForm level={level}>

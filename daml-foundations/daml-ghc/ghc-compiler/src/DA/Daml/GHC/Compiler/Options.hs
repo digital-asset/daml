@@ -4,6 +4,7 @@
 module DA.Daml.GHC.Compiler.Options
     ( Options(..)
     , EnableScenarioService(..)
+    , ScenarioValidation(..)
     , defaultOptionsIO
     , defaultOptions
     , mkOptions
@@ -67,8 +68,16 @@ data Options = Options
     -- ^ custom options, parsed by GHC option parser, overriding DynFlags
   , optScenarioService :: EnableScenarioService
     -- ^ Controls whether the scenario service is started.
+  , optScenarioValidation :: ScenarioValidation
+    -- ^ Controls whether the scenario service server runs all checks
+    -- or only a subset of them. This is mostly used to run additional
+    -- checks on CI while keeping the IDE fast.
   } deriving Show
 
+data ScenarioValidation
+    = ScenarioValidationLight
+    | ScenarioValidationFull
+    deriving Show
 
 newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService :: Bool }
     deriving Show
@@ -223,6 +232,7 @@ defaultOptions mbVersion =
         , optDebug = False
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
+        , optScenarioValidation = ScenarioValidationFull
         }
 
 getBaseDir :: IO FilePath

@@ -199,8 +199,13 @@ handlers chan = def
     , LSP.didCloseTextDocumentNotificationHandler = emit LSP.NotDidCloseTextDocument
     , LSP.didSaveTextDocumentNotificationHandler = emit LSP.NotDidSaveTextDocument
     , LSP.initializedHandler = emit LSP.NotInitialized
-    , LSP.exitNotificationHandler = emit LSP.NotExit
+    , LSP.exitNotificationHandler = Nothing
+    -- If the exit notification handler is set to `Nothing`
+    -- haskell-lsp will take care of shutting down the server for us.
     , LSP.customRequestHandler = emit LSP.ReqCustomClient
+    , LSP.cancelNotificationHandler = Just $ const $ pure ()
+    -- ^ We just ignore cancel requests which is allowed according to
+    -- the spec. Installing a handler avoids errors about the missing handler.
     }
     where
         emit :: (a -> LSP.FromClientMessage) -> Maybe (LSP.Handler a)
@@ -211,7 +216,7 @@ options = def
     { LSP.textDocumentSync = Just TextDocumentSyncOptions
           { _openClose = Just True
           , _change = Just TdSyncIncremental
-          , _willSave = Just True
+          , _willSave = Nothing
           , _willSaveWaitUntil = Nothing
           , _save = Just $ SaveOptions $ Just False
           }

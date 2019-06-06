@@ -40,6 +40,7 @@ object ApiCodecVerbose {
   private[this] final val tagMap: String = "map"
   private[this] final val tagRecord: String = "record"
   private[this] final val tagVariant: String = "variant"
+  private[this] final val tagEnum: String = "enum"
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -47,6 +48,7 @@ object ApiCodecVerbose {
   def apiValueToJsValue(value: Model.ApiValue): JsValue = value match {
     case v: Model.ApiRecord => apiRecordToJsValue(v)
     case v: Model.ApiVariant => apiVariantToJsValue(v)
+    case v: Model.ApiEnum => apiEnumToJsValue(v)
     case v: Model.ApiList => apiListToJsValue(v)
     case Model.ApiText(v) => JsObject(propType -> JsString(tagText), propValue -> JsString(v))
     case Model.ApiInt64(v) =>
@@ -94,6 +96,13 @@ object ApiCodecVerbose {
       propValue -> apiValueToJsValue(value.value)
     )
 
+  def apiEnumToJsValue(value: Model.ApiEnum): JsValue =
+    JsObject(
+      propType -> JsString(tagEnum),
+      propId -> value.enumId.map(_.toJson).getOrElse(JsNull),
+      propConstructor -> JsString(value.constructor),
+    )
+
   def apiRecordToJsValue(value: Model.ApiRecord): JsValue =
     JsObject(
       propType -> JsString(tagRecord),
@@ -123,6 +132,7 @@ object ApiCodecVerbose {
     strField(value, propType, "ApiValue") match {
       case `tagRecord` => jsValueToApiRecord(value)
       case `tagVariant` => jsValueToApiVariant(value)
+      case `tagEnum` => jsValueToApiEnum(value)
       case `tagList` =>
         Model.ApiList(arrayField(value, propValue, "ApiList").map(jsValueToApiValue))
       case `tagText` => Model.ApiText(strField(value, propValue, "ApiText"))
@@ -192,6 +202,21 @@ object ApiCodecVerbose {
       case t =>
         deserializationError(
           s"Can't read ${value.prettyPrint} as ApiVariant, type '$t' is not a variant")
+    }
+
+  def jsValueToApiEnum(value: JsValue): Model.ApiEnum =
+    strField(value, propType, "ApiEnum") match {
+      case `tagEnum` =>
+        Model.ApiEnum(
+          asObject(value, "ApiEnum").fields
+            .get(propId)
+            .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
+          strField(value, propConstructor, "ApiEnum")
+        )
+      case t =>
+        deserializationError(
+          s"Can't read ${value.prettyPrint} as ApiEnum, type '$t' is not a enum"
+        )
     }
 
   // ------------------------------------------------------------------------------------------------------------------

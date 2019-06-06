@@ -46,8 +46,10 @@ class CommandClientIT
     with SuiteResourceManagementAroundAll
     with ParameterShowcaseTesting
     with TryValues
-    with MultiLedgerCommandUtils
-    with TestTemplateIds {
+    with MultiLedgerCommandUtils {
+
+  protected val testTemplateIds = new TestTemplateIds(config)
+  protected val templateIds = testTemplateIds.templateIds
 
   private val submittingParty: String = submitRequest.getCommands.party
   private val submittingPartyList = List(submittingParty)

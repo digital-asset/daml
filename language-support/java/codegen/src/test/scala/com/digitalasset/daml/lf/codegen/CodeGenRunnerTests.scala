@@ -6,18 +6,19 @@ package com.digitalasset.daml.lf.codegen
 import java.io.File
 import java.nio.file.Files
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import org.scalatest.{FlatSpec, Matchers}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class CodeGenRunnerTests extends FlatSpec with Matchers {
+class CodeGenRunnerTests extends FlatSpec with Matchers with BazelRunfiles {
 
   behavior of "collectDamlLfInterfaces"
 
   def path(p: String) = new File(p).getAbsoluteFile.toPath
 
-  val testDar = path("language-support/java/codegen/test-daml.dar")
+  val testDar = path(rlocation("language-support/java/codegen/test-daml.dar"))
 
   val dummyOutputDir = Files.createTempDirectory("codegen")
 

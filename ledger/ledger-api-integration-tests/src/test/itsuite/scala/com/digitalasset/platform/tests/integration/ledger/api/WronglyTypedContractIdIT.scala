@@ -22,9 +22,11 @@ class WronglyTypedContractIdIT
     with SuiteResourceManagementAroundEach
     with ScalaFutures
     with AsyncTimeLimitedTests
-    with Matchers
-    with TestTemplateIds {
+    with Matchers {
   override protected def config: Config = Config.default
+
+  protected val testTemplateIds = new TestTemplateIds(config)
+  protected val templateIds = testTemplateIds.templateIds
 
   def createDummy(ctx: LedgerContext) = ctx.testingHelpers.simpleCreate(
     "create-dummy",

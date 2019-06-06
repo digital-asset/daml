@@ -11,9 +11,13 @@ final case class Config(
     port: Int,
     packageContainer: DamlPackageContainer,
     mustFail: Boolean,
+    verbose: Boolean,
     timeoutScaleFactor: Double,
     extract: Boolean,
-    tlsConfig: Option[TlsConfiguration]
+    tlsConfig: Option[TlsConfiguration],
+    excluded: Set[String],
+    included: Set[String],
+    listTests: Boolean
 )
 
 object Config {
@@ -22,8 +26,12 @@ object Config {
     port = 6865,
     packageContainer = DamlPackageContainer(),
     mustFail = false,
+    verbose = false,
     timeoutScaleFactor = 1.0,
     extract = false,
-    tlsConfig = None
+    tlsConfig = None,
+    excluded = Set.empty,
+    included = Set.empty,
+    listTests = false
   )
 }

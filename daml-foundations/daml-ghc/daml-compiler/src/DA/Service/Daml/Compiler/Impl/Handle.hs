@@ -170,15 +170,11 @@ withIdeState
     -> (Event -> IO ())
     -> (IdeState -> IO a)
     -> IO a
-withIdeState compilerOpts loggerH eventHandler f = withScenarioService' $ \mbScenarioService -> do
-    vfs <- makeVFSHandle
-    ideState <- getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs
-    f ideState
-    where
-        withScenarioService' f
-            | getEnableScenarioService (optScenarioService compilerOpts) =
-              Scenario.withScenarioService loggerH (f . Just)
-            | otherwise = f Nothing
+withIdeState compilerOpts loggerH eventHandler f =
+    Scenario.withScenarioService' (optScenarioService compilerOpts) loggerH $ \mbScenarioService -> do
+        vfs <- makeVFSHandle
+        ideState <- getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs
+        f ideState
 
 -- | Adapter to the IDE logger module.
 toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle

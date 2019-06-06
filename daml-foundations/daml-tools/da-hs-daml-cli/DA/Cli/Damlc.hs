@@ -21,8 +21,8 @@ import           DA.Cli.Damlc.Command.Damldoc      (cmdDamlDoc)
 import           DA.Cli.Args
 import qualified DA.Pretty
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
-import DA.Service.Daml.Compiler.Impl.Scenario (withScenarioService)
-import DA.Daml.GHC.Compiler.Options (EnableScenarioService(..), projectPackageDatabase, basePackages)
+import DA.Service.Daml.Compiler.Impl.Scenario
+import DA.Daml.GHC.Compiler.Options
 import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -70,7 +70,7 @@ cmdIde =
         "Start the DAML language server on standard input/output."
     <> fullDesc
   where
-    cmd = execIde <$> telemetryOpt <*> debugOpt
+    cmd = execIde <$> telemetryOpt <*> debugOpt <*> enableScenarioOpt
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -201,8 +201,9 @@ execLicense = B.putStr licenseData
 
 execIde :: Telemetry
         -> Debug
+        -> EnableScenarioService
         -> Command
-execIde telemetry (Debug debug) = NS.withSocketsDo $ do
+execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
     let threshold =
             if debug
             then Logger.Debug
@@ -222,13 +223,17 @@ execIde telemetry (Debug debug) = NS.withSocketsDo $ do
                 Logger.GCP.logOptOut loggerH
                 f loggerH
             Undecided -> f loggerH
-    opts <- liftIO $ defaultOptionsIO Nothing
+    opts <- defaultOptionsIO Nothing
+    opts <- pure $ opts
+        { optScenarioService = enableScenarioService
+        , optScenarioValidation = ScenarioValidationLight
+        }
     withLogger $ \loggerH ->
-        withScenarioService loggerH $ \scenarioService -> do
+        withScenarioService' enableScenarioService loggerH $ \mbScenarioService -> do
             -- TODO we should allow different LF versions in the IDE.
             execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
             Daml.LanguageServer.runLanguageServer loggerH
-                (getIdeState opts (Just scenarioService) loggerH)
+                (getIdeState opts mbScenarioService loggerH)
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
 execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
@@ -587,6 +592,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Compiler.Option
     <*> optDebugLog
     <*> (concat <$> many optGhcCustomOptions)
     <*> pure enableScenarioService
+    <*> pure (optScenarioValidation $ defaultOptions Nothing)
   where
     optImportPath :: Parser [FilePath]
     optImportPath =

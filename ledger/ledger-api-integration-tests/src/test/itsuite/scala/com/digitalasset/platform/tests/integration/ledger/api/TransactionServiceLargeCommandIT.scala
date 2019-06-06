@@ -33,14 +33,16 @@ class TransactionServiceLargeCommandIT
     with Inside
     with AsyncTimeLimitedTests
     with TestExecutionSequencerFactory
-    with TransactionServiceHelpers
     with ParameterShowcaseTesting
     with OptionValues
-    with Matchers
-    with TestTemplateIds {
+    with Matchers {
 
   override protected val config: Config =
     Config.default.withTimeProvider(TimeProviderType.Static)
+
+  protected val helpers = new TransactionServiceHelpers(config)
+  protected val testTemplateIds = new TestTemplateIds(config)
+  protected val templateIds = testTemplateIds.templateIds
 
   override val timeLimit: Span = 300.seconds
 

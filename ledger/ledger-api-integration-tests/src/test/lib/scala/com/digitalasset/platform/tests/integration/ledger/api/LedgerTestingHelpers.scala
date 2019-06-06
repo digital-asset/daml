@@ -27,8 +27,8 @@ import com.google.rpc.status.Status
 import io.grpc.StatusRuntimeException
 import org.scalatest.concurrent.Waiters
 import org.scalatest.{Assertion, Inside, Matchers, OptionValues}
-
 import scalaz.syntax.tag._
+
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
