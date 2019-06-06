@@ -91,6 +91,13 @@ DAML Compiler
 - **BREAKING CHANGE**: Drop support for DAML-LF 1.2. Compiling to DAML-LF 1.3 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
 - **BREAKING CHANGE**: By default ``damlc test`` must be executed in a project and will test the whole project. Testing individual files, potentially outside a project, requires passing the new ``--files`` flag.
 
+DAML-LF
+~~~~~~~
+
+- The Syntax of party literals is relaxed by allowing the character colon. Concretely those literals must match the
+  regular expression ``[a-zA-Z0-9:\-_ ]+`` instead of ``[a-zA-Z0-9\-_ ]+`` previously.
+  See `#1467 <https://github.com/digital-asset/daml/pull/1467>`__.
+
 SQL Extractor
 ~~~~~~~~~~~~~
 
@@ -137,6 +144,14 @@ DAML-LF
 ~~~~~~~
 
 - Add new version 1.5. See `DAML-LF 1 specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst#version-1-5>`_ for details.
+
+Ledger
+~~~~~~
+
+- **BREAKING CHANGE**: The string fields ``application_id``, ``command_id``, ``ledger_id``, and ``workflow_id``
+  in Ledger API commands must now match the regular expression  ``[A-Za-z0-9\._:\-#]{1,255}``. Those fields
+  were unrestricted UTF-8 strings in previous versions.
+  See `#398 <https://github.com/digital-asset/daml/issues/398>`__.
 
 0.12.20 - 2019-05-23
 --------------------
