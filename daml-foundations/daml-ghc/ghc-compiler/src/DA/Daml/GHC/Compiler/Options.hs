@@ -232,7 +232,7 @@ defaultOptions mbVersion =
         , optDebug = False
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
-        , optScenarioValidation = ScenarioValidationLight
+        , optScenarioValidation = ScenarioValidationFull
         }
 
 getBaseDir :: IO FilePath

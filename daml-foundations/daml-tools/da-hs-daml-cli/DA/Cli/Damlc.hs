@@ -223,7 +223,11 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
                 Logger.GCP.logOptOut loggerH
                 f loggerH
             Undecided -> f loggerH
-    opts <- liftIO $ fmap (\opt -> opt { optScenarioService = enableScenarioService }) $ defaultOptionsIO Nothing
+    opts <- defaultOptionsIO Nothing
+    opts <- pure $ opts
+        { optScenarioService = enableScenarioService
+        , optScenarioValidation = ScenarioValidationLight
+        }
     withLogger $ \loggerH ->
         withScenarioService' enableScenarioService loggerH $ \mbScenarioService -> do
             -- TODO we should allow different LF versions in the IDE.
@@ -588,7 +592,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Compiler.Option
     <*> optDebugLog
     <*> (concat <$> many optGhcCustomOptions)
     <*> pure enableScenarioService
-    <*> pure ScenarioValidationLight
+    <*> pure (optScenarioValidation $ defaultOptions Nothing)
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
