@@ -3,17 +3,22 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
+import java.time.Instant
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
+import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
-import com.daml.ledger.participant.state.v1.PartyAllocationResult
-import com.daml.ledger.participant.state.v1.SubmittedTransaction
+import com.daml.ledger.participant.state.v1.{
+  PartyAllocationResult,
+  SubmittedTransaction,
+  WriteService
+}
 import com.daml.ledger.participant.state.{v1 => ParticipantState}
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
@@ -27,21 +32,123 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
 import com.digitalasset.ledger.api.domain.{LedgerId, _}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
+import com.digitalasset.platform.sandbox.metrics.MetricsManager
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
+import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
+import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.services.time.TimeModel
+import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
+import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
 
-class SandboxIndexAndWriteService(
+trait IndexAndWriteService extends AutoCloseable {
+  def indexService: IndexService
+
+  def writeService: WriteService
+
+  def publishHeartbeat(instant: Instant): Future[Unit]
+}
+
+object SandboxIndexAndWriteService {
+  //TODO: internalise the template store as well
+  private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
+
+  def postgres(
+      ledgerId: LedgerId,
+      jdbcUrl: String,
+      timeModel: TimeModel,
+      timeProvider: TimeProvider,
+      acs: ActiveContractsInMemory,
+      ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
+      startMode: SqlStartMode,
+      queueDepth: Int,
+      templateStore: IndexPackagesService)(
+      implicit mat: Materializer,
+      mm: MetricsManager): Future[IndexAndWriteService] =
+    Ledger
+      .postgres(
+        jdbcUrl,
+        ledgerId,
+        timeProvider,
+        acs,
+        ledgerEntries,
+        queueDepth,
+        startMode
+      )
+      .map(ledger =>
+        createInstance(Ledger.metered(ledger), timeModel, timeProvider, templateStore))(DEC)
+
+  def inMemory(
+      ledgerId: LedgerId,
+      timeModel: TimeModel,
+      timeProvider: TimeProvider,
+      acs: ActiveContractsInMemory,
+      ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
+      templateStore: IndexPackagesService)(
+      implicit mat: Materializer,
+      mm: MetricsManager): IndexAndWriteService = {
+    val ledger = Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, ledgerEntries))
+    createInstance(ledger, timeModel, timeProvider, templateStore)
+  }
+
+  private def createInstance(
+      ledger: Ledger,
+      timeModel: TimeModel,
+      timeProvider: TimeProvider,
+      templateStore: IndexPackagesService)(implicit mat: Materializer) = {
+    val contractStore = new SandboxContractStore(ledger)
+    val indexAndWriteService =
+      new SandboxIndexAndWriteService(ledger, timeModel, templateStore, contractStore)
+    val heartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
+
+    new IndexAndWriteService {
+      override def indexService: IndexService = indexAndWriteService
+
+      override def writeService: WriteService = indexAndWriteService
+
+      override def publishHeartbeat(instant: Instant): Future[Unit] =
+        ledger.publishHeartbeat(instant)
+
+      override def close(): Unit = {
+        heartbeats.close()
+        ledger.close()
+      }
+    }
+  }
+
+  private def scheduleHeartbeats(timeProvider: TimeProvider, onTimeChange: Instant => Future[Unit])(
+      implicit mat: Materializer): AutoCloseable =
+    timeProvider match {
+      case timeProvider: TimeProvider.UTC.type =>
+        val interval = 1.seconds
+        logger.debug(s"Scheduling heartbeats in intervals of {}", interval)
+        val cancelable = Source
+          .tick(0.seconds, interval, ())
+          .mapAsync[Unit](1)(
+            _ => onTimeChange(timeProvider.getCurrentTime)
+          )
+          .to(Sink.ignore)
+          .run()
+        () =>
+          val _ = cancelable.cancel()
+      case _ =>
+        () =>
+          ()
+    }
+}
+
+private class SandboxIndexAndWriteService(
     ledger: Ledger,
     timeModel: TimeModel,
     templateStore: IndexPackagesService,
     contractStore: ContractStore)(implicit mat: Materializer)
-    extends ParticipantState.WriteService
-    with IndexService {
+    extends IndexService
+    with WriteService {
+
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
 
   override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =

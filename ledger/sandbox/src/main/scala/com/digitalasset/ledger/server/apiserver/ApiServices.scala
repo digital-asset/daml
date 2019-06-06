@@ -59,7 +59,7 @@ object ApiServices {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def create(
-      config: SandboxConfig,
+      config: SandboxConfig, //TODO this is still Sandbox specific, introduce a sub-config for this module instead
       writeService: WriteService,
       indexService: IndexService,
       engine: Engine,
