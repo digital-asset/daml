@@ -64,6 +64,8 @@ import qualified Data.NameMap               as NM
 import DA.Pretty (renderPretty)
 -- import qualified Data.Either as DE
 import qualified Data.Set as DS
+import qualified DA.Pretty as DAP
+import Text.Dot
 --------------------------------------------------------------------------------
 -- Commands
 --------------------------------------------------------------------------------
@@ -528,6 +530,26 @@ darToWorld darFilePath pkg = do
     let dalfs = dalfsInDar (toArchive $ BSL.fromStrict bytes)
     return (dalfsToWorld dalfs pkg )
 
+
+src, box :: String -> Dot NodeId
+src     label = node $ [ ("shape","none"),("label",label) ]
+box     label = node $ [ ("shape","box"),("style","rounded"),("label",label) ]
+-- diamond label = node $ [("shape","diamond"),("label",label),("fontsize","10")]
+
+prettyAction :: Action -> String
+prettyAction (ACreate  tpl) = DAP.renderPretty tpl 
+prettyAction (AExercise  tpl _ ) = DAP.renderPretty tpl
+
+prettyTemplateWithAction :: (LF.TypeConName ,DS.Set Action) -> String
+prettyTemplateWithAction (tplCon, actions) =  DAP.renderPretty tplCon ++ "->" ++ show(DS.map prettyAction actions)
+
+dotGraphTemplateAndActionHelper :: (LF.TypeConName ,DS.Set Action) -> [(String,String)]
+dotGraphTemplateAndActionHelper (tplCon, actions) = DS.elems (DS.map (\a -> (tplStr, prettyAction a)) actions)
+    where 
+        tplStr = DAP.renderPretty tplCon
+
+-- dotLayoutGen :: [(String,String)] -> []
+
 execVisual :: FilePath -> FilePath -> IO ()
 execVisual darFilePath dalfFile = do
     bytes <- B.readFile dalfFile
@@ -536,8 +558,25 @@ execVisual darFilePath dalfFile = do
     world <- darToWorld darFilePath lfPkg
     putStrLn "done"
     let modules = listOfModules $ LF.packageModules lfPkg
-        ress = concatMap (moduleAndTemplates world) modules
-    putStrLn (show ress)
+        res = concatMap (moduleAndTemplates world) modules
+        ppString = map prettyTemplateWithAction res
+    putStrLn (show ppString)
+    putStrLn $ showDot $ do
+        attribute ("size","40,15")
+        attribute ("rankdir","LR")
+        refSpec <- src "S"
+        tarSpec <- src "T"
+        same [refSpec,tarSpec]
+
+        c1 <- box "S"
+        c2 <- box "C"
+        c3 <- box "F"
+        same [c1,c2,c3]
+
+        refSpec .->. c1
+        tarSpec .->. c2
+        tarSpec .->. c3
+
 
 
 lfVersionString :: LF.Version -> String

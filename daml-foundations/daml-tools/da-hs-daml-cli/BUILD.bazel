@@ -43,6 +43,7 @@ da_haskell_library(
         "xml",
         "yaml",
         "zip-archive",
+        "dotgen",
     ],
     visibility = ["//visibility:public"],
     deps = [
