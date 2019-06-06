@@ -60,11 +60,11 @@ genrule(
     name = "VeryLargeArchive_src",
     outs = ["VeryLargeArchive/Blobs.daml"] + ["VeryLargeArchive/Blob%s.daml" % n for n in range(
         1,
-        55 + 1,
+        71 + 1,
     )],
     cmd =
         '''
-        filecount=55
+        filecount=71
         outs=($(OUTS))
         main="$${outs[0]}"
         echo 'daml 1.2
@@ -76,8 +76,8 @@ module VeryLargeArchive.Blob1 where
 ' > "$$firstfil"
         { for linen in `seq 1 4096`; do
             echo -n "x$$linen = "\\"
-            for charn in `seq 1 32`; do
-                echo -n qqqq
+            for charn in `seq 1 16`; do
+                echo -n qqqqqqqq
             done;
             echo \\"
         done; } >> $$firstfil
