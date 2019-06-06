@@ -10,7 +10,7 @@ import Control.Concurrent.Extra
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
-import DA.Daml.GHC.Compiler.Options(Options(..))
+import DA.Daml.GHC.Compiler.Options
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
@@ -177,10 +177,14 @@ contextForFile file = do
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
         NM.toList $ LF.packageModules pkg
+    DamlEnv{..} <- getDamlServiceEnv
     pure SS.Context
         { ctxModules = Map.fromList encodedModules
         , ctxPackages = map (\(pId, _, p, _) -> (pId, p)) (Map.elems pkgMap)
         , ctxDamlLfVersion = lfVersion
+        , ctxLightValidation = case envScenarioValidation of
+              ScenarioValidationFull -> SS.LightValidation False
+              ScenarioValidationLight -> SS.LightValidation True
         }
 
 worldForFile :: FilePath -> Action LF.World
@@ -214,10 +218,21 @@ createScenarioContextRule =
         liftIO $ modifyVar_ scenarioContextsVar $ pure . Map.insert file ctxId
         pure ([], Just ctxId)
 
+-- | This helper should be used instead of GenerateDalf/GenerateRawDalf
+-- for generating modules that are sent to the scenario service.
+-- It switches between GenerateRawDalf and GenerateDalf depending
+-- on whether we only do light or full validation.
+dalfForScenario :: FilePath -> Action LF.Module
+dalfForScenario file = do
+    DamlEnv{..} <- getDamlServiceEnv
+    case envScenarioValidation of
+        ScenarioValidationLight -> use_ GenerateRawDalf file
+        ScenarioValidationFull -> use_ GenerateDalf file
+
 runScenariosRule :: Rules ()
 runScenariosRule =
     define $ \RunScenarios file -> do
-      m <- use_ GenerateRawDalf file
+      m <- dalfForScenario file
       world <- worldForFile file
       let scenarios = scenariosInModule m
           toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
@@ -380,7 +395,7 @@ encodeModuleRule =
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules fs
         encodedDeps <- uses_ EncodeModule files
-        m <- use_ GenerateRawDalf file
+        m <- dalfForScenario file
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
