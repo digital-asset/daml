@@ -74,12 +74,11 @@ object SandboxServer {
   }
 }
 
-//TODO: move ledger into the index service!
 class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
 
   case class ApiServerState(
       ledgerId: LedgerId,
-      apiServer: ApiServer, //TODO: can this also be a pure AutoClosable?
+      apiServer: ApiServer,
       indexAndWriteService: AutoCloseable
   ) extends AutoCloseable {
     def port: Int = apiServer.port

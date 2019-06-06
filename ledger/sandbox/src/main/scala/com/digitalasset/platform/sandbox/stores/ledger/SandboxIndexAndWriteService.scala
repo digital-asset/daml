@@ -54,10 +54,7 @@ trait IndexAndWriteService extends AutoCloseable {
 }
 
 object SandboxIndexAndWriteService {
-  //TODO: create factories for in-memory and postgres versions
-  //TODO: life-cycles?
   //TODO: internalise the template store as well
-
   private val logger = LoggerFactory.getLogger(SandboxIndexAndWriteService.getClass)
 
   def postgres(
