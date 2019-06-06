@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlPackageUploadEntry,
+  DamlPartyAllocationEntry,
   DamlSubmission,
   DamlTimeModel,
   DamlTransactionEntry,
@@ -69,15 +70,35 @@ object KeyValueSubmission {
 
   /** Convert an archive into a submission message. */
   def archivesToSubmission(
+      submissionId: String,
       archives: List[Archive],
-      source_description: String,
+      sourceDescription: String,
       participantId: String): DamlSubmission = {
     DamlSubmission.newBuilder
       .setPackageUploadEntry(
         DamlPackageUploadEntry.newBuilder
+          .setSubmissionId(submissionId)
           .addAllArchives(archives.asJava)
-          .setSourceDescription(source_description)
+          .setSourceDescription(sourceDescription)
           .setParticipantId(participantId)
+          .build
+      )
+      .build
+  }
+
+  /** Convert an archive into a submission message. */
+  def partyToSubmission(
+      submissionId: String,
+      hint: Option[String],
+      displayName: Option[String],
+      participantId: String): DamlSubmission = {
+    DamlSubmission.newBuilder
+      .setPartyAllocationEntry(
+        DamlPartyAllocationEntry.newBuilder
+          .setSubmissionId(submissionId)
+          .setParty(hint.getOrElse(""))
+          .setParticipantId(participantId)
+          .setDisplayName(displayName.getOrElse(""))
           .build
       )
       .build

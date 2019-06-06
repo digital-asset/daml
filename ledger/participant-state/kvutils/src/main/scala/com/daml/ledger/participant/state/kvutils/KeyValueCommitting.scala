@@ -14,9 +14,9 @@ import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
+  ContractId,
   ContractInst,
   NodeId,
-  ContractId,
   VersionedValue
 }
 import com.daml.ledger.participant.state.backport.TimeModelChecker
@@ -119,6 +119,26 @@ object KeyValueCommitting {
               (
                 DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
                 DamlStateValue.newBuilder.setArchive(archive).build))(breakOut)
+        )
+      case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
+        val key =
+          DamlStateKey.newBuilder.setParty(submission.getPartyAllocationEntry.getParty).build
+        // TODO(MZ): Filter for pre-existing parties and produce error if already present
+        logger.trace(
+          s"processSubmission[entryId=${prettyEntryId(entryId)}]: Party: ${submission.getPartyAllocationEntry.getParty} allocation committed.")
+        (
+          DamlLogEntry.newBuilder
+            .setRecordTime(buildTimestamp(recordTime))
+            .setPartyAllocationEntry(submission.getPartyAllocationEntry)
+            .build,
+          Map(
+            key -> DamlStateValue.newBuilder
+              .setParty(
+                DamlPartyValue.newBuilder
+                  .setParticipantId(submission.getPartyAllocationEntry.getParticipantId)
+                  .build)
+              .build
+          )
         )
       case DamlSubmission.PayloadCase.CONFIGURATION_ENTRY =>
         logger.trace(

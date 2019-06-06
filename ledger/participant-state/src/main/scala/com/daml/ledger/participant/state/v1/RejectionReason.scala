@@ -7,7 +7,7 @@ package com.daml.ledger.participant.state.v1
   *
   * Used to provide details for [[Update.CommandRejected]].
   */
-sealed trait RejectionReason extends Product with Serializable {
+sealed abstract class RejectionReason extends Product with Serializable {
   def description: String
 }
 

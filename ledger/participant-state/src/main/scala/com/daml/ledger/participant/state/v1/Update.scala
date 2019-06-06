@@ -43,8 +43,14 @@ object Update {
     * to data affecting the parties hosted at the participant.
     *
     */
-  final case class PartyAddedToParticipant(party: Party) extends Update {
-    override def description: String = s"Add party '$party' to participant"
+  final case class PartyAddedToParticipant(
+      party: Party,
+      displayName: String,
+      participantId: String,
+      recordTime: Timestamp)
+      extends Update {
+    override def description: String =
+      s"Add party '$party' to participant"
   }
 
   /** Signal the uploading of a package that is publicly visible.
@@ -127,6 +133,34 @@ object Update {
   ) extends Update {
     override def description: String = {
       s"Reject command ${submitterInfo.commandId}: $reason"
+    }
+  }
+
+  /** Signal that public packages submitted via [[WriteService]] were rejected.
+    *
+    * See the different [[PackageUploadRejectionReason]] for why packages can be
+    * rejected.
+    */
+  final case class PackagesRejected(
+      commandId: String,
+      reason: PackageUploadRejectionReason,
+  ) extends Update {
+    override def description: String = {
+      s"Reject package upload $commandId: $reason"
+    }
+  }
+
+  /** Signal that a command submitted via [[WriteService]] was rejected.
+    *
+    * See the different [[PartyAllocationRejectionReason]] for why party
+    * allocation can be rejected.
+    */
+  final case class PartyRejected(
+      commandId: String,
+      reason: PartyAllocationRejectionReason,
+  ) extends Update {
+    override def description: String = {
+      s"Reject command $commandId: $reason"
     }
   }
 }

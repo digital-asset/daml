@@ -58,7 +58,7 @@ object ReferenceServer extends App {
     archives.foreach { archive =>
       logger.info(s"Uploading package ${archive.getHash}...")
     }
-    ledger.uploadPublicPackages(archives, "uploaded on startup by participant")
+    ledger.uploadPackages(archives, "uploaded on startup by participant")
   }
 
   ledger.getLedgerInitialConditions

@@ -28,7 +28,9 @@ final case class IndexState(
     txs: TreeMap[Offset, (Update.TransactionAccepted, BlindingInfo)],
     activeContracts: InMemoryActiveContracts,
     // Rejected commands indexed by offset.
-    rejections: TreeMap[Offset, Update.CommandRejected],
+    commandRejections: TreeMap[Offset, Update.CommandRejected],
+    partyRejections: TreeMap[Offset, Update.PartyRejected],
+    packageRejections: TreeMap[Offset, Update.PackagesRejected],
     // Uploaded packages.
     packages: Map[PackageId, Archive],
     packageKnownTo: Relation[PackageId, Party],
@@ -71,6 +73,7 @@ final case class IndexState(
           Right(state.copy(configuration = u.newConfiguration))
 
         case u: Update.PartyAddedToParticipant =>
+          //TODO(MZ) Provide response to the ledger api caller
           Right(state.copy(hostedParties = state.hostedParties + u.party))
 
         case Update.PublicPackagesUploaded(
@@ -78,6 +81,7 @@ final case class IndexState(
             sourceDescription,
             participantId,
             recordTime) =>
+          //TODO(MZ) Provide response to the ledger api caller
           val newPackages =
             state.packages ++ archives.map(a => PackageId.assertFromString(a.getHash) -> a)
 
@@ -91,9 +95,26 @@ final case class IndexState(
         case u: Update.CommandRejected =>
           Right(
             state.copy(
-              rejections = rejections + (uId -> u)
+              commandRejections = commandRejections + (uId -> u)
             )
           )
+
+        case u: Update.PartyRejected =>
+          //TODO(MZ) Provide response to the ledger api caller
+          Right(
+            state.copy(
+              partyRejections = partyRejections + (uId -> u)
+            )
+          )
+
+        case u: Update.PackagesRejected =>
+          //TODO(MZ) Provide response to the ledger api caller
+          Right(
+            state.copy(
+              packageRejections = packageRejections + (uId -> u)
+            )
+          )
+
         case u: Update.TransactionAccepted =>
           val blindingInfo = Blinding.blind(
             // FIXME(JM): Make Blinding.blind polymorphic.
@@ -157,7 +178,9 @@ object IndexState {
     recordTime = lic.initialRecordTime,
     txs = TreeMap.empty,
     activeContracts = InMemoryActiveContracts.empty,
-    rejections = TreeMap.empty,
+    commandRejections = TreeMap.empty,
+    partyRejections = TreeMap.empty,
+    packageRejections = TreeMap.empty,
     packages = Map.empty,
     packageKnownTo = Map.empty,
     hostedParties = Set.empty

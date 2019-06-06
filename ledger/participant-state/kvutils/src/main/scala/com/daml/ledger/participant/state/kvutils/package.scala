@@ -48,7 +48,7 @@ package com.daml.ledger.participant.state
   *
   * 3. The [[InMemoryKVParticipant.stateUpdates]] emits a new update event from the new state of the ledger
   *  by retrieving the [[DamlLogEntry]] pointed to by the latest commit and transforms it into [[v1.Update]]
-  *  using [[KeyValueConsumption.logEntryToUpdate]], and pairs it with an offset corresponding to the
+  *  using [[KeyValueConsumption.logEntryToUpdateOrResult]], and pairs it with an offset corresponding to the
   *  position of the commit (the "block height" if you will).
   *
   * The above example implementation is suitable for situations where the inputs to the transaction have

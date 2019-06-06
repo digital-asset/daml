@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Clock
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
@@ -84,6 +85,9 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   private implicit val ec: ExecutionContext = mat.executionContext
 
   val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString)
+
+  // In-memory implementation of globally unique session id is just a counter
+  private var globallyUniqueSubmissionId = new AtomicInteger()
 
   // The ledger configuration
   private val ledgerConfig = Configuration(timeModel = TimeModel.reasonableDefault)
@@ -242,7 +246,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
         state.store
           .get(entryId.getEntryId)
           .map { blob =>
-            KeyValueConsumption.logEntryToUpdate(
+            KeyValueConsumption.logEntryToUpdateOrResult(
               entryId,
               KeyValueConsumption.unpackDamlLogEntry(blob))
           }
@@ -270,7 +274,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
           .map(_.components.head.toInt + 1) // startingAt is inclusive, so jump over one element.
           .getOrElse(beginning)
       )
-      .map {
+      .collect {
         case (idx, update) =>
           Offset(Array(idx.toLong)) -> update
       }
@@ -319,20 +323,34 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   /** Allocate a party on the ledger */
   override def allocateParty(
       hint: Option[String],
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] =
-    // TODO: Implement party management
-    CompletableFuture.completedFuture(PartyAllocationResult.NotSupported)
+      displayName: Option[String]): CompletionStage[SubmissionResult] =
+    CompletableFuture.completedFuture({
+      commitActorRef ! CommitSubmission(
+        allocateEntryId,
+        KeyValueSubmission.partyToSubmission(
+          globallyUniqueSubmissionId.getAndIncrement().toString,
+          hint,
+          displayName,
+          participantId)
+      )
+      // TODO(MZ): Implememt error handling
+      SubmissionResult.Acknowledged
+    })
 
-  /** Upload DAML-LF packages to the ledger.
-    */
-  override def uploadPublicPackages(
+  /** Upload DAML-LF packages to the ledger */
+  override def uploadPackages(
       archives: List[Archive],
       sourceDescription: String): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(
         allocateEntryId,
-        KeyValueSubmission.archivesToSubmission(archives, sourceDescription, participantId)
+        KeyValueSubmission.archivesToSubmission(
+          globallyUniqueSubmissionId.getAndIncrement().toString,
+          archives,
+          sourceDescription,
+          participantId)
       )
+      // TODO(MZ): Implememt error handling
       SubmissionResult.Acknowledged
     })
 

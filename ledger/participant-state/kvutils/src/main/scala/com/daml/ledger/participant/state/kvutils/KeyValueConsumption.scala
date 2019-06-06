@@ -5,14 +5,8 @@ package com.daml.ledger.participant.state.kvutils
 
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{
-  CommittedTransaction,
-  RejectionReason,
-  SubmittedTransaction,
-  TransactionMeta,
-  Update
-}
-import com.digitalasset.daml.lf.data.Ref.LedgerString
+import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
@@ -35,7 +29,7 @@ object KeyValueConsumption {
     * @param entry: The log entry.
     * @return [[[Update]] constructed from log entry.
     */
-  def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): Update = {
+  def logEntryToUpdateOrResult(entryId: DamlLogEntryId, entry: DamlLogEntry): Update = {
 
     val recordTime = parseTimestamp(entry.getRecordTime)
 
@@ -46,6 +40,28 @@ object KeyValueConsumption {
           entry.getPackageUploadEntry.getSourceDescription,
           entry.getPackageUploadEntry.getParticipantId,
           recordTime
+        )
+
+      case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
+        Update.PackagesRejected(
+          entry.getPackageUploadRejectionEntry.getSubmissionId,
+          //TODO(MZ): Implement error conversion
+          PackageUploadRejectionReason.InvalidPackage
+        )
+
+      case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
+        Update.PartyAddedToParticipant(
+          Party.assertFromString(entry.getPartyAllocationEntry.getParty),
+          entry.getPartyAllocationEntry.getDisplayName,
+          entry.getPartyAllocationEntry.getParticipantId,
+          recordTime
+        )
+
+      case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
+        Update.PartyRejected(
+          entry.getPartyAllocationRejectionEntry.getSubmissionId,
+          //TODO(MZ): Implement error conversion
+          PartyAllocationRejectionReason.InvalidName
         )
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>

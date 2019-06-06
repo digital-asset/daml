@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.Update.PublicPackagesUploaded
+import com.daml.ledger.participant.state.v1.Update.{PublicPackagesUploaded, PartyAddedToParticipant}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -44,7 +44,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
         }
     }
 
-    "provide update after uploadPublicPackages" in {
+    "provide update after uploadPackages" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
 
@@ -64,7 +64,29 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           case _ => fail("unexpected update message after a package upload")
         }
 
-      ps.uploadPublicPackages(List(archive), sourceDescription)
+      ps.uploadPackages(List(archive), sourceDescription)
+      waitForUpdateFuture
+    }
+
+    "provide update after allocateParty" in {
+      val ps = new InMemoryKVParticipantState
+      val rt = ps.getNewRecordTime()
+
+      val hint = Some("Alice")
+      val displayName = Some("Alice Cooper")
+      val waitForUpdateFuture =
+        ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
+          case (offset: Offset, update: PartyAddedToParticipant) =>
+            ps.close()
+            assert(offset == Offset(Array(0L)))
+            assert(update.party == hint.get)
+            assert(update.displayName == displayName.get)
+            assert(update.participantId == ps.participantId)
+            assert(update.recordTime >= rt)
+          case _ => fail("unexpected update message after a package upload")
+        }
+
+      ps.allocateParty(hint, displayName)
       waitForUpdateFuture
     }
 
