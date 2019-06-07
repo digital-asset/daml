@@ -11,6 +11,7 @@ da_haskell_test(
     ],
     hazel_deps = [
         "base",
+        "containers",
         "extra",
         "filepath",
         "haskell-lsp-types",
