@@ -10,6 +10,8 @@ template Bar
     owner: Party
     name: Text
   where
+    signatory owner
+    
     controller owner can
       Bar_SomeChoice: Bool
         with
