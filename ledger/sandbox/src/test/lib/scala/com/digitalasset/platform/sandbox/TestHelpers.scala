@@ -15,11 +15,11 @@ import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.damle.SandboxTemplateStore
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
-import com.digitalasset.platform.sandbox.stores.ledger.{
-  CommandExecutorImpl,
+import com.digitalasset.platform.sandbox.stores.{
+  ActiveContractsInMemory,
   SandboxIndexAndWriteService
 }
+import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.services.time.TimeModel
 
