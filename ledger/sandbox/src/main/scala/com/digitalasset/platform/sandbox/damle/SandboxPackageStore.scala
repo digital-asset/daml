@@ -9,7 +9,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipFile
 
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
-import com.daml.ledger.participant.state.v1.UploadDarResult
+import com.daml.ledger.participant.state.v2.UploadDarResult
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.DamlLf.Archive

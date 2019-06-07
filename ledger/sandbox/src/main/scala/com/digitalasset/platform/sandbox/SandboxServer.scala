@@ -194,7 +194,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
           ledgerEntries,
           startMode,
           config.commandConfig.maxCommandsInFlight * 2, // we can get commands directly as well on the submission service
-          context.templateStore
+          packageStore
         )
 
       case None =>
@@ -205,7 +205,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
             timeProvider,
             acs,
             ledgerEntries,
-            context.templateStore
+            packageStore
           ))
     }
 
@@ -227,7 +227,6 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
               timeProvider,
               config.timeModel,
               config.commandConfig,
-              config.damlPackageContainer,
               timeServiceBackendO
                 .map(
                   TimeServiceBackend.withObserver(

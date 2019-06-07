@@ -3,8 +3,8 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.client.services.admin.PackageManagementClient
-import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestTemplateIds}
-import org.scalatest.{AsyncFreeSpec, AsyncWordSpec, Matchers}
+import com.digitalasset.platform.apitesting.MultiLedgerFixture
+import org.scalatest.{AsyncFreeSpec, Matchers}
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 
 class PackageManagementServiceIT
@@ -13,8 +13,7 @@ class PackageManagementServiceIT
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests
-    with Matchers
-    with TestTemplateIds {
+    with Matchers {
   override protected def config: Config = Config.default.copy(darFiles = Nil)
 
   private def packageManagementService(stub: PackageManagementService): PackageManagementClient =

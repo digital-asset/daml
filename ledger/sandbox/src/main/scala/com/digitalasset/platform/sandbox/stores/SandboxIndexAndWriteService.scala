@@ -3,12 +3,13 @@
 
 package com.digitalasset.platform.sandbox.stores
 
+import java.time.Instant
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v2.{
   PartyAllocationResult,
   SubmittedTransaction,
@@ -17,7 +18,6 @@ import com.daml.ledger.participant.state.v2.{
 }
 import com.daml.ledger.participant.state.{v2 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.lfpackage.Ast
@@ -36,7 +36,6 @@ import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.damle.SandboxPackageStore
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
-import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
@@ -70,7 +69,7 @@ object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       startMode: SqlStartMode,
       queueDepth: Int,
-      templateStore: IndexPackagesService)(
+      templateStore: SandboxPackageStore)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[IndexAndWriteService] =
     Ledger
@@ -92,7 +91,7 @@ object SandboxIndexAndWriteService {
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
-      templateStore: IndexPackagesService)(
+      templateStore: SandboxPackageStore)(
       implicit mat: Materializer,
       mm: MetricsManager): IndexAndWriteService = {
     val ledger = Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, ledgerEntries))
@@ -103,7 +102,7 @@ object SandboxIndexAndWriteService {
       ledger: Ledger,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      templateStore: IndexPackagesService)(implicit mat: Materializer) = {
+      templateStore: SandboxPackageStore)(implicit mat: Materializer) = {
     val contractStore = new SandboxContractStore(ledger)
     val indexAndWriteService =
       new SandboxIndexAndWriteService(ledger, timeModel, templateStore, contractStore)
