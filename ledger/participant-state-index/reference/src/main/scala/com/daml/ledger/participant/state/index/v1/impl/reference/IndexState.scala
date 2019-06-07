@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
-import org.slf4j.LoggerFactory
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.immutable.TreeMap
 
@@ -34,7 +34,7 @@ final case class IndexState(
     packageKnownTo: Relation[PackageId, Party],
     hostedParties: Set[Party]) {
 
-  val logger = LoggerFactory.getLogger(this.getClass)
+  val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
   import IndexState._
 
@@ -73,9 +73,13 @@ final case class IndexState(
         case u: Update.PartyAddedToParticipant =>
           Right(state.copy(hostedParties = state.hostedParties + u.party))
 
-        case Update.PublicPackageUploaded(archive) =>
+        case Update.PublicPackagesUploaded(
+            archives,
+            sourceDescription,
+            participantId,
+            recordTime) =>
           val newPackages =
-            state.packages + (PackageId.assertFromString(archive.getHash) -> archive)
+            state.packages ++ archives.map(a => PackageId.assertFromString(a.getHash) -> a)
 
           val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
           Right(

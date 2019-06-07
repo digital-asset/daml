@@ -14,6 +14,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -82,7 +83,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
 
   private implicit val ec: ExecutionContext = mat.executionContext
 
-  val ledgerId = Ref.LedgerString.assertFromString(UUID.randomUUID.toString)
+  val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString)
 
   // The ledger configuration
   private val ledgerConfig = Configuration(timeModel = TimeModel.reasonableDefault)
@@ -103,6 +104,9 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     * and sent as [[Update.Heartbeat]] to [[stateUpdates]] consumers.
     */
   private val HEARTBEAT_INTERVAL = 5.seconds
+
+  // Name of this participant, ultimately pass this info in command-line
+  val participantId = "in-memory-participant"
 
   /** Reference to the latest state of the in-memory ledger.
     * This state is only updated by the [[CommitActor]], which processes submissions
@@ -319,17 +323,18 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     // TODO: Implement party management
     CompletableFuture.completedFuture(PartyAllocationResult.NotSupported)
 
-  /** Back-channel for uploading DAML-LF archives.
-    * Currently participant-state interfaces do not specify an admin
-    * interface to upload packages.
-    * See issue https://github.com/digital-asset/daml/issues/347.
+  /** Upload DAML-LF packages to the ledger.
     */
-  def uploadArchive(archive: Archive): Unit = {
-    commitActorRef ! CommitSubmission(
-      allocateEntryId,
-      KeyValueSubmission.archiveToSubmission(archive)
-    )
-  }
+  override def uploadPublicPackages(
+      archives: List[Archive],
+      sourceDescription: String): CompletionStage[SubmissionResult] =
+    CompletableFuture.completedFuture({
+      commitActorRef ! CommitSubmission(
+        allocateEntryId,
+        KeyValueSubmission.archivesToSubmission(archives, sourceDescription, participantId)
+      )
+      SubmissionResult.Acknowledged
+    })
 
   /** Retrieve the static initial conditions of the ledger, containing
     * the ledger identifier and the initial ledger record time.

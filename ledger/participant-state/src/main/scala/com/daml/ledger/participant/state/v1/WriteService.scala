@@ -5,6 +5,8 @@ package com.daml.ledger.participant.state.v1
 
 import java.util.concurrent.CompletionStage
 
+import com.digitalasset.daml_lf.DamlLf.Archive
+
 /** An interface to change a ledger via a participant.
   *
   * The methods in this interface are all methods that are supported
@@ -95,6 +97,30 @@ trait WriteService {
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): CompletionStage[SubmissionResult]
+
+  /** Upload a collection of DAML-LF packages to the ledger.
+    *
+    * This method must be thread-safe, not throw, and not block on IO. It is
+    * though allowed to perform significant computation.
+    *
+    * The result of the archives upload is communicated synchronously.
+    * TODO: consider also providing an asynchronous response in a similar
+    * manner as it is done for transaction submission. It is possible that
+    * in some implementations, upload will fail due to authorization etc.
+    *
+    * Successful archives upload will result in a [[Update.PublicPackagesUploaded]]
+    * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
+    * further details.
+    *
+    * @param archives        : DAML-LF packages to be uploaded to the ledger.
+    * @param sourceDescription : the description of the packages provided by the
+    *                            participant implementation.
+    *
+    * @return an async result of a SubmissionResult
+    */
+  def uploadPublicPackages(
+      archives: List[Archive],
+      sourceDescription: String): CompletionStage[SubmissionResult]
 
   /**
     * Adds a new party to the set managed by the ledger.

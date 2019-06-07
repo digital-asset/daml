@@ -57,8 +57,14 @@ object Update {
     * https://github.com/digital-asset/daml/issues/311.
     *
     */
-  final case class PublicPackageUploaded(archive: DamlLf.Archive) extends Update {
-    override def description: String = s"Public package ${archive.getHash} uploaded"
+  final case class PublicPackagesUploaded(
+      archives: List[DamlLf.Archive],
+      sourceDescription: String,
+      participantId: String,
+      recordTime: Timestamp)
+      extends Update {
+    override def description: String =
+      s"""Public packages uploaded: ${archives.map(_.getHash).mkString(",")}"""
   }
 
   /** Signal the acceptance of a transaction.

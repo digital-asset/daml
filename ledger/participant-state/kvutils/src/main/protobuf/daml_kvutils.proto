@@ -31,7 +31,7 @@ message DamlSubmission {
   repeated DamlStateKey input_daml_state = 2;
   oneof payload {
     DamlTransactionEntry transaction_entry = 3;
-    daml_lf.Archive archive = 4;
+    DamlPackageUploadEntry package_upload_entry = 4;
     DamlConfigurationEntry configuration_entry = 5;
   }
 }
@@ -56,9 +56,9 @@ message DamlLogEntry {
     // A rejected command.
     DamlRejectionEntry rejection_entry = 3;
 
-    // A DAML-LF archive.
+    // A collection of DAML-LF archives uploaded together by a participant.
     // Can be converted into `Update.PublicPackageUploaded`.
-    daml_lf.Archive archive = 4;
+    DamlPackageUploadEntry package_upload_entry = 4;
 
     // A DAML configuration change.
     DamlConfigurationEntry configuration_entry = 5;
@@ -118,6 +118,14 @@ message DamlRejectionEntry {
     string party_not_known_on_ledger = 7;
     string submitter_cannot_act_via_participant = 8;
   }
+}
+
+// A public package upload. We don't store dars as they would
+// not allow for easy deduplication of DAML-LF packages.
+message DamlPackageUploadEntry {
+  repeated daml_lf.Archive archives = 1;
+  string source_description = 2;
+  string participant_id = 3;
 }
 
 message DamlConfigurationEntry {

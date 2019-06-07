@@ -54,10 +54,11 @@ object ReferenceServer extends App {
   // Parse DAR archives given as command-line arguments and upload them
   // to the ledger using a side-channel.
   config.archiveFiles.foreach { f =>
-    archivesFromDar(f).foreach { archive =>
-      logger.info(s"Uploading archive ${archive.getHash}...")
-      ledger.uploadArchive(archive)
+    val archives = archivesFromDar(f)
+    archives.foreach { archive =>
+      logger.info(s"Uploading package ${archive.getHash}...")
     }
+    ledger.uploadPublicPackages(archives, "uploaded on startup by participant")
   }
 
   ledger.getLedgerInitialConditions
