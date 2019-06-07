@@ -25,8 +25,6 @@ import Codec.Archive.Zip
 import System.FilePath
 import qualified Data.List as DL
 
-
-
 data Action = ACreate (LF.Qualified LF.TypeConName) 
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
 
@@ -155,11 +153,11 @@ execVisual darFilePath dalfFile = do
     putStrLn $ showDot $ do
         attribute ("rankdir","LR")
         forM_ dotThing $ \(tplName, actions) -> do
-            case (DL.find (\t ->  (fst t) == tplName ) tpls) of 
+            case DL.find (\t ->  fst t == tplName ) tpls of 
                 Just (_, tplNode) -> do 
                     tNode <- tplNode
                     mapM (\a -> nodeToDot tNode a ) actions
-                Nothing -> error("Unknow teplate referenced")
+                Nothing -> error "Unknow teplate referenced"
 
 
 
