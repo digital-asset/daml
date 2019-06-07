@@ -23,7 +23,7 @@ data NimTrans
     | GameMove { oldGid :: Gid, newGid :: Gid, game :: Game }
     deriving Show
 
--- This is not very nice, matching on the entire evnt-list of a transaction
+-- This is not very nice, matching on the entire event-list of a transaction
 -- But it is necessary to link the flow GameInProgress contracts which make up a single game
 extractEvents :: [Event] -> Maybe [NimTrans]
 extractEvents = \case
@@ -53,6 +53,6 @@ extractTransaction log = \case
     case extractEvents events of
         Just xs -> return xs
         Nothing -> do
-            log "Suprising ledger transaction events: "
+            log "Surprising ledger transaction events: "
             mapM_ (\e -> log $ "- " <> show e) events
             return []
