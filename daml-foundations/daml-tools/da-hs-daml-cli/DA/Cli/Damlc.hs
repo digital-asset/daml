@@ -132,8 +132,8 @@ cmdInspect =
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
     cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt
 
-cmdInspectMore :: Mod CommandFields Command
-cmdInspectMore = 
+cmdVisual :: Mod CommandFields Command
+cmdVisual =
     command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dalf" <> fullDesc
     where
       cmd = execVisual <$> inputFileOpt <*> inputFileOpt
@@ -679,7 +679,7 @@ options numProcessors =
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
-        <> cmdInspectMore
+        <> cmdVisual
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean
