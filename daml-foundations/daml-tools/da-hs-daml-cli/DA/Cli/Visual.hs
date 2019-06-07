@@ -81,14 +81,8 @@ templatePossibleUpdates world tpl = Set.unions $ map (startFromChoice world) (NM
 moduleAndTemplates :: LF.World -> LF.Module -> [(LF.TypeConName, Set.Set Action)]
 moduleAndTemplates world mod = retTypess
     where 
-        templates = templatesFromModule mod
+        templates = NM.toList $ LF.moduleTemplates mod
         retTypess = map (\t-> (LF.tplTypeCon t, templatePossibleUpdates world t )) templates
-
-listOfModules :: NM.NameMap LF.Module -> [LF.Module]
-listOfModules modules = NM.toList modules
-
-templatesFromModule :: LF.Module -> [LF.Template]
-templatesFromModule mod = NM.toList $ LF.moduleTemplates mod
 
 dalfsInDar :: Archive -> [BSL.ByteString]
 dalfsInDar dar = [fromEntry e | e <- zEntries dar, ".dalf" `isExtensionOf` eRelativePath e]
@@ -98,16 +92,13 @@ dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
     Right a -> a
     Left err -> error (show err)
 
-dalfsToWorld :: [BSL.ByteString] -> LF.Package -> LF.World
-dalfsToWorld dalfs pkg = AST.initWorldSelf pkgs version1_4 pkg
-    where 
-        pkgs = map dalfBytesToPakage dalfs
-
 darToWorld :: FilePath -> LF.Package -> IO LF.World
 darToWorld darFilePath pkg = do
     bytes <- B.readFile darFilePath
     let dalfs = dalfsInDar (toArchive $ BSL.fromStrict bytes)
-    return (dalfsToWorld dalfs pkg )
+        pkgs = map dalfBytesToPakage dalfs
+    return (AST.initWorldSelf pkgs version1_4 pkg) 
+
 
 prettyAction :: Action -> String
 prettyAction (ACreate  (LF.Qualified _ _ tpl) )  = DAP.renderPretty tpl 
@@ -144,7 +135,7 @@ execVisual darFilePath dalfFile = do
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes 
     world <- darToWorld darFilePath lfPkg
     putStrLn "done"
-    let modules = listOfModules $ LF.packageModules lfPkg
+    let modules = NM.toList $ LF.packageModules lfPkg
         res = concatMap (moduleAndTemplates world) modules
         -- ppString = map prettyTemplateWithAction res
         tpls =  map (dotTemplateNodes . fst) res
