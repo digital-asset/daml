@@ -443,9 +443,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "f9e4f732bbbb016f5f45cb6377bb46170a923924"
+HASKELL_LSP_COMMIT = "1deb1eae5dd6851510d5d66e57bda7d27365d00c"
 
-HASKELL_LSP_HASH = "ddf5a27f013036807fcc57d7f27043fcf05fbad2c7e7924b6715f3b15172d229"
+HASKELL_LSP_HASH = "8450b1f0872a6fc590492ef9b63c565d1424bc9eea193c62207292767338513a"
 
 hazel_repositories(
     core_packages = dicts.add(
@@ -719,13 +719,6 @@ yarn_install(
     name = "daml_extension_deps",
     package_json = "//daml-foundations/daml-tools/daml-extension:package.json",
     yarn_lock = "//daml-foundations/daml-tools/daml-extension:yarn.lock",
-)
-
-# TODO use fine-grained managed dependency
-yarn_install(
-    name = "language_server_tests_deps",
-    package_json = "//daml-foundations/daml-tools/language-server-tests:package.json",
-    yarn_lock = "//daml-foundations/daml-tools/language-server-tests:yarn.lock",
 )
 
 # TODO use fine-grained managed dependency

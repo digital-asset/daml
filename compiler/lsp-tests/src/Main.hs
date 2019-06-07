@@ -5,15 +5,20 @@
 {-# LANGUAGE RankNTypes #-}
 module Main (main) where
 
+import Control.Lens hiding (List)
+import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
+import Data.Aeson (toJSON)
 import qualified Data.Text as T
 import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Lens
+import Network.URI
+import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra
 import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
-import System.Environment.Blank
 
 import Daml.Lsp.Test.Util
 
@@ -33,6 +38,8 @@ main = do
             | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps dir s
     defaultMain $ testGroup "LSP"
         [ diagnosticTests run runScenarios
+        , requestTests run runScenarios
+        , scenarioTests runScenarios
         ]
     where
         conf = defaultConfig
@@ -188,3 +195,164 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
           closeDoc main'
     ]
 
+
+requestTests
+    :: (forall a. Session a -> IO a)
+    -> (Session () -> IO ())
+    -> TestTree
+requestTests run _runScenarios = testGroup "requests"
+    [ testCase "code-lenses" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "single = scenario do"
+              , "  assert (True == True)"
+              ]
+          lenses <- getCodeLenses main'
+          Just escapedFp <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (main' ^. uri)
+          liftIO $ lenses @?=
+              [ CodeLens
+                    { _range = Range (Position 2 0) (Position 2 6)
+                    , _command = Just $ Command
+                          { _title = "Scenario results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Scenario: single"
+                              ,  toJSON $ "daml://compiler?file=" <> escapedFp <> "&top-level-decl=single"
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+              ]
+
+          closeDoc main'
+    , testCase "type on hover: name" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "add : Int -> Int -> Int"
+              , "add a b = a + b"
+              , "template DoStuff with party : Party where"
+              , "  signatory party"
+              , "  controller party can"
+              , "    ChooseNumber : Int"
+              , "      with number : Int"
+              , "        do pure (add 5 number)"
+              ]
+          Just fp <- pure $ uriToFilePath (main' ^. uri)
+          r <- getHover main' (Position 9 19)
+          liftIO $ r @?= Just Hover
+              { _contents = HoverContents $ MarkupContent MkMarkdown $ T.unlines
+                    [ "```daml\nMain.add"
+                    , "  : Int -> Int -> Int"
+                    , "```"
+                    , "*\t*\t*"
+                    , "**Defined at " <> T.pack fp <> ":4:1**"
+                    ]
+              , _range = Just $ Range (Position 10 17) (Position 10 20)
+              }
+          closeDoc main'
+
+    , testCase "type on hover: literal" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "simple arg1 = let xlocal = 1.0 in xlocal + arg1"
+              ]
+          r <- getHover main' (Position 2 27)
+          liftIO $ r @?= Just Hover
+              { _contents = HoverContents $ MarkupContent MkMarkdown "```daml\n: Decimal\n```\n"
+              , _range = Just $ Range (Position 3 27) (Position 3 30)
+              }
+          closeDoc main'
+    , testCase "definition" $ run $ do
+          test <- openDoc' "Test.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Test where"
+              , "answerFromTest = 42"
+              ]
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "import Test"
+              , "bar = answerFromTest"
+              , "foo thisIsAParam = thisIsAParam <> \" concatenated with a Text.\""
+              , "aFunction = let letParam = 10 in letParam"
+              , "template SomeTemplate"
+              , "  with"
+              , "    p : Party"
+              , "    c : Party"
+              , "  where"
+              , "    signatory p"
+              , "    controller c can"
+              , "      SomeChoice : ()"
+              , "        do let b = bar"
+              , "           pure ()"
+              ]
+          -- thisIsAParam
+          locs <- getDefinitions main' (Position 4 24)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 4 4) (Position 4 16))]
+          -- letParam
+          locs <- getDefinitions main' (Position 5 37)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 5 16) (Position 5 24))]
+          -- import Test
+          locs <- getDefinitions main' (Position 2 10)
+          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 0 0) (Position 0 0))]
+          -- use of `bar` in template
+          locs <- getDefinitions main' (Position 14 20)
+          liftIO $ locs @?= [Location (main' ^. uri) (Range (Position 3 0) (Position 3 3))]
+          -- answerFromTest
+          locs <- getDefinitions main' (Position 3 8)
+          liftIO $ locs @?= [Location (test ^. uri) (Range (Position 2 0) (Position 2 14))]
+          closeDoc main'
+          closeDoc test
+    ]
+
+scenarioTests :: (Session () -> IO ()) -> TestTree
+scenarioTests run = testGroup "scenarios"
+    [ testCase "opening codelens produces a notification" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "main = scenario $ assert (True == True)"
+              ]
+          lenses <- getCodeLenses main'
+          uri <- scenarioUri "Main.daml" "main"
+          liftIO $ lenses @?=
+              [ CodeLens
+                    { _range = Range (Position 2 0) (Position 2 4)
+                    , _command = Just $ Command
+                          { _title = "Scenario results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Scenario: main"
+                              ,  toJSON uri
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+              ]
+          mainScenario <- openScenario "Main.daml" "main"
+          _ <- waitForScenarioDidChange
+          closeDoc mainScenario
+    , testCase "scenario ok" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "main = scenario $ pure \"ok\""
+              ]
+          scenario <- openScenario "Main.daml" "main"
+          expectScenarioContent "Return value: &quot;ok&quot"
+          closeDoc scenario
+          closeDoc main'
+    , testCase "spaces in path" $ run $ do
+          main' <- openDoc' "spaces in path/Main.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "main = scenario $ pure \"ok\""
+              ]
+          scenario <- openScenario "spaces in path/Main.daml" "main"
+          expectScenarioContent "Return value: &quot;ok&quot"
+          closeDoc scenario
+          closeDoc main'
+    ]

@@ -1,8 +1,0 @@
-{
-  "method": "initialize",
-  "payload": {
-    "processId": 1234,
-    "rootUri": "file:///tmp/",
-    "capabilities": {}
-  }
-}
