@@ -103,6 +103,7 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
               case nc: N.NodeCreate.WithTxValue[AbsoluteContractId] =>
                 val nodeParties = nc.signatories
                   .union(nc.stakeholders)
+                  .union(nc.key.map(_.maintainers).getOrElse(Set.empty))
                 val absCoid = SandboxEventIdFormatter.makeAbsCoid(transactionId)(nc.coid)
                 val activeContract = ActiveContract(
                   let = let,
