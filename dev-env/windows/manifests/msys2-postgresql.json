@@ -1,0 +1,33 @@
+{
+    "homepage": "http://msys2.github.io",
+    "version": "2.7.6-1",
+    "url": "http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-postgresql-11.3-1-any.pkg.tar.xz#/pqsql.msys2",
+    "hash": "df53271e77f85f9f2b5fc959da1976af8482cc9ae24229ac8ffd6103f6428123",
+    "depends": "msys2-openssl",
+    "installer": {
+        "script": [
+            "$file = $(cygpath.exe $dir//pqsql.msys2)",
+            "bash.exe -lc \"pacman -U --noconfirm $file\""
+        ]
+    },
+    "uninstaller": {
+        "script": "bash.exe -lc 'pacman -R --noconfirm postgresql'"
+    },
+    "bin": [
+        [
+            "../../msys2/current/mingw64/bin/initdb.exe",
+            "initdb"
+        ],
+        [
+            "../../msys2/current/mingw64/bin/pg_ctl.exe",
+            "pg_ctl"
+        ],
+        [
+            "../../msys2/current/mingw64/bin/createdb.exe",
+            "createdb"
+        ]
+    ],
+    "post_install": [
+        "cp \"$(appdir msys2)\\current\\mingw64\\bin\\*.dll\" \"$(appdir msys2)\\current\\usr\\bin\\\""
+    ]
+}

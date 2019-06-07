@@ -1,0 +1,20 @@
+{
+    "homepage": "http://msys2.github.io",
+    "version": "2.7.6-1",
+    "url": "http://repo.msys2.org/mingw/x86_64/mingw-w64-x86_64-openssl-1.1.1.c-1-any.pkg.tar.xz#/openssl.msys2",
+    "hash": "28c8f3acbfa3b5435cd3759cd3f051e7cdeb0c6bb5cfccb7bacb70c8b91f66db",
+    "depends": "msys2",
+    "installer": {
+        "script": [
+            "$file = $(cygpath.exe $dir//openssl.msys2)",
+            "bash.exe -lc \"pacman -U --noconfirm $file\""
+        ]
+    },
+    "uninstaller": {
+        "script": "bash.exe -lc 'pacman -R --noconfirm mingw-w64-x86_64-openssl'"
+    },
+    "post_install": [
+        "cp \"$(appdir msys2)\\current\\mingw64\\bin\\libcrypto-1_1-x64.dll\" \"$(appdir msys2)\\current\\usr\\bin\\libcrypto-1_1-x64.dll\"",
+        "cp \"$(appdir msys2)\\current\\mingw64\\bin\\libssl-1_1-x64.dll\" \"$(appdir msys2)\\current\\usr\\bin\\libssl-1_1-x64.dll\""
+    ]
+}

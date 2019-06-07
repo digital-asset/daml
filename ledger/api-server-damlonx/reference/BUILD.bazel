@@ -9,6 +9,7 @@ load(
     "//bazel_tools/client_server_test:client_server_test.bzl",
     "client_server_test",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "reference",
@@ -55,4 +56,4 @@ client_server_test(
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
         "exclusive",
     ],
-)
+) if not is_windows else None

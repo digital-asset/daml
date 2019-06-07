@@ -15,6 +15,7 @@ load(
     "//bazel_tools/client_server_test:client_server_test.bzl",
     "client_server_test",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 dependencies = [
     "//3rdparty/jvm/com/github/scopt:scopt",
@@ -31,6 +32,7 @@ dependencies = [
     "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/archive:daml_lf_archive_scala",
     "//daml-lf/archive:daml_lf_java_proto",
     "//daml-lf/data",
@@ -108,7 +110,7 @@ client_server_test(
         # without competition to avoid flakyness.
         "exclusive",
     ],
-)
+) if not is_windows else None
 
 client_server_test(
     name = "ledger-api-test-tool-ssltest",
@@ -138,4 +140,4 @@ client_server_test(
         # without competition to avoid flakyness.
         "exclusive",
     ],
-)
+) if not is_windows else None

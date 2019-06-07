@@ -67,8 +67,7 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //language-support/codegen-common:test `
     //language-support/java/... `
     //language-support/scala/... `
-    //ledger/ledger-api-client/... `
-    //ledger/ledger-api-common/... `
+    //ledger/... `
     //ledger-api/... `
     //navigator/backend/... `
     //daml-assistant/... `

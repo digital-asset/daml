@@ -16,6 +16,7 @@ dependencies = [
     "//ledger-api/rs-grpc-bridge",
     "//ledger-api/rs-grpc-akka",
     "//language-support/scala/bindings",
+    "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/scenario-interpreter",
     "//daml-lf/transaction",
     "//daml-lf/engine",

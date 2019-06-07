@@ -26,6 +26,7 @@ dependencies = [
     "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/archive:daml_lf_archive_scala",
     "//daml-lf/archive:daml_lf_java_proto",
     "//daml-lf/data",
@@ -95,6 +96,10 @@ da_scala_test_suite(
     ),
     data = [
         "//ledger/sandbox:Test.dar",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:pg_ctl",
+        "@postgresql_dev_env//:all",
     ],
     # this test suite is very intensive, long, and relying on timeouts. Moreover,
     # the test suite already parallelizes each scala test, so we'll still be busy
