@@ -20,8 +20,8 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
 
 class ApiPartyManagementService private (
-    readBackend: IndexPartyManagementService,
-    writeBackend: WriteService
+    partyManagementService: IndexPartyManagementService,
+    writeService: WriteService
 ) extends PartyManagementService
     with GrpcApiService {
 
@@ -34,7 +34,7 @@ class ApiPartyManagementService private (
 
   override def getParticipantId(
       request: GetParticipantIdRequest): Future[GetParticipantIdResponse] =
-    readBackend
+    partyManagementService
       .getParticipantId()
       .map(pid => GetParticipantIdResponse(pid.unwrap))(DE)
 
@@ -44,7 +44,7 @@ class ApiPartyManagementService private (
 
   override def listKnownParties(
       request: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] =
-    readBackend
+    partyManagementService
       .listParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
 
@@ -53,7 +53,7 @@ class ApiPartyManagementService private (
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
 
     FutureConverters
-      .toScala(writeBackend.allocateParty(party, displayName))
+      .toScala(writeService.allocateParty(party, displayName))
       .flatMap {
         case PartyAllocationResult.Ok(details) =>
           Future.successful(AllocatePartyResponse(Some(mapPartyDetails(details))))
