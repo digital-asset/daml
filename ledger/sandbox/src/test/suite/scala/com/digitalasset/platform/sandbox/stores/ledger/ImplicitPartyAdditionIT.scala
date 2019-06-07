@@ -10,12 +10,7 @@ import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, Tr
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.Node.{
-  GenNode,
-  KeyWithMaintainers,
-  NodeCreate,
-  NodeExercises
-}
+import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value.{
@@ -150,7 +145,7 @@ class ImplicitPartyAdditionIT
             templateId1,
             Ref.ChoiceName.assertFromString("choice"),
             None,
-            true,
+            false,
             Set("exercise-signatory"),
             textValue("choice value"),
             Set("exercise-stakeholder"),
@@ -158,6 +153,19 @@ class ImplicitPartyAdditionIT
             Set("exercise-signatory"),
             ImmArray.empty,
             None
+          )
+        )
+        fetchResult <- publishSingleNodeTx(
+          ledger,
+          "fetch-signatory",
+          "CmdId3",
+          NodeFetch(
+            AbsoluteContractId("cId1"),
+            templateId1,
+            None,
+            Some(Set("fetch-acting-party")),
+            Set("fetch-signatory"),
+            Set("fetch-signatory")
           )
         )
         // Wait until both transactions have been processed
@@ -169,12 +177,16 @@ class ImplicitPartyAdditionIT
       } yield {
         createResult shouldBe SubmissionResult.Acknowledged
         exerciseResult shouldBe SubmissionResult.Acknowledged
+        fetchResult shouldBe SubmissionResult.Acknowledged
 
         parties.exists(d => d.party == "create-signatory") shouldBe true
         parties.exists(d => d.party == "create-stakeholder") shouldBe true
 
         parties.exists(d => d.party == "exercise-signatory") shouldBe true
         parties.exists(d => d.party == "exercise-stakeholder") shouldBe true
+
+        parties.exists(d => d.party == "fetch-acting-party") shouldBe true
+        parties.exists(d => d.party == "fetch-signatory") shouldBe true
       }
     }
   }
