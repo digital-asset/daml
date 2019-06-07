@@ -10,10 +10,13 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
-import com.daml.ledger.participant.state.v2.PartyAllocationResult
-import com.daml.ledger.participant.state.v2.SubmissionResult
+import com.daml.ledger.participant.state.v2.{
+  PartyAllocationResult,
+  SubmittedTransaction,
+  WriteService
+}
 import com.daml.ledger.participant.state.{v2 => ParticipantState}
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
@@ -198,11 +201,6 @@ private class SandboxIndexAndWriteService(
       transactionMeta: ParticipantState.TransactionMeta,
       transaction: SubmittedTransaction): CompletionStage[ParticipantState.SubmissionResult] =
     FutureConverters.toJava(ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
-
-  override def uploadPublicPackages(
-      archives: List[Archive],
-      sourceDescription: String): CompletionStage[SubmissionResult] =
-    CompletableFuture.completedFuture(SubmissionResult.NotSupported)
 
   override def transactionTrees(
       begin: LedgerOffset,
