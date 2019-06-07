@@ -161,14 +161,9 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     val (timeProvider, timeServiceBackendO: Option[TimeServiceBackend]) =
       (mbLedgerTime, config.timeProviderType) match {
         case (None, TimeProviderType.WallClock) => (TimeProvider.UTC, None)
-        case (None, _) =>
+        case (ledgerTime, _) =>
           val ts = TimeServiceBackend.simple(
-            Instant.EPOCH,
-            config.timeProviderType == TimeProviderType.StaticAllowBackwards)
-          (ts, Some(ts))
-        case (Some(ledgerTime), _) =>
-          val ts = TimeServiceBackend.simple(
-            ledgerTime,
+            ledgerTime.getOrElse(Instant.EPOCH),
             config.timeProviderType == TimeProviderType.StaticAllowBackwards)
           (ts, Some(ts))
       }
