@@ -1,12 +1,14 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.services.time
-
-import com.daml.ledger.participant.state.v2.{TimeModel => ITimeModel}
-import com.daml.ledger.participant.state.v2.{TimeModelChecker => ITimeModelChecker}
+package com.daml.ledger.participant.state.backport
 
 import java.time.{Duration, Instant}
+
+import com.daml.ledger.participant.state.v1.{
+  TimeModel => ITimeModel,
+  TimeModelChecker => ITimeModelChecker
+}
 
 import scala.util.Try
 

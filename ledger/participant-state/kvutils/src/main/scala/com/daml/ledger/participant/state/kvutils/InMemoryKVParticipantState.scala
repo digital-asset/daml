@@ -11,6 +11,7 @@ import akka.NotUsed
 import akka.actor.{Actor, ActorSystem, Kill, Props}
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
@@ -20,7 +21,6 @@ import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.OneAfterAnother
-import com.digitalasset.platform.services.time.TimeModel
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 

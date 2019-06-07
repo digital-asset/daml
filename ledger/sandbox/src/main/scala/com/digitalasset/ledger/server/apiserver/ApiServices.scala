@@ -12,13 +12,14 @@ import com.daml.ledger.participant.state.index.v2.{
   _
 }
 import com.daml.ledger.participant.state.v2.WriteService
+import com.daml.ledger.participant.state.v2.TimeModel
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
-import com.digitalasset.platform.sandbox.config.{SandboxConfig, SandboxContext}
+import com.digitalasset.platform.sandbox.config.{CommandConfiguration, DamlPackageContainer}
 import com.digitalasset.platform.sandbox.services._
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
@@ -26,7 +27,6 @@ import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
-import com.digitalasset.platform.services.time.TimeProviderType
 import io.grpc.BindableService
 import io.grpc.protobuf.services.ProtoReflectionService
 import org.slf4j.LoggerFactory
@@ -59,11 +59,13 @@ object ApiServices {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def create(
-      config: SandboxConfig, //TODO this is still Sandbox specific, introduce a sub-config for this module instead
       writeService: WriteService,
       indexService: IndexService,
       engine: Engine,
       timeProvider: TimeProvider,
+      timeModel: TimeModel,
+      commandConfig: CommandConfiguration,
+      packageContainer: DamlPackageContainer,
       optTimeServiceBackend: Option[TimeServiceBackend])(
       implicit mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): Future[ApiServices] = {
@@ -79,23 +81,21 @@ object ApiServices {
     val completionsService: IndexCompletionsService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
-      val context = SandboxContext.fromConfig(config)
-
       val packageResolver =
-        (pkgId: Ref.PackageId) => Future.successful(context.packageContainer.getPackage(pkgId))
+        (pkgId: Ref.PackageId) => Future.successful(packageContainer.getPackage(pkgId))
 
       val identifierResolver: IdentifierResolver = new IdentifierResolver(packageResolver)
 
       val apiSubmissionService =
         ApiSubmissionService.create(
           ledgerId,
-          context.packageContainer,
+          packageContainer,
           identifierResolver,
           contractStore,
           writeService,
-          config.timeModel,
+          timeModel,
           timeProvider,
-          new CommandExecutorImpl(engine, context.packageContainer)
+          new CommandExecutorImpl(engine, packageContainer)
         )
 
       logger.info(EngineInfo.show)
@@ -118,19 +118,17 @@ object ApiServices {
       val apiCommandService = ApiCommandService.create(
         ApiCommandService.Configuration(
           ledgerId,
-          config.commandConfig.inputBufferSize,
-          config.commandConfig.maxParallelSubmissions,
-          config.commandConfig.maxCommandsInFlight,
-          config.commandConfig.limitMaxCommandsInFlight,
-          config.commandConfig.historySize,
-          config.commandConfig.retentionPeriod,
-          config.commandConfig.commandTtl
+          commandConfig.inputBufferSize,
+          commandConfig.maxParallelSubmissions,
+          commandConfig.maxCommandsInFlight,
+          commandConfig.limitMaxCommandsInFlight,
+          commandConfig.historySize,
+          commandConfig.retentionPeriod,
+          commandConfig.commandTtl
         ),
         // Using local services skips the gRPC layer, improving performance.
         ApiCommandService.LowLevelCommandServiceAccess.LocalServices(
-          CommandSubmissionFlow(
-            apiSubmissionService.submit,
-            config.commandConfig.maxParallelSubmissions),
+          CommandSubmissionFlow(apiSubmissionService.submit, commandConfig.maxParallelSubmissions),
           r => apiCompletionService.completionStreamSource(r),
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           apiTransactionService.getTransactionById,
@@ -148,8 +146,7 @@ object ApiServices {
         optTimeServiceBackend.map { tsb =>
           ApiTimeService.create(
             ledgerId,
-            tsb,
-            config.timeProviderType == TimeProviderType.StaticAllowBackwards
+            tsb
           )
         }
 

@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.value.Value.{
   ContractId,
   VersionedValue
 }
-import com.digitalasset.platform.services.time.TimeModelChecker
+import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory

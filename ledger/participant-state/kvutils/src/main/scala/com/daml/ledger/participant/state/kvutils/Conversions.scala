@@ -25,7 +25,8 @@ import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.ValueOuterClass
 import com.digitalasset.daml.lf.transaction.TransactionCoder
 import com.digitalasset.daml.lf.value.ValueCoder
-import com.digitalasset.platform.services.time.TimeModel
+
+import com.daml.ledger.participant.state.backport.TimeModel
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
