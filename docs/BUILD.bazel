@@ -331,7 +331,6 @@ daml_test(
     srcs = glob(["source/app-dev/bindings-java/code-snippets/**/*.daml"]),
 )
 
-
 daml_test(
     name = "patterns-daml-test",
     srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
