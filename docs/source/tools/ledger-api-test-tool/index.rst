@@ -79,22 +79,38 @@ Run the tool with ``--help`` flag to obtain the list of options the tool provide
 
    $ java -jar ledger-api-test-tool.jar  --help
 
-Filtering tests
-~~~~~~~~~~~~~~~
+Selecting tests to run
+~~~~~~~~~~~~~~~~~~~~~~
 
-You can list the available tests with the ``--list`` flag. Some tests are not run by default. You can run them with the ``--include`` flag. To exclude tests, use the ``--exclude`` flag.
+Running the tool without any arguments runs the *default tests*. Use the following command line flags to select which tests to run:
 
-This command only runs the test ``TestA``:
+- ``--list``: print all available tests to the console
+- ``--include``: only run the tests provided as argument
+- ``--exclude``: do not run the tests provided as argument
+- ``--all-tests``: run all default and optional tests. This flag can be combined with the ``--exclude`` flag.
+
+Examples:
 
 .. code-block:: console
+   :caption: Only run ``TestA``
 
    $ java -jar ledger-api-test-tool.jar --include TestA
 
-This command runs all tests except the test ``TestB``:
-
 .. code-block:: console
+   :caption: Run all default tests, but not ``TestB``
 
    $ java -jar ledger-api-test-tool.jar --exclude TestB
+
+.. code-block:: console
+   :caption: Run all tests
+
+   $ java -jar ledger-api-test-tool.jar --all-tests
+
+.. code-block:: console
+   :caption: Run all tests, but not ``TestC``
+
+   $ java -jar ledger-api-test-tool.jar --all-tests --exclude TestC
+
 
 Try out the Ledger API Test Tool against DAML Sandbox
 =====================================================

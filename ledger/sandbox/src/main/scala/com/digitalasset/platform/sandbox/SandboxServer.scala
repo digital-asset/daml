@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.sandbox
 
+import java.io.FileWriter
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -244,6 +245,9 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       config.timeProviderType,
       ledgerType
     )
+
+    writePortFile(newState.port)
+
     newState
   }
 
@@ -257,5 +261,13 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   }
 
   override def close(): Unit = sandboxState.close()
+
+  private def writePortFile(port: Int): Unit = {
+    config.portFile.foreach { f =>
+      val w = new FileWriter(f)
+      w.write(s"$port\n")
+      w.close()
+    }
+  }
 
 }

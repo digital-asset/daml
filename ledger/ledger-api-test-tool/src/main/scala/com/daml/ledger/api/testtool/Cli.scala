@@ -81,13 +81,18 @@ object Cli {
               |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin)
 
     opt[Seq[String]]("exclude")
-      .action((ex, c) => c.copy(excluded = ex.toSet))
+      .action((ex, c) => c.copy(excluded = c.excluded ++ ex))
+      .unbounded()
       .text("""A comma-separated list of tests that should NOT be run. By default, no tests are excluded.""")
 
     opt[Seq[String]]("include")
-      .action((inc, c) => c.copy(included = inc.toSet))
-      .text(
-        """A comma-separated list of tests that should be run. By default, all tests are run.""")
+      .action((inc, c) => c.copy(included = c.included ++ inc))
+      .unbounded()
+      .text("""A comma-separated list of tests that should be run.""")
+
+    opt[Unit]("all-tests")
+      .action((_, c) => c.copy(allTests = true))
+      .text("""Run all default and optional tests. Respects the --exclude flag.""")
 
     opt[Unit]("list")
       .action((_, c) => c.copy(listTests = true))

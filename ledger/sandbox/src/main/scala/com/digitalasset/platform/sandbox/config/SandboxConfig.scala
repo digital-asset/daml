@@ -23,6 +23,7 @@ final case class TlsServerConfiguration(
 final case class SandboxConfig(
     address: Option[String],
     port: Int,
+    portFile: Option[File],
     damlPackageContainer: DamlPackageContainer,
     timeProviderType: TimeProviderType,
     timeModel: TimeModel,
@@ -51,6 +52,7 @@ object SandboxConfig {
     SandboxConfig(
       None,
       DefaultPort,
+      None,
       DamlPackageContainer(Nil),
       TimeProviderType.Static,
       TimeModel.reasonableDefault,

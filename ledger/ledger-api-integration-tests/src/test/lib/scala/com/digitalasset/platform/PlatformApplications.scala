@@ -112,6 +112,7 @@ object PlatformApplications {
     SandboxConfig(
       address = None,
       port = selectedPort,
+      None,
       damlPackageContainer = DamlPackageContainer(config.darFiles.map(_.toFile)),
       timeProviderType = config.timeProviderType,
       timeModel = config.timeModel,

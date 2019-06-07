@@ -61,8 +61,12 @@ object LedgerApiTestTool {
 
     try {
 
-      val testsToRun = (if (toolConfig.included.isEmpty) default.keySet else toolConfig.included)
-        .filterNot(toolConfig.excluded)
+      val includedTests =
+        if (toolConfig.allTests) allTests.keySet
+        else if (toolConfig.included.isEmpty) default.keySet
+        else toolConfig.included
+
+      val testsToRun = includedTests.filterNot(toolConfig.excluded)
 
       if (testsToRun.isEmpty) {
         println("No tests to run.")
