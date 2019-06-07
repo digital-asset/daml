@@ -544,7 +544,7 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
       :lines: 62-64
       :dedent: 8
 
-#. The Active Contract Service (ACS) is used to quickly build up the contract-store to a recent state.
+#. The Active Contracts Service (ACS) is used to quickly build up the contract-store to a recent state.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java

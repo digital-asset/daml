@@ -95,7 +95,7 @@ Transactions detail the changes on the ledger, and contains all the events (crea
 
 Transactions contain a :ref:`transactionId <com.digitalasset.ledger.api.v1.Transaction.transaction_id>` (assigned by the server), the ``workflowId``, the ``commandId``, and the events in the transaction.
 
-Subscribe to the transaction service to read events from an arbitrary point on the ledger. This is important when starting or restarting and application, and to work in conjunction with the `active contract service <#active-contract-service>`__.
+Subscribe to the transaction service to read events from an arbitrary point on the ledger. This is important when starting or restarting and application, and to work in conjunction with the `active contracts service <#active-contract-service>`__.
 
 For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.TransactionService>`.
 
@@ -119,16 +119,16 @@ You can get these included in requests related to Transactions by setting the ``
 
 .. _active-contract-service:
 
-Active contract service
-=======================
+Active contracts service
+========================
 
-Use the **active contract service** to obtain a party-specific view of all contracts currently active on the ledger.
+Use the **active contracts service** to obtain a party-specific view of all contracts currently active on the ledger.
 
-The active contract service returns the current contract set as a set of created events that would re-create the state being reported. Each created event has a ledger offset where it occurs. You can infer the ledger offset of the contract set from the ledger offset of the last event you receive.
+The active contracts service returns the current contract set as a set of created events that would re-create the state being reported. Each created event has a ledger offset where it occurs. You can infer the ledger offset of the contract set from the ledger offset of the last event you receive.
 
 This is most important at application start, if the application needs to synchronize its initial state with a known view of the ledger. Without this service, the only way to do this would be to read the Transaction Stream from the beginning of the ledger, which can be prohibitively expensive with a large ledger.
 
-For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.ActiveContractService>`.
+For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.ActiveContractsService>`.
 
 Verbosity
 ---------
@@ -187,7 +187,7 @@ This is important because you have to include two timestamps when you submit a c
 
 MRT is used in the detection of lost commands.
 
-For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.TimeService>`.
+For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.testing.TimeService>`.
 
 .. _reset-service:
 
@@ -198,7 +198,7 @@ Use the **reset service** to reset the ledger state, as a quicker alternative to
 
 This resets all state in the ledger, *including the ledger ID*, so clients will have to re-fetch the ledger ID from the identity service after hitting this endpoint.
 
-For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.ResetService>`.
+For full details, see :ref:`the proto documentation for the service <com.digitalasset.ledger.api.v1.testing.ResetService>`.
 
 Services diagram
 ****************
