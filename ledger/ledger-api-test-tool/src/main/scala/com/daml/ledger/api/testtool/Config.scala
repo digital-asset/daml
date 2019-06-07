@@ -17,7 +17,8 @@ final case class Config(
     tlsConfig: Option[TlsConfiguration],
     excluded: Set[String],
     included: Set[String],
-    listTests: Boolean
+    listTests: Boolean,
+    allTests: Boolean
 )
 
 object Config {
@@ -32,6 +33,7 @@ object Config {
     tlsConfig = None,
     excluded = Set.empty,
     included = Set.empty,
-    listTests = false
+    listTests = false,
+    allTests = false
   )
 }

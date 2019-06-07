@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- Added new CLI flag ``--all-tests`` to the :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` to run all default and optional tests.
+
 .. _release-0-12-24:
 
 0.12.24 - 2019-06-06

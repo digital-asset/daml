@@ -172,7 +172,7 @@ client_server_test(
     timeout = "short",
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     client_args = [
-        "--include TransactionServiceTests,SemanticTests",
+        "--all-tests",
     ],
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
