@@ -43,8 +43,8 @@ class VeryLargeArchiveSpec
   // future editors of this test should not feel obliged to synthesize a failure
   // if the system design has really changed so failures of this nature cannot
   // happen.
-  val failMB = 50
-  val successMB = 60
+  val failMB = 5
+  val successMB = 10
 
   s"${failMB}MiB" should "fail" in {
     val e = the[StatusRuntimeException] thrownBy runWithInboundLimit(failMB * 1024 * 1024) {
