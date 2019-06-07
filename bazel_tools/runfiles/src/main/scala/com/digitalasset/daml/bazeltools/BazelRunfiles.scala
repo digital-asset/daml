@@ -12,3 +12,5 @@ trait BazelRunfiles {
   def rlocation(path: String): String = Runfiles.create.rlocation(MainWorkspace + "/" + path)
 
 }
+
+object BazelRunfiles extends BazelRunfiles

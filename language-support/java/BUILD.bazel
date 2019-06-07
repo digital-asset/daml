@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@com_github_google_bazel_common//tools/javadoc:javadoc.bzl", "javadoc_library")
+load("@os_info//:os_info.bzl", "is_windows")
 
+# FIXME: `javadoc_library` rule fails to find sources on Windows
 javadoc_library(
     name = "javadoc",
     srcs = [
@@ -32,4 +34,4 @@ javadoc_library(
         "//language-support/java/bindings-rxjava",
         "//ledger-api/rs-grpc-bridge",
     ],
-)
+) if not is_windows else None
