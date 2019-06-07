@@ -12,6 +12,7 @@ import com.daml.ledger.participant.state.v2.{
   TransactionMeta,
   WriteService
 }
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
@@ -25,7 +26,6 @@ import com.digitalasset.platform.server.api.services.domain.CommandSubmissionSer
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
 import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
-import com.digitalasset.platform.services.time.TimeModel
 import io.grpc.{BindableService, Status}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._

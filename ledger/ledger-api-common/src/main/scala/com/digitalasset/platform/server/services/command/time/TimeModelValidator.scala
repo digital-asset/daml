@@ -5,9 +5,9 @@ package com.digitalasset.platform.server.services.command.time
 
 import java.time.{Duration, Instant}
 
-import com.daml.ledger.participant.state.v1.TimeModelChecker
+import com.daml.ledger.participant.state.v1.TimeModel
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import com.digitalasset.platform.services.time.{TimeModel, TimeModelChecker}
+import com.digitalasset.platform.services.time.TimeModelChecker
 import io.grpc.Status
 
 import scala.util.{Failure, Success, Try}

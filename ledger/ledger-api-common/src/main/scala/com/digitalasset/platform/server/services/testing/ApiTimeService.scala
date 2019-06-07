@@ -27,8 +27,7 @@ import scala.util.control.NoStackTrace
 
 class ApiTimeService private (
     val ledgerId: LedgerId,
-    backend: TimeServiceBackend,
-    allowSettingTimeBackwards: Boolean
+    backend: TimeServiceBackend
 )(
     implicit grpcExecutionContext: ExecutionContext,
     protected val mat: Materializer,
@@ -95,7 +94,7 @@ class ApiTimeService private (
       expectedTime <- requirePresence(request.currentTime, "current_time").map(toInstant)
       requestedTime <- requirePresence(request.newTime, "new_time").map(toInstant)
       _ <- {
-        if (allowSettingTimeBackwards || !requestedTime.isBefore(expectedTime)) Right(())
+        if (backend.allowSettingTimeBackwards || !requestedTime.isBefore(expectedTime)) Right(())
         else
           Left(
             new StatusRuntimeException(Status.INVALID_ARGUMENT
@@ -129,12 +128,9 @@ class ApiTimeService private (
 }
 
 object ApiTimeService {
-  def create(
-      ledgerId: LedgerId,
-      backend: TimeServiceBackend,
-      allowSettingTimeBackwards: Boolean = false)(
+  def create(ledgerId: LedgerId, backend: TimeServiceBackend)(
       implicit grpcExecutionContext: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory): TimeService with BindableService with TimeServiceLogging =
-    new ApiTimeService(ledgerId, backend, allowSettingTimeBackwards) with TimeServiceLogging
+    new ApiTimeService(ledgerId, backend) with TimeServiceLogging
 }

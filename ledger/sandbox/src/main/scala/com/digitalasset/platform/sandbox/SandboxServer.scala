@@ -162,10 +162,14 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       (mbLedgerTime, config.timeProviderType) match {
         case (None, TimeProviderType.WallClock) => (TimeProvider.UTC, None)
         case (None, _) =>
-          val ts = TimeServiceBackend.simple(Instant.EPOCH)
+          val ts = TimeServiceBackend.simple(
+            Instant.EPOCH,
+            config.timeProviderType == TimeProviderType.StaticAllowBackwards)
           (ts, Some(ts))
         case (Some(ledgerTime), _) =>
-          val ts = TimeServiceBackend.simple(ledgerTime)
+          val ts = TimeServiceBackend.simple(
+            ledgerTime,
+            config.timeProviderType == TimeProviderType.StaticAllowBackwards)
           (ts, Some(ts))
       }
 
@@ -207,11 +211,13 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         (am: ActorMaterializer, esf: ExecutionSequencerFactory) =>
           ApiServices
             .create(
-              config,
               indexAndWriteService.writeService,
               indexAndWriteService.indexService,
               SandboxServer.engine,
               timeProvider,
+              config.timeModel,
+              config.commandConfig,
+              config.damlPackageContainer,
               timeServiceBackendO
                 .map(
                   TimeServiceBackend.withObserver(
