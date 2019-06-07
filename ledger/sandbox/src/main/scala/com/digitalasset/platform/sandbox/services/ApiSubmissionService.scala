@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v2.{
   TransactionMeta,
   WriteService
 }
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v2._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
