@@ -7,168 +7,194 @@ Glossary of concepts
 DAML
 ****
 
-DAML is a programming language for writing smart contracts.
+**DAML** is a programming language for writing `smart contracts`, that you can use to build an application based on a `ledger` . You can run DAML contracts on many different `ledgers`.
 
 Contract, contract instance
 ===========================
 
-Item on a `ledger`. Includes:
+A **contract** is an item on a `ledger`. They are created from blueprints called `templates`, and include:
+
 - data (parameters)
 - roles (`signatory`, `observer`)
 - `choices` (and `controllers`)
 
+Contracts are immutable: once they are created on the ledger, the information in the contract cannot be changed. The only thing that can happen to it is that the contract can be `archived`.
+
+They're sometimes referred to as a **contract instance** to make clear that this is an instantiated contract, as opposed to a `template`.
+
 Active contract, archived contract
 ----------------------------------
+
+When a `contract` is created on a `ledger`, it becomes **active**. But that doesn't mean it will stay active forever: it can be **archived**. This can happen:
+
+- if the `signatories` of the contract decide to archive it
+- if a `consuming choice` is exercised on the contract
+
+Once the contract is archived, it is no longer valid, and `choices` on the contract can no longer be exercised.
 
 Template
 ========
 
-Blueprint for creating a `contract`. This is the DAML code you write.
+A **template** is a blueprint for creating a `contract`. This is the DAML code you write.
 
-:doc:`/daml/reference/templates`.
+For full documentation on what can be in a template, see :doc:`/daml/reference/templates`.
 
 Choice
 ======
 
-Something that a `party` can `exercise` on a `contract`. You choose the consequences, writing code in the choice body.
+A **choice** is something that a `party` can `exercise` on a `contract`. You write code in the choice body that specifies what happens when the choice is exercised: for example, it could create a new contract.
 
-:doc:`/daml/reference/choices`.
+Choices give you a way to transform the data in a contract: while the contract itself is immutable, you can write a choice that `archives` the contract and creates a new version of it with updated data.
+
+A choice can only be exercised by its `controller`. Within the choice body, you have the `authorization` of all of the contract's `signatories`.
+
+For full documentation on choices, see :doc:`/daml/reference/choices`.
 
 Consuming choice, preconsuming choice, postconsuming choice
 ------------------------------------------------------------
 
-A consuming `choice` will `archive` the `contract` it is on when `exercised`.
+A **consuming choice** means that, when the choices is exercised, the `contract` it is gets `archived`. The alternative is a `nonconsuming choice`.
 
-A `choice` marked preconsuming will get `archived` at the start of that `exercise`.
+A `choice` marked **preconsuming** will get `archived` at the start of that `exercise`.
 
-A `choice` marked postconsuming will not be `archived` until the end of the `exercise` choice body.
+A `choice` marked **postconsuming** will not be `archived` until the end of the `exercise` choice body.
 
 Nonconsuming choice
 --------------------
 
-A nonconsuming choice does NOT `archive` the `contract` it is on when `exercised`, which means the choice can be exercised more than once on the same `contract instance`. 
+A **nonconsuming choice** does NOT `archive` the `contract` it is on when `exercised`. This means the choice can be exercised more than once on the same `contract instance`. 
 
 Disjunction choice, flexible controllers
 ----------------------------------------
 
-Disjunction choice has more than one `controller`?
+A **disjunction choice** has more than one `controller`.
 
-Flexible controller means you don't specify the `controller` of the `choice` at `creation` time of the `contract`, but at `exercise` time. 
+If a contract uses **flexible controllers**, this means you don't specify the `controller` of the `choice` at `creation` time of the `contract`, but at `exercise` time.
 
 Party
 =====
 
-A party represents a person or legal entity. Parties can `create contracts` and `exercise choices`.
+A **party** represents a person or legal entity. Parties can `create contracts` and `exercise choices`.
 
-Something about how they work in the `execution engine`.
+`Signatories`, `observers`, `controllers`, and `maintainers` all must be parties, represented by the ``Party`` data type in DAML.
+
+.. Something about how they work in the `execution engine`.
 
 Signatory
 ---------
 
-A signatory is a `party` on a `contract instance`. Has to consent to the `creation` of the contract by `authorizing` it. If they don't, contract creation will fail.
+A **signatory** is a `party` on a `contract instance`. The signatories MUST consent to the `creation` of the contract by `authorizing` it: if they don't, contract creation will fail.
 
-:doc:`/daml/reference/templates`.
+For documentation on signatories, see :doc:`/daml/reference/templates`.
 
 Observer
 --------
 
-An observer is a `party` on a `contract instance`. Being an observer allows them to see that instance and all the information about it. They do NOT have to `consent to` the creation.
+An **observer** is a `party` on a `contract instance`. Being an observer allows them to see that instance and all the information about it. They do NOT have to `consent to` the creation.
 
-:doc:`/daml/reference/templates`.
+For documentation on observers, see :doc:`/daml/reference/templates`.
 
 Controller
 ----------
 
-A controller is a `party` that is able to `exercise` a particular `choice` on a particular `contract`.
+A **controller** is a `party` that is able to `exercise` a particular `choice` on a particular `contract`.
 
-Controller must be at least `observer`, otherwise they can't see the contract to exercise it on. But they don't have to be a `signatory`. Allows the `propose-accept pattern`.
-
-:doc:`/daml/reference/choices`.
+Controllers must be at least `observer`, otherwise they can't see the contract to exercise it on. But they don't have to be a `signatory`. Allows the :doc:`propose-accept pattern </daml/patterns/initaccept>`.
 
 Stakeholder
 -----------
 
-Not a term used within daml the language, but concept refers to the `signatories` and `observers` collectively: all of the `parties` that are interested in a `contract instance`. 
+**Stakeholder** is not a term used within the DAML language, but the concept refers to the `signatories` and `observers` collectively. That is, it means all of the `parties` that are interested in a `contract instance`. 
 
 Maintainer
 ----------
 
-Maintainer is a `party`. Important for `contract keys`: a key must include a party that is the maintainer, it's how uniqueness of keys is guaranteed.
+The **maintainer** is a `party` that is part of a `contract key`. They must always be a `signatory` on the `contract` that they maintain the key for.
 
-:doc:`/daml/reference/contract-keys`.
+It's not possible for keys to be globally unique, because there is no party that will necessarily know about every contract. However, by including a party as part of the key, this ensures that the maintainer *will* know about all of the contracts, and so can guarantee the uniqueness of the keys that they know about.
+
+For documentation on contract keys, see :doc:`/daml/reference/contract-keys`.
 
 Authorization, signing
 ======================
 
-The `DAML runtime` checks that every submitted transaction is well-authorized according to the authorization rules of the ledger model https://docs.daml.com/concepts/ledger-model/ledger-integrity.html that guarantee the integrity of the underlying ledger.
+The `DAML runtime` checks that every submitted transaction is **well-authorized**, according to the :doc:`authorization rules of the ledger model </concepts/ledger-model/ledger-integrity>`, which guarantee the integrity of the underlying ledger.
 
-A DAML update is the composition of update actions created with one of
-  
-  * create : (Template c) => c -> Update (ContractId c)
-  * exercise : ContractId c -> e -> Update r
-  * fetch : (Template c) => ContractId c -> Update c
-  * fetchByKey : k -> Update (ContractId c, c)
-  * lookupByKey : k -> Update (Optional (ContractId c))
+A DAML update is the composition of update actions created with one of the items in the table below. A DAML update is well-authorized when **all** its contained update actions are well-authorized. Each operation has an associated set of parties that need to authorize it:
 
-A DAML update is well-authorized if and only if all it's contained update actions are well-authorized. Every operation of the above list has an associated set of parties that need to authorize the operation. The mapping is as follows:
+.. list-table:: Updates and required authorization
+   :header-rows: 1
 
-* create -> the (non-empty) set of all signatories of the created contract instance
-* exercise -> the (non-empty) set of controllers of the choice
-* fetch -> one of the union of signatories and observers of the fetched contract instance
-* fetchByKey -> same as fetch
-* lookupByKey -> all key maintainers
+   * - Update action
+     - Type
+     - Authorization
+   * - ``create``
+     - ``(Template c) => c -> Update (ContractId c)``
+     - All signatories of the created contract instance
+   * - ``exercise``
+     - ``ContractId c -> e -> Update r``
+     - All controllers of the choice
+   * - ``fetch``
+     - ``ContractId c -> e -> Update r``
+     - One of the union of signatories and observers of the fetched contract instance
+   * - ``fetchByKey``
+     - ``k -> Update (ContractId c, c)``
+     - Same as ``fetch``
+   * - ``lookupByKey``
+     - ``k -> Update (Optional (ContractId c))``
+     - All key maintainers
 
-At runtime the DAML execution engine computes the required authorizing parties from this mapping. It also computes which parties have given authorization to the update in question. A party is giving authorization to an update in one of two ways
+At runtime, the DAML execution engine computes the required authorizing parties from this mapping. It also computes which parties have given authorization to the update in question. A party is giving authorization to an update in one of two ways:
 
-1) it is the signatory of the contract that contains the update action
-2) it is element of the controllers executing the choice containing the update action
+- It is the signatory of the contract that contains the update action.
+- It is element of the controllers executing the choice containing the update action.
 
 Only if all required parties have given their authorization to an update action, the update action is well-authorized and therefore executed. A missing authorization leads to the abortion of the update action and the failure of the containing transaction.
 
 It is noteworthy, that authorizing parties are always determined only from the local context of a choice in question, that is, its controllers and the contract's signatories. Authorization is never inherited from earlier execution contexts.
 
-The following example shows a DAML contract annotated with required authorizing parties and actually authorizing parties when it is submitted by 'Alice'.
-
 Standard library
 ================
 
-the standard library is a set of `daml` functions and other stuff that make developing with DAML easier. Basically read the generated docs.
+The **DAML standard library** is a set of `DAML` functions, classes and more that make developing with DAML easier.
 
-:doc:`/daml/reference/standard-library`. 
+For documentation, see :doc:`/daml/reference/standard-library`. 
 
 Agreement
 =========
 
-An agreement is part of a `contract`. Text that explains what the contract represents. Can be used to clarify the legal intent of a contract, but isn't actually evaluated or used at all.
+An **agreement** is part of a `contract`. It is text that explains what the contract represents.
 
-:doc:`/daml/reference/templates`.
+It can be used to clarify the legal intent of a contract, but this text isn't evaulated programmatically. 
+
+See :doc:`/daml/reference/templates`.
 
 Create
 ======
 
-A create is an action that updates the `ledger`, creating a `contract instance` on it.
+A **create** is an update that creates a `contract instance` on it the `ledger`.
 
-Requires `authorization` from all its `signatories`, or the create will fail. Link to `propose-accept` and `multi-party agreement` patterns.
+Contract creation requires `authorization` from all its `signatories`, or the create will fail. For how to get authorization, see the :doc:`propose-accept </daml/patterns/initaccept>` and :doc:`multi-party agreement </daml/patterns/multiparty-agreement>` patterns.
 
 A `party` `submits` a create `command`.
 
-:doc:`/daml/reference/updates`.
+See :doc:`/daml/reference/updates`.
 
 Exercise
 ========
 
-A create is an action that updates the `ledger` by `exercising` a `choice` on a `contract instance` on the ledger. If the choice is `consuming`, the exercise will `archive` the contract instance; if it is `nonconsuming`, the contract instance will stay active.
+An **exercise** is an action that `exercises` a `choice` on a `contract instance` on the `ledger`. If the choice is `consuming`, the exercise will `archive` the contract instance; if it is `nonconsuming`, the contract instance will stay active.
 
-Requires `authorization` from all of the `controllers` of the choice.
+Exercising a choice requires `authorization` from all of the `controllers` of the choice.
 
 A `party` `submits` an exercise `command`.
 
-:doc:`/daml/reference/updates`.
+See :doc:`/daml/reference/updates`.
 
 Scenario
 ========
 
-A scenario is a way of testing DAML code during development. You can run scenarios inside `DAML Studio`, or write them to be executed on `Sandbox` when it starts up.
+A **scenario** is a way of testing DAML code during development. You can run scenarios inside `DAML Studio`, or write them to be executed on `Sandbox` when it starts up.
 
 They're useful for:
 
@@ -178,37 +204,35 @@ They're useful for:
 
 Scenarios emulate a real ledger. You specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on a DAML ledger. DAML Studio shows you the resulting `transaction` graph, and (if a scenario fails) what caused it to fail.
 
-Link to :doc:`/daml/testing-scenarios`.
+See :doc:`/daml/testing-scenarios`.
 
-DAMLe, DAML runtime, DAML execution engine
-==========================================
+.. DAMLe, DAML runtime, DAML execution engine
+.. ==========================================
 
-The DAML runtime (sometimes also called the DAML execution engine or DAMLe)...
+.. The **DAML runtime** (sometimes also called the DAML execution engine or DAMLe)...
 
 Contract key
 ============
 
-A contract key is similar to a primary key. Provides a way of uniquely identifying `contract instances` made from a particular `template`.
+A **contract key** allows you to uniquely identify a `contract instance` of a particular `template`, similarly to a primary key in a database table.
 
-Key requires a `maintainer`: a simple key would be something like a tuple of text and maintainer, like ``(accountId, bank)``.
+A contract key requires a `maintainer`: a simple key would be something like a tuple of text and maintainer, like ``(accountId, bank)``.
 
-:doc:`/daml/reference/contract-keys`.
+See :doc:`/daml/reference/contract-keys`.
 
 DAR file, DALF file
 ===================
 
-A ``.dar`` file is the result of compiling a DAML (module? project? source code?) using the `assistant`.
+A ``.dar`` file is the result of compiling DAML using the `assistant`. Its underlying format is `DAML-LF`.
 
-Underlying format is `DAML-LF`.
+You upload ``.dar`` files to a `ledger` in order to be able to create contracts from the templates in that file.
 
-You have to upload these files to a `ledger` in order to be able to create contracts from those templates.
+A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of a compiled DAML package or library.
 
-.dar contains multiple .dalf files. DALF is output of compiled DAML package or library.
+.. Package, module, library
+.. ========================
 
-Package, module, library
-========================
-
-TODO ask Robin
+.. TODO ask Robin
 
 SDK tools
 *********
@@ -216,49 +240,51 @@ SDK tools
 Assistant
 =========
 
-Command-line tool for doing lots of stuff: create daml projects, compile daml projects into `dars`, launch other sdk tools, download new sdk versions.
+**DAML Assistant** is a command-line tool for many tasks related to DAML. Using it, you can create DAML projects, compile DAML projects into `.dar files`, launch other SDK tools, and download new SDK versions.
 
-:doc:`/tools/assistant`.
+See :doc:`/tools/assistant`.
 
 Studio
 ======
 
-Plugin for Visual Studio Code. It's the IDE.
+**DAML Studio** is a plugin for Visual Studio Code, and is the IDE for writing DAML code.
 
-:doc:`/daml/daml-studio`.
+See :doc:`/daml/daml-studio`.
 
 Sandbox
 =======
 
-Lightweight ledger implementation. In normal mode can use for testing; can also run against a postgres back end to get persistence and a more production-like experience.
+**Sandbox** is a lightweight ledger implementation. In its normal mode, you can use it for testing.
 
-:doc:`/tools/sandbox`.
+You can also run the Sandbox connected to a PostgreSQL back end, which gives you persistence and a more production-like experience.
+
+See :doc:`/tools/sandbox`.
 
 Navigator
 =========
 
-Tool for exploring what's on the ledger. Can see what parties can see and submit commands. TODO auth.
+**Navigator** is a tool for exploring what's on the ledger. You can use it to see what contracts can be seen by different parties, and submit commands on behalf of those parties.
 
 Navigator GUI
 -------------
 
-The version of the Navigator that runs as a web app.
+This is the version of Navigator that runs as a web app.
 
-:doc:`/tools/navigator/index`.
+See :doc:`/tools/navigator/index`.
 
 Navigator Console
 -----------------
 
-The version of the navigator that runs on the command-line.
+This is the version of Navigator that runs on the command-line. It has similar functionality to the GUI.
 
-:doc:`/tools/navigator/console`.
+See :doc:`/tools/navigator/console`.
 
 Extractor
 =========
 
-Tool for extracting contract data for a single party into a postgres database.
+**Extractor** is a tool for extracting contract data for a single party into a PostgreSQL database.
 
-:doc:`/tools/extractor`.
+See :doc:`/tools/extractor`.
 
 Building applications
 *********************
@@ -266,129 +292,121 @@ Building applications
 Application, ledger client, integration
 =======================================
 
-All terms for an application that sits on top of the ledger and either reads from it or sends commands to it.
+**Application**, **ledger client** and **integration** are all terms for an application that sits on top of the `ledger`. These usually read from the ledger, send commands to the ledger, or both.
 
-Start at :doc:`/app-dev/index`.
+There's a lot of information available about application development, starting with the :doc:`/app-dev/index` page.
 
 Ledger API
 ==========
 
-Exposed by any DAML ledger. :doc:`/app-dev/services`. Contains the following services.
+The **Ledger API** is an APi that's exposed by any `DAML ledger`. It includes  the following :doc:`services </app-dev/services>`.
 
 Command submission service
 --------------------------
 
-Use the command submission service to submit `commands` - either create commands or exercise commands - to the `ledger`. :ref:`command-submission-service`.
+Use the **command submission service** to submit `commands` - either create commands or exercise commands - to the `ledger`. See :ref:`command-submission-service`.
 
 Command completion service
 --------------------------
 
-Use the command completion service to find out whether or not `commands` you have submitted have completed, and what their status was. :ref:`command-completion-service`.
+Use the **command completion service** to find out whether or not `commands` you have submitted have completed, and what their status was. See :ref:`command-completion-service`.
 
 Command service
 ---------------
 
-Use the command service when you want to submit a `command` and wait for it to be executed. :ref:`command-service`.
+Use the **command service** when you want to submit a `command` and wait for it to be executed. See :ref:`command-service`.
 
 Transaction service
 -------------------
 
-Use the transaction service to listen to changes in the `ledger`, reported as a stream of `transactions`. :ref:`transaction-service`.
+Use the **transaction service** to listen to changes in the `ledger`, reported as a stream of `transactions`. See :ref:`transaction-service`.
 
 Active contract service
 -----------------------
 
-Use the active contract service to obtain a party-specific view of all `contracts` currently `active` on the `ledger`. :ref:`active-contract-service`.
+Use the **active contract service** to obtain a party-specific view of all `contracts` currently `active` on the `ledger`. See :ref:`active-contract-service`.
 
 Package service
 ---------------
 
-Use the package service to obtain information about `DAML packages` available on the `ledger`. :ref:`package-service`.
+Use the **package service** to obtain information about `DAML packages` available on the `ledger`. See :ref:`package-service`.
 
 Ledger identity service
 -----------------------
 
-Use the ledger identity service to get the identity string of the `ledger` that your application is connected to. :ref:`ledger-identity-service`.
+Use the **ledger identity service** to get the identity string of the `ledger` that your application is connected to. See :ref:`ledger-identity-service`.
 
 Ledger configuration service
 ----------------------------
 
-Use the ledger configuration service to subscribe to changes in `ledger` configuration. :ref:`ledger-configuration-service`.
+Use the **ledger configuration service** to subscribe to changes in `ledger` configuration. See :ref:`ledger-configuration-service`.
 
-Ledger API libraries?
+Ledger API libraries
 ====================
 
-The following things wrap the ledger API for more native experience applications development.
+The following libraries wrap the `ledger API` for more native experience applications development.
 
 Java bindings
 -------------
 
-An idiomatic Java library for writing `ledger applications`.
-
-:doc:`/app-dev/bindings-java/index`
+An idiomatic Java library for writing `ledger applications`. See :doc:`/app-dev/bindings-java/index`.
 
 Node.js bindings
 ----------------
 
-An idiomatic JavaScript library for writing `ledger applications`.
-
-:doc:`/app-dev/bindings-js`
+An idiomatic JavaScript library for writing `ledger applications`. See :doc:`/app-dev/bindings-js`.
 
 Scala bindings
 --------------
 
-An idiomatic Scala library for writing `ledger applications`.
-
-:doc:`/app-dev/bindings-java/index`
+An idiomatic Scala library for writing `ledger applications`. See :doc:`/app-dev/bindings-java/index`.
 
 gRPC API
 --------
 
-The low-level ledger API that all of the other bindings use. Written in gRPC. 
-
-:doc:`/app-dev/grpc/index`
+The low-level ledger API that all of the other bindings use. Written in gRPC. See :doc:`/app-dev/grpc/index`.
 
 Reading from the ledger
 =======================
 
-How `applications` get information about the `ledger`. Can't query the ledger, but can subscribe to the transaction stream to get the events, or the more sophisticated active contract service.
+`Applications` get information about the `ledger` by **reading** from it. You can't query the ledger, but you can subscribe to the transaction stream to get the events, or the more sophisticated active contract service.
 
 Submitting commands, writing to the ledger
 ==========================================
 
-How `applications` make changes to the `ledger`. Can't just change it: an application submits a command of `transactions` (TODO one or many?). Gets evaluated by the ledger/runtime/something, and will only be accepted if it's valid.
+`Applications` make changes to the `ledger` by **submitting commands**. You can't change it directly: an application submits a command of `transactions`. The command gets evaluated by the `runtime`, and will only be accepted if it's valid.
 
-eg might get rejected because the transactions aren't `well-authorized`; because the contract isn't active (maybe someone else archived it); TODO other reasons.
+For example, a command might get rejected because the transactions aren't `well-authorized`; because the contract isn't `active` (perhaps someone else archived it); or for other reasons.
 
-This is echoed in `scenarios`, where you can mock an application by having parties submit transactions/updates to the ledger. Can use ``submit`` or ``submitMustFail`` to express what should succeed and what shouldn't.
+This is echoed in `scenarios`, where you can mock an application by having parties submit transactions/updates to the ledger. You can use ``submit`` or ``submitMustFail`` to express what should succeed and what shouldn't.
 
-TODO what happened to our docs on the read and write path?
+.. Events
+.. ======
 
-Events
-======
+.. TODO.
 
 DAML-LF
 =======
 
-When you compile DAML source code into a `.dar file `, the underlying format is DAML-LF. DAML-LF is similar to DAML, but is stripped down to a core set of features. The relationship between the surface DAML syntax and DAML-LF is loosely similar to that between Java and JVM bytecode.
+When you compile DAML source code into a `.dar file `, the underlying format is **DAML-LF**. DAML-LF is similar to DAML, but is stripped down to a core set of features. The relationship between the surface DAML syntax and DAML-LF is loosely similar to that between Java and JVM bytecode.
 
 As a user, you don't need to interact with DAML-LF directly. But inside the DAML SDK, it's used for:
 
-- Executing DAML code on the Sandbox or on another platform
-- Sending and receiving values via the Ledger API (using a protocol such as gRPC)
-- Generating code in other languages for interacting with DAML models (often called “codegen”)
+- executing DAML code on the Sandbox or on another platform
+- sending and receiving values via the Ledger API (using a protocol such as gRPC)
+- generating code in other languages for interacting with DAML models (often called “codegen”)
 
 General concepts
 ****************
 
-Ledger
-======
+Ledger, DAML ledger
+===================
 
-Can refer to a lot of things, but always the underlying storage mechanism for a running DAML applications: it's where the contracts live.
+**Ledger** can refer to a lot of things, but a ledger is essentially the underlying storage mechanism for a running DAML applications: it's where the contracts live. A **DAML ledger** is a ledger that you can store DAML contracts on, because it implements the `ledger API`.
 
-Provides a bunch of guarantees about what you can expect from it, all laid out in the :doc:`/concepts/ledger-model/index`.
+DAML ledgers provide various guarantees about what you can expect from it, all laid out in the :doc:`/concepts/ledger-model/index` page.
 
-When you're developing, you'll use the `sandbox` as your ledger. Also building integrations so you can use others, like (TODO what?). 
+When you're developing, you'll use the `sandbox` as your ledger.
 
 If you want to run DAML on a storage mechanism of your choice, you can use the :doc:`/daml-integration-kit/index` to help you do that.
 
@@ -398,13 +416,13 @@ Transaction
 A transaction is composed of a series of actions.
 
 Create (trans)action
-------------------
-
-Exercise (trans)action
 --------------------
 
+Exercise (trans)action
+----------------------
+
 Fetch (trans)action
------------------
+-------------------
 
 Commit
 ======
@@ -418,5 +436,3 @@ Consistency
 Conformance
 ===========
 
-Authorization
-=============
