@@ -322,9 +322,15 @@ java_binary(
 )
 
 daml_test(
-    name = "ledger-api-introduction-daml-test",
-    srcs = glob(["source/app-dev/ledger-api-introduction/code-snippets/**/*.daml"]),
+    name = "ledger-api-daml-test",
+    srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
 )
+
+daml_test(
+    name = "bindings-java-daml-test",
+    srcs = glob(["source/app-dev/bindings-java/code-snippets/**/*.daml"]),
+)
+
 
 daml_test(
     name = "patterns-daml-test",
