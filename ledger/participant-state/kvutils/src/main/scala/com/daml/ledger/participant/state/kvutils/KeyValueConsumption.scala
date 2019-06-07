@@ -36,6 +36,7 @@ object KeyValueConsumption {
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         Update.PublicPackagesUploaded(
+          entry.getPackageUploadEntry.getSubmissionId,
           entry.getPackageUploadEntry.getArchivesList.asScala.toList,
           entry.getPackageUploadEntry.getSourceDescription,
           entry.getPackageUploadEntry.getParticipantId,
@@ -51,6 +52,7 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         Update.PartyAddedToParticipant(
+          entry.getPartyAllocationEntry.getSubmissionId,
           Party.assertFromString(entry.getPartyAllocationEntry.getParty),
           entry.getPartyAllocationEntry.getDisplayName,
           entry.getPartyAllocationEntry.getParticipantId,

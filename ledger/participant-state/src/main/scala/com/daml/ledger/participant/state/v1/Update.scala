@@ -44,6 +44,7 @@ object Update {
     *
     */
   final case class PartyAddedToParticipant(
+      submissionId: String,
       party: Party,
       displayName: String,
       participantId: String,
@@ -64,6 +65,7 @@ object Update {
     *
     */
   final case class PublicPackagesUploaded(
+      submissionId: String,
       archives: List[DamlLf.Archive],
       sourceDescription: String,
       participantId: String,
@@ -142,11 +144,11 @@ object Update {
     * rejected.
     */
   final case class PackagesRejected(
-      commandId: String,
+      submissionId: String,
       reason: PackageUploadRejectionReason,
   ) extends Update {
     override def description: String = {
-      s"Reject package upload $commandId: $reason"
+      s"Reject package upload $submissionId: $reason"
     }
   }
 
@@ -156,11 +158,11 @@ object Update {
     * allocation can be rejected.
     */
   final case class PartyRejected(
-      commandId: String,
+      submissionId: String,
       reason: PartyAllocationRejectionReason,
   ) extends Update {
     override def description: String = {
-      s"Reject command $commandId: $reason"
+      s"Reject command $submissionId: $reason"
     }
   }
 }

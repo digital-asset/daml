@@ -119,6 +119,7 @@ trait WriteService {
     * @return an async result of a SubmissionResult
     */
   def uploadPackages(
+      submissionId: String,
       archives: List[Archive],
       sourceDescription: String): CompletionStage[SubmissionResult]
 
@@ -139,6 +140,7 @@ trait WriteService {
     * @return an async result of a SubmissionResult
     */
   def allocateParty(
+      submissionId: String,
       hint: Option[String],
       displayName: Option[String]
   ): CompletionStage[SubmissionResult]

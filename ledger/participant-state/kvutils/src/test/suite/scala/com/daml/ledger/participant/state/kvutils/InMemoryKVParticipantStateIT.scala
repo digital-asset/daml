@@ -3,8 +3,10 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.Update.{PublicPackagesUploaded, PartyAddedToParticipant}
+import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackagesUploaded}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -15,7 +17,7 @@ import org.scalatest.AsyncWordSpec
 
 class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfterAll {
 
-  val emptyTransaction: SubmittedTransaction =
+  private val emptyTransaction: SubmittedTransaction =
     PartialTransaction.initial.finish.right.get
 
   def submitterInfo(rt: Timestamp) = SubmitterInfo(
@@ -28,6 +30,8 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     ledgerEffectiveTime = let,
     workflowId = Some(Ref.LedgerString.assertFromString("tests"))
   )
+
+
 
   "In-memory implementation" should {
 
@@ -47,6 +51,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     "provide update after uploadPackages" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
+      val submissionId = new AtomicInteger()
 
       val sourceDescription = "provided by test"
       val archive = DamlLf.Archive.newBuilder
@@ -64,13 +69,14 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           case _ => fail("unexpected update message after a package upload")
         }
 
-      ps.uploadPackages(List(archive), sourceDescription)
+      ps.uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
       waitForUpdateFuture
     }
 
     "provide update after allocateParty" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
+      val submissionId = new AtomicInteger()
 
       val hint = Some("Alice")
       val displayName = Some("Alice Cooper")
@@ -86,7 +92,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           case _ => fail("unexpected update message after a package upload")
         }
 
-      ps.allocateParty(hint, displayName)
+      ps.allocateParty(submissionId.getAndIncrement().toString, hint, displayName)
       waitForUpdateFuture
     }
 

@@ -77,6 +77,7 @@ final case class IndexState(
           Right(state.copy(hostedParties = state.hostedParties + u.party))
 
         case Update.PublicPackagesUploaded(
+            submissionId,
             archives,
             sourceDescription,
             participantId,

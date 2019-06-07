@@ -5,7 +5,6 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Clock
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
@@ -85,9 +84,6 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   private implicit val ec: ExecutionContext = mat.executionContext
 
   val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString)
-
-  // In-memory implementation of globally unique session id is just a counter
-  private var globallyUniqueSubmissionId = new AtomicInteger()
 
   // The ledger configuration
   private val ledgerConfig = Configuration(timeModel = TimeModel.reasonableDefault)
@@ -322,13 +318,14 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
 
   /** Allocate a party on the ledger */
   override def allocateParty(
+      submissionId: String,
       hint: Option[String],
       displayName: Option[String]): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(
         allocateEntryId,
         KeyValueSubmission.partyToSubmission(
-          globallyUniqueSubmissionId.getAndIncrement().toString,
+          submissionId,
           hint,
           displayName,
           participantId)
@@ -339,13 +336,14 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
 
   /** Upload DAML-LF packages to the ledger */
   override def uploadPackages(
+      submissionId: String,
       archives: List[Archive],
       sourceDescription: String): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(
         allocateEntryId,
         KeyValueSubmission.archivesToSubmission(
-          globallyUniqueSubmissionId.getAndIncrement().toString,
+          submissionId,
           archives,
           sourceDescription,
           participantId)
