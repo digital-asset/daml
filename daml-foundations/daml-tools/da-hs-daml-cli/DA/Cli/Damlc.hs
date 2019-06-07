@@ -7,6 +7,7 @@
 
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Damlc (main) where
+    
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
 import DA.Cli.Damlc.Base
