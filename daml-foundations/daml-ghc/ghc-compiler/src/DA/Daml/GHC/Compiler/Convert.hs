@@ -636,7 +636,7 @@ convertBind2 env (Rec xs) = concatMapM (\(a, b) -> convertBind env (NonRec a b))
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: [String]
-internalTypes = ["Scenario","Update","ContractId","Time","Date","Party","Pair"]
+internalTypes = ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap"]
 
 internalFunctions :: LF.Version -> MS.Map GHC.ModuleName [String]
 internalFunctions version = MS.fromList $ map (first mkModuleName)
@@ -1245,9 +1245,9 @@ convertTyCon env t
             "Party" -> pure TParty
             "Date" -> pure TDate
             "Time" -> pure TTimestamp
+            "TextMap" -> pure (TBuiltin BTMap)
             _ -> defaultTyCon
     | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)
-    | isBuiltinName "TextMap" t = pure (TBuiltin BTMap)
     | otherwise = defaultTyCon
     where
         arity = tyConArity t
