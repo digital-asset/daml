@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 Testing templates using scenarios
-=========
+=================================
 
 In this section you will test the ``Token`` model from :doc:`1_Token` using DAML's inbuilt ``scenario`` language. You'll learn about the basic features of scenarios:
 

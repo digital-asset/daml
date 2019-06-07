@@ -65,6 +65,8 @@ Up to this point all the contracts only involved one party. ``party`` may have b
 
 If you open the scenario view in the IDE, you will notice that Bob sees the ``Contact``. Controllers specified via ``controller c can`` syntax become *observers* of the contract. More on *observers* later, but in short, they get to see any changes to the contract.
 
+.. _choices:
+
 Choices in the Ledger Model
 ---------------------------
 
