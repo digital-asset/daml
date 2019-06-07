@@ -43,11 +43,16 @@ service PartyManagementService {
   // Adds a new party to the set managed by the backing participant.
   // Caller specifies a party identifier suggestion, the actual identifier
   // allocated might be different and is implementation specific.
-  // This call will either succeed or respond with UNIMPLEMENTED if synchronous
-  // party allocation is not supported by the backing participant.
+  // This call may:
+  // - Succeed, in which case the actual allocated identifier is visible in
+  //   the response.
+  // - Respond with UNIMPLEMENTED if synchronous party allocation is not
+  //   supported by the backing participant.
+  // - Respond with INVALID_ARGUMENT if the provided hint and/or display name
+  //   is invalid on the given ledger (see below).
   // daml-on-sql: suggestion's uniqueness is checked and call rejected if the
   // identifier is already present
-  // daml-on-kv-ledger: suggestion's uniqueness is checked bby the validators in
+  // daml-on-kv-ledger: suggestion's uniqueness is checked by the validators in
   // the consensus layer and call rejected if the identifier is already present.
   // canton: completely different globally unique identifier is allocated.
   // Behind the scenes calls to an internal protocol are made. As that protocol

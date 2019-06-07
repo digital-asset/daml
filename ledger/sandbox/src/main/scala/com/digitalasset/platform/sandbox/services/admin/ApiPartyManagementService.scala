@@ -58,12 +58,12 @@ class ApiPartyManagementService private (
         case PartyAllocationResult.Ok(details) =>
           Future.successful(AllocatePartyResponse(Some(mapPartyDetails(details))))
         case PartyAllocationResult.AlreadyExists =>
-          Future.failed(ErrorFactories.invalidArgument(s"Party already exists"))
+          Future.failed(ErrorFactories.invalidArgument(s"The requested party name already exists"))
         case PartyAllocationResult.InvalidName =>
           Future.failed(ErrorFactories.invalidArgument(s"The requested party name is invalid"))
         case PartyAllocationResult.NotSupported =>
           Future.failed(
-            ErrorFactories.invalidArgument(
+            ErrorFactories.unimplemented(
               s"Synchronous party allocation is not supported on this ledger"))
       }(DE)
   }
