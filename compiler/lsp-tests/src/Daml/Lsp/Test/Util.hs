@@ -7,23 +7,35 @@ module Daml.Lsp.Test.Util
     , cursorPosition
     , expectDiagnostics
     , damlId
+
     , openDoc'
     , replaceDoc
+    , getCodeLenses
+    , getDefinitions
+    , waitForScenarioDidChange
+    , scenarioUri
+    , openScenario
+    , expectScenarioContent
     , module Language.Haskell.LSP.Test
     ) where
 
 import Control.Applicative.Combinators
-import Control.Lens
+import Control.Exception
+import Control.Lens hiding (List)
 import Control.Monad
 import Control.Monad.IO.Class
+import Data.Aeson (Result(..), fromJSON)
 import qualified Data.Map.Strict as Map
+import Data.Maybe
 import qualified Data.Text as T
-import Language.Haskell.LSP.Test hiding (getDocUri, message, openDoc')
+import Language.Haskell.LSP.Test hiding (getDefinitions, getDocUri, message, openDoc')
 import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
-import Language.Haskell.LSP.Types.Lens
+import Language.Haskell.LSP.Types.Lens as Lsp
+import Network.URI
 import Test.Tasty.HUnit
 
+import DA.Service.Daml.LanguageServer
 import DA.Test.Util
 import Development.IDE.Types.Diagnostics
 
@@ -91,3 +103,50 @@ getDocUri file = do
     uri <- LspTest.getDocUri file
     Just fp <- pure $ uriToFilePath uri
     pure $ filePathToUri' fp
+
+getCodeLenses :: TextDocumentIdentifier -> Session [CodeLens]
+getCodeLenses tId = do
+    rsp <- request TextDocumentCodeLens (CodeLensParams tId) :: Session CodeLensResponse
+    case rsp ^. result of
+        Nothing -> liftIO $ throwIO (UnexpectedResponseError (rsp ^. Lsp.id) (fromJust $ rsp ^. Lsp.error))
+        Just (List res) -> pure res
+
+getDefinitions :: TextDocumentIdentifier -> Position -> Session [Location]
+getDefinitions doc pos = do
+    rsp <- request TextDocumentDefinition (TextDocumentPositionParams doc pos)
+    case rsp ^. result of
+        Nothing -> liftIO $ throwIO (UnexpectedResponseError (rsp ^. Lsp.id) (fromJust $ rsp ^. Lsp.error))
+        Just (SingleLoc loc) -> pure [loc]
+        Just (MultiLoc locs) -> pure locs
+
+waitForScenarioDidChange :: Session VirtualResourceChangedParams
+waitForScenarioDidChange = do
+  scenario <- skipManyTill anyMessage scenarioDidChange
+  case fromJSON $ scenario ^. params of
+      Success p -> pure p
+      Error s -> fail $ "Failed to parse daml/virtualResource/didChange params: " <> s
+  where scenarioDidChange = do
+            m <- LspTest.message :: Session CustomServerNotification
+            guard (m ^. method == CustomServerMethod "daml/virtualResource/didChange")
+            pure m
+
+scenarioUri :: FilePath -> String -> Session Uri
+scenarioUri fp name = do
+    Just fp' <- uriToFilePath <$> getDocUri fp
+    pure $ Uri $ T.pack $
+        "daml://compiler?file=" <> escapeURIString isUnescapedInURIComponent fp' <>
+        "&top-level-decl=" <> name
+
+openScenario :: FilePath -> String -> Session TextDocumentIdentifier
+openScenario fp name = do
+    uri <- scenarioUri fp name
+    sendNotification TextDocumentDidOpen $ DidOpenTextDocumentParams $
+        TextDocumentItem uri (T.pack damlId) 0 ""
+    pure $ TextDocumentIdentifier uri
+
+expectScenarioContent :: T.Text -> Session ()
+expectScenarioContent needle = do
+    m <- waitForScenarioDidChange
+    liftIO $ assertBool
+        ("Expected " <> show needle  <> " in " <> show (_vrcpContents m))
+        (needle `T.isInfixOf` _vrcpContents m)

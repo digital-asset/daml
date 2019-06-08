@@ -1,7 +1,0 @@
--- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
--- All rights reserved.
-
-daml 1.2
-module TheImport where
-
-aValue = "it is me, the value!"

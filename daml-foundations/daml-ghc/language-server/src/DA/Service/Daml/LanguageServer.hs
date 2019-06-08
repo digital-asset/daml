@@ -8,6 +8,7 @@
 
 module DA.Service.Daml.LanguageServer
     ( runLanguageServer
+    , VirtualResourceChangedParams(..)
     ) where
 
 import qualified Control.Concurrent.Async                  as Async
@@ -30,7 +31,7 @@ import qualified DA.Service.Logger                         as Logger
 import DAML.Project.Consts
 
 import qualified Data.Aeson                                as Aeson
-import           Data.Aeson.TH.Extended                    (deriveDAToJSON)
+import           Data.Aeson.TH.Extended                    (deriveDAToJSON, deriveDAFromJSON)
 import           Data.IORef                                (IORef, atomicModifyIORef', newIORef)
 import qualified Data.Rope.UTF16 as Rope
 import qualified Data.Set                                  as S
@@ -83,9 +84,10 @@ data VirtualResourceChangedParams = VirtualResourceChangedParams
       -- ^ The uri of the virtual resource.
     , _vrcpContents :: !T.Text
       -- ^ The new contents of the virtual resource.
-    }
+    } deriving Show
 
 deriveDAToJSON "_vrcp" ''VirtualResourceChangedParams
+deriveDAFromJSON "_vrcp" ''VirtualResourceChangedParams
 
 -- | Information regarding validations done for a DAML workspace.
 workspaceValidationsNotification :: T.Text
