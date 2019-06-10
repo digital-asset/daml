@@ -6,7 +6,7 @@ daml 1.2
 -- | Type and functions for non-empty lists. This module re-exports many functions with
 -- the same name as prelude list functions, so it is expected to import the module qualified.
 -- For example, with the following import list you will have access to the `NonEmpty` type
--- and any functions on non-empty lists will be qualified, for example as `N.append, N.map, N.foldl`:
+-- and any functions on non-empty lists will be qualified, for example as `NE.append, NE.map, NE.foldl`:
 --
 -- ```
 -- import DA.NonEmpty (NonEmpty)
