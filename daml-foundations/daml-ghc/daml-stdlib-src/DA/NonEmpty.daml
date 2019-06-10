@@ -10,7 +10,7 @@ daml 1.2
 --
 -- ```
 -- import DA.NonEmpty (NonEmpty)
--- import qualified DA.NonEmpty as N
+-- import qualified DA.NonEmpty as NE
 -- ```
 module DA.NonEmpty where
 
