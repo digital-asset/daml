@@ -119,7 +119,7 @@ errorOnLeft desc = \case
 
 
 -- | 'netlistGraph' generates a simple graph from a netlist.
--- The default implementation does the edeges other way round. The modidication is on # 143
+-- The default implementation does the edeges other way round. The change is on # 143
 netlistGraph' :: (Ord a) 
           => (b -> [(String,String)])   -- ^ Attributes for each node
           -> (b -> [a])                 -- ^ Out edges leaving each node
