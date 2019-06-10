@@ -58,7 +58,7 @@ import           System.IO
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 import DA.Cli.Damlc.Test
 import DA.Bazel.Runfiles
-
+import DA.Cli.Visual
 --------------------------------------------------------------------------------
 -- Commands
 --------------------------------------------------------------------------------
@@ -131,6 +131,13 @@ cmdInspect =
   where
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
     cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt
+
+cmdVisual :: Mod CommandFields Command
+cmdVisual =
+    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dalf" <> fullDesc
+    where
+      cmd = execVisual <$> inputFileOpt <*> inputFileOpt
+
 
 cmdBuild :: Int -> Mod CommandFields Command
 cmdBuild numProcessors =
@@ -678,6 +685,7 @@ options numProcessors =
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
+        <> cmdVisual
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean
