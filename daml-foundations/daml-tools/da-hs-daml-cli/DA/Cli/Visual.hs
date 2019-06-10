@@ -125,25 +125,21 @@ netlistGraph' :: (Ord a)
           -> (b -> [a])                 -- ^ Out edges leaving each node
           -> [(a,b)]                    -- ^ The netlist
           -> Dot ()
-netlistGraph' attrFn outFn assocs = do
-    let nodes = Set.fromList $ [ a | (a,_) <- assocs ]
-    let outs  = Set.fromList $ [ o | (_,b) <- assocs
-                                 , o <- outFn b 
-                             ]
-    nodeTab <- sequence [ do nd <- node (attrFn b)
-                             return (a,nd)
-                        | (a,b) <- assocs ]
-    otherTab <- sequence [ do nd <- node []
-                              return (o,nd)
-                         | o <- Set.toList outs
-                         , o `Set.notMember` nodes
-                         ]
+netlistGraph' attrFn outFn assocs = do 
+    let nodes = Set.fromList [a | (a, _) <- assocs]
+    let outs = Set.fromList [o | (_, b) <- assocs, o <- outFn b]
+    nodeTab <- sequence
+                [do nd <- node (attrFn b)
+                    return (a, nd)
+                | (a, b) <- assocs]
+    otherTab <- sequence
+               [do nd <- node []
+                   return (o, nd)
+                | o <- Set.toList outs, o `Set.notMember` nodes]
     let fm = M.fromList (nodeTab ++ otherTab)
-    sequence_ [ (fm M.! dst)  .->. (fm M.! src)
-              | (dst,b) <- assocs
-              , src     <- outFn b
-              ]
-    return ()
+    sequence_
+        [(fm M.! dst) .->. (fm M.! src) | (dst, b) <- assocs,
+        src <- outFn b]
 
 
 
@@ -156,8 +152,6 @@ execVisual darFilePath dalfFile = do
         res = concatMap (moduleAndTemplates world) modules
         actionEdges = map templatePairs res
     putStrLn $ showDot $ do 
-        netlistGraph' (srcLabel)
-                      (actionsForTemplate)
-                      (actionEdges)
+        netlistGraph' srcLabel actionsForTemplate actionEdges
 
 
