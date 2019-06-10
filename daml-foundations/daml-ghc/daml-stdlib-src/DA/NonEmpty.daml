@@ -2,7 +2,16 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
--- | HIDE
+
+-- | Type and functions for non-empty lists. This module re-exports many functions with
+-- the same name as prelude list functions, so it is expected to import the module qualified.
+-- For example, with the following import list you will have access to the `NonEmpty` type
+-- and any functions on non-empty lists will be qualified, for example as `N.append, N.map, N.foldl`:
+--
+-- ```
+-- import DA.NonEmpty (NonEmpty)
+-- import qualified DA.NonEmpty as N
+-- ```
 module DA.NonEmpty where
 
 import Prelude hiding (reverse, foldr, foldl, one, map)
@@ -12,6 +21,9 @@ import DA.Traversable qualified as T
 import DA.List qualified as L
 import DA.Action qualified as M
 
+-- | `NonEmpty` is the type of non-empty lists. In other words, it is the type of lists
+-- that always contain at least one element. If `x` is a non-empty list, you can obtain
+-- the first element with `x.hd` and the rest of the list with `x.tl`.
 data NonEmpty a = NonEmpty
   with
     hd : a
@@ -40,46 +52,67 @@ instance F.Foldable NonEmpty where
 instance T.Traversable NonEmpty where
   mapA f l = liftA2 NonEmpty (f l.hd) (T.mapA f l.tl)
 
+-- | Append or concatenate two non-empty lists.
 append : NonEmpty a -> NonEmpty a -> NonEmpty a
 append l r =  NonEmpty l.hd (l.tl ++ toList r)
 
+-- | Apply a function over each element in the non-empty list.
 map : (a -> b) -> NonEmpty a -> NonEmpty b
 map f ne = NonEmpty (f ne.hd) (P.map f ne.tl)
 
+-- | Turn a list into a non-empty list, if possible. Returns
+-- `None` if the input list is empty, and `Some` otherwise.
 nonEmpty : [a] -> Optional (NonEmpty a)
 nonEmpty [] = None
 nonEmpty (x::xs) = Some (NonEmpty x xs)
 
+-- | A non-empty list with a single element.
 singleton : a -> NonEmpty a
 singleton head = NonEmpty head []
 
+-- | Turn a non-empty list into a list (by forgetting that it is not empty).
 toList : NonEmpty a -> [a]
 toList (NonEmpty head tail) = head :: tail
 
+-- | Reverse a non-empty list.
 reverse : NonEmpty a -> NonEmpty  a
 reverse l = let hd::tl = L.reverse $ toList l in NonEmpty with hd; tl
 
+-- | Apply a function repeatedly to pairs of elements from a non-empty list,
+-- from the left. For example, `foldl1 (+) (NonEmpty 1 [2,3,4]) = ((1 + 2) + 3) + 4`.
 foldl1 : (a -> a -> a) -> NonEmpty a -> a
 foldl1 f l = L.foldl f l.hd l.tl
 
+-- | Apply a function repeatedly to pairs of elements from a non-empty list,
+-- from the right. For example, `foldr1 (+) (NonEmpty 1 [2,3,4]) = 1 + (2 + (3 + 4))`.
 foldr1 : (a -> a -> a) -> NonEmpty a -> a
 foldr1 f l = foldl1 (flip f) (reverse l)
 
+-- | Apply a function repeatedly to pairs of elements from a non-empty list,
+-- from the right, with a given initial value. For example,
+-- `foldr (+) 0 (NonEmpty 1 [2,3,4]) = 1 + (2 + (3 + (4 + 0)))`.
 foldr : (a -> b -> b) -> b -> NonEmpty a -> b
 foldr f i l = L.foldr f i (toList l)
 
+-- | The same as `foldr` but running an action each time.
 foldrA : Action m => (a -> b -> m b) -> b -> NonEmpty a -> m b
 foldrA f x xs = foldr (\ y acc -> do v <- acc; f y v) (pure x) xs
 
+-- | The same as `foldr1` but running an action each time.
 foldr1A : Action m => (a -> a -> m a) -> NonEmpty a -> m a
 foldr1A f l = M.foldrA f l.hd l.tl
 
+-- | Apply a function repeatedly to pairs of elements from a non-empty list,
+-- from the left, with a given initial value. For example,
+-- `foldl (+) 0 (NonEmpty 1 [2,3,4]) = (((0 + 1) + 2) + 3) + 4`.
 foldl : (b -> a -> b) -> b -> NonEmpty a -> b
 foldl f i l = L.foldl f i (toList l)
 
+-- | The same as `foldl` but running an action each time.
 foldlA : Action m => (b -> a -> m b) -> b -> NonEmpty a -> m b
 foldlA f x xs = foldl (\ acc y -> do v <- acc; f v y) (pure x) xs
 
+-- | The same as `foldl1` but running an action each time.
 foldl1A : Action m => (a -> a -> m a) -> NonEmpty a -> m a
 foldl1A f l = M.foldlA f l.hd l.tl
 
