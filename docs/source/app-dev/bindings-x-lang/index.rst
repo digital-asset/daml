@@ -80,7 +80,7 @@ If you are creating custom bindings for the Digital Asset distributed ledger, yo
 
 - generate **Ledger API** from the gRPC definitions
 
-- decide if you write a codegen to generate contract classes or you manually build commands for all contracts defined in your DAML model.
+- decide whether to write a codegen to generate contract classes or manually build commands for all contracts defined in your DAML model.
 
 The above examples should help you get started. Feel free to contact us on the DAML community `Slack <https://damldriven.slack.com/sso/saml/start>`_ or open a `GitHub issue <https://github.com/digital-asset/daml/issues>`_.
 
