@@ -133,8 +133,8 @@ unpackCStringUtf8 bs = unsafePerformIO $
         evaluate $ T.unpackCString# a
 
 -- | This import was generated, not user written, so should not produce unused import warnings
-importGenerated :: ImportDeclQualifiedStyle -> ImportDecl phase -> ImportDecl phase
+importGenerated :: Bool -> ImportDecl phase -> ImportDecl phase
 importGenerated qual i = i{ideclImplicit=True, ideclQualified=qual}
 
 mkImport :: Located ModuleName -> ImportDecl GhcPs
-mkImport mname = GHC.ImportDecl GHC.NoExt GHC.NoSourceText mname Nothing False False NotQualified False Nothing Nothing
+mkImport mname = GHC.ImportDecl GHC.NoExt GHC.NoSourceText mname Nothing False False False False Nothing Nothing

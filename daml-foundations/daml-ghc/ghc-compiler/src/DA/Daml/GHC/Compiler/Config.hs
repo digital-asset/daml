@@ -48,11 +48,7 @@ xExtensionsSet =
     -- package imports
   , PackageImports
     -- our changes
-  , NewColonConvention
-  , DamlVersionRequired
-  , WithRecordSyntax
-  , DamlTemplate
-  , ImportQualifiedPost
+  , DamlSyntax
   ]
 
 
@@ -73,7 +69,7 @@ xFlagsSet = [
 wOptsSet :: [ WarningFlag ]
 wOptsSet =
   [ Opt_WarnUnusedImports
-  , Opt_WarnPrepositiveQualifiedModule
+--  , Opt_WarnPrepositiveQualifiedModule
   , Opt_WarnOverlappingPatterns
   , Opt_WarnIncompletePatterns
   ]

@@ -64,10 +64,10 @@ importDamlPreprocessor = fmap onModule
     where
         onModule y = y {
           GHC.hsmodImports =
-            newImport GHC.QualifiedPost "DA.Internal.Desugar" :
-            newImport GHC.NotQualified "DA.Internal.RebindableSyntax" : GHC.hsmodImports y
+            newImport True "DA.Internal.Desugar" :
+            newImport False "DA.Internal.RebindableSyntax" : GHC.hsmodImports y
           }
-        newImport :: GHC.ImportDeclQualifiedStyle -> String -> GHC.Located (GHC.ImportDecl GHC.GhcPs)
+        newImport :: Bool -> String -> GHC.Located (GHC.ImportDecl GHC.GhcPs)
         newImport qual = GHC.noLoc . importGenerated qual . mkImport . GHC.noLoc . GHC.mkModuleName
 
 -- | We ban people from importing modules such
