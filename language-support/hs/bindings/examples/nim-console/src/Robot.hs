@@ -6,9 +6,9 @@ module Robot(robotMain) where
 import Control.Concurrent
 import Control.Monad(forever)
 
-import Data.Maybe(listToMaybe)
 import Data.Foldable(forM_)
 import System.Console.ANSI(Color(..))
+import System.Random(randomRIO)
 import System.Time.Extra(sleep)
 
 import Domain
@@ -39,10 +39,15 @@ robot h log ps = loop
         sleep 2
         let PlayerState{sv} = ps
         s <- readMVar sv
-        forM_ (pick (Local.possibleActions s)) $ \lt -> do
+        opt <- pick (Local.possibleActions s)
+        forM_ opt $ \lt -> do
             --log $ "playing: " <> show lt
             runSubmit h log ps lt
         loop
 
-pick :: [a] -> Maybe a
-pick = listToMaybe
+pick :: [a] -> IO (Maybe a)
+pick = \case
+    [] -> return Nothing
+    xs -> do
+        i <- randomRIO (0, length xs - 1)
+        return $ Just (xs !! i)

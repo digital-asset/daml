@@ -70,7 +70,7 @@ parseWords = \case
     ["show"] ->
         return $ Query ShowOpenState
     ["offer"] ->
-        return $ Submit Local.OfferNewGameToAnyone
+        Nothing -- return $ Submit Local.OfferNewGameToAnyone
     "offer":ps -> do
         return $ Submit $ Local.OfferGameL (map Player ps)
     ["accept",o] -> do

@@ -5,8 +5,6 @@ daml 1.2
 
 module Nim where
 
-import DA.List(splitAt)
-
 template GameOffer
     with
         offerer : Party
@@ -25,6 +23,33 @@ template GameOffer
                              player2 = acceptor
                              piles = initPiles
 
+
+data Game = Game with
+    player1 : Party
+    player2 : Party
+    piles : [Int]
+        deriving (Eq,Show)
+
+initPiles = [7,5,3]
+
+data Move = Move with
+    pileNum : Int -- numbered 1,2,3...
+    howMany : Int
+        deriving (Eq,Show)
+
+{-
+-- (i)
+isLegalMove : Move -> Game -> Bool
+applyMove : Move -> Game -> Game
+
+-- (ii)
+tryMove : Move -> Game -> Optional Game
+
+-- (iii)
+playMove : Move -> Game -> Either RejectionMessage Game
+-}
+
+
 template GameInProgress
     with
         game : Game
@@ -37,31 +62,20 @@ template GameInProgress
                     Left m -> error m
                     Right game -> create this with game
 
-data Game = Game with
-    player1 : Party
-    player2 : Party
-    piles : [Int]
-        deriving (Eq,Show)
-
-initPiles = [7,5,3]
-
-data Move = Move with
-    pileNum : Int
-    howMany : Int
-        deriving (Eq,Show)
-
-type RejectionMessage = String
 
 playMove : Move -> Game -> Either RejectionMessage Game
 playMove Move{pileNum,howMany} Game{player1,player2,piles} =
     if pileNum < 1 || pileNum > length piles then Left "no such pile" else
     case splitAt (pileNum - 1) piles of
-        (xs,selected::ys)
-            | howMany < 1 -> Left "must take at least 1"
-            | howMany > 3 -> Left "may only take 1,2 or 3"
-            | selected < howMany -> Left "not that many in pile"
-            | otherwise -> Right Game with
-                                player1 = player2
-                                player2 = player1
-                                piles = xs ++ [selected - howMany] ++ ys
-        _ -> Left "failed to split, should never happen"
+        (before,selected::after)
+            | howMany < 1               -> Left "must take at least 1"
+            | howMany > 3               -> Left "may only take 1,2 or 3"
+            | selected < howMany        -> Left "not that many in pile"
+            | otherwise ->
+                Right Game with
+                        player1 = player2
+                        player2 = player1
+                        piles = before ++ [selected - howMany] ++ after
+
+
+type RejectionMessage = String
