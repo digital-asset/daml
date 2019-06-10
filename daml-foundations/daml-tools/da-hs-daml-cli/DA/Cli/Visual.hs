@@ -13,17 +13,15 @@ import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.World as AST 
 import DA.Daml.LF.Ast.Version
 import qualified Data.NameMap as NM
--- import Debug.Trace
 import qualified Data.Set as Set
 import qualified DA.Pretty as DAP
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified Data.ByteString.Lazy as BSL
 import Text.Dot
 import qualified Data.ByteString as B
--- import Control.Monad.Except
 import Codec.Archive.Zip
 import System.FilePath
--- import qualified Data.List as DL
+import qualified Data.Map as M
 
 data Action = ACreate (LF.Qualified LF.TypeConName) 
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -99,80 +97,67 @@ darToWorld darFilePath pkg = do
         pkgs = map dalfBytesToPakage dalfs
     return (AST.initWorldSelf pkgs version1_4 pkg) 
 
-
-prettyAction :: Action -> String
-prettyAction (ACreate  (LF.Qualified _ _ tpl) )  = DAP.renderPretty tpl 
-prettyAction (AExercise  (LF.Qualified _ _ tpl) _ ) = DAP.renderPretty tpl
-
 templateInAction :: Action -> LF.TypeConName
 templateInAction (ACreate  (LF.Qualified _ _ tpl) ) = tpl
 templateInAction (AExercise  (LF.Qualified _ _ tpl) _ ) = tpl
 
--- prettyTemplateWithAction :: (LF.TypeConName ,DS.Set Action) -> String
--- prettyTemplateWithAction (tplCon, actions) =  DAP.renderPretty tplCon ++ "->" ++ show(DS.map prettyAction actions)
+srcLabel :: (LF.TypeConName, Set.Set Action) -> [(String, String)]                                              
+srcLabel (tc, _) = [ ("shape","none"),("label",DAP.renderPretty tc) ]
 
-src :: String -> Dot NodeId
-src label = node [ ("shape","none"),("label",label) ]
-
-src' :: (LF.TypeConName, Set.Set Action) -> [(String, String)]                                              -- (b -> (String, String))
-src' (tc, _) = [ ("shape","none"),("label",DAP.renderPretty tc) ]
-
-
-templatePairs :: (LF.TypeConName, Set.Set Action) -> (LF.TypeConName , (LF.TypeConName , Set.Set Action))   -- [(a, b)]
+templatePairs :: (LF.TypeConName, Set.Set Action) -> (LF.TypeConName , (LF.TypeConName , Set.Set Action))
 templatePairs (tc, actions) = (tc , (tc, actions))
 
-dotGraphTemplateAndActionHelper' :: (LF.TypeConName, Set.Set Action) -> [LF.TypeConName]      -- b -> [a]
-dotGraphTemplateAndActionHelper' (_tplCon, actions) = actionsStrs
+actionsForTemplate :: (LF.TypeConName, Set.Set Action) -> [LF.TypeConName]
+actionsForTemplate (_tplCon, actions) = actionsStrs
     where 
         actionsStrs = Set.elems $ Set.map templateInAction actions
-
-dotGraphTemplateAndActionHelper :: (LF.TypeConName, Set.Set Action) -> (String, [String])
-dotGraphTemplateAndActionHelper (tplCon, actions) = (tplStr, actionsStrs)
-    where 
-        tplStr =  DAP.renderPretty tplCon
-        actionsStrs = Set.elems $ Set.map prettyAction actions
-
-dotTemplateNodes :: LF.TypeConName -> (String, Dot NodeId)
-dotTemplateNodes tplCon = (DAP.renderPretty tplCon , src $ DAP.renderPretty tplCon)
-
-
-
--- nodeToDot :: NodeId -> String -> Dot ()
--- nodeToDot a b = do
---     n2 <- src b
---     a .->. n2
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case
   Left err -> ioError $ userError $ unlines [ desc, show err ]
   Right x  -> return x
 
+
+-- | 'netlistGraph' generates a simple graph from a netlist.
+-- The default implementation does the edeges other way round. The modidication is on # 143
+netlistGraph' :: (Ord a) 
+          => (b -> [(String,String)])   -- ^ Attributes for each node
+          -> (b -> [a])                 -- ^ Out edges leaving each node
+          -> [(a,b)]                    -- ^ The netlist
+          -> Dot ()
+netlistGraph' attrFn outFn assocs = do
+    let nodes = Set.fromList $ [ a | (a,_) <- assocs ]
+    let outs  = Set.fromList $ [ o | (_,b) <- assocs
+                                 , o <- outFn b 
+                             ]
+    nodeTab <- sequence [ do nd <- node (attrFn b)
+                             return (a,nd)
+                        | (a,b) <- assocs ]
+    otherTab <- sequence [ do nd <- node []
+                              return (o,nd)
+                         | o <- Set.toList outs
+                         , o `Set.notMember` nodes
+                         ]
+    let fm = M.fromList (nodeTab ++ otherTab)
+    sequence_ [ (fm M.! dst)  .->. (fm M.! src)
+              | (dst,b) <- assocs
+              , src     <- outFn b
+              ]
+    return ()
+
+
+
 execVisual :: FilePath -> FilePath -> IO ()
 execVisual darFilePath dalfFile = do
     bytes <- B.readFile dalfFile
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes 
     world <- darToWorld darFilePath lfPkg
-    putStrLn "done"
     let modules = NM.toList $ LF.packageModules lfPkg
         res = concatMap (moduleAndTemplates world) modules
-        -- ppString = map prettyTemplateWithAction res
-        _tpls =  map (dotTemplateNodes . fst) res
-        dotThing = map dotGraphTemplateAndActionHelper res -- ListOfTemplateAndActions
-        
-        pairs = map templatePairs res
-    putStrLn (show dotThing)  
+        actionEdges = map templatePairs res
     putStrLn $ showDot $ do 
-        netlistGraph (src')
-                     (dotGraphTemplateAndActionHelper' )
-                     (pairs)
-    -- putStrLn $ showDot $ do
-    --     attribute ("rankdir","LR")
-    --     forM_ dotThing $ \(tplName, actions) -> do
-    --         case DL.find (\t ->  fst t == tplName ) tpls of 
-    --             Just (_, tplNode) -> do 
-    --                 tNode <- tplNode
-    --                 mapM (\a -> nodeToDot tNode a ) actions
-    --             Nothing -> error "Unknow teplate referenced"
-
+        netlistGraph' (srcLabel)
+                      (actionsForTemplate)
+                      (actionEdges)
 
 
