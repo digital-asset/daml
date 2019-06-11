@@ -18,3 +18,13 @@ User statistics are only available to Digital Asset employees. Once you have req
 * In the search area hit `advanced`, then include `Page` containing `/webide` and then `Apply`.
 
 That gives you a graph of users per day. It is interesting to see session duration as well.
+
+## GCP and Monitoring
+This functionality is only available to Digital Asset employees.
+
+For information on the gcp environment setup: https://digitalasset.atlassian.net/wiki/spaces/IS/pages/866779203/WebIDE+code+server
+
+For healthcheck alerts and monitoring: https://app.google.stackdriver.com/?project=da-gcp-web-ide-project
+* currently set up to email IT and slack #team-daml-language
+* monitors the webide url and alerts if the server is unresponsive
+* monitors the cpu usage of the webide instance group and alerts if over 79% utilization.
