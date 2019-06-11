@@ -11,7 +11,7 @@ import scala.concurrent.Future
   * Serves as a backend to implement
   * [[com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc]]
   */
-trait PartyManagementService {
+trait IndexPartyManagementService {
   def getParticipantId(): Future[ParticipantId]
 
   def listParties(): Future[List[PartyDetails]]

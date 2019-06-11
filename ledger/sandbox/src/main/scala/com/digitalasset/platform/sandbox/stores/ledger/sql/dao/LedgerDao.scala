@@ -8,14 +8,14 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v2.TransactionId
+import com.daml.ledger.participant.state.v2.{PartyAllocationResult, TransactionId}
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
 import com.digitalasset.ledger._
-import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
@@ -173,6 +173,21 @@ trait LedgerDao extends AutoCloseable {
       ledgerEntries: immutable.Seq[(LedgerOffset, LedgerEntry)],
       newLedgerEnd: LedgerOffset
   ): Future[Unit]
+
+  /** Returns a list of all known parties. */
+  def getParties: Future[List[PartyDetails]]
+
+  /**
+    * Explicitly adds a new party to the list of known parties.
+    *
+    * @param party The party identifier
+    * @param displayName The human readable display name
+    * @return
+    */
+  def storeParty(
+      party: Party,
+      displayName: Option[String]
+  ): Future[PartyAllocationResult]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

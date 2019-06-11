@@ -11,13 +11,15 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.WorkflowId
+import com.digitalasset.ledger.api.domain.PartyDetails
 import com.digitalasset.platform.sandbox.stores.ActiveContracts._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
 import scalaz.syntax.std.map._
 
 case class ActiveContractsInMemory(
     contracts: Map[AbsoluteContractId, ActiveContract],
-    keys: Map[GlobalKey, AbsoluteContractId])
+    keys: Map[GlobalKey, AbsoluteContractId],
+    parties: Map[Party, PartyDetails])
     extends ActiveContracts[ActiveContractsInMemory] {
 
   override def lookupContract(cid: AbsoluteContractId) = contracts.get(cid)
@@ -35,6 +37,9 @@ case class ActiveContractsInMemory(
     case None => copy(contracts = contracts - cid)
     case Some(key) => copy(contracts = contracts - cid, keys = keys - key)
   }
+
+  override def addParties(newParties: Set[Party]): ActiveContractsInMemory =
+    copy(parties = newParties.map(p => p -> PartyDetails(p, None, true)).toMap ++ parties)
 
   override def divulgeAlreadyCommittedContract(
       transactionId: TransactionIdString,
@@ -72,8 +77,15 @@ case class ActiveContractsInMemory(
       localImplicitDisclosure,
       globalImplicitDisclosure)
 
+  /**
+    * Adds a new party to the list of known parties.
+    */
+  def addParty(details: PartyDetails): ActiveContractsInMemory = {
+    assert(!parties.contains(details.party))
+    copy(parties = parties + (details.party -> details))
+  }
 }
 
 object ActiveContractsInMemory {
-  def empty: ActiveContractsInMemory = ActiveContractsInMemory(Map(), Map())
+  def empty: ActiveContractsInMemory = ActiveContractsInMemory(Map(), Map(), Map.empty)
 }

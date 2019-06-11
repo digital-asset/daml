@@ -12,6 +12,7 @@ import akka.{Done, NotUsed}
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import com.daml.ledger.participant.state.v2.PartyAllocationResult
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -19,7 +20,7 @@ import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
-import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
@@ -333,6 +334,13 @@ private class PostgresLedgerDao(
     SQL(
       "insert into ledger_entries(typ, ledger_offset, recorded_at) values('checkpoint', {ledger_offset}, {recorded_at})")
 
+  private val SQL_IMPLICITLY_INSERT_PARTIES =
+    """insert into parties(party, explicit, ledger_offset)
+        |values({name}, {explicit}, {ledger_offset})
+        |on conflict (party)
+        |do nothing
+        |""".stripMargin
+
   /**
     * Updates the active contract set from the given DAML transaction.
     * Note: This involves checking the validity of the given DAML transaction.
@@ -373,6 +381,20 @@ private class PostgresLedgerDao(
         override def removeContract(cid: AbsoluteContractId, keyO: Option[GlobalKey]) = {
           archiveContract(offset, cid)
           keyO.foreach(key => removeContractKey(key))
+          this
+        }
+
+        override def addParties(parties: Set[Party]): AcsStoreAcc = {
+          val partyParams = parties.toList.map(
+            p =>
+              Seq[NamedParameter](
+                "name" -> (p: String),
+                "ledger_offset" -> offset,
+                "explicit" -> false
+            ))
+          if (partyParams.nonEmpty) {
+            executeBatchSql(SQL_IMPLICITLY_INSERT_PARTIES, partyParams)
+          }
           this
         }
 
@@ -437,7 +459,12 @@ private class PostgresLedgerDao(
         "recorded_at" -> tx.recordedAt,
         "transaction" -> transactionSerializer
           .serialiseTransaction(tx.transaction)
-          .getOrElse(sys.error(s"failed to serialise transaction! trId: ${tx.transactionId}"))
+          .fold(
+            err =>
+              sys.error(
+                s"Failed to serialise transaction! trId: ${tx.transactionId}. Details: ${err.errorMessage}."),
+            identity
+          )
       )
       .execute()
 
@@ -869,6 +896,56 @@ private class PostgresLedgerDao(
       .map(offset =>
         LedgerSnapshot(offset, dbDispatcher.runStreamingSql(conn => contractStream(conn, offset))))(
         DirectExecutionContext)
+  }
+
+  private val SQL_SELECT_PARTIES =
+    SQL("select party, display_name, ledger_offset, explicit from parties")
+
+  case class ParsedPartyData(
+      party: String,
+      displayName: Option[String],
+      ledgerOffset: Long,
+      explicit: Boolean)
+
+  private val PartyDataParser: RowParser[ParsedPartyData] =
+    Macro.parser[ParsedPartyData](
+      "party",
+      "display_name",
+      "ledger_offset",
+      "explicit"
+    )
+
+  override def getParties: Future[List[PartyDetails]] =
+    dbDispatcher.executeSql { implicit conn =>
+      SQL_SELECT_PARTIES
+        .as(PartyDataParser.*)
+        .map(d => PartyDetails(Party.assertFromString(d.party), d.displayName, true))
+    }
+
+  private val SQL_INSERT_PARTY =
+    SQL("""insert into parties(party, display_name, ledger_offset, explicit)
+        |select {party}, {display_name}, ledger_end, 'true'
+        |from parameters""".stripMargin)
+
+  override def storeParty(
+      party: Party,
+      displayName: Option[String]): Future[PartyAllocationResult] = {
+    dbDispatcher.executeSql { implicit conn =>
+      Try {
+        SQL_INSERT_PARTY
+          .on(
+            "party" -> (party: String),
+            "display_name" -> displayName,
+          )
+          .execute()
+        PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
+      }.recover {
+        case NonFatal(e) if e.getMessage.contains("duplicate key") =>
+          logger.warn("Party with ID {} already exists", party)
+          conn.rollback()
+          PartyAllocationResult.AlreadyExists
+      }.get
+    }
   }
 
   private val SQL_TRUNCATE_ALL_TABLES =

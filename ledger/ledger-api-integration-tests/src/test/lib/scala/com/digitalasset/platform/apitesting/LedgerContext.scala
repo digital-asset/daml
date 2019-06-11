@@ -16,6 +16,8 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.{MockMessages, Resource}
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
+import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
+import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
@@ -88,6 +90,7 @@ trait LedgerContext {
   def packageClient: PackageClient
   def acsClient: ActiveContractSetClient
   def reflectionService: ServerReflectionGrpc.ServerReflectionStub
+  def partyManagementService: PartyManagementService
 
   /**
     * resetService is protected on purpose, to disallow moving an instance of LedgerContext into an invalid state,
@@ -220,6 +223,9 @@ object LedgerContext {
 
     override def reflectionService: ServerReflectionGrpc.ServerReflectionStub =
       ServerReflectionGrpc.newStub(channel)
+
+    override def partyManagementService: PartyManagementService =
+      PartyManagementServiceGrpc.stub(channel)
   }
 
   object SingleChannelContext {
