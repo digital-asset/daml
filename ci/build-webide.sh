@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
-
+set -euo pipefail
 
 [ -z $1 ] && echo "usage build-webide [version] [latest:defaults true] [test:defaults true]" && exit 1
 
@@ -18,14 +18,14 @@ fail() {
 }
 
 ensureDockerStarted() {
-    local IMAGE_ID=$1
+    local CONTAINER_ID=$1
     local limit=10
     local i=0
     local RESULT="START"
     while [ $i -lt $limit -a $RESULT != "Up" ]; do
         sleep 1
         i=$(($i+1))
-        RESULT=$(docker container ls --filter=ancestor=$IMAGE_ID --format {{.Status}} | cut -c1-2)
+        RESULT=$(docker container ls --filter=id=$CONTAINER_ID --format {{.Status}} | cut -c1-2)
     done
     if [ $i -eq $limit ]; then
         echo "Could not start docker container: ls result='$RESULT'"
@@ -53,7 +53,7 @@ ensureWebideStarted() {
 
 stopDocker() {
     echo "stopping docker"
-    docker stop $(docker ps --format {{.ID}})
+    docker rm -f daml-webide-test
 }
 
 which docker > /dev/null 2>&1
@@ -71,10 +71,10 @@ fi
 if [ "$TEST" = true ]; then
     IMAGE_ID=$(docker image ls --filter=reference="gcr.io/da-gcp-web-ide-project/daml-webide:$VERSION" --format "{{.ID}}")
     echo "running container for image $IMAGE_ID"
-    docker run --rm -p 8443:8443 $IMAGE_ID > /dev/null 2>&1 &
+    CONTAINER_ID=$(docker run --name daml-webide-test --rm -d -p 8443:8443 $IMAGE_ID)
     sleep 5
 
-    ensureDockerStarted $IMAGE_ID
+    ensureDockerStarted $CONTAINER_ID
     ensureWebideStarted
 
     echo "!!!!!!!!!!! Test passed !!!!!!!!!!!!!!!!!"
