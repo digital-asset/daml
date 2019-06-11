@@ -15,11 +15,18 @@ To run the iou-no-codegen example:
 $ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain <sandbox-host-name> <sandbox-port-number> <iou-package-id>"
 ```
 
-You can find `iou-package-id` in the Navigator's, Templates screen. It displays all available contract templates, e.g:
+Default sandbox port is 6865.
+
+IOU template package ID (`iou-package-id`) can be found in the Navigator. Templates screen displays all available contract templates, e.g:
 ```
-Iou:Iou@adb51bfb8212a831aaf6ddf75322254511c07d21c9339c1374a2e8236e769ed9
-Iou:IouTransfer@adb51bfb8212a831aaf6ddf75322254511c07d21c9339c1374a2e8236e769ed9
-IouTrade:IouTrade@adb51bfb8212a831aaf6ddf75322254511c07d21c9339c1374a2e8236e769ed9
+Iou:Iou@fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c
+Iou:IouTransfer@fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c
+IouTrade:IouTrade@fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c
 ```
-Package ID is the last part of the Template ID, the one after `@` character. In the above example, `iou-package-id` is `adb51bfb8212a831aaf6ddf75322254511c07d21c9339c1374a2e8236e769ed9`.
+Package ID is the part of the template ID after `@` character. In the above example, all templates are from the package with package ID: `fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c`.
+
+To connect to the sandbox running on localhost, listening to the default port and with the above package ID:
+```
+$ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865 fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c"
+```
 
