@@ -16,12 +16,21 @@ import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified DA.Pretty as DAP
 import qualified DA.Daml.LF.Proto3.Archive as Archive
+import qualified Codec.Archive.Zip as ZIPArchive
 import qualified Data.ByteString.Lazy as BSL
 import Text.Dot
 import qualified Data.ByteString as B
 import Codec.Archive.Zip
 import System.FilePath
 import qualified Data.Map as M
+import Data.Word
+import qualified Data.HashMap.Strict as DHM
+import qualified Data.ByteString.Char8 as CH
+import qualified Data.List.Split as DLS
+import qualified Data.List as DL
+import qualified Data.Text as T
+
+-- import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName) 
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -69,6 +78,47 @@ startFromExpr seen world e = case e of
     LF.EScenario _ -> Set.empty
     LF.ELocation _ e1 -> startFromExpr seen world e1
     -- x -> Set.unions $ map startFromExpr $ children x
+
+
+data Manifest = Manifest { mainDalf :: FilePath , dalfs :: [FilePath] } deriving (Show)
+data ManifestData = ManifestData { mainDalfBytes :: BSL.ByteString , dalfsBytes :: [BSL.ByteString] } deriving (Show)
+
+charToWord8 :: Char -> Word8
+charToWord8 = toEnum . fromEnum
+
+cleanString :: String -> String
+cleanString str = T.unpack (T.strip $ T.pack str)
+
+becauseSplittingIsHard :: [String] -> (String, String)
+becauseSplittingIsHard (l:r:[]) = (cleanString l , cleanString r)
+becauseSplittingIsHard _ = ("malformed", "malformed")
+
+lineToKeyValue :: String -> (String, String)
+lineToKeyValue line = becauseSplittingIsHard lstSplit
+    where
+        lstSplit = DLS.splitOn ":" line
+
+manifestMapToManifest :: DHM.HashMap String String -> Manifest
+manifestMapToManifest hash = Manifest mainDalf dependDalfs
+    where
+        mainDalf = DHM.lookupDefault "unknown" "Main-Dalf" hash
+        dependDalfs = map cleanString $ DL.delete mainDalf (DLS.splitOn "," (DHM.lookupDefault "unknown" "Dalfs" hash))
+
+
+manifestDataFromDar :: Archive -> Manifest -> ManifestData
+manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyDalfBytes
+    where
+        manifestDalfByte = head [fromEntry e | e <- zEntries archive, (".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest )]
+        dependencyDalfBytes = [fromEntry e | e <- zEntries archive, (".dalf" `isExtensionOf` eRelativePath e  && DL.elem (cleanString (eRelativePath e))  (dalfs manifest) )]
+
+manifestFromDar :: Archive -> ManifestData
+manifestFromDar dar =  manifestDataFromDar dar manifest
+    where 
+        manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
+        lines = BSL.split (charToWord8 '\n') manifestEntry
+        linesStr = map (CH.unpack . BSL.toStrict) lines
+        manifest = manifestMapToManifest $ DHM.fromList $ map lineToKeyValue linesStr
+
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
@@ -146,11 +196,14 @@ netlistGraph' attrFn outFn assocs = do
 execVisual :: FilePath -> FilePath -> IO ()
 execVisual darFilePath dalfFile = do
     bytes <- B.readFile dalfFile
+    darBytes <- B.readFile darFilePath
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes 
     world <- darToWorld darFilePath lfPkg
     let modules = NM.toList $ LF.packageModules lfPkg
         res = concatMap (moduleAndTemplates world) modules
         actionEdges = map templatePairs res
+        manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
+    putStrLn (show (dalfsBytes manifestData))
     putStrLn $ showDot $ do 
         netlistGraph' srcLabel actionsForTemplate actionEdges
 
