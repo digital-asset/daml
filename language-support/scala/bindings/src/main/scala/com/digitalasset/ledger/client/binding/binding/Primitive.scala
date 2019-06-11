@@ -101,10 +101,12 @@ sealed abstract class Primitive {
 
     private[binding] def substEx[F[_]](fa: F[rpcvalue.Identifier]): F[TemplateId[_]]
 
-    // @deprecated("Use 3-argument version instead", since = "15.0.0")
-    def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String)]
-
-    // def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String, String)]
+    /** Package ID, module name, and entity name, unless the underlying
+      * gRPC Identifier was built with the very old and ambiguous two-argument
+      * form.  Use [[LegacyTemplateId]] instead if you want to extract
+      * the two-argument form.
+      */
+    def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String, String)]
   }
 
   private[digitalasset] object LegacyIdentifier {
@@ -120,6 +122,11 @@ sealed abstract class Primitive {
         case rpcvalue.Identifier(packageId, entityName, _, _) =>
           Some((packageId, entityName))
       }
+  }
+
+  object LegacyTemplateId {
+    def unapply[Tpl](t: TemplateId[Tpl]): Some[(String, String)] =
+      LegacyIdentifier unapply t.unwrap
   }
 
   private[binding] def substContractId[F[_], Tpl](tc: F[ApiTypes.ContractId]): F[ContractId[Tpl]]
@@ -191,10 +198,15 @@ private[client] object OnlyPrimitive extends Primitive {
     private[binding] override def substEx[F[_]](fa: F[rpcvalue.Identifier]) =
       ApiTypes.TemplateId subst fa
 
-    override def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String)] =
+    override def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String, String)] =
       // TODO SC DEL-6727 use this instead with daml-lf value interface
       // rpcvalue.Identifier unapply t.unwrap
-      LegacyIdentifier unapply t.unwrap
+      t.unwrap match {
+        case rpcvalue.Identifier(packageId, _, moduleName, entityName)
+            if moduleName.nonEmpty && entityName.nonEmpty =>
+          Some((packageId, moduleName, entityName))
+        case _ => None
+      }
   }
 
   object ContractId extends ContractIdApi {

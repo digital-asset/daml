@@ -11,6 +11,7 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import shapeless.test.illTyped
 
 import com.digitalasset.ledger.client.binding.{Primitive => P}
+import com.digitalasset.ledger.api.v1.{value => rpcvalue}
 
 class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
   import PrimitiveSpec._
@@ -55,6 +56,23 @@ class PrimitiveSpec extends WordSpec with Matchers with GeneratorDrivenPropertyC
       import P.Date.{MIN, MAX}
       P.Date.fromLocalDate(MIN: LocalDate) shouldBe Some(MIN)
       P.Date.fromLocalDate(MAX: LocalDate) shouldBe Some(MAX)
+    }
+  }
+
+  "LegacyIdentifier" should {
+    "match TemplateIds" in {
+      val t = P.TemplateId("Foo", "Bar", "Baz")
+      t match { // we skip `inside` specifically to verify scalac's selector/pattern type comparison
+        case P.LegacyTemplateId(p, i) =>
+          p should ===("Foo")
+          i should ===("Bar.Baz")
+      }
+    }
+
+    "believe the 'name' field if module/entity missing" in {
+      val P.LegacyIdentifier(p, i) = rpcvalue.Identifier("Foo", "Bar.Baz", "", "")
+      p should ===("Foo")
+      i should ===("Bar.Baz")
     }
   }
 
