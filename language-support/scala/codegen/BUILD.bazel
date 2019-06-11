@@ -89,5 +89,6 @@ da_scala_test_suite(
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/data",
         "//daml-lf/interface",
+        "//daml-lf/transaction-scalacheck",
     ],
 )

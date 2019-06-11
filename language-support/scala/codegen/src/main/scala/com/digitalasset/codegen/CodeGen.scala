@@ -145,7 +145,7 @@ object CodeGen {
 
   // Template names can be filtered by given regexes (default: use all templates)
   // If a template does not match any regex, it becomes a "normal" datatype.
-  private[this] def filterTemplatesBy(regexes: Seq[Regex])(
+  private[codegen] def filterTemplatesBy(regexes: Seq[Regex])(
       ei: EnvironmentInterface): EnvironmentInterface = {
 
     def matchesRoots(qualName: Ref.Identifier): Boolean =
