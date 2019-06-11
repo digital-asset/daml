@@ -18,6 +18,18 @@ $ bazel run damlc -- <command line options>
 due to the brief aliases specified in the `BUILD` file in the
 root of our repository.
 
+## Generating GrpahViz Dot file for a DAR
+```
+bazel run damlc visual /path/to/application.dar > application.dot
+```
+And to generate the image itself we need [`graphviz installed`](http://www.graphviz.org/download/).
+
+Command to generate png is 
+
+```
+dot -Tpng application.dot > application.png
+```
+
 
 ## DAML Studio
 
