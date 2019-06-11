@@ -365,7 +365,7 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pVersion
                     pExposedModules
                     pDependencies
-        let eventLogger (EventFileDiagnostics (fp, diags)) = printDiagnostics $ map (fp,) diags
+        let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (fp,) diags
             eventLogger _ = return ()
         Compiler.withIdeState opts loggerH eventLogger $ \compilerH -> do
             darOrErr <-

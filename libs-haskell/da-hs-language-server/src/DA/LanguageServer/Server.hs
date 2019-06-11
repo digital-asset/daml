@@ -52,10 +52,8 @@ runServer
     :: Logger.Handle IO
     -> (LSP.LspFuncs () -> IO Handlers)
     -- ^ Notification handler for language server notifications
-    -> TChan ClientNotification
-    -- ^ Channel for notifications towards the client
     -> IO ()
-runServer loggerH getHandlers notifChan = do
+runServer loggerH getHandlers = do
     -- DEL-6257: Move stdout to another file descriptor and duplicate stderr
     -- to stdout. This guards against stray prints from corrupting the JSON-RPC
     -- message stream.
@@ -72,23 +70,21 @@ runServer loggerH getHandlers notifChan = do
     -- This should not happen but if it does, we will make sure that the whole server
     -- dies and can be restarted instead of losing threads silently.
     clientMsgBarrier <- newBarrier
-    notifBarrier <- newBarrier
     void $ waitAnyCancel =<< traverse async
         [ void $ LSP.runWithHandles
             stdin
             newStdout
             ( const $ Right ()
-            , handleInit (signalBarrier clientMsgBarrier ()) (signalBarrier notifBarrier ()) clientMsgChan
+            , handleInit (signalBarrier clientMsgBarrier ()) clientMsgChan
             )
             (handlers clientMsgChan)
             options
             Nothing
         , void $ waitBarrier clientMsgBarrier
-        , void $ waitBarrier notifBarrier
         ]
     where
-        handleInit :: IO () -> IO () -> TChan LSP.FromClientMessage -> LSP.LspFuncs () -> IO (Maybe LSP.ResponseError)
-        handleInit exitClientMsg exitNotif clientMsgChan lspFuncs@LSP.LspFuncs{..} = do
+        handleInit :: IO () -> TChan LSP.FromClientMessage -> LSP.LspFuncs () -> IO (Maybe LSP.ResponseError)
+        handleInit exitClientMsg clientMsgChan lspFuncs@LSP.LspFuncs{..} = do
             Handlers{..} <- getHandlers lspFuncs
             let requestHandler' (req, reqId) = requestHandler
                     (\res -> ResponseMessage "2.0" (responseId reqId) (Just res) Nothing)
@@ -100,19 +96,7 @@ runServer loggerH getHandlers notifChan = do
                     Nothing -> Logger.logError loggerH $ "Unknown client msg: " <> T.pack (show msg)
                     Just (Left notif) -> notificationHandler notif
                     Just (Right req) -> sendFunc =<< requestHandler' req
-            _ <- flip forkFinally (const exitNotif) $ forever $ do
-                notif <- atomically $ readTChan notifChan
-                sendFunc $ convToServerNotif notif
             pure Nothing
-
-convToServerNotif :: ClientNotification -> LSP.FromServerMessage
-convToServerNotif not = case not of
-    ShowMessage p -> wrap LSP.NotShowMessage LSP.WindowShowMessage p
-    LogMessage p -> wrap LSP.NotLogMessage LSP.WindowLogMessage p
-    SendTelemetry p -> wrap LSP.NotTelemetry LSP.TelemetryEvent p
-    PublishDiagnostics p -> wrap LSP.NotPublishDiagnostics LSP.TextDocumentPublishDiagnostics p
-    CustomNotification method p -> wrap LSP.NotCustomServer (CustomServerMethod method) p
-    where wrap constr method params = constr $ LSP.NotificationMessage "2.0" method params
 
 convClientMsg :: LSP.FromClientMessage -> Maybe (Either ServerNotification (ServerRequest, LspId))
 convClientMsg msg = case msg of

@@ -29,7 +29,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/haskell-ide-core",
-        "//daml-foundations/daml-ghc/language-server",
+        "//daml-foundations/daml-ghc/ide",
         "//daml-foundations/daml-ghc/test-lib",
         "//libs-haskell/bazel-runfiles",
     ],

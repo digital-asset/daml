@@ -35,8 +35,8 @@ import Language.Haskell.LSP.Types.Lens as Lsp
 import Network.URI
 import Test.Tasty.HUnit
 
-import DA.Service.Daml.LanguageServer
 import DA.Test.Util
+import Development.IDE.State.Rules.Daml (VirtualResourceChangedParams(..))
 import Development.IDE.Types.Diagnostics
 
 -- | (0-based line number, 0-based column number)

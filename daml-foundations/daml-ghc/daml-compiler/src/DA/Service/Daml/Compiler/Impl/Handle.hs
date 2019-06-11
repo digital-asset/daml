@@ -21,8 +21,8 @@ module DA.Service.Daml.Compiler.Impl.Handle
 
   , DalfDependency(..)
 
-  , virtualResourceToUri
-  , uriToVirtualResource
+  , CompilerService.virtualResourceToUri
+  , CompilerService.uriToVirtualResource
 
   -- * Compilation options (re-exported)
   , defaultOptionsIO
@@ -48,12 +48,10 @@ import           Control.Monad.Except              as Ex
 import           Control.Monad.IO.Class                     (liftIO)
 import qualified Data.ByteString                            as BS
 import qualified Data.ByteString.Lazy                       as BSL
-import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Map.Strict                            as Map
 import qualified Data.NameMap as NM
 import qualified Data.Set                                   as S
 import qualified Data.Text                                  as T
-import Data.List
 import Data.Maybe
 import Safe
 
@@ -65,70 +63,8 @@ import qualified Development.IDE.State.Rules.Daml as CompilerService
 import qualified Development.IDE.State.Shake as Shake
 import           Development.IDE.Types.Diagnostics as Base
 import           Development.IDE.Types.LSP
+import qualified Language.Haskell.LSP.Messages as LSP
 import           System.FilePath
-
-import qualified Network.HTTP.Types as HTTP.Types
-import qualified Network.URI as URI
-
--- Virtual resource Uri
------------------------
-
--- | Get thr URI that corresponds to a virtual resource. The VS Code has a
--- document provider that will handle our special documents.
--- The Uri looks like this:
--- daml://[command]/[client data]?[server]=[key]&[key]=[value]
---
--- The command tells the server if it should do scenario interpretation or
--- core translation.
--- The client data is here to transmit data from the client to the client.
--- The server ignores this part and is even allowed to change it.
--- The server data is here to send data to the server, like what file we
--- want to translate.
---
--- The client uses a combination of the command and server data
--- to generate a caching key.
-virtualResourceToUri
-    :: VirtualResource
-    -> T.Text
-virtualResourceToUri vr = case vr of
-    VRScenario filePath topLevelDeclName ->
-        T.pack $ "daml://compiler?" <> keyValueToQueryString
-            [ ("file", filePath)
-            , ("top-level-decl", T.unpack topLevelDeclName)
-            ]
-  where
-    urlEncode :: String -> String
-    urlEncode = URI.escapeURIString URI.isUnreserved
-
-    keyValueToQueryString :: [(String, String)] -> String
-    keyValueToQueryString kvs =
-        intercalate "&"
-      $ map (\(k, v) -> k ++ "=" ++ urlEncode v) kvs
-
-uriToVirtualResource
-    :: URI.URI
-    -> Maybe VirtualResource
-uriToVirtualResource uri = do
-    guard $ URI.uriScheme uri == "daml:"
-    case URI.uriRegName <$> URI.uriAuthority uri of
-        Just "compiler" -> do
-            let decoded = queryString uri
-            file <- Map.lookup "file" decoded
-            topLevelDecl <- Map.lookup "top-level-decl" decoded
-            pure $ VRScenario file (T.pack topLevelDecl)
-        _ -> Nothing
-
-  where
-    queryString :: URI.URI -> Map.Map String String
-    queryString u0 = fromMaybe Map.empty $ case tailMay $ URI.uriQuery u0 of
-        Nothing -> Nothing
-        Just u ->
-            Just
-          $ Map.fromList
-          $ map (\(k, v) -> (BS8.unpack k, BS8.unpack v))
-          $ HTTP.Types.parseSimpleQuery
-          $ BS8.pack
-          $ URI.unEscapeString u
 
 ------------------------------------------------------------------------
 -- Types for dependency information on DARs
@@ -150,7 +86,7 @@ getIdeState
     :: Options
     -> Maybe Scenario.Handle
     -> Logger.Handle IO
-    -> (Event -> IO ())
+    -> (LSP.FromServerMessage -> IO ())
     -> VFSHandle
     -> IO IdeState
 getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
@@ -167,7 +103,7 @@ getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
 withIdeState
     :: Options
     -> Logger.Handle IO
-    -> (Event -> IO ())
+    -> (LSP.FromServerMessage -> IO ())
     -> (IdeState -> IO a)
     -> IO a
 withIdeState compilerOpts loggerH eventHandler f =
