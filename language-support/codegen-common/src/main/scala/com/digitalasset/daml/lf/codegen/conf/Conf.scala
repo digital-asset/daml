@@ -61,7 +61,8 @@ object Conf {
     opt[String]('r', "root")(Read.stringRead)
       .unbounded()
       .action((rexp, c) => c.copy(roots = rexp :: c.roots))
-      .text("Regular expression for fully-qualified names of templates to generate -- defaults to .*")
+      .text(
+        "Regular expression for fully-qualified names of templates to generate -- defaults to .*")
 
     help("help").text("This help text")
 
