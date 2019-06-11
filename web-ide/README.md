@@ -11,6 +11,9 @@ Further details can be found in `proxy/README.md` and `ide-server/README.md`
 
 User statistics are only available to Digital Asset employees. Once you have requested access, you can:
 
+* See high level user / session overview: https://analytics.google.com/analytics/web/#/dashboard/l0ETtYhuT_2B6X0hAXlW9Q/a64532708w194916497p190243111/
+
+or for more fine grained information:
 * Visit [Google Analytics](https://analytics.google.com/).
 * On the left, select `Audience`, `Overview`.
 * On the bottom right (you may need to scroll) select `view full report`.
