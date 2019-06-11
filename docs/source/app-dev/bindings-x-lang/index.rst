@@ -27,7 +27,15 @@ What do we mean by "bindings"? Bindings for a language consist of two main compo
 - Codegen
      A code generator is a program that generates classes representing DAML contract templates in the language. These classes incorporate all boilerplate code for constructing: :ref:`com.digitalasset.ledger.api.v1.CreateCommand` and :ref:`com.digitalasset.ledger.api.v1.ExerciseCommand` corresponding for each DAML contract template.
 
-Technically codegen is optional. You can construct the commands manually from the auto-generated **Ledger API** classes. However it is very tedious and error-prone. If you are creating ad hoc bindings for a project with a few contract templates, writing a proper codegen may be an overkill. On the other hand if you have hundreds of contract templates in your project or planning to build language bindings that you will share across multiple projects, we recommend including codegen in your bindings. It will save you time in the long run.
+Technically codegen is optional. You can construct the commands manually from the auto-generated **Ledger API** classes. However, it is very tedious and error-prone. If you are creating *ad hoc* bindings for a project with a few contract templates, writing a proper codegen may be overkill. On the other hand, if you have hundreds of contract templates in your project or are planning to build language bindings that you will share across multiple projects, we recommend including a codegen in your bindings. It will save you and your users time in the long run.
+
+Note that for different reasons we chose codegen, but that is not the only option. There is really a broad category of metaprogramming features that can solve this problem just as well or even better than codegen; they are language-specific, but often much easier to maintain (i.e. no need to add a build step). Some examples are:
+
+- `F# Type Providers <https://docs.microsoft.com/en-us/dotnet/fsharp/tutorials/type-providers/creating-a-type-provider#a-type-provider-that-is-backed-by-local-data>`_
+
+- `Template Haskell <https://wiki.haskell.org/Template_Haskell>`_
+
+- Scala macro annotations (not future-proof enough to use when implementing the last Scala codegen)
 
 Building Ledger Commands
 ========================
