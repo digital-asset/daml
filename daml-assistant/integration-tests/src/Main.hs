@@ -268,7 +268,7 @@ quickstartScalaTests quickstartDir = testGroup "quickstart-scala"
           callProcessQuiet damlName ["new", projDir, "quickstart-scala"]
     , testCase "daml build " $ withCurrentDirectory projDir $
           callProcessQuiet damlName ["build"]
-    , testCase "sandxox and sbt" $ withCurrentDirectory projDir $
+    , testCase "sandbox and sbt" $ withCurrentDirectory projDir $
       withDevNull $ \devNull1 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
           withCreateProcess ((proc damlName ["sandbox", "--port", show sandboxPort, "--scenario", "Main:setup", darPath]) { std_out = UseHandle devNull1 }) $
