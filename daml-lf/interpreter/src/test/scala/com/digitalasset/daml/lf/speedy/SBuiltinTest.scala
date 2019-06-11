@@ -7,7 +7,7 @@ import java.util
 
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError.{DamlEArithmeticError, SError}
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
 import com.digitalasset.daml.lf.speedy.SValue._

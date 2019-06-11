@@ -50,7 +50,7 @@
   type: jar-scala
 - target: //daml-lf/transaction-scalacheck:transaction-scalacheck
   type: jar
-- target: //daml-lf/lfpackage:lfpackage
+- target: //daml-lf/language:language
   type: jar-scala
 - target: //daml-lf/interface:interface
   type: jar-scala

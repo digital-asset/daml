@@ -419,7 +419,7 @@ object Pretty {
     // An incomplete pretty-printer for debugging purposes. Exposed
     // via the ':speedy' repl command.
 
-    import com.digitalasset.daml.lf.lfpackage.Ast._
+    import com.digitalasset.daml.lf.language.Ast._
     import com.digitalasset.daml.lf.speedy.SExpr._
     def prettyAlt(index: Int)(alt: SCaseAlt): Doc = {
       val (pat, newIndex) = alt.pattern match {

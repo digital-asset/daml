@@ -2,12 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
+package archive
+
 import java.io._
 import java.util.zip.ZipFile
 
-import com.digitalasset.daml.lf.archive.{DarReader, LanguageMajorVersion, Reader}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml_lf.DamlLf
 
 import scala.util.{Failure, Success, Try}

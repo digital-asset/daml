@@ -6,8 +6,9 @@ package com.digitalasset.platform.damllf
 import java.io.InputStream
 import java.util.zip.{ZipEntry, ZipInputStream}
 
+import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.typesafe.scalalogging.Logger
 

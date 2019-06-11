@@ -1,11 +1,11 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.lfpackage
+package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.TypeConName
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 
 import scala.annotation.tailrec
 

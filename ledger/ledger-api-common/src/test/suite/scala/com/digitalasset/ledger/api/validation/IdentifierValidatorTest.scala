@@ -3,14 +3,12 @@
 
 package com.digitalasset.ledger.api.validation
 
-import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.ledger.api.DomainMocks
 import com.digitalasset.ledger.api.v1.value.Identifier
-
 import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.scalatest.AsyncWordSpec
 

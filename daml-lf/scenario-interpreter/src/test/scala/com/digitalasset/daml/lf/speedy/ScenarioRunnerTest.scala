@@ -5,8 +5,8 @@ package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.lfpackage.Ast.ScenarioGetParty
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.Ast.ScenarioGetParty
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 

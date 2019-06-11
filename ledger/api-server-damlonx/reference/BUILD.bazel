@@ -29,7 +29,7 @@ da_scala_binary(
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
-        "//daml-lf/lfpackage",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
         "//ledger/api-server-damlonx",

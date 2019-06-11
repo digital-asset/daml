@@ -3,11 +3,11 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.archive.{LanguageVersion, LanguageMajorVersion => LMV}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.lfpackage.Util._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
 import com.digitalasset.daml.lf.validation.AlphaEquiv._
 import com.digitalasset.daml.lf.validation.Util._
 

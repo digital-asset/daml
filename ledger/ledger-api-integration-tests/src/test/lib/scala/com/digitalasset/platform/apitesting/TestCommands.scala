@@ -6,7 +6,7 @@ package com.digitalasset.platform.apitesting
 import java.io.File
 import java.util
 
-import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.archive.UniversalArchiveReader
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{
   applicationId,

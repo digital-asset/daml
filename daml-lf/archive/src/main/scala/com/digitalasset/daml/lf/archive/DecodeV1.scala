@@ -2,18 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
-package lfpackage
+package archive
 
-import scala.collection.JavaConverters._
-import com.digitalasset.daml.lf.archive.LanguageMajorVersion.V1
-import com.digitalasset.daml.lf.archive.{LanguageMinorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.lfpackage.Util._
+import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
-import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
+import com.digitalasset.daml.lf.language.Util._
+import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion}
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
@@ -673,7 +673,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 object DecodeV1 {
   import LanguageMinorVersion.Implicits._
 
-  protected[lfpackage] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
+  private[archive] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
     import PLF.PrimType._
 
     Map(
@@ -695,7 +695,7 @@ object DecodeV1 {
     )
   }
 
-  protected[lfpackage] val builtinFunctionMap = {
+  private[archive] val builtinFunctionMap = {
     import PLF.BuiltinFunction._
 
     Map[PLF.BuiltinFunction, (Ast.BuiltinFunction, LanguageMinorVersion)](

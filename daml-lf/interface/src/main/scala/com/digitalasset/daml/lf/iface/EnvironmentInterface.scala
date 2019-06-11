@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package iface
 
+import com.digitalasset.daml.lf.archive.Dar
 import data.Ref.Identifier
 
 import scala.collection.breakOut

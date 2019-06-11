@@ -2,21 +2,21 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
-package lfpackage
+package archive
 
 import java.io.InputStream
 
-import com.digitalasset.daml.lf.archive.{Reader, LanguageVersion}
-import com.digitalasset.daml.lf.archive.LanguageMajorVersion._
-import com.digitalasset.daml.lf.lfpackage.Ast._
 import com.digitalasset.daml.lf.data.Ref._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LanguageMajorVersion._
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml_lf.DamlLf
 import com.google.protobuf.CodedInputStream
 
 sealed abstract class Decode extends archive.Reader[(PackageId, Package)] {
   import Decode._
 
-  private[lfpackage] val decoders: PartialFunction[LanguageVersion, PayloadDecoder]
+  private[archive] val decoders: PartialFunction[LanguageVersion, PayloadDecoder]
 
   override protected[this] def readArchivePayloadOfVersion(
       hash: PackageId,
@@ -46,13 +46,13 @@ object Decode extends Decode {
     Reader.damlLfCodedInputStream(is, recursionLimit)
 
   /** inlined [[scalaz.ContravariantCoyoneda]]`[OfPackage, DamlLf.ArchivePayload]` */
-  private[lfpackage] sealed abstract class PayloadDecoder {
+  private[archive] sealed abstract class PayloadDecoder {
     type I
     val extract: DamlLf.ArchivePayload => I
     val decoder: OfPackage[I]
   }
 
-  private[lfpackage] object PayloadDecoder {
+  private[archive] object PayloadDecoder {
     def apply[I0](fi: OfPackage[I0])(k: DamlLf.ArchivePayload => I0): PayloadDecoder =
       new PayloadDecoder {
         type I = I0
@@ -61,7 +61,7 @@ object Decode extends Decode {
       }
   }
 
-  override private[lfpackage] val decoders: PartialFunction[LanguageVersion, PayloadDecoder] = {
+  override private[archive] val decoders: PartialFunction[LanguageVersion, PayloadDecoder] = {
     case LanguageVersion(V1, minor) if V1.supportedMinorVersions.contains(minor) =>
       PayloadDecoder(new DecodeV1(minor))(_.getDamlLf1)
   }

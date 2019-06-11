@@ -6,16 +6,15 @@ package com.digitalasset.daml.lf.engine
 import java.io.File
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.daml.lf.transaction.{Node => N, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
-import Value._
-import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
 import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalameter
 import org.scalameter.Quantity
@@ -26,7 +25,8 @@ import scala.language.implicitConversions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
-  private def loadPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
+  private def loadPackage(
+      resource: String): (PackageId, Ast.Package, Map[PackageId, Ast.Package]) = {
     val packages =
       UniversalArchiveReader().readFile(new File(rlocation(resource))).get
     val packagesMap = Map(packages.all.map {

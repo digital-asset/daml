@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.Pretty
 import com.digitalasset.daml.lf.speedy.Speedy.Machine

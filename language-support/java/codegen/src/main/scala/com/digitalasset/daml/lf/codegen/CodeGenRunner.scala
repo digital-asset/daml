@@ -8,14 +8,14 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
 import java.util.zip.ZipFile
 
-import com.digitalasset.daml.lf.DarManifestReader
+import com.digitalasset.daml.lf.archive.DarManifestReader
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.codegen.backend.Backend
 import com.digitalasset.daml.lf.codegen.backend.java.JavaBackend
 import com.digitalasset.daml.lf.codegen.conf.Conf
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.iface.reader.{InterfaceReader}
+import com.digitalasset.daml.lf.iface.reader.InterfaceReader
 import com.digitalasset.daml.lf.iface.{Type => _, _}
 import com.digitalasset.daml_lf.DamlLf
 import com.typesafe.scalalogging.StrictLogging

@@ -42,7 +42,7 @@ da_scala_test(
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
-        "//daml-lf/lfpackage",
+        "//daml-lf/language",
         "//daml-lf/parser",
     ],
 )

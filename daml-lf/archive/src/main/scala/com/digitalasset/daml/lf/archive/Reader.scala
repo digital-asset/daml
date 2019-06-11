@@ -8,6 +8,7 @@ import java.io.InputStream
 import java.security.MessageDigest
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml_lf.DamlLf
 import com.google.protobuf.CodedInputStream
 
@@ -120,7 +121,7 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
   @throws[ParseError]
   def readArchiveVersion(lf: DamlLf.ArchivePayload): LanguageMajorVersion = {
     import DamlLf.ArchivePayload.{SumCase => SC}
-    import archive.{LanguageMajorVersion => LMV}
+    import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LMV}
     lf.getSumCase match {
       case SC.DAML_LF_0 => LMV.V0
       case SC.DAML_LF_1 => LMV.V1

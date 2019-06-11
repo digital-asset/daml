@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.scenario
 
 import java.util.logging.{Level, Logger}
 
-import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
+import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.scenario.api.v1.{Map => _, _}
 import io.grpc.stub.StreamObserver
 import io.grpc.{ServerBuilder, Status, StatusRuntimeException}

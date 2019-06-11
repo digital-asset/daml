@@ -36,7 +36,7 @@ dependencies = [
     "//daml-lf/data",
     "//daml-lf/engine",
     "//daml-lf/interpreter",
-    "//daml-lf/lfpackage",
+    "//daml-lf/language",
     "//daml-lf/scenario-interpreter",
     "//daml-lf/transaction",
     "//language-support/scala/bindings",

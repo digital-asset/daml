@@ -5,7 +5,7 @@ package com.digitalasset.platform.semantictest
 
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, ContractIdString, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
-import com.digitalasset.daml.lf.lfpackage.Ast
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.{Value, ValueVersions}
 import com.digitalasset.ledger.api.domain.LedgerId

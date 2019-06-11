@@ -6,6 +6,7 @@ package com.daml.ledger.api.server.damlonx.services
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v1.IndexService
 import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta, WriteService}
+import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{
@@ -18,7 +19,7 @@ import com.digitalasset.daml.lf.engine.{
   ResultNeedPackage,
   Error => DamlLfError
 }
-import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId

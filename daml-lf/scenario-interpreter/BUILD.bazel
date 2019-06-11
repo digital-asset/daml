@@ -21,7 +21,7 @@ da_scala_library(
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/interpreter",
-        "//daml-lf/lfpackage",
+        "//daml-lf/language",
         "//daml-lf/transaction",
     ],
 )
@@ -36,6 +36,6 @@ da_scala_test_suite(
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/interpreter",
-        "//daml-lf/lfpackage",
+        "//daml-lf/language",
     ],
 )

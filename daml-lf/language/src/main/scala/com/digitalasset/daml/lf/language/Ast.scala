@@ -1,12 +1,10 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.lfpackage
+package com.digitalasset.daml.lf.language
 
-import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
+import com.digitalasset.daml.lf.data._
 
 object Ast {
   //
@@ -517,7 +515,7 @@ object Ast {
     ): Template = {
 
       findDuplicate(choices).foreach { choiceName =>
-        throw ParseError(s"collision on choice name $choiceName")
+        throw PackageError(s"collision on choice name $choiceName")
       }
 
       new Template(
@@ -596,13 +594,13 @@ object Ast {
     ): Module = {
 
       findDuplicate(definitions).foreach { defName =>
-        throw ParseError(s"Collision on definition name ${defName.toString}")
+        throw PackageError(s"Collision on definition name ${defName.toString}")
       }
 
       val defsMap = definitions.toMap
 
       findDuplicate(templates).foreach { templName =>
-        throw ParseError(s"Collision on template name ${templName.toString}")
+        throw PackageError(s"Collision on template name ${templName.toString}")
       }
 
       val updatedRecords = templates.map {
@@ -611,7 +609,8 @@ object Ast {
             case Some(DDataType(serializable, params, DataRecord(fields, _))) =>
               templName -> DDataType(serializable, params, DataRecord(fields, Some(template)))
             case _ =>
-              throw ParseError(s"Data type definition not found for template ${templName.toString}")
+              throw PackageError(
+                s"Data type definition not found for template ${templName.toString}")
           }
       }
 
@@ -641,7 +640,7 @@ object Ast {
     def apply(modules: Traversable[Module]): Package = {
       val modulesWithNames = modules.map(m => m.name -> m)
       findDuplicate(modulesWithNames).foreach { modName =>
-        throw ParseError(s"Collision on module name ${modName.toString}")
+        throw PackageError(s"Collision on module name ${modName.toString}")
       }
       Package(modulesWithNames.toMap)
     }
@@ -652,5 +651,7 @@ object Ast {
   val maintainersFieldName = Name.assertFromString("maintainers")
   val contractIdFieldName = Name.assertFromString("contractId")
   val contractFieldName = Name.assertFromString("contract")
+
+  final case class PackageError(error: String) extends RuntimeException(error)
 
 }

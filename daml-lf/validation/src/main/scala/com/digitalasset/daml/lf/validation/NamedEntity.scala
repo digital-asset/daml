@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleName, Name}
-import com.digitalasset.daml.lf.lfpackage.Ast
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.validation.Util._
 
 sealed trait NamedEntity extends Product with Serializable {

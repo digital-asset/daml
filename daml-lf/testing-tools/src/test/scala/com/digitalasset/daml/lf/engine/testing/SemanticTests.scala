@@ -3,13 +3,12 @@
 
 package com.digitalasset.daml.lf.engine.testing
 
+import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.lfpackage.Ast.{DValue, Package}
-import com.digitalasset.daml.lf.lfpackage.Decode
+import com.digitalasset.daml.lf.language.Ast.{DValue, Package}
 import org.scalatest.concurrent.{IntegrationPatience, ScalaFutures}
 import org.scalatest.time.{Millis, Span}
 import org.scalatest.{Matchers, WordSpec}
-import com.digitalasset.daml.lf.UniversalArchiveReader
 import java.io.File
 
 import scala.concurrent.ExecutionContext.Implicits.global

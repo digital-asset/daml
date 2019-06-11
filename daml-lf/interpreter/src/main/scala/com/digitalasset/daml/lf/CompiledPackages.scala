@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}
 

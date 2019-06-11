@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
+package archive
 
 import java.io.InputStream
 import java.util.jar.{Attributes, Manifest}

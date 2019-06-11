@@ -25,7 +25,7 @@ compileDependencies = [
     "//daml-lf/transaction",
     "//daml-lf/engine",
     "//daml-lf/data",
-    "//daml-lf/lfpackage",
+    "//daml-lf/language",
     "//daml-lf/archive:daml_lf_java_proto",
     "//daml-lf/archive:daml_lf_archive_scala",
     "//daml-lf/interpreter",

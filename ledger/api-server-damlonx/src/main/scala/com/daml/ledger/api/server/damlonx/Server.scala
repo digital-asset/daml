@@ -10,8 +10,8 @@ import akka.stream.ActorMaterializer
 import com.daml.ledger.api.server.damlonx.services._
 import com.daml.ledger.participant.state.index.v1.IndexService
 import com.daml.ledger.participant.state.v1.WriteService
+import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
-import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest

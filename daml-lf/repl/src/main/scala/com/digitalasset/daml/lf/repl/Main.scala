@@ -5,9 +5,9 @@ package com.digitalasset.daml.lf.speedy
 
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.lfpackage.Decode
-import com.digitalasset.daml.lf.lfpackage.Util._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.Pretty._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.SResult._
@@ -19,7 +19,8 @@ import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
-import com.digitalasset.daml.lf.{PureCompiledPackages, UniversalArchiveReader}
+import com.digitalasset.daml.lf.PureCompiledPackages
+import com.digitalasset.daml.lf.archive.UniversalArchiveReader
 import com.digitalasset.daml.lf.validation.Validation
 import org.jline.builtins.Completers
 import org.jline.reader.{History, LineReader, LineReaderBuilder}

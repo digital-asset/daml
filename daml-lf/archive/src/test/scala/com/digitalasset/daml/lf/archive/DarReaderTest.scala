@@ -7,8 +7,8 @@ import java.io.File
 import java.util.zip.ZipFile
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.Dar
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml_lf.{DamlLf, DamlLf1}
 import org.scalatest.{Inside, Matchers, WordSpec}
 

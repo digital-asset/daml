@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.ConcurrentCompiledPackages.AddPackageState
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.speedy.Compiler.PackageNotFound
 import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.speedy.{Compiler, SExpr}

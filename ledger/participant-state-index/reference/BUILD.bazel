@@ -17,7 +17,7 @@ compileDependencies = [
     "//daml-lf/data",
     "//daml-lf/engine",
     "//daml-lf/interpreter",
-    "//daml-lf/lfpackage",
+    "//daml-lf/language",
     "//daml-lf/transaction",
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-domain",

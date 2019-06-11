@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, PackageId}
 import com.digitalasset.daml.lf.data.BackStack
 import org.scalatest.{Matchers, WordSpec}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.lfpackage.{Ast => Pkg}
+import com.digitalasset.daml.lf.language.{Ast => Pkg}
 
 import scala.language.implicitConversions
 

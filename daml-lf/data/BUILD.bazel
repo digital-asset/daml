@@ -19,7 +19,6 @@ da_scala_library(
     deps = [
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/archive:daml_lf_java_proto",
     ],
 )
 

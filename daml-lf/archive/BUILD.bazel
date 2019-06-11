@@ -101,6 +101,7 @@ da_scala_library(
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
+        "//daml-lf/language",
     ],
 )
 
@@ -123,6 +124,7 @@ da_scala_test_suite(
         "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
+        "//daml-lf/language",
     ],
 )
 

@@ -3,9 +3,9 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.archive.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.language.Ast.Package
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser._
 import com.digitalasset.daml.lf.validation.SpecUtil._

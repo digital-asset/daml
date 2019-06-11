@@ -8,8 +8,8 @@ import java.util
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.lfpackage.Util._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.speedy.{SValue, Command => SpeedyCommand}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._

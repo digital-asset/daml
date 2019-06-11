@@ -3,11 +3,11 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.archive.{LanguageVersion, LanguageMajorVersion}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.lfpackage.Util.{TContractId, TList, TMap, TOptional}
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.Util._
 
 private[validation] object Serializability {
 
