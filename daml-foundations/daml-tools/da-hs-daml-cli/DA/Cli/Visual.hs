@@ -79,47 +79,6 @@ startFromExpr seen world e = case e of
     LF.ELocation _ e1 -> startFromExpr seen world e1
     -- x -> Set.unions $ map startFromExpr $ children x
 
-
-data Manifest = Manifest { mainDalf :: FilePath , dalfs :: [FilePath] } deriving (Show)
-data ManifestData = ManifestData { mainDalfContent :: BSL.ByteString , dalfsCotent :: [BSL.ByteString] } deriving (Show)
-
-charToWord8 :: Char -> Word8
-charToWord8 = toEnum . fromEnum
-
-cleanString :: String -> String
-cleanString str = T.unpack (T.strip $ T.pack str)
-
-becauseSplittingIsHard :: [String] -> (String, String)
-becauseSplittingIsHard (l:r:[]) = (cleanString l , cleanString r)
-becauseSplittingIsHard _ = ("malformed", "malformed")
-
-lineToKeyValue :: String -> (String, String)
-lineToKeyValue line = becauseSplittingIsHard lstSplit
-    where
-        lstSplit = DLS.splitOn ":" line
-
-manifestMapToManifest :: DHM.HashMap String String -> Manifest
-manifestMapToManifest hash = Manifest mainDalf dependDalfs
-    where
-        mainDalf = DHM.lookupDefault "unknown" "Main-Dalf" hash
-        dependDalfs = map cleanString $ DL.delete mainDalf (DLS.splitOn "," (DHM.lookupDefault "unknown" "Dalfs" hash))
-
-
-manifestDataFromDar :: Archive -> Manifest -> ManifestData
-manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyDalfBytes
-    where
-        manifestDalfByte = head [fromEntry e | e <- zEntries archive, (".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest )]
-        dependencyDalfBytes = [fromEntry e | e <- zEntries archive, (".dalf" `isExtensionOf` eRelativePath e  && DL.elem (cleanString (eRelativePath e))  (dalfs manifest) )]
-
-manifestFromDar :: Archive -> ManifestData
-manifestFromDar dar =  manifestDataFromDar dar manifest
-    where 
-        manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
-        lines = BSL.split (charToWord8 '\n') manifestEntry
-        linesStr = map (CH.unpack . BSL.toStrict) lines
-        manifest = manifestMapToManifest $ DHM.fromList $ map lineToKeyValue linesStr
-
-
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
@@ -141,7 +100,7 @@ dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
 darToWorld :: ManifestData -> LF.Package -> LF.World
 darToWorld manifest pkg = AST.initWorldSelf pkgs version1_4 pkg
     where 
-        pkgs = map (dalfBytesToPakage)  (dalfsCotent manifest)
+        pkgs = map dalfBytesToPakage (dalfsCotent manifest)
     
 
 templateInAction :: Action -> LF.TypeConName
@@ -155,9 +114,7 @@ templatePairs :: (LF.TypeConName, Set.Set Action) -> (LF.TypeConName , (LF.TypeC
 templatePairs (tc, actions) = (tc , (tc, actions))
 
 actionsForTemplate :: (LF.TypeConName, Set.Set Action) -> [LF.TypeConName]
-actionsForTemplate (_tplCon, actions) = actionsStrs
-    where 
-        actionsStrs = Set.elems $ Set.map templateInAction actions
+actionsForTemplate (_tplCon, actions) = Set.elems $ Set.map templateInAction actions
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case
@@ -190,6 +147,43 @@ netlistGraph' attrFn outFn assocs = do
 
 
 
+data Manifest = Manifest { mainDalf :: FilePath , dalfs :: [FilePath] } deriving (Show)
+data ManifestData = ManifestData { mainDalfContent :: BSL.ByteString , dalfsCotent :: [BSL.ByteString] } deriving (Show)
+
+charToWord8 :: Char -> Word8
+charToWord8 = toEnum . fromEnum
+
+cleanString :: String -> String
+cleanString str = T.unpack (T.strip $ T.pack str)
+
+lineToKeyValue :: String -> (String, String)
+lineToKeyValue line = case DLS.splitOn ":" line of
+    [l, r] -> (cleanString l , cleanString r)
+    _ -> ("malformed", "malformed")            
+
+
+manifestMapToManifest :: DHM.HashMap String String -> Manifest
+manifestMapToManifest hash = Manifest mainDalf dependDalfs
+    where
+        mainDalf = DHM.lookupDefault "unknown" "Main-Dalf" hash
+        dependDalfs = map cleanString $ DL.delete mainDalf (DLS.splitOn "," (DHM.lookupDefault "unknown" "Dalfs" hash))
+
+
+manifestDataFromDar :: Archive -> Manifest -> ManifestData
+manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyDalfBytes
+    where
+        manifestDalfByte = head [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest]
+        dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && DL.elem (cleanString (eRelativePath e))  (dalfs manifest)]
+
+manifestFromDar :: Archive -> ManifestData
+manifestFromDar dar =  manifestDataFromDar dar manifest
+    where 
+        manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
+        lines = BSL.split (charToWord8 '\n') manifestEntry
+        linesStr = map (CH.unpack . BSL.toStrict) lines
+        manifest = manifestMapToManifest $ DHM.fromList $ map lineToKeyValue (filter (\a -> a /= "" ) linesStr)
+
+
 execVisual :: FilePath -> IO ()
 execVisual darFilePath = do
     darBytes <- B.readFile darFilePath
@@ -198,9 +192,7 @@ execVisual darFilePath = do
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
         res = concatMap (moduleAndTemplates world) modules
-        actionEdges = map templatePairs res
-        
-    -- putStrLn (show (dalfsBytes manifestData))
+        actionEdges = map templatePairs res        
     putStrLn $ showDot $ do 
         netlistGraph' srcLabel actionsForTemplate actionEdges
 
