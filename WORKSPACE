@@ -152,6 +152,22 @@ dev_env_tool(
     win_tool = "maven-3.6.1",
 )
 
+dev_env_tool(
+    name = "sbt_dev_env",
+    nix_include = ["bin/sbt"],
+    nix_label = "@sbt_nix",
+    nix_path = "bin/sbt",
+    tool = "sbt",
+    win_include = [
+        "bin",
+        "boot",
+        "conf",
+        "lib",
+    ],
+    win_path = "bin/sbt",
+    win_tool = "sbt-1.2.8",
+)
+
 nixpkgs_package(
     name = "awk_nix",
     attribute_path = "gawk",
@@ -295,6 +311,15 @@ dev_env_tool(
 nixpkgs_package(
     name = "mvn_nix",
     attribute_path = "mvn",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+nixpkgs_package(
+    name = "sbt_nix",
+    attribute_path = "sbt",
     fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,

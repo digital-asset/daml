@@ -20,6 +20,7 @@ rec {
     patchelf
     protobuf3_5
     scala
+    sbt
     zip
     ;
 
@@ -38,7 +39,6 @@ rec {
 
   # GHC with the package configurations patched for static only linking.
   ghcStatic = ghc.ghcWithPackages (p: []);
-
 
   # Java 8 development
   mvn = pkgs.writeScriptBin "mvn" ''

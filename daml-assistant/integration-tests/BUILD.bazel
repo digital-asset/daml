@@ -71,6 +71,7 @@ da_haskell_test(
         "//release:sdk-release-tarball",
         "@local_jdk//:bin/java.exe" if is_windows else "@local_jdk//:bin/java",
         "@mvn_dev_env//:mvn",
+        "@sbt_dev_env//:sbt",
         "@tar_dev_env//:tar",
     ],
     # I’m sure the mvn stuff will be flaky.

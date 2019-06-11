@@ -42,11 +42,12 @@ main =
     oldPath <- getSearchPath
     javaPath <- locateRunfiles "local_jdk/bin"
     mvnPath <- locateRunfiles "mvn_dev_env/bin"
+    sbtPath <- locateRunfiles "sbt_dev_env/bin"
     tarPath <- locateRunfiles "tar_dev_env/bin"
     let damlDir = tmpDir </> "daml"
     withEnv
         [ ("DAML_HOME", Just damlDir)
-        , ("PATH", Just $ intercalate [searchPathSeparator] ((damlDir </> "bin") : tarPath : javaPath : mvnPath : oldPath))
+        , ("PATH", Just $ intercalate [searchPathSeparator] ((damlDir </> "bin") : tarPath : javaPath : mvnPath : sbtPath : oldPath))
         ] $ defaultMain (tests damlDir tmpDir)
 
 tests :: FilePath -> FilePath -> TestTree
@@ -64,10 +65,12 @@ tests damlDir tmpDir = testGroup "Integration tests"
     , testCase "daml new --list" $ callProcessQuiet damlName ["new", "--list"]
     , noassistantTests damlDir
     , packagingTests tmpDir
-    , quickstartTests quickstartDir mvnDir
+    , quickstartJavaTests quickstartJavaDir mvnDir
+    , quickstartScalaTests quickstartScalaDir
     , cleanTests cleanDir
     ]
-    where quickstartDir = tmpDir </> "quickstart"
+    where quickstartJavaDir = tmpDir </> "quickstart-java"
+          quickstartScalaDir = tmpDir </> "quickstart-scala"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
@@ -189,8 +192,8 @@ packagingTests tmpDir = testGroup "packaging"
         withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
     ]
 
-quickstartTests :: FilePath -> FilePath -> TestTree
-quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
+quickstartJavaTests :: FilePath -> FilePath -> TestTree
+quickstartJavaTests quickstartDir mvnDir = testGroup "quickstart-java" $
     [ testCase "daml new" $
           callProcessQuiet damlName ["new", quickstartDir, "quickstart-java"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
@@ -258,6 +261,27 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
     ]
     where
         mvnRepoFlag = "-Dmaven.repo.local=" <> mvnDir
+
+quickstartScalaTests :: FilePath -> TestTree
+quickstartScalaTests quickstartDir = testGroup "quickstart-scala"
+    [ testCase "daml new" $
+          callProcessQuiet damlName ["new", projDir, "quickstart-scala"]
+    , testCase "daml build " $ withCurrentDirectory projDir $
+          callProcessQuiet damlName ["build"]
+    , testCase "sandxox and sbt" $ withCurrentDirectory projDir $
+      withDevNull $ \devNull1 -> do
+          sandboxPort :: Int <- fromIntegral <$> getFreePort
+          withCreateProcess ((proc damlName ["sandbox", "--port", show sandboxPort, "--scenario", "Main:setup", "dist/proj.dar"]) { std_out = UseHandle devNull1 }) $
+              \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
+                  waitForConnectionOnPort (threadDelay 500000) sandboxPort
+--                  restPort :: Int <- fromIntegral <$> getFreePort
+--                withCreateProcess ((proc
+                  callProcess "sbt" ["application/runMain com.digitalasset.quickstart.iou.IouMain localhost " <> show sandboxPort]
+                  terminateProcess ph
+
+    ] where
+        projName = "proj"
+        projDir = quickstartDir </> projName
 
 -- | Ensure that daml clean removes precisely the files created by daml build.
 cleanTests :: FilePath -> TestTree
