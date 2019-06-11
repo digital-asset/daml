@@ -42,14 +42,17 @@ service CommandCompletionService {
 
 message CompletionStreamRequest {
   // Must correspond to the ledger id reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string ledger_id = 1;
 
   // Only completions of commands submitted with the same application_id will be visible in the stream.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string application_id = 2;
 
   // Non-empty list of parties whose data should be included.
+  // Must be a valid PartyString.
   // Required
   repeated string parties = 3;
 
@@ -89,6 +92,7 @@ message Checkpoint {
 message CompletionEndRequest {
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
   // Required
+  // Must be a valid LedgerString (as described in ``value.proto``).
   string ledger_id = 1;
 
   // Server side tracing will be registered as a child of the submitted context.

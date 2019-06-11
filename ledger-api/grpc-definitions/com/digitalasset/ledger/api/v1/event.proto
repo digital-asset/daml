@@ -35,10 +35,12 @@ message Event {
 message CreatedEvent {
 
   // The ID of this particular event.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string event_id = 1;
 
   // The ID of the created contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string contract_id = 2;
 
@@ -71,10 +73,12 @@ message CreatedEvent {
 message ArchivedEvent {
 
   // The ID of this particular event.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string event_id = 1;
 
   // The ID of the archived contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string contract_id = 2;
 
@@ -87,6 +91,8 @@ message ArchivedEvent {
   // question and the parties specified in the `TransactionFilter`. The
   // stakeholders are the union of the signatories and the observers of
   // the contract.
+  // Each one of its elements must be a valid PartyIdString (as descibed
+  // in ``value.proto``).
   // Required
   repeated string witness_parties = 4;
 }
@@ -95,10 +101,12 @@ message ArchivedEvent {
 message ExercisedEvent {
 
   // The ID of this particular event.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string event_id = 1;
 
   // The ID of the target contract.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string contract_id = 2;
 
@@ -107,10 +115,12 @@ message ExercisedEvent {
   Identifier template_id = 3;
 
   // The ID of the event in which the target contract has been created.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string contract_creating_event_id = 4;
 
   // The choice that's been exercised on the target contract.
+  // Must be a valid NameString (as described in ``value.proto``).
   // Required
   string choice = 5;
 
@@ -119,6 +129,8 @@ message ExercisedEvent {
   Value choice_argument = 6;
 
   // The parties that made the choice.
+  // Each element must be a valid PartyIdString (as described in
+  // ``proto.value``).
   // Required
   repeated string acting_parties = 7;
 
@@ -141,11 +153,16 @@ message ExercisedEvent {
   // `choice ... controller` syntax, and said controllers are not
   // explicitly marked as observers.
   //
+  // Each element must be a valid PartyIdString (as described in ``proto.value``).
+  //
   // Required
   repeated string witness_parties = 10;
 
   // References to further events in the same transaction that appeared as a result of this ``ExercisedEvent``.
   // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
+  //
+  // Each element must be a valid PartyString.
+  //
   // Optional
   repeated string child_event_ids = 11;
 

@@ -17,25 +17,30 @@ option java_package = "com.digitalasset.ledger.api.v1";
 message Commands {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string ledger_id = 1;
 
   // Identifier of the on-ledger workflow that this command is a part of.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string workflow_id = 2;
 
   // Uniquely identifies the application (or its part) that issued the command. This is used in tracing
   // across different components and to let applications subscribe to their own submissions only.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string application_id = 3;
 
-  // Unique command ID. This number should be unique for each new command within an application domain. It can be used for matching
-  // the requests with their respective completions.
+  // Uniquely identified the command. This identifier should be unique for each new command within an
+  // application domain. It can be used for matching the requests with their respective completions.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string command_id = 4;
 
   // Party on whose behalf the command should be executed. It is up to the server to verify that the
   // authorisation can be granted and that the connection has been authenticated for that party.
+  // Must be a valid PartyString (as described in ``value.proto``).
   // Required
   string party = 5;
 
@@ -82,10 +87,12 @@ message ExerciseCommand {
   Identifier template_id = 1;
 
   // The ID of the contract the client wants to exercise upon.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string contract_id = 2;
 
   // The name of the choice the client wants to exercise.
+  // Must be a valid NameString (as described in ``value.proto``)
   // Required
   string choice = 3;
 
@@ -96,7 +103,7 @@ message ExerciseCommand {
 
 // Create a contract and exercise a choice on it in the same transaction.
 message CreateAndExerciseCommand {
-  // The template of the contract the client wants to create
+  // The template of the contract the client wants to create.
   // Required
   Identifier template_id = 1;
 
@@ -105,6 +112,7 @@ message CreateAndExerciseCommand {
   Record create_arguments = 2;
 
   // The name of the choice the client wants to exercise.
+  // Must be a valid NameString (as described in ``value.proto``).
   // Required
   string choice = 3;
 
