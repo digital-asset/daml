@@ -19,7 +19,7 @@ Digital Asset currently provides bindings for the following programming language
 
 However it is possible to create bindings for any programming language supported by `gRPC <https://grpc.io/docs/>`_.
 
-What exactly is "bindings"? X language bindings consists of two main components:
+What do we mean by "bindings"? Bindings for a language consist of two main components:
 
 - Ledger API
     Client "stubs" for X language, -- the remote ledger API that allows sending ledger commands and receiving ledger transactions. Generated from gRPC protobuf definitions in the **daml** repository on GitHub: https://github.com/digital-asset/daml/tree/master/ledger-api/grpc-definitions and documented on this page: :doc:`The Ledger API using gRPC </app-dev/grpc/index>`
