@@ -5,12 +5,24 @@ This example demonstrates how to:
 - subscribe to receive ledger events
 - exercise a choice manually constructing an `Exercise` command and submitting to the ledger
 
-This examples requires a running sandbox. To start a sandbox, run the following command from within a DAML Assistant project directory: 
+This examples requires a running sandbox.
+
+## To start a sandbox running IOU example
+- create a new DAML Assistant `quickstart-scala` project
+```
+$ daml new quickstart-scala quickstart-scala
+```
+- change directory to this project
+```
+$ cd quickstart-scala
+```
+- compile DAR, start sandbox and navigator processes
 ```
 $ daml start
 ```
 
-To run the iou-no-codegen example:
+## To run the iou-no-codegen example:
+- Run sbt command from `iou-no-codegen` folder:
 ```
 $ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain <sandbox-host-name> <sandbox-port-number> <iou-package-id>"
 ```
@@ -29,4 +41,3 @@ To connect to the sandbox running on localhost, listening to the default port an
 ```
 $ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865 fc3e49291d12ef5f46a3b51398558257a469884c46211942c1559cf0be46872c"
 ```
-
