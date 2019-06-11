@@ -7,6 +7,7 @@ import com.digitalasset.codegen.dependencygraph.{OrderedDependencies, TypeDeclOr
 import com.digitalasset.daml.lf.iface.{Type => IType, _}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+
 import java.io.File
 
 import scala.reflect.runtime.universe._
