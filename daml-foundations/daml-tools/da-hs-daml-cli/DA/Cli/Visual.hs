@@ -132,19 +132,17 @@ moduleAndTemplates world mod = retTypess
         templates = NM.toList $ LF.moduleTemplates mod
         retTypess = map (\t-> (LF.tplTypeCon t, templatePossibleUpdates world t )) templates
 
-dalfsInDar :: Archive -> [BSL.ByteString]
-dalfsInDar dar = [fromEntry e | e <- zEntries dar, ".dalf" `isExtensionOf` eRelativePath e]
+-- dalfsInDar :: Archive -> [BSL.ByteString]
+-- dalfsInDar dar = [fromEntry e | e <- zEntries dar, ".dalf" `isExtensionOf` eRelativePath e]
 
 dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
 dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
     Right a -> a
     Left err -> error (show err)
 
-darToWorld :: FilePath -> LF.Package -> IO LF.World
-darToWorld darFilePath pkg = do
-    bytes <- B.readFile darFilePath
-    let dalfs = dalfsInDar (toArchive $ BSL.fromStrict bytes)
-        pkgs = map dalfBytesToPakage dalfs
+darToWorld :: ManifestData -> LF.Package -> IO LF.World
+darToWorld manifest pkg= do
+    let pkgs = map (dalfBytesToPakage)  (dalfsBytes manifest)
     return (AST.initWorldSelf pkgs version1_4 pkg) 
 
 templateInAction :: Action -> LF.TypeConName
@@ -193,17 +191,17 @@ netlistGraph' attrFn outFn assocs = do
 
 
 
-execVisual :: FilePath -> FilePath -> IO ()
-execVisual darFilePath dalfFile = do
-    bytes <- B.readFile dalfFile
+execVisual :: FilePath -> IO ()
+execVisual darFilePath = do
     darBytes <- B.readFile darFilePath
-    (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive bytes 
-    world <- darToWorld darFilePath lfPkg
+    let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
+    (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfBytes manifestData) )
+    world <- darToWorld manifestData lfPkg
     let modules = NM.toList $ LF.packageModules lfPkg
         res = concatMap (moduleAndTemplates world) modules
         actionEdges = map templatePairs res
-        manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
-    putStrLn (show (dalfsBytes manifestData))
+        
+    -- putStrLn (show (dalfsBytes manifestData))
     putStrLn $ showDot $ do 
         netlistGraph' srcLabel actionsForTemplate actionEdges
 

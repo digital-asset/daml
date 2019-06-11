@@ -136,7 +136,7 @@ cmdVisual :: Mod CommandFields Command
 cmdVisual =
     command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dalf" <> fullDesc
     where
-      cmd = execVisual <$> inputFileOpt <*> inputFileOpt
+      cmd = execVisual <$> inputFileOpt
 
 
 cmdBuild :: Int -> Mod CommandFields Command
