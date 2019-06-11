@@ -65,7 +65,7 @@ Despite its simplicity, there are quite a few things to note in this scenario:
 - None of the variables have annotations to say what type they are.
 
   That's because DAML is very good at *inferring* types. The compiler knows that ``123`` is an ``Int``, so if you declare ``my_int = 123``, it can infer that ``my_int`` is also an ``Int``. This means you don't have to write the type annotation ``my_int : Int = 123``.
-  
+
    However, if the type is ambiguous so that the compiler can't infer it, you do have to add a type annotation. And you can always choose to add them to aid readability.
 - The ``assert`` function is an action that takes a boolean value and succeeds with ``True`` and fails with ``False``.
 
@@ -177,7 +177,7 @@ Variant types where none of the data constructors take a parameter are called en
   :start-after: -- ENUM_BEGIN
   :end-before: -- ENUM_END
 
-To access the data in variants, you need to distinguish the different possible cases. For example, you can no longer access the account number of a ``Location`` directly, because if it is ``InHand``, there may be no account number. 
+To access the data in variants, you need to distinguish the different possible cases. For example, you can no longer access the account number of a ``Location`` directly, because if it is ``InHand``, there may be no account number.
 
 To do this, you can use *pattern matching* and either throw errors or return compatible types for all cases:
 
@@ -227,7 +227,7 @@ You can define *stable* keys for contracts using the ``key`` and ``maintainer`` 
   :start-after: -- KEY_TEST_BEGIN
   :end-before: -- KEY_TEST_END
 
-Since DAML is designed to run on distributed systems, you have to assume that there is no global entity that can guarantee uniqueness, which is why each ``key`` expression must come with a ``maintainer`` expression. ``maintainer`` takes one or several parties, all of which have to be signatories of the contract and be part of the key. That way the index can be partitioned amongst sets of maintainers, and each set of maintainers can independently ensure the uniqueness constraint on their piece of the index.
+Since DAML is designed to run on distributed systems, you have to assume that there is no global entity that can guarantee uniqueness, which is why each ``key`` expression must come with a ``maintainer`` expression. ``maintainer`` takes one or several parties, all of which have to be signatories of the contract and be part of the key. That way the index can be partitioned amongst sets of maintainers, and each set of maintainers can independently ensure the uniqueness constraint on their piece of the index. The constraint that maintainters are part of the key is ensured by only having the variable `key`
 
 Note how the ``fetch`` in the final ``submit`` block has become a ``fetchByKey @Account``. ``fetchByKey @Account`` takes a value of type ``AccountKey`` and returns a tuple ``(ContractId Account, Account)`` if the lookup was successful or fails the transaction otherwise.
 
@@ -240,4 +240,3 @@ Next Up
 You can now define data schemas for the ledger, read, write and delete data from the ledger, and use keys to reference and look up data in a stable fashion.
 
 In :doc:`4_Transformations` you'll learn how to define data transformations and give other parties the right to manipulate data in restricted ways.
-

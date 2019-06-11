@@ -112,7 +112,7 @@ This is also the first time we have shown a choice with more than one controller
   :start-after: -- SENDER_ROLE_BEGIN
   :end-before: -- SENDER_ROLE_END
 
-The above ``IouSender`` contract now gives a one party, the ``sender`` the right to send ``Iou`` contracts with positive amounts to a ``receiver``. Here it is in action:
+The above ``IouSender`` contract now gives a one party, the ``sender`` the right to send ``Iou`` contracts with positive amounts to a ``receiver``. The ``nonconsuming`` keyword on the choice ``Send_Iou`` changes the behaviour of the choice so that the contract it's exercised on does not get archived when the choice is exercised. That way the ``sender`` can use the contract to send multiple Ious. Here it is in action:
 
 .. literalinclude:: daml/Intro_6_Parties.daml
   :language: daml

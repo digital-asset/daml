@@ -1,0 +1,7 @@
+sdk-version: 0.12.24
+name: daml_intro
+source: daml/LibraryModules.daml
+version: 1.0.0
+dependencies:
+  - daml-prim
+  - daml-stdlib

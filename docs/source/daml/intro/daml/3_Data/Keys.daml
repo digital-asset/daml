@@ -31,7 +31,7 @@ template Account
         number
         bank_party = bank.party
       : AccountKey
-    maintainer accountant
+    maintainer key.accountant
 
 data Cash = Cash with
   currency : Text
@@ -87,4 +87,3 @@ id_ref_test = scenario do
     (cid, account) <- fetchByKey @Account balance.account
     assert (cid == new_accountCid)
 -- KEY_TEST_END
-
