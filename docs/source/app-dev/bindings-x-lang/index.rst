@@ -83,7 +83,7 @@ When creating custom bindings for the Digital Asset distributed ledger, you will
 
 - decide whether to write a codegen to generate contract classes or manually build commands for all contracts defined in your DAML model.
 
-The above examples should help you get started. If you have any questions, see the :doc:`/support/support` page for how to get in touch with us. You can also open a `GitHub issue <https://github.com/digital-asset/daml/issues>`_ if any of the instructions did not work.
+The above examples should help you get started. If you are creating custom binding and have any questions, see the :doc:`/support/support` page for how to get in touch with us. You can also open a `GitHub issue <https://github.com/digital-asset/daml/issues>`_ if any of the instructions did not work.
 
 Links
 =====
