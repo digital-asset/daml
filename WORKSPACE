@@ -443,9 +443,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "1deb1eae5dd6851510d5d66e57bda7d27365d00c"
+HASKELL_LSP_COMMIT = "491d8d2e33572b3868078f57a3375b2ac621f958"
 
-HASKELL_LSP_HASH = "8450b1f0872a6fc590492ef9b63c565d1424bc9eea193c62207292767338513a"
+HASKELL_LSP_HASH = "581dd4d3d6d5611448a4d071575b730aa874480c19c1525fcb2c9f8e8319dd11"
 
 hazel_repositories(
     core_packages = dicts.add(
@@ -510,12 +510,14 @@ hazel_repositories(
             # This corresponds to our custom-methods branch that adds support for custom RPC methods
             # like daml/keepAlive. Once the corresponding PR has been merged
             # https://github.com/alanz/haskell-lsp/pull/171 we can switch back to upstream.
-            hazel_github(
+            hazel_github_external(
+                "alanz",
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
             ) +
-            hazel_github(
+            hazel_github_external(
+                "alanz",
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
@@ -523,11 +525,11 @@ hazel_repositories(
                 directory = "/haskell-lsp-types/",
             ) +
             # This corresponds to our custom-methods branch which makes
-            # lsp-test work with our custom-methods of haskell-lsp.
+            # lsp-test work with the custom methods changes in haskell-lsp.
             hazel_github(
                 "lsp-test",
-                "a325a6860f38c9f533c33f5b37ee9b73580ae68b",
-                "5553d30607ab8942c5aa77c4de08a0dafce345f5bf70b0cba4e47af4d55ba6b3",
+                "8d9dbdeaab97162262e3f8a0a02e9e32b3b85340",
+                "bb25ae3559245861c13e12c3ad1d8f13843577bf16de4f286e5a8f2f23cf5445",
             ),
         pkgs = packages,
     ),
