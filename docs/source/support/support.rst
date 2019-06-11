@@ -31,7 +31,7 @@ For community users (ie on Slack and Stack Overflow):
 
 - **Public support**: We only offer public support - for example, on the ``#public`` channel in `Slack <https://damldriven.slack.com/sso/saml/start>`_. 
 
-  We do not answer questions in private messages, so please only ask questions in the ``#public`` channel.
+  We do not answer questions in private messages or over email, so please only ask questions in the ``#public`` channel.
 - **Level of support**: We're happy to answer questions about error messages you're encountering, or discuss DAML design questions. However, we can't provide more extensive consultation on how to build your DAML application.
 
 If you need private support, or want consultation from DA about how to build your DAML application, we offer paid support. Please contact us to ask about pricing.
