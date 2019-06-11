@@ -89,20 +89,6 @@ data VirtualResourceChangedParams = VirtualResourceChangedParams
 deriveDAToJSON "_vrcp" ''VirtualResourceChangedParams
 deriveDAFromJSON "_vrcp" ''VirtualResourceChangedParams
 
--- | Information regarding validations done for a DAML workspace.
-workspaceValidationsNotification :: T.Text
-workspaceValidationsNotification = "daml/workspace/validations"
-
--- | Parameters to update the client about the number of files that have been updated.
-data WorkspaceValidationsParams = WorkspaceValidationsParams
-    { _wvpFinishedValidations :: !Int
-      -- ^ Tracks the number of validations we have already finished.
-    , _wvpTotalValidations    :: !Int
-      -- ^ Tracks the number of total validation steps we need to perform.
-    }
-
-deriveDAToJSON "_wvp" ''WorkspaceValidationsParams
-
 ------------------------------------------------------------------------
 -- Request handlers
 ------------------------------------------------------------------------
@@ -288,9 +274,3 @@ eventSlinger eventChan notifChan =
                     $ CustomNotification virtualResourceChangedNotification
                     $ Aeson.toJSON
                     $ VirtualResourceChangedParams (Compiler.virtualResourceToUri vr) content
-
-            Compiler.EventFileValidation finishedValidations totalValidations -> do
-                writeTChan notifChan
-                    $ CustomNotification workspaceValidationsNotification
-                    $ Aeson.toJSON
-                    $ WorkspaceValidationsParams finishedValidations totalValidations
