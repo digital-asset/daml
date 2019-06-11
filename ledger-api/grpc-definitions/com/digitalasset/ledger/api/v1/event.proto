@@ -129,8 +129,7 @@ message ExercisedEvent {
   Value choice_argument = 6;
 
   // The parties that made the choice.
-  // Each element must be a valid PartyIdString (as described in
-  // ``proto.value``).
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string acting_parties = 7;
 
@@ -153,7 +152,7 @@ message ExercisedEvent {
   // `choice ... controller` syntax, and said controllers are not
   // explicitly marked as observers.
   //
-  // Each element must be a valid PartyIdString (as described in ``proto.value``).
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
   //
   // Required
   repeated string witness_parties = 10;
@@ -161,7 +160,7 @@ message ExercisedEvent {
   // References to further events in the same transaction that appeared as a result of this ``ExercisedEvent``.
   // It contains only the immediate children of this event, not all members of the subtree rooted at this node.
   //
-  // Each element must be a valid PartyString.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
   //
   // Optional
   repeated string child_event_ids = 11;

@@ -41,7 +41,7 @@ message ListPackagesRequest {
 message ListPackagesResponse {
 
   // The IDs of all DAML-LF packages supported by the server.
-  // Each element must be a valid PackageIdString.
+  // Each element must be a valid PackageIdString (as described in ``value.proto``).
   // Required
   repeated string package_ids = 1;
 }

@@ -40,7 +40,7 @@ message Commands {
 
   // Party on whose behalf the command should be executed. It is up to the server to verify that the
   // authorisation can be granted and that the connection has been authenticated for that party.
-  // Must be a valid PartyString (as described in ``value.proto``).
+  // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string party = 5;
 

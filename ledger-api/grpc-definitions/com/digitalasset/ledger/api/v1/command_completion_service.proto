@@ -52,7 +52,7 @@ message CompletionStreamRequest {
   string application_id = 2;
 
   // Non-empty list of parties whose data should be included.
-  // Must be a valid PartyString.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   repeated string parties = 3;
 

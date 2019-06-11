@@ -43,12 +43,12 @@ message TransactionTree {
   string offset = 6;
 
   // Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
-  // Each key be a valid ``LedgerString`` (as describe in ``value.proto``).
+  // Each key be a valid LedgerString (as describe in ``value.proto``).
   // Required
   map<string, TreeEvent> events_by_id = 7;
 
   // Roots of the transaction tree.
-  // Each element be a valid ``LedgerString`` (as describe in ``value.proto``).
+  // Each element must be a valid LedgerString (as describe in ``value.proto``).
   // Required
   repeated string root_event_ids = 8;
 
