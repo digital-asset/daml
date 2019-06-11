@@ -103,7 +103,8 @@ sealed abstract class Primitive {
 
     /** Package ID, module name, and entity name, unless the underlying
       * gRPC Identifier was built with the very old and ambiguous two-argument
-      * form.
+      * form.  Use [[LegacyTemplateId]] instead if you want to extract
+      * the two-argument form.
       */
     def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String, String)]
   }
