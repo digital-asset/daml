@@ -50,9 +50,21 @@ git submodule update --init --recursive
 stack build --stack-yaml=hadrian/stack.yaml --only-dependencies
 hadrian/build.stack.sh --configure --flavour=quickest -j
 ```
-The compiler is built to `_build/stage1/bin/ghc`.
+Note that the `git checkout` step will put you in detached HEAD state - that's expected. The compiler is built to `_build/stage1/bin/ghc`.
 
-Note that the `git checkout` step will put you in detached HEAD state - that's expected.
+The equivalent commands to build the `8.8.1` compatible branch are:
+```
+git clone https://gitlab.haskell.org/ghc/ghc.git
+cd ghc
+git fetch --tags
+git checkout ghc-8.8.1-alpha1
+git remote add upstream git@github.com:digital-asset/ghc.git
+git fetch upstream
+git merge --no-edit upstream/da-master-8.8.1
+git submodule update --init --recursive
+stack build --stack-yaml=hadrian/stack.yaml --only-dependencies
+hadrian/build.stack.sh --configure --flavour=quickest -j
+```
 
 ## How to build `ghc-lib` from the DA GHC fork
 (You don't need to follow the previous step in order to do this.)
@@ -76,6 +88,24 @@ stack build --no-terminal --interleaved-output
 stack exec -- ghc-lib-gen ghc --ghc-lib-parser
 ```
 Note that the `git checkout` step will put you in detached HEAD state - that's expected.
+
+The equivalent 8.8.1 commands are:
+```
+mkdir -p ~/tmp && cd ~/tmp
+git clone git@github.com:digital-asset/ghc-lib.git
+cd ghc-lib && git clone https://gitlab.haskell.org/ghc/ghc.git
+cd ghc
+git fetch --tags
+git checkout ghc-8.8.1-alpha1
+git remote add upstream git@github.com:digital-asset/ghc.git
+git fetch upstream
+git merge --no-edit upstream/da-master-8.8.1 upstream/da-unit-ids-8.8.1
+git submodule update --init --recursive
+cd ..
+stack setup > /dev/null 2>&1
+stack build --no-terminal --interleaved-output
+stack exec -- ghc-lib-gen ghc --ghc-lib-parser
+```
 
 2. Edit `~/tmp/ghc-lib/ghc/ghc-lib-parser.cabal` to (a) change the version number (we use a datestamp, e.g. `0.20190219`) and (b) add clause `extra-libraries:ffi` to the `library` stanza. Then run:
 ```bash
