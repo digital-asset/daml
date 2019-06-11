@@ -271,7 +271,7 @@ quickstartScalaTests quickstartDir = testGroup "quickstart-scala"
     , testCase "sandxox and sbt" $ withCurrentDirectory projDir $
       withDevNull $ \devNull1 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess ((proc damlName ["sandbox", "--port", show sandboxPort, "--scenario", "Main:setup", "dist/proj.dar"]) { std_out = UseHandle devNull1 }) $
+          withCreateProcess ((proc damlName ["sandbox", "--port", show sandboxPort, "--scenario", "Main:setup", darPath]) { std_out = UseHandle devNull1 }) $
               \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
                   waitForConnectionOnPort (threadDelay 500000) sandboxPort
                   callProcess "sbt" ["application/runMain com.digitalasset.quickstart.iou.IouMain localhost " <> show sandboxPort]
@@ -280,6 +280,7 @@ quickstartScalaTests quickstartDir = testGroup "quickstart-scala"
     ] where
         projName = "proj"
         projDir = quickstartDir </> projName
+        darPath = "dist" </> projName <.> "dar"
 
 -- | Ensure that daml clean removes precisely the files created by daml build.
 cleanTests :: FilePath -> TestTree
