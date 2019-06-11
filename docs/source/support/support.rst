@@ -13,7 +13,7 @@ Have questions or feedback? You're in the right place.
   For “how do I?”, “why does something work this way” or “I’ve got a programming problem I’m trying to solve” questions, the `daml tag on Stack Overflow <https://stackoverflow.com/questions/tagged/daml>`_ is the best place to ask. 
 
   If you're not sure what makes a good question, take a look at `this checklist <https://codeblog.jonskeet.uk/2012/11/24/stack-overflow-question-checklist/>`_. 
-- ** Help and feedback: Slack, or Support widget**
+- **Help and feedback: Slack, or Support widget**
 
   If you want to give feedback, or have questions that aren't right for Stack Overflow, you can: 
 
