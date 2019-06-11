@@ -1,21 +1,21 @@
+# Steps for running a demo of nim-console
 
-# Steps for running a demo of nim-console...
+Follow these steps to run a demo of Nim!
 
 Notes on the format of this file:
 
-- Fixed width font lines starting `$` are typed at the terminal.
-- Fixed width font lines starting `Alice>` or `Bob>` or `Charlie>` are entered at the relevant `nim-console`.
-- Other lines are explanatory text.
+- For lines that start `$`, type them at the terminal.
+- For lines that start `Alice>` or `Bob>` or `Charlie>`, type them at the relevant `nim-console`. You'll end up with three terminals running simultaneously.
 
-## -1. Build applictaion; update the daml SDK
+## 0. Setup: Build application and update the DAML SDK
 
     $ cd daml
     $ bazel build language-support/hs/bindings/...
     $ daml install latest --activate
 
-## 0. Study Nim.daml
+## 1. Look at [Nim.daml](https://github.com/digital-asset/daml/blob/master/language-support/hs/bindings/examples/nim-console/daml/Nim.daml)
 
-Where the operation of the game room, and the rules of Nim, are modelled in DAML.
+`Nim.daml` models the operation of the game room and the rules of Nim:
 
     template GameOffer...
 
@@ -33,12 +33,13 @@ Where the operation of the game room, and the rules of Nim, are modelled in DAML
     playMove : Move -> Game -> Either RejectionMessage Game
     ...
 
-## 1. Start sandbox running the Nim game server
+## 2. Start sandbox running the Nim game server
 
     $ daml sandbox bazel-out/k8-fastbuild/bin/language-support/hs/bindings/Nim.dar
 
+## 3. Open a new terminal and start nim-console for Alice
 
-## 2. (new terminal) Start nim-console for Alice
+In a new terminal:
 
     $ clear; bazel-bin/language-support/hs/bindings/nim Alice
     replaying 0 transactions
@@ -49,11 +50,10 @@ Where the operation of the game room, and the rules of Nim, are modelled in DAML
     Finished:
     In play:
 
-We see an empty state: no offers, no games finished, no matches in play.
-(The status can also be show by typing <return>)
+This is an empty state: no offers, no games finished, no matches in play.
+(You can also see the status by typing` <return>`.)
 
-
-## 3. Alice offers game to Charlie
+## 4. As Alice, offer a game to Charlie
 
     Alice> offer Charlie
     - Match-1: Alice has offered to play a new game.
@@ -63,17 +63,19 @@ We see an empty state: no offers, no games finished, no matches in play.
 
 Alice's local state shows that she has sent Charlie an offer to play a game of Nim.
 
+## 5. Open a new terminal and start nim-console for Bob
 
-## 4. (new terminal) Start nim-console for Bob
+In a new terminal:
 
     $ clear; bazel-bin/language-support/hs/bindings/nim Bob
     replaying 0 transactions
     Bob> show
 
-Bob's status is empty. Because Bob has no right to see that Alice offered a match to Charlie.
+Bob's status is empty, because Bob has no right to see that Alice offered a match to Charlie.
 
+## 6. Open a new terminal and start nim-console for Charlie
 
-## 5. (new terminal) Start nim-console for Charlie
+In a new terminal:
 
     $ clear; bazel-bin/language-support/hs/bindings/nim Charlie
     replaying 1 transactions
@@ -82,8 +84,7 @@ Bob's status is empty. Because Bob has no right to see that Alice offered a matc
 
 Charlie sees the match offered by Alice, even though he had never connected before. Charlie's initial state is recovered by replaying the relevant transactions sent from the ledger.
 
-
-## 6. Alice also offers a game to bob
+## 7. As Alice, offer a game to Bob
 
     Alice> offer Bob
 
@@ -97,8 +98,7 @@ And Bob's console:
 
 Alice and Bob have different local numbers for the same game. Both players are informed by monitoring the transactions sent from the ledger. This asynchronous monitoring in indicated by the darker blue messages. Cyan messages (i.e. when we "show") are synchronous replies to player commands.
 
-
-## 7. Alice quits and restarts nim-console
+## 8. As Alice, quit and restart nim-console
 
     Alice> C-c
     $ clear; bazel-bin/language-support/hs/bindings/nim Alice
@@ -110,8 +110,7 @@ Alice and Bob have different local numbers for the same game. Both players are i
 
 The nim-console keeps no persistent local state. Alice's state is recovered from the ledger.
 
-
-## 8. Charlie accepts Alice's game offer
+## 9. As Charlie, accept Alice's game offer
 
     Charlie> accept 1
 
@@ -121,8 +120,7 @@ Alice and Charlie both see two transactions:
     Match-1: The game has started.
 
 That game offer was accepted (the underlying daml contract was archived)
-The game proper has started.
-Both players see the initial state of the Nim game.
+The game proper has started. Both players see the initial state of the Nim game.
 
     Charlie> show
     - Match-1: (--iiiiiii--iiiii--iii--), Alice to move.
@@ -130,10 +128,9 @@ Both players see the initial state of the Nim game.
     Alice> show
     - Match-1: (--iiiiiii--iiiii--iii--), you to move, against Charlie.
 
-The difference in wording is performed by the ledger-app, not the ledger.
+The difference in wording is performed by the ledger app, not the ledger.
 
-
-## 9. Alice makes a move
+## 10. As Alice, make a move
 
 "In match 1, from pile 2, take 3 matchsticks":
 
@@ -146,24 +143,23 @@ Both Alice and Charlie are informed and can see the updated game state.
     Alice> show
     - Match-1: (--iiiiiii--ii--iii--), Charlie to move.
 
-
-## 10. Alice tries to make a move when it is not her turn (rejected)
+## 11. As Alice, try to make a move when it isn't her turn (rejected)
 
     Alice> move 1 2 1
     command rejected by ledger:... requires controllers: Charlie, but only Alice were given...
 
-Important to note: The ledger-app has blindly submitted the move from the player. The check and rejection is performed entirely by the ledger, not the ledger-app. The game logic is contained solely in the Daml Nim model. We also see the rejection in the terminal where we are running the sandbox.
+Important to note: The ledger app has blindly submitted the move from the player. The check and rejection is performed entirely by the ledger, not the ledger app: the game logic is contained solely in the DAML model.
 
+We also see the rejection in the terminal where we are running the sandbox.
 
-## 11. Alice tries to accept the game she offered to Bob (rejected)
+## 12. As Alice, try to accept the game she offered to Bob (rejected)
 
     Alice> accept 2
     command rejected by ledger:...User abort: acceptor not an offeree...
 
 As before, the ledger ensures the legal workflow. There are no special checks in the app.
 
-
-## 12. Charlie tries to make an illegal move (rejected)
+## 13. As Charlie, try to make an illegal move (rejected)
 
     Charlie> move 1 4 1
     command rejected by ledger... User abort: no such pile.
@@ -174,19 +170,17 @@ As before, the ledger ensures the legal workflow. There are no special checks in
     Charlie> move 1 2 3
     command rejected by ledger... User abort: not that many in pile.
 
-
-## 13. Charlie finally makes a correct move
+## 14. As Charlie, make a correct move
 
     Charlie> move 1 2 2
 
-Seen in both Alice and Bob's console
+Seen in both Alice and Bob's console:
 
     Match-1: Charlie has played a move [2:2]
 
+## 15. As Charlie, offer a game to Alice OR Bob
 
-## 14. Charlie offers a game to Alice/Bob
-
-Charlie is having so much fun he wants to start a 2nd game. He doesn't care who it is against,
+Charlie is having so much fun he wants to start a 2nd game. He doesn't care who it is against:
 
     Charlie> offer Alice Bob
 
@@ -194,17 +188,16 @@ Seen in everyone's console:
 
     ...Charlie has offered to play a new game.
 
-
-## 15. Bob accepts Charlie's game offer
+## 16. As Bob, accept Charlie's game offer
 
     Bob> accept 2
 
-This event is seen in everyone's console, but not everyone sees all information! In particular, Alice sees only that the offer has been accepted (by someone), but not that the game has been started. This is the sub-transaction privacy semantics of Daml in action.
+This event is seen in everyone's console, but not everyone sees all information! In particular, Alice sees only that the offer has been accepted (by someone), but not that the game has been started. This is the sub-transaction privacy semantics of DAML in action.
 
 
-## 16. Bob goes on holiday; Robot Bob takes over
+## 17. Bob goes on holiday, so replace him with Robot Bob
 
-Nearly at the end of the demo. Bob quits his console, and starts up a robot to play his turns for him!
+Nearly at the end of the demo. Quit Bob's console, and start up a robot to play his turns for him!
 
     Bob> C-c
     $ clear; bazel-bin/language-support/hs/bindings/nim --robot Bob
@@ -218,8 +211,7 @@ The robot is an example of a Ledger Nanobot, continuously monitoring ledger even
 
 And indeed we see the earlier game offered by Alice is accepted.
 
-
-## 17. Alice plays against Bob for a while
+## 18. As Alice, play against Bob for a while
 
     Alice> move 2 1 1
     Match-2: Bob has played a move [???]
@@ -229,16 +221,14 @@ And indeed we see the earlier game offered by Alice is accepted.
 
 Robot Bob's moves are random, so indicated by `???` above.
 
-
-## 18. Alice also goes on holiday; Robot Alice
+## 18. Alice also goes on holiday, so replace her with Robot Alice
 
     Alice> C-c
     $ clear; bazel-bin/language-support/hs/bindings/nim --robot Alice
 
 The robots complete the game!
 
-
-## 19. Alice checks in to see who won
+## 19. As Alice, check in to see who won
 
     C-c
     $ clear; bazel-bin/language-support/hs/bindings/nim Alice
