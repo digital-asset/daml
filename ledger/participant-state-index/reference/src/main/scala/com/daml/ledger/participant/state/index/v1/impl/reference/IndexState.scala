@@ -29,8 +29,8 @@ final case class IndexState(
     activeContracts: InMemoryActiveContracts,
     // Rejected commands indexed by offset.
     commandRejections: TreeMap[Offset, Update.CommandRejected],
-    partyRejections: TreeMap[Offset, Update.PartyRejected],
-    packageRejections: TreeMap[Offset, Update.PackagesRejected],
+    partyRejections: TreeMap[Offset, Update.PartyAllocationRejected],
+    packageRejections: TreeMap[Offset, Update.PackageUploadRejected],
     // Uploaded packages.
     packages: Map[PackageId, Archive],
     packageKnownTo: Relation[PackageId, Party],
@@ -100,7 +100,7 @@ final case class IndexState(
             )
           )
 
-        case u: Update.PartyRejected =>
+        case u: Update.PartyAllocationRejected =>
           //TODO(MZ) Provide response to the ledger api caller
           Right(
             state.copy(
@@ -108,7 +108,7 @@ final case class IndexState(
             )
           )
 
-        case u: Update.PackagesRejected =>
+        case u: Update.PackageUploadRejected =>
           //TODO(MZ) Provide response to the ledger api caller
           Right(
             state.copy(

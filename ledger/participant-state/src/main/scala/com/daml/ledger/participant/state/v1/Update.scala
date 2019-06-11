@@ -143,7 +143,7 @@ object Update {
     * See the different [[PackageUploadRejectionReason]] for why packages can be
     * rejected.
     */
-  final case class PackagesRejected(
+  final case class PackageUploadRejected(
       submissionId: String,
       reason: PackageUploadRejectionReason,
   ) extends Update {
@@ -157,7 +157,7 @@ object Update {
     * See the different [[PartyAllocationRejectionReason]] for why party
     * allocation can be rejected.
     */
-  final case class PartyRejected(
+  final case class PartyAllocationRejected(
       submissionId: String,
       reason: PartyAllocationRejectionReason,
   ) extends Update {

@@ -121,25 +121,13 @@ object KeyValueCommitting {
                 DamlStateValue.newBuilder.setArchive(archive).build))(breakOut)
         )
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        val key =
-          DamlStateKey.newBuilder.setParty(submission.getPartyAllocationEntry.getParty).build
-        // TODO(MZ): Filter for pre-existing parties and produce error if already present
-        logger.trace(
-          s"processSubmission[entryId=${prettyEntryId(entryId)}]: Party: ${submission.getPartyAllocationEntry.getParty} allocation committed.")
-        (
-          DamlLogEntry.newBuilder
-            .setRecordTime(buildTimestamp(recordTime))
-            .setPartyAllocationEntry(submission.getPartyAllocationEntry)
-            .build,
-          Map(
-            key -> DamlStateValue.newBuilder
-              .setParty(
-                DamlPartyValue.newBuilder
-                  .setParticipantId(submission.getPartyAllocationEntry.getParticipantId)
-                  .build)
-              .build
-          )
+        processPartyAllocation(
+          entryId,
+          recordTime,
+          submission.getPartyAllocationEntry,
+          inputState
         )
+
       case DamlSubmission.PayloadCase.CONFIGURATION_ENTRY =>
         logger.trace(
           s"processSubmission[entryId=${prettyEntryId(entryId)}]: New configuration committed.")
@@ -150,6 +138,7 @@ object KeyValueCommitting {
             .build,
           Map.empty
         )
+
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         processTransactionSubmission(
           engine,
@@ -164,6 +153,78 @@ object KeyValueCommitting {
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidPayload("DamlSubmission.payload not set.")
     }
+  }
+
+  private def processPartyAllocation(
+      entryId: DamlLogEntryId,
+      recordTime: Timestamp,
+      partyAllocationEntry: DamlPartyAllocationEntry,
+      inputState: Map[DamlStateKey, Option[DamlStateValue]]
+  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
+    val submissionId = partyAllocationEntry.getSubmissionId
+    def tracelog(msg: String): Unit =
+      logger.trace(
+        s"processPartyAllocation[entryId=${prettyEntryId(entryId)}, submId=$submissionId]: $msg")
+
+    val party: String = partyAllocationEntry.getParty
+    // 1. Verify that the party isn't empty
+    val partyValidityResult = !party.isEmpty
+    // 2. Verify that this is not a duplicate party submission.
+    val dedupKey = DamlStateKey.newBuilder
+      .setParty(party)
+      .build
+    val dedupEntry = inputState(dedupKey)
+    val dedupResult = dedupEntry.isEmpty
+
+    (partyValidityResult, dedupResult) match {
+      case (false, _) =>
+        tracelog(s"Party: $party allocation failed, party string invalid.")
+        buildPartyRejectionLogEntry(recordTime, partyAllocationEntry, party, {
+          _.setInvalidName("")
+        })
+      case (true, false) =>
+        tracelog(s"Party: $party allocation failed, duplicate party.")
+        buildPartyRejectionLogEntry(recordTime, partyAllocationEntry, party, {
+          _.setAlreadyExists("")
+        })
+      case (true, true) =>
+        val key =
+          DamlStateKey.newBuilder.setParty(party).build
+        tracelog(s"Party: $party allocation committed.")
+        (
+          DamlLogEntry.newBuilder
+            .setRecordTime(buildTimestamp(recordTime))
+            .setPartyAllocationEntry(partyAllocationEntry)
+            .build,
+          Map(
+            key -> DamlStateValue.newBuilder
+              .setParty(
+                DamlPartyValue.newBuilder
+                  .setParticipantId(partyAllocationEntry.getParticipantId)
+                  .build)
+              .build
+          )
+        )
+    }
+  }
+
+  private def buildPartyRejectionLogEntry(
+      recordTime: Timestamp,
+      partyAllocationEntry: DamlPartyAllocationEntry,
+      party: String,
+      addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder
+  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
+    (
+      DamlLogEntry.newBuilder
+        .setRecordTime(buildTimestamp(recordTime))
+        .setPartyAllocationRejectionEntry(
+          addErrorDetails(
+            DamlPartyAllocationRejectionEntry.newBuilder
+              .setSubmissionId(partyAllocationEntry.getSubmissionId)
+          ).build)
+        .build,
+      Map.empty
+    )
   }
 
   private def processTransactionSubmission(

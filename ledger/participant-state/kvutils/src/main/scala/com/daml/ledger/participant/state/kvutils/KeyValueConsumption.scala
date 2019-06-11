@@ -44,7 +44,7 @@ object KeyValueConsumption {
         )
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
-        Update.PackagesRejected(
+        Update.PackageUploadRejected(
           entry.getPackageUploadRejectionEntry.getSubmissionId,
           //TODO(MZ): Implement error conversion
           PackageUploadRejectionReason.InvalidPackage
@@ -60,11 +60,7 @@ object KeyValueConsumption {
         )
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
-        Update.PartyRejected(
-          entry.getPartyAllocationRejectionEntry.getSubmissionId,
-          //TODO(MZ): Implement error conversion
-          PartyAllocationRejectionReason.InvalidName
-        )
+        partyRejectionEntryToUpdate(entry.getPartyAllocationRejectionEntry)
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
         txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime)
@@ -73,17 +69,14 @@ object KeyValueConsumption {
         Update.ConfigurationChanged(parseDamlConfigurationEntry(entry.getConfigurationEntry))
 
       case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
-        rejectionEntryToUpdate(entryId, entry.getRejectionEntry, recordTime)
+        rejectionEntryToUpdate(entry.getRejectionEntry)
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         sys.error("entryToUpdate: PAYLOAD_NOT_SET!")
     }
   }
 
-  private def rejectionEntryToUpdate(
-      entryId: DamlLogEntryId,
-      rejEntry: DamlRejectionEntry,
-      recordTime: Timestamp): Update.CommandRejected = {
+  private def rejectionEntryToUpdate(rejEntry: DamlRejectionEntry): Update.CommandRejected = {
 
     Update.CommandRejected(
       submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
@@ -105,6 +98,24 @@ object KeyValueConsumption {
             rejEntry.getSubmitterCannotActViaParticipant
           )
         case DamlRejectionEntry.ReasonCase.REASON_NOT_SET =>
+          sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
+      }
+    )
+  }
+
+  private def partyRejectionEntryToUpdate(
+      rejEntry: DamlPartyAllocationRejectionEntry): Update.PartyAllocationRejected = {
+
+    Update.PartyAllocationRejected(
+      submissionId = rejEntry.getSubmissionId,
+      reason = rejEntry.getReasonCase match {
+        case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
+          PartyAllocationRejectionReason.InvalidName
+        case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>
+          PartyAllocationRejectionReason.AlreadyExists
+        case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+          PartyAllocationRejectionReason.ParticipantNotAuthorized
+        case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
           sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
       }
     )

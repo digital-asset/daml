@@ -92,11 +92,17 @@ object KeyValueSubmission {
       hint: Option[String],
       displayName: Option[String],
       participantId: String): DamlSubmission = {
+    val party = hint.getOrElse("")
+    val inputDamlState = List(
+      DamlStateKey.newBuilder
+        .setParty(party)
+        .build)
     DamlSubmission.newBuilder
+      .addAllInputDamlState(inputDamlState.asJava)
       .setPartyAllocationEntry(
         DamlPartyAllocationEntry.newBuilder
           .setSubmissionId(submissionId)
-          .setParty(hint.getOrElse(""))
+          .setParty(party)
           .setParticipantId(participantId)
           .setDisplayName(displayName.getOrElse(""))
           .build

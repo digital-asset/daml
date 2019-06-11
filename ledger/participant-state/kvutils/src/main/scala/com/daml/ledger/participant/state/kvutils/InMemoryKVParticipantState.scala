@@ -324,13 +324,8 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(
         allocateEntryId,
-        KeyValueSubmission.partyToSubmission(
-          submissionId,
-          hint,
-          displayName,
-          participantId)
+        KeyValueSubmission.partyToSubmission(submissionId, hint, displayName, participantId)
       )
-      // TODO(MZ): Implememt error handling
       SubmissionResult.Acknowledged
     })
 
@@ -342,11 +337,8 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     CompletableFuture.completedFuture({
       commitActorRef ! CommitSubmission(
         allocateEntryId,
-        KeyValueSubmission.archivesToSubmission(
-          submissionId,
-          archives,
-          sourceDescription,
-          participantId)
+        KeyValueSubmission
+          .archivesToSubmission(submissionId, archives, sourceDescription, participantId)
       )
       // TODO(MZ): Implememt error handling
       SubmissionResult.Acknowledged
