@@ -66,6 +66,7 @@ message GetParticipantIdRequest {
 message GetParticipantIdResponse {
 
   // Identifier of the participant, which SHOULD be globally unique.
+  // Must be a valid LedgerString (as describe in ``value.proto``).
   string participant_id = 1;
 }
 
@@ -82,6 +83,7 @@ message ListKnownPartiesResponse {
 message PartyDetails {
 
   // The stable unique identifier of a DAML party.
+  // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string party = 1;
 
@@ -99,6 +101,7 @@ message AllocatePartyRequest {
 
   // A hint to the backing participant what party id to allocate. It can be
   // ignored.
+  // Must be a valid PartyIdString (as describe in ``value.proto``).
   // Optional
   string party_id_hint = 1;
 

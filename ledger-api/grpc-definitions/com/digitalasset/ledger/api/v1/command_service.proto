@@ -55,6 +55,7 @@ message SubmitAndWaitRequest {
 
 message SubmitAndWaitForTransactionIdResponse {
   // The id of the transaction that resulted from the submitted command.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string transaction_id = 1;
 }

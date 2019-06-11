@@ -25,6 +25,7 @@ service ActiveContractsService {
 message GetActiveContractsRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string ledger_id = 1;
 
@@ -53,10 +54,12 @@ message GetActiveContractsResponse {
   string offset = 1;
 
   // The workflow that created the contracts.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string workflow_id = 2;
 
   // The list of contracts that were introduced by the workflow with ``workflow_id`` at the offset.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   repeated CreatedEvent active_contracts = 3;
 

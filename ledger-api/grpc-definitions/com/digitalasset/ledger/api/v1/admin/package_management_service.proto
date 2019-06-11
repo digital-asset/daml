@@ -55,6 +55,7 @@ message ListKnownPackagesResponse {
 message PackageDetails {
  
   // The identity of the DAML-LF package.
+  // Must be a valid PackageIdString (as describe in ``value.proto``).
   // Required
   string package_id = 1;
 
