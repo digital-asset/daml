@@ -1,7 +1,7 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Custom bindings
+Creating your own bindings
 ###############
 
 This page gets you started with creating custom bindings for the Digital Asset distributed ledger.
@@ -15,9 +15,9 @@ Digital Asset currently provides bindings for the following programming language
 
 - :doc:`Scala </app-dev/bindings-scala/index>`
 
-- :doc:`Node.js JavaScript </app-dev/bindings-js>`
+- :doc:`JavaScript (Node.js) </app-dev/bindings-js>`
 
-However it is possible to create bindings for any programming language supported by `gRPC <https://grpc.io/docs/>`_.
+However, you can create bindings for any programming language supported by `gRPC <https://grpc.io/docs/>`_.
 
 What do we mean by "bindings"? Bindings for a language consist of two main components:
 
@@ -38,15 +38,16 @@ Let's recall an **IOU** example from the :doc:`Quickstart guide </getting-starte
   :language: daml
   :lines: 9-15
 
-Here is how to manually build :ref:`com.digitalasset.ledger.api.v1.CreateCommand` for the above contract template in Scala:
+Here is how to manually build a :ref:`com.digitalasset.ledger.api.v1.CreateCommand` for the above contract template in Scala:
 
 .. literalinclude:: ./code-snippets/iou-no-codegen/application/src/main/scala/com/digitalasset/quickstart/iou/IouCommands.scala
    :start-after: // <doc-ref:iou-no-codegen-create-command>
    :end-before: // </doc-ref:iou-no-codegen-create-command>
 
-If you do not specify any of the above fields or type their names or values incorrectly, or do not order them exactly as they are in the DAML template, the above code will compile but fail at run-time because you did not structure your create command correctly. Codegen is expected to simplify the command construction by providing auto-generated utilities to help you construct commands.
+If you do not specify any of the above fields or type their names or values incorrectly, or do not order them exactly as they are in the DAML template, the above code will compile but fail at run-time because you did not structure your create command correctly.
 
-When you use :doc:`Scala codegen </app-dev/bindings-scala/index>` to generate contract classes, a similar contract instantiation would look:
+Codegen will usually simplify the command construction by providing auto-generated utilities to help you construct commands. For example, when you use :doc:`Scala codegen </app-dev/bindings-scala/index>` to generate contract classes, a similar contract instantiation would look like this:
+
 
 .. literalinclude:: ./code-snippets/quickstart-scala/application/src/main/scala/com/digitalasset/quickstart/iou/IouMain.scala
    :start-after: // <doc-ref:iou-contract-instance>
