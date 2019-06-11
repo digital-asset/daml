@@ -21,11 +21,13 @@ import scalaz.syntax.tag._
   Array(
     "org.wartremover.warts.Any"
   ))
-trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedgerFixture {
+trait MultiLedgerCommandUtils extends MultiLedgerFixture {
   self: AsyncTestSuite =>
 
   protected final def newSynchronousCommandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)
+
+  protected val helpers = new TransactionServiceHelpers(config)
 
   protected val testLedgerId = domain.LedgerId("ledgerId")
   protected val testNotLedgerId = domain.LedgerId("hotdog")
@@ -38,10 +40,10 @@ trait MultiLedgerCommandUtils extends TransactionServiceHelpers with MultiLedger
         Commands()
           .withParty("Alice")
           .withLedgerId(testLedgerId.unwrap)
-          .withCommandId(failingCommandId)
+          .withCommandId(helpers.failingCommandId)
           .withWorkflowId(workflowId)
           .withApplicationId(applicationId)
-          .withCommands(Seq(wrongCreate))))
+          .withCommands(Seq(helpers.wrongCreate))))
 
   protected val submitAndWaitRequest: SubmitAndWaitRequest =
     MockMessages.submitAndWaitRequest

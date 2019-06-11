@@ -242,6 +242,8 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           ERecUpd(RIntBool, n"f1", e"x", e"1"),
         "Mod:R:V @Int64 @Bool 1" ->
           EVariantCon(RIntBool, n"V", e"1"),
+        "Mod:R:C" ->
+          EEnumCon(R.tycon, n"C"),
         "< f1 =2, f2=False >" ->
           ETupleCon(ImmArray(n"f1" -> e"2", n"f2" -> e"False")),
         "(x).f1" ->
@@ -374,7 +376,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
 
   "program parser" should {
 
-    "parses variant/record definitions" in {
+    "parses variant/record/enum definitions" in {
 
       val p =
         """
@@ -382,6 +384,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
 
             variant Tree (a : * ) = Leaf : Unit | Node : Mod:Tree.Node a ;
             record Tree.Node (a: *) = { value: a, left : Mod:Tree a, right : Mod:Tree a };
+            enum Color = Red | Green | Blue;
 
           }
         """.stripMargin
@@ -398,13 +401,20 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           ImmArray(n"value" -> t"a", n"left" -> t"Mod:Tree a", n"right" -> t"Mod:Tree a"),
           None)
       )
+      val enumDef = DDataType(
+        false,
+        ImmArray.empty,
+        DataEnum(ImmArray(n"Red", n"Green", n"Blue"))
+      )
 
       parseModules(p) shouldBe Right(
         List(Module(
           name = modName,
           definitions = List(
             DottedName.assertFromSegments(ImmArray("Tree", "Node").toSeq) -> recDef,
-            DottedName.assertFromSegments(ImmArray("Tree").toSeq) -> varDef),
+            DottedName.assertFromSegments(ImmArray("Tree").toSeq) -> varDef,
+            DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef
+          ),
           templates = List.empty,
           languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default

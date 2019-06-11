@@ -29,9 +29,11 @@ class WitnessesIT
     with SuiteResourceManagementAroundEach
     with ScalaFutures
     with AsyncTimeLimitedTests
-    with Matchers
-    with TestTemplateIds {
+    with Matchers {
   override protected def config: Config = Config.default
+
+  protected val testTemplateIds = new TestTemplateIds(config)
+  protected val templateIds = testTemplateIds.templateIds
 
   private def commandClient(ctx: LedgerContext): SynchronousCommandClient =
     new SynchronousCommandClient(ctx.commandService)

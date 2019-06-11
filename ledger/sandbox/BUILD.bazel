@@ -13,6 +13,10 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_darwin")
+load(
+    "//bazel_tools/client_server_test:client_server_test.bzl",
+    "client_server_test",
+)
 
 compileDependencies = [
     # this has to come first other as somehow a different instance of grpc-core.jar
@@ -35,9 +39,8 @@ compileDependencies = [
     "//ledger/ledger-api-domain:ledger-api-domain",
     "//ledger/ledger-api-common:ledger-api-common",
     "//ledger/ledger-api-client:ledger-api-client",
-    "//ledger/backend-api",
     "//ledger/participant-state",
-    "//ledger/participant-state-index:participant-state-index-v2",
+    "//ledger/participant-state-index:participant-state-index",
     "//3rdparty/jvm/com/typesafe/scala_logging:scala_logging",
     "//3rdparty/jvm/org/slf4j:slf4j_api",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
@@ -162,4 +165,53 @@ da_scala_test_suite(
     deps = [
         ":sandbox-scala-tests-lib",
     ] + testDependencies,
+)
+
+client_server_test(
+    name = "conformance-test-static-time",
+    timeout = "short",
+    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+    ],
+    data = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "-s",
+        "ledger/ledger-api-integration-tests/SemanticTests.dar",
+        "ledger/sandbox/Test.dar",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
+        "exclusive",
+    ],
+)
+
+client_server_test(
+    name = "conformance-test-wall-clock",
+    timeout = "short",
+    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+        "--exclude SemanticTests",
+    ],
+    data = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "-w",
+        "ledger/ledger-api-integration-tests/SemanticTests.dar",
+        "ledger/sandbox/Test.dar",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
+        "exclusive",
+    ],
 )

@@ -108,7 +108,7 @@ If the result of this algorithm depends purely on the current ledger state (and 
 
 To do this, the application should:
 
-1. Obtain the initial state of the ledger by using the Active Contract service, processing each event received to create an initial application state.
+1. Obtain the initial state of the ledger by using the Active Contracts service, processing each event received to create an initial application state.
 
 2. Create a connection to the Transaction Service to receive new events from that initial state, and instantiate a stream handler to process them.
 
@@ -143,7 +143,7 @@ Both styles of applications will take the following steps:
 Application libraries
 *********************
 
-We provide several libraries and tools that support the task of building applications. Some of this is provided by the API (e.g. the Active Contract Service), but mostly is provided by several language binding libraries.
+We provide several libraries and tools that support the task of building applications. Some of this is provided by the API (e.g. the Active Contracts Service), but mostly is provided by several language binding libraries.
 
 Java
 ====

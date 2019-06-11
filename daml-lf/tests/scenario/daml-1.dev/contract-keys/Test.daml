@@ -15,7 +15,7 @@ template TextKey
     observer disclosedTo
 
     key (p, k): (Party, Text)
-    maintainer p
+    maintainer key._1
 
     controller p can
       TextKeyChoice : ()
@@ -65,7 +65,7 @@ template MaintainerNotSignatory
     signatory p
 
     key q: Party
-    maintainer q
+    maintainer key
 
 run = scenario do
   alice <- getParty "Alice"

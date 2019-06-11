@@ -7,7 +7,7 @@ package reader
 
 import ErrorFormatter._
 import com.digitalasset.daml_lf.{DamlLf, DamlLf1}
-import scalaz._
+import scalaz.{Enum => _, _}
 import scalaz.syntax.std.either._
 import scalaz.std.tuple._
 import scalaz.syntax.apply._
@@ -55,6 +55,9 @@ object InterfaceReader {
       errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree]) {
 
     def addVariant(k: QualifiedName, tyVars: ImmArraySeq[Ref.Name], a: Variant.FWT): State =
+      this.copy(typeDecls = this.typeDecls.updated(k, InterfaceType.Normal(DefDataType(tyVars, a))))
+
+    def addEnum(k: QualifiedName, tyVars: ImmArraySeq[Ref.Name], a: Enum) =
       this.copy(typeDecls = this.typeDecls.updated(k, InterfaceType.Normal(DefDataType(tyVars, a))))
 
     def removeRecord(k: QualifiedName): Option[(Record.FWT, State)] =
@@ -124,9 +127,11 @@ object InterfaceReader {
           case (_, (k, typVars, a)) => (k, InterfaceType.Normal(DefDataType(typVars, a)))
         }, errors = partitions.errorTree |+| recordErrs)
         val z1 = partitions.templates.foldLeft(z0)(foldTemplate(n, ctx))
-        foldVariants(
+        val z2 = foldVariants(
           z1,
           partitionIndexedErrs(partitions.variants)(variant(n, ctx)) rightMap (_.values))
+          .alterErrors(_ locate n)
+        foldEnums(z2, partitionIndexedErrs(partitions.enums)(enum(n)) rightMap (_.values))
           .alterErrors(_ locate n)
       }
     )
@@ -169,6 +174,23 @@ object InterfaceReader {
     recordOrVariant(m, a, _.getVariant, ctx) { (k, tyVars, fields) =>
       (k, tyVars.toSeq, Variant(fields.toSeq))
     }
+
+  private def foldEnums(
+      state: State,
+      a: (InterfaceReaderError.Tree, Iterable[(QualifiedName, ImmArraySeq[Ref.Name], Enum)]))
+    : State =
+    addPartitionToState(state, a) {
+      case (st, (k, typVars, enum)) => st.addEnum(k, typVars, enum)
+    }
+
+  private[reader] def enum(m: ModuleName)(a: DamlLf1.DefDataType)
+    : InterfaceReaderError.Tree \/ (QualifiedName, ImmArraySeq[Ref.Name], Enum) =
+    (locate('name, rootErrOf[ErrorLoc](fullName(m, a.getName))).validation |@|
+      locate('typeParams, typeParams(a)).validation |@|
+      locate('constructors, rootErrOf[ErrorLoc](enumConstructors(a))).validation) {
+      (k, tyVars, constructors) =>
+        (k, tyVars.toSeq, Enum(constructors))
+    }.disjunction
 
   private[this] def recordOrVariant[Z](
       m: ModuleName,
@@ -265,6 +287,9 @@ object InterfaceReader {
       a: DamlLf1.FieldWithType,
       ctx: Context): InterfaceReaderError \/ FieldWithType =
     type_(a.getType, ctx).flatMap(t => name(a.getField).map(_ -> t))
+
+  private def enumConstructors(as: DamlLf1.DefDataType): InterfaceReaderError \/ ImmArraySeq[Name] =
+    ImmArray(as.getEnum.getConstructorsList.asScala).toSeq.traverseU(name)
 
   /**
     * `Fun`, `Forall` and `Tuple` should never appear in Records and Variants

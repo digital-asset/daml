@@ -524,36 +524,11 @@ convertChoice _ _ x = unhandled "Choice body" x
 
 convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
 convertKey env o@(Var (QIsTpl "C:TemplateKey") `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
-    tmpl' <- convertType env tmpl
-    key <- envFindBind env key
-    maintainer <- envFindBind env maintainer
-    case (key, maintainer) of
-      (Lam keyBinder keyExpr, Lam maintainerBinder maintainerExpr) -> do
-        keyType <- convertType env keyType
-        keyExpr <- convertKeyExpr env keyBinder keyExpr
-        maintainerExpr <- convertKeyExpr env maintainerBinder maintainerExpr
-        maintainerExpr <- rewriteMaintainer env keyExpr maintainerExpr
-        pure $ TemplateKey keyType keyExpr (ETmLam (mkVar "$key", keyType) maintainerExpr)
-      _ -> unhandled "Template key definition" o
+    keyType <- convertType env keyType
+    key <- envFindBind env key >>= convertExpr env
+    maintainer <- envFindBind env maintainer >>= convertExpr env
+    pure $ TemplateKey keyType (key `ETmApp` EVar (mkVar "this")) maintainer
 convertKey _ o = unhandled "Template key definition" o
-
-convertKeyExpr :: Env -> Var -> GHC.Expr Var -> ConvertM LF.Expr
-convertKeyExpr env keyBinder keyExpr
-    | Case (Var caseScrut) caseBinder _ [(DataAlt con, vs, body)] <- untick keyExpr
-    , keyBinder == caseScrut = do
-        ctor@(Ctor _ fldNames _) <- toCtor env con
-        if  | isRecordCtor ctor
-            , Just vsFlds <- zipExactMay vs fldNames -> do
-                thisType <- fromTCon <$> convertType env (varType keyBinder)
-                let projAliases = [(v, ERecProj thisType fld thisRef) | (v, fld) <- vsFlds, not (isDeadBinder v)]
-                let thisAliases = [(keyBinder, thisRef), (caseBinder, thisRef)]
-                let env' = env{envAliases = MS.fromList (thisAliases ++ projAliases) `MS.union` envAliases env}
-                convertExpr env' body
-            | otherwise -> defaultConv
-    | otherwise = defaultConv
-  where
-    thisRef = EVar (mkVar "this")
-    defaultConv = convertExpr (envInsertAlias keyBinder thisRef env) keyExpr
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env (ATyCon t)
@@ -613,26 +588,6 @@ convertBind env (NonRec name x)
     | DFunId _ <- idDetails name
     , TypeCon (QIsTpl "Template") [t] <- varType name
     = withRange (convNameLoc name) $ liftA2 (++) (convertTemplate env x) (convertBind2 env (NonRec name x))
-    -- NOTE(MH, #1387): If we decide to do the rewriting of maintainers from
-    -- `this` to `key` for generic templates as well, this code will do
-    -- some part of the job. Currently, it would only work for non-generic
-    -- templates though.  I'd like to leave it here until we've made a
-    -- decision so I don't have to figure it out again.
-    -- | Just tplName <- stripPrefix "$dmmaintainerFromKey" (is name)
-    -- = do
-    --     name'@(_, splitTForalls -> (tvs, _dictType :-> hasKeyType :-> keyType :-> _)) <- convValWithType env name
-    --     key <- envFindBindString env ("$dmkey" ++ tplName)
-    --     maintainer <- envFindBindString env ("$dmmaintainer" ++ tplName)
-    --     case (key, maintainer) of
-    --       (Lam keyDict (Lam keyThis keyExpr), Lam maintainerDict (Lam maintainerThis maintainerExpr)) -> do
-    --         unless (keyDict == maintainerDict) $
-    --           unhandled "generic template key with different dict binders" (keyDict, maintainerDict)
-    --         keyExpr <- convertKeyExpr env keyThis keyExpr
-    --         maintainerExpr <- convertKeyExpr env maintainerThis maintainerExpr
-    --         maintainerExpr <- rewriteMaintainer env keyExpr maintainerExpr
-    --         maintainerDict <- convVarWithType env maintainerDict
-    --         pure [defValue name name' $ mkETyLams tvs $ mkETmLams [maintainerDict, (mkVar "_", hasKeyType), (mkVar "$key", keyType)] maintainerExpr]
-    --       _ -> unhandled "generic template key definition" name
     | DFunId _ <- idDetails name
     , TypeCon (Is tplInst) _ <- varType name
     , "Instance" `isSuffixOf` tplInst
@@ -681,7 +636,7 @@ convertBind2 env (Rec xs) = concatMapM (\(a, b) -> convertBind env (NonRec a b))
 -- during conversion to DAML-LF together with their constructors since we
 -- deliberately remove 'GHC.Types.Opaque' as well.
 internalTypes :: [String]
-internalTypes = ["Scenario","Update","ContractId","Time","Date","Party","Pair"]
+internalTypes = ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap"]
 
 internalFunctions :: LF.Version -> MS.Map GHC.ModuleName [String]
 internalFunctions version = MS.fromList $ map (first mkModuleName)
@@ -1290,9 +1245,9 @@ convertTyCon env t
             "Party" -> pure TParty
             "Date" -> pure TDate
             "Time" -> pure TTimestamp
+            "TextMap" -> pure (TBuiltin BTMap)
             _ -> defaultTyCon
     | isBuiltinName "Optional" t = pure (TBuiltin BTOptional)
-    | isBuiltinName "TextMap" t = pure (TBuiltin BTMap)
     | otherwise = defaultTyCon
     where
         arity = tyConArity t
@@ -1425,42 +1380,6 @@ toCtor env con =
 
 isRecordCtor :: Ctor -> Bool
 isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
-
-
----------------------------------------------------------------------
--- Contract keys rewriting magic
-
--- | Rewrite all chains of projections referencing 'this' in 'maintainer' into
--- references into 'key'. Checks that 'key' contains only record constructors and
--- projections and no constructor is sitting below a projection.
---
--- For example, if
---
--- > key = (this.foo, this.bar)
--- > maintainer = this.bar ++ this.foo
---
--- then 'maintainer' gets rewritten into
---
--- > maintainer = $key._2 ++ $key._1
-rewriteMaintainer :: Env -> LF.Expr -> LF.Expr -> ConvertM LF.Expr
-rewriteMaintainer env key maintainer = do
-    let keyMap = buildKeyMap (removeLocations key)
-    rewriteThisProjections keyMap (removeLocations maintainer)
-  where
-    buildKeyMap :: LF.Expr -> MS.Map LF.Expr LF.Expr
-    buildKeyMap = \case
-        ERecCon typ fields -> MS.unions
-            [ MS.map (ERecProj typ fieldName) (buildKeyMap fieldExpr)
-            | (fieldName, fieldExpr) <- fields
-            ]
-        expr -> MS.singleton expr (EVar $ mkVar "$key")
-
-    -- TODO(#299): The error messages are pretty bad.
-    rewriteThisProjections :: MS.Map LF.Expr LF.Expr -> LF.Expr -> ConvertM LF.Expr
-    rewriteThisProjections keyMap expr
-        | Just expr' <- expr `MS.lookup` keyMap = pure expr'
-        | EVar (ExprVarName "this") <- expr = unhandled "Unbound reference to this in maintainer" expr
-        | otherwise = embed <$> mapM (rewriteThisProjections keyMap) (project expr)
 
 
 ---------------------------------------------------------------------

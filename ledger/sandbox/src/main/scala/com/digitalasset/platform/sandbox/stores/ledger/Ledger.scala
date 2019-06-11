@@ -8,15 +8,20 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.{
+  PartyAllocationResult,
+  SubmissionResult,
+  SubmittedTransaction,
+  SubmitterInfo,
+  TransactionMeta
+}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.TransactionIdString
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
@@ -43,10 +48,17 @@ trait Ledger extends AutoCloseable {
 
   def publishHeartbeat(time: Instant): Future[Unit]
 
-  def publishTransaction(transactionSubmission: TransactionSubmission): Future[SubmissionResult]
+  def publishTransaction(
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction): Future[SubmissionResult]
 
   def lookupTransaction(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]]
+
+  def parties: Future[List[PartyDetails]]
+
+  def allocateParty(party: Party, displayName: Option[String]): Future[PartyAllocationResult]
 }
 
 object Ledger {

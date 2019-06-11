@@ -19,11 +19,12 @@ import com.digitalasset.daml.lf.value.Value.{
   ContractId,
   VersionedValue
 }
-import com.digitalasset.platform.services.time.TimeModelChecker
+import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
+import scala.collection.breakOut
 import scala.collection.JavaConverters._
 
 object KeyValueCommitting {
@@ -98,22 +99,26 @@ object KeyValueCommitting {
 
     // Look at what kind of submission this is...
     submission.getPayloadCase match {
-      case DamlSubmission.PayloadCase.ARCHIVE =>
-        val archive = submission.getArchive
-        val key = DamlStateKey.newBuilder.setPackageId(archive.getHash).build
+      case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
+        val archives = submission.getPackageUploadEntry.getArchivesList.asScala
         // TODO(JM): We're duplicating the archive data. This way we don't have an indirection
         // to fetch by packageId or when building [[Update]], and we don't have to declare
         // the log entry containing the archive as an input (which would be messy).
-        logger.trace(
-          s"processSubmission[entryId=${prettyEntryId(entryId)}]: Package ${archive.getHash} committed.")
+
+        // TODO(MZ): Produce a DamlPackageUploadEntry that filters out pre-existing packages
+        logger.trace(s"""processSubmission[entryId=${prettyEntryId(entryId)}]: Packages: ${archives
+          .map(_.getHash)
+          .mkString(",")} committed.""")
         (
           DamlLogEntry.newBuilder
             .setRecordTime(buildTimestamp(recordTime))
-            .setArchive(archive)
+            .setPackageUploadEntry(submission.getPackageUploadEntry)
             .build,
-          Map(
-            key -> DamlStateValue.newBuilder.setArchive(archive).build
-          )
+          archives.map(
+            archive =>
+              (
+                DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
+                DamlStateValue.newBuilder.setArchive(archive).build))(breakOut)
         )
       case DamlSubmission.PayloadCase.CONFIGURATION_ENTRY =>
         logger.trace(

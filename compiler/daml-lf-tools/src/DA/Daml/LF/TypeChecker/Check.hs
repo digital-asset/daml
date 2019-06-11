@@ -159,6 +159,7 @@ typeOfBuiltin = \case
   BEGreater   btype  -> pure $ tComparison btype
   BEGreaterEq btype  -> pure $ tComparison btype
   BEToText    btype  -> pure $ TBuiltin btype :-> TText
+  BECodePointsToText -> pure $ TList TInt64 :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BEPartyFromText    -> pure $ TText :-> TOptional TParty
   BEInt64FromText    -> do
@@ -167,6 +168,7 @@ typeOfBuiltin = \case
   BEDecimalFromText  -> do
       checkFeature featureNumberFromText
       pure $ TText :-> TOptional TDecimal
+  BECodePointsFromText -> pure $ TText :-> TList TInt64
   BEAddDecimal       -> pure $ tBinop TDecimal
   BESubDecimal       -> pure $ tBinop TDecimal
   BEMulDecimal       -> pure $ tBinop TDecimal

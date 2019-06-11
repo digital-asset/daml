@@ -6,8 +6,8 @@
 module DA.Service.Daml.Compiler.Impl.Handle
   (-- * compilation handle providers
     IdeState
-  , newIdeState
-  , newIdeState'
+  , getIdeState
+  , withIdeState
   , setFilesOfInterest
   , onFileModified
   , setOpenVirtualResources
@@ -21,8 +21,8 @@ module DA.Service.Daml.Compiler.Impl.Handle
 
   , DalfDependency(..)
 
-  , virtualResourceToUri
-  , uriToVirtualResource
+  , CompilerService.virtualResourceToUri
+  , CompilerService.uriToVirtualResource
 
   -- * Compilation options (re-exported)
   , defaultOptionsIO
@@ -46,19 +46,14 @@ import qualified DA.Service.Daml.Compiler.Impl.Dar          as Dar
 import           Control.Monad.Trans.Except              as Ex
 import           Control.Monad.Except              as Ex
 import           Control.Monad.IO.Class                     (liftIO)
-import           Control.Monad.Managed.Extended
 import qualified Data.ByteString                            as BS
 import qualified Data.ByteString.Lazy                       as BSL
-import qualified Data.ByteString.Char8 as BS8
 import qualified Data.Map.Strict                            as Map
 import qualified Data.NameMap as NM
 import qualified Data.Set                                   as S
 import qualified Data.Text                                  as T
-import Data.List
 import Data.Maybe
 import Safe
-
-import           Data.Traversable                           (for)
 
 import qualified Development.IDE.Logger as IdeLogger
 import           Development.IDE.State.API               (IdeState)
@@ -68,70 +63,8 @@ import qualified Development.IDE.State.Rules.Daml as CompilerService
 import qualified Development.IDE.State.Shake as Shake
 import           Development.IDE.Types.Diagnostics as Base
 import           Development.IDE.Types.LSP
+import qualified Language.Haskell.LSP.Messages as LSP
 import           System.FilePath
-
-import qualified Network.HTTP.Types as HTTP.Types
-import qualified Network.URI as URI
-
--- Virtual resource Uri
------------------------
-
--- | Get thr URI that corresponds to a virtual resource. The VS Code has a
--- document provider that will handle our special documents.
--- The Uri looks like this:
--- daml://[command]/[client data]?[server]=[key]&[key]=[value]
---
--- The command tells the server if it should do scenario interpretation or
--- core translation.
--- The client data is here to transmit data from the client to the client.
--- The server ignores this part and is even allowed to change it.
--- The server data is here to send data to the server, like what file we
--- want to translate.
---
--- The client uses a combination of the command and server data
--- to generate a caching key.
-virtualResourceToUri
-    :: VirtualResource
-    -> T.Text
-virtualResourceToUri vr = case vr of
-    VRScenario filePath topLevelDeclName ->
-        T.pack $ "daml://compiler?" <> keyValueToQueryString
-            [ ("file", filePath)
-            , ("top-level-decl", T.unpack topLevelDeclName)
-            ]
-  where
-    urlEncode :: String -> String
-    urlEncode = URI.escapeURIString URI.isUnreserved
-
-    keyValueToQueryString :: [(String, String)] -> String
-    keyValueToQueryString kvs =
-        intercalate "&"
-      $ map (\(k, v) -> k ++ "=" ++ urlEncode v) kvs
-
-uriToVirtualResource
-    :: URI.URI
-    -> Maybe VirtualResource
-uriToVirtualResource uri = do
-    guard $ URI.uriScheme uri == "daml:"
-    case URI.uriRegName <$> URI.uriAuthority uri of
-        Just "compiler" -> do
-            let decoded = queryString uri
-            file <- Map.lookup "file" decoded
-            topLevelDecl <- Map.lookup "top-level-decl" decoded
-            pure $ VRScenario file (T.pack topLevelDecl)
-        _ -> Nothing
-
-  where
-    queryString :: URI.URI -> Map.Map String String
-    queryString u0 = fromMaybe Map.empty $ case tailMay $ URI.uriQuery u0 of
-        Nothing -> Nothing
-        Just u ->
-            Just
-          $ Map.fromList
-          $ map (\(k, v) -> (BS8.unpack k, BS8.unpack v))
-          $ HTTP.Types.parseSimpleQuery
-          $ BS8.pack
-          $ URI.unEscapeString u
 
 ------------------------------------------------------------------------
 -- Types for dependency information on DARs
@@ -149,42 +82,35 @@ data DalfDependency = DalfDependency
 newtype GlobalPkgMap = GlobalPkgMap (Map.Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
 instance Shake.IsIdeGlobal GlobalPkgMap
 
-newIdeState :: Options
-            -> Maybe (Event -> IO ())
-            -> Logger.Handle IO
-            -- This type is rather awkward. The reason for this is that
-            -- we can only fully initialize the IdeState once we get the
-            -- LspFuncs in the initialize callback.
-            -- We should move away from Managed (we only use it for the scenario service)
-            -- and then refactor this.
-            -> Managed (VFSHandle -> IO IdeState)
-newIdeState compilerOpts mbEventHandler loggerH = do
-    mbScenarioService <-
-        for (guard (optScenarioService compilerOpts) >> mbEventHandler) $ \eventHandler ->
-            Scenario.startScenarioService eventHandler loggerH
-
+getIdeState
+    :: Options
+    -> Maybe Scenario.Handle
+    -> Logger.Handle IO
+    -> (LSP.FromServerMessage -> IO ())
+    -> VFSHandle
+    -> IO IdeState
+getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
     -- Load the packages from the package database for the scenario service. We swallow errors here
     -- but shake will report them when typechecking anything.
-    (_diags, pkgMap) <- liftIO $ CompilerService.generatePackageMap (optPackageDbs compilerOpts)
+    (_diags, pkgMap) <- CompilerService.generatePackageMap (optPackageDbs compilerOpts)
     let rule = do
             CompilerService.mainRule compilerOpts
             Shake.addIdeGlobal $ GlobalPkgMap pkgMap
-    pure $ \vfs -> liftIO $ CompilerService.initialise
-        rule
-        mbEventHandler
-        (toIdeLogger loggerH)
-        compilerOpts
-        vfs
-        mbScenarioService
+    CompilerService.initialise rule eventHandler (toIdeLogger loggerH) compilerOpts vfs mbScenarioService
 
--- Wrapper for the common case where we are not using the internal VFS from haskell-lsp.
-newIdeState' :: Options
-            -> Maybe (Event -> IO ())
-            -> Logger.Handle IO
-            -> Managed IdeState
-newIdeState' compilerOpts mbEventHandler loggerH = do
-    getHandle <- newIdeState compilerOpts mbEventHandler loggerH
-    liftIO $ getHandle =<< makeVFSHandle
+-- Wrapper for the common case where the scenario service will be started automatically (if enabled)
+-- and we use the builtin VFSHandle.
+withIdeState
+    :: Options
+    -> Logger.Handle IO
+    -> (LSP.FromServerMessage -> IO ())
+    -> (IdeState -> IO a)
+    -> IO a
+withIdeState compilerOpts loggerH eventHandler f =
+    Scenario.withScenarioService' (optScenarioService compilerOpts) loggerH $ \mbScenarioService -> do
+        vfs <- makeVFSHandle
+        ideState <- getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs
+        f ideState
 
 -- | Adapter to the IDE logger module.
 toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle

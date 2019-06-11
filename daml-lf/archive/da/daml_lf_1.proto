@@ -30,6 +30,7 @@
 //        2019-05-24: Make actors in exercise optional
 // * dev (special staging area for the next version to be released)
 //        2019-05-27: Add enum type.
+//        2019-06-04: Add BuiltinFunction.{TO_TEXT_CODE_POINTS, FROM_TEXT_CODE_POINTS}
 
 
 syntax = "proto3";
@@ -374,9 +375,11 @@ enum BuiltinFunction {
   TO_TEXT_DATE = 71;
   TO_QUOTED_TEXT_PARTY = 63; // legacy, remove in next major version
   TO_TEXT_PARTY = 94; // *Available Since version 1.2*
+  TO_TEXT_CODE_POINTS = 105;  // *Available Since version 1.dev*
   FROM_TEXT_PARTY = 95; // *Available Since version 1.2*, was named FROM_TEXT_PARTY in 1.2, 1.3 and 1.4
   FROM_TEXT_INT64 = 103; // *Available Since version 1.5*
   FROM_TEXT_DECIMAL = 104; // *Available Since version 1.5*
+  FROM_TEXT_CODE_POINTS = 106; // *Available Since version 1.dev*
   SHA256_TEXT = 93; // *Available Since version 1.2*
 
   DATE_TO_UNIX_DAYS = 72; // Date -> Int64
@@ -404,7 +407,7 @@ enum BuiltinFunction {
 
   COERCE_CONTRACT_ID = 102;
 
-  // Next id is 105. 104 is FROM_TEXT_DECIMAL.
+  // Next id is 107. 106 is FROM_TEXT_CODE_POINTS.
 }
 
 // Builtin literals
@@ -444,7 +447,7 @@ message PrimLit {
     sfixed64 timestamp = 5;
 
     // Party literal ('LitParty')
-    // *Must be a SimpleString*
+    // *Must be a PartyId string*
     string party = 7;
 
     // Date literal ('Date')
@@ -774,7 +777,7 @@ message CaseAlt {
 
     // name of the variant constructor
     // *Must be a valid identifier*
-    string constructors = 2;
+    string constructor = 2;
   }
 
   // Non empty list pattern
@@ -802,6 +805,7 @@ message CaseAlt {
     Cons cons = 5;
     Unit none = 7; // * Available since version 1*
     Some some = 8; // * Available since version 1*
+    Enum enum = 9; // * Available since version dev*
   }
 
   Expr body = 6;
@@ -1049,7 +1053,7 @@ message DefDataType {
     repeated FieldWithType fields = 1;
   }
 
-  message EnumConstructor {
+  message EnumConstructors {
     repeated string constructors = 1;
   }
 
@@ -1063,7 +1067,7 @@ message DefDataType {
   oneof DataCons {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
-    EnumConstructor enum = 7; //  *available since version dev*
+    EnumConstructors enum = 7; //  *available since version dev*
   }
 
   // If true, this data type preserves serializability in the sense that when

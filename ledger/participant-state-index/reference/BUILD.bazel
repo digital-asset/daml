@@ -21,8 +21,8 @@ compileDependencies = [
     "//daml-lf/transaction",
     "//ledger/ledger-api-common",
     "//ledger/ledger-api-domain",
-    "//ledger/participant-state",
-    "//ledger/participant-state-index",
+    "//ledger/participant-state:participant-state-v1",
+    "//ledger/participant-state-index:participant-state-index-v1",
     "//ledger/sandbox",  # For ActiveContracts. TODO(JM): Move to common library?
 ]
 

@@ -38,13 +38,12 @@ da_scala_library(
         "//language-support/scala/bindings",
         "//ledger-api/rs-grpc-akka",
         "//ledger-api/rs-grpc-bridge",
-        "//ledger/backend-api",
         "//ledger/ledger-api-akka",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-domain",
         "//ledger/ledger-api-scala-logging",
         "//ledger/participant-state",
-        "//ledger/participant-state-index:participant-state-index-v2",
+        "//ledger/participant-state-index",
     ],
 )
 

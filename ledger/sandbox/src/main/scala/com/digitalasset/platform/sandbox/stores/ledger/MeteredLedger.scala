@@ -7,13 +7,18 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.digitalasset.daml.lf.data.Ref.TransactionIdString
-import com.daml.ledger.participant.state.v1.SubmissionResult
+import com.daml.ledger.participant.state.v2.{
+  PartyAllocationResult,
+  SubmissionResult,
+  SubmittedTransaction,
+  SubmitterInfo,
+  TransactionMeta
+}
+import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.backend.api.v1.TransactionSubmission
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 
@@ -42,12 +47,24 @@ private class MeteredLedger(ledger: Ledger, mm: MetricsManager) extends Ledger {
     mm.timedFuture("Ledger:publishHeartbeat", ledger.publishHeartbeat(time))
 
   override def publishTransaction(
-      transactionSubmission: TransactionSubmission): Future[SubmissionResult] =
-    mm.timedFuture("Ledger:publishTransaction", ledger.publishTransaction(transactionSubmission))
+      submitterInfo: SubmitterInfo,
+      transactionMeta: TransactionMeta,
+      transaction: SubmittedTransaction): Future[SubmissionResult] =
+    mm.timedFuture(
+      "Ledger:publishTransaction",
+      ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
   override def lookupTransaction(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
     mm.timedFuture("Ledger:lookupTransaction", ledger.lookupTransaction(transactionId))
+
+  override def parties: Future[List[PartyDetails]] =
+    mm.timedFuture("Ledger:parties", ledger.parties)
+
+  override def allocateParty(
+      party: Party,
+      displayName: Option[String]): Future[PartyAllocationResult] =
+    mm.timedFuture("Ledger:addParty", ledger.allocateParty(party, displayName))
 
   override def close(): Unit = {
     ledger.close()

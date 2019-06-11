@@ -66,8 +66,8 @@ object DataType {
             Traverse[Record].traverse(r)(f).widen
           case v @ Variant(_) =>
             Traverse[Variant].traverse(v)(g).widen
-          case Enum(vs) =>
-            Applicative[G].pure(Enum(vs))
+          case e @ Enum(_) =>
+            Applicative[G].pure(e)
         }
     }
 
@@ -113,7 +113,7 @@ object Variant extends FWTLike[Variant] {
     }
 }
 
-final case class Enum(values: ImmArraySeq[Ref.Name]) extends DataType[Nothing, Nothing] {
+final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Nothing, Nothing] {
 
   /** Widen to DataType, in Java. */
   def asDataType[RT, PVT]: DataType[RT, PVT] = this

@@ -64,6 +64,10 @@ object Cli {
           |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
           |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
 
+    opt[Unit]("verbose")
+      .action((_, c) => c.copy(verbose = true))
+      .text("Prints full stacktraces on failures.")
+
     opt[Unit]("must-fail")
       .action((_, c) => c.copy(mustFail = true))
       .text("""Reverse success status logic of the tool. Use this flag if you expect one or
@@ -75,6 +79,24 @@ object Cli {
       .action((_, c) => c.copy(extract = true))
       .text("""Extract a DAR necessary to test a DAML ledger and exit without running tests.
               |The DAR needs to be manually loaded into a DAML ledger for the tool to work.""".stripMargin)
+
+    opt[Seq[String]]("exclude")
+      .action((ex, c) => c.copy(excluded = c.excluded ++ ex))
+      .unbounded()
+      .text("""A comma-separated list of tests that should NOT be run. By default, no tests are excluded.""")
+
+    opt[Seq[String]]("include")
+      .action((inc, c) => c.copy(included = c.included ++ inc))
+      .unbounded()
+      .text("""A comma-separated list of tests that should be run.""")
+
+    opt[Unit]("all-tests")
+      .action((_, c) => c.copy(allTests = true))
+      .text("""Run all default and optional tests. Respects the --exclude flag.""")
+
+    opt[Unit]("list")
+      .action((_, c) => c.copy(listTests = true))
+      .text("""Lists all available tests that can be used in the include and exclude options.""")
 
   }
 

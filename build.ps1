@@ -39,14 +39,16 @@ bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution
     @haskell_c2hs//... `
     //3rdparty/... `
     //nix/third-party/gRPC-haskell:grpc-haskell `
-    //daml-assistant:daml `
+    //daml-assistant/... `
     //daml-foundations/... `
     //compiler/... `
     //daml-lf/... `
     //extractor/... `
-    //language-support/java/testkit:testkit `
-    //language-support/java/bindings/... `
-    //language-support/java/bindings-rxjava/... `
+    //language-support/codegen-common:test `
+    //language-support/codegen-main/... `
+    //language-support/hs/bindings/... `
+    //language-support/java/... `
+    //language-support/scala/... `
     //ledger/... `
     //ledger-api/... `
     //navigator/backend/... `
@@ -62,13 +64,14 @@ bazel shutdown
 
 bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `
     //daml-lf/... `
-    //language-support/java/bindings/... `
-    //language-support/java/bindings-rxjava/... `
+    //language-support/codegen-common:test `
+    //language-support/java/... `
+    //language-support/scala/... `
     //ledger/ledger-api-client/... `
     //ledger/ledger-api-common/... `
     //ledger-api/... `
     //navigator/backend/... `
-    //daml-assistant/integration-tests/... `
+    //daml-assistant/... `
     //daml-foundations/daml-ghc:daml-ghc-deterministic `
     //daml-foundations/daml-ghc:compile-subdir `
     //daml-foundations/daml-ghc:bond-trading-memory `
@@ -78,7 +81,8 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //daml-foundations/daml-ghc:module-tree-memory `
     //daml-foundations/daml-ghc:tasty-test `
     //daml-foundations/daml-tools/da-hs-daml-cli `
-    //daml-foundations/daml-tools/da-hs-damlc-app/...
+    //daml-foundations/daml-tools/da-hs-damlc-app/... `
+    //compiler/lsp-tests/...
     # Disabled since there seems to be an issue with starting up the scenario service.
     # See https://github.com/digital-asset/daml/issues/1354
     # //daml-foundations/daml-ghc:daml-ghc-shake-test-ci

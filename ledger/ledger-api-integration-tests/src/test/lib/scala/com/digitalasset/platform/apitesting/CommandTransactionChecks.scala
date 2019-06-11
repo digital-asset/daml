@@ -60,11 +60,13 @@ abstract class CommandTransactionChecks
         with ScalaFutures
         with AsyncTimeLimitedTests
         with Matchers
-        with OptionValues
-        with TestTemplateIds {
+        with OptionValues {
   protected def submitCommand(ctx: LedgerContext, req: SubmitRequest): Future[Completion]
 
-  override protected val config: Config = Config.default
+  protected val testTemplateIds = new TestTemplateIds(config)
+  protected val templateIds = testTemplateIds.templateIds
+
+  override protected def config: Config = Config.default
 
   private lazy val dummyTemplates =
     List(templateIds.dummy, templateIds.dummyFactory, templateIds.dummyWithParam)

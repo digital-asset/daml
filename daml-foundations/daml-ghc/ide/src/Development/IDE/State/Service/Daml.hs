@@ -27,6 +27,7 @@ import Development.IDE.State.FileStore
 import qualified Development.IDE.State.Service as IDE
 import Development.IDE.State.Shake
 import Development.IDE.Types.LSP
+import qualified Language.Haskell.LSP.Messages as LSP
 
 import DA.Daml.GHC.Compiler.Options
 import qualified DA.Daml.LF.Ast as LF
@@ -45,6 +46,7 @@ data DamlEnv = DamlEnv
   -- ^ The scenario contexts we used as GC roots in the last iteration.
   -- This is used to avoid unnecessary GC calls.
   , envDamlLfVersion :: LF.Version
+  , envScenarioValidation :: ScenarioValidation
   }
 
 instance IsIdeGlobal DamlEnv
@@ -60,6 +62,7 @@ mkDamlEnv opts scenarioService = do
         , envScenarioContexts = scenarioContextsVar
         , envPreviousScenarioContexts = previousScenarioContextsVar
         , envDamlLfVersion = optDamlLfVersion opts
+        , envScenarioValidation = optScenarioValidation opts
         }
 
 getDamlServiceEnv :: Action DamlEnv
@@ -73,7 +76,7 @@ setOpenVirtualResources state resources = do
 
 initialise
     :: Rules ()
-    -> Maybe (Event -> IO ())
+    -> (LSP.FromServerMessage -> IO ())
     -> Logger.Handle
     -> Options
     -> VFSHandle

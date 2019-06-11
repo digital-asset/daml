@@ -42,7 +42,7 @@ private[parser] object ModParser {
     }
 
   private lazy val definition: Parser[Def] =
-    recDefinition | variantDefinition | valDefinition | templateDefinition
+    recDefinition | variantDefinition | enumDefinition | valDefinition | templateDefinition
 
   private def tags(allowed: Set[String]): Parser[Set[String]] =
     rep(`@` ~> id) ^^ { tags =>
@@ -73,6 +73,15 @@ private[parser] object ModParser {
         DataDef(
           id,
           DDataType(defTags(serializableTag), ImmArray(params), DataVariant(ImmArray(variants)))
+        )
+    }
+
+  private lazy val enumDefinition: Parser[DataDef] =
+    Id("enum") ~>! tags(dataDefTags) ~ dottedName ~ (`=` ~> repsep(id, `|`)) ^^ {
+      case defTags ~ id ~ constructors =>
+        DataDef(
+          id,
+          DDataType(defTags(serializableTag), ImmArray.empty, DataEnum(ImmArray(constructors)))
         )
     }
 

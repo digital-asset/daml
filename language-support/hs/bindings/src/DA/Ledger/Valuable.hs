@@ -7,6 +7,7 @@ module DA.Ledger.Valuable(
     Valuable(..), -- types which can be converted to/from a Ledger API Value
     ) where
 
+import Data.Text.Lazy (Text)
 import DA.Ledger.Types
 
 class Valuable a where
@@ -38,3 +39,7 @@ instance Valuable Party where
 instance Valuable a => Valuable [a] where
     toValue = VList . map toValue
     fromValue = \case VList vs -> mapM fromValue vs; _ -> Nothing
+
+instance Valuable Text where
+    toValue = VString
+    fromValue = \case VString x -> Just x; _ -> Nothing

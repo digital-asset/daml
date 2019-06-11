@@ -10,10 +10,12 @@ import Control.Concurrent.Extra
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
-import DA.Daml.GHC.Compiler.Options(Options(..))
+import DA.Daml.GHC.Compiler.Options
+import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
+import Data.List
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -24,8 +26,12 @@ import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module (UnitId, stringToUnitId)
+import Safe
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
+
+import qualified Network.HTTP.Types as HTTP.Types
+import qualified Network.URI as URI
 
 import Development.IDE.Functions.DependencyInformation
 import Development.IDE.State.Rules hiding (mainRule)
@@ -34,6 +40,8 @@ import Development.IDE.State.Service.Daml
 import Development.IDE.State.Shake
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.LSP
+import qualified Language.Haskell.LSP.Messages as LSP
+import qualified Language.Haskell.LSP.Types as LSP
 
 import Development.IDE.State.RuleTypes.Daml
 
@@ -47,6 +55,63 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
+
+-- | Get thr URI that corresponds to a virtual resource. The VS Code has a
+-- document provider that will handle our special documents.
+-- The Uri looks like this:
+-- daml://[command]/[client data]?[server]=[key]&[key]=[value]
+--
+-- The command tells the server if it should do scenario interpretation or
+-- core translation.
+-- The client data is here to transmit data from the client to the client.
+-- The server ignores this part and is even allowed to change it.
+-- The server data is here to send data to the server, like what file we
+-- want to translate.
+--
+-- The client uses a combination of the command and server data
+-- to generate a caching key.
+virtualResourceToUri
+    :: VirtualResource
+    -> T.Text
+virtualResourceToUri vr = case vr of
+    VRScenario filePath topLevelDeclName ->
+        T.pack $ "daml://compiler?" <> keyValueToQueryString
+            [ ("file", filePath)
+            , ("top-level-decl", T.unpack topLevelDeclName)
+            ]
+  where
+    urlEncode :: String -> String
+    urlEncode = URI.escapeURIString URI.isUnreserved
+
+    keyValueToQueryString :: [(String, String)] -> String
+    keyValueToQueryString kvs =
+        intercalate "&"
+      $ map (\(k, v) -> k ++ "=" ++ urlEncode v) kvs
+
+uriToVirtualResource
+    :: URI.URI
+    -> Maybe VirtualResource
+uriToVirtualResource uri = do
+    guard $ URI.uriScheme uri == "daml:"
+    case URI.uriRegName <$> URI.uriAuthority uri of
+        Just "compiler" -> do
+            let decoded = queryString uri
+            file <- Map.lookup "file" decoded
+            topLevelDecl <- Map.lookup "top-level-decl" decoded
+            pure $ VRScenario file (T.pack topLevelDecl)
+        _ -> Nothing
+
+  where
+    queryString :: URI.URI -> Map.Map String String
+    queryString u0 = fromMaybe Map.empty $ case tailMay $ URI.uriQuery u0 of
+        Nothing -> Nothing
+        Just u ->
+            Just
+          $ Map.fromList
+          $ map (\(k, v) -> (BS.toString k, BS.toString v))
+          $ HTTP.Types.parseSimpleQuery
+          $ BS.fromString
+          $ URI.unEscapeString u
 
 -- | Get an unvalidated DALF package.
 -- This must only be used for debugging/testing.
@@ -177,10 +242,14 @@ contextForFile file = do
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
         NM.toList $ LF.packageModules pkg
+    DamlEnv{..} <- getDamlServiceEnv
     pure SS.Context
         { ctxModules = Map.fromList encodedModules
         , ctxPackages = map (\(pId, _, p, _) -> (pId, p)) (Map.elems pkgMap)
         , ctxDamlLfVersion = lfVersion
+        , ctxLightValidation = case envScenarioValidation of
+              ScenarioValidationFull -> SS.LightValidation False
+              ScenarioValidationLight -> SS.LightValidation True
         }
 
 worldForFile :: FilePath -> Action LF.World
@@ -214,10 +283,21 @@ createScenarioContextRule =
         liftIO $ modifyVar_ scenarioContextsVar $ pure . Map.insert file ctxId
         pure ([], Just ctxId)
 
+-- | This helper should be used instead of GenerateDalf/GenerateRawDalf
+-- for generating modules that are sent to the scenario service.
+-- It switches between GenerateRawDalf and GenerateDalf depending
+-- on whether we only do light or full validation.
+dalfForScenario :: FilePath -> Action LF.Module
+dalfForScenario file = do
+    DamlEnv{..} <- getDamlServiceEnv
+    case envScenarioValidation of
+        ScenarioValidationLight -> use_ GenerateRawDalf file
+        ScenarioValidationFull -> use_ GenerateDalf file
+
 runScenariosRule :: Rules ()
 runScenariosRule =
     define $ \RunScenarios file -> do
-      m <- use_ GenerateRawDalf file
+      m <- dalfForScenario file
       world <- worldForFile file
       let scenarios = scenariosInModule m
           toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
@@ -272,6 +352,35 @@ getScenarioRootRule =
                 fail $ "No scenario root for file " <> show file <> "."
             Just root -> pure (Just $ BS.fromString root, ([], Just root))
 
+
+-- | Virtual resource changed notification
+-- This notification is sent by the server to the client when
+-- an open virtual resource changes.
+virtualResourceChangedNotification :: T.Text
+virtualResourceChangedNotification = "daml/virtualResource/didChange"
+
+-- | Parameters for the virtual resource changed notification
+data VirtualResourceChangedParams = VirtualResourceChangedParams
+    { _vrcpUri      :: !T.Text
+      -- ^ The uri of the virtual resource.
+    , _vrcpContents :: !T.Text
+      -- ^ The new contents of the virtual resource.
+    } deriving Show
+
+instance ToJSON VirtualResourceChangedParams where
+    toJSON VirtualResourceChangedParams{..} =
+        object ["uri" .= _vrcpUri, "contents" .= _vrcpContents ]
+
+instance FromJSON VirtualResourceChangedParams where
+    parseJSON = withObject "VirtualResourceChangedParams" $ \o ->
+        VirtualResourceChangedParams <$> o .: "uri" <*> o .: "contents"
+
+vrChangedNotification :: VirtualResource -> T.Text -> LSP.FromServerMessage
+vrChangedNotification vr doc =
+    LSP.NotCustomServer $
+    LSP.NotificationMessage "2.0" (LSP.CustomServerMethod virtualResourceChangedNotification) $
+    toJSON $ VirtualResourceChangedParams (virtualResourceToUri vr) doc
+
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
@@ -300,7 +409,7 @@ ofInterestRule = do
                 lift $ forM vrs $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
                     when (vr `Set.member` openVRs) $
-                        sendEvent $ EventVirtualResourceChanged vr doc
+                        sendEvent $ vrChangedNotification vr doc
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
@@ -380,7 +489,7 @@ encodeModuleRule =
         fs <- transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules fs
         encodedDeps <- uses_ EncodeModule files
-        m <- use_ GenerateRawDalf file
+        m <- dalfForScenario file
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 

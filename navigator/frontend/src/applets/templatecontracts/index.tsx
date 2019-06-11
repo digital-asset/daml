@@ -105,7 +105,8 @@ class Component extends React.Component<Props, {}> {
 
   render() {
     const { data } = this.props;
-    const columns = data && data.node && data.node.__typename === 'Template' ?
+    const columns =
+      data && data.node && data.node.__typename === 'Template' && data.node.parameterDef.dataType.type === 'record' ?
       makeColumns(data.node.parameterDef.dataType) : [];
     return (
       <ContractTable

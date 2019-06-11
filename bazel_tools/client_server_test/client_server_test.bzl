@@ -11,7 +11,11 @@ def _client_server_test_impl(ctx):
     ctx.actions.write(
         output = wrapper,
         content = """#!/usr/bin/env bash
-{runner} '{client}' '{client_args}' '{server}' '{server_args}'
+CLIENT_ARGS="$@"
+if [ -z "$CLIENT_ARGS" ]; then
+    CLIENT_ARGS='{client_args}'
+fi
+{runner} '{client}' "$CLIENT_ARGS" '{server}' '{server_args}'
 """.format(
             runner = ctx.executable._runner.short_path,
             client = ctx.executable.client.short_path,

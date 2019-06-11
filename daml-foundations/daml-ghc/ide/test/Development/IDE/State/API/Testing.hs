@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleInstances  #-}
 {-# LANGUAGE OverloadedStrings  #-}
+{-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
@@ -45,7 +46,8 @@ import qualified Development.IDE.Logger as Logger
 import           Development.IDE.Types.LSP
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
 import DA.Test.Util (standardizeQuotes)
-import Language.Haskell.LSP.Types (Range)
+import Language.Haskell.LSP.Messages (FromServerMessage(..))
+import Language.Haskell.LSP.Types
 
 -- * external dependencies
 import Control.Concurrent.STM
@@ -54,10 +56,12 @@ import qualified Control.Monad.Reader   as Reader
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import qualified Data.Aeson as Aeson
+import qualified Data.Aeson.Types as Aeson
 import qualified Data.Vector as V
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T.IO
 import qualified Data.Set               as Set
+import Network.URI
 import qualified System.FilePath        as FilePath
 import qualified System.Directory       as Directory
 import qualified Data.Time.Clock        as Clock
@@ -100,6 +104,15 @@ data ShakeTestEnv = ShakeTestEnv
 newtype ShakeTest t = ShakeTest (ExceptT ShakeTestError (ReaderT ShakeTestEnv IO) t)
     deriving (Functor, Applicative, Monad, MonadIO, MonadError ShakeTestError)
 
+pattern EventVirtualResourceChanged :: VirtualResource -> T.Text -> FromServerMessage
+pattern EventVirtualResourceChanged vr doc <-
+    NotCustomServer
+        (NotificationMessage _
+             (CustomServerMethod ((== virtualResourceChangedNotification) -> True))
+             (Aeson.parseMaybe Aeson.parseJSON ->
+              Just (VirtualResourceChangedParams (parseURI . T.unpack >=> uriToVirtualResource -> Just vr) doc)))
+
+
 -- | Run shake test on freshly initialised shake service.
 runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTest mbScenarioService (ShakeTest m) = do
@@ -108,7 +121,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
     let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
-    service <- API.initialise (mainRule options) (Just (atomically . eventLogger)) Logger.makeNopHandle options vfs mbScenarioService
+    service <- API.initialise (mainRule options) (atomically . eventLogger) Logger.makeNopHandle options vfs mbScenarioService
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
@@ -276,7 +289,7 @@ cursorRangeFilePath :: CursorRange -> FilePath
 cursorRangeFilePath (path, _line, _cols) = path
 
 cursorRangeList :: CursorRange -> [Cursor]
-cursorRangeList (path, line, cols) = map (\col -> (path, line, col)) cols
+cursorRangeList (path, line, cols) = map (path, line,) cols
 
 -- | (internal) Check for a diagnostic (i.e. an error or warning).
 -- Declares test a failure if expected diagnostic is missing.
@@ -296,7 +309,7 @@ searchDiagnostics expected@(severity, cursor, message) actuals =
     match :: D.FileDiagnostic -> Bool
     match (fp, d) =
         Just severity == D._severity d
-        && (FilePath.normalise (cursorFilePath cursor)) == FilePath.normalise fp
+        && FilePath.normalise (cursorFilePath cursor) == FilePath.normalise fp
         && cursorPosition cursor == D._start ((D._range :: D.Diagnostic -> Range) d)
         && ((standardizeQuotes $ T.toLower message) `T.isInfixOf` (standardizeQuotes $ T.toLower ((D._message :: D.Diagnostic -> T.Text) d)))
 
@@ -384,14 +397,14 @@ matchGoToDefinitionPattern = \case
 
 -- | Expect "go to definition" to point us at a certain location or to fail.
 expectGoToDefinition :: CursorRange -> GoToDefinitionPattern -> ShakeTest ()
-expectGoToDefinition cursorRange pattern = do
+expectGoToDefinition cursorRange pattern' = do
     checkPath (cursorRangeFilePath cursorRange)
     service <- ShakeTest $ Reader.asks steService
     forM_ (cursorRangeList cursorRange) $ \cursor -> do
         maybeLoc <- ShakeTest . liftIO . API.runAction service $
             API.getDefinition (cursorFilePath cursor) (cursorPosition cursor)
-        unless (matchGoToDefinitionPattern pattern maybeLoc) $
-            throwError (ExpectedDefinition cursor pattern maybeLoc)
+        unless (matchGoToDefinitionPattern pattern' maybeLoc) $
+            throwError (ExpectedDefinition cursor pattern' maybeLoc)
 
 -- Expectation of the contents of some hover information.
 data HoverExpectation

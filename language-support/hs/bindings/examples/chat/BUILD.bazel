@@ -1,0 +1,34 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//rules_daml:daml.bzl", "daml_compile")
+
+daml_compile(
+    name = "Chat",
+    srcs = glob(["daml/*.daml"]),
+    main_src = "daml/Chat.daml",
+)
+
+da_haskell_binary(
+    name = "chat",
+    srcs = glob(["src/*.hs"]),
+    compiler_flags = [],
+    hazel_deps = [
+        "ansi-terminal",
+        "base",
+        "containers",
+        "extra",
+        "haskeline",
+        "random",
+        "retry",
+        "text",
+        "time",
+        "transformers",
+        "uuid",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/hs/bindings:hs-ledger",
+    ],
+)

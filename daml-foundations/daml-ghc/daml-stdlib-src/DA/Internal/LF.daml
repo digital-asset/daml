@@ -19,6 +19,8 @@ module DA.Internal.LF
 
   , Time
 
+  , TextMap
+
   , Update
 
   , Scenario
@@ -96,6 +98,12 @@ data Time = Time Opaque
 instance Show Time where show = primitive @"BEToText"
 instance Eq Time where (==) = primitive @"BEEqual"
 instance Ord Time where (<=) = primitive @"BELessEq"
+
+-- | The `TextMap a` type represents an associative array from keys of type
+-- `Text` to values of type `a`.
+data TextMap a =
+  -- | HIDE
+  TextMap Opaque
 
 -- | The `ContractId a` type represents an id for a contract made from template `a`.
 --   The id can be used to fetch the contract, among other things.

@@ -135,13 +135,14 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                 case (key0, value0) => go(newNesting, elemType, value0).map(key0 -> _)
               }
               .map(l => SMap(HashMap(l.toSeq: _*)))
+
           // variants
           case (TTyConApp(tyCon, tyConArgs), ValueVariant(mbVariantId, constructorName, val0)) =>
             val variantId = tyCon
             mbVariantId match {
               case Some(variantId_) if variantId != variantId_ =>
                 fail(
-                  s"Mismatching variant id, the types tell us $variantId, but the value tells us $variantId_")
+                  s"Mismatching variant id, the type tells us $variantId, but the value tells us $variantId_")
               case _ =>
                 compiledPackages.getPackage(variantId.packageId) match {
                   // if the package is not there, look it up and restart. stack safe since this will be done
@@ -179,7 +180,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
             mbRecordId match {
               case Some(recordId_) if recordId != recordId_ =>
                 fail(
-                  s"Mismatching record id, the types tell us $recordId, but the value tells us $recordId_")
+                  s"Mismatching record id, the type tells us $recordId, but the value tells us $recordId_")
               case _ =>
                 compiledPackages.getPackage(recordId.packageId) match {
                   // if the package is not there, look it up and restart. stack safe since this will be done
@@ -239,6 +240,33 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                                 Name.Array(flds.map(_._1).toSeq: _*),
                                 ArrayList(flds.map(_._2).toSeq: _*)
                             ))
+                    }
+                }
+            }
+
+          case (TTyCon(id), ValueEnum(mbId, constructor)) =>
+            mbId match {
+              case Some(id_) if id_ != id =>
+                fail(s"Mismatching enum id, the type tells us $id, but the value tells us $id_")
+              case _ =>
+                compiledPackages.getPackage(id.packageId) match {
+                  // if the package is not there, look it up and restart. stack safe since this will be done
+                  // very few times as the cache gets warm. this is also why we do not use the `Result.needDataType`, which
+                  // would consume stack regardless
+                  case None =>
+                    Result.needPackage(
+                      id.packageId,
+                      compiledPackages.addPackage(id.packageId, _).flatMap(_ => restart)
+                    )
+                  case Some(pkg) =>
+                    PackageLookup.lookupEnum(pkg, id.qualifiedName) match {
+                      case Left(err) => ResultError(err)
+                      case Right(DataEnum(constructors)) =>
+                        if (!constructors.toSeq.contains(constructor))
+                          fail(
+                            s"Couldn't find provided variant constructor $constructor in enum $id")
+                        ResultDone(SEnum(id, constructor))
+
                     }
                 }
             }

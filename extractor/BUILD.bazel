@@ -35,6 +35,7 @@ compileDependencies = [
     "//3rdparty/jvm/com/typesafe/akka:akka_stream",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//3rdparty/jvm/org/slf4j:slf4j_api",
+    "//3rdparty/jvm/com/typesafe/scala_logging",
     "//3rdparty/jvm/io/circe:circe_core",
     "//3rdparty/jvm/io/circe:circe_generic",
     "//3rdparty/jvm/io/circe:circe_parser",
@@ -54,6 +55,44 @@ TEST_DARS = [
     )
     for darmod in TEST_DARS
 ]
+
+genrule(
+    name = "VeryLargeArchive_src",
+    outs = ["VeryLargeArchive/Blobs.daml"] + ["VeryLargeArchive/Blob%s.daml" % n for n in range(
+        1,
+        32 + 1,
+    )],
+    cmd =
+        '''
+        filecount=32
+        outs=($(OUTS))
+        main="$${outs[0]}"
+        echo 'daml 1.2
+module VeryLargeArchive.Blobs where
+import VeryLargeArchive.Blob1' > "$$main"
+        firstfil="$${outs[1]}"
+        echo 'daml 1.2
+module VeryLargeArchive.Blob1 where
+' > "$$firstfil"
+        { for linen in `seq 1 1024`; do
+            echo -n "x$$linen = "\\"
+            for charn in `seq 1 16`; do
+                echo -n qqqqqqqq
+            done;
+            echo \\"
+        done; } >> $$firstfil
+        for filen in `seq 2 $$filecount`; do
+            echo "import VeryLargeArchive.Blob$$filen" >> "$$main"
+            sed -e '2s/^\\(module .*\\)1/\\1'$$filen/ "$$firstfil" > "$${outs[$$filen]}"
+        done
+        ''',
+)
+
+daml_compile(
+    name = "VeryLargeArchive",
+    srcs = [":VeryLargeArchive_src"],
+    main_src = ":VeryLargeArchive/Blobs.daml",
+)
 
 testDependencies = [
     ":extractor",
@@ -104,6 +143,7 @@ da_scala_test_suite(
         "//extractor:PrimitiveTypes.dar",
         "//extractor:RecordsAndVariants.dar",
         "//extractor:TransactionExample.dar",
+        "//extractor:VeryLargeArchive.dar",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [

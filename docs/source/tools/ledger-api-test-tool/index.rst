@@ -35,21 +35,21 @@ Run the following command to fetch the tool:
 
 This will create a file ``ledger-api-test-tool.jar`` in your current directory.
 
-Extracting ``.dar`` file required to run the tests
+Extracting ``.dar`` files required to run the tests
 ======================================================
 
 Before you can run the Ledger API test tool on your ledger, you need to load a
 specific set of DAML templates onto your ledger.
 
-#. To obtain the corresponding ``.dar`` file, run:
+#. To obtain the corresponding ``.dar`` files, run:
 
    .. code-block:: console
 
      $ java -jar ledger-api-test-tool.jar --extract
 
-   This creates a file ``SemanticTests.dar`` in the current directory.
+   This writes all ``.dar`` files required for the tests into the current directory.
 
-#. Load ``SemanticTests.dar`` into your Ledger.
+#. Load all ``.dar`` files into your Ledger.
 
 Running the tool against a custom Ledger API endpoint
 =====================================================
@@ -79,7 +79,38 @@ Run the tool with ``--help`` flag to obtain the list of options the tool provide
 
    $ java -jar ledger-api-test-tool.jar  --help
 
-|
+Selecting tests to run
+~~~~~~~~~~~~~~~~~~~~~~
+
+Running the tool without any arguments runs the *default tests*. Use the following command line flags to select which tests to run:
+
+- ``--list``: print all available tests to the console
+- ``--include``: only run the tests provided as argument
+- ``--exclude``: do not run the tests provided as argument
+- ``--all-tests``: run all default and optional tests. This flag can be combined with the ``--exclude`` flag.
+
+Examples:
+
+.. code-block:: console
+   :caption: Only run ``TestA``
+
+   $ java -jar ledger-api-test-tool.jar --include TestA
+
+.. code-block:: console
+   :caption: Run all default tests, but not ``TestB``
+
+   $ java -jar ledger-api-test-tool.jar --exclude TestB
+
+.. code-block:: console
+   :caption: Run all tests
+
+   $ java -jar ledger-api-test-tool.jar --all-tests
+
+.. code-block:: console
+   :caption: Run all tests, but not ``TestC``
+
+   $ java -jar ledger-api-test-tool.jar --all-tests --exclude TestC
+
 
 Try out the Ledger API Test Tool against DAML Sandbox
 =====================================================
@@ -90,7 +121,7 @@ If you wanted to test out the tool, you can run it against :doc:`DAML Sandbox
    .. code-block:: console
 
      $ java -jar ledger-api-test-tool.jar --extract
-     $ da sandbox -- SemanticTests.dar
+     $ da sandbox -- *.dar
      $ java -jar ledger-api-test-tool.jar
 
 This should always succeed, as the Sandbox is tested to correctly implement the

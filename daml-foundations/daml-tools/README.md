@@ -23,10 +23,6 @@ root of our repository.
 
 * [`daml-studio`](daml-studio/README.md) contains the DAML Studio plugin for Visual Studio Code
 
-## Tests
-
-* [`language-server-tests`](language-server-tests/README.md) contains bit-rotted tests for the DAML language server.
-
 ## Documentation
 
 Contains internal documentation:

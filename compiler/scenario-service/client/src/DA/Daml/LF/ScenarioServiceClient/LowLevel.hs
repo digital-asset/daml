@@ -12,13 +12,14 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , Handle
   , BackendError(..)
   , Error(..)
-  , start
+  , withScenarioService
   , ContextId
   , newCtx
   , cloneCtx
   , deleteCtx
   , gcCtxs
   , ContextUpdate(..)
+  , LightValidation(..)
   , updateCtx
   , runScenario
   , SS.ScenarioResult(..)
@@ -34,7 +35,7 @@ import Control.Concurrent.MVar
 import Control.DeepSeq
 import Control.Exception
 import Control.Monad
-import Control.Monad.Managed
+import Control.Monad.IO.Class
 import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
@@ -78,12 +79,16 @@ data Handle = Handle
 newtype ContextId = ContextId { getContextId :: Int64 }
   deriving (NFData, Eq, Show)
 
+-- | If true, the scenario service server only runs a subset of validations.
+newtype LightValidation = LightValidation { getLightValidation :: Bool }
+
 data ContextUpdate = ContextUpdate
   { updLoadModules :: ![(LF.ModuleName, BS.ByteString)]
   , updUnloadModules :: ![LF.ModuleName]
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
   , updDamlLfVersion :: LF.Version
+  , updLightValidation :: LightValidation
   }
 
 encodeModule :: LF.Version -> LF.Module -> BS.ByteString
@@ -141,15 +146,15 @@ validateJava Options{..} = do
         ExitFailure _ -> throwIO (ScenarioServiceException ("Failed to start `java -version`: " <> stderr))
         ExitSuccess -> pure ()
 
-start :: Options -> Managed Handle
-start opts@Options{..} = do
-  liftIO $ optLogInfo "Starting scenario service..."
-  serverJarExists <- liftIO $ doesFileExist optServerJar
-  unless serverJarExists $ do
-      liftIO $ throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
-  liftIO $ validateJava opts
-  cp <- liftIO $ javaProc ["-jar" , optServerJar]
-  port <- managed $ \resume -> withCheckedProcessCleanup cp $ \(stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
+withScenarioService :: Options -> (Handle -> IO a) -> IO a
+withScenarioService opts@Options{..} f = do
+  optLogInfo "Starting scenario service..."
+  serverJarExists <- doesFileExist optServerJar
+  unless serverJarExists $
+      throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
+  validateJava opts
+  cp <- javaProc ["-jar" , optServerJar]
+  withCheckedProcessCleanup cp $ \(stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
           flip finally (System.IO.hClose stdinHdl) $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
     let printStderr line
@@ -181,15 +186,14 @@ start opts@Options{..} = do
         -- callback or withAsync will block forever.
         flip finally (System.IO.hClose stdinHdl) $ do
             System.IO.hFlush System.IO.stdout
-            either fail resume =<< takeMVar portMVar
-  liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
-  let grpcConfig = ClientConfig (Host "localhost") (Port port) [] Nothing
-  client <- managed (withGRPCClient grpcConfig)
-  return $
-    Handle
-    { hClient = client
-    , hOptions = opts
-    }
+            port <- either fail pure =<< takeMVar portMVar
+            liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
+            let grpcConfig = ClientConfig (Host "localhost") (Port port) [] Nothing
+            withGRPCClient grpcConfig $ \client ->
+                f Handle
+                    { hClient = client
+                    , hOptions = opts
+                    }
 
 newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
@@ -237,8 +241,12 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
   res <-
     performRequest
       (SS.scenarioServiceUpdateContext ssClient)
-      (optRequestTimeout hOptions)
-      (SS.UpdateContextRequest ctxId (Just updModules) (Just updPackages) True)
+      (optRequestTimeout hOptions) $
+      SS.UpdateContextRequest
+          ctxId
+          (Just updModules)
+          (Just updPackages)
+          (getLightValidation updLightValidation)
   pure (void res)
   where
     updModules =

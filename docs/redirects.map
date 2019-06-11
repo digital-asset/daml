@@ -18,10 +18,12 @@ packages/da-docs-example-bond-trading/index.html -> /examples/bond-trading/index
 packages/da-docs-example-bond-trading/automation-introduction.html -> /examples/bond-trading/automation-introduction.html
 packages/da-docs-example-bond-trading/automation-implementation.html -> /examples/bond-trading/automation-implementation.html
 packages/da-docs-example-bond-trading/bond-trading-model.html -> /examples/bond-trading/bond-trading-model.html
-packages/ledger-api-introduction/index.html -> /app-dev/ledger-api-introduction/index.html
-packages/ledger-api-introduction/changelog.html -> /app-dev/ledger-api-introduction/changelog.html
+packages/ledger-api-introduction/index.html -> /app-dev/grpc/index.html
 packages/ledger-api-introduction/daml-to-ledger-api.html -> /app-dev/grpc/daml-to-ledger-api.html
-packages/ledger-api-introduction/proto-docs.html -> /app-dev/ledger-api-introduction/proto-docs.html
+packages/ledger-api-introduction/proto-docs.html -> /app-dev/grpc/proto-docs.html
+app-dev/ledger-api-introduction/index.html -> /app-dev/grpc/proto-docs.html
+app-dev/ledger-api-introduction/daml-to-ledger-api.html -> /app-dev/grpc/daml-to-ledger-api.html
+app-dev/ledger-api-introduction/proto-docs.html -> /app-dev/grpc/proto-docs.html
 packages/da-docs-example-repo-market/daml-implementation.html -> /examples/repo-market/daml-implementation.html
 packages/da-docs-example-repo-market/index.html -> /examples/repo-market/index.html
 packages/da-docs-example-repo-market/repo-trading-model.html -> /examples/repo-market/repo-trading-model.html

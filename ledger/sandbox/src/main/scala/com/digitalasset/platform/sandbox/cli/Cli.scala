@@ -36,6 +36,11 @@ object Cli {
       .action((x, c) => c.copy(port = x))
       .text(s"Sandbox service port. Defaults to ${SandboxConfig.DefaultPort}.")
 
+    opt[File]("port-file")
+      .optional()
+      .action((f, c) => c.copy(portFile = Some(f)))
+      .text("File to write the allocated port number to. Used to inform clients in CI about the allocated port.")
+
     opt[String]('a', "address")
       .action((x, c) => c.copy(address = Some(x)))
       .text("Sandbox service host. Defaults to binding on all addresses.")

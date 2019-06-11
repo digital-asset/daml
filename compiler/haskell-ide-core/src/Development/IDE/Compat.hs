@@ -11,12 +11,6 @@ module Development.IDE.Compat(
     readHieFile
     ) where
 
-#ifndef GHC_STABLE
-import HieBin
-import HieAst
-import HieTypes
-#else
-
 import GHC
 import GhcPlugins
 import NameCache
@@ -34,5 +28,3 @@ readHieFile :: NameCache -> FilePath -> IO (HieFile, ())
 readHieFile _ _ = return (HieFile () [], ())
 
 data HieFile = HieFile {hie_module :: (), hie_exports :: [AvailInfo]}
-
-#endif

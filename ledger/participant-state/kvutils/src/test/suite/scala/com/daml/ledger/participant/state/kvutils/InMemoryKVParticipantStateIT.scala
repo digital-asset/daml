@@ -4,15 +4,8 @@
 package com.daml.ledger.participant.state.kvutils
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.Update.PublicPackageUploaded
-import com.daml.ledger.participant.state.v1.{
-  Offset,
-  RejectionReason,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta,
-  Update
-}
+import com.daml.ledger.participant.state.v1.Update.PublicPackagesUploaded
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
@@ -43,41 +36,47 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
     "return initial conditions" in {
       val ps = new InMemoryKVParticipantState
-      ps.getLedgerInitialConditions
+      ps.getLedgerInitialConditions()
         .runWith(Sink.head)
         .map { _ =>
-          ps.close
-          assert(true)
+          ps.close()
+          succeed
         }
     }
 
-    "provide update after uploadArchive" in {
+    "provide update after uploadPublicPackages" in {
       val ps = new InMemoryKVParticipantState
+      val rt = ps.getNewRecordTime()
 
+      val sourceDescription = "provided by test"
       val archive = DamlLf.Archive.newBuilder
         .setHash("asdf")
         .build
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
-          case (offset, update) =>
-            ps.close
+          case (offset: Offset, update: PublicPackagesUploaded) =>
+            ps.close()
             assert(offset == Offset(Array(0L)))
-            assert(update == PublicPackageUploaded(archive))
+            assert(update.archives == List(archive))
+            assert(update.sourceDescription == sourceDescription)
+            assert(update.participantId == ps.participantId)
+            assert(update.recordTime >= rt)
+          case _ => fail("unexpected update message after a package upload")
         }
 
-      ps.uploadArchive(archive)
+      ps.uploadPublicPackages(List(archive), sourceDescription)
       waitForUpdateFuture
     }
 
     "provide update after transaction submission" in {
 
       val ps = new InMemoryKVParticipantState
-      val rt = ps.getNewRecordTime
+      val rt = ps.getNewRecordTime()
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
           case (offset, update) =>
-            ps.close
+            ps.close()
             assert(offset == Offset(Array(0L)))
         }
 
@@ -88,13 +87,13 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
     "reject duplicate commands" in {
       val ps = new InMemoryKVParticipantState
-      val rt = ps.getNewRecordTime
+      val rt = ps.getNewRecordTime()
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq).map { updates =>
-          ps.close
+          ps.close()
 
-          val (offset1, update1) = updates(0)
+          val (offset1, update1) = updates.head
           val (offset2, update2) = updates(1)
           assert(offset1 == Offset(Array(0L)))
           assert(update1.isInstanceOf[Update.TransactionAccepted])
@@ -115,12 +114,12 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
     "return second update with beginAfter=1" in {
       val ps = new InMemoryKVParticipantState
-      val rt = ps.getNewRecordTime
+      val rt = ps.getNewRecordTime()
 
       val waitForUpdateFuture =
         ps.stateUpdates(beginAfter = Some(Offset(Array(0L)))).runWith(Sink.head).map {
           case (offset, update) =>
-            ps.close
+            ps.close()
             assert(offset == Offset(Array(1L)))
             assert(update.isInstanceOf[Update.CommandRejected])
         }

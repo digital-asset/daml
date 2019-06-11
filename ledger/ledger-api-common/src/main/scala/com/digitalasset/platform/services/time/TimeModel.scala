@@ -3,8 +3,8 @@
 
 package com.digitalasset.platform.services.time
 
-import com.daml.ledger.participant.state.v1.{TimeModel => ITimeModel}
-import com.daml.ledger.participant.state.v1.{TimeModelChecker => ITimeModelChecker}
+import com.daml.ledger.participant.state.v2.{TimeModel => ITimeModel}
+import com.daml.ledger.participant.state.v2.{TimeModelChecker => ITimeModelChecker}
 
 import java.time.{Duration, Instant}
 

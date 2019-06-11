@@ -194,8 +194,7 @@ object Pretty {
           PrettyField(label, fieldType._2)
         }))
       case e: model.DamlLfEnum =>
-        // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-        throw new NotImplementedError("Enum types not supported")
+        PrettyArray(e.constructors.map(PrettyPrimitive).toList)
     }
   }
 
@@ -223,6 +222,8 @@ object Pretty {
       PrettyObject(
         PrettyField(constructor, argument(value))
       )
+    case model.ApiEnum(id, constructor) =>
+      PrettyPrimitive(constructor)
     case model.ApiList(elements) =>
       PrettyArray(
         elements.map(e => argument(e))

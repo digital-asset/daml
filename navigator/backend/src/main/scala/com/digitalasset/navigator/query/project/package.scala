@@ -134,6 +134,15 @@ object project {
                 case _ => Left(UnknownProperty("variant", nextCursor, expectedValue))
               }
           }
+        case ApiEnum(_, constructor) =>
+          cursor.next match {
+            case None => Left(MustNotBeLastPart("enum", cursor, expectedValue))
+            case Some(nextCursor) =>
+              nextCursor.current match {
+                case "__constructor" => Right(StringValue(constructor))
+                case _ => Left(UnknownProperty("enum", nextCursor, expectedValue))
+              }
+          }
         case ApiList(elements) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("list", cursor, expectedValue))

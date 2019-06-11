@@ -24,12 +24,11 @@ import           Control.Monad.Except
 import Development.IDE.Types.Options (IdeOptions(..))
 import           Development.IDE.State.FileStore
 import qualified Development.IDE.Logger as Logger
-import Data.Maybe
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
 import           Development.IDE.Functions.GHCError
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
-import           Development.IDE.Types.LSP as Compiler
+import qualified Language.Haskell.LSP.Messages as LSP
 
 import           UniqSupply
 
@@ -70,14 +69,14 @@ unsafeClearDiagnostics = unsafeClearAllDiagnostics
 
 -- | Initialise the Compiler Service.
 initialise :: Rules ()
-           -> Maybe (Event -> IO ())
+           -> (LSP.FromServerMessage -> IO ())
            -> Logger.Handle
            -> IdeOptions
            -> VFSHandle
            -> IO IdeState
 initialise mainRule toDiags logger options vfs =
     shakeOpen
-        (fromMaybe (const $ pure ()) toDiags)
+        toDiags
         logger
         (setProfiling options $
         shakeOptions { shakeThreads = optThreads options

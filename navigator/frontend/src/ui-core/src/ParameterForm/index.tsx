@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as React from 'react';
+import * as DamlLfTypeF from '../api/DamlLfType';
 import {
   DamlLfDataType,
   DamlLfDefDataType,
+  DamlLfEnum,
   DamlLfIdentifier,
   DamlLfPrimType,
   DamlLfRecord,
@@ -13,30 +15,34 @@ import {
   DamlLfTypePrim,
   DamlLfVariant,
 } from '../api/DamlLfType';
-import * as DamlLfTypeF from '../api/DamlLfType';
 import {
   DamlLfValue,
   DamlLfValueBool,
   DamlLfValueDecimal,
+  DamlLfValueEnum,
   DamlLfValueInt64,
-  DamlLfValueList, DamlLfValueMap,
+  DamlLfValueList,
+  DamlLfValueMap,
   DamlLfValueOptional,
   DamlLfValueParty,
   DamlLfValueRecord,
   DamlLfValueText,
   DamlLfValueUnit,
-  DamlLfValueVariant, mapEntry,
+  DamlLfValueVariant,
+  enumCon,
+  mapEntry,
 } from '../api/DamlLfValue';
-import * as DamlLfValueF from '../api/DamlLfValue';
 import Button from '../Button';
-import { StyledTextInput } from '../Input';
-import { LabeledElement } from '../Label';
+import {StyledTextInput} from '../Input';
+import {LabeledElement} from '../Label';
 import NestedForm from '../NestedForm';
 import Select from '../Select';
 import styled from '../theme';
 import TimeInput from '../TimeInput';
-import { NonExhaustiveMatch, TypeErrorElement } from '../util';
+import {NonExhaustiveMatch, TypeErrorElement} from '../util';
 import ContractIdInput from './ContractIdInput';
+
+import * as DamlLfValueF from '@da/ui-core/lib/api/DamlLfValue';
 
 
 //tslint:disable:no-use-before-declare
@@ -61,7 +67,8 @@ export function matchPrimitiveType(value: DamlLfValue, type: DamlLfTypePrim, nam
 /** Returns true if both the `value` and the `type` are valid for the given type. */
 function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'record'): value is DamlLfValueRecord;
 function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'variant'): value is DamlLfValueVariant;
-function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'record' | 'variant'): boolean {
+function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'enum'): value is DamlLfValueEnum;
+function matchDataType(value: DamlLfValue, type: DamlLfDataType, name: 'record' | 'variant' | 'enum'): boolean {
   return (value.type === name && type.type === name)
 }
 
@@ -213,7 +220,7 @@ const UnitInput = (props: InputProps<DamlLfValueUnit>): JSX.Element => {
 //-------------------------------------------------------------------------------------------------
 
 interface VariantTypeInputProps {
-  parameter: DamlLfDataType;
+  parameter: DamlLfVariant;
   disabled: boolean;
   onChange(val: string): void;
   varType: string | undefined;
@@ -227,8 +234,7 @@ const variantTypeNone = '';
 
 const VariantTypeInput = (props: VariantTypeInputProps): JSX.Element => {
   const { parameter, disabled, onChange, varType } = props;
-  const options = parameter.fields
-    .map((f) => ({value: f.name, label: f.name}))
+  const options = parameter.fields.map((f) => ({value: f.name, label: f.name}));
   return (
     <Select
       disabled={disabled}
@@ -267,7 +273,7 @@ const VariantInput = (props: VariantInputProps): JSX.Element => {
               const newConstructor = parameter.fields.filter((f) => f.name === val)[0]
               if (newConstructor === undefined) {
                 // Resetting variant to initial state
-                onChange(DamlLfValueF.initialDataTypeValue(id, parameter))
+                onChange(DamlLfValueF.initialVariantValue(id, parameter))
               } else if (constructor === undefined) {
                 // Setting a value for the first time
                 onChange(DamlLfValueF.variant(id, newConstructor.name, DamlLfValueF.initialValue(newConstructor.value)))
@@ -301,7 +307,7 @@ const VariantInput = (props: VariantInputProps): JSX.Element => {
   } else {
     return (<TypeErrorElement parameter={parameter} argument={argument} />);
   }
-}
+};
 
 //-------------------------------------------------------------------------------------------------
 // Record - nested input form
@@ -347,7 +353,46 @@ const RecordInput = (props: RecordInputProps): JSX.Element => {
   } else {
     return (<TypeErrorElement parameter={parameter} argument={argument} />);
   }
+};
+
+//-------------------------------------------------------------------------------------------------
+// Enum - non-nested value
+//-------------------------------------------------------------------------------------------------
+
+interface EnumInputProps {
+  id: DamlLfIdentifier;
+  parameter: DamlLfEnum;
+  disabled: boolean;
+  onChange(val: DamlLfValueEnum): void;
+  argument: DamlLfValue;
+  level: number
 }
+
+const EnumInput = (props: EnumInputProps): JSX.Element => {
+  const { id, parameter, level, onChange, argument, disabled } = props;
+  if (matchDataType(argument, parameter, 'enum')) {
+    const options = parameter.constructors.map((c) => ({value: c, label: c}));
+    return (
+      <NestedForm level={level}>
+        <LabeledElement label={'Constructor'} key={'constructor'}>
+          <Select
+            disabled={disabled}
+            value={argument.constructor}
+            onChange={(value) => {
+              if (value === undefined) {
+                onChange(DamlLfValueF.initialEnumValue(id, parameter));
+              } else {
+                onChange(enumCon(id, value));
+            }}}
+            options={options}
+          />
+        </LabeledElement>
+      </NestedForm>
+    );
+  } else {
+    return (<TypeErrorElement parameter={parameter} argument={argument} />);
+  }
+};
 
 //-------------------------------------------------------------------------------------------------
 // Optional - nested value
@@ -530,14 +575,6 @@ interface ListInputProps extends InputProps<DamlLfValueList> {
   typeProvider: TypeProvider
 }
 
-interface MapInputProps extends InputProps<DamlLfValueMap> {
-  parameter: DamlLfTypePrim;
-  name: string;
-  level: number
-  contractIdProvider?: ContractIdProvider
-  typeProvider: TypeProvider
-}
-
 const ListInput = (props: ListInputProps): JSX.Element => {
   const { argument, parameter, level, name, onChange, disabled, contractIdProvider, typeProvider } = props;
   if (matchPrimitiveType(argument, parameter, 'list')) {
@@ -590,6 +627,15 @@ const ListInput = (props: ListInputProps): JSX.Element => {
     return (<TypeErrorElement parameter={parameter} argument={argument} />);
   }
 };
+
+
+interface MapInputProps extends InputProps<DamlLfValueMap> {
+  parameter: DamlLfTypePrim;
+  name: string;
+  level: number
+  contractIdProvider?: ContractIdProvider
+  typeProvider: TypeProvider
+}
 
 const MapInput = (props: MapInputProps): JSX.Element => {
   const { argument, parameter, level, onChange, disabled, contractIdProvider, typeProvider } = props;
@@ -694,9 +740,19 @@ class TypeConInput extends React.Component<TypeConInputProps, TypeConInputState>
     const { parameter, onChange } = this.props;
     if (ddt) {
       const dataType = DamlLfTypeF.instantiate(parameter, ddt);
-      const initialValue = DamlLfValueF.initialDataTypeValue(parameter.name, dataType);
+      switch (dataType.type) {
+        case 'record':
+          onChange(DamlLfValueF.initialRecordValue(parameter.name, dataType));
+          break;
+        case 'variant':
+          onChange(DamlLfValueF.initialVariantValue(parameter.name, dataType));
+          break;
+        case 'enum':
+          onChange(DamlLfValueF.initialEnumValue(parameter.name, dataType));
+          break;
+        default: throw new NonExhaustiveMatch(dataType);
+      }
       this.setState({ dataType });
-      onChange(initialValue);
     } else {
       this.setState({ dataType: undefined });
       onChange(DamlLfValueF.undef());
@@ -753,6 +809,17 @@ class TypeConInput extends React.Component<TypeConInputProps, TypeConInputState>
             typeProvider={typeProvider}
           />
         );
+        case 'enum' : return(
+          <EnumInput
+            id={parameter.name}
+            parameter={dataType}
+            disabled={disabled}
+            onChange={onChange}
+            argument={argument}
+            level={level}
+          />
+        );
+
         default: throw new NonExhaustiveMatch(dataType);
       }
     }

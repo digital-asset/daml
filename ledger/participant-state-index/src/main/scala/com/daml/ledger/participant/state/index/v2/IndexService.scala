@@ -12,3 +12,4 @@ trait IndexService
     with ContractStore
     with IdentityProvider
 //with IndexTimeService //TODO: this needs some further discussion as the TimeService is actually optional
+    with IndexPartyManagementService

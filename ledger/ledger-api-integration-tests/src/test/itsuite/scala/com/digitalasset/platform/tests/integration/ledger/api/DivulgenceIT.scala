@@ -45,9 +45,11 @@ class DivulgenceIT
     with ScalaFutures
     with AsyncTimeLimitedTests
     with Matchers
-    with OptionValues
-    with TestTemplateIds {
+    with OptionValues {
   override protected def config: Config = Config.default
+
+  protected val testTemplateIds = new TestTemplateIds(config)
+  protected val templateIds = testTemplateIds.templateIds
 
   private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)

@@ -249,6 +249,8 @@ in rec {
     gcloud = pkgs.google-cloud-sdk;
     bq     = gcloud;
     gsutil = gcloud;
+    # used to set up the webide CI pipeline in azure-cron.yml
+    docker-credential-gcr = pkgs.docker-credential-gcr;
     terraform = pkgs-1903.terraform.withPlugins (p: with p; [
       google
       google-beta

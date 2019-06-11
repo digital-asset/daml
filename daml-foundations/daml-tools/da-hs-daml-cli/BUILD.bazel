@@ -25,7 +25,6 @@ da_haskell_library(
         "gitrev",
         "lens-aeson",
         "lens",
-        "managed",
         "memory",
         "mtl",
         "network",
@@ -44,6 +43,8 @@ da_haskell_library(
         "xml",
         "yaml",
         "zip-archive",
+        "dotgen",
+        "unordered-containers",
     ],
     visibility = ["//visibility:public"],
     deps = [

@@ -16,22 +16,22 @@ compileDependencies = [
 ]
 
 da_scala_library(
-    name = "participant-state-index",
+    name = "participant-state-index-v1",
     srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v1/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    tags = ["maven_coordinates=com.daml.ledger:participant-state-index:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-index-v1:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],
     runtime_deps = [],
-    deps = compileDependencies + ["//ledger/participant-state"],
+    deps = compileDependencies + ["//ledger/participant-state:participant-state-v1"],
 )
 
 da_scala_library(
-    name = "participant-state-index-v2",
+    name = "participant-state-index",
     srcs = glob(["src/main/scala/com/daml/ledger/participant/state/index/v2/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
-    #    tags = ["maven_coordinates=com.daml.ledger:participant-state-index:__VERSION__"],
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-index:__VERSION__"],
     visibility = [
         "//visibility:public",
     ],

@@ -29,6 +29,7 @@ object ApiCodecCompressed {
   def apiValueToJsValue(value: Model.ApiValue): JsValue = value match {
     case v: Model.ApiRecord => apiRecordToJsValue(v)
     case v: Model.ApiVariant => apiVariantToJsValue(v)
+    case v: Model.ApiEnum => apiEnumToJsValue(v)
     case v: Model.ApiList => apiListToJsValue(v)
     case Model.ApiText(v) => JsString(v)
     case Model.ApiInt64(v) => JsString(v.toString)
@@ -52,6 +53,9 @@ object ApiCodecCompressed {
 
   def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
     JsObject(Map(value.constructor -> apiValueToJsValue(value.value)))
+
+  def apiEnumToJsValue(value: Model.ApiEnum): JsValue =
+    JsString(value.constructor)
 
   def apiRecordToJsValue(value: Model.ApiRecord): JsValue =
     JsObject(value.fields.map(f => f.label -> apiValueToJsValue(f.value)).toMap)
@@ -134,6 +138,11 @@ object ApiCodecCompressed {
           Some(id),
           constructor._1,
           jsValueToApiType(constructor._2, constructorType, defs)
+        )
+      case (JsString(c), Model.DamlLfEnum(cons)) =>
+        Model.ApiEnum(
+          Some(id),
+          c
         )
 
       case _ => deserializationError(s"Can't read ${value.prettyPrint} as $dt")

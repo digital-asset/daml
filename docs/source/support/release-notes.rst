@@ -9,10 +9,60 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- Added new CLI flag ``--all-tests`` to the :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` to run all default and optional tests.
+
+Sandbox
+~~~~~~~
+
+- Introduced a new API for party management.
+  See `#1312 <https://github.com/digital-asset/daml/issues/1312>`__.
+
+.. _release-0-12-24:
+
+0.12.24 - 2019-06-06
+--------------------
+
+DAML Studio
+~~~~~~~~~~~
+
+- Fix errors due to unhandled ``$/cancelRequest`` and ``textDocument/willSave``
+  requests from showing up in the output tab in VSCode. These errors also caused
+  an automatic switch from the problems tab to the output tab which should now
+  no longer happen.
+
+- Note that upgrading the VSCode extension requires launching it via
+  ``daml studio``. If you launch VSCode directly, you might get issues
+  due to an outdated extension.
+
+.. _release-0-12-23:
+
+0.12.23 - 2019-06-05
+--------------------
+
+SQL Extractor
+~~~~~~~~~~~~~
+
+- 50MiB is no longer hard-coded on extractor input for sandbox or any other server,
+  permitting large packages; e.g. pass ``--ledger-api-inbound-message-size-max 62914560``
+  to extractor to get a 60MiB limit.
+  See `#1520 <https://github.com/digital-asset/daml/pull/1520>`__.
+- Improving logging. See `#1518 <https://github.com/digital-asset/daml/pull/1518>`__.
+
+DAML Language
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Contract key maintainers must now explicitly be computed from the contract key using the implicit ``key`` variable. For instance, if you have ``key (bank, accountId) : (Party, Text)`` and want ``bank`` to be the maintainer, you have to write ``maintainer key._1`` (before, you could write ``maintainer bank``).
+
 DAML Compiler
 ~~~~~~~~~~~~~
 
 - **BREAKING CHANGE**: Drop support for DAML-LF 1.3. Compiling to DAML-LF 1.4 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all. (The ledger server still supports DAML-LF 1.3.)
+
+- Fix initialization of package-db for non-default DAML-LF versions.
+  This fixes issues when using "daml build --target 1.3" (or other target versions).
 
 DAML Standard Library
 ~~~~~~~~~~~~~~~~~~~~~
@@ -24,6 +74,27 @@ Navigator
 
 - Fixed a regression where Navigator console was not able to inspect contracts and events.
   See `#1454 <https://github.com/digital-asset/daml/issues/1454>`__.
+- 50MiB is no longer hard-coded on extractor input for sandbox or any other server,
+  permitting large packages; e.g. pass ``--ledger-api-inbound-message-size-max 62914560``
+  to extractor to get a 60MiB limit.
+  See `#1520 <https://github.com/digital-asset/daml/pull/1520>`__.
+
+
+Sandbox
+~~~~~~~
+
+- Added recovery around failing ledger entry persistence queries using Postgres. See `#1505 <https://github.com/digital-asset/daml/pull/1505>`__.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- The :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` can now optionally run ``TransactionServiceIT`` as part of the conformance tests.
+  This means you need to load additional ``.dar`` files into the ledger under test. Please refer to the updated instructions in the :doc:`documentation </tools/ledger-api-test-tool/index>`.
+- Added new CLI options to the :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`:
+
+  - ``--list`` prints all available tests to the console
+  - ``--include`` takes a comma-separated list of test names that should be run
+  - ``--exclude`` takes a comma-separated list of test names that should not be run
 
 0.12.22 - 2019-05-29
 --------------------
@@ -38,6 +109,13 @@ DAML Compiler
 
 - **BREAKING CHANGE**: Drop support for DAML-LF 1.2. Compiling to DAML-LF 1.3 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all.
 - **BREAKING CHANGE**: By default ``damlc test`` must be executed in a project and will test the whole project. Testing individual files, potentially outside a project, requires passing the new ``--files`` flag.
+
+DAML-LF
+~~~~~~~
+
+- The Syntax of party literals is relaxed by allowing the character colon. Concretely those literals must match the
+  regular expression ``[a-zA-Z0-9:\-_ ]+`` instead of ``[a-zA-Z0-9\-_ ]+`` previously.
+  See `#1467 <https://github.com/digital-asset/daml/pull/1467>`__.
 
 SQL Extractor
 ~~~~~~~~~~~~~
@@ -55,7 +133,7 @@ Sandbox
 ~~~~~~~
 
 - Fixed a bug in the SQL backend that caused transactions with a fetch node referencing a contract created in the same transaction to be rejected.
-  See [issue #1435](https://github.com/digital-asset/daml/issues/1435).
+  See `issue #1435 <https://github.com/digital-asset/daml/issues/1435>`__.
 
 0.12.21 - 2019-05-28
 --------------------
@@ -85,6 +163,14 @@ DAML-LF
 ~~~~~~~
 
 - Add new version 1.5. See `DAML-LF 1 specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst#version-1-5>`_ for details.
+
+Ledger
+~~~~~~
+
+- **BREAKING CHANGE**: The string fields ``application_id``, ``command_id``, ``ledger_id``, and ``workflow_id``
+  in Ledger API commands must now match the regular expression  ``[A-Za-z0-9\._:\-#]{1,255}``. Those fields
+  were unrestricted UTF-8 strings in previous versions.
+  See `#398 <https://github.com/digital-asset/daml/issues/398>`__.
 
 0.12.20 - 2019-05-23
 --------------------

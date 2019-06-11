@@ -58,7 +58,6 @@ if [ -z "${1:-}" ] ; then
   echo "Latest SDK version is $VERSION"
 else
   readonly VERSION="$1"
-  echo "Installing SDK version $VERSION"
 fi
 
 #
@@ -81,7 +80,7 @@ fi
 readonly TARBALL="daml-sdk-$VERSION-$OS.tar.gz"
 readonly URL="https://github.com/digital-asset/daml/releases/download/v$VERSION/$TARBALL"
 
-echo "$(tput setaf 3)Downloading DAML SDK. This may take a while.$(tput sgr 0)"
+echo "$(tput setaf 3)Downloading DAML SDK $VERSION. This may take a while.$(tput sgr 0)"
 curl -SLf $URL --output $TARBALL --progress-bar
 if [ ! -f $TARBALL ] ; then
   echo "Failed to download SDK tarball."

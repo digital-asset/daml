@@ -15,11 +15,13 @@ trait TimeServiceBackend extends TimeProvider {
   def getCurrentTime: Instant
 
   def setCurrentTime(currentTime: Instant, newTime: Instant): Future[Boolean]
+
+  def allowSettingTimeBackwards: Boolean
 }
 
 object TimeServiceBackend {
-  def simple(startTime: Instant): TimeServiceBackend =
-    new SimpleTimeServiceBackend(startTime)
+  def simple(startTime: Instant, allowSettingTimeBackwards: Boolean): TimeServiceBackend =
+    new SimpleTimeServiceBackend(startTime, allowSettingTimeBackwards)
 
   def withObserver(
       timeProvider: TimeServiceBackend,
@@ -27,7 +29,8 @@ object TimeServiceBackend {
     new ObservingTimeServiceBackend(timeProvider, onTimeChange)
 }
 
-private class SimpleTimeServiceBackend(startTime: Instant) extends TimeServiceBackend {
+private class SimpleTimeServiceBackend(startTime: Instant, val allowSettingTimeBackwards: Boolean)
+    extends TimeServiceBackend {
   private val timeRef = new AtomicReference[Instant](startTime)
 
   override def getCurrentTime: Instant = timeRef.get
@@ -54,5 +57,7 @@ private class ObservingTimeServiceBackend(
           onTimeChange(expectedTime).map(_ => true)(DirectExecutionContext)
         else Future.successful(false)
       }(DirectExecutionContext)
+
+  override def allowSettingTimeBackwards: Boolean = timeProvider.allowSettingTimeBackwards
 
 }
