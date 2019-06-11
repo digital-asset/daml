@@ -10,18 +10,20 @@ import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, Sourc
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.v2.{
+  PartyAllocationResult,
   SubmissionResult,
   SubmittedTransaction,
   SubmitterInfo,
   TransactionMeta
 }
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
-import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
+import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
@@ -320,6 +322,13 @@ private class SqlLedger(
           (transactionId.toLong, t) // the transaction is also the offset
       })(DEC)
 
+  override def allocateParty(
+      party: Party,
+      displayName: Option[String]): Future[PartyAllocationResult] =
+    ledgerDao.storeParty(party, displayName)
+
+  override def parties: Future[List[PartyDetails]] =
+    ledgerDao.getParties
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao) {

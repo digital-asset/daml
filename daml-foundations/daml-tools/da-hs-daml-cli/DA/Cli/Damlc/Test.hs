@@ -42,7 +42,7 @@ execTest :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO (
 execTest inFiles color mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
-    let eventLogger (EventFileDiagnostics (fp, diags)) = printDiagnostics $ map (fp,) diags
+    let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (fp,) diags
         eventLogger _ = return ()
     Compiler.withIdeState opts loggerH eventLogger $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions

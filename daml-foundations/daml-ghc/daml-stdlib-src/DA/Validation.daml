@@ -2,11 +2,14 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
--- | HIDE
+
+-- | `Validation` type and associated functions.
 module DA.Validation where
 
 import DA.NonEmpty as NE
 
+-- | A `Validation` represents eithor a non-empty list of errors, or a successful value.
+-- This generalizes `Either` to allow more than one error to be collected.
 data Validation err a
   = Errors (NonEmpty err)
   | Success a
@@ -22,21 +25,23 @@ invalid err = Errors $ singleton err
 ok : a -> Validation err a
 ok a = Success a
 
+-- | Turn an `Either` into a `Validation`.
 validate : Either err a -> Validation err a
 validate = either invalid ok
 
--- Convert a `Validation err a` value into an `Either`.
+-- | Convert a `Validation err a` value into an `Either`,
+-- taking the non-empty list of errors as the left value.
 run : Validation err a -> Either (NonEmpty err) a
 run (Errors errs) = Left errs
 run (Success a)   = Right a
 
--- Convert a `Validation err a` value into an `Either`,
--- taking just the first error.
+-- | Convert a `Validation err a` value into an `Either`,
+-- taking just the first error as the left value.
 run1 : Validation err a -> Either err a
 run1 (Errors errs) = Left errs.hd
 run1 (Success a)   = Right a
 
--- Run a `Validation err a` with a default value in case of errors.
+-- | Run a `Validation err a` with a default value in case of errors.
 runWithDefault : a -> Validation err a -> a
 runWithDefault d (Errors _) = d
 runWithDefault _ (Success a) = a
@@ -69,6 +74,9 @@ instance Action (Validation err) where
 instance ActionFail (Validation Text) where
     fail = Errors . singleton
 
+-- | Convert an `Optional t` into a `Validation Text t`, or
+-- more generally into an `m t` for any `ActionFail` type `m`.
 (<?>) : ActionFail m => Optional b -> Text -> m b
 None <?> s = fail s
 Some v <?> _ = pure v
+

@@ -4,7 +4,7 @@
 -- Copied from https://github.com/ghc/ghc/blob/23f6f31dd66d7c370cb8beec3f1d96a0cb577393/libraries/ghc-prim/GHC/Classes.hs
 -- All DA specific modifications are marked with [DA]
 
-{-# LANGUAGE NoNewColonConvention #-} -- [DA]
+{-# LANGUAGE DamlSyntax #-} -- [DA]
 
 -- [DA] {-# LANGUAGE CPP #-}
 {-# LANGUAGE Trustworthy #-}
@@ -69,8 +69,8 @@ default ()              -- Double isn't available yet
 -- | The syntax `?x :: a` is desugared into `IP "x" a`
 -- IP is declared very early, so that libraries can take
 -- advantage of the implicit-call-stack feature
-class IP (x :: Symbol) a | x -> a where
-  ip :: a
+class IP (x : Symbol) a | x -> a where
+  ip : a
 
 {- $matching_overloaded_methods_in_rules
 
@@ -137,7 +137,7 @@ for the types in "GHC.Word" and "GHC.Int".
 -- Minimal complete definition: either `==` or `/=`.
 --
 class Eq a  where
-    (==), (/=)           :: a -> a -> Bool
+    (==), (/=)           : a -> a -> Bool
 
     x /= y               = not (x == y)
     x == y               = not (x /= y)
@@ -181,7 +181,7 @@ deriving instance (Eq a, Eq b) => Eq (Either a b)
 
 -- slightly strange encoding to avoid value level recursion
 -- and to optimise so we avoid going through the dictionary lots of times
-eqList :: (a -> a -> Bool) -> [a] -> [a] -> Bool
+eqList : (a -> a -> Bool) -> [a] -> [a] -> Bool
 eqList = primitive @"BEEqualList"
 
 instance (Eq a) => Eq [a] where
@@ -234,9 +234,9 @@ instance Eq Text where
 -- Using `compare` can be more efficient for complex types.
 --
 class (Eq a) => Ord a  where
-    compare              :: a -> a -> Ordering
-    (<), (<=), (>), (>=) :: a -> a -> Bool
-    max, min             :: a -> a -> a
+    compare              : a -> a -> Ordering
+    (<), (<=), (>), (>=) : a -> a -> Bool
+    max, min             : a -> a -> a
 
     compare x y = if x == y then EQ
                   -- NB: must be '<=' not '<' to validate the
@@ -294,9 +294,9 @@ deriving instance (Ord a, Ord b) => Ord (Either a b)
 
 instance (Ord a) => Ord [a] where
     compare []     []     = EQ
-    compare []     (_:_)  = LT
-    compare (_:_)  []     = GT
-    compare (x:xs) (y:ys) = case compare x y of
+    compare []     (_ :: _)  = LT
+    compare (_ :: _)  []     = GT
+    compare (x :: xs) (y :: ys) = case compare x y of
                                 EQ    -> compare xs ys
                                 other -> other
 
@@ -336,7 +336,7 @@ instance Ord Text where
 -- This function has short-circuiting semantics, i.e., when both arguments are
 -- present and the first arguments evaluates to 'False', the second argument
 -- is not evaluated at all.
-(&&)                    :: Bool -> Bool -> Bool
+(&&)                    : Bool -> Bool -> Bool
 True  && x              =  x
 False && _              =  False
 
@@ -344,11 +344,11 @@ False && _              =  False
 -- This function has short-circuiting semantics, i.e., when both arguments are
 -- present and the first arguments evaluates to 'True', the second argument
 -- is not evaluated at all.
-(||)                    :: Bool -> Bool -> Bool
+(||)                    : Bool -> Bool -> Bool
 True  || _              =  True
 False || x              =  x
 
 -- | Boolean \"not\"
-not                     :: Bool -> Bool
+not                     : Bool -> Bool
 not True                =  False
 not False               =  True

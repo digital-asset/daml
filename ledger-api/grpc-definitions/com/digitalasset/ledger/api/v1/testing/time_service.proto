@@ -28,6 +28,7 @@ service TimeService {
 message GetTimeRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as describe in ``value.proto``).
   // Required
   string ledger_id = 1;
 }
@@ -41,6 +42,7 @@ message GetTimeResponse {
 message SetTimeRequest {
 
   // Must correspond to the ledger ID reported by the Ledger Identification Service.
+  // Must be a valid LedgerString (as describe in ``value.proto``).
   // Required
   string ledger_id = 1;
 

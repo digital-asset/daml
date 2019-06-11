@@ -15,6 +15,7 @@ option java_package = "com.digitalasset.ledger.api.v1";
 // A completion represents the status of a submitted command on the ledger: it can be successful or failed.
 message Completion {
   // The ID of the succeeded or failed command.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string command_id = 1;
 
@@ -26,6 +27,7 @@ message Completion {
 
   // The transaction_id of the transaction that resulted from the command with command_id.
   // Only set for successfully executed commands.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string transaction_id = 3;
 

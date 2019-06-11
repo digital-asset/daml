@@ -106,7 +106,9 @@ applyManyTrans log s = \case
     x:xs -> do
         case applyTrans s x of
             Left mes -> do log $ "applyTrans fail: " <> mes; applyManyTrans log s xs
-            Right (_,s) -> applyManyTrans log s xs
+            Right (_announcements,s) -> do
+                --mapM_ (log . show) _announcements
+                applyManyTrans log s xs
 
 applyTrans :: State -> NimTrans -> Either String ([Announce], State)
 applyTrans state0 = \case
@@ -124,9 +126,9 @@ applyTrans state0 = \case
         let State{offers} = state0
         case Map.lookup oid offers of
             Nothing -> Left "offer withdrawm, unknown id"
-            Just _ ->
+            Just (onum,offer,_) ->
                 return (
-                [],
+                [AnnounceOfferLapsed onum offer],
                 state0 { offers = Map.adjust archive oid offers })
 
     NewGame {oid,gid,game} -> do
@@ -144,8 +146,8 @@ applyTrans state0 = \case
         when (newGid `elem` Map.keys games) $ Left "game move, dup new id"
         case Map.lookup oldGid games of
             Nothing -> Left "game move, unknown old id"
-            Just (onum,_,_) -> return (
-                [AnnounceGameMove onum game],
+            Just (onum,oldGame,_) -> return (
+                [AnnounceGameMove onum game (deduceMoves oldGame game)],
                 state0 { games = Map.insert newGid (onum,game,Open) (Map.adjust archive oldGid games)})
 
   where archive (k,v,_) = (k,v,Closed)
@@ -154,17 +156,20 @@ applyTrans state0 = \case
 -- TODO: distinguish offers/moves by me/others
 data Announce
     = AnnounceNewOffer MatchNumber Offer
+    | AnnounceOfferLapsed MatchNumber Offer
     | AnnounceNewGame MatchNumber Game
-    | AnnounceGameMove MatchNumber Game
+    | AnnounceGameMove MatchNumber Game [Move]
 
 instance Show Announce where
     show = \case
      AnnounceNewOffer m Offer{from} ->
          show m <> ": " <> show from <> " has offered to play a new game."
+     AnnounceOfferLapsed m _ ->
+         show m <> ": The offer has been accepted."
      AnnounceNewGame m _ ->
          show m <> ": The game has started."
-     AnnounceGameMove m Game{p2} ->
-         show m <> ": " <> show p2 <> " has played a move."
+     AnnounceGameMove m Game{p2} reconstructedMoves ->
+         show m <> ": " <> show p2 <> " has played a move " <> show reconstructedMoves
 
 -- Visualize local open state
 

@@ -18,6 +18,7 @@ message TransactionFilter {
   // Keys of the map determine which parties' on-ledger transactions are being queried.
   // Values of the map determine which events are disclosed in the stream per party.
   // At the minimum, a party needs to set an empty Filters message to receive any events.
+  // Each key must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   map<string, Filters> filters_by_party = 1;
 }

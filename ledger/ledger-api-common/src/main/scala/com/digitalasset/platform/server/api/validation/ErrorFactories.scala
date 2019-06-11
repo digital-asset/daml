@@ -34,6 +34,9 @@ trait ErrorFactories {
   def aborted(description: String): StatusRuntimeException =
     grpcError(Status.INTERNAL.withDescription(description))
 
+  def unimplemented(description: String): StatusRuntimeException =
+    grpcError(Status.UNIMPLEMENTED.withDescription(description))
+
   def grpcError(status: Status) = new ApiException(status)
 
 }

@@ -14,6 +14,14 @@ option java_outer_classname = "ValueOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
 
 // Encodes values that the ledger accepts as command arguments and emits as contract arguments.
+//
+// The values encoding use different four classes of strings as identifiers. Those classes are
+// defined as follow:
+// - NameStrings are strings that match the regexp ``[A-Za-z\$_][A-Za-z0-9\$_]*``.
+// - PackageIdStrings are strings that match the regexp ``[A-Za-z0-9\-_ ]+``.
+// - PartyIdStrings are strings that match the regexp ``[A-Za-z0-9:\-_ ]+``.
+// - LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_ ]+``.
+//
 message Value {
   oneof Sum {
 
@@ -22,9 +30,10 @@ message Value {
     Variant variant = 2;
 
     // Identifier of an on-ledger contract. Commands which reference an unknown or already archived contract ID will fail.
+    // Must be a valid LedgerString.
     string contract_id = 3;
 
-    // Represents a homogenous list of values.
+    // Represents a homogeneous list of values.
     List list = 4;
 
     sint64 int64 = 5 [jstype = JS_STRING];
@@ -47,6 +56,7 @@ message Value {
     sfixed64 timestamp = 9 [jstype = JS_STRING];
 
     // An agent operating on the ledger.
+    // Must be a valid PartyIdString.
     string party = 11;
 
     // True or false.
@@ -90,6 +100,7 @@ message RecordField {
   // When submitting a commmand, it's optional:
   //   - if all keys within a single record are present, the order in which fields appear does not matter. however, each key must appear exactly once.
   //   - if any of the keys within a single record are omitted, the order of fields MUST match the order of declaration in the DAML template.
+  // Must be a valid NameString
   string label = 1;
 
   // A nested value of a record.
@@ -101,6 +112,7 @@ message RecordField {
 message Identifier {
 
   // The identifier of the DAML package that contains the entity.
+  // Must be a valid PackageIdString.
   // Required
   string package_id = 1;
 
@@ -126,6 +138,7 @@ message Variant {
   Identifier variant_id = 1;
 
   // Determines which of the Variant's alternatives is encoded in this message.
+  // Must be a valid NameString.
   // Required
   string constructor = 2;
 
@@ -142,6 +155,7 @@ message Enum {
   Identifier enum_id = 1;
 
   // Determines which of the Variant's alternatives is encoded in this message.
+  // Must be a valid NameString.
   // Required
   string constructor = 2;
 }

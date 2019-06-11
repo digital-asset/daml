@@ -18,14 +18,17 @@ option java_package = "com.digitalasset.ledger.api.v1";
 message TransactionTree {
 
   // Assigned by the server. Useful for correlating logs.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string transaction_id = 1;
 
   // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string command_id = 2;
 
   // The workflow ID used in command submission. Only set if the ``workflow_id`` for the command was set.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string workflow_id = 3;
 
@@ -40,10 +43,12 @@ message TransactionTree {
   string offset = 6;
 
   // Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
+  // Each key be a valid LedgerString (as describe in ``value.proto``).
   // Required
   map<string, TreeEvent> events_by_id = 7;
 
   // Roots of the transaction tree.
+  // Each element must be a valid LedgerString (as describe in ``value.proto``).
   // Required
   repeated string root_event_ids = 8;
 
@@ -71,18 +76,22 @@ message TreeEvent {
 message Transaction {
 
   // Assigned by the server. Useful for correlating logs.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string transaction_id = 1;
 
   // The ID of the command which resulted in this transaction. Missing for everyone except the submitting party.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string command_id = 2;
 
   // The workflow ID used in command submission.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Optional
   string workflow_id = 3;
 
   // Ledger effective time.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   google.protobuf.Timestamp effective_at = 4;
 

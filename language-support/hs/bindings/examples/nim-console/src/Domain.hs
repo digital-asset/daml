@@ -10,6 +10,7 @@ module Domain(Player(..), partyOfPlayer,
               Game(..),
               Move(..),
               legalMovesOfGame, -- for Robot
+              deduceMoves,
              ) where
 
 import DA.Ledger.Types
@@ -55,7 +56,10 @@ instance Valuable Game where
         _ ->
             Nothing
 
-data Move = Move { pileNum :: Int, howMany :: Int } deriving Show
+data Move = Move { pileNum :: Int, howMany :: Int }
+
+instance Show Move where
+    show Move{pileNum,howMany} = show pileNum <> ":" <> show howMany
 
 instance Valuable Move where
     toValue Move{pileNum,howMany} =
@@ -70,3 +74,11 @@ legalMovesOfGame Game{piles} = do
     (pileNum,remaining) <- zip [1..] piles
     howMany <- [1..min 3 remaining]
     return $ Move {pileNum,howMany}
+
+deduceMoves :: Game -> Game -> [Move]
+deduceMoves Game{piles=p1} Game{piles=p2} =
+    filter (\Move{howMany} -> howMany > 0)
+    $ map (\(pileNum,howMany) -> Move {pileNum, howMany})
+    $ zip [1..]
+    $ map (\(x,y) -> x - y)
+    $ zip p1 p2

@@ -27,6 +27,7 @@ import Development.IDE.State.FileStore
 import qualified Development.IDE.State.Service as IDE
 import Development.IDE.State.Shake
 import Development.IDE.Types.LSP
+import qualified Language.Haskell.LSP.Messages as LSP
 
 import DA.Daml.GHC.Compiler.Options
 import qualified DA.Daml.LF.Ast as LF
@@ -75,7 +76,7 @@ setOpenVirtualResources state resources = do
 
 initialise
     :: Rules ()
-    -> (Event -> IO ())
+    -> (LSP.FromServerMessage -> IO ())
     -> Logger.Handle
     -> Options
     -> VFSHandle

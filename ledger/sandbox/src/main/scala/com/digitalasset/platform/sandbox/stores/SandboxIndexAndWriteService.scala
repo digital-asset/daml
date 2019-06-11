@@ -367,8 +367,15 @@ private class SandboxIndexAndWriteService(
   override def allocateParty(
       hint: Option[String],
       displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
-    // TODO: Implement party management
-    CompletableFuture.completedFuture(PartyAllocationResult.NotSupported)
+    // In the sandbox, the hint is used as-is.
+    // If hint is not a valid and unallocated party name, the call fails
+    hint.map(p => Party.fromString(p)) match {
+      case None =>
+        FutureConverters.toJava(
+          ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName))
+      case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName))
+      case Some(Left(error)) => CompletableFuture.completedFuture(PartyAllocationResult.InvalidName)
+    }
   }
 
   // PartyManagementService
@@ -378,6 +385,5 @@ private class SandboxIndexAndWriteService(
     Future.successful(ParticipantId(ledger.ledgerId.unwrap))
 
   override def listParties(): Future[List[PartyDetails]] =
-    // TODO: Implement party management
-    Future.failed(new RuntimeException("Not implemented"))
+    ledger.parties
 }

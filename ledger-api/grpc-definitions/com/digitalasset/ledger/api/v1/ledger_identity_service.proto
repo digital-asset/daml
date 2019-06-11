@@ -32,6 +32,7 @@ message GetLedgerIdentityResponse {
 
   // The ID of the ledger exposed by the server.
   // Requests submitted with the wrong ledger ID will result in ``NOT_FOUND`` gRPC errors.
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string ledger_id = 1;
 }

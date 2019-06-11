@@ -5,7 +5,6 @@ module DA.LanguageServer.Protocol
     ( module Language.Haskell.LSP.Types
     , ServerRequest(..)
     , ServerNotification(..)
-    , ClientNotification(..)
     , prettyPosition
     ) where
 
@@ -46,14 +45,6 @@ data ServerNotification
     | DidCloseTextDocument  DidCloseTextDocumentParams
     | DidSaveTextDocument   DidSaveTextDocumentParams
     | UnknownNotification   T.Text Aeson.Value
-
--- | Notification sent by the language server to the client.
-data ClientNotification
-    = ShowMessage ShowMessageParams
-    | LogMessage LogMessageParams
-    | SendTelemetry Aeson.Value
-    | PublishDiagnostics PublishDiagnosticsParams
-    | CustomNotification T.Text Aeson.Value
 
 ----------------------------------------------------------------------------------------------------
 -- Pretty printing

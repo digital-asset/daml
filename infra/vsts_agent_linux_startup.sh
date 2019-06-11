@@ -23,9 +23,22 @@ apt-get install -qy \
   bzip2 rsync \
   jq liblttng-ust0 libcurl3 libkrb5-3 libicu55 zlib1g \
   git \
-  netcat
+  netcat \
+  apt-transport-https \
+  software-properties-common
 
 curl -sSL https://dl.google.com/cloudagents/install-logging-agent.sh | bash
+
+#install docker
+DOCKER_VERSION="5:18.09.5~3-0~ubuntu-$(lsb_release -cs)"
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add -
+apt-key fingerprint 0EBFCD88
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+apt-get update
+apt-get install -qy docker-ce=$DOCKER_VERSION docker-ce-cli=$DOCKER_VERSION containerd.io
+
+#Start docker daemon
+systemctl enable docker
 
 ## Install the VSTS agent
 groupadd --gid 3000 vsts
@@ -35,6 +48,8 @@ useradd \
   --shell /bin/bash \
   --uid 3000 \
   vsts
+#add docker group to user
+usermod -aG docker vsts
 
 su --login vsts <<'AGENT_SETUP'
 set -euo pipefail

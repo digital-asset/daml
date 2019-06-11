@@ -364,6 +364,11 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           this
         }
 
+        override def addParties(parties: Set[Party]): AcsStoreAcc = {
+          // Implemented in a future migration
+          this
+        }
+
         override def divulgeAlreadyCommittedContract(
             transactionId: TransactionIdString,
             global: Relation[AbsoluteContractId, Party]) = {

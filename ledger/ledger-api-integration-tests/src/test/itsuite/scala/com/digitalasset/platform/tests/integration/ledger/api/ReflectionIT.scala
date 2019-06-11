@@ -34,7 +34,7 @@ class ReflectionIT
         for {
           response <- execRequest(ledger, listServices)
         } yield {
-          response.getListServicesResponse.getServiceCount shouldEqual 11
+          response.getListServicesResponse.getServiceCount shouldEqual 12
         }
       }
 

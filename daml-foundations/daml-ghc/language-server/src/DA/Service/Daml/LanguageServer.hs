@@ -4,22 +4,16 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskell    #-}
 
 module DA.Service.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import qualified Control.Concurrent.Async                  as Async
-import           Control.Concurrent.STM                    (TChan, atomically, newTChanIO,
-                                                            readTChan, writeTChan)
 import Control.Exception.Safe
 
 import           DA.LanguageServer.Protocol
 import           DA.LanguageServer.Server
 
-import Control.Monad
-import Data.List.Extra
 import Control.Monad.IO.Class
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
@@ -30,7 +24,6 @@ import qualified DA.Service.Logger                         as Logger
 import DAML.Project.Consts
 
 import qualified Data.Aeson                                as Aeson
-import           Data.Aeson.TH.Extended                    (deriveDAToJSON)
 import           Data.IORef                                (IORef, atomicModifyIORef', newIORef)
 import qualified Data.Rope.UTF16 as Rope
 import qualified Data.Set                                  as S
@@ -63,43 +56,7 @@ data IHandle p t = IHandle
     { ihState     :: !(IORef State)
     , ihLoggerH   :: !(Logger.Handle IO)
     , ihCompilerH :: !Compiler.IdeState
-    , ihNotifChan :: !(TChan ClientNotification)
-    -- ^ Channel to send notifications to the client.
     }
-
- ------------------------------------------------------------------------------
--- Defaults
-------------------------------------------------------------------------------
-
--- | Virtual resource changed notification
--- This notification is sent by the server to the client when
--- an open virtual resource changes.
-virtualResourceChangedNotification :: T.Text
-virtualResourceChangedNotification = "daml/virtualResource/didChange"
-
--- | Parameters for the virtual resource changed notification
-data VirtualResourceChangedParams = VirtualResourceChangedParams
-    { _vrcpUri      :: !T.Text
-      -- ^ The uri of the virtual resource.
-    , _vrcpContents :: !T.Text
-      -- ^ The new contents of the virtual resource.
-    }
-
-deriveDAToJSON "_vrcp" ''VirtualResourceChangedParams
-
--- | Information regarding validations done for a DAML workspace.
-workspaceValidationsNotification :: T.Text
-workspaceValidationsNotification = "daml/workspace/validations"
-
--- | Parameters to update the client about the number of files that have been updated.
-data WorkspaceValidationsParams = WorkspaceValidationsParams
-    { _wvpFinishedValidations :: !Int
-      -- ^ Tracks the number of validations we have already finished.
-    , _wvpTotalValidations    :: !Int
-      -- ^ Tracks the number of total validation steps we need to perform.
-    }
-
-deriveDAToJSON "_wvp" ''WorkspaceValidationsParams
 
 ------------------------------------------------------------------------
 -- Request handlers
@@ -111,7 +68,7 @@ handleRequest
     -> (ErrorCode -> ResponseMessage ())
     -> ServerRequest
     -> IO FromServerMessage
-handleRequest (IHandle _stateRef loggerH compilerH _notifChan) makeResponse makeErrorResponse = \case
+handleRequest (IHandle _stateRef loggerH compilerH) makeResponse makeErrorResponse = \case
     Shutdown -> do
       Logger.logInfo loggerH "Shutdown request received, terminating."
       System.Exit.exitSuccess
@@ -128,7 +85,7 @@ handleRequest (IHandle _stateRef loggerH compilerH _notifChan) makeResponse make
 
 
 handleNotification :: LspFuncs () -> IHandle () LF.Package -> ServerNotification -> IO ()
-handleNotification lspFuncs (IHandle stateRef loggerH compilerH _notifChan) = \case
+handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
 
     DidOpenTextDocument (DidOpenTextDocumentParams item) -> do
         case URI.parseURI $ T.unpack $ getUri $ _uri (item :: TextDocumentItem) of
@@ -245,50 +202,18 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH _notifChan) = \c
 
 runLanguageServer
     :: Logger.Handle IO
-    -> ((Compiler.Event -> IO ()) -> VFSHandle -> IO Compiler.IdeState)
+    -> ((FromServerMessage -> IO ()) -> VFSHandle -> IO Compiler.IdeState)
     -> IO ()
 runLanguageServer loggerH getIdeState = do
     sdkVersion <- liftIO (getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)"))
     liftIO $ Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-    notifChan <- liftIO newTChanIO
-    eventChan <- liftIO newTChanIO
     state     <- liftIO $ newIORef $ State S.empty S.empty
     let getHandlers lspFuncs = do
-            compilerH <- getIdeState (atomically . writeTChan eventChan) (makeLSPVFSHandle lspFuncs)
+            compilerH <- getIdeState (sendFunc lspFuncs) (makeLSPVFSHandle lspFuncs)
             let ihandle = IHandle
                     { ihState = state
                     , ihLoggerH = loggerH
                     , ihCompilerH = compilerH
-                    , ihNotifChan = notifChan
                     }
             pure $ Handlers (handleRequest ihandle) (handleNotification lspFuncs ihandle)
-    liftIO $ Async.race_
-      (eventSlinger eventChan notifChan)
-      (runServer loggerH getHandlers notifChan)
-
--- | Event slinger slings compiler events to the client as notifications.
-eventSlinger
-    :: TChan Compiler.Event
-    -> TChan ClientNotification
-    -> IO ()
-eventSlinger eventChan notifChan =
-    forever $
-        atomically $ readTChan eventChan >>= \case
-            Compiler.EventFileDiagnostics (fp, diags) -> do
-                writeTChan notifChan
-                    $ PublishDiagnostics
-                    $ PublishDiagnosticsParams
-                    (Compiler.filePathToUri' fp)
-                    (List $ nubOrd diags)
-
-            Compiler.EventVirtualResourceChanged vr content -> do
-                writeTChan notifChan
-                    $ CustomNotification virtualResourceChangedNotification
-                    $ Aeson.toJSON
-                    $ VirtualResourceChangedParams (Compiler.virtualResourceToUri vr) content
-
-            Compiler.EventFileValidation finishedValidations totalValidations -> do
-                writeTChan notifChan
-                    $ CustomNotification workspaceValidationsNotification
-                    $ Aeson.toJSON
-                    $ WorkspaceValidationsParams finishedValidations totalValidations
+    liftIO $ runServer loggerH getHandlers
