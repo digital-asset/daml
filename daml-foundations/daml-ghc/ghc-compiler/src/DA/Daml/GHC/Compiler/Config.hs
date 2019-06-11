@@ -61,6 +61,7 @@ xFlagsSet :: [ GeneralFlag ]
 xFlagsSet = [
    Opt_Haddock
  , Opt_Ticky
+ , Opt_WriteHie
  ]
 
 -- | Warning options set for DAML compilation. Note that these can be modified
