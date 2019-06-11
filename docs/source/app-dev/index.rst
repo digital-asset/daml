@@ -41,7 +41,7 @@ No matter how you're accessing it (Java bindings, Node.js bindings, or gRPC), th
 - Reading from the ledger
 
   - Use the :ref:`transaction service <transaction-service>` to stream committed transactions and the resulting events (choices exercised, and contracts created or archived), and to look up transactions.
-  - Use the :ref:`active contract service <active-contract-service>` to quickly bootstrap an application with the currently active contracts. It saves you the work to process the ledger from the beginning to obtain its current state.
+  - Use the :ref:`active contracts service <active-contract-service>` to quickly bootstrap an application with the currently active contracts. It saves you the work to process the ledger from the beginning to obtain its current state.
 - Utility services
 
   - Use the :ref:`package service <package-service>` to query the DAML packages deployed to the ledger.
