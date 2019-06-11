@@ -72,10 +72,7 @@ class SandboxPackageStore() extends IndexPackagesService {
       case Success(Left(err)) =>
         CompletableFuture.completedFuture(UploadDarResult.InvalidPackage(err))
       case Failure(exception) =>
-        // Java 8 does not have CompletableFuture#failed
-        val future: CompletableFuture[UploadDarResult] = new CompletableFuture()
-        future.completeExceptionally(exception)
-        future
+        CompletableFuture.completedFuture(UploadDarResult.InvalidPackage(exception.getMessage))
     }
   }
 
