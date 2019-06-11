@@ -1,0 +1,20 @@
+{
+    "homepage": "https://www.scala-sbt.org/",
+    "version": "1.2.8",
+    "license": "BSD",
+    "url": "https://piccolo.link/sbt-1.2.8.zip",
+    "hash": "7e6cfe98dc9c16ae6aa267db277860594695144d719c99d1fc519e89346a8edf",
+    "extract_dir": "scala-sbt-1.2.8",
+    "env_add_path": "bin",
+    "suggest": {
+        "JDK": [
+            "java/oraclejdk",
+            "java/openjdk"
+        ]
+    },
+    "checkver": {
+        "url": "https://www.scala-sbt.org/download.html",
+        "re": "<a href=\"https://piccolo.link/sbt-(\\d+\\.\\d+\\.\\d+)\\.zip\">"
+    },
+    "persist": "conf"
+}
