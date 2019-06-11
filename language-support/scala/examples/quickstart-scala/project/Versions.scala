@@ -16,11 +16,6 @@ object Versions {
     .getOrElse(new sbt.File(s"./dist/${projectNameFromConfig(): String}.dar"))
   println(s"$darFileKey = ${darFile.getAbsolutePath: String}")
 
-  lazy val detectedOs: String = sys.props("os.name") match {
-    case "Mac OS X" => "osx"
-    case _ => "linux"
-  }
-
   private def sdkVersionFromFile(): String =
     "10" + sbt.IO.read(new sbt.File("./SDK_VERSION").getAbsoluteFile).trim
 
