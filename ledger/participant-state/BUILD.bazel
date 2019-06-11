@@ -8,8 +8,32 @@ load(
 )
 
 da_scala_library(
+    name = "participant-state-v1",
+    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v1/**/*.scala"]),
+    resources = glob(["src/main/resources/**/*"]),
+    tags = ["maven_coordinates=com.daml.ledger:participant-state-v1:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    runtime_deps = [],
+    deps = [
+        "//3rdparty/jvm/com/google/guava",
+        "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/transaction",
+        "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
+        "//daml-lf/transaction/src/main/protobuf:value_java_proto",
+        "//ledger/ledger-api-domain",
+    ],
+)
+
+# Temporary target to support the split between v1 and v2 versions of the
+# participant-state library. Untimately, only v2 will prevail.
+
+da_scala_library(
     name = "participant-state",
-    srcs = glob(["src/main/scala/**/*.scala"]),
+    srcs = glob(["src/main/scala/com/daml/ledger/participant/state/v2/**/*.scala"]),
     resources = glob(["src/main/resources/**/*"]),
     tags = ["maven_coordinates=com.daml.ledger:participant-state:__VERSION__"],
     visibility = [

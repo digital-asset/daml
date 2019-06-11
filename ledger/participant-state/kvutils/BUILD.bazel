@@ -32,7 +32,7 @@ da_scala_library(
         "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",
         "//ledger/ledger-api-common",
-        "//ledger/participant-state",
+        "//ledger/participant-state:participant-state-v1",
     ],
 )
 
@@ -52,7 +52,7 @@ da_scala_test_suite(
         "//daml-lf/transaction",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
-        "//ledger/participant-state",
+        "//ledger/participant-state:participant-state-v1",
     ],
 )
 
