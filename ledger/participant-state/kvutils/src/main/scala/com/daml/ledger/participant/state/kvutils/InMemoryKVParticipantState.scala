@@ -387,8 +387,4 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   def getNewRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
 
-  override def uploadDar(
-      sourceDescription: String,
-      payload: Array[Byte]): CompletionStage[UploadDarResult] =
-    sys.error(s"Dar upload not implemented")
 }

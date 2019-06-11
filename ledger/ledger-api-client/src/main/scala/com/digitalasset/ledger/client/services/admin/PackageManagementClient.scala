@@ -2,7 +2,7 @@ package com.digitalasset.ledger.client.services.admin
 
 import java.time.Instant
 
-import com.daml.ledger.participant.state.v1.PackageDetails
+import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.ledger.api.v1.admin.package_management_service.ListKnownPackagesRequest
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService

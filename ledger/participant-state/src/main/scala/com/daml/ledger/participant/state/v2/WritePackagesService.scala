@@ -1,22 +1,11 @@
-package com.daml.ledger.participant.state.v1
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
 
-import java.time.Instant
+package com.daml.ledger.participant.state.v2
+
 import java.util.concurrent.CompletionStage
 
-sealed abstract class UploadDarResult extends Product with Serializable
-
-case class PackageDetails(size: Long, knownSince: Instant, sourceDescription: String)
-
-object UploadDarResult {
-
-  /** The package was successfully uploaded */
-  final case class Ok() extends UploadDarResult
-
-  /** The package was invalid for some reason */
-  final case class InvalidPackage(reason: String) extends UploadDarResult
-}
-
-trait PackageWriteService {
+trait WritePackagesService {
 
   /** Upload a collection of DAML-LF packages to the ledger.
     *
@@ -45,7 +34,5 @@ trait PackageWriteService {
   // `GetPackageResponse` contains. If we were to consume archives we'd have
   // to re-encode them to provide the size, and the size might potentially be
   // different from the original size, which would be quite confusing.
-  def uploadDar(
-      sourceDescription: String,
-      payload: Array[Byte]): CompletionStage[UploadDarResult]
+  def uploadDar(sourceDescription: String, payload: Array[Byte]): CompletionStage[UploadDarResult]
 }

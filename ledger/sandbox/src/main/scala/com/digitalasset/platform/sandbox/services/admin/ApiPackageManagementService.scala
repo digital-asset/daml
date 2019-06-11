@@ -1,7 +1,10 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset.platform.sandbox.services.admin
 
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
-import com.daml.ledger.participant.state.v1.{PackageWriteService, UploadDarResult}
+import com.daml.ledger.participant.state.v2.{UploadDarResult, WritePackagesService}
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -15,8 +18,9 @@ import scala.concurrent.Future
 
 class ApiPackageManagementService(
     packagesIndex: IndexPackagesService,
-    packagesWrite: PackageWriteService)
-    extends PackageManagementService with GrpcApiService {
+    packagesWrite: WritePackagesService)
+    extends PackageManagementService
+    with GrpcApiService {
 
   override def close(): Unit = ()
 
@@ -41,8 +45,7 @@ class ApiPackageManagementService(
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
     FutureConverters
-      .toScala(
-        packagesWrite.uploadDar("", request.darFile.toByteArray))
+      .toScala(packagesWrite.uploadDar("", request.darFile.toByteArray))
       .flatMap {
         case UploadDarResult.Ok() => Future.successful(UploadDarFileResponse())
         case UploadDarResult.InvalidPackage(err) =>
@@ -52,7 +55,9 @@ class ApiPackageManagementService(
 }
 
 object ApiPackageManagementService {
-  def createApiService(readBackend: IndexPackagesService, writeBackend: PackageWriteService): GrpcApiService with BindableService = {
+  def createApiService(
+      readBackend: IndexPackagesService,
+      writeBackend: WritePackagesService): GrpcApiService with BindableService = {
     new ApiPackageManagementService(readBackend, writeBackend) with BindableService
   }
 }
