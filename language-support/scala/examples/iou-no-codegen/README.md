@@ -12,7 +12,7 @@ $ daml start
 
 To run the iou-no-codegen example:
 ```
-$ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain localhost 6865 <iou-package-id>"
+$ sbt "application/runMain com.digitalasset.quickstart.iou.IouMain <sandbox-host-name> <sandbox-port-number> <iou-package-id>"
 ```
 
 You can find `iou-package-id` in the Navigator's, Templates screen. It displays all available contract templates, e.g:
