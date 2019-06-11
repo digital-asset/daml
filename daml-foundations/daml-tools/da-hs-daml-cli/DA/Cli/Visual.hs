@@ -81,7 +81,7 @@ startFromExpr seen world e = case e of
 
 
 data Manifest = Manifest { mainDalf :: FilePath , dalfs :: [FilePath] } deriving (Show)
-data ManifestData = ManifestData { mainDalfBytes :: BSL.ByteString , dalfsBytes :: [BSL.ByteString] } deriving (Show)
+data ManifestData = ManifestData { mainDalfContent :: BSL.ByteString , dalfsCotent :: [BSL.ByteString] } deriving (Show)
 
 charToWord8 :: Char -> Word8
 charToWord8 = toEnum . fromEnum
@@ -132,18 +132,17 @@ moduleAndTemplates world mod = retTypess
         templates = NM.toList $ LF.moduleTemplates mod
         retTypess = map (\t-> (LF.tplTypeCon t, templatePossibleUpdates world t )) templates
 
--- dalfsInDar :: Archive -> [BSL.ByteString]
--- dalfsInDar dar = [fromEntry e | e <- zEntries dar, ".dalf" `isExtensionOf` eRelativePath e]
 
 dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
 dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
     Right a -> a
     Left err -> error (show err)
 
-darToWorld :: ManifestData -> LF.Package -> IO LF.World
-darToWorld manifest pkg= do
-    let pkgs = map (dalfBytesToPakage)  (dalfsBytes manifest)
-    return (AST.initWorldSelf pkgs version1_4 pkg) 
+darToWorld :: ManifestData -> LF.Package -> LF.World
+darToWorld manifest pkg = AST.initWorldSelf pkgs version1_4 pkg
+    where 
+        pkgs = map (dalfBytesToPakage)  (dalfsCotent manifest)
+    
 
 templateInAction :: Action -> LF.TypeConName
 templateInAction (ACreate  (LF.Qualified _ _ tpl) ) = tpl
@@ -195,9 +194,9 @@ execVisual :: FilePath -> IO ()
 execVisual darFilePath = do
     darBytes <- B.readFile darFilePath
     let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
-    (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfBytes manifestData) )
-    world <- darToWorld manifestData lfPkg
+    (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
     let modules = NM.toList $ LF.packageModules lfPkg
+        world = darToWorld manifestData lfPkg
         res = concatMap (moduleAndTemplates world) modules
         actionEdges = map templatePairs res
         
