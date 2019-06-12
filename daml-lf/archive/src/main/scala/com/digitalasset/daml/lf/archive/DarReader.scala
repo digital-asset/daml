@@ -86,7 +86,7 @@ class DarReader[A](
 
   private def getZipEntryInputStream(f: ZipFile, name: String): Try[(Long, InputStream)] =
     for {
-      e <- Try(new ZipEntry(name))
+      e <- Try(f.getEntry(name))
       is <- inputStream(f, e)
       bis <- Try(new BufferedInputStream(is))
     } yield (e.getSize(), bis)
