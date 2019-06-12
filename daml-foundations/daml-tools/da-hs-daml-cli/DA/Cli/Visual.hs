@@ -11,7 +11,6 @@ module DA.Cli.Visual
 
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.World as AST 
-import DA.Daml.LF.Ast.Version
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified DA.Pretty as DAP
@@ -98,7 +97,7 @@ dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
     Left err -> error (show err)
 
 darToWorld :: ManifestData -> LF.Package -> LF.World
-darToWorld manifest pkg = AST.initWorldSelf pkgs version1_4 pkg
+darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
     where 
         pkgs = map dalfBytesToPakage (dalfsCotent manifest)
     
