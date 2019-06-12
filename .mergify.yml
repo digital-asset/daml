@@ -6,7 +6,7 @@ pull_request_rules:
         # CLA check must pass:
       - "status-success=license/cla"
       # Special label to request automerge:
-      - "label=automerge"
+      - "label=automerge-after-rebase"
       # Note that this only matches people with write / admin access to the repo,
       # see <https://doc.mergify.io/conditions.html#attribute-list>
       - "#approved-reviews-by>=1"
@@ -25,7 +25,7 @@ pull_request_rules:
         # CLA check must pass:
       - "status-success=license/cla"
       # Special label to request automerge:
-      - "label=automerge-dangerous-but-faster"
+      - "label=automerge"
       # Note that this only matches people with write / admin access to the repo,
       # see <https://doc.mergify.io/conditions.html#attribute-list>
       - "#approved-reviews-by>=1"
