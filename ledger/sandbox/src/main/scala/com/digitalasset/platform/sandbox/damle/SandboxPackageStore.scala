@@ -16,6 +16,7 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.digitalasset.daml.lf.archive.Reader.ParseError
+import org.slf4j.LoggerFactory
 
 import scala.collection.mutable
 import scala.collection.immutable.Map
@@ -26,6 +27,8 @@ import scalaz.std.list._
 import scalaz.std.either._
 
 class SandboxPackageStore() extends IndexPackagesService {
+  private val logger = LoggerFactory.getLogger(this.getClass)
+
   private val packageInfos: mutable.Map[PackageId, PackageDetails] = mutable.Map()
   private val packages: mutable.Map[PackageId, Ast.Package] = mutable.Map()
   private val archives: mutable.Map[PackageId, Archive] = mutable.Map()
@@ -98,10 +101,19 @@ class SandboxPackageStore() extends IndexPackagesService {
           case (size, archive, pkg) =>
             val pkgId = PackageId.assertFromString(archive.getHash)
             val details = PackageDetails(size, knownSince, sourceDescription)
-            packageInfos += (pkgId -> details)
-            archives += (pkgId -> archive)
-            packages += (pkgId -> pkg)
-            (pkgId, details)
+            packageInfos.get(pkgId) match {
+              case None =>
+                packageInfos += (pkgId -> details)
+                archives += (pkgId -> archive)
+                packages += (pkgId -> pkg)
+                (pkgId, details)
+              case Some(oldDetails) =>
+                // Note: we are discarding the new metadata (size, known since, source description)
+                logger.warn(
+                  s"Ignoring duplicate upload of package $pkgId. Existing package: $oldDetails, new package: $details")
+                (pkgId, oldDetails)
+            }
+
         }: _*)
       }
   }

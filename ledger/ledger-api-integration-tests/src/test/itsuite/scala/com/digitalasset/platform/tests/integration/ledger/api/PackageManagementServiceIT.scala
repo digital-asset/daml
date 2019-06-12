@@ -66,6 +66,19 @@ class PackageManagementServiceIT
     }
   }
 
+  "should accept duplicate packages" in allFixtures { ctx =>
+    val darFile = Files.readAllBytes(Paths.get("ledger/sandbox/Test.dar"))
+    val client = packageManagementService(ctx.packageManagementService)
+    for {
+      _ <- client.uploadDarFile(ByteString.copyFrom(darFile))
+      initialPackages <- client.listKnownPackages()
+      _ <- client.uploadDarFile(ByteString.copyFrom(darFile))
+      finalPackages <- client.listKnownPackages()
+    } yield {
+      initialPackages shouldBe finalPackages
+    }
+  }
+
   "fail with the expected status on an invalid upload" in allFixtures { ctx =>
     packageManagementService(ctx.packageManagementService)
       .uploadDarFile(ByteString.EMPTY)
