@@ -109,6 +109,7 @@ You can wire a ``Bot`` to a ``LedgerClient`` implementation using ``Bot.wire``:
 
     Bot.wire(String applicationId,
              LedgerClient ledgerClient,
+             TransactionFilter transactionFilter,
              Function<LedgerViewFlowable.LedgerView<R>, Flowable<CommandsAndPendingSet>> bot,
              Function<CreatedContract, R> transform)
 
