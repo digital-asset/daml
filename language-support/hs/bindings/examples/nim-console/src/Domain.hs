@@ -13,6 +13,7 @@ module Domain(Player(..), partyOfPlayer,
               deduceMoves,
              ) where
 
+import Data.List.Extra(zipWithFrom)
 import DA.Ledger.Types
 import DA.Ledger.Valuable(Valuable(..))
 import qualified Data.Text.Lazy as Text
@@ -78,7 +79,5 @@ legalMovesOfGame Game{piles} = do
 deduceMoves :: Game -> Game -> [Move]
 deduceMoves Game{piles=p1} Game{piles=p2} =
     filter (\Move{howMany} -> howMany > 0)
-    $ map (\(pileNum,howMany) -> Move {pileNum, howMany})
-    $ zip [1..]
-    $ map (\(x,y) -> x - y)
+    $ zipWithFrom (\pileNum (x,y) -> Move {pileNum, howMany = x - y}) 1
     $ zip p1 p2
