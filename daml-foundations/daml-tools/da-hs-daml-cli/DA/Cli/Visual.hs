@@ -28,6 +28,7 @@ import qualified Data.ByteString.Char8 as CH
 import qualified Data.List.Split as DLS
 import qualified Data.List as DL
 import qualified Data.Text as T
+import qualified Data.List.Extra as DE
 
 data Action = ACreate (LF.Qualified LF.TypeConName) 
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -154,7 +155,7 @@ cleanString :: String -> String
 cleanString str = T.unpack (T.strip $ T.pack str)
 
 lineToKeyValue :: String -> (String, String)
-lineToKeyValue line = case DLS.splitOn ":" line of
+lineToKeyValue line = case DE.splitOn ":" line of
     [l, r] -> (cleanString l , cleanString r)
     _ -> ("malformed", "malformed")            
 
