@@ -113,7 +113,10 @@ class DamlOnXCommandCompletionService private (indexService: IndexService)(
         Code.INVALID_ARGUMENT
       case RejectionReason.PartyNotKnownOnLedger => Code.INVALID_ARGUMENT
     }
-    Completion(commandId, Some(Status(code.value(), error.description)), traceContext = None)
+    Completion(
+      commandId,
+      Some(Status(code.value(), "Error: " + error.description)),
+      traceContext = None)
   }
 
   override def close(): Unit = {

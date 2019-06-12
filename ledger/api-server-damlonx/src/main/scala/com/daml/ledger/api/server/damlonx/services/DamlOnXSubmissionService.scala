@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{
   Engine,
+  Blinding,
   Result,
   ResultDone,
   ResultError,
@@ -35,10 +36,12 @@ import com.digitalasset.ledger.api.v1.command_submission_service.{
 import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
+import com.digitalasset.daml_lf.DamlLf
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
+import java.util.concurrent.Executors
 
 object DamlOnXSubmissionService {
 
@@ -81,43 +84,77 @@ class DamlOnXSubmissionService private (
     recordOnLedger(commands)
   }
 
+  // NOTE(JM): Dummy caching of archive decoding. Leaving this in
+  // as this code dies soon.
+  private val packageLoadContext: ExecutionContextExecutor =
+    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
+  private val packageCache: scala.collection.mutable.Map[Ref.PackageId, Ast.Package] =
+    scala.collection.mutable.Map.empty
+
   private def recordOnLedger(commands: ApiCommands): Future[Unit] = {
-    val getPackage =
+    val getPackage: Ref.PackageId => Future[Option[Ast.Package]] =
       (packageId: Ref.PackageId) =>
         indexService
           .getPackage(packageId)
-          .flatMap { optArchive =>
-            Future.fromTry(Try(optArchive.map(Decode.decodeArchive(_)._2)))
-        }
+          .flatMap { optArchive: Option[DamlLf.Archive] =>
+            packageCache.get(packageId) match {
+              case None =>
+                logger.info(s"getPackage: decoding $packageId...")
+                Future
+                  .fromTry(Try(optArchive.map(Decode.decodeArchive(_)._2)))
+                  .map { optPkg: Option[Ast.Package] =>
+                    optPkg.foreach { pkg =>
+                      packageCache(packageId) = pkg
+                    }
+                    optPkg
+                  }
+              case Some(pkg) =>
+                logger.info(s"getPackage: loaded cached package $packageId")
+                Future.successful(Some(pkg))
+            }
+          }(packageLoadContext)
+
     val getContract =
       (coid: AbsoluteContractId) => indexService.lookupActiveContract(commands.submitter, coid)
 
     consume(engine.submit(commands.commands))(getPackage, getContract)
       .flatMap {
         case Left(err) =>
-          Future.failed(invalidArgument(err.detailMsg))
+          Future.failed(invalidArgument("error: " + err.detailMsg))
 
         case Right(updateTx) =>
-          logger.debug(
-            s"Submitting transaction from ${commands.submitter} with ${commands.commandId.unwrap}")
-          FutureConverters
-            .toScala(
-              writeService
-                .submitTransaction(
-                  submitterInfo = SubmitterInfo(
-                    submitter = commands.submitter,
-                    applicationId = commands.applicationId.unwrap,
-                    maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
-                    commandId = commands.commandId.unwrap
-                  ),
-                  transactionMeta = TransactionMeta(
-                    ledgerEffectiveTime = Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
-                    workflowId = commands.workflowId.map(_.unwrap)
-                  ),
-                  transaction = updateTx
+          // NOTE(JM): Authorizing the transaction here so that we do not submit
+          // malformed transactions. A side-effect is that we compute blinding info
+          // but we don't actually use that for anything.
+          Blinding.checkAuthorizationAndBlind(
+            updateTx,
+            Set(Ref.Party.assertFromString(commands.submitter))) match {
+            case Left(err) =>
+              Future.failed(invalidArgument("error: " + err.toString))
+
+            case Right(_) =>
+              logger.debug(
+                s"Submitting transaction from ${commands.submitter} with ${commands.commandId.unwrap}")
+              FutureConverters
+                .toScala(
+                  writeService
+                    .submitTransaction(
+                      submitterInfo = SubmitterInfo(
+                        submitter = commands.submitter,
+                        applicationId = commands.applicationId.unwrap,
+                        maxRecordTime = Timestamp.assertFromInstant(commands.maximumRecordTime), // FIXME(JM): error handling
+                        commandId = commands.commandId.unwrap
+                      ),
+                      transactionMeta = TransactionMeta(
+                        ledgerEffectiveTime =
+                          Timestamp.assertFromInstant(commands.ledgerEffectiveTime),
+                        workflowId = commands.workflowId.map(_.unwrap)
+                      ),
+                      transaction = updateTx
+                    )
                 )
-            )
-            .map(_ => ())
+                .map(_ => ())
+          }
       }
   }
 

@@ -213,7 +213,6 @@ class TransactionServiceIT
 
             _ = secondSection should have size commandsPerSection.toLong
             ledgerEndAfterSecondSection = lastOffsetIn(secondSection).value
-
             completeSequence <- client
               .getTransactions(
                 ledgerEndResponse.getOffset,
