@@ -25,8 +25,8 @@ import qualified Data.Map as M
 import qualified Data.HashMap.Strict as Map
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.Split as DLS
-import qualified Data.List as DL
-import qualified Data.List.Extra as DE
+import Data.List
+import Data.List.Extra
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -145,21 +145,21 @@ data Manifest = Manifest { mainDalf :: FilePath , dalfs :: [FilePath] } deriving
 data ManifestData = ManifestData { mainDalfContent :: BSL.ByteString , dalfsCotent :: [BSL.ByteString] } deriving (Show)
 
 lineToKeyValue :: String -> (String, String)
-lineToKeyValue line = case DE.splitOn ":" line of
-    [l, r] -> (DE.trim l , DE.trim r)
+lineToKeyValue line = case splitOn ":" line of
+    [l, r] -> (trim l , trim r)
     _ -> ("malformed", "malformed")
 
 manifestMapToManifest :: Map.HashMap String String -> Manifest
 manifestMapToManifest hash = Manifest mainDalf dependDalfs
     where
         mainDalf = Map.lookupDefault "unknown" "Main-Dalf" hash
-        dependDalfs = map DE.trim $ DL.delete mainDalf (DLS.splitOn "," (Map.lookupDefault "unknown" "Dalfs" hash))
+        dependDalfs = map trim $ delete mainDalf (DLS.splitOn "," (Map.lookupDefault "unknown" "Dalfs" hash))
 
 manifestDataFromDar :: Archive -> Manifest -> ManifestData
 manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyDalfBytes
     where
         manifestDalfByte = head [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest]
-        dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && DL.elem (DE.trim (eRelativePath e))  (dalfs manifest)]
+        dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && elem (trim (eRelativePath e))  (dalfs manifest)]
 
 manifestFromDar :: Archive -> ManifestData
 manifestFromDar dar =  manifestDataFromDar dar manifest
@@ -178,10 +178,9 @@ execVisual darFilePath dotFilePath = do
         world = darToWorld manifestData lfPkg
         res = concatMap (moduleAndTemplates world) modules
         actionEdges = map templatePairs res
-        dotString = showDot $ do netlistGraph' srcLabel actionsForTemplate actionEdges
+        dotString = showDot $ netlistGraph' srcLabel actionsForTemplate actionEdges
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile dotString
         Nothing -> putStrLn dotString
-    return ()
 
 
