@@ -141,27 +141,59 @@ def _strip_path_upto(path, upto):
         return []
 
 def _scala_source_jar_impl(ctx):
-    zipper_args = [
-        "%s=%s" % (new_path, src.path)
-        for src in ctx.files.srcs
-        for new_path in _strip_path_upto(src.path, ctx.attr.strip_upto)
-    ]
-    zipper_args_file = ctx.actions.declare_file(
-        ctx.label.name + ".zipper_args",
-    )
-
     manifest_file = ctx.actions.declare_file(
         ctx.label.name + "_MANIFEST.MF",
-        sibling = zipper_args_file,
     )
     ctx.actions.write(manifest_file, "Manifest-Version: 1.0\n")
-    zipper_args += ["META-INF/MANIFEST.MF=" + manifest_file.path + "\n"]
 
-    ctx.actions.write(zipper_args_file, "\n".join(zipper_args))
+    zipper_args_file = ctx.actions.declare_file(
+        ctx.label.name + ".zipper_args",
+        sibling = manifest_file,
+    )
+    tmpsrcdir = None
+
+    zipper_args = ["META-INF/MANIFEST.MF=" + manifest_file.path]
+    for src in ctx.files.srcs:
+        if src.is_source:
+            for new_path in _strip_path_upto(src.path, ctx.attr.strip_upto):
+                zipper_args.append("%s=%s" % (new_path, src.path))
+        else:
+            if not tmpsrcdir:
+                tmpsrcdir = ctx.actions.declare_directory(ctx.label.name + "_tmpdir")
+            ctx.actions.run(
+                executable = ctx.executable._zipper,
+                inputs = ctx.files.srcs,
+                outputs = [tmpsrcdir],
+                arguments = ["x", src.path, "-d", tmpsrcdir.path],
+                mnemonic = "ScalaUnpackSourceJar",
+            )
+
+    if tmpsrcdir:
+        cmd = "(echo -e \"{src_paths}\" && find -L {tmpsrc_path} -type f | sed -E 's#^{tmpsrc_path}/(.*)$#\\1={tmpsrc_path}/\\1#') | sort > {args_file}".format(
+            tmpsrc_path = tmpsrcdir.path,
+            src_paths = "\\n".join(zipper_args),
+            args_file = zipper_args_file.path,
+        )
+        inputs = [tmpsrcdir, manifest_file] + ctx.files.srcs
+    else:
+        cmd = "echo -e \"{src_paths}\" | sort > {args_file}".format(
+            src_paths = "\\n".join(zipper_args),
+            args_file = zipper_args_file.path,
+        )
+        inputs = [manifest_file] + ctx.files.srcs
+
+    ctx.actions.run_shell(
+        mnemonic = "ScalaFindSourceFiles",
+        outputs = [zipper_args_file],
+        inputs = inputs,
+        command = cmd,
+        progress_message = "find_scala_source_files %s" % zipper_args_file.path,
+        use_default_shell_env = True,
+    )
 
     ctx.actions.run(
         executable = ctx.executable._zipper,
-        inputs = ctx.files.srcs + [manifest_file, zipper_args_file],
+        inputs = inputs + [zipper_args_file],
         outputs = [ctx.outputs.out],
         arguments = ["c", ctx.outputs.out.path, "@" + zipper_args_file.path],
         mnemonic = "ScalaSourceJar",
