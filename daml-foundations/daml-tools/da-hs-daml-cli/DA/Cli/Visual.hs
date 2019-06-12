@@ -27,6 +27,7 @@ import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.Split as DLS
 import qualified Data.List as DL
 import qualified Data.List.Extra as DE
+import Control.Monad (when)
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -178,7 +179,12 @@ execVisual darFilePath = do
         world = darToWorld manifestData lfPkg
         res = concatMap (moduleAndTemplates world) modules
         actionEdges = map templatePairs res
-    putStrLn $ showDot $ do
-        netlistGraph' srcLabel actionsForTemplate actionEdges
+        dotString = showDot $ do netlistGraph' srcLabel actionsForTemplate actionEdges
+    -- putStrLn dotString
+    when (length dotString > 0) $ do
+        _ <- putStrLn "writing"
+        _ <- writeFile "outdot.dot" dotString
+        return ()
+    -- putStrLn dotString
 
 
