@@ -443,9 +443,9 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "491d8d2e33572b3868078f57a3375b2ac621f958"
+HASKELL_LSP_COMMIT = "fc239a1289159e36c746079c7a1843361d32ddd9"
 
-HASKELL_LSP_HASH = "581dd4d3d6d5611448a4d071575b730aa874480c19c1525fcb2c9f8e8319dd11"
+HASKELL_LSP_HASH = "3c97ae3da090c897c4ddef07c2b5c18442fd52a2ed08bc4779ec6084c5399a17"
 
 hazel_repositories(
     core_packages = dicts.add(
@@ -507,17 +507,14 @@ hazel_repositories(
             hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
             hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
             hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
-            # This corresponds to our custom-methods branch that adds support for custom RPC methods
-            # like daml/keepAlive. Once the corresponding PR has been merged
-            # https://github.com/alanz/haskell-lsp/pull/171 we can switch back to upstream.
-            hazel_github_external(
-                "alanz",
+            # This corresponds to our normalize-uri branch that enforces a consistent
+            # precent-encoding for URIs used as keys.
+            hazel_github(
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
             ) +
-            hazel_github_external(
-                "alanz",
+            hazel_github(
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
@@ -528,8 +525,8 @@ hazel_repositories(
             # lsp-test work with the custom methods changes in haskell-lsp.
             hazel_github(
                 "lsp-test",
-                "8d9dbdeaab97162262e3f8a0a02e9e32b3b85340",
-                "bb25ae3559245861c13e12c3ad1d8f13843577bf16de4f286e5a8f2f23cf5445",
+                "50c43452e19e494d71ccba1f7922d0b3b3fc69c3",
+                "65a56b35ddc8fa4deab10ac42efcdcbd36e875b715bb504d10b020a1e5fffd2c",
             ),
         pkgs = packages,
     ),

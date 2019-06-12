@@ -79,6 +79,23 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
               ]
           expectDiagnostics [("Test.daml", [(DsError, (2, 0), "Parse error")])]
           closeDoc test
+    , testCase "percent encoding does not matter" $ run $ do
+          Just uri <- parseURI . T.unpack . getUri <$> getDocUri "Test.daml"
+          let weirdUri = Uri $ T.pack $ "file://" <> escapeURIString (== '/') (uriPath uri)
+          let item = TextDocumentItem weirdUri (T.pack damlId) 0 $ T.unlines
+                  [ "daml 1.2"
+                  , "module Test where"
+                  , "f = ()"
+                  ]
+          sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams item)
+          let test = TextDocumentIdentifier weirdUri
+          replaceDoc test $ T.unlines
+              [ "daml 1.2"
+              , "module Test where"
+              , "f 1"
+              ]
+          expectDiagnostics [("Test.daml", [(DsError, (2, 0), "Parse error")])]
+          closeDoc test
     , testCase "failed name resolution" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
               [ "daml 1.2"
