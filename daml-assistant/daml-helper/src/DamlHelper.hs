@@ -465,7 +465,7 @@ runListTemplates = do
        then putStrLn "No templates are available."
        else putStrLn $ unlines $
           "The following templates are available:" :
-          map (\dir -> "  " <> takeFileName dir) templates
+          (map ("  " <>) . sort . map takeFileName) templates
 
 newtype SandboxPort = SandboxPort Int
 newtype NavigatorPort = NavigatorPort Int
