@@ -88,7 +88,6 @@ Tuples
 
 A common task is to group values in a generic way. Take, for example, a key-value pair with a ``Text`` key and an ``Int`` value. In DAML, you could use a two-tuple of type ``(Text, Int)`` to do so. If you wanted to express a coordinate in three dimensions, you could group three ``Decimal`` values using a three-tuple ``(Decimal, Decimal, Decimal)``.
 
-
 .. literalinclude:: daml/daml-intro-3/Tuple.daml
   :language: daml
   :start-after: -- TUPLE_TEST_BEGIN
@@ -216,7 +215,7 @@ You have already met the type ``ContractId a``, which references a contract of t
   :start-after: -- ID_REF_TEST_BEGIN
   :end-before: -- ID_REF_TEST_END
 
-The scenario above use the ``fetch`` function, which retrieves the arguments of an active contract using its contract ID.
+The scenario above uses the ``fetch`` function, which retrieves the arguments of an active contract using its contract ID.
 
 Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant fetches the arguments of the old account, archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
 

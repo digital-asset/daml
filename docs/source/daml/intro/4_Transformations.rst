@@ -85,51 +85,45 @@ With that new background, it's time to take a look at the transaction view of th
 .. code-block:: none
 
   Transactions:
-    TX #0 1970-01-01T00:00:00Z (Contact:40:17)
+    TX #0 1970-01-01T00:00:00Z (Contact:43:17)
     #0:0
-    │   consumed by: #2:1
-    │   referenced by #2:0, #2:1
+    │   consumed by: #2:0
+    │   referenced by #2:0
     │   known to (since): 'Alice' (#0), 'Bob' (#0)
     └─> create Contact:Contact
         with
           owner = 'Alice'; party = 'Bob'; address = "1 Bobstreet"; telephone = "012 345 6789"
 
     TX #1 1970-01-01T00:00:00Z
-      mustFailAt 'Bob' (Contact:49:3)
+      mustFailAt 'Bob' (Contact:52:3)
 
-    TX #2 1970-01-01T00:00:00Z (Contact:53:22)
+    TX #2 1970-01-01T00:00:00Z (Contact:56:22)
     #2:0
-    └─> fetch #0:0 (Contact:Contact)
-
-    #2:1
     │   known to (since): 'Alice' (#2), 'Bob' (#2)
     └─> 'Alice' exercises UpdateTelephone on #0:0 (Contact:Contact)
                 with
                   newTelephone = "098 7654 321"
         children:
-        #2:2
-        │   consumed by: #4:1
-        │   referenced by #3:0, #4:0, #4:1
+        #2:1
+        │   consumed by: #4:0
+        │   referenced by #3:0, #4:0
         │   known to (since): 'Alice' (#2), 'Bob' (#2)
         └─> create Contact:Contact
             with
               owner = 'Alice'; party = 'Bob'; address = "1 Bobstreet"; telephone = "098 7654 321"
 
-    TX #3 1970-01-01T00:00:00Z (Contact:57:3)
+    TX #3 1970-01-01T00:00:00Z (Contact:60:3)
     #3:0
-    └─> fetch #2:2 (Contact:Contact)
+    └─> fetch #2:1 (Contact:Contact)
 
-    TX #4 1970-01-01T00:00:00Z (Contact:63:22)
+    TX #4 1970-01-01T00:00:00Z (Contact:66:22)
     #4:0
-    └─> fetch #2:2 (Contact:Contact)
-
-    #4:1
     │   known to (since): 'Alice' (#4), 'Bob' (#4)
-    └─> 'Bob' exercises UpdateAddress on #2:2 (Contact:Contact)
+    └─> 'Bob' exercises UpdateAddress on #2:1 (Contact:Contact)
               with
                 newAddress = "1-10 Bobstreet"
         children:
-        #4:2
+        #4:1
         │   referenced by #5:0
         │   known to (since): 'Alice' (#4), 'Bob' (#4)
         └─> create Contact:Contact
@@ -139,17 +133,15 @@ With that new background, it's time to take a look at the transaction view of th
               address = "1-10 Bobstreet";
               telephone = "098 7654 321"
 
-    TX #5 1970-01-01T00:00:00Z (Contact:67:3)
+    TX #5 1970-01-01T00:00:00Z (Contact:70:3)
     #5:0
-    └─> fetch #4:2 (Contact:Contact)
+    └─> fetch #4:1 (Contact:Contact)
 
-  Active contracts:  #4:2
+  Active contracts:  #4:1
 
   Return value: {}
 
 There are four commits corresponding to the four ``submit`` statements in the scenario. Within each commit, we see that it's actually actions that have ids of the form ``#commit_number:action_number``. Contract ids are just the id of their ``create`` action. Commits ``#2`` and ``#4`` contain ``exercise`` actions with ids ``#2:1`` and ``#4:1``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:2`` and ``#4:2``, are indented and found below a line reading ``children:``, making the tree structure apparent.
-
-There are a few extra ``fetch`` nodes scattered around. These are inserted as activeness checks. As they have no effect, it's safe not to worry about them.
 
 .. _simple_iou:
 

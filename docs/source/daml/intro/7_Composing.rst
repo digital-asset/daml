@@ -111,7 +111,7 @@ The resulting transaction, with its two nested levels of consequences, can be se
 
 .. code-block:: none
 
-  TX #15 1970-01-01T00:00:00Z (Test.Intro.Asset.Trade:75:23)
+  TX #15 1970-01-01T00:00:00Z (Test.Intro.Asset.Trade:77:23)
   #15:0
   │   known to (since): 'Alice' (#15), 'Bob' (#15)
   └─> 'Bob' exercises Trade_Settle on #13:1 (Intro.Asset.Trade:Trade)
