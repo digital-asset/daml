@@ -11,7 +11,6 @@ module DA.Cli.Visual
 
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.World as AST 
-import DA.Daml.LF.Ast.Version
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified DA.Pretty as DAP
@@ -95,7 +94,7 @@ darToWorld darFilePath pkg = do
     bytes <- B.readFile darFilePath
     let dalfs = dalfsInDar (toArchive $ BSL.fromStrict bytes)
         pkgs = map dalfBytesToPakage dalfs
-    return (AST.initWorldSelf pkgs version1_4 pkg) 
+    return (AST.initWorldSelf pkgs pkg) 
 
 templateInAction :: Action -> LF.TypeConName
 templateInAction (ACreate  (LF.Qualified _ _ tpl) ) = tpl

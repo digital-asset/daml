@@ -55,8 +55,8 @@ initWorld importedPkgs version =
       ref@PRImport{} -> ref
 
 -- | Create a World with an initial self package
-initWorldSelf :: [(PackageId, Package)] -> Version -> Package -> World
-initWorldSelf a b c = (initWorld a b){_worldSelf = c}
+initWorldSelf :: [(PackageId, Package)] -> Package -> World
+initWorldSelf importedPkgs pkg = (initWorld importedPkgs $ packageLfVersion pkg){_worldSelf = pkg}
 
 -- | Extend the 'World' by a module in the current package.
 extendWorldSelf :: Module -> World -> World
