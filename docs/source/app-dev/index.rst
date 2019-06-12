@@ -48,6 +48,7 @@ No matter how you're accessing it (Java bindings, Node.js bindings, or gRPC), th
   - Use the :ref:`ledger identity service <ledger-identity-service>` to retrieve the Ledger ID of the ledger the application is connected to.
   - Use the :ref:`ledger configuration service <ledger-configuration-service>` to retrieve some dynamic properties of the ledger, like minimum and maximum TTL for commands.
 - Testing services (on Sandbox only, *not* for production ledgers)
+
   - Use the :ref:`time service <time-service>` to obtain the time as known by the ledger.
   - Use the :ref:`reset service <reset-service>` to reset the ledger state, as a quicker alternative to restarting the whole ledger application.
 

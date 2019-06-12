@@ -63,6 +63,7 @@ DAML SDK documentation
    :hidden:
    :caption: Background concepts
 
+   concepts/glossary
    concepts/ledger-model/index
 
 .. toctree::
