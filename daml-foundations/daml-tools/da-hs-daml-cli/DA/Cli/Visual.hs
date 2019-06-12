@@ -23,13 +23,11 @@ import Codec.Archive.Zip
 import System.FilePath
 import qualified Data.Map as M
 import Data.Word
-import qualified Data.HashMap.Strict as DHM
+import qualified Data.HashMap.Strict as Map
 import qualified Data.ByteString.Char8 as CH
 import qualified Data.List.Split as DLS
 import qualified Data.List as DL
 import qualified Data.Text as T
-
--- import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName) 
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -161,11 +159,11 @@ lineToKeyValue line = case DLS.splitOn ":" line of
     _ -> ("malformed", "malformed")            
 
 
-manifestMapToManifest :: DHM.HashMap String String -> Manifest
+manifestMapToManifest :: Map.HashMap String String -> Manifest
 manifestMapToManifest hash = Manifest mainDalf dependDalfs
     where
-        mainDalf = DHM.lookupDefault "unknown" "Main-Dalf" hash
-        dependDalfs = map cleanString $ DL.delete mainDalf (DLS.splitOn "," (DHM.lookupDefault "unknown" "Dalfs" hash))
+        mainDalf = Map.lookupDefault "unknown" "Main-Dalf" hash
+        dependDalfs = map cleanString $ DL.delete mainDalf (DLS.splitOn "," (Map.lookupDefault "unknown" "Dalfs" hash))
 
 
 manifestDataFromDar :: Archive -> Manifest -> ManifestData
@@ -180,7 +178,7 @@ manifestFromDar dar =  manifestDataFromDar dar manifest
         manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
         lines = BSL.split (charToWord8 '\n') manifestEntry
         linesStr = map (CH.unpack . BSL.toStrict) lines
-        manifest = manifestMapToManifest $ DHM.fromList $ map lineToKeyValue (filter (\a -> a /= "" ) linesStr)
+        manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue (filter (\a -> a /= "" ) linesStr)
 
 
 execVisual :: FilePath -> IO ()
