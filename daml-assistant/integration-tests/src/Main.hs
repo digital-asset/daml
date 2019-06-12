@@ -66,7 +66,7 @@ tests damlDir tmpDir = testGroup "Integration tests"
     , noassistantTests damlDir
     , packagingTests tmpDir
     , quickstartJavaTests quickstartJavaDir mvnDir
-    , quickstartScalaTests quickstartScalaDir
+    , quickstartScalaTests quickstartScalaDir mvnDir
     , cleanTests cleanDir
     ]
     where quickstartJavaDir = tmpDir </> "quickstart-java"
@@ -262,8 +262,8 @@ quickstartJavaTests quickstartDir mvnDir = testGroup "quickstart-java" $
     where
         mvnRepoFlag = "-Dmaven.repo.local=" <> mvnDir
 
-quickstartScalaTests :: FilePath -> TestTree
-quickstartScalaTests quickstartDir = testGroup "quickstart-scala"
+quickstartScalaTests :: FilePath -> FilePath -> TestTree
+quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
     [ testCase "daml new" $
           callProcessQuiet damlName ["new", projDir, "quickstart-scala"]
     , testCase "daml build " $ withCurrentDirectory projDir $
@@ -274,8 +274,27 @@ quickstartScalaTests quickstartDir = testGroup "quickstart-scala"
           withCreateProcess ((proc damlName ["sandbox", "--port", show sandboxPort, "--scenario", "Main:setup", darPath]) { std_out = UseHandle devNull1 }) $
               \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
                   waitForConnectionOnPort (threadDelay 500000) sandboxPort
+
+                  let sbtBootProps = quickstartDir </> "sbt-boot-props"
+                      sbtBootDir = quickstartDir </> "sbt-boot-dir"
+                      ivyHomeDir = quickstartDir </> "ivy-home-dir"
+
+                  writeFileUTF8 sbtBootProps . unlines $
+                      [ "[boot]"
+                      , "  directory: " <> sbtBootDir
+                      , ""
+                      , "[ivy]"
+                      , "  ivy-home: " <> ivyHomeDir
+                      , "  override-build-repos: true"
+                      , ""
+                      , "[repositories]"
+                      , "  local"
+                      , "  maven-local"
+                      ]
+
                   callProcess "sbt"
-                      [ "-Dsbt.boot.directory=" <> (quickstartDir </> "sbt-boot")
+                      [ "-Dsbt.boot.properties=" <> sbtBootProps
+                      , "-Dmaven.repo.local=" <> mavenRepo
                       , "application/runMain com.digitalasset.quickstart.iou.IouMain localhost "
                           <> show sandboxPort
                       ]
