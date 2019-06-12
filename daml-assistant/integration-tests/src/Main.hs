@@ -274,7 +274,11 @@ quickstartScalaTests quickstartDir = testGroup "quickstart-scala"
           withCreateProcess ((proc damlName ["sandbox", "--port", show sandboxPort, "--scenario", "Main:setup", darPath]) { std_out = UseHandle devNull1 }) $
               \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
                   waitForConnectionOnPort (threadDelay 500000) sandboxPort
-                  callProcess "sbt" ["application/runMain com.digitalasset.quickstart.iou.IouMain localhost " <> show sandboxPort]
+                  callProcess "sbt"
+                      [ "-Dsbt.boot.directory=" <> (quickstartDir </> "sbt-boot")
+                      , "application/runMain com.digitalasset.quickstart.iou.IouMain localhost "
+                          <> show sandboxPort
+                      ]
                   terminateProcess ph
 
     ] where
