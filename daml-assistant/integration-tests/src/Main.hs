@@ -294,6 +294,9 @@ quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
                       , "  local"
                       , "  maven-local"
                       , "  maven-central"
+                      , "  typesafe: https://repo.typesafe.com/typesafe/releases"
+                      , "  typesafe-ivy: https://repo.typesafe.com/typesafe/ivy-releases"
+                      , "  sbt-plugin: https://repo.scala-sbt.org/scalasbt/sbt-plugin-releases"
                       , "  sonatype-snapshots: https://oss.sonatype.org/content/repositories/snapshots"
                       ]
 
