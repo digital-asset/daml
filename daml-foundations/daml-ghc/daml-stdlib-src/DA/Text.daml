@@ -301,14 +301,14 @@ legacyParsePositiveDecimal cs =
 
 -- | Attempt to parse a `Decimal` value from a given `Text`.
 -- To get `Some` value, the text must follow the regex
--- `(-|\+)?[0-9]+('.'[0-9]+)?`
+-- `(-|\+)?[0-9]+(\.[0-9]+)?`
 -- In particular, the shorthands `".12"` and `"12."` do not work,
 -- but the value can be prefixed with `+`.
 -- Leading and trailing zeros are fine, however spaces are not.
 -- Examples:
 -- ```
 --   parseDecimal "3.14" == Some 3.14
---   parseDecimal "+12.0" == Some 12.0
+--   parseDecimal "+12.0" == Some 12
 -- ```
 parseDecimal : Text -> Optional Decimal
 parseDecimal = primitive @"BEDecimalFromText"
