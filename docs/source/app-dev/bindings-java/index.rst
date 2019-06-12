@@ -156,7 +156,8 @@ To use the Java bindings library, add the following dependencies to your project
 Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions by checking
 `https://search.maven.org/search?q=g:com.daml.ledger`__.
 
-Note: As of DAML SDK release 0.12.25 the Java Bindings libraries are available via the public Maven Central repository. Earlier releases are available from the DAML Bintray repository at `https://digitalassetsdk.bintray.com`.
+.. note::
+   As of DAML SDK release 0.12.25, the Java Bindings libraries are available via the public Maven Central repository. Earlier releases are available from the DAML Bintray repository at `https://digitalassetsdk.bintray.com`__.
 
 You can also take a look at the ``pom.xml`` file from the :ref:`quickstart project <quickstart>`.
 
