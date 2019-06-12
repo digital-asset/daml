@@ -58,10 +58,9 @@ template Membership
         maintainer key._1
 
         -- You can join the Membership, if you have an Invitation...
-        choice Membership_Join : () with joiner : Party, iid : ContractId Invitation
+        choice Membership_Join : () with joiner : Party, invitation : Invitation
             controller joiner
             do
-                invitation <- fetch iid
                 assert (joiner `elem` invitation.invitees)
                 create Membership with owner, gid, members = joiner :: members
                 return ()
@@ -110,11 +109,10 @@ fetchMembership gid = do
     (membership,_) <- fetchByKey @Membership (group.owner,gid)
     return membership
 
-acceptJoin : Party -> ContractId Invitation -> Update ()
-acceptJoin joiner iid = do
-    invitation <- fetch iid
+acceptJoin : Party -> Invitation -> Update ()
+acceptJoin joiner invitation = do
     mid <- fetchMembership invitation.gid
-    exercise mid Membership_Join with joiner, iid
+    exercise mid Membership_Join with joiner, invitation
 
 leaveGroup : Party -> ContractId Group -> Update ()
 leaveGroup leaver gid = do
