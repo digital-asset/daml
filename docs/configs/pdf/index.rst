@@ -40,6 +40,7 @@ Building applications
    app-dev/bindings-scala/index
    app-dev/bindings-js
    app-dev/grpc/index
+   app-dev/bindings-x-lang/index
    app-dev/app-arch
 
 SDK tools

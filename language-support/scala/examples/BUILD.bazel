@@ -120,3 +120,16 @@ da_scala_binary(
         "//ledger/sandbox",
     ],
 )
+
+da_scala_binary(
+    name = "iou-no-codegen-bin",
+    srcs = glob(["iou-no-codegen/application/src/main/scala/**/*.scala"]),
+    main_class = "com.digitalasset.quickstart.iou.IouMain",
+    resources = glob(["iou-no-codegen/application/src/main/resources/**/*"]),
+    scalacopts = ["-Xsource:2.13"],
+    deps = [
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger-api/rs-grpc-bridge",
+    ],
+)

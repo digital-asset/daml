@@ -11,15 +11,15 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.AkkaExecutionSequencerPool
 import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, WorkflowId}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.LedgerClient
-import com.digitalasset.ledger.client.binding.Contract
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
 import com.digitalasset.quickstart.iou.ClientUtil.workflowIdFromParty
-import com.digitalasset.quickstart.iou.DecodeUtil.{decodeAllCreated, decodeArchived, decodeCreated}
+import com.digitalasset.quickstart.iou.DecodeUtil.decodeCreatedEvent
 import com.digitalasset.quickstart.iou.FutureUtil.toFuture
 import com.typesafe.scalalogging.StrictLogging
 
@@ -27,27 +27,22 @@ import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-// <doc-ref:imports>
-import com.digitalasset.ledger.client.binding.{Primitive => P}
-import com.digitalasset.quickstart.iou.model.{Iou => M}
-// </doc-ref:imports>
-
 object IouMain extends App with StrictLogging {
 
-  if (args.length != 2) {
-    logger.error("Usage: LEDGER_HOST LEDGER_PORT")
+  if (args.length != 3) {
+    logger.error("Usage: LEDGER_HOST LEDGER_PORT IOU_PACKAGE_ID")
     System.exit(-1)
   }
 
   private val ledgerHost = args(0)
   private val ledgerPort = args(1).toInt
+  private val packageId = args(2)
 
-  // <doc-ref:issuer-definition>
-  private val issuer = P.Party("Alice")
-  // </doc-ref:issuer-definition>
-  // <doc-ref:new-owner-definition>
-  private val newOwner = P.Party("Bob")
-  // </doc-ref:new-owner-definition>
+  private val iouTemplateId =
+    Identifier(packageId = packageId, moduleName = "Iou", entityName = "Iou")
+
+  private val issuer = "Alice"
+  private val newOwner = "Bob"
 
   private val asys = ActorSystem()
   private val amat = ActorMaterializer()(asys)
@@ -83,72 +78,44 @@ object IouMain extends App with StrictLogging {
   private val issuerWorkflowId: WorkflowId = workflowIdFromParty(issuer)
   private val newOwnerWorkflowId: WorkflowId = workflowIdFromParty(newOwner)
 
-  val newOwnerAcceptsAllTransfers: Future[Unit] = for {
-    clientUtil <- clientUtilF
-    offset0 <- offset0F
-    // <doc-ref:subscribe-and-decode-iou-transfer>
-    _ <- clientUtil.subscribe(newOwner, offset0, None) { tx =>
-      logger.info(s"$newOwner received transaction: $tx")
-      decodeCreated[M.IouTransfer](tx).foreach { contract: Contract[M.IouTransfer] =>
-        logger.info(s"$newOwner received contract: $contract")
-        // </doc-ref:subscribe-and-decode-iou-transfer>
-        // <doc-ref:submit-iou-transfer-accept-exercise-command>
-        val exerciseCmd = contract.contractId.exerciseIouTransfer_Accept(actor = newOwner)
-        clientUtil.submitCommand(newOwner, newOwnerWorkflowId, exerciseCmd) onComplete {
-          case Success(_) =>
-            logger.info(s"$newOwner sent exercise command: $exerciseCmd")
-            logger.info(s"$newOwner accepted IOU Transfer: $contract")
-          case Failure(e) =>
-            logger.error(s"$newOwner failed to send exercise command: $exerciseCmd", e)
-        }
-      // </doc-ref:submit-iou-transfer-accept-exercise-command>
-      }
-    }(amat)
-  } yield ()
-
-  // <doc-ref:iou-contract-instance>
-  val iou = M.Iou(
-    issuer = issuer,
-    owner = issuer,
-    currency = "USD",
-    amount = BigDecimal("1000.00"),
-    observers = List())
-  // </doc-ref:iou-contract-instance>
+  def validatePackageId(allPackageIds: Set[String], packageId: String): Future[Unit] =
+    if (allPackageIds(packageId)) Future.successful(())
+    else
+      Future.failed(
+        new IllegalArgumentException(
+          s"Uknown package ID passed: $packageId, all package IDs: $allPackageIds"))
 
   val issuerFlow: Future[Unit] = for {
     clientUtil <- clientUtilF
     offset0 <- offset0F
     _ = logger.info(s"Client API initialization completed, Ledger ID: ${clientUtil.toString}")
 
-    // <doc-ref:submit-iou-create-command>
-    createCmd = iou.create
+    allPackageIds <- clientUtil.listPackages
+    _ = logger.info(s"All package IDs: $allPackageIds")
+
+    _ <- validatePackageId(allPackageIds, packageId)
+
+    createCmd = IouCommands.iouCreateCommand(
+      iouTemplateId,
+      "Alice",
+      "Alice",
+      "USD",
+      BigDecimal("99999.00"))
     _ <- clientUtil.submitCommand(issuer, issuerWorkflowId, createCmd)
-    _ = logger.info(s"$issuer created IOU: $iou")
     _ = logger.info(s"$issuer sent create command: $createCmd")
-    // </doc-ref:submit-iou-create-command>
 
     tx0 <- clientUtil.nextTransaction(issuer, offset0)(amat)
     _ = logger.info(s"$issuer received transaction: $tx0")
-    iouContract <- toFuture(decodeCreated[M.Iou](tx0))
-    _ = logger.info(s"$issuer received contract: $iouContract")
 
-    offset1 <- clientUtil.ledgerEnd
+    createdEvent <- toFuture(decodeCreatedEvent(tx0))
+    _ = logger.info(s"$issuer received created event: $createdEvent")
 
-    // <doc-ref:iou-exercise-transfer-cmd>
-    exerciseCmd = iouContract.contractId.exerciseIou_Transfer(actor = issuer, newOwner = newOwner)
-    // </doc-ref:iou-exercise-transfer-cmd>
+    exerciseCmd = IouCommands.iouTransferExerciseCommand(
+      iouTemplateId,
+      createdEvent.contractId,
+      newOwner)
     _ <- clientUtil.submitCommand(issuer, issuerWorkflowId, exerciseCmd)
     _ = logger.info(s"$issuer sent exercise command: $exerciseCmd")
-    _ = logger.info(s"$issuer transferred IOU: $iouContract to: $newOwner")
-
-    tx1 <- clientUtil.nextTransaction(issuer, offset1)(amat)
-    _ = logger.info(s"$issuer received final transaction: $tx1")
-    archivedIouContractId <- toFuture(decodeArchived[M.Iou](tx1)): Future[P.ContractId[M.Iou]]
-    _ = logger.info(
-      s"$issuer received Archive Event for the original IOU contract ID: $archivedIouContractId")
-    _ <- Future(assert(iouContract.contractId == archivedIouContractId))
-    iouTransferContract <- toFuture(decodeAllCreated[M.IouTransfer](tx1).headOption)
-    _ = logger.info(s"$issuer received confirmation for the IOU Transfer: $iouTransferContract")
 
   } yield ()
 
