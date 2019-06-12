@@ -309,11 +309,15 @@ quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
                       , "  sonatype-snapshots: https://oss.sonatype.org/content/repositories/snapshots"
                       ]
 
-                  callProcess "sbt"
-                      [ "-Dsbt.boot.properties=" <> sbtBootProps
+                  callCommand . unwords -- we use callCommand because "sbt" on windows is a .bat
+                      [ "sbt"
+                      , "-Dsbt.boot.properties=" <> sbtBootProps
+                      , "-Dsbt.ivy.home=" <> ivyHomeDir
+                      , "-Divy.home=" <> ivyHomeDir
                       , "-Dmaven.repo.local=" <> mavenRepo
-                      , "application/runMain com.digitalasset.quickstart.iou.IouMain localhost "
+                      , "\"application/runMain com.digitalasset.quickstart.iou.IouMain localhost "
                           <> show sandboxPort
+                          <> "\""
                       ]
                   terminateProcess ph
 
