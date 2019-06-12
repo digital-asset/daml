@@ -308,7 +308,7 @@ legacyParsePositiveDecimal cs =
 -- Examples:
 -- ```
 --   parseDecimal "3.14" == Some 3.14
---   parseDecimal "+12.0" == Some 12
+--   parseDecimal "+12.0" == Some 12.0
 -- ```
 parseDecimal : Text -> Optional Decimal
 parseDecimal = primitive @"BEDecimalFromText"
