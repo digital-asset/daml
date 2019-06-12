@@ -27,6 +27,14 @@ object Command {
       argument: SValue
   ) extends Command
 
+  final case class ExerciseByKey(
+      templateId: Identifier,
+      contractKey: SValue,
+      choiceId: ChoiceName,
+      submitter: ImmArray[SParty],
+      argument: SValue
+  ) extends Command
+
   final case class Fetch(
       templateId: Identifier,
       coid: SContractId

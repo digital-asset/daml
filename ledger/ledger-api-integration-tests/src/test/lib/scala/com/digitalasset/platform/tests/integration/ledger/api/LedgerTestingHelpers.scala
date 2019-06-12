@@ -11,7 +11,11 @@ import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitRequest
 }
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
-import com.digitalasset.ledger.api.v1.commands.{CreateCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.commands.{
+  CreateCommand,
+  ExerciseByKeyCommand,
+  ExerciseCommand
+}
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event, ExercisedEvent}
@@ -428,6 +432,28 @@ class LedgerTestingHelpers(
     )
   }
 
+  // Exercise a choice by key and return all resulting create events.
+  def simpleExerciseByKeyWithListener(
+      commandId: String,
+      submitter: String,
+      listener: String,
+      template: Identifier,
+      contractKey: Value,
+      choice: String,
+      arg: Value
+  ): Future[TransactionTree] = {
+    submitAndListenForSingleTreeResultOfCommand(
+      submitRequestWithId(commandId)
+        .update(
+          _.commands.commands :=
+            List(ExerciseByKeyCommand(Some(template), Some(contractKey), choice, Some(arg)).wrap),
+          _.commands.party := submitter
+        ),
+      TransactionFilter(Map(listener -> Filters.defaultInstance)),
+      false
+    )
+  }
+
   def simpleCreateWithListenerForTransactions(
       commandId: String,
       submitter: String,
@@ -563,6 +589,23 @@ class LedgerTestingHelpers(
   ): Future[TransactionTree] =
     simpleExerciseWithListener(commandId, submitter, submitter, template, contractId, choice, arg)
 
+  def simpleExerciseByKey(
+      commandId: String,
+      submitter: String,
+      template: Identifier,
+      contractKey: Value,
+      choice: String,
+      arg: Value
+  ): Future[TransactionTree] =
+    simpleExerciseByKeyWithListener(
+      commandId,
+      submitter,
+      submitter,
+      template,
+      contractKey,
+      choice,
+      arg)
+
   // Exercise a choice that is supposed to fail.
   def failingExercise(
       commandId: String,
@@ -579,6 +622,28 @@ class LedgerTestingHelpers(
         .update(
           _.commands.commands :=
             List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap),
+          _.commands.party := submitter
+        ),
+      code,
+      pattern
+    )
+
+  // Exercise a choice by key that is supposed to fail.
+  def failingExerciseByKey(
+      commandId: String,
+      submitter: String,
+      template: Identifier,
+      contractKey: Value,
+      choice: String,
+      arg: Value,
+      code: Code,
+      pattern: String
+  ): Future[Assertion] =
+    assertCommandFailsWithCode(
+      submitRequestWithId(commandId)
+        .update(
+          _.commands.commands :=
+            List(ExerciseByKeyCommand(Some(template), contractKey, choice, Some(arg)).wrap),
           _.commands.party := submitter
         ),
       code,

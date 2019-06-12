@@ -37,6 +37,14 @@ private[inner] object TemplateClass extends StrictLogging {
         .addField(generateTemplateIdField(typeWithContext))
         .addMethod(generateCreateMethod(className))
         .addMethods(
+          generateStaticExerciseByKeyMethods(
+            className,
+            template.choices,
+            template.key,
+            typeWithContext.interface.typeDecls,
+            typeWithContext.packageId,
+            packagePrefixes))
+        .addMethods(
           generateCreateAndExerciseMethods(
             className,
             template.choices,
@@ -324,6 +332,94 @@ private[inner] object TemplateClass extends StrictLogging {
     } else None
   }
 
+  private def generateStaticExerciseByKeyMethods(
+      templateClassName: ClassName,
+      choices: Map[ChoiceName, TemplateChoice[Type]],
+      maybeKey: Option[Type],
+      typeDeclarations: Map[QualifiedName, InterfaceType],
+      packageId: PackageId,
+      packagePrefixes: Map[PackageId, String]) =
+    maybeKey.fold(java.util.Collections.emptyList[MethodSpec]()) { key =>
+      val methods = for ((choiceName, choice) <- choices.toList) yield {
+        val raw = generateStaticExerciseByKeyMethod(
+          choiceName,
+          choice,
+          key,
+          templateClassName,
+          packagePrefixes)
+        val flattened = for (record <- choice.param
+            .fold(getRecord(_, typeDeclarations, packageId), _ => None, _ => None)) yield {
+          generateFlattenedStaticExerciseByKeyMethod(
+            choiceName,
+            choice,
+            key,
+            templateClassName,
+            getFieldsWithTypes(record.fields, packagePrefixes),
+            packagePrefixes)
+        }
+        raw :: flattened.toList
+      }
+      methods.flatten.asJava
+    }
+
+  private def generateStaticExerciseByKeyMethod(
+      choiceName: ChoiceName,
+      choice: TemplateChoice[Type],
+      key: Type,
+      templateClassName: ClassName,
+      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+    val exerciseByKeyBuilder = MethodSpec
+      .methodBuilder(s"exerciseByKey${choiceName.capitalize}")
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(classOf[javaapi.data.ExerciseByKeyCommand])
+    val keyJavaType = toJavaTypeName(key, packagePrefixes)
+    exerciseByKeyBuilder.addParameter(keyJavaType, "key")
+    val choiceJavaType = toJavaTypeName(choice.param, packagePrefixes)
+    exerciseByKeyBuilder.addParameter(choiceJavaType, "arg")
+    val choiceArgument = choice.param match {
+      case TypeCon(_, _) => "arg.toValue()"
+      case TypePrim(_, _) => "arg"
+      case TypeVar(_) => "arg"
+    }
+    exerciseByKeyBuilder.addStatement(
+      "return new $T($T.TEMPLATE_ID, $L, $S, $L)",
+      classOf[javaapi.data.ExerciseByKeyCommand],
+      templateClassName,
+      ToValueGenerator
+        .generateToValueConverter(key, CodeBlock.of("key"), newNameGenerator, packagePrefixes),
+      choiceName,
+      choiceArgument
+    )
+    exerciseByKeyBuilder.build()
+  }
+
+  private def generateFlattenedStaticExerciseByKeyMethod(
+      choiceName: ChoiceName,
+      choice: TemplateChoice[Type],
+      key: Type,
+      templateClassName: ClassName,
+      fields: Fields,
+      packagePrefixes: Map[PackageId, String]): MethodSpec = {
+    val methodName = s"exerciseByKey${choiceName.capitalize}"
+    val exerciseByKeyBuilder = MethodSpec
+      .methodBuilder(methodName)
+      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+      .returns(classOf[javaapi.data.ExerciseByKeyCommand])
+    val keyJavaType = toJavaTypeName(key, packagePrefixes)
+    exerciseByKeyBuilder.addParameter(keyJavaType, "key")
+    val choiceJavaType = toJavaTypeName(choice.param, packagePrefixes)
+    for (FieldInfo(_, _, javaName, javaType) <- fields) {
+      exerciseByKeyBuilder.addParameter(javaType, javaName)
+    }
+    exerciseByKeyBuilder.addStatement(
+      "return $T.$L(key, new $T($L))",
+      templateClassName,
+      methodName,
+      choiceJavaType,
+      generateArgumentList(fields.map(_.javaName)))
+    exerciseByKeyBuilder.build()
+  }
+
   private def generateCreateAndExerciseMethods(
       templateClassName: ClassName,
       choices: Map[ChoiceName, TemplateChoice[com.digitalasset.daml.lf.iface.Type]],
@@ -344,7 +440,6 @@ private[inner] object TemplateClass extends StrictLogging {
       createAndExerciseChoiceMethod :: splatted.toList
     }
     methods.flatten.asJava
-
   }
 
   private def generateCreateAndExerciseMethod(
