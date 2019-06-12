@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Docs
+~~~~
+
+- Added :doc:`/daml/intro/0_Intro`
+
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
 
