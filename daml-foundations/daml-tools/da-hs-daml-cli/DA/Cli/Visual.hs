@@ -25,7 +25,6 @@ import qualified Data.Map as M
 import qualified Data.HashMap.Strict as Map
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.Split as DLS
-import Data.List
 import Data.List.Extra
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
