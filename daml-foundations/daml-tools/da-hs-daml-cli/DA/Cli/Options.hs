@@ -158,6 +158,13 @@ junitFileOpt = option (Just <$> str) $
     <> long "junit"
     <> value Nothing
 
+dotFileOpt :: Parser (Maybe FilePath)
+dotFileOpt = option (Just <$> str) $
+       metavar "FILE"
+    <> help "Name of the dot file to be generated."
+    <> long "dot"
+    <> value Nothing
+
 junitPackageNameOpt :: Parser (Maybe String)
 junitPackageNameOpt = option (Just <$> str) $
        metavar "NAME"

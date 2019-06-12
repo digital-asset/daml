@@ -10,7 +10,7 @@ module DA.Cli.Visual
 
 
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Ast.World as AST 
+import DA.Daml.LF.Ast.World as AST
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified DA.Pretty as DAP
@@ -22,21 +22,17 @@ import qualified Data.ByteString as B
 import Codec.Archive.Zip
 import System.FilePath
 import qualified Data.Map as M
-import Data.Word
-import qualified Data.HashMap.Strict as DHM
-import qualified Data.ByteString.Char8 as CH
+import qualified Data.HashMap.Strict as Map
+import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.Split as DLS
-import qualified Data.List as DL
-import qualified Data.Text as T
+import Data.List.Extra
 
--- import Debug.Trace
-
-data Action = ACreate (LF.Qualified LF.TypeConName) 
+data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
 
 
 startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> Set.Set Action
-startFromUpdate seen world update = case update of 
+startFromUpdate seen world update = case update of
     LF.UPure _ e -> startFromExpr seen world e
     LF.UBind (LF.Binding _ e1) e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
     LF.UCreate tpl e -> Set.singleton (ACreate tpl) `Set.union` startFromExpr seen world e
@@ -50,8 +46,8 @@ startFromUpdate seen world update = case update of
 startFromExpr :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World  -> LF.Expr -> Set.Set Action
 startFromExpr seen world e = case e of
     LF.EVar _ -> Set.empty
-    LF.EVal ref->  case LF.lookupValue ref world of 
-        Right LF.DefValue{..}  
+    LF.EVal ref->  case LF.lookupValue ref world of
+        Right LF.DefValue{..}
             | ref `Set.member` seen  -> Set.empty
             | otherwise -> startFromExpr (Set.insert ref seen)  world dvalBody
         Left _ -> error "This should not happen"
@@ -86,7 +82,7 @@ templatePossibleUpdates world tpl = Set.unions $ map (startFromChoice world) (NM
 
 moduleAndTemplates :: LF.World -> LF.Module -> [(LF.TypeConName, Set.Set Action)]
 moduleAndTemplates world mod = retTypess
-    where 
+    where
         templates = NM.toList $ LF.moduleTemplates mod
         retTypess = map (\t-> (LF.tplTypeCon t, templatePossibleUpdates world t )) templates
 
@@ -98,15 +94,15 @@ dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
 
 darToWorld :: ManifestData -> LF.Package -> LF.World
 darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
-    where 
+    where
         pkgs = map dalfBytesToPakage (dalfsCotent manifest)
-    
+
 
 templateInAction :: Action -> LF.TypeConName
 templateInAction (ACreate  (LF.Qualified _ _ tpl) ) = tpl
 templateInAction (AExercise  (LF.Qualified _ _ tpl) _ ) = tpl
 
-srcLabel :: (LF.TypeConName, Set.Set Action) -> [(String, String)]                                              
+srcLabel :: (LF.TypeConName, Set.Set Action) -> [(String, String)]
 srcLabel (tc, _) = [ ("shape","none"),("label",DAP.renderPretty tc) ]
 
 templatePairs :: (LF.TypeConName, Set.Set Action) -> (LF.TypeConName , (LF.TypeConName , Set.Set Action))
@@ -123,12 +119,12 @@ errorOnLeft desc = \case
 
 -- | 'netlistGraph' generates a simple graph from a netlist.
 -- The default implementation does the edeges other way round. The change is on # 143
-netlistGraph' :: (Ord a) 
+netlistGraph' :: (Ord a)
           => (b -> [(String,String)])   -- ^ Attributes for each node
           -> (b -> [a])                 -- ^ Out edges leaving each node
           -> [(a,b)]                    -- ^ The netlist
           -> Dot ()
-netlistGraph' attrFn outFn assocs = do 
+netlistGraph' attrFn outFn assocs = do
     let nodes = Set.fromList [a | (a, _) <- assocs]
     let outs = Set.fromList [o | (_, b) <- assocs, o <- outFn b]
     nodeTab <- sequence
@@ -144,55 +140,46 @@ netlistGraph' attrFn outFn assocs = do
         [(fm M.! dst) .->. (fm M.! src) | (dst, b) <- assocs,
         src <- outFn b]
 
-
-
 data Manifest = Manifest { mainDalf :: FilePath , dalfs :: [FilePath] } deriving (Show)
 data ManifestData = ManifestData { mainDalfContent :: BSL.ByteString , dalfsCotent :: [BSL.ByteString] } deriving (Show)
 
-charToWord8 :: Char -> Word8
-charToWord8 = toEnum . fromEnum
-
-cleanString :: String -> String
-cleanString str = T.unpack (T.strip $ T.pack str)
-
 lineToKeyValue :: String -> (String, String)
-lineToKeyValue line = case DLS.splitOn ":" line of
-    [l, r] -> (cleanString l , cleanString r)
-    _ -> ("malformed", "malformed")            
+lineToKeyValue line = case splitOn ":" line of
+    [l, r] -> (trim l , trim r)
+    _ -> ("malformed", "malformed")
 
-
-manifestMapToManifest :: DHM.HashMap String String -> Manifest
+manifestMapToManifest :: Map.HashMap String String -> Manifest
 manifestMapToManifest hash = Manifest mainDalf dependDalfs
     where
-        mainDalf = DHM.lookupDefault "unknown" "Main-Dalf" hash
-        dependDalfs = map cleanString $ DL.delete mainDalf (DLS.splitOn "," (DHM.lookupDefault "unknown" "Dalfs" hash))
-
+        mainDalf = Map.lookupDefault "unknown" "Main-Dalf" hash
+        dependDalfs = map trim $ delete mainDalf (DLS.splitOn "," (Map.lookupDefault "unknown" "Dalfs" hash))
 
 manifestDataFromDar :: Archive -> Manifest -> ManifestData
 manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyDalfBytes
     where
         manifestDalfByte = head [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest]
-        dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && DL.elem (cleanString (eRelativePath e))  (dalfs manifest)]
+        dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && elem (trim (eRelativePath e))  (dalfs manifest)]
 
 manifestFromDar :: Archive -> ManifestData
 manifestFromDar dar =  manifestDataFromDar dar manifest
-    where 
+    where
         manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
-        lines = BSL.split (charToWord8 '\n') manifestEntry
-        linesStr = map (CH.unpack . BSL.toStrict) lines
-        manifest = manifestMapToManifest $ DHM.fromList $ map lineToKeyValue (filter (\a -> a /= "" ) linesStr)
+        linesStr = map BS.unpack (BS.lines $ BSL.toStrict manifestEntry)
+        manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue (filter (\a -> a /= "" ) linesStr)
 
 
-execVisual :: FilePath -> IO ()
-execVisual darFilePath = do
+execVisual :: FilePath -> Maybe FilePath -> IO ()
+execVisual darFilePath dotFilePath = do
     darBytes <- B.readFile darFilePath
     let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
         res = concatMap (moduleAndTemplates world) modules
-        actionEdges = map templatePairs res        
-    putStrLn $ showDot $ do 
-        netlistGraph' srcLabel actionsForTemplate actionEdges
+        actionEdges = map templatePairs res
+        dotString = showDot $ netlistGraph' srcLabel actionsForTemplate actionEdges
+    case dotFilePath of
+        Just outDotFile -> writeFile outDotFile dotString
+        Nothing -> putStrLn dotString
 
 

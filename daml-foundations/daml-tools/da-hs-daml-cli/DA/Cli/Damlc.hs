@@ -134,9 +134,9 @@ cmdInspect =
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
-    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dalf" <> fullDesc
+    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar" <> fullDesc
     where
-      cmd = execVisual <$> inputFileOpt
+      cmd = execVisual <$> inputDarOpt <*> dotFileOpt
 
 
 cmdBuild :: Int -> Mod CommandFields Command
@@ -680,12 +680,12 @@ options numProcessors =
       <> cmdBuild numProcessors
       <> cmdTest numProcessors
       <> cmdDamlDoc
+      <> cmdVisual
       <> cmdInspectDar
       )
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
-        <> cmdVisual
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean
