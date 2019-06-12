@@ -141,7 +141,6 @@ def _strip_path_upto(path, upto):
         return []
 
 def _scala_source_jar_impl(ctx):
-
     manifest_file = ctx.actions.declare_file(
         ctx.label.name + "_MANIFEST.MF",
     )
@@ -165,15 +164,15 @@ def _scala_source_jar_impl(ctx):
                 executable = ctx.executable._zipper,
                 inputs = ctx.files.srcs,
                 outputs = [tmpsrcdir],
-                arguments = [ "x", src.path, "-d", tmpsrcdir.path],
+                arguments = ["x", src.path, "-d", tmpsrcdir.path],
                 mnemonic = "ScalaUnpackSourceJar",
             )
 
     if tmpsrcdir:
         cmd = "(echo -e \"{src_paths}\" && find -L {tmpsrc_path} -type f | sed -E 's#^{tmpsrc_path}/(.*)$#\\1={tmpsrc_path}/\\1#') | sort > {args_file}".format(
-           tmpsrc_path = tmpsrcdir.path,
-           src_paths = "\\n".join(zipper_args),
-           args_file = zipper_args_file.path,
+            tmpsrc_path = tmpsrcdir.path,
+            src_paths = "\\n".join(zipper_args),
+            args_file = zipper_args_file.path,
         )
         inputs = [tmpsrcdir, manifest_file] + ctx.files.srcs
     else:
@@ -184,12 +183,12 @@ def _scala_source_jar_impl(ctx):
         inputs = [manifest_file] + ctx.files.srcs
 
     ctx.actions.run_shell(
-       mnemonic = "ScalaFindSourceFiles",
-       outputs = [zipper_args_file],
-       inputs = inputs,
-       command = cmd,
-       progress_message = "find_scala_source_files %s" % zipper_args_file.path,
-       use_default_shell_env = True,
+        mnemonic = "ScalaFindSourceFiles",
+        outputs = [zipper_args_file],
+        inputs = inputs,
+        command = cmd,
+        progress_message = "find_scala_source_files %s" % zipper_args_file.path,
+        use_default_shell_env = True,
     )
 
     ctx.actions.run(
@@ -233,7 +232,6 @@ def _create_scala_source_jar(**kwargs):
             name = kwargs["name"] + "_src",
             srcs = kwargs["srcs"],
         )
-
 
 def _scaladoc_jar_impl(ctx):
     srcFiles = [
