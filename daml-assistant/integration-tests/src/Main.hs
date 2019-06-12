@@ -309,7 +309,7 @@ quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
                       , "  sonatype-snapshots: https://oss.sonatype.org/content/repositories/snapshots"
                       ]
 
-                  callCommand . unwords -- we use callCommand because "sbt" on windows is a .bat
+                  callCommand $ unwords -- we use callCommand because "sbt" on windows is a .bat
                       [ "sbt"
                       , "-Dsbt.boot.properties=" <> sbtBootProps
                       , "-Dsbt.ivy.home=" <> ivyHomeDir
