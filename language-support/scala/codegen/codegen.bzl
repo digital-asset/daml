@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 def _dar_to_scala_impl(ctx):
-    codegen_out_dir = ctx.outputs.codegen_out
+    codegen_out_dir = ctx.actions.declare_directory(ctx.label.name + "_codegen_out")
     srcjar_out_file = ctx.outputs.srcjar_out
 
     # Call Scala codegen
@@ -82,8 +82,7 @@ dar_to_scala = rule(
         ),
     },
     outputs = {
-        "codegen_out": "%{name}-src",
-        "srcjar_out": "%{srcjar_out}",  # I want it to be explicit, other rules will depend on it
+        "srcjar_out": "%{srcjar_out}",
     },
     output_to_genfiles = True,
 )
