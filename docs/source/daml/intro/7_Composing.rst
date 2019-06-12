@@ -1,8 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Composing Choices
-=================
+7 Composing Choices
+===================
 
 It is time to put everything you have learnt so far together into a complete and secure DAML model for asset issuance, management, transfer, and trading, with capabilities similar to that presented in :doc:`/getting-started/quickstart`. In the process you will learn about a few more concepts:
 
@@ -12,9 +12,7 @@ It is time to put everything you have learnt so far together into a complete and
 - DAML's execution model
 - Privacy
 
-The model in this section is not a single DAML file, but a DAML project so create a new folder somewhere in which you would like this project to live. Then download the sources here.
-
-TODO: FIND A GOOD WAY TO DISTRIBUTE THE SOURCES
+The model in this section is not a single DAML file, but a DAML project consisting of several files that depend on each other.
 
 DAML Projects
 -------------
@@ -25,7 +23,7 @@ Each DAML project has a main source file, which is the entry point for the compi
 
 A minimal project would contain just two files: ``daml.yaml`` and ``daml/LibraryModules.daml``. Take a look at the ``daml.yaml`` for this project:
 
-.. literalinclude:: daml/7_Composing/daml.yaml.template
+.. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
 You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` lists package dependencies. ``daml-prim`` should always be included. ``daml-stdlib`` gives access to the DAML standard library.
@@ -61,14 +59,14 @@ All but the last ``.``-separated segment in module names correspond to paths, an
 
 Each file contains the DAML pragma and module header. For example, ``daml/Intro/Asset/Role.daml``:
 
-.. literalinclude:: daml/7_Composing/daml/Intro/Asset/Role.daml
+.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset/Role.daml
   :language: daml
   :start-after: -- PRAGMA_BEGIN
   :end-before: -- PRAGMA_END
 
 Modules can be imported in each other using the ``import`` keyword. The ``LibraryModules`` module imports all six modules:
 
-.. literalinclude:: daml/7_Composing/daml/LibraryModules.daml
+.. literalinclude:: daml/daml-intro-7/daml/LibraryModules.daml
   :language: daml
   :start-after: -- IMPORTS_BEGIN
 
@@ -95,7 +93,7 @@ This project showcases how you can put the ``Update`` and ``Scenario`` actions y
 - Two create actions in case of ``Split``
 - One create and one archive action in case of ``Merge``
 
-.. literalinclude:: daml/7_Composing/daml/Intro/Asset.daml
+.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset.daml
   :language: daml
   :start-after: -- MERGE_SPLIT_BEGIN
   :end-before: -- MERGE_SPLIT_END
@@ -104,7 +102,7 @@ The ``return`` function used in ``Split`` is available in any ``Action`` context
 
 Taking transaction composition a step further, the ``Trade_Settle`` choice on ``Trade`` composes two ``exercise`` actions:
 
-.. literalinclude:: daml/7_Composing/daml/Intro/Asset/Trade.daml
+.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset/Trade.daml
   :language: daml
   :start-after: -- TRADE_SETTLE_BEGIN
   :end-before: -- TRADE_SETTLE_END
@@ -174,7 +172,7 @@ The resulting transaction, with its two nested levels of consequences, can be se
 
 Similar to choices, you can see how the scenarios in this project are built up from each other:
 
-.. literalinclude:: daml/7_Composing/daml/Test/Intro/Asset/Role.daml
+.. literalinclude:: daml/daml-intro-7/daml/Test/Intro/Asset/Role.daml
   :language: daml
   :start-after: -- TEST_ISSUANCE_BEGIN
   :end-before: -- TEST_ISSUANCE_END
@@ -217,14 +215,14 @@ Observers
 
 *Observers* are DAML's mechanism to disclose contracts to other parties. They are declared just like signatories, but using the ``observer`` keyword, as shown in the ``Asset`` template:
 
-.. literalinclude:: daml/7_Composing/daml/Intro/Asset.daml
+.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset.daml
   :language: daml
   :start-after: -- ASSET_BEGIN
   :end-before: -- ASSET_END
 
 The ``Asset`` template also gives the ``owner`` a choice to set the observers, and you can see how Alice uses it to show her ``Asset`` to Bob just before proposeing the trade. You can try out what happens if she didn't do that by removing that transaction.
 
-.. literalinclude:: daml/7_Composing/daml/Test/Intro/Asset/Trade.daml
+.. literalinclude:: daml/daml-intro-7/daml/Test/Intro/Asset/Trade.daml
   :language: daml
   :start-after: -- SET_OBSERVER_BEGIN
   :end-before: -- SET_OBSERVER_END

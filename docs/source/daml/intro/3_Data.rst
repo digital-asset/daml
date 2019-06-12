@@ -1,8 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Data types
-==========
+3 Data types
+============
 
 In :doc:`1_Token`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
 
@@ -51,7 +51,7 @@ You have already encountered a few native DAML types: ``Party`` in :doc:`1_Token
 
 The below scenario instantiates each one of these types, manipulates it where appropriate, and tests the result.
 
-.. literalinclude:: daml/3_Data/Native.daml
+.. literalinclude:: daml/daml-intro-3/Native.daml
   :language: daml
   :start-after: -- NATIVE_TEST_BEGIN
   :end-before: -- NATIVE_TEST_END
@@ -73,7 +73,7 @@ Despite its simplicity, there are quite a few things to note in this scenario:
 
 With templates and these native types, it's already possible to write a schema akin to a table in a relational database. Below, ``Token`` is extended into a simple ``CashBalance``, administered by a party in the role of an accountant.
 
-.. literalinclude:: daml/3_Data/Native.daml
+.. literalinclude:: daml/daml-intro-3/Native.daml
   :language: daml
   :start-after: -- CASH_BALANCE_BEGIN
   :end-before: -- CASH_BALANCE_END
@@ -89,7 +89,7 @@ Tuples
 A common task is to group values in a generic way. Take, for example, a key-value pair with a ``Text`` key and an ``Int`` value. In DAML, you could use a two-tuple of type ``(Text, Int)`` to do so. If you wanted to express a coordinate in three dimensions, you could group three ``Decimal`` values using a three-tuple ``(Decimal, Decimal, Decimal)``.
 
 
-.. literalinclude:: daml/3_Data/Tuple.daml
+.. literalinclude:: daml/daml-intro-3/Tuple.daml
   :language: daml
   :start-after: -- TUPLE_TEST_BEGIN
   :end-before: -- TUPLE_TEST_END
@@ -110,7 +110,7 @@ That's because DAML is statically and strongly typed. When you get an element ou
 
 The below scenario instantiates a few lists of integers and demonstrates the most important list functions.
 
-.. literalinclude:: daml/3_Data/List.daml
+.. literalinclude:: daml/daml-intro-3/List.daml
   :language: daml
   :start-after: -- LIST_TEST_BEGIN
   :end-before: -- LIST_TEST_END
@@ -122,7 +122,7 @@ Records
 
 You can think of records as named tuples with named fields. Declare them using the ``data`` keyword: ``data T = C with``, where ``T`` is the type name and ``C`` is the data constructor. In practice, it's a good idea to always use the same name for type and data constructor.
 
-.. literalinclude:: daml/3_Data/Record.daml
+.. literalinclude:: daml/daml-intro-3/Record.daml
   :language: daml
   :start-after: -- RECORD_TEST_BEGIN
   :end-before: -- RECORD_TEST_END
@@ -131,7 +131,7 @@ You'll notice that the syntax to declare records is very similar to the syntax u
 
 In the ``assert`` statements above, we always compared values of in-built types. If you wrote ``assert (my_record == my_record)`` in the scenario, you may be surprised to get an error message ``No instance for (Eq MyRecord) arising from a use of ‘==’``. Equality in DAML is always value equality and we haven't written a function to check value equality for ``MyRecord`` values. But don't worry, you don't have to implement this rather obvious function yourself. The compiler is smart enough to do it for you, if you use ``deriving (Eq)``:
 
-.. literalinclude:: daml/3_Data/Record.daml
+.. literalinclude:: daml/daml-intro-3/Record.daml
   :language: daml
   :start-after: -- EQ_TEST_BEGIN
   :end-before: -- EQ_TEST_END
@@ -144,7 +144,7 @@ It's a good idea to always derive ``Eq`` and ``Show`` using ``deriving (Eq, Show
 
 Records can give the data on ``CashBalance`` a bit more structure:
 
-.. literalinclude:: daml/3_Data/Record.daml
+.. literalinclude:: daml/daml-intro-3/Record.daml
   :language: daml
   :start-after: -- CASH_BALANCE_BEGIN
   :end-before: -- CASH_BALANCE_END
@@ -156,7 +156,7 @@ Variants
 
 Suppose now that you also wanted to keep track of cash in hand. Cash in hand doesn't have a bank, but you can't just leave ``bank`` empty. DAML doesn't have an equivalent to ``null``. Variants can express that cash can either be in hand or at a bank.
 
-.. literalinclude:: daml/3_Data/Variants.daml
+.. literalinclude:: daml/daml-intro-3/Variants.daml
   :language: daml
   :start-after: -- CASH_BALANCE_BEGIN
   :end-before: -- CASH_BALANCE_END
@@ -165,14 +165,14 @@ The way to read the declaration of ``Location`` is "*A Location either has value
 
 Another option is to use the built-in ``Optional`` type. The ``None`` value of type ``Optional a`` is the closest DAML has to a ``null`` value:
 
-.. literalinclude:: daml/3_Data/Variants.daml
+.. literalinclude:: daml/daml-intro-3/Variants.daml
   :language: daml
   :start-after: -- OPTIONAL_BEGIN
   :end-before: -- OPTIONAL_END
 
 Variant types where none of the data constructors take a parameter are called enums:
 
-.. literalinclude:: daml/3_Data/Variants.daml
+.. literalinclude:: daml/daml-intro-3/Variants.daml
   :language: daml
   :start-after: -- ENUM_BEGIN
   :end-before: -- ENUM_END
@@ -181,7 +181,7 @@ To access the data in variants, you need to distinguish the different possible c
 
 To do this, you can use *pattern matching* and either throw errors or return compatible types for all cases:
 
-.. literalinclude:: daml/3_Data/Variants.daml
+.. literalinclude:: daml/daml-intro-3/Variants.daml
   :language: daml
   :start-after: -- VARIANT_ACCESS_BEGIN
   :end-before: -- VARIANT_ACCESS_END
@@ -193,7 +193,7 @@ You've got all the ingredients to build rich types expressing the data you want 
 
 All data in DAML is immutable, meaning once a value is created, it will never change. Rather than changing values, you create new values based on old ones with some changes applied:
 
-.. literalinclude:: daml/3_Data/Record.daml
+.. literalinclude:: daml/daml-intro-3/Record.daml
   :language: daml
   :start-after: -- MANIPULATION_BEGIN
   :end-before: -- MANIPULATION_END
@@ -211,7 +211,7 @@ DAML's type system lets you store richly structured data on DAML templates, but 
 
 You have already met the type ``ContractId a``, which references a contract of type ``a``. The below shows a contract model where ``Account`` is split out into a separate template and referenced by ``ContractId``, but it also highlights a big problem with that kind of reference: just like data, contracts are immutable. They can only be created and archived, so if you want to change the data on a contract, you end up archiving the original contract and creating a new one with the changed data. That makes contract IDs very unstable, and can cause stale references.
 
-.. literalinclude:: daml/3_Data/IDRef.daml
+.. literalinclude:: daml/daml-intro-3/IDRef.daml
   :language: daml
   :start-after: -- ID_REF_TEST_BEGIN
   :end-before: -- ID_REF_TEST_END
@@ -222,7 +222,7 @@ Note that, for the first time, the party submitting a transaction is doing more 
 
 You can define *stable* keys for contracts using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with the ability to look up contracts by key, and a uniqueness constraint in the sense that only one contract of a given template and with a given key value can be active at a time.
 
-.. literalinclude:: daml/3_Data/Keys.daml
+.. literalinclude:: daml/daml-intro-3/Keys.daml
   :language: daml
   :start-after: -- KEY_TEST_BEGIN
   :end-before: -- KEY_TEST_END

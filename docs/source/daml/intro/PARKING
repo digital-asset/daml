@@ -1,3 +1,0 @@
-The content of a `do` block can be throught of as a sequence of `Actions` to be performed, with the ability to use the result of previous actions in later ones.
-
-Above in :ref:`scenario_basics`, you saw that a `create` statement returns an `Update`. In fact, just like `ContractId`, `Update` has a type parameter for the result of the transaction and for an expression `expr : T` (remember, this reads as `expr of type T`), `create expr` returns an `Update (ContractId T)`. The choice of the letter `T` here isn't incidental. `T` has to be a template.

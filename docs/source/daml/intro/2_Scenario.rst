@@ -1,8 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Testing templates using scenarios
-=================================
+2 Testing templates using scenarios
+===================================
 
 In this section you will test the ``Token`` model from :doc:`1_Token` using DAML's inbuilt ``scenario`` language. You'll learn about the basic features of scenarios:
 
@@ -13,8 +13,6 @@ In this section you will test the ``Token`` model from :doc:`1_Token` using DAML
 - Archiving contracts
 - Viewing ledger and final ledger state
 
-For this section, start a new module called ``Token_Test`` and copy across the ``Token`` contract from :doc:`1_Token`. Alternatively, use the :download:`supplied source file <daml/2_Scenario/Token_Test.daml>`.
-
 .. scenario_basics:
 
 Scenario Basics
@@ -24,7 +22,7 @@ A ``Scenario`` is like a recipe for a test, where you can script different parti
 
 Below is a basic scenario that creates a ``Token`` for a party called "Alice".
 
-.. literalinclude:: daml/2_Scenario/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_1_BEGIN
   :end-before: -- TOKEN_TEST_1_END
@@ -87,7 +85,7 @@ Testing for Failure
 
 In :doc:`1_Token` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a Token for another party and vice versa. A reasonable attempt to test that would be:
 
-.. literalinclude:: daml/2_Scenario/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/Token_Test.daml
   :language: daml
   :start-after: -- FAILURE_TEST_1_BEGIN
   :end-before: -- FAILURE_TEST_1_END
@@ -100,7 +98,7 @@ The scenario failed, as expected, but scenarios abort at the first failure. This
 
 To test for failing submits and keep the scenario running thereafter, or fail if the submission succeeds, you can use the ``submitMustFail`` function:
 
-.. literalinclude:: daml/2_Scenario/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_2_BEGIN
   :end-before: -- TOKEN_TEST_2_END
@@ -120,7 +118,7 @@ To ``archive`` the Token Alice has created, you need to get a handle on its cont
 
 This scenario first checks that Bob cannot archive Alice's Token and then Alice successfully archives it:
 
-.. literalinclude:: daml/2_Scenario/Token_Test.daml
+.. literalinclude:: daml/daml-intro-2/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_3_BEGIN
   :end-before: -- TOKEN_TEST_3_END

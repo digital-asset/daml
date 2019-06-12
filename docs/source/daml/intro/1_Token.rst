@@ -1,8 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Basic contracts
-===============
+1 Basic contracts
+=================
 
 To begin with, you're going to write a very small DAML template, which represents a self-issued, non-transferrable token. Because it's a minimal template, it isn't actually useful on its own - you'll make it more useful later - but it's enough that it can show you the most basic concepts:
 
@@ -12,16 +12,8 @@ To begin with, you're going to write a very small DAML template, which represent
 - Contracts
 - Signatories
 
-For this section:
-
- 1. Create a directory for this project.
- 2. Create a new file called ``Token.daml`` or the :download:`supplied source file <daml/1_Token/Token.daml>`.
- 3. Open DAML Studio with ``daml studio`` from a terminal or just open VS Code.
-
 DAML Ledger Basics
 ------------------
-
-There are a few basic concepts you need to understand before you take a look at the DAML file you downloaded.
 
 Like most structures called ledgers, a DAML Ledger is just a list of *commits*. When we say *commit*, we mean the final result of when a *party* successfully *submits* a *transaction* to the ledger.
 
@@ -38,13 +30,13 @@ DAML Files and Modules
 
 Each ``.daml`` file defines a *DAML Module*. At the top of each DAML file is a pragma informing the compiler of the language version and the module name:
 
-.. literalinclude:: daml/1_Token/Token.daml
+.. literalinclude:: daml/daml-intro-1/Token.daml
   :language: daml
   :lines: 6, 9
 
 Code comments in DAML are introduced with `--`:
 
-.. literalinclude:: daml/1_Token/Token.daml
+.. literalinclude:: daml/daml-intro-1/Token.daml
   :language: daml
   :lines: 4-9
 
@@ -53,7 +45,7 @@ Templates
 
 A ``template`` defines a type of contract that can be created, and who has the right to do so. *Contracts* are instances of *templates*.
 
-.. literalinclude:: daml/1_Token/Token.daml
+.. literalinclude:: daml/daml-intro-1/Token.daml
   :language: daml
   :lines: 16,21,25,29,34
   :caption: A simple template

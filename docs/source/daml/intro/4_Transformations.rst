@@ -1,8 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Transforming data using choices
-================================
+4 Transforming data using choices
+=================================
 
 In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving the contract and re-creating it with the updated data. That works because the accountant is the sole signatory on the ``Account`` contract defined there.
 
@@ -17,7 +17,7 @@ If you think of templates as classes and contracts as objects, where are the met
 
 Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one and create a new one, you can provide them a convenience method on ``Contact``:
 
-.. literalinclude:: daml/4_Transformations/Contact.daml
+.. literalinclude:: daml/daml-intro-4/Contact.daml
   :language: daml
   :start-after: -- CHOICE_BEGIN
   :end-before: -- CHOICE_END
@@ -39,7 +39,7 @@ If you paid a lot of attention in :doc:`3_Data`, you may have noticed that the `
 
 Now to exercise the new choice in a scenario:
 
-.. literalinclude:: daml/4_Transformations/Contact.daml
+.. literalinclude:: daml/daml-intro-4/Contact.daml
   :language: daml
   :start-after: -- CHOICE_TEST_BEGIN
   :end-before: -- CHOICE_TEST_END
@@ -53,12 +53,12 @@ Choices as Delegation
 
 Up to this point all the contracts only involved one party. ``party`` may have been stored as ``Party`` field in the above, which suggests they are actors on the ledger, but they couldn't see the contracts, nor change them in any way. It would be reasonable for the party for which a ``Contact`` is stored to be able to update their own address and telephone number. In other words, the ``owner`` of a ``Contact`` should be able to *delegate* the right to perform a certain kind of data transformation to ``party``. The below demonstrates this using an ``UpdateAddress`` choice and corresponding extension of the scenario:
 
-.. literalinclude:: daml/4_Transformations/Contact.daml
+.. literalinclude:: daml/daml-intro-4/Contact.daml
   :language: daml
   :start-after: -- DELEGATION_BEGIN
   :end-before: -- DELEGATION_END
 
-.. literalinclude:: daml/4_Transformations/Contact.daml
+.. literalinclude:: daml/daml-intro-4/Contact.daml
   :language: daml
   :start-after: -- DELEGATION_TEST_BEGIN
   :end-before: -- DELEGATION_TEST_END
@@ -158,7 +158,7 @@ A Simple Cash Model
 
 With the power of choices, you can build you first interesting model: Issuance of cash Ious (I owe you). The model presented here is simpler than the one in :doc:`3_Data` as it's not concerned with the location of the physical cash, but merely with liabilities.
 
-.. literalinclude:: daml/4_Transformations/SimpleIou.daml
+.. literalinclude:: daml/daml-intro-4/SimpleIou.daml
   :language: daml
 
 The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.

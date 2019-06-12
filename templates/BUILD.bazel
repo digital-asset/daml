@@ -9,6 +9,7 @@ genrule(
         "quickstart-scala/**",
     ]) + [
         "//docs:quickstart-java.tar.gz",
+        "//docs:daml-intro-templates",
         "//language-support/scala/examples:quickstart-scala-dir",
     ],
     outs = ["templates-tarball.tar.gz"],
@@ -32,6 +33,9 @@ genrule(
         mkdir -p $$OUT/quickstart-scala
         cp -r $(location //language-support/scala/examples:quickstart-scala-dir)/* $$OUT/quickstart-scala/
         cp -rL $$SRC/quickstart-scala/* $$OUT/quickstart-scala/
+
+        # daml intro templates
+        tar xf $(location //docs:daml-intro-templates) -C $$OUT
 
         tar zcf $(location :templates-tarball.tar.gz) templates-tarball
     """,
