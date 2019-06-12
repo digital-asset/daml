@@ -154,7 +154,7 @@ def _scala_source_jar_impl(ctx):
 
     zipper_args = ["META-INF/MANIFEST.MF=" + manifest_file.path]
     for src in ctx.files.srcs:
-       # Check for common extensions that indicate that the file is a ZIP archive.
+        # Check for common extensions that indicate that the file is a ZIP archive.
         if src.extension == "srcjar" or src.extension == "jar" or src.extension == "zip":
             tmpsrcdir = ctx.actions.declare_directory("%s_%s_tmpdir" % (ctx.label.name, src.owner.name))
             ctx.actions.run(
@@ -173,8 +173,7 @@ def _scala_source_jar_impl(ctx):
         tmpsrc_cmds = [
             "(find -L {tmpsrc_path} -type f | sed -E 's#^{tmpsrc_path}/(.*)$#\\1={tmpsrc_path}/\\1#')".format(tmpsrc_path = tmpsrcdir.path)
             for tmpsrcdir in tmpsrcdirs
-    
-        ]      
+        ]
 
         cmd = "(echo -e \"{src_paths}\" && {joined_tmpsrc_cmds}) | sort > {args_file}".format(
             src_paths = "\\n".join(zipper_args),
