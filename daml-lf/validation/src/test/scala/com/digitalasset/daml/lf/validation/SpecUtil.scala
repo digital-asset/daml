@@ -3,8 +3,8 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.lfpackage.Ast.{Expr, Kind, Package, Type}
+import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Package, Type}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalactic.Equality
 

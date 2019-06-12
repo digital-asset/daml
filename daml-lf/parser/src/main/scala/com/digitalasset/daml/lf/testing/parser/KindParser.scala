@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 

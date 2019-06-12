@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.perf.util
 
 import java.io.File
 
-import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.archive.UniversalArchiveReader
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 object DarUtil {

@@ -7,8 +7,8 @@ import java.util
 
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.data.{FrontStack, Ref}
-import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.lfpackage.Ast.Expr
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.Ast.Expr
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
 import com.digitalasset.daml.lf.speedy.SValue.{STuple, _}

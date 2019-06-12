@@ -5,7 +5,7 @@ package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
 import com.digitalasset.platform.server.api.validation.ErrorFactories

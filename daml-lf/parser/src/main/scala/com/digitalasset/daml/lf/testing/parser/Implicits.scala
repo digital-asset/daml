@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.testing.parser
 
 import com.digitalasset.daml.lf.data.{Decimal, Ref}
-import com.digitalasset.daml.lf.lfpackage.Ast.{Expr, Kind, Package, Type}
+import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Package, Type}
 
 object Implicits {
 

@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.data.Ref.{ModuleName, PackageId}
-import com.digitalasset.daml.lf.lfpackage.Ast.{Module, Package}
+import com.digitalasset.daml.lf.language.Ast.{Module, Package}
 
 object Validation {
 

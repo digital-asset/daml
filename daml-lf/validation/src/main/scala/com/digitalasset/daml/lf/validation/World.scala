@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.lfpackage.Ast
+import com.digitalasset.daml.lf.language.Ast
 
 private[validation] class World(packages: PartialFunction[PackageId, Ast.Package]) {
 

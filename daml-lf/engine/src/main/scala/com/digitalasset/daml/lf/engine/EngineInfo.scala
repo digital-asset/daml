@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.engine
 
-import com.digitalasset.daml.lf.archive.{LanguageVersion => LV}
+import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.digitalasset.daml.lf.transaction.TransactionVersions
 import com.digitalasset.daml.lf.value.ValueVersions
 

@@ -3,9 +3,9 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.Ref.DottedName
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser._
 import com.digitalasset.daml.lf.validation.SpecUtil._
@@ -402,7 +402,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     }
 
     "reject ill formed template definition" in {
-      import com.digitalasset.daml.lf.archive.{LanguageMajorVersion => LVM, LanguageVersion => LV}
 
       val pkg =
         p"""
@@ -620,8 +619,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
   "rejects choice controller expressions that use choice argument if DAML-LF < 1.2 " in {
 
-    import com.digitalasset.daml.lf.archive.{LanguageMajorVersion => LVM, LanguageVersion => LV}
-
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
       LV.defaultV0 -> true,
@@ -648,7 +645,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     val modName = DottedName.assertFromString("Mod")
 
-    forEvery(testCases) { (version: LanguageVersion, rejected: Boolean) =>
+    forEvery(testCases) { (version: LV, rejected: Boolean) =>
       val pkg = pkg0.updateVersion(version)
       val mod = pkg.modules(modName)
       val world = new World(Map(defaultPkgId -> pkg))
@@ -665,8 +662,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
   }
 
   "rejects choice that use same variable for template and choice params if DAML-LF < 1.2 " in {
-
-    import com.digitalasset.daml.lf.archive.{LanguageMajorVersion => LVM, LanguageVersion => LV}
 
     val testCases = Table[LV, Boolean](
       "LF version" -> "reject",
@@ -694,7 +689,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
     val modName = DottedName.assertFromString("Mod")
 
-    forEvery(testCases) { (version: LanguageVersion, rejected: Boolean) =>
+    forEvery(testCases) { (version: LV, rejected: Boolean) =>
       val pkg = pkg0.updateVersion(version)
       val mod = pkg.modules(modName)
       val world = new World(Map(defaultPkgId -> pkg))
@@ -735,6 +730,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
      """
 
   private val env =
-    Typing.Env(LanguageVersion.default, new World(Map(defaultPkgId -> pkg)), NoContext)
+    Typing.Env(LV.default, new World(Map(defaultPkgId -> pkg)), NoContext)
 
 }

@@ -6,19 +6,18 @@ package com.digitalasset.daml.lf.engine
 import java.util
 import java.io.File
 
+import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.lfpackage.Decode
-import com.digitalasset.daml.lf.lfpackage.Util._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction => GenTx, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
 import Value._
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.UniversalArchiveReader
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalatest.{Matchers, WordSpec}

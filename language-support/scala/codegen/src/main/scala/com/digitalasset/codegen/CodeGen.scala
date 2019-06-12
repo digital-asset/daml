@@ -3,12 +3,14 @@
 
 package com.digitalasset.codegen
 
-import com.digitalasset.codegen.types.Namespace
-import com.digitalasset.daml.lf.{Dar, UniversalArchiveReader, iface}
-import com.digitalasset.daml.lf.data.Ref
-import iface.{Type => _, _}
-import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
 import java.io._
+
+import com.digitalasset.codegen.types.Namespace
+import com.digitalasset.daml.lf.archive.{Dar, UniversalArchiveReader}
+import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.iface.{Type => _, _}
+import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
 
 import com.digitalasset.codegen.dependencygraph._
 import com.digitalasset.codegen.exception.PackageInterfaceException
@@ -18,6 +20,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
 import com.digitalasset.daml_lf.DamlLf
 import com.typesafe.scalalogging.Logger
+
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
 import scalaz.std.list._

@@ -9,11 +9,11 @@ import com.digitalasset.daml.lf.speedy.SResult
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SError._
 import com.digitalasset.daml.lf.speedy.TraceLog
-import com.digitalasset.daml.lf.lfpackage.Ast._
-import com.digitalasset.daml.lf.lfpackage.Util._
+import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.archive.LanguageVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import org.scalatest.{Matchers, WordSpec}
 

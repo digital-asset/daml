@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.validation
 
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks

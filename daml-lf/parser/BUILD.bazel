@@ -19,9 +19,8 @@ da_scala_library(
     deps = [
         "//3rdparty/jvm/org/scala_lang/modules:scala_parser_combinators",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/data",
-        "//daml-lf/lfpackage",
+        "//daml-lf/language",
     ],
 )
 
@@ -36,8 +35,7 @@ da_scala_test(
     deps = [
         ":parser",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/data",
-        "//daml-lf/lfpackage",
+        "//daml-lf/language",
     ],
 )

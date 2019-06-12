@@ -3,9 +3,9 @@
 
 package com.digitalasset.daml.lf.testing
 
-import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.lfpackage.Ast.{Expr, Kind, Module, Type}
+import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Module, Type}
+import com.digitalasset.daml.lf.language.LanguageVersion
 
 package object parser {
 

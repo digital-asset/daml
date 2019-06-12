@@ -1,11 +1,12 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
+package com.digitalasset.daml.lf.archive
+
 import java.io.{ByteArrayInputStream, InputStream}
 import java.nio.charset.Charset
 
-import com.digitalasset.daml.lf.DarManifestReader.DarManifestReaderException
+import com.digitalasset.daml.lf.archive.DarManifestReader.DarManifestReaderException
 import org.scalatest.{Inside, Matchers, WordSpec}
 
 import scala.util.{Failure, Success}

@@ -4,10 +4,10 @@
 package com.digitalasset.daml.lf.scenario
 
 import com.digitalasset.daml_lf.DamlLf1
+import com.digitalasset.daml.lf.archive.{Decode, DecodeV1}
+import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
-import com.digitalasset.daml.lf.archive.LanguageVersion
-import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.lfpackage.{Decode, DecodeV1}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.scenario.api.v1.{Module => ProtoModule}
 import com.digitalasset.daml.lf.speedy.Compiler
 import com.digitalasset.daml.lf.speedy.ScenarioRunner
@@ -17,7 +17,6 @@ import com.digitalasset.daml.lf.speedy.SExpr
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.types.Ledger.Ledger
 import com.digitalasset.daml.lf.PureCompiledPackages
-import com.digitalasset.daml.lf.lfpackage.Decode.ParseError
 import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import com.google.protobuf.ByteString

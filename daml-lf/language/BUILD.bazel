@@ -9,32 +9,26 @@ load(
 )
 
 da_scala_library(
-    name = "lfpackage",
+    name = "language",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-package:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-language:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/archive:daml_lf_archive_scala",
-        "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
     ],
 )
 
 da_scala_test(
-    name = "lfpackage-test",
+    name = "language-test",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
     scalacopts = lf_scalacopts,
     deps = [
-        ":lfpackage",
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        ":language",
         "//3rdparty/jvm/org/scalacheck",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/archive:daml_lf_archive_scala",
-        "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
     ],
 )

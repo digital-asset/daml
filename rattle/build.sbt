@@ -42,7 +42,7 @@ lazy val scalameter_core = "com.storm-enroute" %% "scalameter-core" % "0.10.1" %
 
 lazy val data_deps = Seq(scalatest, scalacheck, scalaz, scalaz_scalacheck_binding)
 lazy val transaction_deps = Seq(scalaz, protobuf, scalatest, scalacheck, scalapb_runtime)
-lazy val lfpackage_deps = scalatest +: data_deps
+lazy val language_deps = scalatest +: data_deps
 lazy val interp_deps = Seq(paiges, scalatest, scalacheck, scalapb_runtime)
 lazy val validation_deps = Seq(scalatest, scalacheck)
 lazy val engine_deps = Seq(protobuf, scalatest, scalacheck, scalameter_core)
@@ -79,7 +79,7 @@ lazy val data = (project in file("data"))
   )
 
 lazy val engine = (project in file("engine"))
-  .dependsOn(data, transaction, lfpackage, interpreter, validation, archive)
+  .dependsOn(data, transaction, language, interpreter, validation, archive)
   .settings(
     libraryDependencies ++= engine_deps
   )
@@ -91,19 +91,19 @@ lazy val interface = (project in file("interface"))
   )
 
 lazy val interpreter = (project in file("interpreter"))
-  .dependsOn(data, transaction, lfpackage, archive, validation, parser % "test->test")
+  .dependsOn(data, transaction, language, archive, validation, parser % "test->test")
   .settings(
     libraryDependencies ++= interp_deps
   )
 
-lazy val lfpackage = (project in file("lfpackage"))
+lazy val language = (project in file("language"))
   .dependsOn(data, archive)
   .settings(
-    libraryDependencies ++= lfpackage_deps
+    libraryDependencies ++= language_deps
   )
 
 lazy val parser = (project in file("parser"))
-  .dependsOn(lfpackage)
+  .dependsOn(language)
   .settings(
     libraryDependencies ++= Seq(parser_combinators, scalatest, scalacheck)
   )
@@ -147,7 +147,7 @@ lazy val transactionScalacheck = (project in file("transaction-scalacheck"))
   )
 
 lazy val validation = (project in file("validation"))
-  .dependsOn(lfpackage, parser % "test->test")
+  .dependsOn(language, parser % "test->test")
   .settings(
     libraryDependencies ++= validation_deps
   )

@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.command.Commands
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.engine.Event
-import com.digitalasset.daml.lf.lfpackage.Ast
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory

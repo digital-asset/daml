@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.Event.Events
 import com.digitalasset.daml.lf.engine._
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction => Tx}

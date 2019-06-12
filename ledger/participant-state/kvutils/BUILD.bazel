@@ -27,7 +27,7 @@ da_scala_library(
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
-        "//daml-lf/lfpackage",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction/src/main/protobuf:transaction_java_proto",
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",

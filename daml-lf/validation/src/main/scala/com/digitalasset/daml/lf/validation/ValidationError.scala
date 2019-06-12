@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 
 sealed abstract class LookupError extends Product with Serializable {
   def pretty: String

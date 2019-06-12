@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.testing.parser
 
 import com.digitalasset.daml.lf.data.Ref.Name
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 import com.digitalasset.daml.lf.testing.parser.TypeParser._

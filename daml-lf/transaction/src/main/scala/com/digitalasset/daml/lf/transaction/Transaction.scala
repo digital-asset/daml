@@ -4,12 +4,12 @@
 package com.digitalasset.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import Node._
 import value.Value
 import Value._
+import com.digitalasset.daml.lf.language.LanguageVersion
 import scalaz.Equal
 
 import scala.annotation.tailrec

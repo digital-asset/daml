@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.engine
 import com.digitalasset.daml.lf.data.{BackStack, BackStackSnoc, FrontStack}
 import com.digitalasset.daml.lf.data.Ref.{DottedName, Name, ModuleName, QualifiedName}
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.language.Ast.Package
 
 import scala.annotation.tailrec
 

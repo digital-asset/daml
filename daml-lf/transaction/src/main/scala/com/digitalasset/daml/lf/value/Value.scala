@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf.value
 
-import com.digitalasset.daml.lf.archive.LanguageVersion
 import com.digitalasset.daml.lf.data.Ref.{
   ContractIdString,
   Identifier,
@@ -12,6 +11,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   `Name equal instance`
 }
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
 import scalaz.Equal

@@ -4,7 +4,7 @@
 package com.digitalasset.platform.server.api.validation
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.api.validation.IdentifierValidator

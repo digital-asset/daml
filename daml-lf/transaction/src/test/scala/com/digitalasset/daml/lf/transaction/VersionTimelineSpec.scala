@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package transaction
 
-import archive.LanguageVersion
+import com.digitalasset.daml.lf.language._
 import value.ValueVersions
 
 import scala.language.higherKinds
@@ -36,7 +36,7 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
     val languageMajorSeries =
       Table(
         "major version",
-        archive.LanguageMajorVersion.All: _*
+        LanguageMajorVersion.All: _*
       )
 
     "match each language major series in order" in forEvery(languageMajorSeries) { major =>
@@ -49,17 +49,16 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
     }
 
     "be inlined with LanguageVersion.ordering" in {
-
-      import com.digitalasset.daml.lf.archive.{LanguageMajorVersion => LVM, LanguageVersion => LV}
       import VersionTimeline.Implicits._
 
       val versions = Table(
         "language version",
-        LVM.All.flatMap(major => major.acceptedVersions.map(LV(major, _))): _*
+        LanguageMajorVersion.All.flatMap(major =>
+          major.acceptedVersions.map(LanguageVersion(major, _))): _*
       )
 
       forEvery(versions)(v1 =>
-        forEvery(versions)(v2 => LV.ordering.lt(v1, v2) shouldBe (v1 precedes v2)))
+        forEvery(versions)(v2 => LanguageVersion.ordering.lt(v1, v2) shouldBe (v1 precedes v2)))
     }
 
   }

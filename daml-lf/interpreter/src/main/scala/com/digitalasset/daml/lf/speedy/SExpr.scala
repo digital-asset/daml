@@ -9,7 +9,7 @@ package com.digitalasset.daml.lf.speedy
   * This reduces the number of binding forms by moving update and scenario
   * expressions into builtins.
   */
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.speedy.Speedy._

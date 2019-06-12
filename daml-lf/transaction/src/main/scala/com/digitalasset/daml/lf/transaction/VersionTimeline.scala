@@ -4,15 +4,15 @@
 package com.digitalasset.daml.lf
 package transaction
 
-import value.ValueVersion
-import archive.{LanguageMajorVersion => LMV, LanguageVersion}
-
-import scala.language.higherKinds
-import scalaz.{-\/, @@, NonEmptyList, OneAnd, Ordering, Semigroup, \&/, \/, \/-}
+import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.digitalasset.daml.lf.value.ValueVersion
 import scalaz.std.map._
 import scalaz.syntax.foldable1._
 import scalaz.syntax.order._
 import scalaz.syntax.std.option._
+import scalaz.{-\/, @@, NonEmptyList, OneAnd, Ordering, Semigroup, \&/, \/, \/-}
+
+import scala.language.higherKinds
 
 /** The "monotonically decreasing" guarantee of engine versioning
   * described by the LF governance rules implicitly permits us to
@@ -27,8 +27,8 @@ import scalaz.syntax.std.option._
   * that same timeline.
   */
 private[lf] object VersionTimeline {
-  import \&/.{This, That, Both}
   import LanguageVersion.Minor.Dev
+  import \&/.{Both, That, This}
 
   type AllVersions[:&:[_, _]] = (ValueVersion :&: TransactionVersion) :&: LanguageVersion
   type Release = AllVersions[\&/]
@@ -108,7 +108,8 @@ private[lf] object VersionTimeline {
 
   /** Inversion of [[inAscendingOrder]]. */
   private val index: Map[SpecifiedVersion, Int] = {
-    import Implicits._, scalaz.Tags.FirstVal
+    import Implicits._
+    import scalaz.Tags.FirstVal
     implicit val combineInts: Semigroup[Int] =
       FirstVal.unsubst(Semigroup[Int @@ FirstVal])
     inAscendingOrder.zipWithIndex foldMap1 {
@@ -143,7 +144,8 @@ private[lf] object VersionTimeline {
     if (releasePrecedes(ev.inject(left), ev.inject(right))) right else left
 
   def latestWhenAllPresent[A](minimum: A, as: SpecifiedVersion*)(implicit A: SubVersion[A]): A = {
-    import scalaz.std.iterable._, scalaz.std.anyVal._
+    import scalaz.std.anyVal._
+    import scalaz.std.iterable._
     // None means "after the end"
     val latestIndex: Option[Int] = OneAnd(A.inject(minimum), as)
       .maximumOf1(sv => index.get(sv).cata(\/.left, \/-(())))

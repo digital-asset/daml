@@ -8,7 +8,7 @@ import java.io.File
 import akka.Done
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.archive.UniversalArchiveReader
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.submitAndWaitRequest
 import com.digitalasset.ledger.api.v1.command_service.{

@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.engine
 
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 
 object PackageLookup {
   def lookupDefinition(pkg: Package, identifier: QualifiedName): Either[Error, Definition] =

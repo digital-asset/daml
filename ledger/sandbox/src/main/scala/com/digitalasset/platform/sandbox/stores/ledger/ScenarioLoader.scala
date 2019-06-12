@@ -8,8 +8,8 @@ import java.time.Instant
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
-import com.digitalasset.daml.lf.lfpackage.Ast
-import com.digitalasset.daml.lf.lfpackage.Ast.{DDataType, DValue, Definition}
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.Ast.{DDataType, DValue, Definition}
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId

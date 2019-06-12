@@ -6,7 +6,7 @@ package com.digitalasset.platform.ledger.daml.runtime
 import java.io.InputStream
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.lfpackage.Ast
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.platform.damllf.PackageParser
 import org.scalatest.{DoNotDiscover, Matchers, WordSpec}
 

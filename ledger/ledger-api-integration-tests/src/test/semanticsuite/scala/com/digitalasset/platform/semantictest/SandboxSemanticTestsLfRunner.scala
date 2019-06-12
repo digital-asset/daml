@@ -5,11 +5,10 @@ package com.digitalasset.platform.semantictest
 
 import java.io._
 
-import com.digitalasset.daml.lf.UniversalArchiveReader
+import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.types.{Ledger => L}
-import com.digitalasset.daml.lf.lfpackage.Decode
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundAll

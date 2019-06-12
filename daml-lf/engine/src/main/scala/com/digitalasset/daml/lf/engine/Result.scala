@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.engine
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
-import com.digitalasset.daml.lf.lfpackage.Ast._
+import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value._
 import scalaz.Monad
