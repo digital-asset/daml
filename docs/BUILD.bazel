@@ -6,8 +6,6 @@ load("@os_info//:os_info.bzl", "is_linux")
 load("//rules_daml:daml.bzl", "daml_test")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
-
-
 nodejs_binary(
     name = "grunt",
     data = [
@@ -392,7 +390,7 @@ filegroup(
 
 pkg_tar(
     name = "daml-intro-templates",
-    strip_prefix = "source/daml/intro/daml",
     srcs = glob(["source/daml/intro/daml/**"]),
+    strip_prefix = "source/daml/intro/daml",
     visibility = ["//visibility:public"],
 )
