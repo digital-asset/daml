@@ -18,6 +18,7 @@ da_haskell_library(
         "scientific",
         "template-haskell",
         "text",
+        "transformers",
         "vector",
     ],
     src_strip_prefix = "src",

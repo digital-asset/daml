@@ -9,9 +9,12 @@ module DA.Daml.LF.Proto3.EncodeV1
   , encodePackage
   ) where
 
-import           Control.Lens ((^.), matching)
+import           Control.Lens ((^.), (<&>), matching)
 import           Control.Lens.Ast (rightSpine)
+import           Control.Monad.Trans.Reader (ReaderT)
+import           Control.Monad.Trans.State (State)
 
+import qualified Data.Map as M
 import qualified Data.NameMap as NM
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -28,6 +31,8 @@ import qualified Proto3.Suite as P (Enumerated (..))
 -- Some functions always return `Just x` instead of `x` since they would
 -- otherwise always be wrapped in `Just` at their call sites.
 type Just a = Maybe a
+
+type EncodeImpl = ReaderT Version (State (Int, M.Map PackageId Int))
 
 ------------------------------------------------------------------------
 -- Simple encodings
@@ -72,13 +77,13 @@ encodeSourceLoc SourceLoc{..} =
         (fromIntegral slocEndLine)
         (fromIntegral slocEndCol)))
 
-encodePackageRef :: PackageRef -> Just P.PackageRef
-encodePackageRef = Just . \case
+encodePackageRef :: PackageRef -> EncodeImpl (Just P.PackageRef)
+encodePackageRef = pure . Just . \case
     PRSelf -> P.PackageRef $ Just $ P.PackageRefSumSelf P.Unit
     PRImport pkgid -> P.PackageRef $ Just $ P.PackageRefSumPackageId $ encodePackageId pkgid
 
-encodeModuleRef :: PackageRef -> ModuleName -> Just P.ModuleRef
-encodeModuleRef pkgRef modName = Just $ P.ModuleRef (encodePackageRef pkgRef) (encodeDottedName unModuleName modName)
+encodeModuleRef :: PackageRef -> ModuleName -> EncodeImpl (Just P.ModuleRef)
+encodeModuleRef pkgRef modName = encodePackageRef pkgRef <&> \pr -> Just $ P.ModuleRef pr (encodeDottedName unModuleName modName)
 
 encodeFieldsWithTypes :: Version -> (a -> T.Text) -> [(a, Type)] -> V.Vector P.FieldWithType
 encodeFieldsWithTypes version unwrapName =
