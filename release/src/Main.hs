@@ -61,7 +61,7 @@ main = do
 
               let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
               uploadArtifacts <- concat <$> mapM (artifactCoords optsAllArtifacts) mavenUploadArtifacts
-              uploadToMavenCentral mavenUploadConfig bazelLocations uploadArtifacts
+              uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts
 
               -- set variables for next steps in Azure pipelines
               liftIO . putStrLn $ "##vso[task.setvariable variable=has_released;isOutput=true]true"

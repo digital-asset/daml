@@ -34,7 +34,6 @@ import           Network.HTTP.Client.TLS (mkManagerSettings, tlsManagerSettings)
 import           Network.HTTP.Simple (setRequestBasicAuth, setRequestBodyFile, setRequestBodyLBS, setRequestHeader, setRequestMethod, setRequestPath)
 import           Network.HTTP.Types.Status
 import           Path
-import           Path.IO
 import           System.Environment
 import           System.IO.Temp
 
@@ -57,8 +56,8 @@ import Util
 --  Staging requirements: https://central.sonatype.org/pages/requirements.html
 --  Staging REST API: https://oss.sonatype.org/nexus-staging-plugin/default/docs/index.html
 --
-uploadToMavenCentral :: (MonadCI m) => MavenUploadConfig -> BazelLocations -> [(MavenCoords, Path Rel File)] -> m ()
-uploadToMavenCentral MavenUploadConfig{..} BazelLocations{..} artifacts = do
+uploadToMavenCentral :: (MonadCI m) => MavenUploadConfig -> Path Abs Dir -> [(MavenCoords, Path Rel File)] -> m ()
+uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
 
     -- Note: TLS verification settings switchable by MavenUpload settings
     let managerSettings = if getAllowUnsecureTls allowUnsecureTls then noVerifyTlsManagerSettings else tlsManagerSettings
@@ -92,9 +91,7 @@ uploadToMavenCentral MavenUploadConfig{..} BazelLocations{..} artifacts = do
         -- 3. MD5 checksum
 
         for_ artifacts $ \(coords@MavenCoords{..}, file) -> do
-            binExists <- doesFileExist (bazelBin </> file)
-            let absFile | binExists = bazelBin </> file
-                        | otherwise = bazelGenfiles </> file
+            let absFile = releaseDir </> file
 
             sigTempFile <- liftIO $ emptySystemTempFile $ T.unpack $ artifactId <> maybe "" ("-" <>) classifier <> "-" <> artifactType <> ".asc"
             -- The "--batch" and "--yes" flags are used to prevent gpg waiting on stdin.
