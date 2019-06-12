@@ -108,7 +108,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
 
         case Compiler.uriToFilePath' uri of
           Just filePath -> do
-            mbVirtual <- getVirtualFileFunc lspFuncs uri
+            mbVirtual <- getVirtualFileFunc lspFuncs $ toNormalizedUri uri
             let contents = maybe "" (Rope.toText . (_text :: VirtualFile -> Rope.Rope)) mbVirtual
             Compiler.onFileModified compilerH filePath (Just contents)
             Logger.logInfo loggerH
