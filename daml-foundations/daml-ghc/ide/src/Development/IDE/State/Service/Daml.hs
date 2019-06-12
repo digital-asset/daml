@@ -26,6 +26,7 @@ import Development.IDE.State.Service hiding (initialise)
 import Development.IDE.State.FileStore
 import qualified Development.IDE.State.Service as IDE
 import Development.IDE.State.Shake
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.LSP
 import qualified Language.Haskell.LSP.Messages as LSP
 
@@ -36,7 +37,7 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 data DamlEnv = DamlEnv
   { envScenarioService :: Maybe SS.Handle
   , envOpenVirtualResources :: Var (Set VirtualResource)
-  , envScenarioContexts :: Var (Map FilePath SS.ContextId)
+  , envScenarioContexts :: Var (Map NormalizedFilePath SS.ContextId)
   -- ^ This is a map from the file for which the context was created to
   -- the context id. We use this to track which scenario contexts
   -- are active so that we can GC inactive scenarios.

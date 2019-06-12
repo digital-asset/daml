@@ -107,6 +107,7 @@ da_haskell_test(
     visibility = ["//visibility:private"],
     deps = [
         ":da-hs-daml-cli",
+        "//compiler/haskell-ide-core",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//libs-haskell/da-hs-base",
     ],

@@ -27,10 +27,10 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
 
 
     mbResult <- case uriToFilePath' uri of
-        Just filePath -> do
+        Just (toNormalizedFilePath -> filePath) -> do
           Logger.logInfo loggerH $
             "Definition request at position " <> renderPlain (prettyPosition pos)
-            <> " in file: " <> T.pack filePath
+            <> " in file: " <> T.pack (fromNormalizedFilePath filePath)
           Compiler.gotoDefinition compilerH filePath pos
         Nothing       -> pure Nothing
 

@@ -31,7 +31,7 @@ import           Data.Tuple.Extra                          (second)
 
 -- | Parse, and process documentation in, a dependency graph of modules.
 mkDocs :: IdeOptions ->
-          [FilePath] ->
+          [NormalizedFilePath] ->
           Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
 mkDocs opts fp = do
   parsed <- haddockParse opts fp
@@ -118,7 +118,7 @@ collectDocs = go Nothing []
 --   Not using the cached file store, as it is expected to run stand-alone
 --   invoked by a CLI tool.
 haddockParse :: IdeOptions ->
-                [FilePath] ->
+                [NormalizedFilePath] ->
                 Ex.ExceptT [FileDiagnostic] IO [ParsedModule]
 haddockParse opts f = ExceptT $ do
   vfs <- makeVFSHandle

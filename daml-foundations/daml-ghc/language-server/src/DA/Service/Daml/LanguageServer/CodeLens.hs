@@ -28,8 +28,8 @@ handle
     -> IO (List CodeLens)
 handle loggerH compilerH (CodeLensParams (TextDocumentIdentifier uri)) = do
     mbResult <- case uriToFilePath' uri of
-        Just filePath -> do
-          Logger.logInfo loggerH $ "CodeLens request for file: " <> T.pack filePath
+        Just (toNormalizedFilePath -> filePath) -> do
+          Logger.logInfo loggerH $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
           vrs <- Compiler.getAssociatedVirtualResources compilerH filePath
           pure $ mapMaybe virtualResourceToCodeLens vrs
         Nothing       -> pure []

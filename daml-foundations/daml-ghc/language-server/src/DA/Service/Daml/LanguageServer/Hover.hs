@@ -29,10 +29,10 @@ handle
     -> IO (Maybe Hover)
 handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
     mbResult <- case uriToFilePath' uri of
-        Just filePath -> do
+        Just (toNormalizedFilePath -> filePath) -> do
           Logger.logInfo loggerH $
               "Hover request at position " <> renderPlain (prettyPosition pos)
-              <> " in file: " <> T.pack filePath
+              <> " in file: " <> T.pack (fromNormalizedFilePath filePath)
           Compiler.atPoint compilerH filePath pos
         Nothing       -> pure Nothing
 

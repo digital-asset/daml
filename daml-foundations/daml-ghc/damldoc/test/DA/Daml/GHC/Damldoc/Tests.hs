@@ -12,6 +12,7 @@ import           DA.Daml.GHC.Damldoc.HaddockParse
 import           DA.Daml.GHC.Damldoc.Render
 import           DA.Daml.GHC.Damldoc.Types
 import           DA.Test.Util
+import Development.IDE.Types.Diagnostics
 
 import           Control.Monad.Except
 import qualified Data.Aeson.Encode.Pretty as AP
@@ -227,7 +228,7 @@ damldocExpect testname input check =
     opts <- defaultOptionsIO Nothing
 
     -- run the doc generator on that file
-    mbResult <- runExceptT $ mkDocs (toCompileOpts opts) [testfile]
+    mbResult <- runExceptT $ mkDocs (toCompileOpts opts) [toNormalizedFilePath testfile]
 
     case mbResult of
       Left err -> assertFailure $ unlines

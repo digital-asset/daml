@@ -36,12 +36,12 @@ damlDocDriver :: InputFormat
               -> DocFormat
               -> Maybe FilePath
               -> [DocOption]
-              -> [FilePath]
+              -> [NormalizedFilePath]
               -> IO ()
 damlDocDriver cInputFormat output cFormat prefixFile options files = do
 
     let printAndExit errMsg = do
-            putStrLn $ "Error processing input from " <> unwords files <> "\n"
+            putStrLn $ "Error processing input from " <> unwords (map fromNormalizedFilePath files) <> "\n"
                      <> errMsg
             fail "Aborted."
 
@@ -51,7 +51,7 @@ damlDocDriver cInputFormat output cFormat prefixFile options files = do
 
     docData <- case cInputFormat of
             InputJson -> do
-                input <- mapM BS.readFile files
+                input <- mapM (BS.readFile . fromNormalizedFilePath) files
                 let mbData = map AE.eitherDecode input :: [Either String [ModuleDoc]]
                 concatMapM (either printAndExit pure) mbData
 
