@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
-module Intro_5_Restrictions where
+module Restrictions where
 
 import DA.Date
 import DA.Text as T

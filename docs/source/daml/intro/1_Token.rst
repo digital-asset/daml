@@ -15,7 +15,7 @@ To begin with, you're going to write a very small DAML template, which represent
 For this section:
 
  1. Create a directory for this project.
- 2. Create a new file called ``Intro_1_Token.daml`` or the :download:`supplied source file <daml/Intro_1_Token.daml>`.
+ 2. Create a new file called ``Token.daml`` or the :download:`supplied source file <daml/1_Token/Token.daml>`.
  3. Open DAML Studio with ``daml studio`` from a terminal or just open VS Code.
 
 DAML Ledger Basics
@@ -38,13 +38,13 @@ DAML Files and Modules
 
 Each ``.daml`` file defines a *DAML Module*. At the top of each DAML file is a pragma informing the compiler of the language version and the module name:
 
-.. literalinclude:: daml/Intro_1_Token.daml
+.. literalinclude:: daml/1_Token/Token.daml
   :language: daml
   :lines: 6, 9
 
 Code comments in DAML are introduced with `--`:
 
-.. literalinclude:: daml/Intro_1_Token.daml
+.. literalinclude:: daml/1_Token/Token.daml
   :language: daml
   :lines: 4-9
 
@@ -53,7 +53,7 @@ Templates
 
 A ``template`` defines a type of contract that can be created, and who has the right to do so. *Contracts* are instances of *templates*.
 
-.. literalinclude:: daml/Intro_1_Token.daml
+.. literalinclude:: daml/1_Token/Token.daml
   :language: daml
   :lines: 16,21,25,29,34
   :caption: A simple template

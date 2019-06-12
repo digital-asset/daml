@@ -13,7 +13,7 @@ In this section you will test the ``Token`` model from :doc:`1_Token` using DAML
 - Archiving contracts
 - Viewing ledger and final ledger state
 
-For this section, start a new module called ``Intro_2_Scenario`` and copy across the ``Token`` contract from :doc:`1_Token`. Alternatively, use the :download:`supplied source file <daml/Intro_2_Scenario.daml>`.
+For this section, start a new module called ``Token_Test`` and copy across the ``Token`` contract from :doc:`1_Token`. Alternatively, use the :download:`supplied source file <daml/2_Scenario/Token_Test.daml>`.
 
 .. scenario_basics:
 
@@ -24,7 +24,7 @@ A ``Scenario`` is like a recipe for a test, where you can script different parti
 
 Below is a basic scenario that creates a ``Token`` for a party called "Alice".
 
-.. literalinclude:: daml/Intro_2_Scenario.daml
+.. literalinclude:: daml/2_Scenario/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_1_BEGIN
   :end-before: -- TOKEN_TEST_1_END
@@ -69,7 +69,7 @@ This opens the scenario view in a separate column in VS Code. The default view i
 
 What this display means:
 
-- The big title reading ``Intro_2_Scenario:Token`` is the identifier of the type of contract that's listed below. ``Intro_2_Scenario`` is the module name, ``Token`` the template name.
+- The big title reading ``Token_Test:Token`` is the identifier of the type of contract that's listed below. ``Token_Test`` is the module name, ``Token`` the template name.
 
 - The first columns, labelled vertically, show which parties know about which contracts. In this simple scenario, the sole party "Alice" knows about the contract she created.
 
@@ -78,7 +78,7 @@ What this display means:
 - The third column shows the status of the contract, either ``active`` or ``archived``.
 - The remaining columns show the contract arguments, with one column per field. As expected, field ``owner`` is ``'Alice'``. The single quotation marks indicate that ``Alice`` is a party.
 
-To run the same test from the command line, save your module in a file ``Intro_2_Scenario.daml`` and run ``daml damlc -- test Intro_2_Scenario.daml``. If your file contains more than one scenario, all of them will be run.
+To run the same test from the command line, save your module in a file ``Token_Test.daml`` and run ``daml damlc -- test Token_Test.daml``. If your file contains more than one scenario, all of them will be run.
 
 .. _intro_2_failure:
 
@@ -87,7 +87,7 @@ Testing for Failure
 
 In :doc:`1_Token` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a Token for another party and vice versa. A reasonable attempt to test that would be:
 
-.. literalinclude:: daml/Intro_2_Scenario.daml
+.. literalinclude:: daml/2_Scenario/Token_Test.daml
   :language: daml
   :start-after: -- FAILURE_TEST_1_BEGIN
   :end-before: -- FAILURE_TEST_1_END
@@ -100,7 +100,7 @@ The scenario failed, as expected, but scenarios abort at the first failure. This
 
 To test for failing submits and keep the scenario running thereafter, or fail if the submission succeeds, you can use the ``submitMustFail`` function:
 
-.. literalinclude:: daml/Intro_2_Scenario.daml
+.. literalinclude:: daml/2_Scenario/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_2_BEGIN
   :end-before: -- TOKEN_TEST_2_END
@@ -120,7 +120,7 @@ To ``archive`` the Token Alice has created, you need to get a handle on its cont
 
 This scenario first checks that Bob cannot archive Alice's Token and then Alice successfully archives it:
 
-.. literalinclude:: daml/Intro_2_Scenario.daml
+.. literalinclude:: daml/2_Scenario/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_3_BEGIN
   :end-before: -- TOKEN_TEST_3_END
@@ -142,7 +142,7 @@ In the DAML Studio scenario runner, committed transactions are numbered sequenti
 
 Transaction ``#0`` has one *sub-transaction* ``#0:0``, which the arrow indicates is a ``create`` of a ``Token``. Identifiers ``#X:Y`` mean ``commit X, sub-transaction Y``. All transactions have this format in the scenario runner. However, this format is a testing feature. In general, you should consider Transaction and Contract IDs to be opaque.
 
-The lines above and below ``create Intro_2_Scenario:Token`` give additional information:
+The lines above and below ``create Token_Test:Token`` give additional information:
 
 - ``consumed by: #2:1`` tells you that the contract is archived in sub-transaction ``1`` of commit ``2``.
 - ``referenced by #2:0, #2:1`` tells you that the contract was used in other transactions, and lists their IDs.

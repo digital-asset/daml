@@ -25,7 +25,7 @@ Each DAML project has a main source file, which is the entry point for the compi
 
 A minimal project would contain just two files: ``daml.yaml`` and ``daml/LibraryModules.daml``. Take a look at the ``daml.yaml`` for this project:
 
-.. literalinclude:: daml/7_Composing/daml.yaml
+.. literalinclude:: daml/7_Composing/daml.yaml.template
   :language: yaml
 
 You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` lists package dependencies. ``daml-prim`` should always be included. ``daml-stdlib`` gives access to the DAML standard library.

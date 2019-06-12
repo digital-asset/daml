@@ -13,14 +13,14 @@ To make sense of the latter, you'll also learn more about the ``Update`` and ``S
 
 Lastly, you will learn about time on the ledger and in scenarios.
 
-:download:`Download the source file for this section here. <daml/Intro_5_Restrictions.daml>`
+:download:`Download the source file for this section here. <daml/5_Restrictions/Restrictions.daml>`
 
 Template preconditions
 ----------------------
 
 The first kind of restriction you may want to put on the contract model are called *template pre-conditions*. These are simply restrictions on the data that can be stored on a contract from that template. Suppose, for examples, that the ``SimpleIou`` contract from :ref:`simple_iou` should only be able to store positive amounts. This can be enforced using the ``ensure`` keyword.
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- RESTRICTED_IOU_BEGIN
   :end-before: &&
@@ -28,13 +28,13 @@ The first kind of restriction you may want to put on the contract model are call
 The ``ensure`` keyword takes a single expression of type ``Bool``. If you wanted to add more restrictions, you can use logical operators ``&&``, ``||`` and ``not`` to build up expressions. The below shows the additional restriction that currencies are three capital letters.
 
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: ensure
   :end-before: -- RESTRICTED_IOU_END
 
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- RESTRICTIONS_TEST_BEGIN
   :end-before: -- RESTRICTIONS_TEST_END
@@ -45,24 +45,24 @@ Assertions and Errors
 
 A second common kind of restriction is one on data transformations. For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``owner`` transfers to themselves. You can prevent that using an ``assert`` statement, which you have already encountered in the context of scenarios. ``assert`` does not return an informative error so often it's better to use the function ``assertMsg``, which takes a custom error message:
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- TRANSFER_CHOICE_BEGIN
   :end-before: -- TRANSFER_CHOICE_END
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- TRANSFER_TEST_BEGIN
   :end-before: -- TRANSFER_TEST_END
 
 In a similar vein, yu can write a ``Redeem`` choice, which allows the ``owner`` to redeem an ``Iou`` during business hours on week days. The choice doesn't do anything other than archiving the ``SimpleIou``. The assumption here is that actual cash changes hands off-ledger.
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- REDEEM_CHOICE_BEGIN
   :end-before: -- REDEEM_CHOICE_END
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- REDEEM_TEST_BEGIN
   :end-before: -- REDEEM_TEST_END
@@ -91,7 +91,7 @@ Time on ledgers
 
 On a distributed DAML ledger, there are no guarantees that ledger effective time or relative time are strictly increasing. The only guarantee is that ledger effective time is increasing with causality. That is, if a transaction ``TX2`` depends on a transaction ``TX1``, then the ledger enforces that the LET of ``TX2`` is greater than or equal to that of ``TX1``:
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- CAUSALITY_TEST_BEGIN
   :end-before: -- CAUSALITY_TEST_END
@@ -134,7 +134,7 @@ An action followed by another action, possibly depending on the result of the fi
 
 This is where ``do`` blocks come in. ``do`` blocks allow you to combine small actions in to bigger actions, using the results of earlier actions in later ones.
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- DO_DEMO_BEGIN
   :end-before: -- DO_DEMO_END
@@ -157,7 +157,7 @@ A sample Action
 
 If the above didn't make complete sense, here's another example. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped and based on the ``Heads`` and ``Tails`` results, a value of type ``a`` is calulated.
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- COIN_BEGIN
   :end-before: -- COIN_END
@@ -166,7 +166,7 @@ A ``CoinGame a`` exposes a function ``play`` which takes a ``Coin`` and returns 
 
 ``Coin`` and ``play`` are deliberately left obscure in the above. All you have is an action ``getCoin`` to get your hands on a ``Coin`` in a ``Scenario`` context and an action ``flipCoin`` which represents the simplest possible game: A single coin flip resulting in a  ``Face``. You can't play any ``CoinGame`` game on pen and paper as you don't have a coin, but you can write down a script or recipe for a game:
 
-.. literalinclude:: daml/Intro_5_Restrictions.daml
+.. literalinclude:: daml/5_Restrictions/Restrictions.daml
   :language: daml
   :start-after: -- COIN_SCENARIO_BEGIN
   :end-before: -- COIN_SCENARIO_END
@@ -175,7 +175,7 @@ The ``game`` expression is a ``CoinGame`` in which a coin is flipped three times
 
 In a ``Scenario`` context you can get a ``Coin``, which is actually a pseudo-random number generator based on LET, and play the game.
 
-*Somehow* the ``Coin`` is threaded through the various actions. If you want to look through the looking glass and understand in-depth what's going on, you can look at the :download:`source file <daml/Intro_5_Restrictions.daml>` to see how the ``CoinGame`` action is implemented, though be warned that the implementation uses a lot of DAML features we haven't introduced yet in this introduction.
+*Somehow* the ``Coin`` is threaded through the various actions. If you want to look through the looking glass and understand in-depth what's going on, you can look at the :download:`source file <daml/5_Restrictions/Restrictions.daml>` to see how the ``CoinGame`` action is implemented, though be warned that the implementation uses a lot of DAML features we haven't introduced yet in this introduction.
 
 More generally, if you want to learn more about Actions (aka Monads), we recommend a general course on functional programming, and Haskell in particular.
 

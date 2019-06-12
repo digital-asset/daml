@@ -6,7 +6,7 @@
 daml 1.2
 -- A DAML file defines a module. The second line of a DAML file gives the
 -- module a name.
-module Intro_1_Token where
+module Token where
 
 -- Contract Templates define a type of contract that can exist on the ledger,
 -- together with its data, and involved parties.
@@ -32,4 +32,3 @@ template Token
     -- _signatories_. The signatories must authorize the creation of a
     -- contract instance and verify the validity of any action performed on it.
     signatory owner
-

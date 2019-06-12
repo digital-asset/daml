@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
-module Intro_6_Parties where
+module Parties where
 
 import DA.Time
 

@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
-module Intro_2_Scenario where
+module Token_Test where
 
 -- The Token template from section 1
 template Token
@@ -96,4 +96,3 @@ token_test_3 = do
   submit alice do
     archive alice_token
 -- TOKEN_TEST_3_END
-

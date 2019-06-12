@@ -10,33 +10,33 @@ DAML is designed for distributed applications involving mutually distrusting par
 - Write advanced choices
 - Reason through DAML's Authorization model
 
-:download:`You can download the source file for this section here. <daml/Intro_6_Parties.daml>`
+:download:`You can download the source file for this section here. <daml/6_Parties/Parties.daml>`
 
 Preventing iou revokation
 -------------------------
 
 The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Restrictions` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it again after receiving the goods. Bob would have a record such actions, but would have to resort to off-ledger means to get his money back.
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- SIMPLE_IOU_BEGIN
   :end-before: -- SIMPLE_IOU_END
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- SIMPLE_IOU_SCENARIO_BEGIN
   :end-before: -- SIMPLE_IOU_SCENARIO_END
 
 For a party to have any guarantees that only those transformations specified in the choices are actually followed, they either need to be a signatory themselves, or trust one of the signatories to not agree to transactions that archive and re-create contracts in unexpected ways. To make the ``SimpleIou`` safe for Bob, you need to add him as a signatory.
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- IOU_BEGIN
   :end-before: -- IOU_END
 
 There's a new problem here: There is no way for Alice to issue or transfer this ``Iou`` to Bob. To get an ``Iou`` with Bob's signature as ``owner`` onto the ledger, his authority is needed.
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- IOU_SCENARIO_BEGIN
   :end-before: -- IOU_SCENARIO_END
@@ -50,14 +50,14 @@ Use propose-accept workflows for one-off authorizaiton
 
 If there is no standing relationship between Alice and Bob, Alice can propose the issuance of an Iou to Bob, giving him the choice to accept. You can do so by introducing a proposal contract ``IouProposal``:
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- IOU_PROPOSAL_BEGIN
   :end-before: -- IOU_PROPOSAL_END
 
 Note how we have used the fact that templates are records here to store the ``Iou`` in a single field.
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- IOU_PROPOSAL_SCENARIO_BEGIN
   :end-before: -- IOU_PROPOSAL_SCENARIO_END
@@ -68,7 +68,7 @@ The choice is called ``IouProposal_Accept``, not ``Accept``, because propose-acc
 
 The above solves issuance, but not transfers. You can solve transfers exactly the same way, though, by creating a ``TransferProposal``:
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- TRANSFER_PROPOSAL_BEGIN
   :end-before: -- TRANSFER_PROPOSAL_END
@@ -79,14 +79,14 @@ Note also how ``newOwner`` is given multiple choices using a single ``controller
 
 To allow an ``iou.owner`` to create such a proposal, you need to give them the choice to propose a transfer on the ``Iou`` contract. The choice looks just like the above ``Transfer`` choice, except that a ``IouTransferProposal`` is created instead of an ``Iou``:
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- PROPOSE_TRANSFER_BEGIN
   :end-before: -- PROPOSE_TRANSFER_END
 
 Bob can now transfer his ``Iou``. The transfer workflow can even be used for issuance:
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- IOU_TRANSFER_SCENARIO_BEGIN
   :end-before: -- IOU_TRANSFER_SCENARIO_END
@@ -98,7 +98,7 @@ Many actions, like the issuance of assets or their transfer, can be pre-agreed. 
 
 Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the scenrario above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an iou:
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- MUTUAL_TRANSFER_BEGIN
   :end-before: -- MUTUAL_TRANSFER_END
@@ -107,14 +107,14 @@ Up to now, the controllers of choices were known from the current contract. Here
 
 This is also the first time we have shown a choice with more than one controller. If multiple controllers are specified, the authority of *all* the controllers is needed. Here, neither ``owner``, nor ``newOwner`` can execute a transfer unilaterally, hence the name ``Mutual_Transfer``.
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- SENDER_ROLE_BEGIN
   :end-before: -- SENDER_ROLE_END
 
 The above ``IouSender`` contract now gives a one party, the ``sender`` the right to send ``Iou`` contracts with positive amounts to a ``receiver``. The ``nonconsuming`` keyword on the choice ``Send_Iou`` changes the behaviour of the choice so that the contract it's exercised on does not get archived when the choice is exercised. That way the ``sender`` can use the contract to send multiple Ious. Here it is in action:
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- SENDER_SCENARIO_BEGIN
   :end-before: -- SENDER_SCENARIO_END
@@ -139,7 +139,7 @@ Each transaction has a set of *authorizers*:
 
 The authorization rule is that the required authorizers of every action are a subset of the authorizers of the parent transaction.
 
-Take, for example, the final transaction in the scenario of the :download:`the source file for this section <daml/Intro_6_Parties.daml>`. Ignoring fetches:
+Take, for example, the final transaction in the scenario of the :download:`the source file for this section <daml/6_Parties/Parties.daml>`. Ignoring fetches:
 
 - Bob submits the transaction so he's the authorizer on the root transaction.
 - The root transaction has a single action, which is to exercise ``Send_Iou`` on a ``IouSender`` contract with Bob and ``sender`` and Charlie as ``receiver``. Since the controller of that choice is the ``sender``, Bob is the required authorizer.
@@ -152,41 +152,41 @@ The graph of this transaction can be seen in the transaction view of the IDE:
 
 .. code-block:: none
 
-  TX #12 1970-01-01T00:00:00Z (Intro_6_Parties:244:3)
+  TX #12 1970-01-01T00:00:00Z (6_Parties/Parties:244:3)
   #12:0
   │   known to (since): 'Bob' (#12), 'Charlie' (#12)
-  └─> 'Bob' exercises Send_Iou on #10:0 (Intro_6_Parties:IouSender)
+  └─> 'Bob' exercises Send_Iou on #10:0 (6_Parties/Parties:IouSender)
             with
               iouCid = #11:3
       children:
       #12:1
       │   known to (since): 'Bob' (#12), 'Charlie' (#12)
-      └─> fetch #11:3 (Intro_6_Parties:Iou)
+      └─> fetch #11:3 (6_Parties/Parties:Iou)
 
       #12:2
       │   known to (since): 'Bob' (#12), 'Alice' (#12), 'Charlie' (#12)
-      └─> 'Bob', 'Charlie' exercises Mutual_Transfer on #11:3 (Intro_6_Parties:Iou)
+      └─> 'Bob', 'Charlie' exercises Mutual_Transfer on #11:3 (6_Parties/Parties:Iou)
                            with
                              newOwner = 'Charlie'
           children:
           #12:3
           │   known to (since): 'Charlie' (#12), 'Alice' (#12), 'Bob' (#12)
-          └─> create Intro_6_Parties:Iou
+          └─> create 6_Parties/Parties:Iou
               with
                 issuer = 'Alice';
                 owner = 'Charlie';
                 cash =
-                  (Intro_6_Parties:Cash with
+                  (6_Parties/Parties:Cash with
                      currency = "USD"; amount = 100.0
 
 Note that authority is not automatically transferred transitively.
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- NON_TRANSITIVE_BEGIN
   :end-before: -- NON_TRANSITIVE_END
 
-.. literalinclude:: daml/Intro_6_Parties.daml
+.. literalinclude:: daml/6_Parties/Parties.daml
   :language: daml
   :start-after: -- NON_TRANSITIVE_SCENARIO_BEGIN
   :end-before: -- NON_TRANSITIVE_SCENARIO_END
