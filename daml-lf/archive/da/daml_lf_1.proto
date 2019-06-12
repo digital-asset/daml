@@ -31,6 +31,7 @@
 // * dev (special staging area for the next version to be released)
 //        2019-05-27: Add enum type.
 //        2019-06-04: Add BuiltinFunction.{TO_TEXT_CODE_POINTS, FROM_TEXT_CODE_POINTS}
+//        2019-07-12: Add Package.interned_package_ids and PackageRef.interned_id
 
 
 syntax = "proto3";
@@ -46,7 +47,7 @@ message Unit {}
 message PackageRef {
   oneof Sum {
 
-    // Reference to the package of which the package this referenc
+    // Reference to the package of which the package this reference
     // belongs.
     Unit self = 1;
 
@@ -54,6 +55,10 @@ message PackageRef {
     // A ascii7 lowercase hex-encoded package identifier. This refers
     // to the DAML LF Archive Hash.
     string package_id = 2;
+
+    // An index into `interned_package_ids` of the Package containing
+    // this reference.
+    uint32 interned_id = 3;
   }
 }
 
@@ -1134,4 +1139,5 @@ message Module {
 
 message Package {
   repeated Module modules = 1;
+  repeated string interned_package_ids = 2;
 }

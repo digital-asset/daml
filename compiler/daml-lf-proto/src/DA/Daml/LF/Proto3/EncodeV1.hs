@@ -475,7 +475,7 @@ encodeModule version Module{..} =
 
 -- | NOTE(MH): Assumes the DAML-LF version of the 'Package' is 'V1'.
 encodePackage :: Package -> P.Package
-encodePackage (Package version mods) = P.Package (encodeNameMap encodeModule version mods)
+encodePackage (Package version mods) = P.Package (encodeNameMap encodeModule version mods) (error "TODO S11 ids")
 
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks

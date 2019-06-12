@@ -70,6 +70,9 @@ featureNumberFromText = Feature "Number parsing functions" version1_5
 featureTextCodePoints :: Feature
 featureTextCodePoints = Feature "Conversion between text and code points" version1_6
 
+featureInternedPackageIds :: Feature
+featureInternedPackageIds = Feature "Package ID reference compression" version1_6
+
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 
