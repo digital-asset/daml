@@ -111,7 +111,11 @@ def _daml_test_impl(ctx):
         output = ctx.outputs.executable,
         content = script,
     )
-    runfiles = ctx.runfiles(files = ctx.files.srcs + [ctx.executable.damlc])
+    damlc_runfiles = ctx.attr.damlc[DefaultInfo].data_runfiles
+    runfiles = ctx.runfiles(
+        collect_data = True,
+        files = ctx.files.srcs,
+    ).merge(damlc_runfiles)
     return [DefaultInfo(runfiles = runfiles)]
 
 daml_test = rule(
