@@ -280,7 +280,10 @@ quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
                       ivyHomeDir = quickstartDir </> "ivy-home-dir"
 
                   writeFileUTF8 sbtBootProps . unlines $
-                      [ "[boot]"
+                      [ "[scala]"
+                      , "  version: ${sbt.scala.version-auto}"
+                      , ""
+                      , "[boot]"
                       , "  directory: " <> sbtBootDir
                       , ""
                       , "[ivy]"
@@ -291,7 +294,7 @@ quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
                       , "  local"
                       , "  maven-local"
                       , "  maven-central"
-                      , "  scala-tools-releases"
+                      , "  sonatype-snapshots: https://oss.sonatype.org/content/repositories/snapshots"
                       ]
 
                   callProcess "sbt"
