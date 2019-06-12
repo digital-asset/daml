@@ -121,7 +121,7 @@ object Reader extends Reader[(PackageId, DamlLf.ArchivePayload)] {
   @throws[ParseError]
   def readArchiveVersion(lf: DamlLf.ArchivePayload): LanguageMajorVersion = {
     import DamlLf.ArchivePayload.{SumCase => SC}
-    import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LMV}
+    import language.{LanguageMajorVersion => LMV}
     lf.getSumCase match {
       case SC.DAML_LF_0 => LMV.V0
       case SC.DAML_LF_1 => LMV.V1
