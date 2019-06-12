@@ -169,8 +169,8 @@ manifestFromDar dar =  manifestDataFromDar dar manifest
         manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue (filter (\a -> a /= "" ) linesStr)
 
 
-execVisual :: FilePath -> IO ()
-execVisual darFilePath = do
+execVisual :: FilePath -> Maybe FilePath -> IO ()
+execVisual darFilePath dotFilePath = do
     darBytes <- B.readFile darFilePath
     let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
@@ -179,7 +179,9 @@ execVisual darFilePath = do
         res = concatMap (moduleAndTemplates world) modules
         actionEdges = map templatePairs res
         dotString = showDot $ do netlistGraph' srcLabel actionsForTemplate actionEdges
-    writeFile "/Users/anupkalburgi/projects/outdot.dot" dotString
+    case dotFilePath of
+        Just outDotFile -> writeFile outDotFile dotString
+        Nothing -> putStrLn dotString
     return ()
 
 
