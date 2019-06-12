@@ -12,7 +12,7 @@ da_scala_library(
     name = "language",
     srcs = glob(["src/main/**/*.scala"]),
     scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-package:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-language:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
         "//3rdparty/jvm/org/scalaz:scalaz_core",
