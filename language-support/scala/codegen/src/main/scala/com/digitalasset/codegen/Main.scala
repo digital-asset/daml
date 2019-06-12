@@ -20,11 +20,11 @@ object Main extends StrictLogging {
 
   def main(args: Array[String]): Unit =
     Conf.parse(args) match {
-      case Some(Conf(darMap, outputDir, decoderPkgAndClass, verbosity)) =>
+      case Some(Conf(darMap, outputDir, decoderPkgAndClass, verbosity, roots)) =>
         setGlobalLogLevel(verbosity)
         logUnsupportedEventDecoderOverride(decoderPkgAndClass)
         val (dars, packageName) = darsAndOnePackageName(darMap)
-        CodeGen.generateCode(dars, packageName, outputDir.toFile, CodeGen.Novel)
+        CodeGen.generateCode(dars, packageName, outputDir.toFile, CodeGen.Novel, roots)
       case None =>
         throw new IllegalArgumentException(
           s"Invalid ${codegenId: String} command line arguments: ${args.mkString(" "): String}")

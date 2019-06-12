@@ -20,6 +20,12 @@ Sandbox
 - Introduced a new API for party management.
   See `#1312 <https://github.com/digital-asset/daml/issues/1312>`__.
 
+Scala bindings
+~~~~~~~~~~~~~~
+
+- New `--root` command-line option for limiting what templates are selected for codegen.
+  See `#1210 <https://github.com/digital-asset/daml/pull/1210>`__.
+
 .. _release-0-12-24:
 
 0.12.24 - 2019-06-06
