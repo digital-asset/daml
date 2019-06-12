@@ -22,7 +22,6 @@ import qualified Data.ByteString as B
 import Codec.Archive.Zip
 import System.FilePath
 import qualified Data.Map as M
-import Data.Word
 import qualified Data.HashMap.Strict as Map
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.Split as DLS
@@ -142,13 +141,8 @@ netlistGraph' attrFn outFn assocs = do
         [(fm M.! dst) .->. (fm M.! src) | (dst, b) <- assocs,
         src <- outFn b]
 
-
-
 data Manifest = Manifest { mainDalf :: FilePath , dalfs :: [FilePath] } deriving (Show)
 data ManifestData = ManifestData { mainDalfContent :: BSL.ByteString , dalfsCotent :: [BSL.ByteString] } deriving (Show)
-
-charToWord8 :: Char -> Word8
-charToWord8 = toEnum . fromEnum
 
 lineToKeyValue :: String -> (String, String)
 lineToKeyValue line = case DE.splitOn ":" line of
@@ -171,8 +165,7 @@ manifestFromDar :: Archive -> ManifestData
 manifestFromDar dar =  manifestDataFromDar dar manifest
     where
         manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
-        lines = BSL.split (charToWord8 '\n') manifestEntry
-        linesStr = map (BS.unpack . BSL.toStrict) lines
+        linesStr = map BS.unpack (BS.lines $ BSL.toStrict manifestEntry)
         manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue (filter (\a -> a /= "" ) linesStr)
 
 
