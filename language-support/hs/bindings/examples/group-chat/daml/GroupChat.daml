@@ -1,0 +1,136 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+
+-- DAML chat-room model, with support for multiple chat-groups with entry by invitation.
+
+module GroupChat where
+
+-- A Chat Group is identified by the ContractId of a contract instance.
+template Group
+    with
+        owner : Party
+        name : Text -- no uniqueness requirement, just descriptive text
+    where
+        signatory owner
+
+-- An invitation to a join a chat group.
+template Invitation
+    with
+        owner : Party
+        gid : ContractId Group
+        invitees : [Party]
+    where
+        signatory owner
+        observer invitees
+
+-- A Message sent to a chat group.
+-- Interestingly, the sender and all recipients are signatories to a Message.
+-- The idea is that when a party joins a group, both:
+-- (a) The party is able to send messages to the group.
+-- (b) The party is authorising the receipt of messages from the group.
+template Message
+    with
+        sender : Party
+        recipients : [Party]
+        gid : ContractId Group
+        body : Text
+    where
+        signatory sender::recipients
+
+-- The current membership of a group.
+-- A party may join the group if invited by the group owner.
+-- The membership list changes over time as parties join and leave the group.
+-- To model this `mutable' data, we use DAML contract-keys.
+-- A Membership contract contains a reference to the underlying Group contract.
+-- The contact-key ensures at most one Membership contract is active for a given Group at one time.
+
+template Membership
+    with
+        owner : Party
+        gid : ContractId Group
+        members : [Party]
+    where
+        -- All members are signatories, so messages can be created.
+        signatory owner, members
+        key (owner,gid) : (Party,ContractId Group)
+        maintainer key._1
+
+        -- You can join the Membership, if you have an Invitation...
+        choice Membership_Join : () with joiner : Party, iid : ContractId Invitation
+            controller joiner
+            do
+                invitation <- fetch iid
+                assert (joiner `elem` invitation.invitees)
+                create Membership with owner, gid, members = joiner :: members
+                return ()
+
+        -- A member can voluntarily leave the Membership.
+        -- Or a member can be evicted by the owner.
+        choice Membership_Leave : () with leaver : Party
+            controller leaver, owner
+            do
+                assert (leaver `elem` members)
+                create Membership with owner, gid, members = filter (/= leaver) members
+                return ()
+
+        -- Messages are sent to a group with the authority of the Membership.
+        -- Created Messages are signed by all receiptients as required.
+        nonconsuming choice Membership_SendMessage : ContractId Message with sender : Party, body : Text
+            controller sender
+            do
+                assert (sender `elem` members)
+                create Message with sender, recipients = members, gid, body
+
+        -- Only the group owner can shutdown a group.
+        -- Once shutdown, no more messages can be sent to this group.
+        choice Membership_Shutdown : ()
+            controller owner
+            do
+                archive gid
+
+-- Utility functions, which setup and maintain the links between Membership and Group.
+
+newGroup : Party -> Text -> Update (ContractId Group)
+newGroup owner name = do
+    gid <- create Group with owner, name
+    group <- fetch gid
+    _ <- create Membership with owner, gid, members = [owner]
+    return gid
+
+makeInvitation : ContractId Group -> [Party] -> Update (ContractId Invitation)
+makeInvitation gid invitees = do
+    group <- fetch gid
+    create Invitation with owner = group.owner, gid, invitees
+
+fetchMembership : ContractId Group -> Update (ContractId Membership)
+fetchMembership gid = do
+    group <- fetch gid
+    (membership,_) <- fetchByKey @Membership (group.owner,gid)
+    return membership
+
+acceptJoin : Party -> ContractId Invitation -> Update ()
+acceptJoin joiner iid = do
+    invitation <- fetch iid
+    mid <- fetchMembership invitation.gid
+    exercise mid Membership_Join with joiner, iid
+
+leaveGroup : Party -> ContractId Group -> Update ()
+leaveGroup leaver gid = do
+    mid <- fetchMembership gid
+    exercise mid Membership_Leave with leaver
+
+sendMessage : Party -> ContractId Group -> Text -> Update (ContractId Message)
+sendMessage sender gid body = do
+    mid <- fetchMembership gid
+    exercise mid Membership_SendMessage with sender, body
+
+shutdownGroup : ContractId Group -> Update ()
+shutdownGroup gid = do
+    mid <- fetchMembership gid
+    group <- fetch gid
+    exercise mid Membership_SendMessage with
+        sender = group.owner
+        body = "Chat group (" <> group.name <> ") is shutting down."
+    exercise mid Membership_Shutdown
