@@ -277,6 +277,7 @@ quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
 
                   let sbtBootProps = quickstartDir </> "sbt-boot-props"
                       sbtBootDir = quickstartDir </> "sbt-boot-dir"
+                      sbtGlobalBase = quickstartDir </> "sbt-global-base"
                       ivyHomeDir = quickstartDir </> "ivy-home-dir"
 
                   writeFileUTF8 sbtBootProps . unlines $
@@ -312,6 +313,7 @@ quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
                   callCommand $ unwords -- we use callCommand because "sbt" on windows is a .bat
                       [ "sbt"
                       , "-Dsbt.boot.properties=" <> sbtBootProps
+                      , "-Dsbt.global.base=" <> sbtGlobalBase
                       , "-Dsbt.ivy.home=" <> ivyHomeDir
                       , "-Divy.home=" <> ivyHomeDir
                       , "-Dmaven.repo.local=" <> mavenRepo
