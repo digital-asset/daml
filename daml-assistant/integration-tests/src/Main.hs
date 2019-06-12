@@ -290,6 +290,7 @@ quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
                       , "[repositories]"
                       , "  local"
                       , "  maven-local"
+                      , "  maven-global"
                       ]
 
                   callProcess "sbt"
