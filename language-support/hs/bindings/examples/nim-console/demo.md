@@ -221,14 +221,14 @@ And indeed we see the earlier game offered by Alice is accepted.
 
 Robot Bob's moves are random, so indicated by `???` above.
 
-## 18. Alice also goes on holiday, so replace her with Robot Alice
+## 19. Alice also goes on holiday, so replace her with Robot Alice
 
     Alice> C-c
     $ clear; bazel-bin/language-support/hs/bindings/nim --robot Alice
 
 The robots complete the game!
 
-## 19. As Alice, check in to see who won
+## 20. As Alice, check in to see who won
 
     C-c
     $ clear; bazel-bin/language-support/hs/bindings/nim Alice

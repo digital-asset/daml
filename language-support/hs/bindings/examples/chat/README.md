@@ -3,7 +3,12 @@
 
 Another example ledger App, written in Haskell.
 
-A chat room, where the ledger plays the role of distibuting messages, and maintaining history
+A chat room, where the ledger plays the role of distributing messages, and maintaining history.
+
+This chat-room model is *very* simplistic. There is no concept of distinct groups, just the ability to broadcast a message to multiple parties at once. Also, the messages contain no authority to indicate that the recipients accept the message being sent to them.
+
+For a more interesting chat-room model under development, see: ../group-chat/
+
 
 ## Build
 
