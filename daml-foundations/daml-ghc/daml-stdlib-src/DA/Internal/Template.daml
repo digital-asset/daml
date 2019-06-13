@@ -85,6 +85,21 @@ exerciseByKey k e = do
     (c, cc) <- fetchByKey @c k
     internalExerciseWithActors (choiceController cc e) c e
 
+-- | Eexercise a choice on a contract given by its key, conditional on it existing.
+--
+-- The `c` needs to be passed using an explicit type application. For
+-- instance, if you want to exercise a choice `Withdraw` on a contract of
+-- template `Account` given by its key `k`, you must call
+-- `exerciseWhenKey @Account k Withdraw`.
+exerciseWhenKey : forall c k e r.(TemplateKey c k, Choice c e r) => k -> e -> Update (Optional r)
+exerciseWhenKey k e = do
+  ocid <- lookupByKey @c k
+  case ocid of
+    None -> return None
+    Some cid -> do
+      r <- exercise cid e
+      return (Some r)
+
 class Template c where
 
     -- | Predicate that must hold for the succesful creation of the contract.
