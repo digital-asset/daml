@@ -136,6 +136,16 @@ class ImmArrayTest extends FlatSpec with Matchers with Checkers {
     ImmArray[Int](1).relaxedSlice(0, -1) shouldBe ImmArray.empty[Int]
   }
 
+  it should "implement equals and hashCode correctly" in {
+    val long = ImmArray(1, 2, 3, 4)
+    val shortened = long.relaxedSlice(0, 2)
+
+    val short = ImmArray(1, 2)
+
+    shortened.hashCode() shouldBe short.hashCode()
+    shortened shouldEqual short
+  }
+
   behavior of "ImmArraySeq"
 
   it should "use CanBuildFrom of ImmArraySeq" in {
