@@ -95,21 +95,16 @@ class DamlOnXActiveContractsService private (
         a.contractId.coid,
         Some(LfEngineToApi.toApiIdentifier(a.templateId)),
         a.contractKey.map(
-          LfEngineToApi
-            .lfContractKeyToApiValue(verbose, _)
-            .fold(
-              err =>
-                throw new RuntimeException(
-                  s"Unexpected error when converting stored contract: $err"),
-              identity)),
+          ck =>
+            LfEngineToApi.assertOrRuntimeEx(
+              "converting stored contract",
+              LfEngineToApi
+                .lfContractKeyToApiValue(verbose, ck))),
         Some(
-          LfEngineToApi
-            .lfValueToApiRecord(verbose = verbose, a.argument.value)
-            .fold(
-              err =>
-                throw new RuntimeException(
-                  s"Unexpected error when converting stored contract: $err"),
-              identity)),
+          LfEngineToApi.assertOrRuntimeEx(
+            "converting stored contract",
+            LfEngineToApi
+              .lfValueToApiRecord(verbose = verbose, a.argument.value))),
         a.stakeholders.toSeq
       ))
   }

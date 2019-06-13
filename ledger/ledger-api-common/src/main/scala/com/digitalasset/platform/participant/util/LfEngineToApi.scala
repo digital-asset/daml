@@ -38,6 +38,7 @@ import scala.collection.IterableLike
 import scala.collection.generic.CanBuildFrom
 
 object LfEngineToApi {
+
   private[this] type LfValue[+Cid] = Lf[Cid]
 
   def toApiIdentifier(identifier: Identifier) = {
@@ -212,8 +213,9 @@ object LfEngineToApi {
     lfVersionedValueToApiValue(verbose, lf.key)
 
   @throws[RuntimeException]
-  private[digitalasset] def assertOrRuntimeEx[A](failureContext: String, ea: Either[String, A]): A =
-    ea fold (e => throw new RuntimeException(s"Unexpected error when $failureContext: $e"), identity)
+  def assertOrRuntimeEx[A](failureContext: String, ea: Either[String, A]): A =
+    ea.fold(e => throw new RuntimeException(s"Unexpected error when $failureContext: $e"), identity)
+
   /** This traversal fails the identity law so is unsuitable for [[scalaz.Traverse]].
     * It is, nevertheless, what is meant sometimes.
     */
