@@ -955,7 +955,7 @@ class TransactionServiceIT
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             List("party"))
           .failed
-          .map(IsStatusException(Status.INVALID_ARGUMENT))
+          .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
@@ -1050,7 +1050,7 @@ class TransactionServiceIT
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             List("party"))
           .failed
-          .map(IsStatusException(Status.INVALID_ARGUMENT))
+          .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
