@@ -15,7 +15,6 @@ module DA.Service.Daml.Compiler.Impl.Handle
   , CompilerService.modifyOpenVirtualResources
   , getAssociatedVirtualResources
   , gotoDefinition
-  , atPoint
   , compileFile
   , toIdeLogger
   , UseDalf(..)
@@ -158,15 +157,6 @@ gotoDefinition
 gotoDefinition service afp pos = do
     CompilerService.logDebug service $ "Goto definition: " <> T.pack (show afp)
     CompilerService.runAction service (CompilerService.getDefinition afp pos)
-
-atPoint
-    :: IdeState
-    -> NormalizedFilePath
-    -> Base.Position
-    -> IO (Maybe (Maybe Base.Range, [HoverText]))
-atPoint service afp pos = do
-    CompilerService.logDebug service $ "AtPoint: " <> T.pack (show afp)
-    CompilerService.runAction service (CompilerService.getAtPoint afp pos)
 
 -- | Compile the supplied file using the Compiler Service into a DAML LF Package.
 -- TODO options and warnings
