@@ -211,6 +211,9 @@ object LfEngineToApi {
       lf: KeyWithMaintainers[Lf.VersionedValue[Lf.AbsoluteContractId]]): Either[String, ApiValue] =
     lfVersionedValueToApiValue(verbose, lf.key)
 
+  @throws[RuntimeException]
+  private[digitalasset] def assertOrRuntimeEx[A](failureContext: String, ea: Either[String, A]): A =
+    ea fold (e => throw new RuntimeException(s"Unexpected error when $failureContext: $e"), identity)
   /** This traversal fails the identity law so is unsuitable for [[scalaz.Traverse]].
     * It is, nevertheless, what is meant sometimes.
     */
