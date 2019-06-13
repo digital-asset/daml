@@ -29,6 +29,8 @@ Sandbox
 
 - Introduced a new API for party management.
   See `#1312 <https://github.com/digital-asset/daml/issues/1312>`__.
+- Fixed a bug in an internal data structure that broke contract keys.
+  See `#1623 <https://github.com/digital-asset/daml/issues/1623>`__.
 
 Scala bindings
 ~~~~~~~~~~~~~~
