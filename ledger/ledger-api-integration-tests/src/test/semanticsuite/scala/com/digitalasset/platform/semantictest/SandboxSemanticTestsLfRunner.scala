@@ -59,12 +59,18 @@ class SandboxSemanticTestsLfRunner
       s"run scenario: $name" in allFixtures { ledger =>
         for {
           _ <- new SemanticTester(
-            parties => new SemanticTestAdapter(ledger, packages, parties),
+            parties =>
+              new SemanticTestAdapter(
+                ledger,
+                packages,
+                parties,
+                timeoutScaleFactor = this.spanScaleFactor,
+                commandSubmissionTtlScaleFactor = config.commandSubmissionTtlScaleFactor),
             pkgId,
             packages,
             partyNameMangler,
-            commandIdMangler)
-            .testScenario(name)
+            commandIdMangler
+          ).testScenario(name)
         } yield succeed
       }
     }

@@ -26,6 +26,7 @@ interactiveMain player = HL.runInputT HL.defaultSettings $ do
     let errLog = colourLog Red xlog
     h <- lift (connect errLog)
     ps <- lift $ makePlayerState h xlog player
+    lift $ replyLog "type \"help\" to see available commands"
     readLoop h xlog ps
 
 -- readLoop
@@ -55,6 +56,7 @@ processLine h xlog ps line = do
 
 data Query
     = ShowOpenState
+    | ShowHelp
 
 data Parsed
     = Submit UserCommand
@@ -65,11 +67,13 @@ parseWords :: [String] -> Maybe Parsed
 parseWords = \case
     ["become",p] -> do
         return $ Become (Player p)
+    ["help"] ->
+        return $ Query ShowHelp
     [] ->
         return $ Query ShowOpenState -- TODO: just show selected game (when implemented)
     ["show"] ->
         return $ Query ShowOpenState
-    ["offer"] ->
+    ["offer"] -> -- TODO: reinstate when proper management of known players is implemented
         Nothing -- return $ Submit Local.OfferNewGameToAnyone
     "offer":ps -> do
         return $ Submit $ Local.OfferGameL (map Player ps)
@@ -86,6 +90,16 @@ parseWords = \case
 
 parseMatchNumber :: String -> Maybe MatchNumber
 parseMatchNumber s = fmap MatchNumber (readMaybe s)
+
+helpText :: String
+helpText = unlines [
+    "show               : Show the local state.",
+    "<RETURN>           : Alias for show.",
+    "help               : Display this help text.",
+    "offer [Player*]    : Offer a new game against any of a list of players.",
+    "accept [Match-Id]  : Accept an offer of a new game.",
+    "move [M] [P] [N]   : In match M, from pile P, take N matchsticks."
+    ]
 
 -- run the parsed command
 
@@ -108,3 +122,4 @@ runParsed h xlog ps = \case
 runLocalQuery :: State -> Query -> IO ()
 runLocalQuery s = \case
     ShowOpenState -> replyLog (Local.prettyState s)
+    ShowHelp -> replyLog helpText

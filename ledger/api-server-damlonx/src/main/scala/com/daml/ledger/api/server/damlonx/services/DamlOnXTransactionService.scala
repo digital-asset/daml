@@ -122,6 +122,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
           },
           verbose
         )
+        .flatMap(eventFilter.filterEvent(_).toList)
 
     val submitterIsSubscriber =
       trans.optSubmitterInfo
@@ -231,8 +232,9 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
           Future.successful(result)
 
         case None =>
+          logger.error("lookupTransactionTreeById: Failing with NOT_FOUND")
           Future.failed(
-            Status.INVALID_ARGUMENT
+            Status.NOT_FOUND
               .withDescription(s"$txId could not be found")
               .asRuntimeException)
       }
@@ -259,8 +261,9 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
             acceptedToFlat(offset, trans, blindingInfo, verbose = true, eventFilter))
 
         case None =>
+          logger.error("lookupTransactionTreeById: Failing with NOT_FOUND")
           Future.failed(
-            Status.INVALID_ARGUMENT
+            Status.NOT_FOUND
               .withDescription(s"$txId could not be found")
               .asRuntimeException)
       }
@@ -280,6 +283,8 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       end: Option[LedgerOffset],
       filter: TransactionFilter): Source[(Offset, (TransactionAccepted, BlindingInfo)), NotUsed] = {
 
+    logger.trace(s"runTransactionPipeline: begin=$begin, end=$end, filter=$filter")
+
     val ledgerBounds =
       indexService.getLedgerBeginning
         .flatMap { b =>
@@ -293,12 +298,17 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
         case (ledgerBegin, ledgerEnd) =>
           OffsetSection(begin, end)(getOffsetHelper(ledgerBegin, ledgerEnd)) match {
             case Failure(exception) =>
+              logger.error(s"offset section fail: $exception")
               Source.failed(exception)
             case Success(value) =>
               value match {
                 case OffsetSection.Empty =>
+                  logger.warn(
+                    s"runTransactionPipeline: Empty OffsetSection from $begin to $end, given bounds $ledgerBegin and $ledgerEnd")
                   Source.empty
                 case OffsetSection.NonEmpty(subscribeFrom, subscribeUntil) =>
+                  logger.trace(
+                    s"runTransactionPipeline: getAcceptedTransactions with $subscribeFrom to $subscribeUntil")
                   indexService
                     .getAcceptedTransactions(Some(subscribeFrom), subscribeUntil, filter)
 
@@ -342,7 +352,7 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
       Tag.subst(trans.optSubmitterInfo.map(_.applicationId)),
       trans.optSubmitterInfo.map(_.submitter),
       trans.transactionMeta.workflowId.map(WorkflowId(_)),
-      trans.recordTime.toInstant,
+      trans.transactionMeta.ledgerEffectiveTime.toInstant,
       None
     )
 

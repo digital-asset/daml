@@ -209,15 +209,22 @@ final case class ReferenceIndexService(
   override def getAcceptedTransactions(
       beginAfter: Option[Offset],
       endAt: Option[Offset],
-      filter: TransactionFilter): Source[TransactionUpdate, NotUsed] =
+      filter: TransactionFilter): Source[TransactionUpdate, NotUsed] = {
     getTransactionStream(beginAfter, endAt)
+
+  }
 
   private def getTransactionStream(
       beginAfter: Option[Offset],
       endAt: Option[Offset]): Source[TransactionUpdate, NotUsed] = {
 
+    logger.trace(s"getTransactionStream: beginAfter=$beginAfter, endAt=$endAt")
+
     StateController
       .subscribe()
+      // Keep consuming new states unless we've moved past end,
+      // in which case process it once.
+      .takeWhile(state => endAt.fold(true)(end => state.getUpdateId < end), inclusive = true)
       .statefulMapConcat { () =>
         var currentOffset: Option[Offset] = beginAfter
         state =>
@@ -226,14 +233,14 @@ final case class ReferenceIndexService(
               .fold(state.txs) { offset =>
                 state.txs.from(offset).dropWhile(getOffset(_) == offset)
               }
-              .take(100) // produce in chunks of 100
           currentOffset = txs.lastOption.map(getOffset).orElse(currentOffset)
+          logger.trace(s"getTransactionStream: returning ${txs.size} transactions")
           txs
       }
       // Complete the stream once end (if given) has been reached.
-      .takeWhile { t =>
-        endAt.fold(true)(_ <= getOffset(t))
-      }
+      .takeWhile(t => endAt.fold(true)(getOffset(t) < _), inclusive = true)
+      // Drop the inclusive element if it exceeded endAt.
+      .filter(t => endAt.fold(true)(getOffset(t) <= _))
       // Add two stream validator stages
       .via(MonotonicallyIncreasingOffsetValidation(getOffset))
       .via(BoundedOffsetValidation(getOffset, beginAfter, endAt))
@@ -330,7 +337,7 @@ final case class ReferenceIndexService(
       // Scan over the states, only emitting a new timestamp when the record time has changed.
       .scan[Option[Time.Timestamp]](None) {
         case (Some(prevTime), currentTime) if prevTime == currentTime => None
-        case (None, currentTime) => Some(currentTime)
+        case (_, currentTime) => Some(currentTime)
       }
       .mapConcat(_.toList)
 

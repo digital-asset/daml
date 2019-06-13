@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 -- | Test driver for DAML-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,
@@ -163,7 +164,7 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       }
     else do
       Compile.unsafeClearDiagnostics service
-      ex <- try $ mainProj args service outdir log file :: IO (Either SomeException Package)
+      ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
       diags <- Compile.getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
@@ -221,7 +222,7 @@ checkDiagnostics log expected got = do
       | otherwise -> Just $ unlines ("Could not find matching diagnostics:" : map show bad)
     where checkField :: D.FileDiagnostic -> DiagnosticField -> Bool
           checkField (fp, D.Diagnostic{..}) f = case f of
-            DFilePath p -> p == fp
+            DFilePath p -> toNormalizedFilePath p == fp
             DRange r -> r == _range
             DSeverity s -> Just s == _severity
             DSource s -> Just (T.pack s) == _source
@@ -299,10 +300,10 @@ parseRange s =
             (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
 
-mainProj :: TestArguments -> Compile.IdeState -> FilePath -> (String -> IO ()) -> FilePath -> IO LF.Package
+mainProj :: TestArguments -> Compile.IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
 mainProj TestArguments{..} service outdir log file = do
     writeFile <- return $ \a b -> length b `seq` writeFile a b
-    let proj = takeBaseName file
+    let proj = takeBaseName (fromNormalizedFilePath file)
 
     let corePrettyPrint = timed log "Core pretty-printing" . liftIO . writeFile (outdir </> proj <.> "core") . unlines . map prettyPrint
     let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
@@ -326,16 +327,16 @@ unjust act = do
       Nothing -> fail "_IGNORE_"
       Just v -> return v
 
-ghcCompile :: (String -> IO ()) -> FilePath -> Action [GHC.CoreModule]
+ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action [GHC.CoreModule]
 ghcCompile log file = timed log "GHC compile" $ unjust $ Compile.getGhcCore file
 
-lfConvert :: (String -> IO ()) -> FilePath -> Action LF.Package
+lfConvert :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
 lfConvert log file = timed log "LF convert" $ unjust $ Compile.getRawDalf file
 
-lfTypeCheck :: (String -> IO ()) -> FilePath -> Action LF.Package
+lfTypeCheck :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
 lfTypeCheck log file = timed log "LF type check" $ unjust $ Compile.getDalf file
 
-lfRunScenarios :: (String -> IO ()) -> FilePath -> Action ()
+lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
 lfRunScenarios log file = timed log "LF execution" $ void $ unjust $ Compile.runScenarios file
 
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a

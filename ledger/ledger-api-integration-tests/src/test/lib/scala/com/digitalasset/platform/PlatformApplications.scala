@@ -39,6 +39,7 @@ object PlatformApplications {
       committerParty: String,
       timeProviderType: TimeProviderType,
       timeModel: TimeModel,
+      commandSubmissionTtlScaleFactor: Double = 1.0,
       heartBeatInterval: FiniteDuration = 5.seconds,
       persistenceEnabled: Boolean = false,
       maxNumberOfAcsContracts: Option[Int] = None,
@@ -65,6 +66,9 @@ object PlatformApplications {
     def withPersistence(enabled: Boolean) = copy(persistenceEnabled = enabled)
 
     def withHeartBeatInterval(interval: FiniteDuration) = copy(heartBeatInterval = interval)
+
+    def withCommandSubmissionTtlScaleFactor(factor: Double) =
+      copy(commandSubmissionTtlScaleFactor = factor)
 
     def withMaxNumberOfAcsContracts(cap: Int) = copy(maxNumberOfAcsContracts = Some(cap))
 

@@ -86,7 +86,7 @@ class ApiTransactionService private (
       .split(request.eventId.unwrap)
       .fold(
         Future.failed[TransactionTree](
-          Status.INVALID_ARGUMENT
+          Status.NOT_FOUND
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
         case TransactionIdWithIndex(transactionId, index) =>
@@ -105,7 +105,7 @@ class ApiTransactionService private (
       .split(request.eventId.unwrap)
       .fold(
         Future.failed[Transaction](
-          Status.INVALID_ARGUMENT
+          Status.NOT_FOUND
             .withDescription(s"invalid eventId: ${request.eventId}")
             .asRuntimeException())) {
         case TransactionIdWithIndex(transactionId, _) =>
@@ -132,7 +132,7 @@ class ApiTransactionService private (
 
         case None =>
           Future.failed(
-            Status.INVALID_ARGUMENT
+            Status.NOT_FOUND
               .withDescription("Transaction not found, or not visible.")
               .asRuntimeException())
       }
@@ -148,7 +148,7 @@ class ApiTransactionService private (
 
         case None =>
           Future.failed(
-            Status.INVALID_ARGUMENT
+            Status.NOT_FOUND
               .withDescription("Transaction not found, or not visible.")
               .asRuntimeException())
       }

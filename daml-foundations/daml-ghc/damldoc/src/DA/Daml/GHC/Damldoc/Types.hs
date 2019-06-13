@@ -1,15 +1,14 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE TemplateHaskell #-}
-
 module DA.Daml.GHC.Damldoc.Types(
     module DA.Daml.GHC.Damldoc.Types
     ) where
 
-import qualified Data.Aeson.TH.Extended as Aeson.TH
+import Data.Aeson
 import           Data.Text              (Text)
 import           Data.Hashable
+import GHC.Generics
 
 -- | Markdown type, simple wrapper for now
 type Markdown = Text
@@ -28,7 +27,7 @@ data Type = TypeApp Typename [Type] -- ^ Type application
           | TypeFun [Type] -- ^ Function type
           | TypeList Type   -- ^ List syntax
           | TypeTuple [Type] -- ^ Tuple syntax
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 instance Hashable Type where
   hashWithSalt salt = hashWithSalt salt . show
@@ -46,7 +45,7 @@ data ModuleDoc = ModuleDoc
   -- optional header, containing groups of templates and ADTs. This can be done
   -- storing just linkIDs for them, the renderer would then search the lists.
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 
 -- | Documentation data for a template
@@ -56,7 +55,7 @@ data TemplateDoc = TemplateDoc
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 data ClassDoc = ClassDoc
   { cl_name :: Typename
@@ -65,7 +64,7 @@ data ClassDoc = ClassDoc
   , cl_args :: [Text]
   , cl_functions :: [FunctionDoc]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 -- | Documentation data for an ADT or type synonym
 data ADTDoc = ADTDoc
@@ -80,7 +79,7 @@ data ADTDoc = ADTDoc
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_rhs    :: Type
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 
 -- | Constructors (Record or Prefix)
@@ -93,7 +92,7 @@ data ADTConstr =
             , ac_descr :: Maybe Markdown
             , ac_fields :: [FieldDoc]
             }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 
 -- | Choices are like ADTs: name, link, optional description, but the
@@ -104,7 +103,7 @@ data ChoiceDoc = ChoiceDoc
   , cd_descr  :: Maybe Markdown
   , cd_fields :: [FieldDoc]
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 
 -- | Documentation data for a field in a record
@@ -115,7 +114,7 @@ data FieldDoc = FieldDoc
     -- names in components to enable links, and it Can use bound type var.s.
   , fd_descr :: Maybe Markdown
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 
 -- | Documentation data for functions (top level only, type optional)
@@ -125,34 +124,67 @@ data FunctionDoc = FunctionDoc
   , fct_type  :: Maybe Type
   , fct_descr :: Maybe Markdown
   }
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
 
 -----------------------------------------------------
 -- generate JSON instances
 
-$(Aeson.TH.deriveDAToJSON   "" ''Type)
-$(Aeson.TH.deriveDAFromJSON "" ''Type)
+instance ToJSON Type where
+    toJSON = genericToJSON aesonOptions
 
-$(Aeson.TH.deriveDAToJSON   "" ''FunctionDoc)
-$(Aeson.TH.deriveDAFromJSON "" ''FunctionDoc)
+instance FromJSON Type where
+    parseJSON = genericParseJSON aesonOptions
 
-$(Aeson.TH.deriveDAToJSON   "" ''ClassDoc)
-$(Aeson.TH.deriveDAFromJSON "" ''ClassDoc)
+instance ToJSON FunctionDoc where
+    toJSON = genericToJSON aesonOptions
 
-$(Aeson.TH.deriveDAToJSON   "" ''FieldDoc)
-$(Aeson.TH.deriveDAFromJSON "" ''FieldDoc)
+instance FromJSON FunctionDoc where
+    parseJSON = genericParseJSON aesonOptions
 
-$(Aeson.TH.deriveDAToJSON   "" ''ADTDoc)
-$(Aeson.TH.deriveDAFromJSON "" ''ADTDoc)
+instance ToJSON ClassDoc where
+    toJSON = genericToJSON aesonOptions
 
-$(Aeson.TH.deriveDAToJSON   "" ''ADTConstr)
-$(Aeson.TH.deriveDAFromJSON "" ''ADTConstr)
+instance FromJSON ClassDoc where
+    parseJSON = genericParseJSON aesonOptions
 
-$(Aeson.TH.deriveDAToJSON   "" ''ChoiceDoc)
-$(Aeson.TH.deriveDAFromJSON "" ''ChoiceDoc)
+instance ToJSON FieldDoc where
+    toJSON = genericToJSON aesonOptions
 
-$(Aeson.TH.deriveDAToJSON   "" ''TemplateDoc)
-$(Aeson.TH.deriveDAFromJSON "" ''TemplateDoc)
+instance FromJSON FieldDoc where
+    parseJSON = genericParseJSON aesonOptions
 
-$(Aeson.TH.deriveDAToJSON   "" ''ModuleDoc)
-$(Aeson.TH.deriveDAFromJSON "" ''ModuleDoc)
+instance ToJSON ADTDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON ADTDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON ADTConstr where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON ADTConstr where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON ChoiceDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON ChoiceDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON TemplateDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON TemplateDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON ModuleDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON ModuleDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+aesonOptions :: Options
+aesonOptions = defaultOptions
+    { sumEncoding = ObjectWithSingleField
+    , omitNothingFields = True
+    }

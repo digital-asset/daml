@@ -50,5 +50,6 @@ import DA.TextMap
 import DA.Time
 import DA.Traversable
 import DA.Tuple
+import DA.Upgrade
 import DA.Validation
 import Prelude

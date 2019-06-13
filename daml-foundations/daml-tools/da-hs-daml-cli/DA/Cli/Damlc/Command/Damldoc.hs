@@ -8,6 +8,7 @@ module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc, cmdRenderDoc) where
 import           DA.Cli.Damlc.Base(Command)
 import           DA.Cli.Options
 import           DA.Daml.GHC.Damldoc.Driver
+import Development.IDE.Types.Diagnostics
 
 import           Options.Applicative
 import Data.Maybe
@@ -123,7 +124,7 @@ data CmdArgs = Damldoc { cInputFormat :: InputFormat
              deriving (Eq, Show, Read)
 
 exec :: CmdArgs -> Command
-exec Damldoc{..} = damlDocDriver cInputFormat cOutput cFormat cPrefix options cMainFiles
+exec Damldoc{..} = damlDocDriver cInputFormat cOutput cFormat cPrefix options (map toNormalizedFilePath cMainFiles)
   where options =
           [ IncludeModules cIncludeMods | not $ null cIncludeMods] <>
           [ ExcludeModules cExcludeMods | not $ null cExcludeMods] <>

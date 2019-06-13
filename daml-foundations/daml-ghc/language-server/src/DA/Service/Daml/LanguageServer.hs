@@ -47,7 +47,7 @@ import Language.Haskell.LSP.VFS
 
 -- | Language server state
 data State = State
-    { sOpenDocuments        :: !(S.Set FilePath)
+    { sOpenDocuments        :: !(S.Set Compiler.NormalizedFilePath)
     , sOpenVirtualResources :: !(S.Set Compiler.VirtualResource)
     }
 
@@ -107,12 +107,12 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
         let uri = _uri (docId :: VersionedTextDocumentIdentifier)
 
         case Compiler.uriToFilePath' uri of
-          Just filePath -> do
+          Just (Compiler.toNormalizedFilePath -> filePath) -> do
             mbVirtual <- getVirtualFileFunc lspFuncs $ toNormalizedUri uri
             let contents = maybe "" (Rope.toText . (_text :: VirtualFile -> Rope.Rope)) mbVirtual
             Compiler.onFileModified compilerH filePath (Just contents)
             Logger.logInfo loggerH
-              $ "Updated text document: " <> T.show filePath
+              $ "Updated text document: " <> T.show (Compiler.fromNormalizedFilePath filePath)
 
           Nothing ->
             Logger.logError loggerH
@@ -122,7 +122,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
         case URI.parseURI $ T.unpack $ getUri uri of
           Just uri'
               | URI.uriScheme uri' == "file:" -> do
-                    Just fp <- pure $ Compiler.uriToFilePath' uri
+                    Just fp <- pure $ Compiler.toNormalizedFilePath <$> Compiler.uriToFilePath' uri
                     handleDidCloseFile fp
               | URI.uriScheme uri' == "daml:" -> handleDidCloseVirtualResource uri'
               | otherwise -> Logger.logWarning loggerH $ "Unknown scheme in URI: " <> T.show uri
@@ -141,7 +141,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
     -- changes in STM so that we can atomically change the state.
     -- Internally it should be done via the IO oracle. See PROD-2808.
     handleDidOpenFile (TextDocumentItem uri _ _ contents) = do
-        Just filePath <- pure $ Compiler.uriToFilePath' uri
+        Just filePath <- pure $ Compiler.toNormalizedFilePath <$> Compiler.uriToFilePath' uri
         documents <- atomicModifyIORef' stateRef $
           \state -> let documents = S.insert filePath $ sOpenDocuments state
                     in ( state { sOpenDocuments = documents }
@@ -173,7 +173,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
                Compiler.setOpenVirtualResources compilerH $ S.toList resources
 
     handleDidCloseFile filePath = do
-         Logger.logInfo loggerH $ "Closed text document: " <> T.show filePath
+         Logger.logInfo loggerH $ "Closed text document: " <> T.show (Compiler.fromNormalizedFilePath filePath)
          documents <- atomicModifyIORef' stateRef $
            \state -> let documents = S.delete filePath $ sOpenDocuments state
                      in ( state { sOpenDocuments = documents }
