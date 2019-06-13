@@ -33,7 +33,7 @@ import com.digitalasset.ledger.client.configuration.{
 
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.sample.EventDecoder
 import com.digitalasset.sample.MyMain.NameClashRecordVariant.NameClashRecordVariantA
@@ -105,7 +105,7 @@ class ScalaCodeGenIT
 
   private val serverConfig = SandboxConfig.default.copy(
     port = port,
-    damlPackageContainer = DamlPackageContainer(archives),
+    damlPackages = archives,
     timeProviderType = TimeProviderType.WallClock,
     ledgerIdMode = LedgerIdMode.Static(LedgerId(ledgerId)),
   )

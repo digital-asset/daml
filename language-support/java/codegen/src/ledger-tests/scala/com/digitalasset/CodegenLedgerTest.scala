@@ -33,7 +33,7 @@ import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
 }
 import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxServerResource
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import io.grpc.Channel
@@ -54,7 +54,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers with BazelRunfiles {
   def withClient(testCode: Channel => Assertion): Assertion = {
     val cfg = SandboxConfig.default.copy(
       port = 0,
-      damlPackageContainer = DamlPackageContainer(List(testDalf)),
+      damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = TimeProviderType.WallClock,
       timeModel = TimeModel.reasonableDefault

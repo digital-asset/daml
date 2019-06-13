@@ -171,6 +171,6 @@ private[codegen] object CodeGenRunner extends StrictLogging {
   object ArchiveReader
       extends DarReader[DamlLf.Archive](
         DarManifestReader.dalfNames,
-        is => Try(DamlLf.Archive.parseFrom(is))
+        { case (_, is) => Try(DamlLf.Archive.parseFrom(is)) }
       )
 }
