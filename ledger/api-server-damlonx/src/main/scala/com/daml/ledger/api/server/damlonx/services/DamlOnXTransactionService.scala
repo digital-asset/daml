@@ -232,8 +232,9 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
           Future.successful(result)
 
         case None =>
+          logger.error("lookupTransactionTreeById: Failing with NOT_FOUND")
           Future.failed(
-            Status.INVALID_ARGUMENT
+            Status.NOT_FOUND
               .withDescription(s"$txId could not be found")
               .asRuntimeException)
       }
@@ -260,8 +261,9 @@ class DamlOnXTransactionService private (val indexService: IndexService, paralle
             acceptedToFlat(offset, trans, blindingInfo, verbose = true, eventFilter))
 
         case None =>
+          logger.error("lookupTransactionTreeById: Failing with NOT_FOUND")
           Future.failed(
-            Status.INVALID_ARGUMENT
+            Status.NOT_FOUND
               .withDescription(s"$txId could not be found")
               .asRuntimeException)
       }

@@ -33,7 +33,6 @@ import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, 
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
-import com.digitalasset.platform.server.api.validation.ErrorFactories
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -204,7 +203,7 @@ class InMemoryLedger(
 
     Try(transactionId.toLong) match {
       case Failure(_) =>
-        Future.failed(ErrorFactories.notFound(transactionId))
+        Future.successful(None)
       case Success(n) =>
         Future.successful(
           entries
