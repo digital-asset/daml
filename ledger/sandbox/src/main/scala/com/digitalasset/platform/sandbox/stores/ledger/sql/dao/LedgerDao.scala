@@ -10,7 +10,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v2.TransactionId
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
@@ -85,11 +85,16 @@ trait LedgerDao extends AutoCloseable {
 
   type LedgerOffset = Long
 
+  type ExternalOffset = LedgerString
+
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[LedgerId]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd(): Future[LedgerOffset]
+
+  /** Looks up the current external ledger end offset*/
+  def lookupExternalLedgerEnd(): Future[Option[LedgerString]]
 
   /** Looks up an active contract. Archived contracts must not be returned by this method */
   def lookupActiveContract(contractId: AbsoluteContractId): Future[Option[Contract]]
@@ -160,6 +165,7 @@ trait LedgerDao extends AutoCloseable {
   def storeLedgerEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
       ledgerEntry: PersistenceEntry): Future[PersistenceResponse]
 
   /**

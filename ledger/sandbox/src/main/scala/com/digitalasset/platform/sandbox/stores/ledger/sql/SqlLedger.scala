@@ -182,7 +182,7 @@ private class SqlLedger(
             case (ledgerEntryGen, i) =>
               val offset = startOffset + i
               ledgerDao
-                .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))
+                .storeLedgerEntry(offset, offset + 1, None, ledgerEntryGen(offset))
                 .map(_ => ())(DEC)
                 .recover {
                   case t =>
