@@ -686,7 +686,7 @@ class TransactionServiceIT
           resultF.map(_.agreementText shouldBe Some(""))
       }
 
-      "do not expose the contract key in CreatedEvents for templates that do not have them" in allFixtures {
+      "not expose the contract key in CreatedEvents for templates that do not have them" in allFixtures {
         c =>
           val resultF = c.submitCreate(
             "Creating_CallablePayout_contract_for_contract_key_test",
