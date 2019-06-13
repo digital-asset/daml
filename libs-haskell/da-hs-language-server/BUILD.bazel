@@ -21,6 +21,7 @@ da_haskell_library(
         "haskell-lsp",
         "haskell-lsp-types",
         "mtl",
+        "prettyprinter",
         "scientific",
         "stm",
         "tagged",
@@ -30,6 +31,6 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//libs-haskell/da-hs-base",
+        "//compiler/haskell-ide-core",
     ],
 )

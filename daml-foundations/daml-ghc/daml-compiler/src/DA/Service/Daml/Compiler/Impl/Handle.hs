@@ -15,6 +15,7 @@ module DA.Service.Daml.Compiler.Impl.Handle
   , gotoDefinition
   , atPoint
   , compileFile
+  , toIdeLogger
   , UseDalf(..)
   , buildDar
   , getDalfDependencies
@@ -116,7 +117,9 @@ withIdeState compilerOpts loggerH eventHandler f =
 toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle
 toIdeLogger h = IdeLogger.Handle {
        logSeriousError = Logger.logError h
+     , logInfo = Logger.logInfo h
      , logDebug = Logger.logDebug h
+     , logWarning = Logger.logWarning h
      }
 
 ------------------------------------------------------------------------------

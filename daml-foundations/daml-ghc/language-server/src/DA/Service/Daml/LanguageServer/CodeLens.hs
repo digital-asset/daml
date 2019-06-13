@@ -13,16 +13,15 @@ import Language.Haskell.LSP.Types
 
 import Data.Foldable
 import Data.Maybe
+import qualified Data.Text as T
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import           DA.Service.Daml.LanguageServer.Common
-import qualified DA.Service.Logger                     as Logger
+import qualified Development.IDE.Logger as Logger
 import Development.IDE.Types.Diagnostics
-
-import qualified Data.Text.Extended                    as T
 
 -- | Gather code lenses like scenario execution for a DAML file.
 handle
-    :: Logger.Handle IO
+    :: Logger.Handle
     -> Compiler.IdeState
     -> CodeLensParams
     -> IO (List CodeLens)

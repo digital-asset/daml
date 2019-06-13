@@ -239,7 +239,7 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
         withScenarioService' enableScenarioService loggerH $ \mbScenarioService -> do
             -- TODO we should allow different LF versions in the IDE.
             execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
-            Daml.LanguageServer.runLanguageServer loggerH
+            Daml.LanguageServer.runLanguageServer (toIdeLogger loggerH)
                 (getIdeState opts mbScenarioService loggerH)
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command

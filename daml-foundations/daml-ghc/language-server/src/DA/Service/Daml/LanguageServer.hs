@@ -20,14 +20,14 @@ import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
 import qualified DA.Service.Daml.LanguageServer.Definition as LS.Definition
 import qualified DA.Service.Daml.LanguageServer.Hover      as LS.Hover
-import qualified DA.Service.Logger                         as Logger
+import qualified Development.IDE.Logger as Logger
 import DAML.Project.Consts
 
 import qualified Data.Aeson                                as Aeson
 import           Data.IORef                                (IORef, atomicModifyIORef', newIORef)
 import qualified Data.Rope.UTF16 as Rope
 import qualified Data.Set                                  as S
-import qualified Data.Text.Extended                        as T
+import qualified Data.Text as T
 
 import Development.IDE.State.FileStore
 import qualified Development.IDE.Types.Diagnostics as Compiler
@@ -40,6 +40,9 @@ import qualified System.Exit
 import Language.Haskell.LSP.Core (LspFuncs(..))
 import Language.Haskell.LSP.Messages
 import Language.Haskell.LSP.VFS
+
+textShow :: Show a => a -> T.Text
+textShow = T.pack . show
 
 ------------------------------------------------------------------------
 -- Types
@@ -54,7 +57,7 @@ data State = State
 -- | Implementation handle
 data IHandle p t = IHandle
     { ihState     :: !(IORef State)
-    , ihLoggerH   :: !(Logger.Handle IO)
+    , ihLoggerH   :: !Logger.Handle
     , ihCompilerH :: !Compiler.IdeState
     }
 
@@ -98,10 +101,10 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
 
               | otherwise
               -> Logger.logWarning loggerH $ "Unknown scheme in URI: "
-                    <> T.show uri
+                    <> textShow uri
 
-          _ -> Logger.logError loggerH $ "Invalid URI in DidOpenTextDocument: "
-                    <> T.show (_uri (item :: TextDocumentItem))
+          _ -> Logger.logSeriousError loggerH $ "Invalid URI in DidOpenTextDocument: "
+                    <> textShow (_uri (item :: TextDocumentItem))
 
     DidChangeTextDocument (DidChangeTextDocumentParams docId _) -> do
         let uri = _uri (docId :: VersionedTextDocumentIdentifier)
@@ -112,11 +115,11 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
             let contents = maybe "" (Rope.toText . (_text :: VirtualFile -> Rope.Rope)) mbVirtual
             Compiler.onFileModified compilerH filePath (Just contents)
             Logger.logInfo loggerH
-              $ "Updated text document: " <> T.show (Compiler.fromNormalizedFilePath filePath)
+              $ "Updated text document: " <> textShow (Compiler.fromNormalizedFilePath filePath)
 
           Nothing ->
-            Logger.logError loggerH
-              $ "Invalid file path: " <> T.show (_uri (docId :: VersionedTextDocumentIdentifier))
+            Logger.logSeriousError loggerH
+              $ "Invalid file path: " <> textShow (_uri (docId :: VersionedTextDocumentIdentifier))
 
     DidCloseTextDocument (DidCloseTextDocumentParams (TextDocumentIdentifier uri)) ->
         case URI.parseURI $ T.unpack $ getUri uri of
@@ -125,11 +128,11 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
                     Just fp <- pure $ Compiler.toNormalizedFilePath <$> Compiler.uriToFilePath' uri
                     handleDidCloseFile fp
               | URI.uriScheme uri' == "daml:" -> handleDidCloseVirtualResource uri'
-              | otherwise -> Logger.logWarning loggerH $ "Unknown scheme in URI: " <> T.show uri
+              | otherwise -> Logger.logWarning loggerH $ "Unknown scheme in URI: " <> textShow uri
 
-          _ -> Logger.logError loggerH
+          _ -> Logger.logSeriousError loggerH
                  $    "Invalid URI in DidCloseTextDocument: "
-                   <> T.show uri
+                   <> textShow uri
 
     DidSaveTextDocument _params ->
       pure ()
@@ -156,15 +159,15 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
         -- Update the list of open files
         Compiler.setFilesOfInterest compilerH (S.toList documents)
 
-        Logger.logInfo loggerH $ "Opened text document: " <> T.show filePath
+        Logger.logInfo loggerH $ "Opened text document: " <> textShow filePath
 
     handleDidOpenVirtualResource uri = do
          case Compiler.uriToVirtualResource uri of
            Nothing -> do
-               Logger.logWarning loggerH $ "Failed to parse virtual resource URI: " <> T.show uri
+               Logger.logWarning loggerH $ "Failed to parse virtual resource URI: " <> textShow uri
                pure ()
            Just vr -> do
-               Logger.logInfo loggerH $ "Opened virtual resource: " <> T.show vr
+               Logger.logInfo loggerH $ "Opened virtual resource: " <> textShow vr
                resources <- atomicModifyIORef' stateRef $
                  \state -> let resources = S.insert vr $ sOpenVirtualResources state
                            in ( state { sOpenVirtualResources = resources }
@@ -173,7 +176,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
                Compiler.setOpenVirtualResources compilerH $ S.toList resources
 
     handleDidCloseFile filePath = do
-         Logger.logInfo loggerH $ "Closed text document: " <> T.show (Compiler.fromNormalizedFilePath filePath)
+         Logger.logInfo loggerH $ "Closed text document: " <> textShow (Compiler.fromNormalizedFilePath filePath)
          documents <- atomicModifyIORef' stateRef $
            \state -> let documents = S.delete filePath $ sOpenDocuments state
                      in ( state { sOpenDocuments = documents }
@@ -183,7 +186,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
          Compiler.onFileModified compilerH filePath Nothing
 
     handleDidCloseVirtualResource uri = do
-        Logger.logInfo loggerH $ "Closed virtual resource: " <> T.show uri
+        Logger.logInfo loggerH $ "Closed virtual resource: " <> textShow uri
         case Compiler.uriToVirtualResource uri of
            Nothing -> do
                Logger.logWarning loggerH "Failed to parse virtual resource URI!"
@@ -201,7 +204,7 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
 ------------------------------------------------------------------------
 
 runLanguageServer
-    :: Logger.Handle IO
+    :: Logger.Handle
     -> ((FromServerMessage -> IO ()) -> VFSHandle -> IO Compiler.IdeState)
     -> IO ()
 runLanguageServer loggerH getIdeState = do

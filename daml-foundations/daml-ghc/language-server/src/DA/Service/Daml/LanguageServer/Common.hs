@@ -9,18 +9,13 @@ module DA.Service.Daml.LanguageServer.Common
       damlLanguageIdentifier
 
     , virtualResourceToCodeLens
-
-      -- * Pretty printing
-    , Pretty.renderPretty
     ) where
 
 import DA.LanguageServer.Protocol hiding (CodeLens)
 import Language.Haskell.LSP.Types (CodeLens(..))
 
-import qualified DA.Pretty                        as Pretty
-
 import qualified Data.Aeson                       as Aeson
-import qualified Data.Text.Extended               as T
+import qualified Data.Text as T
 
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified Development.IDE.Types.Diagnostics as Base

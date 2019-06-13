@@ -10,8 +10,7 @@ module DA.LanguageServer.Protocol
 
 import qualified Data.Aeson       as Aeson
 import qualified Data.Text        as T
-
-import qualified DA.Pretty           as P
+import Data.Text.Prettyprint.Doc
 
 import Language.Haskell.LSP.Types hiding
     ( CodeLens
@@ -50,5 +49,5 @@ data ServerNotification
 -- Pretty printing
 ----------------------------------------------------------------------------------------------------
 
-prettyPosition :: Position -> P.Doc a
-prettyPosition Position{..} = P.int (_line + 1) <> P.colon <> P.int (_character + 1)
+prettyPosition :: Position -> Doc a
+prettyPosition Position{..} = pretty (_line + 1) <> colon <> pretty (_character + 1)
