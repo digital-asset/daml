@@ -1,9 +1,12 @@
 # Azure Pipelines file, see https://aka.ms/yaml
 
-# scheduled triggers are not supported in pipeline syntax yet, so it had to be
-# set up from Azure UI
-trigger: none
-pr: none
+schedules:
+- cron: "0 * * * *"
+  displayName: hourly cron
+  branches:
+    include:
+    - master
+  always: true
 
 jobs:
   - job: latest_webide
@@ -16,6 +19,7 @@ jobs:
         displayName: 'Check for updated SDK and build webide with latest version'
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
   - job: docs
     timeoutInMinutes: 50
     pool:
