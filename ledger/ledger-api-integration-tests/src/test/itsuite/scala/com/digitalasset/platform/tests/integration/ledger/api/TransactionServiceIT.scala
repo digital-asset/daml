@@ -755,7 +755,7 @@ class TransactionServiceIT
 
       "accept exercising a well-authorized multi-actor choice with coinciding controllers" in allFixtures {
         c =>
-          val List(operator, _, giver) = List(party1, party2, party3)
+          val List(operator, receiver @ _, giver) = List(party1, party2, party3)
           val triProposalArg = mkTriProposalArg(operator, giver, giver)
           val expectedArg = triProposalArg.map(_.copy(label = ""))
           for {
