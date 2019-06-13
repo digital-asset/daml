@@ -144,6 +144,7 @@ class TransactionServiceRequestValidator(
       req: GetTransactionByIdRequest): Result[transaction.GetTransactionByIdRequest] = {
     for {
       ledgerId <- matchId(LedgerId(req.ledgerId))
+      _ <- requireNonEmptyString(req.transactionId, "transaction_id")
       trId <- requireLedgerString(req.transactionId)
       _ <- requireNonEmpty(req.requestingParties, "requesting_parties")
       parties <- partyValidator.requireKnownParties(req.requestingParties)
