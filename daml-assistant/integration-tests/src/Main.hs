@@ -302,7 +302,8 @@ quickstartScalaTests quickstartDir mavenRepo = testGroup "quickstart-scala"
                       , ""
                       , "[repositories]"
                       , "  local"
-                      , "  maven-local"
+                      , "  maven-local: file://" <> mavenRepo
+                            -- TODO: do a proper filepath -> URI conversion
                       , "  maven-central"
                       , "  typesafe: https://repo.typesafe.com/typesafe/releases"
                       , "  typesafe-ivy: https://repo.typesafe.com/typesafe/ivy-releases"

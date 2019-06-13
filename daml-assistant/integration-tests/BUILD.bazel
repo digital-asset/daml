@@ -16,6 +16,8 @@ genrule(
         "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
         "//language-support/java/codegen:shaded_binary.jar",
         "//language-support/java/codegen:shaded_binary_pom.xml",
+        "//language-support/scala/bindings:bindings.jar",
+        "//language-support/scala/codegen:codegen-main.jar",
         "//ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar",
         "//ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
         "//docs:quickstart-java.tar.gz",
@@ -36,6 +38,15 @@ genrule(
           -Dpackaging=jar \
           -Dversion=$$VERSION
       }
+      install_mvn_no_pom() {
+          $(location @mvn_dev_env//:mvn) -q install:install-file \
+          -Dmaven.repo.local=$$MVN_DB \
+          "-DgroupId=$$1" \
+          "-DartifactId=$$2" \
+          "-Dfile=$$3" \
+          -Dpackaging=jar \
+          -Dversion=$$VERSION
+      }
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
       install_mvn \
         "com.digitalasset" "daml-lf-archive" \
@@ -53,6 +64,9 @@ genrule(
         "com.daml.java" "codegen" \
         $(location //language-support/java/codegen:shaded_binary.jar) \
         $(location //language-support/java/codegen:shaded_binary_pom.xml)
+      install_mvn_no_pom \
+        "com.daml.scala" "codegen-main_2.12" \
+        $(location //language-support/scala/codegen:codegen-main.jar)
       install_mvn \
         "com.digitalasset.ledger-api" "rs-grpc-bridge" \
         $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \
