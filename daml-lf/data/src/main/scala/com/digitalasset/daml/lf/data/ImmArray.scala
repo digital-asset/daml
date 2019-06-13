@@ -332,7 +332,7 @@ final class ImmArray[+A] private (
   def filter(f: A => Boolean): ImmArray[A] =
     collect { case x if f(x) => x }
 
-  override def hashCode(): Int = iterator.toList.hashCode()
+  override def hashCode(): Int = toSeq.hashCode()
 }
 
 object ImmArray {
