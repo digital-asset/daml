@@ -343,6 +343,7 @@ def da_scala_library(name, **kwargs):
                 pom_file(
                     name = name + "_pom",
                     target = ":" + name,
+                    visibility = ["//visibility:public"],
                 )
                 break
 
@@ -377,6 +378,7 @@ def da_scala_binary(name, **kwargs):
                 pom_file(
                     name = name + "_pom",
                     target = ":" + name,
+                    visibility = ["//visibility:public"],
                 )
                 break
 

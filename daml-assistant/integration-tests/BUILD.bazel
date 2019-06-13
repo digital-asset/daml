@@ -16,8 +16,22 @@ genrule(
         "//language-support/java/bindings-rxjava:bindings-rxjava_pom.xml",
         "//language-support/java/codegen:shaded_binary.jar",
         "//language-support/java/codegen:shaded_binary_pom.xml",
+        "//daml-lf/data:data.jar",
+        "//daml-lf/data:data_pom.xml",
+        "//daml-lf/interface:interface.jar",
+        "//daml-lf/interface:interface_pom.xml",
+        "//daml-lf/archive:daml_lf_archive_scala.jar",
+        "//daml-lf/archive:daml_lf_archive_scala_pom.xml",
+        "//language-support/codegen-common:codegen-common.jar",
+        "//language-support/codegen-common:codegen-common_pom.xml",
         "//language-support/scala/bindings:bindings.jar",
+        "//language-support/scala/bindings:bindings_pom.xml",
+        "//language-support/scala/codegen:codegen.jar",
+        "//language-support/scala/codegen:codegen_pom.xml",
         "//language-support/scala/codegen:codegen-main.jar",
+        "//language-support/scala/codegen:codegen-main_pom.xml",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb.jar",
+        "//ledger-api/grpc-definitions:ledger-api-scalapb_pom.xml",
         "//ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar",
         "//ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
         "//docs:quickstart-java.tar.gz",
@@ -38,15 +52,6 @@ genrule(
           -Dpackaging=jar \
           -Dversion=$$VERSION
       }
-      install_mvn_no_pom() {
-          $(location @mvn_dev_env//:mvn) -q install:install-file \
-          -Dmaven.repo.local=$$MVN_DB \
-          "-DgroupId=$$1" \
-          "-DartifactId=$$2" \
-          "-Dfile=$$3" \
-          -Dpackaging=jar \
-          -Dversion=$$VERSION
-      }
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
       install_mvn \
         "com.digitalasset" "daml-lf-archive" \
@@ -64,9 +69,38 @@ genrule(
         "com.daml.java" "codegen" \
         $(location //language-support/java/codegen:shaded_binary.jar) \
         $(location //language-support/java/codegen:shaded_binary_pom.xml)
-      install_mvn_no_pom \
+      install_mvn \
+        "com.digitalasset" "daml-lf-data_2.12" \
+        $(location //daml-lf/data:data.jar) \
+        $(location //daml-lf/data:data_pom.xml)
+      install_mvn \
+        "com.digitalasset" "daml-lf-interface_2.12" \
+        $(location //daml-lf/interface:interface.jar) \
+        $(location //daml-lf/interface:interface_pom.xml)
+      install_mvn \
+        "com.digitalasset" "daml-lf-archive-scala_2.12" \
+        $(location //daml-lf/archive:daml_lf_archive_scala.jar) \
+        $(location //daml-lf/archive:daml_lf_archive_scala_pom.xml)
+      install_mvn \
+        "com.daml" "codegen-common_2.12" \
+        $(location //language-support/codegen-common:codegen-common.jar) \
+        $(location //language-support/codegen-common:codegen-common_pom.xml)
+      install_mvn \
+        "com.daml.scala" "codegen_2.12" \
+        $(location //language-support/scala/codegen:codegen.jar) \
+        $(location //language-support/scala/codegen:codegen_pom.xml)
+      install_mvn \
         "com.daml.scala" "codegen-main_2.12" \
-        $(location //language-support/scala/codegen:codegen-main.jar)
+        $(location //language-support/scala/codegen:codegen-main.jar) \
+        $(location //language-support/scala/codegen:codegen-main_pom.xml)
+      install_mvn \
+        "com.daml.scala" "bindings_2.12" \
+        $(location //language-support/scala/bindings:bindings.jar) \
+        $(location //language-support/scala/bindings:bindings_pom.xml)
+      install_mvn \
+        "com.digitalasset.ledger-api.grpc-definitions" "ledger-api-scalapb_2.12" \
+        $(location //ledger-api/grpc-definitions:ledger-api-scalapb.jar) \
+        $(location //ledger-api/grpc-definitions:ledger-api-scalapb_pom.xml)
       install_mvn \
         "com.digitalasset.ledger-api" "rs-grpc-bridge" \
         $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \
