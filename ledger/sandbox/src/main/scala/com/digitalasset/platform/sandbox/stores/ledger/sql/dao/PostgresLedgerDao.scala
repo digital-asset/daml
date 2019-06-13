@@ -451,9 +451,9 @@ private class PostgresLedgerDao(
       .on(
         "ledger_offset" -> offset,
         "transaction_id" -> tx.transactionId,
-        "command_id" -> tx.commandId,
-        "application_id" -> tx.applicationId,
-        "submitter" -> tx.submittingParty,
+        "command_id" -> (tx.commandId: Option[String]),
+        "application_id" -> (tx.applicationId: Option[String]),
+        "submitter" -> (tx.submittingParty: Option[String]),
         "workflow_id" -> tx.workflowId.getOrElse(""),
         "effective_at" -> tx.ledgerEffectiveTime,
         "recorded_at" -> tx.recordedAt,
@@ -529,19 +529,27 @@ private class PostgresLedgerDao(
             storeTransaction(offset, tx)
 
             updateActiveContractSet(offset, tx, localImplicitDisclosure, globalImplicitDisclosure)
-              .fold[PersistenceResponse](Ok) { rejectionReason =>
+              .flatMap { rejectionReason =>
                 // we need to rollback the existing sql transaction
                 conn.rollback()
-                insertEntry(
-                  PersistenceEntry.Rejection(
-                    Rejection(
-                      tx.recordedAt,
-                      tx.commandId,
-                      tx.applicationId,
-                      tx.submittingParty,
-                      rejectionReason
-                    )))
-              }
+                // we only need to store a rejection if the full submitter information is available.
+                for {
+                  cmdId <- tx.commandId
+                  appId <- tx.applicationId
+                  submitter <- tx.submittingParty
+                } yield {
+                  insertEntry(
+                    PersistenceEntry.Rejection(
+                      Rejection(
+                        tx.recordedAt,
+                        cmdId,
+                        appId,
+                        submitter,
+                        rejectionReason
+                      )))
+
+                }
+              } getOrElse Ok
           }.recover {
             case NonFatal(e) if (e.getMessage.contains("duplicate key")) =>
               logger.warn(
@@ -668,9 +676,9 @@ private class PostgresLedgerDao(
     case ParsedEntry(
         "transaction",
         Some(transactionId),
-        Some(commandId),
-        Some(applicationId),
-        Some(submitter),
+        commandId,
+        applicationId,
+        submitter,
         Some(workflowId),
         Some(effectiveAt),
         Some(recordedAt),

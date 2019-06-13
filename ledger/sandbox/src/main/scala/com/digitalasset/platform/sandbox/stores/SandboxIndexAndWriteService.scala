@@ -41,6 +41,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
+import scalaz.Tag
 import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
@@ -326,11 +327,13 @@ private class SandboxIndexAndWriteService(
       case LedgerOffset.Absolute(absBegin) =>
         ledger.ledgerEntries(Some(absBegin.toLong)).collect {
           case (offset, t: LedgerEntry.Transaction)
-              if (t.applicationId == applicationId.unwrap && parties.contains(t.submittingParty)) =>
+              if t.applicationId.contains(applicationId.unwrap) &&
+                t.submittingParty.exists(parties.contains) &&
+                t.commandId.nonEmpty =>
             CommandAccepted(
               domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
               t.recordedAt,
-              domain.CommandId(t.commandId),
+              Tag.subst(t.commandId).get,
               domain.TransactionId(t.transactionId)
             )
 

@@ -25,10 +25,10 @@ object LedgerEntry {
       extends LedgerEntry
 
   final case class Transaction(
-      commandId: CommandId,
+      commandId: Option[CommandId],
       transactionId: TransactionIdString,
-      applicationId: ApplicationId,
-      submittingParty: Party,
+      applicationId: Option[ApplicationId],
+      submittingParty: Option[Party],
       workflowId: Option[WorkflowId],
       ledgerEffectiveTime: Instant,
       recordedAt: Instant,

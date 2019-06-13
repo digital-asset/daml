@@ -166,10 +166,10 @@ class InMemoryLedger(
             }
           val entry = LedgerEntry
             .Transaction(
-              submitterInfo.commandId,
+              Some(submitterInfo.commandId),
               trId,
-              submitterInfo.applicationId,
-              submitterInfo.submitter,
+              Some(submitterInfo.applicationId),
+              Some(submitterInfo.submitter),
               transactionMeta.workflowId,
               transactionMeta.ledgerEffectiveTime,
               recordTime,

@@ -40,13 +40,13 @@ trait TransactionConversion {
       .flatMap(eventFilter.filterCreateOrArchiveWitnesses(_).toList)
 
     val submitterIsSubscriber =
-      eventFilter.isSubmitterSubscriber(trans.submittingParty)
+      trans.submittingParty.exists(eventFilter.isSubmitterSubscriber)
 
     if (filteredEvents.nonEmpty || submitterIsSubscriber) {
       Some(
         domain.Transaction(
           domain.TransactionId(trans.transactionId),
-          if (submitterIsSubscriber) Some(domain.CommandId(trans.commandId)) else None,
+          if (submitterIsSubscriber) Tag.subst(trans.commandId) else None,
           trans.workflowId.map(domain.WorkflowId(_)),
           trans.recordedAt,
           filteredEvents,
@@ -82,11 +82,11 @@ trait TransactionConversion {
             .sortBy(evid => getEventIndex(evid.unwrap)))
 
       val subscriberIsSubmitter =
-        TemplateAwareFilter(filter).isSubmitterSubscriber(trans.submittingParty)
+        trans.submittingParty.exists(TemplateAwareFilter(filter).isSubmitterSubscriber)
 
       domain.TransactionTree(
         domain.TransactionId(trans.transactionId),
-        if (subscriberIsSubmitter) Some(domain.CommandId(trans.commandId)) else None,
+        if (subscriberIsSubmitter) Tag.subst(trans.commandId) else None,
         Tag.subst(trans.workflowId),
         trans.recordedAt,
         offset,
