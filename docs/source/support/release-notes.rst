@@ -12,7 +12,7 @@ HEAD — ongoing
 Visualizing DAML Contracts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- Added instructions for :doc `visualizing DAML contracts </tools/visual>`
+- Added :doc:`Visualizing DAML Contracts </tools/visual>`
 
 0.12.25 — 2019-06-13
 --------------------
