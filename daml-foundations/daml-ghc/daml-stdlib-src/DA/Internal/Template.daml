@@ -85,7 +85,7 @@ exerciseByKey k e = do
     (c, cc) <- fetchByKey @c k
     internalExerciseWithActors (choiceController cc e) c e
 
--- | Eexercise a choice on a contract given by its key, conditional on it existing.
+-- | Exercise a choice on a contract given by its key, conditional on it existing.
 --
 -- The `c` needs to be passed using an explicit type application. For
 -- instance, if you want to exercise a choice `Withdraw` on a contract of
