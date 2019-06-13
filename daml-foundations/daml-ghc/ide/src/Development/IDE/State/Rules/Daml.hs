@@ -76,7 +76,7 @@ virtualResourceToUri
 virtualResourceToUri vr = case vr of
     VRScenario filePath topLevelDeclName ->
         T.pack $ "daml://compiler?" <> keyValueToQueryString
-            [ ("file", filePath)
+            [ ("file", fromNormalizedFilePath filePath)
             , ("top-level-decl", T.unpack topLevelDeclName)
             ]
   where
@@ -98,7 +98,7 @@ uriToVirtualResource uri = do
             let decoded = queryString uri
             file <- Map.lookup "file" decoded
             topLevelDecl <- Map.lookup "top-level-decl" decoded
-            pure $ VRScenario file (T.pack topLevelDecl)
+            pure $ VRScenario (toNormalizedFilePath file) (T.pack topLevelDecl)
         _ -> Nothing
 
   where
@@ -115,19 +115,19 @@ uriToVirtualResource uri = do
 
 -- | Get an unvalidated DALF package.
 -- This must only be used for debugging/testing.
-getRawDalf :: FilePath -> Action (Maybe LF.Package)
+getRawDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
 getRawDalf absFile = use GenerateRawPackage absFile
 
 -- | Get a validated DALF package.
-getDalf :: FilePath -> Action (Maybe LF.Package)
+getDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
 getDalf file = eitherToMaybe <$>
     (runExceptT $ useE GeneratePackage file)
 
-runScenarios :: FilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
+runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScenarios file = use RunScenarios file
 
 -- | Get a list of the scenarios in a given file
-getScenarioNames :: FilePath -> Action (Maybe [VirtualResource])
+getScenarioNames :: NormalizedFilePath -> Action (Maybe [VirtualResource])
 getScenarioNames file = fmap f <$> use GenerateRawDalf file
     where f = map (VRScenario file . LF.unExprValName . LF.qualObject) . scenariosInModule
 
@@ -186,7 +186,7 @@ generatePackageMap fps = do
         dalfBS <- BS.readFile dalf
         return $ do
           (pkgId, package) <-
-            mapLeft (ideErrorPretty dalf) $
+            mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $
             Archive.decodeArchive dalfBS
           let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
           Right (unitId, (pkgId, package, dalfBS, dalf))
@@ -234,7 +234,7 @@ generatePackageDepsRule options =
         -- build package
         return ([], Just $ buildPackage (optMbPackageName options) lfVersion dalfs)
 
-contextForFile :: FilePath -> Action SS.Context
+contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
     lfVersion <- getDamlLfVersion
     pkg <- use_ GeneratePackage file
@@ -252,7 +252,7 @@ contextForFile file = do
               ScenarioValidationLight -> SS.LightValidation True
         }
 
-worldForFile :: FilePath -> Action LF.World
+worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
     pkg <- use_ GeneratePackage file
     pkgMap <- use_ GeneratePackageMap ""
@@ -286,7 +286,7 @@ createScenarioContextRule =
 -- for generating modules that are sent to the scenario service.
 -- It switches between GenerateRawDalf and GenerateDalf depending
 -- on whether we only do light or full validation.
-dalfForScenario :: FilePath -> Action LF.Module
+dalfForScenario :: NormalizedFilePath -> Action LF.Module
 dalfForScenario file = do
     DamlEnv{..} <- getDamlServiceEnv
     case envScenarioValidation of
@@ -326,7 +326,7 @@ encodeModule :: LF.Version -> LF.Module -> Action (SS.Hash, BS.ByteString)
 encodeModule lfVersion m =
     case LF.moduleSource m of
       Just file
-        | isAbsolute file -> use_ EncodeModule file
+        | isAbsolute file -> use_ EncodeModule $ toNormalizedFilePath file
       _ -> pure $ SS.encodeModule lfVersion m
 
 getScenarioRootsRule :: Rules ()
@@ -348,8 +348,8 @@ getScenarioRootRule =
         ctxRoots <- use_ GetScenarioRoots ""
         case Map.lookup file ctxRoots of
             Nothing -> liftIO $
-                fail $ "No scenario root for file " <> show file <> "."
-            Just root -> pure (Just $ BS.fromString root, ([], Just root))
+                fail $ "No scenario root for file " <> show (fromNormalizedFilePath file) <> "."
+            Just root -> pure (Just $ BS.fromString $ fromNormalizedFilePath root, ([], Just root))
 
 
 -- | Virtual resource changed notification
@@ -417,7 +417,7 @@ ofInterestRule = do
             [runScenarios file | shouldRunScenarios, file <- Set.toList scenarioFiles]
         return ()
   where
-      gc :: Set FilePath -> Action ()
+      gc :: Set NormalizedFilePath -> Action ()
       gc roots = do
         depInfoOrErr <- sequence <$> uses GetDependencyInformation (Set.toList roots)
         -- We only clear results if there are no errors in the
@@ -445,7 +445,7 @@ ofInterestRule = do
 
 getFilesOfInterestRule :: Rules ()
 getFilesOfInterestRule = do
-    defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null _file) $ do
+    defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null $ fromNormalizedFilePath _file) $ do
         alwaysRerun
         Env{..} <- getServiceEnv
         filesOfInterest <- liftIO $ readVar envOfInterestVar
@@ -453,7 +453,7 @@ getFilesOfInterestRule = do
 
 getOpenVirtualResourcesRule :: Rules ()
 getOpenVirtualResourcesRule = do
-    defineEarlyCutoff $ \GetOpenVirtualResources _file -> assert (null _file) $ do
+    defineEarlyCutoff $ \GetOpenVirtualResources _file -> assert (null $ fromNormalizedFilePath _file) $ do
         alwaysRerun
         DamlEnv{..} <- getDamlServiceEnv
         openVRs <- liftIO $ readVar envOpenVirtualResources
@@ -474,7 +474,7 @@ formatScenarioResult world errOrRes =
         Right res ->
             LF.renderScenarioResult world res
 
-runScenario :: SS.Handle -> FilePath -> SS.ContextId -> LF.ValueRef -> IO (VirtualResource, Either SS.Error SS.ScenarioResult)
+runScenario :: SS.Handle -> NormalizedFilePath -> SS.ContextId -> LF.ValueRef -> IO (VirtualResource, Either SS.Error SS.ScenarioResult)
 runScenario scenarioService file ctxId scenario = do
     res <- SS.runScenario scenarioService ctxId scenario
     let scenarioName = LF.qualObject scenario
@@ -500,11 +500,11 @@ scenariosInModule m =
 getDamlLfVersion:: Action LF.Version
 getDamlLfVersion = envDamlLfVersion <$> getDamlServiceEnv
 
-discardInternalModules :: [FilePath] -> Action [FilePath]
-discardInternalModules files =
-    mapM (liftIO . fileFromParsedModule) .
-    filter (not . modIsInternal . ms_mod . pm_mod_summary) =<<
-    uses_ GetParsedModule files
+discardInternalModules :: [NormalizedFilePath] -> Action [NormalizedFilePath]
+discardInternalModules files = do
+    mods <- uses_ GetParsedModule files
+    pure $ map fileFromParsedModule $
+        filter (not . modIsInternal . ms_mod . pm_mod_summary) mods
 
 internalModules :: [String]
 internalModules =

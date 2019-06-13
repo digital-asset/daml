@@ -23,6 +23,7 @@ import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
 
 import DA.Service.Daml.Compiler.Impl.Scenario as SS
+import Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.LSP
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import Development.IDE.State.API.Testing
@@ -214,7 +215,7 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             b <- makeFile "B.daml" "daml 1.2 module B where"
             expectWarning (a,0,25) "The import of ‘B’ is redundant"
             expectNoErrors
-            liftIO $ removeFile b
+            liftIO $ removeFile (fromNormalizedFilePath b)
             expectOnlyDiagnostics
                 [(DsError, (a,0,32), "Could not find module")
                 -- the warning says around because of DEL-7199

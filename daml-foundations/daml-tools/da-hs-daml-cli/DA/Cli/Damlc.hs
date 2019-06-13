@@ -117,10 +117,10 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions =
         project <- readProjectConfig $ ProjectPath pPath
         case parseProjectConfig project of
             Left err -> throwIO err
-            Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
+            Right PackageConfigFields {..} -> execTest [toNormalizedFilePath pMain] color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions =
     withProjectRoot' projectOpts $ \relativize -> do
-        inFiles' <- mapM relativize inFiles
+        inFiles' <- mapM (fmap toNormalizedFilePath . relativize) inFiles
         execTest inFiles' color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
@@ -248,7 +248,7 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
     inputFile <- relativize inputFile
     opts' <- Compiler.mkOptions opts
     Compiler.withIdeState opts' loggerH (const $ pure ()) $ \hDamlGhc -> do
-        errOrDalf <- runExceptT $ Compiler.compileFile hDamlGhc inputFile
+        errOrDalf <- runExceptT $ Compiler.compileFile hDamlGhc (toNormalizedFilePath inputFile)
         either (reportErr "DAML-1.2 to LF compilation failed") write errOrDalf
   where
     write bs
@@ -365,14 +365,14 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pVersion
                     pExposedModules
                     pDependencies
-        let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (fp,) diags
+        let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (toNormalizedFilePath fp,) diags
             eventLogger _ = return ()
         Compiler.withIdeState opts loggerH eventLogger $ \compilerH -> do
             darOrErr <-
                 runExceptT $
                 Compiler.buildDar
                     compilerH
-                    pMain
+                    (toNormalizedFilePath pMain)
                     pExposedModules
                     pName
                     pSdkVersion
@@ -454,7 +454,7 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
     loggerH <- getLogger opts "package"
     filePath <- relativize filePath
     opts' <- Compiler.mkOptions opts
-    Compiler.withIdeState opts' loggerH (const $ pure ()) $ buildDar filePath
+    Compiler.withIdeState opts' loggerH (const $ pure ()) $ buildDar (toNormalizedFilePath filePath)
   where
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
