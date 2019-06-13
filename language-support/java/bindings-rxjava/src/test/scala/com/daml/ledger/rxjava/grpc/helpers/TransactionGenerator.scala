@@ -195,7 +195,7 @@ object TransactionGenerator {
           eventId,
           contractId,
           Some(scalaTemplateId),
-          contractKey.fold[Option[Value]](None)(c => Some(c._1)),
+          contractKey.map(_._1),
           Some(scalaRecord),
           parties,
           agreementText = agreementText)),
