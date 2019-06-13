@@ -11,7 +11,6 @@ module DA.Service.Daml.LanguageServer.Hover
 import Development.IDE.LSP.Protocol hiding (Hover)
 import Language.Haskell.LSP.Types (Hover(..))
 
-import           DA.Service.Daml.LanguageServer.Common
 import qualified Development.IDE.Logger as Logger
 
 import qualified Data.Text as T
@@ -49,7 +48,7 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
     showHoverInformation :: Compiler.HoverText -> T.Text
     showHoverInformation = \case
         Compiler.HoverDamlCode damlCode -> T.unlines
-            [ "```" <> damlLanguageIdentifier
+            [ "```daml"
             , damlCode
             , "```"
             ]
