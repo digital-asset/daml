@@ -3,7 +3,9 @@
 --
 
 module DA.Daml.GHC.Compiler.Generics
-    ( genericsPreprocessor
+    ( genericsPreprocessorAll
+    , genericsPreprocessor
+    , generateGenericInstanceFor
     ) where
 
 import "ghc-lib-parser" Bag
@@ -31,6 +33,38 @@ import "ghc-lib-parser" RdrName
 import "ghc-lib" TcGenDeriv
 import "ghc-lib-parser" Util
 
+-- | Generate a generic instance for all data declarations to make sure we can upgrade them.
+genericsPreprocessorAll :: Maybe String -> ParsedSource -> ParsedSource
+genericsPreprocessorAll mbPkgName (L l src) =
+    L l
+        src
+            { hsmodDecls =
+                  map dropGenericDeriv (hsmodDecls src) ++
+                  [ generateGenericInstanceFor
+                      (nameOccName genClassName)
+                      name
+                      (fromMaybe "Main" mbPkgName)
+                      -- We check in the preprocessor that this error case never happens.
+                      (fromMaybe (error "Missing module name") $ hsmodName src)
+                      tys
+                      dataDef
+                  | (name, tys, dataDef) <- allDataDecls
+                  ]
+            }
+  where
+    allDataDecls =
+        [ (tcdLName, tcdTyVars, tcdDataDefn)
+        | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
+        , all (not . cantHandle) (dd_cons tcdDataDefn)
+        ]
+
+    -- | We can't handle data definitions that have constraints (data Foo a = (Show a) => Foo a), or
+    -- existentials (data Foo = forall a . Foo a). Data definitions with existentials aren't allowed
+    -- anyways.
+    cantHandle :: LConDecl GhcPs -> Bool
+    cantHandle = \case
+      (L _ ConDeclH98{..}) -> isJust con_mb_cxt || unLoc con_forall
+      _other -> False
 
 -- | Generate a generic instance for data definitions with a `deriving Generic` or `deriving
 -- Generic1` derivation.
@@ -61,49 +95,50 @@ genericsPreprocessor mbPkgName (L l src) =
               unLoc $ deriv_clause_tys $ unLoc d
         , name `elem` [nameOccName n | n <- genericClassNames]
         ]
-    -- drop the generic deriving clauses from the parsed source otherwise GHC will try to process
-    -- them.
-    dropGenericDeriv :: LHsDecl GhcPs -> LHsDecl GhcPs
-    dropGenericDeriv decl =
-        case decl of
-            L loc (TyClD x (DataDecl tcdDExt tcdLName tcdTyVars tcdFixity
-                              (HsDataDefn dd_ext dd_ND dd_ctxt dd_cType dd_kindSig dd_cons
-                                (L loc2 derivs)))) ->
-                L
-                    loc
-                    (TyClD
-                         x
-                         (DataDecl
-                              tcdDExt
-                              tcdLName
-                              tcdTyVars
-                              tcdFixity
-                              (HsDataDefn
-                                   dd_ext
-                                   dd_ND
-                                   dd_ctxt
-                                   dd_cType
-                                   dd_kindSig
-                                   dd_cons
-                                   (L loc2 $ map dropGeneric derivs))))
-            _other -> decl
-      where
-        dropGeneric :: LHsDerivingClause GhcPs -> LHsDerivingClause GhcPs
-        dropGeneric clause =
-            case clause of
-                L l (HsDerivingClause deriv_clause_ext deriv_clause_strategy (L l2 derive_clause_tys)) ->
-                    L
-                        l
-                        (HsDerivingClause
-                             deriv_clause_ext
-                             deriv_clause_strategy
-                             (L l2 $ filter (not . isGeneric) derive_clause_tys))
-                _other -> clause
 
-        isGeneric :: LHsSigType GhcPs -> Bool
-        isGeneric (HsIB _ (L _ (HsTyVar _ _ (L _ (Unqual name))))) =
-            name `elem` [nameOccName n | n <- genericClassNames]
-        isGeneric _other = False
+-- drop the generic deriving clauses from the parsed source otherwise GHC will try to process
+-- them.
+dropGenericDeriv :: LHsDecl GhcPs -> LHsDecl GhcPs
+dropGenericDeriv decl =
+    case decl of
+        L loc (TyClD x (DataDecl tcdDExt tcdLName tcdTyVars tcdFixity
+                          (HsDataDefn dd_ext dd_ND dd_ctxt dd_cType dd_kindSig dd_cons
+                            (L loc2 derivs)))) ->
+            L
+                loc
+                (TyClD
+                     x
+                     (DataDecl
+                          tcdDExt
+                          tcdLName
+                          tcdTyVars
+                          tcdFixity
+                          (HsDataDefn
+                               dd_ext
+                               dd_ND
+                               dd_ctxt
+                               dd_cType
+                               dd_kindSig
+                               dd_cons
+                               (L loc2 $ map dropGeneric derivs))))
+        _other -> decl
+  where
+    dropGeneric :: LHsDerivingClause GhcPs -> LHsDerivingClause GhcPs
+    dropGeneric clause =
+        case clause of
+            L l (HsDerivingClause deriv_clause_ext deriv_clause_strategy (L l2 derive_clause_tys)) ->
+                L
+                    l
+                    (HsDerivingClause
+                         deriv_clause_ext
+                         deriv_clause_strategy
+                         (L l2 $ filter (not . isGeneric) derive_clause_tys))
+            _other -> clause
+
+    isGeneric :: LHsSigType GhcPs -> Bool
+    isGeneric (HsIB _ (L _ (HsTyVar _ _ (L _ (Unqual name))))) =
+        name `elem` [nameOccName n | n <- genericClassNames]
+    isGeneric _other = False
 
 
 -- | TODO (drsk) Add support for Gen1. For now we only support Gen0
@@ -130,7 +165,7 @@ gHC_GENERICS :: Module
 gHC_GENERICS = mkStdlibModule (fsLit "DA.Generics")
 
 gHC_TYPES :: Module
-gHC_TYPES = mkStdlibModule (fsLit "Prelude")
+gHC_TYPES = mkStdlibModule (fsLit "DA.Generics")
 
 u1DataCon_RDR, _par1DataCon_RDR, _rec1DataCon_RDR,
   k1DataCon_RDR, m1DataCon_RDR, l1DataCon_RDR, r1DataCon_RDR,
@@ -195,7 +230,7 @@ generateGenericInstanceFor genClass name@(L loc _n) pkgName modName tyVars dataD
     -- The typeclass type: data Foo a b ... deriving Generic => Generic (Foo a b) (FooRep a b)
     typ =
         mkHsAppTys
-            (mkLoc $ HsTyVar NoExt NotPromoted $ mkLoc (Unqual genClass))
+            (mkLoc $ HsTyVar NoExt NotPromoted $ mkLoc (Qual (moduleName gHC_GENERICS) genClass))
             [tycon, repType]
     -- The type for which we construct a generic instance
     tycon =

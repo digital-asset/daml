@@ -41,7 +41,11 @@ mayImportInternal =
 damlPreprocessor :: Maybe String -> GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
 damlPreprocessor mbPkgName x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], x)
-    | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName x)
+    | otherwise =
+        ( checkImports x ++ checkDataTypes x ++ checkModuleDefinition x
+        , recordDotPreprocessor $
+          importDamlPreprocessor $
+          genericsPreprocessorAll mbPkgName x)
     where name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
 
@@ -54,7 +58,8 @@ damlPreprocessorImports name
       map GHC.mkModuleName [
          "DA.Internal.Record"
        , "DA.Internal.RebindableSyntax"
-       , "DA.Internal.Desugar"]
+       , "DA.Internal.Desugar"
+       , "DA.Generics"]
 
 -- With RebindableSyntax any missing DAML import results in pretty much nothing
 -- working (literals, if-then-else) so we inject an implicit import DAML for
@@ -65,7 +70,8 @@ importDamlPreprocessor = fmap onModule
         onModule y = y {
           GHC.hsmodImports =
             newImport True "DA.Internal.Desugar" :
-            newImport False "DA.Internal.RebindableSyntax" : GHC.hsmodImports y
+            newImport False "DA.Internal.RebindableSyntax" :
+            newImport True "DA.Generics" : GHC.hsmodImports y
           }
         newImport :: Bool -> String -> GHC.Located (GHC.ImportDecl GHC.GhcPs)
         newImport qual = GHC.noLoc . importGenerated qual . mkImport . GHC.noLoc . GHC.mkModuleName

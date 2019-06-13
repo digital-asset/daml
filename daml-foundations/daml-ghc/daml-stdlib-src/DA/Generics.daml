@@ -724,7 +724,7 @@ module DA.Generics (
   -- , Datatype(..), Constructor(..), Selector(..)
   , Fixity(..), FixityI(..), Associativity(..), prec
   , SourceUnpackedness(..), SourceStrictness(..), DecidedStrictness(..)
-  , Meta(..), MetaData0(..), MetaCons0(..), MetaSel0(..)
+  , Meta(..), MetaData0(..), MetaCons0(..), MetaSel0(..), Bool(..), Optional(..)
 
   -- * Generic type classes
   , Generic(..), Generic1(..)

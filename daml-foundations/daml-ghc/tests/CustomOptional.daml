@@ -4,5 +4,5 @@
 daml 1.2
 module Test where
 
-data OptionalInteger = SomeInteger Int | None
+data OptionalInteger = SomeInteger Int | NoInt
   deriving (Eq, Show)
