@@ -12,7 +12,9 @@ module Development.IDE.State.API
     , getDefinition
     , shutdown
     , setFilesOfInterest
+    , modifyFilesOfInterest
     , setOpenVirtualResources
+    , modifyOpenVirtualResources
     , setBufferModified
     , runAction
     , runActions

@@ -24,14 +24,12 @@ import qualified Development.IDE.Logger as Logger
 import DAML.Project.Consts
 
 import qualified Data.Aeson                                as Aeson
-import           Data.IORef                                (IORef, atomicModifyIORef', newIORef)
 import qualified Data.Rope.UTF16 as Rope
 import qualified Data.Set                                  as S
 import qualified Data.Text as T
 
 import Development.IDE.State.FileStore
 import qualified Development.IDE.Types.Diagnostics as Compiler
-import           Development.IDE.Types.LSP as Compiler
 
 import qualified Network.URI                               as URI
 
@@ -48,16 +46,9 @@ textShow = T.pack . show
 -- Types
 ------------------------------------------------------------------------
 
--- | Language server state
-data State = State
-    { sOpenDocuments        :: !(S.Set Compiler.NormalizedFilePath)
-    , sOpenVirtualResources :: !(S.Set Compiler.VirtualResource)
-    }
-
 -- | Implementation handle
 data IHandle p t = IHandle
-    { ihState     :: !(IORef State)
-    , ihLoggerH   :: !Logger.Handle
+    { ihLoggerH   :: !Logger.Handle
     , ihCompilerH :: !Compiler.IdeState
     }
 
@@ -71,7 +62,7 @@ handleRequest
     -> (ErrorCode -> ResponseMessage ())
     -> ServerRequest
     -> IO FromServerMessage
-handleRequest (IHandle _stateRef loggerH compilerH) makeResponse makeErrorResponse = \case
+handleRequest (IHandle loggerH compilerH) makeResponse makeErrorResponse = \case
     Shutdown -> do
       Logger.logInfo loggerH "Shutdown request received, terminating."
       System.Exit.exitSuccess
@@ -88,7 +79,7 @@ handleRequest (IHandle _stateRef loggerH compilerH) makeResponse makeErrorRespon
 
 
 handleNotification :: LspFuncs () -> IHandle () LF.Package -> ServerNotification -> IO ()
-handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
+handleNotification lspFuncs (IHandle loggerH compilerH) = \case
 
     DidOpenTextDocument (DidOpenTextDocumentParams item) -> do
         case URI.parseURI $ T.unpack $ getUri $ _uri (item :: TextDocumentItem) of
@@ -145,59 +136,27 @@ handleNotification lspFuncs (IHandle stateRef loggerH compilerH) = \case
     -- Internally it should be done via the IO oracle. See PROD-2808.
     handleDidOpenFile (TextDocumentItem uri _ _ contents) = do
         Just filePath <- pure $ Compiler.toNormalizedFilePath <$> Compiler.uriToFilePath' uri
-        documents <- atomicModifyIORef' stateRef $
-          \state -> let documents = S.insert filePath $ sOpenDocuments state
-                    in ( state { sOpenDocuments = documents }
-                       , documents
-                       )
-
-
-
-        -- Update the file contents
         Compiler.onFileModified compilerH filePath (Just contents)
-
-        -- Update the list of open files
-        Compiler.setFilesOfInterest compilerH (S.toList documents)
-
+        Compiler.modifyFilesOfInterest compilerH (S.insert filePath)
         Logger.logInfo loggerH $ "Opened text document: " <> textShow filePath
 
     handleDidOpenVirtualResource uri = do
          case Compiler.uriToVirtualResource uri of
-           Nothing -> do
-               Logger.logWarning loggerH $ "Failed to parse virtual resource URI: " <> textShow uri
-               pure ()
+           Nothing -> Logger.logWarning loggerH $ "Failed to parse virtual resource URI: " <> textShow uri
            Just vr -> do
                Logger.logInfo loggerH $ "Opened virtual resource: " <> textShow vr
-               resources <- atomicModifyIORef' stateRef $
-                 \state -> let resources = S.insert vr $ sOpenVirtualResources state
-                           in ( state { sOpenVirtualResources = resources }
-                              , resources
-                              )
-               Compiler.setOpenVirtualResources compilerH $ S.toList resources
+               Compiler.modifyOpenVirtualResources compilerH (S.insert vr)
 
     handleDidCloseFile filePath = do
          Logger.logInfo loggerH $ "Closed text document: " <> textShow (Compiler.fromNormalizedFilePath filePath)
-         documents <- atomicModifyIORef' stateRef $
-           \state -> let documents = S.delete filePath $ sOpenDocuments state
-                     in ( state { sOpenDocuments = documents }
-                        , documents
-                        )
-         Compiler.setFilesOfInterest compilerH (S.toList documents)
          Compiler.onFileModified compilerH filePath Nothing
+         Compiler.modifyFilesOfInterest compilerH (S.delete filePath)
 
     handleDidCloseVirtualResource uri = do
         Logger.logInfo loggerH $ "Closed virtual resource: " <> textShow uri
         case Compiler.uriToVirtualResource uri of
-           Nothing -> do
-               Logger.logWarning loggerH "Failed to parse virtual resource URI!"
-               pure ()
-           Just vr -> do
-               resources <- atomicModifyIORef' stateRef $
-                 \state -> let resources = S.delete vr $ sOpenVirtualResources state
-                           in (state { sOpenVirtualResources = resources }
-                              , resources
-                              )
-               Compiler.setOpenVirtualResources compilerH $ S.toList resources
+           Nothing -> Logger.logWarning loggerH "Failed to parse virtual resource URI!"
+           Just vr -> Compiler.modifyOpenVirtualResources compilerH (S.delete vr)
 
 ------------------------------------------------------------------------
 -- Server execution
@@ -210,12 +169,10 @@ runLanguageServer
 runLanguageServer loggerH getIdeState = do
     sdkVersion <- liftIO (getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)"))
     liftIO $ Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-    state     <- liftIO $ newIORef $ State S.empty S.empty
     let getHandlers lspFuncs = do
             compilerH <- getIdeState (sendFunc lspFuncs) (makeLSPVFSHandle lspFuncs)
             let ihandle = IHandle
-                    { ihState = state
-                    , ihLoggerH = loggerH
+                    { ihLoggerH = loggerH
                     , ihCompilerH = compilerH
                     }
             pure $ Handlers (handleRequest ihandle) (handleNotification lspFuncs ihandle)

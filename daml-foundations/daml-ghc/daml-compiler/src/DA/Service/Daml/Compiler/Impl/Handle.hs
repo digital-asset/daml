@@ -8,9 +8,11 @@ module DA.Service.Daml.Compiler.Impl.Handle
     IdeState
   , getIdeState
   , withIdeState
-  , setFilesOfInterest
+  , CompilerService.setFilesOfInterest
+  , CompilerService.modifyFilesOfInterest
   , onFileModified
-  , setOpenVirtualResources
+  , CompilerService.setOpenVirtualResources
+  , CompilerService.modifyOpenVirtualResources
   , getAssociatedVirtualResources
   , gotoDefinition
   , atPoint
@@ -124,23 +126,6 @@ toIdeLogger h = IdeLogger.Handle {
 
 ------------------------------------------------------------------------------
 
--- | Update the files-of-interest, which we recieve asynchronous notifications for.
-setFilesOfInterest
-    :: IdeState
-    -> [NormalizedFilePath]
-    -> IO ()
-setFilesOfInterest service files = do
-    CompilerService.logDebug service $ "Setting files of interest to: " <> T.pack (show files)
-    CompilerService.setFilesOfInterest service (S.fromList files)
-
-setOpenVirtualResources
-    :: IdeState
-    -> [VirtualResource]
-    -> IO ()
-setOpenVirtualResources service vrs = do
-    CompilerService.logDebug service $ "Setting vrs of interest to: " <> T.pack (show vrs)
-    CompilerService.setOpenVirtualResources service (S.fromList vrs)
-
 getAssociatedVirtualResources
   :: IdeState
   -> NormalizedFilePath
@@ -195,7 +180,7 @@ compileFile service fp = do
     -- We need to mark the file we are compiling as a file of interest.
     -- Otherwise all diagnostics produced during compilation will be garbage
     -- collected afterwards.
-    liftIO $ setFilesOfInterest service [fp]
+    liftIO $ CompilerService.setFilesOfInterest service (S.singleton fp)
     liftIO $ CompilerService.logDebug service $ "Compiling: " <> T.pack (fromNormalizedFilePath fp)
     res <- liftIO $ CompilerService.runAction service (CompilerService.getDalf fp)
     case res of

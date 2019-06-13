@@ -1,5 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+{-# LANGUAGE OverloadedStrings #-}
 module Development.IDE.State.Service.Daml(
     Env(..),
     getServiceEnv,
@@ -7,7 +8,7 @@ module Development.IDE.State.Service.Daml(
     getDamlServiceEnv,
     IdeState, initialise, shutdown,
     runAction, runActions,
-    setFilesOfInterest, setOpenVirtualResources,
+    setFilesOfInterest, modifyFilesOfInterest, setOpenVirtualResources, modifyOpenVirtualResources,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
     logDebug, logSeriousError
@@ -19,6 +20,8 @@ import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
 import qualified Data.Set as Set
+import qualified Data.Text as T
+import Data.Tuple.Extra
 import Development.Shake
 
 import qualified Development.IDE.Logger as Logger
@@ -70,9 +73,13 @@ getDamlServiceEnv :: Action DamlEnv
 getDamlServiceEnv = getIdeGlobalAction
 
 setOpenVirtualResources :: IdeState -> Set VirtualResource -> IO ()
-setOpenVirtualResources state resources = do
+setOpenVirtualResources state resources = modifyOpenVirtualResources state (const resources)
+
+modifyOpenVirtualResources :: IdeState -> (Set VirtualResource -> Set VirtualResource) -> IO ()
+modifyOpenVirtualResources state f = do
     DamlEnv{..} <- getIdeGlobalState state
-    modifyVar_ envOpenVirtualResources $ const $ return resources
+    vrs <- modifyVar envOpenVirtualResources $ pure . dupe . f
+    logDebug state $ "Set vrs of interest to: " <> T.pack (show $ Set.toList vrs)
     void $ shakeRun state []
 
 initialise
