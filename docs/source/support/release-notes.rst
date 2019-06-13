@@ -9,6 +9,12 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Visualizing DAML Contracts
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+- Added instructions for :doc `visualizing DAML contracts </tools/visual>`
+
+
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
 
