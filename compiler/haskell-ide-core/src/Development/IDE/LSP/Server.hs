@@ -4,7 +4,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
-module DA.LanguageServer.Server
+module Development.IDE.LSP.Server
   ( runServer
   , Handlers(..)
   ) where
@@ -18,7 +18,7 @@ import Control.Concurrent.STM
 
 import Data.Default
 
-import           DA.LanguageServer.Protocol
+import           Development.IDE.LSP.Protocol
 import qualified Development.IDE.Logger as Logger
 
 import qualified Data.Aeson                       as Aeson

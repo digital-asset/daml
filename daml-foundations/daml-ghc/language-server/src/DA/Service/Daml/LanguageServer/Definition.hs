@@ -8,7 +8,7 @@ module DA.Service.Daml.LanguageServer.Definition
     ( handle
     ) where
 
-import           DA.LanguageServer.Protocol
+import           Development.IDE.LSP.Protocol
 import Development.IDE.Types.Diagnostics
 
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler

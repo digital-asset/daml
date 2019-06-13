@@ -8,7 +8,7 @@ module DA.Service.Daml.LanguageServer.CodeLens
     ( handle
     ) where
 
-import           DA.LanguageServer.Protocol
+import           Development.IDE.LSP.Protocol
 import Language.Haskell.LSP.Types
 
 import Data.Foldable
