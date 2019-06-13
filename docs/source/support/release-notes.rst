@@ -9,6 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+0.12.25 — 2019-06-13
+--------------------
+
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
 
@@ -19,6 +22,7 @@ DAML Integration Kit
   time-to-live of commands sent for ledger processing (captured as Maximum Record
   Time in submitted transactions) for some suites. Useful to tune Maximum Record
   Time depending on the environment and the Ledger implementation under test.
+- Fixed various bugs in the daml-on-x ledger api server and index service.
 
 Sandbox
 ~~~~~~~
