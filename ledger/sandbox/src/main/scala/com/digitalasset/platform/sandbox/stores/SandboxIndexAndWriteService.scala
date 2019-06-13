@@ -341,7 +341,7 @@ private class SandboxIndexAndWriteService(
           case (offset, r: LedgerEntry.Rejection) =>
             CommandRejected(
               domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
-              r.recordedAt,
+              r.recordTime,
               domain.CommandId(r.commandId),
               r.rejectionReason)
         }

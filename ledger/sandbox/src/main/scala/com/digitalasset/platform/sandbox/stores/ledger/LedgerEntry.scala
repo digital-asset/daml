@@ -12,11 +12,7 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason
 
-sealed abstract class LedgerEntry extends Product with Serializable {
-  def recordedAt: Instant
-
-  def maybeCommandId: Option[CommandId]
-}
+sealed abstract class LedgerEntry extends Product with Serializable
 
 object LedgerEntry {
 
@@ -26,11 +22,7 @@ object LedgerEntry {
       applicationId: ApplicationId,
       submitter: Party,
       rejectionReason: RejectionReason)
-      extends LedgerEntry {
-    override def maybeCommandId: Option[CommandId] = Some(commandId)
-
-    override def recordedAt: Instant = recordTime
-  }
+      extends LedgerEntry
 
   final case class Transaction(
       commandId: CommandId,
@@ -42,12 +34,8 @@ object LedgerEntry {
       recordedAt: Instant,
       transaction: GenTransaction.WithTxValue[EventId, AbsoluteContractId],
       explicitDisclosure: Relation[EventId, Party])
-      extends LedgerEntry {
-    override def maybeCommandId: Option[CommandId] = Some(commandId)
-  }
+      extends LedgerEntry
 
-  final case class Checkpoint(recordedAt: Instant) extends LedgerEntry {
-    override def maybeCommandId: Option[CommandId] = None
-  }
+  final case class Checkpoint(recordedAt: Instant) extends LedgerEntry
 
 }

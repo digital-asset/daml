@@ -121,14 +121,14 @@ class InMemoryLedger(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
     val recordTime = timeProvider.getCurrentTime
-    if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
+    if (recordTime.isAfter(submitterInfo.maxRecordTime)) {
       // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
       // than the time window between LET and MRT allows for.
       // See https://github.com/digital-asset/daml/issues/987
       handleError(
         submitterInfo,
         RejectionReason.TimedOut(
-          s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime.toInstant}"))
+          s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime}"))
     } else {
       val toAbsCoid: ContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(trId)
@@ -142,7 +142,7 @@ class InMemoryLedger(
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(
-        transactionMeta.ledgerEffectiveTime.toInstant,
+        transactionMeta.ledgerEffectiveTime,
         trId,
         transactionMeta.workflowId,
         mappedTx,
@@ -171,7 +171,7 @@ class InMemoryLedger(
               submitterInfo.applicationId,
               submitterInfo.submitter,
               transactionMeta.workflowId,
-              transactionMeta.ledgerEffectiveTime.toInstant,
+              transactionMeta.ledgerEffectiveTime,
               recordTime,
               recordTx,
               recordBlinding
