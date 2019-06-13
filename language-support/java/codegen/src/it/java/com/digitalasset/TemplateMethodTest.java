@@ -64,10 +64,10 @@ public class TemplateMethodTest {
 
     @Test
     void contractHasFromIdAndRecord() {
-        SimpleTemplate.Contract emptyAgreement = SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord, Optional.empty(), Optional.empty());
+        SimpleTemplate.Contract emptyAgreement = SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord, Optional.empty());
         assertFalse(emptyAgreement.agreementText.isPresent(), "Field agreementText should not be present");
 
-        SimpleTemplate.Contract nonEmptyAgreement = SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord, Optional.of("I agree"), Optional.empty());
+        SimpleTemplate.Contract nonEmptyAgreement = SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord, Optional.of("I agree"));
         assertTrue(nonEmptyAgreement.agreementText.isPresent(), "Field agreementText should be present");
         assertEquals(nonEmptyAgreement.agreementText, Optional.of("I agree"), "Unexpected agreementText");
     }

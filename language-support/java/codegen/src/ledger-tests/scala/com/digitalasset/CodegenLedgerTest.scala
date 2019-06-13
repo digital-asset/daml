@@ -15,15 +15,12 @@ import com.daml.ledger.javaapi.data.{
   ArchivedEvent,
   Command,
   CreatedEvent,
-  Decimal,
   Event,
   Filter,
   FiltersByParty,
   GetTransactionsRequest,
   LedgerOffset,
   NoFilter,
-  Party,
-  Record,
   SubmitCommandsRequest,
   Transaction,
   Unit => DamlUnit
@@ -220,15 +217,13 @@ class CodegenLedgerTest extends FlatSpec with Matchers with BazelRunfiles {
     wolpertinger.agreementText.get shouldBe s"${wolpertinger.data.name} has ${wolpertinger.data.wings} wings and is ${wolpertinger.data.age} years old."
   }
 
-  it should "provide the contractKey" in withClient { client =>
+  it should "provide the key" in withClient { client =>
     sendCmd(client, glookofly.create())
 
     val wolpertinger :: _ = readActiveContracts(client)
 
-    wolpertinger.contractKey.isPresent shouldBe true
-    wolpertinger.contractKey.get.asRecord.isPresent shouldBe true
-    wolpertinger.contractKey.get.asRecord.get.getFields.asScala should contain only (new Record.Field(
-      "owner",
-      new Party(Alice)), new Record.Field("age", new Decimal(java.math.BigDecimal.valueOf(17.42))))
+    wolpertinger.key.isPresent shouldBe true
+    wolpertinger.key.get.owner shouldEqual "Alice"
+    wolpertinger.key.get.age shouldEqual java.math.BigDecimal.valueOf(17.42)
   }
 }
