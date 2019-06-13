@@ -14,7 +14,6 @@ module DA.Service.Daml.Compiler.Impl.Handle
   , CompilerService.setOpenVirtualResources
   , CompilerService.modifyOpenVirtualResources
   , getAssociatedVirtualResources
-  , gotoDefinition
   , compileFile
   , toIdeLogger
   , UseDalf(..)
@@ -148,15 +147,6 @@ getAssociatedVirtualResources service filePath = do
             , let vr = VRScenario filePath name
             ]
 
-
-gotoDefinition
-    :: IdeState
-    -> NormalizedFilePath
-    -> Base.Position
-    -> IO (Maybe Base.Location)
-gotoDefinition service afp pos = do
-    CompilerService.logDebug service $ "Goto definition: " <> T.pack (show afp)
-    CompilerService.runAction service (CompilerService.getDefinition afp pos)
 
 -- | Compile the supplied file using the Compiler Service into a DAML LF Package.
 -- TODO options and warnings
