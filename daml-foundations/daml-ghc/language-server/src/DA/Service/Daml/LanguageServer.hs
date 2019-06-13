@@ -11,8 +11,8 @@ module DA.Service.Daml.LanguageServer
 
 import Control.Exception.Safe
 
-import           DA.LanguageServer.Protocol
-import           DA.LanguageServer.Server
+import           Development.IDE.LSP.Protocol
+import           Development.IDE.LSP.Server
 
 import Control.Monad.IO.Class
 import qualified DA.Daml.LF.Ast as LF

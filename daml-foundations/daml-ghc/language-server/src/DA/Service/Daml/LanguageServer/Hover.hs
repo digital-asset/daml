@@ -8,7 +8,7 @@ module DA.Service.Daml.LanguageServer.Hover
     ( handle
     ) where
 
-import DA.LanguageServer.Protocol hiding (Hover)
+import Development.IDE.LSP.Protocol hiding (Hover)
 import Language.Haskell.LSP.Types (Hover(..))
 
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler

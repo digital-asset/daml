@@ -11,7 +11,7 @@ module DA.Service.Daml.LanguageServer.Common
     , virtualResourceToCodeLens
     ) where
 
-import DA.LanguageServer.Protocol hiding (CodeLens)
+import Development.IDE.LSP.Protocol hiding (CodeLens)
 import Language.Haskell.LSP.Types (CodeLens(..))
 
 import qualified Data.Aeson                       as Aeson

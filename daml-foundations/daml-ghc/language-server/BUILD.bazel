@@ -34,6 +34,5 @@ da_haskell_library(
         "//compiler/haskell-ide-core",
         "//daml-assistant:daml-project-config",
         "//daml-foundations/daml-ghc/daml-compiler",
-        "//libs-haskell/da-hs-language-server",
     ],
 )
