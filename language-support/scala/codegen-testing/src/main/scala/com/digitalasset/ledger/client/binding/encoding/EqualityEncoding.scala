@@ -20,6 +20,8 @@ abstract class EqualityEncoding extends LfTypeEncoding {
 
   type VariantCases[A] = Fn[A]
 
+  type EnumCases[A] = Fn[A]
+
   override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] = fi
 
   override def emptyRecord[A](recordId: Identifier, element: () => A): Out[A] = (_, _) => true
@@ -27,6 +29,11 @@ abstract class EqualityEncoding extends LfTypeEncoding {
   override def field[A](fieldName: String, o: Out[A]): Field[A] = o
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
+
+  def enum[A](enumId: Identifier, cases: EnumCases[A]): Out[A] = cases
+
+  override def enumCase[A](caseName: String)(a: A): EnumCases[A] =
+    (a1: A, a2: A) => a == a1 && a == a2
 
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 
@@ -42,6 +49,8 @@ abstract class EqualityEncoding extends LfTypeEncoding {
   override val RecordFields: InvariantApply[RecordFields] = new RecordFieldsImpl
 
   override val VariantCases: Plus[VariantCases] = new VariantCasesImpl
+
+  override val EnumCases: Plus[EnumCases] = new VariantCasesImpl
 
   override val primitive: ValuePrimitiveEncoding[Out] = new primitiveImpl
 }

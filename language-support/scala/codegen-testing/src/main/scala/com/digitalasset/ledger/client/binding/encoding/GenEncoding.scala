@@ -17,7 +17,7 @@ import scalaz.std.vector._
 import scalaz.syntax.plus._
 
 abstract class GenEncoding extends LfTypeEncoding {
-  import GenEncoding.{primitiveImpl, VariantCasesImpl}
+  import GenEncoding.{EnumCasesImpl, primitiveImpl, VariantCasesImpl}
 
   type Out[A] = Gen[A]
 
@@ -27,6 +27,8 @@ abstract class GenEncoding extends LfTypeEncoding {
 
   type VariantCases[A] = OneAnd[Vector, Gen[A]]
 
+  type EnumCases[A] = Vector[A]
+
   override def record[A](recordId: rpcvalue.Identifier, fi: RecordFields[A]): Out[A] = fi
 
   override def emptyRecord[A](recordId: rpcvalue.Identifier, element: () => A): Out[A] =
@@ -35,6 +37,11 @@ abstract class GenEncoding extends LfTypeEncoding {
   override def field[A](fieldName: String, o: Out[A]): Field[A] = o
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
+
+  override def enum[A](variantId: rpcvalue.Identifier, cases: Vector[A]): Out[A] =
+    Gen.oneOf(cases)
+
+  override def enumCase[A](caseName: String)(a: A): EnumCases[A] = Vector(a)
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
     cases.tail match {
@@ -51,9 +58,16 @@ abstract class GenEncoding extends LfTypeEncoding {
   override val RecordFields: InvariantApply[RecordFields] = InvariantApply.fromApply[RecordFields]
 
   override val VariantCases: Plus[VariantCases] = new VariantCasesImpl
+
+  override val EnumCases: Plus[EnumCases] = new EnumCasesImpl
 }
 
 object GenEncoding extends GenEncoding {
+
+  class EnumCasesImpl extends Plus[EnumCases] {
+    def plus[A](a: EnumCases[A], b: => EnumCases[A]): EnumCases[A] = a ++ b
+  }
+
   class VariantCasesImpl extends Plus[VariantCases] {
     def plus[A](a: VariantCases[A], b: => VariantCases[A]): VariantCases[A] =
       a <+> b

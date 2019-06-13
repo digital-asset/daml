@@ -18,7 +18,7 @@ import scalaz.Plus
 import scala.math.Numeric.LongIsIntegral
 
 abstract class ShrinkEncoding extends LfTypeEncoding {
-  import ShrinkEncoding.{RecordFieldsImpl, VariantCasesImpl, primitiveImpl}
+  import ShrinkEncoding.{EnumCasesImpl, RecordFieldsImpl, VariantCasesImpl, primitiveImpl}
 
   // Shrink[A] is a typeclass version of the function:
   // A => Stream[A]
@@ -32,6 +32,8 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
 
   type VariantCases[A] = Shrink[A] // probably
 
+  type EnumCases[A] = Shrink[A]
+
   override def record[A](recordId: rpcvalue.Identifier, fi: RecordFields[A]): Out[A] = fi
 
   override def emptyRecord[A](recordId: rpcvalue.Identifier, element: () => A): Out[A] =
@@ -43,6 +45,13 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] = cases
 
+  override def enum[A](enumId: rpcvalue.Identifier, cases: EnumCases[A]): Out[A] = cases
+
+  override def enumCase[A](caseName: String)(a: A): EnumCases[A] =
+    Shrink[A] { b: A =>
+      if (a == b) Stream(b) else Stream.empty
+    }
+
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
       select: A PartialFunction B): VariantCases[A] = Shrink[A] { a: A =>
     val ob: Option[B] = select.lift(a)
@@ -53,6 +62,8 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
   override val RecordFields: InvariantApply[RecordFields] = new RecordFieldsImpl
 
   override val VariantCases: Plus[VariantCases] = new VariantCasesImpl
+
+  override val EnumCases: Plus[EnumCases] = new EnumCasesImpl
 
   override val primitive: ValuePrimitiveEncoding[Out] = new primitiveImpl
 }
@@ -68,6 +79,13 @@ object ShrinkEncoding extends ShrinkEncoding {
       implicit val ifb: Shrink[B] = fb
       Shrink.xmap(f.tupled, g)
     }
+  }
+
+  class EnumCasesImpl extends Plus[EnumCases] {
+    override def plus[A](a: EnumCases[A], b: => EnumCases[A]): EnumCases[A] =
+      Shrink { x: A =>
+        a.shrink(x) ++ b.shrink(x)
+      }
   }
 
   class VariantCasesImpl extends Plus[VariantCases] {

@@ -15,7 +15,7 @@ import scalaz._
 import scalaz.std.iterable.iterableShow
 
 abstract class ShowEncoding extends LfTypeEncoding {
-  import ShowEncoding.{RecordFieldsImpl, VariantCasesImpl, primitiveImpl}
+  import ShowEncoding.{RecordFieldsImpl, VariantCasesImpl, EnumCasesImpl, primitiveImpl}
 
   type Out[A] = Show[A]
 
@@ -24,6 +24,8 @@ abstract class ShowEncoding extends LfTypeEncoding {
   type RecordFields[A] = Show[A]
 
   type VariantCases[A] = Show[A]
+
+  type EnumCases[A] = Show[A]
 
   override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] = {
     val P.LegacyIdentifier(_, recName) = recordId
@@ -46,22 +48,25 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
+  override def enum[A](enumId: Identifier, cases: EnumCases[A]): Out[A] = cases
+
+  override def enumCase[A](caseName: String)(a: A): EnumCases[A] = new Show[A] { (b: A) =>
+    if (a == b) Cord(caseName) else Cord.empty
+  }
+
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-      select: A PartialFunction B): VariantCases[A] = new Show[A] {
-
-    override def show(a: A): Cord = {
-      select.lift(a).map(b => o.show(b)) match {
-        case Some(b) => Cord(caseName, "(", b, ")")
-        case None => Cord.empty
-      }
+      select: A PartialFunction B): VariantCases[A] =
+    new Show[A] { (a: A) =>
+      select.lift(a).fold(Cord.empty)(b => Cord(caseName, "(", o.show(b), ")"))
     }
-  }
 
   override val RecordFields: InvariantApply[RecordFields] = new RecordFieldsImpl
 
   override val VariantCases: Plus[VariantCases] = new VariantCasesImpl
+
+  override val EnumCases: Plus[EnumCases] = new EnumCasesImpl
 
   override val primitive: ValuePrimitiveEncoding[Out] = new primitiveImpl
 }
@@ -77,6 +82,11 @@ object ShowEncoding extends ShowEncoding {
       z: Z =>
         val (a, b) = g(z)
         Cord(fa.show(a), ", ", fb.show(b))
+    }
+  }
+
+  class EnumCasesImpl extends Plus[EnumCases] {
+    def plus[A](a: Show[A], b: => Show[A]): Show[A] = new Show[A] { (f: A) => a.show(f) ++ b.show(f)
     }
   }
 

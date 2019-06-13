@@ -81,7 +81,7 @@ object LfTypeEncodingSpec {
     final case class TLeft[A, B](body: A) extends TrialVariant[A, B]
     final case class TRight[A, B](one: B, two: B) extends TrialVariant[A, B]
 
-    override protected val ` recordOrVariantId` = rpcvalue.Identifier("hello", "TrialVariant")
+    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "TrialVariant")
 
     implicit def `TrialVariant arb`[A: Arbitrary, B: Arbitrary]: Arbitrary[TrialVariant[A, B]] =
       Arbitrary(
@@ -144,15 +144,12 @@ object LfTypeEncodingSpec {
               case TRight(one, two) => (one, two)
             }
           lte.variantAll(
-            ` recordOrVariantId`,
+            ` dataTypeId`,
             lte
               .variantCase[A, TrialVariant[A, B]]("TLeft", LfEncodable.encoding[A](lte))(TLeft(_)) {
                 case TLeft(body) => body
               },
-            lte.variantRecordCase[TRight[A, B], TrialVariant[A, B]](
-              "TRight",
-              ` recordOrVariantId`,
-              tright) {
+            lte.variantRecordCase[TRight[A, B], TrialVariant[A, B]]("TRight", ` dataTypeId`, tright) {
               case rec @ TRight(_, _) => rec
             }
           )
@@ -163,7 +160,7 @@ object LfTypeEncodingSpec {
   final case class TrialSubRec[A](num: P.Int64, a: A) extends ValueRef
 
   object TrialSubRec extends ValueRefCompanion {
-    override protected val ` recordOrVariantId` = rpcvalue.Identifier("hello", "TrialSubRec")
+    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "TrialSubRec")
 
     implicit def `TrialSubRec arb`[A: Arbitrary]: Arbitrary[TrialSubRec[A]] =
       Arbitrary(arbitrary[(P.Int64, A)] map (TrialSubRec[A] _).tupled)
@@ -200,11 +197,9 @@ object LfTypeEncodingSpec {
           import lte.{RecordFields, field, fields}
           val num = field("num", LfEncodable.encoding[P.Int64](lte))
           val a = field("a", LfEncodable.encoding[A](lte))
-          lte.record(
-            ` recordOrVariantId`,
-            RecordFields.xmapN(fields(num), fields(a))(TrialSubRec(_, _)) {
-              case TrialSubRec(num, a) => (num, a)
-            })
+          lte.record(` dataTypeId`, RecordFields.xmapN(fields(num), fields(a))(TrialSubRec(_, _)) {
+            case TrialSubRec(num, a) => (num, a)
+          })
         }
       }
   }
@@ -212,7 +207,7 @@ object LfTypeEncodingSpec {
   final case class TrialEmptyRec() extends ValueRef
 
   object TrialEmptyRec extends ValueRefCompanion {
-    override protected val ` recordOrVariantId` = rpcvalue.Identifier("hello", "TrialSubRec")
+    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "TrialSubRec")
 
     implicit val `TrialEmptyRec arb`: Arbitrary[TrialEmptyRec] =
       Arbitrary(Gen const TrialEmptyRec())
@@ -227,7 +222,7 @@ object LfTypeEncodingSpec {
     implicit val `TrialEmptyRec LfEncodable`: LfEncodable[TrialEmptyRec] =
       new LfEncodable[TrialEmptyRec] {
         override def encoding(lte: LfTypeEncoding): lte.Out[TrialEmptyRec] =
-          lte.emptyRecord(` recordOrVariantId`, () => TrialEmptyRec())
+          lte.emptyRecord(` dataTypeId`, () => TrialEmptyRec())
       }
   }
 
@@ -339,7 +334,7 @@ object LfTypeEncodingSpec {
       // (i.e. associatively)
       val out: lte.Out[CallablePayout] =
         lte.record(
-          ` recordOrVariantId`,
+          ` dataTypeId`,
           RecordFields.xmapN(
             fields(view.receiver),
             fields(view.subr),
@@ -370,6 +365,8 @@ object LfTypeEncodingSpec {
     final case class VariantCases[A](
         readers: Map[String, VSum => Option[A]],
         writers: Vector[(String, A => Option[VSum])])
+
+    override type EnumCases[A] = Vector[(String, A)]
 
     override def record[A](recordId: rpcvalue.Identifier, fi: RecordFields[A]): Out[A] =
       new Value.InternalImpl[A] {
@@ -404,6 +401,24 @@ object LfTypeEncodingSpec {
         case all => (None, all)
       })
     }
+
+    def enum[A](enumId: rpcvalue.Identifier, cases: EnumCases[A]): Out[A] =
+      new Value.InternalImpl[A] {
+        val writers = cases.map {
+          case (str, a) => a -> VSum.Enum(rpcvalue.Enum(Some(enumId), str))
+        }.toMap
+        val readers = cases.toMap
+
+        override def write(a: A): VSum =
+          writers.getOrElse(
+            a,
+            sys.error(s"Missing case for $enumId: ${readers.keySet} is not exhaustive"))
+
+        override def read(av: VSum): Option[A] =
+          av.enum flatMap (e => readers.get(e.constructor))
+      }
+
+    def enumCase[A](caseName: String)(a: A): EnumCases[A] = Vector(caseName -> a)
 
     def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
       new Value.InternalImpl[A] {
@@ -458,6 +473,10 @@ object LfTypeEncodingSpec {
     object VariantCases extends scalaz.Plus[VariantCases] {
       override def plus[A](a: VariantCases[A], b: => VariantCases[A]): VariantCases[A] =
         VariantCases(readers = a.readers ++ b.readers, writers = a.writers |+| b.writers)
+    }
+
+    object EnumCases extends scalaz.Plus[EnumCases] {
+      override def plus[A](a: EnumCases[A], b: => EnumCases[A]): EnumCases[A] = a ++ b
     }
 
     override val primitive = DamlCodecs
