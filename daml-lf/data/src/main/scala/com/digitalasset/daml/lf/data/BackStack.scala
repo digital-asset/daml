@@ -106,7 +106,6 @@ final class BackStack[+A] private (fq: BQ[A], len: Int) {
     case _ => false
   }
 
-
   override def hashCode(): Int = toImmArray.hashCode()
 
   /** O(n) */
