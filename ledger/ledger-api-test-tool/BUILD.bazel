@@ -90,7 +90,7 @@ client_server_test(
         # NOTE(GP): our CI has a tendency to be more unpredictable than local
         # machine with timeouts, we value lack of flakes on CI.
         "--timeout-scale-factor=10",
-        "--all-tests",
+        # "--all-tests",
     ],
 
     # Data files available to both client and server.
