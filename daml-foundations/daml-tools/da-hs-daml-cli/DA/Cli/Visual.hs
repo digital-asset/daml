@@ -35,11 +35,11 @@ startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Updat
 startFromUpdate seen world update = case update of
     LF.UPure _ e -> startFromExpr seen world e
     LF.UBind (LF.Binding _ e1) e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
-    LF.UCreate tpl e -> Set.singleton (ACreate tpl) `Set.union` startFromExpr seen world e
+    LF.UCreate tpl _e -> Set.singleton (ACreate tpl) -- `Set.union` startFromExpr seen world e
     LF.UExercise tpl chc e1 e2 e3 -> Set.singleton (AExercise tpl chc) `Set.union` startFromExpr seen world e1 `Set.union` maybe Set.empty (startFromExpr seen world) e2 `Set.union` startFromExpr seen world e3
-    LF.UFetch _ ctIdEx -> startFromExpr seen world ctIdEx
+    LF.UFetch _ _ctIdEx -> Set.empty --startFromExpr seen world ctIdEx
     LF.UGetTime -> Set.empty
-    LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
+    LF.UEmbedExpr _ _upEx -> Set.empty --startFromExpr seen world upEx
     LF.ULookupByKey _ -> Set.empty
     LF.UFetchByKey _ -> Set.empty
 
@@ -117,6 +117,13 @@ errorOnLeft desc = \case
   Right x  -> return x
 
 
+prettyAction :: Action -> String
+prettyAction (ACreate  (LF.Qualified _ _ tpl) ) = DAP.renderPretty tpl
+prettyAction (AExercise  (LF.Qualified _ _ tpl) _ ) = DAP.renderPretty tpl
+
+prettyTpl :: LF.TypeConName -> String
+prettyTpl tpl = DAP.renderPretty tpl
+
 -- | 'netlistGraph' generates a simple graph from a netlist.
 -- The default implementation does the edeges other way round. The change is on # 143
 netlistGraph' :: (Ord a)
@@ -175,9 +182,11 @@ execVisual darFilePath dotFilePath = do
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
-        res = concatMap (moduleAndTemplates world) modules
+        res = concatMap (moduleAndTemplates world) modules -- (tpl, actions)
+        justForDebugging = map (\(t, a) -> ((prettyTpl t), (map prettyAction $ Set.elems a)  )) res
         actionEdges = map templatePairs res
         dotString = showDot $ netlistGraph' srcLabel actionsForTemplate actionEdges
+    putStrLn $ show justForDebugging
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile dotString
         Nothing -> putStrLn dotString
