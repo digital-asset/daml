@@ -609,6 +609,8 @@ private class PostgresLedgerDao(
       case _: TimedOut => "TimedOut"
       case _: Disputed => "Disputed"
       case _: DuplicateCommandId => "DuplicateCommandId"
+      case _: PartyNotKnownOnLedger => "PartyNotKnownOnLedger"
+      case _: SubmitterCannotActViaParticipant => "SubmitterCannotActViaParticipant"
     })
 
   private def readRejectionReason(rejectionType: String, description: String): RejectionReason =
@@ -618,6 +620,8 @@ private class PostgresLedgerDao(
       case "TimedOut" => TimedOut(description)
       case "Disputed" => Disputed(description)
       case "DuplicateCommandId" => DuplicateCommandId(description)
+      case "PartyNotKnownOnLedger" => PartyNotKnownOnLedger(description)
+      case "SubmitterCannotActViaParticipant" => SubmitterCannotActViaParticipant(description)
       case typ => sys.error(s"unknown rejection reason: $typ")
     }
 
