@@ -11,7 +11,6 @@ module DA.Service.Daml.LanguageServer.Hover
 import Development.IDE.LSP.Protocol hiding (Hover)
 import Language.Haskell.LSP.Types (Hover(..))
 
-import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import           DA.Service.Daml.LanguageServer.Common
 import qualified Development.IDE.Logger as Logger
 
@@ -19,13 +18,14 @@ import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 
-import           Development.IDE.Types.LSP as Compiler
+import Development.IDE.State.Rules
+import Development.IDE.Types.LSP as Compiler
 import Development.IDE.Types.Diagnostics
 
 -- | Display information on hover.
 handle
     :: Logger.Handle
-    -> Compiler.IdeState
+    -> IdeState
     -> TextDocumentPositionParams
     -> IO (Maybe Hover)
 handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
@@ -35,7 +35,7 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
               "Hover request at position " <>
               renderStrict (layoutPretty defaultLayoutOptions $ prettyPosition pos) <>
               " in file: " <> T.pack (fromNormalizedFilePath filePath)
-          Compiler.atPoint compilerH filePath pos
+          runAction compilerH $ getAtPoint filePath pos
         Nothing       -> pure Nothing
 
     case mbResult of
