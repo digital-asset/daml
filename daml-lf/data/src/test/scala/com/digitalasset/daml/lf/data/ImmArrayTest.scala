@@ -138,9 +138,9 @@ class ImmArrayTest extends FlatSpec with Matchers with Checkers {
 
   it should "implement equals and hashCode correctly" in {
     val long = ImmArray(1, 2, 3, 4)
-    val shortened = long.relaxedSlice(0, 2)
+    val shortened = long.relaxedSlice(1, 3)
 
-    val short = ImmArray(1, 2)
+    val short = ImmArray(2, 3)
 
     shortened.hashCode() shouldBe short.hashCode()
     shortened shouldEqual short
