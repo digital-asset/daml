@@ -39,14 +39,15 @@ object LedgerApiTestTool {
     val commonConfig = PlatformApplications.Config.default
       .withTimeProvider(TimeProviderType.WallClock)
       .withLedgerIdMode(LedgerIdMode.Dynamic())
+      .withCommandSubmissionTtlScaleFactor(toolConfig.commandSubmissionTtlScaleFactor)
       .withRemoteApiEndpoint(
         RemoteApiEndpoint.default
           .withHost(toolConfig.host)
           .withPort(toolConfig.port)
           .withTlsConfig(toolConfig.tlsConfig))
 
-    val default = defaultTests(commonConfig)
-    val optional = optionalTests(commonConfig)
+    val default = defaultTests(commonConfig, toolConfig)
+    val optional = optionalTests(commonConfig, toolConfig)
 
     val allTests = default ++ optional
 
@@ -113,7 +114,9 @@ object LedgerApiTestTool {
     }
   }
 
-  private def defaultTests(commonConfig: PlatformApplications.Config): Map[String, () => Suite] = {
+  private def defaultTests(
+      commonConfig: PlatformApplications.Config,
+      toolConfig: Config): Map[String, () => Suite] = {
     val semanticTestsRunner = lazyInit(
       "SemanticTests",
       name =>
@@ -127,13 +130,17 @@ object LedgerApiTestTool {
           override implicit lazy val patienceConfig: PatienceConfig =
             PatienceConfig(Span(60L, Seconds))
 
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(semanticTestsResource))
       }
     )
     Map(semanticTestsRunner)
   }
-  private def optionalTests(commonConfig: PlatformApplications.Config): Map[String, () => Suite] = {
+  private def optionalTests(
+      commonConfig: PlatformApplications.Config,
+      toolConfig: Config): Map[String, () => Suite] = {
 
     val transactionServiceIT = lazyInit(
       "TransactionServiceTests",
@@ -143,6 +150,7 @@ object LedgerApiTestTool {
           override def actorSystemName = s"${name}ToolActorSystem"
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
 
+          // TODO(gleber): implement parienceConfig and spanScaleFactor in this suite.
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }

@@ -12,7 +12,13 @@ HEAD — ongoing
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
 
-- Added new CLI flag ``--all-tests`` to the :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` to run all default and optional tests.
+- Added new CLI flag ``--all-tests`` to the :doc:`Ledger API Test Tool
+  </tools/ledger-api-test-tool/index>` to run all default and optional tests.
+- Added new CLI flag ``--command-submission-ttl-scale-factor`` to the
+  :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`. It scales
+  time-to-live of commands sent for ledger processing (captured as Maximum Record
+  Time in submitted transactions) for some suites. Useful to tune Maximum Record
+  Time depending on the environment and the Ledger implementation under test.
 
 Sandbox
 ~~~~~~~
