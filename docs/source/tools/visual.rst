@@ -1,7 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Visualizing DAML Contract
+Visualizing DAML Contracts
+##########################
 
 You can generate visual graphs for the contracts in your DAML project. To do this:
 
