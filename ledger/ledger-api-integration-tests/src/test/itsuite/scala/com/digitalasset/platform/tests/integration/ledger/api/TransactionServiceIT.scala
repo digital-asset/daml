@@ -689,7 +689,7 @@ class TransactionServiceIT
       "not expose the contract key in CreatedEvents for templates that do not have them" in allFixtures {
         c =>
           val resultF = c.submitCreate(
-            "Creating_CallablePayout_contract_for_contract_key_test",
+            s"Creating_CallablePayout_contract_for_contract_key_test-${runSuffix}",
             templateIds.callablePayout,
             List(
               RecordField("giver", party1.asParty),
@@ -703,7 +703,7 @@ class TransactionServiceIT
 
       "expose the contract key in CreatedEvents for templates that have them" in allFixtures { c =>
         val resultF = c.submitCreate(
-          "Creating_TextKey_contract_for_contract_key_test",
+          s"Creating_TextKey_contract_for_contract_key_test-${runSuffix}",
           templateIds.textKey,
           List(
             RecordField("tkParty", party1.asParty),
