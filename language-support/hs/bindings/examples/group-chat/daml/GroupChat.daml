@@ -61,6 +61,7 @@ template Membership
         choice Membership_Join : () with joiner : Party, invitation : Invitation
             controller joiner
             do
+                assert (invitation.owner == owner)
                 assert (joiner `elem` invitation.invitees)
                 create Membership with owner, gid, members = joiner :: members
                 return ()
