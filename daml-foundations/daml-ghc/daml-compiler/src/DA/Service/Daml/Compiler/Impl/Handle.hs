@@ -10,7 +10,6 @@ module DA.Service.Daml.Compiler.Impl.Handle
   , withIdeState
   , CompilerService.setFilesOfInterest
   , CompilerService.modifyFilesOfInterest
-  , onFileModified
   , CompilerService.setOpenVirtualResources
   , CompilerService.modifyOpenVirtualResources
   , getAssociatedVirtualResources
@@ -178,16 +177,6 @@ compileFile service fp = do
             diag <- liftIO $ CompilerService.getDiagnostics service
             throwE diag
         Just v -> return v
-
--- | Manages the file store (caching compilation results and unsaved content).
-onFileModified
-    :: IdeState
-    -> NormalizedFilePath
-    -> Maybe T.Text
-    -> IO ()
-onFileModified service fp mbContents = do
-    CompilerService.logDebug service $ "File modified " <> T.pack (show fp)
-    CompilerService.setBufferModified service fp mbContents
 
 newtype UseDalf = UseDalf{unUseDalf :: Bool}
 
