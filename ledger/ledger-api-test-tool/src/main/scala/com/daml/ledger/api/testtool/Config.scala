@@ -20,7 +20,8 @@ final case class Config(
     excluded: Set[String],
     included: Set[String],
     listTests: Boolean,
-    allTests: Boolean
+    allTests: Boolean,
+    uniqueIdentifiers: Boolean
 )
 
 object Config {
@@ -37,6 +38,7 @@ object Config {
     excluded = Set.empty,
     included = Set.empty,
     listTests = false,
-    allTests = false
+    allTests = false,
+    uniqueIdentifiers = true,
   )
 }

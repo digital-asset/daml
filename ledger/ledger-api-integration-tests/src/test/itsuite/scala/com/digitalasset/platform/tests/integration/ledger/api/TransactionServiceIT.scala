@@ -72,13 +72,10 @@ class TransactionServiceIT
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
 
-  val runSuffix = "-" + Random.alphanumeric.take(10).mkString
-  val partyNameMangler =
-    (partyText: String) => partyText + runSuffix + Random.alphanumeric.take(10).mkString
+  val runSuffix = if (config.uniqueIdentifiers) "-" + Random.alphanumeric.take(10).mkString else ""
+  val partyNameMangler = (partyText: String) => partyText + runSuffix
   val commandIdMangler: ((QualifiedName, Int, Ledger.ScenarioNodeId) => String) =
-    (testName, stepId, nodeId) => {
-      s"ledger-api-test-tool-$testName-$stepId-$nodeId-$runSuffix"
-    }
+    (scenario, stepId, nodeId) => s"ledger-api-test-tool-$scenario-$stepId-${nodeId}${runSuffix}"
 
   override val timeLimit: Span = scaled(300.seconds)
 

@@ -78,6 +78,14 @@ object Cli {
       .action((_, c) => c.copy(verbose = true))
       .text("Prints full stacktraces on failures.")
 
+    opt[Unit]("stable-identifiers")
+      .abbr("s")
+      .action((_, c) => c.copy(uniqueIdentifiers = false))
+      .text(
+        """Use the same party and command identifiers for each run. By default
+          |those are randomized for each execution of the tool to ensure that
+          |the tests are not being failed by command and party deduplication mechanisms.""".stripMargin)
+
     opt[Unit]("must-fail")
       .action((_, c) => c.copy(mustFail = true))
       .text("""Reverse success status logic of the tool. Use this flag if you expect one or
