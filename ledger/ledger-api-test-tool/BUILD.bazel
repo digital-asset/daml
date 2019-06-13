@@ -90,15 +90,18 @@ client_server_test(
         # NOTE(GP): our CI has a tendency to be more unpredictable than local
         # machine with timeouts, we value lack of flakes on CI.
         "--timeout-scale-factor=10",
+        "--all-tests",
     ],
 
     # Data files available to both client and server.
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
     ],
     server = "//ledger/api-server-damlonx/reference:reference",
     server_args = [
         "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar)",
+        "$(rootpath //ledger/sandbox:Test.dar)",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it

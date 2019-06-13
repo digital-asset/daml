@@ -36,6 +36,7 @@ import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContract
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 /** This stores all the mutable data that we need to run a ledger: the PCS, the ACS, and the deduplicator.
   *
@@ -198,14 +199,21 @@ class InMemoryLedger(
   override def close(): Unit = ()
 
   override def lookupTransaction(
-      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
-    Future.successful(
-      entries
-        .getEntryAt(transactionId.toLong)
-        .collect[(Long, LedgerEntry.Transaction)] {
-          case t: LedgerEntry.Transaction =>
-            (transactionId.toLong, t) // the transaction id is also the offset
-        })
+      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] = {
+
+    Try(transactionId.toLong) match {
+      case Failure(_) =>
+        Future.successful(None)
+      case Success(n) =>
+        Future.successful(
+          entries
+            .getEntryAt(n)
+            .collect[(Long, LedgerEntry.Transaction)] {
+              case t: LedgerEntry.Transaction =>
+                (n, t) // the transaction id is also the offset
+            })
+    }
+  }
 
   override def parties: Future[List[PartyDetails]] =
     Future.successful(this.synchronized {

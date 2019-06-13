@@ -73,7 +73,7 @@ class GrpcTransactionService(
   private def optionalVisibleToApiTx(visibleTxO: Option[VisibleTransaction]) =
     visibleTxO.fold {
       throw new ApiException(
-        Status.INVALID_ARGUMENT.withDescription("Transaction not found, or not visible."))
+        Status.NOT_FOUND.withDescription("Transaction not found, or not visible."))
     }(v => GetTransactionResponse(Some(visibleToApiTxTree(v, "", true))))
 
   private def visibleToApiTxTree(
@@ -104,7 +104,7 @@ class GrpcTransactionService(
   private def optionalTransactionToApiResponse(txO: Option[Transaction]) =
     txO.fold {
       throw new ApiException(
-        Status.INVALID_ARGUMENT.withDescription("Transaction not found, or not visible."))
+        Status.NOT_FOUND.withDescription("Transaction not found, or not visible."))
     }(t => GetFlatTransactionResponse(Some(t)))
 
   override protected def getTransactionTreesSource(

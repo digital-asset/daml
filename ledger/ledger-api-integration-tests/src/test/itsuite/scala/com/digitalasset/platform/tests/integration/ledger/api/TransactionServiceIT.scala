@@ -213,7 +213,6 @@ class TransactionServiceIT
 
             _ = secondSection should have size commandsPerSection.toLong
             ledgerEndAfterSecondSection = lastOffsetIn(secondSection).value
-
             completeSequence <- client
               .getTransactions(
                 ledgerEndResponse.getOffset,
@@ -944,19 +943,19 @@ class TransactionServiceIT
             response.transaction should not be empty
             inside(notVisibleError) {
               case sre: StatusRuntimeException =>
-                sre.getStatus.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
+                sre.getStatus.getCode shouldEqual Status.NOT_FOUND.getCode
                 sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
             }
           }
       }
 
-      "return INVALID_ARGUMENT if it does not exist" in allFixtures { context =>
+      "return NOT_FOUND if it does not exist" in allFixtures { context =>
         context.transactionClient
           .getTransactionById(
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             List("party"))
           .failed
-          .map(IsStatusException(Status.INVALID_ARGUMENT))
+          .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
@@ -1039,19 +1038,19 @@ class TransactionServiceIT
             response.transaction should not be empty
             inside(notVisibleError) {
               case sre: StatusRuntimeException =>
-                sre.getStatus.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
+                sre.getStatus.getCode shouldEqual Status.NOT_FOUND.getCode
                 sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
             }
           }
       }
 
-      "return INVALID_ARGUMENT if it does not exist" in allFixtures { context =>
+      "return NOT_FOUND if it does not exist" in allFixtures { context =>
         context.transactionClient
           .getFlatTransactionById(
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             List("party"))
           .failed
-          .map(IsStatusException(Status.INVALID_ARGUMENT))
+          .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
@@ -1113,7 +1112,7 @@ class TransactionServiceIT
 
           inside(notVisibleError) {
             case sre: StatusRuntimeException =>
-              sre.getStatus.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
+              sre.getStatus.getCode shouldEqual Status.NOT_FOUND.getCode
               sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
           }
         }
@@ -1126,13 +1125,13 @@ class TransactionServiceIT
           .map(IsStatusException(Status.INVALID_ARGUMENT))
       }
 
-      "return INVALID_ARGUMENT if it does not exist" in allFixtures { context =>
+      "return NOT_FOUND if it does not exist" in allFixtures { context =>
         context.transactionClient
           .getTransactionByEventId(
             "#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:000",
             List("party"))
           .failed
-          .map(IsStatusException(Status.INVALID_ARGUMENT))
+          .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
@@ -1178,7 +1177,7 @@ class TransactionServiceIT
 
           inside(notVisibleError) {
             case sre: StatusRuntimeException =>
-              sre.getStatus.getCode shouldEqual Status.INVALID_ARGUMENT.getCode
+              sre.getStatus.getCode shouldEqual Status.NOT_FOUND.getCode
               sre.getStatus.getDescription shouldEqual "Transaction not found, or not visible."
           }
         }
@@ -1191,13 +1190,13 @@ class TransactionServiceIT
           .map(IsStatusException(Status.INVALID_ARGUMENT))
       }
 
-      "return INVALID_ARGUMENT if it does not exist" in allFixtures { context =>
+      "return NOT_FOUND if it does not exist" in allFixtures { context =>
         context.transactionClient
           .getFlatTransactionByEventId(
             "#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:000",
             List("party"))
           .failed
-          .map(IsStatusException(Status.INVALID_ARGUMENT))
+          .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
