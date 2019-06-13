@@ -9,6 +9,12 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Sandbox
+~~~~~~~
+
+- Fixed a bug in an internal data structure that broke contract keys.
+  See `#1623 <https://github.com/digital-asset/daml/issues/1623>`__.
+
 0.12.25 — 2019-06-13
 --------------------
 
@@ -29,8 +35,6 @@ Sandbox
 
 - Introduced a new API for party management.
   See `#1312 <https://github.com/digital-asset/daml/issues/1312>`__.
-- Fixed a bug in an internal data structure that broke contract keys.
-  See `#1623 <https://github.com/digital-asset/daml/issues/1623>`__.
 
 Scala bindings
 ~~~~~~~~~~~~~~
