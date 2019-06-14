@@ -137,16 +137,21 @@ da_scala_library(
 
 da_scala_test_suite(
     name = "extractor-scala-tests",
-    size = "small",
+    size = "medium",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
         "//extractor:PrimitiveTypes.dar",
         "//extractor:RecordsAndVariants.dar",
         "//extractor:TransactionExample.dar",
         "//extractor:VeryLargeArchive.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
         ":extractor-scala-tests-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
     ] + testDependencies,
 )

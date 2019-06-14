@@ -3,6 +3,7 @@
 
 package com.digitalasset.extractor
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
@@ -30,7 +31,7 @@ class TransactionSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File("extractor/TransactionExample.dar")
+  override protected def darFile = new File(rlocation("extractor/TransactionExample.dar"))
 
   override def scenario: Option[String] = Some("TransactionExample:example")
 

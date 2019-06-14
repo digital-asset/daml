@@ -3,6 +3,7 @@
 
 package com.digitalasset.extractor
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.value.ValueGenerators.{party => partyGen}
 import config.ExtractorConfig
@@ -35,7 +36,7 @@ class MultiPartySpec
     with Matchers
     with GeneratorDrivenPropertyChecks {
 
-  override protected def darFile = new File("extractor/RecordsAndVariants.dar")
+  override protected def darFile = new File(rlocation("extractor/RecordsAndVariants.dar"))
 
   override def scenario: Option[String] = Some("RecordsAndVariants:multiParty")
 

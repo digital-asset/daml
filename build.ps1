@@ -64,6 +64,7 @@ bazel shutdown
 
 bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `
     //daml-lf/... `
+    //extractor/... `
     //language-support/codegen-common:test `
     //language-support/java/... `
     //language-support/scala/... `
