@@ -80,7 +80,7 @@ These are all valid choices, but since this is just a demo, we choose the simple
 
 ### Groups with no members
 
-This would be a slihtly awkward, since a contract must have at least one signatory.
+This would be a slightly awkward, since a contract must have at least one signatory.
 
 We might suport this feature by tracking specially the original creator of the group as a signatory, whilst allowing them not to be member.
 Or else we might have some distinguished party representing the operator of the GroupChat framework, and have them be a signatory.

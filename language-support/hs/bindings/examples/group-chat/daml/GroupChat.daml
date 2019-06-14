@@ -48,9 +48,11 @@ template Group
             controller leaver
             do
                 assert (leaver `elem` members)
-                create Group with
-                    members = filter (/= leaver) members
-                    invitees
+                if members == [leaver] then return self
+                else
+                    create Group with
+                        members = filter (/= leaver) members
+                        invitees
 
         nonconsuming choice Group_Send : ContractId Message with sender : Party, body : Text
             controller sender
@@ -154,5 +156,22 @@ non_member_cant_invite = scenario do
 
     g <- submit         alice do create     Group        with members = [alice], invitees = []
     g <- submitMustFail bob   do exercise g Group_Invite with inviter = bob, candidate = chris
+
+    return ()
+
+
+last_member_may_leave = scenario do -- and group is shutdown
+
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+    chris <- getParty "Chris"
+
+    g  <- submit         alice do create     Group        with members = [alice], invitees = []
+    g  <- submit         alice do exercise g Group_Invite with inviter = alice, candidate = bob
+    g  <- submit         bob   do exercise g Group_Join   with joiner = bob
+    g  <- submit         alice do exercise g Group_Leave  with leaver = alice
+
+    g <- submit bob do exercise g Group_Leave  with leaver = bob
+    -- g is no longer active. How can this be tested?
 
     return ()
