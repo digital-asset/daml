@@ -26,7 +26,7 @@ import scalaz.syntax.traverse._
 import scalaz.std.list._
 import scalaz.std.either._
 
-class SandboxPackageStore() extends IndexPackagesService {
+class InMemoryPackageStore() extends IndexPackagesService {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val packageInfos: mutable.Map[PackageId, PackageDetails] = mutable.Map()
@@ -119,6 +119,6 @@ class SandboxPackageStore() extends IndexPackagesService {
   }
 }
 
-object SandboxPackageStore {
-  def apply(): SandboxPackageStore = new SandboxPackageStore()
+object InMemoryPackageStore {
+  def apply(): InMemoryPackageStore = new InMemoryPackageStore()
 }

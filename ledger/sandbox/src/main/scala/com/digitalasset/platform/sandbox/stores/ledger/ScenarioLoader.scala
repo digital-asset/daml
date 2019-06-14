@@ -17,7 +17,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
 import org.slf4j.LoggerFactory
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
-import com.digitalasset.platform.sandbox.damle.SandboxPackageStore
+import com.digitalasset.platform.sandbox.damle.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.breakOut
@@ -53,7 +53,7 @@ object ScenarioLoader {
     *                 matching scenarios.
     */
   def fromScenario(
-      packages: SandboxPackageStore,
+      packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String)
     : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Instant) = {
@@ -92,7 +92,7 @@ object ScenarioLoader {
   }
 
   private def buildScenarioLedger(
-      packages: SandboxPackageStore,
+      packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
@@ -134,7 +134,7 @@ object ScenarioLoader {
   }
 
   private def identifyScenario(
-      packages: SandboxPackageStore,
+      packages: InMemoryPackageStore,
       scenario: String,
       candidateScenarios: List[(Ref.DefinitionRef, Definition)])
     : (Ref.DefinitionRef, Definition) = {
@@ -150,7 +150,7 @@ object ScenarioLoader {
   }
 
   private def getCandidateScenarios(
-      packages: SandboxPackageStore,
+      packages: InMemoryPackageStore,
       scenarioQualName: Ref.QualifiedName
   ): List[(Ref.Identifier, Definition)] = {
     packages
@@ -166,7 +166,7 @@ object ScenarioLoader {
   }
 
   private def getScenarioQualifiedName(
-      packages: SandboxPackageStore,
+      packages: InMemoryPackageStore,
       scenario: String
   ): Ref.QualifiedName = {
     Ref.QualifiedName.fromString(scenario) match {

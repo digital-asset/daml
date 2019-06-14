@@ -29,7 +29,7 @@ import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.platform.sandbox.damle.SandboxPackageStore
+import com.digitalasset.platform.sandbox.damle.InMemoryPackageStore
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration._
@@ -51,7 +51,7 @@ object SandboxServer {
   private val engine = Engine()
 
   // if requested, initialize the ledger state with the given scenario
-  private def createInitialState(config: SandboxConfig, packages: SandboxPackageStore)
+  private def createInitialState(config: SandboxConfig, packages: InMemoryPackageStore)
     : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Option[Instant]) = {
     // [[ScenarioLoader]] needs all the packages to be already compiled --
     // make sure that that's the case
@@ -160,7 +160,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
     }
 
-    val packageStore = SandboxPackageStore()
+    val packageStore = InMemoryPackageStore()
 
     // TODO is it sensible to have all the initial packages to be known
     // since the epoch?

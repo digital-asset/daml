@@ -34,7 +34,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
 import com.digitalasset.ledger.api.domain.{LedgerId, _}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.sandbox.damle.SandboxPackageStore
+import com.digitalasset.platform.sandbox.damle.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger._
@@ -69,7 +69,7 @@ object SandboxIndexAndWriteService {
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       startMode: SqlStartMode,
       queueDepth: Int,
-      templateStore: SandboxPackageStore)(
+      templateStore: InMemoryPackageStore)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[IndexAndWriteService] =
     Ledger
@@ -91,7 +91,7 @@ object SandboxIndexAndWriteService {
       timeProvider: TimeProvider,
       acs: ActiveContractsInMemory,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
-      templateStore: SandboxPackageStore)(
+      templateStore: InMemoryPackageStore)(
       implicit mat: Materializer,
       mm: MetricsManager): IndexAndWriteService = {
     val ledger = Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, ledgerEntries))
@@ -102,7 +102,7 @@ object SandboxIndexAndWriteService {
       ledger: Ledger,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      templateStore: SandboxPackageStore)(implicit mat: Materializer) = {
+      templateStore: InMemoryPackageStore)(implicit mat: Materializer) = {
     val contractStore = new SandboxContractStore(ledger)
     val indexAndWriteService =
       new SandboxIndexAndWriteService(ledger, timeModel, templateStore, contractStore)
@@ -147,7 +147,7 @@ object SandboxIndexAndWriteService {
 private class SandboxIndexAndWriteService(
     ledger: Ledger,
     timeModel: TimeModel,
-    packageStore: SandboxPackageStore,
+    packageStore: InMemoryPackageStore,
     contractStore: ContractStore)(implicit mat: Materializer)
     extends IndexService
     with WriteService {

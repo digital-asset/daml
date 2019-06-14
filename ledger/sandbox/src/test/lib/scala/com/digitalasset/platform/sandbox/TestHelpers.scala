@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.sandbox.damle.SandboxPackageStore
+import com.digitalasset.platform.sandbox.damle.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.{
@@ -34,7 +34,7 @@ object TestDar {
 
 trait TestHelpers {
   protected val packageStore = {
-    val packageStore = SandboxPackageStore()
+    val packageStore = InMemoryPackageStore()
     packageStore.putDarFile(Instant.EPOCH, "", TestDar.darFile) match {
       case Right(details @ _) => ()
       case Left(err) => sys.error(s"Could not load package ${TestDar.darFile}: $err")
