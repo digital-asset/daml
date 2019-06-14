@@ -6,7 +6,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 -- WARNING: A copy of DA.Service.Daml.LanguageServer, try to keep them in sync
--- This version removes the daml: handling and SDK version output
+-- This version removes the daml: handling
 module Development.IDE.LSP.LanguageServer
     ( runLanguageServer
     ) where

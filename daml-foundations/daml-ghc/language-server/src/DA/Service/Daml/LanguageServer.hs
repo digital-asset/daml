@@ -10,8 +10,6 @@ module DA.Service.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import Control.Exception.Safe
-
 import           Development.IDE.LSP.Protocol
 import           Development.IDE.LSP.Server
 
@@ -20,7 +18,6 @@ import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
 import qualified Development.IDE.LSP.Definition as LS.Definition
 import qualified Development.IDE.LSP.Hover      as LS.Hover
 import qualified Development.IDE.Logger as Logger
-import DAML.Project.Consts
 
 import qualified Data.Aeson                                as Aeson
 import qualified Data.Rope.UTF16 as Rope
@@ -170,8 +167,6 @@ runLanguageServer
     -> ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
     -> IO ()
 runLanguageServer loggerH getIdeState = do
-    sdkVersion <- liftIO (getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)"))
-    liftIO $ Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
     let getHandlers lspFuncs = do
             compilerH <- getIdeState (sendFunc lspFuncs) (makeLSPVFSHandle lspFuncs)
             pure $ Handlers (handleRequest loggerH compilerH) (handleNotification lspFuncs loggerH compilerH)
