@@ -20,11 +20,6 @@
 				"hs"
 			]
 		}],
-		"grammars": [{
-                "language": "haskell",
-                "scopeName": "source.haskell",
-                "path": "./syntaxes/haskell.tmLanguage"
-			}],
 		"configuration": {
 			"type": "object",
 			"title": "Haskell IDE Core Configuration",
@@ -49,6 +44,9 @@
 		"postinstall": "node ./node_modules/vscode/bin/install",
 		"test": "npm run compile && node ./node_modules/vscode/bin/test"
 	},
+    "extensionDependencies": [
+        "justusadam.language-haskell"
+	],
 	"dependencies": {
 		"vscode-languageclient": "^4.1.4"
 	},
