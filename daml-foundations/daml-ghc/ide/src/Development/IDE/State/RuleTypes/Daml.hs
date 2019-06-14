@@ -61,7 +61,6 @@ type instance RuleResult GetScenarioRoot = NormalizedFilePath
 
 -- | These rules manage access to the global state in
 -- envOfInterestVar and envOpenVirtualResources.
-type instance RuleResult GetFilesOfInterest = Set NormalizedFilePath
 type instance RuleResult GetOpenVirtualResources = Set VirtualResource
 
 data GenerateDalf = GenerateDalf
@@ -128,12 +127,15 @@ data GetScenarioRoot = GetScenarioRoot
 instance Hashable GetScenarioRoot
 instance NFData   GetScenarioRoot
 
-data GetFilesOfInterest = GetFilesOfInterest
-    deriving (Eq, Show, Typeable, Generic)
-instance Hashable GetFilesOfInterest
-instance NFData   GetFilesOfInterest
-
 data GetOpenVirtualResources = GetOpenVirtualResources
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetOpenVirtualResources
 instance NFData   GetOpenVirtualResources
+
+-- | Kick off things
+type instance RuleResult OfInterest = ()
+
+data OfInterest = OfInterest
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable OfInterest
+instance NFData   OfInterest

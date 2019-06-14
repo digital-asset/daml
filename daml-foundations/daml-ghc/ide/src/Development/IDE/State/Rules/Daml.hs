@@ -443,14 +443,6 @@ ofInterestRule = do
               prevCtxRoots <- modifyVar envPreviousScenarioContexts $ \prevCtxs -> pure (ctxRoots, prevCtxs)
               when (prevCtxRoots /= ctxRoots) $ void $ SS.gcCtxs scenarioService ctxRoots
 
-getFilesOfInterestRule :: Rules ()
-getFilesOfInterestRule = do
-    defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null $ fromNormalizedFilePath _file) $ do
-        alwaysRerun
-        Env{..} <- getServiceEnv
-        filesOfInterest <- liftIO $ readVar envOfInterestVar
-        pure (Just $ BS.fromString $ show filesOfInterest, ([], Just filesOfInterest))
-
 getOpenVirtualResourcesRule :: Rules ()
 getOpenVirtualResourcesRule = do
     defineEarlyCutoff $ \GetOpenVirtualResources _file -> assert (null $ fromNormalizedFilePath _file) $ do
@@ -538,7 +530,6 @@ damlRule opts = do
     ofInterestRule
     encodeModuleRule
     createScenarioContextRule
-    getFilesOfInterestRule
     getOpenVirtualResourcesRule
 
 mainRule :: Options -> Rules ()
