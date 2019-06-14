@@ -4,6 +4,7 @@
 package com.digitalasset.platform.tests.integration.ledger.api
 
 import java.nio.file.{Files, Paths}
+import scala.util.Random
 
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -19,8 +20,8 @@ import com.digitalasset.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.MultiLedgerFixture
 import com.digitalasset.platform.participant.util.ValueConversions._
-import com.google.protobuf.ByteString
 import io.grpc.Status
+import com.google.protobuf.ByteString
 import org.scalatest.{AsyncFreeSpec, Matchers}
 import org.scalatest.Inspectors._
 import org.scalatest.concurrent.AsyncTimeLimitedTests
@@ -32,6 +33,13 @@ class PackageManagementServiceIT
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests
     with Matchers {
+
+  private val runSuffix = "-" + Random.alphanumeric.take(10).mkString
+  private val partyNameMangler =
+    (partyText: String) => partyText + runSuffix + Random.alphanumeric.take(10).mkString
+  private val commandIdMangler =
+    (testName: String, nodeId: String) => s"ledger-api-test-tool-$testName-$nodeId-$runSuffix"
+
   override protected def config: Config = Config.default.copy(darFiles = Nil)
 
   private def packageManagementService(stub: PackageManagementService): PackageManagementClient =
@@ -89,7 +97,7 @@ class PackageManagementServiceIT
 
   "should accept commands using the uploaded package" in allFixtures { ctx =>
     val darFile = Files.readAllBytes(Paths.get("ledger/sandbox/Test.dar"))
-    val party = "operator"
+    val party = partyNameMangler("operator")
     val createArg = Record(fields = List(RecordField("operator", party.asParty)))
     def createCmd(packageId: String) =
       CreateCommand(Some(Identifier(packageId, "", "Test", "Dummy")), Some(createArg)).wrap
@@ -102,7 +110,7 @@ class PackageManagementServiceIT
       packageId = findTestPackageId(packages)
       createTx <- ctx.testingHelpers.submitAndListenForSingleResultOfCommand(
         ctx.testingHelpers
-          .submitRequestWithId("create")
+          .submitRequestWithId(commandIdMangler("PackageManagementServiceIT_commands", "create"))
           .update(
             _.commands.commands := List(createCmd(packageId)),
             _.commands.party := party
