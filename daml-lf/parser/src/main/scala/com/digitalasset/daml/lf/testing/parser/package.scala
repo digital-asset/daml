@@ -9,12 +9,6 @@ import com.digitalasset.daml.lf.language.LanguageVersion
 
 package object parser {
 
-  val defaultLanguageVersion: LanguageVersion = LanguageVersion.default
-  val defaultPkgId: PackageId = PackageId.assertFromString("-pkgId-")
-  val defaultModName: ModuleName = DottedName.assertFromString("Mod")
-  val defaultTemplName: TypeConName =
-    Identifier(defaultPkgId, QualifiedName(defaultModName, DottedName.assertFromString("T")))
-
   private def safeParse[T](p: Parsers.Parser[T], s: String): Either[String, T] =
     try {
       Right(Parsers.parseAll(p, s))
@@ -25,11 +19,14 @@ package object parser {
 
   def parseKind(s: String): Either[String, Kind] =
     safeParse(KindParser.kind, s)
-  def parseType(s: String): Either[String, Type] =
-    safeParse(TypeParser.typ, s)
-  def parseExpr(s: String): Either[String, Expr] =
-    safeParse(ExprParser.expr, s)
-  def parseModules(s: String): Either[String, List[Module]] =
-    safeParse(Parsers.rep(ModParser.mod), s)
+  def parseType(s: String)(implicit defaultPkgId: PackageId): Either[String, Type] =
+    safeParse(new TypeParser().typ, s)
+  def parseExpr(s: String)(implicit defaultPkgId: PackageId): Either[String, Expr] =
+    safeParse(new ExprParser().expr, s)
+  def parseModules(s: String)(
+      implicit defaultPkgId: PackageId,
+      languageVersion: LanguageVersion
+  ): Either[String, List[Module]] =
+    safeParse(Parsers.rep(new ModParser().mod), s)
 
 }

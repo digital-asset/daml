@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 

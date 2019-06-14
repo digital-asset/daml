@@ -7,7 +7,6 @@ import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser._
 import com.digitalasset.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}

@@ -11,9 +11,8 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.Expr
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
-import com.digitalasset.daml.lf.speedy.SValue.{STuple, _}
+import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPkgId
 import com.digitalasset.daml.lf.validation.Validation
 import org.scalatest.{Matchers, WordSpec}
 

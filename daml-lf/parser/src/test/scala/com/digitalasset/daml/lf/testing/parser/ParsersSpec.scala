@@ -416,7 +416,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
             DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef
           ),
           templates = List.empty,
-          languageVersion = defaultLanguageVersion,
+          languageVersion = languageVersion,
           featureFlags = FeatureFlags.default
         )))
 
@@ -441,7 +441,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           name = modName,
           definitions = List(DottedName.assertFromString("fact") -> valDef),
           templates = List.empty,
-          languageVersion = defaultLanguageVersion,
+          languageVersion = languageVersion,
           featureFlags = FeatureFlags.default
         )))
 
@@ -509,7 +509,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           name = modName,
           definitions = List(DottedName.assertFromString("Person") -> recDef),
           templates = List.empty,
-          languageVersion = defaultLanguageVersion,
+          languageVersion = languageVersion,
           featureFlags = FeatureFlags.default
         )))
 
@@ -554,7 +554,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           name = modName,
           definitions = List(DottedName.assertFromString("R") -> recDef),
           templates = List.empty,
-          languageVersion = defaultLanguageVersion,
+          languageVersion = languageVersion,
           featureFlags = FeatureFlags.default
         )))
 

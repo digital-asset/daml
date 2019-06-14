@@ -4,12 +4,13 @@
 package com.digitalasset.daml.lf.testing.parser
 
 import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 
-object TypeParser {
+class TypeParser(implicit defaultPkgId: PackageId) {
 
   private def builtinTypes = Map[String, BuiltinType](
     "Int64" -> BTInt64,

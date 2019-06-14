@@ -5,7 +5,6 @@ package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser._
 import org.scalatest.{Matchers, WordSpec}
 
 class CollisionSpec extends WordSpec with Matchers {
