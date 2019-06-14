@@ -16,8 +16,8 @@ import           Development.IDE.LSP.Server
 
 import Control.Monad.IO.Class
 import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
-import qualified DA.Service.Daml.LanguageServer.Definition as LS.Definition
-import qualified DA.Service.Daml.LanguageServer.Hover      as LS.Hover
+import qualified Development.IDE.LSP.Definition as LS.Definition
+import qualified Development.IDE.LSP.Hover      as LS.Hover
 import qualified Development.IDE.Logger as Logger
 import DAML.Project.Consts
 

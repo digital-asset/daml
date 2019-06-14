@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Display information on hover.
-module DA.Service.Daml.LanguageServer.Hover
+module Development.IDE.LSP.Hover
     ( handle
     ) where
 
