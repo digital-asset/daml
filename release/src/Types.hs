@@ -71,14 +71,13 @@ type Classifier = Text
 type ArtifactType = Text
 
 -- Fully qualified coordinates for a Maven artifact.
-data MavenCoords = MavenCoords {
-    groupId :: !GroupId,
-    artifactId :: !ArtifactId,
-    version :: !TextVersion,
-    classifier :: Maybe ArtifactType,
-    artifactType :: !ArtifactType
-} deriving Show
-
+data MavenCoords = MavenCoords
+    { groupId :: !GroupId
+    , artifactId :: !ArtifactId
+    , version :: !TextVersion
+    , classifier :: Maybe ArtifactType
+    , artifactType :: !ArtifactType
+    } deriving Show
 
 newtype PlatformDependent = PlatformDependent{getPlatformDependent :: Bool}
     deriving (Eq, Show, FromJSON)
@@ -171,14 +170,14 @@ renderVersion (Version maj min_ patch) = T.intercalate "." [tshow maj, tshow min
 newtype MavenAllowUnsecureTls = MavenAllowUnsecureTls { getAllowUnsecureTls :: Bool }
     deriving (Eq, Show, FromJSON)
 
-data MavenUploadConfig = MavenUploadConfig {
-  url :: !Text,
-  user :: !Text,
-  password :: !Text,
-  allowUnsecureTls :: !MavenAllowUnsecureTls,
+data MavenUploadConfig = MavenUploadConfig
+  { mucUrl :: !Text
+  , mucUser :: !Text
+  , mucPassword :: !Text
+  , mucAllowUnsecureTls :: !MavenAllowUnsecureTls
 -- ^^ For testing with an Artifactory (or similar) instance using a self-signed SSL certificate.
 -- This flag should NEVER be set in production.
-  signingKey :: String
+  , mucSigningKey :: String
 } deriving (Eq, Show)
 
 instance FromJSON MavenUploadConfig where

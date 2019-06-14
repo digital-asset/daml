@@ -60,15 +60,15 @@ uploadToMavenCentral :: (MonadCI m) => MavenUploadConfig -> Path Abs Dir -> [(Ma
 uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
 
     -- Note: TLS verification settings switchable by MavenUpload settings
-    let managerSettings = if getAllowUnsecureTls allowUnsecureTls then noVerifyTlsManagerSettings else tlsManagerSettings
+    let managerSettings = if getAllowUnsecureTls mucAllowUnsecureTls then noVerifyTlsManagerSettings else tlsManagerSettings
     
     -- Create HTTP Connection manager with 2min response timeout as the OSSRH can be slow...
     manager <- liftIO $ newManager managerSettings { managerResponseTimeout = responseTimeoutMicro (120 * 1000 * 1000) }
 
-    parsedUrlRequest <- parseUrlThrow $ T.unpack url -- Note: Will throw exception on non-2XX responses
-    let baseRequest = setRequestMethod "PUT" $ setRequestBasicAuth (encodeUtf8 user) (encodeUtf8 password) parsedUrlRequest
+    parsedUrlRequest <- parseUrlThrow $ T.unpack mucUrl -- Note: Will throw exception on non-2XX responses
+    let baseRequest = setRequestMethod "PUT" $ setRequestBasicAuth (encodeUtf8 mucUser) (encodeUtf8 mucPassword) parsedUrlRequest
 
-    decodedSigningKey <- decodeSigningKey signingKey
+    decodedSigningKey <- decodeSigningKey mucSigningKey
     -- Security Note: Using the withSystemTempDirectory function to always cleanup the private key data from the filesystems.
     withSystemTempDirectory "gnupg" $ \gnupgTempDir -> do
 
@@ -91,7 +91,7 @@ uploadToMavenCentral MavenUploadConfig{..} releaseDir artifacts = do
         -- 3. MD5 checksum
 
         for_ artifacts $ \(coords@MavenCoords{..}, file) -> do
-            let absFile = releaseDir </> file
+            let absFile = releaseDir </> file -- (T.intercalate "/" (groupId <> [artifactId]))
 
             sigTempFile <- liftIO $ emptySystemTempFile $ T.unpack $ artifactId <> maybe "" ("-" <>) classifier <> "-" <> artifactType <> ".asc"
             -- The "--batch" and "--yes" flags are used to prevent gpg waiting on stdin.
@@ -317,11 +317,11 @@ mavenConfigFromEnv = do
     mbAllowUnsecureTls <- liftIO $ lookupEnv "MAVEN_UNSECURE_TLS"
     signingKey <- liftIO $ getEnv "GPG_KEY"
     pure MavenUploadConfig
-        { url = T.pack url
-        , user = T.pack user
-        , password = T.pack password
-        , allowUnsecureTls = MavenAllowUnsecureTls $ mbAllowUnsecureTls == Just "True"
-        , signingKey = signingKey
+        { mucUrl = T.pack url
+        , mucUser = T.pack user
+        , mucPassword = T.pack password
+        , mucAllowUnsecureTls = MavenAllowUnsecureTls $ mbAllowUnsecureTls == Just "True"
+        , mucSigningKey = signingKey
         }
 
 textToLazyByteString :: Text -> BSL.ByteString

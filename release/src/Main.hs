@@ -5,9 +5,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main (main) where
 
+import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Logger
-import Data.Traversable
 import Data.Yaml
 import Path
 import Path.IO
@@ -29,7 +29,8 @@ main = do
       liftIO $ createDirIfMissing True releaseDir
       $logInfo "Checking if we should release"
       sdkVersion <- readVersionAt "HEAD"
-      release <- isReleaseCommit
+      -- release <- isReleaseCommit
+      let release = True
       let upload = if release then optsPerformUpload else PerformUpload False
       -- NOTE(MH): We add 100 to get version numbers for the individual
       -- components which are bigger than all version numbers we used
@@ -54,13 +55,13 @@ main = do
       if getPerformUpload upload
           then do
               $logInfo "Make release"
-              releaseToBintray upload releaseDir (map (\(a, (_, outp)) -> (a, outp)) files)
+--              releaseToBintray upload releaseDir (map (\(a, (_, outp)) -> (a, outp)) files)
 
               -- Uploading to Maven Central
               mavenUploadConfig <- mavenConfigFromEnv
 
               let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
-              uploadArtifacts <- concat <$> mapM (artifactCoords optsAllArtifacts) mavenUploadArtifacts
+              uploadArtifacts <- concatMapM (artifactCoords optsAllArtifacts) mavenUploadArtifacts
               uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts
 
               -- set variables for next steps in Azure pipelines
