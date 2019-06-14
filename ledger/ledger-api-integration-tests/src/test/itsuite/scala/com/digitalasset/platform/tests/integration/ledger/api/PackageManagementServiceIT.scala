@@ -3,15 +3,20 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import java.nio.file.{Files, Paths}
-import scala.util.Random
+import java.io.File
+import java.nio.file.Files
+import java.util.zip.ZipFile
 
+import com.digitalasset.daml.lf.archive.{DarReader, Decode}
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml_lf.DamlLf.Archive
+
+import scala.util.{Random, Try}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageDetails
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.commands.CreateCommand
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -25,6 +30,11 @@ import com.google.protobuf.ByteString
 import org.scalatest.{AsyncFreeSpec, Matchers}
 import org.scalatest.Inspectors._
 import org.scalatest.concurrent.AsyncTimeLimitedTests
+import scalaz.syntax.traverse._
+import scalaz.std.either._
+import scalaz.std.list._
+
+import scala.concurrent.Future
 
 class PackageManagementServiceIT
     extends AsyncFreeSpec
@@ -45,29 +55,54 @@ class PackageManagementServiceIT
   private def packageManagementService(stub: PackageManagementService): PackageManagementClient =
     new PackageManagementClient(stub)
 
-  /**
-    * Given a list of DAML-LF packages, guesses the package ID of the test package.
-    * Note: the test DAR file contains 3 packages: the test package, stdlib, and daml-prim.
-    * The test package should be by far the smallest one, so we just sort the packages by size
-    * to avoid having to parse and inspect package details.
-    */
-  private def findTestPackageId(packages: Seq[PackageDetails]): String =
-    packages
-      .sortBy(_.packageSize)
+  private case class LoadedPackage(size: Long, archive: Archive, pkg: Ast.Package)
+
+  private def loadTestDar: (Array[Byte], List[LoadedPackage], String) = {
+    val file = new File("ledger/sandbox/Test.dar")
+
+    val testDarBytes = Files.readAllBytes(file.toPath)
+
+    val testPackages = DarReader {
+      case (archiveSize, x) => Try(Archive.parseFrom(x)).map(ar => (archiveSize, ar))
+    }.readArchive(new ZipFile(file))
+      .fold(t => Left(s"Failed to parse DAR from $file: $t"), dar => Right(dar.all))
+      .flatMap {
+        _ traverseU {
+          case (archiveSize, archive) =>
+            Try(LoadedPackage(archiveSize, archive, Decode.decodeArchive(archive)._2)).toEither.left
+              .map(err => s"Could not parse archive $archive.getHash: $err")
+        }
+      }
+      .fold[List[LoadedPackage]](err => fail(err), scala.Predef.identity)
+
+    // Guesses the package ID of the test package.
+    // Note: the test DAR file contains 3 packages: the test package, stdlib, and daml-prim.
+    // The test package should be by far the smallest one, so we just sort the packages by size
+    // to avoid having to parse and inspect package details.
+    val testPackageId = testPackages
+      .sortBy(_.size)
       .headOption
       .getOrElse(fail("List of packages is empty"))
-      .packageId
+      .archive
+      .getHash
+
+    (testDarBytes, testPackages, testPackageId)
+  }
+
+  private val (testDarBytes, testPackages, testPackageId) = loadTestDar
 
   "should accept packages" in allFixtures { ctx =>
-    val darFile = Files.readAllBytes(Paths.get("ledger/sandbox/Test.dar"))
     val client = packageManagementService(ctx.packageManagementService)
+
+    // Note: this may be a long running ledger, and the test package may have been uploaded before.
+    // Do not make any assertions on the initial state of the ledger.
     for {
-      initialPackages <- client.listKnownPackages()
-      _ <- client.uploadDarFile(ByteString.copyFrom(darFile))
+      _ <- client.uploadDarFile(ByteString.copyFrom(testDarBytes))
       finalPackages <- client.listKnownPackages()
     } yield {
-      initialPackages should have size 0
-      finalPackages should have size 3 // package, stdlib, daml-prim
+      forAll(testPackages) { p =>
+        finalPackages.map(_.packageId).contains(p.archive.getHash) shouldBe true
+      }
       forAll(finalPackages) { p =>
         p.packageSize > 0 shouldBe true
       }
@@ -75,15 +110,18 @@ class PackageManagementServiceIT
   }
 
   "should accept duplicate packages" in allFixtures { ctx =>
-    val darFile = Files.readAllBytes(Paths.get("ledger/sandbox/Test.dar"))
     val client = packageManagementService(ctx.packageManagementService)
+    val N = 8
+
+    // Package upload is idempotent, submitting duplicate packages should succeed.
+    // This test *concurrently* uploads the same package N times.
     for {
-      _ <- client.uploadDarFile(ByteString.copyFrom(darFile))
-      initialPackages <- client.listKnownPackages()
-      _ <- client.uploadDarFile(ByteString.copyFrom(darFile))
+      _ <- Future.traverse(1 to N)(i => client.uploadDarFile(ByteString.copyFrom(testDarBytes)))
       finalPackages <- client.listKnownPackages()
     } yield {
-      initialPackages shouldBe finalPackages
+      forAll(testPackages) { p =>
+        finalPackages.map(_.packageId).contains(p.archive.getHash) shouldBe true
+      }
     }
   }
 
@@ -96,30 +134,27 @@ class PackageManagementServiceIT
   }
 
   "should accept commands using the uploaded package" in allFixtures { ctx =>
-    val darFile = Files.readAllBytes(Paths.get("ledger/sandbox/Test.dar"))
     val party = partyNameMangler("operator")
     val createArg = Record(fields = List(RecordField("operator", party.asParty)))
-    def createCmd(packageId: String) =
-      CreateCommand(Some(Identifier(packageId, "", "Test", "Dummy")), Some(createArg)).wrap
+    def createCmd =
+      CreateCommand(Some(Identifier(testPackageId, "", "Test", "Dummy")), Some(createArg)).wrap
     val filter = TransactionFilter(Map(party -> Filters.defaultInstance))
     val client = packageManagementService(ctx.packageManagementService)
 
     for {
-      _ <- client.uploadDarFile(ByteString.copyFrom(darFile))
-      packages <- client.listKnownPackages()
-      packageId = findTestPackageId(packages)
+      _ <- client.uploadDarFile(ByteString.copyFrom(testDarBytes))
       createTx <- ctx.testingHelpers.submitAndListenForSingleResultOfCommand(
         ctx.testingHelpers
           .submitRequestWithId(commandIdMangler("PackageManagementServiceIT_commands", "create"))
           .update(
-            _.commands.commands := List(createCmd(packageId)),
+            _.commands.commands := List(createCmd),
             _.commands.party := party
           ),
         filter
       )
       createdEv = ctx.testingHelpers.getHead(ctx.testingHelpers.createdEventsIn(createTx))
     } yield {
-      createdEv.templateId.map(_.packageId) shouldBe Some(packageId)
+      createdEv.templateId.map(_.packageId) shouldBe Some(testPackageId)
     }
   }
 }
