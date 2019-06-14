@@ -72,7 +72,7 @@ main = do
 kick :: Action ()
 kick = do
     files <- use_ GetFilesOfInterest $ fromString ""
-    void $ uses_ TypeCheck $ Set.toList files
+    void $ uses TypeCheck $ Set.toList files
 
 -- | Print an LSP event.
 showEvent :: Lock -> FromServerMessage -> IO ()
