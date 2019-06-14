@@ -7,129 +7,152 @@ daml 1.2
 
 module GroupChat where
 
--- A Chat Group is identified by the ContractId of a contract instance.
-template Group
-    with
-        owner : Party
-        name : Text -- no uniqueness requirement, just descriptive text
-    where
-        signatory owner
 
--- An invitation to a join a chat group.
-template Invitation
-    with
-        owner : Party
-        gid : ContractId Group
-        invitees : [Party]
-    where
-        signatory owner
-        observer invitees
-
--- A Message sent to a chat group.
--- Interestingly, the sender and all recipients are signatories to a Message.
--- The idea is that when a party joins a group, both:
--- (a) The party is able to send messages to the group.
--- (b) The party is authorising the receipt of messages from the group.
+-- A Message sent to a Group, with recipient authority.
 template Message
     with
         sender : Party
         recipients : [Party]
-        gid : ContractId Group
         body : Text
     where
         signatory sender::recipients
 
--- The current membership of a group.
--- A party may join the group if invited by the group owner.
--- The membership list changes over time as parties join and leave the group.
--- To model this `mutable' data, we use DAML contract-keys.
--- A Membership contract contains a reference to the underlying Group contract.
--- The contact-key ensures at most one Membership contract is active for a given Group at one time.
 
-template Membership
+-- A Group is a list of Members, who exchange Messages.
+template Group
     with
-        owner : Party
-        gid : ContractId Group
         members : [Party]
+        invitees : [Party]
     where
-        -- All members are signatories, so messages can be created.
-        signatory owner, members
-        key (owner,gid) : (Party,ContractId Group)
-        maintainer key._1
+        signatory members
+        observer invitees
 
-        -- You can join the Membership, if you have an Invitation...
-        choice Membership_Join : () with joiner : Party, invitation : Invitation
+        choice Group_Invite : ContractId Group with inviter : Party, candidate : Party
+            controller inviter
+            do
+                assert (candidate `notElem` (members ++ invitees))
+                assert (inviter `elem` members)
+                create Group with
+                    members
+                    invitees = candidate :: invitees
+
+        choice Group_Join : ContractId Group with joiner : Party
             controller joiner
             do
-                assert (invitation.owner == owner)
-                assert (joiner `elem` invitation.invitees)
-                create Membership with owner, gid, members = joiner :: members
-                return ()
+                assert (joiner `elem` invitees)
+                create Group with
+                    members = joiner :: members
+                    invitees = filter (/= joiner) invitees
 
-        -- A member can voluntarily leave the Membership.
-        -- Or a member can be evicted by the owner.
-        choice Membership_Leave : () with leaver : Party
-            controller leaver, owner
+        choice Group_Leave : ContractId Group with leaver : Party
+            controller leaver
             do
                 assert (leaver `elem` members)
-                create Membership with owner, gid, members = filter (/= leaver) members
-                return ()
+                create Group with
+                    members = filter (/= leaver) members
+                    invitees
 
-        -- Messages are sent to a group with the authority of the Membership.
-        -- Created Messages are signed by all receiptients as required.
-        nonconsuming choice Membership_SendMessage : ContractId Message with sender : Party, body : Text
+        nonconsuming choice Group_Send : ContractId Message with sender : Party, body : Text
             controller sender
             do
                 assert (sender `elem` members)
-                create Message with sender, recipients = members, gid, body
+                create Message with
+                    sender
+                    recipients = members
+                    body
 
-        -- Only the group owner can shutdown a group.
-        -- Once shutdown, no more messages can be sent to this group.
-        choice Membership_Shutdown : ()
-            controller owner
-            do
-                archive gid
+-- Testing
 
--- Utility functions, which setup and maintain the links between Membership and Group.
+only_members_see_messages = scenario do
 
-newGroup : Party -> Text -> Update (ContractId Group)
-newGroup owner name = do
-    gid <- create Group with owner, name
-    group <- fetch gid
-    _ <- create Membership with owner, gid, members = [owner]
-    return gid
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+    chris <- getParty "Chris"
 
-makeInvitation : ContractId Group -> [Party] -> Update (ContractId Invitation)
-makeInvitation gid invitees = do
-    group <- fetch gid
-    create Invitation with owner = group.owner, gid, invitees
+    g  <- submit alice do create     Group        with members = [alice], invitees = []
+    g  <- submit alice do exercise g Group_Invite with inviter = alice, candidate = bob
+    g  <- submit alice do exercise g Group_Invite with inviter = alice, candidate = chris
+    g  <- submit bob   do exercise g Group_Join   with joiner = bob
+    m1 <- submit bob   do exercise g Group_Send   with sender = bob, body = "From Alice"
+    g  <- submit chris do exercise g Group_Join   with joiner = chris
+    m2 <- submit bob   do exercise g Group_Send   with sender = bob, body = "From Bob"
+    g  <- submit alice do exercise g Group_Leave  with leaver = alice
+    m3 <- submit chris do exercise g Group_Send   with sender = chris, body = "From Chris"
 
-fetchMembership : ContractId Group -> Update (ContractId Membership)
-fetchMembership gid = do
-    group <- fetch gid
-    (membership,_) <- fetchByKey @Membership (group.owner,gid)
-    return membership
+    submit         alice do fetch m1
+    submit         bob   do fetch m1
+    submitMustFail chris do fetch m1
 
-acceptJoin : Party -> Invitation -> Update ()
-acceptJoin joiner invitation = do
-    mid <- fetchMembership invitation.gid
-    exercise mid Membership_Join with joiner, invitation
+    submit         alice do fetch m2
+    submit         bob   do fetch m2
+    submit         chris do fetch m2
 
-leaveGroup : Party -> ContractId Group -> Update ()
-leaveGroup leaver gid = do
-    mid <- fetchMembership gid
-    exercise mid Membership_Leave with leaver
+    submitMustFail alice do fetch m3
+    submit         bob   do fetch m3
+    submit         chris do fetch m3
 
-sendMessage : Party -> ContractId Group -> Text -> Update (ContractId Message)
-sendMessage sender gid body = do
-    mid <- fetchMembership gid
-    exercise mid Membership_SendMessage with sender, body
+    return ()
 
-shutdownGroup : ContractId Group -> Update ()
-shutdownGroup gid = do
-    mid <- fetchMembership gid
-    group <- fetch gid
-    exercise mid Membership_SendMessage with
-        sender = group.owner
-        body = "Chat group (" <> group.name <> ") is shutting down."
-    exercise mid Membership_Shutdown
+
+non_members_cant_send = scenario do -- and two groups don't interfere
+
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+    chris <- getParty "Chris"
+
+    ga <- submit   alice do create      Group        with members = [alice], invitees = []
+    gb <- submit   bob   do create      Group        with members = [bob], invitees = []
+    ga <- submit   alice do exercise ga Group_Invite with inviter = alice, candidate = chris
+    gb <- submit   bob   do exercise gb Group_Invite with inviter = bob,   candidate = chris
+    ga <- submit   chris do exercise ga Group_Join   with joiner = chris
+    gb <- submit   chris do exercise gb Group_Join   with joiner = chris
+
+    submit         alice do exercise ga Group_Send   with sender = alice, body = "1"
+    submitMustFail bob   do exercise ga Group_Send   with sender = bob,   body = "2"
+    submit         chris do exercise ga Group_Send   with sender = chris, body = "3"
+
+    submitMustFail alice do exercise gb Group_Send   with sender = alice, body = "4"
+    submit         bob   do exercise gb Group_Send   with sender = bob,   body = "5"
+    submit         chris do exercise gb Group_Send   with sender = chris, body = "6"
+
+
+no_join_without_invite = scenario do
+
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+    chris <- getParty "Chris"
+
+    g <- submit         alice do create     Group        with members = [alice], invitees = []
+    _ <- submitMustFail bob   do exercise g Group_Join   with joiner = bob
+    g <- submit         alice do exercise g Group_Invite with inviter = alice, candidate = bob
+    g <- submit         bob   do exercise g Group_Join   with joiner = bob
+    _ <- submitMustFail chris do exercise g Group_Join   with joiner = chris
+
+    return ()
+
+
+transitive_invite = scenario do
+
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+    chris <- getParty "Chris"
+
+    g <- submit         alice do create     Group        with members = [alice], invitees = []
+    g <- submit         alice do exercise g Group_Invite with inviter = alice, candidate = bob
+    g <- submit         bob   do exercise g Group_Join   with joiner = bob
+    g <- submit         bob   do exercise g Group_Invite with inviter = bob, candidate = chris
+    g <- submit         chris do exercise g Group_Join   with joiner = chris
+
+    return ()
+
+
+non_member_cant_invite = scenario do
+
+    alice <- getParty "Alice"
+    bob   <- getParty "Bob"
+    chris <- getParty "Chris"
+
+    g <- submit         alice do create     Group        with members = [alice], invitees = []
+    g <- submitMustFail bob   do exercise g Group_Invite with inviter = bob, candidate = chris
+
+    return ()
