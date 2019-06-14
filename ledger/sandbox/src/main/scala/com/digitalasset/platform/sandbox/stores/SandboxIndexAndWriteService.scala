@@ -105,7 +105,7 @@ object SandboxIndexAndWriteService {
       templateStore: InMemoryPackageStore)(implicit mat: Materializer) = {
     val contractStore = new SandboxContractStore(ledger)
     val indexAndWriteService =
-      new SandboxIndexAndWriteService(ledger, timeModel, templateStore, contractStore)
+      new SandboxIndexAndWriteService(ledger, timeModel, timeProvider, templateStore, contractStore)
     val heartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
     new IndexAndWriteService {
@@ -147,6 +147,7 @@ object SandboxIndexAndWriteService {
 private class SandboxIndexAndWriteService(
     ledger: Ledger,
     timeModel: TimeModel,
+    timeProvider: TimeProvider,
     packageStore: InMemoryPackageStore,
     contractStore: ContractStore)(implicit mat: Materializer)
     extends IndexService
@@ -362,7 +363,7 @@ private class SandboxIndexAndWriteService(
   override def uploadDar(
       sourceDescription: String,
       payload: Array[Byte]): CompletionStage[UploadDarResult] =
-    packageStore.uploadDar(ledger.getCurrentTime(), sourceDescription, payload)
+    packageStore.uploadDar(timeProvider.getCurrentTime, sourceDescription, payload)
 
   // ContractStore
   override def lookupActiveContract(

@@ -330,8 +330,6 @@ private class SqlLedger(
 
   override def parties: Future[List[PartyDetails]] =
     ledgerDao.getParties
-
-  override def getCurrentTime(): Instant = timeProvider.getCurrentTime
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao) {

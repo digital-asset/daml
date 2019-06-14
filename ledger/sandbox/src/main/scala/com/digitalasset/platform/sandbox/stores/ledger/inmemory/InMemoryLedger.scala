@@ -234,6 +234,4 @@ class InMemoryLedger(
         PartyAllocationResult.Ok(details)
       }
     })
-
-  override def getCurrentTime(): Instant = timeProvider.getCurrentTime
 }

@@ -59,8 +59,6 @@ trait Ledger extends AutoCloseable {
   def parties: Future[List[PartyDetails]]
 
   def allocateParty(party: Party, displayName: Option[String]): Future[PartyAllocationResult]
-
-  def getCurrentTime(): Instant
 }
 
 object Ledger {
