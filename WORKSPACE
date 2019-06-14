@@ -771,20 +771,50 @@ buildifier_dependencies()
 nixpkgs_package(
     name = "postgresql_nix",
     attribute_path = "postgresql",
+    fail_not_supported = False,
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-    fail_not_supported = False,
 )
 
 dev_env_tool(
     name = "postgresql_dev_env",
-    nix_include = ["bin", "include", "lib", "share"],
+    nix_include = [
+        "bin",
+        "include",
+        "lib",
+        "share",
+    ],
     nix_label = "@postgresql_nix",
-    nix_paths = ["bin/initdb", "bin/createdb", "bin/pg_ctl", "bin/postgresql"],
-    tools = ["initdb", "createdb", "pg_ctl", "postgresql"],
-    win_include = ["mingw64/bin", "mingw64/include", "mingw64/lib", "mingw64/share"],
-    win_include_as = {"mingw64/bin": "bin", "mingw64/include": "include", "mingw64/lib": "lib", "mingw64/share": "share"},
-    win_paths = ["bin/initdb.exe", "bin/createdb.exe", "bin/pg_ctl.exe", "bin/postgresql.exe"],
+    nix_paths = [
+        "bin/initdb",
+        "bin/createdb",
+        "bin/pg_ctl",
+        "bin/postgresql",
+    ],
+    tools = [
+        "createdb",
+        "initdb",
+        "pg_ctl",
+        "postgresql",
+    ],
+    win_include = [
+        "mingw64/bin",
+        "mingw64/include",
+        "mingw64/lib",
+        "mingw64/share",
+    ],
+    win_include_as = {
+        "mingw64/bin": "bin",
+        "mingw64/include": "include",
+        "mingw64/lib": "lib",
+        "mingw64/share": "share",
+    },
+    win_paths = [
+        "bin/initdb.exe",
+        "bin/createdb.exe",
+        "bin/pg_ctl.exe",
+        "bin/postgresql.exe",
+    ],
     win_tool = "msys2",
 )

@@ -14,7 +14,7 @@ filegroup(
 )
         """.format(rule_name = rule_name)
 
-    for i in range (0, len(tools)):
+    for i in range(0, len(tools)):
         content += """
 filegroup(
     name = "{tool}",
@@ -24,10 +24,10 @@ filegroup(
     }}),
 )
             """.format(
-                tool = tools[i],
-                win_path = win_paths[i],
-                nix_path = nix_paths[i],
-            )
+            tool = tools[i],
+            win_path = win_paths[i],
+            nix_path = nix_paths[i],
+        )
 
     content += """
 config_setting(

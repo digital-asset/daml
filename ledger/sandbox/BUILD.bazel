@@ -161,10 +161,10 @@ da_scala_test_suite(
     ),
     data = [
         "//ledger/sandbox:Test.dar",
-        "@postgresql_dev_env//:initdb",
-        "@postgresql_dev_env//:createdb",
-        "@postgresql_dev_env//:pg_ctl",
         "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [

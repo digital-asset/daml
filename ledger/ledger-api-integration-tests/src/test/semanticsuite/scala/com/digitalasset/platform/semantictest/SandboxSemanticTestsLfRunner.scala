@@ -30,7 +30,8 @@ class SandboxSemanticTestsLfRunner
     with ScalaFutures
     with AkkaBeforeAndAfterAll {
 
-  private val defaultDarFile = new File(rlocation("ledger/ledger-api-integration-tests/SemanticTests.dar"))
+  private val defaultDarFile = new File(
+    rlocation("ledger/ledger-api-integration-tests/SemanticTests.dar"))
 
   override protected def config: Config =
     Config.default
