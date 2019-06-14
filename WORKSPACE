@@ -529,6 +529,14 @@ hazel_repositories(
                 "lsp-test",
                 "50c43452e19e494d71ccba1f7922d0b3b3fc69c3",
                 "65a56b35ddc8fa4deab10ac42efcdcbd36e875b715bb504d10b020a1e5fffd2c",
+            ) +
+            hazel_github_external(
+                "mpickering",
+                "hie-bios",
+                "9f9fe00591c429c410475349560252ca7e622f1b",
+                "0f9cf9ed897ed1faf1a36dadc06ba9bb3c525f8553da30bee0615294f4d00b00",
+                patch_args = ["-p1"],
+                patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
             ),
         pkgs = packages,
     ),
