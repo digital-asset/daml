@@ -55,8 +55,11 @@ Java Bindings
 
 - Release the Java Bindings to the public Maven Central repository. To move to using the Maven Central repository, remove
   the ``<repository>...</repository>`` and ``<pluginRepository>...</pluginRepository>`` blocks from Maven POM files
-  that use version 0.12.25 (or later) of the Java Bindings.
+  that use version 0.12.26 (or later) of the Java Bindings.
   See `#1205 <https://github.com/digital-asset/daml/issues/1205>`__.
+
+0.12.25 — 2019-06-13
+--------------------
 
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
