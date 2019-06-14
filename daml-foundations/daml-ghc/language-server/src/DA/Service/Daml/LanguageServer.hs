@@ -5,6 +5,7 @@
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes #-}
 
+-- WARNING: A copy of Development.IDE.LSP.LanguageServer, try to keep them in sync
 module DA.Service.Daml.LanguageServer
     ( runLanguageServer
     ) where
