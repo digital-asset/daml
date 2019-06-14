@@ -59,6 +59,10 @@ da_scala_benchmark_jmh(
     data = [
         "//ledger/sandbox:Test.dar",
         "//ledger/sandbox-perf:LargeTransaction.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ],
     visibility = ["//visibility:public"],
     deps = [
