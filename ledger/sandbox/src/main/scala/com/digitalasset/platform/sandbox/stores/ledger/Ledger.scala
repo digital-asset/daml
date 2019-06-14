@@ -24,7 +24,7 @@ import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
@@ -63,7 +63,7 @@ trait Ledger extends AutoCloseable {
 
 object Ledger {
 
-  type LedgerFactory = (ActiveContractsInMemory, Seq[LedgerEntry]) => Ledger
+  type LedgerFactory = (InMemoryActiveContracts, Seq[LedgerEntry]) => Ledger
 
   /**
     * Creates an in-memory ledger
@@ -77,7 +77,7 @@ object Ledger {
   def inMemory(
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Ledger =
     new InMemoryLedger(ledgerId, timeProvider, acs, ledgerEntries)
 
@@ -97,7 +97,7 @@ object Ledger {
       jdbcUrl: String,
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode

@@ -32,7 +32,7 @@ import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
   ContinueIfExists
@@ -81,7 +81,7 @@ object SqlLedger {
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
@@ -354,7 +354,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       initialLedgerId: Option[LedgerId],
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
@@ -380,7 +380,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
 
   private def initialize(
       initialLedgerId: Option[LedgerId],
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization

@@ -34,10 +34,9 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
 import com.digitalasset.ledger.api.domain.{LedgerId, _}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
-import com.digitalasset.platform.sandbox.damle.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
-import com.digitalasset.platform.sandbox.stores.ledger._
+import com.digitalasset.platform.sandbox.stores.ledger.{_}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.services.time.TimeModel
@@ -65,7 +64,7 @@ object SandboxIndexAndWriteService {
       jdbcUrl: String,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       startMode: SqlStartMode,
       queueDepth: Int,
@@ -89,7 +88,7 @@ object SandboxIndexAndWriteService {
       ledgerId: LedgerId,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       templateStore: InMemoryPackageStore)(
       implicit mat: Materializer,

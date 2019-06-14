@@ -16,11 +16,11 @@ import com.digitalasset.platform.sandbox.stores.ActiveContracts._
 import com.digitalasset.platform.sandbox.stores.ledger.SequencingError
 import scalaz.syntax.std.map._
 
-case class ActiveContractsInMemory(
+case class InMemoryActiveContracts(
     contracts: Map[AbsoluteContractId, ActiveContract],
     keys: Map[GlobalKey, AbsoluteContractId],
     parties: Map[Party, PartyDetails])
-    extends ActiveContracts[ActiveContractsInMemory] {
+    extends ActiveContracts[InMemoryActiveContracts] {
 
   override def lookupContract(cid: AbsoluteContractId) = contracts.get(cid)
 
@@ -38,12 +38,12 @@ case class ActiveContractsInMemory(
     case Some(key) => copy(contracts = contracts - cid, keys = keys - key)
   }
 
-  override def addParties(newParties: Set[Party]): ActiveContractsInMemory =
+  override def addParties(newParties: Set[Party]): InMemoryActiveContracts =
     copy(parties = newParties.map(p => p -> PartyDetails(p, None, true)).toMap ++ parties)
 
   override def divulgeAlreadyCommittedContract(
       transactionId: TransactionIdString,
-      global: Relation[AbsoluteContractId, Party]): ActiveContractsInMemory =
+      global: Relation[AbsoluteContractId, Party]): InMemoryActiveContracts =
     if (global.nonEmpty)
       copy(
         contracts = contracts ++
@@ -67,7 +67,7 @@ case class ActiveContractsInMemory(
       explicitDisclosure: Relation[Nid, Party],
       localImplicitDisclosure: Relation[Nid, Party],
       globalImplicitDisclosure: Relation[AbsoluteContractId, Party]
-  ): Either[Set[SequencingError], ActiveContractsInMemory] =
+  ): Either[Set[SequencingError], InMemoryActiveContracts] =
     acManager.addTransaction(
       let,
       transactionId,
@@ -80,12 +80,12 @@ case class ActiveContractsInMemory(
   /**
     * Adds a new party to the list of known parties.
     */
-  def addParty(details: PartyDetails): ActiveContractsInMemory = {
+  def addParty(details: PartyDetails): InMemoryActiveContracts = {
     assert(!parties.contains(details.party))
     copy(parties = parties + (details.party -> details))
   }
 }
 
-object ActiveContractsInMemory {
-  def empty: ActiveContractsInMemory = ActiveContractsInMemory(Map(), Map(), Map.empty)
+object InMemoryActiveContracts {
+  def empty: InMemoryActiveContracts = InMemoryActiveContracts(Map(), Map(), Map.empty)
 }

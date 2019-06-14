@@ -32,7 +32,7 @@ import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
-import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
+import com.digitalasset.platform.sandbox.stores.{ActiveContracts, InMemoryActiveContracts}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -44,7 +44,7 @@ import scala.util.{Failure, Success, Try}
 class InMemoryLedger(
     val ledgerId: LedgerId,
     timeProvider: TimeProvider,
-    acs0: ActiveContractsInMemory,
+    acs0: InMemoryActiveContracts,
     ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])
     extends Ledger {
 

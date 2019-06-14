@@ -14,11 +14,11 @@ import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.sandbox.damle.InMemoryPackageStore
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
 import com.digitalasset.platform.sandbox.stores.{
-  ActiveContractsInMemory,
+  InMemoryActiveContracts,
+  InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
@@ -56,7 +56,7 @@ trait TestHelpers {
         ledgerId,
         TimeModel.reasonableDefault,
         TimeProvider.Constant(Instant.EPOCH),
-        ActiveContractsInMemory.empty,
+        InMemoryActiveContracts.empty,
         ImmArray.empty,
         packageStore
       )

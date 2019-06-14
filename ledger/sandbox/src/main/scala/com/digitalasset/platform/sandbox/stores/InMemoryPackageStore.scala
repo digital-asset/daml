@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.damle
+package com.digitalasset.platform.sandbox.stores
 
 import java.io.{File, FileOutputStream}
 import java.time.Instant
@@ -10,21 +10,21 @@ import java.util.zip.ZipFile
 
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
 import com.daml.ledger.participant.state.v2.UploadDarResult
+import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
-import com.digitalasset.daml.lf.archive.Reader.ParseError
+import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml_lf.DamlLf.Archive
 import org.slf4j.LoggerFactory
+import scalaz.std.either._
+import scalaz.std.list._
+import scalaz.syntax.traverse._
 
-import scala.collection.mutable
 import scala.collection.immutable.Map
+import scala.collection.mutable
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
-import scalaz.syntax.traverse._
-import scalaz.std.list._
-import scalaz.std.either._
 
 class InMemoryPackageStore() extends IndexPackagesService {
   private val logger = LoggerFactory.getLogger(this.getClass)
