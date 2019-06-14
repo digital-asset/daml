@@ -11,6 +11,7 @@ import Development.IDE.State.Service
 import Development.IDE.State.Rules
 import Development.IDE.State.Shake
 import Development.IDE.State.RuleTypes
+import Data.String
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Options
 import Development.IDE.Logger
@@ -56,17 +57,22 @@ main = do
         putStrLn "Starting IDE server"
         runLanguageServer logger $ \event vfs -> do
             putStrLn "Server started"
-            initialise mainRule event logger options vfs
+            initialise (mainRule >> action kick) event logger options vfs
     else do
         vfs <- makeVFSHandle
         ide <- initialise mainRule (showEvent lock) logger options vfs
         setFilesOfInterest ide $ Set.fromList files
-        _ <- runAction ide $ uses_ TypeCheck files
+        runAction ide kick
         -- shake now writes an async message that it is completed with timing info,
         -- so we sleep briefly to wait for it to have been written
         sleep 0.01
         putStrLn "Done"
 
+
+kick :: Action ()
+kick = do
+    files <- use_ GetFilesOfInterest $ fromString ""
+    void $ uses_ TypeCheck $ Set.toList files
 
 -- | Print an LSP event.
 showEvent :: Lock -> FromServerMessage -> IO ()
