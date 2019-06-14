@@ -2,13 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine
-import com.digitalasset.daml.lf.transaction.Node.{
-  NodeCreate,
-  NodeExercises,
-  NodeFetch,
-  NodeLookupByKey
-}
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier, Party}
+import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -29,6 +24,7 @@ sealed trait Event[+Nid, +Cid, +Val] extends Product with Serializable {
   *
   *  @param contractId id for the contract this event notifies
   *  @param templateId identifier of the creating template
+  *  @param contractKey key for the contract this event notifies
   *  @param argument argument of the contract creation
   *  @param stakeholders the stakeholders of the created contract -- must be a subset of witnesses. see comment for `collectEvents`
   *  @param witnesses additional witnesses induced by parent exercises
@@ -36,13 +32,17 @@ sealed trait Event[+Nid, +Cid, +Val] extends Product with Serializable {
 final case class CreateEvent[Cid, Val](
     contractId: Cid,
     templateId: Identifier,
+    contractKey: Option[KeyWithMaintainers[Val]],
     argument: Val,
     agreementText: String,
     stakeholders: Set[Party],
     witnesses: Set[Party])
     extends Event[Nothing, Cid, Val] {
   override def mapContractId[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): CreateEvent[Cid2, Val2] =
-    copy(contractId = f(contractId), argument = g(argument))
+    copy(
+      contractId = f(contractId),
+      argument = g(argument),
+      contractKey = contractKey.map(_.mapValue(g)))
 
   override def mapNodeId[Nid2](f: Nothing => Nid2): CreateEvent[Cid, Val] = this
 }
@@ -153,6 +153,7 @@ object Event {
                 CreateEvent(
                   nc.coid,
                   templateId,
+                  nc.key,
                   nc.coinst.arg,
                   nc.coinst.agreementText,
                   stakeholders intersect disclosure(nodeId),

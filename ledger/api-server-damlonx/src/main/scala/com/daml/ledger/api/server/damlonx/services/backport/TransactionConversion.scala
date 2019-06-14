@@ -93,13 +93,15 @@ trait TransactionConversion {
       eventId,
       create.contractId.coid,
       Some(LfEngineToApi.toApiIdentifier(create.templateId)),
+      create.contractKey.map(
+        ck =>
+          LfEngineToApi.assertOrRuntimeEx(
+            "converting stored contract",
+            LfEngineToApi.lfContractKeyToApiValue(verbose, ck))),
       Some(
-        LfEngineToApi
-          .lfValueToApiRecord(verbose, create.argument.value)
-          .fold(
-            err =>
-              throw new RuntimeException(s"Unexpected error when converting stored contract: $err"),
-            identity)),
+        LfEngineToApi.assertOrRuntimeEx(
+          "converting stored contract",
+          LfEngineToApi.lfValueToApiRecord(verbose, create.argument.value))),
       if (includeParentWitnesses) convert(create.witnesses)
       else convert(create.stakeholders),
       Some(create.agreementText)

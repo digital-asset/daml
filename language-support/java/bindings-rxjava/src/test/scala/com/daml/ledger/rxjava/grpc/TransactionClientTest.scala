@@ -52,7 +52,7 @@ class TransactionClientTest extends FlatSpec with GeneratorDrivenPropertyChecks 
         val begin = new data.LedgerOffset.Absolute("1")
         val end = new data.LedgerOffset.Absolute("2")
 
-        val trasnactionFilter = new data.FiltersByParty(
+        val transactionFilter = new data.FiltersByParty(
           Map[String, data.Filter](
             "Alice" -> new data.InclusiveFilter(
               Set(
@@ -63,7 +63,7 @@ class TransactionClientTest extends FlatSpec with GeneratorDrivenPropertyChecks 
         )
 
         transactionClient
-          .getTransactions(begin, end, trasnactionFilter, true)
+          .getTransactions(begin, end, transactionFilter, true)
           .toList()
           .blockingGet()
 

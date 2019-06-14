@@ -48,6 +48,10 @@ message CreatedEvent {
   // Required
   Identifier template_id = 3;
 
+  // The key of the created contract, if defined.
+  // Optional
+  Value contract_key = 7;
+
   // The arguments that have been used to create the contract.
   // Required
   Record create_arguments = 4;

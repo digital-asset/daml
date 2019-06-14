@@ -112,6 +112,7 @@ class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with Opti
       ValueRecord(None, ImmArray.empty),
       Set(party, otherPartyWhoSeesEvents),
       "",
+      None
     )
 
   private def archivedEvent(party: Ref.Party, templateId: Ref.Identifier): ArchivedEvent =

@@ -193,6 +193,7 @@ class SemanticTester(
                   val scenarioCreateEvent = CreateEvent(
                     nextScenarioCoidToLedgerCoid(scenarioCreateNode.coid),
                     scenarioCreateNode.coinst.template,
+                    scenarioCreateNode.key,
                     scenarioCreateNode.coinst.arg.mapContractId(nextScenarioCoidToLedgerCoid),
                     scenarioCreateNode.coinst.agreementText,
                     scenarioCreateNode.stakeholders intersect scenarioWitnesses(scenarioNodeId),
