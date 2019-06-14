@@ -31,7 +31,6 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/haskell-ide-core",
-        "//daml-assistant:daml-project-config",
         "//daml-foundations/daml-ghc/daml-compiler",
         "//daml-foundations/daml-ghc/ide",
     ],

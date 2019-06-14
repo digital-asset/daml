@@ -5,8 +5,9 @@
 {-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE RankNTypes #-}
 
--- WARNING: A copy of Development.IDE.LSP.LanguageServer, try to keep them in sync
-module DA.Service.Daml.LanguageServer
+-- WARNING: A copy of DA.Service.Daml.LanguageServer, try to keep them in sync
+-- This version removes the daml: handling
+module Development.IDE.LSP.LanguageServer
     ( runLanguageServer
     ) where
 
@@ -14,10 +15,10 @@ import           Development.IDE.LSP.Protocol
 import           Development.IDE.LSP.Server
 
 import Control.Monad.IO.Class
-import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
 import qualified Development.IDE.LSP.Definition as LS.Definition
 import qualified Development.IDE.LSP.Hover      as LS.Hover
 import qualified Development.IDE.Logger as Logger
+import Development.IDE.State.Service
 
 import qualified Data.Aeson                                as Aeson
 import qualified Data.Rope.UTF16 as Rope
@@ -25,9 +26,6 @@ import qualified Data.Set                                  as S
 import qualified Data.Text as T
 
 import Development.IDE.State.FileStore
-import Development.IDE.State.Rules
-import Development.IDE.State.Rules.Daml
-import Development.IDE.State.Service.Daml
 import Development.IDE.Types.Diagnostics
 
 import qualified Network.URI                               as URI
@@ -61,7 +59,6 @@ handleRequest loggerH compilerH makeResponse makeErrorResponse = \case
 
     Definition params -> RspDefinition . makeResponse <$> LS.Definition.handle loggerH compilerH params
     Hover params -> RspHover . makeResponse <$> LS.Hover.handle loggerH compilerH params
-    CodeLens params -> RspCodeLens . makeResponse <$> LS.CodeLens.handle loggerH compilerH params
 
     req -> do
         Logger.logWarning loggerH ("Method not found" <> T.pack (show req))
@@ -76,9 +73,6 @@ handleNotification lspFuncs loggerH compilerH = \case
           Just uri
               | URI.uriScheme uri == "file:"
               -> handleDidOpenFile item
-
-              | URI.uriScheme uri == "daml:"
-              -> handleDidOpenVirtualResource uri
 
               | otherwise
               -> Logger.logWarning loggerH $ "Unknown scheme in URI: "
@@ -108,7 +102,6 @@ handleNotification lspFuncs loggerH compilerH = \case
               | URI.uriScheme uri' == "file:" -> do
                     Just fp <- pure $ toNormalizedFilePath <$> uriToFilePath' uri
                     handleDidCloseFile fp
-              | URI.uriScheme uri' == "daml:" -> handleDidCloseVirtualResource uri'
               | otherwise -> Logger.logWarning loggerH $ "Unknown scheme in URI: " <> textShow uri
 
           _ -> Logger.logSeriousError loggerH
@@ -130,23 +123,10 @@ handleNotification lspFuncs loggerH compilerH = \case
         modifyFilesOfInterest compilerH (S.insert filePath)
         Logger.logInfo loggerH $ "Opened text document: " <> textShow filePath
 
-    handleDidOpenVirtualResource uri = do
-         case uriToVirtualResource uri of
-           Nothing -> Logger.logWarning loggerH $ "Failed to parse virtual resource URI: " <> textShow uri
-           Just vr -> do
-               Logger.logInfo loggerH $ "Opened virtual resource: " <> textShow vr
-               modifyOpenVirtualResources compilerH (S.insert vr)
-
     handleDidCloseFile filePath = do
          Logger.logInfo loggerH $ "Closed text document: " <> textShow (fromNormalizedFilePath filePath)
          onFileModified compilerH filePath Nothing
          modifyFilesOfInterest compilerH (S.delete filePath)
-
-    handleDidCloseVirtualResource uri = do
-        Logger.logInfo loggerH $ "Closed virtual resource: " <> textShow uri
-        case uriToVirtualResource uri of
-           Nothing -> Logger.logWarning loggerH "Failed to parse virtual resource URI!"
-           Just vr -> modifyOpenVirtualResources compilerH (S.delete vr)
 
 -- | Manages the file store (caching compilation results and unsaved content).
 onFileModified

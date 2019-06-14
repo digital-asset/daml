@@ -4,7 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Go to the definition of a variable.
-module DA.Service.Daml.LanguageServer.Definition
+module Development.IDE.LSP.Definition
     ( handle
     ) where
 
