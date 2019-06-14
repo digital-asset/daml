@@ -106,6 +106,8 @@ Ledger API
   and command identifiers.
 
 .. _release-0-12-25:
+- Fixed a bug in migration scripts that could cause databases originally created
+  with older versions of the Sandbox to not upgrade schemas properly.
 
 0.12.25 — 2019-06-13
 --------------------

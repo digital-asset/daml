@@ -87,7 +87,7 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
       }
       .map {
         case (ledgerOffset, name) =>
-          Seq[NamedParameter]("name" -> name, "ledgerOffset" -> ledgerOffset)
+          Seq[NamedParameter]("name" -> name, "ledger_offset" -> ledgerOffset)
       }
 
     statements.toStream.grouped(batchSize).foreach { batch =>
