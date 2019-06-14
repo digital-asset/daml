@@ -45,6 +45,7 @@ import qualified Network.HTTP.Types as HTTP
 import Network.Socket
 import System.FilePath
 import System.Directory.Extra
+import System.Environment
 import System.Exit
 import System.Info.Extra
 import System.Process hiding (runCommand)
@@ -102,7 +103,13 @@ runDamlStudio replaceExt remainingArguments = do
             | otherwise = "code"
         path = fromMaybe "." projectPathM
         command = unwords $ codeCommand : path : remainingArguments
-    exitCode <- withCreateProcess (shell command) $ \_ _ _ -> waitForProcess
+
+    -- Strip DAML environment variables before calling vscode.
+    originalEnv <- getEnvironment
+    let strippedEnv = filter ((`notElem` damlEnvVars) . fst) originalEnv
+        process = (shell command) { env = Just strippedEnv }
+
+    exitCode <- withCreateProcess process $ \_ _ _ -> waitForProcess
     when (exitCode /= ExitSuccess) $
         hPutStrLn stderr $
           "Failed to launch Visual Studio Code." <>
