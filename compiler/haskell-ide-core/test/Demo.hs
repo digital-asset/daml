@@ -37,6 +37,8 @@ import GHC.Paths
 
 main :: IO ()
 main = do
+    -- WARNING: If you write to stdout before runLanguageServer
+    --          then the language server will not work
     hPutStrLn stderr "Starting haskell-ide-core Demo"
     (ghcOptions, map toNormalizedFilePath -> files, isIde) <- getCmdLine
 
