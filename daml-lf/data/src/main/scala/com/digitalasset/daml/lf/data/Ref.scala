@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.data
 
+import com.digitalasset.daml.lf.data
 import scalaz.Equal
 
 object Ref {
@@ -38,7 +39,9 @@ object Ref {
   type Name = Name.T
   implicit def `Name equal instance`: Equal[Name] = Name.equalInstance
 
-  final class DottedName private (val segments: ImmArray[Name]) extends Equals {
+  final class DottedName private (val segments: ImmArray[Name])
+      extends Equals
+      with Ordered[DottedName] {
     def dottedName: String = segments.toSeq.mkString(".")
 
     override def equals(obj: Any): Boolean =
@@ -52,6 +55,14 @@ object Ref {
     def canEqual(that: Any): Boolean = that.isInstanceOf[DottedName]
 
     override def toString: String = dottedName
+
+    override def compare(that: data.Ref.DottedName): Int = {
+      import scala.math.Ordering.Implicits._
+      import Name.ordering
+
+      implicitly[Ordering[Seq[Name]]].compare(segments.toSeq, that.segments.toSeq)
+    }
+
   }
 
   object DottedName {
