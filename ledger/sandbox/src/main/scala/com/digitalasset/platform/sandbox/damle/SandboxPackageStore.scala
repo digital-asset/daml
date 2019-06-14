@@ -10,10 +10,10 @@ import java.util.zip.ZipFile
 
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
 import com.daml.ledger.participant.state.v2.UploadDarResult
-import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.daml.lf.lfpackage.{Ast, Decode}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import org.slf4j.LoggerFactory

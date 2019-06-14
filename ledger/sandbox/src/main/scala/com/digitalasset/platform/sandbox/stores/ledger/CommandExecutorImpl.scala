@@ -17,7 +17,7 @@ import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import scalaz.syntax.tag._
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.language.Ast.Package
 
 import scala.concurrent.{ExecutionContext, Future}
 

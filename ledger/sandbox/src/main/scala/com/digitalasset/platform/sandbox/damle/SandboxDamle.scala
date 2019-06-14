@@ -16,7 +16,7 @@ import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.daml.lf.lfpackage.Ast.Package
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.data.Ref
 
 import scala.concurrent.{ExecutionContext, Future}
