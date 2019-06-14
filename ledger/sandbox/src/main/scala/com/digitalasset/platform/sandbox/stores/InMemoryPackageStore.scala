@@ -71,7 +71,7 @@ class InMemoryPackageStore() extends IndexPackagesService {
       case Success(Right(details @ _)) =>
         // TODO(FM) I'd like to include the details above but i get a strange error
         // about mismatching PackageId type
-        CompletableFuture.completedFuture(UploadDarResult.Ok())
+        CompletableFuture.completedFuture(UploadDarResult.Ok)
       case Success(Left(err)) =>
         CompletableFuture.completedFuture(UploadDarResult.InvalidPackage(err))
       case Failure(exception) =>

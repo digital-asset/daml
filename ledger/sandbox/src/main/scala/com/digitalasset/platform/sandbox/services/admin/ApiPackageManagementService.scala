@@ -47,7 +47,7 @@ class ApiPackageManagementService(
     FutureConverters
       .toScala(packagesWrite.uploadDar("", request.darFile.toByteArray))
       .flatMap {
-        case UploadDarResult.Ok() => Future.successful(UploadDarFileResponse())
+        case UploadDarResult.Ok => Future.successful(UploadDarFileResponse())
         case UploadDarResult.InvalidPackage(err) =>
           Future.failed(ErrorFactories.invalidArgument(s"Invalid package: $err"))
       }(DE)

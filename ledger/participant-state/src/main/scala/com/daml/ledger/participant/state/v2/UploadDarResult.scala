@@ -8,7 +8,7 @@ sealed abstract class UploadDarResult extends Product with Serializable
 object UploadDarResult {
 
   /** The package was successfully uploaded */
-  final case class Ok() extends UploadDarResult
+  final case object Ok extends UploadDarResult
 
   /** The package was invalid for some reason */
   final case class InvalidPackage(reason: String) extends UploadDarResult
