@@ -37,6 +37,7 @@ import GHC.Paths
 
 main :: IO ()
 main = do
+    hPutStrLn stderr "Starting haskell-ide-core Demo"
     (ghcOptions, map toNormalizedFilePath -> files, isIde) <- getCmdLine
 
     -- lock to avoid overlapping output on stdout
@@ -54,9 +55,9 @@ main = do
             }
 
     if isIde then do
-        putStrLn "Starting IDE server"
+        hPutStrLn stderr "Starting running the IDE server"
         runLanguageServer logger $ \event vfs -> do
-            putStrLn "Server started"
+            hPutStrLn stderr "Server started"
             initialise (mainRule >> action kick) event logger options vfs
     else do
         vfs <- makeVFSHandle
