@@ -180,9 +180,7 @@ getSdk damlPath projectPathM =
             [ maybeM (pure Nothing)
                 (tryAssistantM . getSdkVersionFromSdkPath . SdkPath)
                 (getEnv sdkPathEnvVar)
-            , maybe (pure Nothing)
-                (tryAssistantM . getSdkVersionFromProjectPath)
-                projectPathM
+            , mapM getSdkVersionFromProjectPath projectPathM
             , tryAssistantM $ getDefaultSdkVersion damlPath
             ]
 
