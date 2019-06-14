@@ -52,8 +52,10 @@ main = do
             ,optShakeProfiling = Nothing -- Just "output.html"
             }
 
-    if isIde then
-        runLanguageServer logger $ \event vfs ->
+    if isIde then do
+        putStrLn "Starting IDE server"
+        runLanguageServer logger $ \event vfs -> do
+            putStrLn "Server started"
             initialise mainRule event logger options vfs
     else do
         vfs <- makeVFSHandle
