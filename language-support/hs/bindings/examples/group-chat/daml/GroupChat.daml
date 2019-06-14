@@ -7,6 +7,7 @@ daml 1.2
 
 module GroupChat where
 
+import DA.Optional
 
 -- A Message sent to a Group, with recipient authority.
 template Message
@@ -17,12 +18,13 @@ template Message
     where
         signatory sender::recipients
 
-
 -- A Group is a list of Members, who exchange Messages.
 template Group
     with
+        origin : Optional (ContractId Group)
         members : [Party]
         invitees : [Party]
+
     where
         signatory members
         observer invitees
@@ -33,6 +35,7 @@ template Group
                 assert (candidate `notElem` (members ++ invitees))
                 assert (inviter `elem` members)
                 create Group with
+                    origin = origin `defaulting` self
                     members
                     invitees = candidate :: invitees
 
@@ -41,6 +44,7 @@ template Group
             do
                 assert (joiner `elem` invitees)
                 create Group with
+                    origin = origin `defaulting` self
                     members = joiner :: members
                     invitees = filter (/= joiner) invitees
 
@@ -51,6 +55,7 @@ template Group
                 if members == [leaver] then return self
                 else
                     create Group with
+                        origin = origin `defaulting` self
                         members = filter (/= leaver) members
                         invitees
 
@@ -63,6 +68,15 @@ template Group
                     recipients = members
                     body
 
+
+-- The `origin` of a Group is the initial contract of a series of linked contracts, which
+-- are created as the Group evolves through choices: Invite, Join, Leave.
+-- We can use the `origin` field as a proxy for the Group identity.
+-- When `origin` is None, this contract is the first of the series, so `self` is the identity.
+
+defaulting x y = Some (DA.Optional.fromOptional y x)
+
+
 -- Testing
 
 only_members_see_messages = scenario do
@@ -71,7 +85,7 @@ only_members_see_messages = scenario do
     bob   <- getParty "Bob"
     chris <- getParty "Chris"
 
-    g  <- submit alice do create     Group        with members = [alice], invitees = []
+    g  <- submit alice do create     Group        with members = [alice], invitees = [], origin = None
     g  <- submit alice do exercise g Group_Invite with inviter = alice, candidate = bob
     g  <- submit alice do exercise g Group_Invite with inviter = alice, candidate = chris
     g  <- submit bob   do exercise g Group_Join   with joiner = bob
@@ -102,8 +116,8 @@ non_members_cant_send = scenario do -- and two groups don't interfere
     bob   <- getParty "Bob"
     chris <- getParty "Chris"
 
-    ga <- submit   alice do create      Group        with members = [alice], invitees = []
-    gb <- submit   bob   do create      Group        with members = [bob], invitees = []
+    ga <- submit   alice do create      Group        with members = [alice], invitees = [], origin = None
+    gb <- submit   bob   do create      Group        with members = [bob],   invitees = [], origin = None
     ga <- submit   alice do exercise ga Group_Invite with inviter = alice, candidate = chris
     gb <- submit   bob   do exercise gb Group_Invite with inviter = bob,   candidate = chris
     ga <- submit   chris do exercise ga Group_Join   with joiner = chris
@@ -124,7 +138,7 @@ no_join_without_invite = scenario do
     bob   <- getParty "Bob"
     chris <- getParty "Chris"
 
-    g <- submit         alice do create     Group        with members = [alice], invitees = []
+    g <- submit         alice do create     Group        with members = [alice], invitees = [], origin = None
     _ <- submitMustFail bob   do exercise g Group_Join   with joiner = bob
     g <- submit         alice do exercise g Group_Invite with inviter = alice, candidate = bob
     g <- submit         bob   do exercise g Group_Join   with joiner = bob
@@ -139,7 +153,7 @@ transitive_invite = scenario do
     bob   <- getParty "Bob"
     chris <- getParty "Chris"
 
-    g <- submit         alice do create     Group        with members = [alice], invitees = []
+    g <- submit         alice do create     Group        with members = [alice], invitees = [], origin = None
     g <- submit         alice do exercise g Group_Invite with inviter = alice, candidate = bob
     g <- submit         bob   do exercise g Group_Join   with joiner = bob
     g <- submit         bob   do exercise g Group_Invite with inviter = bob, candidate = chris
@@ -154,7 +168,7 @@ non_member_cant_invite = scenario do
     bob   <- getParty "Bob"
     chris <- getParty "Chris"
 
-    g <- submit         alice do create     Group        with members = [alice], invitees = []
+    g <- submit         alice do create     Group        with members = [alice], invitees = [], origin = None
     g <- submitMustFail bob   do exercise g Group_Invite with inviter = bob, candidate = chris
 
     return ()
@@ -166,7 +180,7 @@ last_member_may_leave = scenario do -- and group is shutdown
     bob   <- getParty "Bob"
     chris <- getParty "Chris"
 
-    g  <- submit         alice do create     Group        with members = [alice], invitees = []
+    g  <- submit         alice do create     Group        with members = [alice], invitees = [], origin = None
     g  <- submit         alice do exercise g Group_Invite with inviter = alice, candidate = bob
     g  <- submit         bob   do exercise g Group_Join   with joiner = bob
     g  <- submit         alice do exercise g Group_Leave  with leaver = alice
