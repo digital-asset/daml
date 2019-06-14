@@ -19,11 +19,14 @@ azure-cron.yml      @garyverhaegen-da
 /libs-haskell/      @hurryabit
 
 # Runtime
-/daml-lf/           @leo-da @S11001001
+/daml-lf/               @leo-da @S11001001
 /daml-lf/governance.rst @bitonic @remyhaemmerle-da @S11001001
-/daml-lf/archive/da/ @bitonic @remyhaemmerle-da
-/daml-lf/spec/      @bitonic @remyhaemmerle-da @S11001001
-/daml-lf/validation/ @remyhaemmerle-da
+/daml-lf/archive/da/    @bitonic @remyhaemmerle-da
+/daml-lf/spec/          @bitonic @remyhaemmerle-da @S11001001
+/daml-lf/validation/    @remyhaemmerle-da
+
+/ledger/      @gerolf-da @rautenrieth-da
+/ledger-api/  @gerolf-da
 
 # Ecosystems
 /language-support/java/     @gerolf-da @nicholassmith-da
