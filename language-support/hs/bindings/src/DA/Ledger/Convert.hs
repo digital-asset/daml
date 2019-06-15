@@ -134,8 +134,8 @@ raiseTransaction = \case
     let wid = optional (raiseWorkflowId transactionWorkflowId)
     leTime <- perhaps "transactionEffectiveAt" transactionEffectiveAt >>= raiseTimestamp
     events <- raiseList raiseEvent transactionEvents
-    ofset <- raiseAbsOffset transactionOffset
-    return Transaction {trid, cid, wid, leTime, events, ofset}
+    offset <- raiseAbsOffset transactionOffset
+    return Transaction {trid, cid, wid, leTime, events, offset}
 
 raiseEvent :: LL.Event -> Perhaps Event
 raiseEvent = \case
@@ -154,14 +154,16 @@ raiseEvent = \case
                    LL.CreatedEvent{createdEventEventId,
                                    createdEventContractId,
                                    createdEventTemplateId,
+                                   createdEventContractKey,
                                    createdEventCreateArguments,
                                    createdEventWitnessParties})) -> do
         eid <- raiseEventId createdEventEventId
         cid <- raiseContractId createdEventContractId
         tid <- perhaps "createdEventTemplateId" createdEventTemplateId >>= raiseTemplateId
+        let key = createdEventContractKey >>= optional . raiseValue
         createArgs <- perhaps "createdEventCreateArguments" createdEventCreateArguments >>= raiseRecord
         witness <- raiseList raiseParty createdEventWitnessParties
-        return CreatedEvent{eid,cid,tid,createArgs,witness}
+        return CreatedEvent{eid,cid,tid,key,createArgs,witness}
 
 raiseRecord :: LL.Record -> Perhaps Record
 raiseRecord = \case

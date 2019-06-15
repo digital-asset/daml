@@ -37,6 +37,8 @@ tests = testGroupWithSandbox "Haskell Ledger Bindings" [
     tPastFuture, -- After this test, there is a big delay when resetting the service.
     tSubmitBad,
     tSubmitGood,
+    tCreateWithKey,
+    tCreateWithoutKey,
     tListPackages,
     tGetPackage
     ]
@@ -99,6 +101,34 @@ tSubmitGood withSandbox =
         let cid1' = CommandId completionCommandId
         assertEqual "submit1" cid1' cid1
 
+tCreateWithKey :: WithSandbox -> Tasty.TestTree
+tCreateWithKey withSandbox =
+    testCase "create contract with key" $ do
+    withSandbox $ \sandbox -> do
+        h <- connect sandbox
+        [pid,_,_] <- Ledger.listPackages h -- assume packageId is the 1st of the 3 listed packages.
+        PastAndFuture{future=txs} <- Ledger.getTransactionsPF h alice
+        let command = createWithKey pid alice 100
+        _ <- submitCommand h alice command
+        Just (Right Transaction{events=[CreatedEvent{key}]}) <- timeout 1 (takeStream txs)
+        assertEqual "contract has right key" key (Just (VRecord (Record Nothing [ RecordField "" (VParty alice), RecordField "" (VInt 100) ])))
+        closeStream txs gone
+        where gone = Abnormal "client gone"
+
+tCreateWithoutKey :: WithSandbox -> Tasty.TestTree
+tCreateWithoutKey withSandbox =
+    testCase "create contract without key" $ do
+    withSandbox $ \sandbox -> do
+        h <- connect sandbox
+        [pid,_,_] <- Ledger.listPackages h -- assume packageId is the 1st of the 3 listed packages.
+        PastAndFuture{future=txs} <- Ledger.getTransactionsPF h alice
+        let command = createWithoutKey pid alice 100
+        _ <- submitCommand h alice command
+        Just (Right Transaction{events=[CreatedEvent{key}]}) <- timeout 1 (takeStream txs)
+        assertEqual "contract has no key" key Nothing
+        closeStream txs gone
+        where gone = Abnormal "client gone"
+
 tListPackages :: WithSandbox -> Tasty.TestTree
 tListPackages withSandbox =
     testCase "package service, listPackages" $ do
@@ -151,6 +181,28 @@ createIOU quickstart party currency quantity = CreateCommand {tid,args}
             RecordField "currency" (VString currency),
             RecordField "amount" (VDecimal $ Text.pack $ show quantity),
             RecordField "observers" (VList [])
+            ]
+
+createWithKey :: PackageId -> Party -> Int -> Command
+createWithKey quickstart owner n = CreateCommand {tid,args}
+    where
+        tid = TemplateId (Identifier quickstart mod ent)
+        mod = ModuleName "ContractKeys"
+        ent = EntityName "WithKey"
+        args = Record Nothing [
+            RecordField "owner" (VParty owner),
+            RecordField "n" (VInt n)
+            ]
+
+createWithoutKey :: PackageId -> Party -> Int -> Command
+createWithoutKey quickstart owner n = CreateCommand {tid,args}
+    where
+        tid = TemplateId (Identifier quickstart mod ent)
+        mod = ModuleName "ContractKeys"
+        ent = EntityName "WithoutKey"
+        args = Record Nothing [
+            RecordField "owner" (VParty owner),
+            RecordField "n" (VInt n)
             ]
 
 submitCommand :: LedgerHandle -> Party -> Command -> IO CommandId
@@ -216,5 +268,4 @@ withShared resource f = do
     withMVar mv $ \sandbox -> do
         resetSandbox sandbox
         f sandbox
-
 
