@@ -33,15 +33,14 @@ def hazel_hackage(name, version, sha, **kwargs):
     return [(name, args)]
 
 # Things we override from GitHub
-def hazel_github_external(project, repoName, commit, sha, directory = "", name = None):
-    return [(
-        name or repoName,
-        {
-            "url": "https://github.com/" + project + "/" + repoName + "/archive/" + commit + ".zip",
-            "sha256": sha,
-            "stripPrefix": repoName + "-" + commit + directory,
-        },
-    )]
+def hazel_github_external(project, repoName, commit, sha, directory = "", name = None, **kwargs):
+    args = {
+        "url": "https://github.com/" + project + "/" + repoName + "/archive/" + commit + ".zip",
+        "sha256": sha,
+        "stripPrefix": repoName + "-" + commit + directory,
+    }
+    args.update(kwargs)
+    return [(name or repoName, args)]
 
 # Things we get from the digital-asset GitHub
 def hazel_github(repoName, commit, sha, directory = "", name = None):
