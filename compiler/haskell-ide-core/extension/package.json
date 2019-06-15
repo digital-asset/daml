@@ -31,12 +31,12 @@
 			"properties": {
 				"hic.executablePath": {
 					"type": "string",
-					"default": "--ide .ghci",
+					"default": "haskell-ide-core",
 					"description": "The location of your haskell-ide-core executable"
 				},
 				"hic.arguments": {
 					"type": "string",
-					"default": "",
+					"default": "--ide",
 					"description": "The arguments you would like to pass to the executable"
 				}
 			}
