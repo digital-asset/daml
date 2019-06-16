@@ -118,14 +118,11 @@ support for running DAML.
      - `Digital Asset <https://digitalasset.com/>`__
      - `PostgreSQL <https://www.postgresql.org/>`__ backend coming soon
        (`GitHub Milestone <https://github.com/digital-asset/daml/milestone/10>`__)
-   * - Canton
+   * - `Canton <https://www.canton.io>`__
      - In Development
      - `Digital Asset <https://digitalasset.com/>`__
      - native support for :doc:`DAML's fine-grained privacy model
-       </concepts/ledger-model/ledger-privacy>`; whitepaper coming soon
-       (contact `Ratko Veprek <mailto:ratko.veprek@digitalasset.com>`__  for a
-       preview)
-
+       </concepts/ledger-model/ledger-privacy>`
 
 .. _integration-kit_implementing:
 
