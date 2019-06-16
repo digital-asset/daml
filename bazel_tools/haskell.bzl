@@ -92,6 +92,10 @@ def _wrap_rule(rule, name = "", deps = [], hazel_deps = [], compiler_flags = [],
         name = name + "@ghci",
         deps = [name],
         experimental_from_binary = ["//nix/..."],
+        ghci_repl_wrapper = select({
+            "//:hie_bios_ghci": "//bazel_tools:ghci-template.sh",
+            "//conditions:default": "@io_tweag_rules_haskell//haskell:private/ghci_repl_wrapper.sh",
+        }),
         repl_ghci_args = [
             "-fexternal-interpreter",
             "-j",

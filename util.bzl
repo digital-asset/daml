@@ -8,14 +8,15 @@ def hazel_ghclibs(version, shaParser, shaLibrary):
     return [
         # Read [Working on ghc-lib] for ghc-lib update instructions at
         # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-        (
-            "ghc-lib-parser",
-            {
-                "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-" + version + ".tar.gz",
-                "stripPrefix": "ghc-lib-parser-" + version,
-                "sha256": shaParser,
-            },
-        ),
+        # (
+        # Once we stop needing a custom build file we can add this back.
+        #     "ghc-lib-parser",
+        #     {
+        #         "url": "https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-" + version + ".tar.gz",
+        #         "stripPrefix": "ghc-lib-parser-" + version,
+        #         "sha256": shaParser,
+        #     },
+        # ),
         (
             "ghc-lib",
             {
