@@ -77,7 +77,7 @@ On Mac if building is causing trouble complaining about missing nix packages, yo
 
 ### 4. Installing a local copy
 
-On Linux and Mac run `da-sdk-head` which installs a version of the SDK with version number `0.0.0`. Set the `version:` field in any DAML project to 0.0.0 and it will use the locally installed one.
+On Linux and Mac run `daml-sdk-head` which installs a version of the SDK with version number `0.0.0`. Set the `version:` field in any DAML project to 0.0.0 and it will use the locally installed one.
 
 On Windows:
 
