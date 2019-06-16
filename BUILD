@@ -62,6 +62,13 @@ config_setting(
     },
 )
 
+config_setting(
+    name = "hie_bios_ghci",
+    define_values = {
+        "hie_bios_ghci": "True",
+    },
+)
+
 #
 # Metadata
 #
