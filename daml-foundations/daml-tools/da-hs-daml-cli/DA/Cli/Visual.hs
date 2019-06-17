@@ -37,7 +37,7 @@ startFromUpdate seen world update = case update of
     LF.UBind (LF.Binding _ e1) e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
     LF.UCreate tpl e -> Set.singleton (ACreate tpl) `Set.union` startFromExpr seen world e
     LF.UExercise tpl chc e1 e2 e3 -> Set.singleton (AExercise tpl chc) `Set.union` startFromExpr seen world e1 `Set.union` maybe Set.empty (startFromExpr seen world) e2 `Set.union` startFromExpr seen world e3
-    LF.UFetch _ _ctIdEx -> Set.empty --startFromExpr seen world ctIdEx
+    LF.UFetch _ ctIdEx -> startFromExpr seen world ctIdEx
     LF.UGetTime -> Set.empty
     LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
     LF.ULookupByKey _ -> Set.empty
