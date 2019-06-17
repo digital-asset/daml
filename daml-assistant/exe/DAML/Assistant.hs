@@ -25,7 +25,6 @@ import Data.List.Extra
 import Data.Either.Extra
 import qualified Data.Text as T
 import Control.Monad.Extra
-import Control.Applicative
 import Safe
 
 -- | Run the assistant and exit.
@@ -152,9 +151,11 @@ handleCommand env@Env{..} = \case
                 , defaultVersionM
                 ]
 
-            latestVersionM
-                = maximumMay (fromRight [] availableVersionsE)
-                <|> envLatestStableSdkVersion
+            latestVersionM = maximumMay $ concat
+                [ fromRight [] availableVersionsE
+                , fromRight [] installedVersionsE
+                , envVersions
+                ]
 
             isInstalled =
                 case installedVersionsE of
