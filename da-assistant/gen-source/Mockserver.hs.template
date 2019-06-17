@@ -1,9 +1,0 @@
-module Mockserver (main) where
-
-import System.Environment (getArgs)
-import DA.Sdk.Cli.Repository.Bintray.Server (runMockServerBasedTest)
-
-main :: IO ()
-main = do
-  args <- getArgs
-  runMockServerBasedTest args
