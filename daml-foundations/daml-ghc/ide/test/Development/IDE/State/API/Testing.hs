@@ -130,8 +130,6 @@ runShakeTest mbScenarioService (ShakeTest m) = do
                 }
         runReaderT (runExceptT m) ste
 
-    -- shut shake down synchronously
-    void $ API.runActions service []
     API.shutdown service
 
     return (fmap (const ShakeTestResults) result) -- TODO: improve?
@@ -214,7 +212,7 @@ getDiagnostics :: ShakeTest [D.FileDiagnostic]
 getDiagnostics = ShakeTest $ do
     service <- Reader.asks steService
     liftIO $ do
-        void $ API.runActions service []
+        void $ API.runActionsSynchronous service []
         API.getDiagnostics service
 
 -- | Everything that rebuilt in the last execution must pass the predicate
@@ -224,7 +222,7 @@ expectLastRebuilt predicate = ShakeTest $ do
     testDir <- Reader.asks steTestDirPath
     liftIO $ withTempDir $ \dir -> do
         let file = dir </> "temp.json"
-        void $ API.runActions service []
+        void $ API.runActionsSynchronous service []
         API.writeProfile service file
         rebuilt <- either error (return . parseShakeProfileJSON testDir) =<< Aeson.eitherDecodeFileStrict' file
         -- ignore those which are set to alwaysRerun - not interesting
@@ -264,7 +262,7 @@ getVirtualResources = ShakeTest $ do
     service <- Reader.asks steService
     virtualResources <- Reader.asks steVirtualResources
     liftIO $ do
-      void $ API.runActions service []
+      void $ API.runActionsSynchronous service []
       readTVarIO virtualResources
 
 -- | Convenient grouping of file path, 0-based line number, 0-based column number.
@@ -402,7 +400,7 @@ expectGoToDefinition cursorRange pattern' = do
     checkPath (cursorRangeFilePath cursorRange)
     service <- ShakeTest $ Reader.asks steService
     forM_ (cursorRangeList cursorRange) $ \cursor -> do
-        maybeLoc <- ShakeTest . liftIO . API.runAction service $
+        maybeLoc <- ShakeTest . liftIO . API.runActionSynchronous service $
             API.getDefinition (cursorFilePath cursor) (cursorPosition cursor)
         unless (matchGoToDefinitionPattern pattern' maybeLoc) $
             throwError (ExpectedDefinition cursor pattern' maybeLoc)
@@ -421,7 +419,7 @@ expectTextOnHover cursorRange expectedInfo = do
     checkPath path
     service <- ShakeTest $ Reader.asks steService
     forM_ (cursorRangeList cursorRange) $ \cursor -> do
-        mbInfo <- ShakeTest . liftIO . API.runAction service $
+        mbInfo <- ShakeTest . liftIO . API.runActionSynchronous service $
                     API.getAtPoint path (cursorPosition cursor)
         let actualInfo :: [T.Text] = maybe [] (map API.getHoverTextContent . snd) mbInfo
         unless (hoverPredicate actualInfo) $
