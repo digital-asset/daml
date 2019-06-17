@@ -24,11 +24,13 @@ bazel run damlc visual /path/to/application.dar > application.dot
 ```
 And to generate the image itself we need [`graphviz installed`](http://www.graphviz.org/download/).
 
-Command to generate png is 
+Command to generate png is
 
 ```
 dot -Tpng application.dot > application.png
 ```
+
+The nodes in the graph are templates(names) found in daml modules and arrows are the possible outcomes from choices within the templates.
 
 
 ## DAML Studio
