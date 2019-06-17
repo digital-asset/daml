@@ -2,9 +2,11 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
+{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE TypeOperators #-}
 module DA.Daml.LF.Ast.Optics(
     moduleModuleRef,
     unlocate,
@@ -13,6 +15,7 @@ module DA.Daml.LF.Ast.Optics(
     _PRSelfModule,
     exprPartyLiteral,
     exprValueRef,
+    packageRefs,
     templateExpr
     ) where
 
@@ -21,9 +24,12 @@ import Control.Lens.Ast
 import Control.Lens.MonoTraversal
 import Data.Functor.Foldable (cata, embed)
 import qualified Data.NameMap as NM
+import GHC.Generics hiding (from, to)
+import GHC.Generics.Lens
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Recursive
+import DA.Daml.LF.Ast.Version (Version)
 
 -- | WARNING: The result is not a proper prism.
 -- The intended use case is something along the lines of
@@ -164,3 +170,46 @@ exprValueRef f = cata go
     go = \case
       EValF val -> EVal <$> f val
       e -> embed <$> sequenceA e
+
+class HasPackageRefs' a where
+  packageRefs' :: Traversal' (a p) PackageRef
+
+instance HasPackageRefs' V1 where
+  packageRefs' = _V1
+
+instance HasPackageRefs' U1 where
+  packageRefs' = ignored
+
+instance (HasPackageRefs' f, HasPackageRefs' g) => HasPackageRefs' (f :+: g) where
+  packageRefs' f (L1 v) = L1 <$> packageRefs' f v
+  packageRefs' f (R1 v) = R1 <$> packageRefs' f v
+
+instance (HasPackageRefs' f, HasPackageRefs' g) => HasPackageRefs' (f :*: g) where
+  packageRefs' f (a :*: b) = (:*:) <$> packageRefs' f a <*> packageRefs' f b
+
+instance HasPackageRefs a => HasPackageRefs' (K1 i a) where
+  packageRefs' = _K1 . packageRefs
+
+instance HasPackageRefs' x => HasPackageRefs' (M1 i a x) where
+  packageRefs' = _M1 . packageRefs'
+
+class HasPackageRefs a where
+  packageRefs :: Traversal' a PackageRef
+  default packageRefs :: (Generic a, HasPackageRefs' (Rep a)) => Traversal' a PackageRef
+  packageRefs = generic . packageRefs'
+
+instance HasPackageRefs (Maybe FilePath) where
+  packageRefs = ignored
+
+instance HasPackageRefs Version where
+  packageRefs = ignored
+
+instance (HasPackageRefs a, NM.Named a) => HasPackageRefs (NM.NameMap a) where
+  packageRefs = NM.traverse . packageRefs
+
+instance HasPackageRefs PackageRef where
+  packageRefs = id
+
+instance HasPackageRefs Module where
+
+instance HasPackageRefs Package where
