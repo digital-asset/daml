@@ -20,7 +20,7 @@ option java_package = "com.digitalasset.ledger.api.v1";
 // - NameStrings are strings that match the regexp ``[A-Za-z\$_][A-Za-z0-9\$_]*``.
 // - PackageIdStrings are strings that match the regexp ``[A-Za-z0-9\-_ ]+``.
 // - PartyIdStrings are strings that match the regexp ``[A-Za-z0-9:\-_ ]+``.
-// - LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_ ]+``.
+// - LedgerStrings are strings that match the regexp ``[A-Za-z0-9#:\-_/ ]+``.
 //
 message Value {
   oneof Sum {
