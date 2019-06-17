@@ -187,6 +187,70 @@ packagingTests tmpDir = testGroup "packaging"
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
         withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
+    , testCaseSteps "Build migration package" $ \step -> do
+        let projectA = tmpDir </> "a"
+        let projectB = tmpDir </> "b"
+        let projectMigrate = tmpDir </> "migrateAB"
+        let aDar = projectA </> "dist" </> "a.dar"
+        let bDar = projectB </> "dist" </> "b.dar"
+        step "Creating project a..."
+        createDirectoryIfMissing True (projectA </> "daml")
+        writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
+            [ "daml 1.2"
+            , "module Main where"
+            , "data OnlyA"
+            -- TODO (drsk) for now no templates because we still need to generate the generic
+            -- instances.
+            --, "template Foo"
+            --, "  with"
+            --, "    a : Int"
+            --, "    p : Party"
+            --, "  where"
+            --, "    signatory p"
+            ]
+        writeFileUTF8 (projectA </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: a"
+            , "version: \"1.0\""
+            , "source: daml/Main.daml"
+            , "exposed-modules: [Main]"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            ]
+        withCurrentDirectory projectA $ callProcessQuiet damlName ["build"]
+        assertBool "a.dar was not created." =<< doesFileExist aDar
+        step "Creating project b..."
+        createDirectoryIfMissing True (projectB </> "daml")
+        writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
+            [ "daml 1.2"
+            , "module Main where"
+            , "data OnlyB"
+            -- TODO (drsk) for now no templates because we still need to generate the generic
+            -- instances.
+            --, "template Foo"
+            --, "  with"
+            --, "    a : Int"
+            --, "    p : Party"
+            --, "  where"
+            --, "    signatory p"
+            ]
+        writeFileUTF8 (projectB </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "version: \"1.0\""
+            , "name: b"
+            , "source: daml/Main.daml"
+            , "exposed-modules: [Main]"
+            , "dependencies:"
+            , "  - daml-prim"
+            , "  - daml-stdlib"
+            ]
+        withCurrentDirectory projectB $ callProcessQuiet damlName ["build"]
+        assertBool "a.dar was not created." =<< doesFileExist bDar
+        step "Creating migration project"
+        callProcessQuiet damlName ["migrate", projectMigrate, aDar, bDar]
+        step "Build migration project"
+        withCurrentDirectory projectMigrate $ callProcessQuiet damlName ["build"]
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
