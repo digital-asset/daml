@@ -141,12 +141,15 @@ handleCommand env@Env{..} = \case
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
+        projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes
                 [ envSdkVersion
                 , envLatestStableSdkVersion
                 , guard vAssistant >> asstVersion
+                , projectVersionM
+                , defaultVersionM
                 ]
 
             latestVersionM
@@ -160,7 +163,7 @@ handleCommand env@Env{..} = \case
 
             versionAttrs v = catMaybes
                 [ "project SDK version from daml.yaml"
-                    <$ guard (Just v == envSdkVersion && isJust envProjectPath)
+                    <$ guard (Just v == projectVersionM && isJust envProjectPath)
                 , "default SDK version for new projects"
                     <$ guard (Just v == defaultVersionM && isNothing envProjectPath)
                 , "daml assistant version"
