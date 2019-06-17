@@ -22,7 +22,10 @@ module DA.Daml.LF.Ast.Optics(
 import Control.Lens
 import Control.Lens.Ast
 import Control.Lens.MonoTraversal
+import Data.Fixed (Fixed)
 import Data.Functor.Foldable (cata, embed)
+import Data.Int (Int32, Int64)
+import Data.Text (Text)
 import qualified Data.NameMap as NM
 import GHC.Generics hiding (from, to)
 import GHC.Generics.Lens
@@ -198,10 +201,30 @@ class HasPackageRefs a where
   default packageRefs :: (Generic a, HasPackageRefs' (Rep a)) => Traversal' a PackageRef
   packageRefs = generic . packageRefs'
 
-instance HasPackageRefs (Maybe FilePath) where
-  packageRefs = ignored
+instance HasPackageRefs a => HasPackageRefs (Maybe a) where
+  packageRefs = traverse . packageRefs
 
+instance HasPackageRefs a => HasPackageRefs [a] where
+  packageRefs = traverse . packageRefs
+
+instance (HasPackageRefs a, HasPackageRefs b) => HasPackageRefs (a, b) where
+  packageRefs = beside packageRefs packageRefs
+
+instance HasPackageRefs Int where
+  packageRefs = ignored
+instance HasPackageRefs Int32 where
+  packageRefs = ignored
+instance HasPackageRefs Int64 where
+  packageRefs = ignored
+instance HasPackageRefs Bool where
+  packageRefs = ignored
+instance HasPackageRefs Char where
+  packageRefs = ignored
 instance HasPackageRefs Version where
+  packageRefs = ignored
+instance HasPackageRefs Text where
+  packageRefs = ignored
+instance HasPackageRefs (Fixed r) where
   packageRefs = ignored
 
 instance (HasPackageRefs a, NM.Named a) => HasPackageRefs (NM.NameMap a) where
@@ -210,6 +233,40 @@ instance (HasPackageRefs a, NM.Named a) => HasPackageRefs (NM.NameMap a) where
 instance HasPackageRefs PackageRef where
   packageRefs = id
 
+instance HasPackageRefs a => HasPackageRefs (Qualified a) where
+instance HasPackageRefs Binding where
+instance HasPackageRefs BuiltinExpr where
+instance HasPackageRefs BuiltinType where
+instance HasPackageRefs CaseAlternative where
+instance HasPackageRefs CasePattern where
+instance HasPackageRefs ChoiceName where
+instance HasPackageRefs DataCons where
+instance HasPackageRefs DefDataType where
+instance HasPackageRefs DefValue where
+instance HasPackageRefs EnumCon where
+instance HasPackageRefs EnumType where
+instance HasPackageRefs Expr where
+instance HasPackageRefs ExprValName where
+instance HasPackageRefs ExprVarName where
+instance HasPackageRefs FeatureFlags where
+instance HasPackageRefs FieldName where
+instance HasPackageRefs HasNoPartyLiterals where
+instance HasPackageRefs IsSerializable where
+instance HasPackageRefs IsTest where
+instance HasPackageRefs Kind where
 instance HasPackageRefs Module where
-
+instance HasPackageRefs ModuleName where
 instance HasPackageRefs Package where
+instance HasPackageRefs PartyLiteral where
+instance HasPackageRefs RetrieveByKey where
+instance HasPackageRefs Scenario where
+instance HasPackageRefs SourceLoc where
+instance HasPackageRefs Template where
+instance HasPackageRefs TemplateChoice where
+instance HasPackageRefs TemplateKey where
+instance HasPackageRefs Type where
+instance HasPackageRefs TypeConApp where
+instance HasPackageRefs TypeConName where
+instance HasPackageRefs TypeVarName where
+instance HasPackageRefs Update where
+instance HasPackageRefs VariantConName where
