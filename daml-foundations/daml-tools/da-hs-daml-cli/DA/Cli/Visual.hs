@@ -47,7 +47,7 @@ startFromUpdate seen world update = case update of
 startFromExpr :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World  -> LF.Expr -> Set.Set Action
 startFromExpr seen world e = case e of
     LF.EVar _ -> Set.empty
-    LF.EVal ref->  case LF.lookupValue ref world of
+    LF.EVal ref ->  case LF.lookupValue ref world of
         Right LF.DefValue{..}
             | ref `Set.member` seen  -> Set.empty
             | otherwise -> startFromExpr (Set.insert ref seen)  world dvalBody
@@ -60,8 +60,9 @@ startFromExpr seen world e = case e of
     LF.ETupleCon tcon -> Set.unions $ map (\(_, exp) -> startFromExpr seen world exp) tcon
     LF.ETupleProj _ tupExpr -> startFromExpr seen world tupExpr
     LF.ERecUpd _ _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
-    LF.ETmApp tmExpr tmpArg -> startFromExpr seen world tmExpr `Set.union` startFromExpr seen world tmpArg
-    LF.ETyApp tAppExpr _ -> trace( "app" ++ show tAppExpr) $startFromExpr seen world tAppExpr
+    LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ _ (LF.ExprValName "fetch"))) _) _ -> Set.empty
+    LF.ETmApp tmExpr tmpArg -> startFromExpr seen world tmExpr `Set.union` startFromExpr seen world tmpArg --
+    LF.ETyApp tAppExpr _ -> startFromExpr seen world tAppExpr
     LF.ETmLam _ tmlB -> startFromExpr seen world tmlB
     LF.ETyLam _ lambdy -> startFromExpr seen world lambdy
     LF.ECase cas casel -> startFromExpr seen world cas `Set.union` Set.unions ( map ( startFromExpr seen world . LF.altExpr ) casel)
