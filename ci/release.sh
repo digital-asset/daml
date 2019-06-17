@@ -37,11 +37,6 @@ if [[ "${BUILD_SOURCEBRANCHNAME:-}" == "master" ]]; then
     ./bazel-bin/release/release --artifacts release/artifacts.yaml --upload --log-level debug --release-dir "${release_dir}"
 else
     step "run release script (dry run)"
-    # For use in testing the release procedure.
-    #export GPG_KEY="** ENTER KEY HERE **"
-    #export MAVEN_URL="https://oss.sonatype.org"
-    #export MAVEN_USER="** ENTER SONATYPE JIRA USERNAME HERE **"
-    #export MAVEN_PASSWORD="** ENTER SONATYPE JIR PASSWORD OR USER TOKEN HERE **"
-    ./bazel-bin/release/release --artifacts release/artifacts.yaml --log-level debug --release-dir "${release_dir}" --all-artifacts
+    ./bazel-bin/release/release --artifacts release/artifacts.yaml --log-level debug --release-dir "${release_dir}"
     step "release artifacts got stored in ${release_dir}"
 fi

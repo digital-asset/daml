@@ -75,7 +75,7 @@ data JarType
     | Proto
       -- ^ A java protobuf library (*-speed.jar).
     | Scala
-      -- ^ A scala library jar, with source and scaladoc jarsr. Use when
+      -- ^ A scala library jar, with source and scaladoc jars. Use when
       -- source or scaladoc is desired, otherwise use 'Plain'.
     deriving (Eq, Show)
 
