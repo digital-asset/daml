@@ -20,6 +20,7 @@ jobs:
       name: 'linux-pool'
     steps:
       - checkout: self
+        clean: true
       - bash: ci/check-update-build-webide.sh
         displayName: 'Check for updated SDK and build webide with latest version'
         env:
@@ -31,6 +32,7 @@ jobs:
       name: 'linux-pool'
     steps:
       - checkout: self
+        clean: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: ci/configure-bazel.sh

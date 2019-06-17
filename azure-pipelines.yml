@@ -75,6 +75,7 @@ jobs:
       name: 'linux-pool'
     steps:
       - checkout: self
+        clean: true
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: ci/configure-bazel.sh
@@ -114,6 +115,7 @@ jobs:
       unsigned-installer: $[ dependencies.Windows.outputs['publish.artifact-unsigned-windows-installer'] ]
     steps:
       - checkout: self
+        clean: true
         persistCredentials: true
       - task: DownloadPipelineArtifact@0
         inputs:
@@ -151,6 +153,7 @@ jobs:
       artifact-windows-installer: $[ dependencies.Windows_signing.outputs['signing.artifact-windows-installer'] ]
     steps:
       - checkout: self
+        clean: true
         persistCredentials: true
       - bash: |
           set -euxo pipefail
