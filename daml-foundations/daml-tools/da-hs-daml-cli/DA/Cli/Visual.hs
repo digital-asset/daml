@@ -61,7 +61,7 @@ startFromExpr seen world e = case e of
     LF.ERecUpd _ _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
     LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ _ (LF.ExprValName "fetch"))) _) _ -> Set.empty
     LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ _ (LF.ExprValName "archive"))) _) _ -> Set.empty
-    LF.ETmApp tmExpr tmpArg -> startFromExpr seen world tmExpr `Set.union` startFromExpr seen world tmpArg --
+    LF.ETmApp tmExpr tmpArg -> startFromExpr seen world tmExpr `Set.union` startFromExpr seen world tmpArg
     LF.ETyApp tAppExpr _ -> startFromExpr seen world tAppExpr
     LF.ETmLam _ tmlB -> startFromExpr seen world tmlB
     LF.ETyLam _ lambdy -> startFromExpr seen world lambdy
@@ -177,7 +177,6 @@ execVisual darFilePath dotFilePath = do
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
         res = concatMap (moduleAndTemplates world) modules
-
         actionEdges = map templatePairs res
         dotString = showDot $ netlistGraph' srcLabel actionsForTemplate actionEdges
     case dotFilePath of
