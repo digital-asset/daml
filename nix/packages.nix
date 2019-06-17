@@ -229,6 +229,10 @@ in rec {
     base64 = pkgs.coreutils;
     sha1sum = pkgs.coreutils;
     xmlstarlet = pkgs.xmlstarlet;
+    
+    # Cryptography tooling
+    gnupg = pkgs.gnupg;
+    gpg   = gnupg;
 
     # Packaging tools
     patchelf = bazel_dependencies.patchelf;

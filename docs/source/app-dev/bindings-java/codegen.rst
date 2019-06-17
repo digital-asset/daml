@@ -94,7 +94,7 @@ The following snippet is an excerpt from the ``pom.xml`` that is part of the :re
 
   .. literalinclude:: ../../getting-started/quickstart/template-root/pom.xml
     :language: xml
-    :lines: 68-100,116-117
+    :lines: 47-79,95-96
     :dedent: 12
 
 
