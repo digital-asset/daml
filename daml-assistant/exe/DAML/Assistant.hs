@@ -146,7 +146,7 @@ handleCommand env@Env{..} = \case
             envVersions = catMaybes
                 [ envSdkVersion
                 , envLatestStableSdkVersion
-                , asstVersion
+                , guard vAssistant >> asstVersion
                 ]
 
             latestVersionM
@@ -159,14 +159,14 @@ handleCommand env@Env{..} = \case
                     Right vs -> (`elem` vs)
 
             versionAttrs v = catMaybes
-                [ "active"
-                    <$ guard (Just v == envSdkVersion)
-                , "default"
-                    <$ guard (Just v == defaultVersionM)
-                , "assistant"
-                    <$ guard (Just v == asstVersion)
+                [ "project SDK version from daml.yaml"
+                    <$ guard (Just v == envSdkVersion && isJust envProjectPath)
+                , "default SDK version for new projects"
+                    <$ guard (Just v == defaultVersionM && isNothing envProjectPath)
+                , "daml assistant version"
+                    <$ guard (Just v == asstVersion && vAssistant)
                 , "latest release"
-                    <$ guard (Just v == latestVersionM)
+                    <$ guard (Just v == latestVersionM && not (isInstalled v))
                 , "not installed"
                     <$ guard (not (isInstalled v))
                 ]
