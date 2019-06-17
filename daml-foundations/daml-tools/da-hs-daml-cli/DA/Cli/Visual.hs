@@ -26,7 +26,6 @@ import qualified Data.HashMap.Strict as Map
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.Split as DLS
 import Data.List.Extra
-import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -78,8 +77,7 @@ startFromExpr seen world e = case e of
     -- x -> Set.unions $ map startFromExpr $ children x
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
-startFromChoice world chc = trace( "Choice resulted in" ++ (DAP.renderPretty $LF.chcName chc) ++ show ((map prettyAction $ Set.elems res) )) $ res
-    where res = startFromExpr Set.empty world (LF.chcUpdate chc)
+startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
 templatePossibleUpdates :: LF.World -> LF.Template -> Set.Set Action
 templatePossibleUpdates world tpl = Set.unions $ map (startFromChoice world) (NM.toList (LF.tplChoices tpl))
