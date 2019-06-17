@@ -15,6 +15,12 @@ Sandbox
 - Fixed a bug in an internal data structure that broke contract keys.
   See `#1623 <https://github.com/digital-asset/daml/issues/1623>`__.
 
+DAML Studio
+~~~~~~~~~~~
+
+- Double the gRPC message limit used for the scenario service. This
+  avoids issues on large projects.
+
 0.12.25 — 2019-06-13
 --------------------
 
