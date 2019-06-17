@@ -2,10 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
-load("//rules_daml:daml.bzl", "daml_compile")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_test")
 
 daml_compile(
     name = "GroupChat",
-    srcs = glob(["daml/*.daml"]),
+    srcs = glob(["daml/GroupChat.daml"]),
     main_src = "daml/GroupChat.daml",
+)
+
+daml_test(
+    name = "GroupChat-test",
+    srcs = glob(["daml/GroupChat.daml"]),
 )
