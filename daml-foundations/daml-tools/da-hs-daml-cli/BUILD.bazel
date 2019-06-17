@@ -32,6 +32,7 @@ da_haskell_library(
         "prettyprinter",
         "process",
         "proto3-suite",
+        "safe",
         "safe-exceptions",
         "shake",
         "split",
