@@ -110,10 +110,10 @@ dev_env_tool(
     name = "tar_dev_env",
     nix_include = ["bin/tar"],
     nix_label = "@tar_nix",
-    nix_path = "bin/tar",
-    tool = "tar",
+    nix_paths = ["bin/tar"],
+    tools = ["tar"],
     win_include = ["usr/bin/tar.exe"],
-    win_path = "usr/bin/tar.exe",
+    win_paths = ["usr/bin/tar.exe"],
     win_tool = "msys2",
 )
 
@@ -130,10 +130,10 @@ dev_env_tool(
     name = "gzip_dev_env",
     nix_include = ["bin/gzip"],
     nix_label = "@gzip_nix",
-    nix_path = "bin/gzip",
-    tool = "gzip",
+    nix_paths = ["bin/gzip"],
+    tools = ["gzip"],
     win_include = ["usr/bin/gzip.exe"],
-    win_path = "usr/bin/gzip.exe",
+    win_paths = ["usr/bin/gzip.exe"],
     win_tool = "msys2",
 )
 
@@ -141,15 +141,15 @@ dev_env_tool(
     name = "mvn_dev_env",
     nix_include = ["bin/mvn"],
     nix_label = "@mvn_nix",
-    nix_path = "bin/mvn",
-    tool = "mvn",
+    nix_paths = ["bin/mvn"],
+    tools = ["mvn"],
     win_include = [
         "bin",
         "boot",
         "conf",
         "lib",
     ],
-    win_path = "bin/mvn",
+    win_paths = ["bin/mvn"],
     win_tool = "maven-3.6.1",
 )
 
@@ -185,10 +185,10 @@ dev_env_tool(
     name = "zip_dev_env",
     nix_include = ["bin/zip"],
     nix_label = "@zip_nix",
-    nix_path = "bin/zip",
-    tool = "zip",
+    nix_paths = ["bin/zip"],
+    tools = ["zip"],
     win_include = ["usr/bin/zip.exe"],
-    win_path = "usr/bin/zip.exe",
+    win_paths = ["usr/bin/zip.exe"],
     win_tool = "msys2",
 )
 
@@ -285,11 +285,11 @@ dev_env_tool(
     name = "jq_dev_env",
     nix_include = ["bin/jq"],
     nix_label = "@jq",
-    nix_path = "bin/jq",
-    tool = "jq",
+    nix_paths = ["bin/jq"],
+    tools = ["jq"],
     win_include = ["mingw64/bin"],
     win_include_as = {"mingw64/bin": "bin"},
-    win_path = "bin/jq.exe",
+    win_paths = ["bin/jq.exe"],
     win_tool = "msys2",
 )
 
@@ -389,15 +389,15 @@ dev_env_tool(
     name = "javadoc_dev_env",
     nix_include = ["bin/javadoc"],
     nix_label = "@jdk_nix",
-    nix_path = "bin/javadoc",
-    tool = "javadoc",
+    nix_paths = ["bin/javadoc"],
+    tools = ["javadoc"],
     win_include = [
         "bin",
         "include",
         "jre",
         "lib",
     ],
-    win_path = "bin/javadoc.exe",
+    win_paths = ["bin/javadoc.exe"],
     win_tool = "java-openjdk-8u201",
 )
 
@@ -405,8 +405,8 @@ dev_env_tool(
 dev_env_tool(
     name = "makensis_dev_env",
     nix_include = [""],
-    nix_path = "bin/makensis.exe",
-    tool = "makensis",
+    nix_paths = ["bin/makensis.exe"],
+    tools = ["makensis"],
     win_include = [
         "bin",
         "contrib",
@@ -414,7 +414,7 @@ dev_env_tool(
         "plugins",
         "stubs",
     ],
-    win_path = "bin/makensis.exe",
+    win_paths = ["bin/makensis.exe"],
     win_tool = "nsis-3.04",
 ) if is_windows else None
 
@@ -788,3 +788,54 @@ grpc_deps()
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 
 buildifier_dependencies()
+
+nixpkgs_package(
+    name = "postgresql_nix",
+    attribute_path = "postgresql",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "postgresql_dev_env",
+    nix_include = [
+        "bin",
+        "include",
+        "lib",
+        "share",
+    ],
+    nix_label = "@postgresql_nix",
+    nix_paths = [
+        "bin/initdb",
+        "bin/createdb",
+        "bin/pg_ctl",
+        "bin/postgresql",
+    ],
+    tools = [
+        "createdb",
+        "initdb",
+        "pg_ctl",
+        "postgresql",
+    ],
+    win_include = [
+        "mingw64/bin",
+        "mingw64/include",
+        "mingw64/lib",
+        "mingw64/share",
+    ],
+    win_include_as = {
+        "mingw64/bin": "bin",
+        "mingw64/include": "include",
+        "mingw64/lib": "lib",
+        "mingw64/share": "share",
+    },
+    win_paths = [
+        "bin/initdb.exe",
+        "bin/createdb.exe",
+        "bin/pg_ctl.exe",
+        "bin/postgresql.exe",
+    ],
+    win_tool = "msys2",
+)

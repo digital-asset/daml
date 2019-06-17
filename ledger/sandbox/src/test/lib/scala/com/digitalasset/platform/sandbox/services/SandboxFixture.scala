@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.services
 import java.io.File
 
 import akka.stream.Materializer
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
@@ -32,7 +33,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 trait SandboxFixture extends SuiteResource[Channel] {
   self: Suite =>
 
-  protected def darFile = new File("ledger/sandbox/Test.dar")
+  protected def darFile = new File(rlocation("ledger/sandbox/Test.dar"))
 
   protected def channel: Channel = suiteResource.value
 
