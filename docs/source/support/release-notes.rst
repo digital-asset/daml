@@ -9,10 +9,27 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+.. _release-0-13-2:
+
+0.13.2 - 2019-06-17
+-------------------
+
 Visualizing DAML Contracts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Added :doc:`Visualizing DAML Contracts </tools/visual>`
+
+Release Procedure
+~~~~~~~~~~~~~~~~~
+
+- Fixes to the release procedure.
+  See `#1725 <https://github.com/digital-asset/daml/issues/1725>`__
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- The changes for Java Bindings listed for SDK 0.13.1 now only apply to SDK 0.13.2 and later.
+  This is due to the partial failure of the release procedure.
 
 .. _release-0-13-1:
 
@@ -29,7 +46,7 @@ Java Bindings
 
 - Release the Java Bindings to the public Maven Central repository. To move to using the Maven Central repository, remove
   the ``<repository>...</repository>`` and ``<pluginRepository>...</pluginRepository>`` blocks from Maven POM files
-  that use version 0.12.26 (or later) of the Java Bindings.
+  that use version 0.13.1 (or later) of the Java Bindings.
   See `#1205 <https://github.com/digital-asset/daml/issues/1205>`__.
 
 .. _release-0-13-0:

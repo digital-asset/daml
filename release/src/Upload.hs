@@ -312,7 +312,7 @@ chksumFileContents file = do
 mavenConfigFromEnv :: (MonadIO m, E.MonadThrow m) => m MavenUploadConfig
 mavenConfigFromEnv = do
     url <- liftIO $ getEnv "MAVEN_URL"
-    user <- liftIO $ getEnv "MAVEN_USER"
+    user <- liftIO $ getEnv "MAVEN_USERNAME"
     password <- liftIO $ getEnv "MAVEN_PASSWORD"
     mbAllowUnsecureTls <- liftIO $ lookupEnv "MAVEN_UNSECURE_TLS"
     signingKey <- liftIO $ getEnv "GPG_KEY"
