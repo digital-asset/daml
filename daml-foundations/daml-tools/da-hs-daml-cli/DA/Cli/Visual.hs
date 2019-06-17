@@ -61,6 +61,7 @@ startFromExpr seen world e = case e of
     LF.ETupleProj _ tupExpr -> startFromExpr seen world tupExpr
     LF.ERecUpd _ _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
     LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ _ (LF.ExprValName "fetch"))) _) _ -> Set.empty
+    LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ _ (LF.ExprValName "archive"))) _) _ -> Set.empty
     LF.ETmApp tmExpr tmpArg -> startFromExpr seen world tmExpr `Set.union` startFromExpr seen world tmpArg --
     LF.ETyApp tAppExpr _ -> startFromExpr seen world tAppExpr
     LF.ETmLam _ tmlB -> startFromExpr seen world tmlB
