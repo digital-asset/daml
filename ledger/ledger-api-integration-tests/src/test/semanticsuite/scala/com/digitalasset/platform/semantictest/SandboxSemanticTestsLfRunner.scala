@@ -5,6 +5,7 @@ package com.digitalasset.platform.semantictest
 
 import java.io._
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
@@ -28,7 +29,8 @@ class SandboxSemanticTestsLfRunner
     with ScalaFutures
     with AkkaBeforeAndAfterAll {
 
-  private val defaultDarFile = new File("ledger/ledger-api-integration-tests/SemanticTests.dar")
+  private val defaultDarFile = new File(
+    rlocation("ledger/ledger-api-integration-tests/SemanticTests.dar"))
 
   override protected def config: Config =
     Config.default
@@ -59,12 +61,18 @@ class SandboxSemanticTestsLfRunner
       s"run scenario: $name" in allFixtures { ledger =>
         for {
           _ <- new SemanticTester(
-            parties => new SemanticTestAdapter(ledger, packages, parties),
+            parties =>
+              new SemanticTestAdapter(
+                ledger,
+                packages,
+                parties,
+                timeoutScaleFactor = this.spanScaleFactor,
+                commandSubmissionTtlScaleFactor = config.commandSubmissionTtlScaleFactor),
             pkgId,
             packages,
             partyNameMangler,
-            commandIdMangler)
-            .testScenario(name)
+            commandIdMangler
+          ).testScenario(name)
         } yield succeed
       }
     }

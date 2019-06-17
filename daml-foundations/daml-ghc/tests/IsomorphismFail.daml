@@ -1,0 +1,24 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ERROR No instance for (Generic Int repX0) arising from a use of ‘iso’
+
+daml 1.2
+
+module IsomorphismFail where
+
+import DA.Upgrade
+import DA.Generics
+
+data TreeA = LeafA Int | NodeA NodeA0 deriving Generic
+data NodeA0 = NodeA0 {lA : Int, rA : Int} deriving Generic
+
+data TreeB = LeafB Int | NodeB NodeB0 deriving Generic
+data NodeB0 = NodeB0 {lB : Int, rB : Text} deriving Generic
+
+treeA : TreeA
+treeA = NodeA (NodeA0 1 2)
+
+-- This should not work because TreeA and Tree are not isomorphic.
+treeB : TreeB
+treeB = iso treeA

@@ -17,6 +17,7 @@ import           System.FilePath
 import System.Directory
 import qualified Codec.Archive.Zip          as Zip
 import DA.Daml.GHC.Compiler.Options
+import Development.IDE.Types.Diagnostics
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -46,9 +47,9 @@ gernerated separately.
 
 buildDar ::
   BSL.ByteString
-  -> FilePath
+  -> NormalizedFilePath
   -> [(T.Text, BS.ByteString)]
-  -> [FilePath]
+  -> [NormalizedFilePath]
   -> [(String, BS.ByteString)]
   -> String
   -> String
@@ -57,19 +58,21 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersio
     -- Take all source file dependencies and produced interface files. Only the new package command
     -- produces interface files per default, hence we filter for existent files.
     ifaces <-
+        fmap (map toNormalizedFilePath) $
         filterM doesFileExist $
-        concat [[ifaceDir </> dep -<.> "hi", ifaceDir </> dep -<.> "hie"] | dep <- fileDependencies]
+        concat [[ifaceDir </> dep -<.> "hi", ifaceDir </> dep -<.> "hie"] | dep <- map fromNormalizedFilePath fileDependencies]
 
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
     -- is modified to have prefix <name> instead of the original root path.
     srcFiles <- forM fileDependencies $ \mPath -> do
-      contents <- BSL.readFile mPath
-      return (name </> makeRelative' modRoot mPath, contents)
+      contents <- BSL.readFile $ fromNormalizedFilePath mPath
+      return (name </> fromNormalizedFilePath (makeRelative' modRoot mPath), contents)
 
     ifaceFaceFiles <- forM ifaces $ \mPath -> do
-      contents <- BSL.readFile mPath
-      return (name </> makeRelative' (ifaceDir </> modRoot) mPath, contents)
+      contents <- BSL.readFile $ fromNormalizedFilePath mPath
+      let ifaceRoot = toNormalizedFilePath (ifaceDir </> fromNormalizedFilePath modRoot)
+      return (name </> fromNormalizedFilePath (makeRelative' ifaceRoot mPath), contents)
 
     let dalfName = name <> ".dalf"
     let dependencies = [(T.unpack pkgName <> ".dalf", BSC.fromStrict bs)
@@ -112,5 +115,5 @@ buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersio
 -- instead of
 --
 -- > makeRelative "./a" "a/b" == "a/b"
-makeRelative' :: FilePath -> FilePath -> FilePath
-makeRelative' a b = makeRelative (normalise a) (normalise b)
+makeRelative' :: NormalizedFilePath -> NormalizedFilePath -> NormalizedFilePath
+makeRelative' a b = toNormalizedFilePath $ makeRelative (fromNormalizedFilePath a) (fromNormalizedFilePath b)

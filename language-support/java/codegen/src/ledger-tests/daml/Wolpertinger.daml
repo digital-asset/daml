@@ -14,6 +14,8 @@ data Color = Grey
            | Custom Text
            deriving (Eq, Show, Ord)
 
+data WolpertingerKey = WolpertingerKey with owner: Party; age: Decimal
+
 template Wolpertinger
     with
         owner : Party
@@ -27,6 +29,9 @@ template Wolpertinger
         colors: [Color]
     where
         signatory owner
+
+        key WolpertingerKey owner age : WolpertingerKey
+        maintainer key.owner
 
         agreement name <> " has " <> show wings <> " wings and is " <> show age <> " years old."
 

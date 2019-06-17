@@ -8,6 +8,7 @@ module Daml.Lsp.Test.Util
     , expectDiagnostics
     , damlId
 
+    , openDocs
     , openDoc'
     , replaceDoc
     , waitForScenarioDidChange
@@ -29,6 +30,7 @@ import qualified Language.Haskell.LSP.Test as LspTest
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens as Lsp
 import Network.URI
+import System.IO.Extra
 import Test.Tasty.HUnit
 
 import DA.Test.Util
@@ -84,6 +86,20 @@ damlId = "daml"
 replaceDoc :: TextDocumentIdentifier -> T.Text -> Session ()
 replaceDoc docId contents =
     changeDoc docId [TextDocumentContentChangeEvent Nothing Nothing contents]
+
+-- | Wrapper around openDoc' that writes files to disc. This is
+-- important for things like cyclic imports where we otherwise get an
+-- error about the module not existing.
+openDocs :: String -> [(FilePath, T.Text)] -> Session [TextDocumentIdentifier]
+openDocs languageId files = do
+    files' <- forM files $ \(file, contents) -> do
+        uri <- getDocUri file
+        Just path <- pure $ uriToFilePath uri
+        liftIO $ writeFileUTF8 path $ T.unpack contents
+        let item = TextDocumentItem uri (T.pack languageId) 0 contents
+        pure (TextDocumentIdentifier uri, item)
+    forM_ files' $ \(_, item) -> sendNotification TextDocumentDidOpen (DidOpenTextDocumentParams item)
+    pure (map fst files')
 
 openDoc' :: FilePath -> String -> T.Text -> Session TextDocumentIdentifier
 openDoc' file languageId contents = do

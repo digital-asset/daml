@@ -1,0 +1,3 @@
+#!/bin/sh
+bazel run --define hie_bios_ghci=True //daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app@ghci | sed "s/'//g" | sed "s/-qg//g" | sed "s/+RTS.*-RTS//" | sed "s|/bazel-out|bazel-out|g" | sed "s/-fexternal-interpreter//g"
+echo -idaml-foundations/daml-ghc/ide/src -icompiler/scenario-service/client/src -icompiler/daml-lf-ast/src -icompiler/haskell-ide-core/src -idaml-foundations/daml-ghc/ghc-compiler/src -icompiler/daml-lf-proto/src -idaml-foundations/daml-ghc/ghc-compiler/src -ilibs-haskell/da-hs-base/src -ilibs-haskell/bazel-runfiles/src -icompiler/daml-lf-tools/src -ibazel-out/k8-fastbuild/genfiles/daml-lf/archive -ilibs-haskell/prettyprinter-syntax/src -ibazel-out/k8-fastbuild/genfiles/compiler/scenario-service/protos

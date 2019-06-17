@@ -15,6 +15,7 @@ import Test.Tasty.HUnit
 
 import qualified DA.Cli.Damlc.Test as Damlc
 import DA.Daml.GHC.Compiler.Options
+import Development.IDE.Types.Diagnostics
 
 main :: IO ()
 main = do
@@ -40,7 +41,7 @@ tests = testGroup
               , "module Foo where"
               , "abc"
               ]
-            shouldThrowExitFailure (Damlc.execTest [path] (Damlc.UseColor False) Nothing opts)
+            shouldThrowExitFailure (Damlc.execTest [toNormalizedFilePath path] (Damlc.UseColor False) Nothing opts)
     , testCase "File with failing scenario" $ do
         withTempFile $ \path -> do
             T.writeFileUtf8 path $ T.unlines
@@ -48,7 +49,7 @@ tests = testGroup
               , "module Foo where"
               , "x = scenario $ assert False"
               ]
-            shouldThrowExitFailure (Damlc.execTest [path] (Damlc.UseColor False) Nothing opts)
+            shouldThrowExitFailure (Damlc.execTest [toNormalizedFilePath path] (Damlc.UseColor False) Nothing opts)
     ]
 
 shouldThrowExitFailure :: IO () -> IO ()

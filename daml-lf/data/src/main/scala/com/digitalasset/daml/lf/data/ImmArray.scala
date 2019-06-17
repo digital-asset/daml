@@ -3,10 +3,8 @@
 
 package com.digitalasset.daml.lf.data
 
-import scala.language.higherKinds
-import scala.collection.{IndexedSeqLike, IndexedSeqOptimized, mutable}
-import scalaz.{Applicative, Equal, Foldable, Traverse}
 import scalaz.syntax.applicative._
+import scalaz.{Applicative, Equal, Foldable, Traverse}
 
 import scala.annotation.tailrec
 import scala.collection.generic.{
@@ -16,6 +14,8 @@ import scala.collection.generic.{
   IndexedSeqFactory
 }
 import scala.collection.immutable.IndexedSeq
+import scala.collection.{IndexedSeqLike, IndexedSeqOptimized, mutable}
+import scala.language.higherKinds
 import scala.reflect.ClassTag
 
 /** Simple immutable array. The intention is that all the operations have the "obvious"
@@ -332,7 +332,7 @@ final class ImmArray[+A] private (
   def filter(f: A => Boolean): ImmArray[A] =
     collect { case x if f(x) => x }
 
-  override def hashCode(): Int = array.hashCode() // TODO is this fast?
+  override def hashCode(): Int = toSeq.hashCode()
 }
 
 object ImmArray {

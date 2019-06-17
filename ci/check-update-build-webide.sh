@@ -68,11 +68,10 @@ echo "got latest release SDK_VERSION=$SDK_VERSION, SDK_TIMESTAMP=$SDK_TS"
 dockerAuth
 
 WEBIDE_TS=$(getImageTimestampByVersion $SDK_VERSION)
+WEBIDE_DATE=$(date -d @$WEBIDE_TS 2> /dev/null || date -r $WEBIDE_TS)
 if [ -z "$WEBIDE_TS" ]; then
   echo "webide version $SDK_VERSION does not exist."
   build $SDK_VERSION
 else
-  echo "webide image version $SDK_VERSION already exists with timestamp `date -r $WEBIDE_TS`"
+  echo "webide image version $SDK_VERSION already exists with timestamp $WEBIDE_DATE"
 fi
-
-

@@ -31,6 +31,9 @@ import Development.IDE.Functions.DependencyInformation
 import Development.IDE.Functions.FindImports
 import           Development.IDE.State.FileStore
 import           Development.IDE.Types.Diagnostics as Base
+import qualified Data.ByteString.UTF8 as BS
+import Control.Exception
+import Control.Concurrent.Extra
 import Data.Bifunctor
 import Data.Either.Extra
 import Data.Maybe
@@ -72,43 +75,48 @@ defineNoFile f = define $ \k file -> do
 ------------------------------------------------------------
 -- Exposed API
 
+getFilesOfInterestRule :: Rules ()
+getFilesOfInterestRule = do
+    defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null $ fromNormalizedFilePath _file) $ do
+        alwaysRerun
+        Env{..} <- getServiceEnv
+        filesOfInterest <- liftIO $ readVar envOfInterestVar
+        pure (Just $ BS.fromString $ show filesOfInterest, ([], Just filesOfInterest))
+
 
 -- | Get GHC Core for the supplied file.
-getGhcCore :: FilePath -> Action (Maybe [CoreModule])
+getGhcCore :: NormalizedFilePath -> Action (Maybe [CoreModule])
 getGhcCore file = eitherToMaybe <$> runExceptT (coresForFile file)
 
 -- | Generate the GHC Core for the supplied file and its dependencies.
-coresForFile :: FilePath -> ExceptT [FileDiagnostic] Action [CoreModule]
+coresForFile :: NormalizedFilePath -> ExceptT [FileDiagnostic] Action [CoreModule]
 coresForFile file = do
     files <- transitiveModuleDeps <$> useE GetDependencies file
     pms   <- usesE GetParsedModule $ files ++ [file]
-    fs <- liftIO
-          . mapM fileFromParsedModule
-          $ pms
-    cores <- usesE GenerateCore fs
+    cores <- usesE GenerateCore $ map fileFromParsedModule pms
     pure (map Compile.gmCore cores)
 
 
 
 -- | Get all transitive file dependencies of a given module.
 -- Does not include the file itself.
-getDependencies :: FilePath -> Action (Maybe [FilePath])
+getDependencies :: NormalizedFilePath -> Action (Maybe [NormalizedFilePath])
 getDependencies file =
   eitherToMaybe <$>
   (runExceptT $ transitiveModuleDeps <$> useE GetDependencies file)
 
-getDalfDependencies :: FilePath -> Action (Maybe [InstalledUnitId])
+getDalfDependencies :: NormalizedFilePath -> Action (Maybe [InstalledUnitId])
 getDalfDependencies file =
   eitherToMaybe <$>
   (runExceptT $ transitivePkgDeps <$> useE GetDependencies file)
 
 -- | Documentation at point.
-getAtPoint :: FilePath -> Position -> Action (Maybe (Maybe Range, [HoverText]))
+getAtPoint :: NormalizedFilePath -> Position -> Action (Maybe (Maybe Range, [HoverText]))
 getAtPoint file pos = do
     fmap (either (const Nothing) id) . runExceptT $ getAtPointForFile file pos
 
 -- | Goto Definition.
-getDefinition :: FilePath -> Position -> Action (Maybe Location)
+getDefinition :: NormalizedFilePath -> Position -> Action (Maybe Location)
 getDefinition file pos = do
     fmap (either (const Nothing) id) . runExceptT $ getDefinitionForFile file pos
 
@@ -118,18 +126,18 @@ getDefinition file pos = do
 
 useE
     :: IdeRule k v
-    => k -> FilePath -> ExceptT [FileDiagnostic] Action v
+    => k -> NormalizedFilePath -> ExceptT [FileDiagnostic] Action v
 useE k = ExceptT . fmap toIdeResultSilent . use k
 
 -- picks the first error
 usesE
     :: IdeRule k v
-    => k -> [FilePath] -> ExceptT [FileDiagnostic] Action [v]
+    => k -> [NormalizedFilePath] -> ExceptT [FileDiagnostic] Action [v]
 usesE k = ExceptT . fmap (mapM toIdeResultSilent) . uses k
 
 -- | Try to get hover text for the name under point.
 getAtPointForFile
-  :: FilePath
+  :: NormalizedFilePath
   -> Position
   -> ExceptT [FileDiagnostic] Action (Maybe (Maybe Range, [HoverText]))
 getAtPointForFile file pos = do
@@ -138,7 +146,7 @@ getAtPointForFile file pos = do
   spans <- useE  GetSpanInfo file
   return $ AtPoint.atPoint (map Compile.tmrModule tms) spans pos
 
-getDefinitionForFile :: FilePath -> Position -> ExceptT [FileDiagnostic] Action (Maybe Location)
+getDefinitionForFile :: NormalizedFilePath -> Position -> ExceptT [FileDiagnostic] Action (Maybe Location)
 getDefinitionForFile file pos = do
     spans <- useE GetSpanInfo file
     pkgState <- useE GhcSession ""
@@ -167,7 +175,7 @@ getParsedModuleRule =
         (_, contents) <- getFileContents file
         packageState <- use_ GhcSession ""
         opt <- getOpts
-        liftIO $ Compile.parseModule opt packageState file contents
+        liftIO $ Compile.parseModule opt packageState (fromNormalizedFilePath file) contents
 
 getLocatedImportsRule :: Rules ()
 getLocatedImportsRule =
@@ -185,7 +193,7 @@ getLocatedImportsRule =
 
 -- | Given a target file path, construct the raw dependency results by following
 -- imports recursively.
-rawDependencyInformation :: FilePath -> ExceptT [FileDiagnostic] Action RawDependencyInformation
+rawDependencyInformation :: NormalizedFilePath -> ExceptT [FileDiagnostic] Action RawDependencyInformation
 rawDependencyInformation f = go (Set.singleton f) Map.empty Map.empty
   where go fs !modGraph !pkgs =
           case Set.minView fs of
@@ -242,7 +250,7 @@ reportImportCyclesRule =
             , _relatedInformation = Nothing
             }
             where loc = srcSpanToLocation (getLoc imp)
-                  fp = srcSpanToFilename (getLoc imp)
+                  fp = toNormalizedFilePath $ srcSpanToFilename (getLoc imp)
           getModuleName file = do
            pm <- useE GetParsedModule file
            pure (moduleNameString . moduleName . ms_mod $ pm_mod_summary pm)
@@ -321,15 +329,16 @@ mainRule = do
     generateCoreRule
     loadGhcSession
     getHieFileRule
+    getFilesOfInterestRule
 
 ------------------------------------------------------------
 
-fileFromParsedModule :: ParsedModule -> IO FilePath
-fileFromParsedModule = pure . ms_hspp_file . pm_mod_summary
+fileFromParsedModule :: ParsedModule -> NormalizedFilePath
+fileFromParsedModule = toNormalizedFilePath . ms_hspp_file . pm_mod_summary
 
 fileImports ::
      [(Located ModuleName, Maybe Import)]
-  -> [(Located ModuleName, Maybe FilePath)]
+  -> [(Located ModuleName, Maybe NormalizedFilePath)]
 fileImports = mapMaybe $ \case
     (modName, Nothing) -> Just (modName, Nothing)
     (modName, Just (FileImport absFile)) -> Just (modName, Just absFile)

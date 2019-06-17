@@ -5,8 +5,6 @@
         "7zip",
         "java-openjdk-8u201",
         "msys2",
-        "msys2-patch",
-        "msys2-jq",
         "curl-7.64.0",
         "cacert",
         "vcredist-14.0.23026",

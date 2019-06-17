@@ -150,31 +150,37 @@ def _scala_source_jar_impl(ctx):
         ctx.label.name + ".zipper_args",
         sibling = manifest_file,
     )
-    tmpsrcdir = None
+    tmpsrcdirs = []
 
     zipper_args = ["META-INF/MANIFEST.MF=" + manifest_file.path]
     for src in ctx.files.srcs:
-        if src.is_source:
-            for new_path in _strip_path_upto(src.path, ctx.attr.strip_upto):
-                zipper_args.append("%s=%s" % (new_path, src.path))
-        else:
-            if not tmpsrcdir:
-                tmpsrcdir = ctx.actions.declare_directory(ctx.label.name + "_tmpdir")
+        # Check for common extensions that indicate that the file is a ZIP archive.
+        if src.extension == "srcjar" or src.extension == "jar" or src.extension == "zip":
+            tmpsrcdir = ctx.actions.declare_directory("%s_%s_tmpdir" % (ctx.label.name, src.owner.name))
             ctx.actions.run(
                 executable = ctx.executable._zipper,
-                inputs = ctx.files.srcs,
+                inputs = [src],
                 outputs = [tmpsrcdir],
                 arguments = ["x", src.path, "-d", tmpsrcdir.path],
                 mnemonic = "ScalaUnpackSourceJar",
             )
+            tmpsrcdirs.append(tmpsrcdir)
+        else:
+            for new_path in _strip_path_upto(src.path, ctx.attr.strip_upto):
+                zipper_args.append("%s=%s" % (new_path, src.path))
 
-    if tmpsrcdir:
-        cmd = "(echo -e \"{src_paths}\" && find -L {tmpsrc_path} -type f | sed -E 's#^{tmpsrc_path}/(.*)$#\\1={tmpsrc_path}/\\1#') | sort > {args_file}".format(
-            tmpsrc_path = tmpsrcdir.path,
+    if len(tmpsrcdirs) > 0:
+        tmpsrc_cmds = [
+            "(find -L {tmpsrc_path} -type f | sed -E 's#^{tmpsrc_path}/(.*)$#\\1={tmpsrc_path}/\\1#')".format(tmpsrc_path = tmpsrcdir.path)
+            for tmpsrcdir in tmpsrcdirs
+        ]
+
+        cmd = "(echo -e \"{src_paths}\" && {joined_tmpsrc_cmds}) | sort > {args_file}".format(
             src_paths = "\\n".join(zipper_args),
+            joined_tmpsrc_cmds = " && ".join(tmpsrc_cmds),
             args_file = zipper_args_file.path,
         )
-        inputs = [tmpsrcdir, manifest_file] + ctx.files.srcs
+        inputs = tmpsrcdirs + [manifest_file] + ctx.files.srcs
     else:
         cmd = "echo -e \"{src_paths}\" | sort > {args_file}".format(
             src_paths = "\\n".join(zipper_args),

@@ -122,7 +122,7 @@ conversionError :: String -> ConvertM e
 conversionError msg = do
   ConversionEnv{..} <- ask
   let addFpIfExists =
-        (fromMaybe noFilePath convModuleFilePath,)
+        (toNormalizedFilePath $ fromMaybe noFilePath convModuleFilePath,)
   throwError $ addFpIfExists $ Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError

@@ -1,19 +1,7 @@
-- target: //release:sdk-release-tarball
-  type: targz
-  platformDependent: True
-  location:
-    groupId: com.digitalasset
-    artifactId: sdk-tarball
 - target: //daml-lf/archive:daml_lf_archive_java
   type: jar
 - target: //daml-lf/data:data
   type: jar
-- target: //release:sdk-metadata-tarball
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: sdk
-  bintrayPackage: sdk
 - target: //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist
   type: targz
   platformDependent: True

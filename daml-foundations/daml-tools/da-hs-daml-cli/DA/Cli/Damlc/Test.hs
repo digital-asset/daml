@@ -14,6 +14,7 @@ import qualified DA.Pretty
 import DA.Cli.Damlc.Base
 import Data.Maybe
 import Data.List.Extra
+import qualified Data.Set as S
 import Data.Tuple.Extra
 import Control.Monad.Extra
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
@@ -38,11 +39,11 @@ import qualified Text.XML.Light as XML
 newtype UseColor = UseColor {getUseColor :: Bool}
 
 -- | Test a DAML file.
-execTest :: [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
+execTest :: [NormalizedFilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
 execTest inFiles color mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
-    let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (fp,) diags
+    let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (toNormalizedFilePath fp,) diags
         eventLogger _ = return ()
     Compiler.withIdeState opts loggerH eventLogger $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
@@ -51,10 +52,10 @@ execTest inFiles color mbJUnitOutput cliOptions = do
         when (any ((Just DsError ==) . _severity . snd) diags) exitFailure
 
 
-testRun :: IdeState -> [FilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()
+testRun :: IdeState -> [NormalizedFilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()
 testRun h inFiles lfVersion color mbJUnitOutput  = do
     -- make sure none of the files disappear
-    liftIO $ Compiler.setFilesOfInterest h inFiles
+    liftIO $ Compiler.setFilesOfInterest h (S.fromList inFiles)
 
     -- take the transitive closure of all imports and run on all of them
     -- If some dependencies can't be resolved we'll get a Diagnostic out anyway, so don't worry
@@ -79,7 +80,7 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
 
 
 -- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
-failedTestOutput :: IdeState -> FilePath -> CompilerService.Action [(VirtualResource, Maybe T.Text)]
+failedTestOutput :: IdeState -> NormalizedFilePath -> CompilerService.Action [(VirtualResource, Maybe T.Text)]
 failedTestOutput h file = do
     mbScenarioNames <- CompilerService.getScenarioNames file
     diagnostics <- liftIO $ CompilerService.getDiagnostics h
@@ -91,7 +92,7 @@ printScenarioResults :: [(VirtualResource, SS.ScenarioResult)] -> UseColor -> IO
 printScenarioResults results color = do
     liftIO $ forM_ results $ \(VRScenario vrFile vrName, result) -> do
         let doc = prettyResult result
-        let name = DA.Pretty.string vrFile <> ":" <> DA.Pretty.pretty vrName
+        let name = DA.Pretty.string (fromNormalizedFilePath vrFile) <> ":" <> DA.Pretty.pretty vrName
         let stringStyleToRender = if getUseColor color then DA.Pretty.renderColored else DA.Pretty.renderPlain
         putStrLn $ stringStyleToRender (name <> ": " <> doc)
 
@@ -120,7 +121,7 @@ prettyResult result =
     <> DA.Pretty.int nTx <> DA.Pretty.typeDoc_ " transactions."
 
 
-toJUnit :: [(FilePath, [(VirtualResource, Maybe T.Text)])] -> XML.Element
+toJUnit :: [(NormalizedFilePath, [(VirtualResource, Maybe T.Text)])] -> XML.Element
 toJUnit results =
     XML.node
         (XML.unqual "testsuites")
@@ -133,20 +134,20 @@ toJUnit results =
     where
         tests = length $ concatMap snd results
         failures = length $ concatMap (mapMaybe snd . snd) results
-        handleFile :: (FilePath, [(VirtualResource, Maybe T.Text)]) -> XML.Element
+        handleFile :: (NormalizedFilePath, [(VirtualResource, Maybe T.Text)]) -> XML.Element
         handleFile (f, vrs) =
             XML.node
                 (XML.unqual "testsuite")
-                ([ XML.Attr (XML.unqual "name") f
+                ([ XML.Attr (XML.unqual "name") (fromNormalizedFilePath f)
                  , XML.Attr (XML.unqual "tests") (show $ length vrs)
                  ],
                  map (handleVR f) vrs)
-        handleVR :: FilePath -> (VirtualResource, Maybe T.Text) -> XML.Element
+        handleVR :: NormalizedFilePath -> (VirtualResource, Maybe T.Text) -> XML.Element
         handleVR f (vr, mbErr) =
             XML.node
                 (XML.unqual "testcase")
                 ([ XML.Attr (XML.unqual "name") (T.unpack $ vrScenarioName vr)
-                 , XML.Attr (XML.unqual "classname") f
+                 , XML.Attr (XML.unqual "classname") (fromNormalizedFilePath f)
                  ],
                  maybe [] (\err -> [XML.node (XML.unqual "failure") (T.unpack err)]) mbErr
                 )

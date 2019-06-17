@@ -11,6 +11,7 @@ module DA.Cli.Damlc (main) where
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
 import DA.Cli.Damlc.Base
+import Control.Exception.Safe (catchIO)
 import Data.Maybe
 import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
@@ -117,10 +118,10 @@ runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions =
         project <- readProjectConfig $ ProjectPath pPath
         case parseProjectConfig project of
             Left err -> throwIO err
-            Right PackageConfigFields {..} -> execTest [pMain] color mbJUnitOutput cliOptions
+            Right PackageConfigFields {..} -> execTest [toNormalizedFilePath pMain] color mbJUnitOutput cliOptions
 runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptions =
     withProjectRoot' projectOpts $ \relativize -> do
-        inFiles' <- mapM relativize inFiles
+        inFiles' <- mapM (fmap toNormalizedFilePath . relativize) inFiles
         execTest inFiles' color mbJUnitOutput cliOptions
 
 cmdInspect :: Mod CommandFields Command
@@ -134,9 +135,9 @@ cmdInspect =
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
-    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dalf" <> fullDesc
+    command "visual" $ info (helper <*> cmd) $ progDesc "Generate visual from dar" <> fullDesc
     where
-      cmd = execVisual <$> inputFileOpt
+      cmd = execVisual <$> inputDarOpt <*> dotFileOpt
 
 
 cmdBuild :: Int -> Mod CommandFields Command
@@ -239,7 +240,9 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
         withScenarioService' enableScenarioService loggerH $ \mbScenarioService -> do
             -- TODO we should allow different LF versions in the IDE.
             execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
-            Daml.LanguageServer.runLanguageServer loggerH
+            sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
+            Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
+            Daml.LanguageServer.runLanguageServer (toIdeLogger loggerH)
                 (getIdeState opts mbScenarioService loggerH)
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
@@ -248,7 +251,7 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
     inputFile <- relativize inputFile
     opts' <- Compiler.mkOptions opts
     Compiler.withIdeState opts' loggerH (const $ pure ()) $ \hDamlGhc -> do
-        errOrDalf <- runExceptT $ Compiler.compileFile hDamlGhc inputFile
+        errOrDalf <- runExceptT $ Compiler.compileFile hDamlGhc (toNormalizedFilePath inputFile)
         either (reportErr "DAML-1.2 to LF compilation failed") write errOrDalf
   where
     write bs
@@ -365,14 +368,14 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pVersion
                     pExposedModules
                     pDependencies
-        let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (fp,) diags
+        let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (toNormalizedFilePath fp,) diags
             eventLogger _ = return ()
         Compiler.withIdeState opts loggerH eventLogger $ \compilerH -> do
             darOrErr <-
                 runExceptT $
                 Compiler.buildDar
                     compilerH
-                    pMain
+                    (toNormalizedFilePath pMain)
                     pExposedModules
                     pName
                     pSdkVersion
@@ -454,7 +457,7 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
     loggerH <- getLogger opts "package"
     filePath <- relativize filePath
     opts' <- Compiler.mkOptions opts
-    Compiler.withIdeState opts' loggerH (const $ pure ()) $ buildDar filePath
+    Compiler.withIdeState opts' loggerH (const $ pure ()) $ buildDar (toNormalizedFilePath filePath)
   where
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
@@ -680,12 +683,12 @@ options numProcessors =
       <> cmdBuild numProcessors
       <> cmdTest numProcessors
       <> cmdDamlDoc
+      <> cmdVisual
       <> cmdInspectDar
       )
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
-        <> cmdVisual
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean

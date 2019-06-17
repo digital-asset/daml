@@ -23,6 +23,7 @@ import Development.Shake
 import GHC.Generics (Generic)
 import "ghc-lib-parser" Module (UnitId)
 
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.LSP
 import Development.IDE.State.RuleTypes
 
@@ -51,16 +52,15 @@ type instance RuleResult CreateScenarioContext = SS.ContextId
 -- used for executing scenarios in A. We use this when running the scenarios
 -- in transitive dependencies of the files of interest so that we only need
 -- one scenario context per file of interest.
-type instance RuleResult GetScenarioRoots = Map FilePath FilePath
+type instance RuleResult GetScenarioRoots = Map NormalizedFilePath NormalizedFilePath
 
 -- ^ The root for the given file based on GetScenarioRoots.
 -- This is a separate rule so we can avoid rerunning scenarios if
 -- only the roots of other files have changed.
-type instance RuleResult GetScenarioRoot = FilePath
+type instance RuleResult GetScenarioRoot = NormalizedFilePath
 
 -- | These rules manage access to the global state in
 -- envOfInterestVar and envOpenVirtualResources.
-type instance RuleResult GetFilesOfInterest = Set FilePath
 type instance RuleResult GetOpenVirtualResources = Set VirtualResource
 
 data GenerateDalf = GenerateDalf
@@ -127,12 +127,15 @@ data GetScenarioRoot = GetScenarioRoot
 instance Hashable GetScenarioRoot
 instance NFData   GetScenarioRoot
 
-data GetFilesOfInterest = GetFilesOfInterest
-    deriving (Eq, Show, Typeable, Generic)
-instance Hashable GetFilesOfInterest
-instance NFData   GetFilesOfInterest
-
 data GetOpenVirtualResources = GetOpenVirtualResources
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetOpenVirtualResources
 instance NFData   GetOpenVirtualResources
+
+-- | Kick off things
+type instance RuleResult OfInterest = ()
+
+data OfInterest = OfInterest
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable OfInterest
+instance NFData   OfInterest

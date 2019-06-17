@@ -9,10 +9,32 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Sandbox
+~~~~~~~
+
+- Fixed a bug in an internal data structure that broke contract keys.
+  See `#1623 <https://github.com/digital-asset/daml/issues/1623>`__.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Double the gRPC message limit used for the scenario service. This
+  avoids issues on large projects.
+
+0.12.25 — 2019-06-13
+--------------------
+
 DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
 
-- Added new CLI flag ``--all-tests`` to the :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>` to run all default and optional tests.
+- Added new CLI flag ``--all-tests`` to the :doc:`Ledger API Test Tool
+  </tools/ledger-api-test-tool/index>` to run all default and optional tests.
+- Added new CLI flag ``--command-submission-ttl-scale-factor`` to the
+  :doc:`Ledger API Test Tool </tools/ledger-api-test-tool/index>`. It scales
+  time-to-live of commands sent for ledger processing (captured as Maximum Record
+  Time in submitted transactions) for some suites. Useful to tune Maximum Record
+  Time depending on the environment and the Ledger implementation under test.
+- Fixed various bugs in the daml-on-x ledger api server and index service.
 
 Sandbox
 ~~~~~~~
@@ -25,6 +47,24 @@ Scala bindings
 
 - New `--root` command-line option for limiting what templates are selected for codegen.
   See `#1210 <https://github.com/digital-asset/daml/pull/1210>`__.
+
+Ledger API
+~~~~~~~~~~
+
+- Contract keys are now available for created events from the transaction service.
+  See `#1268 <https://github.com/digital-asset/daml/issues/1268>`__.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- The addition of contract keys on created events in the Ledger API is reflected in the bindings.
+  See `#1268 <https://github.com/digital-asset/daml/issues/1268>`__.
+
+Java Codegen
+~~~~~~~~~~~~
+
+- Contracts decoded from the transaction service now expose their contract key (if defined).
+  See `#1268 <https://github.com/digital-asset/daml/issues/1268>`__.
 
 .. _release-0-12-24:
 

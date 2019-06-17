@@ -187,7 +187,8 @@ private class SandboxIndexAndWriteService(
       cId,
       ac.contract.template,
       ac.contract.arg,
-      ac.witnesses
+      ac.witnesses,
+      ac.key.map(_.key)
     )
 
   private def getTransactionById(

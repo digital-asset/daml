@@ -8,13 +8,13 @@ module DA.Service.Daml.Compiler.Impl.Handle
     IdeState
   , getIdeState
   , withIdeState
-  , setFilesOfInterest
-  , onFileModified
-  , setOpenVirtualResources
+  , CompilerService.setFilesOfInterest
+  , CompilerService.modifyFilesOfInterest
+  , CompilerService.setOpenVirtualResources
+  , CompilerService.modifyOpenVirtualResources
   , getAssociatedVirtualResources
-  , gotoDefinition
-  , atPoint
   , compileFile
+  , toIdeLogger
   , UseDalf(..)
   , buildDar
   , getDalfDependencies
@@ -116,31 +116,16 @@ withIdeState compilerOpts loggerH eventHandler f =
 toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle
 toIdeLogger h = IdeLogger.Handle {
        logSeriousError = Logger.logError h
+     , logInfo = Logger.logInfo h
      , logDebug = Logger.logDebug h
+     , logWarning = Logger.logWarning h
      }
 
 ------------------------------------------------------------------------------
 
--- | Update the files-of-interest, which we recieve asynchronous notifications for.
-setFilesOfInterest
-    :: IdeState
-    -> [FilePath]
-    -> IO ()
-setFilesOfInterest service files = do
-    CompilerService.logDebug service $ "Setting files of interest to: " <> T.pack (show files)
-    CompilerService.setFilesOfInterest service (S.fromList files)
-
-setOpenVirtualResources
-    :: IdeState
-    -> [VirtualResource]
-    -> IO ()
-setOpenVirtualResources service vrs = do
-    CompilerService.logDebug service $ "Setting vrs of interest to: " <> T.pack (show vrs)
-    CompilerService.setOpenVirtualResources service (S.fromList vrs)
-
 getAssociatedVirtualResources
   :: IdeState
-  -> FilePath
+  -> NormalizedFilePath
   -> IO [(Base.Range, T.Text, VirtualResource)]
 getAssociatedVirtualResources service filePath = do
     mod0 <- runExceptT $ do
@@ -162,38 +147,20 @@ getAssociatedVirtualResources service filePath = do
             ]
 
 
-gotoDefinition
-    :: IdeState
-    -> FilePath
-    -> Base.Position
-    -> IO (Maybe Base.Location)
-gotoDefinition service afp pos = do
-    CompilerService.logDebug service $ "Goto definition: " <> T.pack (show afp)
-    CompilerService.runAction service (CompilerService.getDefinition afp pos)
-
-atPoint
-    :: IdeState
-    -> FilePath
-    -> Base.Position
-    -> IO (Maybe (Maybe Base.Range, [HoverText]))
-atPoint service afp pos = do
-    CompilerService.logDebug service $ "AtPoint: " <> T.pack (show afp)
-    CompilerService.runAction service (CompilerService.getAtPoint afp pos)
-
 -- | Compile the supplied file using the Compiler Service into a DAML LF Package.
 -- TODO options and warnings
 compileFile
     :: IdeState
     -- -> Options
     -- -> Bool -- ^ collect and display warnings
-    -> FilePath
+    -> NormalizedFilePath
     -> ExceptT [FileDiagnostic] IO LF.Package
 compileFile service fp = do
     -- We need to mark the file we are compiling as a file of interest.
     -- Otherwise all diagnostics produced during compilation will be garbage
     -- collected afterwards.
-    liftIO $ setFilesOfInterest service [fp]
-    liftIO $ CompilerService.logDebug service $ "Compiling: " <> T.pack fp
+    liftIO $ CompilerService.setFilesOfInterest service (S.singleton fp)
+    liftIO $ CompilerService.logDebug service $ "Compiling: " <> T.pack (fromNormalizedFilePath fp)
     res <- liftIO $ CompilerService.runAction service (CompilerService.getDalf fp)
     case res of
         Nothing -> do
@@ -201,21 +168,11 @@ compileFile service fp = do
             throwE diag
         Just v -> return v
 
--- | Manages the file store (caching compilation results and unsaved content).
-onFileModified
-    :: IdeState
-    -> FilePath
-    -> Maybe T.Text
-    -> IO ()
-onFileModified service fp mbContents = do
-    CompilerService.logDebug service $ "File modified " <> T.pack (show fp)
-    CompilerService.setBufferModified service fp mbContents
-
 newtype UseDalf = UseDalf{unUseDalf :: Bool}
 
 buildDar ::
      IdeState
-  -> FilePath
+  -> NormalizedFilePath
   -> Maybe [String]
   -> String
   -> String
@@ -228,15 +185,16 @@ buildDar ::
   -> UseDalf
   -> ExceptT [FileDiagnostic] IO BS.ByteString
 buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInput = do
+  let file' = fromNormalizedFilePath file
   liftIO $
     CompilerService.logDebug service $
-    "Creating dar: " <> T.pack file
+    "Creating dar: " <> T.pack file'
   if unUseDalf dalfInput
     then liftIO $ do
-      bytes <- BSL.readFile file
+      bytes <- BSL.readFile file'
       Dar.buildDar
         bytes
-        (takeDirectory file)
+        (toNormalizedFilePath $ takeDirectory file')
         []
         []
         []
@@ -269,7 +227,7 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
           liftIO $
             Dar.buildDar
               dalf
-              (takeDirectory file)
+              (toNormalizedFilePath $ takeDirectory file')
               dalfDependencies
               (file:fileDependencies)
               (buildDataFiles pkg)
@@ -278,7 +236,7 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
 
 -- | Get the transitive package dependencies on other dalfs.
 getDalfDependencies ::
-       IdeState -> FilePath -> ExceptT [FileDiagnostic] IO [DalfDependency]
+       IdeState -> NormalizedFilePath -> ExceptT [FileDiagnostic] IO [DalfDependency]
 getDalfDependencies service afp = do
     res <-
         liftIO $

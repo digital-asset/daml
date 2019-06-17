@@ -27,7 +27,8 @@ class TransientContractRemoverTest extends WordSpec with Matchers {
     templateId,
     Value.ValueRecord(None, ImmArray.empty),
     Set(),
-    "")
+    "",
+    None)
   private val archiveE = domain.Event.ArchivedEvent(evId2, contractId, templateId, Set())
 
   "Transient contract remover" should {

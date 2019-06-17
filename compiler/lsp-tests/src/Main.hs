@@ -114,16 +114,17 @@ diagnosticTests run runScenarios = testGroup "diagnostics"
               ]
           closeDoc main'
     , testCase "import cycle" $ run $ do
-          a <- openDoc' "A.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module A where"
-              , "import B"
-              ]
-          b <- openDoc' "B.daml" damlId $ T.unlines
-              [ "daml 1.2"
-              , "module B where"
-              , "import A"
-              ]
+          let aContent = T.unlines
+                  [ "daml 1.2"
+                  , "module A where"
+                  , "import B"
+                  ]
+              bContent = T.unlines
+                  [ "daml 1.2"
+                  , "module B where"
+                  , "import A"
+                  ]
+          [a, b] <- openDocs damlId [("A.daml", aContent), ("B.daml", bContent)]
           expectDiagnostics
               [ ( "A.daml"
                 , [(DsError, (2, 7), "Cyclic module dependency between A, B")]

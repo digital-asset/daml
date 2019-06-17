@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.perf
 import java.io.File
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import org.openjdk.jmh.annotations.{Level, Setup}
 
 class AcsBenchState extends PerfBenchState with DummyCommands with InfAwait {
@@ -21,5 +22,5 @@ class AcsBenchState extends PerfBenchState with DummyCommands with InfAwait {
     ()
   }
 
-  override protected def darFile: File = new File("ledger/sandbox/Test.dar")
+  override protected def darFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
 }

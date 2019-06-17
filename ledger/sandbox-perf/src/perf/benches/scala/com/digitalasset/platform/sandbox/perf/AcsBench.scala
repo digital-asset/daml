@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.perf
 import java.io.File
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -18,7 +19,7 @@ import org.openjdk.jmh.annotations.Benchmark
 
 class AcsBench extends TestCommands with InfAwait {
 
-  override protected def darFile: File = new File("ledger/sandbox/Test.dar")
+  override protected def darFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
 
   private def generateCommand(
       sequenceNumber: Int,
@@ -38,7 +39,7 @@ class AcsBench extends TestCommands with InfAwait {
       template: Identifier): Option[String] = {
     val events = response.activeContracts.toSet
     events.collectFirst {
-      case CreatedEvent(contractId, _, Some(id), _, _, _) if id == template => contractId
+      case CreatedEvent(contractId, _, Some(id), _, _, _, _) if id == template => contractId
     }
   }
 

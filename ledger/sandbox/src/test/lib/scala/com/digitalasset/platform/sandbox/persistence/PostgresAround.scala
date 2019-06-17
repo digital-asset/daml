@@ -8,6 +8,7 @@ import java.net.ServerSocket
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.ledger.api.testing.utils.Resource
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
@@ -72,6 +73,8 @@ object PostgresResource {
 
 trait PostgresAround {
 
+  private val IS_OS_WINDOWS: Boolean = sys.props("os.name").toLowerCase contains "windows"
+
   protected val testUser = "test"
 
   @volatile
@@ -85,14 +88,14 @@ trait PostgresAround {
 
     def runInitDb() = {
       val command = Array(
-        s"initdb",
+        pgToolPath("initdb"),
         s"--username=$testUser",
-        "--locale=en_US.UTF-8",
+        if (IS_OS_WINDOWS) "--locale=English_United States" else "--locale=en_US.UTF-8",
         "-E",
         "UNICODE",
         "-A",
         "trust",
-        dataDir.toAbsolutePath.toString
+        dataDir.toAbsolutePath.toString.replaceAllLiterally("\\", "/")
       )
       val initDbProcess = Runtime.getRuntime.exec(command)
       waitForItOrDie(initDbProcess, command.mkString(" "))
@@ -118,7 +121,7 @@ trait PostgresAround {
     def startPostgres() = {
       val logFile = Files.createFile(Paths.get(tempDirPath, "postgresql.log"))
       val command = Array(
-        "pg_ctl",
+        pgToolPath("pg_ctl"),
         "-o",
         s"-F -p $postgresPort",
         "-w",
@@ -134,7 +137,14 @@ trait PostgresAround {
     }
 
     def createTestDatabase() = {
-      val command = Array("createdb", "-U", testUser, "-p", postgresPort.toString, "test")
+      val command = Array(
+        pgToolPath("createdb"),
+        "-U",
+        testUser,
+        "-p",
+        postgresPort.toString,
+        "test"
+      )
       val createDbProcess = Runtime.getRuntime.exec(command)
       waitForItOrDie(createDbProcess, command.mkString(" "))
     }
@@ -178,12 +188,22 @@ trait PostgresAround {
   }
 
   protected def stopAndCleanUp(tempDir: Path, dataDir: Path): Unit = {
-    val command =
-      Array("pg_ctl", "-w", "-D", dataDir.toAbsolutePath.toString, "-m", "immediate", "stop")
-    val pgCtlStopProcess =
-      Runtime.getRuntime.exec(command)
+    val command = Array(
+      pgToolPath("pg_ctl"),
+      "-w",
+      "-D",
+      dataDir.toAbsolutePath.toString,
+      "-m",
+      "immediate",
+      "stop"
+    )
+    val pgCtlStopProcess = Runtime.getRuntime.exec(command)
     waitForItOrDie(pgCtlStopProcess, command.mkString(" "))
     deleteTempFolder(tempDir)
   }
+
+  private def pgToolPath(c: String): String = rlocation(
+    s"external/postgresql_dev_env/bin/$c" + (if (IS_OS_WINDOWS) ".exe" else "")
+  )
 
 }

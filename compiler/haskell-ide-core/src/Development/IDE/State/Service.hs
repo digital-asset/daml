@@ -13,7 +13,7 @@ module Development.IDE.State.Service(
     getServiceEnv,
     IdeState, initialise, shutdown,
     runAction, runActions,
-    setFilesOfInterest,
+    setFilesOfInterest, modifyFilesOfInterest,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
     logDebug, logSeriousError
@@ -26,7 +26,10 @@ import           Development.IDE.State.FileStore
 import qualified Development.IDE.Logger as Logger
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
+import qualified Data.Text as T
+import Data.Tuple.Extra
 import           Development.IDE.Functions.GHCError
+import Development.IDE.Types.Diagnostics (NormalizedFilePath)
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import qualified Language.Haskell.LSP.Messages as LSP
 
@@ -39,7 +42,7 @@ import           Development.IDE.State.Shake
 data Env = Env
     { envOptions       :: IdeOptions
       -- ^ Compiler options.
-    , envOfInterestVar :: Var (Set FilePath)
+    , envOfInterestVar :: Var (Set NormalizedFilePath)
       -- ^ The files of interest.
     , envUniqSupplyVar :: Var UniqSupply
       -- ^ The unique supply of names used by the compiler.
@@ -107,13 +110,14 @@ runActions x = join . shakeRun x
 
 
 -- | Set the files-of-interest which will be built and kept-up-to-date.
-setFilesOfInterest :: IdeState -> Set FilePath -> IO ()
-setFilesOfInterest state files = do
-    Env{..} <- getIdeGlobalState state
-    -- update vars synchronously
-    modifyVar_ envOfInterestVar $ const $ return files
+setFilesOfInterest :: IdeState -> Set NormalizedFilePath -> IO ()
+setFilesOfInterest state files = modifyFilesOfInterest state (const files)
 
-    -- run shake to update results regarding the files of interest
+modifyFilesOfInterest :: IdeState -> (Set NormalizedFilePath -> Set NormalizedFilePath) -> IO ()
+modifyFilesOfInterest state f = do
+    Env{..} <- getIdeGlobalState state
+    files <- modifyVar envOfInterestVar $ pure . dupe . f
+    logDebug state $ "Set files of interest to: " <> T.pack (show $ Set.toList files)
     void $ shakeRun state []
 
 getServiceEnv :: Action Env

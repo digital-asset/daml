@@ -98,4 +98,8 @@ build:darwin --protocopt=--include_source_info
 # See https://github.com/bazelbuild/bazel/pull/7490
 build:windows --noincompatible_windows_escape_jvm_flags
 
+# Some tools used in tests, like postgres CLI, require cmd.exe which can be located by them
+# using ComSpec environment variable. By default it's not passed from Bazel client environment.
+test:windows --test_env=ComSpec
+
 try-import %workspace%/.bazelrc.local

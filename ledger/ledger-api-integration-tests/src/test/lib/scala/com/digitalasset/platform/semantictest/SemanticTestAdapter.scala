@@ -33,7 +33,8 @@ class SemanticTestAdapter(
     lc: LedgerContext,
     packages: Map[Ref.PackageId, Ast.Package],
     parties: Iterable[String],
-    timeoutScaleFactor: Double = 1.0
+    timeoutScaleFactor: Double = 1.0,
+    commandSubmissionTtlScaleFactor: Double = 1.0
 )(
     implicit ec: ExecutionContext,
     am: ActorMaterializer,
@@ -43,7 +44,7 @@ class SemanticTestAdapter(
 
   private def ledgerId = lc.ledgerId
 
-  private def ttlSeconds = 10
+  private def ttlSeconds = 10 * commandSubmissionTtlScaleFactor
 
   private val tr = new ApiScenarioTransform(ledgerId.unwrap, packages)
 

@@ -138,19 +138,19 @@ runShakeTest mbScenarioService (ShakeTest m) = do
 
 -- | (internal) Make sure the path is relative, and it remains inside the
 -- temporary test directory tree, and return the corresponding absolute path.
-checkRelativePath :: FilePath -> ShakeTest FilePath
-checkRelativePath relPath = do
+checkRelativePath :: D.NormalizedFilePath -> ShakeTest D.NormalizedFilePath
+checkRelativePath (D.fromNormalizedFilePath -> relPath) = do
     unless (FilePath.isRelative relPath) $
         throwError (ExpectedRelativePath relPath)
     testDirPath <- ShakeTest $ Reader.asks steTestDirPath
-    let path = testDirPath </> relPath
+    let path = D.toNormalizedFilePath $ testDirPath </> relPath
     checkPath path
     return path
 
 -- | (internal) Make sure the path is absolute and is contained inside the
 -- temporary test directory tree.
-checkPath :: FilePath -> ShakeTest ()
-checkPath relPath = ShakeTest $ do
+checkPath :: D.NormalizedFilePath -> ShakeTest ()
+checkPath (D.fromNormalizedFilePath -> relPath) = ShakeTest $ do
     testDirPath <- Reader.asks steTestDirPath
     canPath <- liftIO $ Directory.canonicalizePath relPath
     unless (testDirPath `isPrefixOf` canPath) $
@@ -158,19 +158,20 @@ checkPath relPath = ShakeTest $ do
 
 -- | Make a file with given contents.
 -- Only call this with relative paths.
-makeFile :: FilePath -> T.Text -> ShakeTest FilePath
+makeFile :: D.NormalizedFilePath -> T.Text -> ShakeTest D.NormalizedFilePath
 makeFile relPath contents = do
     absPath <- checkRelativePath relPath
-    ShakeTest . liftIO $ Directory.createDirectoryIfMissing True $ FilePath.takeDirectory absPath
-    ShakeTest . liftIO $ T.IO.writeFile absPath contents
+    let absPath' = D.fromNormalizedFilePath absPath
+    ShakeTest . liftIO $ Directory.createDirectoryIfMissing True $ FilePath.takeDirectory absPath'
+    ShakeTest . liftIO $ T.IO.writeFile absPath' contents
     return absPath
 
 -- | (internal) Turn a module name into a relative file path.
-moduleNameToFilePath :: String -> FilePath
-moduleNameToFilePath modName = FilePath.addExtension (replace "." [FilePath.pathSeparator] modName) "daml"
+moduleNameToFilePath :: String -> D.NormalizedFilePath
+moduleNameToFilePath modName = D.toNormalizedFilePath $ FilePath.addExtension (replace "." [FilePath.pathSeparator] modName) "daml"
 
 -- | Similar to makeFile but including a header derived from the module name.
-makeModule :: String -> [T.Text] -> ShakeTest FilePath
+makeModule :: String -> [T.Text] -> ShakeTest D.NormalizedFilePath
 makeModule modName body = do
     let modPath = moduleNameToFilePath modName
     makeFile modPath . T.unlines $
@@ -179,7 +180,7 @@ makeModule modName body = do
         ] ++ body
 
 -- | Set files of interest.
-setFilesOfInterest :: [FilePath] -> ShakeTest ()
+setFilesOfInterest :: [D.NormalizedFilePath] -> ShakeTest ()
 setFilesOfInterest paths = do
     forM_ paths checkPath
     service <- ShakeTest $ Reader.asks steService
@@ -193,15 +194,15 @@ setOpenVirtualResources vrs = do
     ShakeTest . liftIO $ API.setOpenVirtualResources service (Set.fromList vrs)
 
 -- | Notify compiler service that buffer is modified, with these new contents.
-setBufferModified :: FilePath -> T.Text -> ShakeTest ()
+setBufferModified :: D.NormalizedFilePath -> T.Text -> ShakeTest ()
 setBufferModified absPath text = setBufferModifiedMaybe absPath (Just text)
 
 -- | Notify compiler service that buffer is not modified, relative to the file on disk.
-setBufferNotModified :: FilePath -> ShakeTest ()
+setBufferNotModified :: D.NormalizedFilePath -> ShakeTest ()
 setBufferNotModified absPath = setBufferModifiedMaybe absPath Nothing
 
 -- | (internal) Notify compiler service that buffer is either modified or not.
-setBufferModifiedMaybe :: FilePath -> Maybe T.Text -> ShakeTest ()
+setBufferModifiedMaybe :: D.NormalizedFilePath -> Maybe T.Text -> ShakeTest ()
 setBufferModifiedMaybe absPath maybeText = ShakeTest $ do
     service <- Reader.asks steService
     case maybeText of
@@ -269,9 +270,9 @@ getVirtualResources = ShakeTest $ do
 -- | Convenient grouping of file path, 0-based line number, 0-based column number.
 -- This isn't a record or anything because it's simple enough and generally
 -- easier to read as a tuple.
-type Cursor = (FilePath, Int, Int)
+type Cursor = (D.NormalizedFilePath, Int, Int)
 
-cursorFilePath :: Cursor -> FilePath
+cursorFilePath :: Cursor -> D.NormalizedFilePath
 cursorFilePath ( absPath, _line, _col) = absPath
 
 cursorPosition :: Cursor -> D.Position
@@ -279,13 +280,13 @@ cursorPosition (_absPath,  line,  col) = D.Position line col
 
 locationStartCursor :: D.Location -> Cursor
 locationStartCursor (D.Location path (D.Range (D.Position line col) _)) =
-    (fromMaybe D.noFilePath $ D.uriToFilePath' path, line, col)
+    (D.toNormalizedFilePath $ fromMaybe D.noFilePath $ D.uriToFilePath' path, line, col)
 
 -- | Same as Cursor, but passing a list of columns, so you can specify a range
 -- such as (foo,1,[10..20]).
-type CursorRange = (FilePath, Int, [Int])
+type CursorRange = (D.NormalizedFilePath, Int, [Int])
 
-cursorRangeFilePath :: CursorRange -> FilePath
+cursorRangeFilePath :: CursorRange -> D.NormalizedFilePath
 cursorRangeFilePath (path, _line, _cols) = path
 
 cursorRangeList :: CursorRange -> [Cursor]
@@ -309,7 +310,7 @@ searchDiagnostics expected@(severity, cursor, message) actuals =
     match :: D.FileDiagnostic -> Bool
     match (fp, d) =
         Just severity == D._severity d
-        && FilePath.normalise (cursorFilePath cursor) == FilePath.normalise fp
+        && cursorFilePath cursor == fp
         && cursorPosition cursor == D._start ((D._range :: D.Diagnostic -> Range) d)
         && ((standardizeQuotes $ T.toLower message) `T.isInfixOf` (standardizeQuotes $ T.toLower ((D._message :: D.Diagnostic -> T.Text) d)))
 
@@ -393,7 +394,7 @@ matchGoToDefinitionPattern = \case
         l' <- l
         let uri = D._uri l'
         fp <- D.uriToFilePath' uri
-        pure $ isSuffixOf (moduleNameToFilePath m) fp
+        pure $ isSuffixOf (D.fromNormalizedFilePath $ moduleNameToFilePath m) (FilePath.normalise fp)
 
 -- | Expect "go to definition" to point us at a certain location or to fail.
 expectGoToDefinition :: CursorRange -> GoToDefinitionPattern -> ShakeTest ()

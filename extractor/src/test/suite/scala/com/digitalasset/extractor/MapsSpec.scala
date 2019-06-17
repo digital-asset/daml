@@ -3,6 +3,7 @@
 
 package com.digitalasset.extractor
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
@@ -25,7 +26,7 @@ class MapsSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File("extractor/PrimitiveTypes.dar")
+  override protected def darFile = new File(rlocation("extractor/PrimitiveTypes.dar"))
 
   override def scenario: Option[String] = Some("PrimitiveTypes:maps")
 

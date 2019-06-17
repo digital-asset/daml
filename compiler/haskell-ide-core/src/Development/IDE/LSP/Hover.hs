@@ -4,36 +4,37 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Display information on hover.
-module DA.Service.Daml.LanguageServer.Hover
+module Development.IDE.LSP.Hover
     ( handle
     ) where
 
-import DA.Pretty
-import DA.LanguageServer.Protocol hiding (Hover)
+import Development.IDE.LSP.Protocol hiding (Hover)
 import Language.Haskell.LSP.Types (Hover(..))
 
-import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
-import           DA.Service.Daml.LanguageServer.Common
-import qualified DA.Service.Logger                     as Logger
+import qualified Development.IDE.Logger as Logger
 
-import qualified Data.Text.Extended                    as T
+import qualified Data.Text as T
+import Data.Text.Prettyprint.Doc
+import Data.Text.Prettyprint.Doc.Render.Text
 
-import           Development.IDE.Types.LSP as Compiler
+import Development.IDE.State.Rules
+import Development.IDE.Types.LSP as Compiler
 import Development.IDE.Types.Diagnostics
 
 -- | Display information on hover.
 handle
-    :: Logger.Handle IO
-    -> Compiler.IdeState
+    :: Logger.Handle
+    -> IdeState
     -> TextDocumentPositionParams
     -> IO (Maybe Hover)
 handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
     mbResult <- case uriToFilePath' uri of
-        Just filePath -> do
+        Just (toNormalizedFilePath -> filePath) -> do
           Logger.logInfo loggerH $
-              "Hover request at position " <> renderPlain (prettyPosition pos)
-              <> " in file: " <> T.pack filePath
-          Compiler.atPoint compilerH filePath pos
+              "Hover request at position " <>
+              renderStrict (layoutPretty defaultLayoutOptions $ prettyPosition pos) <>
+              " in file: " <> T.pack (fromNormalizedFilePath filePath)
+          runAction compilerH $ getAtPoint filePath pos
         Nothing       -> pure Nothing
 
     case mbResult of
@@ -47,7 +48,7 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
     showHoverInformation :: Compiler.HoverText -> T.Text
     showHoverInformation = \case
         Compiler.HoverDamlCode damlCode -> T.unlines
-            [ "```" <> damlLanguageIdentifier
+            [ "```daml"
             , damlCode
             , "```"
             ]

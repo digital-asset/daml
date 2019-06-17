@@ -1,0 +1,87 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE OverlappingInstances #-}
+
+daml 1.2
+
+module DA.Upgrade
+  ( conv
+  , iso
+  )
+  where
+
+import DA.Generics
+
+-- | Convert data types that are isomorphic and have the same meta-data up to package id.
+conv : (Generic a repA, Generic b repB, Conv repA repB) => a -> b
+conv = to . cv . from
+
+-- | Generic representations that are isomorphic and have the same meta-data up to package id.
+class Conv a b where
+  cv : a x -> b x
+
+-- copy values
+instance Conv V1 V1 where cv = identity
+instance Conv U1 U1 where cv = identity
+
+-- Isomorphic types in different packages
+instance (MetaEquiv c1 c2, Conv f1 f2) => Conv (M1 i1 c1 f1) (M1 i2 c2 f2) where
+  cv = M1 . cv . unM1
+
+-- products
+instance (Conv a1 a2, Conv b1 b2) => Conv (a1 :*: b1) (a2 :*: b2) where
+  cv ~(P1 a b) = P1 (cv a) (cv b)
+
+-- sums
+instance (Conv a1 a2, Conv b1 b2) => Conv (a1 :+: b1) (a2 :+: b2) where
+  cv (L1 a) = L1 $ cv a
+  cv (R1 b) = R1 $ cv b
+
+-- recursion
+instance Conv (K1 R c) (K1 R c) where cv = identity
+instance Conv c1 c2 => Conv (K1 R (c1 x)) (K1 R (c2 x)) where
+  cv = K1 . cv . unK1
+instance (Generic x repX, Generic y repY, Conv repX repY) => Conv (K1 R x) (K1 R y) where
+  cv = K1 . conv . unK1
+
+-- | This class describes meta-data that is equal up to package id.
+class MetaEquiv (m1: Meta) (m2: Meta)
+
+instance MetaEquiv m m
+instance MetaEquiv ('MetaData ('MetaData0 n mod p1 'True)) ('MetaData ('MetaData0 n mod p2 'True))
+instance MetaEquiv ('MetaData ('MetaData0 n mod p1 'False)) ('MetaData ('MetaData0 n mod p2 'False))
+
+-- Isomorphism between two isomorphic data types.
+iso : (Generic a repA, Generic b repB, Iso repA repB) => a -> b
+iso = to . isom . from
+
+-- Isomorphic representations ignoring meta-data.
+class Iso a b where
+  isom : a x -> b x
+
+-- copy values
+instance Iso V1 V1 where isom = identity
+instance Iso U1 U1 where isom = identity
+
+-- Isomorphic types
+instance (Iso f1 f2) => Iso (M1 i1 c1 f1) (M1 i2 c2 f2) where
+  isom = M1 . isom . unM1
+
+-- products
+instance (Iso a1 a2, Iso b1 b2) => Iso (a1 :*: b1) (a2 :*: b2) where
+  isom ~(P1 a b) = P1 (isom a) (isom b)
+
+-- sums
+instance (Iso a1 a2, Iso b1 b2) => Iso (a1 :+: b1) (a2 :+: b2) where
+  isom (L1 a) = L1 $ isom a
+  isom (R1 b) = R1 $ isom b
+
+-- recursion
+instance Iso (K1 R c) (K1 R c) where isom = identity
+instance Iso c1 c2 => Iso (K1 R (c1 x)) (K1 R (c2 x)) where
+  isom = K1 . isom . unK1
+instance (Generic x repX, Generic y repY, Iso repX repY) => Iso (K1 R x) (K1 R y) where
+  isom = K1 . iso . unK1

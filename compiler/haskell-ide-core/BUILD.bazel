@@ -6,10 +6,12 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 depends = [
     "aeson",
+    "async",
     "base",
     "binary",
     "bytestring",
     "containers",
+    "data-default",
     "deepseq",
     "directory",
     "either",
@@ -21,6 +23,7 @@ depends = [
     "mtl",
     "network-uri",
     "pretty",
+    "prettyprinter",
     "rope-utf16-splay",
     "safe-exceptions",
     "sorted-list",
@@ -32,6 +35,7 @@ depends = [
     "transformers",
     "uniplate",
     "unordered-containers",
+    "utf8-string",
     "uri-encode",
 ]
 
@@ -71,11 +75,13 @@ da_haskell_binary(
     hazel_deps = [
         "base",
         "containers",
+        "directory",
         "extra",
         "filepath",
         "ghc-paths",
         "ghc",
         "haskell-lsp",
+        "hie-bios",
         "shake",
         "text",
     ],

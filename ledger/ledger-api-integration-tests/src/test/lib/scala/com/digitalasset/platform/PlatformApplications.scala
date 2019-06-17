@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
@@ -39,6 +40,7 @@ object PlatformApplications {
       committerParty: String,
       timeProviderType: TimeProviderType,
       timeModel: TimeModel,
+      commandSubmissionTtlScaleFactor: Double = 1.0,
       heartBeatInterval: FiniteDuration = 5.seconds,
       persistenceEnabled: Boolean = false,
       maxNumberOfAcsContracts: Option[Int] = None,
@@ -66,6 +68,9 @@ object PlatformApplications {
 
     def withHeartBeatInterval(interval: FiniteDuration) = copy(heartBeatInterval = interval)
 
+    def withCommandSubmissionTtlScaleFactor(factor: Double) =
+      copy(commandSubmissionTtlScaleFactor = factor)
+
     def withMaxNumberOfAcsContracts(cap: Int) = copy(maxNumberOfAcsContracts = Some(cap))
 
     def withCommandConfiguration(cc: CommandConfiguration) = copy(commandConfiguration = cc)
@@ -89,7 +94,7 @@ object PlatformApplications {
 
   object Config {
     val defaultLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledger-server"))
-    val defaultDarFile = new File("ledger/sandbox/Test.dar")
+    val defaultDarFile = new File(rlocation("ledger/sandbox/Test.dar"))
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static
 
