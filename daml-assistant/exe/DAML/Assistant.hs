@@ -157,9 +157,14 @@ handleCommand env@Env{..} = \case
                 , envVersions
                 ]
 
-            isInstalled =
+            isNotInstalled = -- defaults to False if "installed version" list is not available
                 case installedVersionsE of
-                    Left _ -> const True
+                    Left _ -> const False
+                    Right vs -> (`notElem` vs)
+
+            isAvailable = -- defaults to False if "available version" list is not available
+                case availableVersionsE of
+                    Left _ -> const False
                     Right vs -> (`elem` vs)
 
             versionAttrs v = catMaybes
@@ -170,9 +175,9 @@ handleCommand env@Env{..} = \case
                 , "daml assistant version"
                     <$ guard (Just v == asstVersion && vAssistant)
                 , "latest release"
-                    <$ guard (Just v == latestVersionM && not (isInstalled v))
+                    <$ guard (Just v == latestVersionM && isNotInstalled v && isAvailable v)
                 , "not installed"
-                    <$ guard (not (isInstalled v))
+                    <$ guard (isNotInstalled v)
                 ]
 
             versions = nubSort . concat $
