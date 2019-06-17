@@ -9,6 +9,20 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+.. _release-0-13-0:
+
+0.13.0 - 2019-06-17
+-------------------
+
+SDK
+~~~
+
+- This marks the first release that is no longer released for the
+  ``da`` assistant. It is still possible to use it to get older SDK
+  releases. Take a look at `documentation
+  <https://docs.daml.com/tools/assistant.html>`__ for the new ``daml``
+  assistant for migration instructions.
+
 Sandbox
 ~~~~~~~
 
@@ -26,6 +40,8 @@ Ledger API
 
 - Slash (/) is now an allowed character in contract, workflow, application
   and command identifiers.
+
+.. _release-0-12-25:
 
 0.12.25 — 2019-06-13
 --------------------
