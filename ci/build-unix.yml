@@ -55,7 +55,7 @@ steps:
       # For signing artifacts to be uploaded to Maven Central.
       GPG_KEY: $(gpg-code-signing)
       # Configuration the Sonatype Open Source Repository Hosting
-      MAVEN_USER: $(MAVEN_USER)
+      MAVEN_USERNAME: $(MAVEN_USERNAME)
       MAVEN_PASSWORD: $(MAVEN_PASSWORD)
       MAVEN_URL: "https://oss.sonatype.org"
     name: release
