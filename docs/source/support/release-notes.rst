@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Language
+~~~~~~~~
+
+- Add an instance for ``IsParties (Optional Party)``, allowing ``Optional`` values to be used in ``signatory``, ``observer`` and ``maintainer`` clauses.
+
 .. _release-0-13-0:
 
 0.13.0 - 2019-06-17
