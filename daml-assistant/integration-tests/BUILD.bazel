@@ -7,6 +7,8 @@ genrule(
     name = "integration-tests-mvn",
     srcs = [
         "@mvn_dev_env//:mvn",
+        "@sbt_dev_env//:sbt",
+        "//docs:quickstart-model.dar",
         "//:component-version",
         "//daml-lf/archive:daml_lf_archive_java.jar",
         "//daml-lf/archive:daml_lf_archive_java_pom.xml",
@@ -35,6 +37,7 @@ genrule(
         "//ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar",
         "//ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml",
         "//docs:quickstart-java.tar.gz",
+        "//language-support/scala/examples:quickstart-scala-dir",
     ],
     outs = ["integration-tests-mvn.tar"],
     cmd = """
@@ -53,6 +56,8 @@ genrule(
           -Dversion=$$VERSION
       }
       tar xf $(location //docs:quickstart-java.tar.gz) -C "$$TMP_DIR"
+      mkdir -p $$TMP_DIR/quickstart-scala
+      cp -r $(location //language-support/scala/examples:quickstart-scala-dir)/* $$TMP_DIR/quickstart-scala/
       install_mvn \
         "com.digitalasset" "daml-lf-archive" \
         $(location //daml-lf/archive:daml_lf_archive_java.jar) \
@@ -106,6 +111,9 @@ genrule(
         $(location //ledger-api/rs-grpc-bridge:librs-grpc-bridge.jar) \
         $(location //ledger-api/rs-grpc-bridge:rs-grpc-bridge_pom.xml)
       $(location @mvn_dev_env//:mvn) -q -Dmaven.repo.local=$$MVN_DB -f "$$TMP_DIR/quickstart-java/pom.xml" dependency:resolve dependency:resolve-plugins
+      cd $$TMP_DIR/quickstart-scala
+      $(location @sbt_dev_env//:sbt) -Ddar.file=$(location //docs:quickstart-model.dar) -Dsbt.ivy.home=$$TMP_DIR -Dmaven.repo.local=$$MVN_DB publishM2
+      cd -
       tar cf $(location integration-tests-mvn.tar) -C $$(dirname $$MVN_DB) $$(basename $$MVN_DB)
     """,
 )

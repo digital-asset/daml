@@ -295,7 +295,10 @@ daml_compile(
     name = "quickstart-model",
     srcs = glob(["source/getting-started/quickstart/template-root/**/*.daml"]),
     main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
-    visibility = ["//language-support/scala/examples:__subpackages__"],
+    visibility = [
+      "//language-support/scala/examples:__subpackages__",
+      "//daml-assistant/integration-tests:__subpackages__",
+    ],
 )
 
 dar_to_java(
