@@ -21,6 +21,12 @@ DAML Studio
 - Double the gRPC message limit used for the scenario service. This
   avoids issues on large projects.
 
+Ledger API
+~~~~~~~~~~
+
+- Slash (/) is now an allowed character in contract, workflow, application
+  and command identifiers.
+
 0.12.25 — 2019-06-13
 --------------------
 
