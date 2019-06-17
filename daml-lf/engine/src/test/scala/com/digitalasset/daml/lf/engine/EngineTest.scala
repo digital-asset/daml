@@ -945,6 +945,7 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
         CreateEvent(
           RelativeContractId(Tx.NodeId.unsafeFromIndex(1)),
           Identifier(basicTestsPkgId, "BasicTests:CallablePayout"),
+          None,
           assertAsVersionedValue(
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),

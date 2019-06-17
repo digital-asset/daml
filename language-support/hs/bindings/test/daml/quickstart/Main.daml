@@ -6,6 +6,7 @@ module Main where
 
 import Iou
 import IouTrade()
+import ContractKeys()
 
 setup = scenario do
   alice <- getParty "Alice"

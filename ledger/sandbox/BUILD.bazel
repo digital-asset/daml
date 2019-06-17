@@ -12,7 +12,7 @@ load(
     "daml_compile",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
-load("@os_info//:os_info.bzl", "is_darwin")
+load("@os_info//:os_info.bzl", "is_darwin", "is_windows")
 load(
     "//bazel_tools/client_server_test:client_server_test.bzl",
     "client_server_test",
@@ -144,6 +144,7 @@ testDependencies = [
     "//3rdparty/jvm/org/scalacheck:scalacheck",
     "//3rdparty/jvm/org/awaitility:awaitility",
     "//3rdparty/jvm/commons_io:commons_io",
+    "//bazel_tools/runfiles:scala_runfiles",
 ] + compileDependencies
 
 da_scala_library(
@@ -160,6 +161,10 @@ da_scala_test_suite(
     ),
     data = [
         "//ledger/sandbox:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ],
     resources = glob(["src/test/resources/**/*"]),
     deps = [
@@ -189,7 +194,7 @@ client_server_test(
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
         "exclusive",
     ],
-)
+) if not is_windows else None
 
 client_server_test(
     name = "conformance-test-wall-clock",
@@ -214,4 +219,4 @@ client_server_test(
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
         "exclusive",
     ],
-)
+) if not is_windows else None

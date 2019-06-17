@@ -46,7 +46,7 @@ class ConfigParserSpec
       capturedStdErr.flush()
       capturedStdErr.close()
       result should ===(None)
-      val firstLine = capturedStdErr.toString.split('\n')(0)
+      val firstLine = capturedStdErr.toString.replaceAllLiterally("\r", "").split('\n')(0)
       firstLine should ===("Error: The list of templates must contain unique elements")
   }
 }

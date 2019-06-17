@@ -50,7 +50,7 @@ getAssistantSdkVersion = do
 -- AssistantError exception if the version cannot be determined.
 getSdkVersionFromSdkPath :: SdkPath -> IO SdkVersion
 getSdkVersionFromSdkPath sdkPath = do
-    config <- requiredIO "Failed to read SDK config." $
+    config <- requiredAny "Failed to read SDK config." $
         readSdkConfig sdkPath
     requiredE "Failed to parse SDK version from SDK config." $
         sdkVersionFromSdkConfig config
@@ -58,12 +58,30 @@ getSdkVersionFromSdkPath sdkPath = do
 -- | Determine SDK version from project root. Fails with an
 -- AssistantError exception if the version cannot be determined.
 getSdkVersionFromProjectPath :: ProjectPath -> IO SdkVersion
-getSdkVersionFromProjectPath projectPath = do
-    config <- requiredIO "Failed to read project config." $
-        readProjectConfig projectPath
-    versionM <- requiredE "Failed to parse SDK version from project config." $
-        sdkVersionFromProjectConfig config
-    required "SDK version missing from project config." versionM
+getSdkVersionFromProjectPath projectPath =
+    requiredIO ("Failed to read SDK version from " <> pack projectConfigName) $ do
+        configE <- tryConfig $ readProjectConfig projectPath
+        case sdkVersionFromProjectConfig =<< configE of
+            Right (Just v) ->
+                pure v
+            Left (ConfigFileInvalid _ raw) ->
+                throwIO $ assistantErrorDetails
+                    (projectConfigName <> " is an invalid YAML file")
+                    [("path", unwrapProjectPath projectPath </> projectConfigName)
+                    ,("internal", displayException raw)]
+            Right Nothing ->
+                throwIO $ assistantErrorDetails
+                    ("sdk-version field is missing from " <> projectConfigName)
+                    [("path", unwrapProjectPath projectPath </> projectConfigName)]
+            Left (ConfigFieldMissing _ _) ->
+                throwIO $ assistantErrorDetails
+                    ("sdk-version field is missing from " <> projectConfigName)
+                    [("path", unwrapProjectPath projectPath </> projectConfigName)]
+            Left (ConfigFieldInvalid _ _ raw) ->
+                throwIO $ assistantErrorDetails
+                    ("sdk-version field is invalid in " <> projectConfigName)
+                    [("path", unwrapProjectPath projectPath </> projectConfigName)
+                    ,("internal", raw)]
 
 -- | Get the list of installed SDK versions. Returned list is
 -- in no particular order. Fails with an AssistantError exception

@@ -5,6 +5,7 @@ package com.digitalasset.extractor
 
 import java.io.File
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.extractor.config.{ExtractorConfig, TemplateConfig}
 import com.digitalasset.extractor.services.ExtractorFixtureAroundAll
@@ -23,7 +24,7 @@ class TemplateSubscriptionSpec
     with Matchers
     with Inside {
 
-  override protected def darFile = new File("extractor/TransactionExample.dar")
+  override protected def darFile = new File(rlocation("extractor/TransactionExample.dar"))
 
   override def scenario: Option[String] = Some("TransactionExample:templateFilterTest")
 

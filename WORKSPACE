@@ -8,6 +8,7 @@ load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_github_external", "h
 # (though with the caviat that that user needs to repeat the relevant bits of
 #  magic in this file, but at least right versions of external rules are picked).
 load("//:deps.bzl", "daml_deps")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 daml_deps()
 
@@ -109,10 +110,10 @@ dev_env_tool(
     name = "tar_dev_env",
     nix_include = ["bin/tar"],
     nix_label = "@tar_nix",
-    nix_path = "bin/tar",
-    tool = "tar",
+    nix_paths = ["bin/tar"],
+    tools = ["tar"],
     win_include = ["usr/bin/tar.exe"],
-    win_path = "usr/bin/tar.exe",
+    win_paths = ["usr/bin/tar.exe"],
     win_tool = "msys2",
 )
 
@@ -129,10 +130,10 @@ dev_env_tool(
     name = "gzip_dev_env",
     nix_include = ["bin/gzip"],
     nix_label = "@gzip_nix",
-    nix_path = "bin/gzip",
-    tool = "gzip",
+    nix_paths = ["bin/gzip"],
+    tools = ["gzip"],
     win_include = ["usr/bin/gzip.exe"],
-    win_path = "usr/bin/gzip.exe",
+    win_paths = ["usr/bin/gzip.exe"],
     win_tool = "msys2",
 )
 
@@ -140,15 +141,15 @@ dev_env_tool(
     name = "mvn_dev_env",
     nix_include = ["bin/mvn"],
     nix_label = "@mvn_nix",
-    nix_path = "bin/mvn",
-    tool = "mvn",
+    nix_paths = ["bin/mvn"],
+    tools = ["mvn"],
     win_include = [
         "bin",
         "boot",
         "conf",
         "lib",
     ],
-    win_path = "bin/mvn",
+    win_paths = ["bin/mvn"],
     win_tool = "maven-3.6.1",
 )
 
@@ -184,10 +185,10 @@ dev_env_tool(
     name = "zip_dev_env",
     nix_include = ["bin/zip"],
     nix_label = "@zip_nix",
-    nix_path = "bin/zip",
-    tool = "zip",
+    nix_paths = ["bin/zip"],
+    tools = ["zip"],
     win_include = ["usr/bin/zip.exe"],
-    win_path = "usr/bin/zip.exe",
+    win_paths = ["usr/bin/zip.exe"],
     win_tool = "msys2",
 )
 
@@ -284,11 +285,11 @@ dev_env_tool(
     name = "jq_dev_env",
     nix_include = ["bin/jq"],
     nix_label = "@jq",
-    nix_path = "bin/jq",
-    tool = "jq",
+    nix_paths = ["bin/jq"],
+    tools = ["jq"],
     win_include = ["mingw64/bin"],
     win_include_as = {"mingw64/bin": "bin"},
-    win_path = "bin/jq.exe",
+    win_paths = ["bin/jq.exe"],
     win_tool = "msys2",
 )
 
@@ -388,15 +389,15 @@ dev_env_tool(
     name = "javadoc_dev_env",
     nix_include = ["bin/javadoc"],
     nix_label = "@jdk_nix",
-    nix_path = "bin/javadoc",
-    tool = "javadoc",
+    nix_paths = ["bin/javadoc"],
+    tools = ["javadoc"],
     win_include = [
         "bin",
         "include",
         "jre",
         "lib",
     ],
-    win_path = "bin/javadoc.exe",
+    win_paths = ["bin/javadoc.exe"],
     win_tool = "java-openjdk-8u201",
 )
 
@@ -404,8 +405,8 @@ dev_env_tool(
 dev_env_tool(
     name = "makensis_dev_env",
     nix_include = [""],
-    nix_path = "bin/makensis.exe",
-    tool = "makensis",
+    nix_paths = ["bin/makensis.exe"],
+    tools = ["makensis"],
     win_include = [
         "bin",
         "contrib",
@@ -413,7 +414,7 @@ dev_env_tool(
         "plugins",
         "stubs",
     ],
-    win_path = "bin/makensis.exe",
+    win_paths = ["bin/makensis.exe"],
     win_tool = "nsis-3.04",
 ) if is_windows else None
 
@@ -446,6 +447,16 @@ use_integer_simple = not is_windows
 HASKELL_LSP_COMMIT = "d73e2ccb518724e6766833ee3d7e73289cbe0018"
 
 HASKELL_LSP_HASH = "36b92431039e6289eb709b8872f5010a57d4a45e637e1c1c945bdb3128586081"
+
+GHC_LIB_VERSION = "8.8.0.20190616"
+
+http_archive(
+    name = "haskell_ghc__lib__parser",
+    build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
+    sha256 = "390d965a5e96f9178fa4867ffbc7e0c8d5d17dea7be1f9e7df644a91588661ca",
+    strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
+    urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
+)
 
 hazel_repositories(
     core_packages = dicts.add(
@@ -491,7 +502,7 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs("8.8.0.20190610", "04fcd1d94d4976b3374b260ac45975bfe431d15351e725ee3c6708e4f30a6fdf", "a837ddfd5bb3677cb5c6c25fc12cb8fc29958e101e677f12be6ec39ae78bd2a6") +
+            hazel_ghclibs(GHC_LIB_VERSION, "390d965a5e96f9178fa4867ffbc7e0c8d5d17dea7be1f9e7df644a91588661ca", "651cc244130c7472e582bb3bf48af837b850a5360477fa52ed3de8095313418b") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
@@ -529,6 +540,14 @@ hazel_repositories(
                 "lsp-test",
                 "50c43452e19e494d71ccba1f7922d0b3b3fc69c3",
                 "65a56b35ddc8fa4deab10ac42efcdcbd36e875b715bb504d10b020a1e5fffd2c",
+            ) +
+            hazel_github_external(
+                "mpickering",
+                "hie-bios",
+                "9f9fe00591c429c410475349560252ca7e622f1b",
+                "0f9cf9ed897ed1faf1a36dadc06ba9bb3c525f8553da30bee0615294f4d00b00",
+                patch_args = ["-p1"],
+                patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
             ),
         pkgs = packages,
     ),
@@ -769,3 +788,54 @@ grpc_deps()
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 
 buildifier_dependencies()
+
+nixpkgs_package(
+    name = "postgresql_nix",
+    attribute_path = "postgresql",
+    fail_not_supported = False,
+    nix_file = "//nix:bazel.nix",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+dev_env_tool(
+    name = "postgresql_dev_env",
+    nix_include = [
+        "bin",
+        "include",
+        "lib",
+        "share",
+    ],
+    nix_label = "@postgresql_nix",
+    nix_paths = [
+        "bin/initdb",
+        "bin/createdb",
+        "bin/pg_ctl",
+        "bin/postgresql",
+    ],
+    tools = [
+        "createdb",
+        "initdb",
+        "pg_ctl",
+        "postgresql",
+    ],
+    win_include = [
+        "mingw64/bin",
+        "mingw64/include",
+        "mingw64/lib",
+        "mingw64/share",
+    ],
+    win_include_as = {
+        "mingw64/bin": "bin",
+        "mingw64/include": "include",
+        "mingw64/lib": "lib",
+        "mingw64/share": "share",
+    },
+    win_paths = [
+        "bin/initdb.exe",
+        "bin/createdb.exe",
+        "bin/pg_ctl.exe",
+        "bin/postgresql.exe",
+    ],
+    win_tool = "msys2",
+)

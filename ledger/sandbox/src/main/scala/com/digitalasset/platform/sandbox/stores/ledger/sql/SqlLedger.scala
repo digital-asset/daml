@@ -210,6 +210,7 @@ private class SqlLedger(
 
   override def close(): Unit = {
     persistenceQueue.complete()
+    checkpointQueue.complete()
     ledgerDao.close()
   }
 

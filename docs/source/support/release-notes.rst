@@ -9,11 +9,59 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+.. _release-0-13-1:
+
+0.13.1 - 2019-06-17
+-------------------
+
+Language
+~~~~~~~~
+
+- Add an instance for ``IsParties (Optional Party)``, allowing ``Optional`` values to be used in ``signatory``, ``observer`` and ``maintainer`` clauses.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- Release the Java Bindings to the public Maven Central repository. To move to using the Maven Central repository, remove
+  the ``<repository>...</repository>`` and ``<pluginRepository>...</pluginRepository>`` blocks from Maven POM files
+  that use version 0.12.26 (or later) of the Java Bindings.
+  See `#1205 <https://github.com/digital-asset/daml/issues/1205>`__.
+
+.. _release-0-13-0:
+
+0.13.0 - 2019-06-17
+-------------------
+
+SDK
+~~~
+
+- This marks the first release that is no longer released for the
+  ``da`` assistant. It is still possible to use it to get older SDK
+  releases. Take a look at `documentation
+  <https://docs.daml.com/tools/assistant.html>`__ for the new ``daml``
+  assistant for migration instructions.
+
 Sandbox
 ~~~~~~~
 
 - Fixed a bug in an internal data structure that broke contract keys.
   See `#1623 <https://github.com/digital-asset/daml/issues/1623>`__.
+- Fixed a bug of not closing a resource properly when shutting down the Sandbox.
+  See `#1702 <https://github.com/digital-asset/daml/pull/1702>`__.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Double the gRPC message limit used for the scenario service. This
+  avoids issues on large projects.
+
+Ledger API
+~~~~~~~~~~
+
+- Slash (/) is now an allowed character in contract, workflow, application
+  and command identifiers.
+
+.. _release-0-12-25:
 
 0.12.25 — 2019-06-13
 --------------------
@@ -41,6 +89,24 @@ Scala bindings
 
 - New `--root` command-line option for limiting what templates are selected for codegen.
   See `#1210 <https://github.com/digital-asset/daml/pull/1210>`__.
+
+Ledger API
+~~~~~~~~~~
+
+- Contract keys are now available for created events from the transaction service.
+  See `#1268 <https://github.com/digital-asset/daml/issues/1268>`__.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- The addition of contract keys on created events in the Ledger API is reflected in the bindings.
+  See `#1268 <https://github.com/digital-asset/daml/issues/1268>`__.
+
+Java Codegen
+~~~~~~~~~~~~
+
+- Contracts decoded from the transaction service now expose their contract key (if defined).
+  See `#1268 <https://github.com/digital-asset/daml/issues/1268>`__.
 
 .. _release-0-12-24:
 

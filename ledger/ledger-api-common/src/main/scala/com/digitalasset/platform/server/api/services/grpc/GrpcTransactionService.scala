@@ -213,6 +213,12 @@ class GrpcTransactionService(
       eventId.unwrap,
       contractId.unwrap,
       Some(LfEngineToApi.toApiIdentifier(templateId)),
+      contractKey.map(
+        ck =>
+          LfEngineToApi.assertOrRuntimeEx(
+            "translating the contract key",
+            LfEngineToApi
+              .lfValueToApiValue(verbose, ck))),
       Some(
         LfEngineToApi
           .lfValueToApiRecord(verbose, createArguments)

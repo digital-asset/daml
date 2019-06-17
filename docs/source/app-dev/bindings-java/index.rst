@@ -154,20 +154,13 @@ To use the Java bindings library, add the following dependencies to your project
     :end-before: <!-- end snippet: dependencies -->
     :dedent: 4
 
-Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions at
-`https://digitalassetsdk.bintray.com/DigitalAssetSDK/com/daml/ledger/`.
+Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions by checking
+the `Maven Central Repository <https://search.maven.org/search?q=g:com.daml.ledger>`__.
 
-You also have to add the DAML Bintray Repository to your ``pom.xml``:
-
-.. literalinclude:: ./code-snippets/pom.xml
-    :language: xml
-    :start-after: <!-- start snippet: repositories -->
-    :end-before: <!-- end snippet: repositories -->
-    :dedent: 4
-
+.. note::
+   As of DAML SDK release 0.13.1, the Java Bindings libraries are available via the public Maven Central repository. Earlier releases are available from the `DAML Bintray repository <https://digitalassetsdk.bintray.com>`__.
 
 You can also take a look at the ``pom.xml`` file from the :ref:`quickstart project <quickstart>`.
-
 
 .. _ledger-api-java-binding-connecting:
 

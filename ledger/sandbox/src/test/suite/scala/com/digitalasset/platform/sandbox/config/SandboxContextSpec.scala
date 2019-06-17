@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox.config
 
 import java.io.File
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.platform.sandbox.{TestDar, TestHelpers}
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.scalatest.{Matchers, WordSpec}
@@ -17,7 +18,7 @@ class SandboxContextSpec extends WordSpec with Matchers with TestHelpers {
       val time = Array("--static-time")
       val dar = Array(TestDar.dalfFile.toString)
 
-      val dalfFileName = "ledger/sandbox/Test.dar"
+      val dalfFileName = rlocation("ledger/sandbox/Test.dar")
       val dalf = Array(dalfFileName)
 
       val Some(ctx) = SandboxContext(port ++ time ++ dar ++ dalf)

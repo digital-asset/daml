@@ -25,13 +25,16 @@ public final class CreatedEvent implements Event, TreeEvent {
 
     private final Optional<String> agreementText;
 
-    public CreatedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId, @NonNull Record arguments, Optional<String> agreementText) {
+    private final Optional<Value> contractKey;
+
+    public CreatedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId, @NonNull Record arguments, @NonNull Optional<String> agreementText, @NonNull Optional<Value> contractKey) {
         this.witnessParties = witnessParties;
         this.eventId = eventId;
         this.templateId = templateId;
         this.contractId = contractId;
         this.arguments = arguments;
         this.agreementText = agreementText;
+        this.contractKey = contractKey;
     }
 
     @NonNull
@@ -68,6 +71,9 @@ public final class CreatedEvent implements Event, TreeEvent {
         return agreementText;
     }
 
+    @NonNull
+    public Optional<Value> getContractKey() { return contractKey; }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -78,13 +84,13 @@ public final class CreatedEvent implements Event, TreeEvent {
                 Objects.equals(templateId, that.templateId) &&
                 Objects.equals(contractId, that.contractId) &&
                 Objects.equals(arguments, that.arguments) &&
-                Objects.equals(agreementText, that.agreementText);
+                Objects.equals(agreementText, that.agreementText) &&
+                Objects.equals(contractKey, that.contractKey);
     }
 
     @Override
     public int hashCode() {
-
-        return Objects.hash(witnessParties, eventId, templateId, contractId, arguments, agreementText);
+        return Objects.hash(witnessParties, eventId, templateId, contractId, arguments, agreementText, contractKey);
     }
 
     @Override
@@ -96,6 +102,7 @@ public final class CreatedEvent implements Event, TreeEvent {
                 ", contractId='" + contractId + '\'' +
                 ", arguments=" + arguments +
                 ", agreementText='" + agreementText + '\'' +
+                ", contractKey=" + contractKey +
                 '}';
     }
 
@@ -107,6 +114,7 @@ public final class CreatedEvent implements Event, TreeEvent {
                 .setTemplateId(getTemplateId().toProto())
                 .addAllWitnessParties(this.getWitnessParties());
         agreementText.ifPresent(a -> builder.setAgreementText(StringValue.of(a)));
+        contractKey.ifPresent(a -> builder.setContractKey(a.toProto()));
         return builder.build();
     }
 
@@ -117,7 +125,8 @@ public final class CreatedEvent implements Event, TreeEvent {
                 Identifier.fromProto(createdEvent.getTemplateId()),
                 createdEvent.getContractId(),
                 Record.fromProto(createdEvent.getCreateArguments()),
-                createdEvent.hasAgreementText() ? Optional.of(createdEvent.getAgreementText().getValue()) : Optional.empty());
+                createdEvent.hasAgreementText() ? Optional.of(createdEvent.getAgreementText().getValue()) : Optional.empty(),
+                createdEvent.hasContractKey() ? Optional.of(Value.fromProto(createdEvent.getContractKey())) : Optional.empty());
 
     }
 }

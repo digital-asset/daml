@@ -30,7 +30,7 @@ data Options = Options
 optsParser :: Parser Options
 optsParser = Options
   <$> strOption (long "artifacts" <> help "Path to yaml file listing the artifacts to be released")
-  <*> (PerformUpload <$> switch (long "upload" <> help "upload artifacts to bintray. If false, we don't upload artifacts to artifactory or bintray even when the last commit is a release commit."))
+  <*> (PerformUpload <$> switch (long "upload" <> help "upload artifacts to bintray and Maven Central. If false, we don't upload artifacts to Maven Central or bintray even when the last commit is a release commit."))
   <*> option str (long "release-dir" <> help "specify full path to release directory")
   <*> option (Just <$> str) (long "slack-release-message" <> help "if present will write out what to write in slack. if there are no releases the file will be empty" <> value Nothing)
   <*> switch (long "full-logging" <> help "full logging detail")
