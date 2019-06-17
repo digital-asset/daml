@@ -1,9 +1,0 @@
-#!/usr/bin/env bash
-#
-# Test suite for the "getting-started" template.
-#
-
-set -eux
-
-# Test that we can compile the Main.daml file
-da run damlc -- compile daml/Main.daml > /dev/null
