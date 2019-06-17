@@ -13,6 +13,8 @@ Visualizing DAML Contracts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Added :doc:`Visualizing DAML Contracts </tools/visual>`
+
+
 Language
 ~~~~~~~~
 
