@@ -35,6 +35,10 @@ Java Bindings
 
 0.13.1 - 2019-06-17
 -------------------
+Docs
+~~~~
+
+- Added :doc:`/daml/intro/0_Intro`
 
 Language
 ~~~~~~~~
