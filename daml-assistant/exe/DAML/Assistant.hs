@@ -111,6 +111,7 @@ autoInstall env@Env{..} = do
             options = InstallOptions
                 { iTargetM = Nothing
                 , iQuiet = QuietInstall False
+                , iAssistant = InstallAssistant (if isLatest then Yes else No)
                 , iActivate = ActivateInstall isLatest
                 , iForce = ForceInstall False
                 , iSetPath = SetPath True
