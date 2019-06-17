@@ -57,6 +57,12 @@ da_haskell_library(
     name = "haskell-ide-core-public",
     srcs = glob(["src/**/*.hs"]),
     compiler_flags = ["-DGHC_STABLE"],
+    # Override the -hide-package flags defined in WORKSPACE
+    #   -hide-package=ghc-boot-th -hide-package=ghc-boot
+    repl_ghci_args = [
+        "-package=ghc-boot",
+        "-package=ghc-boot-th",
+    ],
     hazel_deps = depends + [
         "ghc",
         "ghc-boot",
