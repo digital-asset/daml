@@ -26,6 +26,7 @@ import qualified Data.HashMap.Strict as Map
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List.Split as DLS
 import Data.List.Extra
+import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -35,11 +36,11 @@ startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Updat
 startFromUpdate seen world update = case update of
     LF.UPure _ e -> startFromExpr seen world e
     LF.UBind (LF.Binding _ e1) e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
-    LF.UCreate tpl _e -> Set.singleton (ACreate tpl) -- `Set.union` startFromExpr seen world e
+    LF.UCreate tpl e -> Set.singleton (ACreate tpl) `Set.union` startFromExpr seen world e
     LF.UExercise tpl chc e1 e2 e3 -> Set.singleton (AExercise tpl chc) `Set.union` startFromExpr seen world e1 `Set.union` maybe Set.empty (startFromExpr seen world) e2 `Set.union` startFromExpr seen world e3
     LF.UFetch _ _ctIdEx -> Set.empty --startFromExpr seen world ctIdEx
     LF.UGetTime -> Set.empty
-    LF.UEmbedExpr _ _upEx -> Set.empty --startFromExpr seen world upEx
+    LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
     LF.ULookupByKey _ -> Set.empty
     LF.UFetchByKey _ -> Set.empty
 
@@ -60,7 +61,7 @@ startFromExpr seen world e = case e of
     LF.ETupleProj _ tupExpr -> startFromExpr seen world tupExpr
     LF.ERecUpd _ _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
     LF.ETmApp tmExpr tmpArg -> startFromExpr seen world tmExpr `Set.union` startFromExpr seen world tmpArg
-    LF.ETyApp tAppExpr _ -> startFromExpr seen world tAppExpr
+    LF.ETyApp tAppExpr _ -> trace( "app" ++ show tAppExpr) $startFromExpr seen world tAppExpr
     LF.ETmLam _ tmlB -> startFromExpr seen world tmlB
     LF.ETyLam _ lambdy -> startFromExpr seen world lambdy
     LF.ECase cas casel -> startFromExpr seen world cas `Set.union` Set.unions ( map ( startFromExpr seen world . LF.altExpr ) casel)
@@ -75,7 +76,8 @@ startFromExpr seen world e = case e of
     -- x -> Set.unions $ map startFromExpr $ children x
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
-startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
+startFromChoice world chc = trace( "Choice resulted in" ++ (DAP.renderPretty $LF.chcName chc) ++ show ((map prettyAction $ Set.elems res) )) $ res
+    where res = startFromExpr Set.empty world (LF.chcUpdate chc)
 
 templatePossibleUpdates :: LF.World -> LF.Template -> Set.Set Action
 templatePossibleUpdates world tpl = Set.unions $ map (startFromChoice world) (NM.toList (LF.tplChoices tpl))
