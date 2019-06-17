@@ -28,7 +28,7 @@ resource "google_storage_bucket" "default" {
   # Use a normal region since the storage_class is regional
   location = "${var.region}"
 
-  # cleanup the cache after 60 days
+  # cleanup the cache after ${var.cache_retention_days} days
   lifecycle_rule {
     action {
       type = "Delete"
