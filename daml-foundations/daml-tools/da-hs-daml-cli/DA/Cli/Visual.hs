@@ -118,14 +118,6 @@ errorOnLeft desc = \case
   Left err -> ioError $ userError $ unlines [ desc, show err ]
   Right x  -> return x
 
-
-prettyAction :: Action -> String
-prettyAction (ACreate  (LF.Qualified _ _ tpl) ) = DAP.renderPretty tpl
-prettyAction (AExercise  (LF.Qualified _ _ tpl) _ ) = DAP.renderPretty tpl
-
-prettyTpl :: LF.TypeConName -> String
-prettyTpl tpl = DAP.renderPretty tpl
-
 -- | 'netlistGraph' generates a simple graph from a netlist.
 -- The default implementation does the edeges other way round. The change is on # 143
 netlistGraph' :: (Ord a)
@@ -185,10 +177,9 @@ execVisual darFilePath dotFilePath = do
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
         res = concatMap (moduleAndTemplates world) modules -- (tpl, actions)
-        justForDebugging = map (\(t, a) -> ((prettyTpl t), (map prettyAction $ Set.elems a)  )) res
+
         actionEdges = map templatePairs res
         dotString = showDot $ netlistGraph' srcLabel actionsForTemplate actionEdges
-    putStrLn $ show justForDebugging
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile dotString
         Nothing -> putStrLn dotString
