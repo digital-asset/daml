@@ -14,11 +14,23 @@ Visualizing DAML Contracts
 
 - Added :doc:`Visualizing DAML Contracts </tools/visual>`
 
+.. _release-0-13-1:
+
+0.13.1 - 2019-06-17
+-------------------
 
 Language
 ~~~~~~~~
 
 - Add an instance for ``IsParties (Optional Party)``, allowing ``Optional`` values to be used in ``signatory``, ``observer`` and ``maintainer`` clauses.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- Release the Java Bindings to the public Maven Central repository. To move to using the Maven Central repository, remove
+  the ``<repository>...</repository>`` and ``<pluginRepository>...</pluginRepository>`` blocks from Maven POM files
+  that use version 0.12.26 (or later) of the Java Bindings.
+  See `#1205 <https://github.com/digital-asset/daml/issues/1205>`__.
 
 .. _release-0-13-0:
 
@@ -39,6 +51,8 @@ Sandbox
 
 - Fixed a bug in an internal data structure that broke contract keys.
   See `#1623 <https://github.com/digital-asset/daml/issues/1623>`__.
+- Fixed a bug of not closing a resource properly when shutting down the Sandbox.
+  See `#1702 <https://github.com/digital-asset/daml/pull/1702>`__.
 
 DAML Studio
 ~~~~~~~~~~~

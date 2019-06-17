@@ -56,15 +56,19 @@
   type: jar-scala
 - target: //ledger-api/grpc-definitions:ledger-api-protos-tarball
   type: targz
+  mavenUpload: True
   location:
     groupId: com.digitalasset
     artifactId: ledger-api-protos
 - target: //ledger-api/rs-grpc-bridge:rs-grpc-bridge
   type: jar-lib
+  mavenUpload: True
 - target: //language-support/java/bindings:bindings-java
   type: jar-lib
+  mavenUpload: True
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
   type: jar-lib
+  mavenUpload: True
 - target: //docs:quickstart-java
   type: targz
   location:
@@ -78,11 +82,13 @@
 - target: //extractor:extractor-binary
   type: jar-deploy
 - target: //ledger-api/grpc-definitions:ledger-api-scalapb
-  type: jar
+  type: jar-scala
+  mavenUpload: True
 - target: //ledger-api/testing-utils:testing-utils
   type: jar-scala
 - target: //language-support/scala/bindings:bindings
   type: jar-scala
+  mavenUpload: True
 - target: //ledger-api/rs-grpc-akka:rs-grpc-akka
   type: jar-scala
 - target: //ledger/ledger-api-akka:ledger-api-akka
@@ -107,14 +113,17 @@
   type: jar
 - target: //language-support/scala/bindings-akka:bindings-akka
   type: jar-scala
+  mavenUpload: True
 - target: //language-support/java/codegen:shaded_binary
-  type: jar
+  type: jar-scala
+  mavenUpload: True
 - target: //navigator/backend:navigator-binary
   type: jar-deploy
 - target: //language-support/codegen-common:codegen-common
-  type: jar
+  type: jar-scala
 - target: //language-support/codegen-main:shaded_binary
-  type: jar
+  type: jar-scala
+  mavenUpload: True
 - target: //ledger/participant-state:participant-state-v1
   type: jar-scala
 - target: //ledger/participant-state:participant-state
