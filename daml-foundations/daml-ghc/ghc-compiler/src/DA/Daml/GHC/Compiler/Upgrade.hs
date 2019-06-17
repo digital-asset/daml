@@ -14,7 +14,7 @@ import "ghc-lib-parser" RdrName
 -- | Generate non-consuming choices to upgrade all templates defined in the module.
 generateUpgradeModule ::
        (String, ParsedSource) -> (String, ParsedSource) -> String
-generateUpgradeModule (pkgA, L _lA srcA) (pkgB, L _lB srcB) = unlines $ header ++ concat [ upgradeTemplate n | n <- names]
+generateUpgradeModule (pkgA, L _lA srcA) (pkgB, L _lB srcB) = unlines $ header ++ concatMap upgradeTemplate names
   where
     names = [n | n <- allTemplateDataNames srcA, n `elem` allTemplateDataNames srcB]
     modName = moduleNameString $ unLoc $ fromMaybe (error "missing module name") $ hsmodName srcA
