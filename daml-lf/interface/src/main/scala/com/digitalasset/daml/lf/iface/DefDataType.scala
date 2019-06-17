@@ -119,11 +119,14 @@ final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Noth
   def asDataType[RT, PVT]: DataType[RT, PVT] = this
 }
 
-final case class DefTemplate[+Ty](choices: Map[Ref.Name, TemplateChoice[Ty]]) {
+final case class DefTemplate[+Ty](choices: Map[Ref.Name, TemplateChoice[Ty]], key: Option[Type]) {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
 
   def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     choices.asJava
+
+  def getKey: j.Optional[Type] =
+    key.fold(j.Optional.empty[Type])(k => j.Optional.of(k))
 }
 
 object DefTemplate {

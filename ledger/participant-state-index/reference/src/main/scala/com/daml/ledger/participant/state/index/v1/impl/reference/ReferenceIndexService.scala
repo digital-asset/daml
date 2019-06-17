@@ -161,6 +161,7 @@ final case class ReferenceIndexService(
                     nodeIdToEventId(acceptedTx.transactionId, nodeId),
                     create.coid,
                     create.coinst.template,
+                    create.key,
                     create.coinst.arg,
                     witnesses
                   )

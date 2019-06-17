@@ -32,7 +32,6 @@ import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
   GetTransactionsResponse
 }
 import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
-
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
 import com.digitalasset.platform.sandbox.services.SandboxServerResource
@@ -216,5 +215,15 @@ class CodegenLedgerTest extends FlatSpec with Matchers with BazelRunfiles {
 
     wolpertinger.agreementText.isPresent shouldBe true
     wolpertinger.agreementText.get shouldBe s"${wolpertinger.data.name} has ${wolpertinger.data.wings} wings and is ${wolpertinger.data.age} years old."
+  }
+
+  it should "provide the key" in withClient { client =>
+    sendCmd(client, glookofly.create())
+
+    val wolpertinger :: _ = readActiveContracts(client)
+
+    wolpertinger.key.isPresent shouldBe true
+    wolpertinger.key.get.owner shouldEqual "Alice"
+    wolpertinger.key.get.age shouldEqual java.math.BigDecimal.valueOf(17.42)
   }
 }

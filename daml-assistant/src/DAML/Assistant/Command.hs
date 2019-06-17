@@ -80,6 +80,7 @@ commandParser cmds | (hidden, visible) <- partition isHidden cmds = asum
 versionParser :: Parser VersionOptions
 versionParser = VersionOptions
     <$> flagYesNoAuto "all" False "Display all available versions." idm
+    <*> flagYesNoAuto "assistant" False "Display DAML assistant version." idm
 
 installParser :: Parser InstallOptions
 installParser = InstallOptions
@@ -94,7 +95,6 @@ installParser = InstallOptions
 uninstallParser :: Parser SdkVersion
 uninstallParser =
     argument readSdkVersion (metavar "VERSION" <> help "The SDK version to uninstall.")
-
 
 readSdkVersion :: ReadM SdkVersion
 readSdkVersion =

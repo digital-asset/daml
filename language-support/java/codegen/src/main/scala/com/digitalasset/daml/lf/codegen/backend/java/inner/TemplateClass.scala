@@ -51,7 +51,7 @@ private[inner] object TemplateClass extends StrictLogging {
             typeWithContext.interface.typeDecls,
             typeWithContext.packageId,
             packagePrefixes))
-        .addType(generateContractClass(className))
+        .addType(generateContractClass(className, template.key, packagePrefixes))
         .addFields(RecordFields(fields).asJava)
         .addMethods(RecordMethods(fields, className, IndexedSeq.empty, packagePrefixes).asJava)
         .build()
@@ -62,26 +62,46 @@ private[inner] object TemplateClass extends StrictLogging {
   private val idFieldName = "id"
   private val dataFieldName = "data"
   private val agreementFieldName = "agreementText"
+  private val contractKeyFieldName = "key"
 
   private val optionalString = ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
+  private def optional(name: TypeName) =
+    ParameterizedTypeName.get(ClassName.get(classOf[Optional[_]]), name)
 
-  private def generateContractClass(templateClassName: ClassName): TypeSpec = {
+  private def generateContractClass(
+      templateClassName: ClassName,
+      key: Option[Type],
+      packagePrefixes: Map[PackageId, String]): TypeSpec = {
+
     val contractIdClassName = ClassName.bestGuess("ContractId")
+    val contractKeyClassName = key.map(toJavaTypeName(_, packagePrefixes))
+
     val classBuilder =
       TypeSpec.classBuilder("Contract").addModifiers(Modifier.STATIC, Modifier.PUBLIC)
+
     classBuilder.addField(contractIdClassName, idFieldName, Modifier.PUBLIC, Modifier.FINAL)
     classBuilder.addField(templateClassName, dataFieldName, Modifier.PUBLIC, Modifier.FINAL)
     classBuilder.addField(optionalString, agreementFieldName, Modifier.PUBLIC, Modifier.FINAL)
+
     classBuilder.addSuperinterface(ClassName.get(classOf[javaapi.data.Contract]))
+
     val constructorBuilder = MethodSpec
       .constructorBuilder()
       .addModifiers(Modifier.PUBLIC)
       .addParameter(contractIdClassName, idFieldName)
       .addParameter(templateClassName, dataFieldName)
       .addParameter(optionalString, agreementFieldName)
+
     constructorBuilder.addStatement("this.$L = $L", idFieldName, idFieldName)
     constructorBuilder.addStatement("this.$L = $L", dataFieldName, dataFieldName)
     constructorBuilder.addStatement("this.$L = $L", agreementFieldName, agreementFieldName)
+
+    contractKeyClassName.foreach { name =>
+      classBuilder.addField(optional(name), contractKeyFieldName, Modifier.PUBLIC, Modifier.FINAL)
+      constructorBuilder.addParameter(optional(name), contractKeyFieldName)
+      constructorBuilder.addStatement("this.$L = $L", contractKeyFieldName, contractKeyFieldName)
+    }
+
     val constructor = constructorBuilder.build()
 
     classBuilder.addMethod(constructor)
@@ -89,14 +109,24 @@ private[inner] object TemplateClass extends StrictLogging {
     val contractClassName = ClassName.bestGuess("Contract")
     val fields = Array(idFieldName, dataFieldName, agreementFieldName)
     classBuilder
-      .addMethod(generateFromIdAndRecord(contractClassName, templateClassName, contractIdClassName))
+      .addMethod(
+        generateFromIdAndRecord(
+          contractClassName,
+          templateClassName,
+          contractIdClassName,
+          contractKeyClassName))
       .addMethod(
         generateFromIdAndRecordDeprecated(
           contractClassName,
           templateClassName,
-          contractIdClassName))
+          contractIdClassName,
+          contractKeyClassName))
       .addMethod(
-        generateFromCreatedEvent(contractClassName, templateClassName, contractIdClassName))
+        generateFromCreatedEvent(
+          contractClassName,
+          templateClassName,
+          contractIdClassName,
+          contractKeyClassName))
       .addMethods(ObjectMethods(contractClassName, fields, templateClassName).asJava)
       .build()
   }
@@ -104,67 +134,93 @@ private[inner] object TemplateClass extends StrictLogging {
   private[inner] def generateFromIdAndRecord(
       className: ClassName,
       templateClassName: ClassName,
-      idClassName: ClassName): MethodSpec =
-    MethodSpec
-      .methodBuilder("fromIdAndRecord")
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(className)
-      .addParameter(classOf[String], "contractId")
-      .addParameter(classOf[javaapi.data.Record], "record$")
-      .addParameter(
-        ParameterizedTypeName.get(classOf[Optional[_]], classOf[String]),
-        agreementFieldName)
-      .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
-      .addStatement(
-        "$T $L = $T.fromValue(record$$)",
-        templateClassName,
-        dataFieldName,
-        templateClassName)
-      .addStatement(
-        "return new $T($L, $L, $L)",
-        className,
-        idFieldName,
-        dataFieldName,
-        agreementFieldName)
-      .build()
+      idClassName: ClassName,
+      maybeContractKeyClassName: Option[TypeName]): MethodSpec = {
+
+    val methodParameters = Iterable(
+      ParameterSpec.builder(classOf[String], "contractId").build(),
+      ParameterSpec.builder(classOf[javaapi.data.Record], "record$").build(),
+      ParameterSpec.builder(optionalString, agreementFieldName).build()
+    ) ++ maybeContractKeyClassName
+      .map(name => ParameterSpec.builder(optional(name), contractKeyFieldName).build)
+      .toList
+
+    val spec =
+      MethodSpec
+        .methodBuilder("fromIdAndRecord")
+        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+        .returns(className)
+        .addParameters(methodParameters.asJava)
+        .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
+        .addStatement(
+          "$T $L = $T.fromValue(record$$)",
+          templateClassName,
+          dataFieldName,
+          templateClassName)
+
+    val callParameterNames = Vector(idFieldName, dataFieldName, agreementFieldName) ++ maybeContractKeyClassName
+      .map(_ => contractKeyFieldName)
+      .toList
+    val callParameters = CodeBlock.join(callParameterNames.map(CodeBlock.of(_)).asJava, ", ")
+    spec.addStatement("return new $T($L)", className, callParameters).build()
+  }
+
+  private val emptyOptional = CodeBlock.of("$T.empty()", classOf[Optional[_]])
 
   private[inner] def generateFromIdAndRecordDeprecated(
       className: ClassName,
       templateClassName: ClassName,
-      idClassName: ClassName): MethodSpec =
-    MethodSpec
-      .methodBuilder("fromIdAndRecord")
-      .addAnnotation(classOf[Deprecated])
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(className)
-      .addParameter(classOf[String], "contractId")
-      .addParameter(classOf[javaapi.data.Record], "record$")
-      .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
-      .addStatement(
-        "$T $L = $T.fromValue(record$$)",
-        templateClassName,
-        dataFieldName,
-        templateClassName)
-      .addStatement(
-        "return new $T($L, $L, $T.empty())",
-        className,
-        idFieldName,
-        dataFieldName,
-        classOf[Optional[_]])
+      idClassName: ClassName,
+      maybeContractKeyClassName: Option[TypeName]): MethodSpec = {
+    val spec =
+      MethodSpec
+        .methodBuilder("fromIdAndRecord")
+        .addAnnotation(classOf[Deprecated])
+        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+        .returns(className)
+        .addParameter(classOf[String], "contractId")
+        .addParameter(classOf[javaapi.data.Record], "record$")
+        .addStatement("$T $L = new $T(contractId)", idClassName, idFieldName, idClassName)
+        .addStatement(
+          "$T $L = $T.fromValue(record$$)",
+          templateClassName,
+          dataFieldName,
+          templateClassName)
+
+    val callParameters = Vector(
+      CodeBlock.of(idFieldName),
+      CodeBlock.of(dataFieldName),
+      emptyOptional) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList
+
+    spec
+      .addStatement("return new $T($L)", className, CodeBlock.join(callParameters.asJava, ", "))
       .build()
+  }
+
+  private val getContractId = CodeBlock.of("event.getContractId()")
+  private val getArguments = CodeBlock.of("event.getArguments()")
+  private val getAgreementText = CodeBlock.of("event.getAgreementText()")
+  private def getContractKey(t: TypeName) =
+    CodeBlock.of("event.getContractKey().map($T::fromValue)", t)
 
   private[inner] def generateFromCreatedEvent(
       className: ClassName,
       templateClassName: ClassName,
-      idClassName: ClassName) = {
-    MethodSpec
-      .methodBuilder("fromCreatedEvent")
-      .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
-      .returns(className)
-      .addParameter(classOf[CreatedEvent], "event")
-      .addStatement(
-        "return fromIdAndRecord(event.getContractId(), event.getArguments(), event.getAgreementText())")
-      .build()
+      idClassName: ClassName,
+      maybeContractKeyClassName: Option[TypeName]) = {
+
+    val spec =
+      MethodSpec
+        .methodBuilder("fromCreatedEvent")
+        .addModifiers(Modifier.PUBLIC, Modifier.STATIC)
+        .returns(className)
+        .addParameter(classOf[CreatedEvent], "event")
+
+    val params = Vector(getContractId, getArguments, getAgreementText) ++ maybeContractKeyClassName
+      .map(getContractKey)
+      .toList
+
+    spec.addStatement("return fromIdAndRecord($L)", CodeBlock.join(params.asJava, ", ")).build()
   }
 
   private def generateCreateMethod(name: ClassName): MethodSpec =

@@ -98,7 +98,7 @@ data Transaction
         wid    :: Maybe WorkflowId,
         leTime :: Timestamp,
         events :: [Event],
-        ofset  :: AbsOffset } deriving (Eq,Ord,Show)
+        offset :: AbsOffset } deriving (Eq,Ord,Show)
 
 -- event.proto
 
@@ -108,7 +108,8 @@ data Event
         cid        :: ContractId,
         tid        :: TemplateId,
         createArgs :: Record,
-        witness    :: [Party] }
+        witness    :: [Party],
+        key        :: Maybe Value }
 
     | ArchivedEvent {
         eid     :: EventId,

@@ -3,6 +3,7 @@
 
 package com.digitalasset.extractor
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.ExtractorFixture
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
@@ -22,7 +23,7 @@ class VeryLargeArchiveSpec
     with SuiteResourceManagementAroundAll
     with ExtractorFixture
     with Matchers {
-  override protected def darFile = new File("extractor/VeryLargeArchive.dar")
+  override protected def darFile = new File(rlocation("extractor/VeryLargeArchive.dar"))
 
   private def runWithInboundLimit[Z](bytes: Int)(f: => Z): Z = {
     val config = baseConfig.copy(ledgerPort = getSandboxPort, ledgerInboundMessageSizeMax = bytes)

@@ -16,6 +16,7 @@ dependencies = [
     "//ledger-api/rs-grpc-bridge",
     "//ledger-api/rs-grpc-akka",
     "//language-support/scala/bindings",
+    "//bazel_tools/runfiles:scala_runfiles",
     "//daml-lf/scenario-interpreter",
     "//daml-lf/transaction",
     "//daml-lf/engine",
@@ -58,6 +59,10 @@ da_scala_benchmark_jmh(
     data = [
         "//ledger/sandbox:Test.dar",
         "//ledger/sandbox-perf:LargeTransaction.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ],
     visibility = ["//visibility:public"],
     deps = [

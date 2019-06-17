@@ -11,6 +11,7 @@ module DA.Cli.Damlc (main) where
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
 import DA.Cli.Damlc.Base
+import Control.Exception.Safe (catchIO)
 import Data.Maybe
 import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
@@ -239,6 +240,8 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
         withScenarioService' enableScenarioService loggerH $ \mbScenarioService -> do
             -- TODO we should allow different LF versions in the IDE.
             execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
+            sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
+            Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
             Daml.LanguageServer.runLanguageServer (toIdeLogger loggerH)
                 (getIdeState opts mbScenarioService loggerH)
 

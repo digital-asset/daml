@@ -7,6 +7,7 @@ import java.io.File
 import java.time.Instant
 
 import akka.stream.ActorMaterializer
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.Engine
@@ -26,7 +27,7 @@ import com.digitalasset.platform.services.time.TimeModel
 import scala.concurrent.{ExecutionContext, Future}
 
 object TestDar {
-  val dalfFile: File = new File("ledger/sandbox/Test.dar")
+  val dalfFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
   // DamlLf1 test package
   lazy val parsedPackage = DamlPackageContainer(List(dalfFile))
   lazy val parsedArchive = parsedPackage.archives.head

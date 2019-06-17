@@ -74,8 +74,8 @@ public class TemplateMethodTest {
 
     @Test
     void contractHasFromCreatedEvent() {
-        CreatedEvent agreementEvent = new CreatedEvent(Collections.emptyList(), "eventId", SimpleTemplate.TEMPLATE_ID, "cid", simpleTemplateRecord, Optional.of("I agree"));
-        CreatedEvent noAgreementEvent = new CreatedEvent(Collections.emptyList(), "eventId", SimpleTemplate.TEMPLATE_ID, "cid", simpleTemplateRecord, Optional.empty());
+        CreatedEvent agreementEvent = new CreatedEvent(Collections.emptyList(), "eventId", SimpleTemplate.TEMPLATE_ID, "cid", simpleTemplateRecord, Optional.of("I agree"), Optional.empty());
+        CreatedEvent noAgreementEvent = new CreatedEvent(Collections.emptyList(), "eventId", SimpleTemplate.TEMPLATE_ID, "cid", simpleTemplateRecord, Optional.empty(), Optional.empty());
 
         SimpleTemplate.Contract withAgreement = SimpleTemplate.Contract.fromCreatedEvent(agreementEvent);
         assertTrue(withAgreement.agreementText.isPresent(), "AgreementText was not present");

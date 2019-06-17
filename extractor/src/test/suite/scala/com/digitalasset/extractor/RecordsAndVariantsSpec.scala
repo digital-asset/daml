@@ -3,6 +3,7 @@
 
 package com.digitalasset.extractor
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.extractor.services.{CustomMatchers, ExtractorFixtureAroundAll}
 import com.digitalasset.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
@@ -25,7 +26,7 @@ class RecordsAndVariantsSpec
     with Matchers
     with CustomMatchers {
 
-  override protected def darFile = new File("extractor/RecordsAndVariants.dar")
+  override protected def darFile = new File(rlocation("extractor/RecordsAndVariants.dar"))
 
   override def scenario: Option[String] = Some("RecordsAndVariants:suite")
 

@@ -425,6 +425,10 @@ object Transaction {
     *
     *  @param targetId Contract-id referencing the contract-instance on
     *                  which we are exercising a choice.
+    *  @param templateId Template-id referencing the template of the
+    *                    contract on which we are exercising a choice.
+    *  @param contractKey Optional contract key, if defined for the
+    *                     contract on which we are exercising a choice.
     *  @param choiceId Label of the choice that we are exercising.
     *  @param consuming True if the choice consumes the contract.
     *  @param actingParties The parties exercising the choice.
@@ -441,6 +445,7 @@ object Transaction {
   case class ExercisesContext(
       targetId: TContractId,
       templateId: TypeConName,
+      contractKey: Option[KeyWithMaintainers[AbsoluteContractId]],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
@@ -701,6 +706,7 @@ object Transaction {
                       ExercisesContext(
                         targetId = targetId,
                         templateId = templateId,
+                        contractKey = None,
                         choiceId = choiceId,
                         optLocation = optLocation,
                         consuming = consuming,

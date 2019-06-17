@@ -4,15 +4,15 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- | Go to the definition of a variable.
-module DA.Service.Daml.LanguageServer.Definition
+module Development.IDE.LSP.Definition
     ( handle
     ) where
 
-import           DA.LanguageServer.Protocol
+import           Development.IDE.LSP.Protocol
 import Development.IDE.Types.Diagnostics
 
-import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified Development.IDE.Logger as Logger
+import Development.IDE.State.Rules
 
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc
@@ -21,7 +21,7 @@ import Data.Text.Prettyprint.Doc.Render.Text
 -- | Go to the definition of a variable.
 handle
     :: Logger.Handle
-    -> Compiler.IdeState
+    -> IdeState
     -> TextDocumentPositionParams
     -> IO LocationResponseParams
 handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
@@ -33,7 +33,7 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
             "Definition request at position " <>
             renderStrict (layoutPretty defaultLayoutOptions $ prettyPosition pos) <>
             " in file: " <> T.pack (fromNormalizedFilePath filePath)
-          Compiler.gotoDefinition compilerH filePath pos
+          runAction compilerH (getDefinition filePath pos)
         Nothing       -> pure Nothing
 
     case mbResult of

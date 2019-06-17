@@ -261,7 +261,9 @@ case object DamlConstants {
         choiceText -> DamlLfIface.TemplateChoice(simpleTextT, false, simpleUnitT),
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
         ChoiceReplace -> DamlLfIface.TemplateChoice(simpleRecordTC, false, simpleUnitT)
-      ))
+      ),
+      None
+    )
   )
   val complexRecordTemplate = DamlLfIface.InterfaceType.Template(
     complexRecordT,
@@ -271,7 +273,9 @@ case object DamlConstants {
         choiceText -> DamlLfIface.TemplateChoice(simpleTextT, false, simpleUnitT),
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
         ChoiceReplace -> DamlLfIface.TemplateChoice(complexRecordTC, false, simpleUnitT)
-      ))
+      ),
+      None
+    )
   )
   val treeNodeTemplate = DamlLfIface.InterfaceType.Template(
     treeNodeT,
@@ -281,7 +285,9 @@ case object DamlConstants {
         choiceText -> DamlLfIface.TemplateChoice(simpleTextT, false, simpleUnitT),
         choiceNonconsuming -> DamlLfIface.TemplateChoice(simpleUnitT, true, simpleUnitT),
         ChoiceReplace -> DamlLfIface.TemplateChoice(treeNodeTC, false, simpleUnitT)
-      ))
+      ),
+      None
+    )
   )
 
   val iface = DamlLfIface.Interface(

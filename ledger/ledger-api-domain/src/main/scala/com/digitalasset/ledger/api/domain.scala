@@ -77,7 +77,8 @@ object domain {
         templateId: Ref.Identifier,
         createArguments: ValueRecord[AbsoluteContractId],
         witnessParties: immutable.Set[Ref.Party],
-        agreementText: String)
+        agreementText: String,
+        contractKey: Option[Value])
         extends Event
         with CreateOrExerciseEvent
         with CreateOrArchiveEvent

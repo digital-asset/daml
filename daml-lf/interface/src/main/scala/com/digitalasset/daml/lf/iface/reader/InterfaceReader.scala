@@ -26,7 +26,6 @@ import com.digitalasset.daml.lf.data.Ref.{
   PackageId,
   QualifiedName
 }
-import com.digitalasset.daml.lf.iface.TemplateChoice.FWT
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
@@ -213,12 +212,16 @@ object InterfaceReader {
               point(InvalidDataTypeDefinition(
                 s"Cannot find a record associated with template: $templateName")))
           case Some((rec, newState)) =>
-            val y: Errors[ErrorLoc, InterfaceReaderError] \/ Map[ChoiceName, FWT] =
-              locate('choices, choices(a, ctx))
+            val templateArgs =
+              for {
+                choices <- locate('choices, choices(a, ctx))
+                key <- locate('key, key(a, ctx))
+              } yield (choices, key)
 
-            y.fold(
-              newState.addError, { cs =>
-                newState.addTemplate(templateName, rec, DefTemplate(cs))
+            templateArgs.fold(
+              newState.addError, {
+                case (cs, k) =>
+                  newState.addTemplate(templateName, rec, DefTemplate(cs, k))
               }
             )
         }
@@ -249,6 +252,13 @@ object InterfaceReader {
       r <- type_(a.getRetType, ctx)
       choice = TemplateChoice(p, consuming = a.getConsuming, returnType = r)
     } yield choice
+
+  private def key(
+      a: DamlLf1.DefTemplate,
+      ctx: Context
+  ): InterfaceReaderError.Tree \/ Option[Type] =
+    if (a.hasKey) locate('key, rootErr(type_(a.getKey.getType, ctx)).map(Some(_)))
+    else \/-(None)
 
   private def fullName(
       m: ModuleName,

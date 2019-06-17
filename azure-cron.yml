@@ -1,5 +1,10 @@
 # Azure Pipelines file, see https://aka.ms/yaml
 
+# Do not run on PRs
+pr: none
+# Do not run on merge to master
+trigger: none
+# Do run on a schedule (hourly)
 schedules:
 - cron: "0 * * * *"
   displayName: hourly cron

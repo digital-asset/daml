@@ -13,6 +13,44 @@ Visualizing DAML Contracts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 - Added :doc:`Visualizing DAML Contracts </tools/visual>`
+Language
+~~~~~~~~
+
+- Add an instance for ``IsParties (Optional Party)``, allowing ``Optional`` values to be used in ``signatory``, ``observer`` and ``maintainer`` clauses.
+
+.. _release-0-13-0:
+
+0.13.0 - 2019-06-17
+-------------------
+
+SDK
+~~~
+
+- This marks the first release that is no longer released for the
+  ``da`` assistant. It is still possible to use it to get older SDK
+  releases. Take a look at `documentation
+  <https://docs.daml.com/tools/assistant.html>`__ for the new ``daml``
+  assistant for migration instructions.
+
+Sandbox
+~~~~~~~
+
+- Fixed a bug in an internal data structure that broke contract keys.
+  See `#1623 <https://github.com/digital-asset/daml/issues/1623>`__.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Double the gRPC message limit used for the scenario service. This
+  avoids issues on large projects.
+
+Ledger API
+~~~~~~~~~~
+
+- Slash (/) is now an allowed character in contract, workflow, application
+  and command identifiers.
+
+.. _release-0-12-25:
 
 0.12.25 — 2019-06-13
 --------------------
@@ -40,6 +78,24 @@ Scala bindings
 
 - New `--root` command-line option for limiting what templates are selected for codegen.
   See `#1210 <https://github.com/digital-asset/daml/pull/1210>`__.
+
+Ledger API
+~~~~~~~~~~
+
+- Contract keys are now available for created events from the transaction service.
+  See `#1268 <https://github.com/digital-asset/daml/issues/1268>`__.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- The addition of contract keys on created events in the Ledger API is reflected in the bindings.
+  See `#1268 <https://github.com/digital-asset/daml/issues/1268>`__.
+
+Java Codegen
+~~~~~~~~~~~~
+
+- Contracts decoded from the transaction service now expose their contract key (if defined).
+  See `#1268 <https://github.com/digital-asset/daml/issues/1268>`__.
 
 .. _release-0-12-24:
 

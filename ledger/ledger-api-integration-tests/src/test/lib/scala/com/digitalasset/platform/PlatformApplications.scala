@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
@@ -93,7 +94,7 @@ object PlatformApplications {
 
   object Config {
     val defaultLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledger-server"))
-    val defaultDarFile = new File("ledger/sandbox/Test.dar")
+    val defaultDarFile = new File(rlocation("ledger/sandbox/Test.dar"))
     val defaultParties = NonEmptyList("party", "Alice", "Bob")
     val defaultTimeProviderType = TimeProviderType.Static
 

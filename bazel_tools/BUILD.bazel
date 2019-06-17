@@ -12,6 +12,7 @@ exports_files(
         "haskell-arx.patch",
         "haskell-win-sys-includes.patch",
         "haskell-drop-fake-static.patch",
+        "ghci-template.sh",
         "pom_template.xml",
     ],
     visibility = ["//:__subpackages__"],

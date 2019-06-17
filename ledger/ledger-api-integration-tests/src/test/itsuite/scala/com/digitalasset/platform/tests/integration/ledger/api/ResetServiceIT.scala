@@ -6,6 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import java.io.File
 
 import akka.stream.scaladsl.Sink
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
@@ -42,7 +43,7 @@ class ResetServiceIT
   override protected val config: Config =
     Config.default.withLedgerIdMode(LedgerIdMode.Dynamic())
 
-  override protected def darFile: File = new File("ledger/sandbox/Test.dar")
+  override protected def darFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
 
   private val allTemplatesForParty = M.transactionFilter
 

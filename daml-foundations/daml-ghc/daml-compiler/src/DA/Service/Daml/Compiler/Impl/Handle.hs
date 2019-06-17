@@ -8,12 +8,11 @@ module DA.Service.Daml.Compiler.Impl.Handle
     IdeState
   , getIdeState
   , withIdeState
-  , setFilesOfInterest
-  , onFileModified
-  , setOpenVirtualResources
+  , CompilerService.setFilesOfInterest
+  , CompilerService.modifyFilesOfInterest
+  , CompilerService.setOpenVirtualResources
+  , CompilerService.modifyOpenVirtualResources
   , getAssociatedVirtualResources
-  , gotoDefinition
-  , atPoint
   , compileFile
   , toIdeLogger
   , UseDalf(..)
@@ -124,23 +123,6 @@ toIdeLogger h = IdeLogger.Handle {
 
 ------------------------------------------------------------------------------
 
--- | Update the files-of-interest, which we recieve asynchronous notifications for.
-setFilesOfInterest
-    :: IdeState
-    -> [NormalizedFilePath]
-    -> IO ()
-setFilesOfInterest service files = do
-    CompilerService.logDebug service $ "Setting files of interest to: " <> T.pack (show files)
-    CompilerService.setFilesOfInterest service (S.fromList files)
-
-setOpenVirtualResources
-    :: IdeState
-    -> [VirtualResource]
-    -> IO ()
-setOpenVirtualResources service vrs = do
-    CompilerService.logDebug service $ "Setting vrs of interest to: " <> T.pack (show vrs)
-    CompilerService.setOpenVirtualResources service (S.fromList vrs)
-
 getAssociatedVirtualResources
   :: IdeState
   -> NormalizedFilePath
@@ -165,24 +147,6 @@ getAssociatedVirtualResources service filePath = do
             ]
 
 
-gotoDefinition
-    :: IdeState
-    -> NormalizedFilePath
-    -> Base.Position
-    -> IO (Maybe Base.Location)
-gotoDefinition service afp pos = do
-    CompilerService.logDebug service $ "Goto definition: " <> T.pack (show afp)
-    CompilerService.runAction service (CompilerService.getDefinition afp pos)
-
-atPoint
-    :: IdeState
-    -> NormalizedFilePath
-    -> Base.Position
-    -> IO (Maybe (Maybe Base.Range, [HoverText]))
-atPoint service afp pos = do
-    CompilerService.logDebug service $ "AtPoint: " <> T.pack (show afp)
-    CompilerService.runAction service (CompilerService.getAtPoint afp pos)
-
 -- | Compile the supplied file using the Compiler Service into a DAML LF Package.
 -- TODO options and warnings
 compileFile
@@ -195,7 +159,7 @@ compileFile service fp = do
     -- We need to mark the file we are compiling as a file of interest.
     -- Otherwise all diagnostics produced during compilation will be garbage
     -- collected afterwards.
-    liftIO $ setFilesOfInterest service [fp]
+    liftIO $ CompilerService.setFilesOfInterest service (S.singleton fp)
     liftIO $ CompilerService.logDebug service $ "Compiling: " <> T.pack (fromNormalizedFilePath fp)
     res <- liftIO $ CompilerService.runAction service (CompilerService.getDalf fp)
     case res of
@@ -203,16 +167,6 @@ compileFile service fp = do
             diag <- liftIO $ CompilerService.getDiagnostics service
             throwE diag
         Just v -> return v
-
--- | Manages the file store (caching compilation results and unsaved content).
-onFileModified
-    :: IdeState
-    -> NormalizedFilePath
-    -> Maybe T.Text
-    -> IO ()
-onFileModified service fp mbContents = do
-    CompilerService.logDebug service $ "File modified " <> T.pack (show fp)
-    CompilerService.setBufferModified service fp mbContents
 
 newtype UseDalf = UseDalf{unUseDalf :: Bool}
 
