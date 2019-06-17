@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
+import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
 import com.digitalasset.daml.lf.language.LanguageMinorVersion
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 
@@ -13,6 +14,8 @@ import scala.annotation.tailrec
 import scala.language.implicitConversions
 
 class EncodeV1(val minor: LanguageMinorVersion) {
+
+  import LanguageMinorVersion.Implicits._
 
   import EncodeV1._
   import Name.ordering
@@ -168,8 +171,17 @@ class EncodeV1(val minor: LanguageMinorVersion) {
           builder.setCon(
             PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _))
         case TBuiltin(bType) =>
-          builder.setPrim(
-            PLF.Type.Prim.newBuilder().setPrim(bType).accumulateLeft(args)(_ addArgs _))
+          if (bType == BTArrow && V1.minorVersionOrdering.lteq(minor, "0")) {
+            args match {
+              case ImmArraySnoc(firsts, last) =>
+                builder.setFun(
+                  PLF.Type.Fun.newBuilder().accumulateLeft(firsts)(_ addParams _).setResult(last))
+              case _ =>
+                sys.error("unexpected errors")
+            }
+          } else
+            builder.setPrim(
+              PLF.Type.Prim.newBuilder().setPrim(bType).accumulateLeft(args)(_ addArgs _))
         case TApp(_, _) =>
           sys.error("unexpected error")
         case TForalls(binders, body) =>
