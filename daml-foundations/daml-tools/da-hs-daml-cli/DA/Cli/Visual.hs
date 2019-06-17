@@ -176,7 +176,7 @@ execVisual darFilePath dotFilePath = do
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
-        res = concatMap (moduleAndTemplates world) modules -- (tpl, actions)
+        res = concatMap (moduleAndTemplates world) modules
 
         actionEdges = map templatePairs res
         dotString = showDot $ netlistGraph' srcLabel actionsForTemplate actionEdges
