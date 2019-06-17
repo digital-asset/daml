@@ -51,11 +51,3 @@ resource "google_storage_bucket_acl" "default" {
   default_acl = "publicread"
   role_entity = ["${local.default_role_entities}"]
 }
-
-resource "google_storage_bucket_object" "default" {
-  name         = "index.html"
-  bucket       = "${google_storage_bucket.default.name}"
-  content      = "${file("${path.module}/files/index.html")}"
-  content_type = "text/html"
-  depends_on   = ["google_storage_bucket_acl.default"]
-}
