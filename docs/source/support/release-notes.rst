@@ -14,6 +14,8 @@ Sandbox
 
 - Fixed a bug in an internal data structure that broke contract keys.
   See `#1623 <https://github.com/digital-asset/daml/issues/1623>`__.
+- Fixed a bug of not closing a resource properly when shutting down the Sandbox.
+  See `#1702 <https://github.com/digital-asset/daml/pull/1702>`__.
 
 0.12.25 — 2019-06-13
 --------------------
