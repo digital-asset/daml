@@ -3,7 +3,6 @@
 
 package com.digitalasset;
 
-import com.daml.ledger.javaapi.TestDecoder;
 import com.daml.ledger.javaapi.data.Int64;
 import com.daml.ledger.javaapi.data.Record;
 import org.junit.jupiter.api.Assertions;
@@ -11,8 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 import tests.serializable.serializability.Serializable;
-
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @RunWith(JUnitPlatform.class)
 public class SerializableTest {
