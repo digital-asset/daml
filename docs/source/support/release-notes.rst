@@ -14,6 +14,13 @@ Java Codegen
 
 - Support generic types (including tuples) as contract keys in codegen.
   See `#1728 <https://github.com/digital-asset/daml/issues/1728>`__.
+Release Procedure
+~~~~~~~~~~~~~~~~~
+
+- Fixes to the release procedure. Note: The release to Maven Central was successfully
+  performed _manually_ in release 0.13.3. This release should confirm that it will occur
+  as part of the CI/CD.
+  See `#1745 <https://github.com/digital-asset/daml/issues/1745>`__
 
 .. _release-0-13-3:
 
