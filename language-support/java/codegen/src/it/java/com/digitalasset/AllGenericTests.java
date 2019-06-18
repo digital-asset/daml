@@ -15,7 +15,9 @@ import org.junit.runners.Suite;
         DecoderTest.class,
         RecordTest.class,
         ListTest.class,
-        VariantTest.class
+        VariantTest.class,
+        SerializableTest.class,
+        TemplateMethodTest.class
 })
 public class AllGenericTests {
 }

@@ -126,7 +126,9 @@ private[inner] object TemplateClass extends StrictLogging {
           contractClassName,
           templateClassName,
           contractIdClassName,
-          contractKeyClassName))
+          key,
+          packagePrefixes
+        ))
       .addMethods(ObjectMethods(contractClassName, fields, templateClassName).asJava)
       .build()
   }
@@ -200,14 +202,17 @@ private[inner] object TemplateClass extends StrictLogging {
   private val getContractId = CodeBlock.of("event.getContractId()")
   private val getArguments = CodeBlock.of("event.getArguments()")
   private val getAgreementText = CodeBlock.of("event.getAgreementText()")
-  private def getContractKey(t: TypeName) =
-    CodeBlock.of("event.getContractKey().map($T::fromValue)", t)
+  private def getContractKey(t: Type, packagePrefixes: Map[PackageId, String]) =
+    CodeBlock.of(
+      "event.getContractKey().map(e -> $L)",
+      FromValueGenerator.extractor(t, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes))
 
   private[inner] def generateFromCreatedEvent(
       className: ClassName,
       templateClassName: ClassName,
       idClassName: ClassName,
-      maybeContractKeyClassName: Option[TypeName]) = {
+      maybeContractKeyType: Option[Type],
+      packagePrefixes: Map[PackageId, String]) = {
 
     val spec =
       MethodSpec
@@ -216,8 +221,8 @@ private[inner] object TemplateClass extends StrictLogging {
         .returns(className)
         .addParameter(classOf[CreatedEvent], "event")
 
-    val params = Vector(getContractId, getArguments, getAgreementText) ++ maybeContractKeyClassName
-      .map(getContractKey)
+    val params = Vector(getContractId, getArguments, getAgreementText) ++ maybeContractKeyType
+      .map(getContractKey(_, packagePrefixes))
       .toList
 
     spec.addStatement("return fromIdAndRecord($L)", CodeBlock.join(params.asJava, ", ")).build()

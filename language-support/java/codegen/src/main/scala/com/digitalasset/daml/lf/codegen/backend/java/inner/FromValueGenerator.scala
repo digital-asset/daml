@@ -97,7 +97,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
       "$T $L = $L",
       toJavaTypeName(fieldType, packagePrefixes),
       field,
-      composite(fieldType, field, accessor, Iterator.from(0).map(n => s"v$$$n"), packagePrefixes))
+      extractor(fieldType, field, accessor, newNameGenerator, packagePrefixes))
 
   // Primitive extractors that map a type to the method to retrieve it
   // Missing on purpose: `Record` and `Variant` -- those should be dealt
@@ -140,14 +140,13 @@ private[inner] object FromValueGenerator extends StrictLogging {
 
   /**
     * Generates extractor for types that are not immediately covered by primitive extractors
-    * Relies on the underlying [[nested]] method to generate extractor recursively
-    * @param typeName The type of the field being accessed
+    * @param damlType The type of the field being accessed
     * @param field The name of the field being accessed
     * @param accessor The [[CodeBlock]] that defines how to access the item in the first place
-    * @param args An iterator providing diverse argument names to be used in [[nested]]
+    * @param args An iterator providing argument names for nested calls without shadowing
     * @return A [[CodeBlock]] that defines the extractor for the whole composite type
     */
-  private def composite(
+  private[inner] def extractor(
       damlType: Type,
       field: String,
       accessor: CodeBlock,
@@ -176,7 +175,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
             .of("$L.getValues().stream().map($L -> ", optMapArg, listMapArg))
           .add(CodeBlock.of(
             "$L",
-            composite(param, listMapArg, CodeBlock.of("$L", listMapArg), args, packagePrefixes)))
+            extractor(param, listMapArg, CodeBlock.of("$L", listMapArg), args, packagePrefixes)))
           .add(
             CodeBlock
               .of(
@@ -197,7 +196,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
             outerOptArg,
             outerOptArg,
             innerOptArg,
-            composite(param, innerOptArg, CodeBlock.of("$L", innerOptArg), args, packagePrefixes)
+            extractor(param, innerOptArg, CodeBlock.of("$L", innerOptArg), args, packagePrefixes)
           ))
           .add(orElseThrow(apiType, field))
           .build()
@@ -225,7 +224,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           .add(
             CodeBlock.of(
               "$L",
-              composite(
+              extractor(
                 param,
                 entryArg,
                 CodeBlock.of("$L.getValue()", entryArg),
@@ -248,7 +247,7 @@ private[inner] object FromValueGenerator extends StrictLogging {
           toJavaTypeName(targ, packagePrefixes) -> CodeBlock.of(
             "$L -> $L",
             innerArg,
-            composite(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes))
+            extractor(targ, field, CodeBlock.of("$L", innerArg), args, packagePrefixes))
         }.unzip
 
         val targsCode = CodeBlock.join(targs.map(CodeBlock.of("$L", _)).asJava, ", ")

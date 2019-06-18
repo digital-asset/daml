@@ -10,6 +10,7 @@ import com.digitalasset.AllGenericTests;
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
         MapTest.class,
+        ContractKeysTest.class,
         AllGenericTests.class
 })
 public class AllTests {
