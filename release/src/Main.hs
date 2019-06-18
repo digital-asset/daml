@@ -61,7 +61,7 @@ main = do
 
               let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
               uploadArtifacts <- concatMapM (artifactCoords optsAllArtifacts) mavenUploadArtifacts
-              if length uploadArtifacts > 0
+              if not (null uploadArtifacts)
                   then
                     uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts
                   else
