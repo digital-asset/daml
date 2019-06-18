@@ -9,6 +9,11 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+.. _release-0-13-3:
+
+0.13.3 - 2019-06-18
+-------------------
+
 Release Procedure
 ~~~~~~~~~~~~~~~~~
 
