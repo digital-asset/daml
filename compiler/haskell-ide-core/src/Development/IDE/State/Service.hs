@@ -13,7 +13,7 @@ module Development.IDE.State.Service(
     getServiceEnv,
     IdeState, initialise, shutdown,
     runAction, runActions,
-    runActionSynchronous, runActionsSynchronous,
+    runActionSync, runActionsSync,
     setFilesOfInterest, modifyFilesOfInterest,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
@@ -117,16 +117,16 @@ runActions x acts = do
     takeMVar var
 
 -- | This is a synchronous variant of `runAction`. See
--- `runActionsSynchronous` of more details.
-runActionSynchronous :: IdeState -> Action a -> IO a
-runActionSynchronous s a = head <$> runActionsSynchronous s [a]
+-- `runActionsSync` of more details.
+runActionSync :: IdeState -> Action a -> IO a
+runActionSync s a = head <$> runActionsSync s [a]
 
--- | `runActionsSynchronous` is similar to `runActions` but it will
+-- | `runActionsSync` is similar to `runActions` but it will
 -- wait for all rules (so in particular the `ofInterestRule`) to
 -- finish running. This is mainly useful in tests, where you want
 -- to wait for all rules to fire so you can check diagnostics.
-runActionsSynchronous :: IdeState -> [Action a] -> IO [a]
-runActionsSynchronous s acts = join $ shakeRun s acts (const $ pure ())
+runActionsSync :: IdeState -> [Action a] -> IO [a]
+runActionsSync s acts = join $ shakeRun s acts (const $ pure ())
 
 -- | Set the files-of-interest which will be built and kept-up-to-date.
 setFilesOfInterest :: IdeState -> Set NormalizedFilePath -> IO ()

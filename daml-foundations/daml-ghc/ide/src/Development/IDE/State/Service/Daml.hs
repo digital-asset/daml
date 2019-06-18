@@ -8,7 +8,7 @@ module Development.IDE.State.Service.Daml(
     getDamlServiceEnv,
     IdeState, initialise, shutdown,
     runAction, runActions,
-    runActionSynchronous, runActionsSynchronous,
+    runActionSync, runActionsSync,
     setFilesOfInterest, modifyFilesOfInterest, setOpenVirtualResources, modifyOpenVirtualResources,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
