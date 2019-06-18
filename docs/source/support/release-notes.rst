@@ -11,7 +11,7 @@ HEAD — ongoing
 
 .. _release-0-13-2:
 
-0.13.2 - 2019-06-17
+0.13.2 - 2019-06-18
 -------------------
 
 Visualizing DAML Contracts
