@@ -90,6 +90,26 @@ da_haskell_test(
 )
 
 da_haskell_test(
+    name = "da-hs-daml-cli-visual-test",
+    srcs = ["tests/VisualTest.hs"],
+    data = [
+        "//daml-foundations/daml-ghc/package-database:package-db",
+    ],
+    hazel_deps = [
+        "tasty",
+        "base",
+        "optparse-applicative",
+        "tasty-hunit",
+    ],
+    main_function = "VisualTest.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":da-hs-daml-cli",
+    ],
+)
+
+da_haskell_test(
     name = "damlc-test-tests",
     srcs = ["tests/DamlcTest.hs"],
     data = [
