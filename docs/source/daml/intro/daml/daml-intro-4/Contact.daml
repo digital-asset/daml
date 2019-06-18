@@ -1,0 +1,74 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Contact where
+
+-- CHOICE_BEGIN
+template Contact
+  with
+    owner : Party
+    party : Party
+    address : Text
+    telephone : Text
+  where
+    signatory owner
+
+    controller owner can
+      UpdateTelephone
+        : ContractId Contact
+        with
+          newTelephone : Text
+        do
+          create this with
+            telephone = newTelephone
+-- CHOICE_END
+
+-- DELEGATION_BEGIN
+    controller party can
+      UpdateAddress
+        : ContractId Contact
+        with
+          newAddress : Text
+        do
+          create this with
+            address = newAddress
+-- DELEGATION_END
+
+-- CHOICE_TEST_BEGIN
+choice_test = scenario do
+  owner <- getParty "Alice"
+  party <- getParty "Bob"
+
+  contactCid <- submit owner do
+     create Contact with
+      owner
+      party
+      address = "1 Bobstreet"
+      telephone = "012 345 6789"
+
+  -- The bank can't change its own telephone number as the accountant controls
+  -- that choice.
+  submitMustFail party do
+    exercise contactCid UpdateTelephone with
+      newTelephone = "098 7654 321"
+
+  new_contact_Cid <- submit owner do
+    exercise contactCid UpdateTelephone with
+      newTelephone = "098 7654 321"
+
+  submit owner do
+    new_contact <- fetch new_contact_Cid
+    assert (new_contact.telephone == "098 7654 321")
+-- CHOICE_TEST_END
+
+-- DELEGATION_TEST_BEGIN
+  new_contact_Cid <- submit party do
+    exercise new_contact_Cid UpdateAddress with
+      newAddress = "1-10 Bobstreet"
+
+  submit owner do
+    new_contact <- fetch new_contact_Cid
+    assert (new_contact.address == "1-10 Bobstreet")
+-- DELEGATION_TEST_END
+
