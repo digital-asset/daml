@@ -1,8 +1,9 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive
+package com.digitalasset.daml.lf.testing.archive
 
+import com.digitalasset.daml.lf.archive.DecodeV1
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
@@ -13,11 +14,11 @@ import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 import scala.annotation.tailrec
 import scala.language.implicitConversions
 
-class EncodeV1(val minor: LanguageMinorVersion) {
-
-  import LanguageMinorVersion.Implicits._
+// Important: do not use this in production code. It is designed for testing only.
+private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
 
   import EncodeV1._
+  import LanguageMinorVersion.Implicits._
   import Name.ordering
 
   def encodePackage(pkgId: PackageId, pkg: Package): PLF.Package = {

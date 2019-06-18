@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 
-class TypeParser[P](parameters: ParserParameters[P]) {
+private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
 
   private def builtinTypes = Map[String, BuiltinType](
     "Int64" -> BTInt64,

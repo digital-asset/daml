@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.assembler
+package com.digitalasset.daml.lf.testing.archive
 
 import java.io.File
 
@@ -15,7 +15,7 @@ class DamlLfAssemblerTest extends WordSpec with Matchers with BazelRunfiles {
 
     "be readable" in {
 
-      UniversalArchiveReader().readFile(new File(rlocation("daml-lf/assembler/Test.dalf"))) shouldBe 'success
+      UniversalArchiveReader().readFile(new File(rlocation("daml-lf/encoder/Test.dalf"))) shouldBe 'success
 
     }
 

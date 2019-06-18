@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.language.Ast._
 
 import scala.{PartialFunction => PF}
 
-class AstRewriter(
+private[digitalasset] class AstRewriter(
     typeRule: PF[Type, Type] = PF.empty[Type, Type],
     exprRule: PF[Expr, Expr] = PF.empty[Expr, Expr],
     identifierRule: PF[Identifier, Identifier] = PF.empty[Identifier, Identifier]

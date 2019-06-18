@@ -1,14 +1,15 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive
+package com.digitalasset.daml.lf.testing.archive
 
+import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters, parseModules}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters, parseModules}
 import com.digitalasset.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -99,12 +100,12 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
              case e of True -> x | False -> y;
            val aListMatch: forall (a: *). List a -> Option (<head: a, tail: List a>) = /\ (a: *). \ (e: List a) ->
              case e of Nil -> None @(<head: a, tail: List a>)
-           | Cons h t -> Some @(<head: a, tail: List a>) (<head = h, tail = t>);
+                     | Cons h t -> Some @(<head: a, tail: List a>) (<head = h, tail = t>);
            val aOptionMatch: forall (a: *). Text -> Map a -> a -> a = /\ (a:*). \ (key: Text) (map: Map a) (default: a) ->
              case (MAP_LOOKUP @a key map) of None -> default | Some y -> y;
            val aVariantMatch: forall (a:*). Mod:Tree a -> Option a = /\ (a: *). \(e: Mod:Tree a) ->
              case e of Mod:Tree:Leaf x -> None @a
-           | Mod:Tree:Node node -> Some @a (Mod:Tree.Node @a { value } node);
+                     | Mod:Tree:Node node -> Some @a (Mod:Tree.Node @a { value } node);
            val aEnumMatch: Mod:Color -> Text = \(e: Mod:Color) ->
              case e of Mod:Color:Red -> "Red" | Mod:Color:Green -> "Green" | Mod:Color:Blue -> "Blue";
 

@@ -136,7 +136,7 @@ case object URUninhabitatedType extends UnserializabilityReason {
 abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
   def context: Context
   override def toString: String = productPrefix + productIterator.mkString("(", ", ", ")")
-  val pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
+  def pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
   protected def prettyInternal: String
 }
 

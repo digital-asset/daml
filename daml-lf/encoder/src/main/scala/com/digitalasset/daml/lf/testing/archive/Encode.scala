@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.archive
+package com.digitalasset.daml.lf.testing.archive
 
 import java.security.MessageDigest
 
@@ -10,7 +10,8 @@ import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml_lf.{DamlLf => PLF}
 
-object Encode {
+// Important: do not use this in production code. It is designed for testing only.
+private[digitalasset] object Encode {
 
   private def encodePayloadOfVersion(
       idAndPkg: (PackageId, Package),
