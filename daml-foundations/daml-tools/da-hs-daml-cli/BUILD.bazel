@@ -98,11 +98,13 @@ da_haskell_test(
     data = [
         "//daml-foundations/daml-ghc/package-database:package-db",
         ":visual-test-daml.dar",
+        ":tests/res/out.dot"
     ],
     hazel_deps = [
         "tasty",
         "base",
         "optparse-applicative",
+        "extra",
         "directory",
         "tasty-hunit",
     ],

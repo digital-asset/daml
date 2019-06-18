@@ -1,0 +1,9 @@
+daml 1.2
+
+module Temp where
+
+template Start
+  with
+    test : Party
+  where
+    signatory test
