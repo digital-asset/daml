@@ -9,19 +9,18 @@ module DA.Daml.LF.Proto3.EncodeV1
   , encodePackage
   ) where
 
-import           Control.Lens ((^.), (<&>), matching)
+import           Control.Lens ((^.), (^..), matching)
 import           Control.Lens.Ast (rightSpine)
-import           Control.Monad.Trans.Reader (ReaderT)
-import           Control.Monad.Trans.State (State)
 
-import qualified Data.Map as M
 import qualified Data.NameMap as NM
+import qualified Data.Set as S
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
 import qualified Data.Vector         as V
 
 import           DA.Pretty
 import           DA.Daml.LF.Ast
+import           DA.Daml.LF.Ast.Optics (packageRefs)
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as P
 
@@ -32,7 +31,7 @@ import qualified Proto3.Suite as P (Enumerated (..))
 -- otherwise always be wrapped in `Just` at their call sites.
 type Just a = Maybe a
 
-type EncodeImpl = ReaderT Version (State (Int, M.Map PackageId Int))
+type PackageRefCtx = S.Set PackageId
 
 ------------------------------------------------------------------------
 -- Simple encodings
@@ -77,13 +76,26 @@ encodeSourceLoc SourceLoc{..} =
         (fromIntegral slocEndLine)
         (fromIntegral slocEndCol)))
 
-encodePackageRef :: PackageRef -> EncodeImpl (Just P.PackageRef)
-encodePackageRef = pure . Just . \case
+encodePackageRef :: PackageRefCtx -> PackageRef -> Just P.PackageRef
+encodePackageRef interned = Just . \case
     PRSelf -> P.PackageRef $ Just $ P.PackageRefSumSelf P.Unit
-    PRImport pkgid -> P.PackageRef $ Just $ P.PackageRefSumPackageId $ encodePackageId pkgid
+    PRImport pkgid -> P.PackageRef $ Just $
+      maybe (P.PackageRefSumPackageId $ encodePackageId pkgid)
+            (P.PackageRefSumInternedId . fromIntegral)
+            (S.lookupIndex pkgid interned)
 
-encodeModuleRef :: PackageRef -> ModuleName -> EncodeImpl (Just P.ModuleRef)
-encodeModuleRef pkgRef modName = encodePackageRef pkgRef <&> \pr -> Just $ P.ModuleRef pr (encodeDottedName unModuleName modName)
+todoDummyCtx :: PackageRefCtx
+todoDummyCtx = S.empty
+
+internPackageRefs :: Package -> PackageRefCtx
+internPackageRefs pkg
+  | packageLfVersion pkg `supports` featureInternedPackageIds =
+      S.fromList $ pkg ^.. packageRefs._PRImport
+  | otherwise = S.empty
+
+encodeModuleRef :: PackageRef -> ModuleName -> Just P.ModuleRef
+encodeModuleRef pkgRef modName =
+  Just $ P.ModuleRef (encodePackageRef todoDummyCtx pkgRef) (encodeDottedName unModuleName modName)
 
 encodeFieldsWithTypes :: Version -> (a -> T.Text) -> [(a, Type)] -> V.Vector P.FieldWithType
 encodeFieldsWithTypes version unwrapName =

@@ -813,6 +813,7 @@ fmap concat $ sequenceA $
   , makePrisms ''Update
   , makePrisms ''Scenario
   , makePrisms ''DataCons
+  , makePrisms ''PackageRef
   , makeUnderscoreLenses ''DefValue
   , makeUnderscoreLenses ''Package
   ]
