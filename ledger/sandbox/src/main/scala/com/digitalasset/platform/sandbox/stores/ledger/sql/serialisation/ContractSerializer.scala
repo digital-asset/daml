@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
+import com.digitalasset.daml.lf.archive.{Decode, Reader}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.TransactionCoder
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
@@ -34,7 +35,8 @@ object ContractSerializer extends ContractSerializer {
     TransactionCoder
       .decodeContractInstance[VersionedValue[AbsoluteContractId]](
         defaultValDecode,
-        TransactionOuterClass.ContractInstance.parseFrom(blob))
+        TransactionOuterClass.ContractInstance.parseFrom(
+          Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT)))
 
   val defaultCidEncode: ValueCoder.EncodeCid[AbsoluteContractId] = ValueCoder.EncodeCid(
     _.coid,
