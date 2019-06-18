@@ -101,23 +101,45 @@ support for running DAML.
 
    * - Ledger
      - Status
-     - Developer
+     - Integration Support
      - More
+
    * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
      - In Development
      - `VMware <https://www.vmware.com/>`__
-     - `press release (April 11th 2019)
+     - `press release (April 2019)
        <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
+
    * - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
      - In Development
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-     - `press release (April 16th 2019)
+     - `press release (April 2019)
        <https://www.hyperledger.org/blog/2019/04/16/daml-smart-contracts-coming-to-hyperledger-sawtooth>`__
+
+   * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
+     - In Development
+     - ``Hacera Unbounded Network <https://unbounded.network/>`__
+     - `press release (June 2019)
+       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
+
+   * - `R3 Corda <https://www.corda.net>`__
+     - In Development
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+     - `press release (June 2019)
+       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
+
+   * - `Amazon Aurora <https://www.hyperledger.org/projects/fabric>`__
+     - In Development
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+     - `press release (June 2019)
+       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
+
    * - :doc:`/tools/sandbox`
      - Stable
      - `Digital Asset <https://digitalasset.com/>`__
      - `PostgreSQL <https://www.postgresql.org/>`__ backend coming soon
        (`GitHub Milestone <https://github.com/digital-asset/daml/milestone/10>`__)
+
    * - Canton
      - In Development
      - `Digital Asset <https://digitalasset.com/>`__
