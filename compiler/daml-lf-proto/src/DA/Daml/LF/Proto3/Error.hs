@@ -7,6 +7,7 @@ module DA.Daml.LF.Proto3.Error
     ) where
 
 import qualified Data.Text as T
+import Data.Word (Word64)
 
 import DA.Daml.LF.Ast
 
@@ -20,6 +21,7 @@ data Error
   | EDuplicateTemplate TypeConName
   | DuplicateChoice ChoiceName
   | UnsupportedMinorVersion T.Text
+  | MissingPackageRefId Word64
   deriving (Show, Eq)
 
 type Decode a = Either Error a

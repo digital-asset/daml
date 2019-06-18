@@ -88,8 +88,8 @@ encodePackageRef interned = Just . \case
 todoDummyCtx :: PackageRefCtx
 todoDummyCtx = S.empty
 
-internPackageRefs :: Package -> PackageRefCtx
-internPackageRefs pkg
+internPackageRefIds :: Package -> PackageRefCtx
+internPackageRefIds pkg
   | packageLfVersion pkg `supports` featureInternedPackageIds =
       S.fromList $ pkg ^.. packageRefs._PRImport
   | otherwise = S.empty
