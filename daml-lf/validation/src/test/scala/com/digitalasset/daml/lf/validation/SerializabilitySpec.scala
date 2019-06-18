@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser._
+import com.digitalasset.daml.lf.testing.parser.defaultPackageId
 import com.digitalasset.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -332,14 +332,14 @@ class SerializabilitySpec extends WordSpec with TableDrivenPropertyChecks with M
   private val defaultWorld =
     world(defaultPkg)
   private def world(pkg: Package) =
-    new World(Map(defaultPkgId -> pkg))
+    new World(Map(defaultPackageId -> pkg))
 
   private def check(pkg: Package, modName: String): Unit = {
     val w = world(pkg)
     val longModName = DottedName.assertFromString(modName)
-    val mod = w.lookupModule(NoContext, defaultPkgId, longModName)
-    require(Try(Typing.checkModule(w, defaultPkgId, mod)).isSuccess)
-    Serializability.checkModule(w, defaultPkgId, mod)
+    val mod = w.lookupModule(NoContext, defaultPackageId, longModName)
+    require(Try(Typing.checkModule(w, defaultPackageId, mod)).isSuccess)
+    Serializability.checkModule(w, defaultPackageId, mod)
   }
 
   private val partiesAlice = "(Cons @Party ['Alice'] (Nil @Party))"

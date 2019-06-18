@@ -33,12 +33,6 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
   val dottedName: Parser[Ref.DottedName] =
     rep1sep(id, `.`) ^^ (s => Ref.DottedName.assertFromSegments(s))
 
-  val fullIdentifier: Parser[Ref.Identifier] =
-    opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {
-      case pkgId ~ modName ~ _ ~ name =>
-        Ref.Identifier(pkgId.getOrElse(defaultPkgId), Ref.QualifiedName(modName, name))
-    }
-
   def parseAll[A](p: Parser[A], s: String): A =
     phrase(p)(Reader(Lexer.lex(s))) match {
       case Success(l, _) => l

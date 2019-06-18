@@ -448,11 +448,11 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           EScenario(decodeScenario(lfExpr.getScenario))
 
         case PLF.Expr.SumCase.NONE =>
-          assertSince("1", "Expr.None")
+          assertSince("1", "CaseAlt.None")
           ENone(decodeType(lfExpr.getNone.getType))
 
         case PLF.Expr.SumCase.SOME =>
-          assertSince("1", "Expr.Some")
+          assertSince("1", "CaseAlt.Some")
           val some = lfExpr.getSome
           ESome(decodeType(some.getType), decodeExpr(some.getBody))
 
@@ -673,7 +673,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 object DecodeV1 {
   import LanguageMinorVersion.Implicits._
 
-  private[archive] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
+  private[lf] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
     import PLF.PrimType._
 
     Map(
@@ -695,7 +695,7 @@ object DecodeV1 {
     )
   }
 
-  private[archive] val builtinFunctionMap = {
+  private[lf] val builtinFunctionMap = {
     import PLF.BuiltinFunction._
 
     Map[PLF.BuiltinFunction, (Ast.BuiltinFunction, LanguageMinorVersion)](

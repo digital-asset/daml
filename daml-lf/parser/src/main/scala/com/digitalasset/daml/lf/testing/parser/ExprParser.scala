@@ -8,10 +8,14 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
-import com.digitalasset.daml.lf.testing.parser.TypeParser._
 
 @SuppressWarnings(Array("org.wartremover.warts.AnyVal"))
-private[parser] object ExprParser {
+private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
+
+  import ExprParser._
+
+  private[parser] val typeParser: TypeParser[P] = new TypeParser(parserParameters)
+  import typeParser._
 
   lazy val expr0: Parser[Expr] =
     literal ^^ EPrimLit |
@@ -58,10 +62,6 @@ private[parser] object ExprParser {
     accept("ContractId", { case ContractId(cid) => cid }) ~ (`@` ~> fullIdentifier) ^^ {
       case cid ~ t => EContractId(Ref.ContractIdString.assertFromString(cid), t)
     }
-
-  private sealed trait EAppAgr extends Product with Serializable
-  private final case class EAppExprArg(e: Expr) extends EAppAgr
-  private final case class EAppTypArg(e: Type) extends EAppAgr
 
   private lazy val eAppAgr: Parser[EAppAgr] =
     argTyp ^^ EAppTypArg |
@@ -379,5 +379,13 @@ private[parser] object ExprParser {
       updateLookupByKey |
       updateGetTime |
       updateEmbedExpr
+
+}
+
+object ExprParser {
+
+  private sealed trait EAppAgr extends Product with Serializable
+  private final case class EAppExprArg(e: Expr) extends EAppAgr
+  private final case class EAppTypArg(e: Type) extends EAppAgr
 
 }

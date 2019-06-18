@@ -11,9 +11,8 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.Expr
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SResult.{SResultContinue, SResultError}
-import com.digitalasset.daml.lf.speedy.SValue.{STuple, _}
+import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser.defaultPkgId
 import com.digitalasset.daml.lf.validation.Validation
 import org.scalatest.{Matchers, WordSpec}
 
@@ -113,8 +112,8 @@ object SpeedyTest {
   }
 
   private def typeAndCompile(pkg: Ast.Package): PureCompiledPackages = {
-    val rawPkgs = Map(defaultPkgId -> pkg)
-    Validation.checkPackage(rawPkgs, defaultPkgId)
+    val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
+    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId)
     PureCompiledPackages(rawPkgs).right.get
   }
 

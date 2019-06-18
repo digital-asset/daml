@@ -16,6 +16,8 @@ sealed abstract class StringModule {
 
   def equalInstance: Equal[T]
 
+  final implicit def ordering: Ordering[T] = _ compare _
+
   // We provide the following array factory instead of a ClassTag
   // because the latter lets people easily reinterpret any string as a T.
   // See

@@ -5,13 +5,13 @@ package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser._
+import com.digitalasset.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.{Matchers, WordSpec}
 
 class CollisionSpec extends WordSpec with Matchers {
 
-  def check(pkg: Package) =
-    Collision.checkPackage(defaultPkgId, pkg.modules)
+  def check(pkg: Package): Unit =
+    Collision.checkPackage(defaultPackageId, pkg.modules)
 
   "Collision validation" should {
 
