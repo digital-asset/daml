@@ -38,8 +38,8 @@ rec {
   # as possible.
   ghc = import ./ghc.nix { inherit pkgs; };
 
-  # GHC with the package configurations patched for static only linking.
-  ghcStatic = ghc.ghcWithPackages (p: []);
+  # GHC configured for static linking only.
+  ghcStatic = ghc.ghc.override { enableShared = false; };
 
 
   # Java 8 development
