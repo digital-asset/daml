@@ -82,11 +82,7 @@ A *transaction* is a list of *actions*, and there are just three kinds of action
 - A ``fetch`` action  checks the existence and activeness of a contract.
 - An ``exercise`` action contains the choice arguments and a transaction called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
 
-The consequences of exercise nodes turn each transaction into an ordered tree of (sub-) transactions, or, equivalently, a forest of actions. Actions are in one-to-one correspondence with proper sub-transactions.
-
-Each contract has an implicit choice ``Archive`` with the signatories as controllers and ``archive cid`` is just shorthand for ``exercise cid Archive``.
-
-With that new background, it's time to take a look at the transaction view of the above scenario:
+The consequences of exercise nodes turn each transaction into an ordered tree of (sub-) transactions, or, equivalently, a forest of actions. Actions are in one-to-one correspondence with proper sub-transactions. You can see the action and their consequences in the transaction view of the above scenario:
 
 .. code-block:: none
 
@@ -150,6 +146,11 @@ With that new background, it's time to take a look at the transaction view of th
 There are four commits corresponding to the four ``submit`` statements in the scenario. Within each commit, we see that it's actually actions that have IDs of the form ``#commit_number:action_number``. Contract IDs are just the ID of their ``create`` action.
 
 So commits ``#2`` and ``#4`` contain ``exercise`` actions with ids ``#2:1`` and ``#4:1``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:2`` and ``#4:2``, are indented and found below a line reading ``children:``, making the tree structure apparent.
+
+The Archive choice
+~~~~~~~~~~~~~~~~~~
+
+You may have noticed that there is no archive action. That's because ``archive cid`` is just shorthand for ``exercise cid Archive``, where ``Archive`` is a choice implicitly added to every template, with the signatories as controllers.
 
 .. _simple_iou:
 

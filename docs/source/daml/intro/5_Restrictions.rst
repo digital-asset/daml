@@ -45,7 +45,7 @@ Assertions and errors
 
 A second common kind of restriction is one on data transformations.
 
-For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``owner`` transfers to themselves. You can prevent that using an ``assert`` statement, which you have already encountered in the context of scenarios. 
+For example, the simple Iou in :ref:`simple_iou` allowed the no-op where the ``owner`` transfers to themselves. You can prevent that using an ``assert`` statement, which you have already encountered in the context of scenarios.
 
 ``assert`` does not return an informative error so often it's better to use the function ``assertMsg``, which takes a custom error message:
 
@@ -135,10 +135,10 @@ Actions and impurity
 
 Actions are a way to handle such "impure" expressions. ``Action a`` is a type class with a single parameter ``a``, and ``Update`` and ``Scenario`` are instances of ``Action``. A value of such a type ``m a`` where ``m`` is an instance of ``Action`` can be interpreted as "a recipe for an action of type ``m``, which, when executed, returns a value ``a``".
 
-You can always write a recipe using just pen and paper, but you can't cook it up unless you are in the context of a kitchen with the right ingredients and utensils.
+You can always write a recipe using just pen and paper, but you can't cook it up unless you are in the context of a kitchen with the right ingredients and utensils. When cooking the recipe you have an effect -- you change the state of the kitchen -- and a return value -- the thing you leave the kitchen with.
 
-- An ``Update a`` is "a recipe to update a DAML ledger, which, when committed, returns a value of type ``a``". An update to a DAML ledger is a transaction so equivalently, an ``Update a`` is "a recipe to construct a transaction, which, when executed in the context of a ledger, returns a value of type ``a``".
-- A ``Scenario a`` is "a recipe for a test, which, when performed against a ledger, returns a value of type ``a``".
+- An ``Update a`` is "a recipe to update a DAML ledger, which, when committed, has the effect of changing the ledger, and returns a value of type ``a``". An update to a DAML ledger is a transaction so equivalently, an ``Update a`` is "a recipe to construct a transaction, which, when executed in the context of a ledger, returns a value of type ``a``".
+- A ``Scenario a`` is "a recipe for a test, which, when performed against a ledger, has the effect of changing the ledger in ways analogous to those available via the API, and returns a value of type ``a``".
 
 Expressions like ``getTime``, ``getParty party``, ``pass time``, ``submit party update``, ``create contract`` and ``exercise choice`` should make more sense in that light. For example:
 
@@ -148,6 +148,9 @@ Expressions like ``getTime``, ``getParty party``, ``pass time``, ``submit party 
 - ``submit alice (create iou) : Scenario (ContractId Iou)`` is a recipe for a scenario in which Alice evaluates the result of ``create iou`` to get a transaction and a return value of type ``ContractId Iou``, and then submits that transaction to the ledger.
 
 Any DAML ledger knows how to perform actions of type ``Update a``. Only some know how to run scenarions, meaning they can perform actions of type ``Scenario a``.
+
+Chaining up actions with do blocks
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 An action followed by another action, possibly depending on the result of the first action, is just another action. Specifically:
 
@@ -162,6 +165,9 @@ This is where ``do`` blocks come in. ``do`` blocks allow you to combine small ac
   :end-before: -- DO_DEMO_END
 
 Above, we see ``do`` blocks in action for both ``Scenario`` and ``Update``.
+
+Wrapping values in actions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 You may already have noticed the use of ``return`` in the redeem choice. ``return x`` is a no-op action which returns value ``x`` so ``return 42 : Update Int``. Since ``do`` blocks always return the value of their last action, ``sub_scenario2 : Scenario Int``.
 
@@ -179,7 +185,7 @@ The last expression in the ``do`` block of the ``Redeem`` choice is a pattern ma
 A sample Action
 ---------------
 
-If the above didn't make complete sense, here's another example. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped and based on the ``Heads`` and ``Tails`` results, a value of type ``a`` is calulated.
+If the above didn't make complete sense, here's another example to explain what actions are more generally, by creating a new type that is also an action. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped. The ``Coin`` is a pseudo-random number generator and each flip has the effect of changing the RNGs state. Based on the ``Heads`` and ``Tails`` results, a return value of type ``a`` is calulated.
 
 .. literalinclude:: daml/daml-intro-5/Restrictions.daml
   :language: daml
@@ -199,7 +205,7 @@ You can't play any ``CoinGame`` game on pen and paper as you don't have a coin, 
 
 The ``game`` expression is a ``CoinGame`` in which a coin is flipped three times. If all three tosses return ``Heads``, the result is ``"Win"``, or else ``"Loss"``.
 
-In a ``Scenario`` context you can get a ``Coin``, which is actually a pseudo-random number generator based on LET, and play the game.
+In a ``Scenario`` context you can get a ``Coin`` using the ``getCoin`` action, which uses the LET to calculate a seed, and play the game.
 
 *Somehow* the ``Coin`` is threaded through the various actions. If you want to look through the looking glass and understand in-depth what's going on, you can look at the source file to see how the ``CoinGame`` action is implemented, though be warned that the implementation uses a lot of DAML features we haven't introduced yet in this introduction.
 

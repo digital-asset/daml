@@ -114,7 +114,7 @@ This is also the first time we have shown a choice with more than one controller
   :start-after: -- SENDER_ROLE_BEGIN
   :end-before: -- SENDER_ROLE_END
 
-The above ``IouSender`` contract now gives a one party, the ``sender`` the right to send ``Iou`` contracts with positive amounts to a ``receiver``. The ``nonconsuming`` keyword on the choice ``Send_Iou`` changes the behaviour of the choice so that the contract it's exercised on does not get archived when the choice is exercised. That way the ``sender`` can use the contract to send multiple Ious. 
+The above ``IouSender`` contract now gives a one party, the ``sender`` the right to send ``Iou`` contracts with positive amounts to a ``receiver``. The ``nonconsuming`` keyword on the choice ``Send_Iou`` changes the behaviour of the choice so that the contract it's exercised on does not get archived when the choice is exercised. That way the ``sender`` can use the contract to send multiple Ious.
 
 Here it is in action:
 
@@ -130,20 +130,25 @@ Hopefully, the above will have given you a good intuition for how authority is p
 
 In :ref:`choices` you learned that a transaction is, equivalently, a tree of transactions, or a forest of actions, where each transaction is a list of actions, and each action has a child-transaction called its consequences.
 
-Each action has a set of *required authorizers*:
+Each action has a set of *required authorizers* -- the parties that must authorize that action -- and each transaction has a set of *authorizers* -- the parties that did actually authorize the transaction.
+
+The authorization rule is that the required authorizers of every action are a subset of the authorizers of the parent transaction.
+
+The required authorizers of actions are:
 
 - The required authorizers of an **exercise action** are the controllers on the corresponding choice. Remember that ``Archive`` and ``archive`` are just an implicit choice with the signatories as controllers.
 - The required authorizers of a **create action** are the signatories of the contract.
 - The required authorizers of a **fetch action** (which also includes ``fetchByKey``) are somewhat dynamic and covered later.
 
-Each transaction has a set of *authorizers*:
+The authorizers of transactions are:
 
 - The root transaction of a commit is authorized by the submitting party.
 - The consequences of an exercise action are authorized by the actors of that action plus the signatories of the contract on which the action was taken.
 
-The authorization rule is that the required authorizers of every action are a subset of the authorizers of the parent transaction.
+An authorization example
+~~~~~~~~~~~~~~~~~~~~~~~~
 
-Take, for example, the final transaction in the scenario of the the source file for this section. Ignoring fetches:
+The final transaction in the scenario of the the source file for this section is authorized as follows, ignoring fetches:
 
 - Bob submits the transaction so he's the authorizer on the root transaction.
 - The root transaction has a single action, which is to exercise ``Send_Iou`` on a ``IouSender`` contract with Bob as ``sender`` and Charlie as ``receiver``. Since the controller of that choice is the ``sender``, Bob is the required authorizer.

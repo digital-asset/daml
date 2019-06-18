@@ -200,7 +200,7 @@ DAML's execution model is fairly easy to understand, but has some important cons
 
 1. A party submits a transaction. Remember, a transaction is just a list of actions.
 2. The transaction is interpreted, meaning the ``Update`` corresponding to each action is evaluated in the context of the ledger to calculate all consequeces, including transitive ones (consequences of consequences, etc).
-3. The transaction is *blinded*, or *projected*, meaning the views that different parties have on the transaction are calculated.
+3. The views of the transaction that parties get to see (see :ref:`privacy`) are calculated in a process called *blinding*, or *projecting*.
 4. The blinded views are distributed to the parties.
 5. The transaction is *validated* based on the blinded views and a consensus protocol depending on the underlying infrastructure.
 6. If validation succeeds, the transaction is *committed*.
@@ -235,6 +235,8 @@ Observers have guarantees in DAML. In particular, they are guaranteed to see act
 Since observers are calculated from the arguments of the contract, they always know about each other. That's why, rather than adding Bob as an observer on Alice's ``AssetHolder`` contract, and using that to authorize the transfer in ``Trade_Settle``, Alice creates a one-time authorization in the form of a ``TransferAuthorization``. If Alice had lots of couterparties, she would otherwise end up leaking them to each other.
 
 Controllers declared via the ``controller cs can`` syntax are automatically made observers. Controllers declared in the ``choice`` syntax are not, as they can only be calculated at the point in time when the choice arguments are known.
+
+.. _privacy:
 
 Privacy
 -------
