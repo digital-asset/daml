@@ -310,7 +310,7 @@ mainProj TestArguments{..} service outdir log file = do
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
 
     Compile.setFilesOfInterest service (Set.singleton file)
-    Compile.runAction service $ do
+    Compile.runActionSync service $ do
             cores <- ghcCompile log file
             corePrettyPrint cores
             lf <- lfConvert log file
