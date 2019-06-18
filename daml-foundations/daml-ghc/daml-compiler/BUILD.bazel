@@ -16,6 +16,7 @@ da_haskell_library(
         "directory",
         "extra",
         "filepath",
+        "ghc-lib",
         "ghc-lib-parser",
         "haskell-lsp",
         "mtl",

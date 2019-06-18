@@ -42,27 +42,6 @@
         </dependency>
     </dependencies>
 
-    <repositories>
-        <repository>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <id>bintray-digitalassetsdk-DigitalAssetSDK</id>
-            <name>bintray</name>
-            <url>https://digitalassetsdk.bintray.com/DigitalAssetSDK</url>
-        </repository>
-    </repositories>
-    <pluginRepositories>
-        <pluginRepository>
-            <snapshots>
-                <enabled>false</enabled>
-            </snapshots>
-            <id>bintray-digitalassetsdk-DigitalAssetSDK</id>
-            <name>bintray</name>
-            <url>https://digitalassetsdk.bintray.com/DigitalAssetSDK</url>
-        </pluginRepository>
-    </pluginRepositories>
-
     <build>
         <plugins>
             <plugin>

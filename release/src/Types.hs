@@ -6,11 +6,16 @@
 module Types (
     AllArtifacts(..),
     ArtifactId,
+    ArtifactType,
     CIException(..),
     Classifier,
     BintrayPackage(..),
     GitRev,
     GroupId,
+    MavenAllowUnsecureTls(..),
+    MavenCoords(..),
+    MavenUpload(..),
+    MavenUploadConfig(..),
     MonadCI,
     OS(..),
     PerformUpload(..),
@@ -35,7 +40,8 @@ import           Control.Monad.IO.Class               (MonadIO, liftIO)
 import           Control.Monad.IO.Unlift              (MonadUnliftIO)
 import           Control.Monad.Logger
 import           Control.Monad.Trans.Control          (MonadBaseControl)
-import Data.Aeson
+import           Data.Aeson
+import           Data.Maybe
 import           Data.Text                            (Text)
 import qualified Data.Text                            as T
 import           Data.Typeable                        (Typeable)
@@ -62,8 +68,21 @@ type TextVersion = Text
 type GroupId = [Text]
 type ArtifactId = Text
 type Classifier = Text
+type ArtifactType = Text
+
+-- Fully qualified coordinates for a Maven artifact.
+data MavenCoords = MavenCoords
+    { groupId :: !GroupId
+    , artifactId :: !ArtifactId
+    , version :: !TextVersion
+    , classifier :: Maybe ArtifactType
+    , artifactType :: !ArtifactType
+    } deriving Show
 
 newtype PlatformDependent = PlatformDependent{getPlatformDependent :: Bool}
+    deriving (Eq, Show, FromJSON)
+
+newtype MavenUpload = MavenUpload { getMavenUpload :: Bool }
     deriving (Eq, Show, FromJSON)
 
 -- | If this is True, we produce all artifacts even platform independent artifacts on MacOS.
@@ -147,3 +166,24 @@ parseVersion (T.strip -> txt) = do
 
 renderVersion :: Version -> Text
 renderVersion (Version maj min_ patch) = T.intercalate "." [tshow maj, tshow min_, tshow patch]
+
+newtype MavenAllowUnsecureTls = MavenAllowUnsecureTls { getAllowUnsecureTls :: Bool }
+    deriving (Eq, Show, FromJSON)
+
+data MavenUploadConfig = MavenUploadConfig
+  { mucUrl :: !Text
+  , mucUser :: !Text
+  , mucPassword :: !Text
+  , mucAllowUnsecureTls :: !MavenAllowUnsecureTls
+-- ^^ For testing with an Artifactory (or similar) instance using a self-signed SSL certificate.
+-- This flag should NEVER be set in production.
+  , mucSigningKey :: String
+} deriving (Eq, Show)
+
+instance FromJSON MavenUploadConfig where
+    parseJSON = withObject "MavenUploadConfig" $ \o -> MavenUploadConfig
+        <$> o .: "url"
+        <*> o .: "user"
+        <*> o .: "password"
+        <*> (fromMaybe (MavenAllowUnsecureTls False) <$> o .:? "allowUnsecureTls")
+        <*> o .: "signingKey"

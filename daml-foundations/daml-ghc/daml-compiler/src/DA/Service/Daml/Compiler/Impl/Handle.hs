@@ -15,6 +15,7 @@ module DA.Service.Daml.Compiler.Impl.Handle
   , getAssociatedVirtualResources
   , compileFile
   , toIdeLogger
+  , parseFile
   , UseDalf(..)
   , buildDar
   , getDalfDependencies
@@ -36,6 +37,7 @@ import DA.Daml.GHC.Compiler.Convert (sourceLocToRange)
 import DA.Daml.GHC.Compiler.Options
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as Scenario
 import "ghc-lib-parser" Module (unitIdString, DefUnitId(..), UnitId(..))
+import "ghc-lib" GHC (ParsedModule)
 
 -- DAML compiler and infrastructure
 import qualified DA.Daml.LF.Ast                             as LF
@@ -167,6 +169,21 @@ compileFile service fp = do
             diag <- liftIO $ CompilerService.getDiagnostics service
             throwE diag
         Just v -> return v
+
+-- | Parse the supplied file to a ghc ParsedModule.
+parseFile
+    :: IdeState
+    -> NormalizedFilePath
+    -> ExceptT [FileDiagnostic] IO ParsedModule
+parseFile service fp = do
+    liftIO $ CompilerService.setFilesOfInterest service (S.singleton fp)
+    liftIO $ CompilerService.logDebug service $ "Parsing: " <> T.pack (fromNormalizedFilePath fp)
+    res <- liftIO $ CompilerService.runAction service (CompilerService.getParsedModule fp)
+    case res of
+        Nothing -> do
+            diag <- liftIO $ CompilerService.getDiagnostics service
+            throwE diag
+        Just pm -> return pm
 
 newtype UseDalf = UseDalf{unUseDalf :: Bool}
 

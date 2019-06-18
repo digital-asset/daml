@@ -40,13 +40,12 @@ da-ghcid daml-foundations/daml-ghc/test-src/DA/Test/ShakeIdeClient.hs --test=":m
 The above commands do not execute scenarios. To do that, use a command like
 ```
 bazel run damlc test $PWD/daml-foundations/daml-ghc/bond-trading/Test.daml
-``` 
+```
 
 Testing in situ:
 
 ```
-da-sdk-head
-da-sdk-head --damlc
+daml-sdk-head
 ```
 
 ## Documentation

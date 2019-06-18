@@ -55,6 +55,7 @@ DAML SDK documentation
 
    tools/assistant
    tools/sandbox
+   tools/visual
    tools/navigator/index
 
 .. toctree::

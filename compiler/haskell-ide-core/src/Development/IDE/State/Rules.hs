@@ -20,6 +20,7 @@ module Development.IDE.State.Rules(
     getDefinition,
     getDependencies,
     getDalfDependencies,
+    getParsedModule,
     fileFromParsedModule
     ) where
 
@@ -120,6 +121,10 @@ getDefinition :: NormalizedFilePath -> Position -> Action (Maybe Location)
 getDefinition file pos = do
     fmap (either (const Nothing) id) . runExceptT $ getDefinitionForFile file pos
 
+-- | Parse the contents of a daml file.
+getParsedModule :: NormalizedFilePath -> Action (Maybe ParsedModule)
+getParsedModule file =
+    eitherToMaybe <$> (runExceptT $ useE GetParsedModule file)
 
 ------------------------------------------------------------
 -- Internal Actions
@@ -288,7 +293,7 @@ typeCheckRule =
         setPriority PriorityTypeCheck
         packageState <- use_ GhcSession ""
         opt <- getOpts
-        liftIO $ Compile.typecheckModule opt pm packageState tms pm
+        liftIO $ Compile.typecheckModule opt packageState tms pm
 
 
 generateCoreRule :: Rules ()

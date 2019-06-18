@@ -4,6 +4,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """Bazel aware wrapper for ghcid
+
+Calls ghcid on da-ghci on the given target. See da-ghci --help for further information.
+
+To pass additional arguments to da-ghci use the following form:
+
+    da-ghcid //my:target -- -package extra-package
+
 """
 
 import argparse

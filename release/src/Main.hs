@@ -5,9 +5,9 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Main (main) where
 
+import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Logger
-import Data.Traversable
 import Data.Yaml
 import Path
 import Path.IO
@@ -18,6 +18,7 @@ import System.Process
 
 import Options
 import Types
+import Upload
 import Util
 
 main :: IO ()
@@ -54,10 +55,19 @@ main = do
           then do
               $logInfo "Make release"
               releaseToBintray upload releaseDir (map (\(a, (_, outp)) -> (a, outp)) files)
+
+              -- Uploading to Maven Central
+              mavenUploadConfig <- mavenConfigFromEnv
+
+              let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
+              uploadArtifacts <- concatMapM (artifactCoords optsAllArtifacts) mavenUploadArtifacts
+              uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts
+
               -- set variables for next steps in Azure pipelines
               liftIO . putStrLn $ "##vso[task.setvariable variable=has_released;isOutput=true]true"
               liftIO . putStrLn . T.unpack $ "##vso[task.setvariable variable=release_tag]" # renderVersion sdkVersion
           else $logInfo "Make dry run of release"
+
   where
     runLog Options{..} m0 = do
         let m = filterLogger (\_ ll -> ll >= optsLogLevel) m0
