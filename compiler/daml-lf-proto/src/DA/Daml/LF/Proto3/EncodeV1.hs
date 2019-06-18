@@ -31,6 +31,7 @@ import qualified Proto3.Suite as P (Enumerated (..))
 -- otherwise always be wrapped in `Just` at their call sites.
 type Just a = Maybe a
 
+-- package-global state that encodePackageRef requires
 type PackageRefCtx = S.Set PackageId
 
 ------------------------------------------------------------------------

@@ -552,11 +552,19 @@ decodeTypeConName LF1.TypeConName{..} = do
 
 type PackageRefCtx = V.Vector PackageId
 
-decodePackageRef :: LF1.PackageRef -> Decode PackageRef
-decodePackageRef (LF1.PackageRef pref) =
+decodePackageRef :: PackageRefCtx -> LF1.PackageRef -> Decode PackageRef
+decodePackageRef interned (LF1.PackageRef pref) =
   mayDecode "packageRefSum" pref $ \case
     LF1.PackageRefSumSelf _          -> pure PRSelf
     LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ PackageId $ TL.toStrict pkgId
+    LF1.PackageRefSumInternedId ix -> do
+      let ixd = fromIntegral ix :: Int
+          missing = Left $ MissingPackageRefId ix
+      unless (ix == fromIntegral ixd) missing
+      maybe missing pure $ PRImport <$> interned V.!? ixd
+
+todoDummyPackageRefCtx :: PackageRefCtx
+todoDummyPackageRefCtx = V.empty
 
 decodeInternedPackageIds :: V.Vector TL.Text -> Decode PackageRefCtx
 decodeInternedPackageIds = undefined
@@ -564,7 +572,7 @@ decodeInternedPackageIds = undefined
 decodeModuleRef :: LF1.ModuleRef -> Decode (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
   (,)
-    <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
+    <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef (decodePackageRef todoDummyPackageRefCtx)
     <*> mayDecode "moduleRefModuleName" moduleRefModuleName (decodeDottedName ModuleName)
 
 
