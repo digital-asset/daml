@@ -47,10 +47,14 @@ class SandboxSemanticTestsLfRunner
   }
 
   s"a ledger launched with $darFile" should {
-    val runSuffix = if (config.uniqueIdentifiers) "-" + Random.alphanumeric.take(10).mkString else ""
-    val partyNameMangler = (partyText: String) => partyText + runSuffix
-    val commandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
-      (scenario, stepId, nodeId) => s"ledger-api-test-tool-$scenario-$stepId-${nodeId}${runSuffix}"
+    val runSuffix = Random.alphanumeric.take(10).mkString
+    val partyNameMangler = (partyText: String) =>
+      partyText + (if (config.uniquePartyIdentifiers) "-" + runSuffix else "")
+    val commandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) = {
+      val suffix = if (config.uniqueCommandIdentifiers) "-" + runSuffix else ""
+      (scenario, stepId, nodeId) =>
+        s"ledger-api-test-tool-$scenario-$stepId-${nodeId}${suffix}"
+    }
     for {
       (pkgId, names) <- SemanticTester.scenarios(Map(mainPkgId -> packages(mainPkgId))) // we only care about the main pkg
       name <- names

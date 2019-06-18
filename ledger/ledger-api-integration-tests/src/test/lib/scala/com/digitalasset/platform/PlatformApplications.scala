@@ -41,7 +41,8 @@ object PlatformApplications {
       persistenceEnabled: Boolean = false,
       maxNumberOfAcsContracts: Option[Int] = None,
       commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig,
-      uniqueIdentifiers: Boolean = true,
+      uniqueCommandIdentifiers: Boolean = true,
+      uniquePartyIdentifiers: Boolean = true,
       remoteApiEndpoint: Option[RemoteApiEndpoint] = None) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
@@ -57,7 +58,11 @@ object PlatformApplications {
 
     def withLedgerIdMode(mode: LedgerIdMode): Config = copy(ledgerId = mode)
 
-    def withUniqueIdentifiers(uniqueIdentifiers: Boolean): Config = copy(uniqueIdentifiers = uniqueIdentifiers)
+    def withUniquePartyIdentifiers(uniqueIdentifiers: Boolean): Config =
+      copy(uniquePartyIdentifiers = uniqueIdentifiers)
+
+    def withUniqueCommandIdentifiers(uniqueIdentifiers: Boolean): Config =
+      copy(uniqueCommandIdentifiers = uniqueIdentifiers)
 
     def withParties(p1: String, rest: String*) = copy(parties = NonEmptyList(p1, rest: _*))
 
