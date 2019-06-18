@@ -567,7 +567,7 @@ todoDummyPackageRefCtx :: PackageRefCtx
 todoDummyPackageRefCtx = V.empty
 
 decodeInternedPackageIds :: V.Vector TL.Text -> Decode PackageRefCtx
-decodeInternedPackageIds = undefined
+decodeInternedPackageIds = pure . fmap (PackageId . TL.toStrict)
 
 decodeModuleRef :: LF1.ModuleRef -> Decode (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
