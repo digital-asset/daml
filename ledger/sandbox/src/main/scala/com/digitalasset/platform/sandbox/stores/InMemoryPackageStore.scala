@@ -67,16 +67,16 @@ class InMemoryPackageStore() extends IndexPackagesService {
       .map { _ =>
         putDarFile(knownSince, sourceDescription, file)
       }
-    result match {
+    CompletableFuture.completedFuture(result match {
       case Success(Right(details @ _)) =>
         // TODO(FM) I'd like to include the details above but i get a strange error
         // about mismatching PackageId type
-        CompletableFuture.completedFuture(UploadDarResult.Ok)
+        UploadDarResult.Ok
       case Success(Left(err)) =>
-        CompletableFuture.completedFuture(UploadDarResult.InvalidPackage(err))
+        UploadDarResult.InvalidPackage(err)
       case Failure(exception) =>
-        CompletableFuture.completedFuture(UploadDarResult.InvalidPackage(exception.getMessage))
-    }
+        UploadDarResult.InvalidPackage(exception.getMessage)
+    })
   }
 
   def putDarFile(
@@ -92,7 +92,7 @@ class InMemoryPackageStore() extends IndexPackagesService {
             try {
               Right((size, archive, Decode.decodeArchive(archive)._2))
             } catch {
-              case err: ParseError => Left(s"Could not parse archive $archive.getHash: $err")
+              case err: ParseError => Left(s"Could not parse archive ${archive.getHash}: $err")
             }
         }
       }

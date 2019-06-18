@@ -79,6 +79,11 @@ DAML Studio
 ~~~~~~~~~~~
 
 - The IDE now executes tasks in parallel.
+Sandbox
+~~~~~~~~
+
+- Introduced a new API for package management.
+  See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
 
 Sandbox
 ~~~~~~~

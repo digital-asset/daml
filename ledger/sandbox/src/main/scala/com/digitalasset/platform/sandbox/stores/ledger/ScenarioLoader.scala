@@ -156,7 +156,9 @@ object ScenarioLoader {
       .listLfPackagesSync()
       .flatMap {
         case (packageId, _) =>
-          val pkg = packages.getLfPackageSync(packageId).get
+          val pkg = packages
+            .getLfPackageSync(packageId)
+            .getOrElse(sys.error(s"Listed package $packageId not found"))
           pkg.lookupIdentifier(scenarioQualName) match {
             case Right(x) => List((Ref.Identifier(packageId, scenarioQualName), x))
             case Left(_) => List()
@@ -177,7 +179,11 @@ object ScenarioLoader {
           .iterator
           .map {
             case (pkgId, _) =>
-              DeprecatedIdentifier.lookup(packages.getLfPackageSync(pkgId).get, scenario)
+              DeprecatedIdentifier.lookup(
+                packages
+                  .getLfPackageSync(pkgId)
+                  .getOrElse(sys.error(s"Listed package $pkgId not found")),
+                scenario)
           }
           .collectFirst {
             case Right(qualifiedName) => qualifiedName

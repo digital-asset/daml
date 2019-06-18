@@ -8,7 +8,6 @@ import java.time.Instant
 import java.util.zip.ZipFile
 
 import akka.stream.ActorMaterializer
-import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.ImmArray
