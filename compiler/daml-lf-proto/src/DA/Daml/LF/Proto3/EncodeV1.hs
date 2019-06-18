@@ -64,12 +64,12 @@ encodeDottedName :: (a -> [T.Text]) -> a -> Just P.DottedName
 encodeDottedName unwrapDottedName = Just . P.DottedName . encodeList (encodeName id) . unwrapDottedName
 
 encodeQualTypeConName :: Qualified TypeConName -> Just P.TypeConName
-encodeQualTypeConName (Qualified pref mname con) = Just $ P.TypeConName (encodeModuleRef pref mname) (encodeDottedName unTypeConName con)
+encodeQualTypeConName (Qualified pref mname con) = Just $ P.TypeConName (encodeModuleRef todoDummyCtx pref mname) (encodeDottedName unTypeConName con)
 
 encodeSourceLoc :: SourceLoc -> P.Location
 encodeSourceLoc SourceLoc{..} =
     P.Location
-      (uncurry encodeModuleRef =<< slocModuleRef)
+      (uncurry (encodeModuleRef todoDummyCtx) =<< slocModuleRef)
       (Just (P.Location_Range
         (fromIntegral slocStartLine)
         (fromIntegral slocStartCol)
@@ -93,9 +93,9 @@ internPackageRefs pkg
       S.fromList $ pkg ^.. packageRefs._PRImport
   | otherwise = S.empty
 
-encodeModuleRef :: PackageRef -> ModuleName -> Just P.ModuleRef
-encodeModuleRef pkgRef modName =
-  Just $ P.ModuleRef (encodePackageRef todoDummyCtx pkgRef) (encodeDottedName unModuleName modName)
+encodeModuleRef :: PackageRefCtx -> PackageRef -> ModuleName -> Just P.ModuleRef
+encodeModuleRef ctx pkgRef modName =
+  Just $ P.ModuleRef (encodePackageRef ctx pkgRef) (encodeDottedName unModuleName modName)
 
 encodeFieldsWithTypes :: Version -> (a -> T.Text) -> [(a, Type)] -> V.Vector P.FieldWithType
 encodeFieldsWithTypes version unwrapName =
@@ -307,7 +307,7 @@ encodeBuiltinExpr = \case
 encodeExpr' :: Version -> Expr -> P.Expr
 encodeExpr' version = \case
   EVar v -> expr $ P.ExprSumVar (encodeName unExprVarName v)
-  EVal (Qualified pkgRef modName val) -> expr $ P.ExprSumVal $ P.ValName (encodeModuleRef pkgRef modName) (encodeValueName val)
+  EVal (Qualified pkgRef modName val) -> expr $ P.ExprSumVal $ P.ValName (encodeModuleRef todoDummyCtx pkgRef modName) (encodeValueName val)
   EBuiltin bi -> expr $ encodeBuiltinExpr bi
   ERecCon{..} -> expr $ P.ExprSumRecCon $ P.Expr_RecCon (encodeTypeConApp version recTypeCon) (encodeFieldsWithExprs version unFieldName recFields)
   ERecProj{..} -> expr $ P.ExprSumRecProj $ P.Expr_RecProj (encodeTypeConApp version recTypeCon) (encodeName unFieldName recField) (encodeExpr version recExpr)
