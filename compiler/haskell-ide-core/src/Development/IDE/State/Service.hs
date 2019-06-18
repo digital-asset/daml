@@ -112,9 +112,9 @@ runAction service action = head <$> runActions service [action]
 -- e.g., the ofInterestRule.
 runActions :: IdeState -> [Action a] -> IO [a]
 runActions x acts = do
-    var <- newEmptyMVar
-    _ <- shakeRun x acts (putMVar var)
-    takeMVar var
+    var <- newBarrier
+    _ <- shakeRun x acts (signalBarrier var)
+    waitBarrier var
 
 -- | This is a synchronous variant of `runAction`. See
 -- `runActionsSync` of more details.
