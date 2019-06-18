@@ -1,10 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
-module DamlcTest
+module VisualTest
    ( main
    ) where
 
 import Test.Tasty
 import Test.Tasty.HUnit
+import System.Directory
 
 main :: IO ()
 main = defaultMain tests
@@ -19,5 +20,7 @@ temp a b = a == b
 unitTests :: TestTree
 unitTests = testGroup "Unit tests"
   [
-  testCase "List comparison (different length)"  (assertBool "Non-empty list"  (temp "a" "b") )
+  testCase "List comparison (different length)"  (assertBool "Non-empty list"  (temp "a" "a") )
+   , testCase "file exists" (doesFileExist "daml-foundations/daml-tools/da-hs-daml-cli/visual-test-daml.dar" @? "missing")
+
   ]
