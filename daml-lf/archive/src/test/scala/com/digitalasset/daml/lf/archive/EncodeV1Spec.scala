@@ -6,10 +6,9 @@ package com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.testing.parser.AstRewriter
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.testing.parser.{AstRewriter, ParserParameters, parseModules}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
-import com.digitalasset.daml.lf.testing.parser.parseModules
 import com.digitalasset.daml.lf.validation.Validation
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -20,13 +19,21 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
 
   import EncodeV1Spec._
 
-  private implicit val languageVersion = LanguageVersion(LMV.V1, "dev")
+  val defaultParserParameters: ParserParameters[this.type] =
+    ParserParameters(
+      pkgId,
+      LanguageVersion(V1, "dev")
+    )
 
-  "Encode and Decode should form a prism" ignore {
+  "Encode and Decode" should {
+    "form a prism" in {
 
-    val pkg: Ast.Package =
-      p"""
-         
+      implicit val defaultParserParameters2: ParserParameters[this.type] =
+        defaultParserParameters
+
+      val pkg: Ast.Package =
+        p"""
+
          module Mod {
 
             record @serializable Person = { person: Party, name: Text } ;
@@ -92,12 +99,12 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
              case e of True -> x | False -> y;
            val aListMatch: forall (a: *). List a -> Option (<head: a, tail: List a>) = /\ (a: *). \ (e: List a) ->
              case e of Nil -> None @(<head: a, tail: List a>)
-                     | Cons h t -> Some @(<head: a, tail: List a>) (<head = h, tail = t>);
+           | Cons h t -> Some @(<head: a, tail: List a>) (<head = h, tail = t>);
            val aOptionMatch: forall (a: *). Text -> Map a -> a -> a = /\ (a:*). \ (key: Text) (map: Map a) (default: a) ->
              case (MAP_LOOKUP @a key map) of None -> default | Some y -> y;
            val aVariantMatch: forall (a:*). Mod:Tree a -> Option a = /\ (a: *). \(e: Mod:Tree a) ->
              case e of Mod:Tree:Leaf x -> None @a
-                     | Mod:Tree:Node node -> Some @a (Mod:Tree.Node @a { value } node);
+           | Mod:Tree:Node node -> Some @a (Mod:Tree.Node @a { value } node);
            val aEnumMatch: Mod:Color -> Text = \(e: Mod:Color) ->
              case e of Mod:Color:Red -> "Red" | Mod:Color:Green -> "Green" | Mod:Color:Blue -> "Blue";
 
@@ -124,48 +131,53 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
         
       """
 
-    validate(pkg)
+      validate(pkgId, pkg)
 
-    val archive = Encode.encodeArchive(pkgId -> pkg, languageVersion)
-    val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
+      val archive = Encode.encodeArchive(pkgId -> pkg, defaultParserParameters.languageVersion)
+      val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
 
-    pkg shouldBe normalize(decodedPackage, hashCode, pkgId)
-  }
+      pkg shouldBe normalize(decodedPackage, hashCode, pkgId)
+    }
 
-  "Encoding of function type with different versions should work as expected" in {
+    "Encoding of function type with different versions should work as expected" in {
 
-    val text =
-      """
+      val text =
+        """
         module Mod{
         
           val f : forall (a:*) (b: *) (c: *). a -> b -> c -> Unit =
             /\  (a:*) (b: *) (c: *). \ (xa: a) (xb: b) (xc: c) -> ();
         }
      """
-    val versions =
-      Table(
-        "minVersion",
-        LanguageVersion(V1, "0"),
-        LanguageVersion(V1, "1"),
-        LanguageVersion.default)
+      val versions =
+        Table(
+          "minVersion",
+          LanguageVersion(V1, "0"),
+          LanguageVersion(V1, "1"),
+          LanguageVersion.default)
 
-    forEvery(versions) { version =>
-      val pkg = Package(parseModules(text)(pkgId, version).right.get.map(m => m.name -> m).toMap)
-      val archive = Encode.encodeArchive(pkgId -> pkg, version)
-      val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
+      forEvery(versions) { version =>
+        implicit val parserParameters: ParserParameters[version.type] =
+          ParserParameters(pkgId, version)
 
-      pkg shouldBe normalize(decodedPackage, hashCode, pkgId)
+        val pkg =
+          Package(parseModules(text).right.get.map(m => m.name -> m).toMap)
+        val archive = Encode.encodeArchive(pkgId -> pkg, version)
+        val ((hashCode @ _, decodedPackage: Package), _) = Decode.readArchiveAndVersion(archive)
+
+        pkg shouldBe normalize(decodedPackage, hashCode, pkgId)
+      }
+
     }
-
   }
 
 }
 
 object EncodeV1Spec {
 
-  implicit def toPackageId(s: String): PackageId = PackageId.assertFromString(s)
+  private implicit def toPackageId(s: String): PackageId = PackageId.assertFromString(s)
 
-  implicit val pkgId: PackageId = "self"
+  private val pkgId: PackageId = "self"
 
   private def normalize(pkg: Package, hashCode: PackageId, selfPackageId: PackageId): Package = {
 
@@ -181,10 +193,10 @@ object EncodeV1Spec {
     normalizer.apply(pkg)
   }
 
-  private def validate(pkg: Package): Unit =
+  private def validate(pkgId: PackageId, pkg: Package): Unit =
     Validation
       .checkPackage(Map(pkgId -> pkg), pkgId)
-      .right
-      .get
+      .left
+      .foreach(e => sys.error(e.toString))
 
 }

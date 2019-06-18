@@ -112,8 +112,8 @@ object SpeedyTest {
   }
 
   private def typeAndCompile(pkg: Ast.Package): PureCompiledPackages = {
-    val rawPkgs = Map(defaultPkgId -> pkg)
-    Validation.checkPackage(rawPkgs, defaultPkgId)
+    val rawPkgs = Map(defaultParserParameters.defaultPackageId -> pkg)
+    Validation.checkPackage(rawPkgs, defaultParserParameters.defaultPackageId)
     PureCompiledPackages(rawPkgs).right.get
   }
 

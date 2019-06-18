@@ -5,24 +5,18 @@ package com.digitalasset.daml.lf
 package testing.parser
 
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name, PackageId}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 
-private[parser] class ModParser(
-    implicit defaultPkgId: PackageId,
-    languageVersion: LanguageVersion
-) {
+private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   import ModParser._
 
-  private val exprParser = new ExprParser()
+  private[parser] val exprParser: ExprParser[P] = new ExprParser(parameters)
+  import exprParser.typeParser.{argTyp, typ, typeBinder}
   import exprParser.{expr, expr0}
-
-  private val typeParser = new TypeParser()
-  import typeParser.{argTyp, typ, typeBinder}
 
   private def split(defs: Seq[Def]) = {
     ((Seq.empty[(DottedName, Definition)], Seq.empty[(DottedName, Template)]) /: defs) {
@@ -43,7 +37,7 @@ private[parser] class ModParser(
         val flags = FeatureFlags(
           forbidPartyLiterals = modTag(noPartyLitsTag)
         )
-        Module(modName, definitions, templates, languageVersion, flags)
+        Module(modName, definitions, templates, parameters.languageVersion, flags)
     }
 
   private lazy val definition: Parser[Def] =

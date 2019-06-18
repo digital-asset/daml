@@ -3,24 +3,26 @@
 
 package com.digitalasset.daml.lf.archive
 
+import java.security.MessageDigest
+
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml_lf.DamlLf
+import com.digitalasset.daml_lf.{DamlLf => PLF}
 
-object Encode extends Writer[(PackageId, Package)] {
+object Encode {
 
-  override protected def encodePayloadOfVersion(
+  private def encodePayloadOfVersion(
       idAndPkg: (PackageId, Package),
       version: LanguageVersion
-  ): DamlLf.ArchivePayload = {
+  ): PLF.ArchivePayload = {
 
     val (pkgId, pkg) = idAndPkg
     val LanguageVersion(major, minor) = version
 
     major match {
       case LanguageMajorVersion.V1 =>
-        DamlLf.ArchivePayload
+        PLF.ArchivePayload
           .newBuilder()
           .setMinor(minor.toProtoIdentifier)
           .setDamlLf1(new EncodeV1(minor).encodePackage(pkgId, pkg))
@@ -28,6 +30,22 @@ object Encode extends Writer[(PackageId, Package)] {
       case _ =>
         sys.error(s"$version not supported")
     }
+  }
+
+  final def encodeArchive(pkg: (PackageId, Package), version: LanguageVersion): PLF.Archive = {
+
+    val payload = encodePayloadOfVersion(pkg, version).toByteString
+    val hash = PackageId.assertFromString(
+      MessageDigest.getInstance("SHA-256").digest(payload.toByteArray).map("%02x" format _).mkString
+    )
+
+    PLF.Archive
+      .newBuilder()
+      .setHashFunction(PLF.HashFunction.SHA256)
+      .setPayload(payload)
+      .setHash(hash)
+      .build()
+
   }
 
 }

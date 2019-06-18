@@ -4,27 +4,27 @@
 package com.digitalasset.daml.lf.testing
 package parser
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{Decimal, Ref}
 import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Package, Type}
-import com.digitalasset.daml.lf.language.LanguageVersion
 
 object Implicits {
 
-  implicit val defaultPkgId: PackageId = PackageId.assertFromString("-pkgId-")
-  implicit val languageVersion: LanguageVersion = LanguageVersion.default
+  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
+    defaultPackageId,
+    defaultLanguageVersion
+  )
 
   implicit class SyntaxHelper(val sc: StringContext) extends AnyVal {
     def k(args: Any*): Kind = interpolate(KindParser.kind)(args)
 
-    def t(args: Any*)(implicit defaultPkgId: PackageId): Type =
-      interpolate(new TypeParser().typ)(args)
+    def t[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Type =
+      interpolate(new TypeParser[P](parserParameters).typ)(args)
 
-    def e(args: Any*)(implicit defaultPkgId: PackageId): Expr =
-      interpolate(new ExprParser().expr)(args)
+    def e[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Expr =
+      interpolate(new ExprParser[P](parserParameters).expr)(args)
 
-    def p(args: Any*)(implicit defaultPkgId: PackageId, languageVersion: LanguageVersion): Package =
-      interpolate(new ModParser().pkg)(args)
+    def p[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Package =
+      interpolate(new ModParser[P](parserParameters).pkg)(args)
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def n(args: Any*): Ref.Name =

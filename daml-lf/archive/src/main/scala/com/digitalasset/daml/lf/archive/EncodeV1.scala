@@ -179,9 +179,10 @@ class EncodeV1(val minor: LanguageMinorVersion) {
               case _ =>
                 sys.error("unexpected errors")
             }
-          } else
+          } else {
             builder.setPrim(
               PLF.Type.Prim.newBuilder().setPrim(bType).accumulateLeft(args)(_ addArgs _))
+          }
         case TApp(_, _) =>
           sys.error("unexpected error")
         case TForalls(binders, body) =>

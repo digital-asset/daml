@@ -66,7 +66,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
         "Mod:T" -> T.tycon,
         "'-pkgId-':Mod:T" -> T.tycon,
         "A.B:C.D" -> Identifier(
-          defaultPkgId,
+          defaultPackageId,
           QualifiedName(
             DottedName.assertFromSegments(ImmArray("A", "B").toSeq),
             DottedName.assertFromSegments(ImmArray("C", "D").toSeq)))
@@ -418,7 +418,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
             DottedName.assertFromSegments(ImmArray("Color").toSeq) -> enumDef
           ),
           templates = List.empty,
-          languageVersion = languageVersion,
+          languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
         )))
 
@@ -443,7 +443,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           name = modName,
           definitions = List(DottedName.assertFromString("fact") -> valDef),
           templates = List.empty,
-          languageVersion = languageVersion,
+          languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
         )))
 
@@ -511,7 +511,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           name = modName,
           definitions = List(DottedName.assertFromString("Person") -> recDef),
           templates = List.empty,
-          languageVersion = languageVersion,
+          languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
         )))
 
@@ -556,7 +556,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           name = modName,
           definitions = List(DottedName.assertFromString("R") -> recDef),
           templates = List.empty,
-          languageVersion = languageVersion,
+          languageVersion = defaultLanguageVersion,
           featureFlags = FeatureFlags.default
         )))
 
@@ -582,7 +582,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
   private val modName = DottedName.assertFromString("Mod")
 
   private def qualify(s: String) =
-    Identifier(defaultPkgId, QualifiedName(modName, DottedName.assertFromString(s)))
+    Identifier(defaultPackageId, QualifiedName(modName, DottedName.assertFromString(s)))
 
   private val T: TTyCon = TTyCon(qualify("T"))
   private val R: TTyCon = TTyCon(qualify("R"))

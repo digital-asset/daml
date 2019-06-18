@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.digitalasset.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -21,7 +22,7 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
          }
        """
 
-    Recursion.checkPackage(defaultPkgId, p.modules)
+    Recursion.checkPackage(defaultPackageId, p.modules)
 
   }
 
@@ -60,11 +61,11 @@ class RecursionSpec extends WordSpec with TableDrivenPropertyChecks with Matcher
         ${module("E", "E")}
        """
 
-    Recursion.checkPackage(defaultPkgId, negativeCase.modules)
+    Recursion.checkPackage(defaultPackageId, negativeCase.modules)
     an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPkgId, positiveCase1.modules)
+      Recursion.checkPackage(defaultPackageId, positiveCase1.modules)
     an[EImportCycle] should be thrownBy
-      Recursion.checkPackage(defaultPkgId, positiveCase2.modules)
+      Recursion.checkPackage(defaultPackageId, positiveCase2.modules)
 
   }
 

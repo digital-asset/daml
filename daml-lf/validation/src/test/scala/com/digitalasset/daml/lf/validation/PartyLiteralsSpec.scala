@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.validation
 
 import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.digitalasset.daml.lf.testing.parser.defaultPackageId
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
@@ -142,12 +143,15 @@ class PartyLiteralsSpec extends WordSpec with TableDrivenPropertyChecks with Mat
         "PositiveTestCase8",
       )
 
-      val world = new World(Map(defaultPkgId -> pkg))
+      val world = new World(Map(defaultPackageId -> pkg))
 
-      checkModule(world, defaultPkgId, pkg.modules(DottedName.assertFromString("NegativeTestCase")))
+      checkModule(
+        world,
+        defaultPackageId,
+        pkg.modules(DottedName.assertFromString("NegativeTestCase")))
       forEvery(positiveTestCases) { modName =>
         an[EForbiddenPartyLiterals] should be thrownBy
-          checkModule(world, defaultPkgId, pkg.modules(DottedName.assertFromString(modName)))
+          checkModule(world, defaultPackageId, pkg.modules(DottedName.assertFromString(modName)))
       }
     }
 
