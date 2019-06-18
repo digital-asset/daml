@@ -38,8 +38,9 @@ decodeVersion minorText = do
   if version `elem` LF.supportedInputVersions then pure version else unsupported
 
 decodePackage :: TL.Text -> LF1.Package -> Decode Package
-decodePackage minorText (LF1.Package mods) = do
+decodePackage minorText (LF1.Package mods internedList) = do
   version <- decodeVersion minorText
+  interned <- decodeInternedPackageIds internedList
   Package version <$> decodeNM DuplicateModule decodeModule mods
 
 decodeModule :: LF1.Module -> Decode Module
@@ -549,12 +550,16 @@ decodeTypeConName LF1.TypeConName{..} = do
   con <- mayDecode "typeConNameName" typeConNameName (decodeDottedName TypeConName)
   pure $ Qualified pref mname con
 
+type PackageRefCtx = V.Vector PackageId
+
 decodePackageRef :: LF1.PackageRef -> Decode PackageRef
 decodePackageRef (LF1.PackageRef pref) =
   mayDecode "packageRefSum" pref $ \case
     LF1.PackageRefSumSelf _          -> pure PRSelf
     LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ PackageId $ TL.toStrict pkgId
 
+decodeInternedPackageIds :: V.Vector TL.Text -> Decode PackageRefCtx
+decodeInternedPackageIds = undefined
 
 decodeModuleRef :: LF1.ModuleRef -> Decode (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
