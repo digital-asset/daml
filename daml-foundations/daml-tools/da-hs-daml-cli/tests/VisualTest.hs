@@ -35,6 +35,5 @@ shouldThrow :: FilePath -> FilePath -> IO ()
 shouldThrow a b = do
     ac <-  readFile a
     bc <- readFile b
-    case ac == bc of
-        True -> pure ()
-        False -> assertFailure "Expected program to throw an IOException."
+    if ac == bc then pure () else
+        assertFailure "Expected program to throw an IOException."
