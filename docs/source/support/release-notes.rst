@@ -9,6 +9,8 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+.. _release-0-13-3:
+
 Release Procedure
 ~~~~~~~~~~~~~~~~~
 
