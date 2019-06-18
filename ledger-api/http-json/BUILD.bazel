@@ -15,8 +15,15 @@ da_scala_library(
         "//visibility:public",
     ],
     deps = [
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/typesafe/scala_logging",
         "//3rdparty/jvm/io/spray:spray_json",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//language-support/scala/bindings-akka",
+        "//ledger/ledger-api-client",
     ],
 )
 
