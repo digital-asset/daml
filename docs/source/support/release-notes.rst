@@ -9,6 +9,18 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Release Procedure
+~~~~~~~~~~~~~~~~~
+
+- Fixes to the release procedure.
+  See `#1737 <https://github.com/digital-asset/daml/issues/1737>`__
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- The changes for Java Bindings listed for SDK 0.13.2 now only apply to SDK 0.13.3 and later.
+  This is due to the partial failure of the release procedure.
+
 Docs
 ~~~~
 
