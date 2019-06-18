@@ -233,40 +233,40 @@ instance (HasPackageRefs a, NM.Named a) => HasPackageRefs (NM.NameMap a) where
 instance HasPackageRefs PackageRef where
   packageRefs = id
 
-instance HasPackageRefs a => HasPackageRefs (Qualified a) where
-instance HasPackageRefs Binding where
-instance HasPackageRefs BuiltinExpr where
-instance HasPackageRefs BuiltinType where
-instance HasPackageRefs CaseAlternative where
-instance HasPackageRefs CasePattern where
-instance HasPackageRefs ChoiceName where
-instance HasPackageRefs DataCons where
-instance HasPackageRefs DefDataType where
-instance HasPackageRefs DefValue where
-instance HasPackageRefs EnumCon where
-instance HasPackageRefs EnumType where
-instance HasPackageRefs Expr where
-instance HasPackageRefs ExprValName where
-instance HasPackageRefs ExprVarName where
-instance HasPackageRefs FeatureFlags where
-instance HasPackageRefs FieldName where
-instance HasPackageRefs HasNoPartyLiterals where
-instance HasPackageRefs IsSerializable where
-instance HasPackageRefs IsTest where
-instance HasPackageRefs Kind where
-instance HasPackageRefs Module where
-instance HasPackageRefs ModuleName where
-instance HasPackageRefs Package where
-instance HasPackageRefs PartyLiteral where
-instance HasPackageRefs RetrieveByKey where
-instance HasPackageRefs Scenario where
-instance HasPackageRefs SourceLoc where
-instance HasPackageRefs Template where
-instance HasPackageRefs TemplateChoice where
-instance HasPackageRefs TemplateKey where
-instance HasPackageRefs Type where
-instance HasPackageRefs TypeConApp where
-instance HasPackageRefs TypeConName where
-instance HasPackageRefs TypeVarName where
-instance HasPackageRefs Update where
-instance HasPackageRefs VariantConName where
+instance HasPackageRefs a => HasPackageRefs (Qualified a)
+instance HasPackageRefs Binding
+instance HasPackageRefs BuiltinExpr
+instance HasPackageRefs BuiltinType
+instance HasPackageRefs CaseAlternative
+instance HasPackageRefs CasePattern
+instance HasPackageRefs ChoiceName
+instance HasPackageRefs DataCons
+instance HasPackageRefs DefDataType
+instance HasPackageRefs DefValue
+instance HasPackageRefs EnumCon
+instance HasPackageRefs EnumType
+instance HasPackageRefs Expr
+instance HasPackageRefs ExprValName
+instance HasPackageRefs ExprVarName
+instance HasPackageRefs FeatureFlags
+instance HasPackageRefs FieldName
+instance HasPackageRefs HasNoPartyLiterals
+instance HasPackageRefs IsSerializable
+instance HasPackageRefs IsTest
+instance HasPackageRefs Kind
+instance HasPackageRefs Module
+instance HasPackageRefs ModuleName
+instance HasPackageRefs Package
+instance HasPackageRefs PartyLiteral
+instance HasPackageRefs RetrieveByKey
+instance HasPackageRefs Scenario
+instance HasPackageRefs SourceLoc
+instance HasPackageRefs Template
+instance HasPackageRefs TemplateChoice
+instance HasPackageRefs TemplateKey
+instance HasPackageRefs Type
+instance HasPackageRefs TypeConApp
+instance HasPackageRefs TypeConName
+instance HasPackageRefs TypeVarName
+instance HasPackageRefs Update
+instance HasPackageRefs VariantConName
