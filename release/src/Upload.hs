@@ -232,7 +232,7 @@ publishStagingRepo baseRequest manager comDamlRepoId comDigitalassetRepoId = do
     --
     let releaseStagingReposRequest
          = setRequestMethod "POST"
-         $ setRequestPath  "/staging/bulk/promote"
+         $ setRequestPath  "/local/staging/bulk/promote"
          $ setRequestHeader "content-type" [ "application/json" ]
          $ setRequestBodyLBS (textToLazyByteString $ "{\"data\":{\"stagedRepositoryIds\":[\"" <> comDamlRepoId <> "\",\"" <> comDigitalassetRepoId <> "\",\"description\":\"\",\"autoDropAfterRelease\":true}}") baseRequest
 

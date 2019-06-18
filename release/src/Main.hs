@@ -61,7 +61,11 @@ main = do
 
               let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
               uploadArtifacts <- concatMapM (artifactCoords optsAllArtifacts) mavenUploadArtifacts
-              uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts
+              if length uploadArtifacts > 0
+                  then
+                    uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts
+                  else
+                    $logInfo "No artifacts to upload to Maven Central"
 
               -- set variables for next steps in Azure pipelines
               liftIO . putStrLn $ "##vso[task.setvariable variable=has_released;isOutput=true]true"
