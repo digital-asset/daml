@@ -18,6 +18,7 @@ rec {
     libffi
     nodejs
     patchelf
+    postgresql
     protobuf3_5
     scala
     zip

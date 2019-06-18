@@ -11,6 +11,7 @@ module DA.Cli.Damlc (main) where
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
 import DA.Cli.Damlc.Base
+import Control.Exception.Safe (catchIO)
 import Data.Maybe
 import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
@@ -23,6 +24,7 @@ import qualified DA.Pretty
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import DA.Service.Daml.Compiler.Impl.Scenario
 import DA.Daml.GHC.Compiler.Options
+import DA.Daml.GHC.Compiler.Upgrade
 import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -49,6 +51,7 @@ import qualified Network.Socket                    as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
+import Safe (tailMay)
 import System.Directory
 import System.Environment
 import System.Exit
@@ -59,6 +62,9 @@ import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 import DA.Cli.Damlc.Test
 import DA.Bazel.Runfiles
 import DA.Cli.Visual
+import "ghc-lib" GHC
+import Data.List
+
 --------------------------------------------------------------------------------
 -- Commands
 --------------------------------------------------------------------------------
@@ -196,6 +202,22 @@ cmdInspectDar =
   where
     cmd = execInspectDar <$> inputDarOpt
 
+cmdMigrate :: Int -> Mod CommandFields Command
+cmdMigrate numProcessors =
+    command "migrate" $
+    info (helper <*> cmd) $
+    progDesc "Generate a migration package to upgrade the ledger" <> fullDesc
+  where
+    cmd =
+        execMigrate
+        <$> optionsParser
+            numProcessors
+            (EnableScenarioService False)
+            (Just <$> packageNameOpt)
+        <*> inputDarOpt
+        <*> inputDarOpt
+        <*> targetSrcDirOpt
+
 --------------------------------------------------------------------------------
 -- Execution
 --------------------------------------------------------------------------------
@@ -234,11 +256,14 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
     opts <- pure $ opts
         { optScenarioService = enableScenarioService
         , optScenarioValidation = ScenarioValidationLight
+        , optThreads = 0
         }
     withLogger $ \loggerH ->
         withScenarioService' enableScenarioService loggerH $ \mbScenarioService -> do
             -- TODO we should allow different LF versions in the IDE.
             execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
+            sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
+            Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
             Daml.LanguageServer.runLanguageServer (toIdeLogger loggerH)
                 (getIdeState opts mbScenarioService loggerH)
 
@@ -569,7 +594,55 @@ execInspectDar inFile = do
         putStrLn $
             (dropExtension $ takeFileName $ eRelativePath dalfEntry) <> " " <>
             show (LF.unPackageId pkgId)
-
+execMigrate ::
+       Compiler.Options -> FilePath -> FilePath -> Maybe FilePath -> Command
+execMigrate opts inFile1 inFile2 mbDir = do
+    let pkg1 = takeBaseName inFile1
+    let pkg2 = takeBaseName inFile2
+    bytes1 <- B.readFile inFile1
+    bytes2 <- B.readFile inFile2
+    let dar1 = toArchive $ BSL.fromStrict bytes1
+    let dar2 = toArchive $ BSL.fromStrict bytes2
+    let srcFiles1 =
+            [e | e <- zEntries dar1, ".daml" `isExtensionOf` eRelativePath e]
+    let srcFiles2 =
+            [e | e <- zEntries dar2, ".daml" `isExtensionOf` eRelativePath e]
+    let pairs =
+            [ (e1, e2)
+            | [e1, e2] <-
+                  groupBy
+                      (\e1 e2 ->
+                           (tailMay $ splitPath $ eRelativePath e1) ==
+                           (tailMay $ splitPath $ eRelativePath e2))
+                      (srcFiles1 ++ srcFiles2)
+            ]
+    -- write the sources to disc. TODO (drsk) can we do this in memory?
+    forM_ (srcFiles1 ++ srcFiles2) $ \e -> do
+        let path = eRelativePath e
+        createDirectoryIfMissing True $ takeDirectory path
+        BSL.writeFile path (fromEntry e)
+    loggerH <- getLogger opts "migrate"
+    forM_ pairs $ \(e1, e2) -> do
+        let path1 = eRelativePath e1
+        let path2 = eRelativePath e2
+        let generatedPath =
+                joinPath $ fromMaybe "" mbDir : (tail $ splitPath path1)
+        opts' <- Compiler.mkOptions opts
+        parsedMod1 <- parse opts' loggerH path1
+        parsedMod2 <- parse opts' loggerH path2
+        let generatedMod =
+                generateUpgradeModule
+                    (pkg1, pm_parsed_source parsedMod1)
+                    (pkg2, pm_parsed_source parsedMod2)
+        createDirectoryIfMissing True $ takeDirectory generatedPath
+        writeFile generatedPath generatedMod
+  where
+    parse opts' loggerH fp =
+        Compiler.withIdeState opts' loggerH (const $ pure ()) $ \hDamlGhc -> do
+            errOrMod <-
+                runExceptT $
+                Compiler.parseFile hDamlGhc (toNormalizedFilePath fp)
+            either (reportErr "Parsing failed") pure errOrMod
 --------------------------------------------------------------------------------
 -- main
 --------------------------------------------------------------------------------
@@ -686,6 +759,8 @@ options numProcessors =
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
+        <> cmdVisual
+        <> cmdMigrate numProcessors
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean

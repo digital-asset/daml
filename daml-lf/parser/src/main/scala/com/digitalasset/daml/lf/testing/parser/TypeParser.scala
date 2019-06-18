@@ -3,13 +3,13 @@
 
 package com.digitalasset.daml.lf.testing.parser
 
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 
-object TypeParser {
+private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
 
   private def builtinTypes = Map[String, BuiltinType](
     "Int64" -> BTInt64,
@@ -28,6 +28,14 @@ object TypeParser {
     "Arrow" -> BTArrow,
     "Map" -> BTMap,
   )
+
+  private[parser] def fullIdentifier: Parser[Ref.Identifier] =
+    opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {
+      case pkgId ~ modName ~ _ ~ name =>
+        Ref.Identifier(
+          pkgId.getOrElse(parameters.defaultPackageId),
+          Ref.QualifiedName(modName, name))
+    }
 
   private[parser] lazy val typeBinder: Parser[(TypeVarName, Kind)] =
     `(` ~> id ~ `:` ~ KindParser.kind <~ `)` ^^ { case name ~ _ ~ k => name -> k } |

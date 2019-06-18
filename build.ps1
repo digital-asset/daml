@@ -32,28 +32,27 @@ bazel shutdown
 
 # FIXME: Until all bazel issues on Windows are resolved we will be testing only specific bazel targets
 bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution_windows.log `
-    //release:sdk-release-tarball `
-    //release/windows-installer:windows-installer `
     //:git-revision `
     @com_github_grpc_grpc//:grpc `
     @haskell_c2hs//... `
     //3rdparty/... `
-    //nix/third-party/gRPC-haskell:grpc-haskell `
+    //compiler/... `
     //daml-assistant/... `
     //daml-foundations/... `
-    //compiler/... `
     //daml-lf/... `
     //extractor/... `
-    //language-support/codegen-common:test `
-    //language-support/codegen-main/... `
-    //language-support/hs/bindings/... `
-    //language-support/java/... `
-    //language-support/scala/... `
+    //hazel/... `
+    //language-support/... `
     //ledger/... `
     //ledger-api/... `
-    //navigator/backend/... `
-    //navigator/frontend/... `
-    //scala-protoc-plugins/...
+    //libs-haskell/... `
+    //navigator/... `
+    //nix/... `
+    //notices-gen/... `
+    //release/... `
+    //rules_daml/... `
+    //scala-protoc-plugins/... `
+    //templates/...
 
 bazel shutdown
 
@@ -63,14 +62,16 @@ bazel run `
 bazel shutdown
 
 bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log `
+    //compiler/... `
     //daml-lf/... `
-    //language-support/codegen-common:test `
+    //extractor/... `
+    //language-support/codegen-common/... `
     //language-support/java/... `
     //language-support/scala/... `
-    //ledger/ledger-api-client/... `
-    //ledger/ledger-api-common/... `
+    //ledger/... `
     //ledger-api/... `
-    //navigator/backend/... `
+    //libs-haskell/... `
+    //navigator/... `
     //daml-assistant/... `
     //daml-foundations/daml-ghc:daml-ghc-deterministic `
     //daml-foundations/daml-ghc:compile-subdir `
@@ -81,8 +82,7 @@ bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_w
     //daml-foundations/daml-ghc:module-tree-memory `
     //daml-foundations/daml-ghc:tasty-test `
     //daml-foundations/daml-tools/da-hs-daml-cli `
-    //daml-foundations/daml-tools/da-hs-damlc-app/... `
-    //compiler/lsp-tests/...
+    //daml-foundations/daml-tools/da-hs-damlc-app/...
     # Disabled since there seems to be an issue with starting up the scenario service.
     # See https://github.com/digital-asset/daml/issues/1354
     # //daml-foundations/daml-ghc:daml-ghc-shake-test-ci

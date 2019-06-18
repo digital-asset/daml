@@ -4,6 +4,7 @@
 load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_linux")
 load("//rules_daml:daml.bzl", "daml_test")
+load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
 nodejs_binary(
     name = "grunt",
@@ -365,4 +366,31 @@ daml_test(
 daml_test(
     name = "java-bindings-docs-daml-test",
     srcs = glob(["source/app-dev/bindings-java/daml/**/*.daml"]),
+)
+
+daml_test(
+    name = "daml-intro-daml-test",
+    srcs = glob(["source/daml/intro/daml/**/*.daml"]),
+)
+
+filegroup(
+    name = "daml-intro-1",
+    srcs = glob(
+        ["source/daml/intro/daml/1_Token/**/*"],
+        # excluding quickstart-java stuff and da-skeleton.yaml (which should be removed once DA Assistant is gone)
+        exclude = [
+            "source/getting-started/quickstart/template-root/src",
+            "source/getting-started/quickstart/template-root/pom.xml",
+            "source/getting-started/quickstart/template-root/da-skeleton.yaml",
+        ],
+        exclude_directories = 0,
+    ),
+    visibility = ["//visibility:public"],
+)
+
+pkg_tar(
+    name = "daml-intro-templates",
+    srcs = glob(["source/daml/intro/daml/**"]),
+    strip_prefix = "source/daml/intro/daml",
+    visibility = ["//visibility:public"],
 )

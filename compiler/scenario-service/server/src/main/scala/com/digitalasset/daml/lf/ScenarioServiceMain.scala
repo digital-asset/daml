@@ -14,7 +14,7 @@ import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 object ScenarioServiceMain extends App {
-  val maxMessageSize = 64 * 1024 * 1024 // 64MB
+  val maxMessageSize = 128 * 1024 * 1024 // 128MB
   val server =
     ServerBuilder
       .forPort(0) // any free port

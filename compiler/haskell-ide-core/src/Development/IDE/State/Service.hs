@@ -13,7 +13,8 @@ module Development.IDE.State.Service(
     getServiceEnv,
     IdeState, initialise, shutdown,
     runAction, runActions,
-    setFilesOfInterest,
+    runActionSync, runActionsSync,
+    setFilesOfInterest, modifyFilesOfInterest,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
     logDebug, logSeriousError
@@ -26,6 +27,8 @@ import           Development.IDE.State.FileStore
 import qualified Development.IDE.Logger as Logger
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
+import qualified Data.Text as T
+import Data.Tuple.Extra
 import           Development.IDE.Functions.GHCError
 import Development.IDE.Types.Diagnostics (NormalizedFilePath)
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
@@ -98,24 +101,43 @@ setProfiling opts shakeOpts =
 shutdown :: IdeState -> IO ()
 shutdown = shakeShut
 
--- | Run a single action using the supplied service.
+-- | Run a single action using the supplied service. See `runActions`
+-- for more details.
 runAction :: IdeState -> Action a -> IO a
 runAction service action = head <$> runActions service [action]
 
 -- | Run a list of actions in parallel using the supplied service.
+-- This will return as soon as the results of the actions are
+-- available.  There might still be other rules running at this point,
+-- e.g., the ofInterestRule.
 runActions :: IdeState -> [Action a] -> IO [a]
-runActions x = join . shakeRun x
+runActions x acts = do
+    var <- newBarrier
+    _ <- shakeRun x acts (signalBarrier var)
+    waitBarrier var
 
+-- | This is a synchronous variant of `runAction`. See
+-- `runActionsSync` of more details.
+runActionSync :: IdeState -> Action a -> IO a
+runActionSync s a = head <$> runActionsSync s [a]
+
+-- | `runActionsSync` is similar to `runActions` but it will
+-- wait for all rules (so in particular the `ofInterestRule`) to
+-- finish running. This is mainly useful in tests, where you want
+-- to wait for all rules to fire so you can check diagnostics.
+runActionsSync :: IdeState -> [Action a] -> IO [a]
+runActionsSync s acts = join $ shakeRun s acts (const $ pure ())
 
 -- | Set the files-of-interest which will be built and kept-up-to-date.
 setFilesOfInterest :: IdeState -> Set NormalizedFilePath -> IO ()
-setFilesOfInterest state files = do
-    Env{..} <- getIdeGlobalState state
-    -- update vars synchronously
-    modifyVar_ envOfInterestVar $ const $ return files
+setFilesOfInterest state files = modifyFilesOfInterest state (const files)
 
-    -- run shake to update results regarding the files of interest
-    void $ shakeRun state []
+modifyFilesOfInterest :: IdeState -> (Set NormalizedFilePath -> Set NormalizedFilePath) -> IO ()
+modifyFilesOfInterest state f = do
+    Env{..} <- getIdeGlobalState state
+    files <- modifyVar envOfInterestVar $ pure . dupe . f
+    logDebug state $ "Set files of interest to: " <> T.pack (show $ Set.toList files)
+    void $ shakeRun state [] (const $ pure ())
 
 getServiceEnv :: Action Env
 getServiceEnv = getIdeGlobalAction

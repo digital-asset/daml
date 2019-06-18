@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
 
-object KindParser {
+private[digitalasset] object KindParser {
 
   lazy val kind0: Parser[Kind] = `*` ^^ (_ => KStar) | `(` ~> kind <~ `)`
 

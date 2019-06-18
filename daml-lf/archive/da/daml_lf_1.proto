@@ -175,20 +175,20 @@ enum PrimType {
   // Builtin type 'Int64'
   INT64 = 2;
 
-  // Buitling type 'Int64'
+  // Builtin type 'Int64'
   DECIMAL = 3;
 
   // CHAR = 4; // we have removed this in favor of TEXT for everything text related.
 
-  // Builting type 'Text'
+  // Builtin type 'Text'
   TEXT = 5;
 
-  // Builing type 'Timestamp'
+  // Builtin type 'Timestamp'
   TIMESTAMP = 6;
 
   // RELTIME = 7; // we removed this in favor of INT64.
 
-  // Builting tpe 'Party'
+  // Builtin tpe 'Party'
   PARTY = 8;
 
   // Builtin type 'List'
@@ -200,7 +200,7 @@ enum PrimType {
   // Builtin type 'Scenatrio'
   SCENARIO = 11;
 
-  // Builin type 'Date'
+  // Builtin type 'Date'
   DATE = 12;
 
   // Builtin type 'ContractId'
@@ -247,7 +247,7 @@ message Type {
   // Possibly applied builtin types
   message Prim {
 
-    // Builin type
+    // Builtin type
     // FixMe: Rename
     PrimType prim = 1;
 

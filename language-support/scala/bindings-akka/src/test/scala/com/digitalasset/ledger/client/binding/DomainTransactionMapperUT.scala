@@ -36,6 +36,7 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
           "createdEventId",
           contractId,
           Some(Identifier("createdTemplateId")),
+          None,
           Some(Record()))))
 
   def archivedEvent(contractId: String) =

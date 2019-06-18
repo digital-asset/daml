@@ -41,6 +41,12 @@ assistantError msg = AssistantError
 assistantErrorBecause ::  Text -> Text -> AssistantError
 assistantErrorBecause msg e = (assistantError msg) { errInternal = Just e }
 
+-- | Standard error message with additional details.
+assistantErrorDetails :: String -> [(String, String)] -> AssistantError
+assistantErrorDetails msg details =
+    assistantErrorBecause (pack msg) . pack . concat $
+        ["\n    " <> k <> ": " <> v | (k,v) <- details]
+
 data Env = Env
     { envDamlPath      :: DamlPath
     , envDamlAssistantPath :: DamlAssistantPath
@@ -70,6 +76,7 @@ newtype UserCommandArgs = UserCommandArgs
 -- | Command-line options for daml version command.
 data VersionOptions = VersionOptions
     { vAll :: Bool -- ^ list all available versions
+    , vAssistant :: Bool -- ^ show assistant version
     } deriving (Eq, Show)
 
 -- | Command-line options for daml install command.

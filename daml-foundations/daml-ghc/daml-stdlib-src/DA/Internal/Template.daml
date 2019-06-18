@@ -179,6 +179,10 @@ instance IsParties Party where
 instance IsParties [Party] where
   toParties ps = ps
 
+instance IsParties (Optional Party) where
+  toParties None = []
+  toParties (Some p) = [p]
+
 class Template c => TemplateKey c k | c -> k where
     -- | The key of a contract.
     key : c -> k

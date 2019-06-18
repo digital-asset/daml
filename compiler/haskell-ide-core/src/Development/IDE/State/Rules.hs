@@ -20,6 +20,7 @@ module Development.IDE.State.Rules(
     getDefinition,
     getDependencies,
     getDalfDependencies,
+    getParsedModule,
     fileFromParsedModule
     ) where
 
@@ -31,6 +32,9 @@ import Development.IDE.Functions.DependencyInformation
 import Development.IDE.Functions.FindImports
 import           Development.IDE.State.FileStore
 import           Development.IDE.Types.Diagnostics as Base
+import qualified Data.ByteString.UTF8 as BS
+import Control.Exception
+import Control.Concurrent.Extra
 import Data.Bifunctor
 import Data.Either.Extra
 import Data.Maybe
@@ -72,6 +76,14 @@ defineNoFile f = define $ \k file -> do
 ------------------------------------------------------------
 -- Exposed API
 
+getFilesOfInterestRule :: Rules ()
+getFilesOfInterestRule = do
+    defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null $ fromNormalizedFilePath _file) $ do
+        alwaysRerun
+        Env{..} <- getServiceEnv
+        filesOfInterest <- liftIO $ readVar envOfInterestVar
+        pure (Just $ BS.fromString $ show filesOfInterest, ([], Just filesOfInterest))
+
 
 -- | Get GHC Core for the supplied file.
 getGhcCore :: NormalizedFilePath -> Action (Maybe [CoreModule])
@@ -109,6 +121,10 @@ getDefinition :: NormalizedFilePath -> Position -> Action (Maybe Location)
 getDefinition file pos = do
     fmap (either (const Nothing) id) . runExceptT $ getDefinitionForFile file pos
 
+-- | Parse the contents of a daml file.
+getParsedModule :: NormalizedFilePath -> Action (Maybe ParsedModule)
+getParsedModule file =
+    eitherToMaybe <$> (runExceptT $ useE GetParsedModule file)
 
 ------------------------------------------------------------
 -- Internal Actions
@@ -277,7 +293,7 @@ typeCheckRule =
         setPriority PriorityTypeCheck
         packageState <- use_ GhcSession ""
         opt <- getOpts
-        liftIO $ Compile.typecheckModule opt pm packageState tms pm
+        liftIO $ Compile.typecheckModule opt packageState tms pm
 
 
 generateCoreRule :: Rules ()
@@ -318,6 +334,7 @@ mainRule = do
     generateCoreRule
     loadGhcSession
     getHieFileRule
+    getFilesOfInterestRule
 
 ------------------------------------------------------------
 

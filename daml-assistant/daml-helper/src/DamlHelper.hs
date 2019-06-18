@@ -5,6 +5,7 @@ module DamlHelper
     ( runDamlStudio
     , runInit
     , runNew
+    , runMigrate
     , runJar
     , runListTemplates
     , runStart
@@ -45,6 +46,7 @@ import qualified Network.HTTP.Types as HTTP
 import Network.Socket
 import System.FilePath
 import System.Directory.Extra
+import System.Environment
 import System.Exit
 import System.Info.Extra
 import System.Process hiding (runCommand)
@@ -102,7 +104,13 @@ runDamlStudio replaceExt remainingArguments = do
             | otherwise = "code"
         path = fromMaybe "." projectPathM
         command = unwords $ codeCommand : path : remainingArguments
-    exitCode <- withCreateProcess (shell command) $ \_ _ _ -> waitForProcess
+
+    -- Strip DAML environment variables before calling vscode.
+    originalEnv <- getEnvironment
+    let strippedEnv = filter ((`notElem` damlEnvVars) . fst) originalEnv
+        process = (shell command) { env = Just strippedEnv }
+
+    exitCode <- withCreateProcess process $ \_ _ _ -> waitForProcess
     when (exitCode /= ExitSuccess) $
         hPutStrLn stderr $
           "Failed to launch Visual Studio Code." <>
@@ -335,8 +343,8 @@ runInit targetFolderM = do
 -- * Creation of a project in existing folder (suggest daml init instead).
 -- * Creation of a project inside another project.
 --
-runNew :: FilePath -> Maybe String -> IO ()
-runNew targetFolder templateNameM = do
+runNew :: FilePath -> Maybe String -> [String] -> IO ()
+runNew targetFolder templateNameM pkgDeps = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -415,6 +423,7 @@ runNew targetFolder templateNameM = do
         sdkVersion <- getSdkVersion
         let config = replace "__VERSION__"  sdkVersion
                    . replace "__PROJECT_NAME__" projectName
+                   . replace "__DEPENDENCIES__" (unlines ["  - " <> dep | dep <- pkgDeps])
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath
@@ -423,6 +432,29 @@ runNew targetFolder templateNameM = do
     putStrLn $
         "Created a new project in \"" <> targetFolder <>
         "\" based on the template \"" <> templateName <> "\"."
+
+-- | Create a project containing code to migrate a running system between two given packages.
+runMigrate :: FilePath -> FilePath -> FilePath -> IO ()
+runMigrate targetFolder pkgPath1 pkgPath2
+ = do
+    pkgPath1Abs <- makeAbsolute pkgPath1
+    pkgPath2Abs <- makeAbsolute pkgPath2
+    -- Create a new project
+    runNew targetFolder (Just "migrate") [pkgPath1Abs, pkgPath2Abs]
+
+    -- Call damlc to create the upgrade source files.
+    assistant <- getDamlAssistant
+    callCommand
+        (unwords $
+         assistant :
+         [ "damlc"
+         , "migrate"
+         , "--srcdir"
+         , targetFolder </> "daml"
+         , "upgrade-pkg"
+         , pkgPath1
+         , pkgPath2
+         ])
 
 defaultProjectTemplate :: String
 defaultProjectTemplate = "skeleton"

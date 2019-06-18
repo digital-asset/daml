@@ -16,13 +16,16 @@ module Util (
 
     Artifact(..),
     ArtifactLocation(..),
+    BazelLocations(..),
     BazelTarget(..),
 
     artifactFiles,
+    artifactCoords,
     copyToReleaseDir,
     buildTargets,
     getBazelLocations,
-    resolvePomData
+    resolvePomData,
+    loggedProcess_,
   ) where
 
 
@@ -66,14 +69,14 @@ data JarType
     = Plain
       -- ^ Plain java or scala library, without source jar.
     | Lib
-      -- ^ A java library jar, with a source jar.
+      -- ^ A java library jar, with source and javadoc jars.
     | Deploy
       -- ^ Deploy jar, e.g. a fat jar containing transitive deps.
     | Proto
       -- ^ A java protobuf library (*-speed.jar).
     | Scala
-      -- ^ A scala library jar, with a source jar. Use when source jar
-      -- is desired, otherwise use 'Plain'.
+      -- ^ A scala library jar, with source and scaladoc jars. Use when
+      -- source or scaladoc is desired, otherwise use 'Plain'.
     deriving (Eq, Show)
 
 instance FromJSON ReleaseType where
@@ -94,6 +97,8 @@ data Artifact c = Artifact
     , artPlatformDependent :: !PlatformDependent
     , artBintrayPackage :: !BintrayPackage
     -- ^ Defaults to sdk-components if not specified
+    , artMavenUpload :: MavenUpload
+    -- ^ Defaults to False if not specified
     , artMetadata :: !c
     } deriving Show
 
@@ -103,6 +108,7 @@ instance FromJSON (Artifact (Maybe ArtifactLocation)) where
         <*> o .: "type"
         <*> (fromMaybe (PlatformDependent False) <$> o .:? "platformDependent")
         <*> (fromMaybe PkgSdkComponents <$> o .:? "bintrayPackage")
+        <*> (fromMaybe (MavenUpload False) <$> o .:? "mavenUpload")
         <*> o .:? "location"
 
 data ArtifactLocation = ArtifactLocation
@@ -129,7 +135,8 @@ buildTargets art@Artifact{..} =
             in [jarTarget, pomTar] <>
                [BazelTarget ("//" <> directory <> ":" <> srcJar) | Just srcJar <- pure (sourceJarName art)] <>
                [BazelTarget ("//" <> directory <> ":" <> srcJar) | Just srcJar <- pure (scalaSourceJarName art)] <>
-               [BazelTarget ("//" <> directory <> ":" <> javadocJar) | Just javadocJar <- pure (javadocJarName art)]
+               [BazelTarget ("//" <> directory <> ":" <> javadocJar) | Just javadocJar <- pure (javadocJarName art)] <>
+               [BazelTarget ("//" <> directory <> ":" <> scaladocJar) | Just scaladocJar <- pure (scaladocJarName art)]
         Zip -> [artTarget]
         TarGz -> [artTarget]
 
@@ -191,9 +198,9 @@ splitBazelTarget (BazelTarget t) =
         _ -> error ("Malformed bazel target: " <> show t)
 
 mainExt :: ReleaseType -> Text
-mainExt Zip = ".zip"
-mainExt TarGz = ".tar.gz"
-mainExt Jar{} = ".jar"
+mainExt Zip = "zip"
+mainExt TarGz = "tar.gz"
+mainExt Jar{} = "jar"
 
 mainFileName :: ReleaseType -> Text -> Text
 mainFileName releaseType name =
@@ -217,6 +224,11 @@ scalaSourceJarName Artifact{..}
   | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_src.jar"
   | otherwise = Nothing
 
+scaladocJarName :: Artifact a -> Maybe Text
+scaladocJarName Artifact{..}
+   | Jar Scala <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_scaladoc.jar"
+   | otherwise = Nothing
+
 javadocJarName :: Artifact a -> Maybe Text
 javadocJarName Artifact{..}
   | Jar Lib <- artReleaseType = Just $ snd (splitBazelTarget artTarget) <> "_javadoc.jar"
@@ -233,31 +245,60 @@ artifactFiles allArtifacts art@Artifact{..} = do
     directory <- parseRelDir $ unpack directory
 
     mainArtifactIn <- parseRelFile $ unpack $ mainFileName artReleaseType name
-    mainArtifactOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # mainExt artReleaseType))
+    mainArtifactOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "." # mainExt artReleaseType))
 
     pomFileIn <- parseRelFile (unpack (name <> "_pom.xml"))
     pomFileOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion #".pom"))
 
     mbSourceJarIn <- traverse (parseRelFile . unpack) (sourceJarName art)
-    sourceJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-sources" # mainExt artReleaseType))
+    sourceJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-sources" # "." # mainExt artReleaseType))
 
     mbScalaSourceJarIn <- traverse (parseRelFile . unpack) (scalaSourceJarName art)
-    scalaSourceJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-sources" # mainExt artReleaseType))
+    scalaSourceJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-sources" # "." # mainExt artReleaseType))
 
     mbJavadocJarIn <- traverse (parseRelFile . unpack) (javadocJarName art)
-    javadocJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-javadoc" # mainExt artReleaseType))
+    javadocJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-javadoc" # "." # mainExt artReleaseType))
+
+    mbScaladocJarIn <- traverse (parseRelFile . unpack) (scaladocJarName art)
+    scaladocJarOut <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "-javadoc" # "." # mainExt artReleaseType))
+
+    let shouldReleasePlatInd = shouldRelease allArtifacts (PlatformDependent False)
 
     pure $
         [(directory </> mainArtifactIn, outDir </> mainArtifactOut) | shouldRelease allArtifacts artPlatformDependent] <>
-        [(directory </> pomFileIn, outDir </> pomFileOut) | isJar artReleaseType, shouldRelease allArtifacts (PlatformDependent False)] <>
-        [(directory </> sourceJarIn, outDir </> sourceJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just sourceJarIn <- pure mbSourceJarIn] <>
-        [(directory </> scalaSourceJarIn, outDir </> scalaSourceJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just scalaSourceJarIn <- pure mbScalaSourceJarIn] <>
-        [(directory </> javadocJarIn, outDir </> javadocJarOut) | shouldRelease allArtifacts (PlatformDependent False), Just javadocJarIn <- pure mbJavadocJarIn]
+        [(directory </> pomFileIn, outDir </> pomFileOut) | isJar artReleaseType, shouldReleasePlatInd] <>
+        [(directory </> sourceJarIn, outDir </> sourceJarOut) | shouldReleasePlatInd, Just sourceJarIn <- pure mbSourceJarIn] <>
+        [(directory </> scalaSourceJarIn, outDir </> scalaSourceJarOut) | shouldReleasePlatInd, Just scalaSourceJarIn <- pure mbScalaSourceJarIn] <>
+        [(directory </> javadocJarIn, outDir </> javadocJarOut) | shouldReleasePlatInd, Just javadocJarIn <- pure mbJavadocJarIn] <>
+        [(directory </> scaladocJarIn, outDir </> scaladocJarOut) | shouldReleasePlatInd, Just scaladocJarIn <- pure mbScaladocJarIn]
+        -- ^ Note that the Scaladoc is specified with the "javadoc" classifier.
+
+-- | Given an artifact, produce a list of pairs of an input file and the Maven coordinates
+artifactCoords :: E.MonadThrow m => AllArtifacts -> Artifact PomData -> m [(MavenCoords, Path Rel File)]
+artifactCoords allArtifacts Artifact{..} = do
+    let PomData{..} = artMetadata
+    let jarClassifier =  if getPlatformDependent artPlatformDependent then Just osName else Nothing
+    outDir <- parseRelDir $ unpack $
+        T.intercalate "/" pomGroupId #"/"# pomArtifactId #"/"# pomVersion #"/"
+    let ostxt =  if getPlatformDependent artPlatformDependent then "-" <> osName else ""
+
+    mainArtifactFile <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion # ostxt # "." # mainExt artReleaseType))
+    pomFile <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion #".pom"))
+    sourcesFile <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion #"-sources.jar"))
+    javadocFile <- parseRelFile (unpack (pomArtifactId #"-"# pomVersion #"-javadoc.jar"))
+
+    let mavenCoords classifier artifactType =
+           MavenCoords { groupId = pomGroupId, artifactId = pomArtifactId, version = pomVersion, classifier, artifactType }
+    let shouldReleasePlatInd = shouldRelease allArtifacts (PlatformDependent False)
+
+    pure $ [ (mavenCoords jarClassifier $ mainExt artReleaseType, outDir </> mainArtifactFile) | shouldReleasePlatInd] <>
+           [ (mavenCoords Nothing "pom",  outDir </> pomFile) | isJar artReleaseType, shouldReleasePlatInd] <>
+           [ (mavenCoords (Just "sources") "jar", outDir </> sourcesFile) | isJar artReleaseType, shouldReleasePlatInd] <>
+           [ (mavenCoords (Just "javadoc") "jar", outDir </> javadocFile) | isJar artReleaseType, shouldReleasePlatInd]
 
 shouldRelease :: AllArtifacts -> PlatformDependent -> Bool
 shouldRelease (AllArtifacts allArtifacts) (PlatformDependent platformDependent) =
     allArtifacts || platformDependent || osName == "linux"
-
 
 copyToReleaseDir :: (MonadLogger m, MonadIO m) => BazelLocations -> Path Abs Dir -> Path Rel File -> Path Rel File -> m ()
 copyToReleaseDir BazelLocations{..} releaseDir inp out = do

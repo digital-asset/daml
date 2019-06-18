@@ -45,6 +45,11 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-package-env.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-keep-hs-extra-libs.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
+                # XXX: Remove once rules_haskell is upgraded to include
+                #   https://github.com/tweag/rules_haskell/pull/950 and
+                #   https://github.com/tweag/rules_haskell/pull/952
+                "@com_github_digital_asset_daml//bazel_tools:haskell_ghci_repl_toolchain_lib.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,

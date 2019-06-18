@@ -109,6 +109,8 @@ final class FrontStack[+A] private (fq: FQ[A], len: Int) {
     case _ => false
   }
 
+  override def hashCode(): Int = toImmArray.hashCode()
+
   /** O(n) */
   override def toString: String = "FrontStack(" + iterator.map(_.toString).mkString(",") + ")"
 }

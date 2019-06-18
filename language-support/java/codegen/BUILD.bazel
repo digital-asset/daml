@@ -6,6 +6,8 @@ load(
     "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
+    "scala_source_jar",
+    "scaladoc_jar",
 )
 load(
     "//rules_daml:daml.bzl",
@@ -21,6 +23,7 @@ load(
     "jar_jar",
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_scala_binary(
     name = "codegen",
@@ -103,6 +106,19 @@ pom_file(
     name = "shaded_binary_pom",
     target = ":shaded_binary",
     visibility = ["//visibility:public"],
+)
+
+# Create empty Scaladoc JAR for uploading to Maven Central
+scaladoc_jar(
+    name = "shaded_binary_scaladoc",
+    srcs = [],
+    deps = [],
+) if is_windows == False else None
+
+# Create empty Sources JAR for uploading to Maven Central
+scala_source_jar(
+    name = "shaded_binary_src",
+    srcs = [],
 )
 
 daml_lf_target_versions = [

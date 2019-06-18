@@ -1,0 +1,65 @@
+diff --git a/haskell/private/haskell_impl.bzl b/haskell/private/haskell_impl.bzl
+index 42f9f0f..af58c03 100644
+--- a/haskell/private/haskell_impl.bzl
++++ b/haskell/private/haskell_impl.bzl
+@@ -689,10 +689,14 @@ def haskell_import_impl(ctx):
+         # XXX Empty set of conf and cache files only works for global db.
+         package_databases = set.empty(),
+         version_macros = version_macros,
++        source_files = set.empty(),
++        import_dirs = depset(),
++        extra_source_files = depset(),
+         static_libraries = [],
+         static_libraries_prof = [],
+         dynamic_libraries = set.empty(),
+         interface_dirs = set.empty(),
++        compile_flags = [],
+         prebuilt_dependencies = set.empty(),
+         direct_prebuilt_deps = set.empty(),
+         cc_dependencies = empty_HaskellCcInfo(),
+diff --git a/haskell/repl.bzl b/haskell/repl.bzl
+index 4746d3c..fa57cf8 100644
+--- a/haskell/repl.bzl
++++ b/haskell/repl.bzl
+@@ -1,5 +1,6 @@
+ """Multi target Haskell REPL."""
+ 
++load("@bazel_skylib//lib:dicts.bzl", "dicts")
+ load("@bazel_skylib//lib:paths.bzl", "paths")
+ load("@bazel_skylib//lib:shell.bzl", "shell")
+ load("@io_tweag_rules_haskell//haskell:private/context.bzl", "haskell_context", "render_env")
+@@ -250,6 +251,7 @@ def _create_repl(hs, ctx, repl_info, output):
+         repl_info.transitive_cc_dependencies,
+         path_prefix = "$RULES_HASKELL_EXEC_ROOT",
+     )
++    ghc_env = dicts.add(hs.env, ghc_env)
+     library_path = [paths.dirname(lib.path) for lib in library_deps]
+     ld_library_path = [paths.dirname(lib.path) for lib in ld_library_deps]
+ 
+@@ -319,6 +321,8 @@ def _create_repl(hs, ctx, repl_info, output):
+     extra_inputs.extend(set.to_list(repl_info.dep_info.package_databases))
+     extra_inputs.extend(library_deps)
+     extra_inputs.extend(ld_library_deps)
++    if hs.toolchain.locale_archive:
++        extra_inputs.append(hs.toolchain.locale_archive)
+     return [DefaultInfo(
+         executable = output,
+         runfiles = ctx.runfiles(
+@@ -328,13 +332,15 @@ def _create_repl(hs, ctx, repl_info, output):
+     )]
+ 
+ def _haskell_repl_aspect_impl(target, ctx):
+-    if HaskellInfo not in target or HaskellPrebuiltPackageInfo in target:
++    if HaskellInfo not in target:
+         return []
+ 
+     target_info = _create_HaskellReplCollectInfo(target, ctx)
+     deps_infos = [
+         dep[HaskellReplCollectInfo]
+-        for dep in ctx.rule.attr.deps
++        for deps in [getattr(ctx.rule.attr, "deps", None)]
++        if deps
++        for dep in deps
+         if HaskellReplCollectInfo in dep
+     ]
+     collect_info = _merge_HaskellReplCollectInfo([target_info] + deps_infos)

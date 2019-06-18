@@ -25,7 +25,6 @@ import Data.List.Extra
 import Data.Either.Extra
 import qualified Data.Text as T
 import Control.Monad.Extra
-import Control.Applicative
 import Safe
 
 -- | Run the assistant and exit.
@@ -141,34 +140,44 @@ handleCommand env@Env{..} = \case
         installedVersionsE <- tryAssistant $ getInstalledSdkVersions envDamlPath
         availableVersionsE <- tryAssistant $ refreshAvailableSdkVersions envDamlPath
         defaultVersionM <- tryAssistantM $ getDefaultSdkVersion envDamlPath
+        projectVersionM <- mapM getSdkVersionFromProjectPath envProjectPath
 
         let asstVersion = unwrapDamlAssistantSdkVersion <$> envDamlAssistantSdkVersion
             envVersions = catMaybes
                 [ envSdkVersion
                 , envLatestStableSdkVersion
-                , asstVersion
+                , guard vAssistant >> asstVersion
+                , projectVersionM
+                , defaultVersionM
                 ]
 
-            latestVersionM
-                = maximumMay (fromRight [] availableVersionsE)
-                <|> envLatestStableSdkVersion
+            latestVersionM = maximumMay $ concat
+                [ fromRight [] availableVersionsE
+                , fromRight [] installedVersionsE
+                , envVersions
+                ]
 
-            isInstalled =
+            isNotInstalled = -- defaults to False if "installed version" list is not available
                 case installedVersionsE of
-                    Left _ -> const True
+                    Left _ -> const False
+                    Right vs -> (`notElem` vs)
+
+            isAvailable = -- defaults to False if "available version" list is not available
+                case availableVersionsE of
+                    Left _ -> const False
                     Right vs -> (`elem` vs)
 
             versionAttrs v = catMaybes
-                [ "active"
-                    <$ guard (Just v == envSdkVersion)
-                , "default"
-                    <$ guard (Just v == defaultVersionM)
-                , "assistant"
-                    <$ guard (Just v == asstVersion)
+                [ "project SDK version from daml.yaml"
+                    <$ guard (Just v == projectVersionM && isJust envProjectPath)
+                , "default SDK version for new projects"
+                    <$ guard (Just v == defaultVersionM && isNothing envProjectPath)
+                , "daml assistant version"
+                    <$ guard (Just v == asstVersion && vAssistant)
                 , "latest release"
-                    <$ guard (Just v == latestVersionM)
+                    <$ guard (Just v == latestVersionM && isNotInstalled v && isAvailable v)
                 , "not installed"
-                    <$ guard (not (isInstalled v))
+                    <$ guard (isNotInstalled v)
                 ]
 
             versions = nubSort . concat $

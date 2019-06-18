@@ -7,7 +7,7 @@ import * as URL from "url"
 import { Stream } from "stream";
 
 const config = require('./config').read(),
-      debug = require('debug')('webide-docker')
+      debug = require('debug')('webide:docker')
 
 ensureDocker()
 

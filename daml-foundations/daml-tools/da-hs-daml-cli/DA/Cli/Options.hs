@@ -62,6 +62,14 @@ targetDirOpt = argument str $
         metavar "TARGET_DIR"
     <> help "Target directory for DAR package"
 
+targetSrcDirOpt :: Parser (Maybe FilePath)
+targetSrcDirOpt =
+    option (Just <$> str) $
+    metavar "TARGET_SRC_DIR"
+    <> help "Optional target directory to write created sources to"
+    <> long "srcdir"
+    <> value Nothing
+
 optionalInputFileOpt :: Parser (Maybe FilePath)
 optionalInputFileOpt = option (Just <$> str) $
        metavar "FILE"

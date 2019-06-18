@@ -9,6 +9,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.BlindingInfo
+import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.ledger.api.domain.LedgerOffset
 
@@ -42,6 +43,7 @@ package object v1 {
         eventId: EventId,
         contractId: Value.AbsoluteContractId,
         templateId: Ref.Identifier,
+        contractKey: Option[KeyWithMaintainers[Value.VersionedValue[Value.AbsoluteContractId]]],
         argument: Value.VersionedValue[Value.AbsoluteContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Party],

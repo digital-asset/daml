@@ -12,10 +12,14 @@ module Development.IDE.State.API
     , getDefinition
     , shutdown
     , setFilesOfInterest
+    , modifyFilesOfInterest
     , setOpenVirtualResources
+    , modifyOpenVirtualResources
     , setBufferModified
     , runAction
     , runActions
+    , runActionSync
+    , runActionsSync
     , writeProfile
     , getDiagnostics
     , unsafeClearDiagnostics
