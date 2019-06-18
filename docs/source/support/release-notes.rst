@@ -26,6 +26,11 @@ Docs
 
 - Added :doc:`/daml/intro/0_Intro`
 
+DAML Studio
+~~~~~~~~~~~
+
+- The IDE now executes tasks in parallel.
+
 .. _release-0-13-2:
 
 0.13.2 - 2019-06-18

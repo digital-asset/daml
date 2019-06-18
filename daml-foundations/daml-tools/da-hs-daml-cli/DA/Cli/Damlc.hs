@@ -256,6 +256,7 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
     opts <- pure $ opts
         { optScenarioService = enableScenarioService
         , optScenarioValidation = ScenarioValidationLight
+        , optThreads = 0
         }
     withLogger $ \loggerH ->
         withScenarioService' enableScenarioService loggerH $ \mbScenarioService -> do
