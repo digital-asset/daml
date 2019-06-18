@@ -448,11 +448,11 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           EScenario(decodeScenario(lfExpr.getScenario))
 
         case PLF.Expr.SumCase.NONE =>
-          assertSince("1", "Expr.None")
+          assertSince("1", "CaseAlt.None")
           ENone(decodeType(lfExpr.getNone.getType))
 
         case PLF.Expr.SumCase.SOME =>
-          assertSince("1", "Expr.Some")
+          assertSince("1", "CaseAlt.Some")
           val some = lfExpr.getSome
           ESome(decodeType(some.getType), decodeExpr(some.getBody))
 

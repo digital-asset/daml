@@ -133,10 +133,10 @@ case object URUninhabitatedType extends UnserializabilityReason {
   def pretty: String = "variant type without constructors"
 }
 
-sealed trait ValidationError extends java.lang.RuntimeException with Product with Serializable {
+abstract class ValidationError extends java.lang.RuntimeException with Product with Serializable {
   def context: Context
   override def toString: String = productPrefix + productIterator.mkString("(", ", ", ")")
-  def pretty: String = s"validation error ${context.pretty}: $prettyInternal"
+  val pretty: String = s"validation error in ${context.pretty}: $prettyInternal"
   protected def prettyInternal: String
 }
 

@@ -111,7 +111,7 @@ class EncodeV1(val minor: LanguageMinorVersion) {
     private implicit def encodeKind(k: Kind): PLF.Kind =
       k match {
         case KArrows(params, result) =>
-          assert(result == KStar)
+          expect(result == KStar)
           PLF.Kind
             .newBuilder()
             .setArrow(
@@ -131,8 +131,11 @@ class EncodeV1(val minor: LanguageMinorVersion) {
         case (proto, (scala, sinceVersion)) => scala -> (proto -> sinceVersion)
       }
 
-    private implicit def encodeBuiltinType(bType: BuiltinType): PLF.PrimType =
-      builtinTypeMap(bType)._1
+    private implicit def encodeBuiltinType(bType: BuiltinType): PLF.PrimType = {
+      val (builtin, minVersion) = builtinTypeMap(bType)
+      assertSince(minVersion, bType.toString)
+      builtin
+    }
 
     @inline
     private implicit def encodeTypeBinder(binder: (String, Kind)): PLF.TypeVarWithKind = {
@@ -186,11 +189,11 @@ class EncodeV1(val minor: LanguageMinorVersion) {
         case TApp(_, _) =>
           sys.error("unexpected error")
         case TForalls(binders, body) =>
-          assert(args.isEmpty)
+          expect(args.isEmpty)
           builder.setForall(
             PLF.Type.Forall.newBuilder().accumulateLeft(binders)(_ addVars _).setBody(body))
         case TTuple(fields) =>
-          assert(args.isEmpty)
+          expect(args.isEmpty)
           builder.setTuple(PLF.Type.Tuple.newBuilder().accumulateLeft(fields)(_ addFields _))
       }
     }
@@ -266,6 +269,7 @@ class EncodeV1(val minor: LanguageMinorVersion) {
         case UpdateFetch(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
         case UpdateExercise(templateId, choice, cid, actors, arg) =>
+          if (actors.isEmpty) assertSince("5", "Update.Exercise.actors optional")
           builder.setExercise(
             PLF.Update.Exercise
               .newBuilder()
@@ -278,8 +282,10 @@ class EncodeV1(val minor: LanguageMinorVersion) {
         case UpdateGetTime =>
           builder.setGetTime(unit)
         case UpdateFetchByKey(rbk) =>
+          assertSince("2", "fetchByKey")
           builder.setFetchByKey(rbk)
         case UpdateLookupByKey(rbk) =>
+          assertSince("2", "lookupByKey")
           builder.setLookupByKey(rbk)
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
@@ -340,6 +346,7 @@ class EncodeV1(val minor: LanguageMinorVersion) {
           builder.setVariant(
             PLF.CaseAlt.Variant.newBuilder().setCon(tyCon).setVariant(variant).setBinder(binder))
         case CPEnum(tycon, con) =>
+          assertSince("dev", "CaseAlt.Enum")
           builder.setEnum(PLF.CaseAlt.Enum.newBuilder().setCon(tycon).setConstructor(con))
         case CPPrimCon(primCon) =>
           builder.setPrimCon(primCon)
@@ -348,8 +355,10 @@ class EncodeV1(val minor: LanguageMinorVersion) {
         case CPCons(head, tail) =>
           builder.setCons(PLF.CaseAlt.Cons.newBuilder().setVarHead(head).setVarTail(tail))
         case CPNone =>
+          assertSince("1", "CaseAlt.None")
           builder.setNone(unit)
         case CPSome(x) =>
+          assertSince("1", "CaseAlt.Some")
           builder.setSome(PLF.CaseAlt.Some.newBuilder().setVarBody(x))
         case CPDefault =>
           builder.setDefault(unit)
@@ -406,6 +415,7 @@ class EncodeV1(val minor: LanguageMinorVersion) {
               .setVariantCon(variant)
               .setVariantArg(arg))
         case EEnumCon(tyCon, con) =>
+          assertSince("dev", "Expr.Enum")
           newBuilder.setEnumCon(PLF.Expr.EnumCon.newBuilder().setTycon(tyCon).setEnumCon(con))
         case ETupleCon(fields) =>
           newBuilder.setTupleCon(
@@ -439,8 +449,10 @@ class EncodeV1(val minor: LanguageMinorVersion) {
               .accumulateLeft(front)(_ addFront _)
               .setTail(tail))
         case ENone(typ) =>
+          assertSince("1", "Expr.None")
           newBuilder.setNone(PLF.Expr.None.newBuilder().setType(typ))
         case ESome(typ, x) =>
+          assertSince("1", "Expr.Some")
           newBuilder.setSome(PLF.Expr.Some.newBuilder().setType(typ).setBody(x))
         case ELocation(loc, expr) =>
           encodeExprBuilder(expr).setLocation(loc)
@@ -531,9 +543,18 @@ class EncodeV1(val minor: LanguageMinorVersion) {
 
   }
 
+  private def assertSince(minMinorVersion: LanguageMinorVersion, description: String): Unit =
+    if (V1.minorVersionOrdering.lt(minor, minMinorVersion))
+      throw EncodeError(s"$description is not supported by DAML-LF 1.$minor")
+
 }
 
 object EncodeV1 {
+
+  case class EncodeError(message: String) extends RuntimeException
+
+  private def unexpectedError(): Unit =
+    throw EncodeError("unexpected error")
 
   private sealed abstract class LeftRecMatcher[Left, Right] {
     def unapply(arg: Left): Option[(Left, ImmArray[Right])]
@@ -599,8 +620,8 @@ object EncodeV1 {
     def accumulateLeft[Y](option: Option[Y])(f: (X, Y) => X): X = option.fold(x)(f(x, _))
   }
 
-  private def assert(b: Boolean): Unit =
-    if (!b) sys.error("unexpected error")
+  private def expect(b: Boolean): Unit =
+    if (!b) unexpectedError()
 
   private implicit class IdentifierOps(val identifier: Identifier) extends AnyVal {
     import identifier._

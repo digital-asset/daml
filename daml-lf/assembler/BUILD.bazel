@@ -1,0 +1,55 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_test",
+)
+
+da_scala_binary(
+    name = "damllf-as",
+    srcs = glob(["src/main/**/*.scala"]),
+    main_class = "com.digitalasset.daml.lf.engine.assembler.DamlLfAssembler",
+    scalacopts = ["-Xsource:2.13"],
+    deps = [
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/validation",
+    ],
+    visibility = ["//daml-lf:__subpackages__"],
+)
+
+genrule(
+    name = "assembler-test-dalf",
+    srcs = ["src/test/resource/Test.damllf"],
+    outs = ["Test.dalf"],
+    cmd = "$(location :damllf-as) $(SRCS) $@ 1.dev",
+    tools = [":damllf-as"],
+)
+
+da_scala_test(
+    name = "assembler-test",
+    size = "small",
+    srcs = glob(["src/test/**/*.scala"]),
+    data = [":assembler-test-dalf"],
+    scalacopts = ["-Xsource:2.13"],
+    deps = [
+        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//daml-lf/parser",
+        "//daml-lf/validation",
+    ],
+)
