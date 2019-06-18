@@ -58,7 +58,7 @@ message PackageRef {
 
     // An index into `interned_package_ids` of the Package containing
     // this reference.
-    uint32 interned_id = 3;
+    uint64 interned_id = 3;
   }
 }
 
