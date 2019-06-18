@@ -10,7 +10,7 @@ But what if the accountant wanted to allow the bank to change their own telephon
 
 In this section you will learn about how to define simple data transformations using *choices* and how to delegate the right to *exercise* these choices to other parties.
 
-Choices as Methods
+Choices as methods
 ------------------
 
 If you think of templates as classes and contracts as objects, where are the methods?
@@ -22,7 +22,9 @@ Take as an example a ``Contact`` contract on which the contact owner wants to be
   :start-after: -- CHOICE_BEGIN
   :end-before: -- CHOICE_END
 
-The above defines a *choice* called ``UpdateTelephone``. Choices are part of a contract template. They're permissioned functions that result in an ``Update``. Using choices, authority can be passed around, allowing the construction of complex transactions. Let's unpack in the above.
+The above defines a *choice* called ``UpdateTelephone``. Choices are part of a contract template. They're permissioned functions that result in an ``Update``. Using choices, authority can be passed around, allowing the construction of complex transactions.
+
+Let's unpack the code snippet above:
 
 - The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the only party that is allowed *exercise* them. The line starts a new block in which multiple choices can be defined.
 - ``UpdateTelephone`` is the name of a choice. It starts a new block in which that choice is defined.
@@ -48,10 +50,12 @@ You exercise choices using the ``exercise`` function, which takes a ``ContractId
 
 ``exercise`` returns an ``Update r`` where ``r`` is the return type specified on the choice, allowing the new ``ContractId Contact`` to be stored in the variable ``new_contactCid``.
 
-Choices as Delegation
+Choices as delegation
 ---------------------
 
-Up to this point all the contracts only involved one party. ``party`` may have been stored as ``Party`` field in the above, which suggests they are actors on the ledger, but they couldn't see the contracts, nor change them in any way. It would be reasonable for the party for which a ``Contact`` is stored to be able to update their own address and telephone number. In other words, the ``owner`` of a ``Contact`` should be able to *delegate* the right to perform a certain kind of data transformation to ``party``. The below demonstrates this using an ``UpdateAddress`` choice and corresponding extension of the scenario:
+Up to this point all the contracts only involved one party. ``party`` may have been stored as ``Party`` field in the above, which suggests they are actors on the ledger, but they couldn't see the contracts, nor change them in any way. It would be reasonable for the party for which a ``Contact`` is stored to be able to update their own address and telephone number. In other words, the ``owner`` of a ``Contact`` should be able to *delegate* the right to perform a certain kind of data transformation to ``party``.
+
+The below demonstrates this using an ``UpdateAddress`` choice and corresponding extension of the scenario:
 
 .. literalinclude:: daml/daml-intro-4/Contact.daml
   :language: daml
@@ -70,11 +74,13 @@ If you open the scenario view in the IDE, you will notice that Bob sees the ``Co
 Choices in the Ledger Model
 ---------------------------
 
-In :doc:`1_Token` you learned about the high-level structure of a DAML ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions. A *transaction* is a list of *actions*, and there are just three kinds of action: ``create``, ``exercise`` and ``fetch``. All actions are performed on a contract.
+In :doc:`1_Token` you learned about the high-level structure of a DAML ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
 
-- A ``create`` action contains the contract arguments and changes the contract's status from *inexistent* to *active*.
-- A ``fetch`` action  checks the existence and activeness of a contract
-- An ``exercise`` action contains the choice arguments and a transaction called the *consequences*. Exercises come in two *kinds* called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
+A *transaction* is a list of *actions*, and there are just three kinds of action: ``create``, ``exercise`` and ``fetch``. All actions are performed on a contract.
+
+- A ``create`` action contains the contract arguments and changes the contract's status from *non-existent* to *active*.
+- A ``fetch`` action  checks the existence and activeness of a contract.
+- An ``exercise`` action contains the choice arguments and a transaction called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
 
 The consequences of exercise nodes turn each transaction into an ordered tree of (sub-) transactions, or, equivalently, a forest of actions. Actions are in one-to-one correspondence with proper sub-transactions.
 
@@ -141,21 +147,25 @@ With that new background, it's time to take a look at the transaction view of th
 
   Return value: {}
 
-There are four commits corresponding to the four ``submit`` statements in the scenario. Within each commit, we see that it's actually actions that have ids of the form ``#commit_number:action_number``. Contract ids are just the id of their ``create`` action. Commits ``#2`` and ``#4`` contain ``exercise`` actions with ids ``#2:1`` and ``#4:1``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:2`` and ``#4:2``, are indented and found below a line reading ``children:``, making the tree structure apparent.
+There are four commits corresponding to the four ``submit`` statements in the scenario. Within each commit, we see that it's actually actions that have IDs of the form ``#commit_number:action_number``. Contract IDs are just the ID of their ``create`` action.
+
+So commits ``#2`` and ``#4`` contain ``exercise`` actions with ids ``#2:1`` and ``#4:1``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:2`` and ``#4:2``, are indented and found below a line reading ``children:``, making the tree structure apparent.
 
 .. _simple_iou:
 
-A Simple Cash Model
+A simple cash model
 -------------------
 
-With the power of choices, you can build you first interesting model: Issuance of cash Ious (I owe you). The model presented here is simpler than the one in :doc:`3_Data` as it's not concerned with the location of the physical cash, but merely with liabilities.
+With the power of choices, you can build your first interesting model: issuance of cash IOUs (I owe you). The model presented here is simpler than the one in :doc:`3_Data` as it's not concerned with the location of the physical cash, but merely with liabilities:
 
 .. literalinclude:: daml/daml-intro-4/SimpleIou.daml
   :language: daml
 
 The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.
 
-Next Up
+Next up
 -------
 
-You can now store and transform data on the ledger, even giving other parties specific write access through choices. In :doc:`5_Restrictions`, you will learn how to restrict data and transformations further. In that context, you will also learn about time on DAML ledgers, ``do`` blocks and ``<-`` notation within those.
+You can now store and transform data on the ledger, even giving other parties specific write access through choices.
+
+In :doc:`5_Restrictions`, you will learn how to restrict data and transformations further. In that context, you will also learn about time on DAML ledgers, ``do`` blocks and ``<-`` notation within those.

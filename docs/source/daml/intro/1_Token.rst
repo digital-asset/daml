@@ -12,7 +12,7 @@ To begin with, you're going to write a very small DAML template, which represent
 - Contracts
 - Signatories
 
-DAML Ledger Basics
+DAML ledger basics
 ------------------
 
 Like most structures called ledgers, a DAML Ledger is just a list of *commits*. When we say *commit*, we mean the final result of when a *party* successfully *submits* a *transaction* to the ledger.
@@ -25,7 +25,7 @@ A contract is *active* from the point where there is a committed transaction tha
 
 DAML specifies what transactions are legal on a DAML Ledger. The rules the DAML code specifies are collectively called a *DAML model* or *contract model*.
 
-DAML Files and Modules
+DAML files and modules
 ----------------------
 
 Each ``.daml`` file defines a *DAML Module*. At the top of each DAML file is a pragma informing the compiler of the language version and the module name:
@@ -65,7 +65,7 @@ The ``signatory`` keyword specifies the *signatories* of a contract instance. Th
 
 Furthermore, DAML ledgers *guarantee* that parties see all transactions where their authority is used. This means that signatories of a contract are guaranteed to see the creation and archival of that contract.
 
-Next Up
+Next up
 -------
 
 In :doc:`2_Scenario`, you'll learn about how to try out the ``Token`` contract template in DAML's inbuilt ``scenario`` testing language.

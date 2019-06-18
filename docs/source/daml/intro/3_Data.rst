@@ -25,7 +25,7 @@ In this section, you'll learn how to create rich data schemas for your ledger. S
 
 After this section, you should be able to use a DAML ledger as a simple database where individual parties can write, read and delete complex data.
 
-Native Types
+Native types
 ------------
 
 You have already encountered a few native DAML types: ``Party`` in :doc:`1_Token`, and ``Text`` and ``ContractId`` in :doc:`2_Scenario`. Here are those native types and more:
@@ -66,7 +66,7 @@ Despite its simplicity, there are quite a few things to note in this scenario:
 
   That's because DAML is very good at *inferring* types. The compiler knows that ``123`` is an ``Int``, so if you declare ``my_int = 123``, it can infer that ``my_int`` is also an ``Int``. This means you don't have to write the type annotation ``my_int : Int = 123``.
 
-   However, if the type is ambiguous so that the compiler can't infer it, you do have to add a type annotation. And you can always choose to add them to aid readability.
+  However, if the type is ambiguous so that the compiler can't infer it, you do have to add a type annotation. And you can always choose to add them to aid readability.
 - The ``assert`` function is an action that takes a boolean value and succeeds with ``True`` and fails with ``False``.
 
   Try putting ``assert False`` somewhere in a scenario and see what happens to the scenario result.
@@ -150,8 +150,8 @@ Records can give the data on ``CashBalance`` a bit more structure:
 
 If you look at the resulting scenario view, you'll see that this still gives rise to one table. The records are expanded out into columns using dot notation.
 
-Variants
-~~~~~~~~
+Variants and pattern matching
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Suppose now that you also wanted to keep track of cash in hand. Cash in hand doesn't have a bank, but you can't just leave ``bank`` empty. DAML doesn't have an equivalent to ``null``. Variants can express that cash can either be in hand or at a bank.
 
@@ -185,7 +185,7 @@ To do this, you can use *pattern matching* and either throw errors or return com
   :start-after: -- VARIANT_ACCESS_BEGIN
   :end-before: -- VARIANT_ACCESS_END
 
-Manipulating Data
+Manipulating data
 -----------------
 
 You've got all the ingredients to build rich types expressing the data you want to be able to write to the ledger, and you have seen how to create new values and read fields from values. But how do you manipulate values once created?
@@ -233,7 +233,7 @@ Note how the ``fetch`` in the final ``submit`` block has become a ``fetchByKey @
 Since a single type could be used as the key for multiple templates, you need to tell the compiler what type of contract is being fetched by using the ``@Account`` notation.
 
 
-Next Up
+Next up
 -------
 
 You can now define data schemas for the ledger, read, write and delete data from the ledger, and use keys to reference and look up data in a stable fashion.

@@ -1,23 +1,23 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-7 Composing Choices
+7 Composing choices
 ===================
 
-It is time to put everything you have learnt so far together into a complete and secure DAML model for asset issuance, management, transfer, and trading, with capabilities similar to that presented in :doc:`/getting-started/quickstart`. In the process you will learn about a few more concepts:
+It's time to put everything you've learnt so far together into a complete and secure DAML model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :doc:`/getting-started/quickstart`. In the process you will learn about a few more concepts:
 
-- DAML Projects, Packages and Modules
+- DAML projects, packages and modules
 - Composition of transactions
-- Observers and Stakeholders
+- Observers and stakeholders
 - DAML's execution model
 - Privacy
 
 The model in this section is not a single DAML file, but a DAML project consisting of several files that depend on each other.
 
-DAML Projects
+DAML projects
 -------------
 
-DAML is organized in packages and modules. DAML projects are specified using a ``daml.yaml`` file and compile into packages. DAML files within a project become DAML modules. You can start a new project with a skeleton structure using ``daml new project_name`` in the terminal.
+DAML is organized in packages and modules. A DAML project is specified using a single ``daml.yaml`` file, and compiles into a package. Each DAML file within a project becomes a DAML module. You can start a new project with a skeleton structure using ``daml new project_name`` in the terminal.
 
 Each DAML project has a main source file, which is the entry point for the compiler. A common pattern is to have a main file called ``LibraryModules.daml``, which simply lists all the other modules to include.
 
@@ -26,14 +26,14 @@ A minimal project would contain just two files: ``daml.yaml`` and ``daml/Library
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
-You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` lists package dependencies. ``daml-prim`` should always be included. ``daml-stdlib`` gives access to the DAML standard library.
+You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` lists package dependencies: you should always include ``daml-prim``, and ``daml-stdlib`` gives access to the DAML standard library.
 
-You can compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` package in ``dist/project_name.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java. It's the artifact that gets deployed to a ledger to load the contract model.
+You compile a DAML project by running ``daml build`` from the project root directory. This creates a ``dar`` package in ``dist/project_name.dar``. A ``dar`` file is DAML's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the contract model.
 
-Project Structure
+Project structure
 -----------------
 
-This project contains an asset holding model for transferrable, fungible assets and a separate trade workflow. The templates are structured in three modules ``Intro.Asset``, ``Intro.Asset.Role``, and ``Intro.Asset.Trade``.
+This project contains an asset holding model for transferrable, fungible assets and a separate trade workflow. The templates are structured in three modules: ``Intro.Asset``, ``Intro.Asset.Role``, and ``Intro.Asset.Trade``.
 
 In addition, there are tests in modules ``Test.Intro.Asset``, ``Test.Intro.Asset.Role``, and ``Test.Intro.Asset.Trade``.
 
@@ -64,20 +64,22 @@ Each file contains the DAML pragma and module header. For example, ``daml/Intro/
   :start-after: -- PRAGMA_BEGIN
   :end-before: -- PRAGMA_END
 
-Modules can be imported in each other using the ``import`` keyword. The ``LibraryModules`` module imports all six modules:
+You can import one module into another using the ``import`` keyword. The ``LibraryModules`` module imports all six modules:
 
 .. literalinclude:: daml/daml-intro-7/daml/LibraryModules.daml
   :language: daml
   :start-after: -- IMPORTS_BEGIN
 
-Imports always have to appear just below the module declaration. The ``()`` behind each ``import`` above is optional, and allows one to only import selected names. In this case it suppresses an "unused import" warning. ``LibraryModules`` is not actually using any of the imports in ``LibraryModules``. The ``()`` tells the compiler that this is intentional.
+Imports always have to appear just below the module declaration. The ``()`` behind each ``import`` above is optional, and lets you only import selected names.
+
+In this case, it suppresses an "unused import" warning. ``LibraryModules`` is not actually using any of the imports in ``LibraryModules``. The ``()`` tells the compiler that this is intentional.
 
 A more typical import statement is ``import Intro.Asset`` as found in ``Test.Intro.Asset``.
 
-Project Overview
+Project overview
 ----------------
 
-The project both changes and additions compared to the ``Iou`` model presented in :doc:`6_Parties`:
+The project both changes and adds to the ``Iou`` model presented in :doc:`6_Parties`:
 
 - Assets are fungible in the sense that they have ``Merge`` and ``Split`` choices that allow the ``owner`` to manage their holdings.
 - Transfer proposals now need the authorities of both ``issuer`` and ``newOwner`` to accept. This makes ``Asset`` safer than ``Iou`` from the issuer's point of view.
@@ -197,10 +199,11 @@ DAML's execution model
 DAML's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
 
 1. A party submits a transaction. Remember, a transaction is just a list of actions.
-2. The transaction is interpreted, meaning the ``Update`` corresponding to each action is evaluated in the context of the ledger to calculate all consequeces, including transitive ones (consequences of consequences, etc.)
+2. The transaction is interpreted, meaning the ``Update`` corresponding to each action is evaluated in the context of the ledger to calculate all consequeces, including transitive ones (consequences of consequences, etc).
 3. The transaction is *blinded*, or *projected*, meaning the views that different parties have on the transaction are calculated.
 4. The blinded views are distributed to the parties.
-5. The transaction is *validated* and *committed* based on the blinded views and a consensus protocol depending on the underlying infrastructure.
+5. The transaction is *validated* based on the blinded views and a consensus protocol depending on the underlying infrastructure.
+6. If validation succeeds, the transaction is *committed*.
 
 The first important consequence of the above is that all transactions are committed atomically. Either a transaction is committed as a whole and for all participants, or it fails.
 
@@ -257,7 +260,7 @@ The consequences contain, next to some ``fetch`` actions, two ``exercise`` actio
 
 Each of the two involved ``TransferApproval`` contracts is signed by a different ``issuer``, which see the action on "their" contract. So the EUR_Bank sees the ``TransferApproval_Transfer`` action for the EUR ``Asset`` and the USD_Bank sees the ``TransferApproval_Transfer`` action for the USD ``Asset``.
 
-Some DAML ledgers, like the scenario runner and the Sandbox work on the principle of "data minimization", meaning nothing more than the above information is distributed. Ie the "projecion" of the overall transaction that gets distributed to EUR_Bank in step 4 of :ref:`execution_model` would consist only of the ``TransferApproval_Transfer`` and its consequences.
+Some DAML ledgers, like the scenario runner and the Sandbox, work on the principle of "data minimization", meaning nothing more than the above information is distributed. That is, the "projection" of the overall transaction that gets distributed to EUR_Bank in step 4 of :ref:`execution_model` would consist only of the ``TransferApproval_Transfer`` and its consequences.
 
 Other implementations, in particular those on public blockchains, may have weaker privacy constraints.
 

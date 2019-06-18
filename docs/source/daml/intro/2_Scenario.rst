@@ -15,7 +15,7 @@ In this section you will test the ``Token`` model from :doc:`1_Token` using DAML
 
 .. scenario_basics:
 
-Scenario Basics
+Scenario basics
 ---------------
 
 A ``Scenario`` is like a recipe for a test, where you can script different parties submitting a series of transactions, to check that your templates behave as you'd expect. You can also script some some external information like party identities, and ledger time.
@@ -49,7 +49,7 @@ You'll learn all about the syntax ``Token with owner = alice`` in :doc:`3_Data`.
 
 You could write this as ``submit alice (create Token with owner = alice)``, but just like scenarios, you can assemble updates using ``do`` blocks. A ``do`` block always takes the value of the last statement within it so the syntax shown in the scenario above gives the same result, whilst being easier to read.
 
-Running Scenarios
+Running scenarios
 -----------------
 
 There are two ways to run scenarios:
@@ -80,7 +80,7 @@ To run the same test from the command line, save your module in a file ``Token_T
 
 .. _intro_2_failure:
 
-Testing for Failure
+Testing for failure
 -------------------
 
 In :doc:`1_Token` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a Token for another party and vice versa. A reasonable attempt to test that would be:
@@ -107,7 +107,7 @@ To test for failing submits and keep the scenario running thereafter, or fail if
 
 .. _archiving:
 
-Archiving Contracts
+Archiving contracts
 -------------------
 
 Archiving contracts works just like creating them, but using ``archive`` instead of ``create``. Where ``create`` takes an instance of a template, ``archive`` takes a reference to a contract.
@@ -123,7 +123,7 @@ This scenario first checks that Bob cannot archive Alice's Token and then Alice 
   :start-after: -- TOKEN_TEST_3_BEGIN
   :end-before: -- TOKEN_TEST_3_END
 
-Exploring the Ledger
+Exploring the ledger
 --------------------
 
 The resulting scenario view is empty, because there are no contracts left on the ledger. However, if you want to see the history of the ledger, e.g. to see how you got to that state, tick the "Show archived" box at the top of the ledger view:
@@ -160,7 +160,7 @@ To get a better understanding of scenarios, try the following exercises:
 
     Remember that in :ref:`intro_2_failure` we saw a proper error message for a failing submit.
 
-Next Steps
+Next up
 ----------
 
 In :doc:`3_Data` you will learn about DAML's type system, and how you can think of templates as tables and contracts as database rows.
