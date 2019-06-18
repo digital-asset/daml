@@ -85,7 +85,7 @@ data VersionOptions = VersionOptions
 data InstallOptions = InstallOptions
     { iTargetM :: Maybe RawInstallTarget -- ^ version to install
     , iAssistant :: InstallAssistant -- ^ install the assistant
-    , iActivate :: ActivateInstall -- ^ install the assistant (deprecated)
+    , iActivate :: ActivateInstall -- ^ install the assistant if true (deprecated, delete with 0.14.x)
     , iForce :: ForceInstall -- ^ force reinstall if already installed
     , iQuiet :: QuietInstall -- ^ don't print messages
     , iSetPath :: SetPath -- ^ set the user's PATH (on Windows)
