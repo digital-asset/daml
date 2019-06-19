@@ -207,6 +207,10 @@ object domain {
       * work.
       */
     final case class DuplicateCommandId(description: String) extends RejectionReason
+
+    final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
+
+    final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
   }
 
   type Value = Lf[Lf.AbsoluteContractId]

@@ -119,10 +119,10 @@ class PostgresDaoSpec
       )
 
       val transaction = LedgerEntry.Transaction(
-        "commandId1",
+        Some("commandId1"),
         "trId1",
-        "appID1",
-        "Alice",
+        Some("appID1"),
+        Some("Alice"),
         Some("workflowId"),
         let,
         let,
@@ -248,10 +248,10 @@ class PostgresDaoSpec
       )
 
       val transaction = LedgerEntry.Transaction(
-        "commandId2",
+        Some("commandId2"),
         "trId2",
-        "appID2",
-        "Alice",
+        Some("appID2"),
+        Some("Alice"),
         Some("workflowId"),
         let,
         let,
@@ -312,10 +312,10 @@ class PostgresDaoSpec
       )
 
       val transaction = LedgerEntry.Transaction(
-        s"commandId$offset",
+        Some(s"commandId$offset"),
         transactionId,
-        s"appID$offset",
-        "Alice",
+        Some(s"appID$offset"),
+        Some("Alice"),
         Some("workflowId"),
         let,
         // normally the record time is some time after the ledger effective time
@@ -387,10 +387,10 @@ class PostgresDaoSpec
         )
 
         LedgerEntry.Transaction(
-          s"commandId$id",
+          Some(s"commandId$id"),
           txId,
-          "appID1",
-          "Alice",
+          Some("appID1"),
+          Some("Alice"),
           Some("workflowId"),
           let,
           let,
@@ -416,10 +416,10 @@ class PostgresDaoSpec
         val absCid = AbsoluteContractId(s"cId$id")
         val let = Instant.now
         LedgerEntry.Transaction(
-          s"commandId$id",
+          Some(s"commandId$id"),
           txId,
-          "appID1",
-          "Alice",
+          Some("appID1"),
+          Some("Alice"),
           Some("workflowId"),
           let,
           let,

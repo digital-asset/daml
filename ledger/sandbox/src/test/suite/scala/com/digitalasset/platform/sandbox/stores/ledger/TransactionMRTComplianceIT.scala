@@ -8,7 +8,6 @@ import java.time.Instant
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
@@ -81,10 +80,10 @@ class TransactionMRTComplianceIT
         Ref.Party.assertFromString("submitter"),
         Ref.LedgerString.assertFromString("appId"),
         Ref.LedgerString.assertFromString("cmdId"),
-        Timestamp.assertFromInstant(MRT)
+        MRT
       )
       val transactionMeta = TransactionMeta(
-        Timestamp.assertFromInstant(LET),
+        LET,
         Some(Ref.LedgerString.assertFromString("wfid"))
       )
 

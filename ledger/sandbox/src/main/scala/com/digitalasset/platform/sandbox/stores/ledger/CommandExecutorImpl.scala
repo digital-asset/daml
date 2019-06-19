@@ -6,7 +6,6 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.Transaction
@@ -46,10 +45,10 @@ class CommandExecutorImpl(engine: Engine, getPackage: PackageId => Future[Option
               submitted.submitter,
               submitted.applicationId.unwrap,
               submitted.commandId.unwrap,
-              Timestamp.assertFromInstant(submitted.maximumRecordTime)
+              submitted.maximumRecordTime
             ),
             TransactionMeta(
-              Timestamp.assertFromInstant(submitted.ledgerEffectiveTime),
+              submitted.ledgerEffectiveTime,
               submitted.workflowId.map(_.unwrap)
             ),
             updateTx
