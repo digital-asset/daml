@@ -96,6 +96,7 @@ internPackageRefIds pkg
       S.fromList $ pkg ^.. packageRefs._PRImport
   | otherwise = S.empty
 
+-- invariant: forall pkgid. pkgid `S.lookupIndex ` input = encodePackageId pkgid `V.elemIndex` output
 encodeInternedPackageIds :: PackageRefCtx -> V.Vector TL.Text
 encodeInternedPackageIds = encodeList encodePackageId . S.toAscList
 
