@@ -32,7 +32,12 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/testing/archive/**/*.scala"]),
-    data = [":assembler-test-dalf"],
+    data = [
+        ":testing-dar-1.0",
+        ":testing-dar-1.1",
+        ":testing-dar-1.3",
+        ":testing-dar-1.dev",
+    ],
     scalacopts = lf_scalacopts,
     deps = [
         ":encoder",
@@ -55,7 +60,10 @@ da_scala_binary(
     srcs = glob(["src/main/scala/com/digitalasset/daml/lf/testing/archive/DamlLfEncoder.scala"]),
     main_class = "com.digitalasset.daml.lf.testing.archive.DamlLfEncoder",
     scalacopts = ["-Xsource:2.13"],
-    visibility = ["//daml-lf:__subpackages__"],
+    visibility = [
+        "//daml-lf:__subpackages__",
+        "//language-support:__subpackages__",
+    ],
     deps = [
         ":encoder",
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
@@ -72,10 +80,82 @@ da_scala_binary(
     ],
 )
 
+filegroup(
+    name = "lf_since_1.0",
+    srcs = glob(["src/test/lf/since_1_0/**/*.lf"]),
+)
+
+filegroup(
+    name = "lf_since_1.1",
+    srcs = glob(["src/test/lf/since_1_1/**/*.lf"]),
+)
+
+filegroup(
+    name = "lf_since_1.3",
+    srcs = glob(["src/test/lf/since_1_3/**/*.lf"]),
+)
+
+filegroup(
+    name = "lf_since_1.dev",
+    srcs = glob(["src/test/lf/since_1_dev/**/*.lf"]),
+)
+
 genrule(
-    name = "assembler-test-dalf",
-    srcs = ["src/test/resource/Test.damllf"],
-    outs = ["Test.dalf"],
-    cmd = "$(location :encoder_binary) $(SRCS) $@ 1.dev",
+    name = "testing-dar-1.0",
+    srcs = [":lf_since_1.0"],
+    outs = ["test-1.0.dar"],
+    cmd = "$(location :encoder_binary) $(SRCS) -o $@ -v 1.0",
     tools = [":encoder_binary"],
+    visibility = [
+        "//daml-lf:__subpackages__",
+        "//language-support:__subpackages__",
+    ],
+)
+
+genrule(
+    name = "testing-dar-1.1",
+    srcs = [
+        ":lf_since_1.0",
+        ":lf_since_1.1",
+    ],
+    outs = ["test-1.1.dar"],
+    cmd = "$(location :encoder_binary) $(SRCS) -o $@ -v 1.1",
+    tools = [":encoder_binary"],
+    visibility = [
+        "//daml-lf:__subpackages__",
+        "//language-support:__subpackages__",
+    ],
+)
+
+genrule(
+    name = "testing-dar-1.3",
+    srcs = [
+        ":lf_since_1.0",
+        ":lf_since_1.1",
+        ":lf_since_1.3",
+    ],
+    outs = ["test-1.3.dar"],
+    cmd = "$(location :encoder_binary) $(SRCS) -o $@ -v 1.3",
+    tools = [":encoder_binary"],
+    visibility = [
+        "//daml-lf:__subpackages__",
+        "//language-support:__subpackages__",
+    ],
+)
+
+genrule(
+    name = "testing-dar-1.dev",
+    srcs = [
+        ":lf_since_1.0",
+        ":lf_since_1.1",
+        ":lf_since_1.3",
+        ":lf_since_1.dev",
+    ],
+    outs = ["test-1.dev.dar"],
+    cmd = "$(location :encoder_binary) $(SRCS) -o $@ -v 1.dev",
+    tools = [":encoder_binary"],
+    visibility = [
+        "//daml-lf:__subpackages__",
+        "//language-support:__subpackages__",
+    ],
 )
