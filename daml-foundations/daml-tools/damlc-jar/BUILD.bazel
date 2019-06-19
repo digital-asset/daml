@@ -33,9 +33,11 @@ genrule(
     ],
     outs = ["damlc-dist.jar"],
     cmd = """
-    mkdir tmp
-    $(location @tar_dev_env//:tar) xzf $< -C tmp
-    $(location @bazel_tools//tools/jdk:jar) c0Mf $@ -C tmp .
+    TMP_DIR=damlc-jar-tmp
+    rm -rf "$$TMP_DIR"
+    mkdir "$$TMP_DIR"
+    $(location @tar_dev_env//:tar) xzf $< -C "$$TMP_DIR"
+    $(location @bazel_tools//tools/jdk:jar) c0Mf $@ -C "$$TMP_DIR" .
   """,
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
     tools = [
