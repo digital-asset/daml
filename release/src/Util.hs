@@ -382,9 +382,9 @@ isReleaseCommit = do
     let isRelease = "VERSION" `elem` files
                  && "unreleased.rst" `elem` files
                  && "docs/source/support/release-notes.rst" `elem` files
-                 && length files == 2
+                 && length files == 3
     if "VERSION" `elem` files && not isRelease
-    then throwIO $ CIException "Release commit should only change VERSION and release-notes.rst."
+    then throwIO $ CIException "Release commit should only change VERSION, release-notes.rst and unreleased.rst."
     else return isRelease
 
 runFastLoggingT :: LoggingT IO c -> IO c
