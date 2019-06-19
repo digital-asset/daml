@@ -432,7 +432,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         "transaction_id" -> tx.transactionId,
         "command_id" -> tx.commandId,
         "application_id" -> tx.applicationId,
-        "submitter" -> tx.submittingParty,
+        "submitter" -> (tx.submittingParty: Option[String]),
         "workflow_id" -> tx.workflowId,
         "effective_at" -> tx.ledgerEffectiveTime,
         "recorded_at" -> tx.recordedAt,
@@ -541,10 +541,10 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         .transform((_, v) => v.map(_._2).toSet)
 
       offset -> LedgerEntry.Transaction(
-        commandId,
+        Some(commandId),
         transactionId,
-        applicationId,
-        submitter,
+        Some(applicationId),
+        Some(submitter),
         workflowId,
         effectiveAt.toInstant,
         recordedAt.toInstant,

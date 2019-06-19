@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.v2
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import java.time.Instant
 
 /** Meta-data of a transaction visible to all parties that can see a part of
   * the transaction.
@@ -19,4 +19,4 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
   *   communicating over the ledger.
   *
   */
-final case class TransactionMeta(ledgerEffectiveTime: Timestamp, workflowId: Option[WorkflowId])
+final case class TransactionMeta(ledgerEffectiveTime: Instant, workflowId: Option[WorkflowId])

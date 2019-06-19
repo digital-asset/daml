@@ -267,7 +267,7 @@ private class SqlLedger(
       }
 
       val recordTime = timeProvider.getCurrentTime
-      if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
+      if (recordTime.isAfter(submitterInfo.maxRecordTime)) {
         // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
         // than the time window between LET and MRT allows for.
         // See https://github.com/digital-asset/daml/issues/987
@@ -278,18 +278,18 @@ private class SqlLedger(
             submitterInfo.applicationId,
             submitterInfo.submitter,
             RejectionReason.TimedOut(
-              s"RecordTime $recordTime is after MaximumRecordTime ${submitterInfo.maxRecordTime.toInstant}")
+              s"RecordTime $recordTime is after MaximumRecordTime ${submitterInfo.maxRecordTime}")
           )
         )
       } else {
         PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
-            submitterInfo.commandId,
+            Some(submitterInfo.commandId),
             transactionId,
-            submitterInfo.applicationId,
-            submitterInfo.submitter,
+            Some(submitterInfo.applicationId),
+            Some(submitterInfo.submitter),
             transactionMeta.workflowId,
-            transactionMeta.ledgerEffectiveTime.toInstant,
+            transactionMeta.ledgerEffectiveTime,
             recordTime,
             mappedTx,
             mappedDisclosure

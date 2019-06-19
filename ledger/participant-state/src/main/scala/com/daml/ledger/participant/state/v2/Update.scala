@@ -4,7 +4,8 @@
 package com.daml.ledger
 package participant.state.v2
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import java.time.Instant
+
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
 
@@ -26,7 +27,7 @@ sealed trait Update extends Product with Serializable {
 object Update {
 
   /** Signal aliveness and the current record time.  */
-  final case class Heartbeat(recordTime: Timestamp) extends Update {
+  final case class Heartbeat(recordTime: Instant) extends Update {
     override def description: String = s"Heartbeat: $recordTime"
   }
 
@@ -104,7 +105,7 @@ object Update {
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
       transactionId: TransactionId,
-      recordTime: Timestamp,
+      recordTime: Instant,
       referencedContracts: List[(Value.AbsoluteContractId, AbsoluteContractInst)]
   ) extends Update {
     override def description: String = s"Accept transaction $transactionId"
