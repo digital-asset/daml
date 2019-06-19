@@ -87,7 +87,7 @@ versionChecks Env{..} =
                 [ "WARNING: Using an outdated version of the DAML assistant."
                 , "Please upgrade to the latest stable version by running:"
                 , ""
-                , "    daml install latest --activate"
+                , "    daml install latest"
                 , ""
                 ]
 
