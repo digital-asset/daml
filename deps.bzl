@@ -141,9 +141,9 @@ def daml_deps():
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.19.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.19.0.tar.gz"],
-            sha256 = "1d54cd95ed276c42c276e0a3df8ab33ee41968b73af14023c03a19db48f82e73",
+            strip_prefix = "grpc-1.22.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.22.0.tar.gz"],
+            sha256 = "11ac793c562143d52fd440f6549588712badc79211cdc8c509b183cb69bddad8",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
@@ -153,13 +153,9 @@ def daml_deps():
     if "io_grpc_grpc_java" not in native.existing_rules():
         http_archive(
             name = "io_grpc_grpc_java",
-            strip_prefix = "grpc-java-1.21.0",
-            urls = ["https://github.com/grpc/grpc-java/archive/v1.21.0.tar.gz"],
-            sha256 = "9bc289e861c6118623fcb931044d843183c31d0e4d53fc43c4a32b56d6bb87fa",
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:grpc-java-plugin-visibility.patch",
-            ],
-            patch_args = ["-p1"],
+            strip_prefix = "grpc-java-1.22.1",
+            urls = ["https://github.com/grpc/grpc-java/archive/v1.22.1.tar.gz"],
+            sha256 = "6e63bd6f5a82de0b84c802390adb8661013bad9ebf910ad7e1f3f72b5f798832",
         )
 
     if "com_github_johnynek_bazel_jar_jar" not in native.existing_rules():
@@ -239,7 +235,7 @@ java_import(
     if "com_github_google_bazel_common" not in native.existing_rules():
         http_archive(
             name = "com_github_google_bazel_common",
-            sha256 = "ccdd09559b49c7efd9e4b0b617b18e2a4bbdb2142fc30dfd3501eb5fa1294dcc",
-            strip_prefix = "bazel-common-f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69",
-            urls = ["https://github.com/google/bazel-common/archive/f3dc1a775d21f74fc6f4bbcf076b8af2f6261a69.zip"],
+            sha256 = "178d0fd7aa92655624c77418ebf7b93ec9c160fdbc043a3bb11f98414112010d",
+            strip_prefix = "bazel-common-4fb7798392100282b7d377d9f9d4956c7e560689",
+            urls = ["https://github.com/google/bazel-common/archive/4fb7798392100282b7d377d9f9d4956c7e560689.zip"],
         )

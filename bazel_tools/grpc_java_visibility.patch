@@ -1,0 +1,12 @@
+diff --git a/compiler/BUILD.bazel b/compiler/BUILD.bazel
+index ef940741d..e50ecb66c 100644
+--- a/compiler/BUILD.bazel
++++ b/compiler/BUILD.bazel
+@@ -10,6 +10,7 @@ cc_binary(
+     deps = [
+         "@com_google_protobuf//:protoc_lib",
+     ],
++    visibility = ["//visibility:public"],
+ )
+ 
+ java_library(
