@@ -9,6 +9,13 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- Added `--install-assistant` flag to `daml install` command, changing the default
+  behavior of `daml install` to be "install the assistant whenever we are installing
+  a newer version of the SDK". Deprecated the `--activate` flag.
+
 .. _release-0-13-5:
 
 0.13.5 - 2019-06-19
@@ -17,7 +24,7 @@ HEAD — ongoing
 Release Procedure
 ~~~~~~~~~~~~~~~~~
 
-- Fixes to the CI/CD release procedure. 
+- Fixes to the CI/CD release procedure.
   See `#1755 <https://github.com/digital-asset/daml/issues/1755>__.`
 
 Sandbox
@@ -274,7 +281,6 @@ Navigator
   permitting large packages; e.g. pass ``--ledger-api-inbound-message-size-max 62914560``
   to extractor to get a 60MiB limit.
   See `#1520 <https://github.com/digital-asset/daml/pull/1520>`__.
-
 
 Sandbox
 ~~~~~~~
@@ -831,7 +837,6 @@ No user-facing changes.
        // Accessing field 'bar' of field 'foo' of the argument
        DamlLfValue.evalPath(argument, ["foo", "bar"])
        DamlLfValue.toJSON(argument).foo.bar
-
 
 .. _release-0-11-32:
 
