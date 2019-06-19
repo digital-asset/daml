@@ -26,6 +26,7 @@ da_scala_binary(
         "//3rdparty/jvm/io/grpc:grpc_protobuf",
         "//3rdparty/jvm/io/grpc:grpc_stub",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//compiler/scenario-service/protos:scenario_service_java_grpc",
         "//compiler/scenario-service/protos:scenario_service_java_proto",
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/archive:daml_lf_java_proto",

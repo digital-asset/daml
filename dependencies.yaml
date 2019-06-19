@@ -27,19 +27,19 @@ dependencies:
   io.grpc:
     grpc-core:
       lang: java
-      version: "1.18.0"
+      version: "1.21.0"
     grpc-stub:
       lang: java
-      version: "1.18.0"
+      version: "1.21.0"
     grpc-protobuf:
       lang: java
-      version: "1.18.0"
+      version: "1.21.0"
     grpc-netty:
       lang: java
-      version: "1.18.0"
+      version: "1.21.0"
     grpc-services:
       lang: java
-      version: "1.18.0"
+      version: "1.21.0"
 
   com.chuusai:
     shapeless:
@@ -108,6 +108,9 @@ dependencies:
     guava:
       lang: java
       version: "24.0-jre"
+    failureaccess:
+      lang: java
+      version: "1.0"
 
   org.freemarker:
     freemarker-gae:

@@ -1,0 +1,13 @@
+diff --git a/src/core/lib/iomgr/error_cfstream.cc b/src/core/lib/iomgr/error_cfstream.cc
+index d7af8c377f..29a31f975a 100644
+--- a/src/core/lib/iomgr/error_cfstream.cc
++++ b/src/core/lib/iomgr/error_cfstream.cc
+@@ -34,7 +34,7 @@ grpc_error* grpc_error_create_from_cferror(const char* file, int line,
+   char buf_domain[MAX_ERROR_DESCRIPTION];
+   char buf_desc[MAX_ERROR_DESCRIPTION];
+   char* error_msg;
+-  CFErrorDomain domain = CFErrorGetDomain((error));
++  CFStringRef domain = CFErrorGetDomain((error));
+   CFIndex code = CFErrorGetCode((error));
+   CFStringRef desc = CFErrorCopyDescription((error));
+   CFStringGetCString(domain, buf_domain, MAX_ERROR_DESCRIPTION,

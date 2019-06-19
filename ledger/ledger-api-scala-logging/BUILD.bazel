@@ -36,6 +36,7 @@ da_scala_library(
 )
 
 testDependencies = [
+    "//3rdparty/jvm/io/grpc:grpc_core",
     "//3rdparty/jvm/io/grpc:grpc_stub",
     "//ledger-api/grpc-definitions:ledger-api-scalapb",
     "//scala-protoc-plugins/scala-logging:scala-logging-lib",
