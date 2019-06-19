@@ -19,8 +19,8 @@ unitTests = do
         let darPath = "daml-foundations/daml-tools/da-hs-daml-cli/visual-test-daml.dar"
         return $ testGroup "making sure we do not add extra edges" [
             goldenVsFile
-                ("dot file test")
-                ("daml-foundations/daml-tools/da-hs-daml-cli/tests/res/out.dot")
-                (path)
+                "dot file test"
+                "daml-foundations/daml-tools/da-hs-daml-cli/tests/res/out.dot"
+                path
                 (execVisual darPath (Just path))
             ]
