@@ -36,6 +36,22 @@ final case class ExerciseCommand(
     argument: VersionedValue[AbsoluteContractId])
     extends Command
 
+/** Command for exercising a choice on an existing contract specified by its key
+  *
+  *  @param templateId identifier of the original contract
+  *  @param contractKey key of the contract on which the choice is exercised
+  *  @param choiceId identifier choice
+  *  @param submitter party submitting the choice
+  *  @param argument value passed for the choice
+  */
+final case class ExerciseByKeyCommand(
+    templateId: Identifier,
+    contractKey: VersionedValue[AbsoluteContractId],
+    choiceId: ChoiceName,
+    submitter: Party,
+    argument: VersionedValue[AbsoluteContractId])
+    extends Command
+
 /** Command for creating a contract and exercising a choice
   * on that existing contract within the same transaction
   *

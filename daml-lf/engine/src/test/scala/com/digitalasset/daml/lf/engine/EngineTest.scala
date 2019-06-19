@@ -20,7 +20,7 @@ import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{EitherValues, Matchers, WordSpec}
 import scalaz.std.either._
 import scalaz.syntax.apply._
 
@@ -32,7 +32,7 @@ import scala.language.implicitConversions
     "org.wartremover.warts.Serializable",
     "org.wartremover.warts.Product"
   ))
-class EngineTest extends WordSpec with Matchers with BazelRunfiles {
+class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunfiles {
 
   import EngineTest._
 
@@ -91,12 +91,40 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
       ))
   }
 
+  def lookupContractWithKey(
+      @deprecated("shut up unused arguments warning", "blah") id: AbsoluteContractId)
+    : Option[ContractInst[Tx.Value[AbsoluteContractId]]] = {
+    Some(
+      ContractInst(
+        TypeConName(basicTestsPkgId, "BasicTests:WithKey"),
+        assertAsVersionedValue(
+          ValueRecord(
+            Some(BasicTests_WithKey),
+            ImmArray(
+              (Some("p"), ValueParty("Alice")),
+              (Some("k"), ValueInt64(42))
+            ))),
+        ""
+      ))
+  }
+
   def lookupPackage(pkgId: PackageId): Option[Package] = {
     allPackages.get(pkgId)
   }
 
-  def lookupKey(@deprecated("", "") key: GlobalKey): Option[AbsoluteContractId] =
-    sys.error("TODO keys in EngineTest")
+  val BasicTests_WithKey = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+
+  def lookupKey(key: GlobalKey): Option[AbsoluteContractId] =
+    key match {
+      case GlobalKey(
+          BasicTests_WithKey,
+          Value.VersionedValue(
+            _,
+            ValueRecord(_, ImmArray((_, ValueParty("Alice")), (_, ValueInt64(42)))))) =>
+        Some(AbsoluteContractId("1"))
+      case _ =>
+        None
+    }
 
   // TODO make these two per-test, so that we make sure not to pollute the package cache and other possibly mutable stuff
   val engine = Engine()
@@ -213,6 +241,97 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
         .preprocessCommands(Commands(ImmArray(command), let, "test"))
         .consume(lookupContractForPayout, lookupPackage, lookupKey)
       res shouldBe 'right
+    }
+
+    "translate exercise-by-key commands with argument with labels" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+      val let = Time.Timestamp.now()
+      val command = ExerciseByKeyCommand(
+        templateId,
+        assertAsVersionedValue(
+          ValueRecord(None, ImmArray((None, ValueParty("Alice")), (None, ValueInt64(42))))),
+        "SumToK",
+        "Alice",
+        assertAsVersionedValue(ValueRecord(None, ImmArray((Some[Name]("n"), ValueInt64(5)))))
+      )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContractForPayout, lookupPackage, lookupKey)
+      res shouldBe 'right
+    }
+
+    "translate exercise-by-key commands with argument without labels" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+      val let = Time.Timestamp.now()
+      val command = ExerciseByKeyCommand(
+        templateId,
+        assertAsVersionedValue(
+          ValueRecord(None, ImmArray((None, ValueParty("Alice")), (None, ValueInt64(42))))),
+        "SumToK",
+        "Alice",
+        assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueInt64(5)))))
+      )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContractForPayout, lookupPackage, lookupKey)
+      res shouldBe 'right
+    }
+
+    "not translate exercise-by-key commands with argument with wrong labels" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+      val let = Time.Timestamp.now()
+      val command = ExerciseByKeyCommand(
+        templateId,
+        assertAsVersionedValue(
+          ValueRecord(None, ImmArray((None, ValueParty("Alice")), (None, ValueInt64(42))))),
+        "SumToK",
+        "Alice",
+        assertAsVersionedValue(ValueRecord(None, ImmArray((Some[Name]("WRONG"), ValueInt64(5)))))
+      )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContractForPayout, lookupPackage, lookupKey)
+      res.left.value.msg should startWith("Missing record label n for record")
+    }
+
+    "not translate exercise-by-key commands if the template specifies no key" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:CallablePayout")
+      val let = Time.Timestamp.now()
+      val command = ExerciseByKeyCommand(
+        templateId,
+        assertAsVersionedValue(
+          ValueRecord(None, ImmArray((None, ValueParty("Alice")), (None, ValueInt64(42))))),
+        "Transfer",
+        "Bob",
+        assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty("Clara")))))
+      )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContractForPayout, lookupPackage, lookupKey)
+      res.left.value.msg should startWith(
+        "Impossible to exercise by key, no key is defined for template")
+    }
+
+    "not translate exercise-by-key commands if the given key does not match the type specified in the template" in {
+      val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+      val let = Time.Timestamp.now()
+      val command = ExerciseByKeyCommand(
+        templateId,
+        assertAsVersionedValue(
+          ValueRecord(None, ImmArray((None, ValueInt64(42)), (None, ValueInt64(42))))),
+        "SumToK",
+        "Alice",
+        assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueInt64(5)))))
+      )
+
+      val res = commandTranslator
+        .preprocessCommands(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContractForPayout, lookupPackage, lookupKey)
+      res.left.value.msg should startWith("mismatching type")
     }
 
     "translate create-and-exercise commands argument including labels" in {
@@ -508,6 +627,130 @@ class EngineTest extends WordSpec with Matchers with BazelRunfiles {
         Blinding.checkAuthorizationAndBlind(tx, Set("Party"))
       val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
       val partyEvents = events.events.values.toList.filter(_.witnesses contains "Party")
+      partyEvents.size shouldBe 1
+      partyEvents(0) match {
+        case _: ExerciseEvent[Tx.NodeId, ContractId, Tx.Value[ContractId]] => succeed
+        case _ => fail("expected exercise")
+      }
+    }
+  }
+
+  "exercise-by-key command with missing key" should {
+    val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+    val let = Time.Timestamp.now()
+    val command = ExerciseByKeyCommand(
+      templateId,
+      assertAsVersionedValue(
+        ValueRecord(None, ImmArray((None, ValueParty("Alice")), (None, ValueInt64(43))))),
+      "SumToK",
+      "Alice",
+      assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueInt64(5)))))
+    )
+
+    val res = commandTranslator
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
+      .consume(lookupContractWithKey, lookupPackage, lookupKey)
+    res shouldBe 'right
+
+    "fail at submission" in {
+      val submitResult = engine
+        .submit(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContractWithKey, lookupPackage, lookupKey)
+      submitResult.left.value.msg should startWith("dependency error: couldn't find key")
+    }
+  }
+
+  "exercise-by-key command with existing key" should {
+    val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
+    val let = Time.Timestamp.now()
+    val command = ExerciseByKeyCommand(
+      templateId,
+      assertAsVersionedValue(
+        ValueRecord(None, ImmArray((None, ValueParty("Alice")), (None, ValueInt64(42))))),
+      "SumToK",
+      "Alice",
+      assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueInt64(5)))))
+    )
+
+    val res = commandTranslator
+      .preprocessCommands(Commands(ImmArray(command), let, "test"))
+      .consume(lookupContractWithKey, lookupPackage, lookupKey)
+    res shouldBe 'right
+    val result =
+      res.flatMap(r =>
+        engine.interpret(r, let).consume(lookupContractWithKey, lookupPackage, lookupKey))
+    val tx = result.right.value
+
+    "be translated" in {
+      val submitResult = engine
+        .submit(Commands(ImmArray(command), let, "test"))
+        .consume(lookupContractWithKey, lookupPackage, lookupKey)
+      submitResult shouldBe result
+    }
+
+    "reinterpret to the same result" in {
+      val txRoots = tx.roots.map(id => tx.nodes(id)).toSeq
+      val reinterpretResult =
+        engine.reinterpret(txRoots, let).consume(lookupContractWithKey, lookupPackage, lookupKey)
+      (result |@| reinterpretResult)(_ isReplayedBy _) shouldBe Right(true)
+    }
+
+    "be validated" in {
+      val validated = engine
+        .validate(tx, let)
+        .consume(lookupContractWithKey, lookupPackage, lookupKey)
+      validated match {
+        case Left(e) =>
+          fail(e.msg)
+        case Right(()) => ()
+      }
+    }
+
+    "post-commit validation passes" in {
+      val validated = engine
+        .validatePartial(
+          tx.mapContractIdAndValue(makeAbsoluteContractId, makeValueWithAbsoluteContractId),
+          Some("Alice"),
+          let,
+          "Alice",
+          makeAbsoluteContractId,
+          makeValueWithAbsoluteContractId
+        )
+        .consume(lookupContractWithKey, lookupPackage, lookupKey)
+      validated match {
+        case Left(e) =>
+          fail(e.msg)
+        case Right(()) =>
+          ()
+      }
+    }
+
+    "post-commit validation fails with missing root node" in {
+      val validated = engine
+        .validatePartial(
+          tx.mapContractIdAndValue(makeAbsoluteContractId, makeValueWithAbsoluteContractId)
+            .copy(nodes = Map.empty),
+          Some("Alice"),
+          let,
+          "Alice",
+          makeAbsoluteContractId,
+          makeValueWithAbsoluteContractId
+        )
+        .consume(lookupContractWithKey, lookupPackage, lookupKey)
+      validated match {
+        case Left(e)
+            if e.msg == "invalid transaction, root refers to non-existing node NodeId(0)" =>
+          ()
+        case _ =>
+          fail("expected failing validation on missing node")
+      }
+    }
+
+    "events are collected" in {
+      val Right(blindingInfo) =
+        Blinding.checkAuthorizationAndBlind(tx, Set("Alice"))
+      val events = Event.collectEvents(tx, blindingInfo.explicitDisclosure)
+      val partyEvents = events.events.values.toList.filter(_.witnesses contains "Alice")
       partyEvents.size shouldBe 1
       partyEvents(0) match {
         case _: ExerciseEvent[Tx.NodeId, ContractId, Tx.Value[ContractId]] => succeed

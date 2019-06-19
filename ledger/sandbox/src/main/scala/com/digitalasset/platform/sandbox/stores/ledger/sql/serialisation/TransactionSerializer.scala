@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
+import com.digitalasset.daml.lf.archive.{Decode, Reader}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
@@ -52,7 +53,9 @@ object TransactionSerializer extends TransactionSerializer {
       .decodeVersionedTransaction(
         defaultDecodeNid,
         ContractSerializer.defaultCidDecode,
-        TransactionOuterClass.Transaction.parseFrom(blob))
+        TransactionOuterClass.Transaction.parseFrom(
+          Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT))
+      )
       .map(_.transaction)
 
 }

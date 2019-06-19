@@ -19,6 +19,8 @@ public abstract class Command {
                 return ExerciseCommand.fromProto(command.getExercise());
             case CREATEANDEXERCISE:
                 return CreateAndExerciseCommand.fromProto(command.getCreateAndExercise());
+            case EXERCISEBYKEY:
+                return ExerciseByKeyCommand.fromProto(command.getExerciseByKey());
             case COMMAND_NOT_SET:
             default:
                 throw new ProtoCommandUnknown(command);
@@ -33,6 +35,8 @@ public abstract class Command {
             builder.setExercise(((ExerciseCommand) this).toProto());
         } else if (this instanceof CreateAndExerciseCommand) {
             builder.setCreateAndExercise(((CreateAndExerciseCommand) this).toProto());
+        } else if (this instanceof ExerciseByKeyCommand) {
+            builder.setExerciseByKey(((ExerciseByKeyCommand) this).toProto());
         } else {
             throw new CommandUnknown(this);
         }

@@ -29,7 +29,7 @@ export async function activate(context: vscode.ExtensionContext) {
     let lsClient = damlLanguageClient;
     // lsClient.trace = 2;
     // Register for our document content provider and the associated commands
-    let damlContentProvider = new DAMLDocumentContentProvider(lsClient);
+    let damlContentProvider = new DAMLDocumentContentProvider(context, lsClient);
     let dContentProvider = vscode.workspace.registerTextDocumentContentProvider(
        "daml", damlContentProvider);
     context.subscriptions.push(dContentProvider);
@@ -79,24 +79,6 @@ export async function activate(context: vscode.ExtensionContext) {
     let d5 = vscode.commands.registerCommand("daml.resetTelemetryConsent", resetTelemetryConsent(context));
 
     context.subscriptions.push(dContentProvider, d1, d2, d3, d4, d5);
-
-    // Subscribe to close events for DAML scheme - We do not want to synchronize the contents.
-    // The open notification is sent by the DAMLDocumentContentProvider when content is first
-    // requested for a virtual resource.
-    // This is unfortunately a bit hacky as the notification types are not exposed by vscode-languageclient.
-    context.subscriptions.push(
-        vscode.workspace.onDidCloseTextDocument(doc => {
-            if (doc.uri.scheme == 'daml') {
-                damlContentProvider.onVirtualResourceDidClose(doc.uri);
-                lsClient.sendNotification(
-                    'textDocument/didClose',
-                    {
-                        textDocument: {
-                            uri: doc.uri.toString()
-                        }
-                    });
-            }
-        }));
 }
 
 
@@ -289,6 +271,7 @@ namespace DamlWorkspaceValidationsNotification {
  * of the protocol.
  */
 class DAMLDocumentContentProvider implements TextDocumentContentProvider {
+    private _context: ExtensionContext;
     private _client: LanguageClient;
     private _virtualResources: { [url: string]: vscode.Webview} = {};
     /**
@@ -298,7 +281,8 @@ class DAMLDocumentContentProvider implements TextDocumentContentProvider {
     private _onDidChange = new EventEmitter<Uri>();
     private _onChangeTimeout : any;
 
-    constructor(client: LanguageClient) {
+    constructor(context: ExtensionContext, client: LanguageClient) {
+        this._context = context;
         this._client = client;
     }
 
@@ -380,6 +364,20 @@ class DAMLDocumentContentProvider implements TextDocumentContentProvider {
         let options = {enableScripts : true, enableFindWidget: true, enableCommandUris: true};
         let panel = window.createWebviewPanel('daml', title, getViewColumnForShowResource(), options);
         let uri = Uri.parse(u);
+        panel.onDidDispose(
+          () => {
+            this._client.sendNotification(
+              'textDocument/didClose', {
+                textDocument: {
+                  uri: u
+                }
+              }
+            );
+            this.onVirtualResourceDidClose(uri);
+          },
+          null,
+          this._context.subscriptions
+        );
         let virtualResourceUri = this.getVirtualUriFromUri(uri);
         this._virtualResources[virtualResourceUri] = panel.webview;
         await this.provideTextDocumentContent(uri);

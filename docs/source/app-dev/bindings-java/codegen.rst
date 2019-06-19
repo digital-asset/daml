@@ -283,6 +283,10 @@ A file is generated that defines three Java classes:
     public final String owner;
     public final String name;
 
+    public static ExerciseByKeyCommand exerciseByKeyBar_SomeChoice(BarKey key, Bar_SomeChoice arg) { /* ... */ }
+
+    public static ExerciseByKeyCommand exerciseByKeyBar_SomeChoice(BarKey key, String aName) { /* ... */ }
+
     public CreateAndExerciseCommand createAndExerciseBar_SomeChoice(Bar_SomeChoice arg) { /* ... */ }
 
     public CreateAndExerciseCommand createAndExerciseBar_SomeChoice(String aName) { /* ... */ }
@@ -304,6 +308,8 @@ A file is generated that defines three Java classes:
       public static Contract fromCreatedEvent(CreatedEvent event) { /* ... */ }
     }
   }
+
+Note that the static methods returning an ``ExerciseByKeyCommand`` will only be generated for templates that define a key.
 
 Variants (a.k.a sum types)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^

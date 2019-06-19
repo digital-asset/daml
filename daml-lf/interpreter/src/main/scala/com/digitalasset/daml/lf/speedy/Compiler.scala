@@ -1155,6 +1155,25 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       SEApp(SEVal(ChoiceDefRef(tmplId, choiceId), None), Array(actors, contractId, argument))
     }
 
+  private def compileExerciseByKey(
+      tmplId: Identifier,
+      key: SExpr,
+      choiceId: ChoiceName,
+      // actors are either the singleton set of submitter of an exercise command,
+      // or the acting parties of an exercise node
+      // of a transaction under reconstruction for validation
+      optActors: Option[SExpr],
+      argument: SExpr): SExpr = {
+    withEnv { _ =>
+      SEAbs(1) {
+        SELet(
+          SBUFetchKey(tmplId)(key, SEVar(1)),
+          SEApp(compileExercise(tmplId, SEVar(1), choiceId, optActors, argument), Array(SEVar(2)))
+        ) in SEVar(1)
+      }
+    }
+  }
+
   private def compileCreateAndExercise(
       tmplId: Identifier,
       createArg: SValue,
@@ -1184,6 +1203,13 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       compileExercise(
         templateId,
         SEValue(contractId),
+        choiceId,
+        Some(SEValue(SList(FrontStack(submitters)))),
+        SEValue(argument))
+    case Command.ExerciseByKey(templateId, contractKey, choiceId, submitters, argument) =>
+      compileExerciseByKey(
+        templateId,
+        SEValue(contractKey),
         choiceId,
         Some(SEValue(SList(FrontStack(submitters)))),
         SEValue(argument))

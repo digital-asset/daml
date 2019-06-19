@@ -320,6 +320,21 @@ template TwoParties
       World : Text
         do pure "world"
 
+template WithKey
+  with p: Party
+       k: Int
+  where
+    signatory p
+
+    key (p, k): (Party, Int)
+    maintainer key._1
+
+    controller p can
+      nonconsuming SumToK : Int
+        with
+          n : Int
+        do pure (n + k)
+
 test_failedAuths = scenario do
   alice <- getParty "alice"
   bob <- getParty "bob"
