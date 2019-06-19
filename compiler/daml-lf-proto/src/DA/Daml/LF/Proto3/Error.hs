@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ConstraintKinds #-}
 module DA.Daml.LF.Proto3.Error
     ( Decode
     , Error(..)
@@ -24,4 +25,4 @@ data Error
   | MissingPackageRefId Word64
   deriving (Show, Eq)
 
-type Decode a = Either Error a
+type Decode = Either Error

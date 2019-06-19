@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE MultiWayIf #-}
 
@@ -12,20 +13,28 @@ module DA.Daml.LF.Proto3.DecodeV1
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Proto3.Error
 import Control.Monad
+import Control.Monad.Error.Class (MonadError(throwError))
+import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Text.Read
 import           Data.List
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as LF1
-import           Data.Either.Combinators (mapLeft)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
 import qualified Proto3.Suite as Proto
 
+-- internal functions that *implement* decoding
+type DecodeImpl = ReaderT PackageRefCtx Decode
+type MDecode = MonadError Error
+
+decodeImpl :: MDecode m => Decode a -> m a
+decodeImpl = either throwError pure
+
 decodeVersion :: TL.Text -> Decode Version
 decodeVersion minorText = do
-  let unsupported = Left (UnsupportedMinorVersion (TL.toStrict minorText))
+  let unsupported = throwError (UnsupportedMinorVersion (TL.toStrict minorText))
   -- we translate "no version" to minor version 0, since we introduced
   -- minor versions once DAML-LF v1 was already out, and we want to be
   -- able to parse packages that were compiled before minor versions
@@ -41,14 +50,14 @@ decodePackage :: TL.Text -> LF1.Package -> Decode Package
 decodePackage minorText (LF1.Package mods internedList) = do
   version <- decodeVersion minorText
   interned <- decodeInternedPackageIds internedList
-  Package version <$> decodeNM DuplicateModule decodeModule mods
+  Package version <$> runReaderT (decodeNM DuplicateModule decodeModule mods) interned
 
-decodeModule :: LF1.Module -> Decode Module
+decodeModule :: LF1.Module -> DecodeImpl Module
 decodeModule (LF1.Module name flags dataTypes values templates) =
   Module
     <$> mayDecode "moduleName" name (decodeDottedName ModuleName)
     <*> pure Nothing
-    <*> mayDecode "flags" flags decodeFeatureFlags
+    <*> mayDecode' "flags" flags decodeFeatureFlags
     <*> decodeNM DuplicateDataType decodeDefDataType dataTypes
     <*> decodeNM DuplicateValue decodeDefValue values
     <*> decodeNM EDuplicateTemplate decodeDefTemplate templates
@@ -57,21 +66,21 @@ decodeFeatureFlags :: LF1.FeatureFlags -> Decode FeatureFlags
 decodeFeatureFlags LF1.FeatureFlags{..} =
   if not featureFlagsDontDivulgeContractIdsInCreateArguments || not featureFlagsDontDiscloseNonConsumingChoicesToObservers
     -- We do not support these anymore -- see #157
-    then Left (ParseError "Package uses unsupported flags dontDivulgeContractIdsInCreateArguments or dontDiscloseNonConsumingChoicesToObservers")
-    else Right FeatureFlags
+    then throwError (ParseError "Package uses unsupported flags dontDivulgeContractIdsInCreateArguments or dontDiscloseNonConsumingChoicesToObservers")
+    else pure FeatureFlags
       { forbidPartyLiterals = featureFlagsForbidPartyLiterals
       }
 
-decodeDefDataType :: LF1.DefDataType -> Decode DefDataType
+decodeDefDataType :: LF1.DefDataType -> DecodeImpl DefDataType
 decodeDefDataType LF1.DefDataType{..} =
   DefDataType
     <$> traverse decodeLocation defDataTypeLocation
     <*> mayDecode "dataTypeName" defDataTypeName (decodeDottedName TypeConName)
     <*> pure (IsSerializable defDataTypeSerializable)
-    <*> traverse decodeTypeVarWithKind (V.toList defDataTypeParams)
+    <*> (decodeImpl $ traverse decodeTypeVarWithKind (V.toList defDataTypeParams))
     <*> mayDecode "dataTypeDataCons" defDataTypeDataCons decodeDataCons
 
-decodeDataCons :: LF1.DefDataTypeDataCons -> Decode DataCons
+decodeDataCons :: LF1.DefDataTypeDataCons -> DecodeImpl DataCons
 decodeDataCons = \case
   LF1.DefDataTypeDataConsRecord (LF1.DefDataType_Fields fs) ->
     DataRecord <$> mapM (decodeFieldWithType FieldName) (V.toList fs)
@@ -79,14 +88,14 @@ decodeDataCons = \case
     DataVariant <$> mapM (decodeFieldWithType VariantConName) (V.toList fs)
   LF1.DefDataTypeDataConsEnum _ ->
    -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-    Left (ParseError "Enum type not supported")
+    throwError (ParseError "Enum type not supported")
 
-decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
+decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> DecodeImpl (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
   <$> decodeValueName "defValueName" defValue_NameWithTypeName
   <*> mayDecode "defValueType" defValue_NameWithTypeType decodeType
 
-decodeDefValue :: LF1.DefValue -> Decode DefValue
+decodeDefValue :: LF1.DefValue -> DecodeImpl DefValue
 decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) =
   DefValue
     <$> traverse decodeLocation mbLoc
@@ -95,7 +104,7 @@ decodeDefValue (LF1.DefValue mbBinder mbBody noParties isTest mbLoc) =
     <*> pure (IsTest isTest)
     <*> mayDecode "defValueExpr" mbBody decodeExpr
 
-decodeDefTemplate :: LF1.DefTemplate -> Decode Template
+decodeDefTemplate :: LF1.DefTemplate -> DecodeImpl Template
 decodeDefTemplate LF1.DefTemplate{..} = do
   tplParam <- decodeName ExprVarName defTemplateParam
   Template
@@ -110,21 +119,21 @@ decodeDefTemplate LF1.DefTemplate{..} = do
     <*> mapM (decodeDefTemplateKey tplParam) defTemplateKey
 
 
-decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> Decode TemplateKey
+decodeDefTemplateKey :: ExprVarName -> LF1.DefTemplate_DefKey -> DecodeImpl TemplateKey
 decodeDefTemplateKey templateParam LF1.DefTemplate_DefKey{..} = do
   typ <- mayDecode "defTemplate_DefKeyType" defTemplate_DefKeyType decodeType
   key <- mayDecode "defTemplate_DefKeyKeyExpr" defTemplate_DefKeyKeyExpr (decodeKeyExpr templateParam)
   maintainers <- mayDecode "defTemplate_DefKeyMaintainers" defTemplate_DefKeyMaintainers decodeExpr
   return (TemplateKey typ key maintainers)
 
-decodeKeyExpr :: ExprVarName -> LF1.DefTemplate_DefKeyKeyExpr -> Decode Expr
+decodeKeyExpr :: ExprVarName -> LF1.DefTemplate_DefKeyKeyExpr -> DecodeImpl Expr
 decodeKeyExpr templateParam = \case
     LF1.DefTemplate_DefKeyKeyExprKey simpleKeyExpr ->
         decodeSimpleKeyExpr templateParam simpleKeyExpr
     LF1.DefTemplate_DefKeyKeyExprComplexKey keyExpr ->
         decodeExpr keyExpr
 
-decodeSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr -> Decode Expr
+decodeSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr -> DecodeImpl Expr
 decodeSimpleKeyExpr templateParam LF1.KeyExpr{..} = mayDecode "keyExprSum" keyExprSum $ \case
   LF1.KeyExprSumProjections LF1.KeyExpr_Projections{..} ->
     foldM
@@ -139,13 +148,13 @@ decodeSimpleKeyExpr templateParam LF1.KeyExpr{..} = mayDecode "keyExprSum" keyEx
       <$> mayDecode "keyExpr_RecordTycon" keyExpr_RecordTycon decodeTypeConApp
       <*> mapM (decodeFieldWithSimpleKeyExpr templateParam) (V.toList keyExpr_RecordFields)
 
-decodeFieldWithSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr_RecordField -> Decode (FieldName, Expr)
+decodeFieldWithSimpleKeyExpr :: ExprVarName -> LF1.KeyExpr_RecordField -> DecodeImpl (FieldName, Expr)
 decodeFieldWithSimpleKeyExpr templateParam LF1.KeyExpr_RecordField{..} =
   (,)
   <$> decodeName FieldName keyExpr_RecordFieldField
   <*> mayDecode "keyExpr_RecordFieldExpr" keyExpr_RecordFieldExpr (decodeSimpleKeyExpr templateParam)
 
-decodeChoice :: LF1.TemplateChoice -> Decode TemplateChoice
+decodeChoice :: LF1.TemplateChoice -> DecodeImpl TemplateChoice
 decodeChoice LF1.TemplateChoice{..} =
   TemplateChoice
     <$> traverse decodeLocation templateChoiceLocation
@@ -157,7 +166,7 @@ decodeChoice LF1.TemplateChoice{..} =
     <*> mayDecode "templateChoiceRetType" templateChoiceRetType decodeType
     <*> mayDecode "templateChoiceUpdate" templateChoiceUpdate decodeExpr
 
-decodeBuiltinFunction :: LF1.BuiltinFunction -> Decode BuiltinExpr
+decodeBuiltinFunction :: MDecode m => LF1.BuiltinFunction -> m BuiltinExpr
 decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
   LF1.BuiltinFunctionEQUAL_DECIMAL -> BEEqual BTDecimal
@@ -250,7 +259,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> BEEqualContractId
   LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> BECoerceContractId
 
-decodeLocation :: LF1.Location -> Decode SourceLoc
+decodeLocation :: LF1.Location -> DecodeImpl SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
   mbModRef' <- traverse decodeModuleRef mbModRef
   LF1.Location_Range sline scol eline ecol <- mayDecode "Location_Range" mbRange pure
@@ -259,20 +268,20 @@ decodeLocation (LF1.Location mbModRef mbRange) = do
     (fromIntegral sline) (fromIntegral scol)
     (fromIntegral eline) (fromIntegral ecol)
 
-decodeExpr :: LF1.Expr -> Decode Expr
+decodeExpr :: LF1.Expr -> DecodeImpl Expr
 decodeExpr (LF1.Expr mbLoc exprSum) = case mbLoc of
   Nothing -> decodeExprSum exprSum
   Just loc -> ELocation <$> decodeLocation loc <*> decodeExprSum exprSum
 
-decodeExprSum :: Maybe LF1.ExprSum -> Decode Expr
+decodeExprSum :: Maybe LF1.ExprSum -> DecodeImpl Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumVar var -> EVar <$> decodeName ExprVarName var
   LF1.ExprSumVal val -> EVal <$> decodeValName val
   LF1.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
-  LF1.ExprSumBuiltin (Proto.Enumerated (Left num)) -> Left (UnknownEnum "ExprSumBuiltin" num)
+  LF1.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
   LF1.ExprSumPrimCon (Proto.Enumerated (Right con)) ->
     EBuiltin . BEEnumCon <$> decodePrimCon con
-  LF1.ExprSumPrimCon (Proto.Enumerated (Left num)) -> Left (UnknownEnum "ExprSumPrimCon" num)
+  LF1.ExprSumPrimCon (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumPrimCon" num)
   LF1.ExprSumPrimLit lit ->
     EBuiltin <$> decodePrimLit lit
   LF1.ExprSumRecCon (LF1.Expr_RecCon mbTycon fields) ->
@@ -297,7 +306,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
       <*> mayDecode "Expr_VariantConVariantArg" mbArg decodeExpr
   LF1.ExprSumEnumCon _ ->
    -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-    Left (ParseError "Enum types not supported")
+    throwError (ParseError "Enum types not supported")
   LF1.ExprSumTupleCon (LF1.Expr_TupleCon fields) ->
     ETupleCon
       <$> mapM decodeFieldWithExpr (V.toList fields)
@@ -321,7 +330,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     foldr ETmLam body <$> mapM decodeVarWithType (V.toList params)
   LF1.ExprSumTyAbs (LF1.Expr_TyAbs params mbBody) -> do
     body <- mayDecode "Expr_TyAbsBody" mbBody decodeExpr
-    foldr ETyLam body <$> traverse decodeTypeVarWithKind (V.toList params)
+    decodeImpl $ foldr ETyLam body <$> traverse decodeTypeVarWithKind (V.toList params)
   LF1.ExprSumCase (LF1.Case mbScrut alts) ->
     ECase
       <$> mayDecode "Case_caseScrut" mbScrut decodeExpr
@@ -347,7 +356,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     bodyExpr <- mayDecode "expr_ExprType" mbBody decodeExpr
     return (ESome bodyType bodyExpr)
 
-decodeUpdate :: LF1.Update -> Either Error Expr
+decodeUpdate :: LF1.Update -> DecodeImpl Expr
 decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
   LF1.UpdateSumPure (LF1.Pure mbType mbExpr) ->
     fmap EUpdate $ UPure
@@ -382,12 +391,12 @@ decodeUpdate LF1.Update{..} = mayDecode "updateSum" updateSum $ \case
   LF1.UpdateSumFetchByKey retrieveByKey ->
     fmap (EUpdate . UFetchByKey) (decodeRetrieveByKey retrieveByKey)
 
-decodeRetrieveByKey :: LF1.Update_RetrieveByKey -> Either Error RetrieveByKey
+decodeRetrieveByKey :: LF1.Update_RetrieveByKey -> DecodeImpl RetrieveByKey
 decodeRetrieveByKey LF1.Update_RetrieveByKey{..} = RetrieveByKey
   <$> mayDecode "update_RetrieveByKeyTemplate" update_RetrieveByKeyTemplate decodeTypeConName
   <*> mayDecode "update_RetrieveByKeyKey" update_RetrieveByKeyKey decodeExpr
 
-decodeScenario :: LF1.Scenario -> Either Error Expr
+decodeScenario :: LF1.Scenario -> DecodeImpl Expr
 decodeScenario LF1.Scenario{..} = mayDecode "scenarioSum" scenarioSum $ \case
   LF1.ScenarioSumPure (LF1.Pure mbType mbExpr) ->
     fmap EScenario $ SPure
@@ -417,7 +426,7 @@ decodeScenario LF1.Scenario{..} = mayDecode "scenarioSum" scenarioSum $ \case
       <$> mayDecode "scenario_EmbedExprType" scenario_EmbedExprType decodeType
       <*> mayDecode "scenario_EmbedExprBody" scenario_EmbedExprBody decodeExpr
 
-decodeCaseAlt :: LF1.CaseAlt -> Either Error CaseAlternative
+decodeCaseAlt :: LF1.CaseAlt -> DecodeImpl CaseAlternative
 decodeCaseAlt LF1.CaseAlt{..} = do
   pat <- mayDecode "caseAltSum" caseAltSum $ \case
     LF1.CaseAltSumDefault LF1.Unit -> pure CPDefault
@@ -428,11 +437,11 @@ decodeCaseAlt LF1.CaseAlt{..} = do
         <*> decodeName ExprVarName caseAlt_VariantBinder
     LF1.CaseAltSumEnum _ ->
       -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-      Left (ParseError "Enum type not supported")
+      throwError (ParseError "Enum type not supported")
     LF1.CaseAltSumPrimCon (Proto.Enumerated (Right pcon)) ->
       CPEnumCon <$> decodePrimCon pcon
     LF1.CaseAltSumPrimCon (Proto.Enumerated (Left idx)) ->
-      Left (UnknownEnum "CaseAltSumPrimCon" idx)
+      throwError (UnknownEnum "CaseAltSumPrimCon" idx)
     LF1.CaseAltSumNil LF1.Unit -> pure CPNil
     LF1.CaseAltSumCons LF1.CaseAlt_Cons{..} ->
       CPCons <$> decodeName ExprVarName caseAlt_ConsVarHead <*> decodeName ExprVarName caseAlt_ConsVarTail
@@ -442,7 +451,7 @@ decodeCaseAlt LF1.CaseAlt{..} = do
   body <- mayDecode "caseAltBody" caseAltBody decodeExpr
   pure $ CaseAlternative pat body
 
-decodeBinding :: LF1.Binding -> Either Error Binding
+decodeBinding :: LF1.Binding -> DecodeImpl Binding
 decodeBinding (LF1.Binding mbBinder mbBound) =
   Binding
     <$> mayDecode "bindingBinder" mbBinder decodeVarWithType
@@ -454,24 +463,24 @@ decodeTypeVarWithKind LF1.TypeVarWithKind{..} =
     <$> decodeName TypeVarName typeVarWithKindVar
     <*> mayDecode "typeVarWithKindKind" typeVarWithKindKind decodeKind
 
-decodeVarWithType :: LF1.VarWithType -> Decode (ExprVarName, Type)
+decodeVarWithType :: LF1.VarWithType -> DecodeImpl (ExprVarName, Type)
 decodeVarWithType LF1.VarWithType{..} =
   (,)
     <$> decodeName ExprVarName varWithTypeVar
     <*> mayDecode "varWithTypeType" varWithTypeType decodeType
 
-decodePrimLit :: LF1.PrimLit -> Decode BuiltinExpr
+decodePrimLit :: MDecode m => LF1.PrimLit -> m BuiltinExpr
 decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
   LF1.PrimLitSumDecimal sDec -> case readMaybe (TL.unpack sDec) of
-    Nothing -> Left $ ParseError ("bad fixed while decoding Decimal: '" <> TL.unpack sDec <> "'")
+    Nothing -> throwError $ ParseError ("bad fixed while decoding Decimal: '" <> TL.unpack sDec <> "'")
     Just dec -> return (BEDecimal dec)
   LF1.PrimLitSumTimestamp sTime -> pure $ BETimestamp sTime
   LF1.PrimLitSumText x           -> pure $ BEText $ TL.toStrict x
   LF1.PrimLitSumParty p          -> pure $ BEParty $ PartyLiteral $ TL.toStrict p
   LF1.PrimLitSumDate days -> pure $ BEDate days
 
-decodePrimCon :: LF1.PrimCon -> Decode EnumCon
+decodePrimCon :: MDecode m => LF1.PrimCon -> m EnumCon
 decodePrimCon = pure . \case
   LF1.PrimConCON_UNIT -> ECUnit
   LF1.PrimConCON_TRUE -> ECTrue
@@ -502,123 +511,128 @@ decodePrim = pure . \case
   LF1.PrimTypeMAP -> BTMap
   LF1.PrimTypeARROW -> BTArrow
 
-decodeType :: LF1.Type -> Decode Type
+decodeType :: LF1.Type -> DecodeImpl Type
 decodeType LF1.Type{..} = mayDecode "typeSum" typeSum $ \case
   LF1.TypeSumVar (LF1.Type_Var var args) ->
     decodeWithArgs args $ TVar <$> decodeName TypeVarName var
   LF1.TypeSumCon (LF1.Type_Con mbCon args) ->
-    decodeWithArgs args $ TCon <$>  mayDecode "type_ConTycon" mbCon decodeTypeConName
+    decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Right prim)) args) -> do
-    decodeWithArgs args $ TBuiltin <$> decodePrim prim
+    decodeWithArgs args $ TBuiltin <$> (decodeImpl $ decodePrim prim)
   LF1.TypeSumPrim (LF1.Type_Prim (Proto.Enumerated (Left idx)) _args) ->
-    Left (UnknownEnum "Prim" idx)
+    throwError (UnknownEnum "Prim" idx)
   LF1.TypeSumFun (LF1.Type_Fun params mbResult) -> do
     mkTFuns
       <$> mapM decodeType (V.toList params)
       <*> mayDecode "type_FunResult" mbResult decodeType
   LF1.TypeSumForall (LF1.Type_Forall binders mbBody) -> do
     body <- mayDecode "type_ForAllBody" mbBody decodeType
-    foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
+    decodeImpl $ foldr TForall body <$> traverse decodeTypeVarWithKind (V.toList binders)
   LF1.TypeSumTuple (LF1.Type_Tuple flds) ->
     TTuple <$> mapM (decodeFieldWithType FieldName) (V.toList flds)
   where
-    decodeWithArgs :: V.Vector LF1.Type -> Decode Type -> Decode Type
+    decodeWithArgs :: V.Vector LF1.Type -> DecodeImpl Type -> DecodeImpl Type
     decodeWithArgs args fun = foldl TApp <$> fun <*> traverse decodeType args
 
 
-decodeFieldWithType :: (T.Text -> a) -> LF1.FieldWithType -> Decode (a, Type)
+decodeFieldWithType :: (T.Text -> a) -> LF1.FieldWithType -> DecodeImpl (a, Type)
 decodeFieldWithType wrapName (LF1.FieldWithType name mbType) =
   (,)
     <$> decodeName wrapName name
     <*> mayDecode "fieldWithTypeType" mbType decodeType
 
-decodeFieldWithExpr :: LF1.FieldWithExpr -> Decode (FieldName, Expr)
+decodeFieldWithExpr :: LF1.FieldWithExpr -> DecodeImpl (FieldName, Expr)
 decodeFieldWithExpr (LF1.FieldWithExpr name mbExpr) =
   (,)
     <$> decodeName FieldName name
     <*> mayDecode "fieldWithExprExpr" mbExpr decodeExpr
 
-decodeTypeConApp :: LF1.Type_Con -> Decode TypeConApp
+decodeTypeConApp :: LF1.Type_Con -> DecodeImpl TypeConApp
 decodeTypeConApp LF1.Type_Con{..} =
   TypeConApp
     <$> mayDecode "typeConAppTycon" type_ConTycon decodeTypeConName
     <*> mapM decodeType (V.toList type_ConArgs)
 
-decodeTypeConName :: LF1.TypeConName -> Decode (Qualified TypeConName)
+decodeTypeConName :: LF1.TypeConName -> DecodeImpl (Qualified TypeConName)
 decodeTypeConName LF1.TypeConName{..} = do
   (pref, mname) <- mayDecode "typeConNameModule" typeConNameModule decodeModuleRef
   con <- mayDecode "typeConNameName" typeConNameName (decodeDottedName TypeConName)
   pure $ Qualified pref mname con
 
+decodePackageId :: TL.Text -> PackageId
+decodePackageId = PackageId . TL.toStrict
+
+-- the invariant *does not* hold: pkid `cmp` opkid = index pkid `cmp` index opkid
+-- it is only true internally for one particular encoder implementation
 type PackageRefCtx = V.Vector PackageId
 
-decodePackageRef :: PackageRefCtx -> LF1.PackageRef -> Decode PackageRef
-decodePackageRef interned (LF1.PackageRef pref) =
+decodePackageRef :: LF1.PackageRef -> DecodeImpl PackageRef
+decodePackageRef (LF1.PackageRef pref) =
   mayDecode "packageRefSum" pref $ \case
     LF1.PackageRefSumSelf _          -> pure PRSelf
-    LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ PackageId $ TL.toStrict pkgId
+    LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ decodePackageId pkgId
     LF1.PackageRefSumInternedId ix -> do
       let ixd = fromIntegral ix :: Int
-          missing = Left $ MissingPackageRefId ix
-      unless (ix == fromIntegral ixd) missing
-      maybe missing pure $ PRImport <$> interned V.!? ixd
-
-todoDummyPackageRefCtx :: PackageRefCtx
-todoDummyPackageRefCtx = V.empty
+      interned <- ask
+      maybe (throwError $ MissingPackageRefId ix) pure
+        $ PRImport <$> (guard (ix == fromIntegral ixd) *> (interned V.!? ixd))
 
 decodeInternedPackageIds :: V.Vector TL.Text -> Decode PackageRefCtx
-decodeInternedPackageIds = pure . fmap (PackageId . TL.toStrict)
+decodeInternedPackageIds = pure . fmap decodePackageId
 
-decodeModuleRef :: LF1.ModuleRef -> Decode (PackageRef, ModuleName)
+decodeModuleRef :: LF1.ModuleRef -> DecodeImpl (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
   (,)
-    <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef (decodePackageRef todoDummyPackageRefCtx)
+    <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
     <*> mayDecode "moduleRefModuleName" moduleRefModuleName (decodeDottedName ModuleName)
 
 
-decodeValName :: LF1.ValName -> Decode (Qualified ExprValName)
+decodeValName :: LF1.ValName -> DecodeImpl (Qualified ExprValName)
 decodeValName LF1.ValName{..} = do
   (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
   name <- decodeValueName "valNameName" valNameName
   pure $ Qualified pref mname name
 
-decodeDottedName :: ([T.Text] -> a) -> LF1.DottedName -> Decode a
-decodeDottedName wrapDottedName (LF1.DottedName parts) = do
+decodeDottedName :: MDecode m => ([T.Text] -> a) -> LF1.DottedName -> m a
+decodeDottedName wrapDottedName (LF1.DottedName parts) = decodeImpl $ do
   unmangledParts <- forM (V.toList parts) $ \part ->
     case unmangleIdentifier (TL.toStrict part) of
-      Left err -> Left (ParseError ("Could not unmangle part " ++ show part ++ ": " ++ err))
+      Left err -> throwError (ParseError ("Could not unmangle part " ++ show part ++ ": " ++ err))
       Right unmangled -> pure unmangled
   pure (wrapDottedName unmangledParts)
 
-decodeName :: (T.Text -> a) -> TL.Text -> Decode a
+decodeName :: MDecode m => (T.Text -> a) -> TL.Text -> m a
 decodeName wrapName segment =
   case unmangleIdentifier (TL.toStrict segment) of
-    Left err -> Left (ParseError ("Could not unmangle part " ++ show segment ++ ": " ++ err))
+    Left err -> throwError (ParseError ("Could not unmangle part " ++ show segment ++ ": " ++ err))
     Right unmangled -> pure (wrapName unmangled)
 
 ------------------------------------------------------------------------
 -- Helpers
 ------------------------------------------------------------------------
 
-mayDecode :: String -> Maybe a -> (a -> Decode b) -> Decode b
+mayDecode :: MDecode m => String -> Maybe a -> (a -> m b) -> m b
 mayDecode fieldName mb f =
   case mb of
-    Nothing -> Left (MissingField fieldName)
+    Nothing -> throwError (MissingField fieldName)
     Just x  -> f x
 
+mayDecode' :: String -> Maybe a -> (a -> Decode b) -> DecodeImpl b
+mayDecode' fieldName mb = decodeImpl . mayDecode fieldName mb
+
 decodeNM
-  :: NM.Named b
-  => (NM.Name b -> Error) -> (a -> Decode b) -> V.Vector a -> Decode (NM.NameMap b)
+  :: (MDecode m, NM.Named b)
+  => (NM.Name b -> Error) -> (a -> m b) -> V.Vector a -> m (NM.NameMap b)
 decodeNM mkDuplicateError decode1 xs = do
   ys <- traverse decode1 (V.toList xs)
-  mapLeft mkDuplicateError $ NM.fromListEither ys
+  either (throwError . mkDuplicateError) pure $ NM.fromListEither ys
 
-decodeValueName :: String -> V.Vector TL.Text -> Decode ExprValName
+decodeValueName :: MDecode m => String -> V.Vector TL.Text -> m ExprValName
 decodeValueName ident xs = fmap ExprValName $ if
   | V.length xs == 1 -> case unmangleIdentifier (TL.toStrict (xs V.! 0)) of
       Right name -> pure name
       Left _err -> do
         -- as a ugly hack to keep backwards compat, let these through for DAML-LF 1 only
         pure (TL.toStrict (xs V.! 0))
-  | V.length xs == 0 -> Left (MissingField ident)
-  | otherwise -> Left (ParseError ("Unexpected multi-segment def name: " ++ show xs))
+  | V.length xs == 0 -> throwError (MissingField ident)
+  | otherwise -> throwError (ParseError ("Unexpected multi-segment def name: " ++ show xs))
