@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.data.Ref.DottedName
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LVM, LanguageVersion => LV}
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.daml.lf.testing.parser._
+import com.digitalasset.daml.lf.testing.parser.defaultPackageId
 import com.digitalasset.daml.lf.validation.SpecUtil._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
@@ -580,7 +580,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       }
       """
 
-      val world = new World(Map(defaultPkgId -> pkg))
+      val world = new World(Map(defaultPackageId -> pkg))
 
       val typeMismatchCases = Table(
         "moduleName",
@@ -599,7 +599,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
 
       def checkModule(pkg: Package, modName: String) = Typing.checkModule(
         world,
-        defaultPkgId,
+        defaultPackageId,
         pkg.modules(DottedName.assertFromString(modName))
       )
 
@@ -648,13 +648,13 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     forEvery(testCases) { (version: LV, rejected: Boolean) =>
       val pkg = pkg0.updateVersion(version)
       val mod = pkg.modules(modName)
-      val world = new World(Map(defaultPkgId -> pkg))
+      val world = new World(Map(defaultPackageId -> pkg))
 
       if (rejected)
         an[EUnknownExprVar] should be thrownBy
-          Typing.checkModule(world, defaultPkgId, mod)
+          Typing.checkModule(world, defaultPackageId, mod)
       else
-        Typing.checkModule(world, defaultPkgId, mod)
+        Typing.checkModule(world, defaultPackageId, mod)
 
       ()
     }
@@ -692,13 +692,13 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
     forEvery(testCases) { (version: LV, rejected: Boolean) =>
       val pkg = pkg0.updateVersion(version)
       val mod = pkg.modules(modName)
-      val world = new World(Map(defaultPkgId -> pkg))
+      val world = new World(Map(defaultPackageId -> pkg))
 
       if (rejected)
         an[EIllegalShadowingExprVar] should be thrownBy
-          Typing.checkModule(world, defaultPkgId, mod)
+          Typing.checkModule(world, defaultPackageId, mod)
       else
-        Typing.checkModule(world, defaultPkgId, mod)
+        Typing.checkModule(world, defaultPackageId, mod)
       ()
     }
 
@@ -730,6 +730,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
      """
 
   private val env =
-    Typing.Env(LV.default, new World(Map(defaultPkgId -> pkg)), NoContext)
+    Typing.Env(LV.default, new World(Map(defaultPackageId -> pkg)), NoContext)
 
 }

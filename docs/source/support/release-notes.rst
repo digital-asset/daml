@@ -9,9 +9,42 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+Java Codegen
+~~~~~~~~~~~~
+
+- Support generic types (including tuples) as contract keys in codegen.
+  See `#1728 <https://github.com/digital-asset/daml/issues/1728>`__.
+
+.. _release-0-13-3:
+
+0.13.3 - 2019-06-18
+-------------------
+
+Release Procedure
+~~~~~~~~~~~~~~~~~
+
+- Fixes to the release procedure.
+  See `#1737 <https://github.com/digital-asset/daml/issues/1737>`__
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- The changes for Java Bindings listed for SDK 0.13.2 now only apply to SDK 0.13.3 and later.
+  This is due to the partial failure of the release procedure.
+
+Docs
+~~~~
+
+- Added :doc:`/daml/intro/0_Intro`
+
+DAML Studio
+~~~~~~~~~~~
+
+- The IDE now executes tasks in parallel.
+
 .. _release-0-13-2:
 
-0.13.2 - 2019-06-17
+0.13.2 - 2019-06-18
 -------------------
 
 Visualizing DAML Contracts

@@ -7,12 +7,15 @@ import java.io.StringWriter
 import java.net.ServerSocket
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Path, Paths}
+import java.time.Instant
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.ledger.api.testing.utils.Resource
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.slf4j.LoggerFactory
 
+import scala.io.Source
 import scala.util.control.NonFatal
 
 trait PostgresAroundAll extends PostgresAround with BeforeAndAfterAll {
@@ -29,7 +32,7 @@ trait PostgresAroundAll extends PostgresAround with BeforeAndAfterAll {
 
   override protected def afterAll(): Unit = {
     super.afterAll()
-    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir)
+    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir, postgresFixture.logFile)
   }
 }
 
@@ -47,12 +50,12 @@ trait PostgresAroundEach extends PostgresAround with BeforeAndAfterEach {
 
   override protected def afterEach(): Unit = {
     super.afterEach()
-    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir)
+    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir, postgresFixture.logFile)
   }
 
 }
 
-case class PostgresFixture(jdbcUrl: String, tempDir: Path, dataDir: Path)
+case class PostgresFixture(jdbcUrl: String, tempDir: Path, dataDir: Path, logFile: Path)
 
 private class PostgresResource extends Resource[PostgresFixture] with PostgresAround {
 
@@ -63,7 +66,7 @@ private class PostgresResource extends Resource[PostgresFixture] with PostgresAr
   }
 
   override def close(): Unit = {
-    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir)
+    stopAndCleanUp(postgresFixture.tempDir, postgresFixture.dataDir, postgresFixture.logFile)
   }
 }
 
@@ -73,6 +76,8 @@ object PostgresResource {
 
 trait PostgresAround {
 
+  private val logger = LoggerFactory.getLogger(getClass)
+
   private val IS_OS_WINDOWS: Boolean = sys.props("os.name").toLowerCase contains "windows"
 
   protected val testUser = "test"
@@ -81,6 +86,7 @@ trait PostgresAround {
   protected var postgresFixture: PostgresFixture = null
 
   protected def startEphemeralPg(): PostgresFixture = {
+    logger.info("starting Postgres fixture")
     val tempDir = Files.createTempDirectory("postgres_test")
     val tempDirPath = tempDir.toAbsolutePath.toString
     val dataDir = Paths.get(tempDirPath, "data")
@@ -134,6 +140,7 @@ trait PostgresAround {
       )
       val pgCtlStartProcess = Runtime.getRuntime.exec(command)
       waitForItOrDie(pgCtlStartProcess, command.mkString(" "))
+      logFile
     }
 
     def createTestDatabase() = {
@@ -152,12 +159,12 @@ trait PostgresAround {
     try {
       runInitDb()
       createConfigFile()
-      startPostgres()
+      val logFile = startPostgres()
       createTestDatabase()
 
       val jdbcUrl = s"jdbc:postgresql://localhost:$postgresPort/test?user=$testUser"
 
-      PostgresFixture(jdbcUrl, tempDir, dataDir)
+      PostgresFixture(jdbcUrl, tempDir, dataDir, logFile)
     } catch {
       case NonFatal(e) =>
         deleteTempFolder(tempDir)
@@ -166,11 +173,13 @@ trait PostgresAround {
   }
 
   private def waitForItOrDie(p: Process, what: String) = {
+    logger.info(s"waiting for '$what' to exit")
     if (p.waitFor() != 0) {
       val writer = new StringWriter
       IOUtils.copy(p.getErrorStream, writer, "UTF-8")
       sys.error(writer.toString)
     }
+    logger.info(s"the process has been terminated")
   }
 
   private def deleteTempFolder(tempDir: Path) =
@@ -187,7 +196,8 @@ trait PostgresAround {
 
   }
 
-  protected def stopAndCleanUp(tempDir: Path, dataDir: Path): Unit = {
+  protected def stopAndCleanUp(tempDir: Path, dataDir: Path, logFile: Path): Unit = {
+    logger.info("stopping and cleaning up Postgres")
     val command = Array(
       pgToolPath("pg_ctl"),
       "-w",
@@ -198,7 +208,19 @@ trait PostgresAround {
       "stop"
     )
     val pgCtlStopProcess = Runtime.getRuntime.exec(command)
-    waitForItOrDie(pgCtlStopProcess, command.mkString(" "))
+
+    try {
+      waitForItOrDie(pgCtlStopProcess, command.mkString(" "))
+    } catch {
+      case ie: InterruptedException =>
+        println(s"waitForItOrDie was interrupted at ${Instant.now().toString}!")
+        println("postgres log:")
+        Source
+          .fromFile(logFile.toFile)
+          .getLines()
+          .foreach(s => println(s)) //otherwise getting wart (Any)
+        throw ie
+    }
     deleteTempFolder(tempDir)
   }
 

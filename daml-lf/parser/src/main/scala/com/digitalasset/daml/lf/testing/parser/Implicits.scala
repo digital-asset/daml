@@ -1,21 +1,30 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.parser
+package com.digitalasset.daml.lf.testing
+package parser
 
 import com.digitalasset.daml.lf.data.{Decimal, Ref}
 import com.digitalasset.daml.lf.language.Ast.{Expr, Kind, Package, Type}
 
-object Implicits {
+private[digitalasset] object Implicits {
+
+  implicit val defaultParserParameters: ParserParameters[this.type] = ParserParameters(
+    defaultPackageId,
+    defaultLanguageVersion
+  )
 
   implicit class SyntaxHelper(val sc: StringContext) extends AnyVal {
     def k(args: Any*): Kind = interpolate(KindParser.kind)(args)
 
-    def t(args: Any*): Type = interpolate(TypeParser.typ)(args)
+    def t[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Type =
+      interpolate(new TypeParser[P](parserParameters).typ)(args)
 
-    def e(args: Any*): Expr = interpolate(ExprParser.expr)(args)
+    def e[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Expr =
+      interpolate(new ExprParser[P](parserParameters).expr)(args)
 
-    def p(args: Any*): Package = interpolate(ModParser.pkg)(args)
+    def p[P](args: Any*)(implicit parserParameters: ParserParameters[P]): Package =
+      interpolate(new ModParser[P](parserParameters).pkg)(args)
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def n(args: Any*): Ref.Name =

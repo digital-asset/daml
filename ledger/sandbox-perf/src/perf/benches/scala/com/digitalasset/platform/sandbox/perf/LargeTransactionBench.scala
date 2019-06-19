@@ -4,9 +4,8 @@
 package com.digitalasset.platform.sandbox.perf
 
 import com.digitalasset.platform.PlatformApplications
+import com.digitalasset.platform.sandbox.perf.TestHelper._
 import org.openjdk.jmh.annotations._
-
-import TestHelper._
 
 import scala.concurrent.Await
 
@@ -51,10 +50,18 @@ class LargeTransactionBench {
   //note that when running this with Postgres the bottleneck seems to originate from the fact the we traverse the huge
   //Transaction and execute SQL queries one after another. We could potentially partition the transaction so we can have batch queries instead.
   @Benchmark
-  def manySmallContracts(state: RangeOfIntsCreatedState): Unit =
-    Await.result(
-      rangeOfIntsExerciseCommand(state, state.workflowId, "ToListOfIntContainers", None),
-      perfTestTimeout)
+  def manySmallContracts(state: RangeOfIntsCreatedState): Unit = {
+    try {
+      Await.result(
+        rangeOfIntsExerciseCommand(state, state.workflowId, "ToListOfIntContainers", None),
+        perfTestTimeout)
+    } catch {
+      case t: Throwable => //TODO: this is just temporary to debug flakiness
+        println(s"manySmallContracts bench blew up! ${t.getMessage} ")
+        t.printStackTrace()
+        throw t
+    }
+  }
 
   @Benchmark
   def listOfNInts(state: ListOfNIntsCreatedState): Unit =

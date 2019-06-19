@@ -22,6 +22,7 @@ Writing DAML
    :titlesonly:
    :maxdepth: 2
 
+   daml/intro/0_Intro.rst
    daml/reference/index
    daml/daml-studio
    daml/testing-scenarios

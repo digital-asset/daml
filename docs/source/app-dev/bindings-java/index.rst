@@ -158,7 +158,7 @@ Replace ``x.y.z`` for both dependencies with the version that you want to use. Y
 the `Maven Central Repository <https://search.maven.org/search?q=g:com.daml.ledger>`__.
 
 .. note::
-   As of DAML SDK release 0.13.2, the Java Bindings libraries are available via the public Maven Central repository. Earlier releases are available from the `DAML Bintray repository <https://digitalassetsdk.bintray.com>`__.
+   As of DAML SDK release 0.13.3, the Java Bindings libraries are available via the public Maven Central repository. Earlier releases are available from the `DAML Bintray repository <https://digitalassetsdk.bintray.com>`__.
 
 You can also take a look at the ``pom.xml`` file from the :ref:`quickstart project <quickstart>`.
 

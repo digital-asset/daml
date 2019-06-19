@@ -18,6 +18,8 @@ module Development.IDE.State.API
     , setBufferModified
     , runAction
     , runActions
+    , runActionSync
+    , runActionsSync
     , writeProfile
     , getDiagnostics
     , unsafeClearDiagnostics

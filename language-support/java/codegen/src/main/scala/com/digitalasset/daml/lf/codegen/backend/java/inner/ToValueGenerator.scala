@@ -10,9 +10,7 @@ import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.iface._
 import com.squareup.javapoet._
-import com.typesafe.scalalogging.Logger
 import javax.lang.model.element.Modifier
-import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
@@ -31,8 +29,6 @@ import scala.collection.JavaConverters._
   */
 @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
 object ToValueGenerator {
-
-  private val logger: Logger = Logger(LoggerFactory.getLogger(getClass.getName))
 
   import Types._
 
