@@ -9,16 +9,17 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
-.. _release-0-13-5:
-
-0.13.5 - 2019-06-19
--------------------
 DAML Assistant
 ~~~~~~~~~~~~~~
 
 - Added `--install-assistant` flag to `daml install` command, changing the default
   behavior of `daml install` to be "install the assistant whenever we are installing
   a newer version of the SDK". Deprecated the `--activate` flag.
+
+.. _release-0-13-5:
+
+0.13.5 - 2019-06-19
+-------------------
 
 Release Procedure
 ~~~~~~~~~~~~~~~~~
