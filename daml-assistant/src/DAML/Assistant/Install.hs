@@ -367,8 +367,10 @@ shouldInstallAssistant InstallEnv{..} versionToInstall =
 install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
 install options damlPath projectPathM assistantVersion = do
     when (unActivateInstall (iActivate options)) $ do
-        hPutStrLn stderr
-            "WARNING: daml install: flag --activate is deprecated, use --install-assistant=yes instead"
+        hPutStr stderr . unlines $
+            [ "WARNING: daml install flag --activate is deprecated."
+            , "Use --install-assistant=yes instead."
+            , ""
 
     let targetVersionM = Nothing -- determined later
         output = putStrLn -- Output install messages to stdout.
