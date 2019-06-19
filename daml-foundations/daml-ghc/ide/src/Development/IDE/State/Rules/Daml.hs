@@ -123,13 +123,16 @@ getDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
 getDalf file = eitherToMaybe <$>
     (runExceptT $ useE GeneratePackage file)
 
+getDalfModule :: NormalizedFilePath -> Action (Maybe LF.Module)
+getDalfModule file = use GenerateDalf file
+
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScenarios file = use RunScenarios file
 
 -- | Get a list of the scenarios in a given file
 getScenarioNames :: NormalizedFilePath -> Action (Maybe [VirtualResource])
 getScenarioNames file = fmap f <$> use GenerateRawDalf file
-    where f = map (VRScenario file . LF.unExprValName . LF.qualObject) . scenariosInModule
+    where f = map (VRScenario file . LF.unExprValName . LF.qualObject . fst) . scenariosInModule
 
 -- Generates the DALF for a module without adding serializability information
 -- or type checking it.
@@ -298,7 +301,7 @@ runScenariosRule =
     define $ \RunScenarios file -> do
       m <- dalfForScenario file
       world <- worldForFile file
-      let scenarios = scenariosInModule m
+      let scenarios = map fst $ scenariosInModule m
           toDiagnostic :: LF.ValueRef -> Either SS.Error SS.ScenarioResult -> Maybe FileDiagnostic
           toDiagnostic scenario (Left err) =
               Just $ (file,) $ Diagnostic
@@ -484,9 +487,9 @@ encodeModuleRule =
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
-scenariosInModule :: LF.Module -> [LF.ValueRef]
+scenariosInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scenariosInModule m =
-    [ LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val)
+    [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m), LF.getIsTest (LF.dvalIsTest val)]
 
 getDamlLfVersion:: Action LF.Version
