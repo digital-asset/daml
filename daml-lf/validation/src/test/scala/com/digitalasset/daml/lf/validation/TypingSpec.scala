@@ -582,7 +582,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       module PositiveTestCase10 {
         record @serializable T (a: *) = {x: a};
 
-        // in the next line, T should be first order.
+        // in the next line, T must have kind *.
         template (this : T) =  {
           precondition True,
           signatories Cons @Party ['Bob'] (Nil @Party),
