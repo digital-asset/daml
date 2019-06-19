@@ -7,6 +7,7 @@ import com.digitalasset.daml_lf.DamlLf1
 import com.digitalasset.daml.lf.archive.{Decode, DecodeV1}
 import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.scenario.api.v1.{Module => ProtoModule}
 import com.digitalasset.daml.lf.speedy.Compiler
@@ -120,8 +121,9 @@ class Context(val contextId: Context.ContextId) {
             .parseFrom(
               Decode.damlLfCodedInputStream(module.getDamlLf1.newInput)
             )
+          val noInternedPkgIdsForApi = ImmArraySeq.empty
           new DecodeV1(LanguageVersion.Minor fromProtoIdentifier module.getMinor)
-            .ModuleDecoder(homePackageId, lfMod)
+            .ModuleDecoder(homePackageId, noInternedPkgIdsForApi, lfMod)
             .decode()
         case ProtoModule.ModuleCase.DAML_LF_DEV | ProtoModule.ModuleCase.MODULE_NOT_SET =>
           throw Context.ContextException("Module.MODULE_NOT_SET")
