@@ -235,7 +235,7 @@ publishStagingRepo baseRequest manager comDamlRepoId comDigitalassetRepoId = do
          $ setRequestPath  "/service/local/staging/bulk/promote"
          $ setRequestHeader "content-type" [ "application/json" ]
          $ setRequestHeader "accept" [ "application/json" ]
-         $ setRequestBodyLBS (textToLazyByteString $ "{\"data\":{\"stagedRepositoryIds\":[\"" <> comDamlRepoId <> "\",\"" <> comDigitalassetRepoId <> "]\",\"description\":\"\",\"autoDropAfterRelease\":true}}") baseRequest
+         $ setRequestBodyLBS (textToLazyByteString $ "{\"data\":{\"stagedRepositoryIds\":[\"" <> comDamlRepoId <> "\",\"" <> comDigitalassetRepoId <> "\"],\"description\":\"\",\"autoDropAfterRelease\":true}}") baseRequest
 
     _ <- recovering uploadRetryPolicy [ httpResponseHandler ] (\_ -> liftIO $ httpNoBody releaseStagingReposRequest manager)
 
