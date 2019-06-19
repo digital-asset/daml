@@ -1,11 +1,67 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
+
 daml 1.2
 
-module Temp where
+module GroupChat where
 
-template Start
-  with
-    test : Party
-  where
-    signatory test
+template Group
+    with
+        owner : Party
+        name : Text
+    where
+        signatory owner
+
+template Invitation
+    with
+        owner : Party
+        gid : ContractId Group
+        invitees : [Party]
+    where
+        signatory owner
+        observer invitees
+
+template Message
+    with
+        sender : Party
+        recipients : [Party]
+        gid : ContractId Group
+        body : Text
+    where
+        signatory sender::recipients
+
+template Membership
+    with
+        owner : Party
+        gid : ContractId Group
+        members : [Party]
+    where
+        signatory owner, members
+        key (owner,gid) : (Party,ContractId Group)
+        maintainer key._1
+
+        choice Membership_Join : () with joiner : Party, iid : ContractId Invitation
+            controller joiner
+            do
+                invitation <- fetch iid   -- fetch should not give rise to a new edge
+                assert (joiner `elem` invitation.invitees)
+                create Membership with owner, gid, members = joiner :: members
+                return ()
+
+        choice Membership_Leave : () with leaver : Party
+            controller leaver, owner
+            do
+                assert (leaver `elem` members)
+                create Membership with owner, gid, members = filter (/= leaver) members
+                return ()
+
+        nonconsuming choice Membership_SendMessage : ContractId Message with sender : Party, body : Text
+            controller sender
+            do
+                assert (sender `elem` members)
+                create Message with sender, recipients = members, gid, body
+
+        choice Membership_Shutdown : ()
+            controller owner
+            do
+                archive gid  -- also should not add a new edge

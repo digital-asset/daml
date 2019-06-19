@@ -103,9 +103,7 @@ da_haskell_test(
     hazel_deps = [
         "tasty",
         "base",
-        "optparse-applicative",
         "extra",
-        "directory",
         "tasty-hunit",
     ],
     main_function = "VisualTest.main",
