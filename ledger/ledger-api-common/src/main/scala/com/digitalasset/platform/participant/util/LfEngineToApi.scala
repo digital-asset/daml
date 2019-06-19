@@ -16,6 +16,7 @@ import com.digitalasset.ledger.api.v1.commands.{
   Commands => ApiCommands,
   CreateCommand => ApiCreateCommand,
   ExerciseCommand => ApiExerciseCommand,
+  ExerciseByKeyCommand => ApiExerciseByKeyCommand,
   CreateAndExerciseCommand => ApiCreateAndExerciseCommand
 }
 import com.digitalasset.ledger.api.v1.value.{
@@ -186,6 +187,14 @@ object LfEngineToApi {
               contractId,
               choiceId,
               LfEngineToApi.lfValueToApiValue(verbose = true, argument.value).toOption)))
+      case ExerciseByKeyCommand(templateId, contractKey, choiceId, _, argument) =>
+        ApiCommand(
+          ApiCommand.Command.ExerciseByKey(ApiExerciseByKeyCommand(
+            Some(toApiIdentifier(templateId)),
+            LfEngineToApi.lfValueToApiValue(verbose = true, contractKey.value).toOption,
+            choiceId,
+            LfEngineToApi.lfValueToApiValue(verbose = true, argument.value).toOption
+          )))
       case CreateAndExerciseCommand(templateId, createArgument, choiceId, choiceArgument, _) =>
         ApiCommand(
           ApiCommand.Command.CreateAndExercise(ApiCreateAndExerciseCommand(

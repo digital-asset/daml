@@ -12,7 +12,8 @@ import com.digitalasset.ledger.api.v1.commands.Command.Command.{
   Create => ProtoCreate,
   CreateAndExercise => ProtoCreateAndExercise,
   Empty => ProtoEmpty,
-  Exercise => ProtoExercise
+  Exercise => ProtoExercise,
+  ExerciseByKey => ProtoExerciseByKey
 }
 import com.digitalasset.ledger.api.v1.commands.{Command => ProtoCommand, Commands => ProtoCommands}
 import com.digitalasset.ledger.api.v1.value.Value.Sum
@@ -114,6 +115,25 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
             choiceId = choice,
             submitter = submitter,
             argument = asVersionedValueOrThrow(validatedValue))
+
+      case ek: ProtoExerciseByKey =>
+        for {
+          templateId <- requirePresence(ek.value.templateId, "template_id")
+          validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
+          contractKey <- requirePresence(ek.value.contractKey, "contract_key")
+          validatedContractKey <- validateValue(contractKey)
+          choice <- requireName(ek.value.choice, "choice")
+          value <- requirePresence(ek.value.choiceArgument, "value")
+          validatedValue <- validateValue(value)
+        } yield
+          ExerciseByKeyCommand(
+            templateId = validatedTemplateId,
+            contractKey = asVersionedValueOrThrow(validatedContractKey),
+            choiceId = choice,
+            submitter = submitter,
+            argument = asVersionedValueOrThrow(validatedValue)
+          )
+
       case ce: ProtoCreateAndExercise =>
         for {
           templateId <- requirePresence(ce.value.templateId, "template_id")

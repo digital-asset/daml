@@ -5,12 +5,21 @@
 daml 1.2
 module Com.Acme where
 
+data BarKey =
+  BarKey
+    with
+      p : Party
+      t : Text
+
 template Bar
   with
     owner: Party
     name: Text
   where
     signatory owner
+
+    key BarKey owner name : BarKey
+    maintainer key.p
     
     controller owner can
       Bar_SomeChoice: Bool

@@ -365,6 +365,37 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
       }
     )
 
+  private[engine] def preprocessExerciseByKey(
+      templateId: Identifier,
+      contractKey: VersionedValue[AbsoluteContractId],
+      choiceId: ChoiceName,
+      actors: Set[Party],
+      argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
+    Result.needTemplate(
+      compiledPackages,
+      templateId,
+      template => {
+        (template.choices.get(choiceId), template.key) match {
+          case (None, _) =>
+            val choicesNames: Seq[String] = template.choices.toList.map(_._1)
+            ResultError(Error(
+              s"Couldn't find requested choice $choiceId for template $templateId. Available choices: $choicesNames"))
+          case (_, None) =>
+            ResultError(
+              Error(s"Impossible to exercise by key, no key is defined for template $templateId"))
+          case (Some(choice), Some(ck)) =>
+            val (_, choiceType) = choice.argBinder
+            val actingParties = ImmArray(actors.map(SValue.SParty))
+            for {
+              arg <- translateValue(choiceType, argument)
+              key <- translateValue(ck.typ, contractKey)
+            } yield
+              choiceType -> SpeedyCommand
+                .ExerciseByKey(templateId, key, choiceId, actingParties, arg)
+        }
+      }
+    )
+
   private[engine] def preprocessCreateAndExercise(
       templateId: ValueRef,
       createArgument: VersionedValue[AbsoluteContractId],
@@ -419,6 +450,14 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
           choiceId,
           Set(submitter),
           argument)
+      case ExerciseByKeyCommand(templateId, contractKey, choiceId, submitter, argument) =>
+        preprocessExerciseByKey(
+          templateId,
+          contractKey,
+          choiceId,
+          Set(submitter),
+          argument
+        )
       case CreateAndExerciseCommand(
           templateId,
           createArgument,

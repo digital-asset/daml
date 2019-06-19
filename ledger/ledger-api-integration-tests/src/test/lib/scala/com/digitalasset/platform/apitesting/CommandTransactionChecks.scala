@@ -653,8 +653,6 @@ abstract class CommandTransactionChecks
         val key = "some-key"
         val alice = "Alice"
         val bob = "Bob"
-        def textKeyValue(p: String, k: String, disclosedTo: List[String]): Value =
-          Value(Value.Sum.Record(textKeyRecord(p, k, disclosedTo)))
         def textKeyKey(p: String, k: String): Value =
           Value(Value.Sum.Record(Record(fields = List(RecordField(value = p.asParty), RecordField(value = s"$keyPrefix-$k".asText)))))
         for {
@@ -775,7 +773,7 @@ abstract class CommandTransactionChecks
             cid1.contractId,
             "TextKeyChoice",
             emptyRecordValue)
-          lookupAfterConsume <- ctx.testingHelpers.simpleExercise(
+          _ <- ctx.testingHelpers.simpleExercise(
             "CK-test-alice-lookup-after-consume",
             alice,
             templateIds.textKeyOperations,
@@ -848,7 +846,63 @@ abstract class CommandTransactionChecks
           succeed
         }
       }
+
+      "handle exercise by key" in allFixtures { ctx =>
+        val keyPrefix = UUID.randomUUID.toString
+        def textKeyRecord(p: String, k: String, disclosedTo: List[String]): Record =
+          Record(
+            fields =
+              List(
+                RecordField(value = p.asParty),
+                RecordField(value = s"$keyPrefix-$k".asText),
+                RecordField(value = disclosedTo.map(_.asParty).asList)))
+        val key = "some-key"
+        val alice = "Alice"
+        val bob = "Bob"
+        def textKeyKey(p: String, k: String): Value =
+          Value(Value.Sum.Record(Record(fields = List(RecordField(value = p.asParty), RecordField(value = s"$keyPrefix-$k".asText)))))
+        for {
+          _ <- ctx.testingHelpers.failingExerciseByKey(
+            "EK-test-alice-exercise-before-create",
+            alice,
+            templateIds.textKey,
+            textKeyKey(alice, key),
+            "TextKeyChoice",
+            emptyRecordValue,
+            Code.INVALID_ARGUMENT,
+            "couldn't find key"
+          )
+          _ <- ctx.testingHelpers.simpleCreate(
+            "EK-test-cid1",
+            alice,
+            templateIds.textKey,
+            textKeyRecord(alice, key, List(bob))
+          )
+          // now we exercise by key, thus archiving it, and then verify
+          // that we cannot look it up anymore
+          _ <- ctx.testingHelpers.simpleExerciseByKey(
+            "EK-test-alice-exercise",
+            alice,
+            templateIds.textKey,
+            textKeyKey(alice, key),
+            "TextKeyChoice",
+            emptyRecordValue)
+          _ <- ctx.testingHelpers.failingExerciseByKey(
+            "EK-test-alice-exercise-consumed",
+            alice,
+            templateIds.textKey,
+            textKeyKey(alice, key),
+            "TextKeyChoice",
+            emptyRecordValue,
+            Code.INVALID_ARGUMENT,
+            "couldn't find key"
+          )
+        } yield {
+          succeed
+        }
+      }
     }
+
     "client sends a CreateAndExerciseCommand" should {
       val validCreateAndExercise = CreateAndExerciseCommand(
         Some(templateIds.dummy),
@@ -856,8 +910,6 @@ abstract class CommandTransactionChecks
         "DummyChoice1",
         Some(Value(Value.Sum.Record(Record())))
       )
-      val ledgerEnd =
-        LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
       val partyFilter = TransactionFilter(Map(party -> Filters(None)))
 
       def newRequest(context: LedgerContext, cmd: CreateAndExerciseCommand) = submitRequest
