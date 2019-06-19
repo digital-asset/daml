@@ -380,6 +380,7 @@ isReleaseCommit :: MonadCI m => m Bool
 isReleaseCommit = do
     files <- gitChangedFiles "HEAD"
     let isRelease = "VERSION" `elem` files
+                 && "unreleased.rst" `elem` files
                  && "docs/source/support/release-notes.rst" `elem` files
                  && length files == 2
     if "VERSION" `elem` files && not isRelease
