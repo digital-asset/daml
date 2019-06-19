@@ -17,7 +17,7 @@ unitTests :: IO TestTree
 unitTests = do
     withTempFile $ \path -> do
         let darPath = "daml-foundations/daml-tools/da-hs-daml-cli/visual-test-daml.dar"
-        return $ testGroup "golden tests" [
+        return $ testGroup "making sure we do not add extra edges" [
             goldenVsFile
                 ("dot file test")
                 ("daml-foundations/daml-tools/da-hs-daml-cli/tests/res/out.dot")
