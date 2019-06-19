@@ -9,6 +9,12 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+
+.. _release-0-13-4:
+
+0.13.3 - 2019-06-19
+-------------------
+
 Java Codegen
 ~~~~~~~~~~~~
 
