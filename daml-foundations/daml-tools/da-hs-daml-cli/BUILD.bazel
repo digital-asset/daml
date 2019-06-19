@@ -91,14 +91,13 @@ da_haskell_test(
     ],
 )
 
-
 da_haskell_test(
     name = "da-hs-daml-cli-visual-test",
     srcs = ["tests/VisualTest.hs"],
     data = [
-        "//daml-foundations/daml-ghc/package-database:package-db",
+        ":tests/res/out.dot",
         ":visual-test-daml.dar",
-        ":tests/res/out.dot"
+        "//daml-foundations/daml-ghc/package-database:package-db",
     ],
     hazel_deps = [
         "tasty",
@@ -110,9 +109,10 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
-        ":da-hs-daml-cli"
+        ":da-hs-daml-cli",
     ],
 )
+
 daml_compile(
     name = "visual-test-daml",
     main_src = "tests/Basic.daml",
