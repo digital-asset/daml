@@ -13,7 +13,7 @@ Release Procedure
 ~~~~~~~~~~~~~~~~~
 
 - Fixes to the CI/CD release procedure. 
-  See `#1755 <https://github.com/digital-asset/daml/issues/1755>'
+  See `#1755 <https://github.com/digital-asset/daml/issues/1755>__.`
 
 .. _release-0-13-4:
 
