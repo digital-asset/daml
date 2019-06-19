@@ -14,21 +14,31 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVer
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 
 import scala.collection.JavaConverters._
-import scala.collection.mutable
+import scala.collection.{breakOut, mutable}
 
 private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
 
-  import Decode._
+  import Decode._, LanguageMinorVersion.Implicits._
 
   private val languageVersion = LanguageVersion(V1, minor)
 
+  private val internedIdsVersion: LanguageMinorVersion = "dev"
+
   private def name(s: String): Name = eitherToParseError(Name.fromString(s))
 
-  override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package =
-    Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, _).decode))
+  override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package = {
+    val interned = decodeInternedPackageIds(lfPackage.getInternedPackageIdsList.asScala)
+    Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, interned, _).decode))
+  }
 
   private[this] def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw new ParseError(err), identity)
+
+  private[this] def decodeInternedPackageIds(internedList: Seq[String]): Vector[PackageId] = {
+    if (internedList.nonEmpty)
+      assertSince(internedIdsVersion, "interned package ID table")
+    internedList.map(s => eitherToParseError(PackageId.fromString(s)))(breakOut)
+  }
 
   private[this] def decodeSegments(segments: ImmArray[String]): DottedName =
     DottedName.fromSegments(segments.toSeq) match {
@@ -36,8 +46,10 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       case Right(x) => x
     }
 
-  case class ModuleDecoder(val packageId: PackageId, val lfModule: PLF.Module) {
-    import LanguageMinorVersion.Implicits._
+  case class ModuleDecoder(
+      packageId: PackageId,
+      internedPackageIds: Vector[PackageId],
+      lfModule: PLF.Module) {
 
     val moduleName = eitherToParseError(
       ModuleName.fromSegments(lfModule.getName.getSegmentsList.asScala))
@@ -271,19 +283,25 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       val modName = eitherToParseError(
         ModuleName.fromSegments(lfRef.getModuleName.getSegmentsList.asScala))
       import PLF.PackageRef.{SumCase => SC}
-      lfRef.getPackageRef.getSumCase match {
+      val pkgId = lfRef.getPackageRef.getSumCase match {
         case SC.SELF =>
-          (this.packageId, modName)
+          this.packageId
         case SC.PACKAGE_ID =>
-          val pkgId = PackageId
-            .fromString(lfRef.getPackageRef.getPackageId)
-            .getOrElse(throw ParseError(s"invalid packageId '${lfRef.getPackageRef.getPackageId}'"))
-          (pkgId, modName)
+          val rawPid = lfRef.getPackageRef.getPackageId
+          PackageId
+            .fromString(rawPid)
+            .getOrElse(throw ParseError(s"invalid packageId '$rawPid'"))
         case SC.INTERNED_ID =>
-          sys.error("TODO SC interned case")
+          assertSince(internedIdsVersion, "interned package ID")
+          val iidl = lfRef.getPackageRef.getInternedId
+          def outOfRange = ParseError(s"invalid package ID table index $iidl")
+          val iid = iidl.toInt
+          if (iidl != iid.toLong) throw outOfRange
+          internedPackageIds.lift(iid).getOrElse(throw outOfRange)
         case SC.SUM_NOT_SET =>
           throw ParseError("PackageRef.SUM_NOT_SET")
       }
+      (pkgId, modName)
     }
 
     private[this] def decodeValName(lfVal: PLF.ValName): ValueRef = {
