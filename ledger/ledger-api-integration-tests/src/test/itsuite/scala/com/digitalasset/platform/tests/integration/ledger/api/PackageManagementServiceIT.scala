@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Files
 import java.util.zip.ZipFile
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -42,7 +43,8 @@ class PackageManagementServiceIT
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests
-    with Matchers {
+    with Matchers
+    with BazelRunfiles {
 
   private val runSuffix = "-" + Random.alphanumeric.take(10).mkString
   private val partyNameMangler =
@@ -58,7 +60,7 @@ class PackageManagementServiceIT
   private case class LoadedPackage(size: Long, archive: Archive, pkg: Ast.Package)
 
   private def loadTestDar: (Array[Byte], List[LoadedPackage], String) = {
-    val file = new File("ledger/sandbox/Test.dar")
+    val file = new File(rlocation("ledger/sandbox/Test.dar"))
 
     val testDarBytes = Files.readAllBytes(file.toPath)
 
