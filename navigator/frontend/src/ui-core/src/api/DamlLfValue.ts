@@ -186,7 +186,7 @@ export function initialValue(type: DamlLfType): DamlLfValue {
       case 'text':        return undef();
       case 'int64':       return undef();
       case 'decimal':     return undef();
-      case 'bool':        return undef();
+      case 'bool':        return bool(false);
       case 'contractid':  return undef();
       case 'timestamp':   return undef();
       case 'date':        return undef();
