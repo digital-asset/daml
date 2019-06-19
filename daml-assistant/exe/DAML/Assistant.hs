@@ -103,16 +103,11 @@ autoInstall env@Env{..} = do
     if doAutoInstall && isJust envSdkVersion && isNothing envSdkPath then do
         -- sdk is missing, so let's install it!
         let sdkVersion = fromJust envSdkVersion
-            isLatest
-                | Just (DamlAssistantSdkVersion v) <- envDamlAssistantSdkVersion =
-                    sdkVersion > v
-                | otherwise =
-                    True
             options = InstallOptions
                 { iTargetM = Nothing
                 , iQuiet = QuietInstall False
-                , iAssistant = InstallAssistant (if isLatest then Yes else No)
-                , iActivate = ActivateInstall isLatest
+                , iAssistant = InstallAssistant Auto
+                , iActivate = ActivateInstall False
                 , iForce = ForceInstall False
                 , iSetPath = SetPath True
                 }
@@ -121,6 +116,7 @@ autoInstall env@Env{..} = do
                 , damlPath = envDamlPath
                 , targetVersionM = Just sdkVersion
                 , projectPathM = Nothing
+                , assistantVersion = envDamlAssistantSdkVersion
                 , output = hPutStrLn stderr
                     -- Print install messages to stderr since the install
                     -- is only happening because of some other command,
@@ -202,7 +198,7 @@ handleCommand env@Env{..} = \case
         putStr . unpack $ T.unlines ("DAML SDK versions:" : versionLines)
 
     Builtin (Install options) -> wrapErr "Installing the SDK." $ do
-        install options envDamlPath envProjectPath
+        install options envDamlPath envProjectPath envDamlAssistantSdkVersion
 
     Builtin (Uninstall version) -> do
         uninstallVersion env version
