@@ -119,7 +119,7 @@ support for running DAML.
    * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
      - In Development
      - ``Hacera <https://hacera.com>`__     
-     - ``Hacera Unbounded Network <https://unbounded.network/>`__
+     - `Hacera Unbounded Network <https://unbounded.network/>`__
      - `press release (June 2019)
        <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
    * - `R3 Corda <https://www.corda.net>`__
