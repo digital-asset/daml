@@ -4,22 +4,37 @@
 daml 1.2
 module Enum where
 
+import DA.Assert
+
 data Days = Mon | Tue | Wed | Thu | Fri | Sat | Sun
-  deriving (Eq,Bounded,Enum)
+  deriving (Eq,Bounded,Enum,Show)
 
 main = scenario do
-  assert $ show (minBound : Int) == "-9223372036854775808"
-  assert $ show (maxBound : Int) == "9223372036854775807"
-  assert $ minBound == Mon
-  assert $ maxBound == Sun
-  assert $ succ Mon == Tue
-  assert $ pred Thu == Wed
-  assert $ [Fri ..] == [Fri,Sat,Sun]
-  assert $ [Tue .. Thu] == [Tue,Wed,Thu]
-  assert $ [Mon, Wed ..] == [Mon,Wed,Fri,Sun]
-  assert $ [Mon,Wed .. Sat] == [Mon,Wed,Fri]
-  assert $ enumerate == [Mon,Tue,Wed,Thu,Fri,Sat,Sun]
+  show (minBound : Int) === "-9223372036854775808"
+  show (maxBound : Int) === "9223372036854775807"
+  minBound === Mon
+  maxBound === Sun
+  succ Mon === Tue
+  pred Thu === Wed
+  [Fri ..] === [Fri,Sat,Sun]
+  [Tue .. Thu] === [Tue,Wed,Thu]
+  [Mon, Wed ..] === [Mon,Wed,Fri,Sun]
+  [Mon, Wed .. Sat] === [Mon,Wed,Fri]
+  [Tue, Thu .. Thu] === [Tue,Thu]
+  [Tue, Thu .. Wed] === [Tue]
+  [Tue, Thu .. Tue] === [Tue]
+  [Tue, Thu .. Mon] === []
+  [Sun, Sat ..] === [Sun,Sat,Fri,Thu,Wed,Tue,Mon]
+  [Sun, Sat .. Tue] === [Sun,Sat,Fri,Thu,Wed,Tue]
+  [Sun, Fri .. Mon] === [Sun,Fri,Wed,Mon]
+  [Sun, Fri .. Tue] === [Sun,Fri,Wed]
+  [Sun, Fri .. Wed] === [Sun,Fri,Wed]
+  [Sat, Wed .. Tue] === [Sat, Wed]
+  [Sat, Wed .. Wed] === [Sat, Wed]
+  [Sat, Wed .. Fri] === [Sat]
+  [Sat, Wed .. Sat] === [Sat]
+  [Sat, Wed .. Sun] === []
+  enumerate === [Mon,Tue,Wed,Thu,Fri,Sat,Sun]
   alice <- getParty "alice"
-  submitMustFail alice $ do
-    () <- return () -- otherwise succ raises the error too early
-    assert $ succ Sun == Mon
+  submitMustFail alice do
+    succ Sun === Mon
