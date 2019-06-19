@@ -96,6 +96,9 @@ internPackageRefIds pkg
       S.fromList $ pkg ^.. packageRefs._PRImport
   | otherwise = S.empty
 
+encodeInternedPackageIds :: PackageRefCtx -> V.Vector TL.Text
+encodeInternedPackageIds = encodeList encodePackageId . S.toAscList
+
 encodeModuleRef :: PackageRefCtx -> PackageRef -> ModuleName -> Just P.ModuleRef
 encodeModuleRef ctx pkgRef modName =
   Just $ P.ModuleRef (encodePackageRef ctx pkgRef) (encodeDottedName unModuleName modName)
@@ -499,7 +502,7 @@ encodeModule aware@VersionAware{..} Module{..} =
 encodePackage :: Package -> P.Package
 encodePackage pkg@(Package version mods) =
     P.Package (encodeNameMap encodeModule (VersionAware version interned) mods)
-              (error "TODO S11 ids")
+              (encodeInternedPackageIds interned)
   where interned = internPackageRefIds pkg
 
 
