@@ -7,6 +7,7 @@ package archive
 import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
+import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
 import com.digitalasset.daml.lf.language.Util._
@@ -34,7 +35,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
   private[this] def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw new ParseError(err), identity)
 
-  private[this] def decodeInternedPackageIds(internedList: Seq[String]): Vector[PackageId] = {
+  private[this] def decodeInternedPackageIds(internedList: Seq[String]): ImmArraySeq[PackageId] = {
     if (internedList.nonEmpty)
       assertSince(internedIdsVersion, "interned package ID table")
     internedList.map(s => eitherToParseError(PackageId.fromString(s)))(breakOut)
@@ -48,7 +49,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
   case class ModuleDecoder(
       packageId: PackageId,
-      internedPackageIds: Vector[PackageId],
+      internedPackageIds: ImmArraySeq[PackageId],
       lfModule: PLF.Module) {
 
     val moduleName = eitherToParseError(

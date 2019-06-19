@@ -27,6 +27,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   QualifiedName
 }
 
+import scala.collection.breakOut
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
 
@@ -49,7 +50,7 @@ object InterfaceReader {
 
   private[reader] final case class Context(
       packageId: PackageId,
-      interned: Vector[String \/ PackageId])
+      interned: ImmArraySeq[String \/ PackageId])
 
   private[reader] final case class State(
       typeDecls: Map[QualifiedName, InterfaceType] = Map.empty,
@@ -152,8 +153,8 @@ object InterfaceReader {
     PackageId.fromString(a.getPackageId).disjunction leftMap (err =>
       invalidDataTypeDefinition(a, s"Invalid packageId : $err"))
 
-  private[this] def internedPackageIds(a: Seq[String]): Vector[String \/ PackageId] =
-    a.toVector map (s => PackageId.fromString(s).disjunction)
+  private[this] def internedPackageIds(a: Seq[String]): ImmArraySeq[String \/ PackageId] =
+    a.map(s => PackageId.fromString(s).disjunction)(breakOut)
 
   private[this] def addPartitionToState[A](
       state: State,

@@ -20,7 +20,7 @@ class InterfaceReaderSpec extends WordSpec with Matchers with Inside {
   private val moduleName: Ref.ModuleName = dnfs("Main")
   private val packageId: Ref.PackageId = Ref.PackageId.assertFromString("dummy-package-id")
   private val ctx: InterfaceReader.Context =
-    InterfaceReader.Context(packageId, interned = Vector.empty)
+    InterfaceReader.Context(packageId, interned = ImmArraySeq.empty)
 
   "variant should extract a variant with type params" in {
     val variantDataType = DamlLf1.DefDataType
