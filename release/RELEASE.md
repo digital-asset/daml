@@ -4,7 +4,7 @@
    file and adds a new header and label for the new version in
    `docs/source/support/release-notes.rst` (see previous releases as examples).
    Release notes should be cut and pasted under the new header from `unreleased.rst`.
-   Please make sure the content you are pasting is properly formatted RST and that duplicate sections are merged.
+   Each change outlined in `unreleased.rst` is preceded by the section to which it belongs: create one entry per section and add all pertaining items (without the section tag) to the release notes.
    It is important that the PR only changes `VERSION`, `release-notes.rst` and `unreleased.rst`.
 1. "Squash and merge" the PR.
 1. Once CI has passed for the corresponding master build, the release should be
