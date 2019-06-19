@@ -327,6 +327,12 @@ private class SandboxIndexAndWriteService(
       case LedgerOffset.Absolute(absBegin) =>
         ledger.ledgerEntries(Some(absBegin.toLong)).collect {
           case (offset, t: LedgerEntry.Transaction)
+              // We only send out completions for transactions for which we have the full submitter information (appId, submitter, cmdId).
+              //
+              // This doesn't make a difference for the sandbox (because it represents the ledger backend + api server in single package).
+              // But for an api server that is part of a distributed ledger network, we might see
+              // transactions that originated from some other api server. These transactions don't contain the submitter information,
+              // and therefore we don't emit CommandAccepted completions for those
               if t.applicationId.contains(applicationId.unwrap) &&
                 t.submittingParty.exists(parties.contains) &&
                 t.commandId.nonEmpty =>
