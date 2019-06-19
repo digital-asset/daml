@@ -149,6 +149,9 @@ object InterfaceReader {
     PackageId.fromString(a.getPackageId).disjunction leftMap (err =>
       invalidDataTypeDefinition(a, s"Invalid packageId : $err"))
 
+  private[this] def internedPackageIds(a: Nothing): InterfaceReaderError \/ Vector[PackageId] =
+    sys.error("TODO S11")
+
   private[this] def addPartitionToState[A](
       state: State,
       a: (InterfaceReaderError.Tree, Iterable[A]))(f: (State, A) => State): State =
@@ -344,7 +347,7 @@ object InterfaceReader {
       case DamlLf1.PackageRef.SumCase.SELF => \/-(None)
       case DamlLf1.PackageRef.SumCase.PACKAGE_ID =>
         packageId(a).map(Some(_))
-      case DamlLf1.PackageRef.SumCase.INTERNED =>
+      case DamlLf1.PackageRef.SumCase.INTERNED_ID =>
         sys.error("TODO SC interned package ID")
       case DamlLf1.PackageRef.SumCase.SUM_NOT_SET =>
         -\/(invalidDataTypeDefinition(a, "DamlLf1.PackageRef.SumCase.SUM_NOT_SET"))
