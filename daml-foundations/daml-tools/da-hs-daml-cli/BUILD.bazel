@@ -104,7 +104,7 @@ da_haskell_test(
         "tasty",
         "base",
         "extra",
-        "tasty-hunit",
+        "tasty-golden",
     ],
     main_function = "VisualTest.main",
     src_strip_prefix = "tests",

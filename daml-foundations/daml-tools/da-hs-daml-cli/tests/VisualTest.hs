@@ -6,31 +6,21 @@ module VisualTest
    ) where
 
 import Test.Tasty
-import Test.Tasty.HUnit
 import System.IO.Extra
 import DA.Cli.Visual
-
+import Test.Tasty.Golden
 
 main :: IO ()
-main = defaultMain tests
+main = defaultMain  =<< unitTests
 
-tests :: TestTree
-tests = testGroup "Tests" [unitTests]
-
-unitTests :: TestTree
-unitTests = testGroup "Unit tests"
-  [
-    testCase "dot file check" $ do
-        withTempFile $ \path -> do
-            let darPath = "daml-foundations/daml-tools/da-hs-daml-cli/visual-test-daml.dar"
-            _ <- execVisual darPath (Just path)
-            shouldThrow path "daml-foundations/daml-tools/da-hs-daml-cli/tests/res/out.dot"
-  ]
-
-
-shouldThrow :: FilePath -> FilePath -> IO ()
-shouldThrow a b = do
-    ac <-  readFile a
-    bc <- readFile b
-    if ac == bc then pure () else
-        assertFailure "Expected program to throw an IOException."
+unitTests :: IO TestTree
+unitTests = do
+    withTempFile $ \path -> do
+        let darPath = "daml-foundations/daml-tools/da-hs-daml-cli/visual-test-daml.dar"
+        return $ testGroup "golden tests" [
+            goldenVsFile
+                ("dot file test")
+                ("daml-foundations/daml-tools/da-hs-daml-cli/tests/res/out.dot")
+                (path)
+                (execVisual darPath (Just path))
+            ]
