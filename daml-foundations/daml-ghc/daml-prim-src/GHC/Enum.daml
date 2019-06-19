@@ -207,10 +207,10 @@ go_up delta y' x | x > y' = [x]
 efdtIntDn : Int -> Int -> Int -> [Int]
 efdtIntDn x1 x2 y    -- Be careful about underflow!
  | y > x2 = if y > x1 then [] else [x1]
- | otherwise = go_dn delta y' x2
+ | otherwise = x1 :: go_dn delta y' x2
     where delta = x2 - x1
           y' = y - delta
 
 go_dn : Int -> Int -> Int -> [Int]
 go_dn delta y' x | x < y' = [x]
-                 | otherwise = x :: go_up delta y' (x + delta)
+                 | otherwise = x :: go_dn delta y' (x + delta)
