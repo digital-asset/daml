@@ -344,6 +344,8 @@ object InterfaceReader {
       case DamlLf1.PackageRef.SumCase.SELF => \/-(None)
       case DamlLf1.PackageRef.SumCase.PACKAGE_ID =>
         packageId(a).map(Some(_))
+      case DamlLf1.PackageRef.SumCase.INTERNED =>
+        sys.error("TODO SC interned package ID")
       case DamlLf1.PackageRef.SumCase.SUM_NOT_SET =>
         -\/(invalidDataTypeDefinition(a, "DamlLf1.PackageRef.SumCase.SUM_NOT_SET"))
     }
