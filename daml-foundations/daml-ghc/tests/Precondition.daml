@@ -3,7 +3,7 @@
 
 -- @ERROR Template pre-condition violated
 daml 1.2
-module Ensures where
+module Precondition where
 
 import DA.List
 
