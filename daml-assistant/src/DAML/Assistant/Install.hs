@@ -368,8 +368,7 @@ install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> Maybe DamlAssistan
 install options damlPath projectPathM assistantVersion = do
     when (unActivateInstall (iActivate options)) $
         hPutStr stderr . unlines $
-            [ "WARNING: daml install flag --activate is deprecated."
-            , "Use --install-assistant=yes instead."
+            [ "WARNING: --activate is deprecated, use --install-assistant=yes instead."
             , ""
             ]
 
