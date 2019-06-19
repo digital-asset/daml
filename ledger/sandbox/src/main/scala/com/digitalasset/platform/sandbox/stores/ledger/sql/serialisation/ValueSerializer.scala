@@ -3,6 +3,7 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
+import com.digitalasset.daml.lf.archive.{Decode, Reader}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
@@ -29,7 +30,10 @@ object ValueSerializer extends ValueSerializer {
   override def deserialiseValue(
       blob: Array[Byte]): Either[DecodeError, VersionedValue[AbsoluteContractId]] =
     ValueCoder
-      .decodeVersionedValue(defaultCidDecode, ValueOuterClass.VersionedValue.parseFrom(blob))
+      .decodeVersionedValue(
+        defaultCidDecode,
+        ValueOuterClass.VersionedValue.parseFrom(
+          Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT)))
 
   val defaultCidEncode: ValueCoder.EncodeCid[AbsoluteContractId] = ValueCoder.EncodeCid(
     _.coid,

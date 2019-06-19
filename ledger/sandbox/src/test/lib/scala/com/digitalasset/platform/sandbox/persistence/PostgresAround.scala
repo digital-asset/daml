@@ -13,6 +13,7 @@ import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.ledger.api.testing.utils.Resource
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.slf4j.LoggerFactory
 
 import scala.io.Source
 import scala.util.control.NonFatal
@@ -75,6 +76,8 @@ object PostgresResource {
 
 trait PostgresAround {
 
+  private val logger = LoggerFactory.getLogger(getClass)
+
   private val IS_OS_WINDOWS: Boolean = sys.props("os.name").toLowerCase contains "windows"
 
   protected val testUser = "test"
@@ -83,6 +86,7 @@ trait PostgresAround {
   protected var postgresFixture: PostgresFixture = null
 
   protected def startEphemeralPg(): PostgresFixture = {
+    logger.info("starting Postgres fixture")
     val tempDir = Files.createTempDirectory("postgres_test")
     val tempDirPath = tempDir.toAbsolutePath.toString
     val dataDir = Paths.get(tempDirPath, "data")
@@ -169,11 +173,13 @@ trait PostgresAround {
   }
 
   private def waitForItOrDie(p: Process, what: String) = {
+    logger.info(s"waiting for '$what' to exit")
     if (p.waitFor() != 0) {
       val writer = new StringWriter
       IOUtils.copy(p.getErrorStream, writer, "UTF-8")
       sys.error(writer.toString)
     }
+    logger.info(s"the process has been terminated")
   }
 
   private def deleteTempFolder(tempDir: Path) =
@@ -191,6 +197,7 @@ trait PostgresAround {
   }
 
   protected def stopAndCleanUp(tempDir: Path, dataDir: Path, logFile: Path): Unit = {
+    logger.info("stopping and cleaning up Postgres")
     val command = Array(
       pgToolPath("pg_ctl"),
       "-w",

@@ -27,6 +27,14 @@ Java Bindings
 - The addition of the ``ExerciseByKey`` to the Ledger API is reflected in the bindings.
   See `#1366 <https://github.com/digital-asset/daml/issues/1366>`__.
 
+Release Procedure
+~~~~~~~~~~~~~~~~~
+
+- Fixes to the release procedure. Note: The release to Maven Central was successfully
+  performed _manually_ in release 0.13.3. This release should confirm that it will occur
+  as part of the CI/CD.
+  See `#1745 <https://github.com/digital-asset/daml/issues/1745>`__
+
 .. _release-0-13-3:
 
 0.13.3 - 2019-06-18
@@ -53,6 +61,13 @@ DAML Studio
 ~~~~~~~~~~~
 
 - The IDE now executes tasks in parallel.
+
+Sandbox
+~~~~~~~
+
+- Fixed a bug in migration scripts that could cause databases originally created
+  with older versions of the Sandbox to not upgrade schemas properly.
+  See `#1682 <https://github.com/digital-asset/daml/issues/1682>`__.
 
 .. _release-0-13-2:
 

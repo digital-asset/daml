@@ -7,17 +7,16 @@ package testing.parser
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.testing.parser.ExprParser.{expr, expr0}
 import com.digitalasset.daml.lf.testing.parser.Parsers._
 import com.digitalasset.daml.lf.testing.parser.Token._
-import com.digitalasset.daml.lf.testing.parser.TypeParser.{argTyp, typ, typeBinder}
 
-private[parser] object ModParser {
+private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
-  private sealed trait Def extends Product with Serializable
+  import ModParser._
 
-  private final case class DataDef(name: DottedName, defn: Definition) extends Def
-  private final case class TemplDef(name: DottedName, defn: Template) extends Def
+  private[parser] val exprParser: ExprParser[P] = new ExprParser(parameters)
+  import exprParser.typeParser.{argTyp, typ, typeBinder}
+  import exprParser.{expr, expr0}
 
   private def split(defs: Seq[Def]) = {
     ((Seq.empty[(DottedName, Definition)], Seq.empty[(DottedName, Template)]) /: defs) {
@@ -38,7 +37,7 @@ private[parser] object ModParser {
         val flags = FeatureFlags(
           forbidPartyLiterals = modTag(noPartyLitsTag)
         )
-        Module(modName, definitions, templates, defaultLanguageVersion, flags)
+        Module(modName, definitions, templates, parameters.languageVersion, flags)
     }
 
   private lazy val definition: Parser[Def] =
@@ -144,5 +143,14 @@ private[parser] object ModParser {
   private val templateChoiceTags = Set(nonConsumingTag)
   private val valDefTags = Set(noPartyLitsTag, isTestTag)
   private val modTags = Set(noPartyLitsTag)
+
+}
+
+object ModParser {
+
+  private sealed trait Def extends Product with Serializable
+
+  private final case class DataDef(name: DottedName, defn: Definition) extends Def
+  private final case class TemplDef(name: DottedName, defn: Template) extends Def
 
 }
