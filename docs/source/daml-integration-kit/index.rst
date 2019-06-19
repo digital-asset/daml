@@ -96,7 +96,7 @@ support for running DAML.
    number of columns!
 
 .. list-table::
-   :widths: 25 25 25 25
+   :widths: 20 20 20 20 20
    :header-rows: 1
 
    * - Ledger
