@@ -47,7 +47,9 @@ object InterfaceReader {
       stringReport(errors)(_ fold (sy => Cord(".") :+ sy.name, Cord("'") :+ _ :+ "'"), _.error)
   }
 
-  private[reader] final case class Context(packageId: PackageId)
+  private[reader] final case class Context(
+      packageId: PackageId,
+      interned: Vector[String \/ PackageId])
 
   private[reader] final case class State(
       typeDecls: Map[QualifiedName, InterfaceType] = Map.empty,
@@ -102,7 +104,8 @@ object InterfaceReader {
       case \/-((templateGroupId, lfPackage)) =>
         lfprintln(s"templateGroupId: $templateGroupId")
         lfprintln(s"package: $lfPackage")
-        val ctx: Context = Context(templateGroupId)
+        val interned = internedPackageIds(lfPackage.getInternedPackageIdsList.asScala)
+        val ctx: Context = Context(templateGroupId, interned)
         val s: State = {
           import scalaz.std.iterable._
           lfPackage.getModulesList.asScala
@@ -149,8 +152,8 @@ object InterfaceReader {
     PackageId.fromString(a.getPackageId).disjunction leftMap (err =>
       invalidDataTypeDefinition(a, s"Invalid packageId : $err"))
 
-  private[this] def internedPackageIds(a: Nothing): InterfaceReaderError \/ Vector[PackageId] =
-    sys.error("TODO S11")
+  private[this] def internedPackageIds(a: Seq[String]): Vector[String \/ PackageId] =
+    a.toVector map (s => PackageId.fromString(s).disjunction)
 
   private[this] def addPartitionToState[A](
       state: State,
