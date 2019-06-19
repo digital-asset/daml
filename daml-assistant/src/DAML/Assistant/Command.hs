@@ -85,7 +85,8 @@ versionParser = VersionOptions
 installParser :: Parser InstallOptions
 installParser = InstallOptions
     <$> optional (RawInstallTarget <$> argument str (metavar "TARGET" <> help "The SDK version to install. Use 'latest' to download and install the latest stable SDK version available. Run 'daml install' to see the full set of options."))
-    <*> iflag ActivateInstall "activate" mempty "Activate installed version of daml"
+    <*> (InstallAssistant <$> flagYesNoAuto' "install-assistant" "Install associated DAML assistant version. Can be set to \"yes\", \"no\", or \"auto\", which install newer versions automatically. Default is \"auto\"." idm)
+    <*> iflag ActivateInstall "activate" hidden "Activate installed version of daml"
     <*> iflag ForceInstall "force" (short 'f') "Overwrite existing installation"
     <*> iflag QuietInstall "quiet" (short 'q') "Don't display installation messages"
     <*> fmap SetPath (flagYesNoAuto "set-path" True "Adjust PATH automatically. This option only has an effect on Windows." idm)

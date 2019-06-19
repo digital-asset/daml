@@ -8,7 +8,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.ledger.api.testing.utils.Resource
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.persistence.{PostgresFixture, PostgresResource}
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.daml.lf.data.ImmArray
@@ -33,7 +33,7 @@ object LedgerResource {
   def inMemory(
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory = ActiveContractsInMemory.empty,
+      acs: InMemoryActiveContracts = InMemoryActiveContracts.empty,
       entries: ImmArray[LedgerEntryWithLedgerEndIncrement] = ImmArray.empty): Resource[Ledger] =
     LedgerResource.resource(
       () =>
@@ -64,7 +64,7 @@ object LedgerResource {
               postgres.value.jdbcUrl,
               ledgerId,
               timeProvider,
-              ActiveContractsInMemory.empty,
+              InMemoryActiveContracts.empty,
               ImmArray.empty,
               128,
               SqlStartMode.AlwaysReset))

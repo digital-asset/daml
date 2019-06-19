@@ -24,7 +24,7 @@ final case class SandboxConfig(
     address: Option[String],
     port: Int,
     portFile: Option[File],
-    damlPackageContainer: DamlPackageContainer,
+    damlPackages: List[File],
     timeProviderType: TimeProviderType,
     timeModel: TimeModel,
     commandConfig: CommandConfiguration, //TODO: this should go to the file config
@@ -53,7 +53,7 @@ object SandboxConfig {
       None,
       DefaultPort,
       None,
-      DamlPackageContainer(Nil),
+      Nil,
       TimeProviderType.Static,
       TimeModel.reasonableDefault,
       defaultCommandConfig,

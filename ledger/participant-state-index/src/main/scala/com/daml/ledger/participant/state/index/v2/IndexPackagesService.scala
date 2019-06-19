@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.index.v2
 
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.daml.lf.language.Ast.Package
 
 import scala.concurrent.Future
 
@@ -13,7 +14,10 @@ import scala.concurrent.Future
   * [[com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService]]
   */
 trait IndexPackagesService {
-  def listPackages(): Future[Set[PackageId]]
+  def listLfPackages(): Future[Map[PackageId, PackageDetails]]
 
-  def getPackage(packageId: PackageId): Future[Option[Archive]]
+  def getLfArchive(packageId: PackageId): Future[Option[Archive]]
+
+  /** Like [[getLfArchive]], but already parsed. */
+  def getLfPackage(packageId: PackageId): Future[Option[Package]]
 }

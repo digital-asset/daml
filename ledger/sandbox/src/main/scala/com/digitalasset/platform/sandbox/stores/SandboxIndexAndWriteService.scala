@@ -9,16 +9,18 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, _}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v2.{
   PartyAllocationResult,
   SubmittedTransaction,
+  UploadDarResult,
   WriteService
 }
 import com.daml.ledger.participant.state.{v2 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
@@ -34,7 +36,7 @@ import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
-import com.digitalasset.platform.sandbox.stores.ledger._
+import com.digitalasset.platform.sandbox.stores.ledger.{_}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.services.time.TimeModel
@@ -62,11 +64,11 @@ object SandboxIndexAndWriteService {
       jdbcUrl: String,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       startMode: SqlStartMode,
       queueDepth: Int,
-      templateStore: IndexPackagesService)(
+      templateStore: InMemoryPackageStore)(
       implicit mat: Materializer,
       mm: MetricsManager): Future[IndexAndWriteService] =
     Ledger
@@ -86,9 +88,9 @@ object SandboxIndexAndWriteService {
       ledgerId: LedgerId,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
-      templateStore: IndexPackagesService)(
+      templateStore: InMemoryPackageStore)(
       implicit mat: Materializer,
       mm: MetricsManager): IndexAndWriteService = {
     val ledger = Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, ledgerEntries))
@@ -99,10 +101,10 @@ object SandboxIndexAndWriteService {
       ledger: Ledger,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
-      templateStore: IndexPackagesService)(implicit mat: Materializer) = {
+      templateStore: InMemoryPackageStore)(implicit mat: Materializer) = {
     val contractStore = new SandboxContractStore(ledger)
     val indexAndWriteService =
-      new SandboxIndexAndWriteService(ledger, timeModel, templateStore, contractStore)
+      new SandboxIndexAndWriteService(ledger, timeModel, timeProvider, templateStore, contractStore)
     val heartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
     new IndexAndWriteService {
@@ -144,7 +146,8 @@ object SandboxIndexAndWriteService {
 private class SandboxIndexAndWriteService(
     ledger: Ledger,
     timeModel: TimeModel,
-    templateStore: IndexPackagesService,
+    timeProvider: TimeProvider,
+    packageStore: InMemoryPackageStore,
     contractStore: ContractStore)(implicit mat: Materializer)
     extends IndexService
     with WriteService {
@@ -346,11 +349,20 @@ private class SandboxIndexAndWriteService(
   }
 
   // IndexPackagesService
-  override def listPackages(): Future[Set[PackageId]] =
-    templateStore.listPackages()
+  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
+    packageStore.listLfPackages()
 
-  override def getPackage(packageId: PackageId): Future[Option[Archive]] =
-    templateStore.getPackage(packageId)
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    packageStore.getLfArchive(packageId)
+
+  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
+    packageStore.getLfPackage(packageId)
+
+  // PackageWriteService
+  override def uploadDar(
+      sourceDescription: String,
+      payload: Array[Byte]): CompletionStage[UploadDarResult] =
+    packageStore.uploadDar(timeProvider.getCurrentTime, sourceDescription, payload)
 
   // ContractStore
   override def lookupActiveContract(

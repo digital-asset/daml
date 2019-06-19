@@ -8,7 +8,7 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -37,7 +37,7 @@ class SqlLedgerSpec
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = None,
         timeProvider = TimeProvider.UTC,
-        acs = ActiveContractsInMemory.empty,
+        acs = InMemoryActiveContracts.empty,
         initialLedgerEntries = ImmArray.empty,
         queueDepth
       )
@@ -52,7 +52,7 @@ class SqlLedgerSpec
         jdbcUrl = postgresFixture.jdbcUrl,
         ledgerId = Some(ledgerId),
         timeProvider = TimeProvider.UTC,
-        acs = ActiveContractsInMemory.empty,
+        acs = InMemoryActiveContracts.empty,
         initialLedgerEntries = ImmArray.empty,
         queueDepth
       )
@@ -69,7 +69,7 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContractsInMemory.empty,
+          acs = InMemoryActiveContracts.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )
@@ -78,7 +78,7 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContractsInMemory.empty,
+          acs = InMemoryActiveContracts.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )
@@ -87,7 +87,7 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = None,
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContractsInMemory.empty,
+          acs = InMemoryActiveContracts.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )
@@ -106,7 +106,7 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("TheLedger"))),
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContractsInMemory.empty,
+          acs = InMemoryActiveContracts.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )
@@ -114,7 +114,7 @@ class SqlLedgerSpec
           jdbcUrl = postgresFixture.jdbcUrl,
           ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("AnotherLedger"))),
           timeProvider = TimeProvider.UTC,
-          acs = ActiveContractsInMemory.empty,
+          acs = InMemoryActiveContracts.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )

@@ -14,13 +14,13 @@ import com.daml.ledger.participant.state.index.v2.{
 import com.daml.ledger.participant.state.v2.WriteService
 import com.daml.ledger.participant.state.v2.TimeModel
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine._
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
-import com.digitalasset.platform.sandbox.config.{CommandConfiguration, DamlPackageContainer}
+import com.digitalasset.platform.sandbox.config.CommandConfiguration
 import com.digitalasset.platform.sandbox.services._
+import com.digitalasset.platform.sandbox.services.admin.ApiPackageManagementService
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
 import com.digitalasset.platform.sandbox.services.admin.ApiPartyManagementService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
@@ -66,7 +66,6 @@ object ApiServices {
       timeProvider: TimeProvider,
       timeModel: TimeModel,
       commandConfig: CommandConfiguration,
-      packageContainer: DamlPackageContainer,
       optTimeServiceBackend: Option[TimeServiceBackend])(
       implicit mat: ActorMaterializer,
       esf: ExecutionSequencerFactory): Future[ApiServices] = {
@@ -83,21 +82,18 @@ object ApiServices {
     val partyManagementService: IndexPartyManagementService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
-      val packageResolver =
-        (pkgId: Ref.PackageId) => Future.successful(packageContainer.getPackage(pkgId))
-
-      val identifierResolver: IdentifierResolver = new IdentifierResolver(packageResolver)
+      val identifierResolver: IdentifierResolver =
+        new IdentifierResolver(packagesService.getLfPackage)
 
       val apiSubmissionService =
         ApiSubmissionService.create(
           ledgerId,
-          packageContainer,
           identifierResolver,
           contractStore,
           writeService,
           timeModel,
           timeProvider,
-          new CommandExecutorImpl(engine, packageContainer)
+          new CommandExecutorImpl(engine, packagesService.getLfPackage)
         )
 
       logger.info(EngineInfo.show)
@@ -155,6 +151,9 @@ object ApiServices {
       val apiPartyManagementService =
         ApiPartyManagementService.createApiService(partyManagementService, writeService)
 
+      val apiPackageManagementService =
+        ApiPackageManagementService.createApiService(indexService, writeService)
+
       new ApiServicesBundle(
         apiTimeServiceOpt.toList :::
           List(
@@ -167,7 +166,8 @@ object ApiServices {
           apiCommandService,
           apiActiveContractsService,
           apiReflectionService,
-          apiPartyManagementService
+          apiPartyManagementService,
+          apiPackageManagementService
         ))
     }
   }

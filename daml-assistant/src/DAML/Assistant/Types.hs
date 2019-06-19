@@ -6,6 +6,7 @@
 module DAML.Assistant.Types
     ( module DAML.Assistant.Types
     , module DAML.Project.Types
+    , YesNoAuto (..)
     , Text, pack, unpack -- convenient re-exports
     ) where
 
@@ -14,6 +15,7 @@ import qualified Data.Text as T
 import Data.Aeson (FromJSON)
 import Data.Text (Text, pack, unpack)
 import Data.Maybe
+import Options.Applicative.Extended (YesNoAuto (..))
 import Control.Exception.Safe
 
 data AssistantError = AssistantError
@@ -82,7 +84,8 @@ data VersionOptions = VersionOptions
 -- | Command-line options for daml install command.
 data InstallOptions = InstallOptions
     { iTargetM :: Maybe RawInstallTarget -- ^ version to install
-    , iActivate :: ActivateInstall -- ^ activate the assistant
+    , iAssistant :: InstallAssistant -- ^ install the assistant
+    , iActivate :: ActivateInstall -- ^ install the assistant if true (deprecated, delete with 0.14.x)
     , iForce :: ForceInstall -- ^ force reinstall if already installed
     , iQuiet :: QuietInstall -- ^ don't print messages
     , iSetPath :: SetPath -- ^ set the user's PATH (on Windows)
@@ -99,3 +102,6 @@ newtype ForceInstall = ForceInstall { unForceInstall :: Bool } deriving (Eq, Sho
 newtype QuietInstall = QuietInstall { unQuietInstall :: Bool } deriving (Eq, Show)
 newtype ActivateInstall = ActivateInstall { unActivateInstall :: Bool } deriving (Eq, Show)
 newtype SetPath = SetPath Bool deriving (Eq, Show)
+newtype InstallAssistant = InstallAssistant { unwrapInstallAssistant :: YesNoAuto } deriving (Eq, Show)
+
+
