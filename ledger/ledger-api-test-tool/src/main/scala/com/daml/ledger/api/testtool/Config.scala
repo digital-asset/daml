@@ -3,13 +3,14 @@
 
 package com.daml.ledger.api.testtool
 
+import java.io.File
+
 import com.digitalasset.ledger.api.tls.TlsConfiguration
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 
 final case class Config(
     host: String,
     port: Int,
-    packageContainer: DamlPackageContainer,
+    darPackages: List[File],
     mustFail: Boolean,
     verbose: Boolean,
     commandSubmissionTtlScaleFactor: Double,
@@ -26,7 +27,7 @@ object Config {
   val default = Config(
     host = "localhost",
     port = 6865,
-    packageContainer = DamlPackageContainer(),
+    darPackages = Nil,
     mustFail = false,
     verbose = false,
     commandSubmissionTtlScaleFactor = 1.0,

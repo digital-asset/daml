@@ -13,8 +13,7 @@ import com.digitalasset.daml.lf.language.Ast.{DDataType, DValue, Definition}
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
 import com.digitalasset.daml.lf.types.{Ledger => L}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
 import org.slf4j.LoggerFactory
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
@@ -53,19 +52,19 @@ object ScenarioLoader {
     *                 matching scenarios.
     */
   def fromScenario(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String)
-    : (ActiveContractsInMemory, ImmArray[LedgerEntryWithLedgerEndIncrement], Instant) = {
+    : (InMemoryActiveContracts, ImmArray[LedgerEntryWithLedgerEndIncrement], Instant) = {
     val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, compiledPackages, scenario)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
     val ledgerEntries =
       new ArrayBuffer[(ScenarioTransactionId, LedgerEntry)](scenarioLedger.scenarioSteps.size)
-    type Acc = (ActiveContractsInMemory, Time.Timestamp, Option[ScenarioTransactionId])
+    type Acc = (InMemoryActiveContracts, Time.Timestamp, Option[ScenarioTransactionId])
     val (acs, time, txId) =
       scenarioLedger.scenarioSteps.iterator
-        .foldLeft[Acc]((ActiveContractsInMemory.empty, Time.Timestamp.Epoch, None)) {
+        .foldLeft[Acc]((InMemoryActiveContracts.empty, Time.Timestamp.Epoch, None)) {
           case ((acs, time, mbOldTxId), (stepId @ _, step)) =>
             executeScenarioStep(ledgerEntries, scenarioRef, acs, time, mbOldTxId, stepId, step)
         }
@@ -92,7 +91,7 @@ object ScenarioLoader {
   }
 
   private def buildScenarioLedger(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
       scenario: String): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
@@ -134,14 +133,14 @@ object ScenarioLoader {
   }
 
   private def identifyScenario(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       scenario: String,
       candidateScenarios: List[(Ref.DefinitionRef, Definition)])
     : (Ref.DefinitionRef, Definition) = {
     candidateScenarios match {
       case Nil =>
         throw new RuntimeException(
-          s"Couldn't find scenario $scenario in packages ${packages.packages.keys.toList}")
+          s"Couldn't find scenario $scenario in packages ${packages.listLfPackagesSync().keys.toList}")
       case candidate :: Nil => candidate
       case candidates =>
         throw new RuntimeException(
@@ -150,36 +149,48 @@ object ScenarioLoader {
   }
 
   private def getCandidateScenarios(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       scenarioQualName: Ref.QualifiedName
   ): List[(Ref.Identifier, Definition)] = {
-    packages.packages.flatMap {
-      case (packageId, pkg) =>
-        pkg.lookupIdentifier(scenarioQualName) match {
-          case Right(x) => List((Ref.Identifier(packageId, scenarioQualName), x))
-          case Left(_) => List()
-        }
-    }(breakOut)
+    packages
+      .listLfPackagesSync()
+      .flatMap {
+        case (packageId, _) =>
+          val pkg = packages
+            .getLfPackageSync(packageId)
+            .getOrElse(sys.error(s"Listed package $packageId not found"))
+          pkg.lookupIdentifier(scenarioQualName) match {
+            case Right(x) => List((Ref.Identifier(packageId, scenarioQualName), x))
+            case Left(_) => List()
+          }
+      }(breakOut)
   }
 
   private def getScenarioQualifiedName(
-      packages: DamlPackageContainer,
+      packages: InMemoryPackageStore,
       scenario: String
   ): Ref.QualifiedName = {
     Ref.QualifiedName.fromString(scenario) match {
       case Left(err) =>
         logger.warn(
           "Dot-separated scenario specification is deprecated. Names are Module.Name:Inner.Name, with a colon between module name and the name of the definition. Falling back to deprecated name resolution.")
-        packages.packages.iterator
+        packages
+          .listLfPackagesSync()
+          .iterator
           .map {
-            case (_, pkg) => DeprecatedIdentifier.lookup(pkg, scenario)
+            case (pkgId, _) =>
+              DeprecatedIdentifier.lookup(
+                packages
+                  .getLfPackageSync(pkgId)
+                  .getOrElse(sys.error(s"Listed package $pkgId not found")),
+                scenario)
           }
           .collectFirst {
             case Right(qualifiedName) => qualifiedName
           }
           .getOrElse {
             throw new RuntimeException(
-              s"Cannot find scenario $scenario in packages ${packages.packages.keys.mkString("[", ", ", "]")}. Try using Module.Name:Inner.Name style scenario name specification.")
+              s"Cannot find scenario $scenario in packages ${packages.listLfPackagesSync().keys.mkString("[", ", ", "]")}. Try using Module.Name:Inner.Name style scenario name specification.")
           }
       case Right(x) => x
     }
@@ -193,12 +204,12 @@ object ScenarioLoader {
   private def executeScenarioStep(
       ledger: ArrayBuffer[(ScenarioTransactionId, LedgerEntry)],
       scenarioRef: Ref.DefinitionRef,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       time: Time.Timestamp,
       mbOldTxId: Option[ScenarioTransactionId],
       stepId: Int,
       step: L.ScenarioStep
-  ): (ActiveContractsInMemory, Time.Timestamp, Option[ScenarioTransactionId]) = {
+  ): (InMemoryActiveContracts, Time.Timestamp, Option[ScenarioTransactionId]) = {
     step match {
       case L.Commit(txId: ScenarioTransactionId, richTransaction: L.RichTransaction, _) =>
         mbOldTxId match {

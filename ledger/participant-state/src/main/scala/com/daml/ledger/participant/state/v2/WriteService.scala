@@ -24,7 +24,7 @@ import java.util.concurrent.CompletionStage
   * - allocating a new party using [[WriteService!.allocateParty]]
   *
   */
-trait WriteService {
+trait WriteService extends WritePackagesService {
 
   /** Submit a transaction for acceptance to the ledger.
     *

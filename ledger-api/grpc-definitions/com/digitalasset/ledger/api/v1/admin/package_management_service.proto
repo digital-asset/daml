@@ -35,9 +35,12 @@ service PackageManagementService {
   // available on the whole ledger. This call might not be supported by some 
   // ledger implementations. Canton could be an example, where uploading a DAR
   // is not sufficient to render it usable, it must be activated first.
-  // This method will return UNIMPLEMENTED, if DAR package uploading is not
-  // supported by the backing participant. If DAR file is too big or is 
-  // malformed, the backing participant will respond with INVALID_ARGUMENT.
+  // This call may:
+  // - Succeed, if the package was successfully uploaded, or if the same package
+  //   was already uploaded before. 
+  // - Respond with UNIMPLEMENTED, if DAR package uploading is not supported by
+  //   the backing participant.
+  // - Respond with INVALID_ARGUMENT, if the DAR file is too big or malformed.
   // The maximum supported size is implementation specific.
   rpc UploadDarFile (UploadDarFileRequest) returns (UploadDarFileResponse);
 }

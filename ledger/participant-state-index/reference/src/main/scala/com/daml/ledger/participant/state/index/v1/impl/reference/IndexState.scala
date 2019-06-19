@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
 import org.slf4j.{Logger, LoggerFactory}
 
 import scala.collection.immutable.TreeMap
@@ -26,7 +26,7 @@ final case class IndexState(
     private val beginning: Option[Offset],
     // Accepted transactions indexed by offset.
     txs: TreeMap[Offset, (Update.TransactionAccepted, BlindingInfo)],
-    activeContracts: ActiveContractsInMemory,
+    activeContracts: InMemoryActiveContracts,
     // Rejected commands indexed by offset.
     rejections: TreeMap[Offset, Update.CommandRejected],
     // Uploaded packages.
@@ -156,7 +156,7 @@ object IndexState {
     configuration = lic.config,
     recordTime = lic.initialRecordTime,
     txs = TreeMap.empty,
-    activeContracts = ActiveContractsInMemory.empty,
+    activeContracts = InMemoryActiveContracts.empty,
     rejections = TreeMap.empty,
     packages = Map.empty,
     packageKnownTo = Map.empty,
