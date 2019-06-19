@@ -578,6 +578,19 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
           (\ (key: PositiveTestCase9:TBis) -> Cons @Party [(PositiveTestCase9:T {person} this), 'Alice'] (Nil @Party)  )
         } ;
       }
+
+      module PositiveTestCase10 {
+        record @serializable T (a: *) = {x: a};
+
+        // in the next line, T should be first order.
+        template (this : T) =  {
+          precondition True,
+          signatories Cons @Party ['Bob'] (Nil @Party),
+          observers Cons @Party ['Alice'] (Nil @Party),
+          agreement "Agreement",
+          choices { }
+        } ;
+      }
       """
 
       val world = new World(Map(defaultPackageId -> pkg))
@@ -613,6 +626,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         checkModule(pkg.updateVersion(version1_3), "PositiveTestCase6"))
       checkModule(pkg, "PositiveTestCase6")
       an[EUnknownExprVar] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase9"))
+      an[EExpectedTemplatableType] shouldBe thrownBy(checkModule(pkg, "PositiveTestCase10"))
     }
 
   }
