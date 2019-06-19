@@ -29,6 +29,13 @@ Release Procedure
   as part of the CI/CD.
   See `#1745 <https://github.com/digital-asset/daml/issues/1745>`__
 
+DAML Studio
+~~~~~~~~~~~
+
+- Closing and reopening scenario results will now show the results
+  instead of an empty view.
+  See `#1606 <https://github.com/digital-asset/daml/issues/1606>`__.
+
 .. _release-0-13-3:
 
 0.13.3 - 2019-06-18
