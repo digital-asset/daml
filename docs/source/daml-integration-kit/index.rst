@@ -118,7 +118,7 @@ support for running DAML.
        <https://www.hyperledger.org/blog/2019/04/16/daml-smart-contracts-coming-to-hyperledger-sawtooth>`__
    * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
      - In Development
-     - ``Hacera <https://hacera.com>`__     
+     - `Hacera <https://hacera.com>`__     
      - `Hacera Unbounded Network <https://unbounded.network/>`__
      - `press release (June 2019)
        <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
@@ -137,11 +137,13 @@ support for running DAML.
    * - :doc:`/tools/sandbox`
      - Stable
      - `Digital Asset <https://digitalasset.com/>`__
+     - TBD
      - `PostgreSQL <https://www.postgresql.org/>`__ backend coming soon
        (`GitHub Milestone <https://github.com/digital-asset/daml/milestone/10>`__)
    * - Canton
      - In Development
      - `Digital Asset <https://digitalasset.com/>`__
+     - TBD
      - native support for :doc:`DAML's fine-grained privacy model
        </concepts/ledger-model/ledger-privacy>`; whitepaper coming soon
        (contact `Ratko Veprek <mailto:ratko.veprek@digitalasset.com>`__  for a
