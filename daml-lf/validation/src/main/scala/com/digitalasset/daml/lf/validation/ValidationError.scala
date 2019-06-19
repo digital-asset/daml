@@ -306,7 +306,7 @@ final case class PartyLiteral(party: Party) extends PartyLiteralRef
 final case class ValRefWithPartyLiterals(valueRef: ValueRef) extends PartyLiteralRef
 final case class EForbiddenPartyLiterals(context: Context, ref: PartyLiteralRef)
     extends ValidationError {
-  protected def prettyInternal: String = s"Found forbidden party literals"
+  protected def prettyInternal: String = s"Found forbidden party literals in ${ref}"
 }
 /* Collision */
 

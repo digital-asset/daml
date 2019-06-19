@@ -38,6 +38,7 @@ import Control.Monad.Extra
 import Control.Exception.Safe
 import System.ProgressBar
 import System.Info.Extra (isWindows)
+import Options.Applicative.Extended (determineAuto)
 
 -- unix specific
 import System.PosixCompat.Types ( FileMode )
@@ -60,6 +61,7 @@ import System.PosixCompat.Files
 data InstallEnv = InstallEnv
     { options :: InstallOptions
     , targetVersionM :: Maybe SdkVersion
+    , assistantVersion :: Maybe DamlAssistantSdkVersion
     , damlPath :: DamlPath
     , projectPathM :: Maybe ProjectPath
     , output :: String -> IO ()
@@ -69,11 +71,6 @@ data InstallEnv = InstallEnv
 unlessQuiet :: InstallEnv -> IO () -> IO ()
 unlessQuiet InstallEnv{..} | QuietInstall b <- iQuiet options =
     unless b
-
--- | Execute action if --activate flag is set.
-whenActivate :: InstallEnv -> IO () -> IO ()
-whenActivate InstallEnv{..} | ActivateInstall b <- iActivate options =
-    when b
 
 -- | Set up .daml directory if it's missing.
 setupDamlPath :: DamlPath -> IO ()
@@ -147,7 +144,8 @@ installExtracted env@InstallEnv{..} sourcePath =
         requiredIO "Failed to set file mode of installed SDK directory." $
             setSdkFileMode (unwrapSdkPath targetPath)
 
-        whenActivate env $ activateDaml env targetPath
+        when (shouldInstallAssistant env sourceVersion) $
+            activateDaml env targetPath
 
 activateDaml :: InstallEnv -> SdkPath -> IO ()
 activateDaml env@InstallEnv{..} targetPath = do
@@ -239,9 +237,6 @@ fileModeMask = foldl1 unionFileModes
     , otherExecuteMode
     ]
 
-
-
-
 -- | Copy an extracted SDK release directory and install it.
 copyAndInstall :: InstallEnv -> FilePath -> IO ()
 copyAndInstall env sourcePath =
@@ -317,7 +312,6 @@ versionInstall env@InstallEnv{..} version = do
     alreadyInstalled <- doesDirectoryExist path
 
     let forceFlag = unForceInstall (iForce options)
-        activateFlag = unActivateInstall (iActivate options)
         performInstall = not alreadyInstalled || forceFlag
 
     unlessQuiet env . output . concat $
@@ -339,7 +333,7 @@ versionInstall env@InstallEnv{..} version = do
             (Github.versionURL version)
 
     -- Need to activate here if we aren't performing the full install.
-    when (not performInstall && activateFlag) $ do
+    when (not performInstall && shouldInstallAssistant env version) $ do
         unlessQuiet env . output $
             "Activating assistant version " <> versionToString version
         activateDaml env (SdkPath path)
@@ -362,9 +356,22 @@ projectInstall env projectPath = do
     version <- required "SDK version missing from project config (daml.yaml)." versionM
     versionInstall env version
 
+-- | Determine whether the assistant should be installed.
+shouldInstallAssistant :: InstallEnv -> SdkVersion -> Bool
+shouldInstallAssistant InstallEnv{..} versionToInstall =
+    let isNewer = maybe True (< versionToInstall) (unwrapDamlAssistantSdkVersion <$> assistantVersion)
+    in unActivateInstall (iActivate options)
+    || determineAuto isNewer (unwrapInstallAssistant (iAssistant options))
+
 -- | Run install command.
-install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> IO ()
-install options damlPath projectPathM = do
+install :: InstallOptions -> DamlPath -> Maybe ProjectPath -> Maybe DamlAssistantSdkVersion -> IO ()
+install options damlPath projectPathM assistantVersion = do
+    when (unActivateInstall (iActivate options)) $
+        hPutStr stderr . unlines $
+            [ "WARNING: --activate is deprecated, use --install-assistant=yes instead."
+            , ""
+            ]
+
     let targetVersionM = Nothing -- determined later
         output = putStrLn -- Output install messages to stdout.
         env = InstallEnv {..}
@@ -427,5 +434,3 @@ uninstallVersion Env{..} sdkVersion = wrapErr "Uninstalling SDK version." $ do
 
     else do
         putStrLn ("DAML SDK version " <> versionToString sdkVersion <> " is not installed.")
-
-

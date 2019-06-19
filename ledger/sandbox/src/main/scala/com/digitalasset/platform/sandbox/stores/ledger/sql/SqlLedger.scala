@@ -32,7 +32,7 @@ import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
-import com.digitalasset.platform.sandbox.stores.ActiveContractsInMemory
+import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
   ContinueIfExists
@@ -81,7 +81,7 @@ object SqlLedger {
       jdbcUrl: String,
       ledgerId: Option[LedgerId],
       timeProvider: TimeProvider,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
@@ -267,7 +267,7 @@ private class SqlLedger(
       }
 
       val recordTime = timeProvider.getCurrentTime
-      if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
+      if (recordTime.isAfter(submitterInfo.maxRecordTime)) {
         // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
         // than the time window between LET and MRT allows for.
         // See https://github.com/digital-asset/daml/issues/987
@@ -278,18 +278,18 @@ private class SqlLedger(
             submitterInfo.applicationId,
             submitterInfo.submitter,
             RejectionReason.TimedOut(
-              s"RecordTime $recordTime is after MaximumRecordTime ${submitterInfo.maxRecordTime.toInstant}")
+              s"RecordTime $recordTime is after MaximumRecordTime ${submitterInfo.maxRecordTime}")
           )
         )
       } else {
         PersistenceEntry.Transaction(
           LedgerEntry.Transaction(
-            submitterInfo.commandId,
+            Some(submitterInfo.commandId),
             transactionId,
-            submitterInfo.applicationId,
-            submitterInfo.submitter,
+            Some(submitterInfo.applicationId),
+            Some(submitterInfo.submitter),
             transactionMeta.workflowId,
-            transactionMeta.ledgerEffectiveTime.toInstant,
+            transactionMeta.ledgerEffectiveTime,
             recordTime,
             mappedTx,
             mappedDisclosure
@@ -354,7 +354,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       initialLedgerId: Option[LedgerId],
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
@@ -380,7 +380,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
 
   private def initialize(
       initialLedgerId: Option[LedgerId],
-      acs: ActiveContractsInMemory,
+      acs: InMemoryActiveContracts,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization

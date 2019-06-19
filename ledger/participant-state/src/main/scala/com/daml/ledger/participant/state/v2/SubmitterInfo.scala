@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.v2
 
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import java.time.Instant
 
 /** Information provided by the submitter of changes submitted to the ledger.
   *
@@ -30,5 +30,5 @@ final case class SubmitterInfo(
     submitter: Party,
     applicationId: ApplicationId,
     commandId: CommandId,
-    maxRecordTime: Timestamp //TODO: this should be a regular Instant
+    maxRecordTime: Instant
 )

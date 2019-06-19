@@ -32,7 +32,7 @@ import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
-import com.digitalasset.platform.sandbox.stores.{ActiveContracts, ActiveContractsInMemory}
+import com.digitalasset.platform.sandbox.stores.{ActiveContracts, InMemoryActiveContracts}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -44,7 +44,7 @@ import scala.util.{Failure, Success, Try}
 class InMemoryLedger(
     val ledgerId: LedgerId,
     timeProvider: TimeProvider,
-    acs0: ActiveContractsInMemory,
+    acs0: InMemoryActiveContracts,
     ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])
     extends Ledger {
 
@@ -121,14 +121,14 @@ class InMemoryLedger(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
     val recordTime = timeProvider.getCurrentTime
-    if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
+    if (recordTime.isAfter(submitterInfo.maxRecordTime)) {
       // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
       // than the time window between LET and MRT allows for.
       // See https://github.com/digital-asset/daml/issues/987
       handleError(
         submitterInfo,
         RejectionReason.TimedOut(
-          s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime.toInstant}"))
+          s"RecordTime $recordTime is after MaxiumRecordTime ${submitterInfo.maxRecordTime}"))
     } else {
       val toAbsCoid: ContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(trId)
@@ -142,7 +142,7 @@ class InMemoryLedger(
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(
-        transactionMeta.ledgerEffectiveTime.toInstant,
+        transactionMeta.ledgerEffectiveTime,
         trId,
         transactionMeta.workflowId,
         mappedTx,
@@ -166,12 +166,12 @@ class InMemoryLedger(
             }
           val entry = LedgerEntry
             .Transaction(
-              submitterInfo.commandId,
+              Some(submitterInfo.commandId),
               trId,
-              submitterInfo.applicationId,
-              submitterInfo.submitter,
+              Some(submitterInfo.applicationId),
+              Some(submitterInfo.submitter),
               transactionMeta.workflowId,
-              transactionMeta.ledgerEffectiveTime.toInstant,
+              transactionMeta.ledgerEffectiveTime,
               recordTime,
               recordTx,
               recordBlinding

@@ -62,8 +62,6 @@ object VariantConstructorClass extends StrictLogging {
       body: Type,
       fieldName: String,
       packagePrefixes: Map[PackageId, String]) = {
-    val anonNameGen = newNameGenerator
-
     val extractorParameters = ToValueExtractorParameters.generate(typeArgs)
 
     MethodSpec
@@ -79,7 +77,7 @@ object VariantConstructorClass extends StrictLogging {
           .generateToValueConverter(
             body,
             CodeBlock.of("this.$L", fieldName),
-            () => anonNameGen.next(),
+            newNameGenerator,
             packagePrefixes)
       )
       .build()

@@ -5,6 +5,6 @@
 
 daml 1.2
 
-module RationalPrecisionUpperBound where
+module RationalPrecisionMax where
 
 a = 0.0000000005

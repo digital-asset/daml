@@ -6,7 +6,12 @@ package com.digitalasset.platform.participant.util
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.commands.{
+  Command,
+  CreateCommand,
+  ExerciseByKeyCommand,
+  ExerciseCommand
+}
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{
   ContractId,
@@ -78,6 +83,10 @@ object ValueConversions {
 
   implicit class ExerciseCommands(val exercise: ExerciseCommand) extends AnyVal {
     def wrap = Command(Command.Command.Exercise(exercise))
+  }
+
+  implicit class ExerciseByKeyCommands(val exerciseByKey: ExerciseByKeyCommand) extends AnyVal {
+    def wrap = Command(Command.Command.ExerciseByKey(exerciseByKey))
   }
 
   implicit class CreateCommands(val create: CreateCommand) extends AnyVal {

@@ -46,7 +46,7 @@ object ReferenceServer extends App {
 
   //val ledger = new Ledger(timeModel, tsb)
   def archivesFromDar(file: File): List[Archive] = {
-    DarReader[Archive](x => Try(Archive.parseFrom(x)))
+    DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
       .readArchive(new ZipFile(file))
       .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), dar => dar.all)
   }

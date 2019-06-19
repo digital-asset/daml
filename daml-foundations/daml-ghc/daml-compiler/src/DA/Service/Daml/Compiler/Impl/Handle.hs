@@ -51,11 +51,9 @@ import           Control.Monad.IO.Class                     (liftIO)
 import qualified Data.ByteString                            as BS
 import qualified Data.ByteString.Lazy                       as BSL
 import qualified Data.Map.Strict                            as Map
-import qualified Data.NameMap as NM
 import qualified Data.Set                                   as S
 import qualified Data.Text                                  as T
 import Data.Maybe
-import Safe
 
 import qualified Development.IDE.Logger as IdeLogger
 import           Development.IDE.State.API               (IdeState)
@@ -130,21 +128,16 @@ getAssociatedVirtualResources
   -> NormalizedFilePath
   -> IO [(Base.Range, T.Text, VirtualResource)]
 getAssociatedVirtualResources service filePath = do
-    mod0 <- runExceptT $ do
-        mods <- NM.toList . LF.packageModules <$> compileFile service filePath
-        case lastMay mods of
-            Nothing -> throwError [errorDiag filePath "Get associated virtual resources"
-                "No modules returned by compiler."]
-            Just mod0 -> return mod0
+    mod0 <- CompilerService.runAction service (CompilerService.getDalfModule filePath)
     case mod0 of
-        Left err -> do
-            CompilerService.logSeriousError service $ T.unlines ["ERROR in GetAssociatedVirtualResources:", T.pack (show err)]
+        Nothing ->
+            -- This can happen if there is a parse or a type error.
+            -- The diagnostics for that will be reported somewhere else.
             return []
-        Right mod0 -> pure
+        Just mod0 -> pure
             [ (sourceLocToRange loc, "Scenario: " <> name, vr)
-            | value@LF.DefValue{dvalLocation = Just loc} <- NM.toList (LF.moduleValues mod0)
-            , LF.getIsTest (LF.dvalIsTest value)
-            , let name = LF.unExprValName (LF.dvalName value)
+            | (valRef, Just loc) <- CompilerService.scenariosInModule mod0
+            , let name = LF.unExprValName (LF.qualObject valRef)
             , let vr = VRScenario filePath name
             ]
 

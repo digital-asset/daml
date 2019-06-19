@@ -6,14 +6,73 @@ Release notes
 
 This page contains release notes for the SDK.
 
-HEAD — ongoing
---------------
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- Added `--install-assistant` flag to `daml install` command, changing the default
+  behavior of `daml install` to be "install the assistant whenever we are installing
+  a newer version of the SDK". Deprecated the `--activate` flag.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Opening an already open scenario will now focus it rather than opening
+  it in a new empty tab which is never updated with results.
+
+.. _release-0-13-5:
+
+0.13.5 - 2019-06-19
+-------------------
+
+Release Procedure
+~~~~~~~~~~~~~~~~~
+
+- Fixes to the CI/CD release procedure.
+  See `#1755 <https://github.com/digital-asset/daml/issues/1755>__.`
+
+Sandbox
+~~~~~~~
+
+- Introduced a new API for package management.
+  See `#1311 <https://github.com/digital-asset/daml/issues/1311>`__.
+
+.. _release-0-13-4:
+
+0.13.4 - 2019-06-19
+-------------------
 
 Java Codegen
 ~~~~~~~~~~~~
 
 - Support generic types (including tuples) as contract keys in codegen.
   See `#1728 <https://github.com/digital-asset/daml/issues/1728>`__.
+
+Ledger API
+~~~~~~~~~~
+
+- A new command ``ExerciseByKey`` allows to exercise choices on active contracts referring to them by their key.
+  See `#1366 <https://github.com/digital-asset/daml/issues/1366>`__.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- The addition of the ``ExerciseByKey`` to the Ledger API is reflected in the bindings.
+  See `#1366 <https://github.com/digital-asset/daml/issues/1366>`__.
+
+Release Procedure
+~~~~~~~~~~~~~~~~~
+
+- Fixes to the release procedure. Note: The release to Maven Central was successfully
+  performed _manually_ in release 0.13.3. This release should confirm that it will occur
+  as part of the CI/CD.
+  See `#1745 <https://github.com/digital-asset/daml/issues/1745>`__
+
+DAML Studio
+~~~~~~~~~~~
+
+- Closing and reopening scenario results will now show the results
+  instead of an empty view.
+  See `#1606 <https://github.com/digital-asset/daml/issues/1606>`__.
 
 .. _release-0-13-3:
 
@@ -42,6 +101,13 @@ DAML Studio
 
 - The IDE now executes tasks in parallel.
 
+Sandbox
+~~~~~~~
+
+- Fixed a bug in migration scripts that could cause databases originally created
+  with older versions of the Sandbox to not upgrade schemas properly.
+  See `#1682 <https://github.com/digital-asset/daml/issues/1682>`__.
+
 .. _release-0-13-2:
 
 0.13.2 - 2019-06-18
@@ -57,9 +123,6 @@ Release Procedure
 
 - Fixes to the release procedure.
   See `#1725 <https://github.com/digital-asset/daml/issues/1725>`__
-
-Java Bindings
-~~~~~~~~~~~~~
 
 - The changes for Java Bindings listed for SDK 0.13.1 now only apply to SDK 0.13.2 and later.
   This is due to the partial failure of the release procedure.
@@ -221,7 +284,6 @@ Navigator
   permitting large packages; e.g. pass ``--ledger-api-inbound-message-size-max 62914560``
   to extractor to get a 60MiB limit.
   See `#1520 <https://github.com/digital-asset/daml/pull/1520>`__.
-
 
 Sandbox
 ~~~~~~~
@@ -778,7 +840,6 @@ No user-facing changes.
        // Accessing field 'bar' of field 'foo' of the argument
        DamlLfValue.evalPath(argument, ["foo", "bar"])
        DamlLfValue.toJSON(argument).foo.bar
-
 
 .. _release-0-11-32:
 

@@ -55,7 +55,6 @@ object ToValueGenerator {
         new Integer(fields.length))
 
     for (FieldInfo(damlName, damlType, javaName, _) <- fields) {
-      val anonNameGen = newNameGenerator
       toValueMethod.addStatement(
         "fields.add(new $T($S, $L))",
         classOf[javaapi.data.Record.Field],
@@ -63,7 +62,7 @@ object ToValueGenerator {
         generateToValueConverter(
           damlType,
           CodeBlock.of("this.$L", javaName),
-          () => anonNameGen.next(),
+          newNameGenerator,
           packagePrefixes)
       )
     }
@@ -74,7 +73,7 @@ object ToValueGenerator {
   def generateToValueConverter(
       damlType: Type,
       accessor: CodeBlock,
-      args: () => String,
+      args: Iterator[String],
       packagePrefixes: Map[PackageId, String]): CodeBlock = {
     damlType match {
       case TypeVar(tvName) =>
@@ -91,7 +90,7 @@ object ToValueGenerator {
       case TypePrim(PrimTypeUnit, _) =>
         CodeBlock.of("$T.getInstance()", classOf[javaapi.data.Unit])
       case TypePrim(PrimTypeList, ImmArraySeq(param)) =>
-        val arg = args()
+        val arg = args.next()
         val extractor = CodeBlock.of(
           "$L -> $L",
           arg,
@@ -106,7 +105,7 @@ object ToValueGenerator {
         )
 
       case TypePrim(PrimTypeOptional, ImmArraySeq(param)) =>
-        val arg = args()
+        val arg = args.next()
         val wrapped =
           generateToValueConverter(param, CodeBlock.of("$L", arg), args, packagePrefixes)
         val extractor = CodeBlock.of("$L -> $L", arg, wrapped)
@@ -120,27 +119,29 @@ object ToValueGenerator {
         )
 
       case TypePrim(PrimTypeMap, ImmArraySeq(param)) =>
-        val arg = args()
+        val arg = args.next()
         val extractor = CodeBlock.of(
           "$L -> $L",
           arg,
           generateToValueConverter(param, CodeBlock.of("$L.getValue()", arg), args, packagePrefixes)
         )
         CodeBlock.of(
-          "new $T($L.entrySet().stream().collect($T.<java.util.Map.Entry<String,$L>,String,Value>toMap(java.util.Map.Entry::getKey, $L)))",
+          "new $T($L.entrySet().stream().collect($T.<$T<String,$L>,String,Value>toMap($T::getKey, $L)))",
           apiMap,
           accessor,
           classOf[Collectors],
+          classOf[java.util.Map.Entry[_, _]],
           toJavaTypeName(param, packagePrefixes),
+          classOf[java.util.Map.Entry[_, _]],
           extractor
         )
 
       case TypePrim(PrimTypeContractId, _) | TypeCon(_, Seq()) =>
         CodeBlock.of("$L.toValue()", accessor)
 
-      case TypeCon(constructor, typeParameters) =>
+      case TypeCon(_, typeParameters) =>
         val extractorParams = typeParameters.map { ta =>
-          val arg = args()
+          val arg = args.next()
           val wrapped = generateToValueConverter(ta, CodeBlock.of("$L", arg), args, packagePrefixes)
           val extractor = CodeBlock.of("$L -> $L", arg, wrapped)
           extractor
@@ -152,21 +153,5 @@ object ToValueGenerator {
         )
     }
   }
-
-  private def initBuilder(method: MethodSpec, codeBlock: CodeBlock): MethodSpec.Builder =
-    if (method.isConstructor) {
-      MethodSpec
-        .constructorBuilder()
-        .addStatement("this($L)", codeBlock)
-    } else if (method.returnType == TypeName.VOID) {
-      MethodSpec
-        .methodBuilder(method.name)
-        .addStatement("$L($L)", method.name, codeBlock)
-    } else {
-      MethodSpec
-        .methodBuilder(method.name)
-        .returns(method.returnType)
-        .addStatement("return $L($L)", method.name, codeBlock)
-    }
 
 }

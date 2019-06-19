@@ -83,6 +83,8 @@ class GrpcCommandCompletionService(
       case _: RejectionReason.TimedOut => Code.ABORTED
       case _: RejectionReason.Disputed => Code.INVALID_ARGUMENT
       case _: RejectionReason.DuplicateCommandId => Code.INVALID_ARGUMENT
+      case _: RejectionReason.PartyNotKnownOnLedger => Code.INVALID_ARGUMENT
+      case _: RejectionReason.SubmitterCannotActViaParticipant => Code.PERMISSION_DENIED
     }
 
     Completion(commandId.unwrap, Some(Status(code.value(), error.description)), traceContext = None)

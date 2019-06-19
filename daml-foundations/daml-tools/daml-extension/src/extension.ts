@@ -26,26 +26,26 @@ export async function activate(context: vscode.ExtensionContext) {
     const consent = getTelemetryConsent(config, context);
 
     damlLanguageClient = createLanguageClient(config, await consent);
-    let lsClient = damlLanguageClient;
     // lsClient.trace = 2;
-    // Register for our document content provider and the associated commands
-    let damlContentProvider = new DAMLDocumentContentProvider(lsClient);
-    let dContentProvider = vscode.workspace.registerTextDocumentContentProvider(
-       "daml", damlContentProvider);
-    context.subscriptions.push(dContentProvider);
+
+    let virtualResourceManager = new VirtualResourceManager(damlLanguageClient);
+    context.subscriptions.push(virtualResourceManager);
 
     let _unused = damlLanguageClient.onReady().then(() => {
         startKeepAliveWatchdog();
-        damlContentProvider.start();
-        setupWorkspaceValidationStatusBarItem(lsClient);
+        setupWorkspaceValidationStatusBarItem(damlLanguageClient);
+        damlLanguageClient.onNotification(
+            DamlVirtualResourceDidChangeNotification.type,
+            (params) => virtualResourceManager.setContent(params.uri, params.contents)
+        );
     });
 
-    let dClient = lsClient.start();
+    damlLanguageClient.start();
 
     let d1 = vscode.commands.registerCommand(
        'daml.showResource',
-        (title,uri)=> damlContentProvider.showResource(title,uri)
-        );
+        (title, uri) => virtualResourceManager.createOrShow(title, uri)
+    );
 
     let d2 = vscode.commands.registerCommand('daml.openDamlDocs', openDamlDocs);
 
@@ -78,25 +78,7 @@ export async function activate(context: vscode.ExtensionContext) {
     let d4 = vscode.commands.registerCommand("daml.upgrade", modifyBuffer)
     let d5 = vscode.commands.registerCommand("daml.resetTelemetryConsent", resetTelemetryConsent(context));
 
-    context.subscriptions.push(dContentProvider, d1, d2, d3, d4, d5);
-
-    // Subscribe to close events for DAML scheme - We do not want to synchronize the contents.
-    // The open notification is sent by the DAMLDocumentContentProvider when content is first
-    // requested for a virtual resource.
-    // This is unfortunately a bit hacky as the notification types are not exposed by vscode-languageclient.
-    context.subscriptions.push(
-        vscode.workspace.onDidCloseTextDocument(doc => {
-            if (doc.uri.scheme == 'daml') {
-                damlContentProvider.onVirtualResourceDidClose(doc.uri);
-                lsClient.sendNotification(
-                    'textDocument/didClose',
-                    {
-                        textDocument: {
-                            uri: doc.uri.toString()
-                        }
-                    });
-            }
-        }));
+    context.subscriptions.push(d1, d2, d3, d4, d5);
 }
 
 
@@ -283,106 +265,76 @@ namespace DamlWorkspaceValidationsNotification {
       );
 }
 
-/**
- * Document content provider for DAML resources such as scenario execution results.
- * Look at 'DA.Service.Daml.Compiler.virtualResourceToUri' for a documentation
- * of the protocol.
- */
-class DAMLDocumentContentProvider implements TextDocumentContentProvider {
+class VirtualResourceManager {
+    private _panels: Map<string, vscode.WebviewPanel> = new Map<string, vscode.WebviewPanel>();
+    private _panelContents: Map<string, string> = new Map<string, string>();
     private _client: LanguageClient;
-    private _virtualResources: { [url: string]: vscode.Webview} = {};
-    /**
-     * Tokens are used to trigger the file change notifications.
-     */
-    private _tokens: { [url: string]: Uri } = {};
-    private _onDidChange = new EventEmitter<Uri>();
-    private _onChangeTimeout : any;
+    private _disposables: vscode.Disposable[] = [];
 
     constructor(client: LanguageClient) {
         this._client = client;
     }
 
-    start() {
-        this._client.onNotification(DamlVirtualResourceDidChangeNotification.type,
-            (params) => this.onVirtualResourceChanged(params));
+    private open(uri: string) {
+        this._client.sendNotification(
+            'textDocument/didOpen', {
+                textDocument: {
+                    uri: uri,
+                    languageId: '',
+                    version: 0,
+                    text: ''
+                }
+            }
+        );
     }
-    onVirtualResourceChanged(params: VirtualResourceChangedParams) {
-        let uri = Uri.parse(params.uri);
-        let virtualResourceUri = this.getVirtualUriFromUri(uri);
-        if (this._virtualResources[virtualResourceUri].html === params.contents)
+
+    private close(uri: string) {
+        this._client.sendNotification(
+            'textDocument/didClose', {
+                textDocument: {uri: uri}
+            }
+        );
+    }
+
+    public createOrShow(title: string, uri: string) {
+		const column = getViewColumnForShowResource();
+
+        let panel = this._panels.get(uri);
+        if (panel) {
+            panel.reveal(column);
             return;
-        this._virtualResources[virtualResourceUri].html = params.contents;
-        let token = this._tokens[virtualResourceUri];
-
-        // Due to issues with the HTML engine used in VSCode (garbled
-        // output if we update back-to-back), we limit the update
-        // interval to 100ms.
-        if (this._onChangeTimeout) clearTimeout(this._onChangeTimeout);
-        this._onChangeTimeout = setTimeout(() => this._onDidChange.fire(token), 100);
-    }
-
-    public onVirtualResourceDidClose(uri: Uri) {
-        delete this._virtualResources[this.getVirtualUriFromUri(uri)];
-    }
-
-    get onDidChange(): Event<Uri> { return this._onDidChange.event; }
-
-    getVirtualUriFromUri(uri: Uri) {
-        let command = uri.authority;
-        let query = uri.query;
-        return `${command}:${query}`;
-    }
-
-    public provideTextDocumentContent(uri: Uri): Thenable<string> {
-        let virtualResourceUri = this.getVirtualUriFromUri(uri);
-        let entry = this._virtualResources[virtualResourceUri];
-        if (entry && entry.html) {
-            return Promise.resolve(entry.html);
-        } else {
-            // Send a notification to open the document.
-            // We do it from here so we can block on the load.
-            this._tokens[virtualResourceUri] = uri;
-            this._client.sendNotification(
-                'textDocument/didOpen',
-                {
-                    textDocument: {
-                        uri: uri.toString(),
-                        languageId: '',
-                        version: 0,
-                        text: ''
-                    }
-                });
-
-            // Subscribe to change notifications, fulfill promise when
-            // content is loaded, and dispose of the change handler.
-            // TODO(JM): What an annoying API. Refactor if this improves in later versions.
-            var disposables: vscode.Disposable[] = [];
-            let promise = new Promise<string>((resolve, reject) => {
-                var fulfilled = false;
-                this.onDidChange(changedUri => {
-                    if (this.getVirtualUriFromUri(changedUri) === virtualResourceUri && !fulfilled) {
-                        fulfilled = true;
-                        resolve(this._virtualResources[virtualResourceUri].html);
-                    }
-                }, null, disposables);
-            });
-            return promise.then(value => {
-                disposables.forEach(d => d.dispose());
-                return value;
-            });
-        };
-    }
-
-    async showResource(title: string, u?: string) {
-        if (null === u || undefined === u){
-            return window.showWarningMessage('Show Resource was called without a URI target')
         }
-        let options = {enableScripts : true, enableFindWidget: true, enableCommandUris: true};
-        let panel = window.createWebviewPanel('daml', title, getViewColumnForShowResource(), options);
-        let uri = Uri.parse(u);
-        let virtualResourceUri = this.getVirtualUriFromUri(uri);
-        this._virtualResources[virtualResourceUri] = panel.webview;
-        await this.provideTextDocumentContent(uri);
+        this.open(uri);
+        panel = vscode.window.createWebviewPanel(
+            'daml',
+            title,
+            column,
+            { enableScripts: true, enableFindWidget: true, enableCommandUris: true }
+        );
+        panel.onDidDispose(
+            () => {this.close(uri);},
+            null,
+            this._disposables
+        );
+        this._panels.set(uri, panel);
+        panel.webview.html = this._panelContents.get(uri) || '';
+    }
+
+    public setContent(uri: string, contents: string) {
+        this._panelContents.set(uri, contents);
+        const panel = this._panels.get(uri);
+        if (panel) {
+            panel.webview.html = contents;
+        }
+    }
+
+    public dispose() {
+        for (const panel of this._panels.values()) {
+            panel.dispose();
+        }
+        for (const disposable of this._disposables.values()) {
+            disposable.dispose();
+        }
     }
 }
 

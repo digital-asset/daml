@@ -187,8 +187,10 @@ private[validation] object Typing {
         cons match {
           case DataRecord(fields, template) =>
             env.checkRecordType(fields)
-            template.foreach(
-              env.checkTemplate(TypeConName(pkgId, QualifiedName(mod.name, dfnName)), _))
+            template.foreach { tmpl =>
+              if (params.nonEmpty) throw EExpectedTemplatableType(env.ctx, tyConName)
+              env.checkTemplate(tyConName, tmpl)
+            }
           case DataVariant(fields) =>
             env.checkVariantType(fields)
           case DataEnum(values) =>

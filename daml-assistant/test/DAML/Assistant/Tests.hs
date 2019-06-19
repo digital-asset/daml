@@ -374,6 +374,7 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
             let damlPath = DamlPath (base </> "daml")
                 options = InstallOptions
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iAssistant = InstallAssistant Yes
                     , iActivate = ActivateInstall True
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
@@ -393,7 +394,7 @@ testInstall = Tasty.testGroup "DAML.Assistant.Install"
                 .| Zlib.gzip
                 .| sinkFile "source.tar.gz"
 
-            install options damlPath Nothing
+            install options damlPath Nothing Nothing
     , if isWindows
         then testInstallWindows
         else testInstallUnix
@@ -406,6 +407,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                   let damlPath = DamlPath (base </> "daml")
                       options = InstallOptions
                           { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                          , iAssistant = InstallAssistant Yes
                           , iActivate = ActivateInstall True
                           , iQuiet = QuietInstall True
                           , iForce = ForceInstall False
@@ -426,13 +428,14 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
                       .| Zlib.gzip
                       .| sinkFile "source.tar.gz"
 
-                  install options damlPath Nothing,
+                  install options damlPath Nothing Nothing,
 
       Tasty.testCase "reject an absolute symlink in a tarball" $ do
         withSystemTempDirectory "test-install" $ \ base -> do
             let damlPath = DamlPath (base </> "daml")
                 options = InstallOptions
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iAssistant = InstallAssistant No
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
@@ -453,13 +456,14 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
 
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target is absolute."
-                (install options damlPath Nothing)
+                (install options damlPath Nothing Nothing)
 
     , Tasty.testCase "reject an escaping symlink in a tarball" $ do
         withSystemTempDirectory "test-install" $ \ base -> do
             let damlPath = DamlPath (base </> "daml")
                 options = InstallOptions
                     { iTargetM = Just (RawInstallTarget "source.tar.gz")
+                    , iAssistant = InstallAssistant No
                     , iActivate = ActivateInstall False
                     , iQuiet = QuietInstall True
                     , iForce = ForceInstall False
@@ -480,7 +484,7 @@ testInstallUnix = Tasty.testGroup "unix-specific tests"
 
             assertError "Extracting SDK release tarball."
                 "Invalid SDK release: symbolic link target escapes tarball."
-                (install options damlPath Nothing)
+                (install options damlPath Nothing Nothing)
     ]
 
 testInstallWindows :: Tasty.TestTree

@@ -1,3 +1,3 @@
-docs/source/support/release-notes.rst merge=union
+unreleased.rst merge=union
 
 *.daml linguist-language=Haskell

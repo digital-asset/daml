@@ -82,7 +82,7 @@ object Cli {
 
     arg[File]("<archive>...")
       .unbounded()
-      .action((f, c) => c.copy(damlPackageContainer = c.damlPackageContainer.withFile(f)))
+      .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
       .text("Daml archives to load. Either in .dar or .dalf format. Only DAML-LF v1 Archives are currently supported.")
 
     opt[String]("pem")

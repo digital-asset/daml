@@ -20,7 +20,6 @@ import com.digitalasset.daml.lf.transaction.Transaction.Transaction
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{LedgerId, Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
-import com.digitalasset.platform.sandbox.config.DamlPackageContainer
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
@@ -40,7 +39,6 @@ object ApiSubmissionService {
 
   def create(
       ledgerId: LedgerId,
-      packageContainer: DamlPackageContainer,
       identifierResolver: IdentifierResolver,
       contractStore: ContractStore,
       writeService: WriteService,
@@ -50,7 +48,6 @@ object ApiSubmissionService {
     : GrpcCommandSubmissionService with BindableService with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new ApiSubmissionService(
-        packageContainer,
         contractStore,
         writeService,
         timeModel,
@@ -67,7 +64,6 @@ object ApiSubmissionService {
 }
 
 class ApiSubmissionService private (
-    packageContainer: DamlPackageContainer,
     contractStore: ContractStore,
     writeService: WriteService,
     timeModel: TimeModel,

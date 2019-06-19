@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.data
 
 import scala.util.{Failure, Success, Try}
 
-private[lf] object TryOps {
+private[digitalasset] object TryOps {
   def sequence[A](list: List[Try[A]]): Try[List[A]] = {
     val zero: Try[List[A]] = Success(List.empty[A])
     list.foldRight(zero)((a, as) => map2(a, as)(_ :: _))

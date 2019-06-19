@@ -2,7 +2,7 @@
 -- All rights reserved.
 
 daml 1.2
-module Test where
+module ScenarioReturningUpdate where
 
 template T
   with p : Party

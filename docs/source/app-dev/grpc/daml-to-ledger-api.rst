@@ -104,3 +104,7 @@ Exercising a choice
 A choice is exercised by sending an :ref:`com.digitalasset.ledger.api.v1.exercisecommand`. Taking the same contract template again, exercising the choice ``MyChoice`` would result in a command similar to the following:
 
 .. literalinclude:: ../code-snippets/ExerciseMySimpleTemplate.payload
+
+If the template specifies a key, the :ref:`com.digitalasset.ledger.api.v1.exercisebykeycommand` can be used. It works in a similar way as :ref:`com.digitalasset.ledger.api.v1.exercisecommand`, but instead of specifying the contract identifier you have to provide its key. The example above could be rewritten as follows:
+
+.. literalinclude:: ../code-snippets/ExerciseByKeyMySimpleTemplate.payload

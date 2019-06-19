@@ -23,8 +23,7 @@ class CliSpec extends WordSpec with Matchers {
       options: Array[String],
       expectedChange: SandboxConfig => SandboxConfig) = {
     val expectedConfig = expectedChange(
-      defaultConfig.copy(
-        damlPackageContainer = defaultConfig.damlPackageContainer.withFile(new File(archiveName))))
+      defaultConfig.copy(damlPackages = List(new File(archiveName))))
 
     val config =
       Cli.parse(options ++: Array(archiveName))
@@ -41,8 +40,7 @@ class CliSpec extends WordSpec with Matchers {
     }
 
     "return a Config with sensible defaults when mandatory arguments are given" in {
-      val expectedConfig = defaultConfig.copy(
-        damlPackageContainer = defaultConfig.damlPackageContainer.withFile(new File(archiveName)))
+      val expectedConfig = defaultConfig.copy(damlPackages = List(new File(archiveName)))
 
       val config = Cli.parse(Array(archiveName))
 

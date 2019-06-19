@@ -33,7 +33,7 @@ import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
 }
 import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.sandbox.config.{DamlPackageContainer, SandboxConfig}
+import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxServerResource
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import io.grpc.Channel
@@ -54,7 +54,7 @@ class CodegenLedgerTest extends FlatSpec with Matchers with BazelRunfiles {
   def withClient(testCode: Channel => Assertion): Assertion = {
     val cfg = SandboxConfig.default.copy(
       port = 0,
-      damlPackageContainer = DamlPackageContainer(List(testDalf)),
+      damlPackages = List(testDalf),
       ledgerIdMode = LedgerIdMode.Static(LedgerId(LedgerID)),
       timeProviderType = TimeProviderType.WallClock,
       timeModel = TimeModel.reasonableDefault
@@ -225,5 +225,26 @@ class CodegenLedgerTest extends FlatSpec with Matchers with BazelRunfiles {
     wolpertinger.key.isPresent shouldBe true
     wolpertinger.key.get.owner shouldEqual "Alice"
     wolpertinger.key.get.age shouldEqual java.math.BigDecimal.valueOf(17.42)
+  }
+
+  it should "be able to exercise by key" in withClient { client =>
+    sendCmd(client, glookofly.create(), sruquito.create())
+
+    // We'll exercise by key, no need to get the handles
+    val glookoflyContract :: sruquitoContract :: Nil = readActiveContracts(client)
+
+    val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
+    val reproduceByKeyCmd =
+      Wolpertinger.exerciseByKeyReproduce(glookoflyContract.key.get, sruquitoContract.id, tob)
+    sendCmd(client, reproduceByKeyCmd)
+
+    val wolpertingers = readActiveContracts(client)
+    wolpertingers should have length 2
+
+    val sruq :: glookosruq :: Nil = wolpertingers
+
+    sruq.data.name shouldEqual sruquito.name
+    glookosruq.data.name shouldEqual s"${glookofly.name}-${sruquito.name}"
+    glookosruq.data.timeOfBirth shouldEqual tob
   }
 }
