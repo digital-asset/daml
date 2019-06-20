@@ -107,7 +107,7 @@ function bad_hlint() {
   echo "UNEXPECTED HLINT FAILURE: The Bazel rules should have spotted this, please raise a GitHub issue"
 }
 trap bad_hlint EXIT
-for dir in daml-foundations daml-assistant libs-haskell compiler; do
+for dir in daml-foundations daml-assistant libs-haskell compiler release; do
   run pushd "$dir"
   run hlint --git -j4
   run popd
