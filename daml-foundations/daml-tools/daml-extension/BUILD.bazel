@@ -39,6 +39,7 @@ pkg_tar(
         "README.md",
     ]) + [
         ":out",
+        "src/webview.js",
         "@daml_extension_deps//vscode-jsonrpc:vscode-jsonrpc",
         "@daml_extension_deps//vscode-languageclient:vscode-languageclient",
         "@daml_extension_deps//vscode-languageserver-types:vscode-languageserver-types",
