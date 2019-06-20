@@ -9,3 +9,9 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+DAML Studio
+~~~~~~~~~~~
+
+- The selected view for scenario results (table or transaction) is now
+  preserved when the scenario results are updated.
+  See `#1675 <https://github.com/digital-asset/daml/issues/1675>`__.

@@ -52,7 +52,7 @@ trait ReadService {
     *
     * - *initialize before transaction acceptance*: before any
     *   [[Update.TransactionAccepted]], there is a [[Update.ConfigurationChanged]] update
-    *   and [[Update.PublicPackageUploaded]] updates for all packages referenced by
+    *   and [[Update.PublicPackagesUploaded]] updates for all packages referenced by
     *   the [[Update.TransactionAccepted]].
     *
     * - *monotonic record time*: for any update `u1` with an associated record
