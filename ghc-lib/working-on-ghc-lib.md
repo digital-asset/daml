@@ -284,7 +284,7 @@ git checkout ghc-8.8.1-alpha2
 git submodule update --init --recursive
 git remote add upstream git@github.com:digital-asset/ghc.git
 git fetch upstream
-git merge --no-edit upstream/print_fun_binds upstream/da-unit-ids-8.8.1
+git merge --no-edit upstream/da-master-8.8.1 upstream/da-unit-ids-8.8.1
 cd .. # ghc-lib directory
 cabal build
 cabal run -- ghc --ghc-lib-parser
