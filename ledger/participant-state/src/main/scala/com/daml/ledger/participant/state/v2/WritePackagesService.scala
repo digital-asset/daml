@@ -21,7 +21,7 @@ trait WritePackagesService {
     * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
     * further details.
     *
-    * @param archives        : DAML-LF packages to be uploaded to the ledger.
+    * @param payload           : DAML-LF packages to be uploaded to the ledger.
     * @param sourceDescription : the description of the packages provided by the
     *                            participant implementation.
     *
