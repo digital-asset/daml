@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.services.admin
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
-import com.daml.ledger.participant.state.v2.{PartyAllocationResult, WritePartyService}
+import com.daml.ledger.participant.state.v2.WritePartyService
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
@@ -52,19 +52,22 @@ class ApiPartyManagementService private (
     val party = if (request.partyIdHint.isEmpty) None else Some(request.partyIdHint)
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
 
+    import com.daml.ledger.participant.state.v2.{PartyAllocationResult => PAR}
+    import com.daml.ledger.participant.state.v2.{PartyAllocationRejectionReason => PARR}
+
     FutureConverters
-      .toScala(writeService.allocateParty(party, displayName))
+      .toScala(
+        writeService
+          .allocateParty(party, displayName))
       .flatMap {
-        case PartyAllocationResult.Ok(details) =>
+        case PAR.Ok(details) =>
           Future.successful(AllocatePartyResponse(Some(mapPartyDetails(details))))
-        case PartyAllocationResult.AlreadyExists =>
-          Future.failed(ErrorFactories.invalidArgument(s"The requested party name already exists"))
-        case PartyAllocationResult.InvalidName =>
-          Future.failed(ErrorFactories.invalidArgument(s"The requested party name is invalid"))
-        case PartyAllocationResult.NotSupported =>
-          Future.failed(
-            ErrorFactories.unimplemented(
-              s"Synchronous party allocation is not supported on this ledger"))
+        case PAR.Rejected(reason @ PARR.AlreadyExists) =>
+          Future.failed(ErrorFactories.invalidArgument(reason.description))
+        case PAR.Rejected(reason @ PARR.InvalidName) =>
+          Future.failed(ErrorFactories.invalidArgument(reason.description))
+        case PAR.Rejected(reason @ PARR.ParticipantNotAuthorized) =>
+          Future.failed(ErrorFactories.permissionDenied(reason.description))
       }(DE)
   }
 

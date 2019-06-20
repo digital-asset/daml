@@ -10,12 +10,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v2.{
-  PartyAllocationResult,
-  SubmittedTransaction,
-  UploadDarResult,
-  WriteService
-}
+import com.daml.ledger.participant.state.v2.{ApplicationId => _, TransactionId => _, _}
 import com.daml.ledger.participant.state.{v2 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
@@ -407,7 +402,9 @@ private class SandboxIndexAndWriteService(
         FutureConverters.toJava(
           ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName))
       case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName))
-      case Some(Left(error)) => CompletableFuture.completedFuture(PartyAllocationResult.InvalidName)
+      case Some(Left(error)) =>
+        CompletableFuture.completedFuture(
+          PartyAllocationResult.Rejected(PartyAllocationRejectionReason.InvalidName))
     }
   }
 

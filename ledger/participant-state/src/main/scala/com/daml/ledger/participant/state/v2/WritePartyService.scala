@@ -19,13 +19,23 @@ trait WritePartyService {
     * - Construct a new unique identifier from the given hint, e.g., by appending a UUID
     * - Use the given hint as is, and reject the call if such a party already exists
     *
-    * @param hint A party identifier suggestion
-    * @param displayName A human readable name of the new party
+    * The result of the party allocation is communicated synchronously.
+    * TODO: consider also providing an asynchronous response in a similar
+    * manner as it is done for transaction submission. It is possible that
+    * in some implementations, party allocation will fail due to authorization etc.
+    *
+    * Successful party allocations will result in a [[Update.PartyAddedToParticipant]]
+    * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
+    * further details.
+    *
+    * @param hint         : A party identifier suggestion
+    *
+    * @param displayName  : A human readable name of the new party
     *
     * @return an async result of a PartyAllocationResult
     */
   def allocateParty(
-    hint: Option[String],
-    displayName: Option[String]
+      hint: Option[String],
+      displayName: Option[String]
   ): CompletionStage[PartyAllocationResult]
 }

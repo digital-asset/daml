@@ -38,15 +38,29 @@ object Update {
       s"Configuration changed to: $newConfiguration"
   }
 
-  /** Signal that a party is hosted at this participant.
+  /** Signal that a party is hosted at a participant.
     *
-    * As explained in the note on [[ReadService.stateUpdates]], the
-    * state updates are only expected to signal all updates pertaining
-    * to data affecting the parties hosted at the participant.
+    * @param party
+    *   The newly allocated party identifier.
+    *
+    * @param displayName
+    *   The user readable description of the party. May not be unique.
+    *
+    * @param participantId
+    *   The participant that this party was added to.
+    *
+    * @param recordTime
+    *   The ledger-provided timestamp at which the party was allocated.
     *
     */
-  final case class PartyAddedToParticipant(party: Party) extends Update {
-    override def description: String = s"Add party '$party' to participant"
+  final case class PartyAddedToParticipant(
+      party: Party,
+      displayName: String,
+      participantId: String,
+      recordTime: Timestamp)
+      extends Update {
+    override def description: String =
+      s"Add party '$party' to participant"
   }
 
   /** Signal the uploading of a package that is publicly visible.

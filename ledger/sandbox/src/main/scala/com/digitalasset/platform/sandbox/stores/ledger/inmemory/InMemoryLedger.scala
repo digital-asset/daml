@@ -8,6 +8,7 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.v2.{
+  PartyAllocationRejectionReason,
   PartyAllocationResult,
   SubmissionResult,
   SubmittedTransaction,
@@ -227,7 +228,7 @@ class InMemoryLedger(
       val ids = acs.parties.keySet
 
       if (ids.contains(party))
-        PartyAllocationResult.AlreadyExists
+        PartyAllocationResult.Rejected(PartyAllocationRejectionReason.AlreadyExists)
       else {
         val details = PartyDetails(party, displayName, true)
         acs = acs.addParty(details)
