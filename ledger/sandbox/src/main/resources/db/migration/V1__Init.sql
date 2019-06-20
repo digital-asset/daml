@@ -19,22 +19,22 @@ CREATE TABLE ledger_entries
   -- table represents a single unified stream of events and partitioning
   -- it across tables would be more inconvient. We might revise this in
   -- the future.
-  typ                   varchar                      not null,
+  typ                   varchar(1024)                      not null,
   -- see ledger API definition for more infos on some of these these fields
-  transaction_id        varchar unique,
-  command_id            varchar,
-  application_id        varchar,
-  submitter             varchar,
-  workflow_id           varchar,
-  effective_at          timestamptz,
-  recorded_at           timestamptz                  not null,
+  transaction_id        varchar(1024) unique,
+  command_id            varchar(1024),
+  application_id        varchar(1024),
+  submitter             varchar(1024),
+  workflow_id           varchar(1024),
+  effective_at          timestamp,
+  recorded_at           timestamp                  not null,
   -- The transaction is stored using the .proto definition in
   -- `daml-lf/transaction/src/main/protobuf/com/digitalasset/daml/lf/transaction.proto`, and
   -- encoded using
   -- `daml-lf/transaction/src/main/protobuf/com/digitalasset/daml/lf/transaction.proto`.
-  transaction           bytea,
-  rejection_type        varchar,
-  rejection_description varchar,
+  transaction           blob,
+  rejection_type        varchar(1024),
+  rejection_description varchar(1024),
 
   -- note that this is not supposed to be a complete check, for example we do not check
   -- that fields that are not supposed to be present are indeed null.
@@ -53,9 +53,9 @@ CREATE UNIQUE INDEX idx_transactions_deduplication
   ON ledger_entries (command_id, application_id);
 
 CREATE TABLE disclosures (
-  transaction_id varchar references ledger_entries (transaction_id) not null,
-  event_id       varchar                                            not null,
-  party          varchar                                            not null
+  transaction_id varchar(1024) references ledger_entries (transaction_id) not null,
+  event_id       varchar(1024)                                            not null,
+  party          varchar(1024)                                            not null
 );
 
 -- Note that technically this information is all present in `ledger_entries`,
@@ -63,23 +63,23 @@ CREATE TABLE disclosures (
 -- the entries every time we need to gain information as a contract. It's essentially
 -- a materialized view of the contracts state.
 CREATE TABLE contracts (
-  id             varchar primary key                                not null,
+  id             varchar(1024) primary key                                not null,
   -- this is the transaction id that _originated_ the contract.
-  transaction_id varchar references ledger_entries (transaction_id) not null,
+  transaction_id varchar(1024) references ledger_entries (transaction_id) not null,
   -- this is the workflow id of the transaction above. note that this is
   -- a denormalization -- we could simply look up in the transaction table.
   -- we cache it here since we do not want to risk impacting performance
   -- by looking it up in `ledger_entries`, however we should verify this
   -- claim.
-  workflow_id    varchar,
+  workflow_id    varchar(1024),
   -- This tuple is currently included in `contract`, since we encode
   -- the full value including all the identifiers. However we plan to
   -- move to a more compact representation that would need a pointer to
   -- the "top level" value type, and therefore we store the identifier
   -- here separately.
-  package_id     varchar                                            not null,
+  package_id     varchar(1024)                                            not null,
   -- using the QualifiedName#toString format
-  name           varchar                                            not null,
+  name           varchar(1024)                                            not null,
   -- this is denormalized much like `transaction_id` -- see comment above.
   create_offset  bigint references ledger_entries (ledger_offset)   not null,
   -- this on the other hand _cannot_ be easily found out by looking into
@@ -89,11 +89,11 @@ CREATE TABLE contracts (
   -- the serialized contract value, using the definition in
   -- `daml-lf/transaction/src/main/protobuf/com/digitalasset/daml/lf/value.proto`
   -- and the encoder in `ContractSerializer.scala`.
-  contract       bytea                                              not null,
+  contract       blob                                              not null,
   -- only present in contracts for templates that have a contract key definition.
   -- encoded using the definition in
   -- `daml-lf/transaction/src/main/protobuf/com/digitalasset/daml/lf/value.proto`.
-  key            bytea
+  key            blob
 );
 
 -- These two indices below could be a source performance bottleneck. Every additional index slows
@@ -107,15 +107,15 @@ CREATE INDEX idx_contract_archive_offset
 -- TODO what's the difference between this and `diclosures`? If we can rely on `event_id`
 -- being the `contract_id`, isn't `disclosures` enough?
 CREATE TABLE contract_witnesses (
-  contract_id varchar references contracts (id) not null,
-  witness     varchar                           not null
+  contract_id varchar(1024) references contracts (id) not null,
+  witness     varchar(1024)                           not null
 );
 CREATE UNIQUE INDEX contract_witnesses_idx
   ON contract_witnesses (contract_id, witness);
 
 CREATE TABLE contract_key_maintainers (
-  contract_id varchar references contracts (id) not null,
-  maintainer  varchar                           not null
+  contract_id varchar(1024) references contracts (id) not null,
+  maintainer  varchar(1024)                           not null
 );
 
 CREATE UNIQUE INDEX contract_key_maintainers_idx
@@ -124,7 +124,7 @@ CREATE UNIQUE INDEX contract_key_maintainers_idx
 -- this table is meant to have a single row storing all the parameters we have
 CREATE TABLE parameters (
   -- the generated or configured id identifying the ledger
-  ledger_id varchar not null,
+  ledger_id varchar(1024) not null,
   -- stores the head offset, meant to change with every new ledger entry
   ledger_end bigint not null
 );
@@ -133,12 +133,12 @@ CREATE TABLE parameters (
 -- contract values are binary blobs of unbounded size, the table therefore only stores a hash of the value
 -- and relies for the hash to be collision free
 CREATE TABLE contract_keys (
-  package_id   varchar                           not null,
+  package_id   varchar(1024)                           not null,
   -- using the QualifiedName#toString format
-  name         varchar                           not null,
+  name         varchar(1024)                           not null,
   -- stable SHA256 of the protobuf serialized key value, produced using
   -- `KeyHasher.scala`.
-  value_hash   varchar                           not null,
-  contract_id  varchar references contracts (id) not null,
+  value_hash   varchar(1024)                           not null,
+  contract_id  varchar(1024) references contracts (id) not null,
   PRIMARY KEY (package_id, name, value_hash)
 );

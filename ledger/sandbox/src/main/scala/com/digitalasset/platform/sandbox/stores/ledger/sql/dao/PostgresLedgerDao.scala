@@ -318,17 +318,13 @@ private class PostgresLedgerDao(
   // We therefore don't need to update anything if there is already some data for the given (contract, party) tuple.
   private val SQL_BATCH_INSERT_DIVULGENCES =
     """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
-      |values({contract_id}, {party}, {ledger_offset}, {transaction_id})
-      |on conflict on constraint contract_divulgences_idx
-      |do nothing""".stripMargin
+      |values({contract_id}, {party}, {ledger_offset}, {transaction_id})""".stripMargin
 
   private val SQL_BATCH_INSERT_DIVULGENCES_FROM_TRANSACTION_ID =
     """insert into contract_divulgences(contract_id, party, ledger_offset, transaction_id)
       |select {contract_id}, {party}, ledger_offset, {transaction_id}
       |from ledger_entries
-      |where transaction_id={transaction_id}
-      |on conflict on constraint contract_divulgences_idx
-      |do nothing""".stripMargin
+      |where transaction_id={transaction_id}""".stripMargin
 
   private val SQL_INSERT_CHECKPOINT =
     SQL(
@@ -336,10 +332,7 @@ private class PostgresLedgerDao(
 
   private val SQL_IMPLICITLY_INSERT_PARTIES =
     """insert into parties(party, explicit, ledger_offset)
-        |values({name}, {explicit}, {ledger_offset})
-        |on conflict (party)
-        |do nothing
-        |""".stripMargin
+        |values({name}, {explicit}, {ledger_offset})""".stripMargin
 
   /**
     * Updates the active contract set from the given DAML transaction.

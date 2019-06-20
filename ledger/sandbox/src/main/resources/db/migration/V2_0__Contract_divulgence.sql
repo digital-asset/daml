@@ -11,13 +11,13 @@
 
 
 CREATE TABLE contract_divulgences (
-  contract_id   varchar references contracts (id)                not null,
+  contract_id   varchar(1024) references contracts (id)                not null,
   -- The party to which the given contract was divulged
-  party         varchar                                          not null,
+  party         varchar(1024)                                          not null,
   -- The offset at which the contract was divulged to the given party
   ledger_offset bigint references ledger_entries (ledger_offset) not null,
   -- The transaction ID at which the contract was divulged to the given party
-  transaction_id varchar references ledger_entries (transaction_id) not null,
+  transaction_id varchar(1024) references ledger_entries (transaction_id) not null,
 
   CONSTRAINT contract_divulgences_idx UNIQUE(contract_id, party)
 );

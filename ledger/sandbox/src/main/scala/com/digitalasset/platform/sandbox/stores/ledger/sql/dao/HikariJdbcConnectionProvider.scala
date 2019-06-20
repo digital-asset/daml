@@ -46,6 +46,18 @@ class HikariJdbcConnectionProvider(
       connectionTimeout: FiniteDuration) = {
     val config = new HikariConfig
     config.setJdbcUrl(jdbcUrl)
+
+    //Typically you would pass the userid and password in the jdbc url but the url format is 
+    //different for DB2 (jdbc:db2://myhost:5021/mydb:user=dbadm;password=dbadm;) and these values
+    //are getting lost somewhere.
+    config.setUsername("username")
+    config.setPassword("password")
+
+    //this could also be passed in the jdbc url but also getting lost.  It is needed to fix LOB is Closed issue
+    //described here https://stackoverflow.com/questions/22659970/lob-is-closed-errorcode-4470-sqlstate-null
+    config.addDataSourceProperty("progressiveStreaming", "2")
+
+
     //TODO put these defaults out to a config file
     config.addDataSourceProperty("cachePrepStmts", "true")
     config.addDataSourceProperty("prepStmtCacheSize", "128")
