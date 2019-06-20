@@ -53,6 +53,7 @@ private[lf] object VersionTimeline {
       That(LanguageVersion(LMV.V1, "4")),
       That(LanguageVersion(LMV.V1, "5")),
       That(LanguageVersion(LMV.V1, Dev)),
+      This(That(TransactionVersion("8"))),
       // add new versions above this line
       // do *not* backfill to make more Boths, because such would
       // invalidate the timeline, except to accompany Dev language

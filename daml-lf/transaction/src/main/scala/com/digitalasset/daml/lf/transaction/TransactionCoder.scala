@@ -100,7 +100,12 @@ object TransactionCoder {
       nodeId: Nid,
       node: GenNode[Nid, Cid, Val]): Either[EncodeError, TransactionOuterClass.Node] = {
     val nodeBuilder = TransactionOuterClass.Node.newBuilder().setNodeId(encodeNid(nodeId))
-    import TransactionVersions.{minKeyOrLookupByKey, minNoControllers, minExerciseResult}
+    import TransactionVersions.{
+      minKeyOrLookupByKey,
+      minNoControllers,
+      minExerciseResult,
+      minContractKeyInExercise
+    }
     node match {
       case c: NodeCreate[Cid, Val] =>
         encodeContractInstance(encodeVal, c.coinst).flatMap { inst =>
@@ -174,7 +179,7 @@ object TransactionCoder {
               Right(())
             } else {
               Left(EncodeError(
-                s"As of version $transactionVersion, the controllers and actingParties of an exercise node _must_ be the same, but I got ${e.controllers} as controllers and ${e.actingParties} as actingParties."))
+                s"As of version $minNoControllers, the controllers and actingParties of an exercise node _must_ be the same, but I got ${e.controllers} as controllers and ${e.actingParties} as actingParties."))
             }
           } else Right(())
           _ <- (retValue, transactionVersion precedes minExerciseResult) match {
@@ -185,6 +190,16 @@ object TransactionCoder {
               Left(EncodeError(
                 s"Trying to encode transaction of version $transactionVersion, which requires the exercise return value, but did not get exercise return value in node."))
             case (_, true) => Right(())
+          }
+          _ <- (e.key, transactionVersion precedes minContractKeyInExercise) match {
+            case (Some(k), false) =>
+              encodeVal(k).map { encodedKey =>
+                exBuilder.setContractKey(encodedKey._2)
+                ()
+              }
+            case (None, _) | (Some(_), true) =>
+              Right(())
+
           }
         } yield nodeBuilder.setExercise(exBuilder).build()
 
@@ -237,7 +252,12 @@ object TransactionCoder {
       protoNode: TransactionOuterClass.Node): Either[DecodeError, (Nid, GenNode[Nid, Cid, Val])] = {
     val nodeId = decodeNid(protoNode.getNodeId)
 
-    import TransactionVersions.{minKeyOrLookupByKey, minNoControllers, minExerciseResult}
+    import TransactionVersions.{
+      minKeyOrLookupByKey,
+      minNoControllers,
+      minExerciseResult,
+      minContractKeyInExercise
+    }
     protoNode.getNodeTypeCase match {
       case NodeTypeCase.CREATE =>
         for {
@@ -288,6 +308,13 @@ object TransactionCoder {
               Left(DecodeError(txVersion, isTooOldFor = "exercise result"))
             else Right(None)
           } else decodeVal(protoExe.getReturnValue).map(Some(_))
+          contractKey <- if (protoExe.hasContractKey) {
+            if (txVersion precedes minContractKeyInExercise)
+              Left(DecodeError(txVersion, isTooOldFor = "contract key in exercise"))
+            else
+              decodeVal(protoExe.getContractKey).map(Some(_))
+          } else Right(None)
+
           ni <- nodeId
           targetCoid <- protoExe.decodeContractIdOrStruct(decodeCid, txVersion)(
             _.getContractId,
@@ -324,7 +351,8 @@ object TransactionCoder {
               signatories = signatories,
               controllers = controllers,
               children = children,
-              exerciseResult = rv
+              exerciseResult = rv,
+              key = contractKey
             ))
       case NodeTypeCase.LOOKUP_BY_KEY =>
         val protoLookupByKey = protoNode.getLookupByKey

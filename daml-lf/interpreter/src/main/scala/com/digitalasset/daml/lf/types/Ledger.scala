@@ -56,6 +56,14 @@ object Ledger {
         relativeToAbsoluteContractId(commitPrefix, rcoid)
     }
 
+  @inline
+  def assertAbsoluteContractId(cid: ContractId): AbsoluteContractId =
+    cid match {
+      case acoid: AbsoluteContractId => acoid
+      case _: RelativeContractId =>
+        crash("Unexpected relative contract id '$cid'")
+    }
+
   private val `:` = LedgerString.assertFromString(":")
 
   case class ScenarioTransactionId(index: Int) extends Ordered[ScenarioTransactionId] {
@@ -217,7 +225,8 @@ object Ledger {
           signatories = nex.signatories,
           controllers = nex.controllers,
           children = nex.children.map(ScenarioNodeId(commitPrefix, _)),
-          exerciseResult = nex.exerciseResult.map(makeAbsolute(commitPrefix, _))
+          exerciseResult = nex.exerciseResult.map(makeAbsolute(commitPrefix, _)),
+          key = nex.key.map(_.mapContractId(assertAbsoluteContractId))
         )
       case nlbk: NodeLookupByKey.WithTxValue[ContractId] =>
         NodeLookupByKey(

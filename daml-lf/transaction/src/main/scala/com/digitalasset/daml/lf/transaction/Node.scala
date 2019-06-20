@@ -88,7 +88,8 @@ object Node {
         */
       controllers: Set[Party],
       children: ImmArray[Nid],
-      exerciseResult: Option[Val])
+      exerciseResult: Option[Val],
+      key: Option[Val])
       extends GenNode[Nid, Cid, Val] {
     override def mapContractIdAndValue[Cid2, Val2](
         f: Cid => Cid2,
@@ -96,7 +97,8 @@ object Node {
       copy(
         targetCoid = f(targetCoid),
         chosenValue = g(chosenValue),
-        exerciseResult = exerciseResult.map(g))
+        exerciseResult = exerciseResult.map(g),
+        key = key.map(g))
 
     override def mapNodeId[Nid2](f: Nid => Nid2): NodeExercises[Nid2, Cid, Val] =
       copy(
@@ -121,7 +123,8 @@ object Node {
         stakeholders: Set[Party],
         signatories: Set[Party],
         children: ImmArray[Nid],
-        exerciseResult: Option[Val]): NodeExercises[Nid, Cid, Val] =
+        exerciseResult: Option[Val],
+        key: Option[Val]): NodeExercises[Nid, Cid, Val] =
       NodeExercises(
         targetCoid,
         templateId,
@@ -134,7 +137,8 @@ object Node {
         signatories,
         actingParties,
         children,
-        exerciseResult)
+        exerciseResult,
+        key)
   }
 
   final case class NodeLookupByKey[+Cid, +Val](
@@ -205,12 +209,14 @@ object Node {
             signatories2,
             controllers2,
             _,
-            exerciseResult2) =>
+            exerciseResult2,
+            key2) =>
           import ne._
           targetCoid === targetCoid2 && templateId == templateId2 && choiceId == choiceId2 &&
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
           stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&
-          exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2)
+          exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2) &&
+          key === key2
       }
       case nl: NodeLookupByKey[Cid, Val] => {
         case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>

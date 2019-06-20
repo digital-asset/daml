@@ -151,6 +151,7 @@ class ImplicitPartyAdditionIT
             Set("exercise-signatory"),
             Set("exercise-signatory"),
             ImmArray.empty,
+            None,
             None
           )
         )

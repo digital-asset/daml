@@ -445,7 +445,7 @@ object Transaction {
   case class ExercisesContext(
       targetId: TContractId,
       templateId: TypeConName,
-      contractKey: Option[KeyWithMaintainers[AbsoluteContractId]],
+      contractKey: Option[Value[TContractId]],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
@@ -505,7 +505,7 @@ object Transaction {
     private def computeRoots: Set[NodeId] = {
       val allChildNodeIds: Set[NodeId] = nodes.values.flatMap {
         case _: LeafOnlyNode[_, _] => Nil
-        case NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _) => children.toSeq
+        case ex: NodeExercises[NodeId, _, _] => ex.children.toSeq
       }(breakOut)
 
       nodes.keySet diff allChildNodeIds
@@ -706,7 +706,7 @@ object Transaction {
                       ExercisesContext(
                         targetId = targetId,
                         templateId = templateId,
-                        contractKey = None,
+                        contractKey = mbKey,
                         choiceId = choiceId,
                         optLocation = optLocation,
                         consuming = consuming,
@@ -744,7 +744,7 @@ object Transaction {
           (None, noteAbort(EndExerciseInRootContext))
         case ContextExercises(ec) =>
           val exercisesChildren = roots.toImmArray
-          val exerciseNode = NodeExercises(
+          val exerciseNode: Transaction.Node = NodeExercises(
             ec.targetId,
             ec.templateId,
             ec.choiceId,
@@ -756,7 +756,8 @@ object Transaction {
             ec.signatories,
             ec.controllers,
             exercisesChildren,
-            Some(value)
+            Some(value),
+            ec.contractKey
           )
           val nodeId = ec.exercisesNodeId
           val ptx =

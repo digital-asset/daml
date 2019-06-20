@@ -4,9 +4,8 @@
 package com.digitalasset.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.LfVersions
+import com.digitalasset.daml.lf.value.Value.VersionedValue
 import com.digitalasset.daml.lf.value.ValueVersion
-import value.Value.VersionedValue
 
 final case class TransactionVersion(protoValue: String)
 
@@ -15,14 +14,18 @@ final case class TransactionVersion(protoValue: String)
   */
 object TransactionVersions
     extends LfVersions(
-      maxVersion = TransactionVersion("7"),
-      previousVersions = List("1", "2", "3", "4", "5", "6") map TransactionVersion)(_.protoValue) {
+      /** NOTE: If you add a new version you will need to add it to
+        * [[VersionTimeline.inAscendingOrder]] as well! */
+      maxVersion = TransactionVersion("8"),
+      previousVersions = List("1", "2", "3", "4", "5", "6", "7") map TransactionVersion
+    )(_.protoValue) {
 
   private[this] val minVersion = TransactionVersion("1")
   private[transaction] val minKeyOrLookupByKey = TransactionVersion("3")
   private[transaction] val minFetchActors = TransactionVersion("5")
   private[transaction] val minNoControllers = TransactionVersion("6")
   private[transaction] val minExerciseResult = TransactionVersion("7")
+  private[transaction] val minContractKeyInExercise = TransactionVersion("8")
 
   def assignVersion(a: GenTransaction[_, _, _ <: VersionedValue[_]]): TransactionVersion = {
     require(a != null)
@@ -53,6 +56,13 @@ object TransactionVersions
             case _ => false
           })
         minExerciseResult
+      else minVersion,
+      if (a.nodes.values
+          .exists {
+            case ne: Node.NodeExercises[_, _, _] => ne.key.isDefined
+            case _ => false
+          })
+        minContractKeyInExercise
       else minVersion,
     )
   }

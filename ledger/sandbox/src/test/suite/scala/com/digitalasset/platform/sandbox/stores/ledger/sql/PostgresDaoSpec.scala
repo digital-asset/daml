@@ -440,6 +440,7 @@ class PostgresDaoSpec
                   VersionedValue(
                     ValueVersions.acceptedVersions.head,
                     ValueText("some exercise result"))),
+                None
               )),
             ImmArray[EventId](s"event$id"),
             Set.empty

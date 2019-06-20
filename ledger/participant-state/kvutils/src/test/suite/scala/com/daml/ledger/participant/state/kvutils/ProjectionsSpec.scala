@@ -56,6 +56,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
       stakeholders,
       signatories,
       children,
+      None,
       None
     )
 
