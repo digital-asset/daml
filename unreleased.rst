@@ -19,3 +19,5 @@ HEAD — ongoing
   preserved when the scenario results are updated.
   See `#1675 <https://github.com/digital-asset/daml/issues/1675>`__.
 - [DAML-LF] Rename ``TO_TEXT_CODE_POINTS`` and ``FROM_TEXT_CODE_POINTS`` to ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``, resp.
+- [Dependencies] Protobuf has been upgraded to version 3.8.0. This
+  also includes the protobuf-java library used as a dependency.
