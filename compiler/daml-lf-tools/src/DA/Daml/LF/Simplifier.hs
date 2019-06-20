@@ -115,7 +115,7 @@ safetyStep = \case
       BEGreaterEq _       -> Safe 2
       BEGreater _         -> Safe 2
       BEToText _          -> Safe 1
-      BECodePointsToText  -> Safe 1
+      BETextFromCodePoints  -> Safe 1
       BEAddDecimal        -> Safe 1
       BESubDecimal        -> Safe 1
       BEMulDecimal        -> Safe 1
@@ -152,7 +152,7 @@ safetyStep = \case
       BEPartyFromText -> Safe 1
       BEInt64FromText -> Safe 1
       BEDecimalFromText -> Safe 1
-      BECodePointsFromText -> Safe 1
+      BETextToCodePoints -> Safe 1
       BECoerceContractId -> Safe 1
   ERecConF _ fs -> minimum (Safe 0 : map snd fs)
   ERecProjF _ _ s -> s `min` Safe 0
