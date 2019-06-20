@@ -43,7 +43,7 @@ object EventFilter {
 
     def filterEvent(event: Event): Option[Event] = {
       val servedEvent = event.event match {
-        case Created(CreatedEvent(_, _, Some(templateId), _, _, _, _)) =>
+        case Created(CreatedEvent(_, _, Some(templateId), _, _, _, _, _, _)) =>
           applyRequestingWitnesses(event, templateId)
 
         case Archived(ArchivedEvent(_, _, Some(templateId), _)) =>

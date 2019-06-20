@@ -59,7 +59,7 @@ object TransientContractRemover {
       event: CreateOrArchiveEvent,
       indexInList: Int): Unit = {
     event match {
-      case createdEvent @ CreatedEvent(_, contractId, _, _, witnessParties, _, _) =>
+      case createdEvent @ CreatedEvent(_, contractId, _, _, witnessParties, _, _, _, _) =>
         if (witnessParties.nonEmpty) {
           resultBuilder.update(indexInList, Some(event))
           val _ = creationByContractId.put(contractId, indexInList -> createdEvent)

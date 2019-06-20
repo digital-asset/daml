@@ -111,6 +111,8 @@ class EventFilterSpec extends WordSpec with Matchers with ScalaFutures with Opti
       templateId,
       ValueRecord(None, ImmArray.empty),
       Set(party, otherPartyWhoSeesEvents),
+      Set.empty,
+      Set.empty,
       "",
       None
     )

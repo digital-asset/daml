@@ -196,12 +196,13 @@ class SemanticTester(
                     scenarioCreateNode.key,
                     scenarioCreateNode.coinst.arg.mapContractId(nextScenarioCoidToLedgerCoid),
                     scenarioCreateNode.coinst.agreementText,
-                    scenarioCreateNode.stakeholders intersect scenarioWitnesses(scenarioNodeId),
+                    scenarioCreateNode.signatories,
+                    (scenarioCreateNode.stakeholders diff scenarioCreateNode.signatories),
                     scenarioWitnesses(scenarioNodeId),
                   )
-                  val ledgerCreateEventToCompare = ledgerCreateEvent.copy(stakeholders = Set.empty)
+                  val ledgerCreateEventToCompare = ledgerCreateEvent.copy(signatories = Set.empty, observers = Set.empty)
                   val scenarioCreateEventToCompare =
-                    scenarioCreateEvent.copy(stakeholders = Set.empty)
+                    scenarioCreateEvent.copy(signatories = Set.empty, observers = Set.empty)
                   // check that they're the same
                   if (scenarioCreateEventToCompare != ledgerCreateEventToCompare) {
                     throw SemanticTesterError(

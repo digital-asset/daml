@@ -26,7 +26,8 @@ sealed trait Event[+Nid, +Cid, +Val] extends Product with Serializable {
   *  @param templateId identifier of the creating template
   *  @param contractKey key for the contract this event notifies
   *  @param argument argument of the contract creation
-  *  @param stakeholders the stakeholders of the created contract -- must be a subset of witnesses. see comment for `collectEvents`
+  *  @param signatories as defined by the template
+  *  @param observers as defined by the template or implicitly as choice controllers
   *  @param witnesses additional witnesses induced by parent exercises
   */
 final case class CreateEvent[Cid, Val](
@@ -35,9 +36,16 @@ final case class CreateEvent[Cid, Val](
     contractKey: Option[KeyWithMaintainers[Val]],
     argument: Val,
     agreementText: String,
-    stakeholders: Set[Party],
+    signatories: Set[Party],
+    observers: Set[Party],
     witnesses: Set[Party])
     extends Event[Nothing, Cid, Val] {
+
+  /**
+    * The stakeholders of the created contract is the union of signatories and observers
+    */
+  val stakeholders = signatories.union(observers)
+
   override def mapContractId[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): CreateEvent[Cid2, Val2] =
     copy(
       contractId = f(contractId),
@@ -120,11 +128,6 @@ object Event {
   }
 
   /** Use Blinding to get the blinding which will contain the disclosure
-    *
-    * Note that the stakeholders of each event node will always be a subset of the event witnesses. We perform this
-    * narrowing since usually when consuming these events we only care about the parties that were included in the
-    * disclosure information. Consumers should be aware that the stakeholders stored are _not_ all the stakeholders of
-    * the contract, but just the stakeholders "up to witnesses".
     */
   def collectEvents[Nid, Cid, Val](
       tx: GenTransaction[Nid, Cid, Val],
@@ -147,17 +150,16 @@ object Event {
           val node = tx.nodes(nodeId)
           node match {
             case nc: NodeCreate[Cid, Val] =>
-              val templateId = nc.coinst.template
-              val stakeholders = nc.stakeholders
               val evt =
                 CreateEvent(
-                  nc.coid,
-                  templateId,
-                  nc.key,
-                  nc.coinst.arg,
-                  nc.coinst.agreementText,
-                  stakeholders intersect disclosure(nodeId),
-                  disclosure(nodeId))
+                  contractId = nc.coid,
+                  templateId = nc.coinst.template,
+                  contractKey = nc.key,
+                  argument = nc.coinst.arg,
+                  agreementText = nc.coinst.agreementText,
+                  signatories = nc.signatories,
+                  observers = nc.stakeholders diff nc.signatories,
+                  witnesses = disclosure(nodeId))
               evts += (nodeId -> evt)
               go(remaining)
             case ne: NodeExercises[Nid, Cid, Val] =>

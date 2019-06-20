@@ -94,7 +94,7 @@ class ActiveContractsServiceIT
       template: Identifier,
       occurrence: Int = 1): Assertion =
     events.collect {
-      case ce @ CreatedEvent(_, _, Some(`template`), _, _, _, _) => ce
+      case ce @ CreatedEvent(_, _, Some(`template`), _, _, _, _, _, _) => ce
     }.size should equal(occurrence)
 
   def threeCommands(ledgerId: domain.LedgerId, commandId: String): SubmitAndWaitRequest =
@@ -176,7 +176,7 @@ class ActiveContractsServiceIT
         def extractContractId(acsResponse: Seq[GetActiveContractsResponse]) = {
           val events = acsResponse.flatMap(_.activeContracts).toSet
           events.collect {
-            case CreatedEvent(contractId, _, Some(tid), _, _, _, _) if tid == templateIds.dummy =>
+            case CreatedEvent(contractId, _, Some(tid), _, _, _, _, _, _) if tid == templateIds.dummy =>
               contractId
           }.head
         }
