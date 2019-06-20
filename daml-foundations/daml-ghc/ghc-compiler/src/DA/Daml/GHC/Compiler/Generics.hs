@@ -4,6 +4,7 @@
 
 module DA.Daml.GHC.Compiler.Generics
     ( genericsPreprocessor
+    , generateGenericInstanceFor
     ) where
 
 import "ghc-lib-parser" Bag
@@ -382,9 +383,24 @@ mkBindsRep gk loc dataDef =
         -- across all cases of a from/to definition, and can be factored out
         -- to save some allocations during typechecking.
         -- See Note [Generics compilation speed tricks]
-        from_eqn = mkHsCaseAlt x_Pat $ mkM1_E
-                                       $ nlHsPar $ nlHsCase x_Expr from_matches
-        to_eqn   = mkHsCaseAlt (mkM1_P x_Pat) $ nlHsCase x_Expr to_matches
+        from_eqn =
+            mkSimpleMatch
+                (FunRhs
+                     { mc_fun = L loc from01_RDR
+                     , mc_fixity = Prefix
+                     , mc_strictness = NoSrcStrict
+                     })
+                [x_Pat] $
+            mkM1_E $ nlHsPar $ nlHsCase x_Expr from_matches
+        to_eqn =
+            mkSimpleMatch
+                (FunRhs
+                     { mc_fun = L loc to01_RDR
+                     , mc_fixity = Prefix
+                     , mc_strictness = NoSrcStrict
+                     })
+                [mkM1_P x_Pat] $
+            nlHsCase x_Expr to_matches
 
         from_matches  = [mkHsCaseAlt pat rhs | (pat,rhs) <- from_alts]
         to_matches    = [mkHsCaseAlt pat rhs | (pat,rhs) <- to_alts  ]
