@@ -267,8 +267,8 @@ data BuiltinExpr
   | BEPartyFromText              -- :: Text -> Optional Party
   | BEInt64FromText              -- :: Text -> Optional Int64
   | BEDecimalFromText            -- :: Text -> Optional Decimal
-  | BECodePointsFromText         -- :: Text -> List Int64
-  | BECodePointsToText           -- :: List Int64 -> Text
+  | BETextToCodePoints           -- :: Text -> List Int64
+  | BETextFromCodePoints         -- :: List Int64 -> Text
   | BEPartyToQuotedText          -- :: Party -> Text
 
   | BETrace                      -- :: forall a. Text -> a -> a

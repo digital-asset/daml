@@ -234,11 +234,11 @@ encodeBuiltinExpr = \case
       BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
       BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
       other -> error $ "BEToText unexpected type " <> show other
-    BECodePointsToText -> builtin P.BuiltinFunctionTO_TEXT_CODE_POINTS
+    BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
     BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY
     BEInt64FromText -> builtin P.BuiltinFunctionFROM_TEXT_INT64
     BEDecimalFromText-> builtin P.BuiltinFunctionFROM_TEXT_DECIMAL
-    BECodePointsFromText -> builtin P.BuiltinFunctionFROM_TEXT_CODE_POINTS
+    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
     BEPartyToQuotedText -> builtin P.BuiltinFunctionTO_QUOTED_TEXT_PARTY
 
     BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL
