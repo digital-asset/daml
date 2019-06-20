@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_test(
     name = "lsp-tests",
@@ -9,6 +10,10 @@ da_haskell_test(
     data = [
         "//daml-foundations/daml-tools/da-hs-damlc-app",
     ],
+    # For some reason this test sometimes seems to time out.
+    # It hits the Bazel timeout rather than the timeout in lsp-tests
+    # so it looks like it locks up somehow. For now, we mark it flaky.
+    flaky = is_windows,
     hazel_deps = [
         "aeson",
         "base",
