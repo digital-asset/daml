@@ -15,3 +15,10 @@ DAML Studio
 - The selected view for scenario results (table or transaction) is now
   preserved when the scenario results are updated.
   See `#1675 <https://github.com/digital-asset/daml/issues/1675>`__.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- Contract key, if any, is now included in the transaction exercise node. This prepares
+  the way for #1456 and #1680.
+

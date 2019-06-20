@@ -6,12 +6,6 @@ Release notes
 
 This page contains release notes for the SDK.
 
-DAML Integration Kit
-~~~~~~~~~~~~~~~~~~~~
-
-- Contract key, if any, is now included in the transaction exercise node. This prepares
-  the way for #1456 and #1680.
-
 DAML Assistant
 ~~~~~~~~~~~~~~
 
