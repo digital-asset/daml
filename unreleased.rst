@@ -10,8 +10,8 @@ HEAD — ongoing
 --------------
 
 - [DAML Assistant] Added ``--install-assistant`` flag to ``daml install`` command,
-  changing the default behavior of ``daml install`` to be "install the assistant
-  whenever we are installing newer version of the SDK". Deprecated the
+  changing the default behavior of ``daml install`` to install the assistant
+  whenever we are installing newer version of the SDK. Deprecated the
   ``--activate`` flag.
 - [DAML Studio] Opening an already open scenario will now focus it rather than opening
   it in a new empty tab which is never updated with results.
