@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.io._
 import java.time.Clock
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
@@ -29,6 +30,7 @@ import scala.collection.JavaConverters._
 import scala.collection.breakOut
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 object InMemoryKVParticipantState {
 
@@ -50,6 +52,18 @@ object InMemoryKVParticipantState {
       // Current ledger configuration.
       config: Configuration
   )
+
+  object State {
+    def empty = State(
+      commitLog = Vector.empty[Commit],
+      recordTime = Timestamp.Epoch,
+      store = Map.empty[ByteString, ByteString],
+      config = Configuration(
+        timeModel = TimeModel.reasonableDefault
+      )
+    )
+
+  }
 
   sealed trait Commit extends Serializable with Product
 
@@ -83,7 +97,9 @@ object InMemoryKVParticipantState {
   * See Akka documentation for information on them:
   * https://doc.akka.io/docs/akka/current/index-actors.html.
   */
-class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer)
+class InMemoryKVParticipantState(
+    val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+    file: Option[File] = None)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
     with WriteService
     with AutoCloseable {
@@ -93,8 +109,6 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private implicit val ec: ExecutionContext = mat.executionContext
-
-  val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString)
 
   // The ledger configuration
   private val ledgerConfig = Configuration(timeModel = TimeModel.reasonableDefault)
@@ -129,15 +143,26 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     * Reading from the state must happen by first taking the reference (val state = stateRef),
     * as otherwise the reads may cross update boundaries.
     */
-  @volatile private var stateRef: State =
-    State(
-      commitLog = Vector.empty[Commit],
-      recordTime = Timestamp.Epoch,
-      store = Map.empty[ByteString, ByteString],
-      config = Configuration(
-        timeModel = TimeModel.reasonableDefault
-      )
-    )
+  @volatile private var stateRef: State = {
+    val initState = Try(file.map { f =>
+      val is = new ObjectInputStream(new FileInputStream(f))
+      val state = is.readObject().asInstanceOf[State]
+      is.close()
+      state
+    }).toOption.flatten.getOrElse(State.empty)
+    logger.info(s"Starting ledger backend at offset ${initState.commitLog.size}")
+    initState
+  }
+
+  private def updateState(newState: State) = {
+    file.foreach { f =>
+      val os = new ObjectOutputStream(new FileOutputStream(f))
+      os.writeObject(newState)
+      os.flush()
+      os.close()
+    }
+    stateRef = newState
+  }
 
   /** Akka actor that matches the requests for party allocation
     * with asynchronous responses delivered within the log entries.
@@ -206,10 +231,11 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
       case commit @ CommitHeartbeat(newRecordTime) =>
         logger.trace(s"CommitActor: committing heartbeat, recordTime=$newRecordTime")
         // Update the state.
-        stateRef = stateRef.copy(
-          commitLog = stateRef.commitLog :+ commit,
-          recordTime = newRecordTime
-        )
+        updateState(
+          stateRef.copy(
+            commitLog = stateRef.commitLog :+ commit,
+            recordTime = newRecordTime
+          ))
         // Wake up consumers.
         dispatcher.signalNewHead(stateRef.commitLog.size)
 
@@ -249,11 +275,12 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
             s"CommitActor: committing ${KeyValueCommitting.prettyEntryId(entryId)} and ${allUpdates.size} updates to store.")
 
           // Update the state.
-          stateRef = state.copy(
-            recordTime = newRecordTime,
-            commitLog = state.commitLog :+ commit,
-            store = state.store ++ allUpdates
-          )
+          updateState(
+            state.copy(
+              recordTime = newRecordTime,
+              commitLog = state.commitLog :+ commit,
+              store = state.store ++ allUpdates
+            ))
 
           // Wake up consumers.
           dispatcher.signalNewHead(stateRef.commitLog.size)
