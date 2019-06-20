@@ -266,8 +266,12 @@ namespace DamlWorkspaceValidationsNotification {
 }
 
 class VirtualResourceManager {
+    // Mapping from URIs to the web view panel
     private _panels: Map<string, vscode.WebviewPanel> = new Map<string, vscode.WebviewPanel>();
+    // Mapping from URIs to the HTML content of the webview
     private _panelContents: Map<string, string> = new Map<string, string>();
+    // Mapping from URIs to selected view
+    private _panelStates: Map<string, string> = new Map<string, string>();
     private _client: LanguageClient;
     private _disposables: vscode.Disposable[] = [];
 
@@ -316,6 +320,15 @@ class VirtualResourceManager {
             null,
             this._disposables
         );
+        panel.webview.onDidReceiveMessage(
+            message => {
+                switch (message.command) {
+                    case 'selected_view':
+                        this._panelStates.set(uri, message.value);
+                        break;
+                }
+            }
+        );
         this._panels.set(uri, panel);
         panel.webview.html = this._panelContents.get(uri) || '';
     }
@@ -325,6 +338,10 @@ class VirtualResourceManager {
         const panel = this._panels.get(uri);
         if (panel) {
             panel.webview.html = contents;
+            const panelState = this._panelStates.get(uri);
+            if (panelState) {
+                panel.webview.postMessage({command: 'select_view', value: panelState});
+            };
         }
     }
 
