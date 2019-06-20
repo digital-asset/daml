@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.v2
 
 import java.util.concurrent.CompletionStage
 
+/** An interface for uploading packages via a participant. */
 trait WritePackagesService {
 
   /** Upload a collection of DAML-LF packages to the ledger.

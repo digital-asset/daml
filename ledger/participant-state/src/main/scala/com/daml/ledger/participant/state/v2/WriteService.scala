@@ -19,12 +19,13 @@ import java.util.concurrent.CompletionStage
   * plans to make this functionality uniformly available: see the roadmap for
   * progress information https://github.com/digital-asset/daml/issues/121.
   *
-  * As of now there are two methods for changing the state of a DAML ledger:
-  * - submitting a transaction using [[WriteService!.submitTransaction]].
-  * - allocating a new party using [[WriteService!.allocateParty]]
+  * As of now there are three methods for changing the state of a DAML ledger:
+  * - submitting a transaction using [[WriteService!.submitTransaction]]
+  * - allocating a new party using [[WritePartyService!.allocateParty]]
+  * - uploading a new package using [[WritePackagesService!.uploadDar]]
   *
   */
-trait WriteService extends WritePackagesService {
+trait WriteService extends WritePackagesService with WritePartyService {
 
   /** Submit a transaction for acceptance to the ledger.
     *
@@ -95,25 +96,4 @@ trait WriteService extends WritePackagesService {
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): CompletionStage[SubmissionResult]
-
-  /**
-    * Adds a new party to the set managed by the ledger.
-    *
-    * Caller specifies a party identifier suggestion, the actual identifier
-    * allocated might be different and is implementation specific.
-    *
-    * In particular, a ledger may:
-    * - Disregard the given hint and choose a completely new party identifier
-    * - Construct a new unique identifier from the given hint, e.g., by appending a UUID
-    * - Use the given hint as is, and reject the call if such a party already exists
-    *
-    * @param hint A party identifier suggestion
-    * @param displayName A human readable name of the new party
-    *
-    * @return an async result of a PartyAllocationResult
-    */
-  def allocateParty(
-      hint: Option[String],
-      displayName: Option[String]
-  ): CompletionStage[PartyAllocationResult]
 }

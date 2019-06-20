@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.services.admin
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
-import com.daml.ledger.participant.state.v2.{PartyAllocationResult, WriteService}
+import com.daml.ledger.participant.state.v2.{PartyAllocationResult, WritePartyService}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
@@ -21,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
-    writeService: WriteService
+    writeService: WritePartyService
 ) extends PartyManagementService
     with GrpcApiService {
 
@@ -71,7 +71,7 @@ class ApiPartyManagementService private (
 }
 
 object ApiPartyManagementService {
-  def createApiService(readBackend: IndexPartyManagementService, writeBackend: WriteService)(
+  def createApiService(readBackend: IndexPartyManagementService, writeBackend: WritePartyService)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer): GrpcApiService with BindableService with PartyManagementServiceLogging =
