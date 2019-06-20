@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, SubmittedTransaction, SubmitterInfo}
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.{
   Transaction,
   TransactionOuterClass,
@@ -17,15 +18,14 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
+  ContractId,
   NodeId,
-  RelativeContractId,
-  ContractId
+  RelativeContractId
 }
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.ValueOuterClass
 import com.digitalasset.daml.lf.transaction.TransactionCoder
 import com.digitalasset.daml.lf.value.ValueCoder
-
 import com.daml.ledger.participant.state.backport.TimeModel
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
@@ -79,13 +79,34 @@ private[kvutils] object Conversions {
       entryId: DamlLogEntryId,
       rcoid: RelativeContractId): DamlStateKey =
     DamlStateKey.newBuilder
-      .setContractId(
-        DamlContractId.newBuilder
-          .setEntryId(entryId)
-          .setNodeId(rcoid.txnid.index.toLong)
-          .build
+      .setContractId(encodeRelativeContractId(entryId, rcoid))
+      .build
+
+  def encodeRelativeContractId(entryId: DamlLogEntryId, rcoid: RelativeContractId): DamlContractId =
+    DamlContractId.newBuilder
+      .setEntryId(entryId)
+      .setNodeId(rcoid.txnid.index.toLong)
+      .build
+
+  def decodeContractId(coid: DamlContractId): AbsoluteContractId = {
+    val hexTxId =
+      BaseEncoding.base16.encode(coid.getEntryId.toByteArray)
+    AbsoluteContractId(ContractIdString.assertFromString(s"$hexTxId:${coid.getNodeId}"))
+  }
+
+  def contractKeyToStateKey(key: GlobalKey) = {
+    val encodedValue = valEncoder(key.key)
+      .getOrElse(sys.error(s"contractKeyToStateKey: Cannot encode ${key.key}!"))
+      ._2
+
+    DamlStateKey.newBuilder
+      .setContractKey(
+        DamlContractKey.newBuilder
+          .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
+          .setKey(encodedValue)
       )
       .build
+  }
 
   def commandDedupKey(subInfo: DamlSubmitterInfo): DamlStateKey = {
     DamlStateKey.newBuilder

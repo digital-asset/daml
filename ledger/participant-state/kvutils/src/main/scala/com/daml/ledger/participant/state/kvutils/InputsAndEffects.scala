@@ -3,20 +3,22 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.Conversions.{
-  absoluteContractIdToLogEntryId,
-  absoluteContractIdToStateKey,
-  relativeContractIdToStateKey
-}
+import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.v1.SubmittedTransaction
-import com.digitalasset.daml.lf.transaction.GenTransaction
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.transaction.Node.{
   NodeCreate,
   NodeExercises,
   NodeFetch,
-  NodeLookupByKey
+  NodeLookupByKey,
+  GlobalKey
 }
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, RelativeContractId}
+import com.digitalasset.daml.lf.value.Value.{
+  AbsoluteContractId,
+  ContractId,
+  RelativeContractId,
+  VersionedValue
+}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 
 /** Internal utilities to compute the inputs and effects of a DAML transaction */
@@ -39,8 +41,13 @@ private[kvutils] object InputsAndEffects {
         * contracts should be created. The key should be a combination of the transaction
         * id and the relative contract id (that is, the node index).
         */
-      createdContracts: List[DamlStateKey]
+      createdContracts: List[DamlStateKey],
+      /** The contract keys created or updated as part of the transaction. */
+      updatedContractKeys: List[(DamlStateKey, DamlContractKeyState)]
   )
+  object Effects {
+    val empty = Effects(List.empty, List.empty, List.empty)
+  }
 
   /** Compute the inputs to a DAML transaction, that is, the referenced contracts
     * and packages.
@@ -80,32 +87,53 @@ private[kvutils] object InputsAndEffects {
               addLogEntryInput(logEntryInputs, exe.targetCoid),
               addStateInput(stateInputs, exe.targetCoid)
             )
-          case l: NodeLookupByKey[_, _] =>
-            sys.error("computeInputs: NodeLookupByKey not implemented!")
+          case l: NodeLookupByKey[_, Transaction.Value[ContractId]] =>
+            (
+              logEntryInputs,
+              contractKeyToStateKey(GlobalKey(l.templateId, forceAbsoluteContractIds(l.key.key))) :: stateInputs
+            )
         }
     }
   }
 
   /** Compute the effects of a DAML transaction, that is, the created and consumed contracts. */
   def computeEffects(entryId: DamlLogEntryId, tx: SubmittedTransaction): Effects = {
-    tx.fold(GenTransaction.TopDown, Effects(List.empty, List.empty)) {
+    tx.fold(GenTransaction.TopDown, Effects.empty) {
       case (effects, (nodeId, node)) =>
         node match {
           case fetch: NodeFetch[ContractId] =>
             effects
-          case create: NodeCreate[_, _] =>
-            // FIXME(JM): Track created keys
+          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
             effects.copy(
               createdContracts =
                 relativeContractIdToStateKey(entryId, create.coid.asInstanceOf[RelativeContractId])
-                  :: effects.createdContracts
+                  :: effects.createdContracts,
+              updatedContractKeys = create.key
+                .fold(effects.updatedContractKeys)(
+                  keyWithMaintainers =>
+                    contractKeyToStateKey(
+                      GlobalKey(
+                        create.coinst.template,
+                        forceAbsoluteContractIds(keyWithMaintainers.key))) ->
+                      DamlContractKeyState.newBuilder
+                        .setContractId(encodeRelativeContractId(
+                          entryId,
+                          create.coid.asInstanceOf[RelativeContractId]))
+                        .build
+                      :: effects.updatedContractKeys)
             )
-          case exe: NodeExercises[_, ContractId, _] =>
+          case exe: NodeExercises[_, ContractId, VersionedValue[ContractId]] =>
             if (exe.consuming) {
               exe.targetCoid match {
                 case acoid: AbsoluteContractId =>
                   effects.copy(
-                    consumedContracts = absoluteContractIdToStateKey(acoid) :: effects.consumedContracts
+                    consumedContracts = absoluteContractIdToStateKey(acoid) :: effects.consumedContracts,
+                    updatedContractKeys = exe.key
+                      .fold(effects.updatedContractKeys)(
+                        key =>
+                          contractKeyToStateKey(
+                            GlobalKey(exe.templateId, forceAbsoluteContractIds(key))) ->
+                            DamlContractKeyState.newBuilder.build :: effects.updatedContractKeys)
                   )
                 case _ =>
                   effects
@@ -114,9 +142,17 @@ private[kvutils] object InputsAndEffects {
               effects
             }
           case l: NodeLookupByKey[_, _] =>
-            sys.error("computeEffects: NodeLookupByKey not implemented!")
+            effects
         }
     }
   }
+
+  private def forceAbsoluteContractIds(
+      v: VersionedValue[ContractId]): VersionedValue[AbsoluteContractId] =
+    v.mapContractId {
+      case _: RelativeContractId =>
+        sys.error("Relative contract identifier encountered in contract key!")
+      case acoid: AbsoluteContractId => acoid
+    }
 
 }

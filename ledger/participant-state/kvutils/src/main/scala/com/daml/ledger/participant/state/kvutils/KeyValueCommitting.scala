@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.Node.NodeCreate
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
@@ -404,11 +404,28 @@ object KeyValueCommitting {
       } yield pkg
     }
 
+    def lookupKey(key: GlobalKey): Option[AbsoluteContractId] = {
+      val stateKey = Conversions.contractKeyToStateKey(key)
+      inputState.get(stateKey).flatten.flatMap { value =>
+        value.getValueCase match {
+          case DamlStateValue.ValueCase.CONTRACT_KEY_STATE =>
+            val s = value.getContractKeyState
+            if (s.hasContractId)
+              Some(decodeContractId(s.getContractId))
+            else
+              None
+          case _ =>
+            tracelog(s"lookupKey($key): value is not ContractKeyState!")
+            None
+        }
+      }
+    }
+
     // 3. Verify that the submission conforms to the DAML model
     val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
     val modelCheckResult = engine
       .validate(relTx, txLet)
-      .consume(lookupContract, lookupPackage, _ => sys.error("contract keys unimplemented"))
+      .consume(lookupContract, lookupPackage, lookupKey)
 
     // Compute blinding info to update contract visibility.
     val blindingInfo = Blinding.blind(relTx)
@@ -467,6 +484,14 @@ object KeyValueCommitting {
             cs.clearDivulgedTo
             cs.addAllDivulgedTo(partiesCombined.asJava)
             stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs.build).build
+        }
+
+        // Update contract keys
+        effects.updatedContractKeys.foreach {
+          case (key, contractKeyState) =>
+            stateUpdates += key -> DamlStateValue.newBuilder
+              .setContractKeyState(contractKeyState)
+              .build
         }
 
         tracelog(
