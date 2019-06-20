@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.archive
 
-import com.digitalasset.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 
 import java.io.File
 
@@ -11,7 +11,7 @@ import org.scalatest.{FlatSpec, Inside, Matchers}
 
 import scala.util.{Success, Try}
 
-class UniversalArchiveReaderSpec extends FlatSpec with Matchers with Inside with BazelRunfiles {
+class UniversalArchiveReaderSpec extends FlatSpec with Matchers with Inside {
 
   private val darFile = new File(rlocation("daml-lf/archive/DarReaderTest.dar"))
 
