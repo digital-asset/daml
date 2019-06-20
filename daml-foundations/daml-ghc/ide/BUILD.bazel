@@ -33,6 +33,7 @@ da_haskell_library(
         "temporary",
         "text",
         "time",
+        "transformers",
         "utf8-string",
         "vector",
     ],

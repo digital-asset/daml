@@ -120,8 +120,7 @@ getRawDalf absFile = use GenerateRawPackage absFile
 
 -- | Get a validated DALF package.
 getDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
-getDalf file = eitherToMaybe <$>
-    (runExceptT $ useE GeneratePackage file)
+getDalf file = use GeneratePackage file
 
 getDalfModule :: NormalizedFilePath -> Action (Maybe LF.Module)
 getDalfModule file = use GenerateDalf file
@@ -153,26 +152,22 @@ generateRawDalfRule =
 -- Generates and type checks the DALF for a module.
 generateDalfRule :: Rules ()
 generateDalfRule =
-    define $ \GenerateDalf file -> fmap toIdeResultNew $ runExceptT $ do
-        lfVersion <- lift getDamlLfVersion
-        pkg <- useE GeneratePackageDeps file
+    define $ \GenerateDalf file -> do
+        lfVersion <- getDamlLfVersion
+        pkg <- use_ GeneratePackageDeps file
         -- The file argument isn’t used in the rule, so we leave it empty to increase caching.
-        pkgMap <- useE GeneratePackageMap ""
+        pkgMap <- use_ GeneratePackageMap ""
         let pkgs = [(pId, pkg) | (pId, pkg, _bs, _fp) <- Map.elems pkgMap]
         let world = LF.initWorldSelf pkgs pkg
-        unsimplifiedRawDalf <- useE GenerateRawDalf file
+        unsimplifiedRawDalf <- use_ GenerateRawDalf file
         let rawDalf = LF.simplifyModule unsimplifiedRawDalf
-        lift $ setPriority PriorityGenerateDalf
-
-        dalf <- withExceptT (pure . ideErrorPretty file)
-          $ liftEither
-          $ Serializability.inferModule world lfVersion rawDalf
-
-        withExceptT (pure . ideErrorPretty file)
-          $ liftEither
-          $ LF.checkModule world lfVersion dalf
-
-        pure dalf
+        setPriority PriorityGenerateDalf
+        pure $ toIdeResult $ do
+            let liftError e = [ideErrorPretty file e]
+            dalf <- mapLeft liftError $
+                Serializability.inferModule world lfVersion rawDalf
+            mapLeft liftError $ LF.checkModule world lfVersion dalf
+            pure dalf
 
 -- | Load all the packages that are available in the package database directories. We expect the
 -- filename to match the package name.
@@ -405,10 +400,10 @@ ofInterestRule = do
         let scenarioFiles = files `Set.union` vrFiles
         gc scenarioFiles
         -- compile and notify any errors
-        let runScenarios file = void $ runExceptT $ do
-                world <- lift $ worldForFile file
-                vrs <- useE RunScenarios file
-                lift $ forM vrs $ \(vr, res) -> do
+        let runScenarios file = do
+                world <- worldForFile file
+                mbVrs <- use RunScenarios file
+                forM_ (fromMaybe [] mbVrs) $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
                     when (vr `Set.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
