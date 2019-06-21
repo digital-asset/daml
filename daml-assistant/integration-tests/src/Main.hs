@@ -199,14 +199,12 @@ packagingTests tmpDir = testGroup "packaging"
             [ "daml 1.2"
             , "module Main where"
             , "data OnlyA"
-            -- TODO (drsk) for now no templates because we still need to generate the generic
-            -- instances.
-            --, "template Foo"
-            --, "  with"
-            --, "    a : Int"
-            --, "    p : Party"
-            --, "  where"
-            --, "    signatory p"
+            , "template Foo"
+            , "  with"
+            , "    a : Int"
+            , "    p : Party"
+            , "  where"
+            , "    signatory p"
             ]
         writeFileUTF8 (projectA </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -226,14 +224,12 @@ packagingTests tmpDir = testGroup "packaging"
             [ "daml 1.2"
             , "module Main where"
             , "data OnlyB"
-            -- TODO (drsk) for now no templates because we still need to generate the generic
-            -- instances.
-            --, "template Foo"
-            --, "  with"
-            --, "    a : Int"
-            --, "    p : Party"
-            --, "  where"
-            --, "    signatory p"
+            , "template Foo"
+            , "  with"
+            , "    a : Int"
+            , "    p : Party"
+            , "  where"
+            , "    signatory p"
             ]
         writeFileUTF8 (projectB </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
