@@ -10,6 +10,7 @@ import Control.Concurrent.Extra
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
+import Control.Monad.Trans.Maybe
 import DA.Daml.GHC.Compiler.Options
 import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
@@ -25,7 +26,7 @@ import qualified Data.Text as T
 import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
-import "ghc-lib-parser" Module (UnitId, stringToUnitId)
+import "ghc-lib-parser" Module (UnitId, stringToUnitId, unitIdString, UnitId(..), DefUnitId(..))
 import Safe
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
@@ -124,6 +125,28 @@ getDalf file = use GeneratePackage file
 
 getDalfModule :: NormalizedFilePath -> Action (Maybe LF.Module)
 getDalfModule file = use GenerateDalf file
+
+newtype GlobalPkgMap = GlobalPkgMap (Map.Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
+instance IsIdeGlobal GlobalPkgMap
+
+-- | A dependency on a compiled library.
+data DalfDependency = DalfDependency
+  { ddName         :: !T.Text
+    -- ^ The name of the dependency.
+  , ddDalfFile     :: !FilePath
+    -- ^ The absolute path to the dalf file.
+  }
+
+getDalfDependencies :: NormalizedFilePath -> MaybeT Action [DalfDependency]
+getDalfDependencies file = do
+    unitIds <- transitivePkgDeps <$> useE GetDependencies file
+    GlobalPkgMap pkgMap <- lift getIdeGlobalAction
+    pure
+        [ DalfDependency (T.pack $ unitIdString uid) fp
+        | (uid, (_, _, _, fp)) <-
+          Map.toList $
+          Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+        ]
 
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScenarios file = use RunScenarios file
