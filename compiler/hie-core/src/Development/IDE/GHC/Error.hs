@@ -116,7 +116,7 @@ realSpan = \case
 
 
 diagFromGhcException :: DynFlags -> GhcException -> [FileDiagnostic]
-diagFromGhcException dflags exc = diagFromStrings dflags [(noSpan "<Internal>", showGHCE dflags exc)]
+diagFromGhcException dflags exc = diagFromString dflags (noSpan "<Internal>") (showGHCE dflags exc)
 
 showGHCE :: DynFlags -> GhcException -> String
 showGHCE dflags exc = case exc of
