@@ -105,10 +105,11 @@ getDependencies file = fmap transitiveModuleDeps <$> use GetDependencies file
 -- | Try to get hover text for the name under point.
 getAtPoint :: NormalizedFilePath -> Position -> Action (Maybe (Maybe Range, [HoverText]))
 getAtPoint file pos = fmap join $ runMaybeT $ do
+  opts <- lift getOpts
   files <- transitiveModuleDeps <$> useE GetDependencies file
   tms   <- usesE TypeCheck (file : files)
   spans <- useE GetSpanInfo file
-  return $ AtPoint.atPoint (map Compile.tmrModule tms) spans pos
+  return $ AtPoint.atPoint opts (map Compile.tmrModule tms) spans pos
 
 -- | Goto Definition.
 getDefinition :: NormalizedFilePath -> Position -> Action (Maybe Location)

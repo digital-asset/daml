@@ -26,6 +26,8 @@ data IdeOptions = IdeOptions
 
   , optThreads :: Int
   , optShakeProfiling :: Maybe FilePath
+  , optLanguageSyntax :: String -- ^ the ```language to use
+  , optNewColonConvention :: Bool -- ^ whether to use new colon convention
   }
 
 

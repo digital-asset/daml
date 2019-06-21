@@ -61,6 +61,8 @@ main = do
             ,optPkgLocationOpts = defaultIdePkgLocationOptions
             ,optThreads = 0
             ,optShakeProfiling = Nothing -- Just "output.html"
+            ,optLanguageSyntax = "haskell"
+            ,optNewColonConvention = False
             }
 
     if "--lsp" `elem` args then do

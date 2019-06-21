@@ -50,11 +50,12 @@ gotoDefinition ideOpts pkgState srcSpans pos =
 
 -- | Synopsis for the name at a given position.
 atPoint
-  :: [TypecheckedModule]
+  :: IdeOptions
+  -> [TypecheckedModule]
   -> [SpanInfo]
   -> Position
   -> Maybe (Maybe Range, [HoverText])
-atPoint tcs srcSpans pos = do
+atPoint IdeOptions{..} tcs srcSpans pos = do
     SpanInfo{..} <- listToMaybe $ orderSpans $ spansAtPoint pos srcSpans
     ty <- spaninfoType
     let mbName  = getNameM spaninfoSource
@@ -64,11 +65,13 @@ atPoint tcs srcSpans pos = do
         range = Range
                   (Position spaninfoStartLine spaninfoStartCol)
                   (Position spaninfoEndLine spaninfoEndCol)
-        typeSig = HoverDamlCode $ case mbName of
-          Nothing -> ": " <> showName ty
+        colon = if optNewColonConvention then ":" else "::"
+        wrapLanguageSyntax x = HoverMarkdown $ T.unlines [ "```" <> T.pack optLanguageSyntax, x, "```"]
+        typeSig = wrapLanguageSyntax $ case mbName of
+          Nothing -> colon <> " " <> showName ty
           Just name ->
             let modulePrefix = maybe "" (<> ".") (getModuleNameAsText name)
-            in  modulePrefix <> showName name <> "\n  : " <> showName ty
+            in  modulePrefix <> showName name <> "\n  " <> colon <> " " <> showName ty
         hoverInfo = docInfo <> [typeSig] <> maybeToList mbDefinedAt
     return (Just range, hoverInfo)
   where
