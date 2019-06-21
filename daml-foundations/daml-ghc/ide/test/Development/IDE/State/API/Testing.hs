@@ -431,7 +431,7 @@ expectTextOnHover cursorRange expectedInfo = do
         NoInfo -> null
         Contains t -> any (T.isInfixOf t)
         NotContaining t -> all (not . T.isInfixOf t)
-        HasType t -> any (T.isSuffixOf $ ": " <> t)
+        HasType t -> any (T.isSuffixOf $ ": " <> t) . concatMap T.lines
 
 -- | Expect a certain section to take fewer than the specified number of seconds.
 timedSection :: Clock.NominalDiffTime -> ShakeTest t -> ShakeTest t
