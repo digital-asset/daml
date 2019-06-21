@@ -7,7 +7,6 @@
 {-# LANGUAGE BlockArguments #-}
 module Development.IDE.Types.Diagnostics (
   LSP.Diagnostic(..),
-  FileDiagnostics,
   FileDiagnostic,
   Location(..),
   Range(..),
@@ -24,7 +23,6 @@ module Development.IDE.Types.Diagnostics (
   NormalizedFilePath,
   toNormalizedFilePath,
   fromNormalizedFilePath,
-  noLocation,
   noRange,
   noFilePath,
   ideErrorText,
@@ -32,7 +30,6 @@ module Development.IDE.Types.Diagnostics (
   errorDiag,
   showDiagnostics,
   showDiagnosticsColored,
-  defDiagnostic,
   filePathToUri,
   filePathToUri',
   uriToFilePath',
@@ -46,8 +43,6 @@ module Development.IDE.Types.Diagnostics (
   ) where
 
 import Control.DeepSeq
-import Control.Exception
-import Data.Either.Combinators
 import Data.Maybe as Maybe
 import Data.Foldable
 import Data.Hashable
@@ -132,19 +127,6 @@ diagnostic rng sev src msg
           _relatedInformation = Nothing
           }
 
--- | Any optional field is instantiated to Nothing
-defDiagnostic ::
-  Range ->
-  T.Text -> -- ^ error message
-  LSP.Diagnostic
-defDiagnostic _range _message = LSP.Diagnostic {
-    _range
-  , _message
-  , _severity = Nothing
-  , _code = Nothing
-  , _source = Nothing
-  , _relatedInformation = Nothing
-  }
 
 -- | Human readable diagnostics for a specific file.
 --
@@ -152,7 +134,6 @@ defDiagnostic _range _message = LSP.Diagnostic {
 --   along with the related source location so that we can display the error
 --   on either the console or in the IDE at the right source location.
 --
-type FileDiagnostics = (NormalizedFilePath, [Diagnostic])
 type FileDiagnostic = (NormalizedFilePath, Diagnostic)
 
 prettyRange :: Range -> Doc SyntaxClass
