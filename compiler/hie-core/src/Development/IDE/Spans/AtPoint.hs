@@ -59,8 +59,7 @@ atPoint IdeOptions{..} tcs srcSpans pos = do
     ty <- spaninfoType
     let mbName  = getNameM spaninfoSource
         mbDefinedAt = fmap (\name -> "**Defined " <> T.pack (showSDocUnsafe $ pprNameDefnLoc name) <> "**\n") mbName
-        mbDocs  = fmap (\name -> getDocumentation name tcs) mbName
-        docInfo = maybe [] docHeaders mbDocs
+        docInfo  = maybe [] (\name -> getDocumentation name tcs) mbName
         range = Range
                   (Position spaninfoStartLine spaninfoStartCol)
                   (Position spaninfoEndLine spaninfoEndCol)
