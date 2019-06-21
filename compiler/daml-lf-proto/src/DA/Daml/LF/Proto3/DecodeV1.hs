@@ -564,7 +564,7 @@ decodePackageId = PackageId . TL.toStrict
 
 -- the invariant *does not* hold: pkid `cmp` opkid = index pkid `cmp` index opkid
 -- it is only true internally for one particular encoder implementation
-type PackageRefCtx = V.Vector PackageId
+type PackageRefCtx = Int -> Maybe PackageId
 
 decodePackageRef :: LF1.PackageRef -> DecodeImpl PackageRef
 decodePackageRef (LF1.PackageRef pref) =
@@ -575,10 +575,10 @@ decodePackageRef (LF1.PackageRef pref) =
       let ixd = fromIntegral ix :: Int
       interned <- ask
       maybe (throwError $ MissingPackageRefId ix) pure
-        $ PRImport <$> (guard (ix == fromIntegral ixd) *> (interned V.!? ixd))
+        $ PRImport <$> (guard (ix == fromIntegral ixd) *> interned ixd)
 
 decodeInternedPackageIds :: V.Vector TL.Text -> Decode PackageRefCtx
-decodeInternedPackageIds = pure . fmap decodePackageId
+decodeInternedPackageIds = pure . (V.!?) . fmap decodePackageId
 
 decodeModuleRef :: LF1.ModuleRef -> DecodeImpl (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
