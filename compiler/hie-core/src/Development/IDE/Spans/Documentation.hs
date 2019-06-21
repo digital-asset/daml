@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Development.IDE.Functions.Documentation (
+module Development.IDE.Spans.Documentation (
     getDocumentation
   , docHeaders
   ) where
@@ -12,7 +12,7 @@ import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.Text as T
 import           Development.IDE.Functions.GHCError
-import           Development.IDE.Functions.SpanInfo
+import           Development.IDE.Spans.Calculate
 import           FastString
 import           GHC
 import SrcLoc

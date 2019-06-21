@@ -4,12 +4,12 @@
 {-# LANGUAGE OverloadedStrings   #-}
 -- | Gives information about symbols at a given point in DAML files.
 -- These are all pure functions that should execute quickly.
-module Development.IDE.Functions.AtPoint (
+module Development.IDE.Spans.AtPoint (
     atPoint
   , gotoDefinition
   ) where
 
-import           Development.IDE.Functions.Documentation
+import           Development.IDE.Spans.Documentation
 import           Development.IDE.Functions.GHCError
 import Development.IDE.Orphans()
 import Development.IDE.Types.Location
@@ -95,7 +95,7 @@ locationsAtPoint IdeOptions{..} pkgState pos =
     spansAtPoint pos
   where getSpan :: SpanSource -> Action (Maybe SrcSpan)
         getSpan NoSource = pure Nothing
-        getSpan (Span sp) = pure $ Just sp
+        getSpan (SpanS sp) = pure $ Just sp
         getSpan (Named name) = case nameSrcSpan name of
             sp@(RealSrcSpan _) -> pure $ Just sp
             UnhelpfulSpan _ -> runMaybeT $ do

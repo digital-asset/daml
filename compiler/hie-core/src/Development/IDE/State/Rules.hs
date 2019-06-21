@@ -51,7 +51,7 @@ import Development.IDE.Compat
 import           UniqSupply
 import NameCache
 
-import qualified Development.IDE.Functions.AtPoint as AtPoint
+import qualified Development.IDE.Spans.AtPoint as AtPoint
 import Development.IDE.State.Service
 import Development.IDE.State.Shake
 
