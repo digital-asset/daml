@@ -20,14 +20,14 @@ module Development.IDE.Functions.Compile
   , computePackageDeps
   ) where
 
-import           Development.IDE.Functions.Warnings
-import           Development.IDE.Functions.CPP
+import           Development.IDE.GHC.Warnings
+import           Development.IDE.GHC.CPP
 import           Development.IDE.Types.Diagnostics
 import qualified Development.IDE.Import.FindImports as FindImports
-import           Development.IDE.Functions.GHCError
+import           Development.IDE.GHC.Error
 import           Development.IDE.Spans.Calculate
-import Development.IDE.UtilGHC
-import Development.IDE.Compat
+import Development.IDE.GHC.Util
+import Development.IDE.GHC.Compat
 import Development.IDE.Types.Options
 import Development.IDE.Types.Location
 

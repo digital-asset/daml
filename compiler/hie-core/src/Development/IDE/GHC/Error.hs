@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DuplicateRecordFields #-}
-module Development.IDE.Functions.GHCError
+module Development.IDE.GHC.Error
   ( mkDiag
   , toDiagnostics
   , srcSpanToLocation
@@ -31,7 +31,7 @@ module Development.IDE.Functions.GHCError
 import                     Development.IDE.Types.Diagnostics as D
 import qualified           Data.Text as T
 import Development.IDE.Types.Location
-import Development.IDE.Orphans()
+import Development.IDE.GHC.Orphans()
 import qualified FastString as FS
 import           GHC
 import           Bag

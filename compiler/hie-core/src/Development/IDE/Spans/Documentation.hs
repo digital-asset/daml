@@ -10,7 +10,7 @@ import           Data.List.Extra
 import qualified Data.Map as M
 import           Data.Maybe
 import qualified Data.Text as T
-import           Development.IDE.Functions.GHCError
+import           Development.IDE.GHC.Error
 import           Development.IDE.Spans.Calculate
 import           FastString
 import           GHC

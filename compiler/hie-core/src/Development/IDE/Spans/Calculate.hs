@@ -23,7 +23,7 @@ import           GhcMonad
 import           FastString (mkFastString)
 import           Development.IDE.Types.Location
 import           Development.IDE.Types.SpanInfo
-import           Development.IDE.Functions.GHCError (zeroSpan)
+import           Development.IDE.GHC.Error (zeroSpan)
 import           Prelude hiding (mod)
 import           TcHsSyn
 import           Var

@@ -13,7 +13,7 @@ module Development.IDE.Import.DependencyInformation
 
 import Control.DeepSeq
 import Data.Bifunctor
-import Development.IDE.Orphans()
+import Development.IDE.GHC.Orphans()
 import Data.Either
 import Data.Foldable
 import Data.Graph
@@ -30,7 +30,6 @@ import GHC.Generics (Generic)
 
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import Development.IDE.UtilGHC ()
 
 import GHC
 import Module

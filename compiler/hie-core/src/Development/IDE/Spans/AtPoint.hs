@@ -10,14 +10,14 @@ module Development.IDE.Spans.AtPoint (
   ) where
 
 import           Development.IDE.Spans.Documentation
-import           Development.IDE.Functions.GHCError
-import Development.IDE.Orphans()
+import           Development.IDE.GHC.Error
+import Development.IDE.GHC.Orphans()
 import Development.IDE.Types.Location
 
 -- DAML compiler and infrastructure
 import Development.Shake
-import Development.IDE.UtilGHC
-import Development.IDE.Compat
+import Development.IDE.GHC.Util
+import Development.IDE.GHC.Compat
 import Development.IDE.Types.Options
 import           Development.IDE.Types.SpanInfo as SpanInfo
 

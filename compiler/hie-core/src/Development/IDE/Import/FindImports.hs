@@ -9,8 +9,8 @@ module Development.IDE.Import.FindImports
   , Import(..)
   ) where
 
-import           Development.IDE.Functions.GHCError as ErrUtils
-import Development.IDE.Orphans()
+import           Development.IDE.GHC.Error as ErrUtils
+import Development.IDE.GHC.Orphans()
 import Development.IDE.Types.Location
 -- GHC imports
 import           BasicTypes                  (StringLiteral(..))

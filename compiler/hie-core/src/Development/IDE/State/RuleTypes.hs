@@ -25,7 +25,7 @@ import           Development.Shake                        hiding (Env, newCache)
 import           GHC.Generics                             (Generic)
 
 import           GHC
-import Development.IDE.Compat
+import Development.IDE.GHC.Compat
 import           Module
 
 import           Development.IDE.Types.SpanInfo

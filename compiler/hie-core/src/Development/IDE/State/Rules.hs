@@ -42,12 +42,12 @@ import           Data.Foldable
 import qualified Data.Map.Strict                          as Map
 import qualified Data.Set                                 as Set
 import qualified Data.Text                                as T
-import           Development.IDE.Functions.GHCError
+import           Development.IDE.GHC.Error
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import Development.IDE.State.RuleTypes
 
 import           GHC
-import Development.IDE.Compat
+import Development.IDE.GHC.Compat
 import           UniqSupply
 import NameCache
 

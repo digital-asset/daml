@@ -13,7 +13,7 @@ module Development.IDE.State.FileStore(
     ) where
 
 import           StringBuffer
-import Development.IDE.Orphans()
+import Development.IDE.GHC.Orphans()
 
 import Control.Concurrent.Extra
 import qualified Data.Map.Strict as Map

@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Development.IDE.Functions.Warnings(withWarnings) where
+module Development.IDE.GHC.Warnings(withWarnings) where
 
 import ErrUtils
 import GhcMonad
@@ -13,8 +13,8 @@ import           Control.Concurrent.Extra
 import           Control.Monad.Extra
 
 import           Development.IDE.Types.Diagnostics
-import Development.IDE.UtilGHC
-import           Development.IDE.Functions.GHCError
+import Development.IDE.GHC.Util
+import           Development.IDE.GHC.Error
 
 
 -- | Take a GHC monadic action (e.g. @typecheckModule pm@ for some
