@@ -20,8 +20,8 @@ import qualified "ghc-lib-parser" DynFlags                        as DF
 import           "ghc-lib-parser" Bag (bagToList)
 
 import           Control.Monad.Except             as Ex
+import Control.Monad.Trans.Maybe
 import           Data.Char (isSpace)
-import Data.Either.Extra
 import           Data.List.Extra
 import           Data.Maybe
 import qualified Data.Map.Strict as MS
@@ -125,13 +125,13 @@ haddockParse opts f = ExceptT $ do
   service <- Service.initialise Service.mainRule (const $ pure ()) Logger.makeNopHandle opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
   parsed  <- Service.runAction service $
-             Ex.runExceptT $
+             runMaybeT $
              -- We only _parse_ the modules, the documentation generator is syntax-directed
              do deps <- Service.usesE Service.GetDependencies f
                 Service.usesE Service.GetParsedModule $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
                 -- The DAML compiler always parses with Opt_Haddock on
   diags <- Service.getDiagnostics service
-  pure (mapLeft (const diags) parsed)
+  pure (maybe (Left diags) Right parsed)
 
 -- | Pair up all doc decl.s from a parsed module with their referred-to
 --   declaration. See Haddock's equivalent Haddock.Interface.Create.collectDocs
