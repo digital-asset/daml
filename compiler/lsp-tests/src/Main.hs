@@ -434,7 +434,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
             [ "foo100 : Bool"
             , "foo100 = False"
             ]
-        withTimeout 180 $ do -- This takes way too long. Can we get it down?
+        withTimeout 30 $ do
             expectDiagnostics [("Foo0.daml", [(DsError, (4, 7), "Couldn't match expected type")])]
             void $ replaceDoc foo0 $ moduleContent "Foo0"
                 [ "import Foo1"
