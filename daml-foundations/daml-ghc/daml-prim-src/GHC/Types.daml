@@ -140,7 +140,8 @@ magic = magic -- deleted by the compiler
 -- | HIDE Dummy type to mark types built into DAML-LF.
 data Opaque = Opaque
 
--- | A type for text strings, for example `"Hello, world"`.
+-- | A type for text strings, that can represent any unicode code point.
+-- For example `"Hello, world"`.
 data Text =
   -- | HIDE
   Text Opaque
