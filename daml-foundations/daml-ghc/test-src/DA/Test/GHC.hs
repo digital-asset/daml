@@ -59,7 +59,7 @@ import           System.Time.Extra
 import qualified Development.IDE.State.API as Compile
 import qualified Development.IDE.State.Rules.Daml as Compile
 import qualified Development.IDE.Types.Diagnostics as D
-import Development.IDE.UtilGHC
+import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
 import qualified Proto3.Suite.JSONPB as JSONPB

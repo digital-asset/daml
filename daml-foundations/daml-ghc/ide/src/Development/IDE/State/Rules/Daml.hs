@@ -35,7 +35,7 @@ import System.FilePath
 import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
 
-import Development.IDE.Functions.DependencyInformation
+import Development.IDE.Import.DependencyInformation
 import Development.IDE.State.Rules hiding (mainRule)
 import qualified Development.IDE.State.Rules as IDE
 import Development.IDE.State.Service.Daml
