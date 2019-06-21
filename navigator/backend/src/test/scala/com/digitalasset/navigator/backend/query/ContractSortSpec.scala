@@ -100,7 +100,7 @@ class ContractSortSpec extends FlatSpec with Matchers {
     contracts.sortBy(_.agreementText)
   )
   test(List("signatories" -> ASCENDING), contracts.sortBy(_.signatories))
-  test(List("observers" -> ASCENDING), contracts.sortBy(_.signatories))
+  test(List("observers" -> ASCENDING), contracts.sortBy(_.observers))
   test(List("argument.foo" -> ASCENDING), List(contract1, contract3, contract2, contract4))
   test(
     List("argument.foo" -> ASCENDING, "id" -> DESCENDING),
