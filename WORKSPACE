@@ -12,6 +12,10 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 daml_deps()
 
+load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
+
+protobuf_deps()
+
 load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
 
 haskell_repositories()

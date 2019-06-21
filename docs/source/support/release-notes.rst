@@ -6,19 +6,6 @@ Release notes
 
 This page contains release notes for the SDK.
 
-DAML Assistant
-~~~~~~~~~~~~~~
-
-- Added `--install-assistant` flag to `daml install` command, changing the default
-  behavior of `daml install` to be "install the assistant whenever we are installing
-  a newer version of the SDK". Deprecated the `--activate` flag.
-
-DAML Studio
-~~~~~~~~~~~
-
-- Opening an already open scenario will now focus it rather than opening
-  it in a new empty tab which is never updated with results.
-
 .. _release-0-13-5:
 
 0.13.5 - 2019-06-19

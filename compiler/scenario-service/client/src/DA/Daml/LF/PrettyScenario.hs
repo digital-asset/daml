@@ -901,7 +901,7 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
         H.head $ do
             H.style $ H.text Pretty.highlightStylesheet
             H.style $ H.text stylesheet
-            H.script $ H.text javascript
+            H.script "" H.! A.src "$webviewSrc"
         let tableView = renderTableView world res
         let transView = renderTransactionView world res
         case tableView of
@@ -917,42 +917,6 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
                         H.label H.! A.for "show_archived" $ "Show archived"
                 tbl
                 transView
-
-javascript :: T.Text
-javascript = T.unlines
-  [ "const vscode = acquireVsCodeApi();"
-  , "function show_archived_changed() {"
-  , "  document.body.classList.toggle('hide_archived', !document.getElementById('show_archived').checked);"
-  , "}"
-  , "function toggle_view() {"
-  , "  document.body.classList.toggle('hide_transaction');"
-  , "  document.body.classList.toggle('hide_table');"
-  , "  vscode.postMessage({"
-  , "    'command': 'selected_view',"
-  , "    'value': document.body.classList.contains('hide_transaction') ? 'table' : 'transaction'"
-  , "  });"
-  , "}"
-  , "window.addEventListener('message', event => {"
-  , "  const message = event.data;"
-  , "  switch (message.command) {"
-  , "    case 'select_view':"
-  , "      switch (message.value) {"
-  , "        case 'transaction':"
-  , "          document.body.classList.remove('hide_transaction');"
-  , "          document.body.classList.add('hide_table');"
-  , "          break;"
-  , "        case 'table':"
-  , "          document.body.classList.add('hide_transaction');"
-  , "          document.body.classList.remove('hide_table');"
-  , "          break;"
-  , "        default:"
-  , "          console.log('Unexpected value for select_view: ' + message.value);"
-  , "          break;"
-  , "      }"
-  , "      break;"
-  , "  }"
-  , "});"
-  ]
 
 stylesheet :: T.Text
 stylesheet = T.unlines

@@ -69,38 +69,38 @@ jobs:
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
-  - job: perf
-    timeoutInMinutes: 60
-    pool:
-      name: 'linux-pool'
-    steps:
-      - checkout: self
-      - bash: ci/dev-env-install.sh
-        displayName: 'Build/Install the Developer Environment'
-      - bash: ci/configure-bazel.sh
-        displayName: 'Configure Bazel'
-        env:
-          IS_FORK: $(System.PullRequest.IsFork)
-          # to upload to the bazel cache
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - bash: |
-          set -euo pipefail
-          eval "$(./dev-env/bin/dade-assist)"
-          bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
-      - task: PublishBuildArtifacts@1
-        condition: succeededOrFailed()
-        inputs:
-          pathtoPublish: '$(Build.StagingDirectory)'
-          artifactName: 'Perf test logs'
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* perf: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+#  - job: perf
+#    timeoutInMinutes: 60
+#    pool:
+#      name: 'linux-pool'
+#    steps:
+#      - checkout: self
+#      - bash: ci/dev-env-install.sh
+#        displayName: 'Build/Install the Developer Environment'
+#      - bash: ci/configure-bazel.sh
+#        displayName: 'Configure Bazel'
+#        env:
+#          IS_FORK: $(System.PullRequest.IsFork)
+#          # to upload to the bazel cache
+#          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+#      - bash: |
+#          set -euo pipefail
+#          eval "$(./dev-env/bin/dade-assist)"
+#          bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
+#      - task: PublishBuildArtifacts@1
+#        condition: succeededOrFailed()
+#        inputs:
+#          pathtoPublish: '$(Build.StagingDirectory)'
+#          artifactName: 'Perf test logs'
+#      - bash: |
+#          set -euo pipefail
+#          MESSAGE=$(git log --pretty=format:%s -n1)
+#          curl -XPOST \
+#               -i \
+#               -H 'Content-type: application/json' \
+#               --data "{\"text\":\"<!here> *FAILED* perf: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
+#               $(Slack.URL)
+#        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
   - job: Windows_signing
     # Signing is a separate job so that we can make sure that we only sign on releases.
@@ -137,7 +137,7 @@ jobs:
           targetPath: $(Build.StagingDirectory)/$(signing.artifact-windows-installer)
           artifactName: $(signing.artifact-windows-installer)
   - job: release
-    dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
+    dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing"] #, "perf"]
     pool:
       vmImage: "Ubuntu-16.04"
     condition: and(succeeded(),

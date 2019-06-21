@@ -28,7 +28,11 @@ export async function activate(context: vscode.ExtensionContext) {
     damlLanguageClient = createLanguageClient(config, await consent);
     // lsClient.trace = 2;
 
-    let virtualResourceManager = new VirtualResourceManager(damlLanguageClient);
+
+    const webviewSrc: Uri =
+        vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')).
+        with({scheme: 'vscode-resource'});
+    let virtualResourceManager = new VirtualResourceManager(damlLanguageClient, webviewSrc);
     context.subscriptions.push(virtualResourceManager);
 
     let _unused = damlLanguageClient.onReady().then(() => {
@@ -274,9 +278,11 @@ class VirtualResourceManager {
     private _panelStates: Map<string, string> = new Map<string, string>();
     private _client: LanguageClient;
     private _disposables: vscode.Disposable[] = [];
+    private _webviewSrc : Uri;
 
-    constructor(client: LanguageClient) {
+    constructor(client: LanguageClient, webviewSrc: Uri) {
         this._client = client;
+        this._webviewSrc = webviewSrc;
     }
 
     private open(uri: string) {
@@ -334,6 +340,7 @@ class VirtualResourceManager {
     }
 
     public setContent(uri: string, contents: string) {
+        contents = contents.replace('$webviewSrc', this._webviewSrc.toString());
         this._panelContents.set(uri, contents);
         const panel = this._panels.get(uri);
         if (panel) {
