@@ -7,19 +7,23 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v2.{
   PartyAllocationResult,
   SubmissionResult,
   SubmittedTransaction,
   SubmitterInfo,
-  TransactionMeta
+  TransactionMeta,
+  UploadPackagesResult
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   CommandId,
@@ -32,7 +36,11 @@ import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
-import com.digitalasset.platform.sandbox.stores.{ActiveContracts, InMemoryActiveContracts}
+import com.digitalasset.platform.sandbox.stores.{
+  ActiveContracts,
+  InMemoryActiveContracts,
+  InMemoryPackageStore
+}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -45,6 +53,7 @@ class InMemoryLedger(
     val ledgerId: LedgerId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveContracts,
+    packages0: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])
     extends Ledger {
 
@@ -59,6 +68,9 @@ class InMemoryLedger(
     }
     l
   }
+
+  // TODO(RC): Do we need a clone here? The package store contains mutable state.
+  private val packages = packages0
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     entries.getSource(offset)
@@ -234,4 +246,19 @@ class InMemoryLedger(
         PartyAllocationResult.Ok(details)
       }
     })
+
+  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
+    packages.listLfPackages()
+
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    packages.getLfArchive(packageId)
+
+  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
+    packages.getLfPackage(packageId)
+
+  override def uploadPackages(
+      knownSince: Instant,
+      sourceDescription: Option[String],
+      payload: List[Archive]): Future[UploadPackagesResult] =
+    Future.successful(packages.uploadPackages(knownSince, sourceDescription, payload))
 }

@@ -160,7 +160,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
     }
 
-    val packageStore = InMemoryPackageStore()
+    val packageStore = InMemoryPackageStore.empty
 
     // TODO is it sensible to have all the initial packages to be known
     // since the epoch?

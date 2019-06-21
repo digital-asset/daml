@@ -7,17 +7,14 @@ import java.time.Instant
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v2.{
-  PartyAllocationResult,
-  SubmissionResult,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta
-}
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v2._
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
@@ -65,6 +62,23 @@ private class MeteredLedger(ledger: Ledger, mm: MetricsManager) extends Ledger {
       party: Party,
       displayName: Option[String]): Future[PartyAllocationResult] =
     mm.timedFuture("Ledger:addParty", ledger.allocateParty(party, displayName))
+
+  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
+    mm.timedFuture("Ledger:listLfPackages", ledger.listLfPackages())
+
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    mm.timedFuture("Ledger:getLfArchive", ledger.getLfArchive(packageId))
+
+  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
+    mm.timedFuture("Ledger:getLfPackage", ledger.getLfPackage(packageId))
+
+  override def uploadPackages(
+      knownSince: Instant,
+      sourceDescription: Option[String],
+      payload: List[Archive]): Future[UploadPackagesResult] =
+    mm.timedFuture(
+      "Ledger:uploadPackages",
+      ledger.uploadPackages(knownSince, sourceDescription, payload))
 
   override def close(): Unit = {
     ledger.close()

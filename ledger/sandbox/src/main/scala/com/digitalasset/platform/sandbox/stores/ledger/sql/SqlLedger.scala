@@ -9,20 +9,17 @@ import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import akka.{Done, NotUsed}
-import com.daml.ledger.participant.state.v2.{
-  PartyAllocationResult,
-  SubmissionResult,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta
-}
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v2._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -32,7 +29,7 @@ import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
   ContinueIfExists
@@ -82,6 +79,7 @@ object SqlLedger {
       ledgerId: Option[LedgerId],
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
+      packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
@@ -105,6 +103,7 @@ object SqlLedger {
       timeProvider,
       startMode,
       acs,
+      packages,
       initialLedgerEntries,
       queueDepth)
   }
@@ -115,6 +114,7 @@ private class SqlLedger(
     headAtInitialization: Long,
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
+    packages: InMemoryPackageStore,
     queueDepth: Int)(implicit mat: Materializer)
     extends Ledger {
 
@@ -330,6 +330,21 @@ private class SqlLedger(
 
   override def parties: Future[List[PartyDetails]] =
     ledgerDao.getParties
+
+  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
+    packages.listLfPackages()
+
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    packages.getLfArchive(packageId)
+
+  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
+    packages.getLfPackage(packageId)
+
+  override def uploadPackages(
+      knownSince: Instant,
+      sourceDescription: Option[String],
+      payload: List[Archive]): Future[UploadPackagesResult] =
+    packages.uploadDar(knownSince, sourceDescription, payload)
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao) {
@@ -355,6 +370,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
       acs: InMemoryActiveContracts,
+      packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
@@ -372,7 +388,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
     for {
       ledgerId <- init()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
-    } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider, queueDepth)
+    } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider, packages, queueDepth)
   }
 
   private def reset(): Future[Unit] =
