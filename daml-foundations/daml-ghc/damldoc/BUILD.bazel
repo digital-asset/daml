@@ -28,6 +28,7 @@ da_haskell_library(
         "mtl",
         "prettyprinter",
         "text",
+        "transformers",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],

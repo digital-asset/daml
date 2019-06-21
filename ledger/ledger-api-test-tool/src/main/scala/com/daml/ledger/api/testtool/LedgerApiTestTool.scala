@@ -12,7 +12,12 @@ import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.semantictest.SandboxSemanticTestsLfRunner
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.platform.testing.LedgerBackend
-import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceIT
+import com.digitalasset.platform.tests.integration.ledger.api.commands.{
+  CommandTransactionChecksHighLevelIT,
+  CommandTransactionChecksLowLevelIT
+}
+import com.digitalasset.platform.tests.integration.ledger.api.{DivulgenceIT, TransactionServiceIT}
+import com.digitalasset.platform.tests.integration.ledger.api.transaction.TransactionBackpressureIT
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{Args, Suite}
 
@@ -149,14 +154,66 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-
-          // TODO(gleber): implement parienceConfig and spanScaleFactor in this suite.
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }
     )
 
-    Map(transactionServiceIT)
+    val transactionBackpressureIT = lazyInit(
+      "TransactionBackpressureIT",
+      name =>
+        new TransactionBackpressureIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    val divulgenceIT = lazyInit(
+      "DivulgenceIT",
+      name =>
+        new DivulgenceIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    val commandTransactionChecksHighLevelIT = lazyInit(
+      "CommandTransactionChecksHighLevelIT",
+      name =>
+        new CommandTransactionChecksHighLevelIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    val commandTransactionChecksLowLevelIT = lazyInit(
+      "CommandTransactionChecksLowLevelIT",
+      name =>
+        new CommandTransactionChecksLowLevelIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    Map(
+      transactionServiceIT,
+      transactionBackpressureIT,
+      divulgenceIT,
+      commandTransactionChecksHighLevelIT,
+      commandTransactionChecksLowLevelIT
+    )
   }
 
   def lazyInit[A](name: String, factory: String => A): (String, () => A) = {
