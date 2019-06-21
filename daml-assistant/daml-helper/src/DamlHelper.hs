@@ -137,6 +137,7 @@ shouldReplaceExtension replaceExt dir =
 
 runJar :: FilePath -> [String] -> IO ()
 runJar jarPath remainingArguments = do
+    installSignalHandlers
     exitCode <- withJar jarPath remainingArguments waitForProcess
     exitWith exitCode
 
@@ -144,7 +145,6 @@ withJar :: FilePath -> [String] -> (ProcessHandle -> IO a) -> IO a
 withJar jarPath args a = do
     sdkPath <- getSdkPath
     let absJarPath = sdkPath </> jarPath
-    installSignalHandlers
     (withCreateProcess (proc "java" ("-jar" : absJarPath : args)) $ \_ _ _ -> a) `catchIO`
         (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
 
