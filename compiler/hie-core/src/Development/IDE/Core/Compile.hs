@@ -34,7 +34,6 @@ import Development.IDE.Types.Location
 import           GHC hiding (parseModule, typecheckModule)
 import qualified Parser
 import           Lexer
-import           Bag
 
 import qualified GHC
 import           Panic
@@ -395,7 +394,7 @@ parseFileContents preprocessor filename contents = do
 
    case unP Parser.parseModule (mkPState dflags contents loc) of
      PFailed _ locErr msgErr ->
-      Ex.throwE $ mkErrorDoc dflags locErr msgErr
+      Ex.throwE $ diagFromSDoc dflags locErr msgErr
      POk pst rdr_module ->
          let hpm_annotations =
                (Map.fromListWith (++) $ annotations pst,
@@ -414,11 +413,11 @@ parseFileContents preprocessor filename contents = do
                -- errors are those from which a parse tree just can't
                -- be produced.
                unless (null errs) $
-                 Ex.throwE $ toDiagnostics dflags $ snd $ getMessages pst dflags
+                 Ex.throwE $ diagFromErrMsgs dflags $ snd $ getMessages pst dflags
 
                -- Ok, we got here. It's safe to continue.
                let (errs, parsed) = preprocessor rdr_module
-               unless (null errs) $ Ex.throwE $ mkErrors dflags errs
+               unless (null errs) $ Ex.throwE $ diagFromStrings dflags errs
                ms <- getModSummaryFromBuffer filename contents dflags parsed
                let pm =
                      ParsedModule {
@@ -427,7 +426,7 @@ parseFileContents preprocessor filename contents = do
                        , pm_extra_src_files=[] -- src imports not allowed
                        , pm_annotations = hpm_annotations
                       }
-                   warnings = mapMaybe (mkDiag dflags) $ bagToList warns
+                   warnings = diagFromErrMsgs dflags warns
                pure (warnings, pm)
 
 
@@ -453,5 +452,5 @@ catchSrcErrors ghcM = do
         handleSourceError (sourceErrorToDiagnostics dflags) $
         Right <$> ghcM
     where
-        ghcExceptionToDiagnostics dflags = return . Left . mkErrorsGhcException dflags
-        sourceErrorToDiagnostics dflags = return . Left . toDiagnostics dflags . srcErrorMessages
+        ghcExceptionToDiagnostics dflags = return . Left . diagFromGhcException dflags
+        sourceErrorToDiagnostics dflags = return . Left . diagFromErrMsgs dflags . srcErrorMessages

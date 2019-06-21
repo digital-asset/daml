@@ -50,7 +50,7 @@ getImportsParsed dflags (L loc parsed) = do
   let srcImports = filter (ideclSource . GHC.unLoc) $ GHC.hsmodImports parsed
   when (not $ null srcImports) $ Ex.throwE $
     concat
-      [ mkErrors dflags [(mloc, "Illegal source import of " <> GHC.moduleNameString (GHC.unLoc $ GHC.ideclName i))]
+      [ diagFromStrings dflags [(mloc, "Illegal source import of " <> GHC.moduleNameString (GHC.unLoc $ GHC.ideclName i))]
       | L mloc i <- srcImports ]
 
   -- most of these corner cases are also present in https://hackage.haskell.org/package/ghc-8.6.1/docs/src/HeaderInfo.html#getImports
@@ -108,7 +108,7 @@ notFoundErr :: DynFlags -> Located M.ModuleName -> LookupResult -> [FileDiagnost
 notFoundErr dfs modName reason =
   mkError' $ ppr' $ cannotFindModule dfs modName0 $ lookupToFindResult reason
   where
-    mkError' = mkError dfs (getLoc modName)
+    mkError' = diagFromString dfs (getLoc modName)
     modName0 = unLoc modName
     ppr' = showSDoc dfs
     -- We convert the lookup result to a find result to reuse GHC's cannotFindMoudle pretty printer.

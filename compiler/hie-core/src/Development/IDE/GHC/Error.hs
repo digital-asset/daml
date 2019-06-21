@@ -5,12 +5,12 @@
 module Development.IDE.GHC.Error
   (
     -- * Producing Diagnostic values
-    mkDiag
-  , toDiagnostics
-  , mkErrors
-  , mkError
-  , mkErrorDoc
-  , mkErrorsGhcException
+    diagFromErrMsgs
+  , diagFromErrMsg
+  , diagFromString
+  , diagFromStrings
+  , diagFromSDoc
+  , diagFromGhcException
 
   -- * utilities working with spans
   , srcSpanToLocation
@@ -34,12 +34,12 @@ import qualified Outputable                 as Out
 
 
 
-toDiagnostics :: DynFlags -> ErrorMessages -> [FileDiagnostic]
-toDiagnostics dflags = mapMaybe (mkDiag dflags) . bagToList
+diagFromErrMsgs :: DynFlags -> Bag ErrMsg -> [FileDiagnostic]
+diagFromErrMsgs dflags = mapMaybe (diagFromErrMsg dflags) . bagToList
 
 
-mkDiag :: DynFlags -> ErrMsg -> Maybe FileDiagnostic
-mkDiag dflags e =
+diagFromErrMsg :: DynFlags -> ErrMsg -> Maybe FileDiagnostic
+diagFromErrMsg dflags e =
   case toDSeverity $ errMsgSeverity e of
     Nothing        -> Nothing
     Just bSeverity ->
@@ -87,16 +87,16 @@ toDSeverity SevFatal       = Just DsError
 
 -- | Produce a bag of GHC-style errors (@ErrorMessages@) from the given
 --   (optional) locations and message strings.
-mkErrors :: DynFlags -> [(SrcSpan, String)] -> [FileDiagnostic]
-mkErrors dflags = concatMap (uncurry $ mkError dflags)
+diagFromStrings :: DynFlags -> [(SrcSpan, String)] -> [FileDiagnostic]
+diagFromStrings dflags = concatMap (uncurry $ diagFromString dflags)
 
 -- | Produce a GHC-style error from a source span and a message.
-mkError :: DynFlags -> SrcSpan -> String -> [FileDiagnostic]
-mkError dflags sp = toDiagnostics dflags . Bag.listToBag . pure . mkPlainErrMsg dflags sp . Out.text
+diagFromString :: DynFlags -> SrcSpan -> String -> [FileDiagnostic]
+diagFromString dflags sp = diagFromErrMsgs dflags . Bag.listToBag . pure . mkPlainErrMsg dflags sp . Out.text
 
 -- | Produce a GHC-style error from a source span and a message.
-mkErrorDoc :: DynFlags -> SrcSpan -> Out.SDoc -> [FileDiagnostic]
-mkErrorDoc dflags sp = toDiagnostics dflags . Bag.listToBag . pure . mkPlainErrMsg dflags sp
+diagFromSDoc :: DynFlags -> SrcSpan -> Out.SDoc -> [FileDiagnostic]
+diagFromSDoc dflags sp = diagFromErrMsgs dflags . Bag.listToBag . pure . mkPlainErrMsg dflags sp
 
 
 -- | Produces an "unhelpful" source span with the given string.
@@ -116,8 +116,8 @@ realSpan = \case
   UnhelpfulSpan _ -> Nothing
 
 
-mkErrorsGhcException :: DynFlags -> GhcException -> [FileDiagnostic]
-mkErrorsGhcException dflags exc = mkErrors dflags [(noSpan "<Internal>", showGHCE dflags exc)]
+diagFromGhcException :: DynFlags -> GhcException -> [FileDiagnostic]
+diagFromGhcException dflags exc = diagFromStrings dflags [(noSpan "<Internal>", showGHCE dflags exc)]
 
 showGHCE :: DynFlags -> GhcException -> String
 showGHCE dflags exc = case exc of
