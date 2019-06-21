@@ -123,18 +123,17 @@ getDiagnosticsFromStore (StoreItem _ diags) =
 -- | Sets the diagnostics for a file and compilation step
 --   if you want to clear the diagnostics call this with an empty list
 setStageDiagnostics ::
-  Show stage =>
   NormalizedFilePath ->
   Maybe Int ->
   -- ^ the time that the file these diagnostics originate from was last edited
-  stage ->
+  T.Text ->
   [LSP.Diagnostic] ->
   DiagnosticStore ->
   DiagnosticStore
 setStageDiagnostics fp timeM stage diags ds  =
     updateDiagnostics ds uri timeM diagsBySource
     where
-        diagsBySource = Map.singleton (Just $ T.pack $ show stage) (SL.toSortedList diags)
+        diagsBySource = Map.singleton (Just stage) (SL.toSortedList diags)
         uri = filePathToUri' fp
 
 getAllDiagnostics ::

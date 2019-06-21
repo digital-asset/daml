@@ -404,7 +404,7 @@ updateFileDiagnostics fp k ShakeExtras{diagnostics, state} current = do
         modTime <- join <$> getValues state GetModificationTime fp
         modifyVar diagnostics $ \old -> do
             let oldDiags = getFileDiagnostics fp old
-            let newDiagsStore = setStageDiagnostics fp (vfsVersion =<< modTime) k current old
+            let newDiagsStore = setStageDiagnostics fp (vfsVersion =<< modTime) (T.pack $ show k) current old
             let newDiags = getFileDiagnostics fp newDiagsStore
             pure (newDiagsStore, (newDiags, oldDiags))
     when (newDiags /= oldDiags) $
