@@ -28,7 +28,7 @@ import GHC.Prim
 
 infixr 5 ::
 
--- | A type for constraints, like `Show a`
+-- | A kind for constraints, like `Show a`
 data Constraint
 
 -- | (Kind) This is the kind of type-level symbols.
