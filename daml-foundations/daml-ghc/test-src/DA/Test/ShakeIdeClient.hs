@@ -421,6 +421,23 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,2,[6..13]) (In "Prelude") -- "Optional"
             expectGoToDefinition (foo,2,[16..19]) (In "GHC.Types") -- "List"
             expectGoToDefinition (foo,2,[21..24]) (In "GHC.Types") -- "Bool"
+
+    ,   testCase' "Go to definition takes export list to definition" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo (foo, A(B)) where"
+                , "foo : Int"
+                , "foo = 0"
+                , "data A = B Int"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            -- foo
+            expectGoToDefinition (foo,1,[13..14]) (At (foo,3,0))
+            -- A
+            expectGoToDefinition (foo,1,[17..17]) (At (foo,4,0))
+            -- B
+            expectGoToDefinition (foo,1,[19..19]) (At (foo,4,9))
 {-
     -- Disabled for now. See issue
     -- https://github.com/digital-asset/daml/issues/1582
