@@ -19,11 +19,9 @@ import scala.collection.{breakOut, mutable}
 
 private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
 
-  import Decode._, LanguageMinorVersion.Implicits._
+  import Decode._, DecodeV1._, LanguageMinorVersion.Implicits._
 
   private val languageVersion = LanguageVersion(V1, minor)
-
-  private val internedIdsVersion: LanguageMinorVersion = "dev"
 
   private def name(s: String): Name = eitherToParseError(Name.fromString(s))
 
@@ -252,7 +250,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
             (typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
-          val (tPrim, minVersion) = DecodeV1.primTypeTable(prim.getPrim)
+          val (tPrim, minVersion) = primTypeTable(prim.getPrim)
           assertSince(minVersion, prim.getPrim.getValueDescriptor.getFullName)
           (TBuiltin(tPrim) /: [Type] prim.getArgsList.asScala)((typ, arg) =>
             TApp(typ, decodeType(arg)))
@@ -692,8 +690,10 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
 }
 
-object DecodeV1 {
+private[lf] object DecodeV1 {
   import LanguageMinorVersion.Implicits._
+
+  private[archive] val internedIdsVersion: LanguageMinorVersion = "dev"
 
   private[lf] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
     import PLF.PrimType._
