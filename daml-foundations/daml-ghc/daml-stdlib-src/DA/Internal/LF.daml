@@ -42,7 +42,9 @@ import GHC.Types (Opaque, Symbol, magic)
 import DA.Internal.Prelude
 
 -- | The `Party` type represents a party to a contract.
-data Party = Party Opaque
+data Party =
+  -- | HIDE
+  Party Opaque
 -- Note that before DAML-LF 1.2 BEToText added single quotes around the party.
 -- now it does not, and the old behavior has been renamed BEPartyToQuotedText.
 -- Since we want this to work with both versions, keep the old behavior.
@@ -88,13 +90,17 @@ getParty : Text -> Scenario Party
 getParty = primitive @"SGetParty"
 
 -- | The `Date` type represents a date.
-data Date = Date Opaque
+data Date =
+  -- | HIDE
+  Date Opaque
 instance Show Date where show = primitive @"BEToText"
 instance Eq Date where (==) = primitive @"BEEqual"
 instance Ord Date where (<=) = primitive @"BELessEq"
 
 -- | The `Time` type represents a specific datetime in UTC, i.e. a date and a time in UTC.
-data Time = Time Opaque
+data Time =
+  -- | HIDE
+  Time Opaque
 instance Show Time where show = primitive @"BEToText"
 instance Eq Time where (==) = primitive @"BEEqual"
 instance Ord Time where (<=) = primitive @"BELessEq"
@@ -120,7 +126,9 @@ coerceContractId = primitive @"BECoerceContractId"
 
 -- | The `Update a` type represents an action to update or query the ledger,
 --   before returning a value of type `a`.
-data Update a = Update Opaque
+data Update a =
+  -- | HIDE
+  Update Opaque
 
 instance Functor Update where
     fmap f x = x >>= \v -> pure (f v)
@@ -158,7 +166,9 @@ instance CanAbort Scenario where
 -- | The `Scenario` type is used to simulate multi-party ledger interactions.
 -- The type `Scenario a` describes a set of actions taken by various parties during
 -- the simulated scenario, before returning a value of type `a`.
-data Scenario a = Scenario Opaque
+data Scenario a =
+  -- | HIDE
+  Scenario Opaque
 
 instance Functor Scenario where
     fmap f x = x >>= \v -> pure (f v)
