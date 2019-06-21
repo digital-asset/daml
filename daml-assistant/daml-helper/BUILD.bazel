@@ -3,6 +3,7 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("//bazel_tools:packaging/packaging.bzl", "package_app")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_library(
     name = "daml-helper-lib",
@@ -28,7 +29,7 @@ da_haskell_library(
         "safe-exceptions",
         "text",
         "yaml",
-    ],
+    ] + ([] if is_windows else ["unix"]),
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant:daml-project-config",

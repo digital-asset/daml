@@ -60,6 +60,8 @@ import DAML.Project.Consts
 import DAML.Project.Types
 import DAML.Project.Util
 
+import DamlHelper.Signals
+
 data DamlHelperError = DamlHelperError
     { errMessage :: T.Text
     , errInternal :: Maybe T.Text
@@ -142,6 +144,7 @@ withJar :: FilePath -> [String] -> (ProcessHandle -> IO a) -> IO a
 withJar jarPath args a = do
     sdkPath <- getSdkPath
     let absJarPath = sdkPath </> jarPath
+    installSignalHandlers
     (withCreateProcess (proc "java" ("-jar" : absJarPath : args)) $ \_ _ _ -> a) `catchIO`
         (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
 
@@ -545,6 +548,7 @@ runStart (OpenBrowser shouldOpenBrowser) = withProjectRoot Nothing (ProjectCheck
     assistant <- getDamlAssistant
     callCommand (unwords $ assistant : ["build", "-o", darPath])
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
+    installSignalHandlers
     withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
         parties <- getProjectParties
         withTempDir $ \confDir -> do
