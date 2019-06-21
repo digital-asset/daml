@@ -23,3 +23,4 @@ HEAD — ongoing
   also includes the protobuf-java library used as a dependency.
 - [Ledger API] Added additional Ledger API integration tests to Ledger API Test Tool.
 - [DAML Studio] Goto definition now works on the export list of modules.
+- [Java Bindings] The artefact ``com.daml.ledger:bindings-java`` now has ``grpc-netty`` as dependency so that users don't need to explicitly add it.
