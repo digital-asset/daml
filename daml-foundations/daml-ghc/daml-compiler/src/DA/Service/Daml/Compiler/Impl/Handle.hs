@@ -35,7 +35,7 @@ module DA.Service.Daml.Compiler.Impl.Handle
 -- HS/DAML to LF compiler (daml-ghc)
 import DA.Daml.GHC.Compiler.Convert (sourceLocToRange)
 import DA.Daml.GHC.Compiler.Options
-import Development.IDE.State.Service.Daml
+import Development.IDE.Core.Service.Daml
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as Scenario
 import "ghc-lib" GHC (ParsedModule)
 
@@ -57,9 +57,9 @@ import Data.Maybe
 
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.State.API
-import Development.IDE.State.Rules.Daml
-import Development.IDE.State.RuleTypes.Daml
-import qualified Development.IDE.State.Shake as Shake
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.RuleTypes.Daml
+import qualified Development.IDE.Core.Shake as Shake
 import           Development.IDE.Types.Diagnostics as Base
 import qualified Language.Haskell.LSP.Messages as LSP
 import Development.IDE.Types.Location as Base

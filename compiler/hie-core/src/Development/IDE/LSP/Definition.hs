@@ -12,7 +12,7 @@ import           Development.IDE.LSP.Protocol
 import Development.IDE.Types.Location
 
 import qualified Development.IDE.Types.Logger as Logger
-import Development.IDE.State.Rules
+import Development.IDE.Core.Rules
 
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc

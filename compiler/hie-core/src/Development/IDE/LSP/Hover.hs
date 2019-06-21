@@ -18,7 +18,7 @@ import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 
-import Development.IDE.State.Rules
+import Development.IDE.Core.Rules
 
 -- | Display information on hover.
 handle

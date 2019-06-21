@@ -8,7 +8,7 @@
 -- | A Shake implementation of the compiler service, built
 --   using the "Shaker" abstraction layer for in-memory use.
 --
-module Development.IDE.State.Service(
+module Development.IDE.Core.Service(
     Env(..),
     getServiceEnv,
     IdeState, initialise, shutdown,
@@ -23,7 +23,7 @@ module Development.IDE.State.Service(
 import           Control.Concurrent.Extra
 import           Control.Monad.Except
 import Development.IDE.Types.Options (IdeOptions(..))
-import           Development.IDE.State.FileStore
+import           Development.IDE.Core.FileStore
 import qualified Development.IDE.Types.Logger as Logger
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
@@ -36,7 +36,7 @@ import qualified Language.Haskell.LSP.Messages as LSP
 
 import           UniqSupply
 
-import           Development.IDE.State.Shake
+import           Development.IDE.Core.Shake
 
 
 -- | Environment threaded through the Shake actions.

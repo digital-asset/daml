@@ -3,7 +3,7 @@
 
 {-# LANGUAGE TypeFamilies #-}
 
-module Development.IDE.State.FileStore(
+module Development.IDE.Core.FileStore(
     getFileExists, getFileContents,
     setBufferModified,
     fileStoreRules,
@@ -24,7 +24,7 @@ import           Control.Monad.Extra
 import qualified System.Directory as Dir
 import           Development.Shake
 import           Development.Shake.Classes
-import           Development.IDE.State.Shake
+import           Development.IDE.Core.Shake
 import           Control.Exception
 import           GHC.Generics
 import Data.Either.Extra

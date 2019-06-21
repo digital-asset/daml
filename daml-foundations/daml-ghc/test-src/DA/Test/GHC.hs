@@ -57,7 +57,7 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import           System.Time.Extra
 import qualified Development.IDE.State.API as Compile
-import qualified Development.IDE.State.Rules.Daml as Compile
+import qualified Development.IDE.Core.Rules.Daml as Compile
 import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))

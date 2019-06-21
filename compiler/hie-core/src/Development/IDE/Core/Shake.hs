@@ -22,7 +22,7 @@
 --   between runs. To deserialise a Shake value, we just consult Values.
 --   Additionally, Values can be used in an inconsistent way, for example
 --   useStale.
-module Development.IDE.State.Shake(
+module Development.IDE.Core.Shake(
     IdeState,
     IdeRule, IdeResult, GetModificationTime(..),
     shakeOpen, shakeShut,
@@ -38,8 +38,8 @@ module Development.IDE.State.Shake(
     garbageCollect,
     setPriority,
     sendEvent,
-    Development.IDE.State.Shake.logDebug,
-    Development.IDE.State.Shake.logSeriousError,
+    Development.IDE.Core.Shake.logDebug,
+    Development.IDE.Core.Shake.logSeriousError,
     FileVersion(..),
     vfsVersion
     ) where
@@ -338,7 +338,7 @@ newtype Q k = Q (k, NormalizedFilePath)
 -- Using Database we don't need Binary instances for keys
 instance Binary (Q k) where
     put _ = return ()
-    get = fail "Binary.get not defined for type Development.IDE.State.Shake.Q"
+    get = fail "Binary.get not defined for type Development.IDE.Core.Shake.Q"
 
 instance Show k => Show (Q k) where
     show (Q (k, file)) = show k ++ "; " ++ fromNormalizedFilePath file

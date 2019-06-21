@@ -8,8 +8,8 @@
 -- | A Shake implementation of the compiler service, built
 --   using the "Shaker" abstraction layer for in-memory use.
 --
-module Development.IDE.State.RuleTypes(
-    module Development.IDE.State.RuleTypes
+module Development.IDE.Core.RuleTypes(
+    module Development.IDE.Core.RuleTypes
     ) where
 
 import           Control.DeepSeq

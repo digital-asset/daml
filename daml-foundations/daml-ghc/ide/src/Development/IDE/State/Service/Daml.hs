@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE OverloadedStrings #-}
 
-module Development.IDE.State.Service.Daml(
+module Development.IDE.Core.Service.Daml(
     Env(..),
     getServiceEnv,
     VirtualResource(..),
@@ -30,10 +30,10 @@ import Data.Tuple.Extra
 import Development.Shake
 
 import qualified Development.IDE.Types.Logger as Logger
-import Development.IDE.State.Service hiding (initialise)
-import Development.IDE.State.FileStore
-import qualified Development.IDE.State.Service as IDE
-import Development.IDE.State.Shake
+import Development.IDE.Core.Service hiding (initialise)
+import Development.IDE.Core.FileStore
+import qualified Development.IDE.Core.Service as IDE
+import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 import qualified Language.Haskell.LSP.Messages as LSP
 

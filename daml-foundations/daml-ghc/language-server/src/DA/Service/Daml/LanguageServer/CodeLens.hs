@@ -10,7 +10,7 @@ module DA.Service.Daml.LanguageServer.CodeLens
 
 import Language.Haskell.LSP.Types
 import qualified Data.Aeson as Aeson
-import Development.IDE.State.Service.Daml
+import Development.IDE.Core.Service.Daml
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T

@@ -42,10 +42,10 @@ import qualified Development.IDE.State.API         as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
 import DA.Service.Daml.Compiler.Impl.Scenario as SS
-import Development.IDE.State.Rules.Daml
+import Development.IDE.Core.Rules.Daml
 import qualified Development.IDE.Types.Logger as Logger
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
-import Development.IDE.State.Service.Daml(VirtualResource(..))
+import Development.IDE.Core.Service.Daml(VirtualResource(..))
 import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))
 import Language.Haskell.LSP.Types

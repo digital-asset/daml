@@ -24,10 +24,10 @@ import qualified Data.Rope.UTF16 as Rope
 import qualified Data.Set                                  as S
 import qualified Data.Text as T
 
-import Development.IDE.State.FileStore
-import Development.IDE.State.Rules
-import Development.IDE.State.Rules.Daml
-import Development.IDE.State.Service.Daml
+import Development.IDE.Core.FileStore
+import Development.IDE.Core.Rules
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Service.Daml
 import Development.IDE.Types.Location
 
 import qualified Network.URI                               as URI
