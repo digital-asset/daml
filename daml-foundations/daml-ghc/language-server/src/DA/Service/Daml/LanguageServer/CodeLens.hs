@@ -16,7 +16,7 @@ import Data.Maybe
 import qualified Data.Text as T
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified Development.IDE.Logger as Logger
-import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 
 -- | Gather code lenses like scenario execution for a DAML file.
 handle

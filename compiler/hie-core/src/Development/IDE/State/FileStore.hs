@@ -32,6 +32,7 @@ import System.IO.Error
 import qualified Data.ByteString.Char8 as BS
 import qualified StringBuffer as SB
 import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 import qualified Data.Rope.UTF16 as Rope
 import           Data.Time
 

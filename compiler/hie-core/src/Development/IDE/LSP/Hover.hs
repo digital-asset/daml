@@ -10,6 +10,7 @@ module Development.IDE.LSP.Hover
 
 import Development.IDE.LSP.Protocol hiding (Hover)
 import Language.Haskell.LSP.Types (Hover(..))
+import Development.IDE.Types.Location
 
 import qualified Development.IDE.Logger as Logger
 
@@ -18,7 +19,6 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 
 import Development.IDE.State.Rules
-import Development.IDE.Types.Diagnostics
 
 -- | Display information on hover.
 handle

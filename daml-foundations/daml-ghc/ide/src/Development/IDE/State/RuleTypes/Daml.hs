@@ -24,7 +24,7 @@ import GHC.Generics (Generic)
 import "ghc-lib-parser" Module (UnitId)
 import Development.IDE.State.Service.Daml
 
-import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 import Development.IDE.State.RuleTypes
 
 import qualified DA.Daml.LF.Ast as LF

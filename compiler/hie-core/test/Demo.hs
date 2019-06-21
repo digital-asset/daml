@@ -13,6 +13,7 @@ import Development.IDE.State.Rules
 import Development.IDE.State.Shake
 import Development.IDE.State.RuleTypes
 import Development.IDE.LSP.Protocol
+import Development.IDE.Types.Location
 import Data.String
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Options

@@ -58,6 +58,7 @@ import qualified Data.Text as T
 import Development.IDE.Logger as Logger
 import           Development.IDE.Types.Diagnostics hiding (getAllDiagnostics)
 import qualified Development.IDE.Types.Diagnostics as D
+import Development.IDE.Types.Location
 import           Control.Concurrent.Extra
 import           Control.Exception
 import           Control.DeepSeq

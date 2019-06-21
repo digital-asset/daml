@@ -13,6 +13,7 @@ module Development.IDE.LSP.Protocol
 import qualified Data.Aeson       as Aeson
 import qualified Data.Text        as T
 import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 import Language.Haskell.LSP.Messages
 import Data.Text.Prettyprint.Doc
 

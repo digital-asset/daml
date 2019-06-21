@@ -46,6 +46,7 @@ import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 import GHC.Conc
 import qualified Network.Socket                    as NS
 import Options.Applicative.Extended

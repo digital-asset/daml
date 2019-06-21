@@ -35,7 +35,7 @@ import Development.IDE.State.Service hiding (initialise)
 import Development.IDE.State.FileStore
 import qualified Development.IDE.State.Service as IDE
 import Development.IDE.State.Shake
-import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 import qualified Language.Haskell.LSP.Messages as LSP
 
 import DA.Daml.GHC.Compiler.Options

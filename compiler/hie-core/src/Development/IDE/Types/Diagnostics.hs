@@ -13,21 +13,11 @@ module Development.IDE.Types.Diagnostics (
   DiagnosticRelatedInformation(..),
   List(..),
   StoreItem(..),
-  Uri(..),
-  NormalizedUri,
-  LSP.toNormalizedUri,
-  LSP.fromNormalizedUri,
-  NormalizedFilePath,
-  toNormalizedFilePath,
-  fromNormalizedFilePath,
   ideErrorText,
   ideErrorPretty,
   errorDiag,
   showDiagnostics,
   showDiagnosticsColored,
-  filePathToUri,
-  filePathToUri',
-  uriToFilePath',
   setStageDiagnostics,
   getAllDiagnostics,
   filterDiagnostics,
@@ -35,64 +25,24 @@ module Development.IDE.Types.Diagnostics (
   prettyDiagnostics
   ) where
 
-import Control.DeepSeq
 import Data.Maybe as Maybe
 import Data.Foldable
-import Data.Hashable
 import qualified Data.Map as Map
-import Data.String
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
 import qualified Data.SortedList as SL
-import System.FilePath
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import qualified Language.Haskell.LSP.Types as LSP
 import Language.Haskell.LSP.Types as LSP (
     DiagnosticSeverity(..)
   , Diagnostic(..)
-  , filePathToUri
   , List(..)
   , DiagnosticRelatedInformation(..)
-  , NormalizedUri(..)
-  , Uri(..)
-  , toNormalizedUri
-  , fromNormalizedUri
   )
 import Language.Haskell.LSP.Diagnostics
 
 import Development.IDE.Types.Location
 
--- | Newtype wrapper around FilePath that always has normalized slashes.
-newtype NormalizedFilePath = NormalizedFilePath FilePath
-    deriving (Eq, Ord, Show, Hashable, NFData)
-
-instance IsString NormalizedFilePath where
-    fromString = toNormalizedFilePath
-
-toNormalizedFilePath :: FilePath -> NormalizedFilePath
-toNormalizedFilePath "" = NormalizedFilePath ""
-toNormalizedFilePath fp = NormalizedFilePath $ normalise' fp
-    where
-        -- We do not use System.FilePath’s normalise here since that
-        -- also normalises things like the case of the drive letter
-        -- which NormalizedUri does not normalise so we get VFS lookup failures.
-        normalise' :: FilePath -> FilePath
-        normalise' = map (\c -> if isPathSeparator c then pathSeparator else c)
-
-fromNormalizedFilePath :: NormalizedFilePath -> FilePath
-fromNormalizedFilePath (NormalizedFilePath fp) = fp
-
--- | We use an empty string as a filepath when we don’t have a file.
--- However, haskell-lsp doesn’t support that in uriToFilePath and given
--- that it is not a valid filepath it does not make sense to upstream a fix.
--- So we have our own wrapper here that supports empty filepaths.
-uriToFilePath' :: Uri -> Maybe FilePath
-uriToFilePath' uri
-    | uri == filePathToUri "" = Just ""
-    | otherwise = LSP.uriToFilePath uri
-
-filePathToUri' :: NormalizedFilePath -> NormalizedUri
-filePathToUri' = toNormalizedUri . filePathToUri . fromNormalizedFilePath
 
 ideErrorText :: NormalizedFilePath -> T.Text -> FileDiagnostic
 ideErrorText fp = errorDiag fp "Ide Error"
@@ -186,9 +136,6 @@ setStageDiagnostics fp timeM stage diags ds  =
     where
         diagsBySource = Map.singleton (Just $ T.pack $ show stage) (SL.toSortedList diags)
         uri = filePathToUri' fp
-
-fromUri :: LSP.NormalizedUri -> NormalizedFilePath
-fromUri = toNormalizedFilePath . fromMaybe noFilePath . uriToFilePath' . fromNormalizedUri
 
 getAllDiagnostics ::
     DiagnosticStore ->

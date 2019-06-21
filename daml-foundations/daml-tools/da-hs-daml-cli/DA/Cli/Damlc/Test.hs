@@ -30,6 +30,7 @@ import qualified Development.IDE.State.API as CompilerService
 import qualified Development.IDE.State.Rules.Daml as CompilerService
 import Development.IDE.Types.Diagnostics
 import Development.IDE.LSP.Protocol
+import Development.IDE.Types.Location
 import qualified ScenarioService as SS
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)
