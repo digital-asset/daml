@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 da_haskell_library(
     name = "da-hs-daml-cli",
@@ -88,6 +89,33 @@ da_haskell_test(
     deps = [
         ":da-hs-daml-cli",
     ],
+)
+
+da_haskell_test(
+    name = "da-hs-daml-cli-visual-test",
+    srcs = ["tests/VisualTest.hs"],
+    data = [
+        ":tests/res/out.dot",
+        ":visual-test-daml.dar",
+        "//daml-foundations/daml-ghc/package-database:package-db",
+    ],
+    hazel_deps = [
+        "tasty",
+        "base",
+        "extra",
+        "tasty-golden",
+    ],
+    main_function = "VisualTest.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":da-hs-daml-cli",
+    ],
+)
+
+daml_compile(
+    name = "visual-test-daml",
+    main_src = "tests/Basic.daml",
 )
 
 da_haskell_test(
