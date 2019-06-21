@@ -43,7 +43,6 @@ import qualified Data.Set                                 as Set
 import qualified Data.Text                                as T
 import           Development.IDE.Functions.GHCError
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
-import           Development.IDE.Types.LSP as Compiler
 import Development.IDE.State.RuleTypes
 
 import           GHC
@@ -103,7 +102,7 @@ getDependencies :: NormalizedFilePath -> Action (Maybe [NormalizedFilePath])
 getDependencies file = fmap transitiveModuleDeps <$> use GetDependencies file
 
 -- | Try to get hover text for the name under point.
-getAtPoint :: NormalizedFilePath -> Position -> Action (Maybe (Maybe Range, [HoverText]))
+getAtPoint :: NormalizedFilePath -> Position -> Action (Maybe (Maybe Range, [T.Text]))
 getAtPoint file pos = fmap join $ runMaybeT $ do
   opts <- lift getOpts
   files <- transitiveModuleDeps <$> useE GetDependencies file

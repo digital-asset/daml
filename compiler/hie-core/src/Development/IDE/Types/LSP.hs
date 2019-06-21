@@ -2,9 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE PatternSynonyms #-}
 module Development.IDE.Types.LSP
-    ( HoverText(..)
-    , VirtualResource(..)
-    , getHoverTextContent
+    ( VirtualResource(..)
     , pattern EventFileDiagnostics
     ) where
 
@@ -14,19 +12,6 @@ import Development.IDE.Types.Diagnostics
 import GHC.Generics
 import Language.Haskell.LSP.Messages
 import Language.Haskell.LSP.Types
-
--- | Different types of content we can show on hover.
-data HoverText
-    = HoverDamlCode !T.Text
-      -- ^ Highlighted DAML-Code
-    | HoverMarkdown !T.Text
-      -- ^ Markdown text.
-    deriving Show
-
-getHoverTextContent :: HoverText -> T.Text
-getHoverTextContent = \case
-    HoverDamlCode t -> t
-    HoverMarkdown t -> t
 
 -- | Virtual resources
 data VirtualResource = VRScenario

@@ -20,7 +20,6 @@ import Development.IDE.Compat
 import Development.IDE.State.Shake
 import Development.IDE.State.RuleTypes
 import           Development.IDE.Types.Diagnostics
-import           Development.IDE.Types.LSP
 import Development.IDE.Types.Options
 import           Development.IDE.Types.SpanInfo as SpanInfo
 
@@ -54,19 +53,19 @@ atPoint
   -> [TypecheckedModule]
   -> [SpanInfo]
   -> Position
-  -> Maybe (Maybe Range, [HoverText])
+  -> Maybe (Maybe Range, [T.Text])
 atPoint IdeOptions{..} tcs srcSpans pos = do
     SpanInfo{..} <- listToMaybe $ orderSpans $ spansAtPoint pos srcSpans
     ty <- spaninfoType
     let mbName  = getNameM spaninfoSource
-        mbDefinedAt = fmap (\name -> HoverMarkdown $ "**Defined " <> T.pack (showSDocUnsafe $ pprNameDefnLoc name) <> "**\n") mbName
+        mbDefinedAt = fmap (\name -> "**Defined " <> T.pack (showSDocUnsafe $ pprNameDefnLoc name) <> "**\n") mbName
         mbDocs  = fmap (\name -> getDocumentation name tcs) mbName
-        docInfo = maybe [] (map HoverMarkdown . docHeaders) mbDocs
+        docInfo = maybe [] docHeaders mbDocs
         range = Range
                   (Position spaninfoStartLine spaninfoStartCol)
                   (Position spaninfoEndLine spaninfoEndCol)
         colon = if optNewColonConvention then ":" else "::"
-        wrapLanguageSyntax x = HoverMarkdown $ T.unlines [ "```" <> T.pack optLanguageSyntax, x, "```"]
+        wrapLanguageSyntax x = T.unlines [ "```" <> T.pack optLanguageSyntax, x, "```"]
         typeSig = wrapLanguageSyntax $ case mbName of
           Nothing -> colon <> " " <> showName ty
           Just name ->

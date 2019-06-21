@@ -2,9 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Development.IDE.State.API
-    ( HoverText
-    , getHoverTextContent
-    , IdeState
+    ( IdeState
     , Action
     , initialise
     , getDalf
@@ -32,7 +30,6 @@ module Development.IDE.State.API
     , makeLSPVFSHandle
     ) where
 
-import           Development.IDE.Types.LSP
 import           Development.IDE.State.Service.Daml
 import           Development.IDE.State.Rules.Daml
 import           Development.IDE.State.FileStore
