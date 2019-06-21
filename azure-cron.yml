@@ -41,6 +41,8 @@ jobs:
       - bash: |
           set -euo pipefail
 
+          LOG=$(Build.StagingDirectory)/log.txt
+          touch $LOG
           CUR_SHA=$(git rev-parse HEAD)
 
           robustly_download_nix_pkgs() {
@@ -69,7 +71,7 @@ jobs:
           GH_VERSIONS=$(mktemp)
           DOCS_VERSIONS=$(mktemp)
           curl -s https://docs.daml.com/versions.json | jq -r 'keys | .[]' | sort > $DOCS_VERSIONS
-          echo $RELEASES | sed 's/ /\n/g' | sort > $GH_VERSIONS
+          echo $RELEASES | sed 's/ /\n/g' | sed 's/^v//' | sort > $GH_VERSIONS
           if diff $DOCS_VERSIONS $GH_VERSIONS; then
             echo "No new version found, skipping."
             exit 0
@@ -78,7 +80,6 @@ jobs:
           echo "Building docs listing"
           DOCDIR=$(Build.StagingDirectory)/docs
           mkdir -p $DOCDIR
-          LOG=$(Build.StagingDirectory)/log.txt
           LATEST=$(echo $RELEASES | awk '{print $1}')
           JSON_BODY=$(echo $RELEASES | sed -e 's/ /\n/g' | sed -e 's/v\(.*\)/"\1": "\1",'/g)
           echo "Building latest docs: $LATEST"
