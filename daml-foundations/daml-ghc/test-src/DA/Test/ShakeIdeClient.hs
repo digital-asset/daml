@@ -23,9 +23,10 @@ import Control.Monad.IO.Class
 
 import DA.Service.Daml.Compiler.Impl.Scenario as SS
 import Development.IDE.Types.Diagnostics
-import           Development.IDE.Types.LSP
+import Development.IDE.Types.Location
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import Development.IDE.State.API.Testing
+import Development.IDE.State.Service.Daml(VirtualResource(..))
 
 main :: IO ()
 main = SS.withScenarioService Logger.makeNopHandle $ \scenarioService -> do
