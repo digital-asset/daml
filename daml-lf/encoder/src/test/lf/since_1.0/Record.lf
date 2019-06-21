@@ -1,0 +1,19 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module Record {
+
+  record @serializable Pair (a:*) (b: *) = { fst: a, snd: b };
+
+  record @serializable Box = { x: Record:Pair Int64 Decimal, party: Party } ;
+
+  template (this : Box) =  {
+    precondition True,
+    signatories (Party:one (Record:Box {party} this)),
+    observers (Nil @Party),
+    agreement "Agreement",
+    choices {
+    }
+  };
+
+}
