@@ -22,18 +22,22 @@ trait WritePackagesService {
     * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
     * further details.
     *
-    * @param payload           : DAML-LF packages to be uploaded to the ledger.
-    * @param sourceDescription : the description of the packages provided by the
-    *                            participant implementation.
+    * Note: we accept DARs rather than a list of archives because we want
+    * to be able to get the byte size of each individual ArchivePayload, which
+    * is information that the read / index service need to provide. Moreover
+    * this information should be consistent with the payload that the
+    * [[com.digitalasset.ledger.api.v1.package_service.GetPackageResponse]]
+    * contains. If we were to consume archives we'd have to re-encode them to
+    * provide the size, and the size might potentially be different from the
+    * original size, which would be quite confusing.
     *
-    * @return an async result of a SubmissionResult
+    * @param payload           : DAML-LF packages to be uploaded to the ledger.
+    * @param sourceDescription : The description of the packages provided by the
+    *                            participant implementation.
+    * @return an async result of a UploadDarResult
     */
-  // NOTE(FM): we accept dars rather than a list of archives because we want
-  // to be able to get the byte size of each individual ArchivePayload, which is
-  // information that the read / index service need to provide. Moreover this
-  // information should be consistent with the payload that the
-  // `GetPackageResponse` contains. If we were to consume archives we'd have
-  // to re-encode them to provide the size, and the size might potentially be
-  // different from the original size, which would be quite confusing.
-  def uploadDar(sourceDescription: String, payload: Array[Byte]): CompletionStage[UploadDarResult]
+  def uploadDar(
+      sourceDescription: String,
+      payload: Array[Byte]
+  ): CompletionStage[UploadDarResult]
 }

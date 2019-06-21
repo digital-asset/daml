@@ -10,6 +10,6 @@ object UploadDarResult {
   /** The package was successfully uploaded */
   final case object Ok extends UploadDarResult
 
-  /** The package was invalid for some reason */
-  final case class InvalidPackage(reason: String) extends UploadDarResult
+  /** The package was rejected for some reason */
+  final case class Rejected(reason: UploadDarRejectionReason) extends UploadDarResult
 }

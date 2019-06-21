@@ -9,7 +9,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipFile
 
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
-import com.daml.ledger.participant.state.v2.UploadDarResult
+import com.daml.ledger.participant.state.v2.{UploadDarRejectionReason, UploadDarResult}
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -73,9 +73,9 @@ class InMemoryPackageStore() extends IndexPackagesService {
         // about mismatching PackageId type
         UploadDarResult.Ok
       case Success(Left(err)) =>
-        UploadDarResult.InvalidPackage(err)
+        UploadDarResult.Rejected(UploadDarRejectionReason.InvalidPackage(err))
       case Failure(exception) =>
-        UploadDarResult.InvalidPackage(exception.getMessage)
+        UploadDarResult.Rejected(UploadDarRejectionReason.InvalidPackage(exception.getMessage))
     })
   }
 
