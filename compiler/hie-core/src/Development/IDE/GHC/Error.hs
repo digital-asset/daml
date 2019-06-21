@@ -6,7 +6,6 @@ module Development.IDE.GHC.Error
   (
     -- * Producing Diagnostic values
     diagFromErrMsgs
-  , diagFromErrMsg
   , diagFromString
   , diagFromStrings
   , diagFromSDoc

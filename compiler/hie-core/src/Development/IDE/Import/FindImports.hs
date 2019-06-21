@@ -50,7 +50,7 @@ getImportsParsed dflags (L loc parsed) = do
   let srcImports = filter (ideclSource . GHC.unLoc) $ GHC.hsmodImports parsed
   when (not $ null srcImports) $ Ex.throwE $
     concat
-      [ diagFromStrings dflags [(mloc, "Illegal source import of " <> GHC.moduleNameString (GHC.unLoc $ GHC.ideclName i))]
+      [ diagFromString dflags mloc ("Illegal source import of " <> GHC.moduleNameString (GHC.unLoc $ GHC.ideclName i))
       | L mloc i <- srcImports ]
 
   -- most of these corner cases are also present in https://hackage.haskell.org/package/ghc-8.6.1/docs/src/HeaderInfo.html#getImports

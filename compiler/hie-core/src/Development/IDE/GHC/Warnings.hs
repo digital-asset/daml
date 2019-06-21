@@ -3,11 +3,9 @@
 
 module Development.IDE.GHC.Warnings(withWarnings) where
 
-import ErrUtils
 import GhcMonad
 import GhcPlugins as GHC hiding (Var)
 
-import           Data.Maybe
 import           Control.Concurrent.Extra
 import           Control.Monad.Extra
 
@@ -30,13 +28,13 @@ withWarnings action = do
   warnings <- liftIO $ newVar []
   oldFlags <- getDynFlags
   let newAction dynFlags _ _ loc _ msg = do
-        let d = diagFromErrMsg dynFlags $ mkPlainWarnMsg dynFlags loc msg
+        let d = diagFromSDoc dynFlags loc msg
         modifyVar_ warnings $ return . (d:)
   setLogAction newAction
   res <- action $ \x -> x{ms_hspp_opts = (ms_hspp_opts x){log_action = newAction}}
   setLogAction $ log_action oldFlags
   warns <- liftIO $ readVar warnings
-  return (reverse $ catMaybes warns, res)
+  return (reverse $ concat warns, res)
 
 setLogAction :: GhcMonad m => LogAction -> m ()
 setLogAction act = void $ modifyDynFlags $ \dyn -> dyn{log_action = act}
