@@ -119,3 +119,37 @@ jobs:
                --data "{\"text\":\"<!here> *FAILED* Daily Docs: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+
+  - job: docker_image
+    timeoutInMinutes: 20
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          eval "$(dev-env/bin/dade-assist)"
+          echo $DOCKER_PASSWORD | docker login --username $DOCKER_LOGIN --password-stdin
+          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
+          DIR=$(pwd)
+          VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -s)
+          for version in $(echo $RELEASES | sed -e 's/ /\n/g'); do
+            EXISTS=$(echo $VERSIONS | jq -r '[.results[].name == "${version#v}"] | any')
+            if [ "$EXISTS" == "true" ]; then
+              echo "${version#v} already exists, skipping."
+            else
+              echo "Building version ${version#v}..."
+              cd $(mktemp -d)
+              echo "FROM openjdk:8u212-alpine" >> Dockerfile
+              echo "RUN apk add curl bash" >> Dockerfile
+              echo "RUN curl https://get.daml.com | sh -s ${version#v}" >> Dockerfile
+              docker build -t digitalasset/daml:${version#v} .
+              docker push digitalasset/daml:${version#v}
+              cd "$DIR"
+              echo "Done."
+            fi
+          done
+        env:
+          DOCKER_LOGIN: $(DOCKER_LOGIN)
+          DOCKER_PASSWORD: $(DOCKER_PASSWORD)
