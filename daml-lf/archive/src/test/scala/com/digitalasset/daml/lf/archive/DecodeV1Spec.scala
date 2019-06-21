@@ -9,14 +9,14 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVer
 import com.digitalasset.daml_lf.DamlLf1
 import com.digitalasset.daml_lf.DamlLf1.PackageRef
 
-import org.scalatest.{Inside, Matchers, WordSpec}
+import org.scalatest.{Inside, Matchers, OptionValues, WordSpec}
 
 import java.nio.file.{Files, Paths}
 
 import scala.collection.JavaConverters._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class DecodeV1Spec extends WordSpec with Matchers with Inside {
+class DecodeV1Spec extends WordSpec with Matchers with Inside with OptionValues {
 
   "The keys of primTypeTable correspond to Protobuf DamlLf1.PrimType" in {
 
@@ -40,15 +40,20 @@ class DecodeV1Spec extends WordSpec with Matchers with Inside {
       finally dalfFile.close()
     }
 
-    lazy val Some(extId) = {
+    lazy val extId = {
       val dalf1 = dalfProto.getDamlLf1
-      val Some(iix) = dalf1.getModules(0).getValuesList.asScala collectFirst {
-        case dv if dv.getNameWithType.getNameList.asScala.lastOption contains "reverseCopy" =>
-          val pr = dv.getExpr.getVal.getModule.getPackageRef
-          pr.getSumCase shouldBe PackageRef.SumCase.INTERNED_ID
-          pr.getInternedId
-      }
-      dalf1.getInternedPackageIdsList.asScala.lift(iix.toInt)
+      val iix = dalf1
+        .getModules(0)
+        .getValuesList
+        .asScala
+        .collectFirst {
+          case dv if dv.getNameWithType.getNameList.asScala.lastOption contains "reverseCopy" =>
+            val pr = dv.getExpr.getVal.getModule.getPackageRef
+            pr.getSumCase shouldBe PackageRef.SumCase.INTERNED_ID
+            pr.getInternedId
+        }
+        .value
+      dalf1.getInternedPackageIdsList.asScala.lift(iix.toInt).value
     }
 
     "take a dalf with interned IDs" in {
