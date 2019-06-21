@@ -72,6 +72,7 @@ da_haskell_test(
     hazel_deps = [
         "async",
         "base",
+        "bytestring",
         "filepath",
         "directory",
         "extra",
@@ -82,11 +83,15 @@ da_haskell_test(
         "text",
         "time",
         "uuid",
+        "zip-archive",
     ],
     main_function = "DA.Ledger.Tests.main",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
     ],

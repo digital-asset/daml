@@ -12,7 +12,7 @@ module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selecte
 
 import Trace
 
-import Control.Monad(when)
+import Control.Monad
 import Control.Exception (bracket, evaluate, onException)
 import DA.Bazel.Runfiles
 import DA.Ledger (Port (..), unPort)

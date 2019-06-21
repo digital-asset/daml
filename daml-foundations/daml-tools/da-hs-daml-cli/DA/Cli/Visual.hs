@@ -11,6 +11,7 @@ module DA.Cli.Visual
 
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.World as AST
+import DA.Daml.LF.Reader
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified DA.Pretty as DAP
@@ -19,17 +20,10 @@ import qualified Codec.Archive.Zip as ZIPArchive
 import qualified Data.ByteString.Lazy as BSL
 import Text.Dot
 import qualified Data.ByteString as B
-import Codec.Archive.Zip
-import System.FilePath
 import qualified Data.Map as M
-import qualified Data.HashMap.Strict as Map
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.List.Split as DLS
-import Data.List.Extra
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
-
 
 startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> Set.Set Action
 startFromUpdate seen world update = case update of
@@ -98,7 +92,7 @@ dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
 darToWorld :: ManifestData -> LF.Package -> LF.World
 darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
     where
-        pkgs = map dalfBytesToPakage (dalfsCotent manifest)
+        pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
 
 templateInAction :: Action -> LF.TypeConName
@@ -141,34 +135,6 @@ netlistGraph' attrFn outFn assocs = do
     sequence_
         [(fm M.! dst) .->. (fm M.! src) | (dst, b) <- assocs,
         src <- outFn b]
-
-data Manifest = Manifest { mainDalf :: FilePath , dalfs :: [FilePath] } deriving (Show)
-data ManifestData = ManifestData { mainDalfContent :: BSL.ByteString , dalfsCotent :: [BSL.ByteString] } deriving (Show)
-
-lineToKeyValue :: String -> (String, String)
-lineToKeyValue line = case splitOn ":" line of
-    [l, r] -> (trim l , trim r)
-    _ -> ("malformed", "malformed")
-
-manifestMapToManifest :: Map.HashMap String String -> Manifest
-manifestMapToManifest hash = Manifest mainDalf dependDalfs
-    where
-        mainDalf = Map.lookupDefault "unknown" "Main-Dalf" hash
-        dependDalfs = map trim $ delete mainDalf (DLS.splitOn "," (Map.lookupDefault "unknown" "Dalfs" hash))
-
-manifestDataFromDar :: Archive -> Manifest -> ManifestData
-manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyDalfBytes
-    where
-        manifestDalfByte = head [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest]
-        dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && elem (trim (eRelativePath e))  (dalfs manifest)]
-
-manifestFromDar :: Archive -> ManifestData
-manifestFromDar dar =  manifestDataFromDar dar manifest
-    where
-        manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
-        linesStr = map BS.unpack (BS.lines $ BSL.toStrict manifestEntry)
-        manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue (filter (\a -> a /= "" ) linesStr)
-
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do
