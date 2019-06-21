@@ -6,10 +6,11 @@
 module Main (main) where
 
 import Control.Lens hiding (List)
+import Control.Monad (forM, forM_, void)
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
 import Data.Aeson (toJSON)
-import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens
 import Network.URI
@@ -40,6 +41,7 @@ main = do
         [ diagnosticTests run runScenarios
         , requestTests run runScenarios
         , scenarioTests runScenarios
+        , stressTests run runScenarios
         ]
     where
         conf = defaultConfig
@@ -374,3 +376,80 @@ scenarioTests run = testGroup "scenarios"
           closeDoc scenario
           closeDoc main'
     ]
+
+
+-- | Do extreme things to the compiler service.
+stressTests
+  :: (forall a. Session a -> IO a)
+  -> (Session () -> IO ())
+  -> TestTree
+stressTests run _runScenarios = testGroup "Stress tests"
+  [ testCase "Modify a file 2000 times" $ run $ do
+        let fooValue :: Int -> T.Text
+            fooValue i = T.pack (show (i `div` 2))
+                      <> if i `mod` 2 == 0 then "" else ".5"
+            fooContent i = T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo : Int"
+                , "foo = " <> fooValue i
+                ]
+        foo <- openDoc' "Foo.daml" damlId $ fooContent 0
+        forM_ [1 .. 999] $ \i ->
+            replaceDoc foo $ fooContent i
+        expectDiagnostics [("Foo.daml", [(DsError, (3, 6), "Couldn't match expected type")])]
+        forM_ [1000 .. 2000] $ \i ->
+            replaceDoc foo $ fooContent i
+        expectDiagnostics [("Foo.daml", [])]
+        closeDoc foo
+  , testCase "Set 10 files of interest" $ run $ do
+        foos <- forM [1 .. 10 :: Int] $ \i ->
+            makeModule ("Foo" ++ show i) ["foo  10"]
+        expectDiagnostics
+            [ ("Foo" ++ show i ++ ".daml", [(DsError, (2, 0), "Parse error")])
+            | i <- [1 .. 10 :: Int]
+            ]
+        forM_ (zip [1 .. 10 :: Int] foos) $ \(i, foo) ->
+            replaceDoc foo $ moduleContent ("Foo" ++ show i) ["foo = 10"]
+        withTimeout 30 $
+            expectDiagnostics [("Foo" ++ show i ++ ".daml", []) | i <- [1 .. 10 :: Int]]
+        mapM_ closeDoc foos
+  , testCase "Type check 100-deep module chain" $ run $ do
+        -- The idea for this test is we have 101 modules named Foo0 through Foo100.
+        -- Foo0 imports Foo1, which imports Foo2, which imports Foo3, and so on to Foo100.
+        -- Each FooN has a definition fooN that depends on fooN+1, except Foo100.
+        -- But the type of foo0 doesn't match the type of foo100. So we expect a type error.
+        -- Then we modify the type of foo0 to clear the type error.
+        foo0 <- makeModule "Foo0"
+            [ "import Foo1"
+            , "foo0 : Int"
+            , "foo0 = foo1"
+            ]
+        foos <- forM [1 .. 99 :: Int] $ \i ->
+            makeModule ("Foo" ++ show i)
+                [ "import Foo" <> T.show (i+1)
+                , "foo" <> T.show i <> " = foo" <> T.show (i+1)
+                ]
+        foo100 <- makeModule "Foo100"
+            [ "foo100 : Bool"
+            , "foo100 = False"
+            ]
+        withTimeout 180 $ do -- This takes way too long. Can we get it down?
+            expectDiagnostics [("Foo0.daml", [(DsError, (4, 7), "Couldn't match expected type")])]
+            void $ replaceDoc foo0 $ moduleContent "Foo0"
+                [ "import Foo1"
+                , "foo0 : Bool"
+                , "foo0 = foo1"
+                ]
+            expectDiagnostics [("Foo0.daml", [])]
+        mapM_ closeDoc $ foo0:foo100:foos
+  ]
+  where
+    moduleContent :: String -> [T.Text] -> T.Text
+    moduleContent name lines = T.unlines $
+        [ "daml 1.2"
+        , "module " <> T.pack name <> " where"
+        ] ++ lines
+    makeModule :: String -> [T.Text] -> Session TextDocumentIdentifier
+    makeModule name lines = openDoc' (name ++ ".daml") damlId $
+        moduleContent name lines

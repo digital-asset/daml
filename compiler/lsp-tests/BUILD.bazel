@@ -37,5 +37,6 @@ da_haskell_test(
         "//daml-foundations/daml-ghc/ide",
         "//daml-foundations/daml-ghc/test-lib",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
     ],
 )
