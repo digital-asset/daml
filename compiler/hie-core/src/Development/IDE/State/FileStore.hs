@@ -12,8 +12,6 @@ module Development.IDE.State.FileStore(
     makeLSPVFSHandle,
     ) where
 
-
-
 import           StringBuffer
 import Development.IDE.Orphans()
 
