@@ -3,18 +3,18 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE OverloadedStrings #-}
 module Development.IDE.GHC.Error
-  ( mkDiag
+  (
+    -- * Producing Diagnostic values
+    mkDiag
   , toDiagnostics
-  , srcSpanToLocation
-  , srcSpanToFilename
-
-    -- * Producing GHC ErrorMessages
   , mkErrors
   , mkError
   , mkErrorDoc
   , mkErrorsGhcException
 
-  -- * utilities working with 'ErrMsg' and 'ErrorMessages'
+  -- * utilities working with spans
+  , srcSpanToLocation
+  , srcSpanToFilename
   , zeroSpan
   , realSpan
   , noSpan
