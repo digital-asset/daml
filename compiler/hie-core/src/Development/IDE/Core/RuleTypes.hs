@@ -13,8 +13,8 @@ module Development.IDE.Core.RuleTypes(
     ) where
 
 import           Control.DeepSeq
-import           Development.IDE.Functions.Compile             (TcModuleResult, GhcModule, LoadPackageResult(..))
-import qualified Development.IDE.Functions.Compile             as Compile
+import           Development.IDE.Core.Compile             (TcModuleResult, GhcModule, LoadPackageResult(..))
+import qualified Development.IDE.Core.Compile             as Compile
 import           Development.IDE.Import.FindImports         (Import(..))
 import           Development.IDE.Import.DependencyInformation
 import           Data.Hashable

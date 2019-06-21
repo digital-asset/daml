@@ -25,7 +25,7 @@ module Development.IDE.Core.Rules(
 
 import           Control.Monad.Except
 import Control.Monad.Trans.Maybe
-import qualified Development.IDE.Functions.Compile             as Compile
+import qualified Development.IDE.Core.Compile             as Compile
 import qualified Development.IDE.Types.Options as Compile
 import Development.IDE.Import.DependencyInformation
 import Development.IDE.Import.FindImports

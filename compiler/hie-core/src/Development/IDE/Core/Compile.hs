@@ -7,7 +7,7 @@
 
 -- | Based on https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/API.
 --   Given a list of paths to find libraries, and a file to compile, produce a list of 'CoreModule' values.
-module Development.IDE.Functions.Compile
+module Development.IDE.Core.Compile
   ( GhcModule(..)
   , TcModuleResult(..)
   , LoadPackageResult(..)
