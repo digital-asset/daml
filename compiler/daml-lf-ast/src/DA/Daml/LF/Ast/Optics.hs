@@ -24,7 +24,7 @@ import Control.Lens.Ast
 import Control.Lens.MonoTraversal
 import Data.Fixed (Fixed)
 import Data.Functor.Foldable (cata, embed)
-import Data.Int (Int32, Int64)
+import Data.Int
 import Data.Text (Text)
 import qualified Data.NameMap as NM
 import GHC.Generics hiding (from, to)
