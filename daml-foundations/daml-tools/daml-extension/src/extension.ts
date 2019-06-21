@@ -269,13 +269,19 @@ namespace DamlWorkspaceValidationsNotification {
       );
 }
 
+type UriString = string;
+type ScenarioResult = string;
+type SelectedView = string;
+
 class VirtualResourceManager {
+    // Note (MK): While it is tempting to switch to Map<Uri, …> for these types
+    // Map uses reference equality for objects so this goes horribly wrong.
     // Mapping from URIs to the web view panel
-    private _panels: Map<string, vscode.WebviewPanel> = new Map<string, vscode.WebviewPanel>();
+    private _panels: Map<UriString, vscode.WebviewPanel> = new Map<UriString, vscode.WebviewPanel>();
     // Mapping from URIs to the HTML content of the webview
-    private _panelContents: Map<string, string> = new Map<string, string>();
+    private _panelContents: Map<UriString, ScenarioResult> = new Map<UriString, ScenarioResult>();
     // Mapping from URIs to selected view
-    private _panelStates: Map<string, string> = new Map<string, string>();
+    private _panelStates: Map<UriString, SelectedView> = new Map<UriString, SelectedView>();
     private _client: LanguageClient;
     private _disposables: vscode.Disposable[] = [];
     private _webviewSrc : Uri;
@@ -285,7 +291,7 @@ class VirtualResourceManager {
         this._webviewSrc = webviewSrc;
     }
 
-    private open(uri: string) {
+    private open(uri: UriString) {
         this._client.sendNotification(
             'textDocument/didOpen', {
                 textDocument: {
@@ -298,7 +304,7 @@ class VirtualResourceManager {
         );
     }
 
-    private close(uri: string) {
+    private close(uri: UriString) {
         this._client.sendNotification(
             'textDocument/didClose', {
                 textDocument: {uri: uri}
@@ -306,7 +312,7 @@ class VirtualResourceManager {
         );
     }
 
-    public createOrShow(title: string, uri: string) {
+    public createOrShow(title: string, uri: UriString) {
 		const column = getViewColumnForShowResource();
 
         let panel = this._panels.get(uri);
@@ -339,7 +345,7 @@ class VirtualResourceManager {
         panel.webview.html = this._panelContents.get(uri) || '';
     }
 
-    public setContent(uri: string, contents: string) {
+    public setContent(uri: UriString, contents: ScenarioResult) {
         contents = contents.replace('$webviewSrc', this._webviewSrc.toString());
         this._panelContents.set(uri, contents);
         const panel = this._panels.get(uri);
