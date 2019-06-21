@@ -144,7 +144,7 @@ support for running DAML.
      - `Digital Asset <https://digitalasset.com/>`__
      - TBD
      - canton.io :: native support for :doc:`DAML's fine-grained privacy model
-       <https://www.canton.io>
+       </concepts/ledger-model/ledger-privacy>`.  More info at `www.canton.io <https://www.canton.io>`__
 
 
 .. _integration-kit_implementing:
