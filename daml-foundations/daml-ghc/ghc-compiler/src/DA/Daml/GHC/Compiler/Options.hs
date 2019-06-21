@@ -13,6 +13,7 @@ module DA.Daml.GHC.Compiler.Options
     , projectPackageDatabase
     , ifaceDir
     , basePackages
+    , runGhcFast
     ) where
 
 

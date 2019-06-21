@@ -38,7 +38,17 @@ generateGenInstancesModule qual (pkg, L _l src) =
             tcdTyVars
             tcdDataDefn
         | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
+        , not $ hasGenDerivation tcdDataDefn
         ]
+
+    hasGenDerivation :: HsDataDefn GhcPs -> Bool
+    hasGenDerivation (HsDataDefn {..}) =
+        or [ name `elem` ([nameOccName n | n <- genericClassNames])
+            | d <- unLoc dd_derivs
+            , (HsIB _ (L _ (HsTyVar _ _ (L _ (Unqual name))))) <-
+                  unLoc $ deriv_clause_tys $ unLoc d
+            ]
+    hasGenDerivation XHsDataDefn{} = False
 
 -- | Generate non-consuming choices to upgrade all templates defined in the module.
 generateUpgradeModule ::

@@ -23,6 +23,7 @@ da_haskell_library(
         "file-embed",
         "filepath",
         "ghc-lib",
+        "ghc-lib-parser",
         "gitrev",
         "lens-aeson",
         "lens",
