@@ -15,8 +15,6 @@ load(
 compileDependencies = [
     # this has to come first other as somehow a different instance of grpc-core.jar
     "//3rdparty/jvm/io/grpc:grpc_services",
-    "//daml-lf/archive:daml_lf_java_proto",
-    "//daml-lf/archive:daml_lf_archive_scala",
     "//daml-lf/data",
     "//daml-lf/interface",
     "//daml-lf/transaction",

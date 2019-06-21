@@ -17,8 +17,7 @@ http_json_deps = [
     "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
     "//3rdparty/jvm/com/typesafe/scala_logging",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//daml-lf/data",
-    "//daml-lf/transaction",
+    "//ledger-service/utils",
     "//language-support/scala/bindings-akka",
     "//ledger-api/rs-grpc-bridge",
 ]

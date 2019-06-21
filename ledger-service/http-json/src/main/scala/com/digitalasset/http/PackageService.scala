@@ -9,6 +9,9 @@ import com.digitalasset.ledger.client.services.pkg.PackageClient
 import scala.concurrent.{ExecutionContext, Future}
 
 class PackageService(packageClient: PackageClient)(implicit ec: ExecutionContext) {
+
+//  val lr = LedgerReader(packageClient)
+
   def packageMapping(): Future[Map[(String, String), Identifier]] =
     for {
       packageIds <- packageClient.listPackages().map(_.packageIds)
