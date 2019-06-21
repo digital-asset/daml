@@ -64,18 +64,18 @@ public class TemplateMethodTest {
 
     @Test
     void contractHasFromIdAndRecord() {
-        SimpleTemplate.Contract emptyAgreement = SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord, Optional.empty());
+        SimpleTemplate.Contract emptyAgreement = SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord, Optional.empty(), Collections.emptySet(), Collections.emptySet());
         assertFalse(emptyAgreement.agreementText.isPresent(), "Field agreementText should not be present");
 
-        SimpleTemplate.Contract nonEmptyAgreement = SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord, Optional.of("I agree"));
+        SimpleTemplate.Contract nonEmptyAgreement = SimpleTemplate.Contract.fromIdAndRecord("SomeId", simpleTemplateRecord, Optional.of("I agree"), Collections.emptySet(), Collections.emptySet());
         assertTrue(nonEmptyAgreement.agreementText.isPresent(), "Field agreementText should be present");
         assertEquals(nonEmptyAgreement.agreementText, Optional.of("I agree"), "Unexpected agreementText");
     }
 
     @Test
     void contractHasFromCreatedEvent() {
-        CreatedEvent agreementEvent = new CreatedEvent(Collections.emptyList(), "eventId", SimpleTemplate.TEMPLATE_ID, "cid", simpleTemplateRecord, Optional.of("I agree"), Optional.empty());
-        CreatedEvent noAgreementEvent = new CreatedEvent(Collections.emptyList(), "eventId", SimpleTemplate.TEMPLATE_ID, "cid", simpleTemplateRecord, Optional.empty(), Optional.empty());
+        CreatedEvent agreementEvent = new CreatedEvent(Collections.emptyList(), "eventId", SimpleTemplate.TEMPLATE_ID, "cid", simpleTemplateRecord, Optional.of("I agree"), Optional.empty(), Collections.emptySet(), Collections.emptySet());
+        CreatedEvent noAgreementEvent = new CreatedEvent(Collections.emptyList(), "eventId", SimpleTemplate.TEMPLATE_ID, "cid", simpleTemplateRecord, Optional.empty(), Optional.empty(), Collections.emptySet(), Collections.emptySet());
 
         SimpleTemplate.Contract withAgreement = SimpleTemplate.Contract.fromCreatedEvent(agreementEvent);
         assertTrue(withAgreement.agreementText.isPresent(), "AgreementText was not present");

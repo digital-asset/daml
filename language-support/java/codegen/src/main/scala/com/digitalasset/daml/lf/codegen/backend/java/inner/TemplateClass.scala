@@ -71,10 +71,13 @@ private[inner] object TemplateClass extends StrictLogging {
   private val dataFieldName = "data"
   private val agreementFieldName = "agreementText"
   private val contractKeyFieldName = "key"
+  private val signatoriesFieldName = "signatories"
+  private val observersFieldName = "observers"
 
   private val optionalString = ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
   private def optional(name: TypeName) =
     ParameterizedTypeName.get(ClassName.get(classOf[Optional[_]]), name)
+  private def setOfStrings = ParameterizedTypeName.get(classOf[java.util.Set[_]], classOf[String])
 
   private def generateContractClass(
       templateClassName: ClassName,
@@ -91,6 +94,13 @@ private[inner] object TemplateClass extends StrictLogging {
     classBuilder.addField(templateClassName, dataFieldName, Modifier.PUBLIC, Modifier.FINAL)
     classBuilder.addField(optionalString, agreementFieldName, Modifier.PUBLIC, Modifier.FINAL)
 
+    contractKeyClassName.foreach { name =>
+      classBuilder.addField(optional(name), contractKeyFieldName, Modifier.PUBLIC, Modifier.FINAL)
+    }
+
+    classBuilder.addField(setOfStrings, signatoriesFieldName, Modifier.PUBLIC, Modifier.FINAL)
+    classBuilder.addField(setOfStrings, observersFieldName, Modifier.PUBLIC, Modifier.FINAL)
+
     classBuilder.addSuperinterface(ClassName.get(classOf[javaapi.data.Contract]))
 
     val constructorBuilder = MethodSpec
@@ -100,22 +110,29 @@ private[inner] object TemplateClass extends StrictLogging {
       .addParameter(templateClassName, dataFieldName)
       .addParameter(optionalString, agreementFieldName)
 
+    contractKeyClassName.foreach { name =>
+      constructorBuilder.addParameter(optional(name), contractKeyFieldName)
+    }
+
+    constructorBuilder
+      .addParameter(setOfStrings, signatoriesFieldName)
+      .addParameter(setOfStrings, observersFieldName)
+
     constructorBuilder.addStatement("this.$L = $L", idFieldName, idFieldName)
     constructorBuilder.addStatement("this.$L = $L", dataFieldName, dataFieldName)
     constructorBuilder.addStatement("this.$L = $L", agreementFieldName, agreementFieldName)
-
-    contractKeyClassName.foreach { name =>
-      classBuilder.addField(optional(name), contractKeyFieldName, Modifier.PUBLIC, Modifier.FINAL)
-      constructorBuilder.addParameter(optional(name), contractKeyFieldName)
+    contractKeyClassName.foreach { _ =>
       constructorBuilder.addStatement("this.$L = $L", contractKeyFieldName, contractKeyFieldName)
     }
+    constructorBuilder.addStatement("this.$L = $L", signatoriesFieldName, signatoriesFieldName)
+    constructorBuilder.addStatement("this.$L = $L", observersFieldName, observersFieldName)
 
     val constructor = constructorBuilder.build()
 
     classBuilder.addMethod(constructor)
 
     val contractClassName = ClassName.bestGuess("Contract")
-    val fields = Array(idFieldName, dataFieldName, agreementFieldName)
+    val fields = Vector(idFieldName, dataFieldName, agreementFieldName) ++ contractKeyClassName.map(_ => contractKeyFieldName).toList ++ Vector(signatoriesFieldName, observersFieldName)
     classBuilder
       .addMethod(
         generateFromIdAndRecord(
@@ -153,7 +170,7 @@ private[inner] object TemplateClass extends StrictLogging {
       ParameterSpec.builder(optionalString, agreementFieldName).build()
     ) ++ maybeContractKeyClassName
       .map(name => ParameterSpec.builder(optional(name), contractKeyFieldName).build)
-      .toList
+      .toList ++ Iterable(ParameterSpec.builder(setOfStrings, signatoriesFieldName).build(), ParameterSpec.builder(setOfStrings, observersFieldName).build())
 
     val spec =
       MethodSpec
@@ -169,13 +186,14 @@ private[inner] object TemplateClass extends StrictLogging {
           templateClassName)
 
     val callParameterNames = Vector(idFieldName, dataFieldName, agreementFieldName) ++ maybeContractKeyClassName
-      .map(_ => contractKeyFieldName)
+      .map(_ => contractKeyFieldName).toList ++ Vector(signatoriesFieldName, observersFieldName)
       .toList
     val callParameters = CodeBlock.join(callParameterNames.map(CodeBlock.of(_)).asJava, ", ")
     spec.addStatement("return new $T($L)", className, callParameters).build()
   }
 
   private val emptyOptional = CodeBlock.of("$T.empty()", classOf[Optional[_]])
+  private val emptySet = CodeBlock.of("$T.emptySet()", classOf[java.util.Collections])
 
   private[inner] def generateFromIdAndRecordDeprecated(
       className: ClassName,
@@ -200,7 +218,7 @@ private[inner] object TemplateClass extends StrictLogging {
     val callParameters = Vector(
       CodeBlock.of(idFieldName),
       CodeBlock.of(dataFieldName),
-      emptyOptional) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList
+      emptyOptional) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList ++ Vector(emptySet, emptySet)
 
     spec
       .addStatement("return new $T($L)", className, CodeBlock.join(callParameters.asJava, ", "))
@@ -214,6 +232,8 @@ private[inner] object TemplateClass extends StrictLogging {
     CodeBlock.of(
       "event.getContractKey().map(e -> $L)",
       FromValueGenerator.extractor(t, "e", CodeBlock.of("e"), newNameGenerator, packagePrefixes))
+  private val getSignatories = CodeBlock.of("event.getSignatories()")
+  private val getObservers = CodeBlock.of("event.getObservers()")
 
   private[inner] def generateFromCreatedEvent(
       className: ClassName,
@@ -231,7 +251,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
     val params = Vector(getContractId, getArguments, getAgreementText) ++ maybeContractKeyType
       .map(getContractKey(_, packagePrefixes))
-      .toList
+      .toList ++ Vector(getSignatories, getObservers)
 
     spec.addStatement("return fromIdAndRecord($L)", CodeBlock.join(params.asJava, ", ")).build()
   }

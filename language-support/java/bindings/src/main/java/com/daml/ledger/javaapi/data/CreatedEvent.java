@@ -7,9 +7,7 @@ import com.digitalasset.ledger.api.v1.EventOuterClass;
 import com.google.protobuf.StringValue;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 public final class CreatedEvent implements Event, TreeEvent {
 
@@ -27,14 +25,20 @@ public final class CreatedEvent implements Event, TreeEvent {
 
     private final Optional<Value> contractKey;
 
-    public CreatedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId, @NonNull Record arguments, @NonNull Optional<String> agreementText, @NonNull Optional<Value> contractKey) {
-        this.witnessParties = witnessParties;
+    private final @NonNull Set<@NonNull String> signatories;
+
+    private final @NonNull Set<@NonNull String> observers;
+
+    public CreatedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId, @NonNull Record arguments, @NonNull Optional<String> agreementText, @NonNull Optional<Value> contractKey, @NonNull Set<@NonNull String> signatories, @NonNull Set<@NonNull String> observers) {
+        this.witnessParties = Collections.unmodifiableList(witnessParties);
         this.eventId = eventId;
         this.templateId = templateId;
         this.contractId = contractId;
         this.arguments = arguments;
         this.agreementText = agreementText;
         this.contractKey = contractKey;
+        this.signatories = Collections.unmodifiableSet(signatories);
+        this.observers = Collections.unmodifiableSet(observers);
     }
 
     @NonNull
@@ -74,6 +78,12 @@ public final class CreatedEvent implements Event, TreeEvent {
     @NonNull
     public Optional<Value> getContractKey() { return contractKey; }
 
+    @NonNull
+    public Set<@NonNull String> getSignatories() { return signatories; }
+
+    @NonNull
+    public Set<@NonNull String> getObservers() { return observers; }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -85,12 +95,14 @@ public final class CreatedEvent implements Event, TreeEvent {
                 Objects.equals(contractId, that.contractId) &&
                 Objects.equals(arguments, that.arguments) &&
                 Objects.equals(agreementText, that.agreementText) &&
-                Objects.equals(contractKey, that.contractKey);
+                Objects.equals(contractKey, that.contractKey) &&
+                Objects.equals(signatories, that.signatories) &&
+                Objects.equals(observers, that.observers);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(witnessParties, eventId, templateId, contractId, arguments, agreementText, contractKey);
+        return Objects.hash(witnessParties, eventId, templateId, contractId, arguments, agreementText, contractKey, signatories, observers);
     }
 
     @Override
@@ -103,16 +115,20 @@ public final class CreatedEvent implements Event, TreeEvent {
                 ", arguments=" + arguments +
                 ", agreementText='" + agreementText + '\'' +
                 ", contractKey=" + contractKey +
+                ", signatories=" + signatories +
+                ", observers=" + observers +
                 '}';
     }
 
     public EventOuterClass.@NonNull CreatedEvent toProto() {
         EventOuterClass.CreatedEvent.Builder builder = EventOuterClass.CreatedEvent.newBuilder()
-                .setContractId(getContractId())
-                .setCreateArguments(getArguments().toProtoRecord())
-                .setEventId(getEventId())
-                .setTemplateId(getTemplateId().toProto())
-                .addAllWitnessParties(this.getWitnessParties());
+                .setContractId(this.getContractId())
+                .setCreateArguments(this.getArguments().toProtoRecord())
+                .setEventId(this.getEventId())
+                .setTemplateId(this.getTemplateId().toProto())
+                .addAllWitnessParties(this.getWitnessParties())
+                .addAllSignatories(this.getSignatories())
+                .addAllObservers(this.getObservers());
         agreementText.ifPresent(a -> builder.setAgreementText(StringValue.of(a)));
         contractKey.ifPresent(a -> builder.setContractKey(a.toProto()));
         return builder.build();
@@ -126,7 +142,9 @@ public final class CreatedEvent implements Event, TreeEvent {
                 createdEvent.getContractId(),
                 Record.fromProto(createdEvent.getCreateArguments()),
                 createdEvent.hasAgreementText() ? Optional.of(createdEvent.getAgreementText().getValue()) : Optional.empty(),
-                createdEvent.hasContractKey() ? Optional.of(Value.fromProto(createdEvent.getContractKey())) : Optional.empty());
+                createdEvent.hasContractKey() ? Optional.of(Value.fromProto(createdEvent.getContractKey())) : Optional.empty(),
+                new HashSet(createdEvent.getSignatoriesList()),
+                new HashSet(createdEvent.getObserversList()));
 
     }
 }

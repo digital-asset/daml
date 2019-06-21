@@ -25,14 +25,14 @@ final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues w
     fromIdAndRecord.returnType shouldEqual className
   }
 
-  it should "generate a method taking exactly a template identifier, a record, an agreement text and a contract key" in {
-    val parameters = fromIdAndRecord.parameters.asScala.map(p => p.name -> p.`type`)
-    parameters should contain only ("contractId" -> string, "record$" -> record, "agreementText" -> optionalString, "key" -> optionalContractKey)
+  it should "generate a method taking the expected parameters (with contract key)" in {
+    val parameters = fromIdAndRecord.parameters.asScala.map(p => p.name -> p.`type`).toList
+    parameters should contain theSameElementsInOrderAs Seq("contractId" -> string, "record$" -> record, "agreementText" -> optionalString, "key" -> optionalContractKey, "signatories" -> setOfStrings, "observers" -> setOfStrings)
   }
 
-  it should "generate a method taking exactly a template identifier, a record and an agreement text if no key is defined" in {
-    val parameters = fromIdAndRecordWithoutKey.parameters.asScala.map(p => p.name -> p.`type`)
-    parameters should contain only ("contractId" -> string, "record$" -> record, "agreementText" -> optionalString)
+  it should "generate a method taking the expected parameters (without contract key)" in {
+    val parameters = fromIdAndRecordWithoutKey.parameters.asScala.map(p => p.name -> p.`type`).toList
+    parameters should contain theSameElementsInOrderAs Seq("contractId" -> string, "record$" -> record, "agreementText" -> optionalString, "signatories" -> setOfStrings, "observers" -> setOfStrings)
   }
 
   private[this] val className = ClassName.bestGuess("Test")
@@ -53,5 +53,7 @@ final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues w
     ParameterizedTypeName.get(classOf[Optional[_]], classOf[String])
   private[this] val optionalContractKey =
     ParameterizedTypeName.get(ClassName.get(classOf[Optional[_]]), ckClassName)
+  private[this] val setOfStrings =
+    ParameterizedTypeName.get(classOf[java.util.Set[_]], classOf[String])
 
 }
