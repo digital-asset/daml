@@ -28,21 +28,22 @@ import GHC.Prim
 
 infixr 5 ::
 
--- | The kind of constraints, like `Show a`
+-- | A type for constraints, like `Show a`
 data Constraint
 
 -- | (Kind) This is the kind of type-level symbols.
 -- Declared here because class IP needs it
 data Symbol
 
--- | Documentation for lists
+-- | A type for lists (`[1,2,3]`)
 data [] a = [] | a :: [a]
 
 
--- | Information about ordering
+-- | A type for giving information about ordering:
+-- | being less than, equal to, or greater than something.
 data Ordering = LT | EQ | GT
 
--- | A 64-bit integer.
+-- | A type representing a 64-bit integer.
 data Int =
   -- | HIDE
   I# Int#
@@ -58,6 +59,7 @@ type TextLit = [Char]
 -- A dummy type for Word.
 data Word
 
+-- | A type for Boolean values.
 data Bool = False | True
 
 -- | HIDE
@@ -138,12 +140,13 @@ magic = magic -- deleted by the compiler
 -- | HIDE Dummy type to mark types built into DAML-LF.
 data Opaque = Opaque
 
--- Text type built into DAML-LF.
+-- | A type for text strings.
 data Text =
   -- | HIDE
   Text Opaque
 
--- Decimal type built into DAML-LF.
+-- | A type for fixed-point decimals: numbers of the form
+-- | `x / 10^10` where `x` is an integer with `|x| < 10^38`
 data Decimal =
   -- | HIDE
   Decimal Opaque
