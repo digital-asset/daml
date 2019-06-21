@@ -56,7 +56,7 @@ import           Data.List.Extra
 import           Data.Maybe
 import           Data.Tuple.Extra
 import qualified Data.Map.Strict                          as Map
-import           Development.IDE.Types.SpanInfo
+import           Development.IDE.Spans.Type
 import GHC.Generics (Generic)
 import           System.FilePath
 import           System.Directory

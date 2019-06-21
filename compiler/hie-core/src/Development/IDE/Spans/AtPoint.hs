@@ -19,7 +19,7 @@ import Development.Shake
 import Development.IDE.GHC.Util
 import Development.IDE.GHC.Compat
 import Development.IDE.Types.Options
-import           Development.IDE.Types.SpanInfo as SpanInfo
+import           Development.IDE.Spans.Type as SpanInfo
 
 -- GHC API imports
 import Avail

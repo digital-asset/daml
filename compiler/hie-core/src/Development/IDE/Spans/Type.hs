@@ -5,7 +5,7 @@
 
 -- | Types used separate to GHCi vanilla.
 
-module Development.IDE.Types.SpanInfo(
+module Development.IDE.Spans.Type(
     SpanInfo(..)
   , SpanSource(..)
   , getNameM

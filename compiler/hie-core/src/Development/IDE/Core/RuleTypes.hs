@@ -28,7 +28,7 @@ import           GHC
 import Development.IDE.GHC.Compat
 import           Module
 
-import           Development.IDE.Types.SpanInfo
+import           Development.IDE.Spans.Type
 
 
 -- NOTATION
