@@ -40,11 +40,12 @@ module Development.IDE.State.API.Testing
 -- * internal dependencies
 import qualified Development.IDE.State.API         as API
 import qualified Development.IDE.Types.Diagnostics as D
+import qualified Development.IDE.Types.Location as D
 import DA.Service.Daml.Compiler.Impl.Scenario as SS
 import Development.IDE.State.Rules.Daml
 import qualified Development.IDE.Logger as Logger
-import           Development.IDE.Types.LSP
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
+import Development.IDE.State.Service.Daml(VirtualResource(..))
 import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))
 import Language.Haskell.LSP.Types
@@ -421,7 +422,7 @@ expectTextOnHover cursorRange expectedInfo = do
     forM_ (cursorRangeList cursorRange) $ \cursor -> do
         mbInfo <- ShakeTest . liftIO . API.runActionSync service $
                     API.getAtPoint path (cursorPosition cursor)
-        let actualInfo :: [T.Text] = maybe [] (map API.getHoverTextContent . snd) mbInfo
+        let actualInfo :: [T.Text] = maybe [] snd mbInfo
         unless (hoverPredicate actualInfo) $
             throwError $ ExpectedHoverText cursor expectedInfo actualInfo
   where
