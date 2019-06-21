@@ -29,7 +29,7 @@ import qualified Data.Text as T
 import Data.Tuple.Extra
 import Development.Shake
 
-import qualified Development.IDE.Logger as Logger
+import qualified Development.IDE.Types.Logger as Logger
 import Development.IDE.State.Service hiding (initialise)
 import Development.IDE.State.FileStore
 import qualified Development.IDE.State.Service as IDE

@@ -11,7 +11,7 @@ module Development.IDE.LSP.Definition
 import           Development.IDE.LSP.Protocol
 import Development.IDE.Types.Location
 
-import qualified Development.IDE.Logger as Logger
+import qualified Development.IDE.Types.Logger as Logger
 import Development.IDE.State.Rules
 
 import qualified Data.Text as T

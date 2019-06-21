@@ -17,7 +17,7 @@ import Control.Monad.IO.Class
 import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
 import qualified Development.IDE.LSP.Definition as LS.Definition
 import qualified Development.IDE.LSP.Hover      as LS.Hover
-import qualified Development.IDE.Logger as Logger
+import qualified Development.IDE.Types.Logger as Logger
 
 import qualified Data.Aeson                                as Aeson
 import qualified Data.Rope.UTF16 as Rope

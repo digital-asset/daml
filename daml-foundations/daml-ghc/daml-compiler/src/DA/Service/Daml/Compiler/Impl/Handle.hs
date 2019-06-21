@@ -55,7 +55,7 @@ import qualified Data.Set                                   as S
 import qualified Data.Text                                  as T
 import Data.Maybe
 
-import qualified Development.IDE.Logger as IdeLogger
+import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.State.API
 import Development.IDE.State.Rules.Daml
 import Development.IDE.State.RuleTypes.Daml

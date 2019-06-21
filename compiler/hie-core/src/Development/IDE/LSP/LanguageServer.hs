@@ -17,7 +17,7 @@ import           Development.IDE.LSP.Server
 import Control.Monad.IO.Class
 import qualified Development.IDE.LSP.Definition as LS.Definition
 import qualified Development.IDE.LSP.Hover      as LS.Hover
-import qualified Development.IDE.Logger as Logger
+import qualified Development.IDE.Types.Logger as Logger
 import Development.IDE.State.Service
 import Development.IDE.Types.Location
 

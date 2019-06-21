@@ -55,7 +55,7 @@ import           Data.Maybe
 import           Data.Either.Extra
 import           Data.List.Extra
 import qualified Data.Text as T
-import Development.IDE.Logger as Logger
+import Development.IDE.Types.Logger as Logger
 import           Development.IDE.Types.Diagnostics hiding (getAllDiagnostics)
 import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.Types.Location

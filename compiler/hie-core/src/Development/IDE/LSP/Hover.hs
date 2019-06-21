@@ -12,7 +12,7 @@ import Development.IDE.LSP.Protocol hiding (Hover)
 import Language.Haskell.LSP.Types (Hover(..))
 import Development.IDE.Types.Location
 
-import qualified Development.IDE.Logger as Logger
+import qualified Development.IDE.Types.Logger as Logger
 
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc

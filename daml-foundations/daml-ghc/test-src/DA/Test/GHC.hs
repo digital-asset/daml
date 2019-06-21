@@ -31,7 +31,7 @@ import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
-import qualified Development.IDE.Logger as IdeLogger
+import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Lens as A

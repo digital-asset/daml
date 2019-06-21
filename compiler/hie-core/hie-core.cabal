@@ -76,7 +76,7 @@ library
         src
         ../../libs-haskell/prettyprinter-syntax/src
     exposed-modules:
-        Development.IDE.Logger
+        Development.IDE.Types.Logger
         Development.IDE.GHC.Util
         Development.IDE.Spans.AtPoint
         Development.IDE.Functions.Compile

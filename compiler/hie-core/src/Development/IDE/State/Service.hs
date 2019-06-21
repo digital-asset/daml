@@ -24,7 +24,7 @@ import           Control.Concurrent.Extra
 import           Control.Monad.Except
 import Development.IDE.Types.Options (IdeOptions(..))
 import           Development.IDE.State.FileStore
-import qualified Development.IDE.Logger as Logger
+import qualified Development.IDE.Types.Logger as Logger
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
 import qualified Data.Text as T
