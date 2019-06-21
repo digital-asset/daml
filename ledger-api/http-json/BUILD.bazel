@@ -3,34 +3,38 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_binary",
     "da_scala_library",
     "da_scala_test_suite",
 )
+
+http_json_deps = [
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+    "//3rdparty/jvm/com/github/pureconfig",
+    "//3rdparty/jvm/com/github/scopt",
+    "//3rdparty/jvm/com/typesafe/akka:akka_http",
+    "//3rdparty/jvm/com/typesafe/akka:akka_http_spray_json",
+    "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
+    "//3rdparty/jvm/com/typesafe/scala_logging",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//daml-lf/data",
+    "//daml-lf/transaction",
+    "//language-support/scala/bindings-akka",
+    "//ledger-api/rs-grpc-bridge",
+]
 
 da_scala_library(
     name = "http-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
     tags = ["maven_coordinates=com.digitalasset.ledger-api:http-json:__VERSION__"],
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        "//3rdparty/jvm/ch/qos/logback:logback_classic",
-        "//3rdparty/jvm/com/github/pureconfig",
-        "//3rdparty/jvm/com/github/scopt",
-        "//3rdparty/jvm/com/typesafe/akka:akka_http",
-        "//3rdparty/jvm/com/typesafe/akka:akka_http_spray_json",
-        "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
-        "//3rdparty/jvm/com/typesafe/scala_logging",
-        "//3rdparty/jvm/io/netty:netty_handler",
-        "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-        "//daml-lf/data",
-        "//daml-lf/transaction",
-        "//language-support/scala/bindings",
-        "//language-support/scala/bindings-akka",
-        "//ledger/ledger-api-client",
-    ],
+    deps = http_json_deps,
+)
+
+da_scala_binary(
+    name = "http-json-bin",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    main_class = "com.digitalasset.http.DummyMain",
+    deps = [":http-json"] + http_json_deps,
 )
 
 da_scala_test_suite(
