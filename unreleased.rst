@@ -27,3 +27,4 @@ DAML Integration Kit
 
 - Added additional Ledger API integration tests to Ledger API Test Tool.
 - [DAML Studio] Goto definition now works on the export list of modules.
+- [DAML-LF] Rename ``none`` and ``some`` to ``optional_none`` and ``optional_some``, resp., in ``Expr`` and ``CasePat``.

@@ -338,12 +338,12 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     decodeUpdate upd
   LF1.ExprSumScenario scen ->
     decodeScenario scen
-  LF1.ExprSumNone (LF1.Expr_None mbType) -> do
-    bodyType <- mayDecode "expr_NoneType" mbType decodeType
+  LF1.ExprSumOptionalNone (LF1.Expr_OptionalNone mbType) -> do
+    bodyType <- mayDecode "expr_OptionalNoneType" mbType decodeType
     return (ENone bodyType)
-  LF1.ExprSumSome (LF1.Expr_Some mbType mbBody) -> do
-    bodyType <- mayDecode "expr_SomeType" mbType decodeType
-    bodyExpr <- mayDecode "expr_ExprType" mbBody decodeExpr
+  LF1.ExprSumOptionalSome (LF1.Expr_OptionalSome mbType mbBody) -> do
+    bodyType <- mayDecode "expr_OptionalSomeType" mbType decodeType
+    bodyExpr <- mayDecode "expr_OptionalSomeBody" mbBody decodeExpr
     return (ESome bodyType bodyExpr)
 
 decodeUpdate :: LF1.Update -> Either Error Expr
@@ -435,9 +435,9 @@ decodeCaseAlt LF1.CaseAlt{..} = do
     LF1.CaseAltSumNil LF1.Unit -> pure CPNil
     LF1.CaseAltSumCons LF1.CaseAlt_Cons{..} ->
       CPCons <$> decodeName ExprVarName caseAlt_ConsVarHead <*> decodeName ExprVarName caseAlt_ConsVarTail
-    LF1.CaseAltSumNone LF1.Unit -> pure CPNone
-    LF1.CaseAltSumSome LF1.CaseAlt_Some{..} ->
-      CPSome <$> decodeName ExprVarName caseAlt_SomeVarBody
+    LF1.CaseAltSumOptionalNone LF1.Unit -> pure CPNone
+    LF1.CaseAltSumOptionalSome LF1.CaseAlt_OptionalSome{..} ->
+      CPSome <$> decodeName ExprVarName caseAlt_OptionalSomeVarBody
   body <- mayDecode "caseAltBody" caseAltBody decodeExpr
   pure $ CaseAlternative pat body
 

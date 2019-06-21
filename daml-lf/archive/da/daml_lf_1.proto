@@ -644,7 +644,7 @@ message Expr {
 
   // (*Since version 1*)
   // Empty optional value
-  message None {
+  message OptionalNone {
 
     // type of the element
     Type type = 1;
@@ -652,7 +652,7 @@ message Expr {
 
   // (*Since version 1*)
   // Non empty optional value
-  message Some {
+  message OptionalSome {
 
     // type of the element
     Type type = 1;
@@ -738,13 +738,13 @@ message Expr {
     // Scenario Expression ('ExpScenario')
     Scenario scenario = 21;
 
-    // empty optional valye ('ExpNone')
+    // empty optional value ('ExpNone')
     // *Available since version 1.1*
-    None none = 26;
+    OptionalNone optional_none = 26;
 
     // non empty optional value ('ExpSome')
     // *Available since version 1.1*
-    Some some = 27;
+    OptionalSome optional_some = 27;
   }
 
   reserved 19; // This was equals. Removed in favour of BuiltinFunction.EQUAL_*
@@ -793,7 +793,7 @@ message CaseAlt {
 
   // Non empty option patterm
   // Available since version
-  message Some {
+  message OptionalSome {
     string var_body = 1;
   }
 
@@ -803,8 +803,8 @@ message CaseAlt {
     PrimCon prim_con = 3;
     Unit nil = 4;
     Cons cons = 5;
-    Unit none = 7; // * Available since version 1*
-    Some some = 8; // * Available since version 1*
+    Unit optional_none = 7; // * Available since version 1*
+    OptionalSome optional_some = 8; // * Available since version 1*
     Enum enum = 9; // * Available since version dev*
   }
 

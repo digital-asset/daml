@@ -329,8 +329,8 @@ encodeExpr' version = \case
   ELocation loc e ->
     let (P.Expr _ esum) = encodeExpr' version e
     in P.Expr (Just $ encodeSourceLoc loc) esum
-  ENone typ -> expr (P.ExprSumNone (P.Expr_None (encodeType version typ)))
-  ESome typ body -> expr (P.ExprSumSome (P.Expr_Some (encodeType version typ) (encodeExpr version body)))
+  ENone typ -> expr (P.ExprSumOptionalNone (P.Expr_OptionalNone (encodeType version typ)))
+  ESome typ body -> expr (P.ExprSumOptionalSome (P.Expr_OptionalSome (encodeType version typ) (encodeExpr version body)))
   where
     expr = P.Expr Nothing . Just
 
@@ -397,8 +397,8 @@ encodeCaseAlternative version CaseAlternative{..} =
           CPEnumCon con -> P.CaseAltSumPrimCon (encodeEnumCon con)
           CPNil         -> P.CaseAltSumNil P.Unit
           CPCons{..}    -> P.CaseAltSumCons $ P.CaseAlt_Cons (encodeName unExprVarName patHeadBinder) (encodeName unExprVarName patTailBinder)
-          CPNone        -> P.CaseAltSumNone P.Unit
-          CPSome{..}    -> P.CaseAltSumSome $ P.CaseAlt_Some (encodeName unExprVarName patBodyBinder)
+          CPNone        -> P.CaseAltSumOptionalNone P.Unit
+          CPSome{..}    -> P.CaseAltSumOptionalSome $ P.CaseAlt_OptionalSome (encodeName unExprVarName patBodyBinder)
     in P.CaseAlt (Just pat) (encodeExpr version altExpr)
 
 encodeDefDataType :: Version -> DefDataType -> P.DefDataType
