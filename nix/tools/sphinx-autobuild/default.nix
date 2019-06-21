@@ -6,7 +6,7 @@
 #
 
 { pkgs
-, pythonPackages
+, python37Packages
 }:
 
 let
@@ -18,7 +18,7 @@ let
   commonDoCheck = false;
 
   python = {
-    mkDerivation = pythonPackages.buildPythonPackage;
+    mkDerivation = python37Packages.buildPythonPackage;
   };
 
   generated = self: {

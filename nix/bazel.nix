@@ -52,7 +52,7 @@ rec {
 
   sphinx183 = import ./tools/sphinx183 {
     inherit pkgs;
-    pythonPackages = pkgs.python36Packages;
+    pythonPackages = pkgs.python37Packages;
   };
 
   # Custom combination of latex packages for our latex needs
