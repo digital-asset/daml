@@ -85,12 +85,12 @@ toDSeverity SevFatal       = Just DsError
 
 -- | Produce a bag of GHC-style errors (@ErrorMessages@) from the given
 --   (optional) locations and message strings.
-diagFromStrings :: DynFlags -> [(SrcSpan, String)] -> [FileDiagnostic]
-diagFromStrings dflags = concatMap (uncurry $ diagFromString dflags)
+diagFromStrings :: [(SrcSpan, String)] -> [FileDiagnostic]
+diagFromStrings = concatMap (uncurry diagFromString)
 
 -- | Produce a GHC-style error from a source span and a message.
-diagFromString :: DynFlags -> SrcSpan -> String -> [FileDiagnostic]
-diagFromString _ sp x = [diagFromText DsError sp $ T.pack x]
+diagFromString :: SrcSpan -> String -> [FileDiagnostic]
+diagFromString sp x = [diagFromText DsError sp $ T.pack x]
 
 -- | Produce a GHC-style error from a source span and a message.
 diagFromSDoc :: DynFlags -> SrcSpan -> Out.SDoc -> [FileDiagnostic]
@@ -115,7 +115,7 @@ realSpan = \case
 
 
 diagFromGhcException :: DynFlags -> GhcException -> [FileDiagnostic]
-diagFromGhcException dflags exc = diagFromString dflags (noSpan "<Internal>") (showGHCE dflags exc)
+diagFromGhcException dflags exc = diagFromString (noSpan "<Internal>") (showGHCE dflags exc)
 
 showGHCE :: DynFlags -> GhcException -> String
 showGHCE dflags exc = case exc of

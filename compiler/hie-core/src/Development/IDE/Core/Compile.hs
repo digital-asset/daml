@@ -417,7 +417,7 @@ parseFileContents preprocessor filename contents = do
 
                -- Ok, we got here. It's safe to continue.
                let (errs, parsed) = preprocessor rdr_module
-               unless (null errs) $ Ex.throwE $ diagFromStrings dflags errs
+               unless (null errs) $ Ex.throwE $ diagFromStrings errs
                ms <- getModSummaryFromBuffer filename contents dflags parsed
                let pm =
                      ParsedModule {
