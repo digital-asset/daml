@@ -3,7 +3,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module Development.IDE.Functions.FindImports
+module Development.IDE.Import.FindImports
   ( getImportsParsed
   , locateModule
   , Import(..)

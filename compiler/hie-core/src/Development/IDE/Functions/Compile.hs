@@ -23,7 +23,7 @@ module Development.IDE.Functions.Compile
 import           Development.IDE.Functions.Warnings
 import           Development.IDE.Functions.CPP
 import           Development.IDE.Types.Diagnostics
-import qualified Development.IDE.Functions.FindImports as FindImports
+import qualified Development.IDE.Import.FindImports as FindImports
 import           Development.IDE.Functions.GHCError
 import           Development.IDE.Spans.Calculate
 import Development.IDE.UtilGHC

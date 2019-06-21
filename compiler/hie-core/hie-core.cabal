@@ -82,9 +82,9 @@ library
         Development.IDE.Functions.Compile
         Development.IDE.Functions.CPP
         Development.IDE.Orphans
-        Development.IDE.Functions.DependencyInformation
+        Development.IDE.Import.DependencyInformation
         Development.IDE.Spans.Documentation
-        Development.IDE.Functions.FindImports
+        Development.IDE.Import.FindImports
         Development.IDE.Functions.GHCError
         Development.IDE.Spans.Calculate
         Development.IDE.Functions.Warnings

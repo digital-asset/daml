@@ -27,8 +27,8 @@ import           Control.Monad.Except
 import Control.Monad.Trans.Maybe
 import qualified Development.IDE.Functions.Compile             as Compile
 import qualified Development.IDE.Types.Options as Compile
-import Development.IDE.Functions.DependencyInformation
-import Development.IDE.Functions.FindImports
+import Development.IDE.Import.DependencyInformation
+import Development.IDE.Import.FindImports
 import           Development.IDE.State.FileStore
 import           Development.IDE.Types.Diagnostics as Base
 import Development.IDE.Types.Location

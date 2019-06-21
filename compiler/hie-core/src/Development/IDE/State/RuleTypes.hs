@@ -15,8 +15,8 @@ module Development.IDE.State.RuleTypes(
 import           Control.DeepSeq
 import           Development.IDE.Functions.Compile             (TcModuleResult, GhcModule, LoadPackageResult(..))
 import qualified Development.IDE.Functions.Compile             as Compile
-import           Development.IDE.Functions.FindImports         (Import(..))
-import           Development.IDE.Functions.DependencyInformation
+import           Development.IDE.Import.FindImports         (Import(..))
+import           Development.IDE.Import.DependencyInformation
 import           Data.Hashable
 import           Data.Typeable
 import Development.IDE.Types.Location
