@@ -11,6 +11,7 @@ module Development.IDE.Import.FindImports
 
 import           Development.IDE.GHC.Error as ErrUtils
 import Development.IDE.GHC.Orphans()
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 -- GHC imports
 import           BasicTypes                  (StringLiteral(..))

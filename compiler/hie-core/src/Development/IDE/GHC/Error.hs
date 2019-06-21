@@ -13,15 +13,6 @@ module Development.IDE.GHC.Error
   , mkErrorDoc
   , mkErrorsGhcException
 
-  -- * Handling errors in the GHC monad (SourceError, ErrorMessages)
-  , Diagnostic
-  , FileDiagnostic
-  , ErrorMessages -- included in module export below
-  , ErrMsg
-  , errMsgSpan
-  , errMsgSeverity
-  , mkPlainErrMsg
-
   -- * utilities working with 'ErrMsg' and 'ErrorMessages'
   , zeroSpan
   , realSpan
