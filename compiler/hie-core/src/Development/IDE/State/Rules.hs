@@ -117,7 +117,8 @@ getDefinition file pos = fmap join $ runMaybeT $ do
     spans <- useE GetSpanInfo file
     pkgState <- useE GhcSession ""
     opts <- lift getOpts
-    lift $ AtPoint.gotoDefinition opts pkgState spans pos
+    let getHieFile x = use (GetHieFile x) ""
+    lift $ AtPoint.gotoDefinition getHieFile opts pkgState spans pos
 
 -- | Parse the contents of a daml file.
 getParsedModule :: NormalizedFilePath -> Action (Maybe ParsedModule)
