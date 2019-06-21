@@ -84,6 +84,7 @@ import           DA.Daml.GHC.Compiler.UtilLF
 
 import Development.IDE.Functions.Compile (GhcModule(..))
 import           Development.IDE.Types.Diagnostics
+import           Development.IDE.Types.Location
 import           Development.IDE.UtilGHC
 
 import           Control.Applicative

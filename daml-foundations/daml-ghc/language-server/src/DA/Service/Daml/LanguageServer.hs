@@ -28,7 +28,7 @@ import Development.IDE.State.FileStore
 import Development.IDE.State.Rules
 import Development.IDE.State.Rules.Daml
 import Development.IDE.State.Service.Daml
-import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 
 import qualified Network.URI                               as URI
 

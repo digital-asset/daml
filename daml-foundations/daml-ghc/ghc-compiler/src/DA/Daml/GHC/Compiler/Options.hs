@@ -102,6 +102,8 @@ toCompileOpts Options{..} =
       , optExtensions = ["daml"]
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
+      , optLanguageSyntax = "daml"
+      , optNewColonConvention = True
       }
   where
     toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]

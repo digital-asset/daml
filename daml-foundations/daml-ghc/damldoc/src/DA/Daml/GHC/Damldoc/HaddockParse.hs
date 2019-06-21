@@ -12,6 +12,7 @@ import qualified Development.IDE.State.Service     as Service
 import qualified Development.IDE.State.Rules     as Service
 import           Development.IDE.Types.Diagnostics
 import qualified Development.IDE.Logger as Logger
+import Development.IDE.Types.Location
 
 
 import           "ghc-lib" GHC

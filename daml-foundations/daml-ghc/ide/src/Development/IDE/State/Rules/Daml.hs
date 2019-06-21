@@ -12,6 +12,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import DA.Daml.GHC.Compiler.Options
+import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
@@ -40,7 +41,6 @@ import qualified Development.IDE.State.Rules as IDE
 import Development.IDE.State.Service.Daml
 import Development.IDE.State.Shake
 import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
 import qualified Language.Haskell.LSP.Messages as LSP
 import qualified Language.Haskell.LSP.Types as LSP
 

@@ -62,6 +62,7 @@ da_haskell_test(
     deps = [
         "//compiler/hie-core",
         "//daml-foundations/daml-ghc/daml-compiler",
+        "//daml-foundations/daml-ghc/ide",
         "//daml-foundations/daml-ghc/ide:ide-testing",
         "//libs-haskell/da-hs-base",
     ],

@@ -81,7 +81,6 @@
     - DA.Sdk.Cli.Version
     - DAML.Assistant.Install.Path
     - Development.IDE.Functions.Compile
-    - Development.IDE.UtilGHC
     - Development.IDE.Compat
   - {name: ImplicitParams, within: []}
 
