@@ -53,17 +53,7 @@ main = do
 
     cradle <- findCradle (dir <> "/")
 
-    let options = IdeOptions
-            {optPreprocessor = (,) []
-            ,optWriteIface = False
-            ,optGhcSession = liftIO $ newSession' cradle
-            ,optExtensions = ["hs"]
-            ,optPkgLocationOpts = defaultIdePkgLocationOptions
-            ,optThreads = 0
-            ,optShakeProfiling = Nothing -- Just "output.html"
-            ,optLanguageSyntax = "haskell"
-            ,optNewColonConvention = False
-            }
+    let options = defaultIdeOptions $ liftIO $ newSession' cradle
 
     if "--lsp" `elem` args then do
         hPutStrLn stderr "Starting IDE server"
