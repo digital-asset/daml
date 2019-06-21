@@ -60,8 +60,6 @@ import DAML.Project.Consts
 import DAML.Project.Types
 import DAML.Project.Util
 
-import DamlHelper.Signals
-
 data DamlHelperError = DamlHelperError
     { errMessage :: T.Text
     , errInternal :: Maybe T.Text
@@ -137,7 +135,6 @@ shouldReplaceExtension replaceExt dir =
 
 runJar :: FilePath -> [String] -> IO ()
 runJar jarPath remainingArguments = do
-    installSignalHandlers
     exitCode <- withJar jarPath remainingArguments waitForProcess
     exitWith exitCode
 
@@ -548,7 +545,6 @@ runStart (OpenBrowser shouldOpenBrowser) = withProjectRoot Nothing (ProjectCheck
     assistant <- getDamlAssistant
     callCommand (unwords $ assistant : ["build", "-o", darPath])
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
-    installSignalHandlers
     withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
         parties <- getProjectParties
         withTempDir $ \confDir -> do
