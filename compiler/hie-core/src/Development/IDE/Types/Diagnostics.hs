@@ -30,7 +30,6 @@ module Development.IDE.Types.Diagnostics (
   ideErrorText,
   ideErrorPretty,
   errorDiag,
-  ideTryIOException,
   showDiagnostics,
   showDiagnosticsColored,
   defDiagnostic,
@@ -146,12 +145,6 @@ defDiagnostic _range _message = LSP.Diagnostic {
   , _source = Nothing
   , _relatedInformation = Nothing
   }
-
-ideTryIOException :: NormalizedFilePath -> IO a -> IO (Either FileDiagnostic a)
-ideTryIOException fp act =
-  mapLeft
-      (\(e :: IOException) -> ideErrorText fp $ T.pack $ show e)
-      <$> try act
 
 -- | Human readable diagnostics for a specific file.
 --

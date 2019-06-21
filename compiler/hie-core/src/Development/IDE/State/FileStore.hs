@@ -27,6 +27,7 @@ import           Development.Shake.Classes
 import           Development.IDE.State.Shake
 import           Control.Exception
 import           GHC.Generics
+import Data.Either.Extra
 import System.IO.Error
 import qualified Data.ByteString.Char8 as BS
 import qualified StringBuffer as SB
@@ -131,6 +132,12 @@ getFileContentsRule vfs =
         case res of
             Left err -> return ([err], Nothing)
             Right contents -> return ([], Just (time, contents))
+
+ideTryIOException :: NormalizedFilePath -> IO a -> IO (Either FileDiagnostic a)
+ideTryIOException fp act =
+  mapLeft
+      (\(e :: IOException) -> ideErrorText fp $ T.pack $ show e)
+      <$> try act
 
 
 getFileContents :: NormalizedFilePath -> Action (FileVersion, StringBuffer)
