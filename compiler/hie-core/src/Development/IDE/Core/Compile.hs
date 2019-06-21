@@ -143,7 +143,7 @@ typecheckModule opt packageState deps pm =
     runGhcSessionExcept opt (Just pm) packageState $
         catchSrcErrors $ do
             setupEnv deps
-            (warnings, tcm) <- withWarnings "Typechecker" $ \tweak ->
+            (warnings, tcm) <- withWarnings $ \tweak ->
                 GHC.typecheckModule pm{pm_mod_summary = tweak $ pm_mod_summary pm}
             tcm2 <- mkTcModuleResult (WriteInterface $ optWriteIface opt) tcm
             return (warnings, tcm2)
@@ -182,7 +182,7 @@ compileModule opt mod packageState deps tmr =
 
             let tm = tmrModule tmr
             session <- getSession
-            (warnings,desugar) <- withWarnings "Desugarer" $ \tweak -> do
+            (warnings,desugar) <- withWarnings $ \tweak -> do
                 let pm = tm_parsed_module tm
                 let pm' = pm{pm_mod_summary = tweak $ pm_mod_summary pm}
                 let tm' = tm{tm_parsed_module  = pm'}
@@ -427,7 +427,7 @@ parseFileContents preprocessor filename contents = do
                        , pm_extra_src_files=[] -- src imports not allowed
                        , pm_annotations = hpm_annotations
                       }
-                   warnings = mapMaybe (mkDiag dflags "Parser") $ bagToList warns
+                   warnings = mapMaybe (mkDiag dflags) $ bagToList warns
                pure (warnings, pm)
 
 

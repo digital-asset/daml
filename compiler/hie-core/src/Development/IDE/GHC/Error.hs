@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Development.IDE.GHC.Error
   ( mkDiag
   , toDiagnostics
@@ -34,11 +35,11 @@ import qualified Outputable                 as Out
 
 
 toDiagnostics :: DynFlags -> ErrorMessages -> [FileDiagnostic]
-toDiagnostics dflags = mapMaybe (mkDiag dflags $ T.pack "Compiler") . bagToList
+toDiagnostics dflags = mapMaybe (mkDiag dflags) . bagToList
 
 
-mkDiag :: DynFlags -> T.Text -> ErrMsg -> Maybe FileDiagnostic
-mkDiag dflags src e =
+mkDiag :: DynFlags -> ErrMsg -> Maybe FileDiagnostic
+mkDiag dflags e =
   case toDSeverity $ errMsgSeverity e of
     Nothing        -> Nothing
     Just bSeverity ->
@@ -46,7 +47,7 @@ mkDiag dflags src e =
         Diagnostic
         { _range    = srcSpanToRange $ errMsgSpan e
         , _severity = Just bSeverity
-        , _source   = Just src
+        , _source   = Just "compiler" -- should really be 'daml' or 'haskell', but not shown in the IDE so who cares
         , _message  = T.pack $ Out.showSDoc dflags (ErrUtils.pprLocErrMsg e)
         , _code     = Nothing
         , _relatedInformation = Nothing
