@@ -35,7 +35,7 @@ data Constraint
 -- Declared here because class IP needs it
 data Symbol
 
--- | A type for lists (`[1,2,3]`)
+-- | A type for lists, for example `[1,2,3]`.
 data [] a = [] | a :: [a]
 
 
@@ -59,7 +59,7 @@ type TextLit = [Char]
 -- A dummy type for Word.
 data Word
 
--- | A type for Boolean values.
+-- | A type for Boolean values, ie `True` and `False`.
 data Bool = False | True
 
 -- | HIDE
@@ -140,13 +140,14 @@ magic = magic -- deleted by the compiler
 -- | HIDE Dummy type to mark types built into DAML-LF.
 data Opaque = Opaque
 
--- | A type for text strings.
+-- | A type for text strings, for example `"Hello, world"`.
 data Text =
   -- | HIDE
   Text Opaque
 
 -- | A type for fixed-point decimals: numbers of the form
---   `x / 10^10` where `x` is an integer with `|x| < 10^38`
+--   `x / 10^10` where `x` is an integer with `|x| < 10^38`.
+--   For example, `1.25`.
 data Decimal =
   -- | HIDE
   Decimal Opaque

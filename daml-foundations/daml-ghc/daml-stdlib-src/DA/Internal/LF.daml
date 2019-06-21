@@ -89,7 +89,7 @@ partyFromText = primitive @"BEPartyFromText"
 getParty : Text -> Scenario Party
 getParty = primitive @"SGetParty"
 
--- | The `Date` type represents a date.
+-- | The `Date` type represents a date, for example `date 2007 Apr 5`.
 data Date =
   -- | HIDE
   Date Opaque
@@ -97,7 +97,8 @@ instance Show Date where show = primitive @"BEToText"
 instance Eq Date where (==) = primitive @"BEEqual"
 instance Ord Date where (<=) = primitive @"BELessEq"
 
--- | The `Time` type represents a specific datetime in UTC, i.e. a date and a time in UTC.
+-- | The `Time` type represents a specific datetime in UTC,
+-- for example `time (date 2007 Apr 5) 14 30 05`.
 data Time =
   -- | HIDE
   Time Opaque
@@ -124,8 +125,8 @@ instance Show (ContractId a) where show _ = "<contract-id>"
 coerceContractId : ContractId a -> ContractId b
 coerceContractId = primitive @"BECoerceContractId"
 
--- | The `Update a` type represents an action to update or query the ledger,
---   before returning a value of type `a`.
+-- | The `Update a` type represents an `Action` to update or query the ledger,
+--   before returning a value of type `a`. Examples include `create` and `fetch`.
 data Update a =
   -- | HIDE
   Update Opaque
@@ -163,7 +164,7 @@ instance CanAbort Update where
 instance CanAbort Scenario where
     abort = fail
 
--- | The `Scenario` type is used to simulate multi-party ledger interactions.
+-- | The `Scenario` type is for simulating ledger interactions.
 -- The type `Scenario a` describes a set of actions taken by various parties during
 -- the simulated scenario, before returning a value of type `a`.
 data Scenario a =
