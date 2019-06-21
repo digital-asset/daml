@@ -58,6 +58,7 @@ startFromExpr seen world e = case e of
     LF.EVariantCon _ _ varg -> startFromExpr seen world varg
     LF.ETupleCon tcon -> Set.unions $ map (\(_, exp) -> startFromExpr seen world exp) tcon
     LF.ETupleProj _ tupExpr -> startFromExpr seen world tupExpr
+    -- Special cases to handle internal calls which do not add an edge to the graph.
     LF.ERecUpd _ _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
     LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ (LF.ModuleName ["DA","Internal","Template"]) (LF.ExprValName "fetch"))) _) _ -> Set.empty
     LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _  (LF.ModuleName ["DA","Internal","Template"])  (LF.ExprValName "archive"))) _) _ -> Set.empty
