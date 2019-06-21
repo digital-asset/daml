@@ -3,9 +3,10 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api.transaction
 
+import java.util.UUID
+
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   MockMessages,
@@ -15,15 +16,12 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestCommands}
-import com.digitalasset.platform.common.LedgerIdMode
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 
 import scala.concurrent.{Await, Future}
-
-import com.digitalasset.ledger.api.domain.LedgerId
 
 @SuppressWarnings(
   Array(
@@ -41,10 +39,7 @@ class TransactionBackpressureIT
 
   override def timeLimit: Span = 300.seconds
 
-  private val testLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
-
-  override protected def config: Config =
-    Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))
+  override protected def config: Config = Config.default
 
   override protected def parallelExecution: Boolean = false
 
@@ -52,6 +47,8 @@ class TransactionBackpressureIT
   private val begin = LedgerOffset(Boundary(LEDGER_BEGIN))
 
   "The transaction service when serving multiple subscriptions" should {
+
+    val runSuffix = UUID.randomUUID()
 
     "handle back pressure" in allFixtures { ctx =>
       val noOfCommands = 1000
@@ -65,23 +62,24 @@ class TransactionBackpressureIT
           .throttle(10, 1.second)
           .mapAsync(10)(i =>
             commandClient.submitSingleCommand(
-              testCommands.oneKbCommandRequest(ctx.ledgerId, s"command-$i")))
+              testCommands.oneKbCommandRequest(ctx.ledgerId, s"command-$i-$runSuffix")))
           .runWith(Sink.ignore)
 
-      def subscribe(rate: Int) =
+      def subscribe(begin: LedgerOffset, rate: Int) =
         transactionClient
           .getTransactions(begin, None, transactionFilter)
           .take(noOfCommands.toLong)
           .throttle(rate, 1.second, noOfCommands, ThrottleMode.shaping)
           .runWith(Sink.seq)
 
-      def startSubscriptions() = {
-        (1 to noOfSubscriptions).map(i => subscribe(i * 600))
+      def startSubscriptions(begin: LedgerOffset) = {
+        (1 to noOfSubscriptions).map(i => subscribe(begin, i * 600))
       }
 
       val transactionsF = for {
+        currentEnd <- transactionClient.getLedgerEnd
         _ <- sendCommands()
-        transactions <- Future.sequence(startSubscriptions())
+        transactions <- Future.sequence(startSubscriptions(currentEnd.getOffset))
       } yield transactions
 
       transactionsF map { transactions =>
