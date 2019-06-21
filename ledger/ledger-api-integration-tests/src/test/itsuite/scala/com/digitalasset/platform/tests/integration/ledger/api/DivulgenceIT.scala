@@ -3,9 +3,10 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
+import java.util.UUID
+
 import akka.stream.scaladsl.Sink
-import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
@@ -19,23 +20,22 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach
 }
 import com.digitalasset.ledger.api.v1
-import com.digitalasset.ledger.api.v1.command_service._
+import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands._
 import com.digitalasset.ledger.api.v1.ledger_offset._
 import com.digitalasset.ledger.api.v1.transaction_filter._
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.google.protobuf.timestamp.Timestamp
-import org.scalatest.{AsyncFreeSpec, Matchers, OptionValues}
-import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.Inside.inside
-
+import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
+import org.scalatest.{AsyncFreeSpec, Matchers, OptionValues}
 import scalaz.syntax.tag._
-import scala.language.implicitConversions
+
 import scala.concurrent.Future
+import scala.language.implicitConversions
 
 class DivulgenceIT
     extends AsyncFreeSpec
@@ -55,9 +55,6 @@ class DivulgenceIT
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
   private implicit def id(s: String): Ref.Name = Ref.Name.assertFromString(s)
 
-  private def commandClient(ctx: LedgerContext): SynchronousCommandClient =
-    new SynchronousCommandClient(ctx.commandService)
-
   private def acsClient(ctx: LedgerContext): ActiveContractSetClient =
     new ActiveContractSetClient(ctx.ledgerId, ctx.acsService)
 
@@ -68,15 +65,16 @@ class DivulgenceIT
   private val maximumRecordTime =
     ledgerEffectiveTime.copy(seconds = ledgerEffectiveTime.seconds + 30L)
 
-  private def submitAndWaitRequest(
+  private def submitRequest(
       ctx: LedgerContext,
       commandId: String,
-      party: String): SubmitAndWaitRequest =
-    SubmitAndWaitRequest(
+      workflowId: String,
+      party: String): SubmitRequest =
+    SubmitRequest(
       commands = Some(
         Commands(
           ledgerId = ctx.ledgerId.unwrap,
-          workflowId = "divulgence-test-workflow-id",
+          workflowId = workflowId,
           applicationId = "divulgence-test-application-id",
           commandId = commandId,
           party = party,
@@ -89,13 +87,15 @@ class DivulgenceIT
   private def create(
       ctx: LedgerContext,
       commandId: String,
+      workflowId: String,
       party: String,
       tpl: v1.value.Identifier,
       arg: ValueRecord[AbsoluteContractId]): Future[ContractIdString] =
     for {
       ledgerEndBeforeSubmission <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
-      _ <- commandClient(ctx).submitAndWait(
-        submitAndWaitRequest(ctx, commandId, party).update(
+      client <- ctx.commandClient()
+      _ <- client.submitSingleCommand(
+        submitRequest(ctx, commandId, workflowId, party).update(
           _.commands.commands := List(
             Command(
               Command.Command.Create(CreateCommand(
@@ -118,14 +118,17 @@ class DivulgenceIT
   private def exercise(
       ctx: LedgerContext,
       commandId: String,
+      workflowId: String,
       party: String,
       tpl: v1.value.Identifier,
       contractId: String,
       choice: String,
       arg: Value[AbsoluteContractId]): Future[Unit] =
     for {
-      _ <- commandClient(ctx).submitAndWait(
-        submitAndWaitRequest(ctx, commandId, party).update(
+      ledgerEndBeforeSubmission <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
+      client <- ctx.commandClient()
+      _ <- client.submitSingleCommand(
+        submitRequest(ctx, commandId, workflowId, party).update(
           _.commands.commands := List(
             Command(
               Command.Command.Exercise(
@@ -139,6 +142,14 @@ class DivulgenceIT
           )
         )
       )
+
+      transaction <- transactionClient(ctx)
+        .getTransactions(
+          ledgerEndBeforeSubmission,
+          None,
+          TransactionFilter(Map(party -> Filters.defaultInstance)))
+        .filter(_.commandId == commandId)
+        .runWith(Sink.head)
     } yield ()
 
   // here div1Cid is _divulged_ to Bob after it is created. the checks below
@@ -146,19 +157,23 @@ class DivulgenceIT
   // but that it is visible in the transaction trees.
   case class Setup(div1Cid: String, div2Cid: String)
 
-  private def createDivulgence1(ctx: LedgerContext): Future[ContractIdString] =
+  private val runSuffix: UUID = UUID.randomUUID
+
+  private def createDivulgence1(ctx: LedgerContext, workflowId: String): Future[ContractIdString] =
     create(
       ctx,
-      "create-Divulgence1",
+      s"create-Divulgence1-$runSuffix",
+      workflowId,
       "alice",
       templateIds.divulgence1,
       ValueRecord(None, ImmArray(Some[Ref.Name]("div1Party") -> ValueParty("alice")))
     )
 
-  private def createDivulgence2(ctx: LedgerContext): Future[ContractIdString] =
+  private def createDivulgence2(ctx: LedgerContext, workflowId: String): Future[ContractIdString] =
     create(
       ctx,
-      "create-Divulgence2",
+      s"create-Divulgence2-$runSuffix",
+      workflowId,
       "bob",
       templateIds.divulgence2,
       ValueRecord(
@@ -171,10 +186,12 @@ class DivulgenceIT
   private def divulgeViaFetch(
       ctx: LedgerContext,
       div1Cid: ContractIdString,
-      div2Cid: ContractIdString): Future[Unit] =
+      div2Cid: ContractIdString,
+      workflowId: String): Future[Unit] =
     exercise(
       ctx,
-      "exercise-Divulgence2Fetch",
+      s"exercise-Divulgence2Fetch-$runSuffix",
+      workflowId,
       "alice",
       templateIds.divulgence2,
       div2Cid,
@@ -187,10 +204,12 @@ class DivulgenceIT
   private def divulgeViaArchive(
       ctx: LedgerContext,
       div1Cid: ContractIdString,
-      div2Cid: ContractIdString): Future[Unit] =
+      div2Cid: ContractIdString,
+      workflowId: String): Future[Unit] =
     exercise(
       ctx,
-      "exercise-Divulgence2Fetch",
+      s"exercise-Divulgence2Fetch-$runSuffix",
+      workflowId,
       "alice",
       templateIds.divulgence2,
       div2Cid,
@@ -209,14 +228,16 @@ class DivulgenceIT
     Map("alice" -> Filters.defaultInstance, "bob" -> Filters.defaultInstance))
 
   "should not expose divulged contracts in flat stream" in allFixtures { ctx =>
+    val wfid = s"divulgence-test-workflow-id-$runSuffix"
     for {
-      div1Cid <- createDivulgence1(ctx)
-      div2Cid <- createDivulgence2(ctx)
-      _ <- divulgeViaArchive(ctx, div1Cid, div2Cid)
+      beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
+      div1Cid <- createDivulgence1(ctx, wfid)
+      div2Cid <- createDivulgence2(ctx, wfid)
+      _ <- divulgeViaArchive(ctx, div1Cid, div2Cid, wfid)
       ledgerEnd <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       bobFlatTransactions <- transactionClient(ctx)
         .getTransactions(
-          ledgerGenesis,
+          beforeTest,
           Some(ledgerEnd),
           bobFilter
         )
@@ -224,7 +245,7 @@ class DivulgenceIT
         .map(_.toList)
       bothFlatTransactions <- transactionClient(ctx)
         .getTransactions(
-          ledgerGenesis,
+          beforeTest,
           Some(ledgerEnd),
           bothFilter
         )
@@ -232,7 +253,7 @@ class DivulgenceIT
         .map(_.toList)
       bobTreeTransactions <- transactionClient(ctx)
         .getTransactionTrees(
-          ledgerGenesis,
+          beforeTest,
           Some(ledgerEnd),
           bobFilter
         )
@@ -300,18 +321,22 @@ class DivulgenceIT
   }
 
   "should not expose divulged contracts in ACS" in allFixtures { ctx =>
+    val wfid = s"divulgence-test-workflow-id-$runSuffix"
     for {
-      div1Cid <- createDivulgence1(ctx)
-      div2Cid <- createDivulgence2(ctx)
-      _ <- divulgeViaFetch(ctx, div1Cid, div2Cid)
+      beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
+      div1Cid <- createDivulgence1(ctx, wfid)
+      div2Cid <- createDivulgence2(ctx, wfid)
+      _ <- divulgeViaFetch(ctx, div1Cid, div2Cid, wfid)
       bobEvents <- acsClient(ctx)
         .getActiveContracts(bobFilter)
+        .filter(_.workflowId == wfid)
         .runWith(Sink.seq)
         .map { acsResps =>
           List.concat(acsResps.map(_.activeContracts): _*)
         }
       bothEvents <- acsClient(ctx)
         .getActiveContracts(bothFilter)
+        .filter(_.workflowId == wfid)
         .runWith(Sink.seq)
         .map { acsResps =>
           List.concat(acsResps.map(_.activeContracts): _*)

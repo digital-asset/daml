@@ -61,7 +61,8 @@ class CommandClient(
     * the ledger. In order to get that semantic, use [[trackCommands]] or [[trackCommandsUnbounded]].
     */
   def submitSingleCommand(submitRequest: SubmitRequest): Future[Empty] =
-    commandSubmissionService.submit(submitRequest)
+    commandSubmissionService.submit(
+      submitRequest.copy(commands = submitRequest.commands.map(commandUpdater.applyOverrides)))
 
   /**
     * Submits and tracks a single command. High frequency usage is discouraged as it causes a dedicated completion
