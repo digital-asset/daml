@@ -8,10 +8,10 @@ module DA.Service.Daml.Compiler.Impl.Handle
     IdeState
   , getIdeState
   , withIdeState
-  , CompilerService.setFilesOfInterest
-  , CompilerService.modifyFilesOfInterest
-  , CompilerService.setOpenVirtualResources
-  , CompilerService.modifyOpenVirtualResources
+  , setFilesOfInterest
+  , modifyFilesOfInterest
+  , setOpenVirtualResources
+  , modifyOpenVirtualResources
   , getAssociatedVirtualResources
   , compileFile
   , toIdeLogger
@@ -22,8 +22,8 @@ module DA.Service.Daml.Compiler.Impl.Handle
 
   , DalfDependency(..)
 
-  , CompilerService.virtualResourceToUri
-  , CompilerService.uriToVirtualResource
+  , virtualResourceToUri
+  , uriToVirtualResource
 
   -- * Compilation options (re-exported)
   , defaultOptionsIO
@@ -36,7 +36,6 @@ module DA.Service.Daml.Compiler.Impl.Handle
 import DA.Daml.GHC.Compiler.Convert (sourceLocToRange)
 import DA.Daml.GHC.Compiler.Options
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as Scenario
-import "ghc-lib-parser" Module (unitIdString, DefUnitId(..), UnitId(..))
 import "ghc-lib" GHC (ParsedModule)
 
 -- DAML compiler and infrastructure
@@ -46,20 +45,19 @@ import qualified DA.Service.Logger                          as Logger
 import qualified DA.Service.Daml.Compiler.Impl.Dar          as Dar
 
 import           Control.Monad.Trans.Except              as Ex
+import Control.Monad.Trans.Maybe
 import           Control.Monad.Except              as Ex
 import           Control.Monad.IO.Class                     (liftIO)
 import qualified Data.ByteString                            as BS
 import qualified Data.ByteString.Lazy                       as BSL
-import qualified Data.Map.Strict                            as Map
 import qualified Data.Set                                   as S
 import qualified Data.Text                                  as T
 import Data.Maybe
 
 import qualified Development.IDE.Logger as IdeLogger
-import           Development.IDE.State.API               (IdeState)
-import qualified Development.IDE.State.API               as CompilerService
-import Development.IDE.State.FileStore
-import qualified Development.IDE.State.Rules.Daml as CompilerService
+import Development.IDE.State.API
+import Development.IDE.State.Rules.Daml
+import Development.IDE.State.RuleTypes.Daml
 import qualified Development.IDE.State.Shake as Shake
 import           Development.IDE.Types.Diagnostics as Base
 import           Development.IDE.Types.LSP
@@ -71,17 +69,6 @@ import           System.FilePath
 ------------------------------------------------------------------------
 --
 
--- | A dependency on a compiled library.
-data DalfDependency = DalfDependency
-  { ddName         :: !T.Text
-    -- ^ The name of the dependency.
-  , ddDalfFile     :: !FilePath
-    -- ^ The absolute path to the dalf file.
-  }
-
-newtype GlobalPkgMap = GlobalPkgMap (Map.Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
-instance Shake.IsIdeGlobal GlobalPkgMap
-
 getIdeState
     :: Options
     -> Maybe Scenario.Handle
@@ -92,11 +79,11 @@ getIdeState
 getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
     -- Load the packages from the package database for the scenario service. We swallow errors here
     -- but shake will report them when typechecking anything.
-    (_diags, pkgMap) <- CompilerService.generatePackageMap (optPackageDbs compilerOpts)
+    (_diags, pkgMap) <- generatePackageMap (optPackageDbs compilerOpts)
     let rule = do
-            CompilerService.mainRule compilerOpts
+            mainRule compilerOpts
             Shake.addIdeGlobal $ GlobalPkgMap pkgMap
-    CompilerService.initialise rule eventHandler (toIdeLogger loggerH) compilerOpts vfs mbScenarioService
+    initialise rule eventHandler (toIdeLogger loggerH) compilerOpts vfs mbScenarioService
 
 -- Wrapper for the common case where the scenario service will be started automatically (if enabled)
 -- and we use the builtin VFSHandle.
@@ -128,7 +115,7 @@ getAssociatedVirtualResources
   -> NormalizedFilePath
   -> IO [(Base.Range, T.Text, VirtualResource)]
 getAssociatedVirtualResources service filePath = do
-    mod0 <- CompilerService.runAction service (CompilerService.getDalfModule filePath)
+    mod0 <- runAction service (getDalfModule filePath)
     case mod0 of
         Nothing ->
             -- This can happen if there is a parse or a type error.
@@ -136,7 +123,7 @@ getAssociatedVirtualResources service filePath = do
             return []
         Just mod0 -> pure
             [ (sourceLocToRange loc, "Scenario: " <> name, vr)
-            | (valRef, Just loc) <- CompilerService.scenariosInModule mod0
+            | (valRef, Just loc) <- scenariosInModule mod0
             , let name = LF.unExprValName (LF.qualObject valRef)
             , let vr = VRScenario filePath name
             ]
@@ -154,14 +141,9 @@ compileFile service fp = do
     -- We need to mark the file we are compiling as a file of interest.
     -- Otherwise all diagnostics produced during compilation will be garbage
     -- collected afterwards.
-    liftIO $ CompilerService.setFilesOfInterest service (S.singleton fp)
-    liftIO $ CompilerService.logDebug service $ "Compiling: " <> T.pack (fromNormalizedFilePath fp)
-    res <- liftIO $ CompilerService.runAction service (CompilerService.getDalf fp)
-    case res of
-        Nothing -> do
-            diag <- liftIO $ CompilerService.getDiagnostics service
-            throwE diag
-        Just v -> return v
+    liftIO $ setFilesOfInterest service (S.singleton fp)
+    liftIO $ logDebug service $ "Compiling: " <> T.pack (fromNormalizedFilePath fp)
+    actionToExceptT service (getDalf fp)
 
 -- | Parse the supplied file to a ghc ParsedModule.
 parseFile
@@ -169,14 +151,9 @@ parseFile
     -> NormalizedFilePath
     -> ExceptT [FileDiagnostic] IO ParsedModule
 parseFile service fp = do
-    liftIO $ CompilerService.setFilesOfInterest service (S.singleton fp)
-    liftIO $ CompilerService.logDebug service $ "Parsing: " <> T.pack (fromNormalizedFilePath fp)
-    res <- liftIO $ CompilerService.runAction service (CompilerService.getParsedModule fp)
-    case res of
-        Nothing -> do
-            diag <- liftIO $ CompilerService.getDiagnostics service
-            throwE diag
-        Just pm -> return pm
+    liftIO $ setFilesOfInterest service (S.singleton fp)
+    liftIO $ logDebug service $ "Parsing: " <> T.pack (fromNormalizedFilePath fp)
+    actionToExceptT service (getParsedModule fp)
 
 newtype UseDalf = UseDalf{unUseDalf :: Bool}
 
@@ -197,7 +174,7 @@ buildDar ::
 buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInput = do
   let file' = fromNormalizedFilePath file
   liftIO $
-    CompilerService.logDebug service $
+    logDebug service $
     "Creating dar: " <> T.pack file'
   if unUseDalf dalfInput
     then liftIO $ do
@@ -210,60 +187,40 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
         []
         pkgName
         sdkVersion
-    else do
-      pkg <- compileFile service file
+    else actionToExceptT service $ runMaybeT $ do
+      pkg <- useE GeneratePackage file
       let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
       let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
       unless (S.null missingExposed) $ do
-          liftIO $ CompilerService.logSeriousError service $
+          liftIO $ logSeriousError service $
               "The following modules are declared in exposed-modules but are not part of the DALF: " <>
               T.pack (show $ S.toList missingExposed)
-          throwE []
+          fail ""
       let dalf = encodeArchiveLazy pkg
       -- get all dalf dependencies.
-      deps <- getDalfDependencies service file
+      deps <- getDalfDependencies file
       dalfDependencies<- forM deps $ \(DalfDependency depName fp) -> do
         pkgDalf <- liftIO $ BS.readFile fp
         return (depName, pkgDalf)
       -- get all file dependencies
-      mbFileDependencies <-
-        liftIO $
-        CompilerService.runAction service (CompilerService.getDependencies file)
-      case mbFileDependencies of
-        Nothing -> do
-          diag <- liftIO $ CompilerService.getDiagnostics service
-          throwE diag
-        Just fileDependencies -> do
-          liftIO $
-            Dar.buildDar
-              dalf
-              (toNormalizedFilePath $ takeDirectory file')
-              dalfDependencies
-              (file:fileDependencies)
-              (buildDataFiles pkg)
-              pkgName
-              sdkVersion
+      fileDependencies <- MaybeT $ getDependencies file
+      liftIO $
+        Dar.buildDar
+          dalf
+          (toNormalizedFilePath $ takeDirectory file')
+          dalfDependencies
+          (file:fileDependencies)
+          (buildDataFiles pkg)
+          pkgName
+          sdkVersion
 
--- | Get the transitive package dependencies on other dalfs.
-getDalfDependencies ::
-       IdeState -> NormalizedFilePath -> ExceptT [FileDiagnostic] IO [DalfDependency]
-getDalfDependencies service afp = do
-    res <-
-        liftIO $
-        CompilerService.runAction
-            service
-            (CompilerService.getDalfDependencies afp)
-    GlobalPkgMap pkgMap <- liftIO $ Shake.getIdeGlobalState service
-    case res of
+-- | Run an action with the given state and lift the result into an ExceptT
+-- using the diagnostics from `getDiagnostics` in the `Nothing` case.
+actionToExceptT :: IdeState -> Action (Maybe a) -> ExceptT [FileDiagnostic] IO a
+actionToExceptT service act = do
+    mbA <- lift (runAction service act)
+    case mbA of
         Nothing -> do
-            diag <- liftIO $ CompilerService.getDiagnostics service
+            diag <- liftIO $ getDiagnostics service
             throwE diag
-        Just uids ->
-            return
-                [ DalfDependency (T.pack $ unitIdString uid) fp
-                | (uid, (_, _, _, fp)) <-
-                      Map.toList $
-                      Map.restrictKeys
-                          pkgMap
-                          (S.fromList $ map (DefiniteUnitId . DefUnitId) uids)
-                ]
+        Just a -> pure a
