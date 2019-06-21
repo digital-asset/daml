@@ -125,7 +125,9 @@ class RowSpec extends WordSpec with Matchers {
         ApiTypes.ContractId("c01"),
         C.complexRecordId,
         C.complexRecordV,
-        Some("agreement")
+        Some("agreement"),
+        Seq("Alice"),
+        Seq("Bob", "Charlie")
       )
 
       "not change the value" in {

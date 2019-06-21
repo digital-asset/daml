@@ -29,7 +29,9 @@ final case class EventRow(
     argumentValue: Option[String],
     actingParties: Option[String],
     isConsuming: Option[Boolean],
-    agreementText: Option[String]) {
+    agreementText: Option[String],
+    signatories: Seq[String],
+    observers: Seq[String]) {
 
   def toEvent(types: PackageRegistry): Try[Event] = {
     subclassType match {
@@ -53,7 +55,9 @@ final case class EventRow(
             ApiTypes.ContractId(contractId),
             tp,
             recArg,
-            agreementText
+            agreementText,
+            signatories,
+            observers
           )
         }).recoverWith {
           case e: Throwable =>
@@ -124,7 +128,9 @@ object EventRow {
           None,
           None,
           None,
-          c.agreementText
+          c.agreementText,
+          c.signatories,
+          c.observers
         )
       case e: ChoiceExercised =>
         EventRow(
@@ -142,7 +148,9 @@ object EventRow {
           Some(e.argument.toJson.compactPrint),
           Some(e.actingParties.toJson.compactPrint),
           Some(e.consuming),
-          None
+          None,
+          Seq.empty,
+          Seq.empty
         )
     }
   }

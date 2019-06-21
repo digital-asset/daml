@@ -99,6 +99,7 @@ compileDependencies = [
     "//3rdparty/jvm/org/gnieh:diffson_spray_json",
     "//3rdparty/jvm/org/tpolecat:doobie_core",
     "//3rdparty/jvm/org/xerial:sqlite_jdbc",
+    "//3rdparty/jvm/org/postgresql:postgresql",
 ]
 
 testDependencies = [

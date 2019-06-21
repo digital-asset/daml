@@ -29,7 +29,7 @@ class LedgerSpec extends WordSpec with Matchers {
       "0",
       List.empty)
   def contract(id: String): Contract =
-    Contract(ApiTypes.ContractId(id), template, contractArgument, Option(""))
+    Contract(ApiTypes.ContractId(id), template, contractArgument, Option(""), Seq("Alice"), Seq("Bob", "Charlie"))
   def error(commandId: String): CommandStatusError = CommandStatusError("code", "details")
 
   "A ledger with existing contracts" when {
@@ -45,7 +45,9 @@ class LedgerSpec extends WordSpec with Matchers {
             ApiTypes.ContractId("C0"),
             templateId,
             contractArgument,
-            Some("")
+            Some(""),
+            Seq("Alice"),
+            Seq("Bob", "Charlie")
           )
         )),
       templateRegistry
@@ -71,7 +73,9 @@ class LedgerSpec extends WordSpec with Matchers {
         contractId = ApiTypes.ContractId(contractId),
         templateId = templateId,
         argument = contractArgument,
-        Some("")
+        agreementText = Some(""),
+        signatories = Seq("Alice"),
+        observers = Seq("Bob", "Charlie")
       )
       val created1 = contractCreated("E1", "C1")
       val created2 = contractCreated("E2", "C2")
@@ -184,7 +188,9 @@ class LedgerSpec extends WordSpec with Matchers {
         contractId = ApiTypes.ContractId("C3"),
         templateId = templateId,
         argument = contractArgument,
-        agreementText = Some("")
+        agreementText = Some(""),
+        signatories = Seq("Alice"),
+        observers = Seq("Bob", "Charlie")
       )
       val exercisedEvent = ChoiceExercised(
         id = ApiTypes.EventId("E2"),

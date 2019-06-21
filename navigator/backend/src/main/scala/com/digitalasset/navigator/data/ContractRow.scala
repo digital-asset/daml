@@ -17,7 +17,9 @@ final case class ContractRow(
     templateId: String,
     archiveTransactionId: Option[String],
     argument: String,
-    agreementText: Option[String]
+    agreementText: Option[String],
+    signatories: Seq[String],
+    observers: Seq[String]
 ) {
 
   def toContract(types: PackageRegistry): Try[Contract] = {
@@ -29,7 +31,7 @@ final case class ContractRow(
         ApiCodecCompressed.jsValueToApiType(argument.parseJson, tid, types.damlLfDefDataType _))
       recArg <- Try(recArgAny.asInstanceOf[ApiRecord])
     } yield {
-      Contract(id, template, recArg, agreementText)
+      Contract(id, template, recArg, agreementText, signatories, observers)
     }).recoverWith {
       case e: Throwable =>
         Failure(DeserializationFailed(s"Failed to deserialize Contract from row: $this. Error: $e"))
@@ -44,6 +46,8 @@ object ContractRow {
       c.template.id.asOpaqueString,
       None,
       c.argument.toJson.compactPrint,
-      c.agreementText)
+      c.agreementText,
+      c.signatories,
+      c.observers)
   }
 }

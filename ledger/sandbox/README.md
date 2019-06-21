@@ -4,14 +4,15 @@ Note: If you encounter bugs. Please report issues you find in the #team-ledger-a
 
 # DAML Sandbox
 
-To build a snapshot version of the sandbox use `sbt packageAll` in the ledger root.
-Find `sandbox/target/universal/sandbox-<version>-SNAPSHOT.tgz` and unpack it to a fitting place.
+To build a fat JAR with the sandbox built from HEAD run
+
+    bazel build //ledger/sandbox:sandbox-head-tarball
 
 Sandbox application can be run from command line with the following command:
 
-```
-java -jar sandbox-<version>-SNAPSHOT.jar [options] <archive>
-```
+    java -jar bazel-bin/ledger/sandbox/sandbox-binary_deploy.jar [options] <archive>
+
+as run from the main project root directory (adjust the location of the JAR according to your working directory).
 
 ## Command line arguments
 

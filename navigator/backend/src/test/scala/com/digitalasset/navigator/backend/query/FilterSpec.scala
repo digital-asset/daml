@@ -29,7 +29,7 @@ class FilterSpec extends FlatSpec with Matchers {
   val commandId = ApiTypes.CommandId("Cmd")
   val workflowId = ApiTypes.WorkflowId("Workflow")
 
-  val contract = Contract(contractId, template, C.complexRecordV, Some(""))
+  val contract = Contract(contractId, template, C.complexRecordV, Some(""), Seq.empty, Seq.empty)
   val command =
     CreateCommand(commandId, 1, workflowId, Instant.EPOCH, template.id, C.complexRecordV)
 

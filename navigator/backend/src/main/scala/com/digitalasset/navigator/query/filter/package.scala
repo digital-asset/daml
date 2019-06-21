@@ -211,6 +211,18 @@ package object filter {
       .onAnyValue
       .perform[String]((contract, agree) => checkOptionalContained(contract.agreementText, agree))
       .onTree
+      .onLeaf("signatories")
+      .onValue("*")
+      .const(true)
+      .onAnyValue
+      .perform[String]((contract, signatory) => contract.signatories.exists(checkContained(_, signatory)))
+      .onTree
+      .onLeaf("observers")
+      .onValue("*")
+      .const(true)
+      .onAnyValue
+      .perform[String]((contract, observer) => contract.observers.exists(checkContained(_, observer)))
+      .onTree
   //  .onStar(check all fields)
 
   lazy val choicesFilter =

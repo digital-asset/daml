@@ -54,17 +54,23 @@ class ContractFilterSpec extends FlatSpec with Matchers {
     ApiTypes.ContractId("id1"),
     template1,
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
-    None)
+    None,
+    Seq("Alice"),
+    Seq("Bob", "Charlie"))
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
     ApiRecord(None, List(ApiRecordField("int", ApiInt64(12)))),
-    Some(""))
+    Some(""),
+    Seq("Alice"),
+    Seq("Bob", "Charlie"))
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
-    Some("agreement"))
+    Some("agreement"),
+    Seq("Alice"),
+    Seq("Bob", "Charlie"))
 
   val templates = List(template1, template2)
   val contracts = List(contract1, contract2, contract3)
@@ -105,6 +111,14 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   testAnd(List("agreementText" -> ""), List(contract2, contract3))
   testAnd(List("agreementText" -> "gree"), List(contract3))
   testAnd(List("agreementText" -> "not-matching"), List())
+
+  testAnd(List("signatories" -> "Alice"), List(contract1, contract2, contract3))
+  testAnd(List("signatories" -> "Bob"), List())
+
+  testAnd(List("observers" -> "Alice"), List())
+  testAnd(List("observers" -> "Bob"), List(contract1, contract2, contract3))
+
+  testOr(List("agreementText" -> "gree", "observers" -> "Alice"), List(contract3))
 
   val contractSearchFilterCriterion =
     new GraphQLSchema(Set()).contractSearchToFilter(template1.topLevelDecl)

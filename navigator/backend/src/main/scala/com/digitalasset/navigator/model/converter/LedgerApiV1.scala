@@ -174,7 +174,7 @@ case object LedgerApiV1 {
     for {
       templateId <- Converter.checkExists("CreatedEvent.templateId", event.templateId)
       templateIdentifier = templateId.asDaml
-      template <- getTemplate(templateIdentifier, ctx)
+      _ <- getTemplate(templateIdentifier, ctx)
       arguments <- Converter.checkExists("CreatedEvent.arguments", event.createArguments)
       arg <- readRecordArgument(arguments, templateIdentifier, ctx)
     } yield
@@ -187,7 +187,9 @@ case object LedgerApiV1 {
         contractId = ApiTypes.ContractId(event.contractId),
         templateId = templateIdentifier,
         argument = arg,
-        agreementText = event.agreementText
+        agreementText = event.agreementText,
+        signatories = event.signatories,
+        observers = event.observers
       )
   }
 
