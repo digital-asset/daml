@@ -5,11 +5,10 @@ package com.digitalasset.http
 
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
-import akka.stream.scaladsl.Flow
 import akka.util.ByteString
 import com.digitalasset.http.json.JsonProtocol._
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.\/
+import scalaz.{-\/, \/, \/-}
 import spray.json._
 
 import scala.util.Try
@@ -18,7 +17,8 @@ class Endpoints extends StrictLogging {
 
   private val ok = HttpEntity(ContentTypes.`application/json`, """{"status": "OK"}""")
 
-  lazy val all = command orElse contracts orElse notFound
+  lazy val all: PartialFunction[HttpRequest, HttpResponse] =
+    command orElse contracts orElse notFound
 
   lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(
@@ -46,19 +46,19 @@ class Endpoints extends StrictLogging {
     case HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
       HttpResponse(entity = ok)
 
-    case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
-      val flow: Flow[ByteString, ByteString, _] =
-        Flow[ByteString].fold(ByteString.empty)(_ ++ _).map { s: ByteString =>
-          parse[domain.GetActiveContractsRequest](s) fold (
-            e => format(errorResult(e)),
-            a => format(successResult(a))
-          )
+    case HttpRequest(POST, Uri.Path("/contracts/search"), _, HttpEntity.Strict(_, input), _) =>
+      val t: (StatusCode, ByteString) =
+        parse[domain.GetActiveContractsRequest](input) match {
+          case -\/(e) => StatusCodes.BadRequest -> format(errorsJsObject(StatusCodes.BadRequest)(e))
+          case \/-(a) => StatusCodes.OK -> format(resultJsObject(a))
         }
-      HttpResponse(
-        status = StatusCodes.BadRequest,
-        entity =
-          req.entity.transformDataBytes(flow).withContentType(ContentTypes.`application/json`))
+      httpResponse(t._1, t._2)
   }
+
+  private def httpResponse(status: StatusCode, output: ByteString): HttpResponse =
+    HttpResponse(
+      status = status,
+      entity = HttpEntity.Strict(ContentTypes.`application/json`, output))
 
   lazy val notFound: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)
@@ -70,22 +70,19 @@ class Endpoints extends StrictLogging {
       jsonAst.convertTo[A]
     } fold (t => \/.left(s"JSON parser error: ${t.getMessage}"), a => \/.right(a))
 
-  private def format[A: JsonFormat](a: A): ByteString = {
-    val jsonAst: JsValue = a.toJson
-    val str: String = jsonAst.compactPrint
-    ByteString(str)
-  }
-
   private def format(a: JsValue): ByteString =
     ByteString(a.compactPrint)
 
-  private def errorResult(es: String*): JsValue = {
+  private def errorsJsObject(status: StatusCode)(es: String*): JsObject = {
     val errors = JsArray(es.map(JsString(_)).toVector)
-    JsObject(("errors", errors))
+    JsObject(statusField(status), ("errors", errors))
   }
 
-  private def successResult[A: JsonFormat](a: A): JsValue = {
+  private def resultJsObject[A: JsonFormat](a: A): JsObject = {
     val result: JsValue = a.toJson
-    JsObject(("result", result))
+    JsObject(statusField(StatusCodes.OK), ("result", result))
   }
+
+  private def statusField(status: StatusCode): (String, JsNumber) =
+    ("status", JsNumber(status.intValue()))
 }

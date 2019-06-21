@@ -73,10 +73,6 @@ class ClientUtil(
     max.fold(source)(n => source.take(n)) runForeach f
   }
 
-  def activeContractSet(): Unit = {
-//    activeContractSetClient.getActiveContracts(
-  }
-
   override lazy val toString: String = s"ClientUtil{ledgerId=$ledgerId}"
 }
 
