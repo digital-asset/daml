@@ -10,13 +10,13 @@ module DA.Service.Daml.LanguageServer.CodeLens
 
 import Language.Haskell.LSP.Types
 import qualified Data.Aeson as Aeson
+import Development.IDE.State.Service.Daml
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified Development.IDE.Logger as Logger
 import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
 
 -- | Gather code lenses like scenario execution for a DAML file.
 handle

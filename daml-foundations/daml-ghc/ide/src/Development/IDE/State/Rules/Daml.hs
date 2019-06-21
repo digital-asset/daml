@@ -40,7 +40,6 @@ import qualified Development.IDE.State.Rules as IDE
 import Development.IDE.State.Service.Daml
 import Development.IDE.State.Shake
 import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
 import qualified Language.Haskell.LSP.Messages as LSP
 import qualified Language.Haskell.LSP.Types as LSP
 

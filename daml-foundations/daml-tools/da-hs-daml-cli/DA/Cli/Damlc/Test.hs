@@ -17,6 +17,7 @@ import Data.List.Extra
 import qualified Data.Set as S
 import Data.Tuple.Extra
 import Control.Monad.Extra
+import Development.IDE.State.Service.Daml
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
