@@ -404,7 +404,7 @@ class ParsersSpec extends WordSpec with TableDrivenPropertyChecks with Matchers 
           None)
       )
       val enumDef = DDataType(
-        true,
+        false,
         ImmArray.empty,
         DataEnum(ImmArray(n"Red", n"Green", n"Blue"))
       )

@@ -3,7 +3,7 @@
 
 module Enum {
 
-  enum Color = Red | Green | Blue;
+  enum @serializable Color = Red | Green | Blue;
 
   record @serializable Box = { x: Enum:Color, party: Party } ;
 

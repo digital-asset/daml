@@ -77,10 +77,10 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
 
   private lazy val enumDefinition: Parser[DataDef] =
     Id("enum") ~>! tags(dataDefTags) ~ dottedName ~ (`=` ~> repsep(id, `|`)) ^^ {
-      case _ ~ id ~ constructors =>
+      case defTags ~ id ~ constructors =>
         DataDef(
           id,
-          DDataType(serializable = true, ImmArray.empty, DataEnum(ImmArray(constructors)))
+          DDataType(defTags(serializableTag), ImmArray.empty, DataEnum(ImmArray(constructors)))
         )
     }
 
