@@ -40,7 +40,7 @@ data [] a = [] | a :: [a]
 
 
 -- | A type for giving information about ordering:
--- | being less than, equal to, or greater than something.
+--  being less than, equal to, or greater than something.
 data Ordering = LT | EQ | GT
 
 -- | A type representing a 64-bit integer.
@@ -146,7 +146,7 @@ data Text =
   Text Opaque
 
 -- | A type for fixed-point decimals: numbers of the form
--- | `x / 10^10` where `x` is an integer with `|x| < 10^38`
+--   `x / 10^10` where `x` is an integer with `|x| < 10^38`
 data Decimal =
   -- | HIDE
   Decimal Opaque

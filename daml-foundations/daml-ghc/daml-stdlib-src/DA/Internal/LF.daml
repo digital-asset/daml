@@ -105,9 +105,11 @@ data TextMap a =
   -- | HIDE
   TextMap Opaque
 
--- | The `ContractId a` type represents an id for a contract made from template `a`.
---   The id can be used to fetch the contract, among other things.
-data ContractId a = ContractId Opaque
+-- | The `ContractId a` type represents an ID for a contract created from a template `a`.
+--   You can use the ID to fetch the contract, among other things.
+data ContractId a = 
+  -- | HIDE
+  ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
 instance Show (ContractId a) where show _ = "<contract-id>"
 
