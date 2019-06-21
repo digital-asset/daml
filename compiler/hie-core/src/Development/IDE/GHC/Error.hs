@@ -26,31 +26,30 @@ import Development.IDE.GHC.Orphans()
 import qualified FastString as FS
 import           GHC
 import           Bag
-import Data.Maybe
 import           ErrUtils
 import           SrcLoc
 import qualified Outputable                 as Out
 
 
 
+diagFromText :: D.DiagnosticSeverity -> SrcSpan -> T.Text -> FileDiagnostic
+diagFromText sev loc msg = (toNormalizedFilePath $ srcSpanToFilename loc,)
+    Diagnostic
+    { _range    = srcSpanToRange loc
+    , _severity = Just sev
+    , _source   = Just "compiler" -- should really be 'daml' or 'haskell', but not shown in the IDE so who cares
+    , _message  = msg
+    , _code     = Nothing
+    , _relatedInformation = Nothing
+    }
+
+
 diagFromErrMsgs :: DynFlags -> Bag ErrMsg -> [FileDiagnostic]
-diagFromErrMsgs dflags = mapMaybe (diagFromErrMsg dflags) . bagToList
+diagFromErrMsgs dflags es =
+    [ diagFromText sev (errMsgSpan e) $ T.pack $ Out.showSDoc dflags $ ErrUtils.pprLocErrMsg e
+    | e <- bagToList es
+    , Just sev <- [toDSeverity $ errMsgSeverity e]]
 
-
-diagFromErrMsg :: DynFlags -> ErrMsg -> Maybe FileDiagnostic
-diagFromErrMsg dflags e =
-  case toDSeverity $ errMsgSeverity e of
-    Nothing        -> Nothing
-    Just bSeverity ->
-      Just $ (toNormalizedFilePath $ srcSpanToFilename (errMsgSpan e),)
-        Diagnostic
-        { _range    = srcSpanToRange $ errMsgSpan e
-        , _severity = Just bSeverity
-        , _source   = Just "compiler" -- should really be 'daml' or 'haskell', but not shown in the IDE so who cares
-        , _message  = T.pack $ Out.showSDoc dflags (ErrUtils.pprLocErrMsg e)
-        , _code     = Nothing
-        , _relatedInformation = Nothing
-        }
 
 -- | Convert a GHC SrcSpan to a DAML compiler Range
 srcSpanToRange :: SrcSpan -> Range
@@ -91,11 +90,11 @@ diagFromStrings dflags = concatMap (uncurry $ diagFromString dflags)
 
 -- | Produce a GHC-style error from a source span and a message.
 diagFromString :: DynFlags -> SrcSpan -> String -> [FileDiagnostic]
-diagFromString dflags sp = diagFromErrMsgs dflags . Bag.listToBag . pure . mkPlainErrMsg dflags sp . Out.text
+diagFromString _ sp x = [diagFromText DsError sp $ T.pack x]
 
 -- | Produce a GHC-style error from a source span and a message.
 diagFromSDoc :: DynFlags -> SrcSpan -> Out.SDoc -> [FileDiagnostic]
-diagFromSDoc dflags sp = diagFromErrMsgs dflags . Bag.listToBag . pure . mkPlainErrMsg dflags sp
+diagFromSDoc dflags sp sdoc = [diagFromText DsError sp $ T.pack $ Out.showSDoc dflags sdoc]
 
 
 -- | Produces an "unhelpful" source span with the given string.
