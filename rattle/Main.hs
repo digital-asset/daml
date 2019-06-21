@@ -31,7 +31,7 @@ targets =
     ,"daml-assistant"
     ,"daml-foundations/daml-tools/da-hs-damlc-app"
     ,"daml-foundations/daml-tools/da-hs-daml-cli"
-    ,"compiler/haskell-ide-core"
+    ,"compiler/hie-core"
     ,"libs-haskell/da-hs-base"
     ,"libs-haskell/da-hs-pretty"
     ,"libs-haskell/da-hs-language-server"

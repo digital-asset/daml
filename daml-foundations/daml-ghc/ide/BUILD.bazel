@@ -43,7 +43,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-tools",
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//compiler/scenario-service/client",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//libs-haskell/da-hs-base",
@@ -74,7 +74,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         ":ide",
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//daml-foundations/daml-ghc/daml-compiler",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//daml-foundations/daml-ghc/test-lib",

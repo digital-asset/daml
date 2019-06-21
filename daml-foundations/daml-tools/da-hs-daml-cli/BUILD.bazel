@@ -55,7 +55,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//compiler/scenario-service/client",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//daml-assistant:daml-project-config",
@@ -137,7 +137,7 @@ da_haskell_test(
     visibility = ["//visibility:private"],
     deps = [
         ":da-hs-daml-cli",
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//libs-haskell/da-hs-base",
     ],
