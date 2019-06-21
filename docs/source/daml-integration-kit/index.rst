@@ -40,16 +40,14 @@ ALPHA (current status)
   In the ALPHA status, the DAML Integration Kit is ready to be used by
   third-parties willing to accept the following caveats:
 
-  - The architecture includes everything required to run DAML Applications in
-    production. However, it misses support for testing DAML Applications in a
-    uniform way against different DAML Ledgers. Concretely this means that
-    Ledger API authorization, package upload, party on-boarding, ledger reset,
-    and time manipulation are specific to each DAML Ledger. The reason
-    for this is that it requires us to introduce APIs
-    for uniform *administrative DAML ledger access*,
-    which is different from the uniform *per-party DAML ledger access* that the
-    DAML Ledger API provides. We will address this before reaching BETA
-    status.
+  - The architecture includes everything required to run DAML Applications using the
+    DAML Ledger API in production. However, it misses support for testing DAML Applications in a
+    uniform way against different DAML Ledgers. 
+  - Ledger API authorization, package upload, party on-boarding, ledger reset,
+    and time manipulation are specific to each DAML Ledger, until the uniform 
+    *administrative DAML ledger access* API is introduced, which is different 
+    to the uniform *per-party DAML ledger access* that the DAML Ledger API provides. 
+    We will address this before reaching BETA status.
   - The architecture is likely to change due to learnings from pioneers like
     you! Where possible we strive to make these changes backwards compatible.
     though this might not always be possible.
@@ -64,7 +62,7 @@ ALPHA (current status)
   <https://github.com/digital-asset/daml>`__ GitHub repository.
 
 
-BETA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/660>`__)
+BETA 
   For us, BETA status means that we have architectural stability and solid
   documentation in place. At this point, third-parties should have everything
   they need to integrate DAML with their ledger of choice completely on their
@@ -78,8 +76,9 @@ BETA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/660>`
   - implemented uniform *administrative DAML ledger access* to provide a
     portable way for testing DAML applications against different DAML ledgers
 
-  Use this `GitHub milestone <https://github.com/digital-asset/daml/milestone/13>`__
-  to see the work outstanding to reach BETA status.
+  Related links
+  - (`Tracking GitHub issue <https://github.com/digital-asset/daml/issues/660>`__)
+  - `GitHub milestone tracking work to reach BETA status <https://github.com/digital-asset/daml/milestone/13>`__
 
 GA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/661>`__)
   For us GA (General Availability) means that there are several
@@ -96,35 +95,56 @@ support for running DAML.
    number of columns!
 
 .. list-table::
-   :widths: 25 25 25 25
+   :widths: 20 20 20 20 20
    :header-rows: 1
 
    * - Ledger
      - Status
-     - Developer
-     - More
+     - Integration
+     - Deployment
+     - More Information
    * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
      - In Development
      - `VMware <https://www.vmware.com/>`__
-     - `press release (April 11th 2019)
+     - TBD
+     - `press release :: April 2019
        <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
    * - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
      - In Development
      - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-     - `press release (April 16th 2019)
+     - `Sextant <https://blockchaintp.com/sextant/>`__
+     - `press release :: April 2019
        <https://www.hyperledger.org/blog/2019/04/16/daml-smart-contracts-coming-to-hyperledger-sawtooth>`__
+   * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
+     - In Development
+     - `Hacera <https://hacera.com>`__     
+     - `Hacera Unbounded Network <https://unbounded.network/>`__
+     - `press release :: June 2019
+       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
+   * - `R3 Corda <https://www.corda.net>`__
+     - In Development
+     - `Digital Asset <https://digitalasset.com/>`__
+     - TBD
+     - `press release :: June 2019
+       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
+   * - `Amazon Aurora <https://www.hyperledger.org/projects/fabric>`__
+     - In Development
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+     - `Sextant <https://blockchaintp.com/sextant/>`__     
+     - `press release :: June 2019
+       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
    * - :doc:`/tools/sandbox`
      - Stable
      - `Digital Asset <https://digitalasset.com/>`__
+     - TBD
      - `PostgreSQL <https://www.postgresql.org/>`__ backend coming soon
        (`GitHub Milestone <https://github.com/digital-asset/daml/milestone/10>`__)
    * - Canton
      - In Development
      - `Digital Asset <https://digitalasset.com/>`__
-     - native support for :doc:`DAML's fine-grained privacy model
-       </concepts/ledger-model/ledger-privacy>`; whitepaper coming soon
-       (contact `Ratko Veprek <mailto:ratko.veprek@digitalasset.com>`__  for a
-       preview)
+     - TBD
+     - canton.io :: native support for :doc:`DAML's fine-grained privacy model
+       </concepts/ledger-model/ledger-privacy>`.  More info at `www.canton.io <https://www.canton.io>`__
 
 
 .. _integration-kit_implementing:
