@@ -642,12 +642,17 @@ execMigrate opts inFile1 inFile2 mbDir = do
                     (pkg1, pm_parsed_source parsedMod1)
                     (pkg2, pm_parsed_source parsedMod2)
         let generatedInstancesMod1 =
-                generateGenInstancesModule "A" (pkg1, pm_parsed_source parsedMod1)
+                generateGenInstancesModule
+                    "A"
+                    (pkg1, pm_parsed_source parsedMod1)
         let generatedInstancesMod2 =
-                generateGenInstancesModule "B" (pkg2, pm_parsed_source parsedMod2)
-        forM [ (upgradeModPath, generatedUpgradeMod)
-             , (instancesModPath1, generatedInstancesMod1)
-             , (instancesModPath2, generatedInstancesMod2)
+                generateGenInstancesModule
+                    "B"
+                    (pkg2, pm_parsed_source parsedMod2)
+        forM_
+            [ (upgradeModPath, generatedUpgradeMod)
+            , (instancesModPath1, generatedInstancesMod1)
+            , (instancesModPath2, generatedInstancesMod2)
             ] $ \(path, mod) -> do
             createDirectoryIfMissing True $ takeDirectory path
             writeFile path mod
