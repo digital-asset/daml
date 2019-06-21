@@ -10,12 +10,14 @@ load(
     "lf_scalacopts",
 )
 
-lf_target_versions = [
-    "1.0",
-    "1.1",
-    "1.3",
-    "1.dev"
-]
+lf_targets_with_deps = {
+    "1.0": [],
+    "1.1": ["1.0"],
+    "1.3": ["1.1"],
+    "1.dev": ["1.3"],
+}
+
+lf_targets = lf_targets_with_deps.keys()
 
 da_scala_library(
     name = "encoder",
@@ -39,7 +41,7 @@ da_scala_test_suite(
     name = "tests",
     size = "small",
     srcs = glob(["src/test/scala/com/digitalasset/daml/lf/testing/archive/**/*.scala"]),
-    data = [":testing-dar-%s" %target for target in lf_target_versions],
+    data = [":testing-dar-%s" % target for target in lf_targets],
     scalacopts = lf_scalacopts,
     deps = [
         ":encoder",
@@ -82,37 +84,27 @@ da_scala_binary(
     ],
 )
 
-
-
-lf_since_deps = {
-    "1.0": [],
-    "1.1": ["1.0"],
-    "1.3": ["1.0", "1.1"],
-    "1.dev": ["1.0", "1.1", "1.3"]
-}
-
 [
-    [filegroup(
-         name = "lf_since_%s" % target,
-         srcs = [":lf_since_%s" %dep for dep in lf_since_deps[target]] +
-           glob(["src/test/lf/since_%s/**/*.lf" % target]),
-    )]
-    for target in lf_target_versions
+    filegroup(
+        name = "lf_since_%s" % target,
+        srcs = [":lf_since_%s" % dep for dep in lf_targets_with_deps[target]] + glob([
+            "src/test/lf/since_%s/**/*.lf" % target,
+        ]),
+    )
+    for target in lf_targets
 ]
 
-
 [
-  [genrule(
-    name = "testing-dar-%s" %target,
-    srcs = [":lf_since_%s" %target] ,
-    outs = ["test-%s.dar" %target],
-    cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
-    tools = [":encoder_binary"],
-    visibility = [
-        "//daml-lf:__subpackages__",
-        "//language-support:__subpackages__",
-    ],
-  )]
-  for target in lf_target_versions
+    genrule(
+        name = "testing-dar-%s" % target,
+        srcs = [":lf_since_%s" % target],
+        outs = ["test-%s.dar" % target],
+        cmd = "$(location :encoder_binary) $(SRCS) --output $@ --target %s" % target,
+        tools = [":encoder_binary"],
+        visibility = [
+            "//daml-lf:__subpackages__",
+            "//language-support:__subpackages__",
+        ],
+    )
+    for target in lf_targets
 ]
-

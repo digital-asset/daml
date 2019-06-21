@@ -16,6 +16,7 @@ import com.digitalasset.daml.lf.validation.Validation
 import scala.annotation.tailrec
 import scala.io.Source
 import scala.util.control.NonFatal
+import scala.collection.breakOut
 
 private[digitalasset] object DamlLfEncoder extends App {
 
@@ -46,8 +47,8 @@ private[digitalasset] object DamlLfEncoder extends App {
         error(s"error: ${e.getMessage}")
     }
 
-  private def readSources(files: Seq[String]) =
-    files.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
+  private def readSources(files: Seq[String]): String =
+    files.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8"))(breakOut)
 
   private def makeArchive(source: String)(
       implicit parserParameters: ParserParameters[this.type]) = {
