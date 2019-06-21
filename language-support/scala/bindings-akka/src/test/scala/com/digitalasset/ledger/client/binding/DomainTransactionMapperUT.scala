@@ -20,7 +20,7 @@ import org.scalatest.{Matchers, WordSpec}
 import scala.collection.immutable
 
 class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
-  private val mockContract = Contract(Primitive.ContractId("contractId"), MockTemplate(), None)
+  private val mockContract = Contract(Primitive.ContractId("contractId"), MockTemplate(), None, Seq.empty, Seq.empty)
   private val transactionMapper = new DomainTransactionMapper(createdEvent => Right(mockContract))
 
   private def getResult(source: immutable.Iterable[Transaction]): Seq[DomainTransaction] =
