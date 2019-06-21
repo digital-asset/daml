@@ -32,7 +32,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//compiler/scenario-service/client",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//daml-foundations/daml-ghc/ide",

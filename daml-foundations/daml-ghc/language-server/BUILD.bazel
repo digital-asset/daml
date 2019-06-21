@@ -30,7 +30,7 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//daml-foundations/daml-ghc/daml-compiler",
         "//daml-foundations/daml-ghc/ide",
     ],
