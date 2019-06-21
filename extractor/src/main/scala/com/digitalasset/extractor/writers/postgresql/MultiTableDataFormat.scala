@@ -6,7 +6,7 @@ package com.digitalasset.extractor.writers.postgresql
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.reader.InterfaceType
 import com.digitalasset.daml.lf.iface.Record
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.extractor.ledger.types._
 import com.digitalasset.extractor.Types.{DataIntegrityError, FullyAppliedType}
 import com.digitalasset.extractor.Types.FullyAppliedType._

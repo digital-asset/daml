@@ -8,10 +8,10 @@ import akka.stream.{KillSwitches, ActorMaterializer}
 import akka.stream.scaladsl.{RestartSource, Sink}
 import com.digitalasset.extractor.Types._
 import com.digitalasset.extractor.config.{ExtractorConfig, SnapshotEndSetting}
-import com.digitalasset.extractor.ledger.LedgerReader
+import com.digitalasset.ledger.service.LedgerReader
 import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.ledger.types.TransactionTree._
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.extractor.targets.Target
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.extractor.writers.Writer.RefreshPackages

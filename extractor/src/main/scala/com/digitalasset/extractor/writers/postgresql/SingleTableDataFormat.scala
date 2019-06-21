@@ -3,7 +3,7 @@
 
 package com.digitalasset.extractor.writers.postgresql
 
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.extractor.ledger.types.{CreatedEvent, ExercisedEvent, TransactionTree}
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.extractor.writers.postgresql.DataFormat.TemplateInfo

@@ -26,7 +26,7 @@ http_json_deps = [
 da_scala_library(
     name = "http-json",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    tags = ["maven_coordinates=com.digitalasset.ledger-api:http-json:__VERSION__"],
+    tags = ["maven_coordinates=com.digitalasset.ledger-service:http-json:__VERSION__"],
     deps = http_json_deps,
 )
 
