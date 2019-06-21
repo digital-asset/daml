@@ -10,7 +10,7 @@ import Control.Monad (forM, forM_, void)
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
 import Data.Aeson (toJSON)
-import qualified Data.Text.Extended as T
+import qualified Data.Text as T
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens
 import Network.URI
@@ -427,8 +427,8 @@ stressTests run _runScenarios = testGroup "Stress tests"
             ]
         foos <- forM [1 .. 99 :: Int] $ \i ->
             makeModule ("Foo" ++ show i)
-                [ "import Foo" <> T.show (i+1)
-                , "foo" <> T.show i <> " = foo" <> T.show (i+1)
+                [ "import Foo" <> T.pack (show (i+1))
+                , "foo" <> T.pack (show i) <> " = foo" <> T.pack (show (i+1))
                 ]
         foo100 <- makeModule "Foo100"
             [ "foo100 : Bool"
