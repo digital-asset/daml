@@ -29,7 +29,7 @@ import qualified Development.Shake as Shake
 import qualified Development.IDE.State.API as CompilerService
 import qualified Development.IDE.State.Rules.Daml as CompilerService
 import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
+import Development.IDE.LSP.Protocol
 import qualified ScenarioService as SS
 import System.Directory (createDirectoryIfMissing)
 import System.Exit (exitFailure)

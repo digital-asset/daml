@@ -12,6 +12,7 @@ import Development.IDE.State.Service
 import Development.IDE.State.Rules
 import Development.IDE.State.Shake
 import Development.IDE.State.RuleTypes
+import Development.IDE.LSP.Protocol
 import Data.String
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Options
@@ -22,7 +23,6 @@ import Development.IDE.LSP.LanguageServer
 import System.Directory
 import System.Environment
 import System.IO
-import Development.IDE.Types.LSP
 import Development.Shake hiding (Env)
 import qualified Data.Set as Set
 

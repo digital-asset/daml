@@ -25,6 +25,7 @@ import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import DA.Service.Daml.Compiler.Impl.Scenario
 import DA.Daml.GHC.Compiler.Options
 import DA.Daml.GHC.Compiler.Upgrade
+import Development.IDE.LSP.Protocol hiding (Command)
 import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -45,7 +46,6 @@ import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
 import GHC.Conc
 import qualified Network.Socket                    as NS
 import Options.Applicative.Extended
