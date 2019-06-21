@@ -14,7 +14,7 @@ You can generate visual graphs for the contracts in your DAML project. To do thi
 
 Visual for Quickstart
 *********************
-1. Generate the dar ``daml build``
+1. Generate the dar using ``daml build``
 2. Generate dot file ``daml damlc visual dist/quickstart.dar --dot quickstart.dot ``
 3. Generate image ``dot -Tpng quickstart.dot quickstart.png``.
 .. image:: images/quickstart.png
