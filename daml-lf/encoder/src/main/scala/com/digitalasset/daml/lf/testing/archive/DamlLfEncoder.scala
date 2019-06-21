@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.testing.archive.EncodeV1.EncodeError
 import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.digitalasset.daml.lf.validation.Validation
 
+import scala.annotation.tailrec
 import scala.io.Source
 import scala.util.control.NonFatal
 
@@ -45,14 +46,8 @@ private[digitalasset] object DamlLfEncoder extends App {
         error(s"error: ${e.getMessage}")
     }
 
-  private def readSources(files: Seq[String]) = {
-    val builder = StringBuilder.newBuilder
-    files.foreach { file =>
-      builder ++= Source.fromFile(Paths.get(file).toFile, "UTF8")
-      builder ++= "\n\n"
-    }
-    builder.result()
-  }
+  private def readSources(files: Seq[String]) =
+    files.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
 
   private def makeArchive(source: String)(
       implicit parserParameters: ParserParameters[this.type]) = {
@@ -86,39 +81,40 @@ private[digitalasset] object DamlLfEncoder extends App {
   }
 
   private case class Arguments(
-      inputFiles: List[String] = List.empty,
-      outputFile: String = "",
-      languageVersion: LanguageVersion = LanguageVersion.default
+      inputFiles: List[String],
+      outputFile: String,
+      languageVersion: LanguageVersion
   )
 
   private def parseArgs() = {
+    val nAgrs = args.length
 
-    var appArgs = Arguments()
+    @tailrec
+    def go(
+        appArgs: Arguments = Arguments(List.empty, "", LanguageVersion.default),
+        i: Int = 0
+    ): Arguments =
+      if (i == nAgrs) {
+        if (appArgs.outputFile.isEmpty)
+          error("output file not set")
+        if (appArgs.inputFiles.isEmpty)
+          error("no input files set")
+        else
+          appArgs
+      } else
+        args(i) match {
+          case "--target" if i + 1 < nAgrs =>
+            go(appArgs.copy(languageVersion = parseVersion(args(i + 1))), i + 2)
+          case "--output" if i + 1 < nAgrs =>
+            go(appArgs.copy(outputFile = args(i + 1)), i + 2)
+          case _ if i + 1 >= nAgrs =>
+            error(
+              s"usage: encoder_binary inputFile1 ... inputFileN --output outputFile [--target version]")
+          case x =>
+            go(appArgs.copy(inputFiles = x :: appArgs.inputFiles), i + 1)
+        }
 
-    var i = 0
-    val n = args.length
-    while (i < n) {
-      args(i) match {
-        case "-v" if i + 1 < n =>
-          appArgs = appArgs.copy(languageVersion = parseVersion(args(i + 1)))
-          i += 2
-        case "-o" if i + 1 < n =>
-          appArgs = appArgs.copy(outputFile = args(i + 1))
-          i += 2
-        case x if x.startsWith("-") =>
-          error(s"usage: encoder_binary inputFile1 ... inputFileN -o outputFile [-v version]")
-        case x =>
-          appArgs = appArgs.copy(inputFiles = x :: appArgs.inputFiles)
-          i += 1
-      }
-    }
-
-    if (appArgs.outputFile.isEmpty)
-      error("output file not set")
-    if (appArgs.inputFiles.isEmpty)
-      error("no input files")
-
-    appArgs
+    go()
   }
 
   private def parseVersion(version: String) =

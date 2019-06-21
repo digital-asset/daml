@@ -16,4 +16,6 @@ module Enum {
     }
   };
 
+  enum Nothing = ;
+
 }
