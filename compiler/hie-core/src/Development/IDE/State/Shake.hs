@@ -81,7 +81,7 @@ data ShakeExtras = ShakeExtras
     ,logger :: Logger.Handle
     ,globals :: Var (Map.HashMap TypeRep Dynamic)
     ,state :: Var Values
-    ,diagnostics :: Var (ProjectDiagnostics Key)
+    ,diagnostics :: Var DiagnosticStore
     }
 
 getShakeExtras :: Action ShakeExtras
@@ -221,7 +221,7 @@ shakeOpen eventer logger opts rules = do
     shakeExtras <- do
         globals <- newVar Map.empty
         state <- newVar Map.empty
-        diagnostics <- newVar emptyDiagnostics
+        diagnostics <- newVar mempty
         pure ShakeExtras{..}
     (shakeDb, shakeClose) <- shakeOpenDatabase opts{shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts} rules
     shakeAbort <- newVar $ return ()
@@ -279,7 +279,7 @@ getAllDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} = do
 -- | FIXME: This function is temporary! Only required because the files of interest doesn't work
 unsafeClearAllDiagnostics :: IdeState -> IO ()
 unsafeClearAllDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} =
-    writeVar diagnostics emptyDiagnostics
+    writeVar diagnostics mempty
 
 -- | Clear the results for all files that do not match the given predicate.
 garbageCollect :: (NormalizedFilePath -> Bool) -> Action ()

@@ -33,8 +33,6 @@ module Development.IDE.Types.Diagnostics (
   filePathToUri,
   filePathToUri',
   uriToFilePath',
-  ProjectDiagnostics,
-  emptyDiagnostics,
   setStageDiagnostics,
   getAllDiagnostics,
   filterDiagnostics,
@@ -176,14 +174,6 @@ getDiagnosticsFromStore :: StoreItem -> [Diagnostic]
 getDiagnosticsFromStore (StoreItem _ diags) =
     toList =<< Map.elems diags
 
--- | This represents every diagnostic in a LSP project, the stage type variable is
---   the type of the compiler stages, in this project that is always the Key data
---   type found in Development.IDE.State.Shake
-newtype ProjectDiagnostics stage = ProjectDiagnostics {getStore :: DiagnosticStore}
-    deriving Show
-
-emptyDiagnostics :: ProjectDiagnostics stage
-emptyDiagnostics = ProjectDiagnostics mempty
 
 -- | Sets the diagnostics for a file and compilation step
 --   if you want to clear the diagnostics call this with an empty list
@@ -194,10 +184,10 @@ setStageDiagnostics ::
   -- ^ the time that the file these diagnostics originate from was last edited
   stage ->
   [LSP.Diagnostic] ->
-  ProjectDiagnostics stage ->
-  ProjectDiagnostics stage
-setStageDiagnostics fp timeM stage diags (ProjectDiagnostics ds) =
-    ProjectDiagnostics $ updateDiagnostics ds uri timeM diagsBySource
+  DiagnosticStore ->
+  DiagnosticStore
+setStageDiagnostics fp timeM stage diags ds  =
+    updateDiagnostics ds uri timeM diagsBySource
     where
         diagsBySource = Map.singleton (Just $ T.pack $ show stage) (SL.toSortedList diags)
         uri = filePathToUri' fp
@@ -206,25 +196,22 @@ fromUri :: LSP.NormalizedUri -> NormalizedFilePath
 fromUri = toNormalizedFilePath . fromMaybe noFilePath . uriToFilePath' . fromNormalizedUri
 
 getAllDiagnostics ::
-    ProjectDiagnostics stage ->
+    DiagnosticStore ->
     [FileDiagnostic]
 getAllDiagnostics =
-    concatMap (\(k,v) -> map (fromUri k,) $ getDiagnosticsFromStore v) . Map.toList . getStore
+    concatMap (\(k,v) -> map (fromUri k,) $ getDiagnosticsFromStore v) . Map.toList
 
 getFileDiagnostics ::
     NormalizedFilePath ->
-    ProjectDiagnostics stage ->
+    DiagnosticStore ->
     [LSP.Diagnostic]
 getFileDiagnostics fp ds =
     maybe [] getDiagnosticsFromStore $
-    Map.lookup (filePathToUri' fp) $
-    getStore ds
+    Map.lookup (filePathToUri' fp) ds
 
 filterDiagnostics ::
     (NormalizedFilePath -> Bool) ->
-    ProjectDiagnostics stage ->
-    ProjectDiagnostics stage
+    DiagnosticStore ->
+    DiagnosticStore
 filterDiagnostics keep =
-    ProjectDiagnostics .
-    Map.filterWithKey (\uri _ -> maybe True (keep . toNormalizedFilePath) $ uriToFilePath' $ fromNormalizedUri uri) .
-    getStore
+    Map.filterWithKey (\uri _ -> maybe True (keep . toNormalizedFilePath) $ uriToFilePath' $ fromNormalizedUri uri)
