@@ -17,23 +17,14 @@ There are more details [in this blog post](https://4ta.uk/p/shaking-up-the-ide).
 2. `cd daml/compiler/hie-core`
 3. `stack build`
 
-### Using the VSCode extension
-
-1. `cd extension`
-2. `npm install`
-3. `code .`
-4. Press F5 to start the extension.
-5. In the spawned extension, open the folder `hie-core`.
-6. In the preferences, set the Haskell IDE Core executable preference to `stack` and the arguments to `exec -- ide-demo --lsp .ghci`
-7. Run the Reload Window command in VS Code.
-
-### Installing the VSCode extension permanently
+### Installing the VSCode extension
 
 1. `cd compiler/hie-core/extension`
 2. `vsce package`
 3. `code --install-extension hie-core-0.0.1.vsix`
 
-### Installing in emacs
+### Installing in Emacs
+
 1. Install lsp and haskell-lsp
 2. Add this elisp to your .emacs.el
 ```elisp
