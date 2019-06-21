@@ -12,6 +12,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import DA.Daml.GHC.Compiler.Options
+import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS

@@ -62,6 +62,7 @@ import Development.IDE.State.RuleTypes.Daml
 import qualified Development.IDE.State.Shake as Shake
 import           Development.IDE.Types.Diagnostics as Base
 import qualified Language.Haskell.LSP.Messages as LSP
+import Development.IDE.Types.Location as Base
 import           System.FilePath
 
 ------------------------------------------------------------------------

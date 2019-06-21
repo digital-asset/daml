@@ -31,6 +31,7 @@ import Development.IDE.Functions.DependencyInformation
 import Development.IDE.Functions.FindImports
 import           Development.IDE.State.FileStore
 import           Development.IDE.Types.Diagnostics as Base
+import Development.IDE.Types.Location
 import qualified Data.ByteString.UTF8 as BS
 import Control.Exception
 import Control.Concurrent.Extra

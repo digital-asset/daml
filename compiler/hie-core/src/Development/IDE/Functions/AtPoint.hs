@@ -12,6 +12,7 @@ module Development.IDE.Functions.AtPoint (
 import           Development.IDE.Functions.Documentation
 import           Development.IDE.Functions.GHCError
 import Development.IDE.Orphans()
+import Development.IDE.Types.Location
 
 -- DAML compiler and infrastructure
 import Development.Shake
@@ -19,7 +20,6 @@ import Development.IDE.UtilGHC
 import Development.IDE.Compat
 import Development.IDE.State.Shake
 import Development.IDE.State.RuleTypes
-import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Options
 import           Development.IDE.Types.SpanInfo as SpanInfo
 
