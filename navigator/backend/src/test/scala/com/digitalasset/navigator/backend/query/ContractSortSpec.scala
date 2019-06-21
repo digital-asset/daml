@@ -89,7 +89,8 @@ class ContractSortSpec extends FlatSpec with Matchers {
     }
   }
 
-  implicit val sortParties: Ordering[Seq[String]] = Ordering.fromLessThan[Seq[String]](_.mkString < _.mkString)
+  implicit val sortParties: Ordering[Seq[String]] =
+    Ordering.fromLessThan[Seq[String]](_.mkString < _.mkString)
 
   test(List(), contracts)
   test(List("id" -> ASCENDING), contracts.sortBy(_.id.unwrap))

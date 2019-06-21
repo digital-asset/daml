@@ -159,7 +159,8 @@ object Event {
                   agreementText = nc.coinst.agreementText,
                   signatories = nc.signatories,
                   observers = nc.stakeholders diff nc.signatories,
-                  witnesses = disclosure(nodeId))
+                  witnesses = disclosure(nodeId)
+                )
               evts += (nodeId -> evt)
               go(remaining)
             case ne: NodeExercises[Nid, Cid, Val] =>

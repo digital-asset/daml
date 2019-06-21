@@ -47,7 +47,8 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
   it should "create correct create commands" in withClient { client =>
     sendCmd(client, glookofly.create())
 
-    val glookoflyContract :: Nil = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
+    val glookoflyContract :: Nil =
+      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
 
     glookoflyContract.data shouldEqual glookofly
   }
@@ -55,7 +56,8 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
   it should "create correct exercise choice commands" in withClient { client =>
     sendCmd(client, glookofly.create(), sruquito.create())
 
-    val glookoflyContract :: sruquitoContract :: Nil = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
+    val glookoflyContract :: sruquitoContract :: Nil =
+      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
 
     glookoflyContract.data shouldEqual glookofly
     sruquitoContract.data shouldEqual sruquito
@@ -80,7 +82,8 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
   it should "create correct createAndExercise choice commands" in withClient { client =>
     sendCmd(client, glookofly.create())
 
-    val glookoflyContract :: Nil = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
+    val glookoflyContract :: Nil =
+      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
 
     glookoflyContract.data shouldEqual glookofly
 
@@ -121,7 +124,8 @@ class CodegenLedgerTest extends FlatSpec with Matchers {
     sendCmd(client, glookofly.create(), sruquito.create())
 
     // We'll exercise by key, no need to get the handles
-    val glookoflyContract :: sruquitoContract :: Nil = readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
+    val glookoflyContract :: sruquitoContract :: Nil =
+      readActiveContracts(Wolpertinger.Contract.fromCreatedEvent)(client)
 
     val tob = Instant.now().`with`(ChronoField.NANO_OF_SECOND, 0)
     val reproduceByKeyCmd =

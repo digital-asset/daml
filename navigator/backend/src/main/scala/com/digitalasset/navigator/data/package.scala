@@ -1,3 +1,6 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset.navigator
 
 import cats.data.NonEmptyList
@@ -9,7 +12,9 @@ package object data {
   implicit val getStrings: Get[Seq[String]] = {
     import spray.json._
     import DefaultJsonProtocol._
-    Get.Advanced.other[PGobject](NonEmptyList.of("json")).map(_.getValue.parseJson.convertTo[Seq[String]])
+    Get.Advanced
+      .other[PGobject](NonEmptyList.of("json"))
+      .map(_.getValue.parseJson.convertTo[Seq[String]])
   }
 
   implicit val putStrings: Put[Seq[String]] = {

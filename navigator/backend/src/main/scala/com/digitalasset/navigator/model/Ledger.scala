@@ -110,7 +110,13 @@ case class Ledger(
     event match {
       case event: ContractCreated =>
         packageRegistry.template(event.templateId).fold(this) { template =>
-          val contract = Contract(event.contractId, template, event.argument, event.agreementText, event.signatories, event.observers)
+          val contract = Contract(
+            event.contractId,
+            template,
+            event.argument,
+            event.agreementText,
+            event.signatories,
+            event.observers)
           withContractCreatedInEvent(contract, event)
         }
 

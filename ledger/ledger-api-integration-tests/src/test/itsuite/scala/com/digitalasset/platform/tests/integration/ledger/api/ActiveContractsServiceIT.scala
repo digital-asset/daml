@@ -176,7 +176,8 @@ class ActiveContractsServiceIT
         def extractContractId(acsResponse: Seq[GetActiveContractsResponse]) = {
           val events = acsResponse.flatMap(_.activeContracts).toSet
           events.collect {
-            case CreatedEvent(contractId, _, Some(tid), _, _, _, _, _, _) if tid == templateIds.dummy =>
+            case CreatedEvent(contractId, _, Some(tid), _, _, _, _, _, _)
+                if tid == templateIds.dummy =>
               contractId
           }.head
         }

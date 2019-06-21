@@ -27,12 +27,25 @@ final class TemplateClassSpec extends FlatSpec with Matchers with OptionValues w
 
   it should "generate a method taking the expected parameters (with contract key)" in {
     val parameters = fromIdAndRecord.parameters.asScala.map(p => p.name -> p.`type`).toList
-    parameters should contain theSameElementsInOrderAs Seq("contractId" -> string, "record$" -> record, "agreementText" -> optionalString, "key" -> optionalContractKey, "signatories" -> setOfStrings, "observers" -> setOfStrings)
+    parameters should contain theSameElementsInOrderAs Seq(
+      "contractId" -> string,
+      "record$" -> record,
+      "agreementText" -> optionalString,
+      "key" -> optionalContractKey,
+      "signatories" -> setOfStrings,
+      "observers" -> setOfStrings
+    )
   }
 
   it should "generate a method taking the expected parameters (without contract key)" in {
-    val parameters = fromIdAndRecordWithoutKey.parameters.asScala.map(p => p.name -> p.`type`).toList
-    parameters should contain theSameElementsInOrderAs Seq("contractId" -> string, "record$" -> record, "agreementText" -> optionalString, "signatories" -> setOfStrings, "observers" -> setOfStrings)
+    val parameters =
+      fromIdAndRecordWithoutKey.parameters.asScala.map(p => p.name -> p.`type`).toList
+    parameters should contain theSameElementsInOrderAs Seq(
+      "contractId" -> string,
+      "record$" -> record,
+      "agreementText" -> optionalString,
+      "signatories" -> setOfStrings,
+      "observers" -> setOfStrings)
   }
 
   private[this] val className = ClassName.bestGuess("Test")

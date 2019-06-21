@@ -215,13 +215,15 @@ package object filter {
       .onValue("*")
       .const(true)
       .onAnyValue
-      .perform[String]((contract, signatory) => contract.signatories.exists(checkContained(_, signatory)))
+      .perform[String]((contract, signatory) =>
+        contract.signatories.exists(checkContained(_, signatory)))
       .onTree
       .onLeaf("observers")
       .onValue("*")
       .const(true)
       .onAnyValue
-      .perform[String]((contract, observer) => contract.observers.exists(checkContained(_, observer)))
+      .perform[String]((contract, observer) =>
+        contract.observers.exists(checkContained(_, observer)))
       .onTree
   //  .onStar(check all fields)
 

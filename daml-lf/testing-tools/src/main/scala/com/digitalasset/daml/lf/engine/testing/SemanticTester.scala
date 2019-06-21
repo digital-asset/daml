@@ -200,7 +200,8 @@ class SemanticTester(
                     (scenarioCreateNode.stakeholders diff scenarioCreateNode.signatories),
                     scenarioWitnesses(scenarioNodeId),
                   )
-                  val ledgerCreateEventToCompare = ledgerCreateEvent.copy(signatories = Set.empty, observers = Set.empty)
+                  val ledgerCreateEventToCompare =
+                    ledgerCreateEvent.copy(signatories = Set.empty, observers = Set.empty)
                   val scenarioCreateEventToCompare =
                     scenarioCreateEvent.copy(signatories = Set.empty, observers = Set.empty)
                   // check that they're the same

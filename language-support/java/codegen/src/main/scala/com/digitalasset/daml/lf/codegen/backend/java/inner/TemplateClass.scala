@@ -132,7 +132,9 @@ private[inner] object TemplateClass extends StrictLogging {
     classBuilder.addMethod(constructor)
 
     val contractClassName = ClassName.bestGuess("Contract")
-    val fields = Vector(idFieldName, dataFieldName, agreementFieldName) ++ contractKeyClassName.map(_ => contractKeyFieldName).toList ++ Vector(signatoriesFieldName, observersFieldName)
+    val fields = Vector(idFieldName, dataFieldName, agreementFieldName) ++ contractKeyClassName
+      .map(_ => contractKeyFieldName)
+      .toList ++ Vector(signatoriesFieldName, observersFieldName)
     classBuilder
       .addMethod(
         generateFromIdAndRecord(
@@ -170,7 +172,9 @@ private[inner] object TemplateClass extends StrictLogging {
       ParameterSpec.builder(optionalString, agreementFieldName).build()
     ) ++ maybeContractKeyClassName
       .map(name => ParameterSpec.builder(optional(name), contractKeyFieldName).build)
-      .toList ++ Iterable(ParameterSpec.builder(setOfStrings, signatoriesFieldName).build(), ParameterSpec.builder(setOfStrings, observersFieldName).build())
+      .toList ++ Iterable(
+      ParameterSpec.builder(setOfStrings, signatoriesFieldName).build(),
+      ParameterSpec.builder(setOfStrings, observersFieldName).build())
 
     val spec =
       MethodSpec
@@ -186,8 +190,8 @@ private[inner] object TemplateClass extends StrictLogging {
           templateClassName)
 
     val callParameterNames = Vector(idFieldName, dataFieldName, agreementFieldName) ++ maybeContractKeyClassName
-      .map(_ => contractKeyFieldName).toList ++ Vector(signatoriesFieldName, observersFieldName)
-      .toList
+      .map(_ => contractKeyFieldName)
+      .toList ++ Vector(signatoriesFieldName, observersFieldName).toList
     val callParameters = CodeBlock.join(callParameterNames.map(CodeBlock.of(_)).asJava, ", ")
     spec.addStatement("return new $T($L)", className, callParameters).build()
   }
@@ -218,7 +222,9 @@ private[inner] object TemplateClass extends StrictLogging {
     val callParameters = Vector(
       CodeBlock.of(idFieldName),
       CodeBlock.of(dataFieldName),
-      emptyOptional) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList ++ Vector(emptySet, emptySet)
+      emptyOptional) ++ maybeContractKeyClassName.map(_ => emptyOptional).toList ++ Vector(
+      emptySet,
+      emptySet)
 
     spec
       .addStatement("return new $T($L)", className, CodeBlock.join(callParameters.asJava, ", "))

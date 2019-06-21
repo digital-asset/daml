@@ -686,22 +686,21 @@ class TransactionServiceIT
           resultF.map(_.agreementText shouldBe Some(""))
       }
 
-      "expose the correct stakeholders" in allFixtures {
-        c =>
-          val resultF = c.submitCreate(
-            s"Creating_CallablePayout_contract_for_stakeholders_test-${runSuffix}",
-            templateIds.callablePayout,
-            List(
-              RecordField("giver", party1.asParty),
-              RecordField("receiver", party2.asParty)
-            ),
-            party1
-          )
+      "expose the correct stakeholders" in allFixtures { c =>
+        val resultF = c.submitCreate(
+          s"Creating_CallablePayout_contract_for_stakeholders_test-${runSuffix}",
+          templateIds.callablePayout,
+          List(
+            RecordField("giver", party1.asParty),
+            RecordField("receiver", party2.asParty)
+          ),
+          party1
+        )
 
-          resultF.map(contract => {
-            contract.signatories should contain only party1
-            contract.observers should contain only party2
-          })
+        resultF.map(contract => {
+          contract.signatories should contain only party1
+          contract.observers should contain only party2
+        })
       }
 
       "not expose the contract key in CreatedEvents for templates that do not have them" in allFixtures {

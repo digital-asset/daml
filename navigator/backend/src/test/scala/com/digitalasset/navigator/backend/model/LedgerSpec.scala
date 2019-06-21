@@ -29,7 +29,13 @@ class LedgerSpec extends WordSpec with Matchers {
       "0",
       List.empty)
   def contract(id: String): Contract =
-    Contract(ApiTypes.ContractId(id), template, contractArgument, Option(""), Seq("Alice"), Seq("Bob", "Charlie"))
+    Contract(
+      ApiTypes.ContractId(id),
+      template,
+      contractArgument,
+      Option(""),
+      Seq("Alice"),
+      Seq("Bob", "Charlie"))
   def error(commandId: String): CommandStatusError = CommandStatusError("code", "details")
 
   "A ledger with existing contracts" when {

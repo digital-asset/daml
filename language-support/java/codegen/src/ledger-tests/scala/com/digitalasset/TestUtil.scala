@@ -1,3 +1,6 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.digitalasset
 
 import java.io.File
@@ -12,7 +15,10 @@ import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.{CommandServiceGrpc, TransactionServiceGrpc}
 import com.digitalasset.ledger.api.v1.CommandServiceOuterClass.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{GetLedgerEndRequest, GetTransactionsResponse}
+import com.digitalasset.ledger.api.v1.TransactionServiceOuterClass.{
+  GetLedgerEndRequest,
+  GetTransactionsResponse
+}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.sandbox.services.SandboxServerResource
@@ -88,11 +94,11 @@ object TestUtil extends BazelRunfiles {
     StreamSupport
       .stream(iterable.spliterator(), false)
       .flatMap[Transaction](
-      (r: GetTransactionsResponse) =>
-        data.GetTransactionsResponse
-          .fromProto(r)
-          .getTransactions
-          .stream())
+        (r: GetTransactionsResponse) =>
+          data.GetTransactionsResponse
+            .fromProto(r)
+            .getTransactions
+            .stream())
       .flatMap[Event]((t: Transaction) => t.getEvents.stream)
       .collect(Collectors.toList[Event])
       .asScala
@@ -101,7 +107,7 @@ object TestUtil extends BazelRunfiles {
           case e: CreatedEvent =>
             acc + (e.getContractId -> fromCreatedEvent(e))
           case a: ArchivedEvent => acc - a.getContractId
-        })
+      })
       .toList
       .sortBy(_._1)
       .map(_._2)
