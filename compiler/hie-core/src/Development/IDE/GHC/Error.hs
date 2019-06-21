@@ -6,9 +6,9 @@ module Development.IDE.GHC.Error
   (
     -- * Producing Diagnostic values
     diagFromErrMsgs
+  , diagFromErrMsg
   , diagFromString
   , diagFromStrings
-  , diagFromSDoc
   , diagFromGhcException
 
   -- * utilities working with spans
@@ -43,12 +43,15 @@ diagFromText sev loc msg = (toNormalizedFilePath $ srcSpanToFilename loc,)
     , _relatedInformation = Nothing
     }
 
+-- | Produce a GHC-style error from a source span and a message.
+diagFromErrMsg :: DynFlags -> ErrMsg -> [FileDiagnostic]
+diagFromErrMsg dflags e =
+    [ diagFromText sev (errMsgSpan e) $ T.pack $ Out.showSDoc dflags $ ErrUtils.pprLocErrMsg e
+    | Just sev <- [toDSeverity $ errMsgSeverity e]]
+
 
 diagFromErrMsgs :: DynFlags -> Bag ErrMsg -> [FileDiagnostic]
-diagFromErrMsgs dflags es =
-    [ diagFromText sev (errMsgSpan e) $ T.pack $ Out.showSDoc dflags $ ErrUtils.pprLocErrMsg e
-    | e <- bagToList es
-    , Just sev <- [toDSeverity $ errMsgSeverity e]]
+diagFromErrMsgs dflags = concatMap (diagFromErrMsg dflags) . bagToList
 
 
 -- | Convert a GHC SrcSpan to a DAML compiler Range
@@ -91,10 +94,6 @@ diagFromStrings = concatMap (uncurry diagFromString)
 -- | Produce a GHC-style error from a source span and a message.
 diagFromString :: SrcSpan -> String -> [FileDiagnostic]
 diagFromString sp x = [diagFromText DsError sp $ T.pack x]
-
--- | Produce a GHC-style error from a source span and a message.
-diagFromSDoc :: DynFlags -> SrcSpan -> Out.SDoc -> [FileDiagnostic]
-diagFromSDoc dflags sp sdoc = [diagFromText DsError sp $ T.pack $ Out.showSDoc dflags sdoc]
 
 
 -- | Produces an "unhelpful" source span with the given string.

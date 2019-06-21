@@ -34,6 +34,7 @@ import Development.IDE.Types.Location
 import           GHC hiding (parseModule, typecheckModule)
 import qualified Parser
 import           Lexer
+import ErrUtils
 
 import qualified GHC
 import           Panic
@@ -394,7 +395,7 @@ parseFileContents preprocessor filename contents = do
 
    case unP Parser.parseModule (mkPState dflags contents loc) of
      PFailed _ locErr msgErr ->
-      Ex.throwE $ diagFromSDoc dflags locErr msgErr
+      Ex.throwE $ diagFromErrMsg dflags $ mkPlainErrMsg dflags locErr msgErr
      POk pst rdr_module ->
          let hpm_annotations =
                (Map.fromListWith (++) $ annotations pst,

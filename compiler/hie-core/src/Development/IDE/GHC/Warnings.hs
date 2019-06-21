@@ -4,6 +4,7 @@
 module Development.IDE.GHC.Warnings(withWarnings) where
 
 import GhcMonad
+import ErrUtils
 import GhcPlugins as GHC hiding (Var)
 
 import           Control.Concurrent.Extra
@@ -28,7 +29,7 @@ withWarnings action = do
   warnings <- liftIO $ newVar []
   oldFlags <- getDynFlags
   let newAction dynFlags _ _ loc _ msg = do
-        let d = diagFromSDoc dynFlags loc msg
+        let d = diagFromErrMsg dynFlags $ mkPlainWarnMsg dynFlags loc msg
         modifyVar_ warnings $ return . (d:)
   setLogAction newAction
   res <- action $ \x -> x{ms_hspp_opts = (ms_hspp_opts x){log_action = newAction}}
