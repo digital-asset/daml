@@ -26,3 +26,4 @@ DAML Integration Kit
 ~~~~~~~~~~~~~~~~~~~~
 
 - Added additional Ledger API integration tests to Ledger API Test Tool.
+- [DAML Studio] Goto definition now works on the export list of modules.
