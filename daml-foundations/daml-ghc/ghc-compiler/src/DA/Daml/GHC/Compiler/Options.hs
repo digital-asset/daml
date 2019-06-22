@@ -32,7 +32,7 @@ import Data.Maybe
 import Data.Tuple.Extra
 import "ghc-lib-parser" DynFlags
 import qualified "ghc-lib" GHC
-import Development.IDE.UtilGHC
+import Development.IDE.GHC.Util
 import qualified "ghc-lib-parser" EnumSet
 import qualified "ghc-lib-parser" Packages
 import "ghc-lib-parser" HscTypes

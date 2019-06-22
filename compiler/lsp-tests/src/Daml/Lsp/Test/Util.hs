@@ -34,7 +34,7 @@ import System.IO.Extra
 import Test.Tasty.HUnit
 
 import DA.Test.Util
-import Development.IDE.State.Rules.Daml (VirtualResourceChangedParams(..))
+import Development.IDE.Core.Rules.Daml (VirtualResourceChangedParams(..))
 
 -- | (0-based line number, 0-based column number)
 type Cursor = (Int, Int)

@@ -17,17 +17,17 @@ import Control.Monad.IO.Class
 import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
 import qualified Development.IDE.LSP.Definition as LS.Definition
 import qualified Development.IDE.LSP.Hover      as LS.Hover
-import qualified Development.IDE.Logger as Logger
+import qualified Development.IDE.Types.Logger as Logger
 
 import qualified Data.Aeson                                as Aeson
 import qualified Data.Rope.UTF16 as Rope
 import qualified Data.Set                                  as S
 import qualified Data.Text as T
 
-import Development.IDE.State.FileStore
-import Development.IDE.State.Rules
-import Development.IDE.State.Rules.Daml
-import Development.IDE.State.Service.Daml
+import Development.IDE.Core.FileStore
+import Development.IDE.Core.Rules
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Service.Daml
 import Development.IDE.Types.Location
 
 import qualified Network.URI                               as URI

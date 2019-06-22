@@ -26,7 +26,7 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import Development.IDE.State.API.Testing
-import Development.IDE.State.Service.Daml(VirtualResource(..))
+import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 main :: IO ()
 main = SS.withScenarioService Logger.makeNopHandle $ \scenarioService -> do

@@ -17,7 +17,7 @@ import Data.List.Extra
 import qualified Data.Set as S
 import Data.Tuple.Extra
 import Control.Monad.Extra
-import Development.IDE.State.Service.Daml
+import Development.IDE.Core.Service.Daml
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
@@ -27,7 +27,7 @@ import qualified Data.Text.Prettyprint.Doc.Syntax as Pretty
 import qualified Data.Vector as V
 import qualified Development.Shake as Shake
 import qualified Development.IDE.State.API as CompilerService
-import qualified Development.IDE.State.Rules.Daml as CompilerService
+import qualified Development.IDE.Core.Rules.Daml as CompilerService
 import Development.IDE.Types.Diagnostics
 import Development.IDE.LSP.Protocol
 import Development.IDE.Types.Location

@@ -30,7 +30,7 @@ module Development.IDE.State.API
     , makeLSPVFSHandle
     ) where
 
-import           Development.IDE.State.Service.Daml
-import           Development.IDE.State.Rules.Daml
-import           Development.IDE.State.FileStore
+import           Development.IDE.Core.Service.Daml
+import           Development.IDE.Core.Rules.Daml
+import           Development.IDE.Core.FileStore
 import           Development.Shake                             (Action)
