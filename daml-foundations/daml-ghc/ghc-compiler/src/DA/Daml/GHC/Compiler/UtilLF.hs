@@ -75,17 +75,17 @@ buildPackage :: HasCallStack => Maybe String -> Version -> [Module] -> Package
 buildPackage mbPkgName version mods = Package version $ NM.fromList $ extraMods ++ mods
   where
     extraMods = case mbPkgName of
-      Just "daml-prim" -> wiredInModules
+      Just "daml-prim" -> wiredInModules version
       _ -> []
 
-wiredInModules :: [Module]
-wiredInModules =
-  [ ghcPrim
-  , ghcTypes
+wiredInModules :: Version -> [Module]
+wiredInModules version =
+  [ ghcPrim version
+  , ghcTypes version
   ]
 
-ghcPrim :: Module
-ghcPrim = Module
+ghcPrim :: Version -> Module
+ghcPrim version = Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -102,22 +102,18 @@ ghcPrim = Module
       , dataTypeCon = mkTypeCon ["Void#"]
       , dataSerializable = IsSerializable False
       , dataParams = []
-      , dataCons = DataVariant [(conName, TUnit)]
+      , dataCons = mkVariantOrEnumDataCons version [conName]
       }
     valVoid = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal "void#", TCon (qual (dataTypeCon dataVoid)))
       , dvalNoPartyLiterals= HasNoPartyLiterals True
       , dvalIsTest = IsTest False
-      , dvalBody = EVariantCon
-          { varTypeCon = TypeConApp (qual (dataTypeCon dataVoid)) []
-          , varVariant = conName
-          , varArg = EBuiltin BEUnit
-          }
+      , dvalBody = mkVariantOrEnumCon version (qual (dataTypeCon dataVoid)) conName
       }
 
-ghcTypes :: Module
-ghcTypes = Module
+ghcTypes :: Version -> Module
+ghcTypes version = Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -134,18 +130,14 @@ ghcTypes = Module
       , dataTypeCon = mkTypeCon ["Ordering"]
       , dataSerializable = IsSerializable True
       , dataParams = []
-      , dataCons = DataVariant [(mkVariantCon con, TUnit) | con <- cons]
+      , dataCons = mkVariantOrEnumDataCons version $ map mkVariantCon cons
       }
     valCtor con = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal ("$ctor:" ++ con), TCon (qual (dataTypeCon dataOrdering)))
       , dvalNoPartyLiterals= HasNoPartyLiterals True
       , dvalIsTest = IsTest False
-      , dvalBody = EVariantCon
-          { varTypeCon = TypeConApp (qual (dataTypeCon dataOrdering)) []
-          , varVariant = mkVariantCon con
-          , varArg = EBuiltin BEUnit
-          }
+      , dvalBody = mkVariantOrEnumCon version (qual (dataTypeCon dataOrdering)) (mkVariantCon con)
       }
     dataProxy = DefDataType
       { dataLocation= Nothing
@@ -166,6 +158,23 @@ ghcTypes = Module
           (mkTypeVar "a", KStar)
           (ERecCon (TypeConApp (qual (dataTypeCon dataProxy)) [TVar (mkTypeVar "a")]) [])
       }
+
+mkVariantOrEnumDataCons :: Version -> [VariantConName] -> DataCons
+mkVariantOrEnumDataCons version cons
+    | version `supports` featureEnumTypes = DataEnum cons
+    | otherwise = DataVariant $ map (, TUnit) cons
+
+mkVariantOrEnumCon :: Version -> Qualified TypeConName -> VariantConName -> Expr
+mkVariantOrEnumCon version tcon con
+    | version `supports` featureEnumTypes = EEnumCon
+        { enumTypeCon = tcon
+        , enumDataCon = con
+        }
+    | otherwise = EVariantCon
+        { varTypeCon = TypeConApp tcon []
+        , varVariant = con
+        , varArg = EBuiltin BEUnit
+        }
 
 instance Outputable Expr where
     ppr = text . renderPretty

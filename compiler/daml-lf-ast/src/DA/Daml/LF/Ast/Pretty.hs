@@ -258,8 +258,9 @@ prettyAndType (x, t) = pretty x <-> prettyHasType <-> type_ (pretty t)
 instance Pretty CasePattern where
   pPrint = \case
     CPVariant tcon con var ->
-      pretty tcon <> "." <> pretty con
+      pretty tcon <> ":" <> pretty con
       <-> pretty var
+    CPEnum tcon con -> pretty tcon <> ":" <> pretty con
     CPUnit -> keyword_ "unit"
     CPBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     CPNil -> keyword_ "nil"
@@ -384,6 +385,8 @@ instance Pretty Expr where
       prettyAppDoc prec
         (pretty tcon <> ":" <> pretty con)
         (map TyArg targs ++ [TmArg arg])
+    EEnumCon tcon con ->
+      pretty tcon <> ":" <> pretty con
     ETupleCon fields ->
       prettyTuple "=" fields
     ETupleProj field expr -> pPrintPrec lvl precHighest expr <> "." <> pretty field
@@ -428,13 +431,16 @@ instance Pretty DefDataType where
     DataRecord fields ->
       hang (keyword_ "record" <-> lhsDoc) 2 (prettyRecord prettyHasType fields)
     DataVariant variants ->
-      (keyword_ "variant" <-> lhsDoc) $$ nest 2 (vcat (map prettyCon variants))
+      (keyword_ "variant" <-> lhsDoc) $$ nest 2 (vcat (map prettyVariantCon variants))
+    DataEnum enums ->
+      (keyword_ "enum" <-> lhsDoc) $$ nest 2 (vcat (map prettyEnumCon enums))
     where
       lhsDoc =
         serializableDoc <-> pretty tcon <-> hsep (map prettyAndKind params) <-> "="
       serializableDoc = if serializable then "@serializable" else ""
-      prettyCon (name, typ) =
+      prettyVariantCon (name, typ) =
         "|" <-> pretty name <-> pPrintPrec prettyNormal precHighest typ
+      prettyEnumCon name = "|" <-> pretty name
 
 instance Pretty DefValue where
   pPrint (DefValue mbLoc binder (HasNoPartyLiterals noParties) (IsTest isTest) body) =

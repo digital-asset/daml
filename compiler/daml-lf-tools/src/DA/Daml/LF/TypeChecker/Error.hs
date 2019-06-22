@@ -65,13 +65,15 @@ data Error
   | EUnknownDefinition     !LookupError
   | ETypeConAppWrongArity  !TypeConApp
   | EDuplicateField        !FieldName
-  | EDuplicateVariantCon   !VariantConName
+  | EDuplicateConstructor  !VariantConName
   | EDuplicateModule       !ModuleName
   | EDuplicateScenario     !ExprVarName
+  | EEnumTypeWithParams
   | EExpectedRecordType    !TypeConApp
   | EFieldMismatch         !TypeConApp ![(FieldName, Expr)]
   | EExpectedVariantType   !(Qualified TypeConName)
-  | EUnknownVariantCon     !VariantConName
+  | EExpectedEnumType      !(Qualified TypeConName)
+  | EUnknownDataCon        !VariantConName
   | EUnknownField          !FieldName
   | EExpectedTupleType     !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
@@ -171,9 +173,10 @@ instance Pretty Error where
     EUnknownDefinition e -> pretty e
     ETypeConAppWrongArity tapp -> "wrong arity in typecon application: " <> string (show tapp)
     EDuplicateField name -> "duplicate field: " <> pretty name
-    EDuplicateVariantCon name -> "duplicate variant constructor: " <> pretty name
+    EDuplicateConstructor name -> "duplicate constructor: " <> pretty name
     EDuplicateModule mname -> "duplicate module: " <> pretty mname
     EDuplicateScenario name -> "duplicate scenario: " <> pretty name
+    EEnumTypeWithParams -> "enum type with type parameters"
     EExpectedRecordType tapp ->
       vcat [ "expected record type:", "* found: ", nest 4 $ string (show tapp) ]
     EFieldMismatch tapp rexpr ->
@@ -185,7 +188,8 @@ instance Pretty Error where
       , nest 4 (string $ show rexpr)
       ]
     EExpectedVariantType qname -> "expected variant type: " <> pretty qname
-    EUnknownVariantCon name -> "unknown variant constructor: " <> pretty name
+    EExpectedEnumType qname -> "expected enum type: " <> pretty qname
+    EUnknownDataCon name -> "unknown data constructor: " <> pretty name
     EUnknownField name -> "unknown field: " <> pretty name
     EExpectedTupleType foundType ->
       "expected tuple type, but found: " <> pretty foundType

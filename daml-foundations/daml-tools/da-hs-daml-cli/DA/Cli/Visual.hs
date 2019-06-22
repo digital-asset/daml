@@ -50,6 +50,7 @@ startFromExpr seen world e = case e of
     LF.ERecProj _ _ recEx -> startFromExpr seen world recEx
     LF.ETupleUpd _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
     LF.EVariantCon _ _ varg -> startFromExpr seen world varg
+    LF.EEnumCon _ _ -> Set.empty
     LF.ETupleCon tcon -> Set.unions $ map (\(_, exp) -> startFromExpr seen world exp) tcon
     LF.ETupleProj _ tupExpr -> startFromExpr seen world tupExpr
     -- Special cases to handle internal calls which do not add an edge to the graph.

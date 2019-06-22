@@ -43,6 +43,7 @@ freeVarsStep = \case
   ERecProjF _ _ s -> s
   ERecUpdF _ _ s1 s2 -> s1 <> s2
   EVariantConF _ _ s -> s
+  EEnumConF _ _ -> Set.empty
   ETupleConF fs -> foldMap snd fs
   ETupleProjF _ s -> s
   ETupleUpdF _ s1 s2 -> s1 <> s2
@@ -159,6 +160,7 @@ safetyStep = \case
   ERecProjF _ _ s -> s `min` Safe 0
   ERecUpdF _ _ s1 s2 -> s1 `min` s2 `min` Safe 0
   EVariantConF _ _ s -> s `min` Safe 0
+  EEnumConF _ _ -> Safe 0
   ETupleConF fs -> minimum (Safe 0 : map snd fs)
   ETupleProjF _ s -> s `min` Safe 0
   ETupleUpdF _ s1 s2 -> s1 `min` s2 `min` Safe 0
