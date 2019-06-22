@@ -102,14 +102,14 @@ ghcPrim version = Module
       , dataTypeCon = mkTypeCon ["Void#"]
       , dataSerializable = IsSerializable False
       , dataParams = []
-      , dataCons = mkVariantOrEnumDataCons version [conName]
+      , dataCons = mkDataEnum version [conName]
       }
     valVoid = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal "void#", TCon (qual (dataTypeCon dataVoid)))
       , dvalNoPartyLiterals= HasNoPartyLiterals True
       , dvalIsTest = IsTest False
-      , dvalBody = mkVariantOrEnumCon version (qual (dataTypeCon dataVoid)) conName
+      , dvalBody = mkEEnumCon version (qual (dataTypeCon dataVoid)) conName
       }
 
 ghcTypes :: Version -> Module
@@ -130,14 +130,14 @@ ghcTypes version = Module
       , dataTypeCon = mkTypeCon ["Ordering"]
       , dataSerializable = IsSerializable True
       , dataParams = []
-      , dataCons = mkVariantOrEnumDataCons version $ map mkVariantCon cons
+      , dataCons = mkDataEnum version $ map mkVariantCon cons
       }
     valCtor con = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal ("$ctor:" ++ con), TCon (qual (dataTypeCon dataOrdering)))
       , dvalNoPartyLiterals= HasNoPartyLiterals True
       , dvalIsTest = IsTest False
-      , dvalBody = mkVariantOrEnumCon version (qual (dataTypeCon dataOrdering)) (mkVariantCon con)
+      , dvalBody = mkEEnumCon version (qual (dataTypeCon dataOrdering)) (mkVariantCon con)
       }
     dataProxy = DefDataType
       { dataLocation= Nothing
@@ -159,13 +159,13 @@ ghcTypes version = Module
           (ERecCon (TypeConApp (qual (dataTypeCon dataProxy)) [TVar (mkTypeVar "a")]) [])
       }
 
-mkVariantOrEnumDataCons :: Version -> [VariantConName] -> DataCons
-mkVariantOrEnumDataCons version cons
+mkDataEnum :: Version -> [VariantConName] -> DataCons
+mkDataEnum version cons
     | version `supports` featureEnumTypes = DataEnum cons
     | otherwise = DataVariant $ map (, TUnit) cons
 
-mkVariantOrEnumCon :: Version -> Qualified TypeConName -> VariantConName -> Expr
-mkVariantOrEnumCon version tcon con
+mkEEnumCon :: Version -> Qualified TypeConName -> VariantConName -> Expr
+mkEEnumCon version tcon con
     | version `supports` featureEnumTypes = EEnumCon
         { enumTypeCon = tcon
         , enumDataCon = con
