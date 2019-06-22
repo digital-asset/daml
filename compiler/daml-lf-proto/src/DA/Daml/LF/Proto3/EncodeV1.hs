@@ -292,6 +292,7 @@ encodeExpr' version = \case
   ERecProj{..} -> expr $ P.ExprSumRecProj $ P.Expr_RecProj (encodeTypeConApp version recTypeCon) (encodeName unFieldName recField) (encodeExpr version recExpr)
   ERecUpd{..} -> expr $ P.ExprSumRecUpd $ P.Expr_RecUpd (encodeTypeConApp version recTypeCon) (encodeName unFieldName recField) (encodeExpr version recExpr) (encodeExpr version recUpdate)
   EVariantCon{..} -> expr $ P.ExprSumVariantCon $ P.Expr_VariantCon (encodeTypeConApp version varTypeCon) (encodeName unVariantConName varVariant) (encodeExpr version varArg)
+  EEnumCon{..} -> expr $ P.ExprSumEnumCon $ P.Expr_EnumCon (encodeQualTypeConName enumTypeCon) (encodeName unVariantConName enumDataCon)
   ETupleCon{..} -> expr $ P.ExprSumTupleCon $ P.Expr_TupleCon (encodeFieldsWithExprs version unFieldName tupFields)
   ETupleProj{..} -> expr $ P.ExprSumTupleProj $ P.Expr_TupleProj (encodeName unFieldName tupField) (encodeExpr version tupExpr)
   ETupleUpd{..} -> expr $ P.ExprSumTupleUpd $ P.Expr_TupleUpd (encodeName unFieldName tupField) (encodeExpr version tupExpr) (encodeExpr version tupUpdate)
@@ -390,6 +391,7 @@ encodeCaseAlternative version CaseAlternative{..} =
     let pat = case altPattern of
           CPDefault     -> P.CaseAltSumDefault P.Unit
           CPVariant{..} -> P.CaseAltSumVariant $ P.CaseAlt_Variant (encodeQualTypeConName patTypeCon) (encodeName unVariantConName patVariant) (encodeName unExprVarName patBinder)
+          CPEnum{..} -> P.CaseAltSumEnum $ P.CaseAlt_Enum (encodeQualTypeConName patTypeCon) (encodeName unVariantConName patDataCon)
           CPUnit -> P.CaseAltSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
           CPBool b -> P.CaseAltSumPrimCon $ P.Enumerated $ Right $ case b of
             False -> P.PrimConCON_FALSE
@@ -405,7 +407,8 @@ encodeDefDataType version DefDataType{..} =
       P.DefDataType (encodeDottedName unTypeConName dataTypeCon) (encodeTypeVarsWithKinds version dataParams)
       (Just $ case dataCons of
         DataRecord fs -> P.DefDataTypeDataConsRecord $ P.DefDataType_Fields (encodeFieldsWithTypes version unFieldName fs)
-        DataVariant fs -> P.DefDataTypeDataConsVariant $ P.DefDataType_Fields (encodeFieldsWithTypes version unVariantConName fs))
+        DataVariant fs -> P.DefDataTypeDataConsVariant $ P.DefDataType_Fields (encodeFieldsWithTypes version unVariantConName fs)
+        DataEnum cs -> P.DefDataTypeDataConsEnum $ P.DefDataType_EnumConstructors $ V.fromList $ map (encodeName unVariantConName) cs)
       (getIsSerializable dataSerializable)
       (encodeSourceLoc <$> dataLocation)
 
