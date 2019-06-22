@@ -117,9 +117,8 @@ encodeBuiltinType _version = P.Enumerated . Right . \case
     BTText -> P.PrimTypeTEXT
     BTTimestamp -> P.PrimTypeTIMESTAMP
     BTParty -> P.PrimTypePARTY
-    BTEnum et -> case et of
-      ETUnit -> P.PrimTypeUNIT
-      ETBool -> P.PrimTypeBOOL
+    BTUnit -> P.PrimTypeUNIT
+    BTBool -> P.PrimTypeBOOL
     BTList -> P.PrimTypeLIST
     BTUpdate -> P.PrimTypeUPDATE
     BTScenario -> P.PrimTypeSCENARIO
@@ -160,12 +159,6 @@ encodeTypes = encodeList . encodeType'
 -- Encoding of expressions
 ------------------------------------------------------------------------
 
-encodeEnumCon :: EnumCon -> P.Enumerated P.PrimCon
-encodeEnumCon = P.Enumerated . Right . \case
-    ECUnit -> P.PrimConCON_UNIT
-    ECFalse -> P.PrimConCON_FALSE
-    ECTrue -> P.PrimConCON_TRUE
-
 encodeTypeConApp :: Version -> TypeConApp -> Just P.Type_Con
 encodeTypeConApp version (TypeConApp tycon args) = Just $ P.Type_Con (encodeQualTypeConName tycon) (encodeTypes version args)
 
@@ -178,7 +171,10 @@ encodeBuiltinExpr = \case
     BEParty x -> lit $ P.PrimLitSumParty $ TL.fromStrict $ unPartyLiteral x
     BEDate x -> lit $ P.PrimLitSumDate x
 
-    BEEnumCon con -> P.ExprSumPrimCon (encodeEnumCon con)
+    BEUnit -> P.ExprSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
+    BEBool b -> P.ExprSumPrimCon $ P.Enumerated $ Right $ case b of
+        False -> P.PrimConCON_FALSE
+        True -> P.PrimConCON_TRUE
 
     BEEqual typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
@@ -187,7 +183,7 @@ encodeBuiltinExpr = \case
       BTTimestamp -> builtin P.BuiltinFunctionEQUAL_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionEQUAL_DATE
       BTParty -> builtin P.BuiltinFunctionEQUAL_PARTY
-      BTEnum ETBool -> builtin P.BuiltinFunctionEQUAL_BOOL
+      BTBool -> builtin P.BuiltinFunctionEQUAL_BOOL
       other -> error $ "BEEqual unexpected type " <> show other
 
     BELessEq typ -> case typ of
@@ -394,7 +390,10 @@ encodeCaseAlternative version CaseAlternative{..} =
     let pat = case altPattern of
           CPDefault     -> P.CaseAltSumDefault P.Unit
           CPVariant{..} -> P.CaseAltSumVariant $ P.CaseAlt_Variant (encodeQualTypeConName patTypeCon) (encodeName unVariantConName patVariant) (encodeName unExprVarName patBinder)
-          CPEnumCon con -> P.CaseAltSumPrimCon (encodeEnumCon con)
+          CPUnit -> P.CaseAltSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
+          CPBool b -> P.CaseAltSumPrimCon $ P.Enumerated $ Right $ case b of
+            False -> P.PrimConCON_FALSE
+            True -> P.PrimConCON_TRUE
           CPNil         -> P.CaseAltSumNil P.Unit
           CPCons{..}    -> P.CaseAltSumCons $ P.CaseAlt_Cons (encodeName unExprVarName patHeadBinder) (encodeName unExprVarName patTailBinder)
           CPNone        -> P.CaseAltSumNone P.Unit

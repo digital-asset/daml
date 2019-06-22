@@ -108,7 +108,8 @@ kindOfBuiltin = \case
   BTText -> KStar
   BTTimestamp -> KStar
   BTParty -> KStar
-  BTEnum _ -> KStar
+  BTUnit -> KStar
+  BTBool -> KStar
   BTDate -> KStar
   BTList -> KStar `KArrow` KStar
   BTUpdate -> KStar `KArrow` KStar
@@ -137,12 +138,6 @@ kindOf = \case
   TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
   TTuple recordType -> checkRecordType recordType $> KStar
 
-typeOfEnumCon :: EnumCon -> Type
-typeOfEnumCon = \case
-  ECUnit  -> TUnit
-  ECFalse -> TBool
-  ECTrue  -> TBool
-
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
   BEInt64 _          -> pure TInt64
@@ -151,7 +146,8 @@ typeOfBuiltin = \case
   BETimestamp _      -> pure TTimestamp
   BEParty   _        -> pure TParty
   BEDate _           -> pure TDate
-  BEEnumCon con      -> pure $ typeOfEnumCon con
+  BEUnit             -> pure TUnit
+  BEBool _           -> pure TBool
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
   BEEqual     btype  -> pure $ tComparison btype
   BELess      btype  -> pure $ tComparison btype
@@ -314,11 +310,14 @@ introCasePattern scrutType patn cont = case patn of
     let subst1 = map (\((v, _k), t) -> (v, t)) subst0
     let varType = substitute (Map.fromList subst1) conArgType
     introExprVar var varType cont
-  CPEnumCon con
-    | alphaEquiv scrutType conType -> cont
+  CPUnit
+    | scrutType == TUnit -> cont
     | otherwise ->
-        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = conType, expr = Nothing}
-    where conType = typeOfEnumCon con
+        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = TUnit, expr = Nothing}
+  CPBool _
+    | scrutType == TBool -> cont
+    | otherwise ->
+        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = TBool, expr = Nothing}
   CPNil -> do
     _ :: Type <- match _TList (EExpectedListType scrutType) scrutType
     cont

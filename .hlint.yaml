@@ -47,6 +47,9 @@
 - warn: {lhs: Data.Text.Lazy.writeFile, rhs: Data.Text.Extended.writeFileUtf8}
 - warn: {lhs: System.Environment.setEnv, rhs: System.Environment.Blank.setEnv}
 
+# Hints that do not always make sense
+- ignore: {name: "Use if", within: [DA.Daml.LF.Proto3.EncodeV1, DA.Daml.LF.Ast.Pretty]}
+
 # Specify additional command line arguments
 #
 # - arguments: [--color, --cpp-simple, -XQuasiQuotes]

@@ -104,26 +104,21 @@ mkEmptyText = EBuiltin (BEText "")
 mkIf :: Expr -> Expr -> Expr -> Expr
 mkIf cond0 then0 else0 =
   ECase cond0
-  [ CaseAlternative (CPEnumCon ECTrue ) then0
-  , CaseAlternative (CPEnumCon ECFalse) else0
+  [ CaseAlternative (CPBool True ) then0
+  , CaseAlternative (CPBool False) else0
   ]
 
-mkBoolEC :: Bool -> EnumCon
-mkBoolEC = \case
-  False -> ECFalse
-  True  -> ECTrue
-
 mkBool :: Bool -> Expr
-mkBool = EBuiltin . BEEnumCon . mkBoolEC
+mkBool = EBuiltin . BEBool
 
 pattern EUnit :: Expr
-pattern EUnit = EBuiltin (BEEnumCon ECUnit)
+pattern EUnit = EBuiltin BEUnit
 
 pattern ETrue :: Expr
-pattern ETrue = EBuiltin (BEEnumCon ECTrue)
+pattern ETrue = EBuiltin (BEBool True)
 
 pattern EFalse :: Expr
-pattern EFalse = EBuiltin (BEEnumCon ECFalse)
+pattern EFalse = EBuiltin (BEBool False)
 
 mkNot :: Expr -> Expr
 mkNot arg = mkIf arg (mkBool False) (mkBool True)
@@ -158,8 +153,8 @@ pattern (:->) :: Type -> Type -> Type
 pattern a :-> b = TArrow `TApp` a `TApp` b
 
 pattern TUnit, TBool, TInt64, TDecimal, TText, TTimestamp, TParty, TDate, TArrow :: Type
-pattern TUnit       = TBuiltin (BTEnum ETUnit)
-pattern TBool       = TBuiltin (BTEnum ETBool)
+pattern TUnit       = TBuiltin BTUnit
+pattern TBool       = TBuiltin BTBool
 pattern TInt64      = TBuiltin BTInt64
 pattern TDecimal    = TBuiltin BTDecimal
 pattern TText       = TBuiltin BTText
