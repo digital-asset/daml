@@ -144,8 +144,8 @@ jobs:
               echo "FROM openjdk:8u212-alpine" >> Dockerfile
               echo "RUN apk add curl bash" >> Dockerfile
               echo "RUN curl https://get.daml.com | sh -s ${version#v}" >> Dockerfile
-              docker build -t digitalasset/daml:${version#v} .
-              docker push digitalasset/daml:${version#v}
+              docker build -t digitalasset/daml-sdk:${version#v} .
+              docker push digitalasset/daml-sdk:${version#v}
               cd "$DIR"
               echo "Done."
             fi
