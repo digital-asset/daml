@@ -107,7 +107,8 @@ safetyStep = \case
       BETimestamp _       -> Safe 0
       BEParty _           -> Safe 0
       BEDate _            -> Safe 0
-      BEEnumCon _         -> Safe 0
+      BEUnit              -> Safe 0
+      BEBool _            -> Safe 0
       BEError             -> Safe 0
       BEEqual _           -> Safe 2
       BELess _            -> Safe 2

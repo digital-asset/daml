@@ -1057,10 +1057,10 @@ convertUnitId _thisUnitId pkgMap unitId = case unitId of
 convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM CaseAlternative
 convertAlt env ty (DEFAULT, [], x) = CaseAlternative CPDefault <$> convertExpr env x
 convertAlt env ty (DataAlt con, [], x)
-    | is con == "True" = CaseAlternative (CPEnumCon ECTrue) <$> convertExpr env x
-    | is con == "False" = CaseAlternative (CPEnumCon ECFalse) <$> convertExpr env x
+    | is con == "True" = CaseAlternative (CPBool True) <$> convertExpr env x
+    | is con == "False" = CaseAlternative (CPBool False) <$> convertExpr env x
     | is con == "[]" = CaseAlternative CPNil <$> convertExpr env x
-    | is con == "()" = CaseAlternative (CPEnumCon ECUnit) <$> convertExpr env x
+    | is con == "()" = CaseAlternative CPUnit <$> convertExpr env x
     | isBuiltinName "None" con
     = CaseAlternative CPNone <$> convertExpr env x
 convertAlt env ty (DataAlt con, [a,b], x)
