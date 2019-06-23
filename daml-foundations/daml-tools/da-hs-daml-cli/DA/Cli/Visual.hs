@@ -21,7 +21,6 @@ import qualified Data.ByteString.Lazy as BSL
 import Text.Dot
 import qualified Data.ByteString as B
 import qualified Data.Map as M
--- import Data.Data
 import Data.Generics.Uniplate.Data
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
