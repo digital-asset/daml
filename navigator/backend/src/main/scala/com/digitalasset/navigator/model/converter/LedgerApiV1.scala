@@ -171,6 +171,8 @@ case object LedgerApiV1 {
       ctx: Context
   ): Result[Model.Event] = {
     val witnessParties = ApiTypes.Party.subst(event.witnessParties.toList)
+    val signatories = ApiTypes.Party.subst(event.signatories.toList)
+    val observers = ApiTypes.Party.subst(event.observers.toList)
     for {
       templateId <- Converter.checkExists("CreatedEvent.templateId", event.templateId)
       templateIdentifier = templateId.asDaml
@@ -188,8 +190,8 @@ case object LedgerApiV1 {
         templateId = templateIdentifier,
         argument = arg,
         agreementText = event.agreementText,
-        signatories = event.signatories,
-        observers = event.observers
+        signatories = signatories,
+        observers = observers
       )
   }
 

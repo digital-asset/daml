@@ -216,14 +216,14 @@ package object filter {
       .const(true)
       .onAnyValue
       .perform[String]((contract, signatory) =>
-        contract.signatories.exists(checkContained(_, signatory)))
+        contract.signatories.map(Tag.unwrap).exists(checkContained(_, signatory)))
       .onTree
       .onLeaf("observers")
       .onValue("*")
       .const(true)
       .onAnyValue
       .perform[String]((contract, observer) =>
-        contract.observers.exists(checkContained(_, observer)))
+        contract.observers.map(Tag.unwrap).exists(checkContained(_, observer)))
       .onTree
   //  .onStar(check all fields)
 

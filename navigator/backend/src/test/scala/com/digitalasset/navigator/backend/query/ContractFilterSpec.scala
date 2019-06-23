@@ -50,27 +50,31 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   val template1 = Template(damlLfId0, List.empty)
   val template2 = Template(damlLfId1, List.empty)
 
+  val alice = ApiTypes.Party("Alice")
+  val bob = ApiTypes.Party("Bob")
+  val charlie = ApiTypes.Party("Charlie")
+
   val contract1 = Contract(
     ApiTypes.ContractId("id1"),
     template1,
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
     None,
-    Seq("Alice"),
-    Seq("Bob", "Charlie"))
+    List(alice),
+    List(bob, charlie))
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
     ApiRecord(None, List(ApiRecordField("int", ApiInt64(12)))),
     Some(""),
-    Seq("Alice"),
-    Seq("Bob", "Charlie"))
+    List(alice),
+    List(bob, charlie))
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
     Some("agreement"),
-    Seq("Alice"),
-    Seq("Bob", "Charlie"))
+    List(alice),
+    List(bob, charlie))
 
   val templates = List(template1, template2)
   val contracts = List(contract1, contract2, contract3)

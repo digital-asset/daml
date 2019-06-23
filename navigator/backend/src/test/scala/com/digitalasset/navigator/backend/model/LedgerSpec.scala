@@ -20,6 +20,9 @@ class LedgerSpec extends WordSpec with Matchers {
   private val templateId = C.simpleRecordTemplateId
   private val contractArgument = C.simpleRecordV
   private val template = templateRegistry.template(templateId).get
+  private val alice = ApiTypes.Party("Alice")
+  private val bob = ApiTypes.Party("Bob")
+  private val charlie = ApiTypes.Party("Charlie")
 
   def transaction(id: String): Transaction =
     Transaction(
@@ -34,8 +37,8 @@ class LedgerSpec extends WordSpec with Matchers {
       template,
       contractArgument,
       Option(""),
-      Seq("Alice"),
-      Seq("Bob", "Charlie"))
+      List(alice),
+      List(bob, charlie))
   def error(commandId: String): CommandStatusError = CommandStatusError("code", "details")
 
   "A ledger with existing contracts" when {
@@ -52,8 +55,8 @@ class LedgerSpec extends WordSpec with Matchers {
             templateId,
             contractArgument,
             Some(""),
-            Seq("Alice"),
-            Seq("Bob", "Charlie")
+            List(alice),
+            List(bob, charlie)
           )
         )),
       templateRegistry
@@ -80,8 +83,8 @@ class LedgerSpec extends WordSpec with Matchers {
         templateId = templateId,
         argument = contractArgument,
         agreementText = Some(""),
-        signatories = Seq("Alice"),
-        observers = Seq("Bob", "Charlie")
+        signatories = List(alice),
+        observers = List(bob, charlie)
       )
       val created1 = contractCreated("E1", "C1")
       val created2 = contractCreated("E2", "C2")
@@ -195,8 +198,8 @@ class LedgerSpec extends WordSpec with Matchers {
         templateId = templateId,
         argument = contractArgument,
         agreementText = Some(""),
-        signatories = Seq("Alice"),
-        observers = Seq("Bob", "Charlie")
+        signatories = List(alice),
+        observers = List(bob, charlie)
       )
       val exercisedEvent = ChoiceExercised(
         id = ApiTypes.EventId("E2"),

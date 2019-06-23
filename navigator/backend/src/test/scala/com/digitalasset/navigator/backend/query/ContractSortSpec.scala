@@ -9,6 +9,7 @@ import com.digitalasset.navigator.model._
 import scalaz.syntax.tag._
 import com.digitalasset.navigator.query.SortDirection.{ASCENDING, DESCENDING}
 import com.digitalasset.ledger.api.refinements.ApiTypes
+import scalaz.Tag
 
 class ContractSortSpec extends FlatSpec with Matchers {
 
@@ -48,34 +49,47 @@ class ContractSortSpec extends FlatSpec with Matchers {
   val template1 = Template(damlLfId0, List.empty)
   val template2 = Template(damlLfId1, List.empty)
 
+  val alice = ApiTypes.Party("Alice")
+  val bob = ApiTypes.Party("Bob")
+  val charlie = ApiTypes.Party("Charlie")
+  val dana = ApiTypes.Party("Dana")
+  val ernest = ApiTypes.Party("Ernest")
+  val francis = ApiTypes.Party("Francis")
+  val gloria = ApiTypes.Party("Gloria")
+  val henry = ApiTypes.Party("Henry")
+  val ivy = ApiTypes.Party("Ivy")
+  val john = ApiTypes.Party("John")
+  val kevin = ApiTypes.Party("Kevin")
+  val louise = ApiTypes.Party("Louise")
+
   val contract1 = Contract(
     ApiTypes.ContractId("id1"),
     template1,
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
     None,
-    Seq("Alice"),
-    Seq("Bob", "Charlie"))
+    List(alice),
+    List(bob, charlie))
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
     ApiRecord(None, List(ApiRecordField("int", ApiInt64(1)))),
     Some(""),
-    Seq("Gloria"),
-    Seq("Ernest", "Francis"))
+    List(gloria),
+    List(ernest, francis))
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
     Some("agreement"),
-    Seq("Dana"),
-    Seq("Henry", "Ivy"))
+    List(dana),
+    List(henry, ivy))
   val contract4 = Contract(
     ApiTypes.ContractId("id4"),
     template2,
     ApiRecord(None, List(ApiRecordField("int", ApiInt64(2)))),
     None,
-    Seq("John"),
-    Seq("Kevin", "Louise"))
+    List(john),
+    List(kevin, louise))
 
   val contracts = List(contract1, contract2, contract3, contract4)
 
@@ -89,8 +103,8 @@ class ContractSortSpec extends FlatSpec with Matchers {
     }
   }
 
-  implicit val sortParties: Ordering[Seq[String]] =
-    Ordering.fromLessThan[Seq[String]](_.mkString < _.mkString)
+  implicit val sortParties: Ordering[List[ApiTypes.Party]] =
+    Ordering.fromLessThan[List[ApiTypes.Party]](_.map(Tag.unwrap).mkString < _.map(Tag.unwrap).mkString)
 
   test(List(), contracts)
   test(List("id" -> ASCENDING), contracts.sortBy(_.id.unwrap))

@@ -30,14 +30,16 @@ final case class EventRow(
     actingParties: Option[String],
     isConsuming: Option[Boolean],
     agreementText: Option[String],
-    signatories: Seq[String],
-    observers: Seq[String]) {
+    signatories: String,
+    observers: String) {
 
   def toEvent(types: PackageRegistry): Try[Event] = {
     subclassType match {
       case "ContractCreated" =>
         (for {
           wp <- Try(witnessParties.parseJson.convertTo[List[ApiTypes.Party]])
+          sig <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])
+          obs <- Try(observers.parseJson.convertTo[List[ApiTypes.Party]])
           tpStr <- Try(templateId.get)
           tp <- Try(parseOpaqueIdentifier(tpStr).get)
           recArgJson <- Try(recordArgument.get)
@@ -56,8 +58,8 @@ final case class EventRow(
             tp,
             recArg,
             agreementText,
-            signatories,
-            observers
+            sig,
+            obs
           )
         }).recoverWith {
           case e: Throwable =>
@@ -129,8 +131,8 @@ object EventRow {
           None,
           None,
           c.agreementText,
-          c.signatories,
-          c.observers
+          c.signatories.toJson.compactPrint,
+          c.observers.toJson.compactPrint
         )
       case e: ChoiceExercised =>
         EventRow(
@@ -149,8 +151,8 @@ object EventRow {
           Some(e.actingParties.toJson.compactPrint),
           Some(e.consuming),
           None,
-          Seq.empty,
-          Seq.empty
+          "[]",
+          "[]"
         )
     }
   }
