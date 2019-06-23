@@ -45,7 +45,7 @@ import           TidyPgm
 import qualified GHC.LanguageExtensions as LangExt
 
 import Control.DeepSeq
-import           Control.Exception                        as E
+import           Control.Exception
 import           Control.Monad
 import Control.Monad.Trans.Except
 import           Data.IORef
@@ -108,7 +108,7 @@ computePackageDeps packageState iuid =
 getPackage :: DynFlags -> InstalledUnitId -> IO PackageConfig
 getPackage dflags p =
   case lookupInstalledPackage dflags p of
-    Nothing -> E.throwIO $ CmdLineError (missingPackageMsg p)
+    Nothing -> throwIO $ CmdLineError (missingPackageMsg p)
     Just pkg -> return pkg
   where
     missingPackageMsg p = showSDoc dflags $ text "unknown package:" <+> ppr p
