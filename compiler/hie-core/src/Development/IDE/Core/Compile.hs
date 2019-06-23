@@ -10,13 +10,11 @@
 module Development.IDE.Core.Compile
   ( GhcModule(..)
   , TcModuleResult(..)
-  , LoadPackageResult(..)
   , getGhcDynFlags
   , compileModule
   , getSrcSpanInfos
   , parseModule
   , typecheckModule
-  , loadPackage
   , computePackageDeps
   ) where
 
@@ -80,12 +78,6 @@ data TcModuleResult = TcModuleResult
     , tmrModInfo    :: HomeModInfo
     , tmrOccEnvName :: OccEnv Name
     }
-
--- | Contains the result of loading an interface. In particular the delta to the name cache.
-data LoadPackageResult = LoadPackageResult
-    { lprInstalledUnitId :: InstalledUnitId
-    , lprModuleEnv :: ModuleEnv (OccEnv Name)
-    , lprEps :: ExternalPackageState
     }
 
 -- | Get source span info, used for e.g. AtPoint and Goto Definition.
@@ -147,23 +139,6 @@ typecheckModule opt packageState deps pm =
                 GHC.typecheckModule pm{pm_mod_summary = tweak $ pm_mod_summary pm}
             tcm2 <- mkTcModuleResult (WriteInterface $ optWriteIface opt) tcm
             return (warnings, tcm2)
-
--- | Load a pkg and populate the name cache and external package state.
-loadPackage ::
-     IdeOptions
-  -> HscEnv
-  -> InstalledUnitId
-  -> IO (Either [FileDiagnostic] LoadPackageResult)
-loadPackage opt packageState p =
-  Ex.runExceptT $
-  runGhcSessionExcept opt Nothing packageState $
-  catchSrcErrors $ do
-    setupEnv []
-    -- this populates the namecache and external package state
-    session <- getSession
-    modEnv <- nsNames <$> liftIO (readIORef $ hsc_NC session)
-    eps <- liftIO (readIORef $ hsc_EPS session)
-    pure $ LoadPackageResult p modEnv eps
 
 -- | Compile a single type-checked module to a 'CoreModule' value, or
 -- provide errors.

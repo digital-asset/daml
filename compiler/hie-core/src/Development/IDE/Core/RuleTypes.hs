@@ -13,7 +13,7 @@ module Development.IDE.Core.RuleTypes(
     ) where
 
 import           Control.DeepSeq
-import           Development.IDE.Core.Compile             (TcModuleResult, GhcModule, LoadPackageResult(..))
+import           Development.IDE.Core.Compile             (TcModuleResult, GhcModule)
 import qualified Development.IDE.Core.Compile             as Compile
 import           Development.IDE.Import.FindImports         (Import(..))
 import           Development.IDE.Import.DependencyInformation
@@ -170,12 +170,6 @@ instance NFData Import where
 
 instance Hashable InstalledUnitId where
   hashWithSalt salt = hashWithSalt salt . installedUnitIdString
-
-instance Show LoadPackageResult where
-  show = installedUnitIdString . lprInstalledUnitId
-
-instance NFData LoadPackageResult where
-    rnf = rwhnf
 
 instance Show HieFile where
     show = show . hie_module
