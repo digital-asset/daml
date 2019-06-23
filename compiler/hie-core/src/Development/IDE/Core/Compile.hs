@@ -47,7 +47,7 @@ import qualified GHC.LanguageExtensions as LangExt
 import Control.DeepSeq
 import           Control.Exception                        as E
 import           Control.Monad
-import qualified Control.Monad.Trans.Except               as Ex
+import Control.Monad.Trans.Except
 import           Data.IORef
 import           Data.List.Extra
 import           Data.Maybe
@@ -95,7 +95,7 @@ parseModule
 parseModule IdeOptions{..} packageState file =
     fmap (either (, Nothing) (second Just)) .
     -- We need packages since imports fail to resolve otherwise.
-    runGhcSession Nothing packageState . Ex.runExceptT . parseFileContents optPreprocessor file
+    runGhcSession Nothing packageState . runExceptT . parseFileContents optPreprocessor file
 
 computePackageDeps ::
      HscEnv -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
@@ -271,7 +271,7 @@ getModSummaryFromBuffer
     -> SB.StringBuffer
     -> DynFlags
     -> GHC.ParsedSource
-    -> Ex.ExceptT [FileDiagnostic] m ModSummary
+    -> ExceptT [FileDiagnostic] m ModSummary
 getModSummaryFromBuffer fp contents dflags parsed = do
   (modName, imports) <- FindImports.getImportsParsed dflags parsed
 
@@ -318,10 +318,10 @@ parseFileContents
        => (GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource))
        -> FilePath  -- ^ the filename (for source locations)
        -> SB.StringBuffer -- ^ Haskell module source text (full Unicode is supported)
-       -> Ex.ExceptT [FileDiagnostic] m ([FileDiagnostic], ParsedModule)
+       -> ExceptT [FileDiagnostic] m ([FileDiagnostic], ParsedModule)
 parseFileContents preprocessor filename contents = do
    let loc  = mkRealSrcLoc (mkFastString filename) 1 1
-   dflags  <- Ex.ExceptT $ parsePragmasIntoDynFlags filename contents
+   dflags  <- ExceptT $ parsePragmasIntoDynFlags filename contents
 
    (contents, dflags) <-
       if not $ xopt LangExt.Cpp dflags then
@@ -334,12 +334,12 @@ parseFileContents preprocessor filename contents = do
               liftIO $ writeFileUTF8 inp (unfoldr f contents)
               doCpp dflags True inp out
               liftIO $ SB.hGetStringBuffer out
-          dflags <- Ex.ExceptT $ parsePragmasIntoDynFlags filename contents
+          dflags <- ExceptT $ parsePragmasIntoDynFlags filename contents
           return (contents, dflags)
 
    case unP Parser.parseModule (mkPState dflags contents loc) of
      PFailed _ locErr msgErr ->
-      Ex.throwE $ diagFromErrMsg dflags $ mkPlainErrMsg dflags locErr msgErr
+      throwE $ diagFromErrMsg dflags $ mkPlainErrMsg dflags locErr msgErr
      POk pst rdr_module ->
          let hpm_annotations =
                (Map.fromListWith (++) $ annotations pst,
@@ -358,11 +358,11 @@ parseFileContents preprocessor filename contents = do
                -- errors are those from which a parse tree just can't
                -- be produced.
                unless (null errs) $
-                 Ex.throwE $ diagFromErrMsgs dflags $ snd $ getMessages pst dflags
+                 throwE $ diagFromErrMsgs dflags $ snd $ getMessages pst dflags
 
                -- Ok, we got here. It's safe to continue.
                let (errs, parsed) = preprocessor rdr_module
-               unless (null errs) $ Ex.throwE $ diagFromStrings errs
+               unless (null errs) $ throwE $ diagFromStrings errs
                ms <- getModSummaryFromBuffer filename contents dflags parsed
                let pm =
                      ParsedModule {
