@@ -122,9 +122,7 @@ import           Safe.Exact (zipExact, zipExactMay)
 conversionError :: String -> ConvertM e
 conversionError msg = do
   ConversionEnv{..} <- ask
-  let addFpIfExists =
-        (toNormalizedFilePath $ fromMaybe noFilePath convModuleFilePath,)
-  throwError $ addFpIfExists $ Diagnostic
+  throwError $ (convModuleFilePath,) Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError
       , _source = Just $ T.pack "Core to DAML-LF"
@@ -192,14 +190,14 @@ envLookupAlias x = MS.lookup x . envAliases
 
 data ConversionError
   = ConversionError
-     { errorFilePath :: !(Maybe FilePath)
+     { errorFilePath :: !NormalizedFilePath
      , errorRange :: !(Maybe Range)
      , errorMessage :: !String
      }
   deriving Show
 
 data ConversionEnv = ConversionEnv
-  { convModuleFilePath :: !(Maybe FilePath)
+  { convModuleFilePath :: !NormalizedFilePath
   , convRange :: !(Maybe SourceLoc)
   }
 
@@ -250,8 +248,8 @@ convertRational num denom
     upperBound128Bit = 10 ^ (38 :: Integer)
     maxPrecision = 10 :: Integer
 
-convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) Nothing) $ do
+convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> GhcModule -> Either FileDiagnostic LF.Module
+convertModule lfVersion pkgMap file mod0 = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) $ filter (not . isTypeableInfo) $ cm_binds x
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
     pure (LF.moduleFromDefinitions lfModName (gmPath mod0) flags (types ++ definitions))
