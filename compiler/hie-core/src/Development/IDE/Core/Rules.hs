@@ -92,8 +92,7 @@ getGhcCore :: NormalizedFilePath -> Action (Maybe [CoreModule])
 getGhcCore file = runMaybeT $ do
     files <- transitiveModuleDeps <$> useE GetDependencies file
     pms   <- usesE GetParsedModule $ files ++ [file]
-    cores <- usesE GenerateCore $ map fileFromParsedModule pms
-    pure (map Compile.gmCore cores)
+    usesE GenerateCore $ map fileFromParsedModule pms
 
 
 

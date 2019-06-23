@@ -8,8 +8,7 @@
 -- | Based on https://ghc.haskell.org/trac/ghc/wiki/Commentary/Compiler/API.
 --   Given a list of paths to find libraries, and a file to compile, produce a list of 'CoreModule' values.
 module Development.IDE.Core.Compile
-  ( GhcModule(..)
-  , TcModuleResult(..)
+  ( TcModuleResult(..)
   , getGhcDynFlags
   , compileModule
   , getSrcSpanInfos
@@ -55,21 +54,10 @@ import           Data.Maybe
 import           Data.Tuple.Extra
 import qualified Data.Map.Strict                          as Map
 import           Development.IDE.Spans.Type
-import GHC.Generics (Generic)
 import           System.FilePath
 import           System.Directory
 import System.IO.Extra
 
-
--- | 'CoreModule' together with some additional information required for the
--- conversion to DAML-LF.
-data GhcModule = GhcModule
-  { gmPath :: Maybe FilePath
-  , gmCore :: CoreModule
-  }
-  deriving (Generic, Show)
-
-instance NFData GhcModule
 
 -- | Contains the typechecked module and the OrigNameCache entry for
 -- that module.
@@ -152,7 +140,7 @@ compileModule
     -> HscEnv
     -> [TcModuleResult]
     -> TcModuleResult
-    -> IO ([FileDiagnostic], Maybe GhcModule)
+    -> IO ([FileDiagnostic], Maybe CoreModule)
 compileModule opt mod packageState deps tmr =
     fmap (either (, Nothing) (second Just)) $ Ex.runExceptT $
     runGhcSessionExcept opt (Just mod) packageState $
@@ -170,14 +158,13 @@ compileModule opt mod packageState deps tmr =
             -- give variables unique OccNames
             (tidy, details) <- liftIO $ tidyProgram session desugar
 
-            let path  = ml_hs_file $ ms_location $ pm_mod_summary $ tm_parsed_module tm
             let core = CoreModule
                          (cg_module tidy)
                          (md_types details)
                          (cg_binds tidy)
                          (mg_safe_haskell desugar)
 
-            return (warnings, GhcModule path core)
+            return (warnings, core)
 
 -- | Evaluate a GHC session using a new environment constructed with
 -- the supplied options.

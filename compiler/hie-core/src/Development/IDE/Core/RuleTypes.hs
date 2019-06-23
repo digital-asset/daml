@@ -12,7 +12,7 @@ module Development.IDE.Core.RuleTypes(
     ) where
 
 import           Control.DeepSeq
-import           Development.IDE.Core.Compile             (TcModuleResult, GhcModule)
+import           Development.IDE.Core.Compile             (TcModuleResult)
 import           Development.IDE.Import.FindImports         (Import(..))
 import           Development.IDE.Import.DependencyInformation
 import           Data.Hashable
@@ -51,7 +51,7 @@ type instance RuleResult TypeCheck = TcModuleResult
 type instance RuleResult GetSpanInfo = [SpanInfo]
 
 -- | Convert to Core, requires TypeCheck*
-type instance RuleResult GenerateCore = GhcModule
+type instance RuleResult GenerateCore = CoreModule
 
 -- | A GHC session that we reuse.
 type instance RuleResult GhcSession = HscEnv
