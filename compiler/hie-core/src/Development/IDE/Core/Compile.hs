@@ -45,9 +45,9 @@ import           TidyPgm
 import qualified GHC.LanguageExtensions as LangExt
 
 import Control.DeepSeq
-import           Control.Exception
 import           Control.Monad
 import Control.Monad.Trans.Except
+import qualified Data.Text as T
 import           Data.IORef
 import           Data.List.Extra
 import           Data.Maybe
@@ -92,26 +92,24 @@ parseModule
     -> FilePath
     -> SB.StringBuffer
     -> IO ([FileDiagnostic], Maybe ParsedModule)
-parseModule IdeOptions{..} packageState file =
+parseModule IdeOptions{..} env file =
     fmap (either (, Nothing) (second Just)) .
     -- We need packages since imports fail to resolve otherwise.
-    runGhcSession Nothing packageState . runExceptT . parseFileContents optPreprocessor file
+    runGhcSession Nothing env . runExceptT . parseFileContents optPreprocessor file
 
-computePackageDeps ::
-     HscEnv -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
-computePackageDeps packageState iuid =
-  runGhcSession Nothing packageState $
-  catchSrcErrors $ do
-    dflags <- hsc_dflags <$> getSession
-    liftIO $ depends <$> getPackage dflags iuid
 
-getPackage :: DynFlags -> InstalledUnitId -> IO PackageConfig
-getPackage dflags p =
-  case lookupInstalledPackage dflags p of
-    Nothing -> throwIO $ CmdLineError (missingPackageMsg p)
-    Just pkg -> return pkg
-  where
-    missingPackageMsg p = showSDoc dflags $ text "unknown package:" <+> ppr p
+-- | Given a package identifier, what packages does it depend on
+computePackageDeps
+    :: HscEnv
+    -> InstalledUnitId
+    -> IO (Either [FileDiagnostic] [InstalledUnitId])
+computePackageDeps env pkg = do
+    let dflags = hsc_dflags env
+    case lookupInstalledPackage dflags pkg of
+        Nothing -> return $ Left [ideErrorText (toNormalizedFilePath noFilePath) $
+            T.pack $ "unknown package: " ++ show pkg]
+        Just pkgInfo -> return $ Right $ depends pkgInfo
+
 
 -- | Typecheck a single module using the supplied dependencies and packages.
 typecheckModule
