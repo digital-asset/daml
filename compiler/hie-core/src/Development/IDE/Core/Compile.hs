@@ -189,7 +189,7 @@ runGhcSession
     -> HscEnv
     -> Ghc a
     -> IO a
-runGhcSession IdeOptions{..} modu env act = runGhcEnv env $ do
+runGhcSession _ modu env act = runGhcEnv env $ do
     modifyDynFlags $ \x -> x
         {importPaths = nubOrd $ maybeToList (moduleImportPaths =<< modu) ++ importPaths x}
     act
