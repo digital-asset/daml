@@ -51,6 +51,7 @@ object ContractRow {
       c.argument.toJson.compactPrint,
       c.agreementText,
       c.signatories.toJson.compactPrint,
-      c.observers.toJson.compactPrint)
+      c.observers.toJson.compactPrint
+    )
   }
 }
