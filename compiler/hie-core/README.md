@@ -80,7 +80,7 @@ Optionally, you may wish to add the following conveniences:
 
 Next stop is to build `hie-core`. In the `daml` repository, navigate to `//compiler/hie-core` and invoked `stack build`. This will install the `hie-core` executable into a location along the lines of `$HOME/path/to/daml/compiler/hie-core/.stack-work/install/x86_64-osx/nightly-2019-05-20/8.6.5/bin/hie-core`. You want to get this executable in your `$PATH`. I achieved this with a command like `ln -s ~/path/to/compiler/hie-core/.stack-work/install/x86_64-osx/nightly-2019-05-20/8.6.5/bin/hie-core ~/.local/bin/hie-core` (because `~/.local/bin` is put into my `PATH` in my `~/.bashrc`).
 
-Time to test things out. It's important to note that you for this to work, your programs need to be compiled with the same compiler used to build `hie-core`. For testing, I've been using the `ghc-lib-gen` target of the [`ghc-lib` project](https://github.com/digital-asset/ghc-lib). Navigate to the root of `ghc-lib` and create an `hie.yaml` file with contents
+Time to test things out. It's important to note that for this to work, your programs need to be compiled with the same compiler used to build `hie-core`. For testing, I've been using the `ghc-lib-gen` target of the [`ghc-lib` project](https://github.com/digital-asset/ghc-lib). Navigate to the root of `ghc-lib` and create an `hie.yaml` file with contents
 ```yaml
 cradle: {cabal: {component: "exe:ghc-lib-gen"}}
 ```
