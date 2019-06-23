@@ -42,6 +42,7 @@ library
         mtl,
         network-uri,
         pretty,
+        prettyprinter-ansi-terminal,
         rope-utf16-splay,
         safe-exceptions,
         shake,

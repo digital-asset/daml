@@ -24,6 +24,7 @@ depends = [
     "network-uri",
     "pretty",
     "prettyprinter",
+    "prettyprinter-ansi-terminal",
     "rope-utf16-splay",
     "safe-exceptions",
     "sorted-list",
