@@ -47,6 +47,7 @@ da_haskell_library(
         "zip-archive",
         "dotgen",
         "unordered-containers",
+        "uniplate",
     ],
     visibility = ["//visibility:public"],
     deps = [

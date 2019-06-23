@@ -21,6 +21,7 @@ import qualified Data.ByteString.Lazy as BSL
 import Text.Dot
 import qualified Data.ByteString as B
 import qualified Data.Map as M
+import Data.Generics.Uniplate.Data
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -45,31 +46,10 @@ startFromExpr seen world e = case e of
             | ref `Set.member` seen  -> Set.empty
             | otherwise -> startFromExpr (Set.insert ref seen)  world dvalBody
         Left _ -> error "This should not happen"
-    LF.EBuiltin _ -> Set.empty
-    LF.ERecCon _ flds -> Set.unions $ map (\(_, exp) -> startFromExpr seen world exp) flds
-    LF.ERecProj _ _ recEx -> startFromExpr seen world recEx
-    LF.ETupleUpd _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
-    LF.EVariantCon _ _ varg -> startFromExpr seen world varg
-    LF.ETupleCon tcon -> Set.unions $ map (\(_, exp) -> startFromExpr seen world exp) tcon
-    LF.ETupleProj _ tupExpr -> startFromExpr seen world tupExpr
-    -- Special cases to handle internal calls which do not add an edge to the graph.
-    LF.ERecUpd _ _ recExpr recUpdate -> startFromExpr seen world recExpr `Set.union` startFromExpr seen world recUpdate
+    LF.EUpdate upd -> startFromUpdate seen world upd
     LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ (LF.ModuleName ["DA","Internal","Template"]) (LF.ExprValName "fetch"))) _) _ -> Set.empty
     LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _  (LF.ModuleName ["DA","Internal","Template"])  (LF.ExprValName "archive"))) _) _ -> Set.empty
-    LF.ETmApp tmExpr tmpArg -> startFromExpr seen world tmExpr `Set.union` startFromExpr seen world tmpArg
-    LF.ETyApp tAppExpr _ -> startFromExpr seen world tAppExpr
-    LF.ETmLam _ tmlB -> startFromExpr seen world tmlB
-    LF.ETyLam _ lambdy -> startFromExpr seen world lambdy
-    LF.ECase cas casel -> startFromExpr seen world cas `Set.union` Set.unions ( map ( startFromExpr seen world . LF.altExpr ) casel)
-    LF.ELet (LF.Binding _ e1) e2 -> startFromExpr seen  world e1 `Set.union` startFromExpr seen world e2
-    LF.ENil _ -> Set.empty
-    LF.ECons _ consH consT -> startFromExpr seen world consH `Set.union` startFromExpr seen world consT
-    LF.ESome _ smBdy -> startFromExpr seen world smBdy
-    LF.ENone _ -> Set.empty
-    LF.EUpdate upd -> startFromUpdate seen world upd
-    LF.EScenario _ -> Set.empty
-    LF.ELocation _ e1 -> startFromExpr seen world e1
-    -- x -> Set.unions $ map startFromExpr $ children x
+    expr -> Set.unions $ map (startFromExpr seen world) $ children expr
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
