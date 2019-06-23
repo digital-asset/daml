@@ -100,7 +100,7 @@ parseModule IdeOptions{..} packageState file =
 computePackageDeps ::
      HscEnv -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
 computePackageDeps packageState iuid =
-  runGhcSession Nothing packageState $ Ex.runExceptT $
+  runGhcSession Nothing packageState $
   catchSrcErrors $ do
     dflags <- hsc_dflags <$> getSession
     liftIO $ depends <$> getPackage dflags iuid
@@ -122,7 +122,7 @@ typecheckModule
     -> IO ([FileDiagnostic], Maybe TcModuleResult)
 typecheckModule opt packageState deps pm =
     fmap (either (, Nothing) (second Just)) $
-    runGhcSession (Just pm) packageState $ Ex.runExceptT $
+    runGhcSession (Just pm) packageState $
         catchSrcErrors $ do
             setupEnv deps
             (warnings, tcm) <- withWarnings $ \tweak ->
@@ -140,7 +140,7 @@ compileModule
     -> IO ([FileDiagnostic], Maybe CoreModule)
 compileModule mod packageState deps tmr =
     fmap (either (, Nothing) (second Just)) $
-    runGhcSession (Just mod) packageState $ Ex.runExceptT $
+    runGhcSession (Just mod) packageState $
         catchSrcErrors $ do
             setupEnv (deps ++ [tmr])
 
@@ -321,7 +321,7 @@ parseFileContents
        -> Ex.ExceptT [FileDiagnostic] m ([FileDiagnostic], ParsedModule)
 parseFileContents preprocessor filename contents = do
    let loc  = mkRealSrcLoc (mkFastString filename) 1 1
-   dflags  <- parsePragmasIntoDynFlags filename contents
+   dflags  <- Ex.ExceptT $ parsePragmasIntoDynFlags filename contents
 
    (contents, dflags) <-
       if not $ xopt LangExt.Cpp dflags then
@@ -334,7 +334,7 @@ parseFileContents preprocessor filename contents = do
               liftIO $ writeFileUTF8 inp (unfoldr f contents)
               doCpp dflags True inp out
               liftIO $ SB.hGetStringBuffer out
-          dflags <- parsePragmasIntoDynFlags filename contents
+          dflags <- Ex.ExceptT $ parsePragmasIntoDynFlags filename contents
           return (contents, dflags)
 
    case unP Parser.parseModule (mkPState dflags contents loc) of
@@ -380,7 +380,7 @@ parsePragmasIntoDynFlags
     :: GhcMonad m
     => FilePath
     -> SB.StringBuffer
-    -> Ex.ExceptT [FileDiagnostic] m DynFlags
+    -> m (Either [FileDiagnostic] DynFlags)
 parsePragmasIntoDynFlags fp contents = catchSrcErrors $ do
     dflags0  <- getSessionDynFlags
     let opts = Hdr.getOptions dflags0 contents fp
@@ -389,11 +389,10 @@ parsePragmasIntoDynFlags fp contents = catchSrcErrors $ do
 
 -- | Run something in a Ghc monad and catch the errors (SourceErrors and
 -- compiler-internal exceptions like Panic or InstallationError).
-catchSrcErrors :: GhcMonad m => m a -> Ex.ExceptT [FileDiagnostic] m a
+catchSrcErrors :: GhcMonad m => m a -> m (Either [FileDiagnostic] a)
 catchSrcErrors ghcM = do
       dflags <- getDynFlags
-      Ex.ExceptT $
-        handleGhcException (ghcExceptionToDiagnostics dflags) $
+      handleGhcException (ghcExceptionToDiagnostics dflags) $
         handleSourceError (sourceErrorToDiagnostics dflags) $
         Right <$> ghcM
     where
