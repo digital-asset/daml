@@ -7,7 +7,7 @@ module Development.IDE.Core.FileStore(
     getFileExists, getFileContents,
     setBufferModified,
     fileStoreRules,
-    VFSHandle(..),
+    VFSHandle,
     makeVFSHandle,
     makeLSPVFSHandle,
     ) where
