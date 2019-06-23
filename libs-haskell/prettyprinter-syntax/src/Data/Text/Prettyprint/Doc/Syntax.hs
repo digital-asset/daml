@@ -4,7 +4,6 @@
 module Data.Text.Prettyprint.Doc.Syntax
     ( module Data.Text.Prettyprint.Doc
     , SyntaxClass(..)
-    , reflow
     -- prefixing these names with an 's' is not pleasant
     -- but we have duplicates of the functions with identical signatures
     -- and different semantics at DA.Pretty, so important to try and disambiguate
@@ -17,7 +16,6 @@ import Data.Text.Prettyprint.Doc
 import Data.Text.Prettyprint.Doc.Render.Text
 import qualified Data.Text.Prettyprint.Doc.Render.Terminal as Terminal
 import Data.Text.Prettyprint.Doc.Render.Terminal (Color(..), color, colorDull)
-import Data.Text.Prettyprint.Doc.Util(reflow)
 import qualified Data.Text as T
 
 -- | Classes of syntax elements, which are used for highlighting.
