@@ -135,7 +135,7 @@ jobs:
           DIR=$(pwd)
           VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -s)
           for version in $(echo $RELEASES | sed -e 's/ /\n/g'); do
-            EXISTS=$(echo $VERSIONS | jq -r '[.results[].name == "${version#v}"] | any')
+            EXISTS=$(echo $VERSIONS | jq -r '[.results[].name == "'${version#v}'"] | any')
             if [ "$EXISTS" == "true" ]; then
               echo "${version#v} already exists, skipping."
             else
