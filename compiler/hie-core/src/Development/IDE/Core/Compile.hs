@@ -24,6 +24,7 @@ import           Development.IDE.Types.Diagnostics
 import qualified Development.IDE.Import.FindImports as FindImports
 import           Development.IDE.GHC.Error
 import           Development.IDE.Spans.Calculate
+import Development.IDE.GHC.Orphans()
 import Development.IDE.GHC.Util
 import Development.IDE.GHC.Compat
 import Development.IDE.Types.Options
@@ -76,6 +77,12 @@ data TcModuleResult = TcModuleResult
     { tmrModule     :: TypecheckedModule
     , tmrModInfo    :: HomeModInfo
     }
+instance Show TcModuleResult where
+    show = show . pm_mod_summary . tm_parsed_module . tmrModule
+
+instance NFData TcModuleResult where
+    rnf = rwhnf
+
 
 -- | Get source span info, used for e.g. AtPoint and Goto Definition.
 getSrcSpanInfos
