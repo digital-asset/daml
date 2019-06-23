@@ -74,14 +74,13 @@ instance NFData TcModuleResult where
 
 -- | Get source span info, used for e.g. AtPoint and Goto Definition.
 getSrcSpanInfos
-    :: IdeOptions
-    -> ParsedModule
+    :: ParsedModule
     -> HscEnv
     -> [(Located ModuleName, Maybe NormalizedFilePath)]
     -> TcModuleResult
     -> IO [SpanInfo]
-getSrcSpanInfos opt mod env imports tc =
-    runGhcSession opt (Just mod) env
+getSrcSpanInfos mod env imports tc =
+    runGhcSession (Just mod) env
         . getSpanInfo imports
         $ tmrModule tc
 
@@ -93,16 +92,16 @@ parseModule
     -> FilePath
     -> SB.StringBuffer
     -> IO ([FileDiagnostic], Maybe ParsedModule)
-parseModule opt@IdeOptions{..} packageState file =
+parseModule IdeOptions{..} packageState file =
     fmap (either (, Nothing) (second Just)) . Ex.runExceptT .
     -- We need packages since imports fail to resolve otherwise.
-    runGhcSessionExcept opt Nothing packageState . parseFileContents optPreprocessor file
+    runGhcSessionExcept Nothing packageState . parseFileContents optPreprocessor file
 
 computePackageDeps ::
-     IdeOptions -> HscEnv -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
-computePackageDeps opts packageState iuid =
+     HscEnv -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
+computePackageDeps packageState iuid =
   Ex.runExceptT $
-  runGhcSessionExcept opts Nothing packageState $
+  runGhcSessionExcept Nothing packageState $
   catchSrcErrors $ do
     dflags <- hsc_dflags <$> getSession
     liftIO $ depends <$> getPackage dflags iuid
@@ -124,7 +123,7 @@ typecheckModule
     -> IO ([FileDiagnostic], Maybe TcModuleResult)
 typecheckModule opt packageState deps pm =
     fmap (either (, Nothing) (second Just)) $ Ex.runExceptT $
-    runGhcSessionExcept opt (Just pm) packageState $
+    runGhcSessionExcept (Just pm) packageState $
         catchSrcErrors $ do
             setupEnv deps
             (warnings, tcm) <- withWarnings $ \tweak ->
@@ -135,15 +134,14 @@ typecheckModule opt packageState deps pm =
 -- | Compile a single type-checked module to a 'CoreModule' value, or
 -- provide errors.
 compileModule
-    :: IdeOptions
-    -> ParsedModule
+    :: ParsedModule
     -> HscEnv
     -> [TcModuleResult]
     -> TcModuleResult
     -> IO ([FileDiagnostic], Maybe CoreModule)
-compileModule opt mod packageState deps tmr =
+compileModule mod packageState deps tmr =
     fmap (either (, Nothing) (second Just)) $ Ex.runExceptT $
-    runGhcSessionExcept opt (Just mod) packageState $
+    runGhcSessionExcept (Just mod) packageState $
         catchSrcErrors $ do
             setupEnv (deps ++ [tmr])
 
@@ -169,27 +167,25 @@ compileModule opt mod packageState deps tmr =
 -- | Evaluate a GHC session using a new environment constructed with
 -- the supplied options.
 runGhcSessionExcept
-    :: IdeOptions
-    -> Maybe ParsedModule
+    :: Maybe ParsedModule
     -> HscEnv
     -> Ex.ExceptT e Ghc a
     -> Ex.ExceptT e IO a
-runGhcSessionExcept opts mbMod pkg m =
-    Ex.ExceptT $ runGhcSession opts mbMod pkg $ Ex.runExceptT m
+runGhcSessionExcept mbMod pkg m =
+    Ex.ExceptT $ runGhcSession mbMod pkg $ Ex.runExceptT m
 
 
-getGhcDynFlags :: IdeOptions -> ParsedModule -> HscEnv -> IO DynFlags
-getGhcDynFlags opts mod pkg = runGhcSession opts (Just mod) pkg getSessionDynFlags
+getGhcDynFlags :: ParsedModule -> HscEnv -> IO DynFlags
+getGhcDynFlags mod pkg = runGhcSession (Just mod) pkg getSessionDynFlags
 
 -- | Evaluate a GHC session using a new environment constructed with
 -- the supplied options.
 runGhcSession
-    :: IdeOptions
-    -> Maybe ParsedModule
+    :: Maybe ParsedModule
     -> HscEnv
     -> Ghc a
     -> IO a
-runGhcSession _ modu env act = runGhcEnv env $ do
+runGhcSession modu env act = runGhcEnv env $ do
     modifyDynFlags $ \x -> x
         {importPaths = nubOrd $ maybeToList (moduleImportPaths =<< modu) ++ importPaths x}
     act

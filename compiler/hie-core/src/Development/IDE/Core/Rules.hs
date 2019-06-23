@@ -154,8 +154,8 @@ getLocatedImportsRule =
         let ms = pm_mod_summary pm
         let imports = ms_textual_imps ms
         packageState <- use_ GhcSession ""
+        dflags <- liftIO $ Compile.getGhcDynFlags pm packageState
         opt <- getOpts
-        dflags <- liftIO $ Compile.getGhcDynFlags opt pm packageState
         xs <- forM imports $ \(mbPkgName, modName) ->
             (modName, ) <$> locateModule dflags (Compile.optExtensions opt) getFileExists modName mbPkgName
         return (concat $ lefts $ map snd xs, Just $ map (second eitherToMaybe) xs)
@@ -176,11 +176,10 @@ rawDependencyInformation f = go (Set.singleton f) Map.empty Map.empty
                   in go fs modGraph' pkgs
                 Just imports -> do
                   packageState <- lift $ use_ GhcSession ""
-                  opt <- lift getOpts
                   modOrPkgImports <- forM imports $ \imp -> do
                     case imp of
                       (_modName, Just (PackageImport pkg)) -> do
-                          pkgs <- ExceptT $ liftIO $ Compile.computePackageDeps opt packageState pkg
+                          pkgs <- ExceptT $ liftIO $ Compile.computePackageDeps packageState pkg
                           pure $ Right $ pkg:pkgs
                       (modName, Just (FileImport absFile)) -> pure $ Left (modName, Just absFile)
                       (modName, Nothing) -> pure $ Left (modName, Nothing)
@@ -244,8 +243,7 @@ getSpanInfoRule =
         tc <- use_ TypeCheck file
         imports <- use_ GetLocatedImports file
         packageState <- use_ GhcSession ""
-        opt <- getOpts
-        x <- liftIO $ Compile.getSrcSpanInfos opt pm packageState (fileImports imports) tc
+        x <- liftIO $ Compile.getSrcSpanInfos pm packageState (fileImports imports) tc
         return ([], Just x)
 
 -- Typechecks a module.
@@ -269,8 +267,7 @@ generateCoreRule =
         let pm = tm_parsed_module . Compile.tmrModule $ tm
         setPriority PriorityGenerateDalf
         packageState <- use_ GhcSession ""
-        opt <- getOpts
-        liftIO $ Compile.compileModule opt pm packageState tms tm
+        liftIO $ Compile.compileModule pm packageState tms tm
 
 loadGhcSession :: Rules ()
 loadGhcSession =
