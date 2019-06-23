@@ -86,7 +86,7 @@ const AgreementText = ({text}: {text: string}) => (
 
 const Parties = ({title, parties}: {title: string, parties: string[]}) => (
     <span><SubHeader><Strong>{title}</Strong></SubHeader>
-        <span>{parties.length > 0 ? parties.join(', ') : 'N/A'}</span>
+        <span>{parties.join(', ')}</span>
     </span>
 );
 
@@ -157,12 +157,8 @@ export default (props: Props) => {
         <ColumnContainer>
           <Column>
             {contract.agreementText && <AgreementText text={contract.agreementText} />}
-            {/* Observers could be empty but there must be at least a signatory in a contract: if the signatory
-             * is not there we are connecting to a version of the ledger which doesn't support this information
-             * and we hide both signatories and observers because the information makes no sense in this case.
-             */}
             {contract.signatories.length > 0 && <Parties title="Signatories" parties={contract.signatories} />}
-            {contract.signatories.length > 0 && <Parties title="Observers" parties={contract.observers} />}
+            {contract.observers.length > 0 && <Parties title="Observers" parties={contract.observers} />}
             <SubHeader><Strong>Contract details</Strong></SubHeader>
             <ArgumentDisplay
               argument={contract.argument}
