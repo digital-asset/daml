@@ -40,7 +40,6 @@ import           GhcMonad
 import           GhcPlugins                     as GHC hiding (fst3, (<>))
 import qualified HeaderInfo                     as Hdr
 import           MkIface
-import           NameCache
 import           StringBuffer                   as SB
 import           TidyPgm
 import qualified GHC.LanguageExtensions as LangExt
@@ -76,8 +75,6 @@ instance NFData GhcModule
 data TcModuleResult = TcModuleResult
     { tmrModule     :: TypecheckedModule
     , tmrModInfo    :: HomeModInfo
-    , tmrOccEnvName :: OccEnv Name
-    }
     }
 
 -- | Get source span info, used for e.g. AtPoint and Goto Definition.
@@ -230,7 +227,6 @@ mkTcModuleResult
     -> m TcModuleResult
 mkTcModuleResult (WriteInterface writeIface) tcm = do
     session   <- getSession
-    nc        <- liftIO $ readIORef (hsc_NC session)
     (iface,_) <- liftIO $ mkIfaceTc session Nothing Sf_None details tcGblEnv
     liftIO $ when writeIface $ do
         let path = ".interfaces" </> file tcm
@@ -242,16 +238,10 @@ mkTcModuleResult (WriteInterface writeIface) tcm = do
         hieFile <- runHsc session $ mkHieFile (tcModSummary tcm) tcGblEnv (fromJust $ renamedSource tcm)
         writeHieFile (replaceExtension path ".hie") hieFile
     let mod_info = HomeModInfo iface details Nothing
-        origNc = nsNames nc
-    case lookupModuleEnv origNc (tcmModule tcm) of
-        Nothing  -> panic err
-        Just occ -> return $ TcModuleResult tcm mod_info occ
+    return $ TcModuleResult tcm mod_info
   where
     file = ms_hspp_file . tcModSummary
-    tcmModule = ms_mod . tcModSummary
     (tcGblEnv, details) = tm_internals_ tcm
-    err = "Internal error : module not found in NameCache :" <>
-              moduleNameString (moduleName $ tcmModule tcm)
 
 tcModSummary :: TypecheckedModule -> ModSummary
 tcModSummary = pm_mod_summary . tm_parsed_module
