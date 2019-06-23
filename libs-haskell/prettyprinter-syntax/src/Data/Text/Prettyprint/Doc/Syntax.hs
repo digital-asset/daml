@@ -2,8 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Data.Text.Prettyprint.Doc.Syntax
-    ( module Data.Text.Prettyprint.Doc
-    , SyntaxClass(..)
+    ( SyntaxClass(..)
     -- prefixing these names with an 's' is not pleasant
     -- but we have duplicates of the functions with identical signatures
     -- and different semantics at DA.Pretty, so important to try and disambiguate

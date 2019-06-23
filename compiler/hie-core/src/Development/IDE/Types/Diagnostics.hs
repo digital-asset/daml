@@ -28,6 +28,7 @@ import Data.Foldable
 import qualified Data.Map as Map
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc.Syntax
+import Data.Text.Prettyprint.Doc
 import qualified Data.SortedList as SL
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import qualified Language.Haskell.LSP.Types as LSP
