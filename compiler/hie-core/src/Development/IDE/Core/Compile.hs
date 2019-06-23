@@ -93,15 +93,14 @@ parseModule
     -> SB.StringBuffer
     -> IO ([FileDiagnostic], Maybe ParsedModule)
 parseModule IdeOptions{..} packageState file =
-    fmap (either (, Nothing) (second Just)) . Ex.runExceptT .
+    fmap (either (, Nothing) (second Just)) .
     -- We need packages since imports fail to resolve otherwise.
-    runGhcSessionExcept Nothing packageState . parseFileContents optPreprocessor file
+    runGhcSession Nothing packageState . Ex.runExceptT . parseFileContents optPreprocessor file
 
 computePackageDeps ::
      HscEnv -> InstalledUnitId -> IO (Either [FileDiagnostic] [InstalledUnitId])
 computePackageDeps packageState iuid =
-  Ex.runExceptT $
-  runGhcSessionExcept Nothing packageState $
+  runGhcSession Nothing packageState $ Ex.runExceptT $
   catchSrcErrors $ do
     dflags <- hsc_dflags <$> getSession
     liftIO $ depends <$> getPackage dflags iuid
@@ -122,8 +121,8 @@ typecheckModule
     -> ParsedModule
     -> IO ([FileDiagnostic], Maybe TcModuleResult)
 typecheckModule opt packageState deps pm =
-    fmap (either (, Nothing) (second Just)) $ Ex.runExceptT $
-    runGhcSessionExcept (Just pm) packageState $
+    fmap (either (, Nothing) (second Just)) $
+    runGhcSession (Just pm) packageState $ Ex.runExceptT $
         catchSrcErrors $ do
             setupEnv deps
             (warnings, tcm) <- withWarnings $ \tweak ->
@@ -140,8 +139,8 @@ compileModule
     -> TcModuleResult
     -> IO ([FileDiagnostic], Maybe CoreModule)
 compileModule mod packageState deps tmr =
-    fmap (either (, Nothing) (second Just)) $ Ex.runExceptT $
-    runGhcSessionExcept (Just mod) packageState $
+    fmap (either (, Nothing) (second Just)) $
+    runGhcSession (Just mod) packageState $ Ex.runExceptT $
         catchSrcErrors $ do
             setupEnv (deps ++ [tmr])
 
@@ -163,16 +162,6 @@ compileModule mod packageState deps tmr =
                          (mg_safe_haskell desugar)
 
             return (warnings, core)
-
--- | Evaluate a GHC session using a new environment constructed with
--- the supplied options.
-runGhcSessionExcept
-    :: Maybe ParsedModule
-    -> HscEnv
-    -> Ex.ExceptT e Ghc a
-    -> Ex.ExceptT e IO a
-runGhcSessionExcept mbMod pkg m =
-    Ex.ExceptT $ runGhcSession mbMod pkg $ Ex.runExceptT m
 
 
 getGhcDynFlags :: ParsedModule -> HscEnv -> IO DynFlags
