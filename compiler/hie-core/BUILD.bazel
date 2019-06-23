@@ -49,9 +49,6 @@ da_haskell_library(
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
-    deps = [
-        "//libs-haskell/prettyprinter-syntax",
-    ],
 )
 
 da_haskell_library(
@@ -71,9 +68,6 @@ da_haskell_library(
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
-    deps = [
-        "//libs-haskell/prettyprinter-syntax",
-    ],
 )
 
 da_haskell_binary(
@@ -97,6 +91,5 @@ da_haskell_binary(
     visibility = ["//visibility:public"],
     deps = [
         "hie-core-public",
-        "//libs-haskell/prettyprinter-syntax",
     ],
 ) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream
