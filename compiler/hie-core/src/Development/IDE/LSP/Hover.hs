@@ -15,8 +15,6 @@ import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as Logger
 
 import qualified Data.Text as T
-import Data.Text.Prettyprint.Doc
-import Data.Text.Prettyprint.Doc.Render.Text
 
 import Development.IDE.Core.Rules
 
@@ -31,7 +29,7 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
         Just (toNormalizedFilePath -> filePath) -> do
           Logger.logInfo loggerH $
               "Hover request at position " <>
-              renderStrict (layoutPretty defaultLayoutOptions $ prettyPosition pos) <>
+              T.pack (showPosition pos) <>
               " in file: " <> T.pack (fromNormalizedFilePath filePath)
           runAction compilerH $ getAtPoint filePath pos
         Nothing       -> pure Nothing

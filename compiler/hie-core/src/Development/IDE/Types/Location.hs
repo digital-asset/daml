@@ -9,7 +9,7 @@ module Development.IDE.Types.Location
     , noFilePath
     , noRange
     , Position(..)
-    , prettyPosition
+    , showPosition
     , Range(..)
     , Uri(..)
     , NormalizedUri
@@ -25,7 +25,6 @@ module Development.IDE.Types.Location
     ) where
 
 import Language.Haskell.LSP.Types (Location(..), Range(..), Position(..))
-import Data.Text.Prettyprint.Doc
 import Control.DeepSeq
 import Data.Maybe as Maybe
 import Data.Hashable
@@ -86,5 +85,5 @@ noRange :: Range
 noRange =  Range (Position 0 0) (Position 100000 0)
 
 
-prettyPosition :: Position -> Doc a
-prettyPosition Position{..} = pretty (_line + 1) <> colon <> pretty (_character + 1)
+showPosition :: Position -> String
+showPosition Position{..} = show (_line + 1) ++ ":" ++ show (_character + 1)
