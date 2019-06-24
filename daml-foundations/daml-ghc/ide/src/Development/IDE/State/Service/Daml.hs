@@ -4,7 +4,6 @@
 
 module Development.IDE.Core.Service.Daml(
     Env(..),
-    getServiceEnv,
     VirtualResource(..),
     DamlEnv(..),
     getDamlServiceEnv,

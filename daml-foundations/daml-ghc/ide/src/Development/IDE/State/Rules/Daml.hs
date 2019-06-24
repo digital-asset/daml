@@ -411,7 +411,6 @@ ofInterestRule = do
     action $ use OfInterest ""
     defineNoFile $ \OfInterest -> do
         setPriority PriorityFilesOfInterest
-        Env{..} <- getServiceEnv
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
         files   <- use_ GetFilesOfInterest ""

@@ -272,7 +272,7 @@ generateCoreRule =
 loadGhcSession :: Rules ()
 loadGhcSession =
     defineNoFile $ \GhcSession -> do
-        opts <- envOptions <$> getServiceEnv
+        opts <- getOpts
         Compile.optGhcSession opts
 
 
