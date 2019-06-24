@@ -133,7 +133,7 @@ da_haskell_test(
     ],
 )
 
-# A good target for da-ghcid, it includes everything in the subtree.
+# Target for da-ghcid, includes everything except integration tests.
 da_haskell_repl(
     name = "repl",
     deps = [
@@ -143,5 +143,3 @@ da_haskell_repl(
     collect_data = False,
     visibility = ["//visibility:public"],
 )
-
-
