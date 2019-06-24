@@ -101,8 +101,8 @@ withIdeState compilerOpts loggerH eventHandler f =
         f ideState
 
 -- | Adapter to the IDE logger module.
-toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle
-toIdeLogger h = IdeLogger.Handle {
+toIdeLogger :: Logger.Handle IO -> IdeLogger.Logger
+toIdeLogger h = IdeLogger.Logger {
        logSeriousError = Logger.logError h
      , logInfo = Logger.logInfo h
      , logDebug = Logger.logDebug h

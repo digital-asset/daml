@@ -53,7 +53,7 @@ import           Data.Maybe
 import           Data.Either.Extra
 import           Data.List.Extra
 import qualified Data.Text as T
-import Development.IDE.Types.Logger as Logger
+import Development.IDE.Types.Logger
 import           Development.IDE.Types.Diagnostics hiding (getAllDiagnostics)
 import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.Types.Location
@@ -77,7 +77,7 @@ import           Numeric.Extra
 -- information we stash inside the shakeExtra field
 data ShakeExtras = ShakeExtras
     {eventer :: LSP.FromServerMessage -> IO ()
-    ,logger :: Logger.Handle
+    ,logger :: Logger
     ,globals :: Var (Map.HashMap TypeRep Dynamic)
     ,state :: Var Values
     ,diagnostics :: Var DiagnosticStore
@@ -211,7 +211,7 @@ getValues state key file = do
 
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
 shakeOpen :: (LSP.FromServerMessage -> IO ()) -- ^ diagnostic handler
-          -> Logger.Handle
+          -> Logger
           -> ShakeOptions
           -> Rules ()
           -> IO IdeState
@@ -246,7 +246,7 @@ shakeRun :: IdeState -> [Action a] -> ([a] -> IO ()) -> IO (IO [a])
 --        not even start, which would make issues with async exceptions less problematic.
 shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts callback = modifyVar shakeAbort $ \stop -> do
     (stopTime,_) <- duration stop
-    Logger.logDebug logger $ T.pack $ "Starting shakeRun (aborting the previous one took " ++ showDuration stopTime ++ ")"
+    logDebug logger $ T.pack $ "Starting shakeRun (aborting the previous one took " ++ showDuration stopTime ++ ")"
     bar <- newBarrier
     start <- offsetTime
     let act = do
@@ -256,7 +256,7 @@ shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts callback = modifyVar sha
     thread <- forkFinally (shakeRunDatabaseProfile shakeDb [act]) $ \res -> do
         signalBarrier bar (mapRight head res)
         runTime <- start
-        Logger.logDebug logger $ T.pack $
+        logDebug logger $ T.pack $
             "Finishing shakeRun (took " ++ showDuration runTime ++ ", " ++ (if isLeft res then "exception" else "completed") ++ ")"
     -- important: we send an async exception to the thread, then wait for it to die, before continuing
     return (do killThread thread; void $ waitBarrier bar, either throwIO return =<< waitBarrier bar)
@@ -309,7 +309,7 @@ uses_ key files = do
 reportSeriousError :: String -> Action ()
 reportSeriousError t = do
     ShakeExtras{logger} <- getShakeExtras
-    liftIO $ Logger.logSeriousError logger $ T.pack t
+    liftIO $ logSeriousError logger $ T.pack t
 
 
 -- | When we depend on something that reported an error, and we fail as a direct result, throw BadDependency
@@ -416,7 +416,7 @@ sendEvent e = do
     ShakeExtras{eventer} <- getShakeExtras
     liftIO $ eventer e
 
-ideLogger :: IdeState -> Logger.Handle
+ideLogger :: IdeState -> Logger
 ideLogger IdeState{shakeExtras=ShakeExtras{logger}} = logger
 
 

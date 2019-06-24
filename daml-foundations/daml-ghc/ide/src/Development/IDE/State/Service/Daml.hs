@@ -29,7 +29,7 @@ import qualified Data.Text as T
 import Data.Tuple.Extra
 import Development.Shake
 
-import qualified Development.IDE.Types.Logger as Logger
+import Development.IDE.Types.Logger
 import Development.IDE.Core.Service hiding (initialise)
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service as IDE
@@ -95,13 +95,13 @@ modifyOpenVirtualResources :: IdeState -> (Set VirtualResource -> Set VirtualRes
 modifyOpenVirtualResources state f = do
     DamlEnv{..} <- getIdeGlobalState state
     vrs <- modifyVar envOpenVirtualResources $ pure . dupe . f
-    Logger.logDebug (ideLogger state) $ "Set vrs of interest to: " <> T.pack (show $ Set.toList vrs)
+    logDebug (ideLogger state) $ "Set vrs of interest to: " <> T.pack (show $ Set.toList vrs)
     void $ shakeRun state [] (const $ pure ())
 
 initialise
     :: Rules ()
     -> (LSP.FromServerMessage -> IO ())
-    -> Logger.Handle
+    -> Logger
     -> Options
     -> VFSHandle
     -> Maybe SS.Handle

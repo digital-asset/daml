@@ -24,7 +24,7 @@ import           Control.Concurrent.Extra
 import           Control.Monad.Except
 import Development.IDE.Types.Options (IdeOptions(..))
 import           Development.IDE.Core.FileStore
-import qualified Development.IDE.Types.Logger as Logger
+import Development.IDE.Types.Logger
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
 import qualified Data.Text as T
@@ -74,7 +74,7 @@ unsafeClearDiagnostics = unsafeClearAllDiagnostics
 -- | Initialise the Compiler Service.
 initialise :: Rules ()
            -> (LSP.FromServerMessage -> IO ())
-           -> Logger.Handle
+           -> Logger
            -> IdeOptions
            -> VFSHandle
            -> IO IdeState
@@ -136,7 +136,7 @@ modifyFilesOfInterest :: IdeState -> (Set NormalizedFilePath -> Set NormalizedFi
 modifyFilesOfInterest state f = do
     Env{..} <- getIdeGlobalState state
     files <- modifyVar envOfInterestVar $ pure . dupe . f
-    Logger.logDebug (ideLogger state) $ "Set files of interest to: " <> T.pack (show $ Set.toList files)
+    logDebug (ideLogger state) $ "Set files of interest to: " <> T.pack (show $ Set.toList files)
     void $ shakeRun state [] (const $ pure ())
 
 getServiceEnv :: Action Env
