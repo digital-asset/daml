@@ -23,7 +23,7 @@
    1. Remove any existing installation: `rm -r -Force $env:AppData\daml`
    1. Run the installer.
    1. Open a new Powershell.
-   1. Remove any existing quickstart directory : `rm -r quickstart` 
+   1. Remove any existing quickstart directory : `rm -r quickstart`
    1. Run `daml new quickstart` to create a new project.
    1. Switch to the new project: `cd quickstart`
    1. Run `daml start`.
@@ -42,12 +42,6 @@
       After this step the release will be picked up by `da
       upgrade`. Note that this step requires special privileges on
       Bintray. If you cannot change it yourself, ask in #team-daml.
-
-   1. Trigger the CircleCI jobs to create the Docker images. To do so,
-      go to
-      https://circleci.com/gh/DACH-NY/workflows/damlc-docker/tree/master
-      and click "rerun" on "master / Main Variant" and on "master / CircleCI Variant".
-      Once the jobs have passed, you should see two new images on https://hub.docker.com/r/digitalasset/daml-sdk/tags.
 
    1. Publish the draft release on GitHub by going to [the releases
       page](https://github.com/digital-asset/daml/releases) and clicking the

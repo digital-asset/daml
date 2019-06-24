@@ -17,16 +17,16 @@ import qualified Test.Tasty.HUnit    as Tasty
 import qualified Data.Text.Extended  as T
 
 import Data.Either
-import Control.Monad
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
 
 import DA.Service.Daml.Compiler.Impl.Scenario as SS
 import Development.IDE.Types.Diagnostics
-import           Development.IDE.Types.LSP
+import Development.IDE.Types.Location
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import Development.IDE.State.API.Testing
+import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 main :: IO ()
 main = SS.withScenarioService Logger.makeNopHandle $ \scenarioService -> do
@@ -45,7 +45,6 @@ ideTests mbScenarioService =
         , goToDefinitionTests mbScenarioService
         , onHoverTests mbScenarioService
         , scenarioTests mbScenarioService
-        , stressTests mbScenarioService
         ]
 
 -- | Tasty test case from a ShakeTest.
@@ -423,6 +422,23 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,2,[6..13]) (In "Prelude") -- "Optional"
             expectGoToDefinition (foo,2,[16..19]) (In "GHC.Types") -- "List"
             expectGoToDefinition (foo,2,[21..24]) (In "GHC.Types") -- "Bool"
+
+    ,   testCase' "Go to definition takes export list to definition" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo (foo, A(B)) where"
+                , "foo : Int"
+                , "foo = 0"
+                , "data A = B Int"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            -- foo
+            expectGoToDefinition (foo,1,[13..14]) (At (foo,3,0))
+            -- A
+            expectGoToDefinition (foo,1,[17..17]) (At (foo,4,0))
+            -- B
+            expectGoToDefinition (foo,1,[19..19]) (At (foo,4,9))
 {-
     -- Disabled for now. See issue
     -- https://github.com/digital-asset/daml/issues/1582
@@ -676,66 +692,6 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
             expectNoVirtualResource vr
             setOpenVirtualResources [vr]
             expectVirtualResource vr "Return value: {}"
-    ]
-    where
-        testCase' = testCase mbScenarioService
-
--- | Do extreme things to the compiler service.
-stressTests :: Maybe SS.Handle -> Tasty.TestTree
-stressTests mbScenarioService = Tasty.testGroup "Stress tests"
-    [   testCase' "Modify a file 2000 times" $ do
-            let fooValue :: Int -> T.Text
-                fooValue i = T.pack (show (i `div` 2))
-                          <> if i `mod` 2 == 0 then "" else ".5"
-                fooContent i = T.unlines
-                    [ "daml 1.2"
-                    , "module Foo where"
-                    , "foo : Int"
-                    , "foo = " <> fooValue i
-                    ]
-            foo <- makeFile "Foo.daml" $ fooContent 0
-            setFilesOfInterest [foo]
-            expectNoErrors
-            forM_ [1 .. 999] $ \i ->
-                void $ makeFile "Foo.daml" $ fooContent i
-            expectOneError (foo,3,6) "Couldn't match expected type"
-            forM_ [1000 .. 2000] $ \i ->
-                void $ makeFile "Foo.daml" $ fooContent i
-            expectNoErrors
-
-    ,   testCase' "Set 10 files of interest" $ do
-            foos <- forM [1 .. 10 :: Int] $ \i ->
-                makeModule ("Foo" ++ show i) ["foo = 10"]
-            timedSection 30 $ do
-                setFilesOfInterest foos
-                expectNoErrors
-
-    ,   testCase' "Type check 100-deep module chain" $ do
-            -- The idea for this test is we have 101 modules named Foo0 through Foo100.
-            -- Foo0 imports Foo1, which imports Foo2, which imports Foo3, and so on to Foo100.
-            -- Each FooN has a definition fooN that depends on fooN+1, except Foo100.
-            -- But the type of foo0 doesn't match the type of foo100. So we expect a type error.
-            -- Then we modify the type of foo0 to clear the type error.
-            foo0 <- makeModule "Foo0"
-                ["import Foo1"
-                ,"foo0 : Int"
-                ,"foo0 = foo1"]
-            forM_ [1 .. 99 :: Int] $ \i ->
-                makeModule ("Foo" ++ show i)
-                    ["import Foo" <> T.show (i+1)
-                    ,"foo" <> T.show i <> " = foo" <> T.show (i+1)]
-            void $ makeModule "Foo100"
-                ["foo100 : Bool"
-                ,"foo100 = False"]
-            timedSection 180 $ do -- This takes way too long. Can we get it down?
-                setFilesOfInterest [foo0]
-                expectOneError (foo0,4,7) "Couldn't match expected type"
-                void $ makeModule "Foo0"
-                    ["import Foo1"
-                    ,"foo0 : Bool"
-                    ,"foo0 = foo1"]
-                expectNoErrors
-
     ]
     where
         testCase' = testCase mbScenarioService

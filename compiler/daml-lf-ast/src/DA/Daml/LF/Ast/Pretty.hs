@@ -115,11 +115,6 @@ instance Pretty TypeConApp where
       pretty con
       <-> hsep (map (pPrintPrec lvl (succ precTApp)) args)
 
-instance Pretty EnumType where
-  pPrint = \case
-    ETUnit -> "Unit"
-    ETBool -> "Bool"
-
 instance Pretty BuiltinType where
   pPrint = \case
     BTInt64          -> "Int64"
@@ -127,7 +122,8 @@ instance Pretty BuiltinType where
     BTText           -> "Text"
     BTTimestamp      -> "Timestamp"
     BTParty          -> "Party"
-    BTEnum etype -> pretty etype
+    BTUnit -> "Unit"
+    BTBool -> "Bool"
     BTList -> "List"
     BTUpdate -> "Update"
     BTScenario -> "Scenario"
@@ -183,19 +179,14 @@ prettyAltArrow    = "->"
 instance Pretty PartyLiteral where
   pPrint = quotes . pretty . unPartyLiteral
 
-instance Pretty EnumCon where
-  pPrint = \case
-    ECUnit  -> "Unit"
-    ECFalse -> "False"
-    ECTrue  -> "True"
-
 instance Pretty BuiltinExpr where
   pPrintPrec _lvl prec = \case
     BEInt64 n -> pretty (toInteger n)
     BEDecimal dec -> string (show dec)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
     BEParty p -> pretty p
-    BEEnumCon c -> pretty c
+    BEUnit -> keyword_ "unit"
+    BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BEError -> "ERROR"
     BEEqual t     -> maybeParens (prec > precEApp) ("EQUAL"      <-> prettyBTyArg t)
     BELess t      -> maybeParens (prec > precEApp) ("LESS"       <-> prettyBTyArg t)
@@ -269,7 +260,8 @@ instance Pretty CasePattern where
     CPVariant tcon con var ->
       pretty tcon <> "." <> pretty con
       <-> pretty var
-    CPEnumCon con -> pretty con
+    CPUnit -> keyword_ "unit"
+    CPBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     CPNil -> keyword_ "nil"
     CPCons hdVar tlVar -> keyword_ "cons" <-> pretty hdVar <-> pretty tlVar
     CPDefault -> keyword_ "default"

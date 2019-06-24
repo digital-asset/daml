@@ -1,0 +1,95 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library")
+load("@os_info//:os_info.bzl", "is_windows")
+
+depends = [
+    "aeson",
+    "async",
+    "base",
+    "binary",
+    "bytestring",
+    "containers",
+    "data-default",
+    "deepseq",
+    "directory",
+    "either",
+    "extra",
+    "filepath",
+    "hashable",
+    "haskell-lsp",
+    "haskell-lsp-types",
+    "mtl",
+    "network-uri",
+    "pretty",
+    "prettyprinter",
+    "prettyprinter-ansi-terminal",
+    "rope-utf16-splay",
+    "safe-exceptions",
+    "sorted-list",
+    "shake",
+    "stm",
+    "syb",
+    "text",
+    "time",
+    "transformers",
+    "uniplate",
+    "unordered-containers",
+    "utf8-string",
+    "uri-encode",
+]
+
+da_haskell_library(
+    name = "hie-core",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = depends + [
+        "ghc-lib",
+        "ghc-lib-parser",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_library(
+    name = "hie-core-public",
+    srcs = glob(["src/**/*.hs"]),
+    compiler_flags = ["-DGHC_STABLE"],
+    hazel_deps = depends + [
+        "ghc",
+        "ghc-boot",
+        "ghc-boot-th",
+    ],
+    # Override the -hide-package flags defined in WORKSPACE
+    #   -hide-package=ghc-boot-th -hide-package=ghc-boot
+    repl_ghci_args = [
+        "-package=ghc-boot",
+        "-package=ghc-boot-th",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_binary(
+    name = "hie-core-demo",
+    srcs = glob(["test/**/*.hs"]),
+    hazel_deps = [
+        "base",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-paths",
+        "ghc",
+        "haskell-lsp",
+        "hie-bios",
+        "shake",
+        "text",
+    ],
+    main_function = "Demo.main",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "hie-core-public",
+    ],
+) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream

@@ -32,7 +32,7 @@ import Data.Maybe
 import Data.Tuple.Extra
 import "ghc-lib-parser" DynFlags
 import qualified "ghc-lib" GHC
-import Development.IDE.UtilGHC
+import Development.IDE.GHC.Util
 import qualified "ghc-lib-parser" EnumSet
 import qualified "ghc-lib-parser" Packages
 import "ghc-lib-parser" HscTypes
@@ -102,6 +102,8 @@ toCompileOpts Options{..} =
       , optExtensions = ["daml"]
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
+      , optLanguageSyntax = "daml"
+      , optNewColonConvention = True
       }
   where
     toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]

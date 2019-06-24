@@ -14,17 +14,6 @@ schedules:
   always: true
 
 jobs:
-  - job: latest_webide
-    timeoutInMinutes: 20
-    pool:
-      name: 'linux-pool'
-    steps:
-      - checkout: self
-      - bash: ci/check-update-build-webide.sh
-        displayName: 'Check for updated SDK and build webide with latest version'
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-
   - job: docs
     timeoutInMinutes: 50
     pool:
@@ -41,6 +30,8 @@ jobs:
       - bash: |
           set -euo pipefail
 
+          LOG=$(Build.StagingDirectory)/log.txt
+          touch $LOG
           CUR_SHA=$(git rev-parse HEAD)
 
           robustly_download_nix_pkgs() {
@@ -63,11 +54,21 @@ jobs:
 
           echo "Loading dev-env..."
           eval "$(dev-env/bin/dade-assist)"
+
+          echo "Checking for new version..."
+          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
+          GH_VERSIONS=$(mktemp)
+          DOCS_VERSIONS=$(mktemp)
+          curl -s https://docs.daml.com/versions.json | jq -r 'keys | .[]' | sort > $DOCS_VERSIONS
+          echo $RELEASES | sed 's/ /\n/g' | sed 's/^v//' | sort > $GH_VERSIONS
+          if diff $DOCS_VERSIONS $GH_VERSIONS; then
+            echo "No new version found, skipping."
+            exit 0
+          fi
+
           echo "Building docs listing"
           DOCDIR=$(Build.StagingDirectory)/docs
           mkdir -p $DOCDIR
-          LOG=$(Build.StagingDirectory)/log.txt
-          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
           LATEST=$(echo $RELEASES | awk '{print $1}')
           JSON_BODY=$(echo $RELEASES | sed -e 's/ /\n/g' | sed -e 's/v\(.*\)/"\1": "\1",'/g)
           echo "Building latest docs: $LATEST"
@@ -118,3 +119,37 @@ jobs:
                --data "{\"text\":\"<!here> *FAILED* Daily Docs: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+
+  - job: docker_image
+    timeoutInMinutes: 20
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          eval "$(dev-env/bin/dade-assist)"
+          echo $DOCKER_PASSWORD | docker login --username $DOCKER_LOGIN --password-stdin
+          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
+          DIR=$(pwd)
+          VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -s)
+          for version in $(echo $RELEASES | sed -e 's/ /\n/g'); do
+            EXISTS=$(echo $VERSIONS | jq -r '[.results[].name == "'${version#v}'"] | any')
+            if [ "$EXISTS" == "true" ]; then
+              echo "${version#v} already exists, skipping."
+            else
+              echo "Building version ${version#v}..."
+              cd $(mktemp -d)
+              echo "FROM openjdk:8u212-alpine" >> Dockerfile
+              echo "RUN apk add curl bash" >> Dockerfile
+              echo "RUN curl https://get.daml.com | sh -s ${version#v}" >> Dockerfile
+              docker build -t digitalasset/daml-sdk:${version#v} .
+              docker push digitalasset/daml-sdk:${version#v}
+              cd "$DIR"
+              echo "Done."
+            fi
+          done
+        env:
+          DOCKER_LOGIN: $(DOCKER_LOGIN)
+          DOCKER_PASSWORD: $(DOCKER_PASSWORD)

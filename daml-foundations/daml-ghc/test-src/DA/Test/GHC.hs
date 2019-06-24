@@ -31,7 +31,7 @@ import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
-import qualified Development.IDE.Logger as IdeLogger
+import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Lens as A
@@ -57,9 +57,9 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import           System.Time.Extra
 import qualified Development.IDE.State.API as Compile
-import qualified Development.IDE.State.Rules.Daml as Compile
+import qualified Development.IDE.Core.Rules.Daml as Compile
 import qualified Development.IDE.Types.Diagnostics as D
-import Development.IDE.UtilGHC
+import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
 import qualified Proto3.Suite.JSONPB as JSONPB

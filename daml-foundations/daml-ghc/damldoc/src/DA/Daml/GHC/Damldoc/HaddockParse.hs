@@ -7,11 +7,12 @@ module DA.Daml.GHC.Damldoc.HaddockParse(mkDocs) where
 
 import           DA.Daml.GHC.Damldoc.Types                 as DDoc
 import Development.IDE.Types.Options (IdeOptions(..))
-import Development.IDE.State.FileStore
-import qualified Development.IDE.State.Service     as Service
-import qualified Development.IDE.State.Rules     as Service
+import Development.IDE.Core.FileStore
+import qualified Development.IDE.Core.Service     as Service
+import qualified Development.IDE.Core.Rules     as Service
 import           Development.IDE.Types.Diagnostics
-import qualified Development.IDE.Logger as Logger
+import qualified Development.IDE.Types.Logger as Logger
+import Development.IDE.Types.Location
 
 
 import           "ghc-lib" GHC

@@ -112,7 +112,7 @@ ghcPrim = Module
       , dvalBody = EVariantCon
           { varTypeCon = TypeConApp (qual (dataTypeCon dataVoid)) []
           , varVariant = conName
-          , varArg = EBuiltin (BEEnumCon ECUnit)
+          , varArg = EBuiltin BEUnit
           }
       }
 
@@ -144,7 +144,7 @@ ghcTypes = Module
       , dvalBody = EVariantCon
           { varTypeCon = TypeConApp (qual (dataTypeCon dataOrdering)) []
           , varVariant = mkVariantCon con
-          , varArg = EBuiltin (BEEnumCon ECUnit)
+          , varArg = EBuiltin BEUnit
           }
       }
     dataProxy = DefDataType

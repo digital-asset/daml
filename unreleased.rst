@@ -21,8 +21,6 @@ HEAD — ongoing
 - [DAML-LF] Rename ``TO_TEXT_CODE_POINTS`` and ``FROM_TEXT_CODE_POINTS`` to ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``, resp.
 - [Dependencies] Protobuf has been upgraded to version 3.8.0. This
   also includes the protobuf-java library used as a dependency.
-
-DAML Integration Kit
-~~~~~~~~~~~~~~~~~~~~
-
-- Added additional Ledger API integration tests to Ledger API Test Tool.
+- [Ledger API] Added additional Ledger API integration tests to Ledger API Test Tool.
+- [DAML Studio] Goto definition now works on the export list of modules.
+- [Java Bindings] The artefact ``com.daml.ledger:bindings-java`` now has ``grpc-netty`` as dependency so that users don't need to explicitly add it.

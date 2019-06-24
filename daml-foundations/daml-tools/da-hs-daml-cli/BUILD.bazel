@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 da_haskell_library(
     name = "da-hs-daml-cli",
@@ -46,14 +47,16 @@ da_haskell_library(
         "zip-archive",
         "dotgen",
         "unordered-containers",
+        "uniplate",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//compiler/scenario-service/client",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
         "//daml-assistant:daml-project-config",
@@ -65,7 +68,6 @@ da_haskell_library(
         "//daml-lf/archive:daml_lf_haskell_proto",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//libs-haskell/prettyprinter-syntax",
     ],
 )
 
@@ -91,6 +93,33 @@ da_haskell_test(
 )
 
 da_haskell_test(
+    name = "da-hs-daml-cli-visual-test",
+    srcs = ["tests/VisualTest.hs"],
+    data = [
+        ":tests/res/out.dot",
+        ":visual-test-daml.dar",
+        "//daml-foundations/daml-ghc/package-database:package-db",
+    ],
+    hazel_deps = [
+        "tasty",
+        "base",
+        "extra",
+        "tasty-golden",
+    ],
+    main_function = "VisualTest.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:private"],
+    deps = [
+        ":da-hs-daml-cli",
+    ],
+)
+
+daml_compile(
+    name = "visual-test-daml",
+    main_src = "tests/Basic.daml",
+)
+
+da_haskell_test(
     name = "damlc-test-tests",
     srcs = ["tests/DamlcTest.hs"],
     data = [
@@ -108,7 +137,7 @@ da_haskell_test(
     visibility = ["//visibility:private"],
     deps = [
         ":da-hs-daml-cli",
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//libs-haskell/da-hs-base",
     ],

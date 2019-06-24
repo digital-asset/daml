@@ -1,9 +1,11 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE OverloadedStrings #-}
-module Development.IDE.State.Service.Daml(
+
+module Development.IDE.Core.Service.Daml(
     Env(..),
     getServiceEnv,
+    VirtualResource(..),
     DamlEnv(..),
     getDamlServiceEnv,
     IdeState, initialise, shutdown,
@@ -17,6 +19,8 @@ module Development.IDE.State.Service.Daml(
 
 import Control.Concurrent.Extra
 import Control.Monad
+import Control.DeepSeq
+import GHC.Generics
 import Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import Data.Set (Set)
@@ -25,18 +29,29 @@ import qualified Data.Text as T
 import Data.Tuple.Extra
 import Development.Shake
 
-import qualified Development.IDE.Logger as Logger
-import Development.IDE.State.Service hiding (initialise)
-import Development.IDE.State.FileStore
-import qualified Development.IDE.State.Service as IDE
-import Development.IDE.State.Shake
-import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
+import qualified Development.IDE.Types.Logger as Logger
+import Development.IDE.Core.Service hiding (initialise)
+import Development.IDE.Core.FileStore
+import qualified Development.IDE.Core.Service as IDE
+import Development.IDE.Core.Shake
+import Development.IDE.Types.Location
 import qualified Language.Haskell.LSP.Messages as LSP
 
 import DA.Daml.GHC.Compiler.Options
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
+
+-- | Virtual resources
+data VirtualResource = VRScenario
+    { vrScenarioFile :: !NormalizedFilePath
+    , vrScenarioName :: !T.Text
+    } deriving (Eq, Ord, Show, Generic)
+    -- ^ VRScenario identifies a scenario in a given file.
+    -- This virtual resource is associated with the HTML result of
+    -- interpreting the corresponding scenario.
+
+instance NFData VirtualResource
+
 
 data DamlEnv = DamlEnv
   { envScenarioService :: Maybe SS.Handle

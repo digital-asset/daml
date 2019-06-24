@@ -1,0 +1,130 @@
+cabal-version:      >= 1.18
+build-type:         Simple
+name:               hie-core
+version:            0
+license:            BSD3
+x-license:          BSD3 OR Apache2
+author:             Digital Asset
+maintainer:         Digital Asset
+copyright:          Digital Asset 2018-2019
+synopsis:           The core of an IDE
+description:
+    A library for building Haskell IDE's on top of the GHC API.
+homepage:           https://github.com/digital-asset/daml#readme
+bug-reports:        https://github.com/digital-asset/daml/issues
+tested-with:        GHC==8.6.5
+
+source-repository head
+    type:     git
+    location: https://github.com/digital-asset/daml.git
+
+library
+    default-language:   Haskell2010
+    build-depends:
+        aeson,
+        async,
+        base == 4.*,
+        binary,
+        bytestring,
+        containers,
+        data-default,
+        deepseq,
+        directory,
+        either,
+        extra,
+        filepath,
+        ghc,
+        ghc-boot-th,
+        ghc-boot,
+        hashable,
+        haskell-lsp,
+        haskell-lsp-types,
+        mtl,
+        network-uri,
+        pretty,
+        prettyprinter-ansi-terminal,
+        rope-utf16-splay,
+        safe-exceptions,
+        shake,
+        sorted-list,
+        stm,
+        syb,
+        text,
+        time,
+        prettyprinter,
+        prettyprinter-ansi-terminal,
+        transformers,
+        uniplate,
+        unordered-containers,
+        utf8-string,
+        uri-encode
+
+    cpp-options: -DGHC_STABLE
+    default-extensions:
+        LambdaCase
+        BangPatterns
+        DeriveGeneric
+        RecordWildCards
+        ScopedTypeVariables
+        NamedFieldPuns
+        TupleSections
+        TypeApplications
+        ViewPatterns
+        GeneralizedNewtypeDeriving
+        StandaloneDeriving
+
+    hs-source-dirs:
+        src
+    exposed-modules:
+        Development.IDE.Types.Logger
+        Development.IDE.GHC.Util
+        Development.IDE.Spans.AtPoint
+        Development.IDE.Core.Compile
+        Development.IDE.GHC.CPP
+        Development.IDE.GHC.Orphans
+        Development.IDE.Import.DependencyInformation
+        Development.IDE.Spans.Documentation
+        Development.IDE.Import.FindImports
+        Development.IDE.GHC.Error
+        Development.IDE.Spans.Calculate
+        Development.IDE.GHC.Warnings
+        Development.IDE.Core.FileStore
+        Development.IDE.Core.Rules
+        Development.IDE.GHC.Compat
+        Development.IDE.LSP.LanguageServer
+        Development.IDE.LSP.Definition
+        Development.IDE.LSP.Hover
+        Development.IDE.LSP.Protocol
+        Development.IDE.LSP.Server
+        Development.IDE.Types.Options
+        Development.IDE.Core.RuleTypes
+        Development.IDE.Core.Service
+        Development.IDE.Core.Shake
+        Development.IDE.Types.Diagnostics
+        Development.IDE.Types.Location
+        Development.IDE.Spans.Type
+
+executable hie-core
+    default-language:   Haskell2010
+    main-is: Demo.hs
+    ghc-options: -main-is Demo.main
+    build-depends:
+        base == 4.*,
+        filepath,
+        containers,
+        directory,
+        hie-bios,
+        shake,
+        ghc-paths,
+        ghc,
+        extra,
+        haskell-lsp,
+        text,
+        hie-core
+
+    default-extensions:
+        TupleSections
+        RecordWildCards
+        ViewPatterns
+
+    hs-source-dirs:     test

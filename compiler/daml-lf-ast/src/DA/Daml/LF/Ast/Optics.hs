@@ -119,7 +119,6 @@ instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraver
 
 -- NOTE(MH): Builtins are not supposed to contain references to other modules.
 instance MonoTraversable ModuleRef Kind where monoTraverse _ = pure
-instance MonoTraversable ModuleRef EnumCon where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinType where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
 instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure

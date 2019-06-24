@@ -6,12 +6,18 @@
 module DA.Ledger.Tests (main)
 where
 
+import qualified Codec.Archive.Zip as Zip
 import Control.Concurrent (MVar,newMVar,takeMVar,withMVar)
 import Control.Exception (SomeException, try)
 import Control.Monad (unless)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,resetSandbox,withSandbox)
+import qualified  DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Proto3.Archive (decodeArchive)
+import DA.Daml.LF.Reader
+import qualified Data.ByteString.Lazy as BSL
 import Data.List (isPrefixOf,isInfixOf)
 import Data.Text.Lazy (Text)
+import qualified Data.Text.Lazy as TL
 import System.Environment.Blank (setEnv)
 import System.Random (randomIO)
 import System.Time.Extra (timeout)
@@ -49,7 +55,7 @@ tests = testGroupWithSandbox "Haskell Ledger Bindings" [
 tConnect :: WithSandbox -> TestTree
 tConnect withSandbox =
     testCase "connect, ledgerid" $
-    withSandbox $ \sandbox -> do
+    withSandbox $ \sandbox _ -> do
         h <- connect sandbox
         let lid = Ledger.identity h
         let got = Text.unpack $ unLedgerId lid
@@ -59,9 +65,8 @@ tConnect withSandbox =
 tPastFuture :: WithSandbox -> Tasty.TestTree
 tPastFuture withSandbox =
     testCase "past/future" $ do
-    withSandbox $ \sandbox -> do
+    withSandbox $ \sandbox pid -> do
         h <- connect sandbox
-        [pid,_,_] <- Ledger.listPackages h
         let command =  createIOU pid alice "A-coin" 100
         PastAndFuture{past=past1,future=future1} <- Ledger.getTransactionsPF h alice
         _ <- submitCommand h alice command
@@ -80,7 +85,7 @@ tPastFuture withSandbox =
 tSubmitBad :: WithSandbox -> Tasty.TestTree
 tSubmitBad withSandbox =
     testCase "submit bad package id" $ do
-    withSandbox $ \sandbox -> do
+    withSandbox $ \sandbox _ -> do
         h <- connect sandbox
         e <- expectException (submitCommand h alice command)
         assertExceptionTextContains e "Couldn't find package"
@@ -90,9 +95,8 @@ tSubmitBad withSandbox =
 tSubmitGood :: WithSandbox -> Tasty.TestTree
 tSubmitGood withSandbox =
     testCase "submit good package id" $ do
-    withSandbox $ \sandbox -> do
+    withSandbox $ \sandbox pid -> do
         h <- connect sandbox
-        [pid,_,_] <- Ledger.listPackages h -- assume packageId is the 1st of the 3 listed packages.
         let command =  createIOU pid alice "A-coin" 100
         completions <- Ledger.completions h myAid [alice]
         cid1 <- submitCommand h alice command
@@ -104,9 +108,8 @@ tSubmitGood withSandbox =
 tCreateWithKey :: WithSandbox -> Tasty.TestTree
 tCreateWithKey withSandbox =
     testCase "create contract with key" $ do
-    withSandbox $ \sandbox -> do
+    withSandbox $ \sandbox pid -> do
         h <- connect sandbox
-        [pid,_,_] <- Ledger.listPackages h -- assume packageId is the 1st of the 3 listed packages.
         PastAndFuture{future=txs} <- Ledger.getTransactionsPF h alice
         let command = createWithKey pid alice 100
         _ <- submitCommand h alice command
@@ -118,9 +121,8 @@ tCreateWithKey withSandbox =
 tCreateWithoutKey :: WithSandbox -> Tasty.TestTree
 tCreateWithoutKey withSandbox =
     testCase "create contract without key" $ do
-    withSandbox $ \sandbox -> do
+    withSandbox $ \sandbox pid -> do
         h <- connect sandbox
-        [pid,_,_] <- Ledger.listPackages h -- assume packageId is the 1st of the 3 listed packages.
         PastAndFuture{future=txs} <- Ledger.getTransactionsPF h alice
         let command = createWithoutKey pid alice 100
         _ <- submitCommand h alice command
@@ -132,7 +134,7 @@ tCreateWithoutKey withSandbox =
 tListPackages :: WithSandbox -> Tasty.TestTree
 tListPackages withSandbox =
     testCase "package service, listPackages" $ do
-    withSandbox $ \sandbox -> do
+    withSandbox $ \sandbox _ -> do
         h <- connect sandbox
         ids <- Ledger.listPackages h
         assertEqual "#packages" 3 (length ids)
@@ -140,7 +142,7 @@ tListPackages withSandbox =
 tGetPackage :: WithSandbox -> Tasty.TestTree
 tGetPackage withSandbox =
     testCase "package service, get Package" $ do
-    withSandbox $ \sandbox -> do
+    withSandbox $ \sandbox _ -> do
         h <- connect sandbox
         ids <- Ledger.listPackages h
         ps <- mapM (Ledger.getPackage h) ids
@@ -240,32 +242,43 @@ testGroupWithSandbox name tests =
         -- waits to run in the one shared sandbox, after first doing a reset
         withResource acquireShared releaseShared $ \resource -> do
         testGroup name $ map (\f -> f (withShared resource)) tests
-    else
+    else do
         -- runs in it's own freshly (and very slowly!) spun-up sandbox
-        testGroup name $ map (\f -> f (withSandbox specQuickstart)) tests
+        let withSandbox' f = do
+                pid <- mainPackageId specQuickstart
+                withSandbox specQuickstart $ \sandbox -> f sandbox pid
+        testGroup name $ map (\f -> f withSandbox') tests
+
+mainPackageId :: SandboxSpec -> IO PackageId
+mainPackageId (SandboxSpec dar) = do
+    archive <- Zip.toArchive <$> BSL.readFile dar
+    let ManifestData { mainDalfContent } = manifestFromDar archive
+    case decodeArchive (BSL.toStrict mainDalfContent) of
+        Left err -> fail $ show err
+        Right (LF.PackageId pId, _) -> pure (PackageId $ TL.fromStrict pId)
 
 ----------------------------------------------------------------------
 -- SharedSandbox
 
-type WithSandbox = (Sandbox -> IO ()) -> IO ()
+type WithSandbox = (Sandbox -> PackageId -> IO ()) -> IO ()
 
-data SharedSandbox = SharedSandbox (MVar Sandbox)
+data SharedSandbox = SharedSandbox (MVar (Sandbox, PackageId))
 
 acquireShared :: IO SharedSandbox
 acquireShared = do
     sandbox <- startSandbox specQuickstart
-    mv <- newMVar sandbox
+    pid <- mainPackageId specQuickstart
+    mv <- newMVar (sandbox, pid)
     return $ SharedSandbox mv
 
 releaseShared :: SharedSandbox -> IO ()
 releaseShared (SharedSandbox mv) = do
-    sandbox <- takeMVar mv
+    (sandbox, _) <- takeMVar mv
     shutdownSandbox sandbox
 
 withShared :: IO SharedSandbox -> WithSandbox
 withShared resource f = do
     SharedSandbox mv <- resource
-    withMVar mv $ \sandbox -> do
+    withMVar mv $ \(sandbox, pid) -> do
         resetSandbox sandbox
-        f sandbox
-
+        f sandbox pid

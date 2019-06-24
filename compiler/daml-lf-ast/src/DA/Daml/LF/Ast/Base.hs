@@ -134,12 +134,6 @@ data Kind
   | KArrow Kind Kind
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | Enumeration types like Bool and Unit.
-data EnumType
-  = ETUnit
-  | ETBool
-  deriving (Eq, Data, Generic, NFData, Ord, Show)
-
 -- | Builtin type.
 data BuiltinType
   = BTInt64
@@ -148,7 +142,8 @@ data BuiltinType
   | BTTimestamp
   | BTDate
   | BTParty
-  | BTEnum EnumType
+  | BTUnit
+  | BTBool
   | BTList
   | BTUpdate
   | BTScenario
@@ -190,13 +185,6 @@ data TypeConApp = TypeConApp
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | Constructors of builtin 'EnumType's.
-data EnumCon
-  = ECUnit   -- ∷ Unit
-  | ECFalse  -- ∷ Bool
-  | ECTrue   -- ∷ Bool
-  deriving (Eq, Data, Generic, NFData, Ord, Show)
-
 data E10
 instance HasResolution E10 where
   resolution _ = 10000000000 -- 10^-10 resolution
@@ -210,7 +198,8 @@ data BuiltinExpr
   | BETimestamp  !Int64          -- :: Timestamp, microseconds since unix epoch
   | BEParty      !PartyLiteral   -- :: Party
   | BEDate       !Int32          -- :: Date, days since unix epoch
-  | BEEnumCon    !EnumCon        -- see 'EnumCon' above
+  | BEUnit                       -- :: Unit
+  | BEBool       !Bool           -- :: Bool
 
   -- Polymorphic functions
   | BEError                      -- :: ∀a. Text -> a
@@ -441,7 +430,7 @@ data CaseAlternative = CaseAlternative
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data CasePattern
-  -- | Match on constructor of variant type.
+  -- | Match on a constructor of a variant type.
   = CPVariant
     { patTypeCon :: !(Qualified TypeConName)
       -- ^ Type constructor of the type to match on.
@@ -450,7 +439,10 @@ data CasePattern
     , patBinder  :: !ExprVarName
       -- ^ Variable to bind the variant constructor argument to.
     }
-  | CPEnumCon !EnumCon
+  -- | Match on the unit type.
+  | CPUnit
+  -- | Match on the bool type.
+  | CPBool !Bool
   -- | Match on empty list.
   | CPNil
   -- | Match on head and tail of non-empty list.

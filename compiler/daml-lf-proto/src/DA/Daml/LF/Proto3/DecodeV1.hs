@@ -174,7 +174,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_TIMESTAMP -> BEEqual BTTimestamp
   LF1.BuiltinFunctionEQUAL_DATE -> BEEqual BTDate
   LF1.BuiltinFunctionEQUAL_PARTY -> BEEqual BTParty
-  LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual (BTEnum ETBool)
+  LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
 
   LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
   LF1.BuiltinFunctionLEQ_DECIMAL -> BELessEq BTDecimal
@@ -279,8 +279,11 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumVal val -> EVal <$> decodeValName val
   LF1.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
   LF1.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
-  LF1.ExprSumPrimCon (Proto.Enumerated (Right con)) ->
-    EBuiltin . BEEnumCon <$> decodePrimCon con
+  LF1.ExprSumPrimCon (Proto.Enumerated (Right con)) -> pure $ EBuiltin $ case con of
+    LF1.PrimConCON_UNIT -> BEUnit
+    LF1.PrimConCON_TRUE -> BEBool True
+    LF1.PrimConCON_FALSE -> BEBool False
+
   LF1.ExprSumPrimCon (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumPrimCon" num)
   LF1.ExprSumPrimLit lit ->
     EBuiltin <$> decodePrimLit lit
@@ -438,8 +441,10 @@ decodeCaseAlt LF1.CaseAlt{..} = do
     LF1.CaseAltSumEnum _ ->
       -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
       throwError (ParseError "Enum type not supported")
-    LF1.CaseAltSumPrimCon (Proto.Enumerated (Right pcon)) ->
-      CPEnumCon <$> decodePrimCon pcon
+    LF1.CaseAltSumPrimCon (Proto.Enumerated (Right pcon)) -> pure $ case pcon of
+      LF1.PrimConCON_UNIT -> CPUnit
+      LF1.PrimConCON_TRUE -> CPBool True
+      LF1.PrimConCON_FALSE -> CPBool False
     LF1.CaseAltSumPrimCon (Proto.Enumerated (Left idx)) ->
       throwError (UnknownEnum "CaseAltSumPrimCon" idx)
     LF1.CaseAltSumNil LF1.Unit -> pure CPNil
@@ -480,12 +485,6 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumParty p          -> pure $ BEParty $ PartyLiteral $ TL.toStrict p
   LF1.PrimLitSumDate days -> pure $ BEDate days
 
-decodePrimCon :: MDecode m => LF1.PrimCon -> m EnumCon
-decodePrimCon = pure . \case
-  LF1.PrimConCON_UNIT -> ECUnit
-  LF1.PrimConCON_TRUE -> ECTrue
-  LF1.PrimConCON_FALSE -> ECFalse
-
 decodeKind :: LF1.Kind -> Decode Kind
 decodeKind LF1.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF1.KindSumStar LF1.Unit -> pure KStar
@@ -500,8 +499,8 @@ decodePrim = pure . \case
   LF1.PrimTypeTEXT    -> BTText
   LF1.PrimTypeTIMESTAMP -> BTTimestamp
   LF1.PrimTypePARTY   -> BTParty
-  LF1.PrimTypeUNIT    -> BTEnum ETUnit
-  LF1.PrimTypeBOOL    -> BTEnum ETBool
+  LF1.PrimTypeUNIT    -> BTUnit
+  LF1.PrimTypeBOOL    -> BTBool
   LF1.PrimTypeLIST    -> BTList
   LF1.PrimTypeUPDATE  -> BTUpdate
   LF1.PrimTypeSCENARIO -> BTScenario

@@ -1,9 +1,9 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE OverloadedStrings #-}
-module Development.IDE.State.Rules.Daml
-    ( module Development.IDE.State.Rules
-    , module Development.IDE.State.Rules.Daml
+module Development.IDE.Core.Rules.Daml
+    ( module Development.IDE.Core.Rules
+    , module Development.IDE.Core.Rules.Daml
     ) where
 
 import Control.Concurrent.Extra
@@ -12,6 +12,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import DA.Daml.GHC.Compiler.Options
+import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
@@ -34,17 +35,16 @@ import System.FilePath
 import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
 
-import Development.IDE.Functions.DependencyInformation
-import Development.IDE.State.Rules hiding (mainRule)
-import qualified Development.IDE.State.Rules as IDE
-import Development.IDE.State.Service.Daml
-import Development.IDE.State.Shake
+import Development.IDE.Import.DependencyInformation
+import Development.IDE.Core.Rules hiding (mainRule)
+import qualified Development.IDE.Core.Rules as IDE
+import Development.IDE.Core.Service.Daml
+import Development.IDE.Core.Shake
 import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
 import qualified Language.Haskell.LSP.Messages as LSP
 import qualified Language.Haskell.LSP.Types as LSP
 
-import Development.IDE.State.RuleTypes.Daml
+import Development.IDE.Core.RuleTypes.Daml
 
 import DA.Daml.GHC.Compiler.Convert (convertModule, sourceLocToRange)
 import DA.Daml.GHC.Compiler.UtilLF
@@ -168,7 +168,7 @@ generateRawDalfRule =
         pkgMap <- use_ GeneratePackageMap ""
         let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> LF.unPackageId pId) pkgMap
         -- GHC Core to DAML LF
-        case convertModule lfVersion pkgMap0 core of
+        case convertModule lfVersion pkgMap0 file core of
             Left e -> return ([e], Nothing)
             Right v -> return ([], Just v)
 
