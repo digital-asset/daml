@@ -28,7 +28,6 @@ import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
 import qualified Data.Text as T
 import Data.Tuple.Extra
-import Development.IDE.Types.Diagnostics(FileDiagnostic)
 import Development.IDE.Types.Location (NormalizedFilePath)
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import qualified Language.Haskell.LSP.Messages as LSP
@@ -53,12 +52,6 @@ mkEnv options = do
         { envOptions       = options
         , envOfInterestVar = ofInterestVar
         }
-
-getDiagnostics :: IdeState -> IO [FileDiagnostic]
-getDiagnostics = getAllDiagnostics
-
-unsafeClearDiagnostics :: IdeState -> IO ()
-unsafeClearDiagnostics = unsafeClearAllDiagnostics
 
 
 ------------------------------------------------------------
