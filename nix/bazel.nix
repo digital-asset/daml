@@ -20,9 +20,10 @@ rec {
     patchelf
     postgresql
     protobuf3_5
-    scala
     zip
     ;
+
+  scala = pkgs.scala_2_12;
 
   # We need to have a file in GOPATH that we can use as
   # root_file in go_wrap_sdk.
