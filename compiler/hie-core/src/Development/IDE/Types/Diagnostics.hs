@@ -14,19 +14,11 @@ module Development.IDE.Types.Diagnostics (
   errorDiag,
   showDiagnostics,
   showDiagnosticsColored,
-  setStageDiagnostics,
-  getAllDiagnostics,
-  filterDiagnostics,
-  getFileDiagnostics,
-  prettyDiagnostics
   ) where
 
 import Data.Maybe as Maybe
-import Data.Foldable
-import qualified Data.Map as Map
 import qualified Data.Text as T
 import Data.Text.Prettyprint.Doc
-import qualified Data.SortedList as SL
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import qualified Language.Haskell.LSP.Types as LSP
 import Language.Haskell.LSP.Types as LSP (
@@ -112,49 +104,6 @@ prettyDiagnostic (fp, LSP.Diagnostic{..}) =
         ]
     where
         sev = fromMaybe LSP.DsError _severity
-
-getDiagnosticsFromStore :: StoreItem -> [Diagnostic]
-getDiagnosticsFromStore (StoreItem _ diags) =
-    toList =<< Map.elems diags
-
-
--- | Sets the diagnostics for a file and compilation step
---   if you want to clear the diagnostics call this with an empty list
-setStageDiagnostics ::
-  NormalizedFilePath ->
-  Maybe Int ->
-  -- ^ the time that the file these diagnostics originate from was last edited
-  T.Text ->
-  [LSP.Diagnostic] ->
-  DiagnosticStore ->
-  DiagnosticStore
-setStageDiagnostics fp timeM stage diags ds  =
-    updateDiagnostics ds uri timeM diagsBySource
-    where
-        diagsBySource = Map.singleton (Just stage) (SL.toSortedList diags)
-        uri = filePathToUri' fp
-
-getAllDiagnostics ::
-    DiagnosticStore ->
-    [FileDiagnostic]
-getAllDiagnostics =
-    concatMap (\(k,v) -> map (fromUri k,) $ getDiagnosticsFromStore v) . Map.toList
-
-getFileDiagnostics ::
-    NormalizedFilePath ->
-    DiagnosticStore ->
-    [LSP.Diagnostic]
-getFileDiagnostics fp ds =
-    maybe [] getDiagnosticsFromStore $
-    Map.lookup (filePathToUri' fp) ds
-
-filterDiagnostics ::
-    (NormalizedFilePath -> Bool) ->
-    DiagnosticStore ->
-    DiagnosticStore
-filterDiagnostics keep =
-    Map.filterWithKey (\uri _ -> maybe True (keep . toNormalizedFilePath) $ uriToFilePath' $ fromNormalizedUri uri)
-
 
 
 -- | Label a document.

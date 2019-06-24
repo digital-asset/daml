@@ -47,6 +47,7 @@ import           Development.Shake.Database
 import           Development.Shake.Classes
 import           Development.Shake.Rule
 import qualified Data.HashMap.Strict as HMap
+import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as BS
 import           Data.Dynamic
 import           Data.Maybe
@@ -54,8 +55,9 @@ import           Data.Either.Extra
 import           Data.List.Extra
 import qualified Data.Text as T
 import Development.IDE.Types.Logger
-import           Development.IDE.Types.Diagnostics hiding (getAllDiagnostics)
-import qualified Development.IDE.Types.Diagnostics as D
+import Language.Haskell.LSP.Diagnostics
+import qualified Data.SortedList as SL
+import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import           Control.Concurrent.Extra
 import           Control.Exception
@@ -272,7 +274,7 @@ useStale IdeState{shakeExtras=ShakeExtras{state}} k fp =
 getDiagnostics :: IdeState -> IO [FileDiagnostic]
 getDiagnostics IdeState{shakeExtras = ShakeExtras{diagnostics}} = do
     val <- readVar diagnostics
-    return $ D.getAllDiagnostics val
+    return $ getAllDiagnostics val
 
 -- | FIXME: This function is temporary! Only required because the files of interest doesn't work
 unsafeClearDiagnostics :: IdeState -> IO ()
@@ -436,3 +438,46 @@ instance NFData FileVersion
 vfsVersion :: FileVersion -> Maybe Int
 vfsVersion (VFSVersion i) = Just i
 vfsVersion (ModificationTime _) = Nothing
+
+
+
+getDiagnosticsFromStore :: StoreItem -> [Diagnostic]
+getDiagnosticsFromStore (StoreItem _ diags) = concatMap SL.fromSortedList $ Map.elems diags
+
+
+-- | Sets the diagnostics for a file and compilation step
+--   if you want to clear the diagnostics call this with an empty list
+setStageDiagnostics ::
+  NormalizedFilePath ->
+  Maybe Int ->
+  -- ^ the time that the file these diagnostics originate from was last edited
+  T.Text ->
+  [LSP.Diagnostic] ->
+  DiagnosticStore ->
+  DiagnosticStore
+setStageDiagnostics fp timeM stage diags ds  =
+    updateDiagnostics ds uri timeM diagsBySource
+    where
+        diagsBySource = Map.singleton (Just stage) (SL.toSortedList diags)
+        uri = filePathToUri' fp
+
+getAllDiagnostics ::
+    DiagnosticStore ->
+    [FileDiagnostic]
+getAllDiagnostics =
+    concatMap (\(k,v) -> map (fromUri k,) $ getDiagnosticsFromStore v) . Map.toList
+
+getFileDiagnostics ::
+    NormalizedFilePath ->
+    DiagnosticStore ->
+    [LSP.Diagnostic]
+getFileDiagnostics fp ds =
+    maybe [] getDiagnosticsFromStore $
+    Map.lookup (filePathToUri' fp) ds
+
+filterDiagnostics ::
+    (NormalizedFilePath -> Bool) ->
+    DiagnosticStore ->
+    DiagnosticStore
+filterDiagnostics keep =
+    Map.filterWithKey (\uri _ -> maybe True (keep . toNormalizedFilePath) $ uriToFilePath' $ fromNormalizedUri uri)
