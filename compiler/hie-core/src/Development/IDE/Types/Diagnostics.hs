@@ -11,7 +11,6 @@ module Development.IDE.Types.Diagnostics (
   List(..),
   ideErrorText,
   ideErrorPretty,
-  errorDiag,
   showDiagnostics,
   showDiagnosticsColored,
   ) where
@@ -35,14 +34,10 @@ import Development.IDE.Types.Location
 
 
 ideErrorText :: NormalizedFilePath -> T.Text -> FileDiagnostic
-ideErrorText fp = errorDiag fp "Ide Error"
+ideErrorText fp msg = (fp, diagnostic noRange LSP.DsError "Ide Error" msg)
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
-
-errorDiag :: NormalizedFilePath -> T.Text -> T.Text -> FileDiagnostic
-errorDiag fp src msg =
-  (fp,  diagnostic noRange LSP.DsError src msg)
 
 -- | This is for compatibility with our old diagnostic type
 diagnostic :: Range
