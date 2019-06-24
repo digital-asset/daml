@@ -23,6 +23,8 @@ module DamlHelper
     , SandboxPort(..)
     , ReplaceExtension(..)
     , OpenBrowser(..)
+    , StartNavigator(..)
+    , WaitForSignal(..)
     , DamlHelperError(..)
     ) where
 
@@ -532,8 +534,14 @@ withNavigator (SandboxPort sandboxPort) navigatorPort config args a = do
 -- | Whether `daml start` should open a browser automatically.
 newtype OpenBrowser = OpenBrowser Bool
 
-runStart :: OpenBrowser -> IO ()
-runStart (OpenBrowser shouldOpenBrowser) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
+-- | Whether `daml start` should start the navigator automatically.
+newtype StartNavigator = StartNavigator Bool
+
+-- | Whether `daml start` should wait for Ctrl+C or interrupt after starting servers.
+newtype WaitForSignal = WaitForSignal Bool
+
+runStart :: StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
+runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     projectConfig <- getProjectConfig
     projectName :: String <-
         requiredE "Project must have a name" $
@@ -551,12 +559,21 @@ runStart (OpenBrowser shouldOpenBrowser) = withProjectRoot Nothing (ProjectCheck
             -- Navigator determines the file format based on the extension so we need a .json file.
             let navigatorConfPath = confDir </> "navigator-config.json"
             writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig parties)
-            withNavigator sandboxPort navigatorPort navigatorConfPath [] $ \navigatorPh -> do
-                when shouldOpenBrowser $ void $ openBrowser (navigatorURL navigatorPort)
-                void $ race (waitForProcess navigatorPh) (waitForProcess sandboxPh)
+            withNavigator' sandboxPh sandboxPort navigatorPort navigatorConfPath [] $ \navigatorPh -> do
+                whenJust onStartM $ \onStart ->
+                    void $ withCreateProcess (shell onStart) $ \ _ _ _ -> waitForProcess
+
+                when (shouldStartNavigator && shouldOpenBrowser) $
+                    void $ openBrowser (navigatorURL navigatorPort)
+                when shouldWaitForSignal $
+                    void $ race (waitForProcess navigatorPh) (waitForProcess sandboxPh)
 
     where sandboxPort = SandboxPort 6865
           navigatorPort = NavigatorPort 7500
+          withNavigator' sandboxPh =
+              if shouldStartNavigator
+                  then withNavigator
+                  else (\_ _ _ _ f -> f sandboxPh)
 
 getProjectConfig :: IO ProjectConfig
 getProjectConfig = do

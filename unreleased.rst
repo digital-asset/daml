@@ -13,6 +13,8 @@ HEAD — ongoing
   changing the default behavior of ``daml install`` to install the assistant
   whenever we are installing a newer version of the SDK. Deprecated the
   ``--activate`` flag.
+- [DAML Assistant] Added ``--start-navigator``, ``--on-start``, and ``--wait-for-signal``
+  options to ``daml start``, to make scripting and testing with the sandbox much easier.
 - [DAML Studio] Opening an already open scenario will now focus it rather than opening
   it in a new empty tab which is never updated with results.
 - [DAML Studio] The selected view for scenario results (table or transaction) is now
