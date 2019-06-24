@@ -11,25 +11,17 @@
 --
 module DA.Service.Logger
   ( Handle(..)
-  , Counter(..)
-  , Gauge(..)
-  , Distribution(..)
   , Priority(..)
   , logDebug
   , logInfo
   , logWarning
   , logError
-  , liftHandle
   ) where
 
 
-import           Control.Monad.Base
-import           Control.Monad.Trans.Control
 import qualified Data.Aeson                   as Aeson
 import qualified Data.Text                    as T
 import GHC.Stack
-import Data.Data
-import GHC.Generics
 
 
 ------------------------------------------------------------------------------
@@ -45,30 +37,8 @@ data Priority
       -- ^ These error messages should not occur in a expected usage, and
       -- should be investigated.
     | Error -- ^ Such log messages must never occur in expected usage.
-    deriving (Eq, Show, Data, Generic, Ord, Enum, Bounded)
+    deriving (Eq, Show, Ord, Enum, Bounded)
 
-instance Aeson.FromJSON Priority
-instance Aeson.ToJSON Priority
-
--- | Counter for tracking monotonically increasing values such as number of times
--- an operation has been performed.
-newtype Counter m = Counter
-    { counterAdd :: Int -> m ()
-    }
-
--- | Gauge for tracking variable values such as number of open resources.
-data Gauge m = Gauge
-    { gaugeAdd :: Int -> m ()
-    , gaugeSet :: Int -> m ()
-    }
-
--- | Distribution for tracking statistics in a series of events.
-newtype Distribution m = Distribution
-    { distributionAdd :: Double -> m ()
-      -- ^ @distributionAdd value@ Include the given value into the set of
-      -- observed samples over which we compute the distribution's statistics.
-      -- NOTE(JM): This is currently only implemented in the IO logger.
-    }
 
 -- | Logger service
 -- Provides structural logging with dynamic tagging of actions and
@@ -105,11 +75,3 @@ logInfo h = logJson h Info
 
 logDebug :: HasCallStack => Handle m -> T.Text -> m ()
 logDebug h = logJson h Debug
-
-liftHandle :: MonadBaseControl b m => Handle b -> Handle m
-liftHandle h =
-  Handle
-  { logJson = \p -> liftBase . logJson h p
-  , tagAction = liftBaseOp_ . tagAction h
-  , tagHandle = liftHandle . tagHandle h
-  }
