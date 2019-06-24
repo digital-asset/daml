@@ -9,7 +9,7 @@ import System.Environment
 import System.Exit
 import System.IO
 
-import DamlHelper
+import DamlHelper.Run
 import DamlHelper.Signals
 
 main :: IO ()
