@@ -32,8 +32,6 @@ import Development.IDE.Import.FindImports
 import           Development.IDE.Core.FileStore
 import           Development.IDE.Types.Diagnostics as Base
 import Development.IDE.Types.Location
-import qualified Data.ByteString.UTF8 as BS
-import Control.Exception
 import Data.Bifunctor
 import Data.Either.Extra
 import Data.Maybe
@@ -76,13 +74,6 @@ defineNoFile f = define $ \k file -> do
 
 ------------------------------------------------------------
 -- Exposed API
-
-getFilesOfInterestRule :: Rules ()
-getFilesOfInterestRule = do
-    defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null $ fromNormalizedFilePath _file) $ do
-        alwaysRerun
-        filesOfInterest <- getFilesOfInterest
-        pure (Just $ BS.fromString $ show filesOfInterest, ([], Just filesOfInterest))
 
 
 -- | Generate the GHC Core for the supplied file and its dependencies.
@@ -292,7 +283,6 @@ mainRule = do
     generateCoreRule
     loadGhcSession
     getHieFileRule
-    getFilesOfInterestRule
 
 ------------------------------------------------------------
 

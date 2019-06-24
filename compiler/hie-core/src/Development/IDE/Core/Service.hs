@@ -23,11 +23,10 @@ import           Control.Concurrent.Extra
 import           Control.Monad.Except
 import Development.IDE.Types.Options (IdeOptions(..))
 import           Development.IDE.Core.FileStore
+import           Development.IDE.Core.OfInterest
 import Development.IDE.Types.Logger
 import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
-import qualified Data.Text as T
-import Data.Tuple.Extra
 import Development.IDE.Types.Location (NormalizedFilePath)
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import qualified Language.Haskell.LSP.Messages as LSP
@@ -74,6 +73,7 @@ initialise mainRule toDiags logger options vfs =
                      }) $ do
             addIdeGlobal =<< liftIO (mkEnv options)
             fileStoreRules vfs
+            ofInterestRules
             mainRule
 
 writeProfile :: IdeState -> FilePath -> IO ()
@@ -114,21 +114,6 @@ runActionSync s a = head <$> runActionsSync s [a]
 runActionsSync :: IdeState -> [Action a] -> IO [a]
 runActionsSync s acts = join $ shakeRun s acts (const $ pure ())
 
--- | Set the files-of-interest which will be built and kept-up-to-date.
-setFilesOfInterest :: IdeState -> Set NormalizedFilePath -> IO ()
-setFilesOfInterest state files = modifyFilesOfInterest state (const files)
-
-getFilesOfInterest :: Action (Set NormalizedFilePath)
-getFilesOfInterest = do
-    Env{..} <- getIdeGlobalAction
-    liftIO $ readVar envOfInterestVar
-
-modifyFilesOfInterest :: IdeState -> (Set NormalizedFilePath -> Set NormalizedFilePath) -> IO ()
-modifyFilesOfInterest state f = do
-    Env{..} <- getIdeGlobalState state
-    files <- modifyVar envOfInterestVar $ pure . dupe . f
-    logDebug (ideLogger state) $ "Set files of interest to: " <> T.pack (show $ Set.toList files)
-    void $ shakeRun state [] (const $ pure ())
 
 getServiceEnv :: Action Env
 getServiceEnv = getIdeGlobalAction

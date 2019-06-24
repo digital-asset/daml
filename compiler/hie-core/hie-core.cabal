@@ -100,6 +100,7 @@ library
         Development.IDE.Core.RuleTypes
         Development.IDE.Core.Service
         Development.IDE.Core.Shake
+        Development.IDE.Core.OfInterest
         Development.IDE.Types.Diagnostics
         Development.IDE.Types.Location
         Development.IDE.Spans.Type
