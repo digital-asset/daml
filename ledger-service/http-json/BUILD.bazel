@@ -32,7 +32,7 @@ da_scala_library(
 da_scala_binary(
     name = "http-json-bin",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    main_class = "com.digitalasset.http.DummyMain",
+    main_class = "com.digitalasset.http.Main",
     deps = [":http-json"] + http_json_deps,
 )
 
