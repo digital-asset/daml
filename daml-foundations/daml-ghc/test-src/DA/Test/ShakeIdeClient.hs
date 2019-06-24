@@ -307,7 +307,7 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectNoErrors
             expectGoToDefinition (foo,2,[-1])   Missing             -- (out of range)
             -- expectGoToDefinition (foo,2,[0..2]) (At (foo,3,0))   -- "foo"            [see failing test]
-            expectGoToDefinition (foo,2,[3..5]) Missing             -- " : "
+            expectGoToDefinition (foo,2,[2..4]) Missing             -- " : "
             -- expectGoToDefinition (foo,2,[6..8]) (In "GHC.Types") -- "Int"            [see failing test]
             expectGoToDefinition (foo,2,[9])    Missing             -- "\n"
             expectGoToDefinition (foo,2,[10])   Missing             -- (out of range)
@@ -389,6 +389,28 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             setFilesOfInterest [foo]
             expectGoToDefinition (foo,2,[0]) (At (foo,3,0))
 
+    ,   testCase' "Go to definition on type in type sig" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "data X = Y {}"
+                , "foo : X"
+                , "foo = Y"
+                ]
+            setFilesOfInterest [foo]
+            expectGoToDefinition (foo,3,[5]) (At (foo,2,0))
+
+    ,   testCase' "Go to definition on type annotation" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "data X = Y {}"
+                , "foo : X"
+                , "foo = Y : X"
+                ]
+            setFilesOfInterest [foo]
+            expectGoToDefinition (foo,4,[10]) (At (foo,2,0))
+
     ,   testCaseFails' "[DEL-6941] Go to definition should ignore negative column" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
@@ -412,7 +434,7 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,6,[14..18]) (At (foo,4,4)) -- "owner" in signatory clause
             expectGoToDefinition (foo,7,[19..23]) (At (foo,4,4)) -- "owner" in agreement
 
-    ,   testCaseFails' "[DEL-6941] Standard library type points to standard library" $ do
+    ,   testCase' "Standard library type points to standard library" $ do
             foo <- makeModule "Foo"
                 [ "foo : Optional (List Bool)"
                 , "foo = Some [False]"
@@ -420,8 +442,9 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectGoToDefinition (foo,2,[6..13]) (In "Prelude") -- "Optional"
-            expectGoToDefinition (foo,2,[16..19]) (In "GHC.Types") -- "List"
-            expectGoToDefinition (foo,2,[21..24]) (In "GHC.Types") -- "Bool"
+            expectGoToDefinition (foo,2,[16..19]) (In "DA.Internal.Compatible") -- "List"
+            -- Bool is from GHC.Types which is wired into the compiler
+            expectGoToDefinition (foo,2,[20]) Missing
 
     ,   testCase' "Go to definition takes export list to definition" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
