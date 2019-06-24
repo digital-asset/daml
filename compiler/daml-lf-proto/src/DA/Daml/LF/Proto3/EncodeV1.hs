@@ -12,6 +12,7 @@ module DA.Daml.LF.Proto3.EncodeV1
 import           Control.Lens ((^.), (^..), matching)
 import           Control.Lens.Ast (rightSpine)
 
+import           Data.Word
 import qualified Data.NameMap as NM
 import qualified Data.Set as S
 import qualified Data.Text           as T
@@ -32,7 +33,7 @@ import qualified Proto3.Suite as P (Enumerated (..))
 type Just a = Maybe a
 
 -- package-global state that encodePackageRef requires
-type PackageRefCtx = S.Set PackageId
+type PackageRefCtx = PackageId -> Maybe Word64
 
 data EncodeCtx = EncodeCtx {
    version :: Version
@@ -88,17 +89,19 @@ encodePackageRef interned = Just . \case
     PRImport pkgid -> P.PackageRef $ Just $
       maybe (P.PackageRefSumPackageId $ encodePackageId pkgid)
             (P.PackageRefSumInternedId . fromIntegral)
-            (S.lookupIndex pkgid interned)
+            $ interned pkgid
 
-internPackageRefIds :: Package -> PackageRefCtx
+internPackageRefIds :: Package -> (PackageRefCtx, [PackageId])
 internPackageRefIds pkg
   | packageLfVersion pkg `supports` featureInternedPackageIds =
-      S.fromList $ pkg ^.. packageRefs._PRImport
-  | otherwise = S.empty
+      let set = S.fromList $ pkg ^.. packageRefs._PRImport
+          lookup pkgid = fromIntegral <$> pkgid `S.lookupIndex` set
+      in (lookup, S.toAscList set)
+  | otherwise = (const Nothing, [])
 
 -- invariant: forall pkgid. pkgid `S.lookupIndex ` input = encodePackageId pkgid `V.elemIndex` output
-encodeInternedPackageIds :: PackageRefCtx -> V.Vector TL.Text
-encodeInternedPackageIds = encodeList encodePackageId . S.toAscList
+encodeInternedPackageIds :: [PackageId] -> V.Vector TL.Text
+encodeInternedPackageIds = encodeList encodePackageId
 
 encodeModuleRef :: PackageRefCtx -> PackageRef -> ModuleName -> Just P.ModuleRef
 encodeModuleRef ctx pkgRef modName =
@@ -487,7 +490,7 @@ encodeFeatureFlags _version FeatureFlags{..} = Just P.FeatureFlags
     }
 
 encodeModuleWithLargePackageIds :: Version -> Module -> P.Module
-encodeModuleWithLargePackageIds = encodeModule . flip EncodeCtx S.empty
+encodeModuleWithLargePackageIds = encodeModule . flip EncodeCtx (const Nothing)
 
 encodeModule :: EncodeCtx -> Module -> P.Module
 encodeModule encctx@EncodeCtx{..} Module{..} =
@@ -502,8 +505,8 @@ encodeModule encctx@EncodeCtx{..} Module{..} =
 encodePackage :: Package -> P.Package
 encodePackage pkg@(Package version mods) =
     P.Package (encodeNameMap encodeModule (EncodeCtx version interned) mods)
-              (encodeInternedPackageIds interned)
-  where interned = internPackageRefIds pkg
+              (encodeInternedPackageIds internedList)
+  where (interned, internedList) = internPackageRefIds pkg
 
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
