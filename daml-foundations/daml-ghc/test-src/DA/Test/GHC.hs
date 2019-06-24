@@ -163,6 +163,7 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       , resultTime = 0
       }
     else do
+      -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       Compile.unsafeClearDiagnostics service
       ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
       diags <- Compile.getDiagnostics service
