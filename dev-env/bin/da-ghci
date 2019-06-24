@@ -70,14 +70,7 @@ def main():
         target = args.target
 
         # Find out if it's a haskell_repl target
-        ret = subprocess.run(
-            ['bazel', 'query', '--output', 'label_kind', target],
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL
-        )
-        kind = ret.stdout.decode()
-        is_repl = 'haskell_repl' in kind
+        is_repl = 'haskell_repl' in query_target_kind(target)
 
     # In auto mode we try to build with data "yes" first, and fall back to data
     # "no" on failure. We separate the build step so that we can check for
@@ -133,6 +126,24 @@ def mk_bazel_args(target, with_data, is_repl):
 
     return bazel_args
 
+def query_target_kind(target):
+    # See query_haskell_target below.
+    subprocess.run(
+            ["bazel", "fetch", "--keep_going", "//..."],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL)
+
+    ret = subprocess.run(
+        ["bazel", "query", "--output", "label_kind", target],
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL
+    )
+    if ret.returncode != 0:
+        print("ERROR: Could not determine target kind.", file=sys.stderr)
+        sys.exit(1)
+    return ret.stdout.decode()
 
 def query_haskell_target(source_file):
     # If Bazel needs to reload external dependencies, e.g. on a fresh checkout,
