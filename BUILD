@@ -194,10 +194,10 @@ buildifier(
 # Default target for da-ghci, da-ghcid.
 da_haskell_repl(
     name = "repl",
+    visibility = ["//visibility:public"],
     deps = [
         ":damlc",
         "//daml-assistant:daml",
         "//daml-assistant/daml-helper",
     ],
-    visibility = ["//visibility:public"],
 )
