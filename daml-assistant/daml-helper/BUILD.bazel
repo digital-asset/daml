@@ -9,7 +9,7 @@ da_haskell_library(
     name = "daml-helper-lib",
     srcs = glob(
         ["src/**/*.hs"],
-        exclude = ["src/Main.hs"],
+        exclude = ["src/DamlHelper/Main.hs"],
     ),
     hazel_deps = [
         "aeson",
@@ -38,7 +38,7 @@ da_haskell_library(
 
 da_haskell_binary(
     name = "daml-helper",
-    srcs = ["src/Main.hs"],
+    srcs = ["src/DamlHelper/Main.hs"],
     hazel_deps = [
         "base",
     ],
@@ -47,6 +47,7 @@ da_haskell_binary(
         ":daml-helper-lib",
         "//libs-haskell/da-hs-base",
     ],
+    main_function = 'DamlHelper.Main.main',
 )
 
 package_app(
