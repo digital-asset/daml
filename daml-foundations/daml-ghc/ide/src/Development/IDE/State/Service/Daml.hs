@@ -3,7 +3,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Development.IDE.Core.Service.Daml(
-    Env(..),
     VirtualResource(..),
     DamlEnv(..),
     getDamlServiceEnv,

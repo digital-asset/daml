@@ -9,8 +9,6 @@
 --   using the "Shaker" abstraction layer for in-memory use.
 --
 module Development.IDE.Core.Service(
-    Env(..),
-    getServiceEnv,
     getIdeOptions,
     IdeState, initialise, shutdown,
     runAction, runActions,
