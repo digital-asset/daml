@@ -59,6 +59,9 @@ def main():
 
         # Discover the Haskell target.
         target = query_haskell_target(source_file)
+
+        # This isn't a haskell_repl target
+        is_repl = False
     else:
         # No specific module to load.
         module_name = None
@@ -66,18 +69,28 @@ def main():
         # Assume we were given a Bazel target.
         target = args.target
 
+        # Find out if it's a haskell_repl target
+        ret = subprocess.run(
+            ['bazel', 'query', '--output', 'label_kind', target],
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL
+        )
+        kind = ret.stdout.decode()
+        is_repl = 'haskell_repl' in kind
+
     # In auto mode we try to build with data "yes" first, and fall back to data
     # "no" on failure. We separate the build step so that we can check for
     # build failure in isolation. In non-auto mode we don't need to separate
     # the build step and can call `bazel run` right away.
     with_data = args.data == "yes" or args.data == "auto"
-    bazel_args = mk_bazel_args(target, with_data)
+    bazel_args = mk_bazel_args(target, with_data=with_data, is_repl=is_repl)
     if args.data == "auto":
         try:
             bazel_build(bazel_args)
         except subprocess.CalledProcessError:
             print("WARNING: Build with runfiles failed. Retrying without runfiles.", file=sys.stderr)
-            bazel_args = mk_bazel_args(target, False)
+            bazel_args = mk_bazel_args(target, with_data=False, is_repl=is_repl)
             try:
                 bazel_build(bazel_args)
             except subprocess.CalledProcessError:
@@ -88,10 +101,8 @@ def main():
     except subprocess.CalledProcessError:
         sys.exit(1)
 
-
 def bazel_build(bazel_args):
     subprocess.run(["bazel", "build"] + bazel_args, check=True)
-
 
 def run_repl(bazel_args, ghci_args, module_name):
     try:
@@ -111,15 +122,13 @@ def run_repl(bazel_args, ghci_args, module_name):
             os.close(script_fd)
             os.remove(script_path)
 
-
-def mk_bazel_args(target, with_data):
-    bazel_args = ["{}@ghci".format(target)]
+def mk_bazel_args(target, with_data, is_repl):
+    bazel_args = [target if is_repl else "{}@ghci".format(target)]
 
     if with_data:
         bazel_args += ["--define", "ghci_data=True"]
 
     return bazel_args
-
 
 def query_haskell_target(source_file):
     # If Bazel needs to reload external dependencies, e.g. on a fresh checkout,
@@ -156,7 +165,6 @@ def query_haskell_target(source_file):
 
     return targets[0]
 
-
 def parse_module_name(source_file):
     prog = re.compile(".*^\s*module\s+([a-zA-Z._']+)", re.DOTALL|re.MULTILINE)
     with open(source_file, "r") as f:
@@ -166,7 +174,6 @@ def parse_module_name(source_file):
     else:
         print("WARNING: Could not identify module name. Will just load target.", file=sys.stderr)
         return None
-
 
 if __name__ == "__main__":
     main()
