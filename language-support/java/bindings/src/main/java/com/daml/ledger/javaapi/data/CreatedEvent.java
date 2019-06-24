@@ -29,16 +29,16 @@ public final class CreatedEvent implements Event, TreeEvent {
 
     private final @NonNull Set<@NonNull String> observers;
 
-    public CreatedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId, @NonNull Record arguments, @NonNull Optional<String> agreementText, @NonNull Optional<Value> contractKey, @NonNull Set<@NonNull String> signatories, @NonNull Set<@NonNull String> observers) {
-        this.witnessParties = Collections.unmodifiableList(witnessParties);
+    public CreatedEvent(@NonNull List<@NonNull String> witnessParties, @NonNull String eventId, @NonNull Identifier templateId, @NonNull String contractId, @NonNull Record arguments, @NonNull Optional<String> agreementText, @NonNull Optional<Value> contractKey, @NonNull Collection<@NonNull String> signatories, @NonNull Collection<@NonNull String> observers) {
+        this.witnessParties = Collections.unmodifiableList(new ArrayList<>(witnessParties));
         this.eventId = eventId;
         this.templateId = templateId;
         this.contractId = contractId;
         this.arguments = arguments;
         this.agreementText = agreementText;
         this.contractKey = contractKey;
-        this.signatories = Collections.unmodifiableSet(signatories);
-        this.observers = Collections.unmodifiableSet(observers);
+        this.signatories = Collections.unmodifiableSet(new HashSet<>(signatories));
+        this.observers = Collections.unmodifiableSet(new HashSet<>(observers));
     }
 
     @NonNull
@@ -143,8 +143,8 @@ public final class CreatedEvent implements Event, TreeEvent {
                 Record.fromProto(createdEvent.getCreateArguments()),
                 createdEvent.hasAgreementText() ? Optional.of(createdEvent.getAgreementText().getValue()) : Optional.empty(),
                 createdEvent.hasContractKey() ? Optional.of(Value.fromProto(createdEvent.getContractKey())) : Optional.empty(),
-                new HashSet(createdEvent.getSignatoriesList()),
-                new HashSet(createdEvent.getObserversList()));
+                createdEvent.getSignatoriesList(),
+                createdEvent.getObserversList());
 
     }
 }
