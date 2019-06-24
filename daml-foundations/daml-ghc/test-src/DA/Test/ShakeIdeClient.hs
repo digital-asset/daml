@@ -439,9 +439,6 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,1,[17..17]) (At (foo,4,0))
             -- B
             expectGoToDefinition (foo,1,[19..19]) (At (foo,4,9))
-{-
-    -- Disabled for now. See issue
-    -- https://github.com/digital-asset/daml/issues/1582
     ,    testCase' "Cross-package goto definition" $ do
             foo <- makeModule "Foo"
                 [ "test = scenario do"
@@ -451,7 +448,6 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectGoToDefinition (foo, 3, [7..14]) (In "DA.Internal.LF")
--}
     ]
     where
         testCase' = testCase mbScenarioService

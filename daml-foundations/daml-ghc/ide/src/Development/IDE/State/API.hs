@@ -23,8 +23,7 @@ module Development.IDE.State.API
     , unsafeClearDiagnostics
     , generatePackageMap
     , getDependencies
-    , logDebug
-    , logSeriousError
+    , ideLogger
     , VFSHandle
     , makeVFSHandle
     , makeLSPVFSHandle
