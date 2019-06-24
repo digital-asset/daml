@@ -8,7 +8,7 @@ load(
     "@io_tweag_rules_haskell//haskell:c2hs.bzl",
     "c2hs_toolchain",
 )
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
 
 exports_files([".hlint.yaml"])
 
