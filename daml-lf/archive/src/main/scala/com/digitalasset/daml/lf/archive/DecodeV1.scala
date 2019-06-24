@@ -680,7 +680,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
 
 }
 
-object DecodeV1 {
+private[lf] object DecodeV1 {
   import LanguageMinorVersion.Implicits._
 
   private[lf] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
