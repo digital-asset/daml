@@ -46,7 +46,7 @@ import           Development.Shake
 import           Development.Shake.Database
 import           Development.Shake.Classes
 import           Development.Shake.Rule
-import qualified Data.HashMap.Strict as Map
+import qualified Data.HashMap.Strict as HMap
 import qualified Data.ByteString.Char8 as BS
 import           Data.Dynamic
 import           Data.Maybe
@@ -78,7 +78,7 @@ import           Numeric.Extra
 data ShakeExtras = ShakeExtras
     {eventer :: LSP.FromServerMessage -> IO ()
     ,logger :: Logger
-    ,globals :: Var (Map.HashMap TypeRep Dynamic)
+    ,globals :: Var (HMap.HashMap TypeRep Dynamic)
     ,state :: Var Values
     ,diagnostics :: Var DiagnosticStore
     }
@@ -100,14 +100,14 @@ class Typeable a => IsIdeGlobal a where
 addIdeGlobal :: IsIdeGlobal a => a -> Rules ()
 addIdeGlobal x@(typeOf -> ty) = do
     ShakeExtras{globals} <- getShakeExtrasRules
-    liftIO $ modifyVar_ globals $ \mp -> case Map.lookup ty mp of
+    liftIO $ modifyVar_ globals $ \mp -> case HMap.lookup ty mp of
         Just _ -> error $ "Can't addIdeGlobal twice on the same type, got " ++ show ty
-        Nothing -> return $! Map.insert ty (toDyn x) mp
+        Nothing -> return $! HMap.insert ty (toDyn x) mp
 
 
 getIdeGlobalExtras :: forall a . IsIdeGlobal a => ShakeExtras -> IO a
 getIdeGlobalExtras ShakeExtras{globals} = do
-    Just x <- Map.lookup (typeRep (Proxy :: Proxy a)) <$> readVar globals
+    Just x <- HMap.lookup (typeRep (Proxy :: Proxy a)) <$> readVar globals
     return $ fromDyn x $ error "Serious error, corrupt globals"
 
 getIdeGlobalAction :: forall a . IsIdeGlobal a => Action a
@@ -118,7 +118,7 @@ getIdeGlobalState = getIdeGlobalExtras . shakeExtras
 
 
 -- | The state of the all values - nested so you can easily find all errors at a given file.
-type Values = Map.HashMap (NormalizedFilePath, Key) (Maybe Dynamic)
+type Values = HMap.HashMap (NormalizedFilePath, Key) (Maybe Dynamic)
 
 -- | Key type
 data Key = forall k . (Typeable k, Hashable k, Eq k, Show k) => Key k
@@ -197,7 +197,7 @@ setValues :: IdeRule k v
           -> Maybe v
           -> IO ()
 setValues state key file val = modifyVar_ state $
-    pure . Map.insert (file, Key key) (fmap toDyn val)
+    pure . HMap.insert (file, Key key) (fmap toDyn val)
 
 -- | The outer Maybe is Nothing if this function hasn't been computed before
 --   the inner Maybe is Nothing if the result of the previous computation failed to produce
@@ -206,7 +206,7 @@ getValues :: forall k v. IdeRule k v => Var Values -> k -> NormalizedFilePath ->
 getValues state key file = do
     vs <- readVar state
     return $ do
-        v <- Map.lookup (file, Key key) vs
+        v <- HMap.lookup (file, Key key) vs
         pure $ fmap (fromJust . fromDynamic @v) v
 
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
@@ -217,8 +217,8 @@ shakeOpen :: (LSP.FromServerMessage -> IO ()) -- ^ diagnostic handler
           -> IO IdeState
 shakeOpen eventer logger opts rules = do
     shakeExtras <- do
-        globals <- newVar Map.empty
-        state <- newVar Map.empty
+        globals <- newVar HMap.empty
+        state <- newVar HMap.empty
         diagnostics <- newVar mempty
         pure ShakeExtras{..}
     (shakeDb, shakeClose) <- shakeOpenDatabase opts{shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts} rules
@@ -284,7 +284,7 @@ garbageCollect :: (NormalizedFilePath -> Bool) -> Action ()
 garbageCollect keep = do
     ShakeExtras{state, diagnostics} <- getShakeExtras
     liftIO $
-        do modifyVar_ state $ return . Map.filterWithKey (\(file, _) _ -> keep file)
+        do modifyVar_ state $ return . HMap.filterWithKey (\(file, _) _ -> keep file)
            modifyVar_ diagnostics $ return . filterDiagnostics keep
 
 define
