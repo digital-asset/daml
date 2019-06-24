@@ -26,3 +26,4 @@ HEAD — ongoing
 - [Java Bindings] The artefact ``com.daml.ledger:bindings-java`` now has ``grpc-netty`` as dependency so that users don't need to explicitly add it.
 - [DAML Integration Kit] Fixed a bug in the test tool that prevented users from running the tests.
   See `#1841 <https://github.com/digital-asset/daml/issues/1841>`__
+- [DAML Studio] Goto definition now works on types.
