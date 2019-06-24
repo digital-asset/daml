@@ -10,14 +10,19 @@ import System.Exit
 import System.IO
 
 import DamlHelper
+import DamlHelper.Signals
 
 main :: IO ()
-main = withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do
-    hPutStrLn stderr (displayException e)
-    exitFailure
+main =
+    withProgName "daml" $ go `catch` \(e :: DamlHelperError) -> do
+        hPutStrLn stderr (displayException e)
+        exitFailure
   where
-      parserPrefs = prefs showHelpOnError
-      go = runCommand =<< customExecParser parserPrefs (info (commandParser <**> helper) idm)
+    parserPrefs = prefs showHelpOnError
+    go = do
+         installSignalHandlers
+         command <- customExecParser parserPrefs (info (commandParser <**> helper) idm)
+         runCommand command
 
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
