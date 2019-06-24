@@ -7,7 +7,7 @@ import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import org.scalatest._
-import org.scalatest.concurrent.AsyncTimeLimitedTests
+import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 
 import scala.collection.immutable.Iterable
@@ -19,6 +19,7 @@ import scala.util.control.{NoStackTrace, NonFatal}
 trait MultiFixtureBase[FixtureId, TestContext]
     extends Assertions
     with BeforeAndAfterAll
+    with ScaledTimeSpans
     with AsyncTimeLimitedTests {
   self: AsyncTestSuite =>
 
@@ -38,7 +39,7 @@ trait MultiFixtureBase[FixtureId, TestContext]
     def context(): TestContext = createContext()
   }
 
-  def timeLimit: Span = 30.seconds
+  def timeLimit: Span = scaled(30.seconds)
 
   object TestFixture {
     def apply(id: FixtureId, createContext: () => TestContext): TestFixture =

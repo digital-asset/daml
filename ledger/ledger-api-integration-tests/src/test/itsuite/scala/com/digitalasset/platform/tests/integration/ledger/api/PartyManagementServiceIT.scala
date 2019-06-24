@@ -41,7 +41,7 @@ class PartyManagementServiceIT
     with Inside
     with OptionValues {
 
-  override def timeLimit: Span = 15.seconds
+  override def timeLimit: Span = scaled(15.seconds)
 
   override protected def config: Config = Config.default
 

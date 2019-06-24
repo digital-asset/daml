@@ -51,7 +51,7 @@ class CommandStaticTimeIT
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
 
-  override def timeLimit: Span = 15.seconds
+  override def timeLimit: Span = scaled(15.seconds)
 
   private val tenDays: time.Duration = java.time.Duration.ofDays(10L)
 

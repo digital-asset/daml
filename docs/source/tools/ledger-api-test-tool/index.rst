@@ -160,3 +160,20 @@ will still print information about failed tests.
 
 We used this flag during tool development to ensure that the tool does not
 always return success.
+
+Tuning the testing behaviour of the tool
+========================================
+
+Use the command line options ``--timeout-scale-factor`` and
+``--command-submission-ttl-scale-factor`` to tune timeouts applied by the tool.
+
+- Set ``--timeout-scale-factor`` to a floating point value higher than 1.0 to make
+  the tool wait longer for expected events coming from the DAML ledger
+  implementation under test. Conversely use values smaller than 1.0 to make it
+  wait shorter.
+- Set ``--command-submission-ttl-scale-factor`` to a value higher than 1.0 to
+  make the test tool generate Ledger API Commands with higher than default
+  maximum record time, which might be necessary for DAML ledger implementations
+  which take a long time to commit a proposed transaction. Conversely use values
+  smaller than 1.0 to make it give less time for a DAML ledger implementation to
+  commit a proposed transaction.

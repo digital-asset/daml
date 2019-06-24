@@ -30,7 +30,7 @@ class CommandSubmissionServiceIT
     with Matchers
     with OptionValues {
 
-  override def timeLimit: Span = 5.seconds
+  override def timeLimit: Span = scaled(5.seconds)
 
   override protected def config: Config = Config.default
 

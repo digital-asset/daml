@@ -12,7 +12,7 @@ import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.akkastreams.FutureTimeouts
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.{OneAfterAnother, RangeSource}
-import org.scalatest.concurrent.AsyncTimeLimitedTests
+import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{Assertion, AsyncWordSpec, BeforeAndAfter, Matchers}
@@ -34,6 +34,7 @@ class DispatcherSpec
     with BeforeAndAfter
     with Matchers
     with FutureTimeouts
+    with ScaledTimeSpans
     with AsyncTimeLimitedTests {
 
   // Newtype wrappers to avoid type mistakes
@@ -376,5 +377,5 @@ class DispatcherSpec
     }
   }
 
-  override def timeLimit: Span = 30.seconds
+  override def timeLimit: Span = scaled(30.seconds)
 }

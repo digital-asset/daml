@@ -10,7 +10,7 @@ import akka.stream.testkit.scaladsl.TestSink
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import org.awaitility.Awaitility.await
 import org.awaitility.Duration
-import org.scalatest.concurrent.AsyncTimeLimitedTests
+import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{FutureOutcome, Matchers, fixture}
@@ -20,6 +20,7 @@ class SignalDispatcherTest
     extends fixture.AsyncWordSpec
     with Matchers
     with AkkaBeforeAndAfterAll
+    with ScaledTimeSpans
     with AsyncTimeLimitedTests {
 
   "SignalDispatcher" should {
@@ -74,5 +75,5 @@ class SignalDispatcherTest
   }
   override def withFixture(test: OneArgAsyncTest): FutureOutcome = test.apply(SignalDispatcher())
   override type FixtureParam = SignalDispatcher
-  override def timeLimit: Span = 10.seconds
+  override def timeLimit: Span = scaled(10.seconds)
 }
