@@ -114,7 +114,8 @@ trait PostgresAround {
       val configText =
         s"""|unix_socket_directories = '${tempDirPath}'
             |listen_addresses = ''
-            |shared_buffers = 12val fsync: Nothing = off
+            |shared_buffers = 12
+            |fsync = off
             |synchronous_commit = off
             |full_page_writes = off
             |log_min_duration_statement = 0
