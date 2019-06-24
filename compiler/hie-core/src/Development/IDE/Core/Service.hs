@@ -15,7 +15,7 @@ module Development.IDE.Core.Service(
     IdeState, initialise, shutdown,
     runAction, runActions,
     runActionSync, runActionsSync,
-    setFilesOfInterest, modifyFilesOfInterest,
+    getFilesOfInterest, setFilesOfInterest, modifyFilesOfInterest,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
     ideLogger
@@ -126,6 +126,11 @@ runActionsSync s acts = join $ shakeRun s acts (const $ pure ())
 -- | Set the files-of-interest which will be built and kept-up-to-date.
 setFilesOfInterest :: IdeState -> Set NormalizedFilePath -> IO ()
 setFilesOfInterest state files = modifyFilesOfInterest state (const files)
+
+getFilesOfInterest :: Action (Set NormalizedFilePath)
+getFilesOfInterest = do
+    Env{..} <- getIdeGlobalAction
+    liftIO $ readVar envOfInterestVar
 
 modifyFilesOfInterest :: IdeState -> (Set NormalizedFilePath -> Set NormalizedFilePath) -> IO ()
 modifyFilesOfInterest state f = do

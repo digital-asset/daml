@@ -34,7 +34,6 @@ import           Development.IDE.Types.Diagnostics as Base
 import Development.IDE.Types.Location
 import qualified Data.ByteString.UTF8 as BS
 import Control.Exception
-import Control.Concurrent.Extra
 import Data.Bifunctor
 import Data.Either.Extra
 import Data.Maybe
@@ -82,8 +81,7 @@ getFilesOfInterestRule :: Rules ()
 getFilesOfInterestRule = do
     defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null $ fromNormalizedFilePath _file) $ do
         alwaysRerun
-        Env{..} <- getServiceEnv
-        filesOfInterest <- liftIO $ readVar envOfInterestVar
+        filesOfInterest <- getFilesOfInterest
         pure (Just $ BS.fromString $ show filesOfInterest, ([], Just filesOfInterest))
 
 
