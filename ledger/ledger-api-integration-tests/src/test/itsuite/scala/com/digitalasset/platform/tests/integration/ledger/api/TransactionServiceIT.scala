@@ -11,12 +11,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{EventId, LedgerId}
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, _}
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  IsStatusException,
-  MockMessages,
-  SuiteResourceManagementAroundAll
-}
+import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, IsStatusException, MockMessages, SuiteResourceManagementAroundAll}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
@@ -33,7 +28,7 @@ import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.api.v1.event.EventOps._
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
-import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestIdsGenerator, TestTemplateIds}
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.services.time.TimeProviderType
@@ -48,13 +43,13 @@ import scalaz.{ICons, NonEmptyList, Tag}
 
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.Future
-import scala.util.Random
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceIT
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
+    with TestIdsGenerator
     with SuiteResourceManagementAroundAll
     with Inside
     with AsyncTimeLimitedTests
@@ -69,11 +64,6 @@ class TransactionServiceIT
   protected val helpers = new TransactionServiceHelpers(config)
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
-
-  val runSuffix = Random.alphanumeric.take(10).mkString
-  val runCommandSuffix = if (config.uniqueCommandIdentifiers) "-" + runSuffix else ""
-  val partyNameMangler = (partyText: String) =>
-    partyText + (if (config.uniquePartyIdentifiers) "-" + runSuffix else "")
 
   override val timeLimit: Span = scaled(300.seconds)
 

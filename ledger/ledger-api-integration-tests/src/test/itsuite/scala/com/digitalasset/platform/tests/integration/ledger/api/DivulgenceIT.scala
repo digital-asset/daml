@@ -3,22 +3,12 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
-  AbsoluteContractId,
-  ValueContractId,
-  ValueParty,
-  ValueRecord
-}
-import com.digitalasset.ledger.api.testing.utils.{
-  AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundEach
-}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueContractId, ValueParty, ValueRecord}
+import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundEach}
 import com.digitalasset.ledger.api.v1
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands._
@@ -26,7 +16,7 @@ import com.digitalasset.ledger.api.v1.ledger_offset._
 import com.digitalasset.ledger.api.v1.transaction_filter._
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestIdsGenerator, TestTemplateIds}
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.Inside.inside
@@ -41,6 +31,7 @@ class DivulgenceIT
     extends AsyncFreeSpec
     with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
+    with TestIdsGenerator
     with SuiteResourceManagementAroundEach
     with ScalaFutures
     with AsyncTimeLimitedTests
@@ -156,8 +147,6 @@ class DivulgenceIT
   // check that this divulgence is not visible in the ACS / flat transaction stream,
   // but that it is visible in the transaction trees.
   case class Setup(div1Cid: String, div2Cid: String)
-
-  private val runSuffix: UUID = UUID.randomUUID
 
   private def createDivulgence1(ctx: LedgerContext, workflowId: String): Future[ContractIdString] =
     create(

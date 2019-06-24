@@ -56,6 +56,7 @@ abstract class CommandTransactionChecks
     extends AsyncWordSpec
         with AkkaBeforeAndAfterAll
         with MultiLedgerFixture
+        with TestIdsGenerator
         with SuiteResourceManagementAroundEach
         with ScalaFutures
         with AsyncTimeLimitedTests
@@ -104,8 +105,6 @@ abstract class CommandTransactionChecks
 
   private val emptyRecordValue = Value(Value.Sum.Record(Record()))
 
-  private val runSuffix = UUID.randomUUID()
-
   def assertCompletionIsSuccessful(completion: Completion): Assertion = {
     inside(completion) {
       case c => c.getStatus should have('code (0))
@@ -116,7 +115,7 @@ abstract class CommandTransactionChecks
     "reading completions" should {
       "return the completion of submitted commands for the submitting application" in allFixtures {
         ctx =>
-          val commandId = s"Submitting_application_sees_this-$runSuffix"
+          val commandId = commandIdUnifier("Submitting_application_sees_this")
           val request = createCommandWithId(ctx, commandId)
           for {
             commandClient <- ctx.commandClient()
