@@ -34,8 +34,6 @@ import Development.IDE.Types.Location (NormalizedFilePath)
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import qualified Language.Haskell.LSP.Messages as LSP
 
-import           UniqSupply
-
 import           Development.IDE.Core.Shake
 
 
@@ -45,8 +43,6 @@ data Env = Env
       -- ^ Compiler options.
     , envOfInterestVar :: Var (Set NormalizedFilePath)
       -- ^ The files of interest.
-    , envUniqSupplyVar :: Var UniqSupply
-      -- ^ The unique supply of names used by the compiler.
     }
 instance IsIdeGlobal Env
 
@@ -54,11 +50,9 @@ instance IsIdeGlobal Env
 mkEnv :: IdeOptions -> IO Env
 mkEnv options = do
     ofInterestVar <- newVar Set.empty
-    uniqSupplyVar <- mkSplitUniqSupply 'a' >>= newVar
     return Env
         { envOptions       = options
         , envOfInterestVar = ofInterestVar
-        , envUniqSupplyVar = uniqSupplyVar
         }
 
 getDiagnostics :: IdeState -> IO [FileDiagnostic]
