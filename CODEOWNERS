@@ -29,7 +29,7 @@ azure-cron.yml      @garyverhaegen-da
 /ledger-api/  @gerolf-da
 
 # Ecosystems
-/language-support/java/     @gerolf-da @nicholassmith-da
+/language-support/java/     @gerolf-da
 /language-support/scala/    @leo-da @S11001001
 
 # Tools
