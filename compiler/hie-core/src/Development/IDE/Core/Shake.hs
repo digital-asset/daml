@@ -32,7 +32,7 @@ module Development.IDE.Core.Shake(
     use_, uses_,
     define, defineEarlyCutoff,
     getAllDiagnostics, unsafeClearAllDiagnostics,
-    reportSeriousError, reportSeriousErrorDie,
+    reportSeriousError,
     IsIdeGlobal, addIdeGlobal, getIdeGlobalState, getIdeGlobalAction,
     garbageCollect,
     setPriority,
@@ -310,12 +310,6 @@ reportSeriousError :: String -> Action ()
 reportSeriousError t = do
     ShakeExtras{logger} <- getShakeExtras
     liftIO $ Logger.logSeriousError logger $ T.pack t
-
-reportSeriousErrorDie :: String -> Action a
-reportSeriousErrorDie t = do
-    ShakeExtras{logger} <- getShakeExtras
-    liftIO $ Logger.logSeriousError logger $ T.pack t
-    fail t
 
 
 -- | When we depend on something that reported an error, and we fail as a direct result, throw BadDependency
