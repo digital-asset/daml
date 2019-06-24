@@ -31,7 +31,7 @@ data Command
     | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
-    | Start { openBrowser :: OpenBrowser }
+    | Start { openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
 
 commandParser :: Parser Command
 commandParser =
@@ -64,7 +64,12 @@ commandParser =
                   <*> argument str (metavar "FROM_PATH" <> help "Path to the dar-package from which to migrate from")
                   <*> argument str (metavar "TO_PATH" <> help "Path to the dar-package to which to migrate to")
           initCmd = Init <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
-          startCmd = Start . OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser automatically and point it to navigator." idm
+          startCmd = Start
+                <$> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
+                <*> (StartNavigator <$> flagYesNoAuto "start-navigator" True "Start navigator after sandbox" idm)
+                <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
+                <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
+
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
               "never" -> Just ReplaceExtNever
@@ -79,4 +84,4 @@ runCommand New {..} = runNew targetFolder templateNameM []
 runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
-runCommand Start {..} = runStart openBrowser
+runCommand Start {..} = runStart startNavigator openBrowser onStartM waitForSignal

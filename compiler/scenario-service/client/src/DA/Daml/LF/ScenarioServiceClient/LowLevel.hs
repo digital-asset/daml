@@ -188,7 +188,9 @@ withScenarioService opts@Options{..} f = do
             System.IO.hFlush System.IO.stdout
             port <- either fail pure =<< takeMVar portMVar
             liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
-            let grpcConfig = ClientConfig (Host "localhost") (Port port) [] Nothing
+            -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
+            -- and DNS lookups break, e.g., on Alpine linux.
+            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing
             withGRPCClient grpcConfig $ \client ->
                 f Handle
                     { hClient = client

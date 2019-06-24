@@ -9,12 +9,11 @@ import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
-import org.scalatest.concurrent.AsyncTimeLimitedTests
+import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 
 import scala.concurrent.duration._
-
 import com.digitalasset.ledger.api.domain.LedgerId
 
 class SqlLedgerSpec
@@ -23,9 +22,10 @@ class SqlLedgerSpec
     with Matchers
     with PostgresAroundEach
     with AkkaBeforeAndAfterAll
+    with ScaledTimeSpans
     with MetricsAround {
 
-  override val timeLimit: Span = 60.seconds
+  override val timeLimit: Span = scaled(60.seconds)
 
   private val queueDepth = 128
 
