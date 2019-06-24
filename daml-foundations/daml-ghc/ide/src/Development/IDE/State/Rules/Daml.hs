@@ -168,7 +168,7 @@ generateRawDalfRule =
         pkgMap <- use_ GeneratePackageMap ""
         let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> LF.unPackageId pId) pkgMap
         -- GHC Core to DAML LF
-        case convertModule lfVersion pkgMap0 core of
+        case convertModule lfVersion pkgMap0 file core of
             Left e -> return ([e], Nothing)
             Right v -> return ([], Just v)
 

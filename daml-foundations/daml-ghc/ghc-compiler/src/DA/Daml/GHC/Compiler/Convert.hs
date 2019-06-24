@@ -82,10 +82,10 @@ import           DA.Daml.GHC.Compiler.Primitives
 import           DA.Daml.GHC.Compiler.UtilGHC
 import           DA.Daml.GHC.Compiler.UtilLF
 
-import Development.IDE.Core.Compile (GhcModule(..))
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
 import           Development.IDE.GHC.Util
+import           Development.IDE.GHC.Orphans()
 
 import           Control.Applicative
 import           Control.Lens
@@ -122,9 +122,7 @@ import           Safe.Exact (zipExact, zipExactMay)
 conversionError :: String -> ConvertM e
 conversionError msg = do
   ConversionEnv{..} <- ask
-  let addFpIfExists =
-        (toNormalizedFilePath $ fromMaybe noFilePath convModuleFilePath,)
-  throwError $ addFpIfExists $ Diagnostic
+  throwError $ (convModuleFilePath,) Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError
       , _source = Just $ T.pack "Core to DAML-LF"
@@ -192,14 +190,14 @@ envLookupAlias x = MS.lookup x . envAliases
 
 data ConversionError
   = ConversionError
-     { errorFilePath :: !(Maybe FilePath)
+     { errorFilePath :: !NormalizedFilePath
      , errorRange :: !(Maybe Range)
      , errorMessage :: !String
      }
   deriving Show
 
 data ConversionEnv = ConversionEnv
-  { convModuleFilePath :: !(Maybe FilePath)
+  { convModuleFilePath :: !NormalizedFilePath
   , convRange :: !(Maybe SourceLoc)
   }
 
@@ -250,13 +248,12 @@ convertRational num denom
     upperBound128Bit = 10 ^ (38 :: Integer)
     maxPrecision = 10 :: Integer
 
-convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) Nothing) $ do
+convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
+convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) $ filter (not . isTypeableInfo) $ cm_binds x
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
-    pure (LF.moduleFromDefinitions lfModName (gmPath mod0) flags (types ++ definitions))
+    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ definitions))
     where
-        x = gmCore mod0
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
         lfModName = convertModuleName ghcModName

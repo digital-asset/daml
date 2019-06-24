@@ -25,7 +25,7 @@ module Development.IDE.State.API
     , getDependencies
     , logDebug
     , logSeriousError
-    , VFSHandle(..)
+    , VFSHandle
     , makeVFSHandle
     , makeLSPVFSHandle
     ) where
