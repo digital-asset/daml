@@ -69,6 +69,21 @@ class Context(val contextId: Context.ContextId) {
     newCtx
   }
 
+  private def decodeModule(
+      major: LanguageVersion.Major,
+      minor: String,
+      bytes: ByteString): Ast.Module = {
+    val lfVer = LanguageVersion(major, LanguageVersion.Minor fromProtoIdentifier minor)
+    val dop: Decode.OfPackage[_] = Decode.decoders
+      .lift(lfVer)
+      .getOrElse(throw Context.ContextException(s"No decode support for LF ${lfVer.pretty}"))
+      .decoder
+    val lfMod = dop.protoModule(
+      Decode.damlLfCodedInputStream(bytes.newInput)
+    )
+    dop.decodeScenarioModule(homePackageId, lfMod)
+  }
+
   private def validate(pkgIds: Traversable[PackageId], forScenarioService: Boolean): Unit = {
     val validator: PackageId => Either[ValidationError, Unit] =
       if (forScenarioService)
@@ -111,16 +126,7 @@ class Context(val contextId: Context.ContextId) {
     val lfModules = loadModules.map(module =>
       module.getModuleCase match {
         case ProtoModule.ModuleCase.DAML_LF_1 =>
-          val dop: Decode.OfPackage[_] = Decode
-            .decoders(
-              LanguageVersion(
-                LanguageVersion.Major.V1,
-                LanguageVersion.Minor fromProtoIdentifier module.getMinor))
-            .decoder
-          val lfMod = dop.protoModule(
-            Decode.damlLfCodedInputStream(module.getDamlLf1.newInput)
-          )
-          dop.decodeScenarioModule(homePackageId, lfMod)
+          decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1)
         case ProtoModule.ModuleCase.DAML_LF_DEV | ProtoModule.ModuleCase.MODULE_NOT_SET =>
           throw Context.ContextException("Module.MODULE_NOT_SET")
     })
