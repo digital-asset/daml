@@ -11,6 +11,7 @@
 module Development.IDE.Core.Service(
     Env(..),
     getServiceEnv,
+    getIdeOptions,
     IdeState, initialise, shutdown,
     runAction, runActions,
     runActionSync, runActionsSync,
@@ -135,3 +136,6 @@ modifyFilesOfInterest state f = do
 
 getServiceEnv :: Action Env
 getServiceEnv = getIdeGlobalAction
+
+getIdeOptions :: Action IdeOptions
+getIdeOptions = envOptions <$> getServiceEnv

@@ -104,7 +104,7 @@ getDependencies file = fmap transitiveModuleDeps <$> use GetDependencies file
 -- | Try to get hover text for the name under point.
 getAtPoint :: NormalizedFilePath -> Position -> Action (Maybe (Maybe Range, [T.Text]))
 getAtPoint file pos = fmap join $ runMaybeT $ do
-  opts <- lift getOpts
+  opts <- lift getIdeOptions
   files <- transitiveModuleDeps <$> useE GetDependencies file
   tms   <- usesE TypeCheck (file : files)
   spans <- useE GetSpanInfo file
@@ -115,7 +115,7 @@ getDefinition :: NormalizedFilePath -> Position -> Action (Maybe Location)
 getDefinition file pos = fmap join $ runMaybeT $ do
     spans <- useE GetSpanInfo file
     pkgState <- useE GhcSession ""
-    opts <- lift getOpts
+    opts <- lift getIdeOptions
     let getHieFile x = use (GetHieFile x) ""
     lift $ AtPoint.gotoDefinition getHieFile opts pkgState spans pos
 
@@ -123,8 +123,6 @@ getDefinition file pos = fmap join $ runMaybeT $ do
 getParsedModule :: NormalizedFilePath -> Action (Maybe ParsedModule)
 getParsedModule file = use GetParsedModule file
 
-getOpts :: Action Compile.IdeOptions
-getOpts = envOptions <$> getServiceEnv
 
 ------------------------------------------------------------
 -- Rules
@@ -144,7 +142,7 @@ getParsedModuleRule =
     define $ \GetParsedModule file -> do
         (_, contents) <- getFileContents file
         packageState <- use_ GhcSession ""
-        opt <- getOpts
+        opt <- getIdeOptions
         liftIO $ Compile.parseModule opt packageState (fromNormalizedFilePath file) contents
 
 getLocatedImportsRule :: Rules ()
@@ -155,7 +153,7 @@ getLocatedImportsRule =
         let imports = ms_textual_imps ms
         packageState <- use_ GhcSession ""
         dflags <- liftIO $ Compile.getGhcDynFlags pm packageState
-        opt <- getOpts
+        opt <- getIdeOptions
         xs <- forM imports $ \(mbPkgName, modName) ->
             (modName, ) <$> locateModule dflags (Compile.optExtensions opt) getFileExists modName mbPkgName
         return (concat $ lefts $ map snd xs, Just $ map (second eitherToMaybe) xs)
@@ -255,7 +253,7 @@ typeCheckRule =
         tms <- uses_ TypeCheck (transitiveModuleDeps deps)
         setPriority PriorityTypeCheck
         packageState <- use_ GhcSession ""
-        opt <- getOpts
+        opt <- getIdeOptions
         liftIO $ Compile.typecheckModule opt packageState tms pm
 
 
@@ -272,7 +270,7 @@ generateCoreRule =
 loadGhcSession :: Rules ()
 loadGhcSession =
     defineNoFile $ \GhcSession -> do
-        opts <- getOpts
+        opts <- getIdeOptions
         Compile.optGhcSession opts
 
 
