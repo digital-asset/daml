@@ -418,7 +418,8 @@ object LfTypeEncodingSpec {
           av.enum flatMap (e => readers.get(e.constructor))
       }
 
-    def enumCase[A](caseName: String)(a: A): EnumCases[A] = Vector(caseName -> a)
+    def enumCase[A](caseName: String)(select: A, inject: A => Boolean): EnumCases[A] =
+      Vector(caseName -> select)
 
     def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
       new Value.InternalImpl[A] {

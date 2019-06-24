@@ -30,8 +30,8 @@ abstract class EnumCompanion[T](implicit isEnum: T <~< EnumRef) extends ValueRef
     override def encoding(lte: LfTypeEncoding): lte.Out[T] =
       lte.enumAll(
         ` dataTypeId`,
-        lte.enumCase(isEnum(firstValue).constructor)(firstValue),
-        otherValues.map(v => lte.enumCase(isEnum(v).constructor)(v)): _*
+        lte.enumCase(isEnum(firstValue).constructor)(firstValue, values.contains(_: T)),
+        otherValues.map(v => lte.enumCase(isEnum(v).constructor)(v, values.contains(_: T))): _*
       )
   }
 

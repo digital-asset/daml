@@ -5,7 +5,6 @@ package com.digitalasset.ledger.client.binding
 package encoding
 
 import scala.language.higherKinds
-
 import scalaz.{OneAnd, Plus}
 import scalaz.syntax.foldable1._
 import com.digitalasset.ledger.api.v1.{value => rpcvalue}
@@ -68,7 +67,7 @@ trait LfTypeEncoding {
 
   /** Pull a enum case into the language of enum cases.
     */
-  def enumCase[A](caseName: String)(a: A): EnumCases[A]
+  def enumCase[A](caseName: String)(inject: A, select: A => Boolean): EnumCases[A]
 
   /** "Finalize" a variant set. */
   def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A]
@@ -149,8 +148,8 @@ object LfTypeEncoding {
     override def enum[A](enumId: rpcvalue.Identifier, cases: EnumCases[A]): Out[A] =
       (fst.enum(enumId, cases._1), snd.enum(enumId, cases._2))
 
-    override def enumCase[A](caseName: String)(a: A): EnumCases[A] =
-      (fst.enumCase(caseName)(a), snd.enumCase(caseName)(a))
+    override def enumCase[A](caseName: String)(select: A, inject: A => Boolean): EnumCases[A] =
+      (fst.enumCase(caseName)(select, inject), snd.enumCase(caseName)(select, inject))
 
     override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
       (fst.variant(variantId, cases._1), snd.variant(variantId, cases._2))

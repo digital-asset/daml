@@ -13,7 +13,7 @@ import com.digitalasset.ledger.api.v1.{value => rpcvalue}
 import com.digitalasset.ledger.client.binding.{Primitive => P}
 import org.scalacheck.Shrink
 import org.scalacheck.Shrink.{shrinkContainer, shrinkContainer2, shrinkFractional, shrinkIntegral}
-import scalaz.Plus
+import scalaz.{@@, Plus, Tag, Tags}
 
 import scala.math.Numeric.LongIsIntegral
 
@@ -32,7 +32,7 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
 
   type VariantCases[A] = Shrink[A] // probably
 
-  type EnumCases[A] = Shrink[A]
+  type EnumCases[A] = (A, A => Boolean) @@ Tags.FirstVal
 
   override def record[A](recordId: rpcvalue.Identifier, fi: RecordFields[A]): Out[A] = fi
 
@@ -45,12 +45,10 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] = cases
 
-  override def enum[A](enumId: rpcvalue.Identifier, cases: EnumCases[A]): Out[A] = cases
+  override def enum[A](enumId: rpcvalue.Identifier, cases: EnumCases[A]): Out[A] = Shrink.shrinkAny
 
-  override def enumCase[A](caseName: String)(a: A): EnumCases[A] =
-    Shrink[A] { b: A =>
-      if (a == b) Stream(b) else Stream.empty
-    }
+  override def enumCase[A](caseName: String)(inject: A, select: A => Boolean): EnumCases[A] =
+    Tag((inject, select))
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
       select: A PartialFunction B): VariantCases[A] = Shrink[A] { a: A =>
@@ -82,10 +80,7 @@ object ShrinkEncoding extends ShrinkEncoding {
   }
 
   class EnumCasesImpl extends Plus[EnumCases] {
-    override def plus[A](a: EnumCases[A], b: => EnumCases[A]): EnumCases[A] =
-      Shrink { x: A =>
-        a.shrink(x) ++ b.shrink(x)
-      }
+    override def plus[A](a: EnumCases[A], b: => EnumCases[A]): EnumCases[A] = a
   }
 
   class VariantCasesImpl extends Plus[VariantCases] {

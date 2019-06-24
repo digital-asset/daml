@@ -41,7 +41,8 @@ abstract class GenEncoding extends LfTypeEncoding {
   override def enum[A](variantId: rpcvalue.Identifier, cases: Vector[A]): Out[A] =
     Gen.oneOf(cases)
 
-  override def enumCase[A](caseName: String)(a: A): EnumCases[A] = Vector(a)
+  override def enumCase[A](caseName: String)(select: A, inject: A => Boolean): EnumCases[A] =
+    Vector(select)
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
     cases.tail match {

@@ -32,8 +32,8 @@ abstract class EqualityEncoding extends LfTypeEncoding {
 
   def enum[A](enumId: Identifier, cases: EnumCases[A]): Out[A] = cases
 
-  override def enumCase[A](caseName: String)(a: A): EnumCases[A] =
-    (a1: A, a2: A) => a == a1 && a == a2
+  override def enumCase[A](caseName: String)(inject: A, select: A => Boolean): EnumCases[A] =
+    (a1: A, a2: A) => select(a1) && select(a2) && a1 == a2
 
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 

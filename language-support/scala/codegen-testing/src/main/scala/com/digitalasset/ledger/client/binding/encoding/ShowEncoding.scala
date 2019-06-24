@@ -50,15 +50,16 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   override def enum[A](enumId: Identifier, cases: EnumCases[A]): Out[A] = cases
 
-  override def enumCase[A](caseName: String)(a: A): EnumCases[A] = new Show[A] { (b: A) =>
-    if (a == b) Cord(caseName) else Cord.empty
+  override def enumCase[A](caseName: String)(inject: A, select: A => Boolean): EnumCases[A] = show {
+    _ =>
+      Cord(caseName)
   }
 
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
       select: A PartialFunction B): VariantCases[A] =
-    new Show[A] { (a: A) =>
+    show { a: A =>
       select.lift(a).fold(Cord.empty)(b => Cord(caseName, "(", o.show(b), ")"))
     }
 
@@ -86,7 +87,8 @@ object ShowEncoding extends ShowEncoding {
   }
 
   class EnumCasesImpl extends Plus[EnumCases] {
-    def plus[A](a: Show[A], b: => Show[A]): Show[A] = new Show[A] { (f: A) => a.show(f) ++ b.show(f)
+    def plus[A](a: Show[A], b: => Show[A]): Show[A] = show { f: A =>
+      a.show(f) ++ b.show(f)
     }
   }
 
