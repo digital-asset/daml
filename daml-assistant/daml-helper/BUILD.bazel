@@ -42,12 +42,12 @@ da_haskell_binary(
     hazel_deps = [
         "base",
     ],
+    main_function = "DamlHelper.Main.main",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-helper-lib",
         "//libs-haskell/da-hs-base",
     ],
-    main_function = 'DamlHelper.Main.main',
 )
 
 package_app(
