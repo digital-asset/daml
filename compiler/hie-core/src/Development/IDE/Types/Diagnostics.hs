@@ -8,9 +8,7 @@ module Development.IDE.Types.Diagnostics (
   FileDiagnostic,
   LSP.DiagnosticSeverity(..),
   DiagnosticStore,
-  DiagnosticRelatedInformation(..),
   List(..),
-  StoreItem(..),
   ideErrorText,
   ideErrorPretty,
   errorDiag,
@@ -35,7 +33,6 @@ import Language.Haskell.LSP.Types as LSP (
     DiagnosticSeverity(..)
   , Diagnostic(..)
   , List(..)
-  , DiagnosticRelatedInformation(..)
   )
 import Language.Haskell.LSP.Diagnostics
 import Data.Text.Prettyprint.Doc.Render.Text
