@@ -25,9 +25,6 @@ import Development.IDE.Types.Options (IdeOptions(..))
 import           Development.IDE.Core.FileStore
 import           Development.IDE.Core.OfInterest
 import Development.IDE.Types.Logger
-import           Data.Set                                 (Set)
-import qualified Data.Set                                 as Set
-import Development.IDE.Types.Location (NormalizedFilePath)
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import qualified Language.Haskell.LSP.Messages as LSP
 
@@ -38,18 +35,14 @@ import           Development.IDE.Core.Shake
 data Env = Env
     { envOptions       :: IdeOptions
       -- ^ Compiler options.
-    , envOfInterestVar :: Var (Set NormalizedFilePath)
-      -- ^ The files of interest.
     }
 instance IsIdeGlobal Env
 
 
 mkEnv :: IdeOptions -> IO Env
 mkEnv options = do
-    ofInterestVar <- newVar Set.empty
     return Env
         { envOptions       = options
-        , envOfInterestVar = ofInterestVar
         }
 
 
