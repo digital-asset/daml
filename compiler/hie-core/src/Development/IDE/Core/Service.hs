@@ -31,20 +31,9 @@ import qualified Language.Haskell.LSP.Messages as LSP
 import           Development.IDE.Core.Shake
 
 
--- | Environment threaded through the Shake actions.
-data Env = Env
-    { envOptions       :: IdeOptions
-      -- ^ Compiler options.
-    }
-instance IsIdeGlobal Env
 
-
-mkEnv :: IdeOptions -> IO Env
-mkEnv options = do
-    return Env
-        { envOptions       = options
-        }
-
+newtype GlobalIdeOptions = GlobalIdeOptions IdeOptions
+instance IsIdeGlobal GlobalIdeOptions
 
 ------------------------------------------------------------
 -- Exposed API
@@ -64,7 +53,7 @@ initialise mainRule toDiags logger options vfs =
         shakeOptions { shakeThreads = optThreads options
                      , shakeFiles   = "/dev/null"
                      }) $ do
-            addIdeGlobal =<< liftIO (mkEnv options)
+            addIdeGlobal $ GlobalIdeOptions options
             fileStoreRules vfs
             ofInterestRules
             mainRule
@@ -107,9 +96,7 @@ runActionSync s a = head <$> runActionsSync s [a]
 runActionsSync :: IdeState -> [Action a] -> IO [a]
 runActionsSync s acts = join $ shakeRun s acts (const $ pure ())
 
-
-getServiceEnv :: Action Env
-getServiceEnv = getIdeGlobalAction
-
 getIdeOptions :: Action IdeOptions
-getIdeOptions = envOptions <$> getServiceEnv
+getIdeOptions = do
+    GlobalIdeOptions x <- getIdeGlobalAction
+    return x
