@@ -566,6 +566,7 @@ private class PostgresLedgerDao(
 
         case PersistenceEntry.Checkpoint(checkpoint) =>
           storeCheckpoint(offset, checkpoint)
+          logger.info(s"Stored Checkpoint with record_time: ${checkpoint.recordedAt.toString}")
           Ok
       }
 
