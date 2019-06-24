@@ -11,7 +11,7 @@ DAML Integration Kit - ALPHA
 
 :doc:`DAML Applications </app-dev/index>` run on DAML Ledgers.
 A DAML Ledger is a server serving the
-:doc:`Ledger API </app-dev/index>` as per the semantics defined in
+:doc:`Ledger API </app-dev/grpc/index>` as per the semantics defined in
 the :doc:`/concepts/ledger-model/index` and the
 `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
 
@@ -97,24 +97,24 @@ DAML Integration Kit status and roadmap
 ***************************************
 
 The current status of the integration kit is ALPHA. We are working towards BETA,
-and GA will come quite a bit later. The roadmap below explains what we mean by
-these different statuses, and what's missing to progress.
+and General Availability (GA) will come quite a bit later. The roadmap below explains what we mean by
+these different statuse, and what's missing to progres.
 
 ALPHA (current status)
   In the ALPHA status, the DAML Integration Kit is ready to be used by
   third-parties willing to accept the following caveats:
 
   - The architecture includes everything required to run DAML Applications using the
-    DAML Ledger API in production. However, it misses support for testing DAML Applications in a
+    DAML Ledger API. However, it misses support for testing DAML Applications in a
     uniform way against different DAML Ledgers.
   - Ledger API authorization, package upload, party on-boarding, ledger reset,
     and time manipulation are specific to each DAML Ledger, until the uniform
     *administrative DAML ledger access* API is introduced, which is different
     to the uniform *per-party DAML ledger access* that the DAML Ledger API provides.
     We will address this before reaching BETA status.
-  - The architecture is likely to change due to learnings from pioneers like
-    you! Where possible we strive to make these changes backwards compatible.
-    though this might not always be possible.
+  - The architecture is likely to change due to learnings from integrators like you! 
+    Where possible we strive to make these changes backwards compatible. though this 
+    might not always be possible.
   - The documentation might be spotty in some places, and you might have to
     infer some of the documentation from the code.
   - Some of our code might be fresh off the press and might therefore have a
@@ -141,13 +141,18 @@ BETA
     portable way for testing DAML applications against different DAML ledgers
 
   Related links
-  - (`Tracking GitHub issue <https://github.com/digital-asset/daml/issues/660>`__)
+
+  - `Tracking GitHub issue <https://github.com/digital-asset/daml/issues/660>`__
   - `GitHub milestone tracking work to reach BETA status <https://github.com/digital-asset/daml/milestone/13>`__
 
-GA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/661>`__)
+GA
   For us GA (General Availability) means that there are several
-  production-ready DAML ledgers built using the DAML Integration Kit. We
-  expect to reach GA in 2019.
+  production-ready DAML ledgers built using the DAML Integration Kit. 
+  We expect to reach GA in 2019.
+
+  Related links
+
+  - `Tracking GitHub issue <https://github.com/digital-asset/daml/issues/661>`__
 
 .. _integration-kit_implementing:
 
