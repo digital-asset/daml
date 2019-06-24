@@ -242,8 +242,6 @@ instance HasPackageRefs ChoiceName
 instance HasPackageRefs DataCons
 instance HasPackageRefs DefDataType
 instance HasPackageRefs DefValue
-instance HasPackageRefs EnumCon
-instance HasPackageRefs EnumType
 instance HasPackageRefs Expr
 instance HasPackageRefs ExprValName
 instance HasPackageRefs ExprVarName
