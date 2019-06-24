@@ -37,7 +37,7 @@ class TransactionBackpressureIT
 
   protected val testCommands = new TestCommands(config)
 
-  override def timeLimit: Span = 300.seconds
+  override def timeLimit: Span = scaled(300.seconds)
 
   override protected def config: Config = Config.default
 

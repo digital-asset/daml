@@ -154,6 +154,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }
@@ -166,6 +167,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }
@@ -178,6 +180,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }
@@ -190,6 +193,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }
@@ -202,6 +206,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }

@@ -80,7 +80,7 @@ class TransactionServiceIT
       s"ledger-api-test-tool-$testName-$stepId-$nodeId-$runSuffix"
     }
 
-  override val timeLimit: Span = 300.seconds
+  override val timeLimit: Span = scaled(300.seconds)
 
   private def newClient(stub: TransactionService, ledgerId: LedgerId): TransactionClient =
     new TransactionClient(ledgerId, stub)

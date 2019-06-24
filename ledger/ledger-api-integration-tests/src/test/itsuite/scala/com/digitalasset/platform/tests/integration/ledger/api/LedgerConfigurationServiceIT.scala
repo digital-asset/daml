@@ -32,7 +32,7 @@ class LedgerConfigurationServiceIT
     with Matchers
     with OptionValues {
 
-  override def timeLimit: Span = 5.seconds
+  override def timeLimit: Span = scaled(5.seconds)
 
   private def client(ctx: LedgerContext): LedgerConfigurationClient =
     new LedgerConfigurationClient(ctx.ledgerId, ctx.ledgerConfigurationService)
