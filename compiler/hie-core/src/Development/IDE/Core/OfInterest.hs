@@ -50,6 +50,7 @@ instance NFData   GetFilesOfInterest
 
 ofInterestRules :: Rules ()
 ofInterestRules = do
+    addIdeGlobal . OfInterestVar =<< liftIO (newVar Set.empty)
     defineEarlyCutoff $ \GetFilesOfInterest _file -> assert (null $ fromNormalizedFilePath _file) $ do
         alwaysRerun
         filesOfInterest <- getFilesOfInterestUntracked
