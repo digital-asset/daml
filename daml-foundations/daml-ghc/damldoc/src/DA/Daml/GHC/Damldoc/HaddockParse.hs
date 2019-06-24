@@ -11,7 +11,7 @@ import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service     as Service
 import qualified Development.IDE.Core.Rules     as Service
 import           Development.IDE.Types.Diagnostics
-import qualified Development.IDE.Types.Logger as Logger
+import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 
 
@@ -123,7 +123,7 @@ haddockParse :: IdeOptions ->
                 Ex.ExceptT [FileDiagnostic] IO [ParsedModule]
 haddockParse opts f = ExceptT $ do
   vfs <- makeVFSHandle
-  service <- Service.initialise Service.mainRule (const $ pure ()) Logger.makeNopHandle opts vfs
+  service <- Service.initialise Service.mainRule (const $ pure ()) makeNopLogger opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
   parsed  <- Service.runAction service $
              runMaybeT $

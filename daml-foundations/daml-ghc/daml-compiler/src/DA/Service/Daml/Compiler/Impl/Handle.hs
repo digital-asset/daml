@@ -101,8 +101,8 @@ withIdeState compilerOpts loggerH eventHandler f =
         f ideState
 
 -- | Adapter to the IDE logger module.
-toIdeLogger :: Logger.Handle IO -> IdeLogger.Handle
-toIdeLogger h = IdeLogger.Handle {
+toIdeLogger :: Logger.Handle IO -> IdeLogger.Logger
+toIdeLogger h = IdeLogger.Logger {
        logSeriousError = Logger.logError h
      , logInfo = Logger.logInfo h
      , logDebug = Logger.logDebug h
@@ -143,7 +143,7 @@ compileFile service fp = do
     -- Otherwise all diagnostics produced during compilation will be garbage
     -- collected afterwards.
     liftIO $ setFilesOfInterest service (S.singleton fp)
-    liftIO $ logDebug service $ "Compiling: " <> T.pack (fromNormalizedFilePath fp)
+    liftIO $ IdeLogger.logDebug (ideLogger service) $ "Compiling: " <> T.pack (fromNormalizedFilePath fp)
     actionToExceptT service (getDalf fp)
 
 -- | Parse the supplied file to a ghc ParsedModule.
@@ -153,7 +153,7 @@ parseFile
     -> ExceptT [FileDiagnostic] IO ParsedModule
 parseFile service fp = do
     liftIO $ setFilesOfInterest service (S.singleton fp)
-    liftIO $ logDebug service $ "Parsing: " <> T.pack (fromNormalizedFilePath fp)
+    liftIO $ IdeLogger.logDebug (ideLogger service) $ "Parsing: " <> T.pack (fromNormalizedFilePath fp)
     actionToExceptT service (getParsedModule fp)
 
 newtype UseDalf = UseDalf{unUseDalf :: Bool}
@@ -175,7 +175,7 @@ buildDar ::
 buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInput = do
   let file' = fromNormalizedFilePath file
   liftIO $
-    logDebug service $
+    IdeLogger.logDebug (ideLogger service) $
     "Creating dar: " <> T.pack file'
   if unUseDalf dalfInput
     then liftIO $ do
@@ -193,7 +193,7 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
       let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
       let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
       unless (S.null missingExposed) $ do
-          liftIO $ logSeriousError service $
+          liftIO $ IdeLogger.logSeriousError (ideLogger service) $
               "The following modules are declared in exposed-modules but are not part of the DALF: " <>
               T.pack (show $ S.toList missingExposed)
           fail ""
