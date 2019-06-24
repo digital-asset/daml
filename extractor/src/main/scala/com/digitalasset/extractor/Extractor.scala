@@ -115,7 +115,8 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) extends StrictL
 
   private def fetchPackages(client: LedgerClient, writer: Writer): Future[PackageStore] = {
     for {
-      packageStoreE <- LedgerReader.createPackageStore(client): Future[String \/ PackageStore]
+      packageStoreE <- LedgerReader.createPackageStore(client.packageClient): Future[
+        String \/ PackageStore]
       packageStore <- toFuture(packageStoreE): Future[PackageStore]
       _ <- writer.handlePackages(packageStore)
     } yield packageStore

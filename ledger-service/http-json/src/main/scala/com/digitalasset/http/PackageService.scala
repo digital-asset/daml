@@ -5,20 +5,25 @@ package com.digitalasset.http
 
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.services.pkg.PackageClient
+import com.digitalasset.ledger.service.{LedgerReader, TemplateIds}
+import scalaz._
+import Scalaz._
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class PackageService(packageClient: PackageClient)(implicit ec: ExecutionContext) {
 
-//  val lr = LedgerReader(packageClient)
+  type Error = String
+  type TemplateIdMapping = Map[(String, String), Identifier]
 
-  def packageMapping(): Future[Map[(String, String), Identifier]] =
-    for {
-      packageIds <- packageClient.listPackages().map(_.packageIds)
-    } yield ???
+  def getTemplateIdMapping(): Future[Error \/ TemplateIdMapping] =
+    EitherT(LedgerReader.createPackageStore(packageClient)).map { packageStore =>
+      val templateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
+      buildMapping(templateIds)
+    }.run
 
-  private def buildMapping(packageId: String): Unit = {
-//    packageClient.getPackage(packageId).map(
-  }
-
+  private def buildMapping(ids: Set[Identifier]): TemplateIdMapping =
+    ids.foldLeft(Map.empty[(String, String), Identifier]) { (b, a) =>
+      b.updated((a.moduleName, a.entityName), a)
+    }
 }

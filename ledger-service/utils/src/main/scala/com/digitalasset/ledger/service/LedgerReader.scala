@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.archive.Reader
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.package_service.GetPackageResponse
-import com.digitalasset.ledger.client.LedgerClient
+import com.digitalasset.ledger.client.services.pkg.PackageClient
 
 import scala.concurrent.Future
 import scala.collection.immutable.Map
@@ -26,16 +26,11 @@ object LedgerReader {
 
   import scala.concurrent.ExecutionContext.Implicits.global
 
-  def createPackageStore(client: LedgerClient): Future[String \/ PackageStore] = {
+  def createPackageStore(packageClient: PackageClient): Future[String \/ PackageStore] = {
     for {
-      packageIds <- client.packageClient
-        .listPackages()
-        .map(_.packageIds)
-
+      packageIds <- packageClient.listPackages().map(_.packageIds)
       packageResponses <- Future
-        .sequence(
-          packageIds.map(client.packageClient.getPackage(_))
-        )
+        .sequence(packageIds.map(packageClient.getPackage))
         .map(_.toList)
     } yield {
       createPackageStoreFromArchives(packageResponses)
