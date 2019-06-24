@@ -17,7 +17,7 @@ module Development.IDE.Core.Service(
     setFilesOfInterest, modifyFilesOfInterest,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
-    logDebug, logSeriousError
+    ideLogger
     ) where
 
 import           Control.Concurrent.Extra
@@ -136,7 +136,7 @@ modifyFilesOfInterest :: IdeState -> (Set NormalizedFilePath -> Set NormalizedFi
 modifyFilesOfInterest state f = do
     Env{..} <- getIdeGlobalState state
     files <- modifyVar envOfInterestVar $ pure . dupe . f
-    logDebug state $ "Set files of interest to: " <> T.pack (show $ Set.toList files)
+    Logger.logDebug (ideLogger state) $ "Set files of interest to: " <> T.pack (show $ Set.toList files)
     void $ shakeRun state [] (const $ pure ())
 
 getServiceEnv :: Action Env

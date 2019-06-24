@@ -136,7 +136,7 @@ onFileModified
     -> Maybe T.Text
     -> IO ()
 onFileModified service fp mbContents = do
-    logDebug service $ "File modified " <> T.pack (show fp)
+    Logger.logDebug (ideLogger service) $ "File modified " <> T.pack (show fp)
     setBufferModified service fp mbContents
 
 ------------------------------------------------------------------------

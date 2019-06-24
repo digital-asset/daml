@@ -37,8 +37,7 @@ module Development.IDE.Core.Shake(
     garbageCollect,
     setPriority,
     sendEvent,
-    Development.IDE.Core.Shake.logDebug,
-    Development.IDE.Core.Shake.logSeriousError,
+    ideLogger,
     FileVersion(..),
     vfsVersion
     ) where
@@ -167,7 +166,6 @@ data IdeState = IdeState
     ,shakeClose :: IO ()
     ,shakeExtras :: ShakeExtras
     }
-
 
 profileDir :: Maybe FilePath
 profileDir = Nothing -- set to Just the directory you want profile reports to appear in
@@ -424,14 +422,9 @@ sendEvent e = do
     ShakeExtras{eventer} <- getShakeExtras
     liftIO $ eventer e
 
--- | bit of an odd signature because we're trying to remove priority
-sl :: (Handle -> T.Text -> IO ()) -> IdeState -> T.Text -> IO ()
-sl f IdeState{shakeExtras=ShakeExtras{logger}} p = f logger p
+ideLogger :: IdeState -> Logger.Handle
+ideLogger IdeState{shakeExtras=ShakeExtras{logger}} = logger
 
-logDebug, logSeriousError
-    :: IdeState -> T.Text -> IO ()
-logDebug = sl Logger.logDebug
-logSeriousError = sl Logger.logSeriousError
 
 data GetModificationTime = GetModificationTime
     deriving (Eq, Show, Generic)
