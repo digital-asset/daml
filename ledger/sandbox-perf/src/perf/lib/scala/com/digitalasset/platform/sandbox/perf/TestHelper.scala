@@ -96,6 +96,7 @@ trait TestHelper {
     implicit val ec = state.mat.executionContext
     for {
       contractId <- firstActiveContractId(state, rangeOfIntsTemplateId, workflowId)
+      _ = println(s"exercising contract id: $contractId")
       exerciseCmd = LargeTransactionCommands.exerciseCommand(
         rangeOfIntsTemplateId,
         contractId,

@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.sandbox.perf
 
+import java.time.Instant
+
 import com.digitalasset.platform.PlatformApplications
 import com.digitalasset.platform.sandbox.perf.TestHelper._
 import org.openjdk.jmh.annotations._
@@ -30,8 +32,12 @@ abstract class CreatedStateBase extends PerfBenchState {
 }
 
 class RangeOfIntsCreatedState extends CreatedStateBase {
-  override def sendCreates(): Unit =
+  override def sendCreates(): Unit = {
+    println(s"sending creates at: ${Instant.now().toString}")
     Await.result(rangeOfIntsCreateCommand(this, workflowId, n), setupTimeout)
+    println(s"done sending creates at: ${Instant.now().toString}")
+  }
+
 }
 
 class ListOfNIntsCreatedState extends CreatedStateBase {
@@ -52,9 +58,11 @@ class LargeTransactionBench {
   @Benchmark
   def manySmallContracts(state: RangeOfIntsCreatedState): Unit = {
     try {
+      println(s"sending exercised at: ${Instant.now().toString}")
       Await.result(
         rangeOfIntsExerciseCommand(state, state.workflowId, "ToListOfIntContainers", None),
         perfTestTimeout)
+      println(s"done sending exercised at: ${Instant.now().toString}")
     } catch {
       case t: Throwable => //TODO: this is just temporary to debug flakiness
         println(s"manySmallContracts bench blew up! ${t.getMessage} ")
