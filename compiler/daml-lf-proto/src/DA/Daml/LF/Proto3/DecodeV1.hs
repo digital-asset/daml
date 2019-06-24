@@ -27,9 +27,9 @@ import qualified Proto3.Suite as Proto
 
 -- internal functions that *implement* decoding
 type DecodeImpl = ReaderT PackageRefCtx Decode
-type MDecode = MonadError Error
+type MonadDecode = MonadError Error
 
-decodeImpl :: MDecode m => Decode a -> m a
+decodeImpl :: MonadDecode m => Decode a -> m a
 decodeImpl = either throwError pure
 
 decodeVersion :: TL.Text -> Decode Version
@@ -166,7 +166,7 @@ decodeChoice LF1.TemplateChoice{..} =
     <*> mayDecode "templateChoiceRetType" templateChoiceRetType decodeType
     <*> mayDecode "templateChoiceUpdate" templateChoiceUpdate decodeExpr
 
-decodeBuiltinFunction :: MDecode m => LF1.BuiltinFunction -> m BuiltinExpr
+decodeBuiltinFunction :: MonadDecode m => LF1.BuiltinFunction -> m BuiltinExpr
 decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
   LF1.BuiltinFunctionEQUAL_DECIMAL -> BEEqual BTDecimal
@@ -474,7 +474,7 @@ decodeVarWithType LF1.VarWithType{..} =
     <$> decodeName ExprVarName varWithTypeVar
     <*> mayDecode "varWithTypeType" varWithTypeType decodeType
 
-decodePrimLit :: MDecode m => LF1.PrimLit -> m BuiltinExpr
+decodePrimLit :: MonadDecode m => LF1.PrimLit -> m BuiltinExpr
 decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumInt64 sInt -> pure $ BEInt64 sInt
   LF1.PrimLitSumDecimal sDec -> case readMaybe (TL.unpack sDec) of
@@ -592,7 +592,7 @@ decodeValName LF1.ValName{..} = do
   name <- decodeValueName "valNameName" valNameName
   pure $ Qualified pref mname name
 
-decodeDottedName :: MDecode m => ([T.Text] -> a) -> LF1.DottedName -> m a
+decodeDottedName :: MonadDecode m => ([T.Text] -> a) -> LF1.DottedName -> m a
 decodeDottedName wrapDottedName (LF1.DottedName parts) = decodeImpl $ do
   unmangledParts <- forM (V.toList parts) $ \part ->
     case unmangleIdentifier (TL.toStrict part) of
@@ -600,7 +600,7 @@ decodeDottedName wrapDottedName (LF1.DottedName parts) = decodeImpl $ do
       Right unmangled -> pure unmangled
   pure (wrapDottedName unmangledParts)
 
-decodeName :: MDecode m => (T.Text -> a) -> TL.Text -> m a
+decodeName :: MonadDecode m => (T.Text -> a) -> TL.Text -> m a
 decodeName wrapName segment =
   case unmangleIdentifier (TL.toStrict segment) of
     Left err -> throwError (ParseError ("Could not unmangle part " ++ show segment ++ ": " ++ err))
@@ -610,7 +610,7 @@ decodeName wrapName segment =
 -- Helpers
 ------------------------------------------------------------------------
 
-mayDecode :: MDecode m => String -> Maybe a -> (a -> m b) -> m b
+mayDecode :: MonadDecode m => String -> Maybe a -> (a -> m b) -> m b
 mayDecode fieldName mb f =
   case mb of
     Nothing -> throwError (MissingField fieldName)
@@ -620,13 +620,13 @@ mayDecode' :: String -> Maybe a -> (a -> Decode b) -> DecodeImpl b
 mayDecode' fieldName mb = decodeImpl . mayDecode fieldName mb
 
 decodeNM
-  :: (MDecode m, NM.Named b)
+  :: (MonadDecode m, NM.Named b)
   => (NM.Name b -> Error) -> (a -> m b) -> V.Vector a -> m (NM.NameMap b)
 decodeNM mkDuplicateError decode1 xs = do
   ys <- traverse decode1 (V.toList xs)
   either (throwError . mkDuplicateError) pure $ NM.fromListEither ys
 
-decodeValueName :: MDecode m => String -> V.Vector TL.Text -> m ExprValName
+decodeValueName :: MonadDecode m => String -> V.Vector TL.Text -> m ExprValName
 decodeValueName ident xs = fmap ExprValName $ if
   | V.length xs == 1 -> case unmangleIdentifier (TL.toStrict (xs V.! 0)) of
       Right name -> pure name
