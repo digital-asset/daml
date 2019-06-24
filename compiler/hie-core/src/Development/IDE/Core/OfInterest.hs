@@ -28,7 +28,6 @@ import           Data.Set                                 (Set)
 import qualified Data.Set                                 as Set
 import qualified Data.Text as T
 import Data.Tuple.Extra
-import Development.IDE.Types.Location (NormalizedFilePath)
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 
 import           Development.IDE.Core.Shake
