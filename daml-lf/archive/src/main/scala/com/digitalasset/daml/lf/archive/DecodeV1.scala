@@ -13,10 +13,12 @@ import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion}
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 
+import com.google.protobuf.CodedInputStream
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
+private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
 
   import Decode._
 
@@ -26,6 +28,14 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
   override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package =
     Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, _).decode))
+
+  type ProtoModule = PLF.Module
+
+  override def protoModule(cis: CodedInputStream): ProtoModule =
+    PLF.Module.parser().parseFrom(cis)
+
+  override def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module =
+    ModuleDecoder(packageId, lfModule).decode()
 
   private[this] def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw new ParseError(err), identity)

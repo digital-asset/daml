@@ -46,7 +46,7 @@ object Decode extends Decode {
     Reader.damlLfCodedInputStream(is, recursionLimit)
 
   /** inlined [[scalaz.ContravariantCoyoneda]]`[OfPackage, DamlLf.ArchivePayload]` */
-  private[archive] sealed abstract class PayloadDecoder {
+  private[lf] sealed abstract class PayloadDecoder {
     type I
     val extract: DamlLf.ArchivePayload => I
     val decoder: OfPackage[I]
@@ -61,13 +61,18 @@ object Decode extends Decode {
       }
   }
 
-  override private[archive] val decoders: PartialFunction[LanguageVersion, PayloadDecoder] = {
+  override private[lf] val decoders: PartialFunction[LanguageVersion, PayloadDecoder] = {
     case LanguageVersion(V1, minor) if V1.supportedMinorVersions.contains(minor) =>
       PayloadDecoder(new DecodeV1(minor))(_.getDamlLf1)
   }
 
   private[lf] trait OfPackage[-Pkg] {
+    type ProtoModule
+    def protoModule(cis: CodedInputStream): ProtoModule
+    @throws[ParseError]
     def decodePackage(packageId: PackageId, lfPackage: Pkg): Package
+    @throws[ParseError]
+    def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module
   }
 
   private def identifierStart(c: Char) =
