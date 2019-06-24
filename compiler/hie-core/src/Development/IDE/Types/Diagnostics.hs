@@ -34,26 +34,17 @@ import Development.IDE.Types.Location
 
 
 ideErrorText :: NormalizedFilePath -> T.Text -> FileDiagnostic
-ideErrorText fp msg = (fp, diagnostic noRange LSP.DsError "Ide Error" msg)
+ideErrorText fp msg = (fp, LSP.Diagnostic {
+    _range = noRange,
+    _severity = Just LSP.DsError,
+    _code = Nothing,
+    _source = Just "compiler",
+    _message = msg,
+    _relatedInformation = Nothing
+    })
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
-
--- | This is for compatibility with our old diagnostic type
-diagnostic :: Range
-           -> LSP.DiagnosticSeverity
-           -> T.Text -- ^ source
-           -> T.Text -- ^ message
-           -> LSP.Diagnostic
-diagnostic rng sev src msg
-    = LSP.Diagnostic {
-          _range = rng,
-          _severity = Just sev,
-          _code = Nothing,
-          _source = Just src,
-          _message = msg,
-          _relatedInformation = Nothing
-          }
 
 
 -- | Human readable diagnostics for a specific file.
