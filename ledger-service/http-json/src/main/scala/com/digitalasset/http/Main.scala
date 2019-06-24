@@ -20,7 +20,7 @@ import com.typesafe.scalalogging.StrictLogging
 
 import scala.concurrent.Future
 
-object DummyMain extends App with StrictLogging {
+object Main extends App with StrictLogging {
 
   if (args.length != 3) {
     logger.error("Usage: LEDGER_HOST LEDGER_PORT HTTP_PORT")
