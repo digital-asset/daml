@@ -25,7 +25,7 @@ import scala.reflect.runtime.{universe => runUni}
   */
 object DamlDataTypeGen {
 
-  import LFUtil.{domainApiAlias, generateIds, rpcValueAlias}
+  import LFUtil.{domainApiAlias, generateIds, rpcValueAlias, stdVectorType}
 
   import runUni._
 
@@ -154,7 +154,7 @@ object DamlDataTypeGen {
             ..$rootClassChildren
           }"""
 
-      val (imports, companionObject) = constructors match {
+      val (imports, companionObject) = (constructors: List[Ref.Name]) match {
         case firstValue :: otherValues =>
           Set(LFUtil.domainApiImport) ->
             q"""
@@ -166,7 +166,7 @@ object DamlDataTypeGen {
             }}
             
               val firstValue: $appliedValueType = ${TermName(firstValue.capitalize)}
-              val otherValues:  Vector[$appliedValueType] =
+              val otherValues:  $stdVectorType[$appliedValueType] =
                 ${otherValues.map(c => q"${TermName(c.capitalize)}").toVector}
 
               ..${idField.toList}

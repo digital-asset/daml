@@ -15,7 +15,7 @@ import scalaz._
 import scalaz.std.iterable.iterableShow
 
 abstract class ShowEncoding extends LfTypeEncoding {
-  import ShowEncoding.{RecordFieldsImpl, VariantCasesImpl, EnumCasesImpl, primitiveImpl}
+  import ShowEncoding.{RecordFieldsImpl, VariantCasesImpl, primitiveImpl}
 
   type Out[A] = Show[A]
 
@@ -24,8 +24,6 @@ abstract class ShowEncoding extends LfTypeEncoding {
   type RecordFields[A] = Show[A]
 
   type VariantCases[A] = Show[A]
-
-  type EnumCases[A] = Show[A]
 
   override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] = {
     val P.LegacyIdentifier(_, recName) = recordId
@@ -48,12 +46,14 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
-  override def enum[A](enumId: Identifier, cases: EnumCases[A]): Out[A] = cases
-
-  override def enumCase[A](caseName: String)(inject: A, select: A => Boolean): EnumCases[A] = show {
-    _ =>
-      Cord(caseName)
-  }
+  override def enumAll[A](
+      enumId: Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] =
+    show { a: A =>
+      cases.index(index(a)).fold(Cord.empty)(_._1)
+    }
 
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 
@@ -66,8 +66,6 @@ abstract class ShowEncoding extends LfTypeEncoding {
   override val RecordFields: InvariantApply[RecordFields] = new RecordFieldsImpl
 
   override val VariantCases: Plus[VariantCases] = new VariantCasesImpl
-
-  override val EnumCases: Plus[EnumCases] = new EnumCasesImpl
 
   override val primitive: ValuePrimitiveEncoding[Out] = new primitiveImpl
 }
@@ -83,12 +81,6 @@ object ShowEncoding extends ShowEncoding {
       z: Z =>
         val (a, b) = g(z)
         Cord(fa.show(a), ", ", fb.show(b))
-    }
-  }
-
-  class EnumCasesImpl extends Plus[EnumCases] {
-    def plus[A](a: Show[A], b: => Show[A]): Show[A] = show { f: A =>
-      a.show(f) ++ b.show(f)
     }
   }
 

@@ -9,16 +9,17 @@ import java.lang.Math.max
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
+import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.api.v1.{value => rpcvalue}
 import com.digitalasset.ledger.client.binding.{Primitive => P}
 import org.scalacheck.Shrink
 import org.scalacheck.Shrink.{shrinkContainer, shrinkContainer2, shrinkFractional, shrinkIntegral}
-import scalaz.{@@, Plus, Tag, Tags}
+import scalaz.{OneAnd, Plus}
 
 import scala.math.Numeric.LongIsIntegral
 
 abstract class ShrinkEncoding extends LfTypeEncoding {
-  import ShrinkEncoding.{EnumCasesImpl, RecordFieldsImpl, VariantCasesImpl, primitiveImpl}
+  import ShrinkEncoding.{RecordFieldsImpl, VariantCasesImpl, primitiveImpl}
 
   // Shrink[A] is a typeclass version of the function:
   // A => Stream[A]
@@ -32,8 +33,6 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
 
   type VariantCases[A] = Shrink[A] // probably
 
-  type EnumCases[A] = (A, A => Boolean) @@ Tags.FirstVal
-
   override def record[A](recordId: rpcvalue.Identifier, fi: RecordFields[A]): Out[A] = fi
 
   override def emptyRecord[A](recordId: rpcvalue.Identifier, element: () => A): Out[A] =
@@ -45,10 +44,14 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] = cases
 
-  override def enum[A](enumId: rpcvalue.Identifier, cases: EnumCases[A]): Out[A] = Shrink.shrinkAny
-
-  override def enumCase[A](caseName: String)(inject: A, select: A => Boolean): EnumCases[A] =
-    Tag((inject, select))
+  override def enumAll[A](
+      enumId: Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] =
+    Shrink { a: A =>
+      if (index(a) == 0) Stream.empty else Stream(cases.head._2)
+    }
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
       select: A PartialFunction B): VariantCases[A] = Shrink[A] { a: A =>
@@ -60,8 +63,6 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
   override val RecordFields: InvariantApply[RecordFields] = new RecordFieldsImpl
 
   override val VariantCases: Plus[VariantCases] = new VariantCasesImpl
-
-  override val EnumCases: Plus[EnumCases] = new EnumCasesImpl
 
   override val primitive: ValuePrimitiveEncoding[Out] = new primitiveImpl
 }
@@ -77,10 +78,6 @@ object ShrinkEncoding extends ShrinkEncoding {
       implicit val ifb: Shrink[B] = fb
       Shrink.xmap(f.tupled, g)
     }
-  }
-
-  class EnumCasesImpl extends Plus[EnumCases] {
-    override def plus[A](a: EnumCases[A], b: => EnumCases[A]): EnumCases[A] = a
   }
 
   class VariantCasesImpl extends Plus[VariantCases] {

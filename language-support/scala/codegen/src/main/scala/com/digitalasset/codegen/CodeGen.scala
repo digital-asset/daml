@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface.{Type => _, _}
 import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
-
 import com.digitalasset.codegen.dependencygraph._
 import com.digitalasset.codegen.exception.PackageInterfaceException
 import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
@@ -19,7 +18,6 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
 import com.digitalasset.daml_lf.DamlLf
 import com.typesafe.scalalogging.Logger
-
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
 import scalaz.std.list._
@@ -173,14 +171,14 @@ object CodeGen {
       util.orderedDependencies(interface)
     val (supportedTemplateIds, typeDeclsToGenerate): (
         Map[Identifier, util.TemplateInterface],
-        Vector[ScopedDataType.FWT]) = {
+        List[ScopedDataType.FWT]) = {
 
       /* Here we collect templates and the
        * [[TypeDecl]]s without generating code for them.
        */
       val templateIdOrTypeDecls
-        : Vector[(Identifier, util.TemplateInterface) Either ScopedDataType.FWT] =
-        orderedDependencies.deps.flatMap {
+        : List[(Identifier, util.TemplateInterface) Either ScopedDataType.FWT] =
+        orderedDependencies.deps.toList.flatMap {
           case (templateId, Node(TypeDeclWrapper(typeDecl), _, _)) =>
             Seq(Right(ScopedDataType fromDefDataType (templateId, typeDecl)))
           case (templateId, Node(TemplateWrapper(templateInterface), _, _)) =>
@@ -209,7 +207,7 @@ object CodeGen {
 
     // New prep steps for LF codegen
     // 1. collect records, search variants and splat/filter
-    val (unassociatedRecords, splattedVariants, enums) = splatVariants(recordsAndVariants)
+    val (unassociatedRecords, splattedVariants, enums) = splatVariants(definitions)
 
     // 2. put templates/types into single Namespace.fromHierarchy
     val treeified: Namespace[String, Option[lf.HierarchicalOutput.TemplateOrDatatype]] =
@@ -242,23 +240,25 @@ object CodeGen {
     filePlans ++ specialPlans
   }
 
-  private[this] def splitNTDs[RT, VT](definitions: Iterable[ScopedDataType.DT[RT, VT]]): (
-      Iterable[ScopedDataType[Record[RT]]],
-      Iterable[ScopedDataType[Variant[VT]]],
-      Iterable[ScopedDataType[Enum]]
+  private[this] def splitNTDs[RT, VT](definitions: List[ScopedDataType.DT[RT, VT]]): (
+      List[ScopedDataType[Record[RT]]],
+      List[ScopedDataType[Variant[VT]]],
+      List[ScopedDataType[Enum]]
   ) = {
 
-    val records = definitions.collect {
-      case sdt @ ScopedDataType(qualName, typeVars, r: Record[RT]) => sdt copy (dataType = r)
-    }
+    val (recordAndVariants, enums) = partitionEithers(definitions map {
+      case sdt @ ScopedDataType(qualName, typeVars, ddt) =>
+        ddt match {
+          case r: Record[RT] =>
+            Left(Left(sdt copy (dataType = r)))
+          case v: Variant[VT] =>
+            Left(Right(sdt copy (dataType = v)))
+          case e: Enum =>
+            Right(sdt copy (dataType = e))
+        }
+    })
 
-    val variants = definitions.collect {
-      case sdt @ ScopedDataType(qualName, typeVars, v: Variant[VT]) => sdt copy (dataType = v)
-    }
-
-    val enums = definitions.collect {
-      case sdt @ ScopedDataType(qualName, typeVars, e: Enum) => sdt copy (dataType = e)
-    }
+    val (records, variants) = partitionEithers(recordAndVariants)
 
     (records, variants, enums)
   }
@@ -272,13 +272,13 @@ object CodeGen {
     * unchanged.
     */
   private[this] def splatVariants[RT <: iface.Type, VT <: iface.Type](
-      recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]]): (
+      definitions: List[ScopedDataType.DT[RT, VT]]): (
       List[ScopedDataType[Record[RT]]],
       List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]],
       List[ScopedDataType[Enum]]
   ) = {
 
-    val (records, variants, enums) = splitNTDs(recordsAndVariants)
+    val (records, variants, enums) = splitNTDs(definitions)
 
     val recordMap: Map[(ScopedDataType.Name, List[Ref.Name]), ScopedDataType[Record[RT]]] =
       records.map {

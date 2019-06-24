@@ -5,7 +5,7 @@ package com.digitalasset.ledger.client.binding.encoding
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.binding.encoding.EncodingUtil.normalize
 import com.digitalasset.ledger.client.binding.{Primitive => P}
-import scalaz.Plus
+import scalaz.{OneAnd, Plus}
 
 abstract class EqualityEncoding extends LfTypeEncoding {
   import EqualityEncoding.{RecordFieldsImpl, VariantCasesImpl, primitiveImpl}
@@ -20,8 +20,6 @@ abstract class EqualityEncoding extends LfTypeEncoding {
 
   type VariantCases[A] = Fn[A]
 
-  type EnumCases[A] = Fn[A]
-
   override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] = fi
 
   override def emptyRecord[A](recordId: Identifier, element: () => A): Out[A] = (_, _) => true
@@ -30,10 +28,11 @@ abstract class EqualityEncoding extends LfTypeEncoding {
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
-  def enum[A](enumId: Identifier, cases: EnumCases[A]): Out[A] = cases
-
-  override def enumCase[A](caseName: String)(inject: A, select: A => Boolean): EnumCases[A] =
-    (a1: A, a2: A) => select(a1) && select(a2) && a1 == a2
+  override def enumAll[A](
+      enumId: Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] = index(_) == index(_)
 
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 
@@ -49,8 +48,6 @@ abstract class EqualityEncoding extends LfTypeEncoding {
   override val RecordFields: InvariantApply[RecordFields] = new RecordFieldsImpl
 
   override val VariantCases: Plus[VariantCases] = new VariantCasesImpl
-
-  override val EnumCases: Plus[EnumCases] = new VariantCasesImpl
 
   override val primitive: ValuePrimitiveEncoding[Out] = new primitiveImpl
 }

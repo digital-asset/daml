@@ -30,8 +30,6 @@ trait LfTypeEncoding {
 
   type VariantCases[A]
 
-  type EnumCases[A]
-
   /** "Finalize" a field set. */
   def record[A](recordId: rpcvalue.Identifier, fi: RecordFields[A]): Out[A]
 
@@ -52,22 +50,13 @@ trait LfTypeEncoding {
   /** Pull a single field into the language of field lists. */
   def fields[A](fi: Field[A]): RecordFields[A]
 
-  /** "Finalize" a enum set. */
-  def enum[A](enumId: rpcvalue.Identifier, cases: EnumCases[A]): Out[A]
-
   /** Convenient wrapper for `enum` and iterated `VariantCase.plus`. */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  final def enumAll[A](
+  def enumAll[A](
       enumId: rpcvalue.Identifier,
-      case0: EnumCases[A],
-      cases: EnumCases[A]*): Out[A] = {
-    import scalaz.std.iterable._
-    enum(enumId, OneAnd(case0, cases).sumr1(EnumCases.semigroup))
-  }
-
-  /** Pull a enum case into the language of enum cases.
-    */
-  def enumCase[A](caseName: String)(inject: A, select: A => Boolean): EnumCases[A]
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A]
 
   /** "Finalize" a variant set. */
   def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A]
@@ -108,9 +97,6 @@ trait LfTypeEncoding {
   /** A language for building up variant case handlers. */
   val VariantCases: Plus[VariantCases]
 
-  /** A language for building up variant case handlers. */
-  val EnumCases: Plus[EnumCases]
-
   /** Base axioms for primitive LF types. */
   val primitive: ValuePrimitiveEncoding[Out]
 }
@@ -131,7 +117,6 @@ object LfTypeEncoding {
     type Field[A] = Product[fst.Field, snd.Field, A]
     type RecordFields[A] = Product[fst.RecordFields, snd.RecordFields, A]
     type VariantCases[A] = Product[fst.VariantCases, snd.VariantCases, A]
-    type EnumCases[A] = Product[fst.EnumCases, snd.EnumCases, A]
 
     override def record[A](recordId: rpcvalue.Identifier, fi: RecordFields[A]): Out[A] =
       (fst.record(recordId, fi._1), snd.record(recordId, fi._2))
@@ -145,11 +130,12 @@ object LfTypeEncoding {
     override def fields[A](fi: Field[A]): RecordFields[A] =
       (fst.fields(fi._1), snd.fields(fi._2))
 
-    override def enum[A](enumId: rpcvalue.Identifier, cases: EnumCases[A]): Out[A] =
-      (fst.enum(enumId, cases._1), snd.enum(enumId, cases._2))
-
-    override def enumCase[A](caseName: String)(select: A, inject: A => Boolean): EnumCases[A] =
-      (fst.enumCase(caseName)(select, inject), snd.enumCase(caseName)(select, inject))
+    override def enumAll[A](
+        enumId: rpcvalue.Identifier,
+        index: A => Int,
+        cases: OneAnd[Vector, (String, A)],
+    ): Out[A] =
+      (fst.enumAll(enumId, index, cases), snd.enumAll(enumId, index, cases))
 
     override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
       (fst.variant(variantId, cases._1), snd.variant(variantId, cases._2))
@@ -163,10 +149,6 @@ object LfTypeEncoding {
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val RecordFields: InvariantApply[RecordFields] =
       fst.RecordFields product snd.RecordFields
-
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
-    override val EnumCases: Plus[EnumCases] =
-      fst.EnumCases product snd.EnumCases
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override val VariantCases: Plus[VariantCases] =

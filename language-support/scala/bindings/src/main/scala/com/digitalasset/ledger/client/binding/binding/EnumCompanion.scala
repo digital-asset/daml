@@ -6,6 +6,9 @@ package com.digitalasset.ledger.client.binding
 import com.digitalasset.ledger.api.v1.{value => rpcvalue}
 import com.digitalasset.ledger.client.binding.encoding.{LfEncodable, LfTypeEncoding}
 import scalaz.Liskov.<~<
+import scalaz.OneAnd
+import scalaz.syntax.functor._
+import scalaz.std.vector._
 
 abstract class EnumCompanion[T](implicit isEnum: T <~< EnumRef) extends ValueRefCompanion {
 
@@ -26,13 +29,14 @@ abstract class EnumCompanion[T](implicit isEnum: T <~< EnumRef) extends ValueRef
       rpcValues(isEnum(enum).index)
   }
 
-  implicit final val `the enum LfEncodable`: LfEncodable[T] = new LfEncodable[T] {
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  implicit final lazy val `the enum LfEncodable`: LfEncodable[T] = new LfEncodable[T] {
+
+    private[this] val cases = OneAnd(firstValue, otherValues).map(x => isEnum(x).constructor -> x)
+
     override def encoding(lte: LfTypeEncoding): lte.Out[T] =
-      lte.enumAll(
-        ` dataTypeId`,
-        lte.enumCase(isEnum(firstValue).constructor)(firstValue, values.contains(_: T)),
-        otherValues.map(v => lte.enumCase(isEnum(v).constructor)(v, values.contains(_: T))): _*
-      )
+      lte.enumAll(` dataTypeId`, isEnum(_).index, cases)
+
   }
 
 }

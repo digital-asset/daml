@@ -11,7 +11,7 @@ import scala.collection.immutable.Map
 import org.scalacheck.{Arbitrary, Gen, Shrink}
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import scalaz.{~>, Apply}
+import scalaz.{Apply, OneAnd, ~>}
 import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.std.vector._
@@ -366,8 +366,6 @@ object LfTypeEncodingSpec {
         readers: Map[String, VSum => Option[A]],
         writers: Vector[(String, A => Option[VSum])])
 
-    override type EnumCases[A] = Vector[(String, A)]
-
     override def record[A](recordId: rpcvalue.Identifier, fi: RecordFields[A]): Out[A] =
       new Value.InternalImpl[A] {
         override def write(a: A): VSum =
@@ -402,24 +400,23 @@ object LfTypeEncodingSpec {
       })
     }
 
-    def enum[A](enumId: rpcvalue.Identifier, cases: EnumCases[A]): Out[A] =
+    override def enumAll[A](
+        enumId: rpcvalue.Identifier,
+        index: A => Int,
+        cases: OneAnd[Vector, (String, A)],
+    ): Out[A] =
       new Value.InternalImpl[A] {
-        val writers = cases.map {
-          case (str, a) => a -> VSum.Enum(rpcvalue.Enum(Some(enumId), str))
-        }.toMap
-        val readers = cases.toMap
-
-        override def write(a: A): VSum =
-          writers.getOrElse(
-            a,
-            sys.error(s"Missing case for $enumId: ${readers.keySet} is not exhaustive"))
+        private val readerMap =
+          cases.toVector.toMap
 
         override def read(av: VSum): Option[A] =
-          av.enum flatMap (e => readers.get(e.constructor))
-      }
+          av.enum.flatMap(e => readerMap.get(e.constructor))
 
-    def enumCase[A](caseName: String)(select: A, inject: A => Boolean): EnumCases[A] =
-      Vector(caseName -> select)
+        private val writerArray =
+          cases.toVector.map(x => VSum.Enum(rpcvalue.Enum(Some(enumId), x._1)))
+
+        override def write(a: A): VSum = writerArray(index(a))
+      }
 
     def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
       new Value.InternalImpl[A] {
@@ -474,10 +471,6 @@ object LfTypeEncodingSpec {
     object VariantCases extends scalaz.Plus[VariantCases] {
       override def plus[A](a: VariantCases[A], b: => VariantCases[A]): VariantCases[A] =
         VariantCases(readers = a.readers ++ b.readers, writers = a.writers |+| b.writers)
-    }
-
-    object EnumCases extends scalaz.Plus[EnumCases] {
-      override def plus[A](a: EnumCases[A], b: => EnumCases[A]): EnumCases[A] = a ++ b
     }
 
     override val primitive = DamlCodecs
