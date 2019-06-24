@@ -41,8 +41,8 @@ def main():
             "target",
             metavar="TARGET",
             nargs="?",
-            default="//:damlc",
-            help="Bazel target or source file to load into GHCi. Default: damlc")
+            default=":repl",
+            help="Bazel target or source file to load into GHCi. Default: :repl")
     parser.add_argument(
             "ghci_args",
             metavar="...",
