@@ -24,7 +24,6 @@ import           DA.Cli.Args
 import qualified DA.Pretty
 import DA.Service.Daml.Compiler.Impl.Dar
 import DA.Service.Daml.Compiler.Impl.Scenario
-import DA.Daml.GHC.Compiler.Config
 import DA.Daml.GHC.Compiler.Options
 import DA.Daml.GHC.Compiler.Upgrade
 import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
@@ -50,13 +49,15 @@ import Development.IDE.State.API
 import Development.IDE.Core.Compile
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Rules.Daml (getDalf)
+import Development.IDE.State.API
+import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import GHC.Conc
 import qualified Network.Socket                    as NS
 import Options.Applicative.Extended
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
-import Safe (tailMay)
+import Safe
 import System.Directory
 import System.Environment
 import System.Exit
@@ -67,8 +68,10 @@ import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 import DA.Cli.Damlc.Test
 import DA.Bazel.Runfiles
 import DA.Cli.Visual
-import "ghc-lib" GHC
 import Data.List
+import qualified Data.NameMap as NM
+import qualified Data.Map.Strict as MS
+import System.IO.Temp
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -602,56 +605,58 @@ execInspectDar inFile = do
 execMigrate ::
        Options -> FilePath -> FilePath -> Maybe FilePath -> Command
 execMigrate opts inFile1 inFile2 mbDir = do
-    let pkg1 = takeBaseName inFile1
-    let pkg2 = takeBaseName inFile2
-    bytes1 <- B.readFile inFile1
-    bytes2 <- B.readFile inFile2
-    let dar1 = toArchive $ BSL.fromStrict bytes1
-    let dar2 = toArchive $ BSL.fromStrict bytes2
-    let srcFiles1 =
-            [e | e <- zEntries dar1, ".daml" `isExtensionOf` eRelativePath e]
-    let srcFiles2 =
-            [e | e <- zEntries dar2, ".daml" `isExtensionOf` eRelativePath e]
-    let pairs =
-            [ (e1, e2)
-            | [e1, e2] <-
-                  groupBy
-                      (\e1 e2 ->
-                           (tailMay $ splitPath $ eRelativePath e1) ==
-                           (tailMay $ splitPath $ eRelativePath e2))
-                      (srcFiles1 ++ srcFiles2)
-            ]
-    -- write the sources to disc. TODO (drsk) can we do this in memory?
-    forM_ (srcFiles1 ++ srcFiles2) $ \e -> do
-        let path = eRelativePath e
-        createDirectoryIfMissing True $ takeDirectory path
-        BSL.writeFile path (fromEntry e)
     loggerH <- getLogger opts "migrate"
-    forM_ pairs $ \(e1, e2) -> do
-        let path1 = eRelativePath e1
-        let path2 = eRelativePath e2
+    [(pkgName1, pkgId1, lfPkg1, pkgMap1), (pkgName2, pkgId2, lfPkg2, pkgMap2)] <-
+        forM [inFile1, inFile2] $ \inFile -> do
+            let pkg = takeBaseName inFile
+            bytes <- B.readFile inFile
+            let dar = toArchive $ BSL.fromStrict bytes
+            manifest <- getEntry "META-INF/MANIFEST.MF" dar
+            mainDalfPath <-
+                maybe (ioError $ userError "Missing Main-Dalf entry in META-INF/MANIFEST.MF") pure $
+                headMay
+                    [ main
+                    | l <-
+                          lines $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
+                    , Just main <- [stripPrefix "Main-Dalf: " l]
+                    ]
+            mainDalf <- BSL.toStrict . fromEntry <$> getEntry mainDalfPath dar
+            (pkgId, lfPkg) <-
+                errorOnLeft
+                    ("Cannot decode package " <> mainDalfPath)
+                    (Archive.decodeArchive mainDalf)
+            pkgMap <- generatePkgMap loggerH dar
+            pure (pkg, pkgId, lfPkg, pkgMap)
+    let eqModNames =
+            (NM.names $ LF.packageModules lfPkg1) `intersect`
+            (NM.names $ LF.packageModules lfPkg2)
+    forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
+        [genSrc1, genSrc2] <-
+            forM [(pkgId1, lfPkg1, pkgMap1), (pkgId2, lfPkg2, pkgMap2)] $ \(pkgId, pkg, pkgMap) -> do
+                generateSrcFromLf pkgId pkgMap <$> getModule m pkg
         let upgradeModPath =
-                joinPath $ fromMaybe "" mbDir : (tail $ splitPath path1)
+                (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
+                ".daml"
         let instancesModPath1 =
                 replaceBaseName upgradeModPath $
-                takeBaseName path1 <> "InstancesA"
+                takeBaseName upgradeModPath <> "InstancesA"
         let instancesModPath2 =
                 replaceBaseName upgradeModPath $
-                takeBaseName path2 <> "InstancesB"
-        parsedMod1 <- parse loggerH path1
-        parsedMod2 <- parse loggerH path2
+                takeBaseName upgradeModPath <> "InstancesB"
+        templateNames <-
+            map (T.unpack . T.intercalate "." . LF.unTypeConName) .
+            NM.names . LF.moduleTemplates <$>
+            getModule m lfPkg1
         let generatedUpgradeMod =
                 generateUpgradeModule
-                    (pkg1, pm_parsed_source parsedMod1)
-                    (pkg2, pm_parsed_source parsedMod2)
+                    templateNames
+                    (T.unpack $ LF.moduleNameString m)
+                    pkgName1
+                    pkgName2
         let generatedInstancesMod1 =
-                generateGenInstancesModule
-                    "A"
-                    (pkg1, pm_parsed_source parsedMod1)
+                generateGenInstancesModule "A" (pkgName1, genSrc1)
         let generatedInstancesMod2 =
-                generateGenInstancesModule
-                    "B"
-                    (pkg2, pm_parsed_source parsedMod2)
+                generateGenInstancesModule "B" (pkgName2, genSrc2)
         forM_
             [ (upgradeModPath, generatedUpgradeMod)
             , (instancesModPath1, generatedInstancesMod1)
@@ -660,19 +665,22 @@ execMigrate opts inFile1 inFile2 mbDir = do
             createDirectoryIfMissing True $ takeDirectory path
             writeFile path mod
   where
-    parse loggerH fp = do
-        errOrMod <-
-            runGhcFast $
-            runExceptT $ do
-                lift $ setupDamlGHC [] Nothing []
-                -- parse without any preprocessing, so that we can see which data definitions have
-                -- already generic instances.
-                parseFileContents ((,) []) fp Nothing
-        case errOrMod of
-            Left err -> ioError $ userError $ show err
-            Right (ds, mod) -> do
-                unless (null ds) $ Logger.logWarning loggerH (T.pack $ show ds)
-                return mod
+    getEntry fp dar =
+        maybe (ioError $ userError $ "Package does not contain " <> fp) pure $
+        findEntryByPath fp dar
+    getModule modName pkg =
+        maybe
+            (ioError $
+             userError $
+             T.unpack $ "Can't find module" <> LF.moduleNameString modName)
+            pure $
+        NM.lookup modName $ LF.packageModules pkg
+    generatePkgMap logH dar =
+        withSystemTempDirectory "generatePkgMap" $ \tmpDir -> do
+            extractFilesFromArchive [OptDestination tmpDir] dar
+            (diags, pkgMap) <- generatePackageMap [tmpDir]
+            unless (null diags) $ Logger.logWarning logH $ showDiagnostics diags
+            pure $ MS.map (\(LF.PackageId pkgId, _, _, _) -> pkgId) pkgMap
 
 --------------------------------------------------------------------------------
 -- main
