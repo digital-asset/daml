@@ -195,7 +195,7 @@ buildifier(
 da_haskell_repl(
     name = "repl",
     deps = [
-        ":damlc"
+        ":damlc",
         "//daml-assistant:daml",
         "//daml-assistant/daml-helper",
     ],
