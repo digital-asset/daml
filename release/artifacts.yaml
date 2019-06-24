@@ -1,5 +1,6 @@
 - target: //daml-lf/archive:daml_lf_archive_java
   type: jar
+  mavenUpload: True
 - target: //daml-lf/data:data
   type: jar
 - target: //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist
