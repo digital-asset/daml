@@ -182,6 +182,15 @@ case object DamlConstants {
     )
   )
 
+  val colorGD = DamlLfEnum(DamlLfImmArraySeq(name("Red"), name("Green"), name("Blue")))
+  val colorGC = DamlLfDefDataType(DamlLfImmArraySeq.empty, colorGD)
+  val colorId: DamlLfIdentifier = defRef("Color")
+  val redTC = DamlLfTypeCon(
+    DamlLfTypeConName(colorId),
+    DamlLfImmArraySeq.empty
+  )
+  val redV = ApiEnum(Some(colorId), "Red")
+
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: complex record containing all DAML types
   // ------------------------------------------------------------------------------------------------------------------
@@ -243,7 +252,8 @@ case object DamlConstants {
     simpleVariantId -> simpleVariantGC,
     complexRecordId -> complexRecordGC,
     treeId -> treeGC,
-    treeNodeId -> treeNodeGC
+    treeNodeId -> treeNodeGC,
+    colorId -> colorGC
   )
 
   // Note: these templates may not be valid DAML templates
