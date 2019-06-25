@@ -34,9 +34,10 @@ import Language.Haskell.LSP.Messages
 
 runLanguageServer
     :: LSP.Options
+    -> PartialHandlers
     -> ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
     -> IO ()
-runLanguageServer options getIdeState = do
+runLanguageServer options userHandlers getIdeState = do
     -- Move stdout to another file descriptor and duplicate stderr
     -- to stdout. This guards against stray prints from corrupting the JSON-RPC
     -- message stream.
@@ -60,7 +61,11 @@ runLanguageServer options getIdeState = do
 
     let withResponse wrap f = Just $ \r -> writeChan clientMsgChan $ Response r wrap f
     let withNotification f = Just $ \r -> writeChan clientMsgChan $ Notification r f
-    let PartialHandlers parts = setHandlersDefinition <> setHandlersHover <> setHandlersNotifications <> setHandlersIgnore
+    let PartialHandlers parts =
+            setHandlersIgnore <> -- least important
+            setHandlersDefinition <> setHandlersHover <> -- useful features someone may override
+            userHandlers <>
+            setHandlersNotifications -- absolutely critical, join them with user notifications
     handlers <- parts WithMessage{withResponse, withNotification} def
 
     void $ waitAnyCancel =<< traverse async

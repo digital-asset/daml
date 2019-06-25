@@ -45,11 +45,14 @@ data WithMessage = WithMessage
 
 newtype PartialHandlers = PartialHandlers (WithMessage -> LSP.Handlers -> IO LSP.Handlers)
 
+instance Default PartialHandlers where
+    def = PartialHandlers $ \_ x -> pure x
+
 instance Semigroup PartialHandlers where
     PartialHandlers a <> PartialHandlers b = PartialHandlers $ \w x -> a w x >>= b w
 
 instance Monoid PartialHandlers where
-    mempty = PartialHandlers $ \_ x -> pure x
+    mempty = def
 
 ------------------------------------------------------------------------
 -- Server execution
