@@ -42,9 +42,14 @@ final case class CreateEvent[Cid, Val](
     extends Event[Nothing, Cid, Val] {
 
   /**
-    * The stakeholders of the created contract is the union of signatories and observers
+    * Note that the stakeholders of each event node will always be a subset of the event witnesses. We perform this
+    * narrowing since usually when consuming these events we only care about the parties that were included in the
+    * disclosure information. Consumers should be aware that the stakeholders stored are _not_ all the stakeholders of
+    * the contract, but just the stakeholders "up to witnesses".
+    *
+    * For broader and more detailed information, the consumer can use [[signatories]] and/or [[observers]].
     */
-  val stakeholders = signatories.union(observers)
+  val stakeholders = signatories.union(observers).intersect(witnesses)
 
   override def mapContractId[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): CreateEvent[Cid2, Val2] =
     copy(
