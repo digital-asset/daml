@@ -79,6 +79,7 @@ compileDependencies = [
     "//language-support/scala/bindings",
     "//ledger/ledger-api-client",
     "//ledger/ledger-api-domain",
+    "//daml-assistant/scala-daml-project-config",
     "//3rdparty/jvm/com/github/pureconfig:pureconfig",
     "//3rdparty/jvm/com/github/scopt:scopt",
     "//3rdparty/jvm/com/typesafe/akka:akka_http",

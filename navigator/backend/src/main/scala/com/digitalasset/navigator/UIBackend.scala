@@ -3,7 +3,7 @@
 
 package com.digitalasset.navigator
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Path, Paths}
 import java.util.UUID
 
 import akka.actor.ActorSystem
@@ -25,7 +25,6 @@ import com.digitalasset.navigator.store.Store.Subscribe
 import com.digitalasset.navigator.store.platform.PlatformStore
 import com.typesafe.scalalogging.LazyLogging
 import org.slf4j.LoggerFactory
-import pureconfig.error.ConfigReaderException
 import sangria.schema._
 import spray.json._
 
@@ -280,26 +279,32 @@ abstract class UIBackend extends LazyLogging with ApplicationInfoJsonSupport {
     Arguments.parse(rawArgs, defaultConfigFile) foreach run
 
   private def run(args: Arguments): Unit = {
-    val configFile = args.configFile.getOrElse(defaultConfigFile)
+    val navigatorConfigFile = args.configFile.getOrElse(defaultConfigFile)
+
     args.command match {
       case ShowUsage =>
         Arguments.showUsage(defaultConfigFile)
       case DumpGraphQLSchema =>
         dumpGraphQLSchema()
-      case RunServer if !Files.exists(configFile) =>
-        val message = "No configuration file found! A configuration template file will be created at " +
-          s"$configFile, please edit it and restart ${applicationInfo.name}"
-        userFacingLogger.error(message)
-        Config.writeTemplateToPath(configFile, args.useDatabase)
+      case CreateConfig =>
+        userFacingLogger.info(s"Creating a configuration template file at $navigatorConfigFile")
+        Config.writeTemplateToPath(navigatorConfigFile, args.useDatabase)
       case RunServer =>
-        Config.load(configFile, args.useDatabase) match {
-          case Left(failures) =>
-            val exception = new ConfigReaderException(failures)
-            logger.error(exception.getLocalizedMessage)
-            throw exception
-          case Right(config) if config.users.isEmpty =>
-            logger.error("No users found in the configuration file!")
-            sys.error("No users found in the configuration file!")
+        Config.load(navigatorConfigFile, args.useDatabase) match {
+          case Left(ConfigNotFound(message)) =>
+            val message =
+              s"""No configuration file found!
+                 |Please specify a configuration file and restart ${applicationInfo.name}.
+                 |Config file path was '$navigatorConfigFile'.
+                 |Hint: use the create-config command to create a sample config file.""".stripMargin
+            userFacingLogger.error(message)
+            sys.error("No configuration file found.")
+          case Left(ConfigParseFailed(message)) =>
+            userFacingLogger.error(s"Configuration file could not be parsed: $message")
+            sys.error(message)
+          case Left(ConfigInvalid(message)) =>
+            userFacingLogger.error(s"Configuration file is invalid: $message")
+            sys.error(message)
           case Right(config) =>
             runServer(args, config)
         }

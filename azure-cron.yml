@@ -121,7 +121,7 @@ jobs:
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
 
   - job: docker_image
-    timeoutInMinutes: 20
+    timeoutInMinutes: 60
     pool:
       name: 'linux-pool'
     steps:
@@ -134,18 +134,18 @@ jobs:
           RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
           DIR=$(pwd)
           VERSIONS=$(curl 'https://hub.docker.com/v2/repositories/digitalasset/daml-sdk/tags/?page_size=10000' -s)
+          DOCKERFILE_CHANGE_TIME=$(date -uIs -d $(git log -1 --format="%cI" -- ci/docker/daml-sdk/Dockerfile))
           for version in $(echo $RELEASES | sed -e 's/ /\n/g'); do
-            EXISTS=$(echo $VERSIONS | jq -r '[.results[].name == "'${version#v}'"] | any')
-            if [ "$EXISTS" == "true" ]; then
-              echo "${version#v} already exists, skipping."
+            LAST_UPDATE=$(echo $VERSIONS | jq -r '.results[] | select(.name == "'${version#v}'") | .last_updated')
+            if [[ -n "$LAST_UPDATE" &&  "$LAST_UPDATE" > "$DOCKERFILE_CHANGE_TIME" ]]; then
+              echo "${version#v} already exists and is up to date, skipping."
             else
+              if [[ -n "$LAST_UPDATE" ]]; then
+                echo "${version#v} already exists but Dockerfile has changed; rebuilding..."
+              fi
               echo "Building version ${version#v}..."
-              cd $(mktemp -d)
-              echo "FROM openjdk:8u212-alpine" >> Dockerfile
-              echo "RUN apk add curl bash" >> Dockerfile
-              echo "RUN curl https://get.daml.com | sh -s ${version#v}" >> Dockerfile
-              echo "ENV PATH="~/.daml/bin:${PATH}" >> Dockerfile
-              docker build -t digitalasset/daml-sdk:${version#v} .
+              cd ci/docker/daml-sdk
+              docker build -t digitalasset/daml-sdk:${version#v} --build-arg VERSION=${version#v} .
               docker push digitalasset/daml-sdk:${version#v}
               cd "$DIR"
               echo "Done."

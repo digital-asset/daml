@@ -33,12 +33,12 @@ class ResetServiceIT
     with InfiniteRetries
     with Matchers
     with AkkaBeforeAndAfterAll
-    with MultiLedgerFixture // TODO: this suite shoul not be using LedgerContext, as it is smart and hides too much of the reset mechanism
+    with MultiLedgerFixture // TODO: this suite should not be using LedgerContext, as it is smart and hides too much of the reset mechanism
     with ScalaFutures
     with TestCommands
     with SuiteResourceManagementAroundEach {
 
-  override def timeLimit: Span = 30.seconds
+  override def timeLimit: Span = scaled(30.seconds)
 
   override protected val config: Config =
     Config.default.withLedgerIdMode(LedgerIdMode.Dynamic())
