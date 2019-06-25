@@ -98,7 +98,7 @@ DAML Integration Kit status and roadmap
 
 The current status of the integration kit is ALPHA. We are working towards BETA,
 and General Availability (GA) will come quite a bit later. The roadmap below explains what we mean by
-these different statuse, and what's missing to progres.
+these different statuses, and what's missing to progress.
 
 ALPHA (current status)
   In the ALPHA status, the DAML Integration Kit is ready to be used by
