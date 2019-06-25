@@ -21,9 +21,9 @@ class PackageService(packageClient: PackageClient)(implicit ec: ExecutionContext
     }.run
 
   private def buildMap(ids: Set[Identifier]): TemplateIdMap =
-    ids.foldLeft(Map.empty[(String, String), Identifier]) { (b, a) =>
-      b.updated((a.moduleName, a.entityName), a)
-    }
+    ids.view.map { a =>
+      ((a.moduleName, a.entityName), a)
+    }.toMap
 }
 
 object PackageService {
@@ -37,16 +37,15 @@ object PackageService {
     } yield bs
 
   def resolveTemplateId(m: TemplateIdMap)(a: domain.TemplateId): Error \/ Identifier =
-    a.packageId.map { x =>
-      Identifier(packageId = x, moduleName = a.moduleName, entityName = a.entityName)
-    } match {
-      case Some(x) => \/.right(x)
-      case None => findTemplateId(m)((a.moduleName, a.entityName))
-    }
+    a.packageId
+      .map { x =>
+        Identifier(packageId = x, moduleName = a.moduleName, entityName = a.entityName)
+      }
+      .toRightDisjunction(())
+      .orElse { findTemplateId(m)((a.moduleName, a.entityName)) }
 
   private def findTemplateId(m: TemplateIdMap)(a: (String, String)): Error \/ Identifier =
-    m.get(a)
-      .fold(\/.left(s"Cannot resolve $a"): Error \/ Identifier)(x => \/.right(x))
+    m.get(a).toRightDisjunction(s"Cannot resolve $a")
 
   private def validate(
       requested: Set[domain.TemplateId],
