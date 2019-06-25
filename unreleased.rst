@@ -29,3 +29,6 @@ HEAD — ongoing
 - [DAML Integration Kit] Fixed a bug in the test tool that prevented users from running the tests.
   See `#1841 <https://github.com/digital-asset/daml/issues/1841>`__
 - [DAML Studio] Goto definition now works on types.
+- [Navigator] Added support for SDK project configuration files. If you start Navigator with the SDK Assistant,
+  Navigator will directly read the ``daml.yaml`` config file instead of the old Navigator config file.
+  See `#1128 <https://github.com/digital-asset/daml/issues/1128>`__.

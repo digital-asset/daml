@@ -1,6 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-module Main (main) where
+module DamlHelper.Main (main) where
 
 import Control.Exception
 import Data.Foldable
@@ -9,7 +9,7 @@ import System.Environment
 import System.Exit
 import System.IO
 
-import DamlHelper
+import DamlHelper.Run
 import DamlHelper.Signals
 
 main :: IO ()
