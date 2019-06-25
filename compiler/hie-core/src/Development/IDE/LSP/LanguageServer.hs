@@ -95,6 +95,11 @@ setHandlersIgnore _ x = return x
     where none = Just $ const $ return ()
 
 
+mergeHandlers :: [RunHandler -> LSP.Handlers -> IO LSP.Handlers] -> RunHandler -> LSP.Handlers -> IO LSP.Handlers
+mergeHandlers = foldl f (\_ a -> return a)
+    where f x1 x2 r a = x1 r a >>= x2 r
+
+
 data AddItem
     = forall m req resp . AddResponse (RequestMessage m req resp) (ResponseMessage resp -> FromServerMessage) (IdeState -> req -> IO resp)
     | forall m req . AddNotification (NotificationMessage m req) (IdeState -> req -> IO ())
