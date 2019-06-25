@@ -192,7 +192,7 @@ generateDalfRule =
         unsimplifiedRawDalf <- use_ GenerateRawDalf file
         let rawDalf = LF.simplifyModule unsimplifiedRawDalf
         setPriority PriorityGenerateDalf
-        pure $ toIdeResult $ do
+        pure $ either (, Nothing) (([],) . Just) $ do
             let liftError e = [ideErrorPretty file e]
             dalf <- mapLeft liftError $
                 Serializability.inferModule world lfVersion rawDalf
