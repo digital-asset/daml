@@ -8,8 +8,10 @@ import com.digitalasset.http.domain
 
 object JsonProtocol extends DefaultJsonProtocol {
 
+  implicit val JwtPayload: RootJsonFormat[domain.JwtPayload] = jsonFormat3(domain.JwtPayload)
+
   implicit val TemplateId: RootJsonFormat[domain.TemplateId] = jsonFormat3(domain.TemplateId)
 
   implicit val GetActiveContractsRequest: RootJsonFormat[domain.GetActiveContractsRequest] =
-    jsonFormat3(domain.GetActiveContractsRequest)
+    jsonFormat1(domain.GetActiveContractsRequest)
 }
