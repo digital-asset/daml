@@ -18,6 +18,7 @@ import Control.Concurrent.Chan
 import Control.Concurrent.Extra
 import Control.Concurrent.Async
 import Data.Default
+import Data.Maybe
 import           GHC.IO.Handle                    (hDuplicate, hDuplicateTo)
 import System.IO
 import Control.Monad
@@ -32,9 +33,10 @@ import Language.Haskell.LSP.Messages
 
 
 runLanguageServer
-    :: ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
+    :: LSP.Options
+    -> ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
     -> IO ()
-runLanguageServer getIdeState = do
+runLanguageServer options getIdeState = do
     -- Move stdout to another file descriptor and duplicate stderr
     -- to stdout. This guards against stray prints from corrupting the JSON-RPC
     -- message stream.
@@ -69,7 +71,7 @@ runLanguageServer getIdeState = do
             , handleInit (signalBarrier clientMsgBarrier ()) clientMsgChan
             )
             handlers
-            options
+            (modifyOptions options)
             Nothing
         , void $ waitBarrier clientMsgBarrier
         ]
@@ -105,14 +107,7 @@ data Message
     | forall m req . Notification (NotificationMessage m req) (IdeState -> req -> IO ())
 
 
-options :: LSP.Options
-options = def
-    { LSP.textDocumentSync = Just TextDocumentSyncOptions
-          { _openClose = Just True
-          , _change = Just TdSyncIncremental
-          , _willSave = Nothing
-          , _willSaveWaitUntil = Nothing
-          , _save = Just $ SaveOptions $ Just False
-          }
-    , LSP.codeLensProvider = Just $ CodeLensOptions $ Just False
-    }
+modifyOptions :: LSP.Options -> LSP.Options
+modifyOptions x = x{LSP.textDocumentSync = Just orig{_openClose=Just True, _change=Just TdSyncIncremental}}
+    where orig = fromMaybe tdsDefault $ LSP.textDocumentSync x
+          tdsDefault = TextDocumentSyncOptions Nothing Nothing Nothing Nothing Nothing
