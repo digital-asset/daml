@@ -47,7 +47,10 @@ runLanguageServer getIdeState = do
     -- the language server tests without the redirection.
     putStr " " >> hFlush stdout
 
+    -- Send everything over a channel, since you need to wait until after initialise before
+    -- LspFuncs is available
     clientMsgChan :: Chan Message <- newChan
+
     -- These barriers are signaled when the threads reading from these chans exit.
     -- This should not happen but if it does, we will make sure that the whole server
     -- dies and can be restarted instead of losing threads silently.
