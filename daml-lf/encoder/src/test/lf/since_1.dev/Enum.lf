@@ -16,6 +16,14 @@ module Enum {
     }
   };
 
+
+  val createColoredContract: Scenario (ContractId Enum:Box)  =
+     let
+       redContractCreation: Update (ContractId Enum:Box) =
+         create @Enum:Box (Enum:Box { x = Enum:Color:Red, party = 'party' })
+     in
+       commit @(ContractId Enum:Box) 'party' redContractCreation;
+
   enum Nothing = ;
 
   variant @serializable OptionalColor = NoColor: Unit | SomeColor: Enum:Color;

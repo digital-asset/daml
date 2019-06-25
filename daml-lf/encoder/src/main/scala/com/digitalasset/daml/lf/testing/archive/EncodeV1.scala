@@ -440,6 +440,13 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
         case ECase(scrut, alts) =>
           newBuilder.setCase(
             PLF.Case.newBuilder().setScrut(scrut).accumulateLeft(alts)(_ addAlts _))
+        case ELet(binding, body) =>
+          newBuilder.setLet(
+            PLF.Block
+              .newBuilder()
+              .accumulateLeft(List(binding))(_ addBindings _)
+              .setBody(body)
+          )
         case ENil(typ) =>
           newBuilder.setNil(PLF.Expr.Nil.newBuilder().setType(typ))
         case ECons(typ, front, tail) =>
