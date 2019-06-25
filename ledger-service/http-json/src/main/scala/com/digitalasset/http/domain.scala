@@ -10,12 +10,4 @@ object domain {
   case class TemplateId(packageId: Option[String], moduleName: String, entityName: String)
 
   case class GetActiveContractsRequest(templateIds: Set[TemplateId])
-
-////  com.digitalasset.ledger.api.v1.event.CreatedEvent
-//  case class ActiveContract(contractId: String)
-//
-//  case class GetActiveContractResponse(
-//      offset: String,
-//      workflowId: Option[String],
-//      activeContracts: Seq[ActiveContract])
 }
