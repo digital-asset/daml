@@ -22,8 +22,8 @@ import           GHC.IO.Handle                    (hDuplicate, hDuplicateTo)
 import System.IO
 import Control.Monad
 
-import qualified Development.IDE.LSP.Definition as LS.Definition
-import qualified Development.IDE.LSP.Hover      as LS.Hover
+import Development.IDE.LSP.Definition
+import Development.IDE.LSP.Hover
 import Development.IDE.LSP.Notifications
 import Development.IDE.Core.Service
 import Development.IDE.Core.FileStore
@@ -56,7 +56,7 @@ runLanguageServer getIdeState = do
     let runHandler = RunHandler
             (\wrap f -> Just $ \r -> atomically $ writeTChan clientMsgChan $ AddResponse r wrap f)
             (\f -> Just $ \r -> atomically $ writeTChan clientMsgChan $ AddNotification r f)
-    handlers <- mergeHandlers [LS.Definition.addGotoDefinition, LS.Hover.addOnHover, addNotifications, addIgnored] runHandler def
+    handlers <- mergeHandlers [setHandlersDefinition, setHandlersHover, addNotifications, addIgnored] runHandler def
 
     void $ waitAnyCancel =<< traverse async
         [ void $ LSP.runWithHandles

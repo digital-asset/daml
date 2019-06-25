@@ -6,7 +6,7 @@
 -- | Go to the definition of a variable.
 module Development.IDE.LSP.Definition
     ( gotoDefinition
-    , addGotoDefinition
+    , setHandlersDefinition
     ) where
 
 import           Language.Haskell.LSP.Types
@@ -39,7 +39,7 @@ gotoDefinition ide (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
         Just loc -> SingleLoc loc
 
 
-addGotoDefinition :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
-addGotoDefinition RunHandler{..} x = return x{
+setHandlersDefinition :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
+setHandlersDefinition RunHandler{..} x = return x{
     LSP.definitionHandler = addResponse RspDefinition gotoDefinition
     }
