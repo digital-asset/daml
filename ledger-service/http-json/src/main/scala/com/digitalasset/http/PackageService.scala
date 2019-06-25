@@ -21,7 +21,7 @@ class PackageService(packageClient: PackageClient)(implicit ec: ExecutionContext
     }.run
 
   private def buildMap(ids: Set[Identifier]): TemplateIdMap =
-    ids.view.map { a =>
+    ids.iterator.map { a =>
       ((a.moduleName, a.entityName), a)
     }.toMap
 }
