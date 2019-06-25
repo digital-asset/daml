@@ -560,8 +560,11 @@ runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) o
             let navigatorConfPath = confDir </> "navigator-config.json"
             writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig parties)
             withNavigator' sandboxPh sandboxPort navigatorPort navigatorConfPath [] $ \navigatorPh -> do
-                whenJust onStartM $ \onStart ->
-                    void $ withCreateProcess (shell onStart) $ \ _ _ _ -> waitForProcess
+
+                whenJust onStartM $ \onStart -> do
+                    exitCode <- withCreateProcess (shell onStart) $ \ _ _ _ -> waitForProcess
+                    when (exitCode /= ExitSuccess) $
+                        exitWith exitCode
 
                 when (shouldStartNavigator && shouldOpenBrowser) $
                     void $ openBrowser (navigatorURL navigatorPort)
