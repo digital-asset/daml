@@ -10,7 +10,7 @@ module Development.IDE.LSP.LanguageServer
     ( runLanguageServer
     ) where
 
-import           Development.IDE.LSP.Protocol
+import           Language.Haskell.LSP.Types
 import           Development.IDE.LSP.Server hiding (runServer)
 import qualified Language.Haskell.LSP.Control as LSP
 import qualified Language.Haskell.LSP.Core as LSP
