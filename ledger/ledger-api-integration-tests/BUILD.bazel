@@ -13,6 +13,7 @@ load(
 )
 
 dependencies = [
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
     "//3rdparty/jvm/com/github/scopt:scopt",
     "//3rdparty/jvm/com/google/guava:guava",
     "//3rdparty/jvm/com/typesafe/akka:akka_stream",

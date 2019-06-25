@@ -46,3 +46,13 @@ Note that the new Ledger API only supports DAML 1.0 or above codebases compiled 
 # Ledger API
 
 The new Ledger API uses gRPC. You can find the full documentation of all the services involved rendered at http://ci.da-int.net/job/ledger-api/job/build/job/master/lastSuccessfulBuild/artifact/ledger-api/grpc-definitions/target/docs/index.html (save the file locally to get the styling to work). If you just want to create / exercise contracts, I suggest you start by looking at `command_service.proto`, which exposes a synchronous API to the DAML ledger. 
+
+# Logging
+
+You can enable debug logging in Sandbox with `sandbox-log-level` system property:
+
+    $ java -jar ./bazel-bin/ledger/sandbox/sandbox-binary_deploy.jar --log-level=DEBUG $PWD/bazel-bin/ledger/sandbox/Test.dar
+
+Or when started from Bazel with:
+
+    $ bazel run //ledger/sandbox:sandbox-binary -- --log-level=DEBUG $PWD/bazel-bin/ledger/sandbox/Test.dar

@@ -8,3 +8,5 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+
+- [Sandbox] Added `--log-level` command line flag.
