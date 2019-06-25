@@ -1,7 +1,7 @@
 # DAML Studio
 
 DAML Studio extends Visual Studio Code with the following DAML-specific
-features.
+features:
 
 - DAML syntax highlighting
 - Real-time feedback on parse, name resolution, type-checking and
@@ -11,13 +11,23 @@ features.
 - Renaming of symbols
 - DAML snippet support
 
-For more information on DAML please see docs.daml.com.
+Please note that this will only install the VSCode extension. Full use of the
+above features will also require that you have a working DAML SDK installed,
+which you can get with:
+
+```
+curl -s https://get.daml.com | sh
+```
+
+For more information on DAML please see [docs.daml.com](https://docs.daml.com).
 
 ## Troubleshooting
 
-The DAML language server log output is available under the "Output" panel (View->Output).
-Select "DAML Language Server" from the dropdown in the panel to see the log.
+The DAML language server log output is available under the "Output" panel
+(View->Output). Select "DAML Language Server" from the dropdown in the panel
+to see the log.
 
 ## Debugging
 
-Run `make` then open this directory in Visual Studio Code. Then click Debug -> Start Debugging to run the extension in Debugging mode.
+Run `make` then open this directory in Visual Studio Code. Then click Debug ->
+Start Debugging to run the extension in Debugging mode.
