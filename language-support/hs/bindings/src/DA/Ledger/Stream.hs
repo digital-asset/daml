@@ -14,6 +14,8 @@ module DA.Ledger.Stream(
     takeStream,
     writeStream,
     whenClosed, isClosed,
+    mapListStream,
+    streamToList,
     ) where
 
 import Control.Concurrent
@@ -93,3 +95,27 @@ isClosed Stream{status} =
     readMVar status >>= \case
         Left closed -> return (Just closed)
         Right _ -> return Nothing
+
+
+-- Here a problem with Stream is revealed: To map one stream into another requires concurrency.
+-- TODO: restructure processing to avoid the need for a sep Stream/PF
+mapListStream :: (a -> IO [b]) -> Stream a -> IO (Stream b)
+mapListStream f source = do
+    target <- newStream
+    onClose target (closeStream source)
+    let loop = do
+            takeStream source >>= \case
+                Left closed -> writeStream target (Left closed)
+                Right x -> do
+                    ys <- f x
+                    mapM_ (\y -> writeStream target (Right y)) ys
+                    loop
+    _ <- forkIO loop
+    return target
+
+-- Force a Stream, which we expect to reach EOS, to a list
+streamToList :: Stream a -> IO [a]
+streamToList stream = do
+    takeStream stream >>= \case
+        Left _ -> return []
+        Right x -> fmap (x:) $ streamToList stream

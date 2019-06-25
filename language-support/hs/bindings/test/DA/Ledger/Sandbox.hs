@@ -1,29 +1,28 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE OverloadedStrings #-}
+
 module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selected port
     SandboxSpec(..),
-    Sandbox(port),
+    Sandbox(..),
     startSandbox,
     shutdownSandbox,
     withSandbox,
-    resetSandbox
     ) where
 
-import Trace
-
-import Control.Monad
 import Control.Exception (bracket, evaluate, onException)
-import DA.Bazel.Runfiles
+import Control.Monad(when)
+import DA.Bazel.Runfiles(locateRunfiles,mainWorkspace)
 import DA.Ledger (Port (..), unPort)
 import Data.List (isInfixOf)
 import Data.List.Extra(splitOn)
 import GHC.IO.Handle (Handle, hGetLine)
+import System.FilePath((</>))
 import System.Process (CreateProcess (..), ProcessHandle, StdStream (CreatePipe), createProcess, getPid, interruptProcessGroupOf, proc, waitForProcess)
 import System.Time.Extra (Seconds, timeout)
-import System.FilePath
-import DA.Ledger as Ledger
 
+import DA.Ledger.Trace
 
 data SandboxSpec = SandboxSpec {dar :: String}
 
@@ -71,7 +70,7 @@ interestingLineFromSandbox :: String -> Bool
 interestingLineFromSandbox line =
     any (`isInfixOf` line)
     [--"listening",
-     "error", "Address already in use", "java.net.BindException"]
+     "failed", "error", "Address already in use", "java.net.BindException"]
 
 getListeningLine :: Handle -> IO String
 getListeningLine h = loop where
@@ -117,7 +116,3 @@ timeoutError n tag io =
         Just x -> return x
         Nothing -> do
             fail $ "Timeout: " <> tag <> ", after " <> show n <> " seconds."
-
-resetSandbox :: Sandbox-> IO ()
-resetSandbox Sandbox{port} = do
-    Ledger.resetService Trace.trace port

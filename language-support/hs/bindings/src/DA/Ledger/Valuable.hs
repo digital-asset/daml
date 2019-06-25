@@ -3,7 +3,7 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DA.Ledger.Valuable(
+module DA.Ledger.Valuable( -- TODO: Better name!
     Valuable(..), -- types which can be converted to/from a Ledger API Value
     ) where
 

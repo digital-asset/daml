@@ -24,7 +24,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     Variant(..),
     Identifier(..),
     Timestamp(..),
-    Status, --(..), -- TODO
+    Status(..), -- TODO
 
     MicroSecondsSinceEpoch(..),
     DaysSinceEpoch(..),
@@ -49,7 +49,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
 
 import Data.Map (Map)
 import Data.Text.Lazy (Text)
---import qualified Data.Text.Lazy as Text
+import qualified Data.Text.Lazy as Text(unpack)
 
 -- commands.proto
 
@@ -201,8 +201,8 @@ newtype VariantId = VariantId { unVariantId :: Text } deriving (Eq,Ord,Show)
 
 newtype Choice = Choice { unChoice :: Text } deriving (Eq,Ord,Show)
 
-newtype Party = Party { unParty :: Text } deriving (Eq,Ord,Show)
---instance Show Party where show = Text.unpack . unParty -- TODO: really?
+newtype Party = Party { unParty :: Text } deriving (Eq,Ord)
+instance Show Party where show = Text.unpack . unParty -- TODO: really?
 
 newtype ModuleName = ModuleName { unModuleName :: Text } deriving (Eq,Ord,Show)
 newtype EntityName = EntityName { unEntityName :: Text } deriving (Eq,Ord,Show)
