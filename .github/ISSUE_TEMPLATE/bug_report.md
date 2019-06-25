@@ -5,8 +5,8 @@ title: ''
 
 ---
 
-**Describe the issue**
-A short description of the issue you found.
+**Is your feature request related to a problem? Tell us about it.**
+It's really helpful when we understand _why_ you're making a feature request - for example, because it solves a problem you're having. Include A description of the problem here --- eg "I'm always frustrated when [...]"
 
 **Steps to reproduce**
 Steps to reproduce the problem:
@@ -14,8 +14,8 @@ Steps to reproduce the problem:
 2. Attempt to '...'
 3. See error message '...'
 
-**Expected behavior**
-Tell us what you expected to happen (instead of the bug).
+**What's your preferred solution?**
+Tell us what you'd want or expect to happen.
 
 **Screenshots**
 If they're relevant, add screenshots to help show us the problem.
