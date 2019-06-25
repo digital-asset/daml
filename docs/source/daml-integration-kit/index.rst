@@ -2,7 +2,7 @@
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML Integration Kit - ALPHA
-################################
+############################
 
 .. toctree::
    :hidden:
@@ -11,29 +11,93 @@ DAML Integration Kit - ALPHA
 
 :doc:`DAML Applications </app-dev/index>` run on DAML Ledgers.
 A DAML Ledger is a server serving the
-:doc:`Ledger API </app-dev/index>` as per the semantics defined in
+:doc:`Ledger API </app-dev/grpc/index>` as per the semantics defined in
 the :doc:`/concepts/ledger-model/index` and the
 `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
 
 The DAML Integration Kit helps third-party ledger developers to
 implement a DAML Ledger on top of their distributed ledger or database of
-choice. We provide the resources in the kit, which include guides to
+choice.
 
-- :ref:`implementing a DAML Ledger server <integration-kit_implementing>`
-- :ref:`deploying a DAML Ledger server <integration-kit_deploying>`
-- :ref:`testing a DAML Ledger server <integration-kit_testing>`
-- :ref:`benchmarking a DAML Ledger server <integration-kit_benchmarking>`
+We provide the resources in the kit, which include guides to
+
+- :ref:`status_and_roadmap`
+- :ref:`integration-kit_implementing`
+- :ref:`integration-kit_deploying`
+- :ref:`integration-kit_testing`
+- :ref:`integration-kit_benchmarking`
 
 Using these guides, you can focus on your own distributed-ledger or database
 and reuse our DAML Ledger server and DAML interpreter code for
-implementing the DAML Ledger API.
+implementing the DAML Ledger API. For example uses of the integration kit see
+:ref:`daml_ledgers_built_or_in_development`.
 
 
-Status and roadmap
-******************
+.. _daml_ledgers_built_or_in_development:
+
+DAML Ledgers built or in development
+************************************
+
+The following table lists the ledgers that support DAML, or are implementing
+support for running DAML.
+
+.. note: the table renderer fails *silently* if you don't have the right
+   number of columns!
+
+.. list-table::
+   :widths: 25 25 25 25
+   :header-rows: 1
+
+   * - Ledger
+     - Status
+     - Developer (Managed Offering)
+     - More Information
+   * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
+     - In Development
+     - `VMware <https://www.vmware.com/>`__
+     - `press release :: April 2019
+       <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
+   * - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
+     - In Development
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+       (`Sextant <https://blockchaintp.com/sextant/>`__)
+     - `press release :: April 2019
+       <https://www.hyperledger.org/blog/2019/04/16/daml-smart-contracts-coming-to-hyperledger-sawtooth>`__
+   * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
+     - In Development
+     - `Hacera <https://hacera.com>`__
+       (`Hacera Unbounded Network <https://unbounded.network/>`__)
+     - `press release :: June 2019
+       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
+   * - `R3 Corda <https://www.corda.net>`__
+     - In Development
+     - `Digital Asset <https://digitalasset.com/>`__
+     - `press release :: June 2019
+       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
+   * - `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__
+     - In Development
+     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
+       (`Sextant <https://blockchaintp.com/sextant/>`__)
+     - `press release :: June 2019
+       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
+   * - :doc:`/tools/sandbox`
+     - Stable
+     - `Digital Asset <https://digitalasset.com/>`__
+     - supports `PostgreSQL <https://www.postgresql.org/>`__,
+       see section on persistence in :doc:`/tools/sandbox` docs
+   * - `Canton <https://www.canton.io>`__
+     - In Development
+     - `Digital Asset <https://digitalasset.com/>`__
+     - `www.canton.io <https://www.canton.io>`__ :: native support for :doc:`DAML's fine-grained privacy model
+       </concepts/ledger-model/ledger-privacy>`.
+
+.. _status_and_roadmap:
+
+DAML Integration Kit status and roadmap
+***************************************
 
 The current status of the integration kit is ALPHA. We are working towards BETA,
-and GA will come quite a bit later. The roadmap below explains what we mean by
+and General Availability (GA) will come quite a bit later. The roadmap below explains what we mean by
 these different statuses, and what's missing to progress.
 
 ALPHA (current status)
@@ -41,16 +105,16 @@ ALPHA (current status)
   third-parties willing to accept the following caveats:
 
   - The architecture includes everything required to run DAML Applications using the
-    DAML Ledger API in production. However, it misses support for testing DAML Applications in a
-    uniform way against different DAML Ledgers. 
+    DAML Ledger API. However, it misses support for testing DAML Applications in a
+    uniform way against different DAML Ledgers.
   - Ledger API authorization, package upload, party on-boarding, ledger reset,
-    and time manipulation are specific to each DAML Ledger, until the uniform 
-    *administrative DAML ledger access* API is introduced, which is different 
-    to the uniform *per-party DAML ledger access* that the DAML Ledger API provides. 
+    and time manipulation are specific to each DAML Ledger, until the uniform
+    *administrative DAML ledger access* API is introduced, which is different
+    to the uniform *per-party DAML ledger access* that the DAML Ledger API provides.
     We will address this before reaching BETA status.
-  - The architecture is likely to change due to learnings from pioneers like
-    you! Where possible we strive to make these changes backwards compatible.
-    though this might not always be possible.
+  - The architecture is likely to change due to learnings from integrators like you! 
+    Where possible we strive to make these changes backwards compatible. though this 
+    might not always be possible.
   - The documentation might be spotty in some places, and you might have to
     infer some of the documentation from the code.
   - Some of our code might be fresh off the press and might therefore have a
@@ -62,7 +126,7 @@ ALPHA (current status)
   <https://github.com/digital-asset/daml>`__ GitHub repository.
 
 
-BETA 
+BETA
   For us, BETA status means that we have architectural stability and solid
   documentation in place. At this point, third-parties should have everything
   they need to integrate DAML with their ledger of choice completely on their
@@ -77,75 +141,18 @@ BETA
     portable way for testing DAML applications against different DAML ledgers
 
   Related links
-  - (`Tracking GitHub issue <https://github.com/digital-asset/daml/issues/660>`__)
+
+  - `Tracking GitHub issue <https://github.com/digital-asset/daml/issues/660>`__
   - `GitHub milestone tracking work to reach BETA status <https://github.com/digital-asset/daml/milestone/13>`__
 
-GA (`tracking GitHub issue <https://github.com/digital-asset/daml/issues/661>`__)
+GA
   For us GA (General Availability) means that there are several
-  production-ready DAML ledgers built using the DAML Integration Kit. We
-  expect to reach GA in 2019.
+  production-ready DAML ledgers built using the DAML Integration Kit. 
+  We expect to reach GA in 2019.
 
-DAML Ledgers built or in development
-====================================
+  Related links
 
-The following table lists the ledgers that support DAML, or are implementing
-support for running DAML.
-
-.. note: the table renderer fails *silently* if you don't have the right
-   number of columns!
-
-.. list-table::
-   :widths: 20 20 20 20 20
-   :header-rows: 1
-
-   * - Ledger
-     - Status
-     - Integration
-     - Deployment
-     - More Information
-   * - `VMware Blockchain <https://blogs.vmware.com/blockchain>`__
-     - In Development
-     - `VMware <https://www.vmware.com/>`__
-     - TBD
-     - `press release :: April 2019
-       <http://hub.digitalasset.com/press-release/digital-asset-daml-smart-contract-language-now-extended-to-vmware-blockchain>`__
-   * - `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__
-     - In Development
-     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-     - `Sextant <https://blockchaintp.com/sextant/>`__
-     - `press release :: April 2019
-       <https://www.hyperledger.org/blog/2019/04/16/daml-smart-contracts-coming-to-hyperledger-sawtooth>`__
-   * - `Hyperledger Fabric <https://www.hyperledger.org/projects/fabric>`__
-     - In Development
-     - `Hacera <https://hacera.com>`__     
-     - `Hacera Unbounded Network <https://unbounded.network/>`__
-     - `press release :: June 2019
-       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - `R3 Corda <https://www.corda.net>`__
-     - In Development
-     - `Digital Asset <https://digitalasset.com/>`__
-     - TBD
-     - `press release :: June 2019
-       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - `Amazon Aurora <https://www.hyperledger.org/projects/fabric>`__
-     - In Development
-     - `Blockchain Technology Partners <https://blockchaintp.com/>`__
-     - `Sextant <https://blockchaintp.com/sextant/>`__     
-     - `press release :: June 2019
-       <https://hub.digitalasset.com/press-release/digital-asset-announces-daml-partner-integrations-with-hyperledger-fabric-r3-corda-and-amazon-aurora>`__
-   * - :doc:`/tools/sandbox`
-     - Stable
-     - `Digital Asset <https://digitalasset.com/>`__
-     - TBD
-     - `PostgreSQL <https://www.postgresql.org/>`__ backend coming soon
-       (`GitHub Milestone <https://github.com/digital-asset/daml/milestone/10>`__)
-   * - Canton
-     - In Development
-     - `Digital Asset <https://digitalasset.com/>`__
-     - TBD
-     - canton.io :: native support for :doc:`DAML's fine-grained privacy model
-       </concepts/ledger-model/ledger-privacy>`.  More info at `www.canton.io <https://www.canton.io>`__
-
+  - `Tracking GitHub issue <https://github.com/digital-asset/daml/issues/661>`__
 
 .. _integration-kit_implementing:
 
