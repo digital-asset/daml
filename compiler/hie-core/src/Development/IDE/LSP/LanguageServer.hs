@@ -161,7 +161,7 @@ runLanguageServer
     -> ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
     -> IO ()
 runLanguageServer loggerH getIdeState = do
-    -- DEL-6257: Move stdout to another file descriptor and duplicate stderr
+    -- Move stdout to another file descriptor and duplicate stderr
     -- to stdout. This guards against stray prints from corrupting the JSON-RPC
     -- message stream.
     newStdout <- hDuplicate stdout
