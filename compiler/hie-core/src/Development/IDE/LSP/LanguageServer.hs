@@ -56,7 +56,7 @@ runLanguageServer getIdeState = do
     let runHandler = RunHandler
             (\wrap f -> Just $ \r -> atomically $ writeTChan clientMsgChan $ AddResponse r wrap f)
             (\f -> Just $ \r -> atomically $ writeTChan clientMsgChan $ AddNotification r f)
-    handlers <- mergeHandlers [setHandlersDefinition, setHandlersHover, addNotifications, addIgnored] runHandler def
+    handlers <- mergeHandlers [setHandlersDefinition, setHandlersHover, setHandlersNotifications, setHandlersIgnore] runHandler def
 
     void $ waitAnyCancel =<< traverse async
         [ void $ LSP.runWithHandles
@@ -84,12 +84,13 @@ runLanguageServer getIdeState = do
             pure Nothing
 
 
--- | Things that come up regularly, but we don't deal with
-addIgnored :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
-addIgnored _ x = return x
+-- | Things that get sent to us, but we don't deal with.
+--   Set them to avoid a warning in VS Code output.
+setHandlersIgnore :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
+setHandlersIgnore _ x = return x
     {LSP.cancelNotificationHandler = none
     ,LSP.initializedHandler = none
-    ,LSP.codeLensHandler = none
+    ,LSP.codeLensHandler = none -- FIXME: Stop saying we support it in 'options'
     }
     where none = Just $ const $ return ()
 

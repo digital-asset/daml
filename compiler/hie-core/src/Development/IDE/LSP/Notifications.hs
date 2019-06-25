@@ -6,7 +6,7 @@
 {-# LANGUAGE RankNTypes #-}
 
 module Development.IDE.LSP.Notifications
-    ( addNotifications
+    ( setHandlersNotifications
     ) where
 
 import           Development.IDE.LSP.Protocol
@@ -30,8 +30,8 @@ textShow :: Show a => a -> T.Text
 textShow = T.pack . show
 
 
-addNotifications :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
-addNotifications RunHandler{..} x = return x{
+setHandlersNotifications :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
+setHandlersNotifications RunHandler{..} x = return x{
     LSP.didOpenTextDocumentNotificationHandler = addNotification $ \ide (DidOpenTextDocumentParams item) -> do
         case URI.parseURI $ T.unpack $ getUri $ _uri (item :: TextDocumentItem) of
           Just uri
