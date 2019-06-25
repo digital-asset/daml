@@ -30,7 +30,6 @@ library
         data-default,
         deepseq,
         directory,
-        either,
         extra,
         filepath,
         ghc,
@@ -44,7 +43,6 @@ library
         pretty,
         prettyprinter-ansi-terminal,
         rope-utf16-splay,
-        safe-exceptions,
         shake,
         sorted-list,
         stm,
@@ -54,10 +52,8 @@ library
         prettyprinter,
         prettyprinter-ansi-terminal,
         transformers,
-        uniplate,
         unordered-containers,
-        utf8-string,
-        uri-encode
+        utf8-string
 
     cpp-options: -DGHC_STABLE
     default-extensions:
@@ -111,7 +107,6 @@ executable hie-core
     ghc-options: -main-is Demo.main
     build-depends:
         base == 4.*,
-        filepath,
         containers,
         directory,
         hie-bios,
