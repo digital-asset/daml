@@ -15,6 +15,7 @@ import Development.IDE.Core.Service
 import Development.IDE.LSP.Server
 import Development.IDE.Types.Logger
 import qualified Language.Haskell.LSP.Core as LSP
+import Language.Haskell.LSP.Messages
 
 import qualified Data.Text as T
 
@@ -44,5 +45,5 @@ onHover ide (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
 
 addOnHover :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
 addOnHover RunHandler{..} x = return x{
-    LSP.hoverHandler = newNotification onHover
+    LSP.hoverHandler = addResponse RspHover onHover
     }

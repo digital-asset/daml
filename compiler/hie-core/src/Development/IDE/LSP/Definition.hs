@@ -17,6 +17,7 @@ import Development.IDE.Core.Rules
 import Development.IDE.Core.Service
 import Development.IDE.LSP.Server
 import qualified Language.Haskell.LSP.Core as LSP
+import Language.Haskell.LSP.Messages
 
 import qualified Data.Text as T
 
@@ -40,5 +41,5 @@ gotoDefinition ide (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
 
 addGotoDefinition :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
 addGotoDefinition RunHandler{..} x = return x{
-    LSP.definitionHandler = newNotification gotoDefinition
+    LSP.definitionHandler = addResponse RspDefinition gotoDefinition
     }

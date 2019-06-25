@@ -9,6 +9,7 @@ module Development.IDE.LSP.Server
   , Handlers(..)
   , RunHandler(..)
   , makeResponse
+  , mergeHandlers
   ) where
 
 
@@ -39,12 +40,16 @@ import Development.IDE.Core.Service
 
 
 data RunHandler = RunHandler
-    {newNotification :: forall m req resp . (IdeState -> req -> IO resp) -> Maybe (LSP.Handler (RequestMessage m req resp))
-    ,runResponse :: (IdeState -> IO LSP.FromServerMessage) -> IO ()
+    {addResponse :: forall m req resp . (ResponseMessage resp -> LSP.FromServerMessage) -> (IdeState -> req -> IO resp) -> Maybe (LSP.Handler (RequestMessage m req resp))
+    ,addNotification :: forall m req . (IdeState -> req -> IO ()) -> Maybe (LSP.Handler (NotificationMessage m req))
     }
 
 makeResponse :: LspId -> a -> ResponseMessage a
 makeResponse reqId res = ResponseMessage "2.0" (responseId reqId) (Just res) Nothing
+
+mergeHandlers :: [RunHandler -> LSP.Handlers -> IO LSP.Handlers] -> RunHandler -> LSP.Handlers -> IO LSP.Handlers
+mergeHandlers = foldl f (\_ a -> return a)
+    where f x1 x2 = \r a -> x1 r a >>= x2 r
 
 
 ------------------------------------------------------------------------
