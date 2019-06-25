@@ -24,7 +24,17 @@ class EventSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyCheck
       val mutatingSignatories = new java.util.ArrayList[String](e.getSignatoriesList)
       val mutatingObservers = new java.util.ArrayList[String](e.getObserversList)
 
-      val event = new CreatedEvent(mutatingWitnesses, e.getEventId, Identifier.fromProto(e.getTemplateId), e.getContractId, Record.fromProto(e.getCreateArguments), java.util.Optional.empty(), java.util.Optional.empty(), mutatingSignatories, mutatingObservers)
+      val event = new CreatedEvent(
+        mutatingWitnesses,
+        e.getEventId,
+        Identifier.fromProto(e.getTemplateId),
+        e.getContractId,
+        Record.fromProto(e.getCreateArguments),
+        java.util.Optional.empty(),
+        java.util.Optional.empty(),
+        mutatingSignatories,
+        mutatingObservers
+      )
 
       mutatingWitnesses.add("INTRUDER!")
       mutatingSignatories.add("INTRUDER!")
@@ -35,17 +45,26 @@ class EventSpec extends FlatSpec with Matchers with GeneratorDrivenPropertyCheck
       event.getObservers should not contain "INTRUDER!"
   }
 
-  "CreatedEvents" should "disallow mutation of its mutable fields" in forAll(createdEventGen) {
-    e =>
-      val event = new CreatedEvent(e.getWitnessPartiesList, e.getEventId, Identifier.fromProto(e.getTemplateId), e.getContractId, Record.fromProto(e.getCreateArguments), java.util.Optional.empty(), java.util.Optional.empty(), e.getSignatoriesList, e.getObserversList)
+  "CreatedEvents" should "disallow mutation of its mutable fields" in forAll(createdEventGen) { e =>
+    val event = new CreatedEvent(
+      e.getWitnessPartiesList,
+      e.getEventId,
+      Identifier.fromProto(e.getTemplateId),
+      e.getContractId,
+      Record.fromProto(e.getCreateArguments),
+      java.util.Optional.empty(),
+      java.util.Optional.empty(),
+      e.getSignatoriesList,
+      e.getObserversList
+    )
 
-      an[UnsupportedOperationException] shouldBe thrownBy(event.getWitnessParties.add("INTRUDER!"))
-      an[UnsupportedOperationException] shouldBe thrownBy(event.getSignatories.add("INTRUDER!"))
-      an[UnsupportedOperationException] shouldBe thrownBy(event.getObservers.add("INTRUDER!"))
+    an[UnsupportedOperationException] shouldBe thrownBy(event.getWitnessParties.add("INTRUDER!"))
+    an[UnsupportedOperationException] shouldBe thrownBy(event.getSignatories.add("INTRUDER!"))
+    an[UnsupportedOperationException] shouldBe thrownBy(event.getObservers.add("INTRUDER!"))
 
-      an[UnsupportedOperationException] shouldBe thrownBy(event.getWitnessParties.remove(0))
-      an[UnsupportedOperationException] shouldBe thrownBy(event.getSignatories.remove(0))
-      an[UnsupportedOperationException] shouldBe thrownBy(event.getObservers.remove(0))
+    an[UnsupportedOperationException] shouldBe thrownBy(event.getWitnessParties.remove(0))
+    an[UnsupportedOperationException] shouldBe thrownBy(event.getSignatories.remove(0))
+    an[UnsupportedOperationException] shouldBe thrownBy(event.getObservers.remove(0))
   }
 
 }
