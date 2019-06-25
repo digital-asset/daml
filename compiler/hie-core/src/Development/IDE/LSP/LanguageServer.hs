@@ -27,7 +27,6 @@ import           GHC.IO.Handle                    (hDuplicate, hDuplicateTo)
 import System.IO
 import Control.Monad
 
-import Control.Monad.IO.Class
 import qualified Development.IDE.LSP.Definition as LS.Definition
 import qualified Development.IDE.LSP.Hover      as LS.Hover
 import Development.IDE.Types.Logger
@@ -162,17 +161,6 @@ runLanguageServer
     -> ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
     -> IO ()
 runLanguageServer loggerH getIdeState = do
-    let getHandlers lspFuncs = do
-            compilerH <- getIdeState (sendFunc lspFuncs) (makeLSPVFSHandle lspFuncs)
-            pure $ Handlers (handleRequest loggerH compilerH) (handleNotification lspFuncs loggerH compilerH)
-    liftIO $ runServer loggerH getHandlers
-
-runServer
-    :: Logger
-    -> (LSP.LspFuncs () -> IO Handlers)
-    -- ^ Notification handler for language server notifications
-    -> IO ()
-runServer loggerH getHandlers = do
     -- DEL-6257: Move stdout to another file descriptor and duplicate stderr
     -- to stdout. This guards against stray prints from corrupting the JSON-RPC
     -- message stream.
@@ -202,6 +190,10 @@ runServer loggerH getHandlers = do
         , void $ waitBarrier clientMsgBarrier
         ]
     where
+        getHandlers lspFuncs = do
+            compilerH <- getIdeState (sendFunc lspFuncs) (makeLSPVFSHandle lspFuncs)
+            pure $ Handlers (handleRequest loggerH compilerH) (handleNotification lspFuncs loggerH compilerH)
+
         handleInit :: IO () -> TChan LSP.FromClientMessage -> LSP.LspFuncs () -> IO (Maybe LSP.ResponseError)
         handleInit exitClientMsg clientMsgChan lspFuncs@LSP.LspFuncs{..} = do
             Handlers{..} <- getHandlers lspFuncs
