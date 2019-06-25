@@ -43,6 +43,8 @@ runLanguageServer options userHandlers getIdeState = do
     -- message stream.
     newStdout <- hDuplicate stdout
     stderr `hDuplicateTo` stdout
+    hSetBuffering stderr NoBuffering
+    hSetBuffering stdout NoBuffering
 
     -- Print out a single space to assert that the above redirection works.
     -- This is interleaved with the logger, hence we just print a space here in
