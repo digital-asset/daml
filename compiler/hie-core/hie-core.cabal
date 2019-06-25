@@ -40,7 +40,6 @@ library
         haskell-lsp-types,
         mtl,
         network-uri,
-        pretty,
         prettyprinter-ansi-terminal,
         rope-utf16-splay,
         shake,
