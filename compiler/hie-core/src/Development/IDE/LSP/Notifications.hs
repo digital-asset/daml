@@ -19,20 +19,15 @@ import Development.IDE.Core.Service
 import Development.IDE.Types.Location
 
 import qualified Data.Set                                  as S
-import qualified Data.Text as T
 
 import Development.IDE.Core.FileStore
 import Development.IDE.Core.OfInterest
 
 
-textShow :: Show a => a -> T.Text
-textShow = T.pack . show
-
-
 whenUriFile :: IdeState -> Uri -> (NormalizedFilePath -> IO ()) -> IO ()
 whenUriFile ide uri act = case LSP.uriToFilePath uri of
     Just file -> act $ toNormalizedFilePath file
-    Nothing -> logWarning (ideLogger ide) $ "Unknown scheme in URI: " <> textShow uri
+    Nothing -> logWarning (ideLogger ide) $ "Unknown scheme in URI: " <> getUri uri
 
 setHandlersNotifications :: PartialHandlers
 setHandlersNotifications = PartialHandlers $ \WithMessage{..} x -> return x
@@ -41,17 +36,17 @@ setHandlersNotifications = PartialHandlers $ \WithMessage{..} x -> return x
             setSomethingModified ide
             whenUriFile ide _uri $ \file ->
                 modifyFilesOfInterest ide (S.insert file)
-            logInfo (ideLogger ide) $ "Opened text document: " <> textShow _uri
+            logInfo (ideLogger ide) $ "Opened text document: " <> getUri _uri
 
     ,LSP.didChangeTextDocumentNotificationHandler = withNotification $
         \ide (DidChangeTextDocumentParams VersionedTextDocumentIdentifier{_uri} _) -> do
             setSomethingModified ide
-            logInfo (ideLogger ide) $ "Modified text document: " <> textShow _uri
+            logInfo (ideLogger ide) $ "Modified text document: " <> getUri _uri
 
     ,LSP.didCloseTextDocumentNotificationHandler = withNotification $
         \ide (DidCloseTextDocumentParams TextDocumentIdentifier{_uri}) -> do
             setSomethingModified ide
             whenUriFile ide _uri $ \file ->
                 modifyFilesOfInterest ide (S.delete file)
-            logInfo (ideLogger ide) $ "Closed text document: " <> textShow _uri
+            logInfo (ideLogger ide) $ "Closed text document: " <> getUri _uri
   }
