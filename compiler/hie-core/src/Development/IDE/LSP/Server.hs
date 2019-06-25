@@ -49,7 +49,7 @@ makeResponse reqId res = ResponseMessage "2.0" (responseId reqId) (Just res) Not
 
 mergeHandlers :: [RunHandler -> LSP.Handlers -> IO LSP.Handlers] -> RunHandler -> LSP.Handlers -> IO LSP.Handlers
 mergeHandlers = foldl f (\_ a -> return a)
-    where f x1 x2 = \r a -> x1 r a >>= x2 r
+    where f x1 x2 r a = x1 r a >>= x2 r
 
 
 ------------------------------------------------------------------------
