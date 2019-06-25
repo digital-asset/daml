@@ -13,7 +13,7 @@ module Development.IDE.Core.Rules(
     IdeState, GetDependencies(..), GetParsedModule(..), TransitiveDependencies(..),
     Priority(..),
     runAction, runActions, useE, usesE,
-    defineNoFile,
+    toIdeResult, defineNoFile,
     mainRule,
     getGhcCore,
     getAtPoint,
