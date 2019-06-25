@@ -96,10 +96,8 @@ data Error
   | EImpredicativePolymorphism !Type
   | EForbiddenPartyLiterals ![PartyLiteral] ![Qualified ExprValName]
   | EContext               !Context !Error
-  | ENonValueDefinition    ![(String, Expr)] -- contains the non-value subexpressions and why they're bad
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
-  | EInvalidKeyExpression !Expr
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -268,17 +266,8 @@ instance Pretty Error where
           vcat $
             "Found forbidden references to functions containing party literals:"
             : map (\badRef -> "*" <-> pretty badRef) badRefs
-    ENonValueDefinition badSubExprs -> do
-      vcat $ ("definition is not a value:" :) $ do
-        (reason, expr) <- badSubExprs
-        [string ("* " ++ reason), nest 4 (pretty expr)]
     EKeyOperationOnTemplateWithNoKey tpl -> do
       "tried to perform key lookup or fetch on template " <> pretty tpl
-    EInvalidKeyExpression expr ->
-      vcat
-      [ "expected valid key expression:"
-      , "* found:" <-> pretty expr
-      ]
     EExpectedOptionalType typ -> do
       "expected list type, but found: " <> pretty typ
     EUnsupportedFeature Feature{..} ->
