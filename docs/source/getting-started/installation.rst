@@ -12,7 +12,7 @@ The SDK currently runs on Windows, MacOS or Linux.
 You need to install:
 
 1. `Visual Studio Code <https://code.visualstudio.com/download>`_.
-2. JDK 8 or greater `Sun JDK <http://www.oracle.com/technetwork/java/javase/downloads/index.html>`_ or `Zulu JDK <https://www.azul.com/downloads/zulu/>`_.
+2. JDK 8 or greater `Oracle 8 JDK <http://www.oracle.com/technetwork/java/javase/downloads/index.html>`_ or `Zulu 8 JDK <https://www.azul.com/downloads/zulu/>`_.
 
 2. Install the SDK
 *******************
