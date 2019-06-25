@@ -38,7 +38,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
     PLF.Module.parser().parseFrom(cis)
 
   override def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module =
-    ModuleDecoder(packageId, lfModule).decode()
+    ModuleDecoder(packageId, ImmArraySeq.empty, lfModule).decode()
 
   private[this] def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw new ParseError(err), identity)
