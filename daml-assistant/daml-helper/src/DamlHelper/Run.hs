@@ -34,13 +34,10 @@ import Control.Exception.Safe
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
-import Data.Aeson
-import Data.Aeson.Text
 import Data.Maybe
 import Data.List.Extra
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
-import qualified Data.Text.Lazy as T (toStrict)
 import qualified Data.Yaml as Y
 import qualified Data.Yaml.Pretty as Y
 import qualified Network.HTTP.Client as HTTP
@@ -518,10 +515,10 @@ withSandbox (SandboxPort port) args a = do
         waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
         a ph
 
-withNavigator :: SandboxPort -> NavigatorPort -> FilePath -> [String] -> (ProcessHandle-> IO a) -> IO a
-withNavigator (SandboxPort sandboxPort) navigatorPort config args a = do
+withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (ProcessHandle-> IO a) -> IO a
+withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
     let navigatorArgs = concat
-            [ ["server", "-c", config, "localhost", show sandboxPort]
+            [ ["server", "localhost", show sandboxPort]
             , navigatorPortNavigatorArgs navigatorPort
             , args
             ]
@@ -554,44 +551,27 @@ runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) o
     callCommand (unwords $ assistant : ["build", "-o", darPath])
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
-        parties <- getProjectParties
-        withTempDir $ \confDir -> do
-            -- Navigator determines the file format based on the extension so we need a .json file.
-            let navigatorConfPath = confDir </> "navigator-config.json"
-            writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig parties)
-            withNavigator' sandboxPh sandboxPort navigatorPort navigatorConfPath [] $ \navigatorPh -> do
-
-                whenJust onStartM $ \onStart -> do
-                    exitCode <- withCreateProcess (shell onStart) $ \ _ _ _ -> waitForProcess
-                    when (exitCode /= ExitSuccess) $
-                        exitWith exitCode
-
-                when (shouldStartNavigator && shouldOpenBrowser) $
-                    void $ openBrowser (navigatorURL navigatorPort)
-                when shouldWaitForSignal $
-                    void $ race (waitForProcess navigatorPh) (waitForProcess sandboxPh)
+        withNavigator' sandboxPh sandboxPort navigatorPort [] $ \navigatorPh -> do
+            whenJust onStartM $ \onStart -> do
+                exitCode <- withCreateProcess (shell onStart) $ \ _ _ _ -> waitForProcess
+                when (exitCode /= ExitSuccess) $
+                    exitWith exitCode
+            when (shouldStartNavigator && shouldOpenBrowser) $
+                void $ openBrowser (navigatorURL navigatorPort)
+            when shouldWaitForSignal $
+                void $ race (waitForProcess navigatorPh) (waitForProcess sandboxPh)
 
     where sandboxPort = SandboxPort 6865
           navigatorPort = NavigatorPort 7500
           withNavigator' sandboxPh =
               if shouldStartNavigator
                   then withNavigator
-                  else (\_ _ _ _ f -> f sandboxPh)
+                  else (\_ _ _ f -> f sandboxPh)
 
 getProjectConfig :: IO ProjectConfig
 getProjectConfig = do
     projectPath <- required "Must be called from within a project" =<< getProjectPath
     readProjectConfig (ProjectPath projectPath)
-
-getProjectParties :: IO [T.Text]
-getProjectParties = do
-    projectConfig <- getProjectConfig
-    requiredE "Project config does not have a list of parties" $ queryProjectConfigRequired ["parties"] projectConfig
-
-navigatorConfig :: [T.Text] -> T.Text
-navigatorConfig parties =
-    T.toStrict $ encodeToLazyText $
-       object ["users" .= object (map (\p -> p .= object [ "party" .= p ]) parties)]
 
 installExtension :: FilePath -> FilePath -> IO ()
 installExtension src target = do
