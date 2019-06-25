@@ -15,19 +15,19 @@ import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
-import qualified Development.IDE.Types.Logger as Logger
+import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 
 -- | Gather code lenses like scenario execution for a DAML file.
 handle
-    :: Logger.Handle
+    :: Logger
     -> Compiler.IdeState
     -> CodeLensParams
     -> IO (List CodeLens)
-handle loggerH compilerH (CodeLensParams (TextDocumentIdentifier uri)) = do
+handle logger compilerH (CodeLensParams (TextDocumentIdentifier uri)) = do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath -> filePath) -> do
-          Logger.logInfo loggerH $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
+          logInfo logger $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
           vrs <- Compiler.getAssociatedVirtualResources compilerH filePath
           pure $ mapMaybe virtualResourceToCodeLens vrs
         Nothing       -> pure []

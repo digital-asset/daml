@@ -50,7 +50,7 @@ trait TestHelper {
     entityName = "ListUtil")
 
   val setupTimeout = 30.seconds
-  val perfTestTimeout = 15.minutes
+  val perfTestTimeout = 20.minutes
 
   val transactionFilter = TransactionFilter(Map(party -> Filters()))
 

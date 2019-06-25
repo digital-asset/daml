@@ -9,7 +9,12 @@ trait BazelRunfiles {
 
   private val MainWorkspace = "com_github_digital_asset_daml"
 
-  def rlocation(path: String): String = Runfiles.create.rlocation(MainWorkspace + "/" + path)
+  private val inBazelEnvironment =
+    Set("RUNFILES_DIR", "JAVA_RUNFILES", "RUNFILES_MANIFEST_FILE", "RUNFILES_MANIFEST_ONLY").exists(
+      sys.env.contains)
+
+  def rlocation(path: String): String =
+    if (inBazelEnvironment) Runfiles.create.rlocation(MainWorkspace + "/" + path) else path
 
 }
 

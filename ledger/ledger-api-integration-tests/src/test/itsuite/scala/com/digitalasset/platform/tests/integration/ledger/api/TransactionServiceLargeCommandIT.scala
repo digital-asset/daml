@@ -44,7 +44,7 @@ class TransactionServiceLargeCommandIT
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
 
-  override val timeLimit: Span = 300.seconds
+  override val timeLimit: Span = scaled(300.seconds)
 
   private val getAllContracts = transactionFilter
 

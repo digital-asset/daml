@@ -351,6 +351,9 @@ dependencies:
     circe-parser:
       lang: scala
       version: "0.10.0"
+    circe-yaml:
+      lang: scala
+      version: "0.10.0"
 
   org.seleniumhq.selenium:
     selenium-java:

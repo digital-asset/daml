@@ -132,7 +132,7 @@ getIntegrationTests registerTODO scenarioService version = do
     vfs <- Compile.makeVFSHandle
     pure $
       withResource
-      (Compile.initialise (Compile.mainRule opts) (const $ pure ()) IdeLogger.makeNopHandle opts vfs (Just scenarioService))
+      (Compile.initialise (Compile.mainRule opts) (const $ pure ()) IdeLogger.makeNopLogger opts vfs (Just scenarioService))
       Compile.shutdown $ \service ->
       withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
         map (testCase args version service outdir registerTODO) allTestFiles
@@ -163,6 +163,7 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       , resultTime = 0
       }
     else do
+      -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       Compile.unsafeClearDiagnostics service
       ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
       diags <- Compile.getDiagnostics service

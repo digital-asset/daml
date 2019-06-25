@@ -11,6 +11,7 @@ import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
+import Development.IDE.Core.OfInterest
 import DA.Daml.GHC.Compiler.Options
 import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
@@ -353,7 +354,7 @@ encodeModule lfVersion m =
 getScenarioRootsRule :: Rules ()
 getScenarioRootsRule =
     defineNoFile $ \GetScenarioRoots -> do
-        filesOfInterest <- use_ GetFilesOfInterest ""
+        filesOfInterest <- getFilesOfInterest
         openVRs <- use_ GetOpenVirtualResources ""
         let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
         deps <- forP files $ \file -> do
@@ -411,10 +412,9 @@ ofInterestRule = do
     action $ use OfInterest ""
     defineNoFile $ \OfInterest -> do
         setPriority PriorityFilesOfInterest
-        Env{..} <- getServiceEnv
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
-        files   <- use_ GetFilesOfInterest ""
+        files   <- getFilesOfInterest
         openVRs <- use_ GetOpenVirtualResources ""
         let vrFiles = Set.map vrScenarioFile openVRs
         -- We run scenarios for all files of interest to get diagnostics

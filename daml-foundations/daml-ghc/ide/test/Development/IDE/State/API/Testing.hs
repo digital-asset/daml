@@ -43,7 +43,7 @@ import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
 import DA.Service.Daml.Compiler.Impl.Scenario as SS
 import Development.IDE.Core.Rules.Daml
-import qualified Development.IDE.Types.Logger as Logger
+import Development.IDE.Types.Logger
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 import DA.Test.Util (standardizeQuotes)
@@ -122,7 +122,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
     let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
-    service <- API.initialise (mainRule options) (atomically . eventLogger) Logger.makeNopHandle options vfs mbScenarioService
+    service <- API.initialise (mainRule options) (atomically . eventLogger) makeNopLogger options vfs mbScenarioService
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service

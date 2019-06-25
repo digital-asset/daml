@@ -5,7 +5,9 @@ package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LMV}
 
-final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion)
+final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
+  def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
+}
 
 object LanguageVersion {
 

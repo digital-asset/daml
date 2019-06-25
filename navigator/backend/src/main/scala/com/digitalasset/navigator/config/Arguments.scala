@@ -15,6 +15,7 @@ import scala.util.Try
 sealed abstract class Command
 final case object ShowUsage extends Command
 final case object RunServer extends Command
+final case object CreateConfig extends Command
 final case object DumpGraphQLSchema extends Command
 
 case class Arguments(
@@ -160,6 +161,10 @@ object Arguments {
       cmd("dump-graphql-schema")
         .text("Dumps the full GraphQL schema to stdout")
         .action((_, arguments) => arguments.copy(command = DumpGraphQLSchema))
+
+      cmd("create-config")
+        .text("Creates a template configuration file")
+        .action((_, arguments) => arguments.copy(command = CreateConfig))
     }
 
   def parse(args: Array[String], defaultConfigFile: Path): Option[Arguments] =

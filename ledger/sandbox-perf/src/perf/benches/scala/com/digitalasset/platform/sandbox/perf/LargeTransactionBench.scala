@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.sandbox.perf
 
+import java.util.concurrent.TimeUnit
+
 import com.digitalasset.platform.PlatformApplications
 import com.digitalasset.platform.sandbox.perf.TestHelper._
 import org.openjdk.jmh.annotations._
@@ -49,18 +51,12 @@ class LargeTransactionBench {
 
   //note that when running this with Postgres the bottleneck seems to originate from the fact the we traverse the huge
   //Transaction and execute SQL queries one after another. We could potentially partition the transaction so we can have batch queries instead.
+  @Timeout(time = 20, timeUnit = TimeUnit.MINUTES) // we have a rare issue where this test runs extremely long with 100k contracts, making the test fail due to JMH timeout
   @Benchmark
   def manySmallContracts(state: RangeOfIntsCreatedState): Unit = {
-    try {
-      Await.result(
-        rangeOfIntsExerciseCommand(state, state.workflowId, "ToListOfIntContainers", None),
-        perfTestTimeout)
-    } catch {
-      case t: Throwable => //TODO: this is just temporary to debug flakiness
-        println(s"manySmallContracts bench blew up! ${t.getMessage} ")
-        t.printStackTrace()
-        throw t
-    }
+    Await.result(
+      rangeOfIntsExerciseCommand(state, state.workflowId, "ToListOfIntContainers", None),
+      perfTestTimeout)
   }
 
   @Benchmark

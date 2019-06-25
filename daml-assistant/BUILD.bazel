@@ -1,7 +1,7 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//bazel_tools:packaging/packaging.bzl", "package_app")
 load("@os_info//:os_info.bzl", "is_windows")
 
@@ -130,5 +130,16 @@ da_haskell_test(
         ":daml-lib",
         ":daml-project-config",
         "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Target for da-ghcid, includes everything except integration tests.
+da_haskell_repl(
+    name = "repl",
+    collect_data = False,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-assistant:daml",
+        "//daml-assistant/daml-helper",
     ],
 )

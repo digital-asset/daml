@@ -8,7 +8,7 @@ load(
     "@io_tweag_rules_haskell//haskell:c2hs.bzl",
     "c2hs_toolchain",
 )
-load("//bazel_tools:haskell.bzl", "da_haskell_library")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
 
 exports_files([".hlint.yaml"])
 
@@ -189,4 +189,15 @@ buildifier(
     exclude_patterns = buildifier_excluded_patterns,
     mode = "fix",
     verbose = True,
+)
+
+# Default target for da-ghci, da-ghcid.
+da_haskell_repl(
+    name = "repl",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":damlc",
+        "//daml-assistant:daml",
+        "//daml-assistant/daml-helper",
+    ],
 )
