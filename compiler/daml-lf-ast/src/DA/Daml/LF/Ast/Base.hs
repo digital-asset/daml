@@ -318,6 +318,13 @@ data Expr
     }
     -- TODO(MH): Move 'EEVariantCon' into 'BuiltinExpr' if we decide to allow
     -- using variant constructors as functions that can be around not applied.
+  -- | Enum construction.
+  | EEnumCon
+    { enumTypeCon :: !(Qualified TypeConName)
+      -- ^ Type constructor of the enum type.
+    , enumDataCon :: !VariantConName
+      -- ^ Data constructor of the enum type.
+    }
   -- | Tuple construction.
   | ETupleCon
     { tupFields :: ![(FieldName, Expr)]
@@ -438,6 +445,13 @@ data CasePattern
       -- ^ Variant constructor to match on.
     , patBinder  :: !ExprVarName
       -- ^ Variable to bind the variant constructor argument to.
+    }
+  -- | Match on a constructor of an enum type.
+  | CPEnum
+    { patTypeCon :: !(Qualified TypeConName)
+      -- ^ Type constructor of the type to match on.
+    , patDataCon :: !VariantConName
+      -- ^ Data constructor to match on.
     }
   -- | Match on the unit type.
   | CPUnit
@@ -599,7 +613,8 @@ data DefDataType = DefDataType
   , dataSerializable :: !IsSerializable
     -- ^ The data type preserves serializabillity.
   , dataParams  :: ![(TypeVarName, Kind)]
-    -- ^ Type paramaters to the type constructor.
+    -- ^ Type paramaters to the type constructor. They must be empty when
+    -- @dataCons@ is @DataEnum@.
   , dataCons    :: !DataCons
     -- ^ Data constructor of the type.
   }
@@ -611,6 +626,8 @@ data DataCons
   = DataRecord  ![(FieldName, Type)]
   -- | A variant type given by its construtors and their payload types.
   | DataVariant ![(VariantConName, Type)]
+  -- | An enum type given by the name of its constructors.
+  | DataEnum ![VariantConName]
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 newtype HasNoPartyLiterals = HasNoPartyLiterals{getHasNoPartyLiterals :: Bool}

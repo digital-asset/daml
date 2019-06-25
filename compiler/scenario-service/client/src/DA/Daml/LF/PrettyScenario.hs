@@ -851,6 +851,7 @@ typeConFields qName world = case LF.lookupDataType qName world of
   Right dataType -> case LF.dataCons dataType of
     LF.DataRecord re -> concatMap (typeConFieldsNames world) re
     LF.DataVariant _ -> [""]
+    LF.DataEnum _ -> [""]
   Left _ -> error "malformed template constructor"
 
 renderHeader :: LF.World -> Identifier -> S.Set T.Text -> H.Html

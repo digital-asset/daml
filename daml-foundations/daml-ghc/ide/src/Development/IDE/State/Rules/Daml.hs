@@ -13,6 +13,7 @@ import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import Development.IDE.Core.OfInterest
 import DA.Daml.GHC.Compiler.Options
+import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
@@ -137,6 +138,11 @@ data DalfDependency = DalfDependency
   , ddDalfFile     :: !FilePath
     -- ^ The absolute path to the dalf file.
   }
+
+
+ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
+ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
+
 
 getDalfDependencies :: NormalizedFilePath -> MaybeT Action [DalfDependency]
 getDalfDependencies file = do

@@ -76,9 +76,8 @@ decodeDataCons = \case
     DataRecord <$> mapM (decodeFieldWithType FieldName) (V.toList fs)
   LF1.DefDataTypeDataConsVariant (LF1.DefDataType_Fields fs) ->
     DataVariant <$> mapM (decodeFieldWithType VariantConName) (V.toList fs)
-  LF1.DefDataTypeDataConsEnum _ ->
-   -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-    Left (ParseError "Enum type not supported")
+  LF1.DefDataTypeDataConsEnum (LF1.DefDataType_EnumConstructors cs) ->
+    DataEnum <$> mapM (decodeName VariantConName) (V.toList cs)
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
@@ -297,9 +296,10 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
       <$> mayDecode "Expr_VariantConTycon" mbTycon decodeTypeConApp
       <*> decodeName VariantConName variant
       <*> mayDecode "Expr_VariantConVariantArg" mbArg decodeExpr
-  LF1.ExprSumEnumCon _ ->
-   -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-    Left (ParseError "Enum types not supported")
+  LF1.ExprSumEnumCon (LF1.Expr_EnumCon mbTypeCon dataCon) ->
+    EEnumCon
+      <$> mayDecode "Expr_EnumConTycon" mbTypeCon decodeTypeConName
+      <*> decodeName VariantConName dataCon
   LF1.ExprSumTupleCon (LF1.Expr_TupleCon fields) ->
     ETupleCon
       <$> mapM decodeFieldWithExpr (V.toList fields)
@@ -341,12 +341,12 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     decodeUpdate upd
   LF1.ExprSumScenario scen ->
     decodeScenario scen
-  LF1.ExprSumNone (LF1.Expr_None mbType) -> do
-    bodyType <- mayDecode "expr_NoneType" mbType decodeType
+  LF1.ExprSumOptionalNone (LF1.Expr_OptionalNone mbType) -> do
+    bodyType <- mayDecode "expr_OptionalNoneType" mbType decodeType
     return (ENone bodyType)
-  LF1.ExprSumSome (LF1.Expr_Some mbType mbBody) -> do
-    bodyType <- mayDecode "expr_SomeType" mbType decodeType
-    bodyExpr <- mayDecode "expr_ExprType" mbBody decodeExpr
+  LF1.ExprSumOptionalSome (LF1.Expr_OptionalSome mbType mbBody) -> do
+    bodyType <- mayDecode "expr_OptionalSomeType" mbType decodeType
+    bodyExpr <- mayDecode "expr_OptionalSomeBody" mbBody decodeExpr
     return (ESome bodyType bodyExpr)
 
 decodeUpdate :: LF1.Update -> Either Error Expr
@@ -428,9 +428,10 @@ decodeCaseAlt LF1.CaseAlt{..} = do
         <$> mayDecode "caseAlt_VariantCon" caseAlt_VariantCon decodeTypeConName
         <*> decodeName VariantConName caseAlt_VariantVariant
         <*> decodeName ExprVarName caseAlt_VariantBinder
-    LF1.CaseAltSumEnum _ ->
-      -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-      Left (ParseError "Enum type not supported")
+    LF1.CaseAltSumEnum LF1.CaseAlt_Enum{..} ->
+      CPEnum
+        <$> mayDecode "caseAlt_DataCon" caseAlt_EnumCon decodeTypeConName
+        <*> decodeName VariantConName caseAlt_EnumConstructor
     LF1.CaseAltSumPrimCon (Proto.Enumerated (Right pcon)) -> pure $ case pcon of
       LF1.PrimConCON_UNIT -> CPUnit
       LF1.PrimConCON_TRUE -> CPBool True
@@ -440,9 +441,9 @@ decodeCaseAlt LF1.CaseAlt{..} = do
     LF1.CaseAltSumNil LF1.Unit -> pure CPNil
     LF1.CaseAltSumCons LF1.CaseAlt_Cons{..} ->
       CPCons <$> decodeName ExprVarName caseAlt_ConsVarHead <*> decodeName ExprVarName caseAlt_ConsVarTail
-    LF1.CaseAltSumNone LF1.Unit -> pure CPNone
-    LF1.CaseAltSumSome LF1.CaseAlt_Some{..} ->
-      CPSome <$> decodeName ExprVarName caseAlt_SomeVarBody
+    LF1.CaseAltSumOptionalNone LF1.Unit -> pure CPNone
+    LF1.CaseAltSumOptionalSome LF1.CaseAlt_OptionalSome{..} ->
+      CPSome <$> decodeName ExprVarName caseAlt_OptionalSomeVarBody
   body <- mayDecode "caseAltBody" caseAltBody decodeExpr
   pure $ CaseAlternative pat body
 
