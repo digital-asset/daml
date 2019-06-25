@@ -30,9 +30,9 @@ textShow :: Show a => a -> T.Text
 textShow = T.pack . show
 
 
-setHandlersNotifications :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
-setHandlersNotifications RunHandler{..} x = return x{
-    LSP.didOpenTextDocumentNotificationHandler = addNotification $ \ide (DidOpenTextDocumentParams item) -> do
+setHandlersNotifications :: WithMessage -> LSP.Handlers -> IO LSP.Handlers
+setHandlersNotifications WithMessage{..} x = return x{
+    LSP.didOpenTextDocumentNotificationHandler = withNotification $ \ide (DidOpenTextDocumentParams item) -> do
         case URI.parseURI $ T.unpack $ getUri $ _uri (item :: TextDocumentItem) of
           Just uri
               | URI.uriScheme uri == "file:"
@@ -45,7 +45,7 @@ setHandlersNotifications RunHandler{..} x = return x{
           _ -> logSeriousError (ideLogger ide) $ "Invalid URI in DidOpenTextDocument: "
                     <> textShow (_uri (item :: TextDocumentItem))
 
-    ,LSP.didChangeTextDocumentNotificationHandler = addNotification $ \ide (DidChangeTextDocumentParams docId _) -> do
+    ,LSP.didChangeTextDocumentNotificationHandler = withNotification $ \ide (DidChangeTextDocumentParams docId _) -> do
         let uri = _uri (docId :: VersionedTextDocumentIdentifier)
 
         case uriToFilePath' uri of
@@ -58,7 +58,7 @@ setHandlersNotifications RunHandler{..} x = return x{
             logSeriousError (ideLogger ide)
               $ "Invalid file path: " <> textShow (_uri (docId :: VersionedTextDocumentIdentifier))
 
-    ,LSP.didCloseTextDocumentNotificationHandler = addNotification $ \ide (DidCloseTextDocumentParams (TextDocumentIdentifier uri)) ->
+    ,LSP.didCloseTextDocumentNotificationHandler = withNotification $ \ide (DidCloseTextDocumentParams (TextDocumentIdentifier uri)) ->
         case URI.parseURI $ T.unpack $ getUri uri of
           Just uri'
               | URI.uriScheme uri' == "file:" -> do

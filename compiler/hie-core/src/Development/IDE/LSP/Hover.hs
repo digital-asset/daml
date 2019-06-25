@@ -43,7 +43,7 @@ onHover ide (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
 
         Nothing -> pure Nothing
 
-setHandlersHover :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
-setHandlersHover RunHandler{..} x = return x{
-    LSP.hoverHandler = addResponse RspHover onHover
+setHandlersHover :: WithMessage -> LSP.Handlers -> IO LSP.Handlers
+setHandlersHover WithMessage{..} x = return x{
+    LSP.hoverHandler = withResponse RspHover onHover
     }

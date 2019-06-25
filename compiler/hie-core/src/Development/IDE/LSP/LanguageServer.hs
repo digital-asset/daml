@@ -53,9 +53,9 @@ runLanguageServer getIdeState = do
     -- dies and can be restarted instead of losing threads silently.
     clientMsgBarrier <- newBarrier
 
-    let runHandler = RunHandler
-            (\wrap f -> Just $ \r -> atomically $ writeTChan clientMsgChan $ AddResponse r wrap f)
-            (\f -> Just $ \r -> atomically $ writeTChan clientMsgChan $ AddNotification r f)
+    let withResponse wrap f = Just $ \r -> atomically $ writeTChan clientMsgChan $ AddResponse r wrap f
+    let withNotification f = Just $ \r -> atomically $ writeTChan clientMsgChan $ AddNotification r f
+    let runHandler = WithMessage{withResponse, withNotification}
     handlers <- mergeHandlers [setHandlersDefinition, setHandlersHover, setHandlersNotifications, setHandlersIgnore] runHandler def
 
     void $ waitAnyCancel =<< traverse async
@@ -86,7 +86,7 @@ runLanguageServer getIdeState = do
 
 -- | Things that get sent to us, but we don't deal with.
 --   Set them to avoid a warning in VS Code output.
-setHandlersIgnore :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
+setHandlersIgnore :: WithMessage -> LSP.Handlers -> IO LSP.Handlers
 setHandlersIgnore _ x = return x
     {LSP.cancelNotificationHandler = none
     ,LSP.initializedHandler = none
@@ -95,7 +95,7 @@ setHandlersIgnore _ x = return x
     where none = Just $ const $ return ()
 
 
-mergeHandlers :: [RunHandler -> LSP.Handlers -> IO LSP.Handlers] -> RunHandler -> LSP.Handlers -> IO LSP.Handlers
+mergeHandlers :: [WithMessage -> LSP.Handlers -> IO LSP.Handlers] -> WithMessage -> LSP.Handlers -> IO LSP.Handlers
 mergeHandlers = foldl f (\_ a -> return a)
     where f x1 x2 r a = x1 r a >>= x2 r
 

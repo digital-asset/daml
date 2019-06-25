@@ -39,7 +39,7 @@ gotoDefinition ide (TextDocumentPositionParams (TextDocumentIdentifier uri) pos)
         Just loc -> SingleLoc loc
 
 
-setHandlersDefinition :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
-setHandlersDefinition RunHandler{..} x = return x{
-    LSP.definitionHandler = addResponse RspDefinition gotoDefinition
+setHandlersDefinition :: WithMessage -> LSP.Handlers -> IO LSP.Handlers
+setHandlersDefinition WithMessage{..} x = return x{
+    LSP.definitionHandler = withResponse RspDefinition gotoDefinition
     }
