@@ -2,13 +2,11 @@
 name: DAML Bug report
 about: Create a report to help us improve DAML
 title: ''
-labels: ''
-assignees: ''
 
 ---
 
-**Describe the bug**
-A short description of the bug you found.
+**Describe the issue**
+A short description of the issue you found.
 
 **Steps to reproduce**
 Steps to reproduce the problem:
