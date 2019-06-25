@@ -14,7 +14,7 @@ import           Development.IDE.LSP.Protocol
 import           Development.IDE.LSP.Server hiding (runServer)
 import qualified Language.Haskell.LSP.Control as LSP
 import qualified Language.Haskell.LSP.Core as LSP
-import Control.Concurrent.STM
+import Control.Concurrent.Chan
 import Control.Concurrent.Extra
 import Control.Concurrent.Async
 import Data.Default
@@ -47,14 +47,14 @@ runLanguageServer getIdeState = do
     -- the language server tests without the redirection.
     putStr " " >> hFlush stdout
 
-    clientMsgChan :: TChan AddItem <- newTChanIO
+    clientMsgChan :: Chan AddItem <- newChan
     -- These barriers are signaled when the threads reading from these chans exit.
     -- This should not happen but if it does, we will make sure that the whole server
     -- dies and can be restarted instead of losing threads silently.
     clientMsgBarrier <- newBarrier
 
-    let withResponse wrap f = Just $ \r -> atomically $ writeTChan clientMsgChan $ AddResponse r wrap f
-    let withNotification f = Just $ \r -> atomically $ writeTChan clientMsgChan $ AddNotification r f
+    let withResponse wrap f = Just $ \r -> writeChan clientMsgChan $ AddResponse r wrap f
+    let withNotification f = Just $ \r -> writeChan clientMsgChan $ AddNotification r f
     let runHandler = WithMessage{withResponse, withNotification}
     handlers <- mergeHandlers [setHandlersDefinition, setHandlersHover, setHandlersNotifications, setHandlersIgnore] runHandler def
 
@@ -71,11 +71,11 @@ runLanguageServer getIdeState = do
         , void $ waitBarrier clientMsgBarrier
         ]
     where
-        handleInit :: IO () -> TChan AddItem -> LSP.LspFuncs () -> IO (Maybe err)
+        handleInit :: IO () -> Chan AddItem -> LSP.LspFuncs () -> IO (Maybe err)
         handleInit exitClientMsg clientMsgChan lspFuncs@LSP.LspFuncs{..} = do
             ide <- getIdeState sendFunc (makeLSPVFSHandle lspFuncs)
             _ <- flip forkFinally (const exitClientMsg) $ forever $ do
-                msg <- atomically $ readTChan clientMsgChan
+                msg <- readChan clientMsgChan
                 case msg of
                     AddNotification NotificationMessage{_params} act -> act ide _params
                     AddResponse RequestMessage{_id, _params} wrap act -> do
