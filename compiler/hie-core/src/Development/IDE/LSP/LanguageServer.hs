@@ -100,7 +100,6 @@ setHandlersIgnore :: PartialHandlers
 setHandlersIgnore = PartialHandlers $ \_ x -> return x
     {LSP.cancelNotificationHandler = none
     ,LSP.initializedHandler = none
-    ,LSP.codeLensHandler = none -- FIXME: Stop saying we support it in 'options'
     }
     where none = Just $ const $ return ()
 
