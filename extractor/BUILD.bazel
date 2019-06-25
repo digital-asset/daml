@@ -140,6 +140,7 @@ da_scala_test_suite(
     size = "medium",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
+        "//daml-lf/encoder:testing-dar-1.dev",
         "//extractor:PrimitiveTypes.dar",
         "//extractor:RecordsAndVariants.dar",
         "//extractor:TransactionExample.dar",

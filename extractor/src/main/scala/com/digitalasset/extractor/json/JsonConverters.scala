@@ -4,12 +4,12 @@
 package com.digitalasset.extractor.json
 
 import com.digitalasset.daml.lf.data.{
-  Decimal => LfDecimal,
   FrontStack,
   ImmArray,
   Ref,
   SortedLookupList,
-  Time
+  Time,
+  Decimal => LfDecimal
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.extractor.ledger.types.{Identifier, LedgerValue}
@@ -43,6 +43,7 @@ object JsonConverters {
   implicit def valueEncoder[T <: LedgerValue]: Encoder[T] = {
     case r @ V.ValueRecord(_, _) => r.asJson
     case v @ V.ValueVariant(_, _, _) => v.asJson
+    case V.ValueEnum(_, constructor) => constructor.asJson
     case V.ValueList(value) => value.asJson
     case V.ValueOptional(value) => value.asJson
     case V.ValueMap(value) => value.asJson
