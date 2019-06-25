@@ -5,32 +5,33 @@
 
 -- | Display information on hover.
 module Development.IDE.LSP.Hover
-    ( handle
+    ( onHover
+    , addOnHover
     ) where
 
 import Language.Haskell.LSP.Types
 import Development.IDE.Types.Location
-
+import Development.IDE.Core.Service
+import Development.IDE.LSP.Server
 import Development.IDE.Types.Logger
+import qualified Language.Haskell.LSP.Core as LSP
 
 import qualified Data.Text as T
 
 import Development.IDE.Core.Rules
 
 -- | Display information on hover.
-handle
-    :: Logger
-    -> IdeState
+onHover
+    :: IdeState
     -> TextDocumentPositionParams
     -> IO (Maybe Hover)
-handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
+onHover ide (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath -> filePath) -> do
-          logInfo loggerH $
-              "Hover request at position " <>
-              T.pack (showPosition pos) <>
+          logInfo (ideLogger ide) $
+              "Hover request at position " <> T.pack (showPosition pos) <>
               " in file: " <> T.pack (fromNormalizedFilePath filePath)
-          runAction compilerH $ getAtPoint filePath pos
+          runAction ide $ getAtPoint filePath pos
         Nothing       -> pure Nothing
 
     case mbResult of
@@ -40,3 +41,8 @@ handle loggerH compilerH (TextDocumentPositionParams (TextDocumentIdentifier uri
                         mbRange
 
         Nothing -> pure Nothing
+
+addOnHover :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
+addOnHover RunHandler{..} x = return x{
+    LSP.hoverHandler = newNotification onHover
+    }
