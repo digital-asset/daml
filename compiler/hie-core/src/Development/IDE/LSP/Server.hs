@@ -7,6 +7,8 @@
 module Development.IDE.LSP.Server
   ( runServer
   , Handlers(..)
+  , RunHandler(..)
+  , makeResponse
   ) where
 
 
@@ -33,6 +35,17 @@ import qualified Language.Haskell.LSP.Control as LSP
 import qualified Language.Haskell.LSP.Core as LSP
 import qualified Language.Haskell.LSP.Messages as LSP
 import qualified Language.Haskell.LSP.Types as LSP
+import Development.IDE.Core.Service
+
+
+data RunHandler = RunHandler
+    {newNotification :: forall m req resp . (IdeState -> req -> IO resp) -> Maybe (LSP.Handler (RequestMessage m req resp))
+    ,runResponse :: (IdeState -> IO LSP.FromServerMessage) -> IO ()
+    }
+
+makeResponse :: LspId -> a -> ResponseMessage a
+makeResponse reqId res = ResponseMessage "2.0" (responseId reqId) (Just res) Nothing
+
 
 ------------------------------------------------------------------------
 -- Server execution

@@ -70,7 +70,7 @@ handleRequest logger compilerH makeResponse makeErrorResponse = \case
 
     KeepAlive -> pure $ RspCustomServer $ makeResponse Aeson.Null
 
-    Definition params -> RspDefinition . makeResponse <$> LS.Definition.handle logger compilerH params
+    Definition params -> RspDefinition . makeResponse <$> LS.Definition.gotoDefinition compilerH params
     Hover params -> RspHover . makeResponse <$> LS.Hover.handle logger compilerH params
     CodeLens _params -> pure $ RspCodeLens $ makeResponse mempty
 
