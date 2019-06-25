@@ -29,8 +29,9 @@ final case class IndexState(
     activeContracts: InMemoryActiveContracts,
     // Rejected commands indexed by offset.
     commandRejections: TreeMap[Offset, Update.CommandRejected],
-    partyRejections: TreeMap[Offset, Update.PartyAllocationRejected],
-    packageRejections: TreeMap[Offset, Update.PackageUploadRejected],
+    //TODO(MZ): Provide an alternative
+//    partyRejections: TreeMap[Offset, Update.PartyAllocationRejected],
+//    packageRejections: TreeMap[Offset, Update.PackageUploadRejected],
     // Uploaded packages.
     packages: Map[PackageId, Archive],
     packageKnownTo: Relation[PackageId, Party],
@@ -100,21 +101,21 @@ final case class IndexState(
             )
           )
 
-        case u: Update.PartyAllocationRejected =>
-          //TODO(MZ) Provide response to the ledger api caller
-          Right(
-            state.copy(
-              partyRejections = partyRejections + (uId -> u)
-            )
-          )
+        //case u: Update.PartyAllocationRejected =>
+        //TODO(MZ) Provide response to the ledger api caller
+        //  Right(
+        //    state.copy(
+        //      partyRejections = partyRejections + (uId -> u)
+        //    )
+        //  )
 
-        case u: Update.PackageUploadRejected =>
-          //TODO(MZ) Provide response to the ledger api caller
-          Right(
-            state.copy(
-              packageRejections = packageRejections + (uId -> u)
-            )
-          )
+        //case u: Update.PackageUploadRejected =>
+        //TODO(MZ) Provide response to the ledger api caller
+        //  Right(
+        //    state.copy(
+        //      packageRejections = packageRejections + (uId -> u)
+        //    )
+        //  )
 
         case u: Update.TransactionAccepted =>
           val blindingInfo = Blinding.blind(
@@ -180,8 +181,9 @@ object IndexState {
     txs = TreeMap.empty,
     activeContracts = InMemoryActiveContracts.empty,
     commandRejections = TreeMap.empty,
-    partyRejections = TreeMap.empty,
-    packageRejections = TreeMap.empty,
+    //TODO(MZ): Provide an alternative
+    //partyRejections = TreeMap.empty,
+    //packageRejections = TreeMap.empty,
     packages = Map.empty,
     packageKnownTo = Map.empty,
     hostedParties = Set.empty

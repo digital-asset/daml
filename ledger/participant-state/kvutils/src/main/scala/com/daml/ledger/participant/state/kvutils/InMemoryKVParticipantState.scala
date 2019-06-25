@@ -222,7 +222,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     * given offset, and the method [[Dispatcher.signalNewHead]] to signal that
     * new elements has been added.
     */
-  private val dispatcher: Dispatcher[Int, Update] = Dispatcher(
+  private val dispatcher: Dispatcher[Int, Option[Update]] = Dispatcher(
     steppingMode = OneAfterAnother(
       (idx: Int, _) => idx + 1,
       (idx: Int) => Future.successful(getUpdate(idx, stateRef))
@@ -234,7 +234,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
     * state and convert it into [[Update]].
     */
-  private def getUpdate(idx: Int, state: State): Update = {
+  private def getUpdate(idx: Int, state: State): Option[Update] = {
     assert(idx >= 0 && idx < state.commitLog.size)
 
     state.commitLog(idx) match {
@@ -242,7 +242,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
         state.store
           .get(entryId.getEntryId)
           .map { blob =>
-            KeyValueConsumption.logEntryToUpdateOrResult(
+            KeyValueConsumption.logEntryToUpdate(
               entryId,
               KeyValueConsumption.unpackDamlLogEntry(blob))
           }
@@ -252,7 +252,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
           )
 
       case CommitHeartbeat(recordTime) =>
-        Update.Heartbeat(recordTime)
+        Some(Update.Heartbeat(recordTime))
     }
   }
 
@@ -271,7 +271,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
           .getOrElse(beginning)
       )
       .collect {
-        case (idx, update) =>
+        case (idx, Some(update)) =>
           Offset(Array(idx.toLong)) -> update
       }
   }

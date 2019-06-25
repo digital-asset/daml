@@ -29,47 +29,55 @@ object KeyValueConsumption {
     * @param entry: The log entry.
     * @return [[[Update]] constructed from log entry.
     */
-  def logEntryToUpdateOrResult(entryId: DamlLogEntryId, entry: DamlLogEntry): Update = {
+  def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): Option[Update] = {
 
     val recordTime = parseTimestamp(entry.getRecordTime)
 
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        Update.PublicPackagesUploaded(
-          entry.getPackageUploadEntry.getSubmissionId,
-          entry.getPackageUploadEntry.getArchivesList.asScala.toList,
-          entry.getPackageUploadEntry.getSourceDescription,
-          entry.getPackageUploadEntry.getParticipantId,
-          recordTime
+        Some(
+          Update.PublicPackagesUploaded(
+            entry.getPackageUploadEntry.getSubmissionId,
+            entry.getPackageUploadEntry.getArchivesList.asScala.toList,
+            entry.getPackageUploadEntry.getSourceDescription,
+            entry.getPackageUploadEntry.getParticipantId,
+            recordTime
+          )
         )
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
-        Update.PackageUploadRejected(
-          entry.getPackageUploadRejectionEntry.getSubmissionId,
-          //TODO(MZ): Implement error conversion
-          PackageUploadRejectionReason.InvalidPackage
-        )
+        None
+      //TODO(MZ): Provide an alternative
+//        Update.PackageUploadRejected(
+//          entry.getPackageUploadRejectionEntry.getSubmissionId,
+//          //TODO(MZ): Implement error conversion
+//          PackageUploadRejectionReason.InvalidPackage
+//        )
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        Update.PartyAddedToParticipant(
-          entry.getPartyAllocationEntry.getSubmissionId,
-          Party.assertFromString(entry.getPartyAllocationEntry.getParty),
-          entry.getPartyAllocationEntry.getDisplayName,
-          entry.getPartyAllocationEntry.getParticipantId,
-          recordTime
+        Some(
+          Update.PartyAddedToParticipant(
+            entry.getPartyAllocationEntry.getSubmissionId,
+            Party.assertFromString(entry.getPartyAllocationEntry.getParty),
+            entry.getPartyAllocationEntry.getDisplayName,
+            entry.getPartyAllocationEntry.getParticipantId,
+            recordTime
+          )
         )
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
-        partyRejectionEntryToUpdate(entry.getPartyAllocationRejectionEntry)
+        None
+      //TODO(MZ): Provide an alternative
+      //partyRejectionEntryToUpdate(entry.getPartyAllocationRejectionEntry)
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
-        txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime)
+        Some(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
-        Update.ConfigurationChanged(parseDamlConfigurationEntry(entry.getConfigurationEntry))
+        Some(Update.ConfigurationChanged(parseDamlConfigurationEntry(entry.getConfigurationEntry)))
 
       case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
-        rejectionEntryToUpdate(entry.getRejectionEntry)
+        Some(rejectionEntryToUpdate(entry.getRejectionEntry))
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         sys.error("entryToUpdate: PAYLOAD_NOT_SET!")
@@ -103,23 +111,24 @@ object KeyValueConsumption {
     )
   }
 
-  private def partyRejectionEntryToUpdate(
-      rejEntry: DamlPartyAllocationRejectionEntry): Update.PartyAllocationRejected = {
-
-    Update.PartyAllocationRejected(
-      submissionId = rejEntry.getSubmissionId,
-      reason = rejEntry.getReasonCase match {
-        case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
-          PartyAllocationRejectionReason.InvalidName
-        case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>
-          PartyAllocationRejectionReason.AlreadyExists
-        case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
-          PartyAllocationRejectionReason.ParticipantNotAuthorized
-        case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
-          sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
-      }
-    )
-  }
+  //TODO(MZ): Provide an alternative
+//  private def partyRejectionEntryToUpdate(
+//      rejEntry: DamlPartyAllocationRejectionEntry): Update.PartyAllocationRejected = {
+//
+//    Update.PartyAllocationRejected(
+//      submissionId = rejEntry.getSubmissionId,
+//      reason = rejEntry.getReasonCase match {
+//        case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
+//          PartyAllocationRejectionReason.InvalidName
+//        case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>
+//          PartyAllocationRejectionReason.AlreadyExists
+//        case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+//          PartyAllocationRejectionReason.ParticipantNotAuthorized
+//        case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
+//          sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
+//      }
+//    )
+//  }
 
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def txEntryToUpdate(

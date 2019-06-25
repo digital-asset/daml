@@ -6,11 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.util.concurrent.atomic.AtomicInteger
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.Update.{
-  PartyAddedToParticipant,
-  PartyAllocationRejected,
-  PublicPackagesUploaded
-}
+import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackagesUploaded}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -98,56 +94,58 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       waitForUpdateFuture
     }
 
-    "reject allocateParty when hint is empty" in {
-      val ps = new InMemoryKVParticipantState
-      val rt = ps.getNewRecordTime()
-      val submissionId = 0.toString
+    //TODO(MZ): Provide an alternative
+//    "reject allocateParty when hint is empty" in {
+//      val ps = new InMemoryKVParticipantState
+//      val rt = ps.getNewRecordTime()
+//      val submissionId = 0.toString
+//
+//      val hint = None
+//      val displayName = Some("Alice Cooper")
+//      val waitForUpdateFuture =
+//        ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
+//          case (offset: Offset, update: PartyAllocationRejected) =>
+//            ps.close()
+//            assert(offset == Offset(Array(0L)))
+//            assert(update.submissionId == submissionId)
+//            assert(update.reason == PartyAllocationRejectionReason.InvalidName)
+//          case _ => fail("unexpected update message after a party allocation")
+//        }
+//
+//      ps.allocateParty(submissionId, hint, displayName)
+//      waitForUpdateFuture
+//    }
 
-      val hint = None
-      val displayName = Some("Alice Cooper")
-      val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
-          case (offset: Offset, update: PartyAllocationRejected) =>
-            ps.close()
-            assert(offset == Offset(Array(0L)))
-            assert(update.submissionId == submissionId)
-            assert(update.reason == PartyAllocationRejectionReason.InvalidName)
-          case _ => fail("unexpected update message after a party allocation")
-        }
-
-      ps.allocateParty(submissionId, hint, displayName)
-      waitForUpdateFuture
-    }
-
-    "reject duplicate allocateParty" in {
-      val ps = new InMemoryKVParticipantState
-      val rt = ps.getNewRecordTime()
-      val submissionId1 = 0.toString
-      val submissionId2 = 1.toString
-
-      val hint = Some("Alice")
-      val displayName = Some("Alice Cooper")
-      val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq).map { updates =>
-          ps.close()
-
-          val (offset1, update1) = updates.head
-          val (offset2, update2) = updates(1)
-          assert(offset1 == Offset(Array(0L)))
-          assert(update1.isInstanceOf[Update.PartyAddedToParticipant])
-
-          assert(offset2 == Offset(Array(1L)))
-          assert(update2.isInstanceOf[Update.PartyAllocationRejected])
-          assert(
-            update2
-              .asInstanceOf[Update.PartyAllocationRejected]
-              .reason == PartyAllocationRejectionReason.AlreadyExists)
-        }
-
-      ps.allocateParty(submissionId1, hint, displayName)
-      ps.allocateParty(submissionId2, hint, displayName)
-      waitForUpdateFuture
-    }
+    //TODO(MZ): Provide an alternative
+//    "reject duplicate allocateParty" in {
+//      val ps = new InMemoryKVParticipantState
+//      val rt = ps.getNewRecordTime()
+//      val submissionId1 = 0.toString
+//      val submissionId2 = 1.toString
+//
+//      val hint = Some("Alice")
+//      val displayName = Some("Alice Cooper")
+//      val waitForUpdateFuture =
+//        ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq).map { updates =>
+//          ps.close()
+//
+//          val (offset1, update1) = updates.head
+//          val (offset2, update2) = updates(1)
+//          assert(offset1 == Offset(Array(0L)))
+//          assert(update1.isInstanceOf[Update.PartyAddedToParticipant])
+//
+//          assert(offset2 == Offset(Array(1L)))
+//          assert(update2.isInstanceOf[Update.PartyAllocationRejected])
+//          assert(
+//            update2
+//              .asInstanceOf[Update.PartyAllocationRejected]
+//              .reason == PartyAllocationRejectionReason.AlreadyExists)
+//        }
+//
+//      ps.allocateParty(submissionId1, hint, displayName)
+//      ps.allocateParty(submissionId2, hint, displayName)
+//      waitForUpdateFuture
+//    }
 
     "provide update after transaction submission" in {
 

@@ -138,31 +138,31 @@ object Update {
     }
   }
 
-  /** Signal that public packages submitted via [[WriteService]] were rejected.
-    *
-    * See the different [[PackageUploadRejectionReason]] for why packages can be
-    * rejected.
-    */
-  final case class PackageUploadRejected(
-      submissionId: String,
-      reason: PackageUploadRejectionReason,
-  ) extends Update {
-    override def description: String = {
-      s"Reject package upload $submissionId: $reason"
-    }
-  }
-
-  /** Signal that a command submitted via [[WriteService]] was rejected.
-    *
-    * See the different [[PartyAllocationRejectionReason]] for why party
-    * allocation can be rejected.
-    */
-  final case class PartyAllocationRejected(
-      submissionId: String,
-      reason: PartyAllocationRejectionReason,
-  ) extends Update {
-    override def description: String = {
-      s"Reject command $submissionId: $reason"
-    }
-  }
+//  /** Signal that public packages submitted via [[WriteService]] were rejected.
+//    *
+//    * See the different [[PackageUploadRejectionReason]] for why packages can be
+//    * rejected.
+//    */
+//  final case class PackageUploadRejected(
+//      submissionId: String,
+//      reason: PackageUploadRejectionReason,
+//  ) extends Update {
+//    override def description: String = {
+//      s"Reject package upload $submissionId: $reason"
+//    }
+//  }
+//
+//  /** Signal that a command submitted via [[WriteService]] was rejected.
+//    *
+//    * See the different [[PartyAllocationRejectionReason]] for why party
+//    * allocation can be rejected.
+//    */
+//  final case class PartyAllocationRejected(
+//      submissionId: String,
+//      reason: PartyAllocationRejectionReason,
+//  ) extends Update {
+//    override def description: String = {
+//      s"Reject command $submissionId: $reason"
+//    }
+//  }
 }
