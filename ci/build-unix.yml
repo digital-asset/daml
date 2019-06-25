@@ -53,29 +53,29 @@ steps:
     env:
       BLACKDUCK_HUBDETECT_TOKEN: $(BLACKDUCK_HUBDETECT_TOKEN)
 
-  - bash: ci/release.sh
-    displayName: 'Release'
-    condition: and(succeeded(),
-                   eq(variables['System.PullRequest.IsFork'], 'False'))
-    env:
-      # to connect to bintray
-      JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
-      # For signing artifacts to be uploaded to Maven Central.
-      GPG_KEY: $(gpg-code-signing)
-      # Configuration the Sonatype Open Source Repository Hosting
-      MAVEN_USERNAME: $(MAVEN_USERNAME)
-      MAVEN_PASSWORD: $(MAVEN_PASSWORD)
-      MAVEN_URL: "https://oss.sonatype.org"
-    name: release
-  - bash: |
-      set -euo pipefail
-      ARTIFACT=daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
-      cp bazel-genfiles/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$ARTIFACT
-      echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
-    name: publish
-    condition: eq(variables['release.has_released'], 'true')
-  - task: PublishPipelineArtifact@0
-    condition: eq(variables['release.has_released'], 'true')
-    inputs:
-      targetPath: $(Build.StagingDirectory)/$(publish.artifact)
-      artifactName: $(publish.artifact)
+  # - bash: ci/release.sh
+  #   displayName: 'Release'
+  #   condition: and(succeeded(),
+  #                  eq(variables['System.PullRequest.IsFork'], 'False'))
+  #   env:
+  #     # to connect to bintray
+  #     JFROG_CONFIG_CONTENT: $(JFROG_CONFIG_CONTENT)
+  #     # For signing artifacts to be uploaded to Maven Central.
+  #     GPG_KEY: $(gpg-code-signing)
+  #     # Configuration the Sonatype Open Source Repository Hosting
+  #     MAVEN_USERNAME: $(MAVEN_USERNAME)
+  #     MAVEN_PASSWORD: $(MAVEN_PASSWORD)
+  #     MAVEN_URL: "https://oss.sonatype.org"
+  #   name: release
+  # - bash: |
+  #     set -euo pipefail
+  #     ARTIFACT=daml-sdk-$(release_tag)-${{ parameters.name }}.tar.gz
+  #     cp bazel-genfiles/release/sdk-release-tarball.tar.gz $(Build.StagingDirectory)/$ARTIFACT
+  #     echo "##vso[task.setvariable variable=artifact;isOutput=true]$ARTIFACT"
+  #   name: publish
+  #   condition: eq(variables['release.has_released'], 'true')
+  # - task: PublishPipelineArtifact@0
+  #   condition: eq(variables['release.has_released'], 'true')
+  #   inputs:
+  #     targetPath: $(Build.StagingDirectory)/$(publish.artifact)
+  #     artifactName: $(publish.artifact)
