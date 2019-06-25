@@ -47,14 +47,14 @@ runLanguageServer getIdeState = do
     -- the language server tests without the redirection.
     putStr " " >> hFlush stdout
 
-    clientMsgChan :: Chan AddItem <- newChan
+    clientMsgChan :: Chan Message <- newChan
     -- These barriers are signaled when the threads reading from these chans exit.
     -- This should not happen but if it does, we will make sure that the whole server
     -- dies and can be restarted instead of losing threads silently.
     clientMsgBarrier <- newBarrier
 
-    let withResponse wrap f = Just $ \r -> writeChan clientMsgChan $ AddResponse r wrap f
-    let withNotification f = Just $ \r -> writeChan clientMsgChan $ AddNotification r f
+    let withResponse wrap f = Just $ \r -> writeChan clientMsgChan $ Response r wrap f
+    let withNotification f = Just $ \r -> writeChan clientMsgChan $ Notification r f
     let runHandler = WithMessage{withResponse, withNotification}
     handlers <- mergeHandlers [setHandlersDefinition, setHandlersHover, setHandlersNotifications, setHandlersIgnore] runHandler def
 
@@ -71,14 +71,14 @@ runLanguageServer getIdeState = do
         , void $ waitBarrier clientMsgBarrier
         ]
     where
-        handleInit :: IO () -> Chan AddItem -> LSP.LspFuncs () -> IO (Maybe err)
+        handleInit :: IO () -> Chan Message -> LSP.LspFuncs () -> IO (Maybe err)
         handleInit exitClientMsg clientMsgChan lspFuncs@LSP.LspFuncs{..} = do
             ide <- getIdeState sendFunc (makeLSPVFSHandle lspFuncs)
             _ <- flip forkFinally (const exitClientMsg) $ forever $ do
                 msg <- readChan clientMsgChan
                 case msg of
-                    AddNotification NotificationMessage{_params} act -> act ide _params
-                    AddResponse RequestMessage{_id, _params} wrap act -> do
+                    Notification NotificationMessage{_params} act -> act ide _params
+                    Response RequestMessage{_id, _params} wrap act -> do
                         res <- act ide _params
                         sendFunc $ wrap $ ResponseMessage "2.0" (responseId _id) (Just res) Nothing
             pure Nothing
@@ -100,9 +100,9 @@ mergeHandlers = foldl f (\_ a -> return a)
     where f x1 x2 r a = x1 r a >>= x2 r
 
 
-data AddItem
-    = forall m req resp . AddResponse (RequestMessage m req resp) (ResponseMessage resp -> FromServerMessage) (IdeState -> req -> IO resp)
-    | forall m req . AddNotification (NotificationMessage m req) (IdeState -> req -> IO ())
+data Message
+    = forall m req resp . Response (RequestMessage m req resp) (ResponseMessage resp -> FromServerMessage) (IdeState -> req -> IO resp)
+    | forall m req . Notification (NotificationMessage m req) (IdeState -> req -> IO ())
 
 
 options :: LSP.Options
