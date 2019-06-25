@@ -98,11 +98,6 @@ setHandlersIgnore _ x = return x
     where none = Just $ const $ return ()
 
 
-mergeHandlers :: [WithMessage -> LSP.Handlers -> IO LSP.Handlers] -> WithMessage -> LSP.Handlers -> IO LSP.Handlers
-mergeHandlers = foldl f (\_ a -> return a)
-    where f x1 x2 r a = x1 r a >>= x2 r
-
-
 -- | A message that we need to deal with - the pieces are split up with existentials to gain additional type safety
 --   and defer precise processing until later (allows us to keep at a higher level of abstraction slightly longer)
 data Message
