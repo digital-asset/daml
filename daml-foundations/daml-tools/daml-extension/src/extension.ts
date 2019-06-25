@@ -79,10 +79,9 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     });
 
-    let d4 = vscode.commands.registerCommand("daml.upgrade", modifyBuffer)
-    let d5 = vscode.commands.registerCommand("daml.resetTelemetryConsent", resetTelemetryConsent(context));
+    let d4 = vscode.commands.registerCommand("daml.resetTelemetryConsent", resetTelemetryConsent(context));
 
-    context.subscriptions.push(d1, d2, d3, d4, d5);
+    context.subscriptions.push(d1, d2, d3, d4);
 }
 
 
@@ -98,15 +97,6 @@ function getViewColumnForShowResource(): ViewColumn {
 
 function openDamlDocs() {
     vscode.env.openExternal(vscode.Uri.parse("https://docs.daml.com"));
-}
-
-function modifyBuffer(filePath: {uri: string}) {
-    damlLanguageClient.sendRequest(DamlUpgradeRequest.type, {uri: filePath}).then(textEdits => {
-        let edits = new vscode.WorkspaceEdit();
-        let parsed = vscode.Uri.parse(filePath.uri);
-        edits.set(parsed, textEdits);
-        vscode.workspace.applyEdit(edits);
-    });
 }
 
 function addIfInConfig(config:vscode.WorkspaceConfiguration, baseArgs: string[], toAdd: [string, string[]][]): string[]{
@@ -231,11 +221,6 @@ function keepAlive() {
 namespace DamlKeepAliveRequest {
     export let type =
       new RequestType<void, void, void, void>('daml/keepAlive');
-}
-
-namespace DamlUpgradeRequest {
-    export let type =
-      new RequestType<{uri: TextDocumentIdentifier}, vscode.TextEdit[], string, void>('daml/upgrade');
 }
 
 // Custom notifications
