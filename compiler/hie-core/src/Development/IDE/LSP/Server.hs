@@ -8,7 +8,7 @@ module Development.IDE.LSP.Server
   ( runServer
   , Handlers(..)
   , WithMessage(..)
-  , mergeHandlers
+  , PartialHandlers(..)
   ) where
 
 
@@ -43,9 +43,13 @@ data WithMessage = WithMessage
     ,withNotification :: forall m req . (IdeState -> req -> IO ()) -> Maybe (LSP.Handler (NotificationMessage m req))
     }
 
-mergeHandlers :: [WithMessage -> LSP.Handlers -> IO LSP.Handlers] -> WithMessage -> LSP.Handlers -> IO LSP.Handlers
-mergeHandlers = foldl f (\_ a -> return a)
-    where f x1 x2 r a = x1 r a >>= x2 r
+newtype PartialHandlers = PartialHandlers (WithMessage -> LSP.Handlers -> IO LSP.Handlers)
+
+instance Semigroup PartialHandlers where
+    PartialHandlers a <> PartialHandlers b = PartialHandlers $ \w x -> a w x >>= b w
+
+instance Monoid PartialHandlers where
+    mempty = PartialHandlers $ \_ x -> pure x
 
 ------------------------------------------------------------------------
 -- Server execution

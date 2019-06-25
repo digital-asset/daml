@@ -30,8 +30,8 @@ textShow :: Show a => a -> T.Text
 textShow = T.pack . show
 
 
-setHandlersNotifications :: WithMessage -> LSP.Handlers -> IO LSP.Handlers
-setHandlersNotifications WithMessage{..} x = return x{
+setHandlersNotifications :: PartialHandlers
+setHandlersNotifications = PartialHandlers $ \WithMessage{..} x -> return x{
     LSP.didOpenTextDocumentNotificationHandler = withNotification $ \ide (DidOpenTextDocumentParams item) -> do
         case URI.parseURI $ T.unpack $ getUri $ _uri (item :: TextDocumentItem) of
           Just uri

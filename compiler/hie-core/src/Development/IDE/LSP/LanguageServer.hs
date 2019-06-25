@@ -58,8 +58,8 @@ runLanguageServer getIdeState = do
 
     let withResponse wrap f = Just $ \r -> writeChan clientMsgChan $ Response r wrap f
     let withNotification f = Just $ \r -> writeChan clientMsgChan $ Notification r f
-    let runHandler = WithMessage{withResponse, withNotification}
-    handlers <- mergeHandlers [setHandlersDefinition, setHandlersHover, setHandlersNotifications, setHandlersIgnore] runHandler def
+    let PartialHandlers parts = setHandlersDefinition <> setHandlersHover <> setHandlersNotifications <> setHandlersIgnore
+    handlers <- parts WithMessage{withResponse, withNotification} def
 
     void $ waitAnyCancel =<< traverse async
         [ void $ LSP.runWithHandles
@@ -89,8 +89,8 @@ runLanguageServer getIdeState = do
 
 -- | Things that get sent to us, but we don't deal with.
 --   Set them to avoid a warning in VS Code output.
-setHandlersIgnore :: WithMessage -> LSP.Handlers -> IO LSP.Handlers
-setHandlersIgnore _ x = return x
+setHandlersIgnore :: PartialHandlers
+setHandlersIgnore = PartialHandlers $ \_ x -> return x
     {LSP.cancelNotificationHandler = none
     ,LSP.initializedHandler = none
     ,LSP.codeLensHandler = none -- FIXME: Stop saying we support it in 'options'
