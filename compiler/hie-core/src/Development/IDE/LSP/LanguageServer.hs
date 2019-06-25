@@ -56,7 +56,7 @@ runLanguageServer getIdeState = do
     let runHandler = RunHandler
             (\wrap f -> Just $ \r -> atomically $ writeTChan clientMsgChan $ AddResponse r wrap f)
             (\f -> Just $ \r -> atomically $ writeTChan clientMsgChan $ AddNotification r f)
-    handlers <- mergeHandlers [LS.Definition.addGotoDefinition, LS.Hover.addOnHover, addNotifications] runHandler def
+    handlers <- mergeHandlers [LS.Definition.addGotoDefinition, LS.Hover.addOnHover, addNotifications, addCancel] runHandler def
 
     void $ waitAnyCancel =<< traverse async
         [ void $ LSP.runWithHandles
@@ -82,6 +82,14 @@ runLanguageServer getIdeState = do
                         res <- act ide _params
                         sendFunc $ wrap $ ResponseMessage "2.0" (responseId _id) (Just res) Nothing
             pure Nothing
+
+
+addCancel :: RunHandler -> LSP.Handlers -> IO LSP.Handlers
+addCancel _ x = return x{
+        LSP.cancelNotificationHandler = Just $ const $ pure ()
+        -- ^ We just ignore cancel requests which is allowed according to
+        -- the spec. Installing a handler avoids errors about the missing handler.
+    }
 
 data AddItem
     = forall m req resp . AddResponse (RequestMessage m req resp) (ResponseMessage resp -> FromServerMessage) (IdeState -> req -> IO resp)
