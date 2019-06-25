@@ -14,13 +14,13 @@ import scala.concurrent.{ExecutionContext, Future}
 class PackageService(packageClient: PackageClient)(implicit ec: ExecutionContext) {
   import PackageService._
 
-  def getTemplateIdMapping(): Future[Error \/ TemplateIdMap] =
+  def getTemplateIdMap(): Future[Error \/ TemplateIdMap] =
     EitherT(LedgerReader.createPackageStore(packageClient)).map { packageStore =>
       val templateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
-      buildMapping(templateIds)
+      buildMap(templateIds)
     }.run
 
-  private def buildMapping(ids: Set[Identifier]): TemplateIdMap =
+  private def buildMap(ids: Set[Identifier]): TemplateIdMap =
     ids.foldLeft(Map.empty[(String, String), Identifier]) { (b, a) =>
       b.updated((a.moduleName, a.entityName), a)
     }
