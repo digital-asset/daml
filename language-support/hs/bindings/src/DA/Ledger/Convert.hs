@@ -4,13 +4,24 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
-module DA.Ledger.Convert (lowerCommands,raiseTransaction) where
+module DA.Ledger.Convert (
+    lowerCommands,
+    raiseTransaction,raiseCompletion,
+    RaiseFailureReason,
+    ) where
 
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Data.Vector as Vector (Vector,fromList,toList)
 
-import qualified DA.Ledger.LowLevel as LL
+import qualified Google.Protobuf.Empty as LL
+import qualified Google.Protobuf.Timestamp as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Commands as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Completion as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Event as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Transaction as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Value as LL
+
 import DA.Ledger.Types
 
 -- lower
@@ -119,6 +130,13 @@ optional :: Perhaps a -> Maybe a
 optional = \case
     Left _ -> Nothing
     Right a -> Just a
+
+raiseCompletion :: LL.Completion -> Perhaps Completion
+raiseCompletion = \case
+    LL.Completion{completionCommandId} -> do
+        cid <- raiseCommandId completionCommandId
+        let status = Status --TODO: stop loosing info
+        return Completion{cid,status}
 
 raiseTransaction :: LL.Transaction -> Perhaps Transaction
 raiseTransaction = \case

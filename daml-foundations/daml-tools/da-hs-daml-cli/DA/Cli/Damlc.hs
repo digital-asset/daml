@@ -23,9 +23,9 @@ import           DA.Cli.Args
 import qualified DA.Pretty
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import DA.Service.Daml.Compiler.Impl.Scenario
+import DA.Daml.GHC.Compiler.Config
 import DA.Daml.GHC.Compiler.Options
 import DA.Daml.GHC.Compiler.Upgrade
-import Development.IDE.LSP.Protocol hiding (Command)
 import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -45,6 +45,8 @@ import qualified Data.Set as Set
 import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import Development.IDE.Core.Compile
+import Development.IDE.LSP.Protocol hiding (Command)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import GHC.Conc
@@ -64,6 +66,7 @@ import DA.Cli.Damlc.Test
 import DA.Bazel.Runfiles
 import DA.Cli.Visual
 import "ghc-lib" GHC
+import "ghc-lib-parser" StringBuffer
 import Data.List
 
 --------------------------------------------------------------------------------
@@ -635,9 +638,8 @@ execMigrate opts inFile1 inFile2 mbDir = do
         let instancesModPath2 =
                 replaceBaseName upgradeModPath $
                 takeBaseName path2 <> "InstancesB"
-        opts' <- Compiler.mkOptions opts
-        parsedMod1 <- parse opts' loggerH path1
-        parsedMod2 <- parse opts' loggerH path2
+        parsedMod1 <- parse loggerH path1
+        parsedMod2 <- parse loggerH path2
         let generatedUpgradeMod =
                 generateUpgradeModule
                     (pkg1, pm_parsed_source parsedMod1)
@@ -658,12 +660,21 @@ execMigrate opts inFile1 inFile2 mbDir = do
             createDirectoryIfMissing True $ takeDirectory path
             writeFile path mod
   where
-    parse opts' loggerH fp =
-        Compiler.withIdeState opts' loggerH (const $ pure ()) $ \hDamlGhc -> do
-            errOrMod <-
-                runExceptT $
-                Compiler.parseFile hDamlGhc (toNormalizedFilePath fp)
-            either (reportErr "Parsing failed") pure errOrMod
+    parse loggerH fp = do
+        errOrMod <-
+            runGhcFast $
+            runExceptT $ do
+                sb <- liftIO $ hGetStringBuffer fp
+                lift $ setupDamlGHC [] Nothing []
+                -- parse without any preprocessing, so that we can see which data definitions have
+                -- already generic instances.
+                parseFileContents ((,) []) fp sb
+        case errOrMod of
+            Left err -> ioError $ userError $ show err
+            Right (ds, mod) -> do
+                unless (null ds) $ Logger.logWarning loggerH (T.pack $ show ds)
+                return mod
+
 --------------------------------------------------------------------------------
 -- main
 --------------------------------------------------------------------------------
