@@ -82,8 +82,8 @@ fetchByKey k = fmap unpackPair (internalFetchByKey k)
 -- `exerciseByKey @Account k Withdraw`.
 exerciseByKey : forall c k e r. (TemplateKey c k, Choice c e r) => k -> e -> Update r
 exerciseByKey k e = do
-    (c, cc) <- fetchByKey @c k
-    internalExerciseWithActors (choiceController cc e) c e
+    (cid, _) <- fetchByKey @c k
+    internalExercise cid e
 
 class Template c where
 
@@ -112,13 +112,7 @@ class Template c where
 
     -- | HIDE
     internalArchive : ContractId c -> Update ()
-    internalArchive c = do
-        cc <- fetch c
-        internalArchiveWithActors (signatory cc) c
-
-    -- | HIDE
-    internalArchiveWithActors : [Party] -> ContractId c -> Update ()
-    internalArchiveWithActors = magic @"archive"
+    internalArchive = magic @"archive"
 
 
 -- Deliberately not exported.
@@ -148,13 +142,8 @@ class Template c => Choice c e r | c e -> r where
 
     -- | HIDE
     internalExercise : ContractId c -> e -> Update r
-    internalExercise c e = do
-        cc <- fetch c
-        internalExerciseWithActors (choiceController cc e) c e
+    internalExercise = magic @"exercise"
 
-    -- | HIDE
-    internalExerciseWithActors : [Party] -> ContractId c -> e -> Update r
-    internalExerciseWithActors = magic @"exercise"
 
 -- | The data type corresponding to the implicit `Archive`
 -- choice in every template.
@@ -165,7 +154,6 @@ instance Template c => Choice c Archive () where
     choice _ _ _ = return ()
 
     internalExercise c Archive = internalArchive c
-    internalExerciseWithActors p c Archive = internalArchiveWithActors p c
 
 -- | HIDE
 data NoEvent c e = NoEvent
