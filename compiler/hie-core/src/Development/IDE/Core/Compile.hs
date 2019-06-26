@@ -91,7 +91,7 @@ parseModule
     :: IdeOptions
     -> HscEnv
     -> FilePath
-    -> SB.StringBuffer
+    -> Maybe SB.StringBuffer
     -> IO ([FileDiagnostic], Maybe ParsedModule)
 parseModule IdeOptions{..} env file =
     fmap (either (, Nothing) (second Just)) .
@@ -327,9 +327,10 @@ parseFileContents
        :: GhcMonad m
        => (GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource))
        -> FilePath  -- ^ the filename (for source locations)
-       -> SB.StringBuffer -- ^ Haskell module source text (full Unicode is supported)
+       -> Maybe SB.StringBuffer -- ^ Haskell module source text (full Unicode is supported)
        -> ExceptT [FileDiagnostic] m ([FileDiagnostic], ParsedModule)
 parseFileContents preprocessor filename contents = do
+   contents <- liftIO $ maybe (hGetStringBuffer filename) return contents
    let loc  = mkRealSrcLoc (mkFastString filename) 1 1
    dflags  <- ExceptT $ parsePragmasIntoDynFlags filename contents
 

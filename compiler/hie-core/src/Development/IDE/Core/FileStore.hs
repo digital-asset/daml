@@ -74,8 +74,8 @@ makeLSPVFSHandle lspFuncs = VFSHandle
    }
 
 
--- | Get the contents of a file, either dirty (if the buffer is modified) or from disk.
-type instance RuleResult GetFileContents = (FileVersion, StringBuffer)
+-- | Get the contents of a file, either dirty (if the buffer is modified) or Nothing to mean use from disk.
+type instance RuleResult GetFileContents = (FileVersion, Maybe StringBuffer)
 
 -- | Does the file exist.
 type instance RuleResult GetFileExists = Bool
@@ -129,8 +129,8 @@ getFileContentsRule vfs =
         res <- liftIO $ ideTryIOException file $ do
             mbVirtual <- getVirtualFile vfs $ filePathToUri' file
             case mbVirtual of
-                Just (VirtualFile _ rope _) -> return $ textToStringBuffer $ Rope.toText rope
-                Nothing -> hGetStringBuffer (fromNormalizedFilePath file)
+                Just (VirtualFile _ rope _) -> return $ Just $ textToStringBuffer $ Rope.toText rope
+                Nothing -> return Nothing
         case res of
             Left err -> return ([err], Nothing)
             Right contents -> return ([], Just (time, contents))
@@ -142,7 +142,7 @@ ideTryIOException fp act =
       <$> try act
 
 
-getFileContents :: NormalizedFilePath -> Action (FileVersion, StringBuffer)
+getFileContents :: NormalizedFilePath -> Action (FileVersion, Maybe StringBuffer)
 getFileContents = use_ GetFileContents
 
 getFileExists :: NormalizedFilePath -> Action Bool
