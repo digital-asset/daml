@@ -7,7 +7,7 @@
 module NimTrans(NimTrans(..), extractTransaction,) where
 
 import DA.Ledger as Ledger
-import DA.Ledger.Valuable
+import DA.Ledger.IsLedgerValue
 import Domain
 import Logging
 

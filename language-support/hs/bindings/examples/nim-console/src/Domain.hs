@@ -15,7 +15,7 @@ module Domain(Player(..), partyOfPlayer,
 
 import Data.List.Extra(zipWithFrom)
 import DA.Ledger.Types
-import DA.Ledger.Valuable(Valuable(..))
+import DA.Ledger.IsLedgerValue(IsLedgerValue(..))
 import qualified Data.Text.Lazy as Text
 
 data Player = Player { unPlayer :: String } deriving (Eq,Ord)
@@ -24,14 +24,14 @@ instance Show Player where show (Player s) = s
 partyOfPlayer :: Player -> Party
 partyOfPlayer = Party . Text.pack . unPlayer
 
-instance Valuable Player where
+instance IsLedgerValue Player where
     toValue = toValue . Party . Text.pack . unPlayer
     fromValue = fmap (Player . Text.unpack . unParty) . fromValue
 
 data Offer = Offer { from :: Player, to :: [Player] }
     deriving (Show)
 
-instance Valuable Offer where
+instance IsLedgerValue Offer where
     toValue Offer{from,to} = VList [toValue from, toValue to]
     fromValue = \case
         VList [v1,v2] -> do
@@ -42,7 +42,7 @@ instance Valuable Offer where
 
 data Game = Game { p1 :: Player, p2 :: Player, piles :: [Int] } deriving (Show)
 
-instance Valuable Game where
+instance IsLedgerValue Game where
     toValue Game{} = undefined -- we never send games to the ledger
     fromValue = \case
         VList[VRecord Record{fields=[
@@ -62,7 +62,7 @@ data Move = Move { pileNum :: Int, howMany :: Int }
 instance Show Move where
     show Move{pileNum,howMany} = show pileNum <> ":" <> show howMany
 
-instance Valuable Move where
+instance IsLedgerValue Move where
     toValue Move{pileNum,howMany} =
         VRecord(Record{rid=Nothing,
                        fields=[

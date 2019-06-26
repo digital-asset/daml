@@ -12,7 +12,7 @@ import Network.GRPC.HighLevel.Generated
 
 reset :: LedgerId -> LedgerService ()
 reset lid =
-    makeLedgerService $ \(TimeoutSeconds timeout) config -> do
+    makeLedgerService $ \timeout config -> do
     withGRPCClient config $ \client -> do
         service <- resetServiceClient client
         let ResetService {resetServiceReset=rpc} = service
