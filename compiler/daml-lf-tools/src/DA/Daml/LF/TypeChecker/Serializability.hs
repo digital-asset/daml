@@ -106,6 +106,7 @@ serializabilityConditionsDataType world0 version mbModNameTpls (DefDataType _loc
     Just (v, k) -> Left (URHigherKinded v k)
     Nothing
       | DataVariant [] <- cons -> Left URUninhabitatedType
+      | DataEnum [] <- cons -> Left URUninhabitatedType
       | otherwise -> do
           let vars = HS.fromList (map fst params)
           mconcatMapM (serializabilityConditionsType world0 version mbModNameTpls vars) (toListOf dataConsType cons)
