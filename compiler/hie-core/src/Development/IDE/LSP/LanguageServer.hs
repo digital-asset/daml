@@ -21,6 +21,8 @@ import Data.Default
 import Data.Maybe
 import           GHC.IO.Handle                    (hDuplicate, hDuplicateTo)
 import System.IO
+import System.Exit
+import Development.IDE.Types.Logger
 import Control.Monad
 
 import Development.IDE.LSP.Definition
@@ -65,7 +67,7 @@ runLanguageServer options userHandlers getIdeState = do
     let withNotification f = Just $ \r -> writeChan clientMsgChan $ Notification r f
     let PartialHandlers parts =
             setHandlersIgnore <> -- least important
-            setHandlersDefinition <> setHandlersHover <> -- useful features someone may override
+            setHandlersDefinition <> setHandlersHover <> setHandlersExit <> -- useful features someone may override
             userHandlers <>
             setHandlersNotifications -- absolutely critical, join them with user notifications
     handlers <- parts WithMessage{withResponse, withNotification} def
@@ -104,6 +106,14 @@ setHandlersIgnore = PartialHandlers $ \_ x -> return x
     ,LSP.initializedHandler = none
     }
     where none = Just $ const $ return ()
+
+
+setHandlersExit :: PartialHandlers
+setHandlersExit = PartialHandlers $ \WithMessage{..} x -> return x
+    {LSP.exitNotificationHandler = withNotification $ \ide _ -> do
+        logInfo (ideLogger ide) "Exit request received, shutting down"
+        exitSuccess
+    }
 
 
 -- | A message that we need to deal with - the pieces are split up with existentials to gain additional type safety
