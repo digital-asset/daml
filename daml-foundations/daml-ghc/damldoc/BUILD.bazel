@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:haskell.bzl",
     "da_haskell_library",
+    "da_haskell_repl",
     "da_haskell_test",
 )
 
@@ -63,5 +64,14 @@ da_haskell_library(
         "//daml-foundations/daml-ghc/test-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_repl(
+    name = "repl",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":damldoc",
+        ":damldoc-testing",
     ],
 )

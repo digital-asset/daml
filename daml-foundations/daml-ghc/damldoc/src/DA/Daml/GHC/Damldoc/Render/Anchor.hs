@@ -28,10 +28,10 @@ type Anchor = T.Text
 
 moduleAnchor :: Modulename -> Anchor
 -- calculating a hash on String instead of Data.Text as hash output of the later is different on Windows than other OSes
-moduleAnchor m = T.intercalate "-" ["module", convertModulename m, hashText $ T.unpack m]
+moduleAnchor m = T.intercalate "-" ["module", convertModulename m, hashText . T.unpack . unModulename $ m]
 
 convertModulename :: Modulename -> T.Text
-convertModulename = T.toLower . T.replace "." "-" . T.replace "_" ""
+convertModulename = T.toLower . T.replace "." "-" . T.replace "_" "" . unModulename
 
 classAnchor    :: Modulename -> Typename  -> Anchor
 templateAnchor :: Modulename -> Typename  -> Anchor
@@ -40,17 +40,17 @@ dataAnchor     :: Modulename -> Typename  -> Anchor
 constrAnchor   :: Modulename -> Typename  -> Anchor
 functionAnchor :: Modulename -> Fieldname -> Maybe Type -> Anchor
 
-classAnchor    m n = anchor "class"    m n ()
-templateAnchor m n = anchor "template" m n ()
-typeAnchor     m n = anchor "type"     m n ()
-dataAnchor     m n = anchor "data"     m n ()
-constrAnchor   m n = anchor "constr"   m n ()
-functionAnchor     = anchor "function"
+classAnchor    m n = anchor "class"    m (unTypename n) ()
+templateAnchor m n = anchor "template" m (unTypename n) ()
+typeAnchor     m n = anchor "type"     m (unTypename n) ()
+dataAnchor     m n = anchor "data"     m (unTypename n) ()
+constrAnchor   m n = anchor "constr"   m (unTypename n) ()
+functionAnchor m n = anchor "function" m (unFieldname n)
 
 
 anchor :: Hashable v => T.Text -> Modulename -> T.Text -> v -> Anchor
 -- calculating a hash on String instead of Data.Text as hash output of the later is different on Windows than other OSes
-anchor k m n v = T.intercalate "-" [k, convertModulename m, expandOps n, hashText (T.unpack k, T.unpack m, T.unpack n, v)]
+anchor k m n v = T.intercalate "-" [k, convertModulename m, expandOps n, hashText (T.unpack k, T.unpack (unModulename m), T.unpack n, v)]
   where
     expandOps :: T.Text -> T.Text
     expandOps = T.pack . replaceEmpty . concatMap expandOp . T.unpack

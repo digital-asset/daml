@@ -205,7 +205,7 @@ testModHdr = T.pack $ "daml 1.2 module\n  " <> testModule <> " where\n"
 
 
 emptyDocs :: String -> ModuleDoc
-emptyDocs name = ModuleDoc { md_name = T.pack name
+emptyDocs name = ModuleDoc { md_name = Modulename (T.pack name)
                            , md_descr = Nothing
                            , md_templates = []
                            , md_adts = []

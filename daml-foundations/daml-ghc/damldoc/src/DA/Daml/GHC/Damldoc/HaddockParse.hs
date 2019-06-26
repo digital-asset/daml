@@ -54,8 +54,8 @@ mkDocs opts fp = do
           allChoices = Set.unions $ MS.elems choiceMap
           adtDocs = MS.elems (typeMap `MS.withoutKeys` tmpls `MS.withoutKeys` allChoices)
       in ModuleDoc
-           { md_name = T.pack . moduleNameString . moduleName . ms_mod . pm_mod_summary $ m
-           , md_descr = fmap docToText (modDoc m)
+           { md_name = Modulename . T.pack . moduleNameString . moduleName . ms_mod . pm_mod_summary $ m
+           , md_descr = fmap (DocText . docToText) (modDoc m)
            , md_adts = adtDocs
            , md_templates = tmplDocs
            , md_functions = fctDocs
@@ -142,6 +142,12 @@ pairDeclDocs ParsedModule{..} = collectDocs (hsmodDecls . unLoc $ pm_parsed_sour
 
 ------------------------------------------------------------
 
+toDocText :: [T.Text] -> Maybe DocText
+toDocText docs =
+    if null docs
+        then Nothing
+        else Just . DocText . T.strip . T.unlines $ docs
+
 -- | Extracts the documentation of a function. Comments are either
 --   adjacent to a type signature, or to the actual function definition. If
 --   neither a comment nor a function type is in the source, we omit the
@@ -161,18 +167,17 @@ getFctDocs (decl, docs) = do
     _ ->
       Nothing
   Just $ FunctionDoc
-    { fct_name = idpToText name
+    { fct_name = Fieldname (idpToText name)
     , fct_context = hsTypeToContext =<< mbType
     , fct_type = fmap hsTypeToType mbType
-    , fct_descr = if null docs then Nothing
-                  else Just . T.strip $ T.unlines docs
+    , fct_descr = toDocText docs
     }
 
 getClsDocs :: (HsDecl GhcPs, [T.Text]) ->
                Maybe ClassDoc
 getClsDocs (TyClD _ c@ClassDecl{..}, docs) = Just ClassDoc
-      {cl_name = idpToText $ unLoc tcdLName
-      ,cl_descr = if null docs then Nothing else Just $ T.strip $ T.unlines docs
+      {cl_name = Typename . idpToText $ unLoc tcdLName
+      ,cl_descr = toDocText docs
       ,cl_super = case unLoc tcdCtxt of
         [] -> Nothing
         xs -> Just $ TypeTuple $ map hsTypeToType xs
@@ -201,9 +206,8 @@ getTypeDocs (TyClD _ decl, descrs)
   | SynDecl{..} <- decl =
       let name = idpToText $ unLoc tcdLName
       in Just . (unLoc tcdLName,) $ TypeSynDoc
-         { ad_name = name
-         , ad_descr = if null descrs then Nothing
-                      else Just . T.strip $ T.unlines descrs
+         { ad_name = Typename name
+         , ad_descr = toDocText descrs
          , ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
          , ad_rhs  = hsTypeToType tcdRhs
          }
@@ -211,10 +215,9 @@ getTypeDocs (TyClD _ decl, descrs)
   | DataDecl{..} <- decl =
       let name = idpToText $ unLoc tcdLName
       in Just . (unLoc tcdLName,) $ ADTDoc
-         { ad_name = name
+         { ad_name =  Typename name
          , ad_args   = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-         , ad_descr  = if null descrs then Nothing
-                       else Just . T.strip $ T.unlines descrs
+         , ad_descr  = toDocText descrs
          , ad_constrs = map constrDoc . dd_cons $ tcdDataDefn
          }
   where
@@ -222,27 +225,27 @@ getTypeDocs (TyClD _ decl, descrs)
     constrDoc (L _ con) =
           case con_args con of
             PrefixCon args ->
-              PrefixC { ac_name = idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (docToText . unLoc) $ con_doc con
+              PrefixC { ac_name = Typename . idpToText . unLoc $ con_name con
+                      , ac_descr = fmap (DocText . docToText . unLoc) $ con_doc con
                       , ac_args = map hsTypeToType args
                       }
             InfixCon l r ->
-              PrefixC { ac_name = idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (docToText . unLoc) $ con_doc con
+              PrefixC { ac_name = Typename . idpToText . unLoc $ con_name con
+                      , ac_descr = fmap (DocText . docToText . unLoc) $ con_doc con
                       , ac_args = map hsTypeToType [l, r]
                       }
             RecCon (L _ fs) ->
-              RecordC { ac_name  = idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (docToText . unLoc) $ con_doc con
+              RecordC { ac_name  = Typename. idpToText . unLoc $ con_name con
+                      , ac_descr = fmap (DocText . docToText . unLoc) $ con_doc con
                       , ac_fields = mapMaybe (fieldDoc . unLoc) fs
                       }
 
     fieldDoc :: ConDeclField GhcPs -> Maybe FieldDoc
     fieldDoc ConDeclField{..} =
       Just $ FieldDoc
-      { fd_name = T.concat . map (toText . unLoc) $ cd_fld_names -- FIXME why more than one?
+      { fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names -- FIXME why more than one?
       , fd_type = hsTypeToType cd_fld_type
-      , fd_descr = fmap (docToText . unLoc) cd_fld_doc
+      , fd_descr = fmap (DocText . docToText . unLoc) cd_fld_doc
       }
     fieldDoc XConDeclField{}  = Nothing
 getTypeDocs _other = Nothing
@@ -279,7 +282,7 @@ getTemplateDocs typeMap templates choiceMap = map mkTemplateDoc $ Set.toList tem
     -- returns a dummy ADT if the choice argument is not in the local type map
     -- (possible if choice instances are defined directly outside the template).
     -- This wouldn't be necessary if we used the type-checked AST.
-      where dummyDT = ADTDoc { ad_name    = "External:" <> idpToText n
+      where dummyDT = ADTDoc { ad_name    = Typename $ "External:" <> idpToText n
                              , ad_descr   = Nothing
                              , ad_args = []
                              , ad_constrs = []
@@ -419,13 +422,13 @@ hsTypeToType_ t = case t of
   HsTupleTy _ _con tys -> TypeTuple $ map hsTypeToType tys
 
   -- GHC specials. FIXME deal with them specially
-  HsRecTy _ _flds -> TypeApp (toText t) [] -- FIXME pprConDeclFields flds
+  HsRecTy _ _flds -> TypeApp (Typename $ toText t) [] -- FIXME pprConDeclFields flds
 
   HsSumTy _ _tys -> undefined -- FIXME tupleParens UnboxedTuple (pprWithBars ppr tys)
 
 
   -- straightforward base case
-  HsTyVar _ _ (L _ name) -> TypeApp (idpToText name) []
+  HsTyVar _ _ (L _ name) -> TypeApp (Typename $ idpToText name) []
 
   HsFunTy _ ty1 ty2 -> case hsTypeToType ty2 of
     TypeFun as -> TypeFun $ hsTypeToType ty1 : as
@@ -441,10 +444,10 @@ hsTypeToType_ t = case t of
   HsExplicitListTy _ _ _tys ->  unexpected "explicit list"
   HsExplicitTupleTy _ _tys  -> unexpected "explicit tuple"
 
-  HsTyLit _ ty      -> TypeApp (toText ty) []
+  HsTyLit _ ty      -> TypeApp (Typename $ toText ty) []
   -- kind things. Can be printed, not sure why we would
-  HsWildCardTy {}   -> TypeApp "_" []
-  HsStarTy _ _      -> TypeApp "*" []
+  HsWildCardTy {}   -> TypeApp (Typename "_") []
+  HsStarTy _ _      -> TypeApp (Typename "*") []
 
   HsAppTy _ fun_ty arg_ty ->
     case hsTypeToType fun_ty of
@@ -456,7 +459,7 @@ hsTypeToType_ t = case t of
   HsAppKindTy _ _ _ -> unexpected "kind application"
 
   HsOpTy _ ty1 (L _ op) ty2 ->
-    TypeApp (toText op) [ hsTypeToType ty1, hsTypeToType ty2 ]
+    TypeApp (Typename $ toText op) [ hsTypeToType ty1, hsTypeToType ty2 ]
 
   HsParTy _ ty  -> hsTypeToType ty
 

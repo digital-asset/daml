@@ -75,7 +75,7 @@ damlDocDriver cInputFormat output cFormat prefixFile options files = do
             Hoogle   -> write output $ T.concat $ map renderSimpleHoogle docData
             Markdown -> write output $ T.concat $ map renderSimpleMD docData
             Html -> sequence_
-                [ write (output </> hyphenated md_name <> ".html") $ renderSimpleHtml m
+                [ write (output </> hyphenated (unModulename md_name) <> ".html") $ renderSimpleHtml m
                 | m@ModuleDoc{..} <- docData ]
                     where hyphenated = T.unpack . T.replace "." "-"
     putStrLn "Done"
