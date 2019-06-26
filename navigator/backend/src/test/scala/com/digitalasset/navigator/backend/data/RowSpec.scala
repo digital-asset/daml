@@ -115,6 +115,11 @@ class RowSpec extends WordSpec with Matchers {
   }
 
   "EventRow" when {
+
+    val alice = ApiTypes.Party("Alice")
+    val bob = ApiTypes.Party("Bob")
+    val charlie = ApiTypes.Party("Charlie")
+
     "converting ContractCreated" should {
       val value = ContractCreated(
         ApiTypes.EventId("e01"),
@@ -125,7 +130,9 @@ class RowSpec extends WordSpec with Matchers {
         ApiTypes.ContractId("c01"),
         C.complexRecordId,
         C.complexRecordV,
-        Some("agreement")
+        Some("agreement"),
+        List(alice),
+        List(bob, charlie)
       )
 
       "not change the value" in {

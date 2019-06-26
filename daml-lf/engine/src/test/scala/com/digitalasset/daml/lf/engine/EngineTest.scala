@@ -1197,9 +1197,11 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
                 (Some[Name]("receiver"), ValueParty("Clara")))
             )),
           "",
-          Set("Clara", "Alice"),
-          Set("Bob", "Clara", "Alice"),
+          signatories = Set("Alice"),
+          observers = Set("Clara"), // Clara is implicitly an observer because she controls a choice
+          witnesses = Set("Bob", "Clara", "Alice"),
         )
+      bobVisibleCreate.asInstanceOf[CreateEvent[_, _]].stakeholders == Set("Alice", "Clara")
     }
   }
 

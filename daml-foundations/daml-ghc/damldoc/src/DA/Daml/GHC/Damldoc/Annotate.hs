@@ -57,13 +57,13 @@ applyHide = concatMap onModule
             | otherwise = [x]
 
 
-getAnn :: Maybe Markdown -> [T.Text]
-getAnn = maybe [] T.words
+getAnn :: Maybe DocText -> [T.Text]
+getAnn = maybe [] (T.words . unDocText)
 
-isHide :: Maybe Markdown -> Bool
+isHide :: Maybe DocText -> Bool
 isHide x = ["HIDE"] `isPrefixOf` getAnn x
 
-isMove :: Maybe Markdown -> Maybe T.Text
+isMove :: Maybe DocText -> Maybe Modulename
 isMove x = case getAnn x of
-    "MOVE":y:_ -> Just y
+    "MOVE":y:_ -> Just (Modulename y)
     _ -> Nothing

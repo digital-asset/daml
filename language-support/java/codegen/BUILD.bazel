@@ -121,15 +121,52 @@ scala_source_jar(
     srcs = [],
 )
 
-daml_lf_target_versions = [
+test_daml_lf_target_versions = [
     "1.0",
     "1.1",
-    "latest",
+    "1.3",
+    "1.dev",
+]
+
+[
+    [
+        dar_to_java(
+            name = "test-model-%s" % target,
+            src = "//daml-lf/encoder:testing-dar-%s" % target,
+            package_prefix = "test",
+        ),
+    ]
+    for target in test_daml_lf_target_versions
+]
+
+[
+    java_test(
+        name = "tests-%s" % target,
+        srcs = glob([
+            "src/test/java-%s/**/*.java" % target,
+        ]),
+        test_class = "com.digitalasset.lf_%s.AllTests" % mangle_for_java(target),
+        deps = [
+            ":test-model-%s.jar" % target,
+            "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_api",
+            "//3rdparty/jvm/org/junit/jupiter:junit_jupiter_engine",
+            "//3rdparty/jvm/org/junit/platform:junit_platform_runner",
+            "//language-support/java/bindings:bindings-java",
+        ],
+    )
+    for target in ["1.dev"]
 ]
 
 ########################################################
 ####  Integration Tests
 ########################################################
+
+it_daml_lf_target_versions = [
+    "1.0",
+    "1.1",
+    "latest",
+]
 
 # This file was created using
 # DAML_SDK_VERSION=0.12.12 daml damlc package src/it/daml/Lib.daml integration-tests-model-1.0 --target=1.0 --output src/it/dar/integration-tests-model-1.0.dar
@@ -170,7 +207,7 @@ daml_compile(
             package_prefix = "lf_%s" % mangle_for_java(target),
         ),
     ]
-    for target in daml_lf_target_versions
+    for target in it_daml_lf_target_versions
 ]
 
 [
@@ -192,7 +229,7 @@ daml_compile(
             "//ledger/sandbox:sandbox-scala-tests-lib",
         ],
     )
-    for target in daml_lf_target_versions
+    for target in it_daml_lf_target_versions
 ]
 
 ########################################################
@@ -202,7 +239,7 @@ daml_compile(
 daml_compile(
     name = "ledger-tests-model",
     srcs = glob(["src/ledger-tests/daml/**/*.daml"]),
-    main_src = "src/ledger-tests/daml/Wolpertinger.daml",
+    main_src = "src/ledger-tests/daml/AllTests.daml",
 )
 
 dar_to_java(

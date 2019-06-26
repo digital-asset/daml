@@ -73,6 +73,9 @@ featureTextCodePoints = Feature "Conversion between text and code points" versio
 featureEnumTypes :: Feature
 featureEnumTypes = Feature "Enum types" version1_6
 
+featureInternedPackageIds :: Feature
+featureInternedPackageIds = Feature "Package ID reference compression" version1_6
+
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
 

@@ -46,7 +46,7 @@ import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.Compile
-import Development.IDE.LSP.Protocol hiding (Command)
+import Development.IDE.LSP.Protocol
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import GHC.Conc
@@ -268,7 +268,7 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
             execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
             Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-            Daml.LanguageServer.runLanguageServer (toIdeLogger loggerH)
+            Daml.LanguageServer.runLanguageServer
                 (getIdeState opts mbScenarioService loggerH)
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command

@@ -51,6 +51,10 @@ main = do
           pure $ map (a,) fs
       mapM_ (\(_, (inp, outp)) -> copyToReleaseDir bazelLocations releaseDir inp outp) files
 
+      let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
+      uploadArtifacts <- concatMapM (mavenArtifactCoords optsAllArtifacts) mavenUploadArtifacts
+      validateMavenArtifacts releaseDir uploadArtifacts
+
       if getPerformUpload upload
           then do
               $logInfo "Make release"
@@ -58,9 +62,6 @@ main = do
 
               -- Uploading to Maven Central
               mavenUploadConfig <- mavenConfigFromEnv
-
-              let mavenUploadArtifacts = filter (\a -> getMavenUpload $ artMavenUpload a) artifacts
-              uploadArtifacts <- concatMapM (artifactCoords optsAllArtifacts) mavenUploadArtifacts
               if not (null uploadArtifacts)
                   then
                     uploadToMavenCentral mavenUploadConfig releaseDir uploadArtifacts

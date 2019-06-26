@@ -48,6 +48,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tSubmitComplete
     , tCreateWithKey
     , tCreateWithoutKey
+    , tStakeholders
     , tPastFuture
     ]
 
@@ -126,7 +127,6 @@ tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pi
     Right Completion{cid=cidB} <- liftIO $ takeStream completions
     liftIO $ assertEqual "same cid sent/completed" cidA cidB
 
-
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
@@ -150,6 +150,19 @@ tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ 
         assertEqual "contract has no key" key Nothing
         closeStream txs gone
     where gone = Abnormal "client gone"
+
+tStakeholders :: WithSandbox -> Tasty.TestTree
+tStakeholders withSandbox = testCase "stakeholders are exposed correctly" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    PastAndFuture{future=txs} <- Ledger.getTransactionsPF lid alice
+    let command = createIOU pid alice "alice-in-chains" 100
+    _ <- submitCommand lid alice command
+    liftIO $ do
+        Just (Right Transaction{events=[CreatedEvent{signatories,observers}]}) <- timeout 1 (takeStream txs)
+        assertEqual "the only signatory" signatories [ alice ]
+        assertEqual "observers are empty" observers []
+        closeStream txs gone
+        where gone = Abnormal "client gone"
 
 tPastFuture :: SandboxTest
 tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \pid -> do
@@ -237,7 +250,8 @@ looksLikeSandBoxLedgerId (LedgerId text) =
 -- runWithSandbox
 
 runWithSandbox :: Sandbox -> LedgerService a -> IO a
-runWithSandbox Sandbox{port} ls =  runLedgerService ls 30 (configOfPort port)
+runWithSandbox Sandbox{port} ls = runLedgerService ls timeout (configOfPort port)
+    where timeout = 30 :: TimeoutSeconds
 
 resetSandbox :: Sandbox-> IO ()
 resetSandbox sandbox = runWithSandbox sandbox $ do

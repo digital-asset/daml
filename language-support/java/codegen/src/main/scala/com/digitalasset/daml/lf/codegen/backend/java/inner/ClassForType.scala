@@ -47,9 +47,13 @@ object ClassForType extends StrictLogging {
         javaFile(typeWithContext, javaPackage, tpe) ::
           constructors.map(cons => javaFile(typeWithContext, subPackage, cons))
 
-      case Some(Normal(DefDataType(typeVars, enum: Enum))) =>
-        // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-        throw new NotImplementedError("Enum types not supported")
+      case Some(Normal(DefDataType(_, enum: Enum))) =>
+        val subPackage = className.packageName() + "." + JavaEscaper.escapeString(
+          className.simpleName().toLowerCase)
+        List(
+          JavaFile
+            .builder(javaPackage, EnumClass.generate(className, typeWithContext.identifier, enum))
+            .build())
 
       case Some(Template(record, template)) =>
         val typeSpec =

@@ -19,7 +19,9 @@ object Queries {
             template_id TEXT NOT NULL,
             archive_transaction_id TEXT DEFAULT NULL,
             argument JSON NOT NULL,
-            agreement_text TEXT DEFAULT NULL
+            agreement_text TEXT DEFAULT NULL,
+            signatories JSON DEFAULT NULL,
+            observers JSON DEFAULT NULL
           )
       """
 
@@ -49,7 +51,9 @@ object Queries {
             argument_value JSON DEFAULT NULL,
             acting_parties JSON DEFAULT NULL,
             is_consuming INTEGER DEFAULT NULL,
-            agreement_text TEXT DEFAULT NULL
+            agreement_text TEXT DEFAULT NULL,
+            signatories JSON DEFAULT NULL,
+            observers JSON DEFAULT NULL
           )
       """
 
@@ -222,9 +226,9 @@ object Queries {
     sql"""
       INSERT INTO 
         contract 
-        (id, template_id, archive_transaction_id, argument, agreement_text)
+        (id, template_id, archive_transaction_id, argument, agreement_text, signatories, observers)
       VALUES
-        (${row.id}, ${row.templateId}, ${row.archiveTransactionId}, ${row.argument}, ${row.agreementText})
+        (${row.id}, ${row.templateId}, ${row.archiveTransactionId}, ${row.argument}, ${row.agreementText}, ${row.signatories}, ${row.observers})
     """
 
   def archiveContract(contractId: String, archiveTransactionId: String): Fragment =

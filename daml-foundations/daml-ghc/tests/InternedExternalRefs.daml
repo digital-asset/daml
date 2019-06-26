@@ -1,0 +1,8 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- @ SINCE-LF 1.6
+daml 1.2 module InternedExternalRefs where
+
+-- @ QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["reverseCopy"]) | .expr.val.module.package_ref.interned_id >= 0
+reverseCopy = reverse

@@ -18,4 +18,14 @@ module Enum {
 
   enum Nothing = ;
 
+  variant @serializable OptionalColor = NoColor: Unit | SomeColor: Enum:Color;
+
+  variant @serializable ColoredTree = Leaf: Unit | Node : Enum:ColoredTree.Node;
+
+  record @serializable ColoredTree.Node = {
+    color: Enum:Color,
+    left: Enum:ColoredTree,
+    right: Enum:ColoredTree
+  };
+
 }
