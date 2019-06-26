@@ -1,6 +1,8 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DerivingStrategies #-}
+
 module DA.Daml.GHC.Damldoc.Types(
     module DA.Daml.GHC.Damldoc.Types
     ) where
@@ -13,19 +15,19 @@ import Data.String
 
 -- | Doc text type, presumably Markdown format.
 newtype DocText = DocText { unDocText :: Text }
-    deriving (Eq, Ord, Show, ToJSON, FromJSON, IsString)
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Field name, starting with lowercase
 newtype Fieldname = Fieldname { unFieldname :: Text }
-    deriving (Eq, Ord, Show, ToJSON, FromJSON, IsString)
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Type name starting with uppercase
 newtype Typename = Typename { unTypename :: Text }
-    deriving (Eq, Ord, Show, ToJSON, FromJSON, IsString)
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Module name, starting with uppercase, may have dots.
 newtype Modulename = Modulename { unModulename :: Text }
-    deriving (Eq, Ord, Show, ToJSON, FromJSON, IsString)
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Type expression, possibly a (nested) type application
 data Type = TypeApp Typename [Type] -- ^ Type application
