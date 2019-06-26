@@ -268,7 +268,7 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
             execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
             Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-            Daml.LanguageServer.runLanguageServer (toIdeLogger loggerH)
+            Daml.LanguageServer.runLanguageServer
                 (getIdeState opts mbScenarioService loggerH)
 
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
