@@ -8,6 +8,7 @@ import Options.Applicative
 
 data Arguments = Arguments
     {argLSP :: Bool
+    ,argsCwd :: Maybe FilePath
     ,argFiles :: [FilePath]
     }
 
@@ -22,4 +23,5 @@ getArguments = execParser opts
 arguments :: Parser Arguments
 arguments = Arguments
       <$> switch (long "lsp" <> help "Start talking to an LSP server")
+      <*> optional (strOption $ long "cwd" <> metavar "DIR" <> help "Change to this directory")
       <*> many (argument str (metavar "FILES..."))

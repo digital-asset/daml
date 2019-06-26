@@ -6,7 +6,7 @@ module Main(main) where
 import Arguments
 import Data.Maybe
 import Control.Concurrent.Extra
-import Control.Monad
+import Control.Monad.Extra
 import Data.Default
 import System.Time.Extra
 import Development.IDE.Core.FileStore
@@ -51,6 +51,8 @@ main = do
     -- lock to avoid overlapping output on stdout
     lock <- newLock
     let logger = makeOneLogger $ withLock lock . T.putStrLn
+
+    whenJust argsCwd setCurrentDirectory
 
     dir <- getCurrentDirectory
     hPutStrLn stderr dir
