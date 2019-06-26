@@ -410,8 +410,8 @@ enum BuiltinFunction {
 
   COERCE_CONTRACT_ID = 102;
 
-  TEXT_FROM_CODE_POINTS = 105;  // *Available Since version 1.dev*: List Int64 -> Text
-  TEXT_TO_CODE_POINTS = 106; // *Available Since version 1.dev*: Text -> List Int64
+  TEXT_FROM_CODE_POINTS = 105;  // : List Int64 -> Text   *Available since version 1.dev*
+  TEXT_TO_CODE_POINTS = 106; //: Text -> List Int64    *Available since version 1.dev*
   // Next id is 107. 106 is TEXT_TO_CODE_POINTS.
 }
 
@@ -541,6 +541,7 @@ message Expr {
   }
 
    // Enum construction ('ExpEnumCon')
+   // *Available since version 1.dev*
    message EnumCon {
 
      // Name of the type constructor name
@@ -702,7 +703,7 @@ message Expr {
     VariantCon variant_con = 8;
 
     // Enum construction ('ExpEnumCon')
-    EnumCon enum_con = 28;
+    EnumCon enum_con = 28;  // *Available since version 1.dev*
 
     // Tuple construction ('ExpTupleCon')
     TupleCon tuple_con = 9;
@@ -775,6 +776,7 @@ message CaseAlt {
   }
 
   // Enum pattern
+  // *Available since version 1.dev*
   message Enum {
 
     // name of the type constructor
@@ -797,7 +799,7 @@ message CaseAlt {
   }
 
   // Non empty option patterm
-  // Available since version
+  // *Available since version 1.1*
   message OptionalSome {
     string var_body = 1;
   }
@@ -808,9 +810,9 @@ message CaseAlt {
     PrimCon prim_con = 3;
     Unit nil = 4;
     Cons cons = 5;
-    Unit optional_none = 7; // * Available since version 1*
-    OptionalSome optional_some = 8; // * Available since version 1*
-    Enum enum = 9; // * Available since version dev*
+    Unit optional_none = 7; // * Available since version 1.1*
+    OptionalSome optional_some = 8; // * Available since version 1.1*
+    Enum enum = 9; // * Available since version 1.dev*
   }
 
   Expr body = 6;
@@ -855,7 +857,7 @@ message Update {
     // contract id
     Expr cid = 3;
     // actors
-    // *optional since DAML-LF 1.5*
+    // *optional since version 1.5*
     Expr actor = 4;
     // argument
     Expr arg = 5;
@@ -1049,7 +1051,7 @@ message DefTemplate {
   Location location = 9;
 
   // They key definition for the template, if present
-  DefKey key = 10; // optional // *Available since DAML-LF 1.3*
+  DefKey key = 10; // optional // *Available since version 1.3*
 }
 
 // Data type definition
@@ -1058,6 +1060,7 @@ message DefDataType {
     repeated FieldWithType fields = 1;
   }
 
+  // *Available since version 1.dev*
   message EnumConstructors {
     repeated string constructors = 1;
   }
@@ -1072,7 +1075,7 @@ message DefDataType {
   oneof DataCons {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
-    EnumConstructors enum = 7; //  *available since version dev*
+    EnumConstructors enum = 7; // *Available since version 1.dev*
   }
 
   // If true, this data type preserves serializability in the sense that when
