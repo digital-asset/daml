@@ -59,6 +59,7 @@ daml_ghc_compile_test = rule(
 def daml_ghc_integration_test(name, main_function):
     da_haskell_test(
         name = name,
+        size = "large",
         srcs = ["test-src/DA/Test/GHC.hs"],
         src_strip_prefix = "test-src",
         main_function = main_function,
