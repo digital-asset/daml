@@ -6,6 +6,7 @@ package com.digitalasset.navigator.data
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.json.ApiCodecCompressed
 import com.digitalasset.navigator.json.ApiCodecCompressed.JsonImplicits._
+import com.digitalasset.navigator.json.ModelCodec.JsonImplicits._
 import com.digitalasset.navigator.model._
 
 import scala.util.{Failure, Try}
@@ -17,7 +18,9 @@ final case class ContractRow(
     templateId: String,
     archiveTransactionId: Option[String],
     argument: String,
-    agreementText: Option[String]
+    agreementText: Option[String],
+    signatories: String,
+    observers: String
 ) {
 
   def toContract(types: PackageRegistry): Try[Contract] = {
@@ -28,8 +31,10 @@ final case class ContractRow(
       recArgAny <- Try(
         ApiCodecCompressed.jsValueToApiType(argument.parseJson, tid, types.damlLfDefDataType _))
       recArg <- Try(recArgAny.asInstanceOf[ApiRecord])
+      sig <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])
+      obs <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])
     } yield {
-      Contract(id, template, recArg, agreementText)
+      Contract(id, template, recArg, agreementText, sig, obs)
     }).recoverWith {
       case e: Throwable =>
         Failure(DeserializationFailed(s"Failed to deserialize Contract from row: $this. Error: $e"))
@@ -44,6 +49,9 @@ object ContractRow {
       c.template.id.asOpaqueString,
       None,
       c.argument.toJson.compactPrint,
-      c.agreementText)
+      c.agreementText,
+      c.signatories.toJson.compactPrint,
+      c.observers.toJson.compactPrint
+    )
   }
 }

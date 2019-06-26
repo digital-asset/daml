@@ -40,12 +40,12 @@ installer sdkDir logo = do
         let dir = "$PLUGINSDIR" </> "daml-sdk-" <> sdkVersion
         setOutPath (fromString dir)
         file [Recursive] (fromString (sdkDir <> "\\*.*"))
-        -- install --activate will copy the SDK to the final location.
+        -- install --install-assistant=yes will copy the SDK to the final location.
         plugin "nsExec" "ExecToLog"
             [ fromString $ unwords
                   [ "\"" <> dir </> "daml" </> "daml.exe\""
                   , "install"
                   , "\"" <> dir <> "\""
-                  , "--activate"
+                  , "--install-assistant=yes"
                   ] :: Exp String
             ]

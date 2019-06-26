@@ -146,6 +146,8 @@ trait TransactionConversion {
       },
       if (includeParentWitnesses) create.witnesses
       else create.stakeholders,
+      create.signatories,
+      create.observers,
       create.agreementText,
       create.contractKey.map(_.key.value)
     )

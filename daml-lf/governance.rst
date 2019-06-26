@@ -41,16 +41,17 @@ Overview
 
 * Every change to DAML-LF values or transactions *must* be checked for
   governance rules conformance and approved by Stephen Compall, or by
-  Francesco Mazzoli if Stephen is on vacation.  Every change to the
-  DAML-LF language *must* be checked for governance rules conformance
-  and approved by Francesco Mazzoli, or by Rémy Haemmerle if Francesco
-  is on vacation.
+  Gerolf Seitz if Stephen is on vacation.  Every change to the DAML-LF
+  language *must* be checked for governance rules conformance and
+  approved by Rémy Haemmerle and Martin Huschenbett (with Gerolf Seitz
+  as Rémy's vacation backup, and Neil Mitchell as Martin's vacation
+  backup).
 
   These checks are for governance and versioning only; the substance of
   DAML-LF language changes should be made in consultation with the DAML
-  Language team, in particular Martin Huschenbett.  Proposed changes can
-  be filed as tickets under Milestone "DAML-LF Spec & Validation",
-  labels "component/daml-lf" and "discussion".
+  Language team.  Proposed changes can be filed as tickets under
+  Milestone "DAML-LF Spec & Validation", labels "component/daml-lf" and
+  "discussion".
 
 * Every ledger implementation must declare what DAML-LF value,
   transaction, and language versions it supports. This information will

@@ -84,6 +84,12 @@ const AgreementText = ({text}: {text: string}) => (
     </span>
 );
 
+const Parties = ({title, parties}: {title: string, parties: string[]}) => (
+    <span><SubHeader><Strong>{title}</Strong></SubHeader>
+        <span>{parties.join(', ')}</span>
+    </span>
+);
+
 interface Props {
   contract: Contract;
   choice?: string;
@@ -150,7 +156,9 @@ export default (props: Props) => {
         <p>{isArchived ? 'ARCHIVED' : null}</p>
         <ColumnContainer>
           <Column>
-              {contract.agreementText && <AgreementText text={contract.agreementText} />}
+            {contract.agreementText && <AgreementText text={contract.agreementText} />}
+            {contract.signatories.length > 0 && <Parties title="Signatories" parties={contract.signatories} />}
+            {contract.observers.length > 0 && <Parties title="Observers" parties={contract.observers} />}
             <SubHeader><Strong>Contract details</Strong></SubHeader>
             <ArgumentDisplay
               argument={contract.argument}

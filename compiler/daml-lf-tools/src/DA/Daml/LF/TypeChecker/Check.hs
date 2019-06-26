@@ -158,12 +158,8 @@ typeOfBuiltin = \case
   BETextFromCodePoints -> pure $ TList TInt64 :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BEPartyFromText    -> pure $ TText :-> TOptional TParty
-  BEInt64FromText    -> do
-      checkFeature featureNumberFromText
-      pure $ TText :-> TOptional TInt64
-  BEDecimalFromText  -> do
-      checkFeature featureNumberFromText
-      pure $ TText :-> TOptional TDecimal
+  BEInt64FromText    -> pure $ TText :-> TOptional TInt64
+  BEDecimalFromText  -> pure $ TText :-> TOptional TDecimal
   BETextToCodePoints -> pure $ TText :-> TList TInt64
   BEAddDecimal       -> pure $ tBinop TDecimal
   BESubDecimal       -> pure $ tBinop TDecimal
@@ -204,7 +200,6 @@ typeOfBuiltin = \case
     TForall (alpha, KStar) $
     TContractId tAlpha :-> TContractId tAlpha :-> TBool
   BECoerceContractId -> do
-    checkFeature featureCoerceContractId
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
   where
     tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool
@@ -399,9 +394,7 @@ typeOfExercise :: MonadGamma m =>
 typeOfExercise tpl chName cid mbActors arg = do
   choice <- inWorld (lookupChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  case mbActors of
-    Nothing -> checkFeature featureExerciseActorsOptional
-    Just actors -> checkExpr actors (TList TParty)
+  whenJust mbActors $ \actors -> checkExpr actors (TList TParty)
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
 

@@ -147,7 +147,9 @@ final case class ContractCreated(
     contractId: ApiTypes.ContractId,
     templateId: DamlLfIdentifier,
     argument: ApiRecord,
-    agreementText: Option[String]
+    agreementText: Option[String],
+    signatories: List[ApiTypes.Party],
+    observers: List[ApiTypes.Party]
 ) extends Event
 
 final case class ChoiceExercised(
@@ -174,7 +176,9 @@ final case class Contract(
     id: ApiTypes.ContractId,
     template: Template,
     argument: ApiRecord,
-    agreementText: Option[String]
+    agreementText: Option[String],
+    signatories: List[ApiTypes.Party],
+    observers: List[ApiTypes.Party]
 ) extends TaggedNode[ApiTypes.ContractIdTag]
 
 // ------------------------------------------------------------------------------------------------

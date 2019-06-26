@@ -224,6 +224,8 @@ class GrpcTransactionService(
           .lfValueToApiRecord(verbose, createArguments)
           .fold(_ => throw new RuntimeException("Expected value to be a record."), identity)),
       witnessParties.toSeq,
+      signatories.toSeq,
+      observers.toSeq,
       Some(agreementText)
     )
   }

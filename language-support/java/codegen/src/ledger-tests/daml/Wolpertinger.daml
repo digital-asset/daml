@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
-module Tests.Wolpertinger where
+module Wolpertinger where
 
 import DA.Date
 import DA.Time

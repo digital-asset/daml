@@ -7,9 +7,7 @@
 
 -- @SINCE-LF 1.5
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalExercise"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not
--- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalExerciseWithActors"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor")
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalArchive"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not
--- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalArchiveWithActors"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor")
 daml 1.2
 module ExerciseWithoutActors where
 

@@ -202,6 +202,16 @@ object project {
       .perform[String]((contract, _) => StringValue(contract.id.unwrap))
       .onBranch("template", _.template, templateProject)
       .onBranch("argument", _.argument, argumentProject)
+      .onLeaf("agreementText")
+      .onAnyValue
+      .perform[String]((contract, _) => StringValue(contract.agreementText.getOrElse("")))
+      .onLeaf("signatories")
+      .onAnyValue
+      .perform[String]((contract, _) => StringValue(contract.signatories.mkString))
+      .onLeaf("observers")
+      .onAnyValue
+      .perform[String]((contract, _) => StringValue(contract.observers.mkString))
+      .onTree
 
   lazy val choicesProject =
     root[Seq[Choice], ProjectValue, DamlLfTypeLookup]("choices")
