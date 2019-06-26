@@ -58,6 +58,7 @@ import           Development.IDE.Spans.Type
 import           System.FilePath
 import           System.Directory
 import System.IO.Extra
+import Data.Char
 
 
 -- | Contains the typechecked module and the OrigNameCache entry for
@@ -314,23 +315,37 @@ getModSummaryFromBuffer fp contents dflags parsed = do
 runCpp :: DynFlags -> FilePath -> Maybe SB.StringBuffer -> IO SB.StringBuffer
 runCpp dflags filename contents = withTempDir $ \dir -> do
     let out = dir </> takeFileName filename <.> "out"
-    inp <- case contents of
-        Nothing ->
+    case contents of
+        Nothing -> do
             -- Happy case, file is not modified, so run CPP on it in-place
             -- which also makes things like relative #include files work
             -- and means location information is correct
-            return filename
+            doCpp dflags True filename out
+            liftIO $ SB.hGetStringBuffer out
+
         Just contents -> do
-            -- Sad path, we have to copy the file to a temp location.
-            -- Relative includes probably aren't going to work, so we fix that by adding to the include path.
+            -- Sad path, we have to create a version of the path in a temp dir
+            -- __FILE__ macro is wrong, ignoring that for now (likely not a real issue)
+
+            -- Relative includes aren't going to work, so we fix that by adding to the include path.
+            let addSelf (IncludeSpecs quote global) = IncludeSpecs (takeDirectory filename : quote) global
+            dflags <- return dflags{includePaths = addSelf $ includePaths dflags}
+
             -- Location information is wrong, so we fix that by patching it afterwards.
-            -- Location macro is wrong, so we fix that too.
-            let inp = dir </> takeFileName filename
+            let inp = dir </> "___HIE_CORE_MAGIC___"
             let f x = if SB.atEnd x then Nothing else Just $ SB.nextChar x
             liftIO $ writeFileUTF8 inp (unfoldr f contents)
-            return inp
-    doCpp dflags True inp out
-    liftIO $ SB.hGetStringBuffer out
+            doCpp dflags True inp out
+
+            -- Fix up the filename in lines like:
+            -- # 1 "C:/Temp/extra-dir-914611385186/___HIE_CORE_MAGIC___"
+            let tweak x
+                    | Just x <- stripPrefix "# " x
+                    , "___HIE_CORE_MAGIC___" `isInfixOf` x
+                    , let num = takeWhile (not . isSpace) x
+                        = "# " <> num <> " \"" <> map (\x -> if isPathSeparator x then '/' else x) filename <> "\""
+                    | otherwise = x
+            stringToStringBuffer . unlines . map tweak . lines <$> readFileUTF8' out
 
 
 -- | Given a buffer, flags, file path and module summary, produce a
