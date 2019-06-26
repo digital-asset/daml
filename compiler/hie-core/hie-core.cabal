@@ -116,6 +116,7 @@ executable hie-core
         ghc-paths,
         ghc,
         extra,
+        filepath,
         haskell-lsp,
         text,
         hie-core

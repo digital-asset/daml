@@ -5,6 +5,8 @@ module Main(main) where
 
 import Arguments
 import Data.Maybe
+import Data.List.Extra
+import System.FilePath
 import Control.Concurrent.Extra
 import Control.Monad.Extra
 import Data.Default
@@ -23,7 +25,7 @@ import Development.IDE.Types.Logger
 import qualified Data.Text.IO as T
 import Language.Haskell.LSP.Messages
 import Development.IDE.LSP.LanguageServer
-import System.Directory
+import System.Directory.Extra as IO
 import System.Environment
 import System.IO
 import Development.Shake hiding (Env)
@@ -66,23 +68,45 @@ main = do
             let options = defaultIdeOptions $ liftIO $ newSession' =<< findCradle (dir <> "/")
             initialise (mainRule >> action kick) event logger options vfs
     else do
-        putStrLn "[1/5] Finding hie-bios cradle"
+        putStrLn "[1/6] Finding hie-bios cradle"
         cradle <- findCradle (dir <> "/")
         print cradle
 
-        putStrLn "[2/5] Converting Cradle to GHC session"
+        putStrLn "\n[2/6] Converting Cradle to GHC session"
         env <- newSession' cradle
 
-        putStrLn "[3/3] Running sessions"
-        let files = map toNormalizedFilePath argFiles
+        putStrLn "\n[3/6] Initialising IDE session"
         vfs <- makeVFSHandle
         ide <- initialise mainRule (showEvent lock) logger (defaultIdeOptions $ return env) vfs
-        setFilesOfInterest ide $ Set.fromList files
-        runAction ide kick
-        -- shake now writes an async message that it is completed with timing info,
-        -- so we sleep briefly to wait for it to have been written
-        sleep 0.01
+
+        putStrLn "\n[4/6] Finding interesting files"
+        files <- nubOrd <$> expandFiles (argFiles ++ ["." | null argFiles])
+        putStrLn $ "Found " ++ show (length files) ++ " files"
+
+        putStrLn "\n[5/6] Setting interesting files"
+        setFilesOfInterest ide $ Set.fromList $ map toNormalizedFilePath files
+
+        putStrLn "\n[6/6] Loading interesting files"
+        results <- runActionSync ide $ uses TypeCheck $ map toNormalizedFilePath files
+        let (worked, failed) = partition fst $ zip (map isJust results) files
+        putStrLn $ "Files that worked: " ++ show (length worked)
+        putStrLn $ "Files that failed: " ++ show (length failed)
+        putStr $ unlines $ map ((++) " * " . snd) failed
+
         putStrLn "Done"
+
+
+expandFiles :: [FilePath] -> IO [FilePath]
+expandFiles = concatMapM $ \x -> do
+    b <- IO.doesFileExist x
+    if b then return [x] else do
+        let recurse "." = True
+            recurse x | "." `isPrefixOf` takeFileName x = False -- skip .git etc
+            recurse x = takeFileName x `notElem` ["dist","dist-newstyle"] -- cabal directories
+        files <- filter (\x -> takeExtension x `elem` [".hs",".lhs"]) <$> listFilesInside (return . recurse) x
+        when (null files) $
+            fail $ "Couldn't find any .hs/.lhs files inside directory: " ++ x
+        return files
 
 
 kick :: Action ()
