@@ -167,6 +167,23 @@ javadoc_library(
     deps = [":daml_lf_proto_lib_java"],
 )
 
+# This is an hack to avoid having to complicate the release logic.
+# Once we stop bundling proto files in daml_lf_archive_java
+# we can remove this.
+genrule(
+    name = "daml_lf_archive_java_srcjar",
+    srcs = ["daml_lf_proto_lib_java"],
+    outs = ["daml_lf_archive_java_srcjar.jar"],
+    cmd = """
+        for file in $(locations :daml_lf_proto_lib_java); do
+          if [[ $$file == *src* ]]; then
+              cp $$file $(location daml_lf_archive_java_srcjar.jar)
+          fi
+        done
+    """,
+    visibility = ["//visibility:public"],
+)
+
 # NOTE(MH): The pre-bazel release process put the `.proto` files in
 # `daml-lf-archive.jar` as well. This rule is replicating this old behavior.
 # This will very likely change in the future to not include the `.proto` files.
