@@ -12,7 +12,7 @@ module Development.IDE.LSP.Server
 
 import Data.Default
 
-import           Development.IDE.LSP.Protocol
+import           Language.Haskell.LSP.Types
 import qualified Language.Haskell.LSP.Core as LSP
 import qualified Language.Haskell.LSP.Messages as LSP
 import Development.IDE.Core.Service

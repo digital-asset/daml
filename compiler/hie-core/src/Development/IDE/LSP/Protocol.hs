@@ -3,8 +3,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 
 module Development.IDE.LSP.Protocol
-    ( module Language.Haskell.LSP.Types
-    , pattern EventFileDiagnostics
+    ( pattern EventFileDiagnostics
     ) where
 
 import Development.IDE.Types.Diagnostics

@@ -10,7 +10,7 @@ module DA.Service.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import           Development.IDE.LSP.Protocol
+import           Language.Haskell.LSP.Types
 import           Development.IDE.LSP.Server
 import qualified Development.IDE.LSP.LanguageServer as LS
 import Control.Monad.Extra
