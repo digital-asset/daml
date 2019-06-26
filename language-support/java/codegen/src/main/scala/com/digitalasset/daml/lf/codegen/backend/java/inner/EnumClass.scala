@@ -19,17 +19,18 @@ private[inner] object EnumClass extends StrictLogging {
       identifier: Identifier,
       enum: iface.Enum,
   ): TypeSpec = {
-
-    logger.info("Start")
-    val enumType = TypeSpec.enumBuilder(className).addModifiers(Modifier.PUBLIC)
-    enum.constructors.foreach(c => enumType.addEnumConstant(c.toUpperCase()))
-    enumType.addField(generateValuesArray(enum))
-    enumType.addMethod(generateEnumsMapBuilder(enum))
-    enumType.addField(generateEnumsMap(className))
-    enumType.addMethod(generateFromValue(className, enum))
-    enumType.addMethod(generateToValue(className))
-    logger.debug("End")
-    enumType.build()
+    TrackLineage.of("enum", className.simpleName()) {
+      logger.info("Start")
+      val enumType = TypeSpec.enumBuilder(className).addModifiers(Modifier.PUBLIC)
+      enum.constructors.foreach(c => enumType.addEnumConstant(c.toUpperCase()))
+      enumType.addField(generateValuesArray(enum))
+      enumType.addMethod(generateEnumsMapBuilder(enum))
+      enumType.addField(generateEnumsMap(className))
+      enumType.addMethod(generateFromValue(className, enum))
+      enumType.addMethod(generateToValue(className))
+      logger.debug("End")
+      enumType.build()
+    }
   }
 
   private def generateValuesArray(enum: iface.Enum): FieldSpec = {
