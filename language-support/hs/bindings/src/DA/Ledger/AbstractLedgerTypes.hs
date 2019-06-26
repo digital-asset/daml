@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Ledger.AbstractLedgerTypes (
-    LedgerOffset, offsetBegin,
+    LedgerOffset, offsetBegin, mkAbsLedgerOffset,
     TransactionFilter, filterEverthingForParty
     ) where
 
@@ -11,6 +11,13 @@ import Com.Digitalasset.Ledger.Api.V1.TransactionFilter
 import DA.Ledger.Types
 import Proto3.Suite.Types
 import qualified Data.Map as Map
+
+-- TODO: Make LedgerOffset a proper wrapped type in Types.s
+
+mkAbsLedgerOffset :: AbsOffset -> LedgerOffset
+mkAbsLedgerOffset abs = LedgerOffset {
+    ledgerOffsetValue = Just (LedgerOffsetValueAbsolute (unAbsOffset abs))
+    }
 
 offsetBegin :: LedgerOffset
 offsetBegin = LedgerOffset {

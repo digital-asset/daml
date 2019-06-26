@@ -9,18 +9,17 @@ module DA.Ledger.Services.TransactionService (
 import Com.Digitalasset.Ledger.Api.V1.LedgerOffset
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter
 import Control.Concurrent(forkIO)
-import DA.Ledger.Convert(raiseTransaction,RaiseFailureReason)
+import DA.Ledger.Convert (raiseList,raiseTransaction)
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
-import qualified Data.Vector as Vector
 import qualified Com.Digitalasset.Ledger.Api.V1.TransactionService as LL
 
 -- TODO:: all the other RPCs
 
-ledgerEnd :: LedgerId -> LedgerService LedgerOffset
+ledgerEnd :: LedgerId -> LedgerService LedgerOffset -- TODO: return AbsOffset
 ledgerEnd lid =
     makeLedgerService $ \timeout config -> do
     withGRPCClient config $ \client -> do
@@ -60,13 +59,7 @@ getTransactions tup =
         withGRPCClient config $ \client -> do
             service <- LL.transactionServiceClient client
             let LL.TransactionService {transactionServiceGetTransactions=rpc} = service
-            sendToStream timeout request f stream rpc
+            sendToStreamFlat timeout request f stream rpc
     return stream
     where
-        f = map (raise . raiseTransaction) . Vector.toList . LL.getTransactionsResponseTransactions
-
-raise :: Either RaiseFailureReason Transaction -> Either Closed Transaction
-raise x = case x of
-    Left reason ->
-        Left (Abnormal $ "failed to parse transaction because: " <> show reason <> ":\n" <> show x)
-    Right h -> Right h
+        f = raiseList raiseTransaction . LL.getTransactionsResponseTransactions

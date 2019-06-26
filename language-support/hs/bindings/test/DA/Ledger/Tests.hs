@@ -119,16 +119,25 @@ tSubmitBad withSandbox = testCase "submit/bad" $ run withSandbox $ \_pid -> do
 tSubmitComplete :: SandboxTest
 tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
+    let command = createIOU pid alice "A-coin" 100
+    completions <- completionStream (lid,myAid,[alice],offsetBegin)
+    off0 <- completionEnd lid
+    Right cidA1 <- submitCommand lid alice command
+    Right (Just Checkpoint{offset=cp1},[Completion{cid=cidB1}]) <- liftIO $ takeStream completions
     off1 <- completionEnd lid
-    let command =  createIOU pid alice "A-coin" 100
-    -- TODO: test fails if we use `Nothing` instead of `Just offsetBegin`
-    -- but this seems a bug, w.r.t to the ledger API
-    completions <- completionStream (lid,myAid,[alice],Just offsetBegin)
-    Right cidA <- submitCommand lid alice command
-    Right Completion{cid=cidB} <- liftIO $ takeStream completions
-    liftIO $ assertEqual "same cid sent/completed" cidA cidB
+    Right cidA2 <- submitCommand lid alice command
+    Right (Just Checkpoint{offset=cp2},[Completion{cid=cidB2}]) <- liftIO $ takeStream completions
     off2 <- completionEnd lid
-    liftIO $ assertBool "off1 /= off1" (off1 /= off2)
+    liftIO $ do
+        assertEqual "same cid1 sent/completed" cidA1 cidB1
+        assertEqual "same cid2 sent/completed" cidA2 cidB2
+        assertBool "off0 /= off1" (off0 /= off1)
+        assertBool "off1 /= off2" (off1 /= off2)
+        --TODO: Resolve if this is a bug, or my understandingis wrong!
+        assertEqual "cp1==off0" off0 (mkAbsLedgerOffset cp1) -- WRONG
+        --assertEqual "cp1==off1" off1 (mkAbsLedgerOffset cp1) -- SHOULD BE THIS
+        assertEqual "cp2==off1" off1 (mkAbsLedgerOffset cp2) -- WRONG
+        --assertEqual "cp2==off2" off2 (mkAbsLedgerOffset cp2) -- SHOULD BE THIS
 
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
