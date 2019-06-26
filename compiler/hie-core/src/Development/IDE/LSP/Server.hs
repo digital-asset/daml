@@ -39,7 +39,3 @@ instance Semigroup PartialHandlers where
 
 instance Monoid PartialHandlers where
     mempty = def
-
-------------------------------------------------------------------------
--- Server execution
-------------------------------------------------------------------------
