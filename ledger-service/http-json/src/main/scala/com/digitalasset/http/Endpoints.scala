@@ -5,12 +5,14 @@ package com.digitalasset.http
 
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.server.Directives._
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.digitalasset.http.json.JsonProtocol._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
 import spray.json._
+import json.HttpCodec._
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -44,6 +46,20 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
         _) =>
       HttpResponse(entity = HttpEntity.Strict(ContentTypes.`application/json`, data))
   }
+
+  lazy val command2 =
+    post {
+      path("/command/create") {
+        entity(as[JsValue]) { data =>
+          complete(data)
+        }
+      } ~
+        path("/command/create") {
+          entity(as[JsValue]) { data =>
+            complete(data)
+          }
+        }
+    }
 
   private val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty)
 
