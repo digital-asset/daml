@@ -29,7 +29,7 @@ applyMove = map (foldr1 g) . groupSortOn (modulePriorityKey . md_name) . map f
 
         -- Bring Prelude module to the front.
         modulePriorityKey :: Modulename -> (Int,Modulename)
-        modulePriorityKey m = (if m == "Prelude" then 0 else 1, m)
+        modulePriorityKey m = (if unModulename m == "Prelude" then 0 else 1, m)
 
 applyHide :: [ModuleDoc] -> [ModuleDoc]
 applyHide = concatMap onModule
@@ -58,12 +58,12 @@ applyHide = concatMap onModule
 
 
 getAnn :: Maybe Markdown -> [T.Text]
-getAnn = maybe [] T.words
+getAnn = maybe [] (T.words . unMarkdown)
 
 isHide :: Maybe Markdown -> Bool
 isHide x = ["HIDE"] `isPrefixOf` getAnn x
 
-isMove :: Maybe Markdown -> Maybe T.Text
+isMove :: Maybe Markdown -> Maybe Modulename
 isMove x = case getAnn x of
-    "MOVE":y:_ -> Just y
+    "MOVE":y:_ -> Just (Modulename y)
     _ -> Nothing

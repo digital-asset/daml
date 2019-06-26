@@ -9,6 +9,7 @@ module DA.Daml.GHC.Damldoc.Render.Util
   , indent
   , enclosedIn
   , inParens
+  , wrapOp
   ) where
 
 import qualified Data.Text as T
@@ -35,3 +36,15 @@ adjust n t | l < n  = t <> T.replicate (n - l) " "
            | l == n = t
            | otherwise  = t -- error?
   where l = T.length t
+
+-- | If name is an operator, wrap it.
+wrapOp :: T.Text -> T.Text
+wrapOp t =
+    if T.null t || isIdChar (T.head t)
+        then t
+        else inParens t
+  where
+    isIdChar :: Char -> Bool
+    isIdChar c = ('A' <= c && c <= 'Z')
+              || ('a' <= c && c <= 'z')
+              || ('_' == c)

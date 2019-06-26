@@ -41,7 +41,7 @@ data DocFormat = Json | Rst | Markdown | Html | Hoogle
 renderSimpleHtml :: ModuleDoc -> T.Text
 renderSimpleHtml m@ModuleDoc{..} =
   wrapHtml t $ GFM.commonmarkToHtml [] [GFM.extTable] $ renderSimpleMD m
-  where t = "Module " <> md_name
+  where t = "Module " <> unModulename md_name
 
 wrapHtml :: T.Text -> T.Text -> T.Text
 wrapHtml pageTitle body =

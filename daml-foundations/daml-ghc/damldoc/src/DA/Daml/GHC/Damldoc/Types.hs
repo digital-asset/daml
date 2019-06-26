@@ -11,23 +11,27 @@ import           Data.Hashable
 import GHC.Generics
 
 -- | Markdown type, simple wrapper for now
-type Markdown = Text
+newtype Markdown = Markdown { unMarkdown :: Text }
+    deriving (Eq, Ord, Show, ToJSON, FromJSON)
 
 -- | Field name, starting with lowercase
-type Fieldname = Text
+newtype Fieldname = Fieldname { unFieldname :: Text }
+    deriving (Eq, Ord, Show, ToJSON, FromJSON)
 
 -- | Type name starting with uppercase
-type Typename = Text
+newtype Typename = Typename { unTypename :: Text }
+    deriving (Eq, Ord, Show, ToJSON, FromJSON)
 
 -- | Module name, starting with uppercase, may have dots.
-type Modulename = Text
+newtype Modulename = Modulename { unModulename :: Text }
+    deriving (Eq, Ord, Show, ToJSON, FromJSON)
 
 -- | Type expression, possibly a (nested) type application
 data Type = TypeApp Typename [Type] -- ^ Type application
           | TypeFun [Type] -- ^ Function type
           | TypeList Type   -- ^ List syntax
           | TypeTuple [Type] -- ^ Tuple syntax
-  deriving (Eq, Show, Generic)
+  deriving (Eq, Ord, Show, Generic)
 
 instance Hashable Type where
   hashWithSalt salt = hashWithSalt salt . show
