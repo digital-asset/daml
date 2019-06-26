@@ -374,10 +374,11 @@ private class SandboxIndexAndWriteService(
     packageStore.getLfPackage(packageId)
 
   // PackageWriteService
-  override def uploadDar(
-      sourceDescription: String,
-      payload: Array[Byte]): CompletionStage[UploadDarResult] =
-    packageStore.uploadDar(timeProvider.getCurrentTime, sourceDescription, payload)
+  override def uploadPackages(
+      payload: List[Archive],
+      sourceDescription: Option[String]
+  ): CompletionStage[UploadPackagesResult] =
+    packageStore.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload)
 
   // ContractStore
   override def lookupActiveContract(

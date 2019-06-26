@@ -22,7 +22,7 @@ import java.util.concurrent.CompletionStage
   * As of now there are three methods for changing the state of a DAML ledger:
   * - submitting a transaction using [[WriteService!.submitTransaction]]
   * - allocating a new party using [[WritePartyService!.allocateParty]]
-  * - uploading a new package using [[WritePackagesService!.uploadDar]]
+  * - uploading a new package using [[WritePackagesService!.uploadPackages]]
   *
   */
 trait WriteService extends WritePackagesService with WritePartyService {

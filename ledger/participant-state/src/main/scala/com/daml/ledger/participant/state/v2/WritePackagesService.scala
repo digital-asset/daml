@@ -5,6 +5,8 @@ package com.daml.ledger.participant.state.v2
 
 import java.util.concurrent.CompletionStage
 
+import com.digitalasset.daml_lf.DamlLf.Archive
+
 /** An interface for uploading packages via a participant. */
 trait WritePackagesService {
 
@@ -22,22 +24,24 @@ trait WritePackagesService {
     * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
     * further details.
     *
-    * Note: we accept DARs rather than a list of archives because we want
+    * Note: we accept [[Archive]]s rather than parsed packages, because we want
     * to be able to get the byte size of each individual ArchivePayload, which
     * is information that the read / index service need to provide. Moreover
     * this information should be consistent with the payload that the
     * [[com.digitalasset.ledger.api.v1.package_service.GetPackageResponse]]
-    * contains. If we were to consume archives we'd have to re-encode them to
+    * contains. If we were to consume packages we'd have to re-encode them to
     * provide the size, and the size might potentially be different from the
     * original size, which would be quite confusing.
     *
-    * @param payload           : DAML-LF packages to be uploaded to the ledger.
     * @param sourceDescription : The description of the packages provided by the
     *                            participant implementation.
-    * @return an async result of a UploadDarResult
+    *
+    * @param payload           : DAML-LF packages to be uploaded to the ledger.
+    *
+    * @return an async result of a [[UploadPackagesResult]]
     */
-  def uploadDar(
-      sourceDescription: String,
-      payload: Array[Byte]
-  ): CompletionStage[UploadDarResult]
+  def uploadPackages(
+      payload: List[Archive],
+      sourceDescription: Option[String]
+  ): CompletionStage[UploadPackagesResult]
 }
