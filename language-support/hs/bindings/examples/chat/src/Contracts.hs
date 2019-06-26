@@ -64,4 +64,3 @@ extractTransaction log Transaction{events} = do
             log "Surprising ledger transaction events: "
             mapM_ (\e -> log $ "- " <> show e) events
             return Nothing
-
