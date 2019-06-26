@@ -45,7 +45,7 @@ main :: IO ()
 main = do
     -- WARNING: If you write to stdout before runLanguageServer
     --          then the language server will not work
-    hPutStrLn stderr "Starting hie-core Demo"
+    hPutStrLn stderr "Starting hie-core"
     Arguments{..} <- getArguments
     -- lock to avoid overlapping output on stdout
     lock <- newLock
@@ -59,9 +59,11 @@ main = do
     let options = defaultIdeOptions $ liftIO $ newSession' cradle
 
     if argLSP then do
-        hPutStrLn stderr "Starting IDE server"
+        t <- offsetTime
+        hPutStrLn stderr "Starting LSP server..."
         runLanguageServer def def $ \event vfs -> do
-            hPutStrLn stderr "Server started"
+            t <- t
+            hPutStrLn stderr $ "Started LSP server in " ++ showDuration t
             initialise (mainRule >> action kick) event logger options vfs
     else do
         let files = map toNormalizedFilePath argFiles
