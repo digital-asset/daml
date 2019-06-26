@@ -112,7 +112,7 @@ def _daml_test_impl(ctx):
       $DAMLC test --files $(rlocations "{files}")
     """.format(
         damlc = ctx.executable.damlc.short_path,
-        files = " ".join([f.short_path for f in ctx.files.srcs])
+        files = " ".join([f.short_path for f in ctx.files.srcs]),
     )
 
     ctx.actions.write(
