@@ -5,7 +5,11 @@ package com.digitalasset.platform.tests.integration.ledger.api.transaction
 
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, MockMessages, SuiteResourceManagementAroundAll}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  MockMessages,
+  SuiteResourceManagementAroundAll
+}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
@@ -55,7 +59,7 @@ class TransactionBackpressureIT
           .throttle(10, 1.second)
           .mapAsync(10)(i =>
             commandClient.submitSingleCommand(
-              testCommands.oneKbCommandRequest(ctx.ledgerId, s"command-$i-$runSuffix")))
+              testCommands.oneKbCommandRequest(ctx.ledgerId, commandIdUnifier(s"command-$i"))))
           .runWith(Sink.ignore)
 
       def subscribe(begin: LedgerOffset, rate: Int) =

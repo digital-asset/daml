@@ -11,7 +11,12 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{EventId, LedgerId}
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, _}
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, IsStatusException, MockMessages, SuiteResourceManagementAroundAll}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  IsStatusException,
+  MockMessages,
+  SuiteResourceManagementAroundAll
+}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
@@ -28,7 +33,12 @@ import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.api.v1.event.EventOps._
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
-import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestIdsGenerator, TestTemplateIds}
+import com.digitalasset.platform.apitesting.{
+  LedgerContext,
+  MultiLedgerFixture,
+  TestIdsGenerator,
+  TestTemplateIds
+}
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.services.time.TimeProviderType
@@ -309,7 +319,7 @@ class TransactionServiceIT
       "expose transactions to non-submitting stakeholders without the commandId" in allFixtures {
         c =>
           c.submitCreateAndReturnTransaction(
-              s"Checking_commandId_visibility_for_non-submitter_party-${runCommandSuffix}",
+              commandIdUnifier("Checking_commandId_visibility_for_non-submitter_party"),
               templateIds.agreementFactory,
               List("receiver" -> party1.asParty, "giver" -> party2.asParty).asRecordFields,
               party2,
@@ -320,7 +330,7 @@ class TransactionServiceIT
       }
 
       "expose only the requested templates to the client" in allFixtures { context =>
-        val commandId = s"Client_should_see_only_the_Dummy_create-${runCommandSuffix}"
+        val commandId = commandIdUnifier("Client_should_see_only_the_Dummy_create")
         val templateInSubscription = templateIds.dummy
         val otherTemplateCreated = templateIds.dummyFactory
         for {
@@ -343,8 +353,8 @@ class TransactionServiceIT
 
       "expose contract Ids that are ready to be used for exercising choices" in allFixtures {
         context =>
-          val factoryCreation = s"Creating_factory-${runCommandSuffix}"
-          val exercisingChoice = s"Exercising_choice_on_factory-${runCommandSuffix}"
+          val factoryCreation = commandIdUnifier("Creating_factory")
+          val exercisingChoice = commandIdUnifier("Exercising_choice_on_factory")
           val exercisedTemplate = templateIds.dummyFactory
           for {
             createdEvent <- context.submitCreate(
@@ -369,8 +379,8 @@ class TransactionServiceIT
 
       "expose contract Ids that are results of exercising choices when filtering by template" in allFixtures {
         context =>
-          val factoryCreation = s"Creating_second_factory-${runCommandSuffix}"
-          val exercisingChoice = s"Exercising_choice_on_second_factory-${runCommandSuffix}"
+          val factoryCreation = commandIdUnifier("Creating_second_factory")
+          val exercisingChoice = commandIdUnifier("Exercising_choice_on_second_factory")
           val exercisedTemplate = templateIds.dummyFactory
           for {
             creation <- context.submitCreate(
@@ -413,7 +423,7 @@ class TransactionServiceIT
       "reject exercising a choice where an assertion fails" in allFixtures { c =>
         for {
           dummy <- c.submitCreate(
-            s"Create_for_assertion_failing_test-${runCommandSuffix}",
+            commandIdUnifier("Create_for_assertion_failing_test"),
             templateIds.dummy,
             List("operator" -> party.asParty).asRecordFields,
             party)
@@ -442,7 +452,7 @@ class TransactionServiceIT
         val expectedArg = paramShowcaseArgsWithoutLabels
         for {
           create <- c.submitCreate(
-            s"Creating_contract_with_a_multitude_of_param_types-${runCommandSuffix}",
+            commandIdUnifier("Creating_contract_with_a_multitude_of_param_types"),
             template,
             paramShowcaseArgs(templateIds.testPackageId),
             "party",
@@ -459,7 +469,7 @@ class TransactionServiceIT
 
         for {
           create <- c.submitCreate(
-            s"Creating_contract_with_a_multitude_of_verbose_param_types-${runCommandSuffix}",
+            commandIdUnifier("Creating_contract_with_a_multitude_of_verbose_param_types"),
             template,
             arg,
             "party",
@@ -512,7 +522,7 @@ class TransactionServiceIT
         val template = templateIds.parameterShowcase
         for {
           create <- c.submitCreate(
-            s"Huge_command_with_a_long_list-${runCommandSuffix}",
+            commandIdUnifier("Huge_command_with_a_long_list"),
             template,
             arg,
             "party"
@@ -527,7 +537,7 @@ class TransactionServiceIT
         val giver = "Alice"
         for {
           created <- c.submitCreateWithListenerAndReturnEvent(
-            s"Creating_Agreement_Factory-${runCommandSuffix}",
+            commandIdUnifier("Creating_Agreement_Factory"),
             templateIds.agreementFactory,
             List("receiver" -> receiver.asParty, "giver" -> giver.asParty).asRecordFields,
             giver,
@@ -536,7 +546,7 @@ class TransactionServiceIT
 
           choiceResult <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
             c.command(
-                s"Calling_non-consuming_choice-${runCommandSuffix}",
+                commandIdUnifier("Calling_non-consuming_choice"),
                 List(
                   ExerciseCommand(
                     Some(templateIds.agreementFactory),
@@ -562,7 +572,7 @@ class TransactionServiceIT
 
         for {
           branchingSignatories <- c.submitCreateWithListenerAndReturnEvent(
-            s"BranchingSignatoriesTrue-${runCommandSuffix}",
+            commandIdUnifier("BranchingSignatoriesTrue"),
             templateIds.branchingSignatories,
             branchingSignatoriesArg,
             party1,
@@ -576,7 +586,7 @@ class TransactionServiceIT
         val branchingSignatoriesArg =
           getBranchingSignatoriesArg(false, party1, party2)
         c.submitCreateWithListenerAndAssertNotVisible(
-          s"BranchingSignatoriesFalse-${runCommandSuffix}",
+          commandIdUnifier("BranchingSignatoriesFalse"),
           templateIds.branchingSignatories,
           branchingSignatoriesArg,
           party2,
@@ -589,7 +599,7 @@ class TransactionServiceIT
         val expectedArg = branchingControllersArgs.map(_.copy(label = ""))
         for {
           branchingControllers <- c.submitCreateWithListenerAndReturnEvent(
-            s"BranchingControllersTrue-${runCommandSuffix}",
+            commandIdUnifier("BranchingControllersTrue"),
             templateId,
             branchingControllersArgs,
             party1,
@@ -604,7 +614,7 @@ class TransactionServiceIT
         val branchingControllersArgs =
           getBranchingControllerArgs(party1, party2, party3, false)
         c.submitCreateWithListenerAndAssertNotVisible(
-          s"BranchingControllersFalse-${runCommandSuffix}",
+          commandIdUnifier("BranchingControllersFalse"),
           templateId,
           branchingControllersArgs,
           party1,
@@ -624,7 +634,7 @@ class TransactionServiceIT
           .sequence(observers.map(observer =>
             for {
               withObservers <- c.submitCreateWithListenerAndReturnEvent(
-                s"Obs1create:${observer}-${runCommandSuffix}",
+                commandIdUnifier(s"Obs1create:${observer}"),
                 templateIds.withObservers,
                 withObserversArg,
                 giver,
@@ -645,7 +655,7 @@ class TransactionServiceIT
         val expectedArgs = createArguments.map(_.copy(label = ""))
 
         c.submitCreate(
-            s"Creating_contract_with_a_Nothing_argument-${runCommandSuffix}",
+            commandIdUnifier("Creating_contract_with_a_Nothing_argument"),
             templateIds.nothingArgument,
             createArguments,
             "party")
@@ -663,7 +673,7 @@ class TransactionServiceIT
       "expose the default agreement text in CreatedEvents for templates with no explicit agreement text" in allFixtures {
         c =>
           val resultF = c.submitCreate(
-            s"Creating_dummy_contract_for_default_agreement_text_test-${runCommandSuffix}",
+            commandIdUnifier("Creating_dummy_contract_for_default_agreement_text_test"),
             templateIds.dummy,
             List(RecordField("operator", party1.asParty)),
             party1)
@@ -691,7 +701,7 @@ class TransactionServiceIT
       "not expose the contract key in CreatedEvents for templates that do not have them" in allFixtures {
         c =>
           val resultF = c.submitCreate(
-            s"Creating_CallablePayout_contract_for_contract_key_test-${runSuffix}",
+            commandIdUnifier("Creating_CallablePayout_contract_for_contract_key_test"),
             templateIds.callablePayout,
             List(
               RecordField("giver", party1.asParty),
@@ -705,7 +715,7 @@ class TransactionServiceIT
 
       "expose the contract key in CreatedEvents for templates that have them" in allFixtures { c =>
         val resultF = c.submitCreate(
-          s"Creating_TextKey_contract_for_contract_key_test-${runSuffix}",
+          commandIdUnifier("Creating_TextKey_contract_for_contract_key_test"),
           templateIds.textKey,
           List(
             RecordField("tkParty", party1.asParty),
@@ -736,12 +746,12 @@ class TransactionServiceIT
         for {
           agreement <- createAgreement(c, "MA1", receiver, giver)
           triProposal <- c.submitCreate(
-            s"MA1proposal-${runCommandSuffix}",
+            commandIdUnifier("MA1proposal"),
             templateIds.triProposal,
             triProposalArg,
             operator)
           tx <- c.submitExercise(
-            s"MA1acceptance-${runCommandSuffix}",
+            commandIdUnifier("MA1acceptance"),
             templateIds.agreement,
             List("cid" -> Value(ContractId(triProposal.contractId))).asRecordValue,
             "AcceptTriProposal",
@@ -762,12 +772,12 @@ class TransactionServiceIT
           val expectedArg = triProposalArg.map(_.copy(label = ""))
           for {
             triProposal <- c.submitCreate(
-              s"MA2proposal-${runCommandSuffix}",
+              commandIdUnifier("MA2proposal"),
               templateIds.triProposal,
               triProposalArg,
               operator)
             tx <- c.submitExercise(
-              s"MA2acceptance-${runCommandSuffix}",
+              commandIdUnifier("MA2acceptance"),
               templateIds.triProposal,
               unitArg,
               "TriProposalAccept",
@@ -784,7 +794,7 @@ class TransactionServiceIT
         val triProposalArg = mkTriProposalArg(operator, receiver, giver)
         for {
           triProposal <- c.submitCreate(
-            s"MA3proposal-${runCommandSuffix}",
+            commandIdUnifier("MA3proposal"),
             templateIds.triProposal,
             triProposalArg,
             operator)
@@ -815,7 +825,7 @@ class TransactionServiceIT
         for {
           agreement <- createAgreement(c, "MA4", receiver, giver)
           triProposal <- c.submitCreate(
-            s"MA4proposal-${runCommandSuffix}",
+            commandIdUnifier("MA4proposal"),
             templateIds.triProposal,
             triProposalArg,
             operator)
@@ -840,12 +850,12 @@ class TransactionServiceIT
         val arguments = List("street", "city", "state", "zip")
         for {
           dummy <- c.submitCreate(
-            s"Create_dummy_for_creating_AddressWrapper-${runCommandSuffix}",
+            commandIdUnifier("Create_dummy_for_creating_AddressWrapper"),
             templateIds.dummy,
             List("operator" -> party.asParty).asRecordFields,
             party)
           exercise <- c.submitExercise(
-            s"Creating_AddressWrapper-${runCommandSuffix}",
+            commandIdUnifier("Creating_AddressWrapper"),
             templateIds.dummy,
             List("address" -> arguments.map(e => e -> e.asText).asRecordValue).asRecordValue,
             "WrapWithAddress",
@@ -906,13 +916,13 @@ class TransactionServiceIT
           val createAndFetchTid = templateIds.createAndFetch
           for {
             createdEvent <- context.submitCreate(
-              s"CreateAndFetch_Create-$runCommandSuffix",
+              commandIdUnifier("CreateAndFetch_Create"),
               createAndFetchTid,
               List("p" -> party.asParty).asRecordFields,
               party)
             cid = createdEvent.contractId
             exerciseTx <- context.submitExercise(
-              s"CreateAndFetch_Run-$runCommandSuffix",
+              commandIdUnifier("CreateAndFetch_Run"),
               createAndFetchTid,
               Value(Value.Sum.Record(Record())),
               "CreateAndFetch_Run",
@@ -1551,7 +1561,7 @@ class TransactionServiceIT
       prefix: String,
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
-    insertCommands(s"${prefix}-${runCommandSuffix}", commandsPerSection, context)
+    insertCommands(commandIdUnifier(prefix), commandsPerSection, context)
   }
 
   private def lastOffsetIn(secondSection: immutable.Seq[Transaction]): Option[LedgerOffset] = {
@@ -1642,7 +1652,7 @@ class TransactionServiceIT
   ): Future[CreatedEvent] = {
     for {
       agreementFactory <- c.submitCreate(
-        commandId + s"factory_creation-${runCommandSuffix}",
+        commandId + commandIdUnifier("factory_creation"),
         templateIds.agreementFactory,
         List(
           "receiver" -> receiver.asParty,
@@ -1651,7 +1661,7 @@ class TransactionServiceIT
         giver
       )
       tx <- c.submitExercise(
-        commandId + s"_acceptance-${runCommandSuffix}",
+        commandId + commandIdUnifier("_acceptance"),
         templateIds.agreementFactory,
         unitArg,
         "AgreementFactoryAccept",
@@ -1675,7 +1685,7 @@ class TransactionServiceIT
   ): Future[Assertion] =
     c.testingHelpers.assertCommandFailsWithCode(
       c.command(
-          s"${commandId}-${runCommandSuffix}",
+          commandIdUnifier(commandId),
           List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap))
         .update(
           _.commands.party := submitter
@@ -1693,7 +1703,8 @@ class TransactionServiceIT
 
     for {
       creation <- context.submitCreate(
-        s"Creating_contract_with_a_multitude_of_param_types_for_exercising-${runCommandSuffix}_$choice#$lbl",
+        commandIdUnifier(
+          s"Creating_contract_with_a_multitude_of_param_types_for_exercising_$choice#$lbl"),
         templateIds.parameterShowcase,
         paramShowcaseArgs(templateIds.testPackageId),
         MockMessages.party
@@ -1708,7 +1719,7 @@ class TransactionServiceIT
       exerciseTx <- context.testingHelpers.submitAndListenForSingleResultOfCommand(
         context
           .command(
-            s"Exercising_with_a_multitiude_of_params-${runCommandSuffix}_$choice#$lbl",
+            commandIdUnifier(s"Exercising_with_a_multitiude_of_params_$choice#$lbl"),
             List(exerciseCommand)),
         getAllContracts
       )

@@ -10,7 +10,10 @@ import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.types.{Ledger => L}
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  SuiteResourceManagementAroundAll
+}
 import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestIdsGenerator}
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.scalatest.concurrent.ScalaFutures
@@ -44,7 +47,8 @@ class SandboxSemanticTestsLfRunner
 
   s"a ledger launched with $darFile" should {
     val scenarioCommandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
-      (scenario, stepId, nodeId) => commandIdUnifier( s"ledger-api-test-tool-$scenario-$stepId-${nodeId}")
+      (scenario, stepId, nodeId) =>
+        commandIdUnifier(s"ledger-api-test-tool-$scenario-$stepId-${nodeId}")
     for {
       (pkgId, names) <- SemanticTester.scenarios(Map(mainPkgId -> packages(mainPkgId))) // we only care about the main pkg
       name <- names

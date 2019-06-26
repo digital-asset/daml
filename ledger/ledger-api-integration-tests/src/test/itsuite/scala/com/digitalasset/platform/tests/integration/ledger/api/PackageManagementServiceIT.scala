@@ -13,7 +13,11 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml_lf.DamlLf.Archive
 
 import scala.util.Try
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, IsStatusException, SuiteResourceManagementAroundAll}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  IsStatusException,
+  SuiteResourceManagementAroundAll
+}
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.commands.CreateCommand
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -141,7 +145,8 @@ class PackageManagementServiceIT
       _ <- client.uploadDarFile(ByteString.copyFrom(testDarBytes))
       createTx <- ctx.testingHelpers.submitAndListenForSingleResultOfCommand(
         ctx.testingHelpers
-          .submitRequestWithId(commandNodeIdUnifier("PackageManagementServiceIT_commands", "create"))
+          .submitRequestWithId(
+            commandNodeIdUnifier("PackageManagementServiceIT_commands", "create"))
           .update(
             _.commands.commands := List(createCmd),
             _.commands.party := party

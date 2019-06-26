@@ -8,7 +8,10 @@ import java.time.Instant
 import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
-import com.digitalasset.ledger.api.testing.utils.{AkkaBeforeAndAfterAll, SuiteResourceManagementAroundAll}
+import com.digitalasset.ledger.api.testing.utils.{
+  AkkaBeforeAndAfterAll,
+  SuiteResourceManagementAroundAll
+}
 import com.digitalasset.ledger.api.v1.testing.time_service.{GetTimeRequest, SetTimeRequest}
 import com.digitalasset.platform.apitesting.MultiLedgerFixture
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
