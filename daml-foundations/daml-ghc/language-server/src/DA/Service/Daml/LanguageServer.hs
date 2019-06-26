@@ -47,7 +47,7 @@ setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
         case _method of
             CustomClientMethod "daml/keepAlive" ->
                 maybe (return ()) ($ msg) $
-                withResponse RspCustomServer (\_ _ -> return $ Aeson.Null)
+                withResponse RspCustomServer (\_ _ -> return Aeson.Null)
             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
     }
 
