@@ -17,6 +17,7 @@ da_haskell_library(
         "retry",
         "text",
         "time",
+        "transformers",
         "vector",
     ],
     visibility = ["//visibility:public"],
