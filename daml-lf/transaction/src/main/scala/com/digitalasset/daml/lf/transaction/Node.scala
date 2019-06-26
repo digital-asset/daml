@@ -216,7 +216,7 @@ object Node {
           consuming == consuming2 && actingParties == actingParties2 && chosenValue === chosenValue2 &&
           stakeholders == stakeholders2 && signatories == signatories2 && controllers == controllers2 &&
           exerciseResult.fold(true)(_ => exerciseResult === exerciseResult2) &&
-          key === key2
+          key.fold(true)(_ => key === key2)
       }
       case nl: NodeLookupByKey[Cid, Val] => {
         case NodeLookupByKey(templateId2, optLocation2 @ _, key2, result2) =>

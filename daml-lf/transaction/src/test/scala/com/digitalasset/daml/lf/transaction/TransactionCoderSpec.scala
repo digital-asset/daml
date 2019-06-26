@@ -139,16 +139,7 @@ class TransactionCoderSpec
           val decodedVersionedTx = assertRight(
             TransactionCoder
               .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))
-          decodedVersionedTx.transaction shouldBe (if (txVer precedes minExerciseResult)
-                                                     transactionWithout(tx, { x: Tx.Node =>
-                                                       withoutContractKeyInExercise(
-                                                         withoutExerciseResult(x))
-                                                     })
-                                                   else if (txVer precedes minContractKeyInExercise)
-                                                     transactionWithout(tx, { x: Tx.Node =>
-                                                       withoutContractKeyInExercise(x)
-                                                     })
-                                                   else tx)
+          decodedVersionedTx.transaction shouldBe minimalistTx(txVer, tx)
       }
     }
 
@@ -178,28 +169,9 @@ class TransactionCoderSpec
             inside((encWithMin, encWithMax) umap (TransactionCoder
               .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, _))) {
               case (Right(decWithMin), Right(decWithMax)) =>
-                decWithMin.transaction shouldBe (if (txvMin precedes minExerciseResult)
-                                                   transactionWithout(tx, { x: Tx.Node =>
-                                                     withoutExerciseResult(
-                                                       withoutContractKeyInExercise(x))
-                                                   })
-                                                 else if (txvMin precedes minContractKeyInExercise)
-                                                   transactionWithout(tx, { x: Tx.Node =>
-                                                     withoutContractKeyInExercise(x)
-                                                   })
-                                                 else tx)
-                decWithMin.transaction shouldBe (if (txvMin precedes minExerciseResult)
-                                                   transactionWithout(decWithMax.transaction, {
-                                                     x: Tx.Node =>
-                                                       withoutExerciseResult(
-                                                         withoutContractKeyInExercise(x))
-                                                   })
-                                                 else if (txvMin precedes minContractKeyInExercise)
-                                                   transactionWithout(decWithMax.transaction, {
-                                                     x: Tx.Node =>
-                                                       withoutContractKeyInExercise(x)
-                                                   })
-                                                 else decWithMax.transaction)
+                decWithMin.transaction shouldBe minimalistTx(txvMin, tx)
+                decWithMin.transaction shouldBe
+                  minimalistTx(txvMin, decWithMax.transaction)
             }
         }
       }
@@ -329,5 +301,16 @@ class TransactionCoderSpec
       t: GenTransaction[Nid, Cid, Val],
       f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
     t copy (nodes = t.nodes transform ((_, gn) => f(gn)))
+
+  def minimalistTx[Nid, Cid, Val](
+      txvMin: TransactionVersion,
+      tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
+    if (txvMin precedes minExerciseResult)
+      transactionWithout(
+        tx,
+        (x: GenNode[Nid, Cid, Val]) => withoutExerciseResult(withoutContractKeyInExercise(x)))
+    else if (txvMin precedes minContractKeyInExercise)
+      transactionWithout(tx, (x: GenNode[Nid, Cid, Val]) => withoutContractKeyInExercise(x))
+    else tx
 
 }
