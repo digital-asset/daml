@@ -4,6 +4,8 @@
 daml 1.2
 module DarReaderTest where
 
+import DA.List (reverse)
+
 
 template PayOut
   with
@@ -29,3 +31,7 @@ template CallablePayout
       Transfer : ContractId CallablePayout
         with newReceiver: Party
         do create this with receiver = newReceiver
+
+
+reverseCopy = reverse
+

@@ -2505,13 +2505,15 @@ message::
     oneof Sum {
       Unit self = 1;
       string package_id = 2;
+      uint32 interned_id = 3;
     }
   }
 
-One should use either the field ``self`` to refer the current package
-or the field ``package_id`` to refers to an external package. During
-deserialization ``self`` references are replaced by the actual digest
-of the package in which it appears.
+One should use either the field ``self`` to refer the current package or
+one of ``interned_id`` [available since version 1.dev] or ``package_id``
+to refer to an external package. During deserialization ``self``
+references are replaced by the actual digest of the package in which it
+appears.
 
 
 Template precondition
