@@ -161,7 +161,9 @@ fileStoreRules vfs = do
     getFileExistsRule vfs
 
 
--- | Notify the compiler service of a modified buffer
+-- | Notify the compiler service that a particular file has been modified.
+--   Use 'Nothing' to say the file is no longer in the virtual file system
+--   but should be sourced from disk, or 'Just' to give its new value.
 setBufferModified :: IdeState -> NormalizedFilePath -> Maybe T.Text -> IO ()
 setBufferModified state absFile contents = do
     VFSHandle{..} <- getIdeGlobalState state
@@ -169,6 +171,9 @@ setBufferModified state absFile contents = do
         set (filePathToUri' absFile) contents
     void $ shakeRun state [] (const $ pure ())
 
+-- | Note that some buffer somewhere has been modified, but don't say what.
+--   Only valid if the virtual file system was initialised by LSP, as that
+--   independently tracks which files are modified.
 setSomethingModified :: IdeState -> IO ()
 setSomethingModified state = do
     VFSHandle{..} <- getIdeGlobalState state
