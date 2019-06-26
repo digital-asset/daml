@@ -86,7 +86,7 @@ cat > /home/hoogle/refresh-db.sh <<CRON
 #!/usr/bin/env bash
 set -euxo pipefail
 log() {
-  echo "[$(date -Is)] $1" >> /home/hoogle/cron_log.txt
+  echo "[\$(date -Is)] \$1" >> /home/hoogle/cron_log.txt
 }
 log "Checking for new DAML version..."
 cd /home/hoogle/hoogle
@@ -109,6 +109,7 @@ else
 fi
 log "Done."
 CRON
+chmod +x /home/hoogle/refresh-db.sh
 chown hoogle:hoogle /home/hoogle/refresh-db.sh
 echo "*/5 * * * * /home/hoogle/refresh-db.sh" | crontab -u hoogle -
 STARTUP
