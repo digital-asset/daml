@@ -321,6 +321,10 @@ runCpp dflags filename contents = withTempDir $ \dir -> do
             -- and means location information is correct
             return filename
         Just contents -> do
+            -- Sad path, we have to copy the file to a temp location.
+            -- Relative includes probably aren't going to work, so we fix that by adding to the include path.
+            -- Location information is wrong, so we fix that by patching it afterwards.
+            -- Location macro is wrong, so we fix that too.
             let inp = dir </> takeFileName filename
             let f x = if SB.atEnd x then Nothing else Just $ SB.nextChar x
             liftIO $ writeFileUTF8 inp (unfoldr f contents)
