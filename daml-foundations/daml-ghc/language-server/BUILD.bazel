@@ -14,6 +14,7 @@ da_haskell_library(
         "async",
         "base",
         "containers",
+        "data-default",
         "extra",
         "haskell-lsp",
         "haskell-lsp-types",
