@@ -5,7 +5,7 @@ package com.digitalasset.platform.sandbox.services.admin
 
 import akka.stream.Materializer
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
-import com.daml.ledger.participant.state.v2.WritePartyService
+import com.daml.ledger.participant.state.v2.{PartyAllocationResult, WritePartyService}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.party_management_service._
@@ -52,22 +52,19 @@ class ApiPartyManagementService private (
     val party = if (request.partyIdHint.isEmpty) None else Some(request.partyIdHint)
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
 
-    import com.daml.ledger.participant.state.v2.{PartyAllocationResult => PAR}
-    import com.daml.ledger.participant.state.v2.{PartyAllocationRejectionReason => PARR}
-
     FutureConverters
       .toScala(
         writeService
           .allocateParty(party, displayName))
       .flatMap {
-        case PAR.Ok(details) =>
+        case PartyAllocationResult.Ok(details) =>
           Future.successful(AllocatePartyResponse(Some(mapPartyDetails(details))))
-        case PAR.Rejected(reason @ PARR.AlreadyExists) =>
-          Future.failed(ErrorFactories.invalidArgument(reason.description))
-        case PAR.Rejected(reason @ PARR.InvalidName) =>
-          Future.failed(ErrorFactories.invalidArgument(reason.description))
-        case PAR.Rejected(reason @ PARR.ParticipantNotAuthorized) =>
-          Future.failed(ErrorFactories.permissionDenied(reason.description))
+        case r @ PartyAllocationResult.AlreadyExists =>
+          Future.failed(ErrorFactories.invalidArgument(r.description))
+        case r @ PartyAllocationResult.InvalidName(_) =>
+          Future.failed(ErrorFactories.invalidArgument(r.description))
+        case r @ PartyAllocationResult.ParticipantNotAuthorized =>
+          Future.failed(ErrorFactories.permissionDenied(r.description))
       }(DE)
   }
 

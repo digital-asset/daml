@@ -12,7 +12,7 @@ import akka.{Done, NotUsed}
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.daml.ledger.participant.state.v2.{PartyAllocationRejectionReason, PartyAllocationResult}
+import com.daml.ledger.participant.state.v2.PartyAllocationResult
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -958,7 +958,7 @@ private class PostgresLedgerDao(
         case NonFatal(e) if e.getMessage.contains("duplicate key") =>
           logger.warn("Party with ID {} already exists", party)
           conn.rollback()
-          PartyAllocationResult.Rejected(PartyAllocationRejectionReason.AlreadyExists)
+          PartyAllocationResult.AlreadyExists
       }.get
     }
   }

@@ -4,11 +4,7 @@
 package com.digitalasset.platform.sandbox.services.admin
 
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
-import com.daml.ledger.participant.state.v2.{
-  UploadDarRejectionReason,
-  UploadDarResult,
-  WritePackagesService
-}
+import com.daml.ledger.participant.state.v2.{UploadDarResult, WritePackagesService}
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.platform.api.grpc.GrpcApiService
@@ -53,10 +49,10 @@ class ApiPackageManagementService(
       .flatMap {
         case UploadDarResult.Ok =>
           Future.successful(UploadDarFileResponse())
-        case UploadDarResult.Rejected(reason @ UploadDarRejectionReason.InvalidPackage(_)) =>
-          Future.failed(ErrorFactories.invalidArgument(reason.description))
-        case UploadDarResult.Rejected(reason @ UploadDarRejectionReason.ParticipantNotAuthorized) =>
-          Future.failed(ErrorFactories.permissionDenied(reason.description))
+        case r @ UploadDarResult.InvalidPackage(_) =>
+          Future.failed(ErrorFactories.invalidArgument(r.description))
+        case r @ UploadDarResult.ParticipantNotAuthorized =>
+          Future.failed(ErrorFactories.permissionDenied(r.description))
       }(DE)
   }
 }

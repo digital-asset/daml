@@ -403,8 +403,7 @@ private class SandboxIndexAndWriteService(
           ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName))
       case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName))
       case Some(Left(error)) =>
-        CompletableFuture.completedFuture(
-          PartyAllocationResult.Rejected(PartyAllocationRejectionReason.InvalidName))
+        CompletableFuture.completedFuture(PartyAllocationResult.InvalidName(error))
     }
   }
 
