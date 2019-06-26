@@ -64,6 +64,14 @@ message CreatedEvent {
   // Required
   repeated string witness_parties = 5;
 
+  // The signatories for this contract as specified by the template.
+  // Required
+  repeated string signatories = 8;
+
+  // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
+  // Required
+  repeated string observers = 9;
+
   // The agreement text of the contract.
   // We use StringValue to properly reflect optionality on the wire for backwards compatibility.
   // This is necessary since the empty string is an acceptable (and in fact the default) agreement

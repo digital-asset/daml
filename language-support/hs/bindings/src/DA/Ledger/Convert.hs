@@ -174,14 +174,18 @@ raiseEvent = \case
                                    createdEventTemplateId,
                                    createdEventContractKey,
                                    createdEventCreateArguments,
-                                   createdEventWitnessParties})) -> do
+                                   createdEventWitnessParties,
+                                   createdEventSignatories,
+                                   createdEventObservers})) -> do
         eid <- raiseEventId createdEventEventId
         cid <- raiseContractId createdEventContractId
         tid <- perhaps "createdEventTemplateId" createdEventTemplateId >>= raiseTemplateId
         let key = createdEventContractKey >>= optional . raiseValue
         createArgs <- perhaps "createdEventCreateArguments" createdEventCreateArguments >>= raiseRecord
         witness <- raiseList raiseParty createdEventWitnessParties
-        return CreatedEvent{eid,cid,tid,key,createArgs,witness}
+        signatories <- raiseList raiseParty createdEventSignatories
+        observers <- raiseList raiseParty createdEventObservers
+        return CreatedEvent{eid,cid,tid,key,createArgs,witness,signatories,observers}
 
 raiseRecord :: LL.Record -> Perhaps Record
 raiseRecord = \case

@@ -12,6 +12,7 @@ import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 import tests.contractkeys.*;
 
+import java.util.Collections;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,11 +22,11 @@ public class ContractKeysTest {
 
     // NOTE: the tests are mostly here to make sure the code compiles
 
-    NoKey.Contract noKey = new NoKey.Contract(new NoKey.ContractId("no-key"), new NoKey("Alice"), Optional.empty());
-    PartyKey.Contract partyKey = new PartyKey.Contract(new PartyKey.ContractId("party-key"), new PartyKey("Alice"), Optional.empty(), Optional.of("Alice"));
-    RecordKey.Contract recordKey = new RecordKey.Contract(new RecordKey.ContractId("record-key"), new RecordKey("Alice", 42L), Optional.empty(), Optional.of(new PartyAndInt("Alice", 42L)));
-    TupleKey.Contract tupleKey = new TupleKey.Contract(new TupleKey.ContractId("tuple-key"), new TupleKey("Alice", 42L), Optional.empty(), Optional.of(new Tuple2<>("Alice", 42L)));
-    NestedTupleKey.Contract nestedTupleKey = new NestedTupleKey.Contract(new NestedTupleKey.ContractId("nested-tuple-key"), new NestedTupleKey("Alice", 42L, "blah", 47L, true, "foobar", 0L), Optional.empty(), Optional.of(new Tuple2<>(new Tuple3<>("Alice", 42L, "blah"), new Tuple4<>(47L, true, "foobar", 0L))));
+    NoKey.Contract noKey = new NoKey.Contract(new NoKey.ContractId("no-key"), new NoKey("Alice"), Optional.empty(), Collections.emptySet(), Collections.emptySet());
+    PartyKey.Contract partyKey = new PartyKey.Contract(new PartyKey.ContractId("party-key"), new PartyKey("Alice"), Optional.empty(), Optional.of("Alice"), Collections.emptySet(), Collections.emptySet());
+    RecordKey.Contract recordKey = new RecordKey.Contract(new RecordKey.ContractId("record-key"), new RecordKey("Alice", 42L), Optional.empty(), Optional.of(new PartyAndInt("Alice", 42L)), Collections.emptySet(), Collections.emptySet());
+    TupleKey.Contract tupleKey = new TupleKey.Contract(new TupleKey.ContractId("tuple-key"), new TupleKey("Alice", 42L), Optional.empty(), Optional.of(new Tuple2<>("Alice", 42L)), Collections.emptySet(), Collections.emptySet());
+    NestedTupleKey.Contract nestedTupleKey = new NestedTupleKey.Contract(new NestedTupleKey.ContractId("nested-tuple-key"), new NestedTupleKey("Alice", 42L, "blah", 47L, true, "foobar", 0L), Optional.empty(), Optional.of(new Tuple2<>(new Tuple3<>("Alice", 42L, "blah"), new Tuple4<>(47L, true, "foobar", 0L))), Collections.emptySet(), Collections.emptySet());
 
     @Test
     void noKeyHasNoKey() {

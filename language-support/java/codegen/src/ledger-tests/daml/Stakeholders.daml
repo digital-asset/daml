@@ -1,0 +1,51 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+daml 1.2
+module Stakeholders where
+
+template OnlySignatories
+  with
+    owner: Party
+  where
+    signatory owner
+
+    controller owner can
+      OnlySignatories_Choice : ()
+        do return ()
+
+template ImplicitObservers
+  with
+    owner: Party
+    thirdParty: Party
+  where
+    signatory owner
+
+    controller thirdParty can
+      ImplicitObservers_Choice : ()
+        do return ()
+
+template ExplicitObservers
+  with
+    owner: Party
+    thirdParty: Party
+  where
+    signatory owner
+    observer thirdParty
+
+    controller owner can
+      ExplicitObservers_Choice : ()
+        do return ()
+
+template MixedObservers
+  with
+    owner: Party
+    thirdParty1: Party
+    thirdParty2: Party
+  where
+    signatory owner
+    observer thirdParty1
+
+    controller thirdParty2 can
+      MixedObservers_Choice : ()
+        do return ()

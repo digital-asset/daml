@@ -171,10 +171,12 @@ case object LedgerApiV1 {
       ctx: Context
   ): Result[Model.Event] = {
     val witnessParties = ApiTypes.Party.subst(event.witnessParties.toList)
+    val signatories = ApiTypes.Party.subst(event.signatories.toList)
+    val observers = ApiTypes.Party.subst(event.observers.toList)
     for {
       templateId <- Converter.checkExists("CreatedEvent.templateId", event.templateId)
       templateIdentifier = templateId.asDaml
-      template <- getTemplate(templateIdentifier, ctx)
+      _ <- getTemplate(templateIdentifier, ctx)
       arguments <- Converter.checkExists("CreatedEvent.arguments", event.createArguments)
       arg <- readRecordArgument(arguments, templateIdentifier, ctx)
     } yield
@@ -187,7 +189,9 @@ case object LedgerApiV1 {
         contractId = ApiTypes.ContractId(event.contractId),
         templateId = templateIdentifier,
         argument = arg,
-        agreementText = event.agreementText
+        agreementText = event.agreementText,
+        signatories = signatories,
+        observers = observers
       )
   }
 

@@ -187,6 +187,8 @@ object TransactionGenerator {
     contractKey <- Gen.option(valueGen(0))
     (scalaTemplateId, javaTemplateId) <- identifierGen
     (scalaRecord, javaRecord) <- Gen.sized(recordGen)
+    signatories <- Gen.listOf(nonEmptyId)
+    observers <- Gen.listOf(nonEmptyId)
     parties <- Gen.listOf(nonEmptyId)
   } yield
     (
@@ -197,16 +199,21 @@ object TransactionGenerator {
           Some(scalaTemplateId),
           contractKey.map(_._1),
           Some(scalaRecord),
-          parties,
-          agreementText = agreementText)),
+          signatories ++ observers,
+          signatories,
+          observers,
+          agreementText
+        )),
       new data.CreatedEvent(
-        parties.asJava,
+        (signatories ++ observers).asJava,
         eventId,
         javaTemplateId,
         contractId,
         javaRecord,
         agreementText.map(Optional.of[String]).getOrElse(Optional.empty()),
-        contractKey.fold(Optional.empty[data.Value])(c => Optional.of[data.Value](c._2))
+        contractKey.fold(Optional.empty[data.Value])(c => Optional.of[data.Value](c._2)),
+        signatories.toSet.asJava,
+        observers.toSet.asJava
       )
     )
 

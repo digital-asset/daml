@@ -428,7 +428,9 @@ class BotTest extends FlatSpec with Matchers with DataLayerHelpers {
       s"cid_$id",
       new Record(List.empty[Record.Field].asJava),
       Optional.empty(),
-      Optional.empty()
+      Optional.empty(),
+      Collections.emptySet(),
+      Collections.emptySet()
     )
 
   def archive(event: CreatedEvent): ArchivedEvent =

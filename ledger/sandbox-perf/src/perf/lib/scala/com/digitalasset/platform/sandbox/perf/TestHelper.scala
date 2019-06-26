@@ -132,7 +132,7 @@ trait TestHelper {
   def extractContractId(templateId: Identifier)(
       response: GetActiveContractsResponse): List[String] =
     response.activeContracts.toList.collect {
-      case CreatedEvent(_, contractId, Some(actualTemplateId), _, _, _, _)
+      case CreatedEvent(_, contractId, Some(actualTemplateId), _, _, _, _, _, _)
           if IdentifierEqual.equal(actualTemplateId, templateId) =>
         contractId
     }

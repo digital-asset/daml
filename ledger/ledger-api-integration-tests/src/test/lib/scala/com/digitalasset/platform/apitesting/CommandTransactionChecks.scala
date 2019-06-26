@@ -578,7 +578,7 @@ abstract class CommandTransactionChecks
                 .map(_.event)
                 .collect {
                   case Archived(ArchivedEvent(eventId, _, _, _)) => eventId
-                  case Created(CreatedEvent(eventId, _, _, _, _, _, _)) => eventId
+                  case Created(CreatedEvent(eventId, _, _, _, _, _, _, _, _)) => eventId
                 })
             .takeWithin(5.seconds) //TODO: work around as ledger end is broken. see DEL-3151
             .runWith(Sink.seq)

@@ -40,6 +40,9 @@ abstract class EventDecoderApi(
       Contract(
         Primitive.substContractId[Id, Nothing](ApiTypes.ContractId(createdEvent.contractId)),
         tadt,
-        createdEvent.agreementText)
+        createdEvent.agreementText,
+        createdEvent.signatories,
+        createdEvent.observers
+      )
   }
 }
