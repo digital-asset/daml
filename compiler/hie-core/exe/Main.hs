@@ -47,6 +47,7 @@ main = do
     --          then the language server will not work
     hPutStrLn stderr "Starting hie-core"
     Arguments{..} <- getArguments
+
     -- lock to avoid overlapping output on stdout
     lock <- newLock
     let logger = makeOneLogger $ withLock lock . T.putStrLn
@@ -54,21 +55,26 @@ main = do
     dir <- getCurrentDirectory
     hPutStrLn stderr dir
 
-    cradle <- findCradle (dir <> "/")
-
-    let options = defaultIdeOptions $ liftIO $ newSession' cradle
-
     if argLSP then do
         t <- offsetTime
         hPutStrLn stderr "Starting LSP server..."
         runLanguageServer def def $ \event vfs -> do
             t <- t
             hPutStrLn stderr $ "Started LSP server in " ++ showDuration t
+            let options = defaultIdeOptions $ liftIO $ newSession' =<< findCradle (dir <> "/")
             initialise (mainRule >> action kick) event logger options vfs
     else do
+        putStrLn "[1/5] Finding hie-bios cradle"
+        cradle <- findCradle (dir <> "/")
+        print cradle
+
+        putStrLn "[2/5] Converting Cradle to GHC session"
+        env <- newSession' cradle
+
+        putStrLn "[3/3] Running sessions"
         let files = map toNormalizedFilePath argFiles
         vfs <- makeVFSHandle
-        ide <- initialise mainRule (showEvent lock) logger options vfs
+        ide <- initialise mainRule (showEvent lock) logger (defaultIdeOptions $ return env) vfs
         setFilesOfInterest ide $ Set.fromList files
         runAction ide kick
         -- shake now writes an async message that it is completed with timing info,
