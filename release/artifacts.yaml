@@ -1,5 +1,7 @@
 - target: //daml-lf/archive:daml_lf_archive_java
   type: jar
+  javadoc-jar: daml_lf_archive_java_javadoc.jar
+  src-jar: daml_lf_archive_java_srcjar.jar
   mavenUpload: True
 - target: //daml-lf/data:data
   type: jar
