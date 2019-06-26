@@ -9,22 +9,23 @@ import Data.Aeson
 import           Data.Text              (Text)
 import           Data.Hashable
 import GHC.Generics
+import Data.String
 
--- | Markdown type, simple wrapper for now
-newtype Markdown = Markdown { unMarkdown :: Text }
-    deriving (Eq, Ord, Show, ToJSON, FromJSON)
+-- | Doc text type, presumably Markdown format.
+newtype DocText = DocText { unDocText :: Text }
+    deriving (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Field name, starting with lowercase
 newtype Fieldname = Fieldname { unFieldname :: Text }
-    deriving (Eq, Ord, Show, ToJSON, FromJSON)
+    deriving (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Type name starting with uppercase
 newtype Typename = Typename { unTypename :: Text }
-    deriving (Eq, Ord, Show, ToJSON, FromJSON)
+    deriving (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Module name, starting with uppercase, may have dots.
 newtype Modulename = Modulename { unModulename :: Text }
-    deriving (Eq, Ord, Show, ToJSON, FromJSON)
+    deriving (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Type expression, possibly a (nested) type application
 data Type = TypeApp Typename [Type] -- ^ Type application
@@ -40,7 +41,7 @@ instance Hashable Type where
 -- | Documentation data for a module
 data ModuleDoc = ModuleDoc
   { md_name      :: Modulename
-  , md_descr     :: Maybe Markdown
+  , md_descr     :: Maybe DocText
   , md_templates :: [TemplateDoc]
   , md_adts      :: [ADTDoc]
   , md_functions :: [FunctionDoc]
@@ -55,7 +56,7 @@ data ModuleDoc = ModuleDoc
 -- | Documentation data for a template
 data TemplateDoc = TemplateDoc
   { td_name    :: Typename
-  , td_descr   :: Maybe Markdown
+  , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
   }
@@ -63,7 +64,7 @@ data TemplateDoc = TemplateDoc
 
 data ClassDoc = ClassDoc
   { cl_name :: Typename
-  , cl_descr :: Maybe Markdown
+  , cl_descr :: Maybe DocText
   , cl_super :: Maybe Type
   , cl_args :: [Text]
   , cl_functions :: [FunctionDoc]
@@ -73,13 +74,13 @@ data ClassDoc = ClassDoc
 -- | Documentation data for an ADT or type synonym
 data ADTDoc = ADTDoc
   { ad_name   :: Typename
-  , ad_descr  :: Maybe Markdown
+  , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_constrs :: [ADTConstr]  -- allowed to be empty
   }
   | TypeSynDoc
   { ad_name   :: Typename
-  , ad_descr  :: Maybe Markdown
+  , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_rhs    :: Type
   }
@@ -89,11 +90,11 @@ data ADTDoc = ADTDoc
 -- | Constructors (Record or Prefix)
 data ADTConstr =
     PrefixC { ac_name :: Typename
-            , ac_descr :: Maybe Markdown
+            , ac_descr :: Maybe DocText
             , ac_args :: [Type]   -- use retained var.names
             }
   | RecordC { ac_name :: Typename
-            , ac_descr :: Maybe Markdown
+            , ac_descr :: Maybe DocText
             , ac_fields :: [FieldDoc]
             }
   deriving (Eq, Show, Generic)
@@ -104,7 +105,7 @@ data ADTConstr =
 -- as the choice.
 data ChoiceDoc = ChoiceDoc
   { cd_name   :: Typename
-  , cd_descr  :: Maybe Markdown
+  , cd_descr  :: Maybe DocText
   , cd_fields :: [FieldDoc]
   }
   deriving (Eq, Show, Generic)
@@ -116,7 +117,7 @@ data FieldDoc = FieldDoc
   , fd_type  :: Type
     -- TODO align with GHC data structure. The type representation must use FQ
     -- names in components to enable links, and it Can use bound type var.s.
-  , fd_descr :: Maybe Markdown
+  , fd_descr :: Maybe DocText
   }
   deriving (Eq, Show, Generic)
 
@@ -126,7 +127,7 @@ data FunctionDoc = FunctionDoc
   { fct_name  :: Fieldname
   , fct_context :: Maybe Type
   , fct_type  :: Maybe Type
-  , fct_descr :: Maybe Markdown
+  , fct_descr :: Maybe DocText
   }
   deriving (Eq, Show, Generic)
 

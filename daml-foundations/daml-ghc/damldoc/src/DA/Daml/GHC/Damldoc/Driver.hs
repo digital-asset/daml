@@ -9,7 +9,7 @@ module DA.Daml.GHC.Damldoc.Driver(
     , DocOption(..)
     ) where
 
-import           DA.Daml.GHC.Damldoc.Types hiding (Markdown (..))
+import           DA.Daml.GHC.Damldoc.Types
 import           DA.Daml.GHC.Damldoc.Render
 import           DA.Daml.GHC.Damldoc.HaddockParse
 import           DA.Daml.GHC.Damldoc.Transform

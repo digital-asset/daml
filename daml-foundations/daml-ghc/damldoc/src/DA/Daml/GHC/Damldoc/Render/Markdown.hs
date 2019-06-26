@@ -22,7 +22,7 @@ renderSimpleMD ModuleDoc{..}
 renderSimpleMD ModuleDoc{..} = T.unlines $
   [ "# " <> "Module " <> unModulename md_name
   , ""
-  , maybe "" unMarkdown md_descr
+  , maybe "" unDocText md_descr
   , "" ]
   <> concat
   [ if null md_templates then []
@@ -53,7 +53,7 @@ renderSimpleMD ModuleDoc{..} = T.unlines $
 tmpl2md :: TemplateDoc -> T.Text
 tmpl2md TemplateDoc{..} = T.unlines $
     [ "### Template " <> asCode (unTypename td_name)
-    , maybe "" (T.cons '\n' . unMarkdown) td_descr
+    , maybe "" (T.cons '\n' . unDocText) td_descr
     , ""
     , fieldTable td_payload
     , ""
@@ -65,7 +65,7 @@ tmpl2md TemplateDoc{..} = T.unlines $
     choiceBullet :: ChoiceDoc -> T.Text
     choiceBullet ChoiceDoc{..} = T.unlines
         [ prefix "* " $ asCode (unTypename cd_name)
-        , maybe "  " (flip T.snoc '\n' . indent 2 . unMarkdown) cd_descr
+        , maybe "  " (flip T.snoc '\n' . indent 2 . unDocText) cd_descr
         , indent 2 (fieldTable cd_fields)
         ]
 
@@ -75,7 +75,7 @@ cls2md ClassDoc{..} = T.unlines $
         <> maybe "" (\x -> type2md x <> " => ") cl_super
         <> T.unwords (unTypename cl_name : cl_args)
         <> " where"
-    , maybe "" (T.cons '\n' . indent 2 . unMarkdown) cl_descr
+    , maybe "" (T.cons '\n' . indent 2 . unDocText) cl_descr
     ] ++ map (indent 2 . fct2md) cl_functions
 
 adt2md :: ADTDoc -> T.Text
@@ -83,21 +83,21 @@ adt2md TypeSynDoc{..} = T.unlines $
     [ "### `type` "
         <> asCode (unTypename ad_name <> (T.concat $ map (T.cons ' ') ad_args))
     , "    = " <> type2md ad_rhs
-    ] ++ maybe [] ((:[]) . T.cons '\n' . indent 2 . unMarkdown) ad_descr
+    ] ++ maybe [] ((:[]) . T.cons '\n' . indent 2 . unDocText) ad_descr
 
 adt2md ADTDoc{..} = T.unlines $
     [ "### `data` "
         <> asCode (unTypename ad_name <> (T.concat $ map (T.cons ' ') ad_args))
-    , maybe T.empty (T.cons '\n' . indent 2 . unMarkdown) ad_descr
+    , maybe T.empty (T.cons '\n' . indent 2 . unDocText) ad_descr
     ] ++ map constrMdItem ad_constrs
 
 constrMdItem :: ADTConstr -> T.Text
 constrMdItem PrefixC{..} =
   ("* " <> T.unwords (asCode (unTypename ac_name) : map type2md ac_args))
-  <> maybe T.empty (T.cons '\n' . indent 2 . unMarkdown) ac_descr
+  <> maybe T.empty (T.cons '\n' . indent 2 . unDocText) ac_descr
 constrMdItem RecordC{..} =
   ("* " <> asCode (unTypename ac_name))
-  <> maybe T.empty (T.cons '\n' . indent 2 . unMarkdown) ac_descr
+  <> maybe T.empty (T.cons '\n' . indent 2 . unDocText) ac_descr
   <> "\n\n"
   <> indent 2 (fieldTable ac_fields)
 
@@ -123,7 +123,7 @@ fieldTable fds = header <> fieldRows <> "\n"
     fieldRows = T.unlines
       [ "| " <> adjust fLen (asCode (unFieldname fd_name))
         <> " | " <> type2md fd_type <> " |"
-        <> maybe "" (\desc -> "\n" <> col1Empty <> removeLineBreaks (unMarkdown desc) <> " |") fd_descr
+        <> maybe "" (\desc -> "\n" <> col1Empty <> removeLineBreaks (unDocText desc) <> " |") fd_descr
       | FieldDoc{..} <- fds ]
 
     -- Markdown does not support multi-row cells so we have to remove
@@ -151,7 +151,7 @@ type2md t = t2md id t
 fct2md :: FunctionDoc -> T.Text
 fct2md FunctionDoc{..} =
   "* " <> asCode (unFieldname fct_name) <> maybe "" ((" : " <>) . type2md) fct_type
-  <> maybe "" (("  \n" <>) . indent 2 . unMarkdown) fct_descr
+  <> maybe "" (("  \n" <>) . indent 2 . unDocText) fct_descr
   --             ^^ NB trailing whitespace to cause a line break
 
 ------------------------------------------------------------

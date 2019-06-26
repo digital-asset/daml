@@ -34,7 +34,7 @@ renderSimpleRst ModuleDoc{..} = T.unlines $
   , renderAnchor (moduleAnchor md_name)
   , title
   , T.replicate (T.length title) "-"
-  , maybe "" markdownToRst md_descr
+  , maybe "" docTextToRst md_descr
   ]
   <> concat
   [ if null md_templates
@@ -73,7 +73,7 @@ tmpl2rst :: Modulename -> TemplateDoc -> T.Text
 tmpl2rst md_name TemplateDoc{..} = T.unlines $
   renderAnchor (templateAnchor md_name td_name) :
   ("template " <> enclosedIn "**" (unTypename td_name)) :
-  maybe "" (T.cons '\n' . indent 2 . markdownToRst) td_descr :
+  maybe "" (T.cons '\n' . indent 2 . docTextToRst) td_descr :
   "" :
   indent 2 (fieldTable td_payload) :
   "" :
@@ -83,7 +83,7 @@ tmpl2rst md_name TemplateDoc{..} = T.unlines $
 choiceBullet :: ChoiceDoc -> T.Text
 choiceBullet ChoiceDoc{..} = T.unlines
   [ prefix "+ " $ enclosedIn "**" $ "Choice " <> unTypename cd_name
-  , maybe "" (flip T.snoc '\n' . indent 2 . markdownToRst) cd_descr
+  , maybe "" (flip T.snoc '\n' . indent 2 . docTextToRst) cd_descr
   , indent 2 (fieldTable cd_fields)
   ]
 
@@ -91,7 +91,7 @@ cls2rst :: Modulename ->  ClassDoc -> T.Text
 cls2rst md_name ClassDoc{..} = T.unlines $
   renderAnchor (classAnchor md_name cl_name) :
   "**class " <> maybe "" (\x -> type2rst x <> " => ") cl_super <> T.unwords (unTypename cl_name : cl_args) <> " where**" :
-  maybe [] ((:[""]) . indent 2 . markdownToRst) cl_descr ++
+  maybe [] ((:[""]) . indent 2 . docTextToRst) cl_descr ++
   map (indent 2 . fct2rst md_name) cl_functions
 
 adt2rst :: Modulename -> ADTDoc -> T.Text
@@ -100,12 +100,12 @@ adt2rst md_name TypeSynDoc{..} = T.unlines $
     , "type " <> enclosedIn "**"
         (T.unwords (unTypename ad_name : ad_args))
     , "    = " <> type2rst ad_rhs
-    ] ++ maybe [] ((:[]) . T.cons '\n' . indent 2 . markdownToRst) ad_descr
+    ] ++ maybe [] ((:[]) . T.cons '\n' . indent 2 . docTextToRst) ad_descr
 adt2rst md_name ADTDoc{..} = T.unlines $
     [ renderAnchor (dataAnchor md_name ad_name)
     , "data " <> enclosedIn "**"
         (T.unwords (unTypename ad_name : ad_args))
-    , maybe "" (T.cons '\n' . indent 2 . markdownToRst) ad_descr
+    , maybe "" (T.cons '\n' . indent 2 . docTextToRst) ad_descr
     ] ++ map (indent 2 . T.cons '\n' . constr2rst md_name) ad_constrs
 
 
@@ -115,12 +115,12 @@ constr2rst md_name PrefixC{..} = T.unlines $
     , T.unwords (enclosedIn "**" (unTypename ac_name) : map type2rst ac_args)
         -- FIXME: Parentheses around args seems necessary here
         -- if they are type application or function (see type2rst).
-    ] ++ maybe [] ((:[]) . T.cons '\n' . markdownToRst) ac_descr
+    ] ++ maybe [] ((:[]) . T.cons '\n' . docTextToRst) ac_descr
 
 constr2rst md_name RecordC{..} = T.unlines
     [ renderAnchor (constrAnchor md_name ac_name)
     , enclosedIn "**" (unTypename ac_name)
-    , maybe "" (T.cons '\n' . markdownToRst) ac_descr
+    , maybe "" (T.cons '\n' . docTextToRst) ac_descr
     , ""
     , fieldTable ac_fields
     ]
@@ -157,7 +157,7 @@ fieldTable fds = T.unlines $ -- NB final empty line is essential and intended
     fieldRows = concat
        [ [ prefix "* - " $ escapeTr_ (unFieldname fd_name)
          , prefix "  - " $ type2rst fd_type
-         , prefix "  - " $ maybe " " (markdownToRst . Markdown . T.unwords . T.lines . unMarkdown) fd_descr ] -- FIXME: this makes no sense
+         , prefix "  - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ] -- FIXME: this makes no sense
        | FieldDoc{..} <- fds ]
 
 -- | Render a type. Nested type applications are put in parentheses.
@@ -183,7 +183,7 @@ fct2rst md_name  FunctionDoc{..} = T.unlines
         , maybe "" ((<> " => ") . type2rst) fct_context
         , maybe "" ((<> "\n\n") . type2rst) fct_type
             -- FIXME: when would a function not have a type?
-        , maybe "" (indent 2 . markdownToRst) fct_descr
+        , maybe "" (indent 2 . docTextToRst) fct_descr
         ]
     ]
 
@@ -191,8 +191,8 @@ fct2rst md_name  FunctionDoc{..} = T.unlines
 -- helpers
 
 -- TODO (MK) Handle doctest blocks. Currently the parse as nested blockquotes.
-markdownToRst :: Markdown -> T.Text
-markdownToRst = renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts . unMarkdown
+docTextToRst :: DocText -> T.Text
+docTextToRst = renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts . unDocText
   where
     opts = []
     exts = []

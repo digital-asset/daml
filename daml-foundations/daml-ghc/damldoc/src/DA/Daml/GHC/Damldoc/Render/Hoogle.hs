@@ -15,10 +15,10 @@ import           Data.Maybe
 import qualified Data.Text as T
 
 -- | Convert a markdown comment into hoogle text.
-hooglify :: Maybe Markdown -> [T.Text]
+hooglify :: Maybe DocText -> [T.Text]
 hooglify Nothing = []
 hooglify (Just md) =
-    case T.lines (unMarkdown md) of
+    case T.lines (unDocText md) of
         [] -> []
         (x:xs) -> ("-- | " <>  x)
             : map ("--   " <>) xs

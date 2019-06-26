@@ -55,7 +55,7 @@ mkDocs opts fp = do
           adtDocs = MS.elems (typeMap `MS.withoutKeys` tmpls `MS.withoutKeys` allChoices)
       in ModuleDoc
            { md_name = Modulename . T.pack . moduleNameString . moduleName . ms_mod . pm_mod_summary $ m
-           , md_descr = fmap (Markdown . docToText) (modDoc m)
+           , md_descr = fmap (DocText . docToText) (modDoc m)
            , md_adts = adtDocs
            , md_templates = tmplDocs
            , md_functions = fctDocs
@@ -142,11 +142,11 @@ pairDeclDocs ParsedModule{..} = collectDocs (hsmodDecls . unLoc $ pm_parsed_sour
 
 ------------------------------------------------------------
 
-toMarkdown :: [T.Text] -> Maybe Markdown
-toMarkdown docs =
+toDocText :: [T.Text] -> Maybe DocText
+toDocText docs =
     if null docs
         then Nothing
-        else Just . Markdown . T.strip . T.unlines $ docs
+        else Just . DocText . T.strip . T.unlines $ docs
 
 -- | Extracts the documentation of a function. Comments are either
 --   adjacent to a type signature, or to the actual function definition. If
@@ -170,14 +170,14 @@ getFctDocs (decl, docs) = do
     { fct_name = Fieldname (idpToText name)
     , fct_context = hsTypeToContext =<< mbType
     , fct_type = fmap hsTypeToType mbType
-    , fct_descr = toMarkdown docs
+    , fct_descr = toDocText docs
     }
 
 getClsDocs :: (HsDecl GhcPs, [T.Text]) ->
                Maybe ClassDoc
 getClsDocs (TyClD _ c@ClassDecl{..}, docs) = Just ClassDoc
       {cl_name = Typename . idpToText $ unLoc tcdLName
-      ,cl_descr = toMarkdown docs
+      ,cl_descr = toDocText docs
       ,cl_super = case unLoc tcdCtxt of
         [] -> Nothing
         xs -> Just $ TypeTuple $ map hsTypeToType xs
@@ -207,7 +207,7 @@ getTypeDocs (TyClD _ decl, descrs)
       let name = idpToText $ unLoc tcdLName
       in Just . (unLoc tcdLName,) $ TypeSynDoc
          { ad_name = Typename name
-         , ad_descr = toMarkdown descrs
+         , ad_descr = toDocText descrs
          , ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
          , ad_rhs  = hsTypeToType tcdRhs
          }
@@ -217,7 +217,7 @@ getTypeDocs (TyClD _ decl, descrs)
       in Just . (unLoc tcdLName,) $ ADTDoc
          { ad_name =  Typename name
          , ad_args   = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-         , ad_descr  = toMarkdown descrs
+         , ad_descr  = toDocText descrs
          , ad_constrs = map constrDoc . dd_cons $ tcdDataDefn
          }
   where
@@ -226,17 +226,17 @@ getTypeDocs (TyClD _ decl, descrs)
           case con_args con of
             PrefixCon args ->
               PrefixC { ac_name = Typename . idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (Markdown . docToText . unLoc) $ con_doc con
+                      , ac_descr = fmap (DocText . docToText . unLoc) $ con_doc con
                       , ac_args = map hsTypeToType args
                       }
             InfixCon l r ->
               PrefixC { ac_name = Typename . idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (Markdown . docToText . unLoc) $ con_doc con
+                      , ac_descr = fmap (DocText . docToText . unLoc) $ con_doc con
                       , ac_args = map hsTypeToType [l, r]
                       }
             RecCon (L _ fs) ->
               RecordC { ac_name  = Typename. idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (Markdown . docToText . unLoc) $ con_doc con
+                      , ac_descr = fmap (DocText . docToText . unLoc) $ con_doc con
                       , ac_fields = mapMaybe (fieldDoc . unLoc) fs
                       }
 
@@ -245,7 +245,7 @@ getTypeDocs (TyClD _ decl, descrs)
       Just $ FieldDoc
       { fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names -- FIXME why more than one?
       , fd_type = hsTypeToType cd_fld_type
-      , fd_descr = fmap (Markdown . docToText . unLoc) cd_fld_doc
+      , fd_descr = fmap (DocText . docToText . unLoc) cd_fld_doc
       }
     fieldDoc XConDeclField{}  = Nothing
 getTypeDocs _other = Nothing
