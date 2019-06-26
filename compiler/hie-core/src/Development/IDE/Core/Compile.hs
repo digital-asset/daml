@@ -311,12 +311,20 @@ getModSummaryFromBuffer fp contents dflags parsed = do
     }
 
 -- | Run CPP on a file
-runCpp :: DynFlags -> FilePath -> SB.StringBuffer -> IO SB.StringBuffer
+runCpp :: DynFlags -> FilePath -> Maybe SB.StringBuffer -> IO SB.StringBuffer
 runCpp dflags filename contents = withTempDir $ \dir -> do
-    let inp = dir </> takeFileName filename
     let out = dir </> takeFileName filename <.> "out"
-    let f x = if SB.atEnd x then Nothing else Just $ SB.nextChar x
-    liftIO $ writeFileUTF8 inp (unfoldr f contents)
+    inp <- case contents of
+        Nothing ->
+            -- Happy case, file is not modified, so run CPP on it in-place
+            -- which also makes things like relative #include files work
+            -- and means location information is correct
+            return filename
+        Just contents -> do
+            let inp = dir </> takeFileName filename
+            let f x = if SB.atEnd x then Nothing else Just $ SB.nextChar x
+            liftIO $ writeFileUTF8 inp (unfoldr f contents)
+            return inp
     doCpp dflags True inp out
     liftIO $ SB.hGetStringBuffer out
 
@@ -338,7 +346,7 @@ parseFileContents preprocessor filename mbContents = do
       if not $ xopt LangExt.Cpp dflags then
           return (contents, dflags)
       else do
-          contents <- liftIO $ runCpp dflags filename contents
+          contents <- liftIO $ runCpp dflags filename mbContents
           dflags <- ExceptT $ parsePragmasIntoDynFlags filename contents
           return (contents, dflags)
 
