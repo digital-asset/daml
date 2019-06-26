@@ -1,6 +1,6 @@
 package com.digitalasset.http.json
 
-import akka.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller, ToResponseMarshaller}
+import akka.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
 import akka.http.scaladsl.model.MediaTypes.`application/json`
 import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
 import spray.json._
