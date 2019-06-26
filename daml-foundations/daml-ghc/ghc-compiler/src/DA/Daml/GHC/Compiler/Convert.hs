@@ -300,7 +300,7 @@ isTypeableInfo _ = False
 
 convertTemplate :: Env -> GHC.Expr Var -> ConvertM [Definition]
 convertTemplate env (Var (QIsTpl "C:Template") `App` Type (TypeCon ty [])
-        `App` ensure `App` signatories `App` observer `App` agreement `App` _create `App` _fetch `App` _archive `App` _archiveWithActors)
+        `App` ensure `App` signatories `App` observer `App` agreement `App` _create `App` _fetch `App` _archive)
     = do
     tplSignatories <- applyTplParam <$> convertExpr env signatories
     tplChoices <- fmap (\cs -> NM.fromList (archiveChoice tplSignatories : cs)) (choices tplSignatories)
@@ -401,14 +401,9 @@ convertGenericTemplate env x
                         EUpdate $ UPure resType $ EVar res
                 controllers <- convertExpr env (Var controllers)
                 action <- convertExpr env (Var action)
-                let exercise
-                      | envLfVersion env `supports` featureExerciseActorsOptional =
+                let exercise =
                         mkETmLams [(self, TContractId polyType), (arg, argType)] $
                           EUpdate $ UExercise monoTyCon chcName (wrapCid $ EVar self) Nothing (EVar arg)
-                      | otherwise =
-                        mkETmLams [(self, TContractId polyType), (arg, argType)] $
-                          EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon $ wrapCid $ EVar self) $
-                          EUpdate $ UExercise monoTyCon chcName (wrapCid $ EVar self) (Just chcControllers) (EVar arg)
                 pure (TemplateChoice{..}, [consumption, controllers, action, exercise])
             convertGenericChoice es = unhandled "generic choice" es
         (tplChoices, choices) <- first NM.fromList . unzip <$> mapM convertGenericChoice (chunksOf 4 choices)
@@ -468,7 +463,7 @@ convertChoice env signatories
            _templateDict `App`
              consuming `App`
                Var controller `App`
-                 choice `App` _exercise `App` _exerciseWithActors) = do
+                 choice `App` _exercise) = do
     consumption <- f (10 :: Int) consuming
     let chcConsuming = consumption == PreConsuming -- Runtime should auto-archive?
     argType <- convertType env $ TypeCon chc []
@@ -653,19 +648,13 @@ internalFunctions version = MS.fromList $ map (first mkModuleName)
         , "setFieldPrim"
         ])
     , ("DA.Internal.Template", -- template funcs defined with magic
-        [ "$dminternalExerciseWithActors"
-        , "$dminternalFetch"
+        [ "$dminternalFetch"
         , "$dminternalCreate"
-        , "$dminternalArchiveWithActors"
         , "$dminternalFetchByKey"
         , "$dminternalLookupByKey"
-        ] ++
-        if version `supports` featureExerciseActorsOptional
-          then
-            [ "$dminternalExercise"
-            , "$dminternalArchive"
-            ]
-          else []
+        , "$dminternalExercise"
+        , "$dminternalArchive"
+        ]
       )
     , ("DA.Internal.LF", "unpackPair" : map ("$W" ++) internalTypes)
     , ("GHC.Base",
@@ -708,34 +697,18 @@ convertExpr env0 e = do
         tmpl' <- convertQualified env tmpl
         withTmArg env (varV1, TContractId t') args $ \x args ->
             pure (EUpdate $ UFetch tmpl' x, args)
-    go env (VarIs "$dminternalExercise") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args)
-      | envLfVersion env `supports` featureExerciseActorsOptional = do
+    go env (VarIs "$dminternalExercise") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args) = do
         t' <- convertType env t
         c' <- convertType env c
         tmpl' <- convertQualified env tmpl
         withTmArg env (varV2, TContractId t') args $ \x2 args ->
             withTmArg env (varV3, c') args $ \x3 args ->
                 pure (EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) x2 Nothing x3, args)
-    go env (VarIs "$dminternalExerciseWithActors") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args) = do
-        t' <- convertType env t
-        c' <- convertType env c
-        tmpl' <- convertQualified env tmpl
-        withTmArg env (varV1, TList TParty) args $ \x1 args ->
-            withTmArg env (varV2, TContractId t') args $ \x2 args ->
-            withTmArg env (varV3, c') args $ \x3 args ->
-                pure (EUpdate $ UExercise tmpl' (mkChoiceName $ is chc) x2 (Just x1) x3, args)
-    go env (VarIs "$dminternalArchive") (LType t@(TypeCon tmpl []) : _dict : args)
-      | envLfVersion env `supports` featureExerciseActorsOptional = do
+    go env (VarIs "$dminternalArchive") (LType t@(TypeCon tmpl []) : _dict : args) = do
         t' <- convertType env t
         tmpl' <- convertQualified env tmpl
         withTmArg env (varV2, TContractId t') args $ \x2 args ->
             pure (EUpdate $ UExercise tmpl' (mkChoiceName "Archive") x2 Nothing EUnit, args)
-    go env (VarIs "$dminternalArchiveWithActors") (LType t@(TypeCon tmpl []) : _dict : args) = do
-        t' <- convertType env t
-        tmpl' <- convertQualified env tmpl
-        withTmArg env (varV1, TList TParty) args $ \x1 args ->
-            withTmArg env (varV2, TContractId t') args $ \x2 args ->
-                pure (EUpdate $ UExercise tmpl' (mkChoiceName "Archive") x2 (Just x1) EUnit, args)
     go env (VarIs f) (LType t@(TypeCon tmpl []) : LType key : _dict : args)
         | f == "$dminternalFetchByKey" = conv UFetchByKey
         | f == "$dminternalLookupByKey" = conv ULookupByKey

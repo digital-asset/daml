@@ -19,3 +19,4 @@ HEAD — ongoing
   See `#1269 <https://github.com/digital-asset/daml/issues/1269>`__.
 - [Ledger API] Expose signatories and observers for a contract in ``CreatedEvent``.
   See `#1269 <https://github.com/digital-asset/daml/issues/1269>`__.
+- [DAML Compiler] **BREAKING CHANGE**: Drop support for DAML-LF 1.4. Compiling to DAML-LF 1.5 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all. (The ledger server still supports DAML-LF 1.4.)

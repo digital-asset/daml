@@ -129,12 +129,10 @@ convertPrim _ "BEPartyToQuotedText" (TParty :-> TText) =
     EBuiltin BEPartyToQuotedText
 convertPrim _ "BEPartyFromText" (TText :-> TOptional TParty) =
     EBuiltin BEPartyFromText
-convertPrim version "BEInt64FromText" (TText :-> TOptional TInt64)
-    | version `supports` featureNumberFromText = EBuiltin BEInt64FromText
-    | otherwise = EVal $ Qualified PRSelf (mkModName ["DA", "Text"]) (mkVal "legacyParseInt")
-convertPrim version "BEDecimalFromText" (TText :-> TOptional TDecimal)
-    | version `supports` featureNumberFromText = EBuiltin BEDecimalFromText
-    | otherwise = EVal $ Qualified PRSelf (mkModName ["DA", "Text"]) (mkVal "legacyParseDecimal")
+convertPrim _ "BEInt64FromText" (TText :-> TOptional TInt64) =
+    EBuiltin BEInt64FromText
+convertPrim _ "BEDecimalFromText" (TText :-> TOptional TDecimal) =
+    EBuiltin BEDecimalFromText
 convertPrim version "BETextToCodePoints" t@(TText :-> TList TInt64) =
     whenRuntimeSupports version featureTextCodePoints t $ EBuiltin BETextToCodePoints
 convertPrim version "BETextFromCodePoints" t@(TList TInt64 :-> TText) =
@@ -155,8 +153,8 @@ convertPrim _ "BEMapToList" (TMap a1 :-> TList (TMapEntry a2)) | a1 == a2  =
 convertPrim _ "BEMapSize" (TMap a :-> TInt64) =
   EBuiltin BEMapSize `ETyApp` a
 
-convertPrim version "BECoerceContractId" t@(TContractId a :-> TContractId b) =
-    whenRuntimeSupports version featureCoerceContractId t $ EBuiltin BECoerceContractId `ETyApp` a `ETyApp` b
+convertPrim _ "BECoerceContractId" (TContractId a :-> TContractId b) =
+    EBuiltin BECoerceContractId `ETyApp` a `ETyApp` b
 
 convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
 
