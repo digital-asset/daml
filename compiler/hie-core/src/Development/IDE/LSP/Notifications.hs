@@ -10,7 +10,7 @@ module Development.IDE.LSP.Notifications
     ) where
 
 import           Development.IDE.LSP.Protocol
-import           Development.IDE.LSP.Server hiding (runServer)
+import           Development.IDE.LSP.Server
 import qualified Language.Haskell.LSP.Core as LSP
 import qualified Language.Haskell.LSP.Types as LSP
 
