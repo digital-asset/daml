@@ -23,7 +23,7 @@ import           GHC.IO.Handle                    (hDuplicate, hDuplicateTo)
 import System.IO
 import System.Exit
 import Development.IDE.Types.Logger
-import Control.Monad
+import Control.Monad.Extra
 
 import Development.IDE.LSP.Definition
 import Development.IDE.LSP.Hover
@@ -64,7 +64,7 @@ runLanguageServer options userHandlers getIdeState = do
     clientMsgBarrier <- newBarrier
 
     let withResponse wrap f = Just $ \r -> writeChan clientMsgChan $ Response r wrap f
-    let withNotification f = Just $ \r -> writeChan clientMsgChan $ Notification r f
+    let withNotification old f = Just $ \r -> writeChan clientMsgChan $ Notification r (\ide x -> f ide x >> whenJust old ($ r))
     let PartialHandlers parts =
             setHandlersIgnore <> -- least important
             setHandlersDefinition <> setHandlersHover <> setHandlersExit <> -- useful features someone may override
@@ -110,7 +110,7 @@ setHandlersIgnore = PartialHandlers $ \_ x -> return x
 
 setHandlersExit :: PartialHandlers
 setHandlersExit = PartialHandlers $ \WithMessage{..} x -> return x
-    {LSP.exitNotificationHandler = withNotification $ \ide _ -> do
+    {LSP.exitNotificationHandler = withNotification Nothing $ \ide _ -> do
         logInfo (ideLogger ide) "Exit request received, shutting down"
         exitSuccess
     }
