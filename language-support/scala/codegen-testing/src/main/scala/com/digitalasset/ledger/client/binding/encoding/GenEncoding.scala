@@ -14,10 +14,11 @@ import scalaz.{OneAnd, Plus}
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.vector._
+import scalaz.syntax.foldable._
 import scalaz.syntax.plus._
 
 abstract class GenEncoding extends LfTypeEncoding {
-  import GenEncoding.{primitiveImpl, VariantCasesImpl}
+  import GenEncoding.{VariantCasesImpl, primitiveImpl}
 
   type Out[A] = Gen[A]
 
@@ -35,6 +36,13 @@ abstract class GenEncoding extends LfTypeEncoding {
   override def field[A](fieldName: String, o: Out[A]): Field[A] = o
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
+
+  override def enumAll[A](
+      enumId: rpcvalue.Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] =
+    Gen.oneOf(cases.toVector.map(_._2))
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] =
     cases.tail match {
@@ -54,6 +62,7 @@ abstract class GenEncoding extends LfTypeEncoding {
 }
 
 object GenEncoding extends GenEncoding {
+
   class VariantCasesImpl extends Plus[VariantCases] {
     def plus[A](a: VariantCases[A], b: => VariantCases[A]): VariantCases[A] =
       a <+> b

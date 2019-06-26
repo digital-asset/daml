@@ -46,18 +46,22 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
+  override def enumAll[A](
+      enumId: Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] =
+    show { a: A =>
+      cases.index(index(a)).fold(Cord.empty)(_._1)
+    }
+
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
-      select: A PartialFunction B): VariantCases[A] = new Show[A] {
-
-    override def show(a: A): Cord = {
-      select.lift(a).map(b => o.show(b)) match {
-        case Some(b) => Cord(caseName, "(", b, ")")
-        case None => Cord.empty
-      }
+      select: A PartialFunction B): VariantCases[A] =
+    show { a: A =>
+      select.lift(a).fold(Cord.empty)(b => Cord(caseName, "(", o.show(b), ")"))
     }
-  }
 
   override val RecordFields: InvariantApply[RecordFields] = new RecordFieldsImpl
 

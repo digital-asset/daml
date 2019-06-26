@@ -28,7 +28,8 @@ object DamlContractTemplateGen {
       util: LFUtil,
       templateId: Identifier,
       templateInterface: DefTemplateWithRecord.FWT,
-      companionMembers: Iterable[Tree]): (File, Iterable[Tree]) = {
+      companionMembers: Iterable[Tree]
+  ): (File, Set[Tree], Iterable[Tree]) = {
 
     val templateName = util.mkDamlScalaName(Util.Template, templateId)
     val contractName = util.mkDamlScalaName(Util.Contract, templateId)
@@ -85,7 +86,7 @@ object DamlContractTemplateGen {
       q"protected[this] override def templateCompanion(implicit ` d`: _root_.scala.Predef.DummyImplicit) = ${TermName(templateName.name)}"
     )
 
-    DamlRecordOrVariantTypeGen.generate(
+    DamlDataTypeGen.generate(
       util,
       ScopedDataType(templateId, ImmArraySeq.empty, templateInterface.`type`),
       isTemplate = true,

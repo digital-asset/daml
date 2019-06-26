@@ -9,11 +9,12 @@ import java.lang.Math.max
 import java.time.{Instant, LocalDate}
 import java.util.concurrent.TimeUnit
 
+import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.api.v1.{value => rpcvalue}
 import com.digitalasset.ledger.client.binding.{Primitive => P}
 import org.scalacheck.Shrink
 import org.scalacheck.Shrink.{shrinkContainer, shrinkContainer2, shrinkFractional, shrinkIntegral}
-import scalaz.Plus
+import scalaz.{OneAnd, Plus}
 
 import scala.math.Numeric.LongIsIntegral
 
@@ -42,6 +43,15 @@ abstract class ShrinkEncoding extends LfTypeEncoding {
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
   override def variant[A](variantId: rpcvalue.Identifier, cases: VariantCases[A]): Out[A] = cases
+
+  override def enumAll[A](
+      enumId: Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] =
+    Shrink { a: A =>
+      if (index(a) == 0) Stream.empty else Stream(cases.head._2)
+    }
 
   override def variantCase[B, A](caseName: String, o: Out[B])(inject: B => A)(
       select: A PartialFunction B): VariantCases[A] = Shrink[A] { a: A =>

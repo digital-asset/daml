@@ -136,7 +136,7 @@ object Util {
 
   final case class WriteParams[+TmplI](
       supportedTemplateIds: Map[Ref.Identifier, TmplI],
-      recordsAndVariants: Iterable[lf.ScopedDataType.FWT])
+      definitions: List[lf.ScopedDataType.FWT])
 
   val reservedNames: Set[String] =
     Set("id", "template", "namedArguments", "archive")

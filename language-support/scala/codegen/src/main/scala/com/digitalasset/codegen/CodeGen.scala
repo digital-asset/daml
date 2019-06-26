@@ -11,16 +11,13 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface.{Type => _, _}
 import com.digitalasset.daml.lf.iface.reader.{Errors, InterfaceReader}
-
 import com.digitalasset.codegen.dependencygraph._
 import com.digitalasset.codegen.exception.PackageInterfaceException
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import lf.{DefTemplateWithRecord, LFUtil, ScopedDataType}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.iface.reader.Errors.ErrorLoc
 import com.digitalasset.daml_lf.DamlLf
 import com.typesafe.scalalogging.Logger
-
 import scalaz.{Enum => _, _}
 import scalaz.std.tuple._
 import scalaz.std.list._
@@ -174,14 +171,14 @@ object CodeGen {
       util.orderedDependencies(interface)
     val (supportedTemplateIds, typeDeclsToGenerate): (
         Map[Identifier, util.TemplateInterface],
-        Vector[ScopedDataType.FWT]) = {
+        List[ScopedDataType.FWT]) = {
 
       /* Here we collect templates and the
        * [[TypeDecl]]s without generating code for them.
        */
       val templateIdOrTypeDecls
-        : Vector[(Identifier, util.TemplateInterface) Either ScopedDataType.FWT] =
-        orderedDependencies.deps.flatMap {
+        : List[(Identifier, util.TemplateInterface) Either ScopedDataType.FWT] =
+        orderedDependencies.deps.toList.flatMap {
           case (templateId, Node(TypeDeclWrapper(typeDecl), _, _)) =>
             Seq(Right(ScopedDataType fromDefDataType (templateId, typeDecl)))
           case (templateId, Node(TemplateWrapper(templateInterface), _, _)) =>
@@ -210,18 +207,17 @@ object CodeGen {
 
     // New prep steps for LF codegen
     // 1. collect records, search variants and splat/filter
-    val (unassociatedRecords, splattedVariants) = splatVariants(recordsAndVariants)
+    val (unassociatedRecords, splattedVariants, enums) = splatVariants(definitions)
 
     // 2. put templates/types into single Namespace.fromHierarchy
     val treeified: Namespace[String, Option[lf.HierarchicalOutput.TemplateOrDatatype]] =
       Namespace.fromHierarchy {
         def widenDDT[R, V](iddt: Iterable[ScopedDataType.DT[R, V]]) = iddt
         val ntdRights =
-          (widenDDT(unassociatedRecords.map {
-            case ((q, tp), rec) => ScopedDataType(q, ImmArraySeq(tp: _*), rec)
-          }) ++ splattedVariants)
+          (widenDDT(unassociatedRecords ++ enums) ++ splattedVariants)
             .map(sdt => (sdt.name, \/-(sdt)))
         val tmplLefts = supportedTemplateIds.transform((_, v) => -\/(v))
+
         (ntdRights ++ tmplLefts) map {
           case (ddtIdent @ Identifier(_, qualName), body) =>
             (qualName.module.segments.toList ++ qualName.name.segments.toList, (ddtIdent, body))
@@ -244,20 +240,28 @@ object CodeGen {
     filePlans ++ specialPlans
   }
 
-  type LHSIndexedRecords[+RT] = Map[(Identifier, List[Ref.Name]), Record[RT]]
+  private[this] def splitNTDs[RT, VT](definitions: List[ScopedDataType.DT[RT, VT]]): (
+      List[ScopedDataType[Record[RT]]],
+      List[ScopedDataType[Variant[VT]]],
+      List[ScopedDataType[Enum]]
+  ) = {
 
-  private[this] def splitNTDs[RT, VT](recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]])
-    : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[VT]]]) =
-    partitionEithers(recordsAndVariants map {
+    val (recordAndVariants, enums) = partitionEithers(definitions map {
       case sdt @ ScopedDataType(qualName, typeVars, ddt) =>
         ddt match {
-          case r: Record[RT] => Left(((qualName, typeVars.toList), r))
-          case v: Variant[VT] => Right(sdt copy (dataType = v))
+          case r: Record[RT] =>
+            Left(Left(sdt copy (dataType = r)))
+          case v: Variant[VT] =>
+            Left(Right(sdt copy (dataType = v)))
           case e: Enum =>
-            // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-            throw new NotImplementedError("Enum types not supported")
+            Right(sdt copy (dataType = e))
         }
-    })(breakOut, breakOut)
+    })
+
+    val (records, variants) = partitionEithers(recordAndVariants)
+
+    (records, variants, enums)
+  }
 
   /** Replace every VT that refers to some apparently-nominalized record
     * type in the argument list with the fields of that record, and drop
@@ -268,16 +272,24 @@ object CodeGen {
     * unchanged.
     */
   private[this] def splatVariants[RT <: iface.Type, VT <: iface.Type](
-      recordsAndVariants: Iterable[ScopedDataType.DT[RT, VT]])
-    : (LHSIndexedRecords[RT], List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]]) = {
+      definitions: List[ScopedDataType.DT[RT, VT]]): (
+      List[ScopedDataType[Record[RT]]],
+      List[ScopedDataType[Variant[List[(Ref.Name, RT)] \/ VT]]],
+      List[ScopedDataType[Enum]]
+  ) = {
 
-    val (recordMap, variants) = splitNTDs(recordsAndVariants)
+    val (records, variants, enums) = splitNTDs(definitions)
+
+    val recordMap: Map[(ScopedDataType.Name, List[Ref.Name]), ScopedDataType[Record[RT]]] =
+      records.map {
+        case ddt @ ScopedDataType(name, vars, _) => (name -> vars.toList) -> ddt
+      }(breakOut)
 
     val noDeletion = Set.empty[(Identifier, List[Ref.Name])]
     // both traverseU can change to traverse with -Ypartial-unification
     // or Scala 2.13
     val (deletedRecords, newVariants) =
-      variants.traverseU {
+      variants.toList.traverseU {
         case ScopedDataType(ident @ Identifier(packageId, qualName), vTypeVars, Variant(fields)) =>
           val typeVarDelegate = Util simplyDelegates vTypeVars
           val (deleted, sdt) = fields.traverseU {
@@ -290,12 +302,14 @@ object CodeGen {
               typeVarDelegate(vt)
                 .filter((_: Identifier) == syntheticRecord)
                 .flatMap(_ => recordMap get key)
-                .cata(nr => (Set(key), (vn, -\/(nr.fields.toList))), (noDeletion, (vn, \/-(vt))))
+                .cata(
+                  nr => (Set(key), (vn, -\/(nr.dataType.fields.toList))),
+                  (noDeletion, (vn, \/-(vt))))
           }
           (deleted, ScopedDataType(ident, vTypeVars, Variant(sdt)))
       }
 
-    (recordMap -- deletedRecords, newVariants)
+    ((recordMap -- deletedRecords).values.toList, newVariants, enums.toList)
   }
 
   private[this] def writeTemplatesAndTypes(util: Util)(

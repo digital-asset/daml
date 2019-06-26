@@ -44,7 +44,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
 
   def toNamedArguments(associatedType: T): rpcvalue.Record
 
-  override protected lazy val ` recordOrVariantId` = TemplateId.unwrap(id)
+  override protected lazy val ` dataTypeId` = TemplateId.unwrap(id)
 
   def fromNamedArguments(namedArguments: rpcvalue.Record): Option[T]
 
@@ -81,7 +81,7 @@ abstract class TemplateCompanion[T](implicit isTemplate: T <~< Template[T])
     Primitive.exercise(this, receiver, choiceId, arguments getOrElse Value.encode(()))
 
   protected final def ` arguments`(elems: (String, rpcvalue.Value)*): rpcvalue.Record =
-    Primitive.arguments(` recordOrVariantId`, elems)
+    Primitive.arguments(` dataTypeId`, elems)
 }
 
 object TemplateCompanion {
@@ -93,6 +93,6 @@ object TemplateCompanion {
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def fieldEncoding(lte: LfTypeEncoding): view[lte.Field] = RecordView.Empty
     override def encoding(lte: LfTypeEncoding)(view: view[lte.Field]): lte.Out[T] =
-      lte.emptyRecord(` recordOrVariantId`, () => onlyInstance)
+      lte.emptyRecord(` dataTypeId`, () => onlyInstance)
   }
 }

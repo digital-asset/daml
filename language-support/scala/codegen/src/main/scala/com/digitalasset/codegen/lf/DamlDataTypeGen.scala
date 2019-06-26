@@ -23,9 +23,9 @@ import scala.reflect.runtime.{universe => runUni}
   *
   *  See the comments below for more details on what classes/methods/types are generated.
   */
-object DamlRecordOrVariantTypeGen {
+object DamlDataTypeGen {
 
-  import LFUtil.{domainApiAlias, generateIds, rpcValueAlias}
+  import LFUtil.{domainApiAlias, generateIds, rpcValueAlias, stdVectorType}
 
   import runUni._
 
@@ -33,12 +33,12 @@ object DamlRecordOrVariantTypeGen {
 
   type FieldWithType = (Ref.Name, iface.Type)
   type VariantField = List[FieldWithType] \/ iface.Type
-  type RecordOrVariant = ScopedDataType.DT[iface.Type, VariantField]
+  type DataType = ScopedDataType.DT[iface.Type, VariantField]
 
   def generate(
       util: LFUtil,
-      recordOrVariant: RecordOrVariant,
-      companionMembers: Iterable[Tree]): (File, Iterable[Tree]) =
+      recordOrVariant: DataType,
+      companionMembers: Iterable[Tree]): (File, Set[Tree], Iterable[Tree]) =
     generate(
       util,
       recordOrVariant,
@@ -53,10 +53,10 @@ object DamlRecordOrVariantTypeGen {
     */
   private[lf] def generate(
       util: LFUtil,
-      typeDecl: RecordOrVariant,
+      typeDecl: DataType,
       isTemplate: Boolean,
       rootClassChildren: Seq[Tree],
-      companionChildren: Iterable[Tree]): (File, Iterable[Tree]) = {
+      companionChildren: Iterable[Tree]): (File, Set[Tree], Iterable[Tree]) = {
 
     logger.debug(s"generate typeDecl: $typeDecl")
 
@@ -82,7 +82,8 @@ object DamlRecordOrVariantTypeGen {
       if (isTemplate)
         (
           tq"$domainApiAlias.Template[${TypeName(damlScalaName.name)}]",
-          tq"$domainApiAlias.TemplateCompanion[${TypeName(damlScalaName.name)}]")
+          tq"$domainApiAlias.TemplateCompanion[${TypeName(damlScalaName.name)}]"
+        )
       else
         (tq"$domainApiAlias.ValueRef", tq"$domainApiAlias.ValueRefCompanion")
 
@@ -90,8 +91,8 @@ object DamlRecordOrVariantTypeGen {
     val idField =
       if (isTemplate) None
       else Some(q"""
-      override protected val ` recordOrVariantId` =
-        ` mkRecordOrVariantId`($packageIdRef, ${moduleName.dottedName}, ${baseName.dottedName})
+      override protected val ` dataTypeId` =
+        ` mkDataTypeId`($packageIdRef, ${moduleName.dottedName}, ${baseName.dottedName})
     """)
 
     /**
@@ -135,10 +136,55 @@ object DamlRecordOrVariantTypeGen {
     }
 
     /**
+      *  The generated class for a DAML enum type contains:
+      *  - the definition of a "Value" trait
+      *  - the definition of a _case object_ for each constructor of the DAML enum
+      *  - A type class instance (i.e. implicit object) for serializing/deserializing
+      *    to/from the ArgumentValue type (see typed-ledger-api project)
+      */
+    def toScalaDamlEnumType(constructors: List[Ref.Name]): (Set[Tree], (Tree, Tree)) = {
+      val className = damlScalaName.name.capitalize
+
+      val klass =
+        q"""
+          sealed abstract class ${TypeName(className)}(
+            override val constructor: String,
+            override val index: Int
+          ) extends ${tq"$domainApiAlias.EnumRef"} {
+            ..$rootClassChildren
+          }"""
+
+      val (imports, companionObject) = (constructors: List[Ref.Name]) match {
+        case firstValue :: otherValues =>
+          Set(LFUtil.domainApiImport) ->
+            q"""
+            object ${TermName(className)} extends
+              ${tq"$domainApiAlias.EnumCompanion[$appliedValueType]"} {
+              ..${constructors.zipWithIndex.map {
+              case (c, i) =>
+                q"""case object ${TermName(c.capitalize)} extends $appliedValueType($c, $i) """
+            }}
+            
+              val firstValue: $appliedValueType = ${TermName(firstValue.capitalize)}
+              val otherValues:  $stdVectorType[$appliedValueType] =
+                ${otherValues.map(c => q"${TermName(c.capitalize)}").toVector}
+
+              ..${idField.toList}
+              ..$companionChildren  
+            }"""
+        case _ =>
+          throw new IllegalAccessException("empty Enum not allowed")
+      }
+
+      (imports, (klass, companionObject))
+
+    }
+
+    /**
       *  The generated class for a DAML variant type contains:
       *  - the definition of a "Value" trait
       *  - the definition of a _case class_ for each variant constructor of the DAML variant
-      *  - "smart constructors" that create values for each cosntructor automatically up-casting
+      *  - "smart constructors" that create values for each constructor automatically up-casting
       *     to the Value (trait) type
       *  - A type class instance (i.e. implicit object) for serializing/deserializing
       *    to/from the ArgumentValue type (see typed-ledger-api project)
@@ -410,7 +456,7 @@ object DamlRecordOrVariantTypeGen {
         viewsByName,
         recordFieldsByName,
         recordFieldDefsByName)}
-              lte.variantAll(` recordOrVariantId`,
+              lte.variantAll(` dataTypeId`,
                 ..${generateVariantCaseDefList(util)(
         appliedValueType,
         typeArgs,
@@ -437,7 +483,7 @@ object DamlRecordOrVariantTypeGen {
 
       def generateEncodingBody: Tree =
         if (fields.isEmpty) {
-          q"lte.emptyRecord(` recordOrVariantId`, () => $appliedValueType())"
+          q"lte.emptyRecord(` dataTypeId`, () => $appliedValueType())"
         } else {
           q"""
             ${generateRecordFieldsDef(
@@ -446,7 +492,7 @@ object DamlRecordOrVariantTypeGen {
             appliedValueType,
             damlScalaName.qualifiedTermName,
             fieldDefs)}
-            lte.record(` recordOrVariantId`, $recordFields)
+            lte.record(` dataTypeId`, $recordFields)
           """
         }
 
@@ -481,16 +527,14 @@ object DamlRecordOrVariantTypeGen {
         """)
     }
 
-    val (klass, companion) = typeDecl.dataType match {
-      case iface.Record(fields) => toScalaDamlRecordType(fields)
-      case iface.Variant(fields) => toScalaDamlVariantType(fields.toList)
-      case iface.Enum(values @ _) =>
-        // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-        throw new NotImplementedError("Enum types not supported")
+    val (imports, (klass, companion)) = typeDecl.dataType match {
+      case iface.Record(fields) => defaultImports -> toScalaDamlRecordType(fields)
+      case iface.Variant(fields) => defaultImports -> toScalaDamlVariantType(fields.toList)
+      case iface.Enum(values) => toScalaDamlEnumType(values.toList)
     }
 
     val filePath = damlScalaName.toFileName
-    (filePath, Seq(klass, companion))
+    (filePath, imports, Seq(klass, companion))
   }
 
   private def generateViewDef(
@@ -608,7 +652,7 @@ object DamlRecordOrVariantTypeGen {
     val variantType: Tree = q"${TermName(caseName)}[..$typeArgs]"
     q"""
       lte.variantRecordCase[$variantType, $appliedValueType]($caseName,
-        ` recordOrVariantId`, $recordFieldsName) {
+        ` dataTypeId`, $recordFieldsName) {
         case x @ ${TermName(caseName)}(..$placeHolders) =>  x
       }
     """
@@ -631,4 +675,6 @@ object DamlRecordOrVariantTypeGen {
 
   private[this] val optionType: Tree = tq"_root_.scala.Option"
   private[this] val emptyTuple: Tree = q"()"
+
+  private[this] val defaultImports = Set(LFUtil.domainApiImport, LFUtil.rpcValueImport)
 }
