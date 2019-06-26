@@ -329,8 +329,8 @@ parseFileContents
        -> FilePath  -- ^ the filename (for source locations)
        -> Maybe SB.StringBuffer -- ^ Haskell module source text (full Unicode is supported)
        -> ExceptT [FileDiagnostic] m ([FileDiagnostic], ParsedModule)
-parseFileContents preprocessor filename contents = do
-   contents <- liftIO $ maybe (hGetStringBuffer filename) return contents
+parseFileContents preprocessor filename mbContents = do
+   contents <- liftIO $ maybe (hGetStringBuffer filename) return mbContents
    let loc  = mkRealSrcLoc (mkFastString filename) 1 1
    dflags  <- ExceptT $ parsePragmasIntoDynFlags filename contents
 
