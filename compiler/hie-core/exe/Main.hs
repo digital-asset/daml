@@ -3,6 +3,7 @@
 
 module Main(main) where
 
+import Arguments
 import Data.Maybe
 import Control.Concurrent.Extra
 import Control.Monad
@@ -45,7 +46,7 @@ main = do
     -- WARNING: If you write to stdout before runLanguageServer
     --          then the language server will not work
     hPutStrLn stderr "Starting hie-core Demo"
-    args <- getArgs
+    Arguments{..} <- getArguments
     -- lock to avoid overlapping output on stdout
     lock <- newLock
     let logger = makeOneLogger $ withLock lock . T.putStrLn
@@ -57,13 +58,13 @@ main = do
 
     let options = defaultIdeOptions $ liftIO $ newSession' cradle
 
-    if "--lsp" `elem` args then do
+    if argLSP then do
         hPutStrLn stderr "Starting IDE server"
         runLanguageServer def def $ \event vfs -> do
             hPutStrLn stderr "Server started"
             initialise (mainRule >> action kick) event logger options vfs
     else do
-        let files = map toNormalizedFilePath $ filter (/= "--lsp") args
+        let files = map toNormalizedFilePath argFiles
         vfs <- makeVFSHandle
         ide <- initialise mainRule (showEvent lock) logger options vfs
         setFilesOfInterest ide $ Set.fromList files
