@@ -310,6 +310,17 @@ getModSummaryFromBuffer fp contents dflags parsed = do
     , ms_parsed_mod   = Nothing
     }
 
+-- | Run CPP on a file
+runCpp :: DynFlags -> FilePath -> SB.StringBuffer -> IO SB.StringBuffer
+runCpp dflags filename contents = withTempDir $ \dir -> do
+    let inp = dir </> takeFileName filename
+    let out = dir </> takeFileName filename <.> "out"
+    let f x = if SB.atEnd x then Nothing else Just $ SB.nextChar x
+    liftIO $ writeFileUTF8 inp (unfoldr f contents)
+    doCpp dflags True inp out
+    liftIO $ SB.hGetStringBuffer out
+
+
 -- | Given a buffer, flags, file path and module summary, produce a
 -- parsed module (or errors) and any parse warnings.
 parseFileContents
@@ -326,13 +337,7 @@ parseFileContents preprocessor filename contents = do
       if not $ xopt LangExt.Cpp dflags then
           return (contents, dflags)
       else do
-          contents <- liftIO $ withTempDir $ \dir -> do
-              let inp = dir </> takeFileName filename
-              let out = dir </> takeFileName filename <.> "out"
-              let f x = if SB.atEnd x then Nothing else Just $ SB.nextChar x
-              liftIO $ writeFileUTF8 inp (unfoldr f contents)
-              doCpp dflags True inp out
-              liftIO $ SB.hGetStringBuffer out
+          contents <- liftIO $ runCpp dflags filename contents
           dflags <- ExceptT $ parsePragmasIntoDynFlags filename contents
           return (contents, dflags)
 
