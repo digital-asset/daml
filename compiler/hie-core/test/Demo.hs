@@ -8,6 +8,7 @@ import Control.Concurrent.Extra
 import Control.Monad
 import System.Time.Extra
 import Development.IDE.Core.FileStore
+import Development.IDE.Core.OfInterest
 import Development.IDE.Core.Service
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Shake
@@ -57,7 +58,7 @@ main = do
 
     if "--lsp" `elem` args then do
         hPutStrLn stderr "Starting IDE server"
-        runLanguageServer logger $ \event vfs -> do
+        runLanguageServer $ \event vfs -> do
             hPutStrLn stderr "Server started"
             initialise (mainRule >> action kick) event logger options vfs
     else do

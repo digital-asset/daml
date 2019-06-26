@@ -1,0 +1,21 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- Check that enum types get translated to DAML-LF's enum types.
+-- @SINCE-LF 1.6
+-- @QUERY-LF .modules[] | .data_types[] | select(.name.segments == ["Color"]) | has("enum")
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$ctor$u003aRed"]) | .expr | has("enum_con")
+-- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["isRed"]) | .expr.abs.body.case.alts | .[0] | has("enum")
+daml 1.2
+module EnumLF where
+
+data Color = Red | Green | Blue
+    deriving (Eq, Show)
+
+red : Color
+red = Red
+
+isRed : Color -> Bool
+isRed = \case
+    Red -> True
+    _ -> False

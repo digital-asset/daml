@@ -31,6 +31,7 @@ import Development.IDE.Types.Logger
 import Development.IDE.Core.Service hiding (initialise)
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service as IDE
+import Development.IDE.Core.OfInterest
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 import qualified Language.Haskell.LSP.Messages as LSP

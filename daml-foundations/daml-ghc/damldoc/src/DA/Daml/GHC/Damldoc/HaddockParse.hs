@@ -10,6 +10,7 @@ import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service     as Service
 import qualified Development.IDE.Core.Rules     as Service
+import qualified Development.IDE.Core.OfInterest as Service
 import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location

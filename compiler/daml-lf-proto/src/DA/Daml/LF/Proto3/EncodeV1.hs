@@ -319,6 +319,7 @@ encodeExpr' encctx@EncodeCtx{..} = \case
   ERecProj{..} -> expr $ P.ExprSumRecProj $ P.Expr_RecProj (encodeTypeConApp encctx recTypeCon) (encodeName unFieldName recField) (encodeExpr encctx recExpr)
   ERecUpd{..} -> expr $ P.ExprSumRecUpd $ P.Expr_RecUpd (encodeTypeConApp encctx recTypeCon) (encodeName unFieldName recField) (encodeExpr encctx recExpr) (encodeExpr encctx recUpdate)
   EVariantCon{..} -> expr $ P.ExprSumVariantCon $ P.Expr_VariantCon (encodeTypeConApp encctx varTypeCon) (encodeName unVariantConName varVariant) (encodeExpr encctx varArg)
+  EEnumCon{..} -> expr $ P.ExprSumEnumCon $ P.Expr_EnumCon (encodeQualTypeConName interned enumTypeCon) (encodeName unVariantConName enumDataCon)
   ETupleCon{..} -> expr $ P.ExprSumTupleCon $ P.Expr_TupleCon (encodeFieldsWithExprs encctx unFieldName tupFields)
   ETupleProj{..} -> expr $ P.ExprSumTupleProj $ P.Expr_TupleProj (encodeName unFieldName tupField) (encodeExpr encctx tupExpr)
   ETupleUpd{..} -> expr $ P.ExprSumTupleUpd $ P.Expr_TupleUpd (encodeName unFieldName tupField) (encodeExpr encctx tupExpr) (encodeExpr encctx tupUpdate)
@@ -352,8 +353,8 @@ encodeExpr' encctx@EncodeCtx{..} = \case
   ELocation loc e ->
     let (P.Expr _ esum) = encodeExpr' encctx e
     in P.Expr (Just $ encodeSourceLoc interned loc) esum
-  ENone typ -> expr (P.ExprSumNone (P.Expr_None (encodeType encctx typ)))
-  ESome typ body -> expr (P.ExprSumSome (P.Expr_Some (encodeType encctx typ) (encodeExpr encctx body)))
+  ENone typ -> expr (P.ExprSumOptionalNone (P.Expr_OptionalNone (encodeType encctx typ)))
+  ESome typ body -> expr (P.ExprSumOptionalSome (P.Expr_OptionalSome (encodeType encctx typ) (encodeExpr encctx body)))
   where
     expr = P.Expr Nothing . Just
 
@@ -417,14 +418,15 @@ encodeCaseAlternative encctx@EncodeCtx{..} CaseAlternative{..} =
     let pat = case altPattern of
           CPDefault     -> P.CaseAltSumDefault P.Unit
           CPVariant{..} -> P.CaseAltSumVariant $ P.CaseAlt_Variant (encodeQualTypeConName interned patTypeCon) (encodeName unVariantConName patVariant) (encodeName unExprVarName patBinder)
+          CPEnum{..} -> P.CaseAltSumEnum $ P.CaseAlt_Enum (encodeQualTypeConName interned patTypeCon) (encodeName unVariantConName patDataCon)
           CPUnit -> P.CaseAltSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
           CPBool b -> P.CaseAltSumPrimCon $ P.Enumerated $ Right $ case b of
             False -> P.PrimConCON_FALSE
             True -> P.PrimConCON_TRUE
           CPNil         -> P.CaseAltSumNil P.Unit
           CPCons{..}    -> P.CaseAltSumCons $ P.CaseAlt_Cons (encodeName unExprVarName patHeadBinder) (encodeName unExprVarName patTailBinder)
-          CPNone        -> P.CaseAltSumNone P.Unit
-          CPSome{..}    -> P.CaseAltSumSome $ P.CaseAlt_Some (encodeName unExprVarName patBodyBinder)
+          CPNone        -> P.CaseAltSumOptionalNone P.Unit
+          CPSome{..}    -> P.CaseAltSumOptionalSome $ P.CaseAlt_OptionalSome (encodeName unExprVarName patBodyBinder)
     in P.CaseAlt (Just pat) (encodeExpr encctx altExpr)
 
 encodeDefDataType :: EncodeCtx -> DefDataType -> P.DefDataType
@@ -432,7 +434,8 @@ encodeDefDataType encctx@EncodeCtx{..} DefDataType{..} =
       P.DefDataType (encodeDottedName unTypeConName dataTypeCon) (encodeTypeVarsWithKinds version dataParams)
       (Just $ case dataCons of
         DataRecord fs -> P.DefDataTypeDataConsRecord $ P.DefDataType_Fields (encodeFieldsWithTypes encctx unFieldName fs)
-        DataVariant fs -> P.DefDataTypeDataConsVariant $ P.DefDataType_Fields (encodeFieldsWithTypes encctx unVariantConName fs))
+        DataVariant fs -> P.DefDataTypeDataConsVariant $ P.DefDataType_Fields (encodeFieldsWithTypes encctx unVariantConName fs)
+        DataEnum cs -> P.DefDataTypeDataConsEnum $ P.DefDataType_EnumConstructors $ V.fromList $ map (encodeName unVariantConName) cs)
       (getIsSerializable dataSerializable)
       (encodeSourceLoc interned <$> dataLocation)
 

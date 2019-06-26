@@ -36,6 +36,7 @@ data ExprF expr
   | ERecProjF    !TypeConApp !FieldName !expr
   | ERecUpdF     !TypeConApp !FieldName !expr !expr
   | EVariantConF !TypeConApp !VariantConName !expr
+  | EEnumConF    !(Qualified TypeConName) !VariantConName
   | ETupleConF   ![(FieldName, expr)]
   | ETupleProjF  !FieldName !expr
   | ETupleUpdF   !FieldName !expr !expr
@@ -184,6 +185,7 @@ instance Recursive Expr where
     ERecProj    a b c -> ERecProjF      a b c
     ERecUpd   a b c d -> ERecUpdF     a b c d
     EVariantCon a b c -> EVariantConF   a b c
+    EEnumCon    a b   -> EEnumConF      a b
     ETupleCon   a     -> ETupleConF     a
     ETupleProj  a b   -> ETupleProjF    a b
     ETupleUpd   a b c -> ETupleUpdF     a b c
@@ -210,6 +212,7 @@ instance Corecursive Expr where
     ERecProjF    a b c -> ERecProj      a b c
     ERecUpdF   a b c d -> ERecUpd     a b c d
     EVariantConF a b c -> EVariantCon   a b c
+    EEnumConF    a b   -> EEnumCon      a b
     ETupleConF   a     -> ETupleCon     a
     ETupleProjF  a b   -> ETupleProj    a b
     ETupleUpdF   a b c -> ETupleUpd     a b c
