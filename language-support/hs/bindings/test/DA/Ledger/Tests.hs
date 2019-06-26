@@ -119,6 +119,7 @@ tSubmitBad withSandbox = testCase "submit/bad" $ run withSandbox $ \_pid -> do
 tSubmitComplete :: SandboxTest
 tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
+    off1 <- completionEnd lid
     let command =  createIOU pid alice "A-coin" 100
     -- TODO: test fails if we use `Nothing` instead of `Just offsetBegin`
     -- but this seems a bug, w.r.t to the ledger API
@@ -126,6 +127,8 @@ tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pi
     Right cidA <- submitCommand lid alice command
     Right Completion{cid=cidB} <- liftIO $ takeStream completions
     liftIO $ assertEqual "same cid sent/completed" cidA cidB
+    off2 <- completionEnd lid
+    liftIO $ assertBool "off1 /= off1" (off1 /= off2)
 
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
