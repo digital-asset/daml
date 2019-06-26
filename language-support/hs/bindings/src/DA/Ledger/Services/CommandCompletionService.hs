@@ -24,7 +24,7 @@ type Request = (LedgerId,ApplicationId,[Party],Maybe LedgerOffset)
 --completionStream :: Request -> LedgerService (Stream Response) -- GOAL
 completionStream :: Request -> LedgerService (Stream Completion)
 completionStream (lid,aid,partys,offset) =
-    makeLedgerService $ \(TimeoutSeconds timeout) config -> do
+    makeLedgerService $ \timeout config -> do
     stream <- newStream
     let request = mkCompletionStreamRequest lid aid partys offset
     _ <- forkIO $

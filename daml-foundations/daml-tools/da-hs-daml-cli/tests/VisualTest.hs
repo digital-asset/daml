@@ -9,6 +9,8 @@ import Test.Tasty
 import System.IO.Extra
 import DA.Cli.Visual
 import Test.Tasty.Golden
+import DA.Bazel.Runfiles
+import System.FilePath
 
 main :: IO ()
 main = defaultMain  =<< unitTests
@@ -16,11 +18,12 @@ main = defaultMain  =<< unitTests
 unitTests :: IO TestTree
 unitTests = do
     withTempFile $ \path -> do
-        let darPath = "daml-foundations/daml-tools/da-hs-daml-cli/visual-test-daml.dar"
+        darPath <- locateRunfiles (mainWorkspace </> "daml-foundations/daml-tools/da-hs-daml-cli/visual-test-daml.dar")
+        dotFile <- locateRunfiles (mainWorkspace </> "daml-foundations/daml-tools/da-hs-daml-cli/tests/res/out.dot")
         return $ testGroup "making sure we do not add extra edges" [
             goldenVsFile
                 "dot file test"
-                "daml-foundations/daml-tools/da-hs-daml-cli/tests/res/out.dot"
+                dotFile
                 path
                 (execVisual darPath (Just path))
             ]

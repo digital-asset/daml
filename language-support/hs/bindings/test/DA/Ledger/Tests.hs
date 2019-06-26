@@ -237,7 +237,8 @@ looksLikeSandBoxLedgerId (LedgerId text) =
 -- runWithSandbox
 
 runWithSandbox :: Sandbox -> LedgerService a -> IO a
-runWithSandbox Sandbox{port} ls =  runLedgerService ls 30 (configOfPort port)
+runWithSandbox Sandbox{port} ls = runLedgerService ls timeout (configOfPort port)
+    where timeout = 30 :: TimeoutSeconds
 
 resetSandbox :: Sandbox-> IO ()
 resetSandbox sandbox = runWithSandbox sandbox $ do

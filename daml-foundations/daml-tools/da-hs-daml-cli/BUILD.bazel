@@ -105,6 +105,7 @@ da_haskell_test(
         "tasty",
         "base",
         "extra",
+        "filepath",
         "tasty-golden",
     ],
     main_function = "VisualTest.main",
@@ -112,6 +113,7 @@ da_haskell_test(
     visibility = ["//visibility:private"],
     deps = [
         ":da-hs-daml-cli",
+        "//libs-haskell/bazel-runfiles",
     ],
 )
 

@@ -5,7 +5,7 @@
 
 -- | Gather code lenses like scenario execution for a DAML file.
 module DA.Service.Daml.LanguageServer.CodeLens
-    ( handle
+    ( setHandlersCodeLens
     ) where
 
 import Language.Haskell.LSP.Types
@@ -15,20 +15,22 @@ import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
 import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
+import Development.IDE.LSP.Server
+import qualified Language.Haskell.LSP.Core as LSP
+import Language.Haskell.LSP.Messages
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 
 -- | Gather code lenses like scenario execution for a DAML file.
 handle
-    :: Logger
-    -> Compiler.IdeState
+    :: Compiler.IdeState
     -> CodeLensParams
     -> IO (List CodeLens)
-handle logger compilerH (CodeLensParams (TextDocumentIdentifier uri)) = do
+handle ide (CodeLensParams (TextDocumentIdentifier uri)) = do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath -> filePath) -> do
-          logInfo logger $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
-          vrs <- Compiler.getAssociatedVirtualResources compilerH filePath
+          logInfo (ideLogger ide) $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
+          vrs <- Compiler.getAssociatedVirtualResources ide filePath
           pure $ mapMaybe virtualResourceToCodeLens vrs
         Nothing       -> pure []
 
@@ -48,4 +50,9 @@ virtualResourceToCodeLens (range, title, vr) =
               [ Aeson.String title
               , Aeson.String $ Compiler.virtualResourceToUri vr])
     , _xdata = Nothing
+    }
+
+setHandlersCodeLens :: PartialHandlers
+setHandlersCodeLens = PartialHandlers $ \WithMessage{..} x -> return x{
+    LSP.codeLensHandler = withResponse RspCodeLens handle
     }

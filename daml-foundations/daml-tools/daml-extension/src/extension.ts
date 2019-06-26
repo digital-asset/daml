@@ -313,7 +313,7 @@ class VirtualResourceManager {
             { enableScripts: true, enableFindWidget: true, enableCommandUris: true }
         );
         panel.onDidDispose(
-            () => {this.close(uri);},
+            () => {this._panels.delete(uri); this.close(uri);},
             null,
             this._disposables
         );

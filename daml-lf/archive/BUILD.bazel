@@ -112,6 +112,7 @@ da_scala_test_suite(
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
+        ":DarReaderTest-dev.dalf",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -133,6 +134,12 @@ da_scala_test_suite(
 daml_compile(
     name = "DarReaderTest",
     main_src = "src/test/daml/DarReaderTest.daml",
+)
+
+daml_compile(
+    name = "DarReaderTest-dev",
+    main_src = "src/test/daml/DarReaderTest.daml",
+    target = "1.dev",
 )
 
 filegroup(
@@ -158,6 +165,23 @@ javadoc_library(
     root_packages = ["com.digitalasset.daml_lf"],
     visibility = ["//visibility:public"],
     deps = [":daml_lf_proto_lib_java"],
+)
+
+# This is an hack to avoid having to complicate the release logic.
+# Once we stop bundling proto files in daml_lf_archive_java
+# we can remove this.
+genrule(
+    name = "daml_lf_archive_java_srcjar",
+    srcs = ["daml_lf_proto_lib_java"],
+    outs = ["daml_lf_archive_java_srcjar.jar"],
+    cmd = """
+        for file in $(locations :daml_lf_proto_lib_java); do
+          if [[ $$file == *src* ]]; then
+              cp $$file $(location daml_lf_archive_java_srcjar.jar)
+          fi
+        done
+    """,
+    visibility = ["//visibility:public"],
 )
 
 # NOTE(MH): The pre-bazel release process put the `.proto` files in

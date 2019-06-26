@@ -22,7 +22,7 @@ import qualified Proto3.Suite(fromByteString)
 
 listPackages :: LedgerId -> LedgerService [PackageId]
 listPackages lid =
-    makeLedgerService $ \(TimeoutSeconds timeout) config ->
+    makeLedgerService $ \timeout config ->
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceListPackages=rpc} = service
@@ -33,7 +33,7 @@ listPackages lid =
 
 getPackage :: LedgerId -> PackageId -> LedgerService (Maybe LF.Package)
 getPackage lid pid =
-    makeLedgerService $ \(TimeoutSeconds timeout) config ->
+    makeLedgerService $ \timeout config ->
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceGetPackage=rpc} = service
@@ -52,7 +52,7 @@ getPackage lid pid =
 
 getPackageStatus :: LedgerId -> PackageId -> LedgerService PackageStatus
 getPackageStatus lid pid =
-    makeLedgerService $ \(TimeoutSeconds timeout) config ->
+    makeLedgerService $ \timeout config ->
     withGRPCClient config $ \client -> do
         service <- packageServiceClient client
         let PackageService {packageServiceGetPackageStatus=rpc} = service

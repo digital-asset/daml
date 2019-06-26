@@ -7,19 +7,20 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module Upload (
+    validateMavenArtifacts,
     uploadToMavenCentral,
     mavenConfigFromEnv,
 ) where
 
 import qualified Control.Concurrent.Async.Lifted.Safe as Async
 import qualified Control.Exception.Safe as E
-import           Control.Monad (when)
+import           Control.Monad
 import           Control.Monad.Logger
 import           Control.Monad.IO.Class
 import           "cryptohash" Crypto.Hash (Digest, MD5(..), SHA1(..), digestToHexByteString, hash)
 import           Control.Retry
 import           Data.Aeson
-import           Data.Foldable (for_)
+import           Data.Foldable
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Base64 as Base64
@@ -34,11 +35,23 @@ import           Network.HTTP.Client.TLS (mkManagerSettings, tlsManagerSettings)
 import           Network.HTTP.Simple (setRequestBasicAuth, setRequestBodyFile, setRequestBodyLBS, setRequestHeader, setRequestMethod, setRequestPath)
 import           Network.HTTP.Types.Status
 import           Path
+import Path.IO
 import           System.Environment
 import           System.IO.Temp
+import System.Exit
 
 import Types
 import Util
+
+-- | Validate that the Maven artifacts to be uploaded are present.
+validateMavenArtifacts :: MonadCI m => Path Abs Dir -> [(MavenCoords, Path Rel File)] -> m ()
+validateMavenArtifacts releaseDir arts =
+    forM_ arts $ \(_, file) -> do
+        exists <- doesFileExist (releaseDir </> file)
+        unless exists $ do
+            $logError $ T.pack $ show file <> " is required for publishing to Maven"
+            liftIO exitFailure
+
 
 -- 
 -- Upload the artifacts to Maven Central

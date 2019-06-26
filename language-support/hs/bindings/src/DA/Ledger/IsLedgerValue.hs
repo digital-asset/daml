@@ -3,14 +3,14 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DA.Ledger.Valuable( -- TODO: Better name!
-    Valuable(..), -- types which can be converted to/from a Ledger API Value
+module DA.Ledger.IsLedgerValue (
+    IsLedgerValue(..), -- types which can be converted to/from a Ledger API Value
     ) where
 
 import Data.Text.Lazy (Text)
 import DA.Ledger.Types
 
-class Valuable a where
+class IsLedgerValue a where
     toValue :: a -> Value
     fromValue :: Value -> Maybe a
 
@@ -28,18 +28,18 @@ class Valuable a where
         . map fieldValue --(\RecordField{value} -> value)
         . fields
 
-instance Valuable Int where
+instance IsLedgerValue Int where
     toValue = VInt
     fromValue = \case VInt x -> Just x; _ -> Nothing
 
-instance Valuable Party where
+instance IsLedgerValue Party where
     toValue = VParty
     fromValue = \case VParty x -> Just x; _ -> Nothing
 
-instance Valuable a => Valuable [a] where
+instance IsLedgerValue a => IsLedgerValue [a] where
     toValue = VList . map toValue
     fromValue = \case VList vs -> mapM fromValue vs; _ -> Nothing
 
-instance Valuable Text where
+instance IsLedgerValue Text where
     toValue = VString
     fromValue = \case VString x -> Just x; _ -> Nothing

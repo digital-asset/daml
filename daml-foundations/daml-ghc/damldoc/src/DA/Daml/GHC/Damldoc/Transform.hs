@@ -79,7 +79,7 @@ applyTransform opts docs = maybeDoAnnotations opts' docs
 
     moduleMatchesAny :: [FilePattern] -> ModuleDoc -> Bool
     moduleMatchesAny ps m = any (?== name) ps
-      where name = withSlashes $ T.unpack $ md_name m
+      where name = withSlashes . T.unpack . unModulename . md_name $ m
 
     withSlashes :: String -> String
     withSlashes = replace "." [pathSeparator]
