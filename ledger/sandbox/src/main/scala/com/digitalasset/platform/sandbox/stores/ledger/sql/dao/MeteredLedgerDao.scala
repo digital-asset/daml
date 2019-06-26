@@ -6,10 +6,12 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v2.PartyAllocationResult
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v2.{PartyAllocationResult, UploadPackagesResult}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
@@ -73,6 +75,16 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
       party: Party,
       displayName: Option[String]): Future[PartyAllocationResult] =
     mm.timedFuture("storeParty", ledgerDao.storeParty(party, displayName))
+
+  override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
+    mm.timedFuture("listLfPackages", ledgerDao.listLfPackages)
+
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    mm.timedFuture("getLfArchive", ledgerDao.getLfArchive(packageId))
+
+  override def uploadLfPackages(
+      packages: List[(Archive, PackageDetails)]): Future[UploadPackagesResult] =
+    mm.timedFuture("uploadLfPackages", ledgerDao.uploadLfPackages(packages))
 
   override def close(): Unit = {
     ledgerDao.close()

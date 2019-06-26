@@ -4,7 +4,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
 import java.sql.Connection
-import java.util.Date
+import java.util.{Date, UUID}
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -12,12 +12,15 @@ import akka.{Done, NotUsed}
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.daml.ledger.participant.state.v2.PartyAllocationResult
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v2.{PartyAllocationResult, UploadPackagesResult}
+import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
@@ -959,6 +962,93 @@ private class PostgresLedgerDao(
           logger.warn("Party with ID {} already exists", party)
           conn.rollback()
           PartyAllocationResult.AlreadyExists
+      }.get
+    }
+  }
+
+  // Note: package upload is idempotent
+  private val SQL_INSERT_PACKAGE =
+    """insert into packages(package_id, submission_id, source_description, size, known_since, ledger_offset, package)
+          |select {package_id}, {submission_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
+          |from parameters
+          |on conflict (package_id)
+          |do nothing
+          |""".stripMargin
+
+  private val SQL_SELECT_PACKAGES =
+    SQL("""select package_id, source_description, known_since, size
+          |from packages
+          |""".stripMargin)
+
+  private val SQL_SELECT_PACKAGE =
+    SQL("""select package
+          |from packages
+          |where package_id = {package_id}
+          |""".stripMargin)
+
+  case class ParsedPackageData(
+      packageId: String,
+      sourceDescription: Option[String],
+      size: Long,
+      knownSince: Date)
+
+  private val PackageDataParser: RowParser[ParsedPackageData] =
+    Macro.parser[ParsedPackageData](
+      "package_id",
+      "source_description",
+      "size",
+      "known_since"
+    )
+
+  override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
+    dbDispatcher.executeSql { implicit conn =>
+      SQL_SELECT_PACKAGES
+        .as(PackageDataParser.*)
+        .map(
+          d =>
+            PackageId.assertFromString(d.packageId) -> PackageDetails(
+              d.size,
+              d.knownSince.toInstant,
+              d.sourceDescription))
+        .toMap
+    }
+
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    dbDispatcher.executeSql { implicit conn =>
+      SQL_SELECT_PACKAGE
+        .on(
+          "package_id" -> packageId
+        )
+        .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)
+        .map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data)))
+    }
+
+  override def uploadLfPackages(
+      packages: List[(Archive, PackageDetails)]): Future[UploadPackagesResult] = {
+    dbDispatcher.executeSql { implicit conn =>
+      Try {
+        val submissionId = UUID.randomUUID().toString
+        val namedPackageParams = packages
+          .map(
+            p =>
+              Seq[NamedParameter](
+                "package_id" -> p._1.getHash,
+                "submission_id" -> submissionId,
+                "source_description" -> p._2.sourceDescription,
+                "size" -> p._2.size,
+                "known_since" -> p._2.knownSince,
+                "package" -> p._1.toByteArray
+            )
+          )
+        executeBatchSql(
+          SQL_INSERT_PACKAGE,
+          namedPackageParams
+        )
+        UploadPackagesResult.Ok
+      }.recover {
+        case NonFatal(e) =>
+          conn.rollback()
+          UploadPackagesResult.InvalidPackage(e.getMessage)
       }.get
     }
   }

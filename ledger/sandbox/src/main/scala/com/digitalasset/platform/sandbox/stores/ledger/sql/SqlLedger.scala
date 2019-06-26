@@ -12,6 +12,7 @@ import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v2._
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
@@ -53,7 +54,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import scalaz.syntax.tag._
 
 sealed abstract class SqlStartMode extends Product with Serializable
@@ -332,19 +333,23 @@ private class SqlLedger(
     ledgerDao.getParties
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
-    packages.listLfPackages()
+    ledgerDao.listLfPackages
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    packages.getLfArchive(packageId)
+    ledgerDao.getLfArchive(packageId)
 
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    packages.getLfPackage(packageId)
+    ledgerDao
+      .getLfArchive(packageId)
+      .flatMap(archiveO =>
+        Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
 
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
       payload: List[Archive]): Future[UploadPackagesResult] =
-    packages.uploadDar(knownSince, sourceDescription, payload)
+    ledgerDao.uploadLfPackages(payload.map(archive =>
+      (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription))))
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao) {
@@ -380,9 +385,10 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       case AlwaysReset =>
         for {
           _ <- reset()
-          ledgerId <- initialize(initialLedgerId, acs, initialLedgerEntries)
+          ledgerId <- initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
         } yield ledgerId
-      case ContinueIfExists => initialize(initialLedgerId, acs, initialLedgerEntries)
+      case ContinueIfExists =>
+        initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
     }
 
     for {
@@ -396,7 +402,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
 
   private def initialize(
       initialLedgerId: Option[LedgerId],
+      timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
+      packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
@@ -411,6 +419,10 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
               if (initialLedgerEntries.nonEmpty) {
                 logger.warn(
                   s"Initial ledger entries provided, presumably from scenario, but I'm picking up from an existing database, and thus they will not be used")
+              }
+              if (packages.listLfPackagesSync().nonEmpty) {
+                logger.warn(
+                  s"Initial packages provided, presumably as command line arguments, but I'm picking up from an existing database, and thus they will not be used")
               }
               ledgerFound(foundLedgerId)
             case Some(foundLedgerId) =>
@@ -440,6 +452,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
               implicit val ec = DEC
               for {
                 _ <- doInit(initialId)
+                _ <- copyPackages(packages, timeProvider.getCurrentTime)
                 _ <- ledgerDao.storeInitialState(
                   contracts,
                   entriesWithOffset._2,
@@ -469,6 +482,26 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
   private def doInit(ledgerId: LedgerId): Future[Unit] = {
     logger.info(s"Initializing ledger with id: ${ledgerId.unwrap}")
     ledgerDao.initializeLedger(ledgerId, 0)
+  }
+
+  private def copyPackages(store: InMemoryPackageStore, knownSince: Instant): Future[Unit] = {
+    val packages = store.listLfPackagesSync()
+    if (packages.nonEmpty) {
+      logger.info(s"Copying initial packages ${packages.keys.mkString(",")}")
+      ledgerDao
+        .uploadLfPackages(packages.toList.map(pkg => {
+          val archive =
+            store.getLfArchiveSync(pkg._1).getOrElse(sys.error(s"Package ${pkg._1} not found"))
+          archive -> PackageDetails(archive.getPayload.size.toLong, knownSince, None)
+        }))
+        .flatMap {
+          case UploadPackagesResult.Ok => Future.successful(())
+          case r @ _ =>
+            Future.failed(new RuntimeException("Failed to copy initial packages: " + r.description))
+        }(DEC)
+    } else {
+      Future.successful(())
+    }
   }
 
 }
