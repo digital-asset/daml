@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
-load("@os_info//:os_info.bzl", "is_linux")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//rules_daml:daml.bzl", "daml_test")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
@@ -73,7 +73,7 @@ genrule(
         ":grunt",
         "@sass_nix//:bin/sass",
     ],
-)
+) if not is_windows else None
 
 genrule(
     name = "sources",
@@ -146,7 +146,7 @@ genrule(
             "@sphinx_nix//:bin/sphinx-build",
             "@imagemagick_nix//:bin/convert",
         ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
-)
+) if not is_windows else None
 
 genrule(
     name = "docs-no-pdf",
@@ -199,7 +199,7 @@ genrule(
     tools =
         ["@sphinx_nix//:bin/sphinx-build"] +
         (["@glibc_locales//:locale-archive"] if is_linux else []),
-)
+) if not is_windows else None
 
 genrule(
     name = "redirects",
@@ -258,7 +258,7 @@ genrule(
         """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
         """</urlset>""",
     ),
-)
+) if not is_windows else None
 
 filegroup(
     name = "daml-assistant-iou-setup",

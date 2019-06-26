@@ -104,8 +104,16 @@ daml_compile = rule(
 
 def _daml_test_impl(ctx):
     script = """
-      {damlc} test --files {files}
-    """.format(damlc = ctx.executable.damlc.short_path, files = " ".join([f.short_path for f in ctx.files.srcs]))
+      set -eou pipefail
+
+      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
+      rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
+
+      $DAMLC test --files $(rlocations "{files}")
+    """.format(
+        damlc = ctx.executable.damlc.short_path,
+        files = " ".join([f.short_path for f in ctx.files.srcs])
+    )
 
     ctx.actions.write(
         output = ctx.outputs.executable,

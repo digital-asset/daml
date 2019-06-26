@@ -7,6 +7,8 @@ def _daml_ghc_compile_test_impl(ctx):
     stack_opt = "-K" + ctx.attr.stack_limit if ctx.attr.stack_limit else ""
     heap_opt = "-M" + ctx.attr.heap_limit if ctx.attr.heap_limit else ""
     script = """
+      set -eou pipefail
+
       DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
       MAIN=$(rlocation $TEST_WORKSPACE/{main})
 
