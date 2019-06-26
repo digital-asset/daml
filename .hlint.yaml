@@ -100,7 +100,7 @@
   - {name: unsafePerformIO, within: [DA.Daml.GHC.Compiler.UtilGHC]}
   - {name: unsafeInterleaveIO, within: []}
   - {name: unsafeDupablePerformIO, within: []}
-  - {name: setCurrentDirectory, within: [DAML.Assistant.Tests]}
+  - {name: setCurrentDirectory, within: [DAML.Assistant.Tests, Main]}
   - {name: unsafeCoerce, within: []}
 
 # Add custom hints for this project
