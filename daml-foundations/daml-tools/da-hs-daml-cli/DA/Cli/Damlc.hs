@@ -46,7 +46,7 @@ import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.Compile
-import Development.IDE.LSP.Protocol hiding (Command)
+import Development.IDE.LSP.Protocol
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import GHC.Conc

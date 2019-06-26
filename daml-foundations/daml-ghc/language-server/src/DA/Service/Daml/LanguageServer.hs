@@ -10,13 +10,13 @@ module DA.Service.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import           Development.IDE.LSP.Protocol
+import           Language.Haskell.LSP.Types
 import           Development.IDE.LSP.Server
 import qualified Development.IDE.LSP.LanguageServer as LS
 import Control.Monad.Extra
 import Data.Default
 
-import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
+import DA.Service.Daml.LanguageServer.CodeLens
 import Development.IDE.Types.Logger
 
 import qualified Data.Aeson                                as Aeson
@@ -84,7 +84,7 @@ runLanguageServer
     :: ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
     -> IO ()
 runLanguageServer getIdeState = do
-    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> LS.CodeLens.setHandlersCodeLens
+    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens
     LS.runLanguageServer options handlers getIdeState
 
 

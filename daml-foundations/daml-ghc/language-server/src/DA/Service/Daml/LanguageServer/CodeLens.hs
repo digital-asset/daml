@@ -5,8 +5,7 @@
 
 -- | Gather code lenses like scenario execution for a DAML file.
 module DA.Service.Daml.LanguageServer.CodeLens
-    ( handle
-    , setHandlersCodeLens
+    ( setHandlersCodeLens
     ) where
 
 import Language.Haskell.LSP.Types
