@@ -72,7 +72,7 @@ def daml_ghc_integration_test(name, main_function):
         deps = [
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
-            "//compiler/haskell-ide-core",
+            "//compiler/hie-core",
             "//daml-foundations/daml-ghc/daml-compiler",
             "//daml-foundations/daml-ghc/ghc-compiler",
             "//daml-foundations/daml-ghc/ide",
@@ -80,7 +80,6 @@ def daml_ghc_integration_test(name, main_function):
             "//daml-lf/archive:daml_lf_haskell_proto",
             "//libs-haskell/bazel-runfiles",
             "//libs-haskell/da-hs-base",
-            "//libs-haskell/prettyprinter-syntax",
         ],
         hazel_deps = [
             "aeson",

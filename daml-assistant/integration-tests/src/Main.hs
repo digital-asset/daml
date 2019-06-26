@@ -30,7 +30,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
-import DamlHelper
+import DamlHelper.Run
 import SdkVersion
 
 main :: IO ()
@@ -196,17 +196,18 @@ packagingTests tmpDir = testGroup "packaging"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
-            [ "daml 1.2"
+            [ "{-# LANGUAGE EmptyCase #-}"
+            , "daml 1.2"
             , "module Main where"
+            , "import DA.Generics"
             , "data OnlyA"
-            -- TODO (drsk) for now no templates because we still need to generate the generic
-            -- instances.
-            --, "template Foo"
-            --, "  with"
-            --, "    a : Int"
-            --, "    p : Party"
-            --, "  where"
-            --, "    signatory p"
+            , "data Both deriving Generic"
+            , "template Foo"
+            , "  with"
+            , "    a : Int"
+            , "    p : Party"
+            , "  where"
+            , "    signatory p"
             ]
         writeFileUTF8 (projectA </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -226,14 +227,13 @@ packagingTests tmpDir = testGroup "packaging"
             [ "daml 1.2"
             , "module Main where"
             , "data OnlyB"
-            -- TODO (drsk) for now no templates because we still need to generate the generic
-            -- instances.
-            --, "template Foo"
-            --, "  with"
-            --, "    a : Int"
-            --, "    p : Party"
-            --, "  where"
-            --, "    signatory p"
+            , "data Both"
+            , "template Foo"
+            , "  with"
+            , "    a : Int"
+            , "    p : Party"
+            , "  where"
+            , "    signatory p"
             ]
         writeFileUTF8 (projectB </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion

@@ -1,16 +1,20 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE OverloadedStrings #-}
-module Development.IDE.State.Rules.Daml
-    ( module Development.IDE.State.Rules
-    , module Development.IDE.State.Rules.Daml
+module Development.IDE.Core.Rules.Daml
+    ( module Development.IDE.Core.Rules
+    , module Development.IDE.Core.Rules.Daml
     ) where
 
 import Control.Concurrent.Extra
 import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
+import Control.Monad.Trans.Maybe
+import Development.IDE.Core.OfInterest
 import DA.Daml.GHC.Compiler.Options
+import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
+import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
@@ -25,7 +29,7 @@ import qualified Data.Text as T
 import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
-import "ghc-lib-parser" Module (UnitId, stringToUnitId)
+import "ghc-lib-parser" Module (UnitId, stringToUnitId, unitIdString, UnitId(..), DefUnitId(..))
 import Safe
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
@@ -33,17 +37,16 @@ import System.FilePath
 import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
 
-import Development.IDE.Functions.DependencyInformation
-import Development.IDE.State.Rules hiding (mainRule)
-import qualified Development.IDE.State.Rules as IDE
-import Development.IDE.State.Service.Daml
-import Development.IDE.State.Shake
+import Development.IDE.Import.DependencyInformation
+import Development.IDE.Core.Rules hiding (mainRule)
+import qualified Development.IDE.Core.Rules as IDE
+import Development.IDE.Core.Service.Daml
+import Development.IDE.Core.Shake
 import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
 import qualified Language.Haskell.LSP.Messages as LSP
 import qualified Language.Haskell.LSP.Types as LSP
 
-import Development.IDE.State.RuleTypes.Daml
+import Development.IDE.Core.RuleTypes.Daml
 
 import DA.Daml.GHC.Compiler.Convert (convertModule, sourceLocToRange)
 import DA.Daml.GHC.Compiler.UtilLF
@@ -120,11 +123,37 @@ getRawDalf absFile = use GenerateRawPackage absFile
 
 -- | Get a validated DALF package.
 getDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
-getDalf file = eitherToMaybe <$>
-    (runExceptT $ useE GeneratePackage file)
+getDalf file = use GeneratePackage file
 
 getDalfModule :: NormalizedFilePath -> Action (Maybe LF.Module)
 getDalfModule file = use GenerateDalf file
+
+newtype GlobalPkgMap = GlobalPkgMap (Map.Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
+instance IsIdeGlobal GlobalPkgMap
+
+-- | A dependency on a compiled library.
+data DalfDependency = DalfDependency
+  { ddName         :: !T.Text
+    -- ^ The name of the dependency.
+  , ddDalfFile     :: !FilePath
+    -- ^ The absolute path to the dalf file.
+  }
+
+
+ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
+ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
+
+
+getDalfDependencies :: NormalizedFilePath -> MaybeT Action [DalfDependency]
+getDalfDependencies file = do
+    unitIds <- transitivePkgDeps <$> useE GetDependencies file
+    GlobalPkgMap pkgMap <- lift getIdeGlobalAction
+    pure
+        [ DalfDependency (T.pack $ unitIdString uid) fp
+        | (uid, (_, _, _, fp)) <-
+          Map.toList $
+          Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
+        ]
 
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScenarios file = use RunScenarios file
@@ -146,33 +175,29 @@ generateRawDalfRule =
         pkgMap <- use_ GeneratePackageMap ""
         let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> LF.unPackageId pId) pkgMap
         -- GHC Core to DAML LF
-        case convertModule lfVersion pkgMap0 core of
+        case convertModule lfVersion pkgMap0 file core of
             Left e -> return ([e], Nothing)
             Right v -> return ([], Just v)
 
 -- Generates and type checks the DALF for a module.
 generateDalfRule :: Rules ()
 generateDalfRule =
-    define $ \GenerateDalf file -> fmap toIdeResultNew $ runExceptT $ do
-        lfVersion <- lift getDamlLfVersion
-        pkg <- useE GeneratePackageDeps file
+    define $ \GenerateDalf file -> do
+        lfVersion <- getDamlLfVersion
+        pkg <- use_ GeneratePackageDeps file
         -- The file argument isn’t used in the rule, so we leave it empty to increase caching.
-        pkgMap <- useE GeneratePackageMap ""
+        pkgMap <- use_ GeneratePackageMap ""
         let pkgs = [(pId, pkg) | (pId, pkg, _bs, _fp) <- Map.elems pkgMap]
         let world = LF.initWorldSelf pkgs pkg
-        unsimplifiedRawDalf <- useE GenerateRawDalf file
+        unsimplifiedRawDalf <- use_ GenerateRawDalf file
         let rawDalf = LF.simplifyModule unsimplifiedRawDalf
-        lift $ setPriority PriorityGenerateDalf
-
-        dalf <- withExceptT (pure . ideErrorPretty file)
-          $ liftEither
-          $ Serializability.inferModule world lfVersion rawDalf
-
-        withExceptT (pure . ideErrorPretty file)
-          $ liftEither
-          $ LF.checkModule world lfVersion dalf
-
-        pure dalf
+        setPriority PriorityGenerateDalf
+        pure $ toIdeResult $ do
+            let liftError e = [ideErrorPretty file e]
+            dalf <- mapLeft liftError $
+                Serializability.inferModule world lfVersion rawDalf
+            mapLeft liftError $ LF.checkModule world lfVersion dalf
+            pure dalf
 
 -- | Load all the packages that are available in the package database directories. We expect the
 -- filename to match the package name.
@@ -335,7 +360,7 @@ encodeModule lfVersion m =
 getScenarioRootsRule :: Rules ()
 getScenarioRootsRule =
     defineNoFile $ \GetScenarioRoots -> do
-        filesOfInterest <- use_ GetFilesOfInterest ""
+        filesOfInterest <- getFilesOfInterest
         openVRs <- use_ GetOpenVirtualResources ""
         let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
         deps <- forP files $ \file -> do
@@ -393,10 +418,9 @@ ofInterestRule = do
     action $ use OfInterest ""
     defineNoFile $ \OfInterest -> do
         setPriority PriorityFilesOfInterest
-        Env{..} <- getServiceEnv
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
-        files   <- use_ GetFilesOfInterest ""
+        files   <- getFilesOfInterest
         openVRs <- use_ GetOpenVirtualResources ""
         let vrFiles = Set.map vrScenarioFile openVRs
         -- We run scenarios for all files of interest to get diagnostics
@@ -405,10 +429,10 @@ ofInterestRule = do
         let scenarioFiles = files `Set.union` vrFiles
         gc scenarioFiles
         -- compile and notify any errors
-        let runScenarios file = void $ runExceptT $ do
-                world <- lift $ worldForFile file
-                vrs <- useE RunScenarios file
-                lift $ forM vrs $ \(vr, res) -> do
+        let runScenarios file = do
+                world <- worldForFile file
+                mbVrs <- use RunScenarios file
+                forM_ (fromMaybe [] mbVrs) $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
                     when (vr `Set.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc

@@ -85,6 +85,7 @@ dataConsType :: Traversal' DataCons Type
 dataConsType f = \case
   DataRecord  fs -> DataRecord  <$> (traverse . _2) f fs
   DataVariant cs -> DataVariant <$> (traverse . _2) f cs
+  DataEnum cs -> pure $ DataEnum cs
 
 type ModuleRef = (PackageRef, ModuleName)
 
@@ -110,7 +111,6 @@ instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraver
 
 -- NOTE(MH): Builtins are not supposed to contain references to other modules.
 instance MonoTraversable ModuleRef Kind where monoTraverse _ = pure
-instance MonoTraversable ModuleRef EnumCon where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinType where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
 instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure

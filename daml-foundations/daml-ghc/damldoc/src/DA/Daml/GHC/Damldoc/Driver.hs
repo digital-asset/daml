@@ -14,6 +14,7 @@ import           DA.Daml.GHC.Damldoc.Render
 import           DA.Daml.GHC.Damldoc.HaddockParse
 import           DA.Daml.GHC.Damldoc.Transform
 import DA.Daml.GHC.Compiler.Options
+import Development.IDE.Types.Location
 
 import Development.IDE.Types.Diagnostics
 

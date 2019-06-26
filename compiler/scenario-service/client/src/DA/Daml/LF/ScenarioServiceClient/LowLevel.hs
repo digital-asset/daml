@@ -27,7 +27,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   , ScenarioServiceException(..)
   ) where
 
-import Conduit (runConduit, (.|))
+import Conduit (runConduit, (.|), MonadUnliftIO(..))
 import GHC.Generics
 import Text.Read
 import Control.Concurrent.Async
@@ -40,7 +40,7 @@ import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Conduit as C
-import Data.Conduit.Process (withCheckedProcessCleanup)
+import Data.Conduit.Process
 import qualified Data.Conduit.Text as C.T
 import Data.Int (Int64)
 import Data.List.Split (splitOn)
@@ -146,6 +146,38 @@ validateJava Options{..} = do
         ExitFailure _ -> throwIO (ScenarioServiceException ("Failed to start `java -version`: " <> stderr))
         ExitSuccess -> pure ()
 
+-- | This is sadly not exposed by Data.Conduit.Process.
+terminateStreamingProcess :: MonadIO m => StreamingProcessHandle -> m ()
+terminateStreamingProcess = liftIO . terminateProcess . streamingProcessHandleRaw
+
+-- | Variant of withCheckedProcessCleanup that gives access to the
+-- StreamingProcessHandle.
+withCheckedProcessCleanup'
+    :: ( InputSource stdin
+       , OutputSink stderr
+       , OutputSink stdout
+       , MonadUnliftIO m
+       )
+    => CreateProcess
+    -> (StreamingProcessHandle -> stdin -> stdout -> stderr -> m b)
+    -> m b
+withCheckedProcessCleanup' cp f = withRunInIO $ \run -> bracket
+    (streamingProcess cp)
+    (\(_, _, _, sph) -> closeStreamingProcessHandle sph)
+    $ \(x, y, z, sph) -> do
+        res <- run (f sph x y z) `onException` terminateStreamingProcess sph
+        ec <- waitForStreamingProcess sph
+        if ec == ExitSuccess
+            then return res
+            else throwIO $ ProcessExitedUnsuccessfully cp ec
+
+handleCrashingScenarioService :: StreamingProcessHandle -> IO a -> IO a
+handleCrashingScenarioService h act = do
+    res <- race (waitForStreamingProcess h) act
+    case res of
+        Left _ -> fail "Scenario service exited unexpectedly"
+        Right r -> pure r
+
 withScenarioService :: Options -> (Handle -> IO a) -> IO a
 withScenarioService opts@Options{..} f = do
   optLogInfo "Starting scenario service..."
@@ -154,8 +186,8 @@ withScenarioService opts@Options{..} f = do
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   validateJava opts
   cp <- javaProc ["-jar" , optServerJar]
-  withCheckedProcessCleanup cp $ \(stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
-          flip finally (System.IO.hClose stdinHdl) $ do
+  withCheckedProcessCleanup' cp $ \processHdl (stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
+          flip finally (System.IO.hClose stdinHdl) $ handleCrashingScenarioService processHdl $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
     let printStderr line
             -- The last line should not be treated as an error.
@@ -188,7 +220,9 @@ withScenarioService opts@Options{..} f = do
             System.IO.hFlush System.IO.stdout
             port <- either fail pure =<< takeMVar portMVar
             liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
-            let grpcConfig = ClientConfig (Host "localhost") (Port port) [] Nothing
+            -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
+            -- and DNS lookups break, e.g., on Alpine linux.
+            let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing
             withGRPCClient grpcConfig $ \client ->
                 f Handle
                     { hClient = client

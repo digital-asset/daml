@@ -107,7 +107,7 @@ in rec {
     # Nix development
     cabal2nix = pkgs.cabal2nix;
 
-    pypi2nix  = pkgs.pypi2nix.override { pythonPackages = pkgs.python36Packages; };
+    pypi2nix  = pkgs.pypi2nix.override { pythonPackages = pkgs.python37Packages; };
 
     # Web development
     node        = bazel_dependencies.nodejs;
@@ -134,13 +134,13 @@ in rec {
     chromedriver = pkgs.callPackage ./tools/chromedriver/default.nix {};
 
     # Python development
-    pip3        = python36;
-    python      = python36;
-    python3     = python36;
-    python36    = pkgs.python36Packages.python;
+    pip3        = python37;
+    python      = python37;
+    python3     = python37;
+    python37    = pkgs.python37Packages.python;
 
-    flake8 = pkgs.python36Packages.flake8;
-    yapf = pkgs.python36Packages.yapf;
+    flake8 = pkgs.python37Packages.flake8;
+    yapf = pkgs.python37Packages.yapf;
 
     # Pex packaging has been submitted upsteam as
     # https://github.com/NixOS/nixpkgs/pull/45497.
@@ -153,13 +153,13 @@ in rec {
     cqlsh     = cassandra;
     nodetool  = cassandra;
 
-    sphinx            = pkgs.python36.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
+    sphinx            = pkgs.python37.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
 
     sphinx-autobuild = import ./tools/sphinx-autobuild {
       inherit pkgs;
-      pythonPackages = pkgs.python36Packages;
+      python37Packages = pkgs.python37Packages;
     };
 
     sphinx183 = bazel_dependencies.sphinx183;
@@ -229,7 +229,7 @@ in rec {
     base64 = pkgs.coreutils;
     sha1sum = pkgs.coreutils;
     xmlstarlet = pkgs.xmlstarlet;
-    
+
     # Cryptography tooling
     gnupg = pkgs.gnupg;
     gpg   = gnupg;
@@ -269,7 +269,7 @@ in rec {
   cached = bazel_dependencies // {
     # Python packages used via 'python3.6-da'.
     pythonPackages = {
-      inherit (pkgs.python36Packages)
+      inherit (pkgs.python37Packages)
         pyyaml semver GitPython;
     };
     # Packages used in command-line tools, e.g. `dade-info`.

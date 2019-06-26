@@ -338,9 +338,9 @@ reverse = implode . P.reverse . explode
 
 -- | Convert a `Text` into a sequence of unicode code points.
 toCodePoints : Text -> [Int]
-toCodePoints = primitive @"BECodePointsFromText"
+toCodePoints = primitive @"BETextToCodePoints"
 
 -- | Convert a sequence of unicode code points into a `Text`. Raises an
 -- exception if any of the code points is invalid.
 fromCodePoints : [Int] -> Text
-fromCodePoints = primitive @"BECodePointsToText"
+fromCodePoints = primitive @"BETextFromCodePoints"

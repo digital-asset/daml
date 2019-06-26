@@ -22,3 +22,4 @@ DAML Integration Kit
 - Contract key, if any, is now included in the transaction exercise node. This prepares
   the way for #1456 and #1680.
 
+- [DAML-LF] Rename ``none`` and ``some`` to ``optional_none`` and ``optional_some``, resp., in ``Expr`` and ``CasePat``.

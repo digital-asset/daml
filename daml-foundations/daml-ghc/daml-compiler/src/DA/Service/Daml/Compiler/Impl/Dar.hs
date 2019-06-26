@@ -15,9 +15,9 @@ import qualified Data.ByteString.Lazy       as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
 import           System.FilePath
 import System.Directory
+import Development.IDE.Types.Location
 import qualified Codec.Archive.Zip          as Zip
 import DA.Daml.GHC.Compiler.Options
-import Development.IDE.Types.Diagnostics
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.

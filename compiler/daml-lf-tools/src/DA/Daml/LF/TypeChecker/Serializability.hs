@@ -86,7 +86,8 @@ serializabilityConditionsType world0 version mbModNameTpls vars = go
         BTTimestamp -> noConditions
         BTDate -> noConditions
         BTParty -> noConditions
-        BTEnum _ -> noConditions
+        BTUnit -> noConditions
+        BTBool -> noConditions
         BTList -> Left URList  -- 'List' is used as a higher-kinded type constructor.
         BTOptional -> Left UROptional  -- 'Optional' is used as a higher-kinded type constructor.
         BTMap -> Left URMap  -- 'Map' is used as a higher-kinded type constructor.

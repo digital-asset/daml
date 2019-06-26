@@ -47,7 +47,7 @@ class TransactionMRTComplianceIT
     with Matchers
     with MetricsAround {
 
-  override def timeLimit: Span = 60.seconds
+  override def timeLimit: Span = scaled(60.seconds)
 
   val ledgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
   val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))

@@ -40,11 +40,12 @@ module Development.IDE.State.API.Testing
 -- * internal dependencies
 import qualified Development.IDE.State.API         as API
 import qualified Development.IDE.Types.Diagnostics as D
+import qualified Development.IDE.Types.Location as D
 import DA.Service.Daml.Compiler.Impl.Scenario as SS
-import Development.IDE.State.Rules.Daml
-import qualified Development.IDE.Logger as Logger
-import           Development.IDE.Types.LSP
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Types.Logger
 import DA.Daml.GHC.Compiler.Options (defaultOptionsIO)
+import Development.IDE.Core.Service.Daml(VirtualResource(..))
 import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))
 import Language.Haskell.LSP.Types
@@ -121,7 +122,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
     let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
-    service <- API.initialise (mainRule options) (atomically . eventLogger) Logger.makeNopHandle options vfs mbScenarioService
+    service <- API.initialise (mainRule options) (atomically . eventLogger) makeNopLogger options vfs mbScenarioService
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
@@ -421,7 +422,7 @@ expectTextOnHover cursorRange expectedInfo = do
     forM_ (cursorRangeList cursorRange) $ \cursor -> do
         mbInfo <- ShakeTest . liftIO . API.runActionSync service $
                     API.getAtPoint path (cursorPosition cursor)
-        let actualInfo :: [T.Text] = maybe [] (map API.getHoverTextContent . snd) mbInfo
+        let actualInfo :: [T.Text] = maybe [] snd mbInfo
         unless (hoverPredicate actualInfo) $
             throwError $ ExpectedHoverText cursor expectedInfo actualInfo
   where
@@ -430,7 +431,7 @@ expectTextOnHover cursorRange expectedInfo = do
         NoInfo -> null
         Contains t -> any (T.isInfixOf t)
         NotContaining t -> all (not . T.isInfixOf t)
-        HasType t -> any (T.isSuffixOf $ ": " <> t)
+        HasType t -> any (T.isSuffixOf $ ": " <> t) . concatMap T.lines
 
 -- | Expect a certain section to take fewer than the specified number of seconds.
 timedSection :: Clock.NominalDiffTime -> ShakeTest t -> ShakeTest t

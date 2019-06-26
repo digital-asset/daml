@@ -82,9 +82,10 @@ import           DA.Daml.GHC.Compiler.Primitives
 import           DA.Daml.GHC.Compiler.UtilGHC
 import           DA.Daml.GHC.Compiler.UtilLF
 
-import Development.IDE.Functions.Compile (GhcModule(..))
 import           Development.IDE.Types.Diagnostics
-import           Development.IDE.UtilGHC
+import           Development.IDE.Types.Location
+import           Development.IDE.GHC.Util
+import           Development.IDE.GHC.Orphans()
 
 import           Control.Applicative
 import           Control.Lens
@@ -121,9 +122,7 @@ import           Safe.Exact (zipExact, zipExactMay)
 conversionError :: String -> ConvertM e
 conversionError msg = do
   ConversionEnv{..} <- ask
-  let addFpIfExists =
-        (toNormalizedFilePath $ fromMaybe noFilePath convModuleFilePath,)
-  throwError $ addFpIfExists $ Diagnostic
+  throwError $ (convModuleFilePath,) Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError
       , _source = Just $ T.pack "Core to DAML-LF"
@@ -191,14 +190,14 @@ envLookupAlias x = MS.lookup x . envAliases
 
 data ConversionError
   = ConversionError
-     { errorFilePath :: !(Maybe FilePath)
+     { errorFilePath :: !NormalizedFilePath
      , errorRange :: !(Maybe Range)
      , errorMessage :: !String
      }
   deriving Show
 
 data ConversionEnv = ConversionEnv
-  { convModuleFilePath :: !(Maybe FilePath)
+  { convModuleFilePath :: !NormalizedFilePath
   , convRange :: !(Maybe SourceLoc)
   }
 
@@ -249,13 +248,12 @@ convertRational num denom
     upperBound128Bit = 10 ^ (38 :: Integer)
     maxPrecision = 10 :: Integer
 
-convertModule :: LF.Version -> MS.Map UnitId T.Text -> GhcModule -> Either FileDiagnostic LF.Module
-convertModule lfVersion pkgMap mod0 = runConvertM (ConversionEnv (gmPath mod0) Nothing) $ do
+convertModule :: LF.Version -> MS.Map UnitId T.Text -> NormalizedFilePath -> CoreModule -> Either FileDiagnostic LF.Module
+convertModule lfVersion pkgMap file x = runConvertM (ConversionEnv file Nothing) $ do
     definitions <- concatMapM (convertBind env) $ filter (not . isTypeableInfo) $ cm_binds x
     types <- concatMapM (convertTypeDef env) (eltsUFM (cm_types x))
-    pure (LF.moduleFromDefinitions lfModName (gmPath mod0) flags (types ++ definitions))
+    pure (LF.moduleFromDefinitions lfModName (Just $ fromNormalizedFilePath file) flags (types ++ definitions))
     where
-        x = gmCore mod0
         ghcModName = GHC.moduleName $ cm_module x
         thisUnitId = GHC.moduleUnitId $ cm_module x
         lfModName = convertModuleName ghcModName
@@ -557,6 +555,16 @@ convertCtors env (Ctors name tys [o@(Ctor ctor fldNames fldTys)])
         tconName = mkTypeCon [getOccString name]
         tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
         expr = mkETyLams tys $ mkETmLams (map (first fieldToVar ) flds) $ ERecCon tcon [(l, EVar $ fieldToVar l) | l <- fldNames]
+convertCtors env o@(Ctors name _ cs) | envLfVersion env `supports` featureEnumTypes && isEnumCtors o = do
+    let (ctorNames, funs) = unzip $ map convertEnumCtor cs
+    pure $ (defDataType tconName [] $ DataEnum ctorNames) : funs
+  where
+    tconName = mkTypeCon [getOccString name]
+    tcon = Qualified PRSelf (envLFModuleName env) tconName
+    convertEnumCtor (Ctor ctor _ _) =
+        let ctorName = mkVariantCon $ getOccString ctor
+            def = defValue ctor (mkVal $ "$ctor:" ++ getOccString ctor, TCon tcon) $ EEnumCon tcon ctorName
+        in (ctorName, def)
 convertCtors env (Ctors name tys cs) = do
     (constrs, funs) <- mapAndUnzipM convertCtor cs
     pure $ [defDataType tconName tys $ DataVariant constrs] ++ concat funs
@@ -795,8 +803,11 @@ convertExpr env0 e = do
         Ctors _ _ cs <- toCtors env t
         x' <- convertExpr env x
         t' <- convertQualified env t
+        let mkCasePattern con
+                | envLfVersion env `supports` featureEnumTypes = CPEnum t' con
+                | otherwise = CPVariant t' con (mkVar "_")
         pure $ ECase x'
-            [ CaseAlternative (CPVariant t' (mkVariantCon (getOccString variantName)) (mkVar "_")) (EBuiltin $ BEInt64 i)
+            [ CaseAlternative (mkCasePattern (mkVariantCon (getOccString variantName))) (EBuiltin $ BEInt64 i)
             | (Ctor variantName _ _, i) <- zip cs [0..]
             ]
     go env (VarIs "tagToEnum#") (LType (TypeCon (Is "Bool") []) : LExpr (op0 `App` x `App` y) : args)
@@ -816,7 +827,11 @@ convertExpr env0 e = do
         Ctors _ _ cs@(c1:_) <- toCtors env t
         tt' <- convertType env tt
         x' <- convertExpr env x
-        let mkCtor (Ctor c _ _) = EVariantCon (fromTCon tt') (mkVariantCon (getOccString c)) EUnit
+        let mkCtor (Ctor c _ _)
+              | envLfVersion env `supports` featureEnumTypes
+              = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccString c))
+              | otherwise
+              = EVariantCon (fromTCon tt') (mkVariantCon (getOccString c)) EUnit
             mkEqInt i = EBuiltin (BEEqual BTInt64) `ETmApp` x' `ETmApp` EBuiltin (BEInt64 i)
         pure (foldr ($) (mkCtor c1) [mkIf (mkEqInt i) (mkCtor c) | (i,c) <- zipFrom 0 cs])
 
@@ -1056,10 +1071,10 @@ convertUnitId _thisUnitId pkgMap unitId = case unitId of
 convertAlt :: Env -> LF.Type -> Alt Var -> ConvertM CaseAlternative
 convertAlt env ty (DEFAULT, [], x) = CaseAlternative CPDefault <$> convertExpr env x
 convertAlt env ty (DataAlt con, [], x)
-    | is con == "True" = CaseAlternative (CPEnumCon ECTrue) <$> convertExpr env x
-    | is con == "False" = CaseAlternative (CPEnumCon ECFalse) <$> convertExpr env x
+    | is con == "True" = CaseAlternative (CPBool True) <$> convertExpr env x
+    | is con == "False" = CaseAlternative (CPBool False) <$> convertExpr env x
     | is con == "[]" = CaseAlternative CPNil <$> convertExpr env x
-    | is con == "()" = CaseAlternative (CPEnumCon ECUnit) <$> convertExpr env x
+    | is con == "()" = CaseAlternative CPUnit <$> convertExpr env x
     | isBuiltinName "None" con
     = CaseAlternative CPNone <$> convertExpr env x
 convertAlt env ty (DataAlt con, [a,b], x)
@@ -1068,10 +1083,13 @@ convertAlt env ty (DataAlt con, [a], x)
     | isBuiltinName "Some" con
     = CaseAlternative (CPSome (convVar a)) <$> convertExpr env x
 convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
+    ctors <- toCtors env $ dataConTyCon con
     Ctor (mkVariantCon . getOccString -> variantName) fldNames fldTys <- toCtor env con
     let patVariant = variantName
-    if null fldNames
-      then
+    if
+      | envLfVersion env `supports` featureEnumTypes && isEnumCtors ctors ->
+        CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
+      | null fldNames ->
         case zipExactMay vs fldTys of
           Nothing -> unsupported "Pattern match with existential type" alt
           Just [] ->
@@ -1081,7 +1099,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
             let patBinder = convVar v
             in  CaseAlternative CPVariant{..} <$> convertExpr env x
           Just (_:_:_) -> unsupported "Data constructor with multiple unnamed fields" alt
-      else
+      | otherwise ->
         case zipExactMay vs (zipExact fldNames fldTys) of
           Nothing -> unsupported "Pattern match with existential type" alt
           Just vsFlds ->
@@ -1381,6 +1399,8 @@ toCtor env con =
 isRecordCtor :: Ctor -> Bool
 isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
 
+isEnumCtors :: Ctors -> Bool
+isEnumCtors (Ctors _ params ctors) = null params && all (\(Ctor _ _ tys) -> null tys) ctors
 
 ---------------------------------------------------------------------
 -- SIMPLE WRAPPERS

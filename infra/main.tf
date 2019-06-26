@@ -35,4 +35,6 @@ locals {
 
   // maintained by DA security
   ssl_certificate = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/da-ext-wildcard"
+
+  ssl_certificate_hoogle = "https://www.googleapis.com/compute/v1/projects/da-dev-gcp-daml-language/global/sslCertificates/daml-lang-hoogle-app-service-https-cert"
 }

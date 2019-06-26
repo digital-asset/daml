@@ -36,7 +36,7 @@ import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
-import com.digitalasset.platform.sandbox.stores.ledger.{_}
+import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.services.time.TimeModel
@@ -47,6 +47,7 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
+import scala.util.Try
 
 trait IndexAndWriteService extends AutoCloseable {
   def indexService: IndexService
@@ -196,10 +197,20 @@ private class SandboxIndexAndWriteService(
     )
 
   private def getTransactionById(
-      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
-    ledger
-      .lookupTransaction(transactionId)
-      .map(_.map { case (offset, t) => (offset + 1) -> t })(DEC)
+      transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] = {
+    // for the sandbox we know that if the transactionId is NOT simply a number, we don't even
+    // need to try to look up a transaction, because we will not find it anyway.
+    // This check was previously done in the request validator in the Ledger API server layer,
+    // but was removed for daml-on-x. Now we can only do this check within the implementation
+    // of the sandbox.
+    Try(transactionId.toLong).fold(
+      fa = _ => Future.successful(None),
+      fb = _ =>
+        ledger
+          .lookupTransaction(transactionId)
+          .map(_.map { case (offset, t) => (offset + 1) -> t })(DEC)
+    )
+  }
 
   override def submitTransaction(
       submitterInfo: ParticipantState.SubmitterInfo,

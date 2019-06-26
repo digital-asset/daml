@@ -115,11 +115,6 @@ instance Pretty TypeConApp where
       pretty con
       <-> hsep (map (pPrintPrec lvl (succ precTApp)) args)
 
-instance Pretty EnumType where
-  pPrint = \case
-    ETUnit -> "Unit"
-    ETBool -> "Bool"
-
 instance Pretty BuiltinType where
   pPrint = \case
     BTInt64          -> "Int64"
@@ -127,7 +122,8 @@ instance Pretty BuiltinType where
     BTText           -> "Text"
     BTTimestamp      -> "Timestamp"
     BTParty          -> "Party"
-    BTEnum etype -> pretty etype
+    BTUnit -> "Unit"
+    BTBool -> "Bool"
     BTList -> "List"
     BTUpdate -> "Update"
     BTScenario -> "Scenario"
@@ -183,19 +179,14 @@ prettyAltArrow    = "->"
 instance Pretty PartyLiteral where
   pPrint = quotes . pretty . unPartyLiteral
 
-instance Pretty EnumCon where
-  pPrint = \case
-    ECUnit  -> "Unit"
-    ECFalse -> "False"
-    ECTrue  -> "True"
-
 instance Pretty BuiltinExpr where
   pPrintPrec _lvl prec = \case
     BEInt64 n -> pretty (toInteger n)
     BEDecimal dec -> string (show dec)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
     BEParty p -> pretty p
-    BEEnumCon c -> pretty c
+    BEUnit -> keyword_ "unit"
+    BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BEError -> "ERROR"
     BEEqual t     -> maybeParens (prec > precEApp) ("EQUAL"      <-> prettyBTyArg t)
     BELess t      -> maybeParens (prec > precEApp) ("LESS"       <-> prettyBTyArg t)
@@ -241,8 +232,8 @@ instance Pretty BuiltinExpr where
     BEInt64FromText -> "FROM_TEXT_INT64"
     BEDecimalFromText -> "FROM_TEXT_DECIMAL"
     BEPartyToQuotedText -> "PARTY_TO_QUOTED_TEXT"
-    BECodePointsFromText -> "FROM_TEXT_CODE_POINTS"
-    BECodePointsToText -> "TO_TEXT_CODE_POINTS"
+    BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
+    BETextFromCodePoints -> "TEXT_FROM_CODE_POINTS"
 
     BECoerceContractId -> "COERCE_CONTRACT_ID"
     where
@@ -267,9 +258,11 @@ prettyAndType (x, t) = pretty x <-> prettyHasType <-> type_ (pretty t)
 instance Pretty CasePattern where
   pPrint = \case
     CPVariant tcon con var ->
-      pretty tcon <> "." <> pretty con
+      pretty tcon <> ":" <> pretty con
       <-> pretty var
-    CPEnumCon con -> pretty con
+    CPEnum tcon con -> pretty tcon <> ":" <> pretty con
+    CPUnit -> keyword_ "unit"
+    CPBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     CPNil -> keyword_ "nil"
     CPCons hdVar tlVar -> keyword_ "cons" <-> pretty hdVar <-> pretty tlVar
     CPDefault -> keyword_ "default"
@@ -392,6 +385,8 @@ instance Pretty Expr where
       prettyAppDoc prec
         (pretty tcon <> ":" <> pretty con)
         (map TyArg targs ++ [TmArg arg])
+    EEnumCon tcon con ->
+      pretty tcon <> ":" <> pretty con
     ETupleCon fields ->
       prettyTuple "=" fields
     ETupleProj field expr -> pPrintPrec lvl precHighest expr <> "." <> pretty field
@@ -436,13 +431,16 @@ instance Pretty DefDataType where
     DataRecord fields ->
       hang (keyword_ "record" <-> lhsDoc) 2 (prettyRecord prettyHasType fields)
     DataVariant variants ->
-      (keyword_ "variant" <-> lhsDoc) $$ nest 2 (vcat (map prettyCon variants))
+      (keyword_ "variant" <-> lhsDoc) $$ nest 2 (vcat (map prettyVariantCon variants))
+    DataEnum enums ->
+      (keyword_ "enum" <-> lhsDoc) $$ nest 2 (vcat (map prettyEnumCon enums))
     where
       lhsDoc =
         serializableDoc <-> pretty tcon <-> hsep (map prettyAndKind params) <-> "="
       serializableDoc = if serializable then "@serializable" else ""
-      prettyCon (name, typ) =
+      prettyVariantCon (name, typ) =
         "|" <-> pretty name <-> pPrintPrec prettyNormal precHighest typ
+      prettyEnumCon name = "|" <-> pretty name
 
 instance Pretty DefValue where
   pPrint (DefValue mbLoc binder (HasNoPartyLiterals noParties) (IsTest isTest) body) =

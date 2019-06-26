@@ -135,10 +135,10 @@ convertPrim version "BEInt64FromText" (TText :-> TOptional TInt64)
 convertPrim version "BEDecimalFromText" (TText :-> TOptional TDecimal)
     | version `supports` featureNumberFromText = EBuiltin BEDecimalFromText
     | otherwise = EVal $ Qualified PRSelf (mkModName ["DA", "Text"]) (mkVal "legacyParseDecimal")
-convertPrim version "BECodePointsFromText" t@(TText :-> TList TInt64) =
-    whenRuntimeSupports version featureTextCodePoints t $ EBuiltin BECodePointsFromText
-convertPrim version "BECodePointsToText" t@(TList TInt64 :-> TText) =
-    whenRuntimeSupports version featureTextCodePoints t $ EBuiltin BECodePointsToText
+convertPrim version "BETextToCodePoints" t@(TText :-> TList TInt64) =
+    whenRuntimeSupports version featureTextCodePoints t $ EBuiltin BETextToCodePoints
+convertPrim version "BETextFromCodePoints" t@(TList TInt64 :-> TText) =
+    whenRuntimeSupports version featureTextCodePoints t $ EBuiltin BETextFromCodePoints
 
 -- Map operations
 

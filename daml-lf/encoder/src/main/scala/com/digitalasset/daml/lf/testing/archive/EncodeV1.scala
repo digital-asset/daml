@@ -356,11 +356,11 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
         case CPCons(head, tail) =>
           builder.setCons(PLF.CaseAlt.Cons.newBuilder().setVarHead(head).setVarTail(tail))
         case CPNone =>
-          assertSince("1", "CaseAlt.None")
-          builder.setNone(unit)
+          assertSince("1", "CaseAlt.OptionalNone")
+          builder.setOptionalNone(unit)
         case CPSome(x) =>
-          assertSince("1", "CaseAlt.Some")
-          builder.setSome(PLF.CaseAlt.Some.newBuilder().setVarBody(x))
+          assertSince("1", "CaseAlt.OptionalSome")
+          builder.setOptionalSome(PLF.CaseAlt.OptionalSome.newBuilder().setVarBody(x))
         case CPDefault =>
           builder.setDefault(unit)
       }
@@ -450,11 +450,11 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
               .accumulateLeft(front)(_ addFront _)
               .setTail(tail))
         case ENone(typ) =>
-          assertSince("1", "Expr.None")
-          newBuilder.setNone(PLF.Expr.None.newBuilder().setType(typ))
+          assertSince("1", "Expr.OptionalNone")
+          newBuilder.setOptionalNone(PLF.Expr.OptionalNone.newBuilder().setType(typ))
         case ESome(typ, x) =>
-          assertSince("1", "Expr.Some")
-          newBuilder.setSome(PLF.Expr.Some.newBuilder().setType(typ).setBody(x))
+          assertSince("1", "Expr.OptionalSome")
+          newBuilder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
         case ELocation(loc, expr) =>
           encodeExprBuilder(expr).setLocation(loc)
         case EUpdate(u) =>

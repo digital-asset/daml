@@ -1,0 +1,20 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+module List {
+
+  record @serializable Box = { x: List Int64, party: Party } ;
+
+  template (this : Box) =  {
+    precondition True,
+    signatories (Party:one (List:Box {party} this)),
+    observers (Nil @Party),
+    agreement "Agreement",
+    choices {
+    }
+  };
+
+  val empty: forall (a: *). List a = /\ (a: *). Nil @a;
+  val build1: forall (a: *). a -> List a = /\ (a: *). \(x: a) -> Cons @a [x] (Nil @a);
+
+}

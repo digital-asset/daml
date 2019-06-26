@@ -1,63 +1,42 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML SDK roadmap (as of April 2019)
-===================================
+DAML SDK roadmap (as of June 2019)
+==================================
 
 This page specifies the major features we’re planning to add next to the DAML SDK. Plans and timelines are subject to change. If you need any of these features or want to request others, see the :doc:`/support/support` page for how to get in touch.
 
 We plan to update this roadmap roughly every three months.
 
-- **Windows support**
+- **Generic templates**
 
-  Support for installing and running the SDK on Windows.
+  Support for writing generic templates - for example, a generic ``Proposal`` workflow that could be instantiated as a ``Proposal Iou`` to propose an ``Iou``.
 
-  `More about this on GitHub <https://github.com/digital-asset/daml/issues/116>`__.
-- **JavaScript / TypeScript ecosystem**
+  `Read more on GitHub <https://github.com/digital-asset/daml/issues/1387>`__.
+- **Tools to suggest improvements to DAML code**
+- **Upgrading contracts**
 
-  Improve the currently experimental `Node.js bindings <https://github.com/digital-asset/daml-js>`__ so they are stable, and add TypeScript code generation to generate code from DAML types.
+  Improved support for the workflows of upgrading contracts that already exist on the ledger.
+- **Tools for visualisation**
 
-  `More about this on GitHub <https://github.com/digital-asset/daml-js>`__.
-- **Simplified da assistant**
+  Tools that allow users to visualise the static workflow and lifecycle of contracts.
+- **Improve app portability between DAML ledgers**
 
-  Rewritten :doc:`command line for the SDK </tools/assistant>` with improved usability.
+  Add a DAML-on-X certification tool that tests that DAML ledgers implement all DAML functionality, and document a portable approach to DAML application testing.
 
-  `More about this on GitHub <https://github.com/digital-asset/daml/issues/11>`__.
-- **Native installers**
+  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
+- **Ledger API authentication**
 
-  Allow users to install the SDK using native installers like ``homebrew`` and ``apt-get``.
+  Add Ledger API authentication for all DAML ledgers.
 
-  `More about this on GitHub <https://github.com/digital-asset/daml/issues/117>`__.
-- **Ledger SQL backend**
+  `Read more on GitHub <https://github.com/digital-asset/TODO>`__.
+- **JavaScript ecosystem**
 
-  Replace the in-memory store used by the Sandbox with a SQL backend, so it’s not just a development tool but also a persistent ledger you could deploy.
+  Improve the currently experimental Node.js bindings so they are stable, and add higher-level abstractions to capture recurring usage patterns.
 
-  `More about this on GitHub <https://github.com/digital-asset/daml/milestone/10>`__.
-- **Contract keys in SDK**
-
-  Contract keys are a subset of fields in a contract that allow you to look it up uniquely. Building on top of the experimental contract keys feature in DAML, give contract keys full SDK support and write documentation.
-
-  `More about this on GitHub <https://github.com/digital-asset/daml/milestone/9>`__.
-
-- **Map and Enum types in DAML-LF**
-
-  Add ``Map`` and ``Enum`` types to DAML-LF (which is what DAML gets compiled to - it’s used by the Ledger API).
-
-  ``Map`` has already been added in DAML-LF 1.3.
-
-  `More about Enum on GitHub <https://github.com/digital-asset/daml/issues/105>`__.
-- **Better package management**
-
-  Make it easier to create packages and use packages.
-
-  `More about this on GitHub <https://github.com/digital-asset/daml/issues/125>`__.
-- **Web IDE**
-
-  Provide a browser-based version of :doc:`DAML Studio </daml/daml-studio>` to make it easier to try DAML out.
-
-  `More about this on GitHub <https://github.com/digital-asset/daml/issues/118>`__.
-- **DAML-on-X self-service package**
+  `Read more on GitHub <https://github.com/digital-asset/daml-js>`__.
+- **DAML-on-X self-service package: Beta release**
 
   Make it easier for external developers to integrate DAML with other ledgers.
 
-  `More about this on GitHub <https://github.com/digital-asset/daml/issues/121>`__. 
+  You can read about the release stages on the :doc:`/daml-integration-kit/index` page. 

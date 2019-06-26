@@ -103,17 +103,9 @@ def daml_deps():
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "9510dd2afc29e7245e9e884336f848c8a6600a14ae726adb6befdb4f786f0be2",
-            strip_prefix = "protobuf-3.6.1.3",
-            urls = ["https://github.com/google/protobuf/archive/v3.6.1.3.zip"],
-        )
-
-    if "com_google_protobuf_javalite" not in native.existing_rules():
-        http_archive(
-            name = "com_google_protobuf_javalite",
-            sha256 = "79d102c61e2a479a0b7e5fc167bcfaa4832a0c6aad4a75fa7da0480564931bcc",
-            strip_prefix = "protobuf-384989534b2246d413dbcd750744faab2607b516",
-            urls = ["https://github.com/google/protobuf/archive/384989534b2246d413dbcd750744faab2607b516.zip"],
+            sha256 = "1e622ce4b84b88b6d2cdf1db38d1a634fe2392d74f0b7b74ff98f3a51838ee53",
+            strip_prefix = "protobuf-3.8.0",
+            urls = ["https://github.com/google/protobuf/archive/v3.8.0.zip"],
         )
 
     if "io_bazel_skydoc" not in native.existing_rules():

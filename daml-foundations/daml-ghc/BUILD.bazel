@@ -60,8 +60,9 @@ da_haskell_test(
     src_strip_prefix = "test-src",
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//daml-foundations/daml-ghc/daml-compiler",
+        "//daml-foundations/daml-ghc/ide",
         "//daml-foundations/daml-ghc/ide:ide-testing",
         "//libs-haskell/da-hs-base",
     ],

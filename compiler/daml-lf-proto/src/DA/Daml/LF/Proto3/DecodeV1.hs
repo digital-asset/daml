@@ -76,9 +76,8 @@ decodeDataCons = \case
     DataRecord <$> mapM (decodeFieldWithType FieldName) (V.toList fs)
   LF1.DefDataTypeDataConsVariant (LF1.DefDataType_Fields fs) ->
     DataVariant <$> mapM (decodeFieldWithType VariantConName) (V.toList fs)
-  LF1.DefDataTypeDataConsEnum _ ->
-   -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-    Left (ParseError "Enum type not supported")
+  LF1.DefDataTypeDataConsEnum (LF1.DefDataType_EnumConstructors cs) ->
+    DataEnum <$> mapM (decodeName VariantConName) (V.toList cs)
 
 decodeDefValueNameWithType :: LF1.DefValue_NameWithType -> Decode (ExprValName, Type)
 decodeDefValueNameWithType LF1.DefValue_NameWithType{..} = (,)
@@ -164,7 +163,7 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionEQUAL_TIMESTAMP -> BEEqual BTTimestamp
   LF1.BuiltinFunctionEQUAL_DATE -> BEEqual BTDate
   LF1.BuiltinFunctionEQUAL_PARTY -> BEEqual BTParty
-  LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual (BTEnum ETBool)
+  LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
 
   LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
   LF1.BuiltinFunctionLEQ_DECIMAL -> BELessEq BTDecimal
@@ -200,11 +199,11 @@ decodeBuiltinFunction = pure . \case
   LF1.BuiltinFunctionTO_TEXT_TIMESTAMP    -> BEToText BTTimestamp
   LF1.BuiltinFunctionTO_TEXT_PARTY   -> BEToText BTParty
   LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
-  LF1.BuiltinFunctionTO_TEXT_CODE_POINTS -> BECodePointsToText
+  LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> BETextFromCodePoints
   LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
   LF1.BuiltinFunctionFROM_TEXT_INT64 -> BEInt64FromText
   LF1.BuiltinFunctionFROM_TEXT_DECIMAL -> BEDecimalFromText
-  LF1.BuiltinFunctionFROM_TEXT_CODE_POINTS -> BECodePointsFromText
+  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> BETextToCodePoints
   LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> BEPartyToQuotedText
 
   LF1.BuiltinFunctionADD_DECIMAL   -> BEAddDecimal
@@ -269,8 +268,11 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF1.ExprSumVal val -> EVal <$> decodeValName val
   LF1.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltin <$> decodeBuiltinFunction bi
   LF1.ExprSumBuiltin (Proto.Enumerated (Left num)) -> Left (UnknownEnum "ExprSumBuiltin" num)
-  LF1.ExprSumPrimCon (Proto.Enumerated (Right con)) ->
-    EBuiltin . BEEnumCon <$> decodePrimCon con
+  LF1.ExprSumPrimCon (Proto.Enumerated (Right con)) -> pure $ EBuiltin $ case con of
+    LF1.PrimConCON_UNIT -> BEUnit
+    LF1.PrimConCON_TRUE -> BEBool True
+    LF1.PrimConCON_FALSE -> BEBool False
+
   LF1.ExprSumPrimCon (Proto.Enumerated (Left num)) -> Left (UnknownEnum "ExprSumPrimCon" num)
   LF1.ExprSumPrimLit lit ->
     EBuiltin <$> decodePrimLit lit
@@ -294,9 +296,10 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
       <$> mayDecode "Expr_VariantConTycon" mbTycon decodeTypeConApp
       <*> decodeName VariantConName variant
       <*> mayDecode "Expr_VariantConVariantArg" mbArg decodeExpr
-  LF1.ExprSumEnumCon _ ->
-   -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-    Left (ParseError "Enum types not supported")
+  LF1.ExprSumEnumCon (LF1.Expr_EnumCon mbTypeCon dataCon) ->
+    EEnumCon
+      <$> mayDecode "Expr_EnumConTycon" mbTypeCon decodeTypeConName
+      <*> decodeName VariantConName dataCon
   LF1.ExprSumTupleCon (LF1.Expr_TupleCon fields) ->
     ETupleCon
       <$> mapM decodeFieldWithExpr (V.toList fields)
@@ -338,12 +341,12 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     decodeUpdate upd
   LF1.ExprSumScenario scen ->
     decodeScenario scen
-  LF1.ExprSumNone (LF1.Expr_None mbType) -> do
-    bodyType <- mayDecode "expr_NoneType" mbType decodeType
+  LF1.ExprSumOptionalNone (LF1.Expr_OptionalNone mbType) -> do
+    bodyType <- mayDecode "expr_OptionalNoneType" mbType decodeType
     return (ENone bodyType)
-  LF1.ExprSumSome (LF1.Expr_Some mbType mbBody) -> do
-    bodyType <- mayDecode "expr_SomeType" mbType decodeType
-    bodyExpr <- mayDecode "expr_ExprType" mbBody decodeExpr
+  LF1.ExprSumOptionalSome (LF1.Expr_OptionalSome mbType mbBody) -> do
+    bodyType <- mayDecode "expr_OptionalSomeType" mbType decodeType
+    bodyExpr <- mayDecode "expr_OptionalSomeBody" mbBody decodeExpr
     return (ESome bodyType bodyExpr)
 
 decodeUpdate :: LF1.Update -> Either Error Expr
@@ -425,19 +428,22 @@ decodeCaseAlt LF1.CaseAlt{..} = do
         <$> mayDecode "caseAlt_VariantCon" caseAlt_VariantCon decodeTypeConName
         <*> decodeName VariantConName caseAlt_VariantVariant
         <*> decodeName ExprVarName caseAlt_VariantBinder
-    LF1.CaseAltSumEnum _ ->
-      -- FixMe (RH) https://github.com/digital-asset/daml/issues/105
-      Left (ParseError "Enum type not supported")
-    LF1.CaseAltSumPrimCon (Proto.Enumerated (Right pcon)) ->
-      CPEnumCon <$> decodePrimCon pcon
+    LF1.CaseAltSumEnum LF1.CaseAlt_Enum{..} ->
+      CPEnum
+        <$> mayDecode "caseAlt_DataCon" caseAlt_EnumCon decodeTypeConName
+        <*> decodeName VariantConName caseAlt_EnumConstructor
+    LF1.CaseAltSumPrimCon (Proto.Enumerated (Right pcon)) -> pure $ case pcon of
+      LF1.PrimConCON_UNIT -> CPUnit
+      LF1.PrimConCON_TRUE -> CPBool True
+      LF1.PrimConCON_FALSE -> CPBool False
     LF1.CaseAltSumPrimCon (Proto.Enumerated (Left idx)) ->
       Left (UnknownEnum "CaseAltSumPrimCon" idx)
     LF1.CaseAltSumNil LF1.Unit -> pure CPNil
     LF1.CaseAltSumCons LF1.CaseAlt_Cons{..} ->
       CPCons <$> decodeName ExprVarName caseAlt_ConsVarHead <*> decodeName ExprVarName caseAlt_ConsVarTail
-    LF1.CaseAltSumNone LF1.Unit -> pure CPNone
-    LF1.CaseAltSumSome LF1.CaseAlt_Some{..} ->
-      CPSome <$> decodeName ExprVarName caseAlt_SomeVarBody
+    LF1.CaseAltSumOptionalNone LF1.Unit -> pure CPNone
+    LF1.CaseAltSumOptionalSome LF1.CaseAlt_OptionalSome{..} ->
+      CPSome <$> decodeName ExprVarName caseAlt_OptionalSomeVarBody
   body <- mayDecode "caseAltBody" caseAltBody decodeExpr
   pure $ CaseAlternative pat body
 
@@ -470,12 +476,6 @@ decodePrimLit (LF1.PrimLit mbSum) = mayDecode "primLitSum" mbSum $ \case
   LF1.PrimLitSumParty p          -> pure $ BEParty $ PartyLiteral $ TL.toStrict p
   LF1.PrimLitSumDate days -> pure $ BEDate days
 
-decodePrimCon :: LF1.PrimCon -> Decode EnumCon
-decodePrimCon = pure . \case
-  LF1.PrimConCON_UNIT -> ECUnit
-  LF1.PrimConCON_TRUE -> ECTrue
-  LF1.PrimConCON_FALSE -> ECFalse
-
 decodeKind :: LF1.Kind -> Decode Kind
 decodeKind LF1.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF1.KindSumStar LF1.Unit -> pure KStar
@@ -490,8 +490,8 @@ decodePrim = pure . \case
   LF1.PrimTypeTEXT    -> BTText
   LF1.PrimTypeTIMESTAMP -> BTTimestamp
   LF1.PrimTypePARTY   -> BTParty
-  LF1.PrimTypeUNIT    -> BTEnum ETUnit
-  LF1.PrimTypeBOOL    -> BTEnum ETBool
+  LF1.PrimTypeUNIT    -> BTUnit
+  LF1.PrimTypeBOOL    -> BTBool
   LF1.PrimTypeLIST    -> BTList
   LF1.PrimTypeUPDATE  -> BTUpdate
   LF1.PrimTypeSCENARIO -> BTScenario

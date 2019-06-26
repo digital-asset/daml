@@ -156,6 +156,8 @@ class Template c => Choice c e r | c e -> r where
     internalExerciseWithActors : [Party] -> ContractId c -> e -> Update r
     internalExerciseWithActors = magic @"exercise"
 
+-- | The data type corresponding to the implicit `Archive`
+-- choice in every template.
 data Archive = Archive
 
 instance Template c => Choice c Archive () where

@@ -47,7 +47,7 @@ class ActiveContractsServiceIT
     with Matchers
     with OptionValues {
 
-  override def timeLimit: Span = 60.seconds
+  override def timeLimit: Span = scaled(60.seconds)
 
   protected val testCommands = new TestCommands(config)
   protected val templateIds = testCommands.templateIds

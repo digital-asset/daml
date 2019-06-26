@@ -13,10 +13,12 @@ import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion}
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 
+import com.google.protobuf.CodedInputStream
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
+private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
 
   import Decode._
 
@@ -26,6 +28,14 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
   override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package =
     Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, _).decode))
+
+  type ProtoModule = PLF.Module
+
+  override def protoModule(cis: CodedInputStream): ProtoModule =
+    PLF.Module.parser().parseFrom(cis)
+
+  override def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module =
+    ModuleDecoder(packageId, lfModule).decode()
 
   private[this] def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw new ParseError(err), identity)
@@ -447,13 +457,13 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.Expr.SumCase.SCENARIO =>
           EScenario(decodeScenario(lfExpr.getScenario))
 
-        case PLF.Expr.SumCase.NONE =>
-          assertSince("1", "CaseAlt.None")
-          ENone(decodeType(lfExpr.getNone.getType))
+        case PLF.Expr.SumCase.OPTIONAL_NONE =>
+          assertSince("1", "Expr.OptionalNone")
+          ENone(decodeType(lfExpr.getOptionalNone.getType))
 
-        case PLF.Expr.SumCase.SOME =>
-          assertSince("1", "CaseAlt.Some")
-          val some = lfExpr.getSome
+        case PLF.Expr.SumCase.OPTIONAL_SOME =>
+          assertSince("1", "Expr.OptionalSome")
+          val some = lfExpr.getOptionalSome
           ESome(decodeType(some.getType), decodeExpr(some.getBody))
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
@@ -481,13 +491,13 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           val cons = lfCaseAlt.getCons
           CPCons(name(cons.getVarHead), name(cons.getVarTail))
 
-        case PLF.CaseAlt.SumCase.NONE =>
-          assertSince("1", "CaseAlt.None")
+        case PLF.CaseAlt.SumCase.OPTIONAL_NONE =>
+          assertSince("1", "CaseAlt.OptionalNone")
           CPNone
 
-        case PLF.CaseAlt.SumCase.SOME =>
-          assertSince("1", "CaseAlt.Some")
-          CPSome(name(lfCaseAlt.getSome.getVarBody))
+        case PLF.CaseAlt.SumCase.OPTIONAL_SOME =>
+          assertSince("1", "CaseAlt.OptionalSome")
+          CPSome(name(lfCaseAlt.getOptionalSome.getVarBody))
 
         case PLF.CaseAlt.SumCase.SUM_NOT_SET =>
           throw ParseError("CaseAlt.SUM_NOT_SET")
@@ -670,7 +680,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
 }
 
-object DecodeV1 {
+private[lf] object DecodeV1 {
   import LanguageMinorVersion.Implicits._
 
   private[lf] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
@@ -748,11 +758,11 @@ object DecodeV1 {
       TO_TEXT_PARTY -> (BToTextParty -> "2"),
       TO_TEXT_TEXT -> (BToTextText -> "0"),
       TO_QUOTED_TEXT_PARTY -> (BToQuotedTextParty -> "0"),
-      TO_TEXT_CODE_POINTS -> (BToTextCodePoints -> "dev"),
+      TEXT_FROM_CODE_POINTS -> (BToTextCodePoints -> "dev"),
       FROM_TEXT_PARTY -> (BFromTextParty -> "2"),
       FROM_TEXT_INT64 -> (BFromTextInt64 -> "5"),
       FROM_TEXT_DECIMAL -> (BFromTextDecimal -> "5"),
-      FROM_TEXT_CODE_POINTS -> (BFromTextCodePoints -> "dev"),
+      TEXT_TO_CODE_POINTS -> (BFromTextCodePoints -> "dev"),
       SHA256_TEXT -> (BSHA256Text -> "2"),
       DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> "0"),
       EXPLODE_TEXT -> (BExplodeText -> "0"),

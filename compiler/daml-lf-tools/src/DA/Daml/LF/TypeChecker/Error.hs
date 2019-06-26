@@ -65,13 +65,15 @@ data Error
   | EUnknownDefinition     !LookupError
   | ETypeConAppWrongArity  !TypeConApp
   | EDuplicateField        !FieldName
-  | EDuplicateVariantCon   !VariantConName
+  | EDuplicateConstructor  !VariantConName
   | EDuplicateModule       !ModuleName
   | EDuplicateScenario     !ExprVarName
+  | EEnumTypeWithParams
   | EExpectedRecordType    !TypeConApp
   | EFieldMismatch         !TypeConApp ![(FieldName, Expr)]
   | EExpectedVariantType   !(Qualified TypeConName)
-  | EUnknownVariantCon     !VariantConName
+  | EExpectedEnumType      !(Qualified TypeConName)
+  | EUnknownDataCon        !VariantConName
   | EUnknownField          !FieldName
   | EExpectedTupleType     !Type
   | EKindMismatch          {foundKind :: !Kind, expectedKind :: !Kind}
@@ -94,10 +96,8 @@ data Error
   | EImpredicativePolymorphism !Type
   | EForbiddenPartyLiterals ![PartyLiteral] ![Qualified ExprValName]
   | EContext               !Context !Error
-  | ENonValueDefinition    ![(String, Expr)] -- contains the non-value subexpressions and why they're bad
   | EKeyOperationOnTemplateWithNoKey !(Qualified TypeConName)
   | EUnsupportedFeature !Feature
-  | EInvalidKeyExpression !Expr
 
 contextLocation :: Context -> Maybe SourceLoc
 contextLocation = \case
@@ -171,9 +171,10 @@ instance Pretty Error where
     EUnknownDefinition e -> pretty e
     ETypeConAppWrongArity tapp -> "wrong arity in typecon application: " <> string (show tapp)
     EDuplicateField name -> "duplicate field: " <> pretty name
-    EDuplicateVariantCon name -> "duplicate variant constructor: " <> pretty name
+    EDuplicateConstructor name -> "duplicate constructor: " <> pretty name
     EDuplicateModule mname -> "duplicate module: " <> pretty mname
     EDuplicateScenario name -> "duplicate scenario: " <> pretty name
+    EEnumTypeWithParams -> "enum type with type parameters"
     EExpectedRecordType tapp ->
       vcat [ "expected record type:", "* found: ", nest 4 $ string (show tapp) ]
     EFieldMismatch tapp rexpr ->
@@ -185,7 +186,8 @@ instance Pretty Error where
       , nest 4 (string $ show rexpr)
       ]
     EExpectedVariantType qname -> "expected variant type: " <> pretty qname
-    EUnknownVariantCon name -> "unknown variant constructor: " <> pretty name
+    EExpectedEnumType qname -> "expected enum type: " <> pretty qname
+    EUnknownDataCon name -> "unknown data constructor: " <> pretty name
     EUnknownField name -> "unknown field: " <> pretty name
     EExpectedTupleType foundType ->
       "expected tuple type, but found: " <> pretty foundType
@@ -264,17 +266,8 @@ instance Pretty Error where
           vcat $
             "Found forbidden references to functions containing party literals:"
             : map (\badRef -> "*" <-> pretty badRef) badRefs
-    ENonValueDefinition badSubExprs -> do
-      vcat $ ("definition is not a value:" :) $ do
-        (reason, expr) <- badSubExprs
-        [string ("* " ++ reason), nest 4 (pretty expr)]
     EKeyOperationOnTemplateWithNoKey tpl -> do
       "tried to perform key lookup or fetch on template " <> pretty tpl
-    EInvalidKeyExpression expr ->
-      vcat
-      [ "expected valid key expression:"
-      , "* found:" <-> pretty expr
-      ]
     EExpectedOptionalType typ -> do
       "expected list type, but found: " <> pretty typ
     EUnsupportedFeature Feature{..} ->

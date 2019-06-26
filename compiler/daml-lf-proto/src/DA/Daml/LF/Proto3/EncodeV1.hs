@@ -117,9 +117,8 @@ encodeBuiltinType _version = P.Enumerated . Right . \case
     BTText -> P.PrimTypeTEXT
     BTTimestamp -> P.PrimTypeTIMESTAMP
     BTParty -> P.PrimTypePARTY
-    BTEnum et -> case et of
-      ETUnit -> P.PrimTypeUNIT
-      ETBool -> P.PrimTypeBOOL
+    BTUnit -> P.PrimTypeUNIT
+    BTBool -> P.PrimTypeBOOL
     BTList -> P.PrimTypeLIST
     BTUpdate -> P.PrimTypeUPDATE
     BTScenario -> P.PrimTypeSCENARIO
@@ -160,12 +159,6 @@ encodeTypes = encodeList . encodeType'
 -- Encoding of expressions
 ------------------------------------------------------------------------
 
-encodeEnumCon :: EnumCon -> P.Enumerated P.PrimCon
-encodeEnumCon = P.Enumerated . Right . \case
-    ECUnit -> P.PrimConCON_UNIT
-    ECFalse -> P.PrimConCON_FALSE
-    ECTrue -> P.PrimConCON_TRUE
-
 encodeTypeConApp :: Version -> TypeConApp -> Just P.Type_Con
 encodeTypeConApp version (TypeConApp tycon args) = Just $ P.Type_Con (encodeQualTypeConName tycon) (encodeTypes version args)
 
@@ -178,7 +171,10 @@ encodeBuiltinExpr = \case
     BEParty x -> lit $ P.PrimLitSumParty $ TL.fromStrict $ unPartyLiteral x
     BEDate x -> lit $ P.PrimLitSumDate x
 
-    BEEnumCon con -> P.ExprSumPrimCon (encodeEnumCon con)
+    BEUnit -> P.ExprSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
+    BEBool b -> P.ExprSumPrimCon $ P.Enumerated $ Right $ case b of
+        False -> P.PrimConCON_FALSE
+        True -> P.PrimConCON_TRUE
 
     BEEqual typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
@@ -187,7 +183,7 @@ encodeBuiltinExpr = \case
       BTTimestamp -> builtin P.BuiltinFunctionEQUAL_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionEQUAL_DATE
       BTParty -> builtin P.BuiltinFunctionEQUAL_PARTY
-      BTEnum ETBool -> builtin P.BuiltinFunctionEQUAL_BOOL
+      BTBool -> builtin P.BuiltinFunctionEQUAL_BOOL
       other -> error $ "BEEqual unexpected type " <> show other
 
     BELessEq typ -> case typ of
@@ -234,11 +230,11 @@ encodeBuiltinExpr = \case
       BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
       BTParty -> builtin P.BuiltinFunctionTO_TEXT_PARTY
       other -> error $ "BEToText unexpected type " <> show other
-    BECodePointsToText -> builtin P.BuiltinFunctionTO_TEXT_CODE_POINTS
+    BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
     BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY
     BEInt64FromText -> builtin P.BuiltinFunctionFROM_TEXT_INT64
     BEDecimalFromText-> builtin P.BuiltinFunctionFROM_TEXT_DECIMAL
-    BECodePointsFromText -> builtin P.BuiltinFunctionFROM_TEXT_CODE_POINTS
+    BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
     BEPartyToQuotedText -> builtin P.BuiltinFunctionTO_QUOTED_TEXT_PARTY
 
     BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL
@@ -296,6 +292,7 @@ encodeExpr' version = \case
   ERecProj{..} -> expr $ P.ExprSumRecProj $ P.Expr_RecProj (encodeTypeConApp version recTypeCon) (encodeName unFieldName recField) (encodeExpr version recExpr)
   ERecUpd{..} -> expr $ P.ExprSumRecUpd $ P.Expr_RecUpd (encodeTypeConApp version recTypeCon) (encodeName unFieldName recField) (encodeExpr version recExpr) (encodeExpr version recUpdate)
   EVariantCon{..} -> expr $ P.ExprSumVariantCon $ P.Expr_VariantCon (encodeTypeConApp version varTypeCon) (encodeName unVariantConName varVariant) (encodeExpr version varArg)
+  EEnumCon{..} -> expr $ P.ExprSumEnumCon $ P.Expr_EnumCon (encodeQualTypeConName enumTypeCon) (encodeName unVariantConName enumDataCon)
   ETupleCon{..} -> expr $ P.ExprSumTupleCon $ P.Expr_TupleCon (encodeFieldsWithExprs version unFieldName tupFields)
   ETupleProj{..} -> expr $ P.ExprSumTupleProj $ P.Expr_TupleProj (encodeName unFieldName tupField) (encodeExpr version tupExpr)
   ETupleUpd{..} -> expr $ P.ExprSumTupleUpd $ P.Expr_TupleUpd (encodeName unFieldName tupField) (encodeExpr version tupExpr) (encodeExpr version tupUpdate)
@@ -329,8 +326,8 @@ encodeExpr' version = \case
   ELocation loc e ->
     let (P.Expr _ esum) = encodeExpr' version e
     in P.Expr (Just $ encodeSourceLoc loc) esum
-  ENone typ -> expr (P.ExprSumNone (P.Expr_None (encodeType version typ)))
-  ESome typ body -> expr (P.ExprSumSome (P.Expr_Some (encodeType version typ) (encodeExpr version body)))
+  ENone typ -> expr (P.ExprSumOptionalNone (P.Expr_OptionalNone (encodeType version typ)))
+  ESome typ body -> expr (P.ExprSumOptionalSome (P.Expr_OptionalSome (encodeType version typ) (encodeExpr version body)))
   where
     expr = P.Expr Nothing . Just
 
@@ -394,11 +391,15 @@ encodeCaseAlternative version CaseAlternative{..} =
     let pat = case altPattern of
           CPDefault     -> P.CaseAltSumDefault P.Unit
           CPVariant{..} -> P.CaseAltSumVariant $ P.CaseAlt_Variant (encodeQualTypeConName patTypeCon) (encodeName unVariantConName patVariant) (encodeName unExprVarName patBinder)
-          CPEnumCon con -> P.CaseAltSumPrimCon (encodeEnumCon con)
+          CPEnum{..} -> P.CaseAltSumEnum $ P.CaseAlt_Enum (encodeQualTypeConName patTypeCon) (encodeName unVariantConName patDataCon)
+          CPUnit -> P.CaseAltSumPrimCon $ P.Enumerated $ Right P.PrimConCON_UNIT
+          CPBool b -> P.CaseAltSumPrimCon $ P.Enumerated $ Right $ case b of
+            False -> P.PrimConCON_FALSE
+            True -> P.PrimConCON_TRUE
           CPNil         -> P.CaseAltSumNil P.Unit
           CPCons{..}    -> P.CaseAltSumCons $ P.CaseAlt_Cons (encodeName unExprVarName patHeadBinder) (encodeName unExprVarName patTailBinder)
-          CPNone        -> P.CaseAltSumNone P.Unit
-          CPSome{..}    -> P.CaseAltSumSome $ P.CaseAlt_Some (encodeName unExprVarName patBodyBinder)
+          CPNone        -> P.CaseAltSumOptionalNone P.Unit
+          CPSome{..}    -> P.CaseAltSumOptionalSome $ P.CaseAlt_OptionalSome (encodeName unExprVarName patBodyBinder)
     in P.CaseAlt (Just pat) (encodeExpr version altExpr)
 
 encodeDefDataType :: Version -> DefDataType -> P.DefDataType
@@ -406,7 +407,8 @@ encodeDefDataType version DefDataType{..} =
       P.DefDataType (encodeDottedName unTypeConName dataTypeCon) (encodeTypeVarsWithKinds version dataParams)
       (Just $ case dataCons of
         DataRecord fs -> P.DefDataTypeDataConsRecord $ P.DefDataType_Fields (encodeFieldsWithTypes version unFieldName fs)
-        DataVariant fs -> P.DefDataTypeDataConsVariant $ P.DefDataType_Fields (encodeFieldsWithTypes version unVariantConName fs))
+        DataVariant fs -> P.DefDataTypeDataConsVariant $ P.DefDataType_Fields (encodeFieldsWithTypes version unVariantConName fs)
+        DataEnum cs -> P.DefDataTypeDataConsEnum $ P.DefDataType_EnumConstructors $ V.fromList $ map (encodeName unVariantConName) cs)
       (getIsSerializable dataSerializable)
       (encodeSourceLoc <$> dataLocation)
 

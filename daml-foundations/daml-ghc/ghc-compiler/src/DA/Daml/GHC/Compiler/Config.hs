@@ -9,7 +9,7 @@
 -- | Set up the GHC monad in a way that works for us
 module DA.Daml.GHC.Compiler.Config(setupDamlGHC) where
 
-import Development.IDE.UtilGHC
+import Development.IDE.GHC.Util
 import qualified CmdLineParser as Cmd (warnMsg)
 import           DynFlags (parseDynamicFilePragma)
 import           GHC                         hiding (convertLit)

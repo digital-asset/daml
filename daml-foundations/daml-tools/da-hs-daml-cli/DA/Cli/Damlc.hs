@@ -23,6 +23,7 @@ import           DA.Cli.Args
 import qualified DA.Pretty
 import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import DA.Service.Daml.Compiler.Impl.Scenario
+import DA.Daml.GHC.Compiler.Config
 import DA.Daml.GHC.Compiler.Options
 import DA.Daml.GHC.Compiler.Upgrade
 import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
@@ -44,8 +45,10 @@ import qualified Data.Set as Set
 import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import Development.IDE.Core.Compile
+import Development.IDE.LSP.Protocol hiding (Command)
 import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
+import Development.IDE.Types.Location
 import GHC.Conc
 import qualified Network.Socket                    as NS
 import Options.Applicative.Extended
@@ -63,6 +66,7 @@ import DA.Cli.Damlc.Test
 import DA.Bazel.Runfiles
 import DA.Cli.Visual
 import "ghc-lib" GHC
+import "ghc-lib-parser" StringBuffer
 import Data.List
 
 --------------------------------------------------------------------------------
@@ -594,6 +598,7 @@ execInspectDar inFile = do
         putStrLn $
             (dropExtension $ takeFileName $ eRelativePath dalfEntry) <> " " <>
             show (LF.unPackageId pkgId)
+
 execMigrate ::
        Compiler.Options -> FilePath -> FilePath -> Maybe FilePath -> Command
 execMigrate opts inFile1 inFile2 mbDir = do
@@ -625,24 +630,51 @@ execMigrate opts inFile1 inFile2 mbDir = do
     forM_ pairs $ \(e1, e2) -> do
         let path1 = eRelativePath e1
         let path2 = eRelativePath e2
-        let generatedPath =
+        let upgradeModPath =
                 joinPath $ fromMaybe "" mbDir : (tail $ splitPath path1)
-        opts' <- Compiler.mkOptions opts
-        parsedMod1 <- parse opts' loggerH path1
-        parsedMod2 <- parse opts' loggerH path2
-        let generatedMod =
+        let instancesModPath1 =
+                replaceBaseName upgradeModPath $
+                takeBaseName path1 <> "InstancesA"
+        let instancesModPath2 =
+                replaceBaseName upgradeModPath $
+                takeBaseName path2 <> "InstancesB"
+        parsedMod1 <- parse loggerH path1
+        parsedMod2 <- parse loggerH path2
+        let generatedUpgradeMod =
                 generateUpgradeModule
                     (pkg1, pm_parsed_source parsedMod1)
                     (pkg2, pm_parsed_source parsedMod2)
-        createDirectoryIfMissing True $ takeDirectory generatedPath
-        writeFile generatedPath generatedMod
+        let generatedInstancesMod1 =
+                generateGenInstancesModule
+                    "A"
+                    (pkg1, pm_parsed_source parsedMod1)
+        let generatedInstancesMod2 =
+                generateGenInstancesModule
+                    "B"
+                    (pkg2, pm_parsed_source parsedMod2)
+        forM_
+            [ (upgradeModPath, generatedUpgradeMod)
+            , (instancesModPath1, generatedInstancesMod1)
+            , (instancesModPath2, generatedInstancesMod2)
+            ] $ \(path, mod) -> do
+            createDirectoryIfMissing True $ takeDirectory path
+            writeFile path mod
   where
-    parse opts' loggerH fp =
-        Compiler.withIdeState opts' loggerH (const $ pure ()) $ \hDamlGhc -> do
-            errOrMod <-
-                runExceptT $
-                Compiler.parseFile hDamlGhc (toNormalizedFilePath fp)
-            either (reportErr "Parsing failed") pure errOrMod
+    parse loggerH fp = do
+        errOrMod <-
+            runGhcFast $
+            runExceptT $ do
+                sb <- liftIO $ hGetStringBuffer fp
+                lift $ setupDamlGHC [] Nothing []
+                -- parse without any preprocessing, so that we can see which data definitions have
+                -- already generic instances.
+                parseFileContents ((,) []) fp sb
+        case errOrMod of
+            Left err -> ioError $ userError $ show err
+            Right (ds, mod) -> do
+                unless (null ds) $ Logger.logWarning loggerH (T.pack $ show ds)
+                return mod
+
 --------------------------------------------------------------------------------
 -- main
 --------------------------------------------------------------------------------

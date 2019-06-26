@@ -47,6 +47,9 @@
 - warn: {lhs: Data.Text.Lazy.writeFile, rhs: Data.Text.Extended.writeFileUtf8}
 - warn: {lhs: System.Environment.setEnv, rhs: System.Environment.Blank.setEnv}
 
+# Hints that do not always make sense
+- ignore: {name: "Use if", within: [DA.Daml.LF.Proto3.EncodeV1, DA.Daml.LF.Ast.Pretty]}
+
 # Specify additional command line arguments
 #
 # - arguments: [--color, --cpp-simple, -XQuasiQuotes]
@@ -80,9 +83,9 @@
     - DA.Sdk.Cli.System
     - DA.Sdk.Cli.Version
     - DAML.Assistant.Install.Path
-    - Development.IDE.Functions.Compile
-    - Development.IDE.UtilGHC
-    - Development.IDE.Compat
+    - DamlHelper.Signals
+    - Development.IDE.Core.Compile
+    - Development.IDE.GHC.Compat
   - {name: ImplicitParams, within: []}
 
 - flags:
@@ -105,7 +108,6 @@
 # Will suggest replacing "wibbleMany [myvar]" with "wibbleOne myvar"
 # - error: {lhs: "wibbleMany [x]", rhs: wibbleOne x}
 
-
 # Turn on hints that are off by default
 #
 # Ban "module X(module X) where", to require a real export list
@@ -117,11 +119,9 @@
 # Generalise map to fmap, ++ to <>
 # - group: {name: generalise, enabled: true}
 
-
 # Ignore some builtin hints
 # - ignore: {name: Use let}
 # - ignore: {name: Use const, within: SpecialModule} # Only within certain modules
-
 
 # Define some custom infix operators
 # - fixity: infixr 3 ~^#^~

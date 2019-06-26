@@ -161,6 +161,18 @@ class ToolReporter(verbose: Boolean) extends Reporter {
         depth -= 1
         ()
 
+      case e.TestIgnored(
+          ordinal,
+          suiteName,
+          suiteId,
+          suiteClassName,
+          testName,
+          testText,
+          formatter,
+          location,
+          payload,
+          threadName,
+          timeStamp) =>
       case _ =>
         println(
           s"BUG: Unknown reported event: $event. Report the issue to Digital Asset at https://docs.daml.com/support/support.html")

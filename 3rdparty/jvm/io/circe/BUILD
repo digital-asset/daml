@@ -84,3 +84,20 @@ scala_import(
 )
 
 
+
+scala_import(
+    name = "circe_yaml",
+    exports = [
+        "//3rdparty/jvm/org/scala_lang:scala_library",
+        "//3rdparty/jvm/org/yaml:snakeyaml",
+        ":circe_core"
+    ],
+    jars = [
+        "//external:jar/io/circe/circe_yaml_2_12"
+    ],
+    visibility = [
+        "//visibility:public"
+    ]
+)
+
+

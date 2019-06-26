@@ -419,7 +419,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
       }
     }
 
-    "TO_TEXT_CODE_POINTS" - {
+    "TEXT_FROM_CODE_POINTS" - {
 
       "accepts legal code points" in {
         val testCases = Table(
@@ -455,7 +455,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
 
         forEvery(testCases)(cp =>
-          eval(e"""TO_TEXT_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldBe Right(
+          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldBe Right(
             SText("'" + new String(Character.toChars(cp)) + "'")))
       }
 
@@ -471,7 +471,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
 
         forEvery(testCases)(cp =>
-          eval(e"""TO_TEXT_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldBe 'left)
+          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp.toLong, '\''.toLong)}""") shouldBe 'left)
       }
 
       "rejects to small or to big code points" in {
@@ -490,7 +490,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
 
         forEvery(testCases)(cp =>
-          eval(e"""TO_TEXT_CODE_POINTS ${intList('\''.toLong, cp, '\''.toLong)}""") shouldBe 'left)
+          eval(e"""TEXT_FROM_CODE_POINTS ${intList('\''.toLong, cp, '\''.toLong)}""") shouldBe 'left)
 
       }
     }

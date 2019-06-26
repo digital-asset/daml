@@ -8,7 +8,7 @@ module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc, cmdRenderDoc) where
 import           DA.Cli.Damlc.Base(Command)
 import           DA.Cli.Options
 import           DA.Daml.GHC.Damldoc.Driver
-import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 
 import           Options.Applicative
 import Data.Maybe
