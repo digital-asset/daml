@@ -4,11 +4,18 @@
 package com.digitalasset.http
 
 import com.digitalasset.http.Generators.{genApiIdentifier, genDuplicateApiIdentifiers}
+import com.digitalasset.ledger.api.v1.value.Identifier
 import org.scalacheck.Gen.nonEmptyListOf
 import org.scalacheck.Shrink
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalatest.{FlatSpec, Matchers}
-class PackageServiceTest extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
+import org.scalatest.{FlatSpec, Inside, Matchers}
+import scalaz.\/-
+
+class PackageServiceTest
+    extends FlatSpec
+    with Matchers
+    with Inside
+    with GeneratorDrivenPropertyChecks {
 
   import Shrink.shrinkAny
 
@@ -40,10 +47,29 @@ class PackageServiceTest extends FlatSpec with Matchers with GeneratorDrivenProp
       foldedDups ++ map.values shouldBe ids
     }
 
-//  it should "resolve all API Identifier by moduleName and entityName one at a time" in forAll(
-//    listOf(genApiIdentifier)) { ids =>
-//    val (dup, map) = PackageService.buildMap(ids.toSet)
-//
-//  }
+  behavior of "PackageService.resolveTemplateIds"
 
+  it should "return all API Identifier by moduleName and entityName" in forAll(
+    nonEmptyListOf(genApiIdentifier)) { ids =>
+    val (dups, map) = PackageService.buildMap(ids.toSet)
+    val uniqueIds: Set[Identifier] = map.values.toSet
+    val uniqueDomainIds: Set[domain.TemplateId] = uniqueIds.map(x =>
+      domain.TemplateId(packageId = None, moduleName = x.moduleName, entityName = x.entityName))
+
+    inside(PackageService.resolveTemplateIds(map)(uniqueDomainIds)) {
+      case \/-(actualIds) => actualIds.toSet shouldBe uniqueIds
+    }
+  }
+
+//  it should "return error for unmapped ID" in forAll(nonEmptyListOf(genApiIdentifier)) { ids =>
+//    val (dups, map) = PackageService.buildMap(ids.toSet)
+//    val unmappedDomainIds = PackageService
+//      .fold(dups)
+//      .map(x =>
+//        domain.TemplateId(packageId = None, moduleName = x.moduleName, entityName = x.entityName))
+//
+//    inside(PackageService.resolveTemplateIds(map)(unmappedDomainIds)) {
+//      case -\/(error) => actualIds.toSet shouldBe Set.empty
+//    }
+//  }
 }
