@@ -3,16 +3,15 @@
 
 -- Abstraction for LedgerService, which can be composed monadically.
 module DA.Ledger.LedgerService (
-    LedgerService, runLedgerService, makeLedgerService, TimeoutSeconds(..),
+    LedgerService, runLedgerService, makeLedgerService, TimeoutSeconds,
     ) where
 
 import Control.Monad.Fail (MonadFail)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Reader (ReaderT(..),runReaderT)
 import DA.Ledger.Retry (ledgerRetry)
-import Network.GRPC.HighLevel.Generated
-
-newtype TimeoutSeconds = TimeoutSeconds { unTimeoutSeconds :: Int } deriving Num
+import Network.GRPC.HighLevel.Generated(ClientConfig)
+import Network.GRPC.HighLevel.Client(TimeoutSeconds)
 
 type Context = (TimeoutSeconds,ClientConfig)
 
