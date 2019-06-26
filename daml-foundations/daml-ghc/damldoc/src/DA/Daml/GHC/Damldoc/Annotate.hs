@@ -29,7 +29,7 @@ applyMove = map (foldr1 g) . groupSortOn (modulePriorityKey . md_name) . map f
 
         -- Bring Prelude module to the front.
         modulePriorityKey :: Modulename -> (Int,Modulename)
-        modulePriorityKey m = (if unModulename m == "Prelude" then 0 else 1, m)
+        modulePriorityKey m = (if m == "Prelude" then 0 else 1, m)
 
 applyHide :: [ModuleDoc] -> [ModuleDoc]
 applyHide = concatMap onModule
