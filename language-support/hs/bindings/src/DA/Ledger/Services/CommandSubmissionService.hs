@@ -15,7 +15,7 @@ import Network.GRPC.HighLevel.Generated
 
 submit :: Commands -> LedgerService (Either String ())
 submit commands =
-    makeLedgerService $ \(TimeoutSeconds timeout) config ->
+    makeLedgerService $ \timeout config ->
     withGRPCClient config $ \client -> do
         service <- commandSubmissionServiceClient client
         let CommandSubmissionService rpc = service

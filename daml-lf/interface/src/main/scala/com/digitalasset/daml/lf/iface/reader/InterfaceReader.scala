@@ -9,6 +9,7 @@ import ErrorFormatter._
 import com.digitalasset.daml_lf.{DamlLf, DamlLf1}
 import scalaz.{Enum => _, _}
 import scalaz.syntax.std.either._
+import scalaz.syntax.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.apply._
 import scalaz.syntax.bifunctor._
@@ -27,6 +28,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   QualifiedName
 }
 
+import scala.collection.breakOut
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
 
@@ -47,7 +49,9 @@ object InterfaceReader {
       stringReport(errors)(_ fold (sy => Cord(".") :+ sy.name, Cord("'") :+ _ :+ "'"), _.error)
   }
 
-  private[reader] final case class Context(packageId: PackageId)
+  private[reader] final case class Context(
+      packageId: PackageId,
+      internedPackageIds: ImmArraySeq[String \/ PackageId])
 
   private[reader] final case class State(
       typeDecls: Map[QualifiedName, InterfaceType] = Map.empty,
@@ -102,7 +106,8 @@ object InterfaceReader {
       case \/-((templateGroupId, lfPackage)) =>
         lfprintln(s"templateGroupId: $templateGroupId")
         lfprintln(s"package: $lfPackage")
-        val ctx: Context = Context(templateGroupId)
+        val interned = internedPackageIds(lfPackage.getInternedPackageIdsList.asScala)
+        val ctx: Context = Context(templateGroupId, interned)
         val s: State = {
           import scalaz.std.iterable._
           lfPackage.getModulesList.asScala
@@ -148,6 +153,9 @@ object InterfaceReader {
   private[reader] def packageId(a: DamlLf1.PackageRef): InterfaceReaderError \/ PackageId =
     PackageId.fromString(a.getPackageId).disjunction leftMap (err =>
       invalidDataTypeDefinition(a, s"Invalid packageId : $err"))
+
+  private[this] def internedPackageIds(a: Seq[String]): ImmArraySeq[String \/ PackageId] =
+    a.map(s => PackageId.fromString(s).disjunction)(breakOut)
 
   private[this] def addPartitionToState[A](
       state: State,
@@ -328,22 +336,34 @@ object InterfaceReader {
   private def typeConName(
       a: DamlLf1.TypeConName,
       ctx: Context): InterfaceReaderError \/ TypeConName =
-    (moduleRef(a.getModule) |@| dottedName(a.getName)) {
+    (moduleRef(a.getModule, ctx) |@| dottedName(a.getName)) {
       case ((pkgId, mname), name) =>
         TypeConName(Identifier(pkgId.getOrElse(ctx.packageId), QualifiedName(mname, name)))
     }
 
   private def moduleRef(
-      a: DamlLf1.ModuleRef): InterfaceReaderError \/ (Option[PackageId], ModuleName) =
-    (packageRef(a.getPackageRef) |@| dottedName(a.getModuleName)) { (pkgId, mname) =>
+      a: DamlLf1.ModuleRef,
+      ctx: Context): InterfaceReaderError \/ (Option[PackageId], ModuleName) =
+    (packageRef(a.getPackageRef, ctx) |@| dottedName(a.getModuleName)) { (pkgId, mname) =>
       (pkgId, mname)
     }
 
-  private def packageRef(a: DamlLf1.PackageRef): InterfaceReaderError \/ Option[PackageId] =
+  private def packageRef(
+      a: DamlLf1.PackageRef,
+      ctx: Context): InterfaceReaderError \/ Option[PackageId] =
     a.getSumCase match {
       case DamlLf1.PackageRef.SumCase.SELF => \/-(None)
       case DamlLf1.PackageRef.SumCase.PACKAGE_ID =>
         packageId(a).map(Some(_))
+      case DamlLf1.PackageRef.SumCase.INTERNED_ID =>
+        val iidl = a.getInternedId
+        val iid = iidl.toInt
+        ctx.internedPackageIds
+          .lift(iid)
+          .cata(
+            _.bimap(err => s"invalid package ID: $err", Some(_)),
+            -\/(s"no such index $iidl in package ID intern table"))
+          .leftMap(invalidDataTypeDefinition(a, _))
       case DamlLf1.PackageRef.SumCase.SUM_NOT_SET =>
         -\/(invalidDataTypeDefinition(a, "DamlLf1.PackageRef.SumCase.SUM_NOT_SET"))
     }

@@ -184,11 +184,13 @@ instance Storable ChannelArgs where
   alignment _ = 8
 {-# LINE 35 "nix/third-party/gRPC-haskell/core/src/Network/GRPC/Unsafe/ChannelArgs.chs" #-}
 
+-- NOTE: C2HSImp.CSize used in peek / poke for size_t type binding instead of generated C2HSImp.CLong
+-- see: https://github.com/digital-asset/daml/issues/1354#issuecomment-505447029
   peek p = ChannelArgs <$> fmap fromIntegral
-                                ((\ptr -> do {C2HSImp.peekByteOff ptr 0 :: IO C2HSImp.CULong}) p)
+                                ((\ptr -> do {C2HSImp.peekByteOff ptr 0 :: IO C2HSImp.CSize}) p)
                        <*> ((\ptr -> do {C2HSImp.peekByteOff ptr 8 :: IO (GrpcArg)}) p)
   poke p ChannelArgs{..} = do
-    (\ptr val -> do {C2HSImp.pokeByteOff ptr 0 (val :: C2HSImp.CULong)}) p $ fromIntegral channelArgsN
+    (\ptr val -> do {C2HSImp.pokeByteOff ptr 0 (val :: C2HSImp.CSize)}) p $ fromIntegral channelArgsN
     (\ptr val -> do {C2HSImp.pokeByteOff ptr 8 (val :: (GrpcArg))}) p channelArgsArray
 
 createArgArray :: (Int) -> IO ((GrpcArg))

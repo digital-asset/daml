@@ -22,7 +22,7 @@ import qualified Com.Digitalasset.Ledger.Api.V1.TransactionService as LL
 
 ledgerEnd :: LedgerId -> LedgerService LedgerOffset
 ledgerEnd lid =
-    makeLedgerService $ \(TimeoutSeconds timeout) config -> do
+    makeLedgerService $ \timeout config -> do
     withGRPCClient config $ \client -> do
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetLedgerEnd=rpc} = service
@@ -53,7 +53,7 @@ lowerRequest = \case
 
 getTransactions :: GetTransactionsRequest -> LedgerService (Stream Transaction)
 getTransactions tup =
-    makeLedgerService $ \(TimeoutSeconds timeout) config -> do
+    makeLedgerService $ \timeout config -> do
     stream <- newStream
     let request = lowerRequest tup
     _ <- forkIO $

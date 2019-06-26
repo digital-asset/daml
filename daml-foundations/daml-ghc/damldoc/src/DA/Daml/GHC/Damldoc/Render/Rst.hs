@@ -34,7 +34,7 @@ renderSimpleRst ModuleDoc{..} = T.unlines $
   , renderAnchor (moduleAnchor md_name)
   , title
   , T.replicate (T.length title) "-"
-  , fromMaybe "" md_descr
+  , maybe "" docTextToRst md_descr
   ]
   <> concat
   [ if null md_templates
@@ -67,13 +67,13 @@ renderSimpleRst ModuleDoc{..} = T.unlines $
          ]
   ]
 
-  where title = "Module " <> md_name
+  where title = "Module " <> unModulename md_name
 
 tmpl2rst :: Modulename -> TemplateDoc -> T.Text
 tmpl2rst md_name TemplateDoc{..} = T.unlines $
   renderAnchor (templateAnchor md_name td_name) :
-  ("template " <> enclosedIn "**" td_name) :
-  maybe T.empty (T.cons '\n' . indent 2 . markdownToRst) td_descr :
+  ("template " <> enclosedIn "**" (unTypename td_name)) :
+  maybe "" (T.cons '\n' . indent 2 . docTextToRst) td_descr :
   "" :
   indent 2 (fieldTable td_payload) :
   "" :
@@ -82,43 +82,48 @@ tmpl2rst md_name TemplateDoc{..} = T.unlines $
 
 choiceBullet :: ChoiceDoc -> T.Text
 choiceBullet ChoiceDoc{..} = T.unlines
-  [ prefix "+ " $ enclosedIn "**" $ "Choice " <> cd_name
-  , maybe T.empty (flip T.snoc '\n' . indent 2 . markdownToRst) cd_descr
+  [ prefix "+ " $ enclosedIn "**" $ "Choice " <> unTypename cd_name
+  , maybe "" (flip T.snoc '\n' . indent 2 . docTextToRst) cd_descr
   , indent 2 (fieldTable cd_fields)
   ]
 
 cls2rst :: Modulename ->  ClassDoc -> T.Text
 cls2rst md_name ClassDoc{..} = T.unlines $
   renderAnchor (classAnchor md_name cl_name) :
-  "**class " <> maybe "" (\x -> type2rst x <> " => ") cl_super <> T.unwords (cl_name : cl_args) <> " where**" :
-  maybe [] ((:[""]) . indent 2 . markdownToRst) cl_descr ++
+  "**class " <> maybe "" (\x -> type2rst x <> " => ") cl_super <> T.unwords (unTypename cl_name : cl_args) <> " where**" :
+  maybe [] ((:[""]) . indent 2 . docTextToRst) cl_descr ++
   map (indent 2 . fct2rst md_name) cl_functions
 
 adt2rst :: Modulename -> ADTDoc -> T.Text
 adt2rst md_name TypeSynDoc{..} = T.unlines $
-  renderAnchor (typeAnchor md_name ad_name) :
-  "type " <> enclosedIn "**" (ad_name <> (T.concat $ map (T.cons ' ') ad_args)) :
-  "    = " <> type2rst ad_rhs :
-  maybe [] ((:[]) . T.cons '\n' . indent 2 . markdownToRst) ad_descr
+    [ renderAnchor (typeAnchor md_name ad_name)
+    , "type " <> enclosedIn "**"
+        (T.unwords (unTypename ad_name : ad_args))
+    , "    = " <> type2rst ad_rhs
+    ] ++ maybe [] ((:[]) . T.cons '\n' . indent 2 . docTextToRst) ad_descr
 adt2rst md_name ADTDoc{..} = T.unlines $
-  renderAnchor (dataAnchor md_name ad_name) :
-  "data " <> enclosedIn "**" (ad_name <> (T.concat $ map (T.cons ' ') ad_args)) :
-  maybe T.empty (T.cons '\n' . indent 2 . markdownToRst) ad_descr :
-  map (indent 2 . T.cons '\n' . constr2rst md_name) ad_constrs
+    [ renderAnchor (dataAnchor md_name ad_name)
+    , "data " <> enclosedIn "**"
+        (T.unwords (unTypename ad_name : ad_args))
+    , maybe "" (T.cons '\n' . indent 2 . docTextToRst) ad_descr
+    ] ++ map (indent 2 . T.cons '\n' . constr2rst md_name) ad_constrs
 
 
 constr2rst :: Modulename -> ADTConstr -> T.Text
 constr2rst md_name PrefixC{..} = T.unlines $
-  renderAnchor (constrAnchor md_name ac_name) :
-  T.unwords (enclosedIn "**" ac_name : map type2rst ac_args) :
-  maybe [] ((:[]) . T.cons '\n' . markdownToRst) ac_descr
+    [ renderAnchor (constrAnchor md_name ac_name)
+    , T.unwords (enclosedIn "**" (unTypename ac_name) : map type2rst ac_args)
+        -- FIXME: Parentheses around args seems necessary here
+        -- if they are type application or function (see type2rst).
+    ] ++ maybe [] ((:[]) . T.cons '\n' . docTextToRst) ac_descr
+
 constr2rst md_name RecordC{..} = T.unlines
-  [ renderAnchor (constrAnchor md_name ac_name)
-  , enclosedIn "**" ac_name
-  , maybe T.empty (T.cons '\n' . markdownToRst) ac_descr
-  , ""
-  , fieldTable ac_fields
-  ]
+    [ renderAnchor (constrAnchor md_name ac_name)
+    , enclosedIn "**" (unTypename ac_name)
+    , maybe "" (T.cons '\n' . docTextToRst) ac_descr
+    , ""
+    , fieldTable ac_fields
+    ]
 
 
 {- | Render fields as an rst list-table (editing-friendly), like this:
@@ -150,41 +155,10 @@ fieldTable fds = T.unlines $ -- NB final empty line is essential and intended
                 , "  - Type"
                 , "  - Description" ]
     fieldRows = concat
-       [ [ prefix "* - " $ escapeTr_ fd_name
+       [ [ prefix "* - " $ escapeTr_ (unFieldname fd_name)
          , prefix "  - " $ type2rst fd_type
-         , prefix "  - " $ maybe " " (markdownToRst . T.unwords . T.lines) fd_descr ]
+         , prefix "  - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ] -- FIXME: this makes no sense
        | FieldDoc{..} <- fds ]
-
-
--- | Render fields as a table, like this:
--- >  ============ ==============================
--- >  **Field**    **Type/Description**
--- >  ============ ==============================
--- >  **anA**      | *a*
--- >  **another**  | *a*
--- >               | another a
--- >  **andText**  | *Text*
--- >               | and text
--- >  ============ ==============================
-_fieldTableVerbatim :: [FieldDoc] -> T.Text
-_fieldTableVerbatim []  = "(no fields)"
-_fieldTableVerbatim fds = header <> fieldRows <> equalLines
-  where
-    equalLines = T.unwords (map (flip T.replicate "-") [fLen, 30])
-                 -- 30 because last overline can be shorter
-    fLen = 4 + (maximum $ map T.length $ fieldHdr : map fd_name fds)
-           -- +4 for field names in bold face
-    fieldHdr = "Field"
-    header = T.unlines
-      [ equalLines
-      , adjust fLen (enclosedIn "**" fieldHdr) <> " " <> "**Type/Description**"
-      , equalLines
-      ]
-    fieldRows = T.unlines
-      [ adjust fLen (enclosedIn "**" fd_name) <> " | "
-        <> enclosedIn "*" (type2rst fd_type)
-        <> maybe "" (\d -> "\n" <> indent (fLen + 1) (prefix "| " (markdownToRst d))) fd_descr
-      | FieldDoc{..} <- fds ]
 
 -- | Render a type. Nested type applications are put in parentheses.
 type2rst :: Type -> T.Text
@@ -193,28 +167,32 @@ type2rst = f (0 :: Int)
     -- 0 = no brackets
     -- 1 = brackets around function
     -- 2 = brackets around function AND application
-    f _ (TypeApp n []) = n
-    f i (TypeApp n as) = (if i >= 2 then inParens else id) $ T.unwords (n : map (f 2) as)
+    f _ (TypeApp n []) = unTypename n
+    f i (TypeApp n as) = (if i >= 2 then inParens else id) $ T.unwords (unTypename n : map (f 2) as)
     f i (TypeFun ts) = (if i >= 1 then inParens else id) $ T.intercalate " -> " $ map (f 1) ts
     f _ (TypeList t1) = "[" <> f 0 t1 <> "]"
     f _ (TypeTuple ts) = "(" <> T.intercalate ", " (map (f 0) ts) <>  ")"
 
 
 fct2rst :: Modulename -> FunctionDoc -> T.Text
-fct2rst md_name  FunctionDoc{..} =
-  renderAnchor (functionAnchor md_name fct_name fct_type) <> "\n"
-  <> enclosedIn "**" (if isAlpha (T.head fct_name) then fct_name else inParens fct_name) <> "\n  : "
-  <> maybe "" ((<> " => ") . type2rst) fct_context
-  <> maybe "" ((<> "\n\n") . type2rst) fct_type
-  <> maybe "" (indent 2 . markdownToRst) fct_descr
-  <> "\n"
+fct2rst md_name  FunctionDoc{..} = T.unlines
+    [ renderAnchor (functionAnchor md_name fct_name fct_type)
+    , enclosedIn "**" (wrapOp (unFieldname fct_name))
+    , T.concat
+        [ "  : "
+        , maybe "" ((<> " => ") . type2rst) fct_context
+        , maybe "" ((<> "\n\n") . type2rst) fct_type
+            -- FIXME: when would a function not have a type?
+        , maybe "" (indent 2 . docTextToRst) fct_descr
+        ]
+    ]
 
 ------------------------------------------------------------
 -- helpers
 
 -- TODO (MK) Handle doctest blocks. Currently the parse as nested blockquotes.
-markdownToRst :: Markdown -> T.Text
-markdownToRst = renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts
+docTextToRst :: DocText -> T.Text
+docTextToRst = renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts . unDocText
   where
     opts = []
     exts = []
