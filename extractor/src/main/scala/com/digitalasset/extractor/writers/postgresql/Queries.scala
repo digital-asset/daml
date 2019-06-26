@@ -291,6 +291,7 @@ object Queries {
         case e @ V.ValueEnum(_, _) =>
           // FixMe (RH) https://github.com/digital-asset/daml/issues/105
           throw new NotImplementedError("Enum types not supported")
+
         case o @ V.ValueOptional(_) =>
           Fragment(
             "?::jsonb",
