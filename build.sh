@@ -32,4 +32,4 @@ bazel test -j 200 //... --test_tag_filters "$tag_filter" --experimental_executio
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
-da-ghci --data yes damlc -e '()'
+da-ghci --data yes -e '()'
