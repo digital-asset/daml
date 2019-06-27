@@ -333,8 +333,8 @@ runCpp dflags filename contents = withTempDir $ \dir -> do
 
             -- Location information is wrong, so we fix that by patching it afterwards.
             let inp = dir </> "___HIE_CORE_MAGIC___"
-            let f x = if SB.atEnd x then Nothing else Just $ SB.nextChar x
-            liftIO $ writeFileUTF8 inp (unfoldr f contents)
+            withBinaryFile inp WriteMode $ \h ->
+                hPutStringBuffer h contents
             doCpp dflags True inp out
 
             -- Fix up the filename in lines like:
