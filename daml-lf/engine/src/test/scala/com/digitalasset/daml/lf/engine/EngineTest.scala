@@ -1028,7 +1028,20 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       postCommitForBob shouldBe 'right
 
       bobView.nodes(Tx.NodeId.unsafeFromIndex(0)) match {
-        case NodeExercises(coid, _, choice, _, consuming, actingParties, _, _, _, _, children, _) =>
+        case NodeExercises(
+            coid,
+            _,
+            choice,
+            _,
+            consuming,
+            actingParties,
+            _,
+            _,
+            _,
+            _,
+            children,
+            _,
+            _) =>
           coid shouldBe AbsoluteContractId(originalCoid)
           consuming shouldBe true
           actingParties shouldBe Set("Bob")

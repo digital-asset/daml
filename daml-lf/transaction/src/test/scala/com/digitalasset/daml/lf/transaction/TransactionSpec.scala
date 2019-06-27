@@ -134,7 +134,8 @@ object TransactionSpec {
       Set.empty,
       Set.empty,
       children,
-      if (hasExerciseResult) Some(V.ValueUnit) else None
+      if (hasExerciseResult) Some(V.ValueUnit) else None,
+      None
     )
 
   val dummyCreateNode: NodeCreate[String, Value[String]] =
