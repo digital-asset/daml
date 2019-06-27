@@ -56,14 +56,21 @@ startFromExpr seen world e = case e of
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
-templatePossibleUpdates :: LF.World -> LF.Template -> Set.Set Action
-templatePossibleUpdates world tpl = Set.unions $ map (startFromChoice world) (NM.toList (LF.tplChoices tpl))
+data ChoiceAndAction = ChoiceAndAction { choice :: LF.TemplateChoice
+                                        ,actions ::Set.Set Action
+                                      }
 
-moduleAndTemplates :: LF.World -> LF.Module -> [(LF.Template, Set.Set Action)]
+data TemplateChoiceAction = TemplateChoiceAction { teamplate :: LF.Template
+                                                  ,choiceAndAction :: [ChoiceAndAction] }
+
+templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
+templatePossibleUpdates world tpl = map (\c -> (ChoiceAndAction c (startFromChoice world c))  ) (NM.toList (LF.tplChoices tpl))
+
+moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoiceAction]
 moduleAndTemplates world mod = retTypess
     where
         templates = NM.toList $ LF.moduleTemplates mod
-        retTypess = map (\t-> (t, templatePossibleUpdates world t )) templates
+        retTypess = map (\t-> TemplateChoiceAction t (templatePossibleUpdates world t ) ) templates
 
 
 dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
@@ -133,7 +140,7 @@ execVisual darFilePath dotFilePath = do
         world = darToWorld manifestData lfPkg
         tplLookUp = lookupTemplateT world
         res = concatMap (moduleAndTemplates world) modules --  [(LF.Template, Set.Set Action)]
-        actionEdges = map templatePairs res
+        actionEdges = map templatePairs res  -- (LF.Template , (LF.Template , [Action]))
         dotString = showDot $ netlistGraph' srcLabel (actionsForTemplate tplLookUp)  actionEdges
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile dotString
