@@ -13,6 +13,7 @@ import "google/protobuf/empty.proto";
 
 option java_outer_classname = "CommandSubmissionServiceOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 
 // Allows clients to attempt advancing the ledger's state by submitting commands.
 // The final states of their submissions are disclosed by the Command Completion Service.
