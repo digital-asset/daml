@@ -66,7 +66,6 @@ import DA.Cli.Damlc.Test
 import DA.Bazel.Runfiles
 import DA.Cli.Visual
 import "ghc-lib" GHC
-import "ghc-lib-parser" StringBuffer
 import Data.List
 
 --------------------------------------------------------------------------------
@@ -664,11 +663,10 @@ execMigrate opts inFile1 inFile2 mbDir = do
         errOrMod <-
             runGhcFast $
             runExceptT $ do
-                sb <- liftIO $ hGetStringBuffer fp
                 lift $ setupDamlGHC [] Nothing []
                 -- parse without any preprocessing, so that we can see which data definitions have
                 -- already generic instances.
-                parseFileContents ((,) []) fp sb
+                parseFileContents ((,) []) fp Nothing
         case errOrMod of
             Left err -> ioError $ userError $ show err
             Right (ds, mod) -> do

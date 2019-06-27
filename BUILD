@@ -151,6 +151,11 @@ alias(
 )
 
 alias(
+    name = "hie-core",
+    actual = "//compiler/hie-core:hie-core-exe",
+)
+
+alias(
     name = "daml-lf-repl",
     actual = "//daml-lf/repl:repl",
 )
