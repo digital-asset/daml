@@ -24,10 +24,8 @@ module DA.Daml.LF.TypeChecker.Env(
 
 import           Control.Lens hiding (Context)
 import           Control.Monad.Error.Class (MonadError (..))
-import           Control.Monad.Extra
 import           Control.Monad.Reader
 import           Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HMS
 
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.TypeChecker.Error
@@ -80,7 +78,6 @@ emptyGamma = Gamma ContextNone mempty mempty
 -- variable.
 introTypeVar :: MonadGamma m => TypeVarName -> Kind -> m a -> m a
 introTypeVar v k act = do
-  whenM (views tvars (HMS.member v)) $ throwWithContext (EShadowingTypeVar v)
   local (tvars . at v ?~ k) act
 
 -- -- | Introduce a fresh type variable to the environment. Uses the given name as
