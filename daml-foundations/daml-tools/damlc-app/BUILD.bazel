@@ -6,7 +6,7 @@ load("//bazel_tools:packaging/packaging.bzl", "package_app")
 load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_binary(
-    name = "da-hs-damlc-app",
+    name = "damlc-app",
     srcs = ["src/Main.hs"],
 
     # We need to tell the linker to statically link pthread on Windows
@@ -52,7 +52,7 @@ da_haskell_binary(
 
 package_app(
     name = "damlc-dist",
-    binary = ":da-hs-damlc-app",
+    binary = ":damlc-app",
     resources = [
         ":ghc-pkg-dist",
         "//compiler/scenario-service/server:scenario_service_jar",

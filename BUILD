@@ -138,17 +138,17 @@ genrule(
 
 alias(
     name = "damlc",
-    actual = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app",
+    actual = "//daml-foundations/daml-tools/damlc-app:damlc-app",
 )
 
 alias(
     name = "damlc@ghci",
-    actual = "//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app@ghci",
+    actual = "//daml-foundations/daml-tools/damlc-app:damlc-app@ghci",
 )
 
 alias(
     name = "damlc-dist",
-    actual = "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
+    actual = "//daml-foundations/daml-tools/damlc-app:damlc-dist",
 )
 
 alias(

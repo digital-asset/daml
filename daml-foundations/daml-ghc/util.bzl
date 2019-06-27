@@ -47,7 +47,7 @@ daml_ghc_compile_test = rule(
         "srcs": attr.label_list(allow_files = True),
         "main": attr.label(allow_files = True),
         "damlc": attr.label(
-            default = Label("//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app"),
+            default = Label("//daml-foundations/daml-tools/damlc-app:damlc-app"),
             executable = True,
             cfg = "target",
             allow_files = True,

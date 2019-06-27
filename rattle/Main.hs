@@ -29,7 +29,7 @@ import Data.List.Extra
 targets =
     ["libs-haskell/prettyprinter-syntax"
     ,"daml-assistant"
-    ,"daml-foundations/daml-tools/da-hs-damlc-app"
+    ,"daml-foundations/daml-tools/damlc-app"
     ,"daml-foundations/daml-tools/daml-cli"
     ,"compiler/hie-core"
     ,"libs-haskell/da-hs-base"

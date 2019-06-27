@@ -181,7 +181,7 @@ Lastly, there are some aliases defined here. For example,
 ```
 alias(
   name = "damlc",
-  actual = "//daml-foundations/daml-tools/da-hs-damlc-app"
+  actual = "//daml-foundations/daml-tools/damlc-app"
 )
 ```
 

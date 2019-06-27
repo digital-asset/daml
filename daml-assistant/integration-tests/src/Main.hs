@@ -96,7 +96,7 @@ noassistantTests damlDir = testGroup "no assistant"
               , "a : ()"
               , "a = ()"
               ]
-          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "da-hs-damlc-app"
+          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc-app"
           callProcess damlcPath ["build", "--project-root", projDir, "--init-package-db", "no"]
     ]
 
