@@ -26,7 +26,7 @@ da_haskell_binary(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-foundations/daml-tools/da-hs-daml-cli",
+        "//daml-foundations/daml-tools/daml-cli",
     ],
 )
 
@@ -46,7 +46,7 @@ da_haskell_binary(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//daml-foundations/daml-tools/da-hs-daml-cli",
+        "//daml-foundations/daml-tools/daml-cli",
     ],
 )
 

@@ -5,7 +5,7 @@ are linked where available.
 
 ## DAML Command Line Interface
 
-* `da-hs-daml-cli` is the Haskell library behind `damlc`
+* `daml-cli` is the Haskell library behind `damlc`
 * `da-hs-damlc-app` provides `damlc`
 * `damlc-jar:damlc.jar` packages up `damlc` for distribution inside a jar.
 

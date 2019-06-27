@@ -35,7 +35,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-foundations/daml-ghc/damldoc:damldoc-testing",
-        "//daml-foundations/daml-tools/da-hs-daml-cli",
+        "//daml-foundations/daml-tools/daml-cli",
         "//libs-haskell/da-hs-base",
     ],
 )
