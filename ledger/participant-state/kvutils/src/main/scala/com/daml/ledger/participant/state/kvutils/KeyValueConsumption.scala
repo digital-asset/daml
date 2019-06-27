@@ -22,7 +22,7 @@ object KeyValueConsumption {
   sealed trait AsyncResponse extends Serializable with Product
   final case class PartyAllocationResponse(submissionId: String, result: PartyAllocationResult)
       extends AsyncResponse
-  final case class PackageUploadResponse(submissionId: String, result: PackageUploadResult)
+  final case class PackageUploadResponse(submissionId: String, result: UploadPackagesResult)
       extends AsyncResponse
 
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
@@ -34,7 +34,7 @@ object KeyValueConsumption {
     *
     * @param entryId: The log entry identifier.
     * @param entry: The log entry.
-    * @return [[[Update]] constructed from log entry.
+    * @return [[Update]] constructed from log entry.
     */
   def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): Option[Update] = {
 
@@ -44,9 +44,10 @@ object KeyValueConsumption {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
         Some(
           Update.PublicPackagesUploaded(
-            entry.getPackageUploadEntry.getSubmissionId,
             entry.getPackageUploadEntry.getArchivesList.asScala.toList,
-            entry.getPackageUploadEntry.getSourceDescription,
+            if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
+              Some(entry.getPackageUploadEntry.getSourceDescription)
+            else None,
             entry.getPackageUploadEntry.getParticipantId,
             recordTime
           )
@@ -58,7 +59,6 @@ object KeyValueConsumption {
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         Some(
           Update.PartyAddedToParticipant(
-            entry.getPartyAllocationEntry.getSubmissionId,
             Party.assertFromString(entry.getPartyAllocationEntry.getParty),
             entry.getPartyAllocationEntry.getDisplayName,
             entry.getPartyAllocationEntry.getParticipantId,
@@ -91,7 +91,7 @@ object KeyValueConsumption {
     *
     * @param entryId: The log entry identifier.
     * @param entry: The log entry.
-    * @return [[[Update]] constructed from log entry.
+    * @return [[Update]] constructed from log entry.
     */
   def logEntryToAsyncResponse(
       entryId: DamlLogEntryId,
@@ -100,35 +100,43 @@ object KeyValueConsumption {
 
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        Some(
-          PackageUploadResponse(
-            entry.getPackageUploadEntry.getSubmissionId,
-            PackageUploadResult.Ok
+        if (participantName == entry.getPackageUploadEntry.getParticipantId)
+          Some(
+            PackageUploadResponse(
+              entry.getPackageUploadEntry.getSubmissionId,
+              UploadPackagesResult.Ok
+            )
           )
-        )
+        else None
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
-        Some(packageRejectionEntryToAsynchResponse(entry.getPackageUploadRejectionEntry))
+        if (participantName == entry.getPackageUploadRejectionEntry.getParticipantId)
+          Some(packageRejectionEntryToAsynchResponse(entry.getPackageUploadRejectionEntry))
+        else None
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        Some(
-          PartyAllocationResponse(
-            entry.getPartyAllocationEntry.getSubmissionId,
-            PartyAllocationResult.Ok(
-              PartyDetails(
-                Party.assertFromString(entry.getPartyAllocationEntry.getParty),
-                if (entry.getPartyAllocationEntry.getDisplayName.isEmpty)
-                  None
-                else
-                  Some(entry.getPartyAllocationEntry.getDisplayName),
-                entry.getPartyAllocationEntry.getParticipantId == participantName
+        if (participantName == entry.getPartyAllocationEntry.getParticipantId)
+          Some(
+            PartyAllocationResponse(
+              entry.getPartyAllocationEntry.getSubmissionId,
+              PartyAllocationResult.Ok(
+                PartyDetails(
+                  Party.assertFromString(entry.getPartyAllocationEntry.getParty),
+                  if (entry.getPartyAllocationEntry.getDisplayName.isEmpty)
+                    None
+                  else
+                    Some(entry.getPartyAllocationEntry.getDisplayName),
+                  entry.getPartyAllocationEntry.getParticipantId == participantName
+                )
               )
             )
           )
-        )
+        else None
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
-        Some(partyRejectionEntryToAsynchResponse(entry.getPartyAllocationRejectionEntry))
+        if (participantName == entry.getPartyAllocationRejectionEntry.getParticipantId)
+          Some(partyRejectionEntryToAsynchResponse(entry.getPartyAllocationRejectionEntry))
+        else None
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
         None
@@ -178,7 +186,7 @@ object KeyValueConsumption {
       submissionId = rejEntry.getSubmissionId,
       result = rejEntry.getReasonCase match {
         case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
-          PartyAllocationResult.InvalidName
+          PartyAllocationResult.InvalidName(rejEntry.getInvalidName)
         case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>
           PartyAllocationResult.AlreadyExists
         case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
@@ -196,9 +204,9 @@ object KeyValueConsumption {
       submissionId = rejEntry.getSubmissionId,
       result = rejEntry.getReasonCase match {
         case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
-          PackageUploadResult.InvalidPackage
+          UploadPackagesResult.InvalidPackage(rejEntry.getInvalidPackage)
         case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
-          PackageUploadResult.ParticipantNotAuthorized
+          UploadPackagesResult.ParticipantNotAuthorized
         case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
           sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
       }

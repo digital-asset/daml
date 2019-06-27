@@ -3,8 +3,6 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import java.util.concurrent.atomic.AtomicInteger
-
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackagesUploaded}
 import com.daml.ledger.participant.state.v1._
@@ -52,9 +50,8 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     "provide update after uploadPackages" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
-      val submissionId = new AtomicInteger()
 
-      val sourceDescription = "provided by test"
+      val sourceDescription = Some("provided by test")
       val archive = DamlLf.Archive.newBuilder
         .setHash("asdf")
         .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
@@ -62,13 +59,13 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
       for {
         result <- ps
-          .uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
+          .uploadPackages(List(archive), sourceDescription)
           .toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
         ps.close()
         result match {
-          case PackageUploadResult.Ok =>
+          case UploadPackagesResult.Ok =>
             succeed
           case _ =>
             fail("unexpected response to party allocation")
@@ -89,9 +86,8 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     "duplicate package removed from update after uploadPackages" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
-      val submissionId = new AtomicInteger()
 
-      val sourceDescription = "provided by test"
+      val sourceDescription = Some("provided by test")
       val archive = DamlLf.Archive.newBuilder
         .setHash("asdf")
         .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
@@ -99,16 +95,16 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
       for {
         _ <- ps
-          .uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
+          .uploadPackages(List(archive), sourceDescription)
           .toScala
         result <- ps
-          .uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
+          .uploadPackages(List(archive), sourceDescription)
           .toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
         ps.close()
         result match {
-          case PackageUploadResult.Ok =>
+          case UploadPackagesResult.Ok =>
             succeed
           case _ =>
             fail("unexpected response to party allocation")
@@ -129,21 +125,20 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     "reject uploadPackages when archive is empty" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
-      val submissionId = new AtomicInteger()
 
-      val sourceDescription = "provided by test"
+      val sourceDescription = Some("provided by test")
       val archive = DamlLf.Archive.newBuilder
         .setHash("asdf")
         .build
 
       for {
         result <- ps
-          .uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
+          .uploadPackages(List(archive), sourceDescription)
           .toScala
       } yield {
         ps.close()
         result match {
-          case PackageUploadResult.InvalidPackage =>
+          case UploadPackagesResult.InvalidPackage(_) =>
             succeed
           case _ =>
             fail("unexpected response to package upload")
@@ -154,14 +149,13 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     "provide update after allocateParty" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
-      val submissionId = new AtomicInteger()
 
       val hint = Some("Alice")
       val displayName = Some("Alice Cooper")
 
       for {
         allocResult <- ps
-          .allocateParty(submissionId.getAndIncrement().toString, hint, displayName)
+          .allocateParty(hint, displayName)
           .toScala
         updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
       } yield {
@@ -189,24 +183,23 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     "reject allocateParty when hint is empty" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
-      val submissionId = 0.toString
 
       val hint = None
       val displayName = Some("Alice Cooper")
 
       for {
-        result <- ps.allocateParty(submissionId, hint, displayName).toScala
+        result <- ps.allocateParty(hint, displayName).toScala
       } yield {
         ps.close()
         result match {
-          case PartyAllocationResult.InvalidName =>
+          case PartyAllocationResult.InvalidName(_) =>
             succeed
           case _ =>
             fail("unexpected response to party allocation")
         }
       }
-//      ps.allocateParty(submissionId, hint, displayName).thenApply[Assertion]({
-//        case PartyAllocationResult.InvalidName =>
+//      ps.allocateParty(hint, displayName).thenApply[Assertion]({
+//        case PartyAllocationResult.InvalidName(_) =>
 //          ps.close()
 //          succeed
 //        case _ =>
@@ -218,15 +211,13 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     "reject duplicate allocateParty" in {
       val ps = new InMemoryKVParticipantState
       val rt = ps.getNewRecordTime()
-      val submissionId1 = 0.toString
-      val submissionId2 = 1.toString
 
       val hint = Some("Alice")
       val displayName = Some("Alice Cooper")
 
       for {
-        result1 <- ps.allocateParty(submissionId1, hint, displayName).toScala
-        result2 <- ps.allocateParty(submissionId2, hint, displayName).toScala
+        result1 <- ps.allocateParty(hint, displayName).toScala
+        result2 <- ps.allocateParty(hint, displayName).toScala
       } yield {
         ps.close()
         result1 match {

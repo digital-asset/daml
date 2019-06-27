@@ -107,7 +107,7 @@ message DamlTransactionEntry {
 
   DamlSubmitterInfo submitter_info = 2;
 
-  // Transaction metadata
+  // Transaction metadata.
   string workflow_id = 3;
   google.protobuf.Timestamp ledger_effective_time = 4;
 }
@@ -130,24 +130,44 @@ message DamlRejectionEntry {
   }
 }
 
-// A public package upload. We don't store dars as they would
-// not allow for easy deduplication of DAML-LF packages.
+// A public package upload.
+// DAML-LF packages will be deduplicated based on their hashes. Only unique
+// ones will be added to the KV storage. Deduplication has no impact on the
+// upload result.
 message DamlPackageUploadEntry {
+  // A unique string scoped to a particular participant.
+  // Implementers are free to select adequate mechanism e.g. UUID or similar.
   string submission_id = 1;
+
+  // List of archives to be uploaded.
   repeated daml_lf.Archive archives = 2;
+
+  // Description provided by the backing participant describing where it got
+  // the package from, e.g., when, where, or by whom the packages were
+  // uploaded.
   string source_description = 3;
+
+  // Uploading participant's id.
   string participant_id = 4;
 }
 
+// A message indicating that package upload was unsuccessful.
+// If validation of any of the uploaded packages fails, the whole upload fails
+// and a rejection message is produced.
 message DamlPackageUploadRejectionEntry {
+  // An id selected by the submitter, can be used for matching rejection with
+  // the original upload entry.
   string submission_id = 1;
 
-  oneof reason {
-    /** One of the uploaded packages is not valid */
-    string invalid_package = 2;
+  // Uploading participant's id.
+  string participant_id = 2;
 
-    /** The participant was not authorized to submit the upload request */
-    string participant_not_authorized = 3;
+  oneof reason {
+    // One of the uploaded packages is not valid.
+    string invalid_package = 3;
+
+    // The participant was not authorized to submit the upload request.
+    string participant_not_authorized = 4;
   }
 }
 
@@ -168,29 +188,42 @@ message DamlTimeModel {
 }
 
 // An allocation of party name and assignment of a party to a given
-// participant. It assumes that a party can only be hosted once.
-// This may not be true in more sophisticated ledgers. Command id
-// can be used by the submitting participant to collate the log entry
-// with a submission in the process of creating a response to the client.
+// participant.
+// A party can only be hosted once (this may not be true in more
+// sophisticated ledgers in the future).
 message DamlPartyAllocationEntry {
+  // A unique string scoped to a particular participant.
+  // Implementers are free to select adequate mechanism e.g. UUID or similar.
   string submission_id = 1;
+
+  // The party name to be allocated.
   string party = 2;
+
+  // Allocating participant's id.
   string participant_id = 3;
+
+  // A display name associated with the given party.
   string display_name = 4;
 }
 
+// A message indicating that party allocation was unsuccessful.
 message DamlPartyAllocationRejectionEntry {
+  // An id selected by the submitter, can be used for matching rejection with
+  // the original upload entry.
   string submission_id = 1;
 
+  // Uploading participant's id.
+  string participant_id = 2;
+
   oneof reason {
-    /** The requested party name already exists */
-    string already_exists = 2;
+    // The requested party name already exists.
+    string already_exists = 3;
 
-    /** The requested party name is not valid */
-    string invalid_name = 3;
+    // The requested party name is not valid.
+    string invalid_name = 4;
 
-    /** The participant was not authorized to submit the allocation request */
-    string participant_not_authorized = 4;
+    // The participant was not authorized to submit the allocation request.
+    string participant_not_authorized = 5;
   }
 }
 
@@ -257,7 +290,10 @@ message DamlContractState {
 
 }
 
+// Stored information about a given party.
 message DamlPartyValue {
+  // Id of participant where the party is hosted.
   string participant_id = 1;
+  // A display name associated with the given party.
   string display_name = 2;
 }

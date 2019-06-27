@@ -155,9 +155,12 @@ object KeyValueCommitting {
 
     val archives = packageUploadEntry.getArchivesList.asScala
     val packagesValidityResult =
-      archives.foldLeft[Boolean](true)((acc, archive) => acc && !archive.getPayload.isEmpty)
+      archives.foldLeft[(Boolean, String)]((true, ""))(
+        (acc, archive) =>
+          if (archive.getPayload.isEmpty) (false, acc._2 ++ s"empty package '${archive.getHash}';")
+          else acc)
 
-    if (packagesValidityResult) {
+    if (packagesValidityResult._1) {
       val filteredArchives = archives
         .filter(
           archive =>
@@ -194,7 +197,7 @@ object KeyValueCommitting {
     } else {
       tracelog(s"Packages upload failed, invalid package submitted")
       buildPackageRejectionLogEntry(recordTime, packageUploadEntry, {
-        _.setInvalidPackage("")
+        _.setInvalidPackage(packagesValidityResult._2)
       })
     }
   }
@@ -211,6 +214,7 @@ object KeyValueCommitting {
           addErrorDetails(
             DamlPackageUploadRejectionEntry.newBuilder
               .setSubmissionId(packageUploadEntry.getSubmissionId)
+              .setParticipantId(packageUploadEntry.getParticipantId)
           ).build)
         .build,
       Map.empty
@@ -242,7 +246,7 @@ object KeyValueCommitting {
       case (false, _) =>
         tracelog(s"Party: $party allocation failed, party string invalid.")
         buildPartyRejectionLogEntry(recordTime, partyAllocationEntry, {
-          _.setInvalidName("")
+          _.setInvalidName(s"Party string '$party' invalid")
         })
       case (true, false) =>
         tracelog(s"Party: $party allocation failed, duplicate party.")
@@ -282,6 +286,7 @@ object KeyValueCommitting {
           addErrorDetails(
             DamlPartyAllocationRejectionEntry.newBuilder
               .setSubmissionId(partyAllocationEntry.getSubmissionId)
+              .setParticipantId(partyAllocationEntry.getParticipantId)
           ).build)
         .build,
       Map.empty

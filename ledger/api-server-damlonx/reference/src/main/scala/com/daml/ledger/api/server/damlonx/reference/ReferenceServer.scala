@@ -4,7 +4,6 @@
 package com.daml.ledger.api.server.damlonx.reference
 
 import java.io.{File, FileWriter}
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
 
 import akka.NotUsed
@@ -43,9 +42,6 @@ object ReferenceServer extends App {
         Supervision.Stop
       })
 
-  // In-memory implementation of globally unique session id is just a counter
-  private var globallyUniqueSubmissionId = new AtomicInteger()
-
   val ledger = new InMemoryKVParticipantState
 
   //val ledger = new Ledger(timeModel, tsb)
@@ -63,9 +59,8 @@ object ReferenceServer extends App {
       logger.info(s"Uploading package ${archive.getHash}...")
     }
     ledger.uploadPackages(
-      globallyUniqueSubmissionId.getAndIncrement().toString,
       archives,
-      "uploaded on startup by participant")
+      Some("uploaded on startup by participant"))
   }
 
   ledger.getLedgerInitialConditions

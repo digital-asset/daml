@@ -13,7 +13,7 @@ object PartyAllocationResult {
 
   /** The party was successfully allocated */
   final case class Ok(result: PartyDetails) extends PartyAllocationResult {
-    override def description: String = "Party allocated"
+    override def description: String = "Party successfully allocated"
   }
 
   /** Synchronous party allocation is not supported */
@@ -27,8 +27,8 @@ object PartyAllocationResult {
   }
 
   /** The requested party name is not valid */
-  final case object InvalidName extends PartyAllocationResult {
-    override def description: String = "Party name is invalid"
+  final case class InvalidName(details: String) extends PartyAllocationResult {
+    override def description: String = "Party name is invalid: " + details
   }
 
   /** The participant was not authorized to submit the allocation request */

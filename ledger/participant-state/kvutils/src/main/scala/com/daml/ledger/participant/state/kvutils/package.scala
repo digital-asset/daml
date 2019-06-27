@@ -32,7 +32,7 @@ package com.daml.ledger.participant.state
   *
   * 1. The [[InMemoryKVParticipantState.submitTransaction]] is invoked in the DAML Ledger API server.
   *  The implementation assigns a unique log entry identifier "D8AF41AB" for the submission and using [[KeyValueSubmission]]
-  *  produces a [[DamlKvutils.DamlSubmission]] which is then asynchronously submitted for processing.
+  *  produces a [[DamlSubmission]] which is then asynchronously submitted for processing.
   *
   * 2. The commit actor receives the submission, verifies that the identifier for the log entry
   *  is unique, fetches the inputs to the submission and calls [[KeyValueCommitting.processSubmission]] to
@@ -46,9 +46,9 @@ package com.daml.ledger.participant.state
   *    * `DS/DamlStateKey(contract_id = (D8AF41AB, 0)) = DamlContractState(active_at = 2019-04-29...)`
   *    * `L/DamlLogEntryId(D8AF41AB) = DamlLogEntry(transaction_entry = ...)`
   *
-  * 3. The [[InMemoryKVParticipant.stateUpdates]] emits a new update event from the new state of the ledger
+  * 3. The [[InMemoryKVParticipantState.stateUpdates]] emits a new update event from the new state of the ledger
   *  by retrieving the [[DamlLogEntry]] pointed to by the latest commit and transforms it into [[v1.Update]]
-  *  using [[KeyValueConsumption.logEntryToUpdateOrResult]], and pairs it with an offset corresponding to the
+  *  using [[KeyValueConsumption.logEntryToUpdate]], and pairs it with an offset corresponding to the
   *  position of the commit (the "block height" if you will).
   *
   * The above example implementation is suitable for situations where the inputs to the transaction have

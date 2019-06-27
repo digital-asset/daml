@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Clock
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
@@ -13,7 +14,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1.{PackageUploadResult, _}
+import com.daml.ledger.participant.state.v1.{UploadPackagesResult, _}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -67,7 +68,7 @@ object InMemoryKVParticipantState {
 
   final case class AddPackageUploadRequest(
       submissionId: String,
-      cf: CompletableFuture[PackageUploadResult])
+      cf: CompletableFuture[UploadPackagesResult])
   final case class AddPartyAllocationRequest(
       submissionId: String,
       cf: CompletableFuture[PartyAllocationResult])
@@ -110,6 +111,9 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   // Namespace prefix for DAML state.
   private val NS_DAML_STATE = ByteString.copyFromUtf8("DS")
 
+  // For an in-memory ledger, an atomic integer is enough to guarantee uniqueness
+  private val submissionId = new AtomicInteger()
+
   /** Interval for heartbeats. Heartbeats are committed to [[State.commitLog]]
     * and sent as [[Update.Heartbeat]] to [[stateUpdates]] consumers.
     */
@@ -135,9 +139,12 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
       )
     )
 
+  /** Akka actor that matches the requests for party allocation
+    * with asynchronous responses delivered within the log entries.
+    */
   class ResponseMatcher extends Actor {
     var partyRequests: Map[String, CompletableFuture[PartyAllocationResult]] = Map.empty
-    var packageRequests: Map[String, CompletableFuture[PackageUploadResult]] = Map.empty
+    var packageRequests: Map[String, CompletableFuture[UploadPackagesResult]] = Map.empty
 
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
     override def receive: Receive = {
@@ -382,29 +389,29 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
 
   /** Allocate a party on the ledger */
   override def allocateParty(
-      submissionId: String,
       hint: Option[String],
       displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+    val sId = submissionId.getAndIncrement().toString
     val cf = new CompletableFuture[PartyAllocationResult]
-    matcherActorRef ! AddPartyAllocationRequest(submissionId, cf)
+    matcherActorRef ! AddPartyAllocationRequest(sId, cf)
     commitActorRef ! CommitSubmission(
       allocateEntryId,
-      KeyValueSubmission.partyToSubmission(submissionId, hint, displayName, participantId)
+      KeyValueSubmission.partyToSubmission(sId, hint, displayName, participantId)
     )
     cf
   }
 
   /** Upload DAML-LF packages to the ledger */
   override def uploadPackages(
-      submissionId: String,
       archives: List[Archive],
-      sourceDescription: String): CompletionStage[PackageUploadResult] = {
-    val cf = new CompletableFuture[PackageUploadResult]
-    matcherActorRef ! AddPackageUploadRequest(submissionId, cf)
+      sourceDescription: Option[String]): CompletionStage[UploadPackagesResult] = {
+    val sId = submissionId.getAndIncrement().toString
+    val cf = new CompletableFuture[UploadPackagesResult]
+    matcherActorRef ! AddPackageUploadRequest(sId, cf)
     commitActorRef ! CommitSubmission(
       allocateEntryId,
       KeyValueSubmission
-        .archivesToSubmission(submissionId, archives, sourceDescription, participantId)
+        .archivesToSubmission(sId, archives, sourceDescription.getOrElse(""), participantId)
     )
     cf
   }
