@@ -230,7 +230,7 @@ Version: 1.dev
   * **Add** ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``
     primitives for (un)packing strings.
 
-  * **Add** intern package IDs.
+  * **Add** intern package IDs in external package references.
 
 
 Abstract syntax
@@ -2592,6 +2592,13 @@ to refer to an external package. During deserialization ``self``
 references are replaced by the actual digest of the package in which it
 appears.
 
+[*Available since version 1.dev*]
+
+``Package.interned_package_ids`` is a list of package IDs.
+``interned_id``, if used, must be a valid zero-based index into this
+list in the ``Package`` that contains the ``PackageRef`` in question;
+such a ``PackageRef`` refers to the external package ID at that index.
+
 
 Template precondition
 .....................
@@ -2809,7 +2816,10 @@ intern package IDs
 
 [*Available since version 1.dev]
 
-.. TODO Stephen, please fill the paragraph.
+In ``PackageRef``, the alternative ``interned_id`` may be used in place
+of ``package_id``, in which case the package ID will be that at the
+given index into ``Package.interned_package_ids``.
+See `Package reference`_.
 
 .. Local Variables:
 .. eval: (flyspell-mode 1)
