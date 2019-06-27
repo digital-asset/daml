@@ -150,11 +150,6 @@ in rec {
     pex = pkgs.callPackage ./tools/pex {};
     pipenv = pkgs.pipenv;
 
-    # Databases
-    cassandra = pkgs.cassandra;
-    cqlsh     = cassandra;
-    nodetool  = cassandra;
-
     sphinx            = pkgs.python37.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
