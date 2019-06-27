@@ -6,10 +6,22 @@ package com.digitalasset.daml.lf.value
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.LfVersions
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
+import com.digitalasset.daml.lf.language.{ProtoStableDevVersion, ProtoStableDevVersionCompanion}
 
 import scala.annotation.tailrec
 
-final case class ValueVersion(protoValue: String)
+sealed abstract class ValueVersion extends ProtoStableDevVersion {
+  import ValueVersion._
+  def toProtoIdentifier: String = this match {
+    case Stable(id) => id
+    case Dev => "dev"
+  }
+}
+
+object ValueVersion extends ProtoStableDevVersionCompanion[ValueVersion] {
+  final case class Stable(identifier: String) extends ValueVersion
+  case object Dev extends ValueVersion
+}
 
 /**
   * Currently supported versions of the DAML-LF value specification.

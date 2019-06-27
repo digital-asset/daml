@@ -4,10 +4,22 @@
 package com.digitalasset.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.value.Value.VersionedValue
 import com.digitalasset.daml.lf.value.ValueVersion
+import language.{ProtoStableDevVersion, ProtoStableDevVersionCompanion}
+import value.Value.VersionedValue
 
-final case class TransactionVersion(protoValue: String)
+sealed abstract class TransactionVersion extends ProtoStableDevVersion {
+  import TransactionVersion._
+  def toProtoIdentifier: String = this match {
+    case Stable(id) => id
+    case Dev => "dev"
+  }
+}
+
+object TransactionVersion extends ProtoStableDevVersionCompanion[TransactionVersion] {
+  final case class Stable(identifier: String) extends TransactionVersion
+  case object Dev extends TransactionVersion
+}
 
 /**
   * Currently supported versions of the DAML-LF transaction specification.

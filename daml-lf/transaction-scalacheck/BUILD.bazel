@@ -19,6 +19,7 @@ da_scala_library(
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//daml-lf/data",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//daml-lf/transaction/src/main/protobuf:value_java_proto",
     ],

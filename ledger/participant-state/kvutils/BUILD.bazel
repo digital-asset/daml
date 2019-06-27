@@ -49,6 +49,7 @@ da_scala_test_suite(
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
         "//daml-lf/engine",
+        "//daml-lf/language",
         "//daml-lf/transaction",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",

@@ -53,8 +53,8 @@ private[lf] object VersionTimeline {
       That(LanguageVersion(LMV.V1, "4")),
       That(LanguageVersion(LMV.V1, "5")),
       This(That(TransactionVersion("8"))),
+      // add new versions above this line (but see more notes below)
       That(LanguageVersion(LMV.V1, Dev)),
-      // add new versions above this line
       // do *not* backfill to make more Boths, because such would
       // invalidate the timeline, except to accompany Dev language
       // versions; use This and That instead as needed.
@@ -67,10 +67,8 @@ private[lf] object VersionTimeline {
       // supported by this release".
     )
 
-  def foldRelease[Z: Semigroup](av: AllVersions[\&/])(
-      v: ValueVersion => Z,
-      t: TransactionVersion => Z,
-      l: LanguageVersion => Z): Z =
+  def foldRelease[Z: Semigroup](
+      av: Release)(v: ValueVersion => Z, t: TransactionVersion => Z, l: LanguageVersion => Z): Z =
     av.bifoldMap(_.bifoldMap(v)(t))(l)
 
   final case class SubVersion[A](inject: A => SpecifiedVersion, extract: Release => Option[A])

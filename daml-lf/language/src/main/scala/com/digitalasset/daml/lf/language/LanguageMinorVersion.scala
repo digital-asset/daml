@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.language
 
-sealed abstract class LanguageMinorVersion extends Product with Serializable {
+sealed abstract class LanguageMinorVersion extends ProtoStableDevVersion {
   import LanguageMinorVersion._
   def toProtoIdentifier: String = this match {
     case Stable(id) => id
@@ -11,14 +11,9 @@ sealed abstract class LanguageMinorVersion extends Product with Serializable {
   }
 }
 
-object LanguageMinorVersion {
+object LanguageMinorVersion extends ProtoStableDevVersionCompanion[LanguageMinorVersion] {
   final case class Stable(identifier: String) extends LanguageMinorVersion
   case object Dev extends LanguageMinorVersion
-
-  def fromProtoIdentifier(identifier: String): LanguageMinorVersion = identifier match {
-    case "dev" => Dev
-    case _ => Stable(identifier)
-  }
 
   object Implicits {
     import scala.language.implicitConversions
