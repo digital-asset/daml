@@ -8,6 +8,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.ledger.api.domain.PartyDetails
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
@@ -17,6 +18,12 @@ import scala.collection.JavaConverters._
   * key-value based ledger.
   */
 object KeyValueConsumption {
+
+  sealed trait AsyncResponse extends Serializable with Product
+  final case class PartyAllocationResponse(submissionId: String, result: PartyAllocationResult)
+      extends AsyncResponse
+  final case class PackageUploadResponse(submissionId: String, result: PackageUploadResult)
+      extends AsyncResponse
 
   def packDamlLogEntry(entry: DamlStateKey): ByteString = entry.toByteString
   def unpackDamlLogEntry(bytes: ByteString): DamlLogEntry = DamlLogEntry.parseFrom(bytes)
@@ -47,12 +54,6 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
         None
-      //TODO(MZ): Provide an alternative
-//        Update.PackageUploadRejected(
-//          entry.getPackageUploadRejectionEntry.getSubmissionId,
-//          //TODO(MZ): Implement error conversion
-//          PackageUploadRejectionReason.InvalidPackage
-//        )
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         Some(
@@ -67,8 +68,6 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
         None
-      //TODO(MZ): Provide an alternative
-      //partyRejectionEntryToUpdate(entry.getPartyAllocationRejectionEntry)
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
         Some(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
@@ -78,6 +77,67 @@ object KeyValueConsumption {
 
       case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
         Some(rejectionEntryToUpdate(entry.getRejectionEntry))
+
+      case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
+        sys.error("entryToUpdate: PAYLOAD_NOT_SET!")
+    }
+  }
+
+  /** Construct a participant-state [[AsyncResponse]] from a [[DamlLogEntry]].
+    *
+    * This method is expected to be used to implement [[com.daml.ledger.participant.state.v1.WriteService.allocateParty]]
+    * and [[com.daml.ledger.participant.state.v1.WriteService.uploadPackages]], both of which require matching requests
+    * with asynchronous responses.
+    *
+    * @param entryId: The log entry identifier.
+    * @param entry: The log entry.
+    * @return [[[Update]] constructed from log entry.
+    */
+  def logEntryToAsyncResponse(
+      entryId: DamlLogEntryId,
+      entry: DamlLogEntry,
+      participantName: String): Option[AsyncResponse] = {
+
+    entry.getPayloadCase match {
+      case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
+        Some(
+          PackageUploadResponse(
+            entry.getPackageUploadEntry.getSubmissionId,
+            PackageUploadResult.Ok
+          )
+        )
+
+      case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
+        Some(packageRejectionEntryToAsynchResponse(entry.getPackageUploadRejectionEntry))
+
+      case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
+        Some(
+          PartyAllocationResponse(
+            entry.getPartyAllocationEntry.getSubmissionId,
+            PartyAllocationResult.Ok(
+              PartyDetails(
+                Party.assertFromString(entry.getPartyAllocationEntry.getParty),
+                if (entry.getPartyAllocationEntry.getDisplayName.isEmpty)
+                  None
+                else
+                  Some(entry.getPartyAllocationEntry.getDisplayName),
+                entry.getPartyAllocationEntry.getParticipantId == participantName
+              )
+            )
+          )
+        )
+
+      case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
+        Some(partyRejectionEntryToAsynchResponse(entry.getPartyAllocationRejectionEntry))
+
+      case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
+        None
+
+      case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
+        None
+
+      case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
+        None
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         sys.error("entryToUpdate: PAYLOAD_NOT_SET!")
@@ -111,24 +171,39 @@ object KeyValueConsumption {
     )
   }
 
-  //TODO(MZ): Provide an alternative
-//  private def partyRejectionEntryToUpdate(
-//      rejEntry: DamlPartyAllocationRejectionEntry): Update.PartyAllocationRejected = {
-//
-//    Update.PartyAllocationRejected(
-//      submissionId = rejEntry.getSubmissionId,
-//      reason = rejEntry.getReasonCase match {
-//        case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
-//          PartyAllocationRejectionReason.InvalidName
-//        case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>
-//          PartyAllocationRejectionReason.AlreadyExists
-//        case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
-//          PartyAllocationRejectionReason.ParticipantNotAuthorized
-//        case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
-//          sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
-//      }
-//    )
-//  }
+  private def partyRejectionEntryToAsynchResponse(
+      rejEntry: DamlPartyAllocationRejectionEntry): PartyAllocationResponse = {
+
+    PartyAllocationResponse(
+      submissionId = rejEntry.getSubmissionId,
+      result = rejEntry.getReasonCase match {
+        case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
+          PartyAllocationResult.InvalidName
+        case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>
+          PartyAllocationResult.AlreadyExists
+        case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+          PartyAllocationResult.ParticipantNotAuthorized
+        case DamlPartyAllocationRejectionEntry.ReasonCase.REASON_NOT_SET =>
+          sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
+      }
+    )
+  }
+
+  private def packageRejectionEntryToAsynchResponse(
+      rejEntry: DamlPackageUploadRejectionEntry): PackageUploadResponse = {
+
+    PackageUploadResponse(
+      submissionId = rejEntry.getSubmissionId,
+      result = rejEntry.getReasonCase match {
+        case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
+          PackageUploadResult.InvalidPackage
+        case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
+          PackageUploadResult.ParticipantNotAuthorized
+        case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
+          sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
+      }
+    )
+  }
 
   /** Transform the transaction entry into the [[Update.TransactionAccepted]] event. */
   private def txEntryToUpdate(

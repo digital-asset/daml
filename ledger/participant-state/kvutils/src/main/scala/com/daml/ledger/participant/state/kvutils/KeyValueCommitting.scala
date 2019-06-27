@@ -100,26 +100,13 @@ object KeyValueCommitting {
     // Look at what kind of submission this is...
     submission.getPayloadCase match {
       case DamlSubmission.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        val archives = submission.getPackageUploadEntry.getArchivesList.asScala
-        // TODO(JM): We're duplicating the archive data. This way we don't have an indirection
-        // to fetch by packageId or when building [[Update]], and we don't have to declare
-        // the log entry containing the archive as an input (which would be messy).
-
-        // TODO(MZ): Produce a DamlPackageUploadEntry that filters out pre-existing packages
-        logger.trace(s"""processSubmission[entryId=${prettyEntryId(entryId)}]: Packages: ${archives
-          .map(_.getHash)
-          .mkString(",")} committed.""")
-        (
-          DamlLogEntry.newBuilder
-            .setRecordTime(buildTimestamp(recordTime))
-            .setPackageUploadEntry(submission.getPackageUploadEntry)
-            .build,
-          archives.map(
-            archive =>
-              (
-                DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
-                DamlStateValue.newBuilder.setArchive(archive).build))(breakOut)
+        processPackageUpload(
+          entryId,
+          recordTime,
+          submission.getPackageUploadEntry,
+          inputState
         )
+
       case DamlSubmission.PayloadCase.PARTY_ALLOCATION_ENTRY =>
         processPartyAllocation(
           entryId,
@@ -155,6 +142,81 @@ object KeyValueCommitting {
     }
   }
 
+  private def processPackageUpload(
+      entryId: DamlLogEntryId,
+      recordTime: Timestamp,
+      packageUploadEntry: DamlPackageUploadEntry,
+      inputState: Map[DamlStateKey, Option[DamlStateValue]]
+  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
+    val submissionId = packageUploadEntry.getSubmissionId
+    def tracelog(msg: String): Unit =
+      logger.trace(
+        s"processPackageUpload[entryId=${prettyEntryId(entryId)}, submId=$submissionId]: $msg")
+
+    val archives = packageUploadEntry.getArchivesList.asScala
+    val packagesValidityResult =
+      archives.foldLeft[Boolean](true)((acc, archive) => acc && !archive.getPayload.isEmpty)
+
+    if (packagesValidityResult) {
+      val filteredArchives = archives
+        .filter(
+          archive =>
+            inputState(
+              DamlStateKey.newBuilder
+                .setPackageId(archive.getHash)
+                .build).isEmpty
+        )
+      tracelog(s"""Packages: ${archives
+        .map(_.getHash)
+        .mkString(",")} committed.""")
+
+      (
+        DamlLogEntry.newBuilder
+          .setRecordTime(buildTimestamp(recordTime))
+          .setPackageUploadEntry(
+            DamlPackageUploadEntry.newBuilder
+              .setSubmissionId(submissionId)
+              .addAllArchives(filteredArchives.asJava)
+              .setSourceDescription(packageUploadEntry.getSourceDescription)
+              .setParticipantId(packageUploadEntry.getParticipantId)
+              .build
+          )
+          .build,
+        filteredArchives
+          .map(
+            archive =>
+              (
+                DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
+                DamlStateValue.newBuilder.setArchive(archive).build
+            )
+          )(breakOut)
+      )
+    } else {
+      tracelog(s"Packages upload failed, invalid package submitted")
+      buildPackageRejectionLogEntry(recordTime, packageUploadEntry, {
+        _.setInvalidPackage("")
+      })
+    }
+  }
+
+  private def buildPackageRejectionLogEntry(
+      recordTime: Timestamp,
+      packageUploadEntry: DamlPackageUploadEntry,
+      addErrorDetails: DamlPackageUploadRejectionEntry.Builder => DamlPackageUploadRejectionEntry.Builder
+  ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
+    (
+      DamlLogEntry.newBuilder
+        .setRecordTime(buildTimestamp(recordTime))
+        .setPackageUploadRejectionEntry(
+          addErrorDetails(
+            DamlPackageUploadRejectionEntry.newBuilder
+              .setSubmissionId(packageUploadEntry.getSubmissionId)
+          ).build)
+        .build,
+      Map.empty
+    )
+  }
+
   private def processPartyAllocation(
       entryId: DamlLogEntryId,
       recordTime: Timestamp,
@@ -179,12 +241,12 @@ object KeyValueCommitting {
     (partyValidityResult, dedupResult) match {
       case (false, _) =>
         tracelog(s"Party: $party allocation failed, party string invalid.")
-        buildPartyRejectionLogEntry(recordTime, partyAllocationEntry, party, {
+        buildPartyRejectionLogEntry(recordTime, partyAllocationEntry, {
           _.setInvalidName("")
         })
       case (true, false) =>
         tracelog(s"Party: $party allocation failed, duplicate party.")
-        buildPartyRejectionLogEntry(recordTime, partyAllocationEntry, party, {
+        buildPartyRejectionLogEntry(recordTime, partyAllocationEntry, {
           _.setAlreadyExists("")
         })
       case (true, true) =>
@@ -211,7 +273,6 @@ object KeyValueCommitting {
   private def buildPartyRejectionLogEntry(
       recordTime: Timestamp,
       partyAllocationEntry: DamlPartyAllocationEntry,
-      party: String,
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
     (

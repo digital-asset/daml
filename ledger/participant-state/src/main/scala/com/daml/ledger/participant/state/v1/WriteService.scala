@@ -121,7 +121,7 @@ trait WriteService {
   def uploadPackages(
       submissionId: String,
       archives: List[Archive],
-      sourceDescription: String): CompletionStage[SubmissionResult]
+      sourceDescription: String): CompletionStage[PackageUploadResult]
 
   /**
     * Adds a new party to the set managed by the ledger.
@@ -143,5 +143,5 @@ trait WriteService {
       submissionId: String,
       hint: Option[String],
       displayName: Option[String]
-  ): CompletionStage[SubmissionResult]
+  ): CompletionStage[PartyAllocationResult]
 }

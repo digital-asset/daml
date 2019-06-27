@@ -74,7 +74,15 @@ object KeyValueSubmission {
       archives: List[Archive],
       sourceDescription: String,
       participantId: String): DamlSubmission = {
+
+    val inputDamlState = archives.map(
+      archive =>
+        DamlStateKey.newBuilder
+          .setPackageId(archive.getHash)
+          .build)
+
     DamlSubmission.newBuilder
+      .addAllInputDamlState(inputDamlState.asJava)
       .setPackageUploadEntry(
         DamlPackageUploadEntry.newBuilder
           .setSubmissionId(submissionId)

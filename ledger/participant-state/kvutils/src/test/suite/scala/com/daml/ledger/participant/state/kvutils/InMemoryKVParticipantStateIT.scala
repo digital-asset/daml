@@ -13,7 +13,10 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.Transaction.PartialTransaction
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
+import com.google.protobuf.ByteString
 import org.scalatest.AsyncWordSpec
+
+import scala.compat.java8.FutureConverters._
 
 class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfterAll {
 
@@ -54,9 +57,23 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       val sourceDescription = "provided by test"
       val archive = DamlLf.Archive.newBuilder
         .setHash("asdf")
+        .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
         .build
-      val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
+
+      for {
+        result <- ps
+          .uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
+          .toScala
+        updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
+      } yield {
+        ps.close()
+        result match {
+          case PackageUploadResult.Ok =>
+            succeed
+          case _ =>
+            fail("unexpected response to party allocation")
+        }
+        updateTuple match {
           case (offset: Offset, update: PublicPackagesUploaded) =>
             ps.close()
             assert(offset == Offset(Array(0L)))
@@ -66,9 +83,72 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
             assert(update.recordTime >= rt)
           case _ => fail("unexpected update message after a package upload")
         }
+      }
+    }
 
-      ps.uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
-      waitForUpdateFuture
+    "duplicate package removed from update after uploadPackages" in {
+      val ps = new InMemoryKVParticipantState
+      val rt = ps.getNewRecordTime()
+      val submissionId = new AtomicInteger()
+
+      val sourceDescription = "provided by test"
+      val archive = DamlLf.Archive.newBuilder
+        .setHash("asdf")
+        .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
+        .build
+
+      for {
+        _ <- ps
+          .uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
+          .toScala
+        result <- ps
+          .uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
+          .toScala
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+      } yield {
+        ps.close()
+        result match {
+          case PackageUploadResult.Ok =>
+            succeed
+          case _ =>
+            fail("unexpected response to party allocation")
+        }
+        updateTuples(1) match {
+          case (offset: Offset, update: PublicPackagesUploaded) =>
+            ps.close()
+            assert(offset == Offset(Array(1L)))
+            assert(update.archives == List.empty)
+            assert(update.sourceDescription == sourceDescription)
+            assert(update.participantId == ps.participantId)
+            assert(update.recordTime >= rt)
+          case _ => fail("unexpected update message after a package upload")
+        }
+      }
+    }
+
+    "reject uploadPackages when archive is empty" in {
+      val ps = new InMemoryKVParticipantState
+      val rt = ps.getNewRecordTime()
+      val submissionId = new AtomicInteger()
+
+      val sourceDescription = "provided by test"
+      val archive = DamlLf.Archive.newBuilder
+        .setHash("asdf")
+        .build
+
+      for {
+        result <- ps
+          .uploadPackages(submissionId.getAndIncrement().toString, List(archive), sourceDescription)
+          .toScala
+      } yield {
+        ps.close()
+        result match {
+          case PackageUploadResult.InvalidPackage =>
+            succeed
+          case _ =>
+            fail("unexpected response to package upload")
+        }
+      }
     }
 
     "provide update after allocateParty" in {
@@ -78,10 +158,24 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
       val hint = Some("Alice")
       val displayName = Some("Alice Cooper")
-      val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
+
+      for {
+        allocResult <- ps
+          .allocateParty(submissionId.getAndIncrement().toString, hint, displayName)
+          .toScala
+        updateTuple <- ps.stateUpdates(beginAfter = None).runWith(Sink.head)
+      } yield {
+        ps.close()
+        allocResult match {
+          case PartyAllocationResult.Ok(partyDetails) =>
+            assert(partyDetails.party == hint.get)
+            assert(partyDetails.displayName == displayName)
+            assert(partyDetails.isLocal)
+          case _ =>
+            fail("unexpected response to party allocation")
+        }
+        updateTuple match {
           case (offset: Offset, update: PartyAddedToParticipant) =>
-            ps.close()
             assert(offset == Offset(Array(0L)))
             assert(update.party == hint.get)
             assert(update.displayName == displayName.get)
@@ -89,63 +183,67 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
             assert(update.recordTime >= rt)
           case _ => fail("unexpected update message after a party allocation")
         }
-
-      ps.allocateParty(submissionId.getAndIncrement().toString, hint, displayName)
-      waitForUpdateFuture
+      }
     }
 
-    //TODO(MZ): Provide an alternative
-//    "reject allocateParty when hint is empty" in {
-//      val ps = new InMemoryKVParticipantState
-//      val rt = ps.getNewRecordTime()
-//      val submissionId = 0.toString
-//
-//      val hint = None
-//      val displayName = Some("Alice Cooper")
-//      val waitForUpdateFuture =
-//        ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
-//          case (offset: Offset, update: PartyAllocationRejected) =>
-//            ps.close()
-//            assert(offset == Offset(Array(0L)))
-//            assert(update.submissionId == submissionId)
-//            assert(update.reason == PartyAllocationRejectionReason.InvalidName)
-//          case _ => fail("unexpected update message after a party allocation")
-//        }
-//
-//      ps.allocateParty(submissionId, hint, displayName)
-//      waitForUpdateFuture
-//    }
+    "reject allocateParty when hint is empty" in {
+      val ps = new InMemoryKVParticipantState
+      val rt = ps.getNewRecordTime()
+      val submissionId = 0.toString
 
-    //TODO(MZ): Provide an alternative
-//    "reject duplicate allocateParty" in {
-//      val ps = new InMemoryKVParticipantState
-//      val rt = ps.getNewRecordTime()
-//      val submissionId1 = 0.toString
-//      val submissionId2 = 1.toString
-//
-//      val hint = Some("Alice")
-//      val displayName = Some("Alice Cooper")
-//      val waitForUpdateFuture =
-//        ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq).map { updates =>
+      val hint = None
+      val displayName = Some("Alice Cooper")
+
+      for {
+        result <- ps.allocateParty(submissionId, hint, displayName).toScala
+      } yield {
+        ps.close()
+        result match {
+          case PartyAllocationResult.InvalidName =>
+            succeed
+          case _ =>
+            fail("unexpected response to party allocation")
+        }
+      }
+//      ps.allocateParty(submissionId, hint, displayName).thenApply[Assertion]({
+//        case PartyAllocationResult.InvalidName =>
 //          ps.close()
-//
-//          val (offset1, update1) = updates.head
-//          val (offset2, update2) = updates(1)
-//          assert(offset1 == Offset(Array(0L)))
-//          assert(update1.isInstanceOf[Update.PartyAddedToParticipant])
-//
-//          assert(offset2 == Offset(Array(1L)))
-//          assert(update2.isInstanceOf[Update.PartyAllocationRejected])
-//          assert(
-//            update2
-//              .asInstanceOf[Update.PartyAllocationRejected]
-//              .reason == PartyAllocationRejectionReason.AlreadyExists)
-//        }
-//
-//      ps.allocateParty(submissionId1, hint, displayName)
-//      ps.allocateParty(submissionId2, hint, displayName)
-//      waitForUpdateFuture
-//    }
+//          succeed
+//        case _ =>
+//          ps.close()
+//          fail("unexpected response to party allocation")
+//      }).toScala
+    }
+
+    "reject duplicate allocateParty" in {
+      val ps = new InMemoryKVParticipantState
+      val rt = ps.getNewRecordTime()
+      val submissionId1 = 0.toString
+      val submissionId2 = 1.toString
+
+      val hint = Some("Alice")
+      val displayName = Some("Alice Cooper")
+
+      for {
+        result1 <- ps.allocateParty(submissionId1, hint, displayName).toScala
+        result2 <- ps.allocateParty(submissionId2, hint, displayName).toScala
+      } yield {
+        ps.close()
+        result1 match {
+          case PartyAllocationResult.Ok(_) =>
+            succeed
+          case _ =>
+            fail("unexpected response to party allocation")
+        }
+
+        result2 match {
+          case PartyAllocationResult.AlreadyExists =>
+            succeed
+          case _ =>
+            fail("unexpected response to party allocation")
+        }
+      }
+    }
 
     "provide update after transaction submission" in {
 

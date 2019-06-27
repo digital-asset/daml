@@ -29,9 +29,6 @@ final case class IndexState(
     activeContracts: InMemoryActiveContracts,
     // Rejected commands indexed by offset.
     commandRejections: TreeMap[Offset, Update.CommandRejected],
-    //TODO(MZ): Provide an alternative
-//    partyRejections: TreeMap[Offset, Update.PartyAllocationRejected],
-//    packageRejections: TreeMap[Offset, Update.PackageUploadRejected],
     // Uploaded packages.
     packages: Map[PackageId, Archive],
     packageKnownTo: Relation[PackageId, Party],
@@ -74,7 +71,6 @@ final case class IndexState(
           Right(state.copy(configuration = u.newConfiguration))
 
         case u: Update.PartyAddedToParticipant =>
-          //TODO(MZ) Provide response to the ledger api caller
           Right(state.copy(hostedParties = state.hostedParties + u.party))
 
         case Update.PublicPackagesUploaded(
@@ -83,7 +79,6 @@ final case class IndexState(
             sourceDescription,
             participantId,
             recordTime) =>
-          //TODO(MZ) Provide response to the ledger api caller
           val newPackages =
             state.packages ++ archives.map(a => PackageId.assertFromString(a.getHash) -> a)
 
@@ -100,22 +95,6 @@ final case class IndexState(
               commandRejections = commandRejections + (uId -> u)
             )
           )
-
-        //case u: Update.PartyAllocationRejected =>
-        //TODO(MZ) Provide response to the ledger api caller
-        //  Right(
-        //    state.copy(
-        //      partyRejections = partyRejections + (uId -> u)
-        //    )
-        //  )
-
-        //case u: Update.PackageUploadRejected =>
-        //TODO(MZ) Provide response to the ledger api caller
-        //  Right(
-        //    state.copy(
-        //      packageRejections = packageRejections + (uId -> u)
-        //    )
-        //  )
 
         case u: Update.TransactionAccepted =>
           val blindingInfo = Blinding.blind(
@@ -181,9 +160,6 @@ object IndexState {
     txs = TreeMap.empty,
     activeContracts = InMemoryActiveContracts.empty,
     commandRejections = TreeMap.empty,
-    //TODO(MZ): Provide an alternative
-    //partyRejections = TreeMap.empty,
-    //packageRejections = TreeMap.empty,
     packages = Map.empty,
     packageKnownTo = Map.empty,
     hostedParties = Set.empty
