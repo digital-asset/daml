@@ -22,5 +22,7 @@ HEAD — ongoing
 - [DAML Compiler] **BREAKING CHANGE**: Drop support for DAML-LF 1.4. Compiling to DAML-LF 1.5 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all. (The ledger server still supports DAML-LF 1.4.)
 - [Sandbox] Made the archive CLI arguments optional. 
   See `#1905 <https://github.com/digital-asset/daml/issues/1905>`__.
-- [Ledger API] **BREAKING CHANGE**: Specify the C# namespace in the ledger api proto. C# bindings generated would end up in a different namespace than the default one.
+- [DAML-LF] **BREAKING CHANGE**: Specify pretty C# namespaces in archive protos. C# bindings will end up in a different namespace than the default one.
+  See `#1900 <https://github.com/digital-asset/daml/issues/1900>`__.
+- [Ledger API] **BREAKING CHANGE**: Specify pretty C# namespaces in ledger api protos. C# bindings will end up in a different namespace than the default one.
   See `#1901 <https://github.com/digital-asset/daml/issues/1901>`__.

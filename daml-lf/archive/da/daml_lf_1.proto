@@ -38,6 +38,7 @@ syntax = "proto3";
 package daml_lf_1;
 
 option java_package = "com.digitalasset.daml_lf";
+option csharp_namespace = "Com.DigitalAsset.Daml_lf.DamlLf1";
 
 // Canonical encoding in one-ofs for cases that carry no meaningful
 // values.
