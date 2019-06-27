@@ -41,16 +41,16 @@ class PackageManagementServiceIT
     extends AsyncFreeSpec
     with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
-    with TestIdsGenerator
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests
     with Matchers
     with BazelRunfiles {
 
   override protected def config: Config = Config.default.copy(darFiles = Nil)
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
   private def commandNodeIdUnifier(testName: String, nodeId: String) =
-    commandIdUnifier(s"ledger-api-test-tool-$testName-$nodeId")
+    testIdsGenerator.testCommandId(s"ledger-api-test-tool-$testName-$nodeId")
 
   private def packageManagementService(stub: PackageManagementService): PackageManagementClient =
     new PackageManagementClient(stub)
@@ -134,7 +134,7 @@ class PackageManagementServiceIT
   }
 
   "should accept commands using the uploaded package" in allFixtures { ctx =>
-    val party = partyNameUnifier("operator")
+    val party = testIdsGenerator.testPartyName("operator")
     val createArg = Record(fields = List(RecordField("operator", party.asParty)))
     def createCmd =
       CreateCommand(Some(Identifier(testPackageId, "", "Test", "Dummy")), Some(createArg)).wrap

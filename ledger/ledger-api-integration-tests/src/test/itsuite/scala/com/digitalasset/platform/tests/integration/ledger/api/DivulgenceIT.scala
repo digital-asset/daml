@@ -44,7 +44,6 @@ class DivulgenceIT
     extends AsyncFreeSpec
     with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
-    with TestIdsGenerator
     with SuiteResourceManagementAroundEach
     with ScalaFutures
     with AsyncTimeLimitedTests
@@ -54,6 +53,7 @@ class DivulgenceIT
 
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
   private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
@@ -164,7 +164,7 @@ class DivulgenceIT
   private def createDivulgence1(ctx: LedgerContext, workflowId: String): Future[ContractIdString] =
     create(
       ctx,
-      commandIdUnifier("create-Divulgence1"),
+      testIdsGenerator.testCommandId("create-Divulgence1"),
       workflowId,
       "alice",
       templateIds.divulgence1,
@@ -174,7 +174,7 @@ class DivulgenceIT
   private def createDivulgence2(ctx: LedgerContext, workflowId: String): Future[ContractIdString] =
     create(
       ctx,
-      s"create-Divulgence2-${runCommandSuffix}",
+      testIdsGenerator.testCommandId("create-Divulgence2"),
       workflowId,
       "bob",
       templateIds.divulgence2,
@@ -192,7 +192,7 @@ class DivulgenceIT
       workflowId: String): Future[Unit] =
     exercise(
       ctx,
-      s"exercise-Divulgence2Fetch-${runCommandSuffix}",
+      testIdsGenerator.testCommandId("exercise-Divulgence2Fetch"),
       workflowId,
       "alice",
       templateIds.divulgence2,
@@ -210,7 +210,7 @@ class DivulgenceIT
       workflowId: String): Future[Unit] =
     exercise(
       ctx,
-      s"exercise-Divulgence2Fetch-${runCommandSuffix}",
+      testIdsGenerator.testCommandId("exercise-Divulgence2Fetch"),
       workflowId,
       "alice",
       templateIds.divulgence2,
@@ -230,7 +230,7 @@ class DivulgenceIT
     Map("alice" -> Filters.defaultInstance, "bob" -> Filters.defaultInstance))
 
   "should not expose divulged contracts in flat stream" in allFixtures { ctx =>
-    val wfid = workflowIdUnifier("divulgence-test-workflow-id")
+    val wfid = testIdsGenerator.testWorkflowId("divulgence-test-workflow-id")
     for {
       beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       div1Cid <- createDivulgence1(ctx, wfid)
@@ -323,7 +323,7 @@ class DivulgenceIT
   }
 
   "should not expose divulged contracts in ACS" in allFixtures { ctx =>
-    val wfid = workflowIdUnifier("divulgence-test-workflow-id")
+    val wfid = testIdsGenerator.testWorkflowId("divulgence-test-workflow-id")
     for {
       beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       div1Cid <- createDivulgence1(ctx, wfid)

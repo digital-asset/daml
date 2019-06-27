@@ -23,7 +23,6 @@ class SandboxSemanticTestsLfRunner
     extends AsyncWordSpec
     with Matchers
     with MultiLedgerFixture
-    with TestIdsGenerator
     with SuiteResourceManagementAroundAll
     with ScalaFutures
     with AkkaBeforeAndAfterAll {
@@ -35,6 +34,7 @@ class SandboxSemanticTestsLfRunner
     Config.default
       .withDarFile(defaultDarFile.toPath)
       .withTimeProvider(TimeProviderType.StaticAllowBackwards)
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
   lazy val (mainPkgId, packages, darFile) = {
     val df = config.darFiles.head.toFile
@@ -48,7 +48,7 @@ class SandboxSemanticTestsLfRunner
   s"a ledger launched with $darFile" should {
     val scenarioCommandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
       (scenario, stepId, nodeId) =>
-        commandIdUnifier(s"ledger-api-test-tool-$scenario-$stepId-${nodeId}")
+        testIdsGenerator.testCommandId(s"ledger-api-test-tool-$scenario-$stepId-${nodeId}")
     for {
       (pkgId, names) <- SemanticTester.scenarios(Map(mainPkgId -> packages(mainPkgId))) // we only care about the main pkg
       name <- names
@@ -65,7 +65,7 @@ class SandboxSemanticTestsLfRunner
                 commandSubmissionTtlScaleFactor = config.commandSubmissionTtlScaleFactor),
             pkgId,
             packages,
-            partyNameUnifier,
+            testIdsGenerator.testPartyName,
             scenarioCommandIdMangler
           ).testScenario(name)
         } yield succeed

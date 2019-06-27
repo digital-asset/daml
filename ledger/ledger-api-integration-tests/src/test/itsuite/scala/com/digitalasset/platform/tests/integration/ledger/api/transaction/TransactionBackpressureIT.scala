@@ -31,10 +31,10 @@ class TransactionBackpressureIT
     with ScalaFutures
     with AkkaBeforeAndAfterAll
     with SuiteResourceManagementAroundAll
-    with MultiLedgerFixture
-    with TestIdsGenerator {
+    with MultiLedgerFixture {
 
   protected val testCommands = new TestCommands(config)
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
   override def timeLimit: Span = scaled(300.seconds)
 
@@ -58,8 +58,8 @@ class TransactionBackpressureIT
         Source(1 to noOfCommands)
           .throttle(10, 1.second)
           .mapAsync(10)(i =>
-            commandClient.submitSingleCommand(
-              testCommands.oneKbCommandRequest(ctx.ledgerId, commandIdUnifier(s"command-$i"))))
+            commandClient.submitSingleCommand(testCommands
+              .oneKbCommandRequest(ctx.ledgerId, testIdsGenerator.testCommandId(s"command-$i"))))
           .runWith(Sink.ignore)
 
       def subscribe(begin: LedgerOffset, rate: Int) =

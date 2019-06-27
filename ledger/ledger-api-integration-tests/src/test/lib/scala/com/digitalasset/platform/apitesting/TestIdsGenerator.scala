@@ -3,24 +3,24 @@
 
 package com.digitalasset.platform.apitesting
 
+import com.digitalasset.platform.PlatformApplications
+
 import scala.util.Random
 
 /**
   * Provides a mechanism to randomize various identifiers used in testing per run of a process.
   *
-  * It enables Ledger API Test Tool to be ran against a persistent Ledger API endpoint repeatedly by avoiding
+  * It enables Ledger API Test Tool to be run against a persistent Ledger API endpoint repeatedly by avoiding
   * duplication of identifiers.
   */
-trait TestIdsGenerator {
-  self: MultiLedgerFixture =>
-
+class TestIdsGenerator(config: PlatformApplications.Config) {
   lazy val runSuffix = Random.alphanumeric.take(10).mkString
   lazy val runCommandSuffix = if (config.uniqueCommandIdentifiers) "-" + runSuffix else ""
   // Using runCommandSuffix, since there does not seem to be a need to treat workflow ids differently than command ids.
   // Yet lets wrap those identifiers into an appropriate function so we could do it in the future.
   lazy val runWorkflowSuffix = runCommandSuffix
   lazy val runPartySuffix = if (config.uniquePartyIdentifiers) "-" + runSuffix else ""
-  def partyNameUnifier(partyText: String) = partyText + runPartySuffix
-  def commandIdUnifier(commandId: String) = commandId + runCommandSuffix
-  def workflowIdUnifier(workflowId: String) = workflowId + runWorkflowSuffix
+  def testPartyName(partyText: String) = partyText + runPartySuffix
+  def testCommandId(commandId: String) = commandId + runCommandSuffix
+  def testWorkflowId(workflowId: String) = workflowId + runWorkflowSuffix
 }
