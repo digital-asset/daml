@@ -214,6 +214,25 @@ Version: 1.5
   * **Add** ``FROM_TEXT_INT64`` and ``FROM_TEXT_DECIMAL`` primitives for 
     parsing integer and decimal values.
 
+Version: 1.dev
+..............
+
+  * Introduction date:
+
+      2019-05-27
+
+  * Last amendment date:
+
+      2019-06-26
+
+  * **Add** support for built-in ``'Enum'`` type.
+
+  * **Add** ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``
+    primitives for (un)packing strings.
+
+  * **Add** intern package IDs in external package references.
+
+
 Abstract syntax
 ^^^^^^^^^^^^^^^
 
@@ -430,6 +449,9 @@ strings as *package identifiers*.  ::
   Variant data constructors
               V ::= Ident                           -- VariantCon
 
+  Enum data constructors
+              E ::= Ident                           -- EnumCon
+
   Template choice names
              Ch ::= Ident                           -- ChoiceName
 
@@ -532,6 +554,7 @@ Then we can define our kinds, types, and expressions::
        |  Mod:T @τ₁ … @τₙ {f} e                     -- ExpRecProj: Record projection
        |  Mod:T @τ₁ … @τₙ { e₁ 'with' f = e₂ }      -- ExpRecUpdate: Record update
        |  Mod:T:V @τ₁ … @τₙ e                       -- ExpVariantCon: Variant construction
+       |  Mod:T:E                                   -- ExpEnumCon:Enum construction
        |  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩                   -- ExpTupleCon: Tuple construction
        |  e.f                                       -- ExpTupleProj: Tuple projection
        |  ⟨ e₁ 'with' f = e₂ ⟩                      -- ExpTupleUpdate: Tuple update
@@ -539,7 +562,8 @@ Then we can define our kinds, types, and expressions::
 
   Patterns
     p
-      ::= Mod:T:V x                                 -- PatternVariant: Variant match
+      ::= Mod:T:V x                                 -- PatternVariant
+       |  Mod:T:E                                   -- PatternEnum
        |  'Nil'                                     -- PatternNil
        |  'Cons' xₕ xₜ                              -- PatternCons
        |  'None'                                    -- PatternNone
@@ -602,6 +626,7 @@ available for usage::
                                                     -- DefRecord
        |  'variant' T (α₁: k₁)… (αₙ: kₙ) ↦ V₁ : τ₁ | … | Vₘ : τₘ
                                                     -- DefVariant
+       |  'enum' T  ↦ E₁ | … | Eₘ                    -- DefEnum
        |  'val' W : τ ↦ e                           -- DefValue
        |  'tpl' (x : T) ↦                           -- DefTemplate
             { 'precondition' e₁
@@ -752,6 +777,10 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyVariantCon
       Γ  ⊢  Mod:T : k₁ → … → kₙ  → ⋆
 
+      'enum' T ↦ … ∈ 〚Ξ〛Mod
+    ————————————————————————————————————————————— TyEnumCon
+      Γ  ⊢  Mod:T :  ⋆
+
       Γ  ⊢  τ₁  :  ⋆    …    Γ  ⊢  τₙ  :  ⋆
     ————————————————————————————————————————————— TyTuple
       Γ  ⊢  ⟨ f₁: τ₁, …, fₙ: τₙ ⟩  :  ⋆
@@ -873,6 +902,10 @@ Then we define *well-formed expressions*. ::
     ——————————————————————————————————————————————————————————————— ExpVarCon
       Γ  ⊢  Mod:T:Vᵢ @τ₁ … @τₙ e  :  Mod:T τ₁ … τₙ
 
+      'enum' T ↦ … | Eᵢ | …  ∈  〚Ξ〛Mod
+    ——————————————————————————————————————————————————————————————— ExpEnumCon
+      Γ  ⊢  Mod:T:Eᵢ  :  Mod:T
+
       Γ  ⊢  e₁  :  τ₁      …      Γ  ⊢  eₘ  :  τₘ
     ——————————————————————————————————————————————————————————————— ExpTupleCon
       Γ  ⊢  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩  :  ⟨ f₁: τ₁, …, fₘ: τₘ ⟩
@@ -891,6 +924,12 @@ Then we define *well-formed expressions*. ::
       x : τ[α₁ ↦ τ₁, …, αₙ ↦ τₙ] · Γ  ⊢  e₂  :  σ
     ——————————————————————————————————————————————————————————————— ExpCaseVariant
       Γ  ⊢  'case' e₁ 'of' Mod:T:V x → e₂ : σ
+
+      'enum' T ↦ … | E | …  ∈  〚Ξ〛Mod
+      Γ  ⊢  e₁  :  Mod:T
+      Γ  ⊢  e₂  :  σ
+    ——————————————————————————————————————————————————————————————— ExpCaseEnum
+      Γ  ⊢  'case' e₁ 'of' Mod:T:E → e₂ : σ
 
       Γ  ⊢  e₁  : 'List' τ      Γ  ⊢  e₂  :  σ
     ——————————————————————————————————————————————————————————————— ExpCaseNil
@@ -1054,7 +1093,7 @@ types are the types whose values can be persisted on the ledger. ::
     ———————————————————————————————————————————————————————————————— STyRecConf
       ⊢ₛ  Mod:T τ₁ … τₙ
 
-      'variant' T α₁ … αₙ ↦ V₁: σ₁ | … | Vₘ: σₘ  ∈  〚Ξ〛Mod
+      'variant' T α₁ … αₙ ↦ V₁: σ₁ | … | Vₘ: σₘ  ∈  〚Ξ〛Mod   m ≥ 1
       ⊢ₛ  σ₁[α₁ ↦ τ₁, …, αₙ ↦ τₙ]
        ⋮
       ⊢ₛ  σₘ[α₁ ↦ τ₁, …, αₙ ↦ τₙ]
@@ -1064,10 +1103,15 @@ types are the types whose values can be persisted on the ledger. ::
     ———————————————————————————————————————————————————————————————— STyVariantCon
       ⊢ₛ  Mod:T τ₁ … τₙ
 
+     'enum' T ↦ E₁: σ₁ | … | Eₘ: σₘ  ∈  〚Ξ〛Mod   m ≥ 1
+    ———————————————————————————————————————————————————————————————— STyEnumCon
+      ⊢ₛ  Mod:T
+
 Note that
 
 1. Tuples are *not* serializable.
-2. For a data type to be serializable, *all* type
+2. Uninhabited variant and enum types are *not* serializable.
+3. For a data type to be serializable, *all* type
    parameters must be instantiated with serializable types, even
    phantom ones.
 
@@ -1095,6 +1139,9 @@ for the ``DefTemplate`` rule). ::
     αₙ : kₙ · ⋯ · α₁ : k₁  ⊢  τₘ  :  ⋆
   ——————————————————————————————————————————————————————————————— DefVariant
     ⊢  'record' T (α₁: k₁) … (αₙ: kₙ) ↦ V₁: τ₁ | … | Vₘ: τₘ
+
+  ——————————————————————————————————————————————————————————————— DefEnum
+    ⊢  'enum' T  ↦ E₁ | … | Eₘ
 
     ε  ⊢  e  :  τ
   ——————————————————————————————————————————————————————————————— DefValue
@@ -1218,12 +1265,17 @@ name* construct as follows:
   in the module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a variant type constructor ``T``
   defined in the module ``Mod`` is ``Mod.T``.
+* The *fully resolved name* of a enum type constructor ``T``
+  defined in the module ``Mod`` is ``Mod.T``.
 * The *fully resolved name* of a field ``fᵢ`` of a record type
   definition ``'record' T …  ↦ { …, fᵢ: τᵢ, … }`` defined in the module
   ``Mod`` is ``Mod.T.fᵢ``
 * The *fully resolved name* of a variant constructor ``Vᵢ`` of a
   variant type definition ``'variant' T … ↦ …  | Vᵢ: τᵢ | …`` defined in
   the module ``Mod`` is ``Mod.T.Vᵢ``.
+* The *fully resolved name* of a enum constructor ``Eᵢ`` of a enum type
+   definition ``'enum' T ↦ …  | Eᵢ | …`` defined in the module ``Mod``
+   is ``Mod.T.Eᵢ``.
 * The *fully resolved name* of a choice ``Ch`` of a template
   definition ``'tpl' (x : T) ↦ { …, 'choices' { …, 'choice' ChKind Ch
   … ↦ …, … } }`` defined in the module ``Mod`` is ``Mod.T.Ch``.
@@ -1392,6 +1444,9 @@ need to be evaluated further. ::
    ——————————————————————————————————————————————————— ValExpVariantCon
      ⊢ᵥ  Mod:T:V @τ₁ … @τₙ e
 
+   ——————————————————————————————————————————————————— ValExpEnumCon
+     ⊢ᵥ  Mod:T:E
+
      ⊢ᵥ  e₁      ⋯      ⊢ᵥ  eₘ
    ——————————————————————————————————————————————————— ValExpTupleCon
      ⊢ᵥ  ⟨ f₁ = e₁, …, fₘ = eₘ ⟩
@@ -1459,8 +1514,11 @@ bound by pattern.
                            └─────────────────────┘
 
 
-   —————————————————————————————————————————————————————————————————————— MatchVariant
+    —————————————————————————————————————————————————————————————————————— MatchVariant
       Mod:T:V @τ₁ … @τₘ v  'matches'  Mod:T:V x  ⇝  Succ (x ↦ v · ε)
+
+    —————————————————————————————————————————————————————————————————————— MatchEnum
+      Mod:T:E  'matches'  Mod:T:E  ⇝  Succ ε
 
     —————————————————————————————————————————————————————————————————————— MatchNil
       'Nil' @τ  'matches'  'Nil'  ⇝  Succ ε
@@ -2161,6 +2219,24 @@ String functions
 
   Returns string such as.
 
+* ``TEXT_FROM_CODE_POINTS``: 'Text' → 'List' 'Int64'
+
+  Returns the list of the Unicode `codepoint
+  <https://en.wikipedia.org/wiki/Code_point>`_ of the input
+  string represented as integer.
+
+  [*Available since version 1.dev*]
+
+* ``TEXT_TO_CODE_POINTS``: 'List' 'Int64' → 'Text'
+
+  Given a list of integer representation of Unicode codepoint,
+  return the string built from those codepoint. Throws an error
+  if one of the elements of the input list is not in the range
+  from `0x000000` to `0x00D7FF` or in the range from `0x00DFFF`
+  to `0x10FFFF` (bounds included).
+
+  [*Available since version 1.dev*]
+
 Timestamp functions
 ~~~~~~~~~~~~~~~~~~~
 
@@ -2515,6 +2591,13 @@ to refer to an external package. During deserialization ``self``
 references are replaced by the actual digest of the package in which it
 appears.
 
+[*Available since version 1.dev*]
+
+``Package.interned_package_ids`` is a list of package IDs.
+``interned_id``, if used, must be a valid zero-based index into this
+list in the ``Package`` that contains the ``PackageRef`` in question;
+such a ``PackageRef`` refers to the external package ID at that index.
+
 
 Template precondition
 .....................
@@ -2690,7 +2773,6 @@ DAML-LF 1.2 is the first version that supports the built-in functions
 The deserialization process will reject any DAML-LF 1.1 (or earlier)
 program using this functions.
 
-
 Contract Key
 ............
 
@@ -2715,10 +2797,28 @@ Map
 [*Available since version 1.3*]
 
 The deserialization process will reject any DAML-LF 1.2 (or earlier)
-program using the builtin functions : `MAP_EMPTY`, `MAP_INSERT`,
-`MAP_LOOKUP`, `MAP_DELETE`, `MAP_LIST`, `MAP_SIZE`,
+program using the builtin functions : ``MAP_EMPTY``, ``MAP_INSERT``,
+``MAP_LOOKUP``, ``MAP_DELETE``, ``MAP_LIST``, ``MAP_SIZE``,
 
+Enum
+....
 
+[*Available since version 1.dev]
+
+The deserialization process will reject any DAML-LF 1.5 (or earlier)
+program using the field ``enum`` in ``DefDataType`` messages, the
+field ``enum`` in  ``CaseAlt`` messages, or the field ``enum_con``
+in ``Expr`` messages.
+
+intern package IDs
+..................
+
+[*Available since version 1.dev]
+
+In ``PackageRef``, the alternative ``interned_id`` may be used in place
+of ``package_id``, in which case the package ID will be that at the
+given index into ``Package.interned_package_ids``.
+See `Package reference`_.
 
 .. Local Variables:
 .. eval: (flyspell-mode 1)
