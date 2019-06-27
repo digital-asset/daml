@@ -54,7 +54,7 @@ private[lf] object VersionTimeline {
       That(LanguageVersion(LMV.V1, "5")),
       This(That(TransactionVersion("8"))),
       // add new versions above this line (but see more notes below)
-      That(LanguageVersion(LMV.V1, Dev)),
+      Both(Both(ValueVersion.Dev, TransactionVersion.Dev), LanguageVersion(LMV.V1, Dev)),
       // do *not* backfill to make more Boths, because such would
       // invalidate the timeline, except to accompany Dev language
       // versions; use This and That instead as needed.
