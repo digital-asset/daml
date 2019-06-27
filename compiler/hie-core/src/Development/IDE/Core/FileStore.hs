@@ -128,9 +128,7 @@ getFileContentsRule vfs =
         time <- use_ GetModificationTime file
         res <- liftIO $ ideTryIOException file $ do
             mbVirtual <- getVirtualFile vfs $ filePathToUri' file
-            case mbVirtual of
-                Just (VirtualFile _ rope _) -> return $ Just $ textToStringBuffer $ Rope.toText rope
-                Nothing -> return Nothing
+            pure $ textToStringBuffer . Rope.toText . _text <$> mbVirtual
         case res of
             Left err -> return ([err], Nothing)
             Right contents -> return ([], Just (time, contents))
