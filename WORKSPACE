@@ -42,8 +42,8 @@ nixpkgs_local_repository(
     name = "nixpkgs",
     nix_file = "//nix:nixpkgs.nix",
     nix_file_deps = [
-        "//nix:nixpkgs/nixos-19.03/default.nix",
-        "//nix:nixpkgs/nixos-19.03/default.src.json",
+        "//nix:nixpkgs/default.nix",
+        "//nix:nixpkgs/default.src.json",
     ],
 )
 
@@ -68,8 +68,8 @@ dev_env_nix_repos = {
 common_nix_file_deps = [
     "//nix:bazel.nix",
     "//nix:nixpkgs.nix",
-    "//nix:nixpkgs/nixos-19.03/default.nix",
-    "//nix:nixpkgs/nixos-19.03/default.src.json",
+    "//nix:nixpkgs/default.nix",
+    "//nix:nixpkgs/default.src.json",
 ]
 
 # Use Nix provisioned cc toolchain
@@ -815,7 +815,7 @@ dev_env_tool(
         "bin/initdb",
         "bin/createdb",
         "bin/pg_ctl",
-        "bin/postgresql",
+        "bin/postgres",
     ],
     tools = [
         "createdb",
