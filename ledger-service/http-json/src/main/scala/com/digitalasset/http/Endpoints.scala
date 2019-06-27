@@ -9,10 +9,14 @@ import akka.http.scaladsl.server.Directives._
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.digitalasset.http.json.JsonProtocol._
+
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
 import spray.json._
 import json.HttpCodec._
+import json.ResponseFormats._
+
+import akka.http.scaladsl.server.{Directive, Directive1, Route}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -24,10 +28,15 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
   private val jwtPayload =
     domain.JwtPayload(ledgerId = "ledgerId", applicationId = "applicationId", party = "Alice")
 
+  private val extractJwtPayload: Directive1[domain.JwtPayload] =
+    Directive(_(Tuple1(jwtPayload))) // TODO from header
+
   private val ok = HttpEntity(ContentTypes.`application/json`, """{"status": "OK"}""")
 
   lazy val all: PartialFunction[HttpRequest, HttpResponse] =
     command orElse contracts orElse notFound
+
+  lazy val all2: Route = command2 ~ contracts2
 
   lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(
@@ -47,14 +56,14 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
       HttpResponse(entity = HttpEntity.Strict(ContentTypes.`application/json`, data))
   }
 
-  lazy val command2 =
+  lazy val command2: Route =
     post {
       path("/command/create") {
         entity(as[JsValue]) { data =>
           complete(data)
         }
       } ~
-        path("/command/create") {
+        path("/command/exercise") {
           entity(as[JsValue]) { data =>
             complete(data)
           }
@@ -85,6 +94,31 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
       }
   }
 
+  lazy val contracts2: Route =
+    path("/contracts/lookup") {
+      get {
+        complete(StatusCodes.OK)
+      }
+    } ~
+      path("contracts/search") {
+        get {
+          complete(
+            JsonApi.subst(
+              contractsService
+                .search(jwtPayload, emptyGetActiveContractsRequest)
+                .map(resultJsObject(_))))
+        } ~
+          post {
+            entity(as[JsValue]) { jsInput =>
+              complete(
+                JsonApi.subst(
+                  contractsService
+                    .search(jwtPayload, jsInput.convertTo[domain.GetActiveContractsRequest])
+                    .map(resultJsObject(_))))
+            }
+          }
+      }
+
   private def httpResponse(status: StatusCode, output: ByteString): HttpResponse =
     HttpResponse(
       status = status,
@@ -106,17 +140,4 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
 
   private def format(a: JsValue): ByteString =
     ByteString(a.compactPrint)
-
-  private def errorsJsObject(status: StatusCode)(es: String*): JsObject = {
-    val errors = JsArray(es.map(JsString(_)).toVector)
-    JsObject(statusField(status), ("errors", errors))
-  }
-
-  private def resultJsObject[A: JsonFormat](a: A): JsObject = {
-    val result: JsValue = a.toJson
-    JsObject(statusField(StatusCodes.OK), ("result", result))
-  }
-
-  private def statusField(status: StatusCode): (String, JsNumber) =
-    ("status", JsNumber(status.intValue()))
 }
