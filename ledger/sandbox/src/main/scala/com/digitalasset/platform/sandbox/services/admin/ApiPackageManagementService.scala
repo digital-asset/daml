@@ -51,6 +51,7 @@ class ApiPackageManagementService(
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
+    // TODO(RC): Refactor DarReader to use ZipInputStream, to avoid creating a temporary file
     val resultT = for {
       file <- Try(File.createTempFile("uploadDarFile", ".dar"))
       _ <- bracket(Try(new FileOutputStream(file)))(fos => Try(fos.close())).flatMap { fos =>
