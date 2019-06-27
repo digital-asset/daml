@@ -7,7 +7,6 @@ module DA.Ledger ( -- High level interface to the Ledger API
 
     Port(..), Host(..), ClientConfig(..),
 
-    module DA.Ledger.AbstractLedgerTypes,
     module DA.Ledger.LedgerService,
     module DA.Ledger.PastAndFuture,
     module DA.Ledger.Services,
@@ -19,7 +18,6 @@ module DA.Ledger ( -- High level interface to the Ledger API
     ) where
 
 import Network.GRPC.HighLevel.Generated(Port(..),Host(..),ClientConfig(..))
-import DA.Ledger.AbstractLedgerTypes
 import DA.Ledger.LedgerService
 import DA.Ledger.PastAndFuture
 import DA.Ledger.Services
@@ -43,15 +41,15 @@ getAllTransactions :: LedgerId -> Party -> LedgerService (Stream Transaction)
 getAllTransactions lid party = do
     let filter = filterEverthingForParty party
     let verbose = False
-    let req = GetTransactionsRequest lid offsetBegin Nothing filter verbose
+    let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
     getTransactions req
 
 getTransactionsPF :: LedgerId -> Party -> LedgerService (PastAndFuture Transaction)
 getTransactionsPF lid party = do
-    now <- ledgerEnd lid
+    now <- fmap LedgerAbsOffset (ledgerEnd lid)
     let filter = filterEverthingForParty party
     let verbose = False
-    let req1 = GetTransactionsRequest lid offsetBegin (Just now) filter verbose
+    let req1 = GetTransactionsRequest lid LedgerBegin (Just now) filter verbose
     let req2 = GetTransactionsRequest lid now         Nothing    filter verbose
     stream <- getTransactions req1
     future <- getTransactions req2

@@ -6,16 +6,14 @@
 module DA.Ledger.Services.CommandCompletionService (completionStream, completionEnd) where
 
 import Com.Digitalasset.Ledger.Api.V1.CommandCompletionService hiding (Checkpoint)
-import Com.Digitalasset.Ledger.Api.V1.LedgerOffset
 import Control.Concurrent (forkIO)
-import DA.Ledger.Convert(raiseCompletionStreamResponse)
+import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
 import qualified Data.Vector as Vector
-
 
 type Request = (LedgerId,ApplicationId,[Party],LedgerOffset)
 type Response = (Maybe Checkpoint, [Completion])
@@ -32,7 +30,6 @@ completionStream (lid,aid,partys,offset) =
             sendToStream timeout request raiseCompletionStreamResponse stream rpc
     return stream
 
-
 mkCompletionStreamRequest :: LedgerId -> ApplicationId -> [Party] -> LedgerOffset -> CompletionStreamRequest
 mkCompletionStreamRequest (LedgerId id) aid parties offset = CompletionStreamRequest {
     completionStreamRequestLedgerId = id,
@@ -45,22 +42,21 @@ mkCompletionStreamRequest (LedgerId id) aid parties offset = CompletionStreamReq
     --
     -- which is entirely pointless, as it just results in an empty/closed stream of results
     -- so dont support the optionality in the haskell interface
-    completionStreamRequestOffset = Just offset
+    completionStreamRequestOffset = Just (lowerLedgerOffset offset)
     }
 
-completionEnd :: LedgerId -> LedgerService LedgerOffset -- TODO: return AbsOffset. must be, although not stated in the .proto commment
+completionEnd :: LedgerId -> LedgerService AbsOffset
 completionEnd lid =
     makeLedgerService $ \timeout config ->
     withGRPCClient config $ \client -> do
         service <- commandCompletionServiceClient client
         let CommandCompletionService {commandCompletionServiceCompletionEnd=rpc} = service
         let request = CompletionEndRequest (unLedgerId lid) noTrace
-        rpc (ClientNormalRequest request timeout emptyMdm)
-            >>= \case
-            ClientNormalResponse (CompletionEndResponse (Just offset)) _m1 _m2 _status _details ->
-                return offset
-            ClientNormalResponse (CompletionEndResponse Nothing) _m1 _m2 _status _details ->
-                fail "CompletionEndResponse offset field is missing"
-            ClientErrorResponse e ->
-                fail (show e)
-
+        response <- rpc (ClientNormalRequest request timeout emptyMdm)
+        unwrap response >>= \case
+            CompletionEndResponse (Just offset) ->
+                case raiseAbsLedgerOffset offset of
+                    Left reason -> fail (show reason)
+                    Right abs -> return abs
+            CompletionEndResponse Nothing ->
+                fail "CompletionEndResponse, offset field is missing"

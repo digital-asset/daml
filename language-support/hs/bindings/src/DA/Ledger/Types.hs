@@ -15,6 +15,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
 
     Commands(..),
     Command(..),
+    LedgerOffset(..),
     Completion(..),
     Checkpoint(..),
     Transaction(..),
@@ -80,6 +81,11 @@ data Command
         createArgs :: Record,
         choice     :: Choice,
         choiceArg  :: Value }
+    deriving (Eq,Ord,Show)
+
+-- ledger_offset.proto
+
+data LedgerOffset = LedgerBegin | LedgerEnd | LedgerAbsOffset AbsOffset
     deriving (Eq,Ord,Show)
 
 -- completion.proto

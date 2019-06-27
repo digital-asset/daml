@@ -3,23 +3,23 @@
 
 module DA.Ledger.Services.TransactionService (
     ledgerEnd,
-    GetTransactionsRequest(..), getTransactions,
+    GetTransactionsRequest(..), filterEverthingForParty, getTransactions,
     ) where
 
-import Com.Digitalasset.Ledger.Api.V1.LedgerOffset
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter
 import Control.Concurrent(forkIO)
-import DA.Ledger.Convert (raiseList,raiseTransaction)
+import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
 import qualified Com.Digitalasset.Ledger.Api.V1.TransactionService as LL
+import qualified Data.Map as Map
 
 -- TODO:: all the other RPCs
 
-ledgerEnd :: LedgerId -> LedgerService LedgerOffset -- TODO: return AbsOffset
+ledgerEnd :: LedgerId -> LedgerService AbsOffset
 ledgerEnd lid =
     makeLedgerService $ \timeout config -> do
     withGRPCClient config $ \client -> do
@@ -27,8 +27,13 @@ ledgerEnd lid =
         let LL.TransactionService{transactionServiceGetLedgerEnd=rpc} = service
         let request = LL.GetLedgerEndRequest (unLedgerId lid) noTrace
         response <- rpc (ClientNormalRequest request timeout emptyMdm)
-        LL.GetLedgerEndResponse (Just offset) <- unwrap response --fail if not Just
-        return offset
+        unwrap response >>= \case
+            LL.GetLedgerEndResponse (Just offset) ->
+                case raiseAbsLedgerOffset offset of
+                    Left reason -> fail (show reason)
+                    Right abs -> return abs
+            LL.GetLedgerEndResponse Nothing ->
+                fail "GetLedgerEndResponse, offset field is missing"
 
 data GetTransactionsRequest = GetTransactionsRequest {
     lid :: LedgerId,
@@ -38,13 +43,19 @@ data GetTransactionsRequest = GetTransactionsRequest {
     verbose :: Bool
     }
 
+filterEverthingForParty :: Party -> TransactionFilter
+filterEverthingForParty party = TransactionFilter (Map.singleton (unParty party) (Just noFilters))
+    where
+        noFilters :: Filters
+        noFilters = Filters Nothing
+
 lowerRequest :: GetTransactionsRequest -> LL.GetTransactionsRequest
 lowerRequest = \case
     GetTransactionsRequest{lid, begin, end, filter, verbose} ->
         LL.GetTransactionsRequest {
         getTransactionsRequestLedgerId = unLedgerId lid,
-        getTransactionsRequestBegin = Just begin,
-        getTransactionsRequestEnd = end,
+        getTransactionsRequestBegin = Just (lowerLedgerOffset begin),
+        getTransactionsRequestEnd = fmap lowerLedgerOffset end,
         getTransactionsRequestFilter = Just filter,
         getTransactionsRequestVerbose = verbose,
         getTransactionsRequestTraceContext = noTrace

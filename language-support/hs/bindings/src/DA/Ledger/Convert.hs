@@ -5,8 +5,8 @@
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (
-    lowerCommands,
-    Perhaps, raiseList, raiseTransaction, raiseCompletionStreamResponse,
+    lowerCommands, lowerLedgerOffset,
+    Perhaps, raiseList, raiseTransaction, raiseCompletionStreamResponse, raiseAbsLedgerOffset,
     RaiseFailureReason,
     ) where
 
@@ -23,10 +23,26 @@ import qualified Com.Digitalasset.Ledger.Api.V1.Event as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Transaction as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Value as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.LedgerOffset as LL
+import qualified Proto3.Suite.Types as LL
 
 import DA.Ledger.Types
 
 -- lower
+
+lowerLedgerOffset :: LedgerOffset -> LL.LedgerOffset
+lowerLedgerOffset = \case
+    LedgerBegin ->
+        LL.LedgerOffset {
+        ledgerOffsetValue = Just (LL.LedgerOffsetValueBoundary (LL.Enumerated (Right LL.LedgerOffset_LedgerBoundaryLEDGER_BEGIN)))
+        }
+    LedgerEnd ->
+        LL.LedgerOffset {
+        ledgerOffsetValue = Just (LL.LedgerOffsetValueBoundary (LL.Enumerated (Right LL.LedgerOffset_LedgerBoundaryLEDGER_END)))
+        }
+    LedgerAbsOffset abs ->
+        LL.LedgerOffset {
+        ledgerOffsetValue = Just (LL.LedgerOffsetValueAbsolute (unAbsOffset abs))
+        }
 
 lowerCommands :: Commands -> LL.Commands
 lowerCommands = \case

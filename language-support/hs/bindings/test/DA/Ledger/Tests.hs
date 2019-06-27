@@ -120,7 +120,7 @@ tSubmitComplete :: SandboxTest
 tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
     let command = createIOU pid alice "A-coin" 100
-    completions <- completionStream (lid,myAid,[alice],offsetBegin)
+    completions <- completionStream (lid,myAid,[alice],LedgerBegin)
     off0 <- completionEnd lid
     Right cidA1 <- submitCommand lid alice command
     Right (Just Checkpoint{offset=cp1},[Completion{cid=cidB1}]) <- liftIO $ takeStream completions
@@ -134,10 +134,10 @@ tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pi
         assertBool "off0 /= off1" (off0 /= off1)
         assertBool "off1 /= off2" (off1 /= off2)
         --TODO: Resolve if this is a bug, or my understandingis wrong!
-        assertEqual "cp1==off0" off0 (mkAbsLedgerOffset cp1) -- WRONG
-        --assertEqual "cp1==off1" off1 (mkAbsLedgerOffset cp1) -- SHOULD BE THIS
-        assertEqual "cp2==off1" off1 (mkAbsLedgerOffset cp2) -- WRONG
-        --assertEqual "cp2==off2" off2 (mkAbsLedgerOffset cp2) -- SHOULD BE THIS
+        assertEqual "cp1==off0" off0 cp1 -- WRONG
+        --assertEqual "cp1==off1" off1 (LedgerAbsOffset cp1) -- SHOULD BE THIS
+        assertEqual "cp2==off1" off1 cp2 -- WRONG
+        --assertEqual "cp2==off2" off2 (LedgerAbsOffset cp2) -- SHOULD BE THIS
 
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
