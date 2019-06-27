@@ -103,8 +103,8 @@ da_scala_binary(
         tools = [":encoder_binary"],
         visibility = [
             "//daml-lf:__subpackages__",
+            "//extractor:__subpackages__",
             "//language-support:__subpackages__",
-             "//extractor:__subpackages__",
         ],
     )
     for target in lf_targets
