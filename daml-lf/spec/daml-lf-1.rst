@@ -2235,7 +2235,6 @@ String functions
   from `0x000000` to `0x00D7FF` or in the range from `0x00DFFF`
   to `0x10FFFF` (bounds included).
 
-
   [*Available since version 1.dev*]
 
 Timestamp functions

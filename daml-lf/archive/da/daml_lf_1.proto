@@ -58,7 +58,7 @@ message PackageRef {
 
     // An index into `interned_package_ids` of the Package containing
     // this reference.
-    uint64 interned_id = 3;
+    uint64 interned_id = 3; /* Available since version 1.dev */
   }
 }
 
@@ -1142,5 +1142,5 @@ message Module {
 
 message Package {
   repeated Module modules = 1;
-  repeated string interned_package_ids = 2;
+  repeated string interned_package_ids = 2; /* Available since version 1.dev */
 }
