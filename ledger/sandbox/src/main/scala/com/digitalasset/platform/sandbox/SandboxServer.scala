@@ -165,7 +165,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     // TODO is it sensible to have all the initial packages to be known
     // since the epoch?
     for (file <- config.damlPackages) {
-      packageStore.putDarFile(Instant.EPOCH, "", file) match {
+      packageStore.putDarFile(Instant.EPOCH, None, file) match {
         case Right(details @ _) => ()
         case Left(err) => sys.error(s"Could not load package $file: $err")
       }

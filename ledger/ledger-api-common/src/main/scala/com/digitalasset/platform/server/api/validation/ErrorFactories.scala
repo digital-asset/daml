@@ -37,6 +37,9 @@ trait ErrorFactories {
   def unimplemented(description: String): StatusRuntimeException =
     grpcError(Status.UNIMPLEMENTED.withDescription(description))
 
+  def permissionDenied(description: String): StatusRuntimeException =
+    grpcError(Status.PERMISSION_DENIED.withDescription(description))
+
   def grpcError(status: Status) = new ApiException(status)
 
 }
