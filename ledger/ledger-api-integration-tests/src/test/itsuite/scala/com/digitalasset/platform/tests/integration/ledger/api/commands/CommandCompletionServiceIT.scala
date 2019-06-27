@@ -71,7 +71,7 @@ class CommandCompletionServiceIT
     "listening for completions" should {
 
       "handle multi party subscriptions" in allFixtures { ctx =>
-        val configuredParties = config.parties.list.toList
+        val configuredParties = config.parties
         for {
           commandClient <- ctx.commandClient(ctx.ledgerId)
           tracker <- commandClient.trackCommands[String](configuredParties)

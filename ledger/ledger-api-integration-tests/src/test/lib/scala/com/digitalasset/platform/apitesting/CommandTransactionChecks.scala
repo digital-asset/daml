@@ -53,14 +53,14 @@ import scala.concurrent.duration._
 // format: off
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 abstract class CommandTransactionChecks
-    extends AsyncWordSpec
-        with AkkaBeforeAndAfterAll
-        with MultiLedgerFixture
-        with SuiteResourceManagementAroundEach
-        with ScalaFutures
-        with AsyncTimeLimitedTests
-        with Matchers
-        with OptionValues {
+  extends AsyncWordSpec
+    with AkkaBeforeAndAfterAll
+    with MultiLedgerFixture
+    with SuiteResourceManagementAroundEach
+    with ScalaFutures
+    with AsyncTimeLimitedTests
+    with Matchers
+    with OptionValues {
   protected def submitCommand(ctx: LedgerContext, req: SubmitRequest): Future[Completion]
 
   protected val testTemplateIds = new TestTemplateIds(config)
@@ -237,9 +237,9 @@ abstract class CommandTransactionChecks
         val commandId = "Huge-composite-command"
         val originalCommand = createCommandWithId(ctx, commandId)
         val targetNumberOfSubCommands = 15000 // That's around the maximum gRPC input size
-        val superSizedCommand =
-          originalCommand.update(_.commands.update(_.commands.modify(original =>
-            List.fill(targetNumberOfSubCommands)(original.head))))
+      val superSizedCommand =
+        originalCommand.update(_.commands.update(_.commands.modify(original =>
+          List.fill(targetNumberOfSubCommands)(original.head))))
         ctx.testingHelpers.submitAndListenForSingleResultOfCommand(superSizedCommand, getAllContracts) map {
           tx =>
             tx.events.size shouldEqual targetNumberOfSubCommands
@@ -561,26 +561,26 @@ abstract class CommandTransactionChecks
           // only compare the field values since the server currently does not return the
           // record identifier or labels when the request does not set verbose=true .
           create.getCreateArguments.fields.map(_.value) shouldEqual
-              createArguments.fields.map(_.value)
+            createArguments.fields.map(_.value)
           succeed
         }
       }
 
       "having many transactions all of them has a unique event id" in allFixtures { ctx =>
         val eventIdsF = ctx.transactionClient
-            .getTransactions(
-              (LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))),
-              Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))),
-              getAllContracts
-            )
-            .map(_.events
-                .map(_.event)
-                .collect {
-                  case Archived(ArchivedEvent(eventId, _, _, _)) => eventId
-                  case Created(CreatedEvent(eventId, _, _, _, _, _, _, _, _)) => eventId
-                })
-            .takeWithin(5.seconds) //TODO: work around as ledger end is broken. see DEL-3151
-            .runWith(Sink.seq)
+          .getTransactions(
+            (LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))),
+            Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))),
+            getAllContracts
+          )
+          .map(_.events
+            .map(_.event)
+            .collect {
+              case Archived(ArchivedEvent(eventId, _, _, _)) => eventId
+              case Created(CreatedEvent(eventId, _, _, _, _, _, _, _, _)) => eventId
+            })
+          .takeWithin(5.seconds) //TODO: work around as ledger end is broken. see DEL-3151
+          .runWith(Sink.seq)
 
         eventIdsF map { eventIds =>
           val eventIdList = eventIds.flatten
@@ -647,10 +647,10 @@ abstract class CommandTransactionChecks
         def textKeyRecord(p: String, k: String, disclosedTo: List[String]): Record =
           Record(
             fields =
-                List(
-                  RecordField(value = p.asParty),
-                  RecordField(value = s"$keyPrefix-$k".asText),
-                  RecordField(value = disclosedTo.map(_.asParty).asList)))
+              List(
+                RecordField(value = p.asParty),
+                RecordField(value = s"$keyPrefix-$k".asText),
+                RecordField(value = disclosedTo.map(_.asParty).asList)))
         val key = "some-key"
         val alice = "Alice"
         val bob = "Bob"
@@ -684,6 +684,7 @@ abstract class CommandTransactionChecks
               templateIds.textKeyOperations,
               Record(fields = List(RecordField(value = bob.asParty)))
             )
+
           // unauthorized lookups are not OK
           // both existing lookups...
           lookupNone = Value(Value.Sum.Optional(Optional(None)))
@@ -1007,9 +1008,9 @@ abstract class CommandTransactionChecks
   }
 
   private def findCreatedEventInResultOf(
-      ctx: LedgerContext,
-      cid: String,
-      templateToLookFor: Identifier): Future[CreatedEvent] = {
+                                          ctx: LedgerContext,
+                                          cid: String,
+                                          templateToLookFor: Identifier): Future[CreatedEvent] = {
     for {
       tx <- createContracts(ctx, cid)
     } yield {
@@ -1018,9 +1019,9 @@ abstract class CommandTransactionChecks
   }
 
   private def requestToCallExerciseWithId(
-      ctx: LedgerContext,
-      factoryContractId: String,
-      commandId: String) = {
+                                           ctx: LedgerContext,
+                                           factoryContractId: String,
+                                           commandId: String) = {
     ctx.testingHelpers.submitRequestWithId(commandId).update(
       _.commands.commands := List(
         ExerciseCommand(
@@ -1032,11 +1033,11 @@ abstract class CommandTransactionChecks
 
   // Create an instance of the 'Agreement' template.
   private def createAgreement(
-      ctx: LedgerContext,
-      commandId: String,
-      receiver: String,
-      giver: String
-  ): Future[CreatedEvent] = {
+                               ctx: LedgerContext,
+                               commandId: String,
+                               receiver: String,
+                               giver: String
+                             ): Future[CreatedEvent] = {
     val agreementFactoryArg = List(
       "receiver" -> receiver.asParty,
       "giver" -> giver.asParty
@@ -1062,10 +1063,10 @@ abstract class CommandTransactionChecks
   }
 
   private def mkTriProposalArg(
-      operator: String,
-      receiver: String,
-      giver: String
-  ): Record =
+                                operator: String,
+                                receiver: String,
+                                giver: String
+                              ): Record =
     Record(
       Some(templateIds.triProposal),
       Vector(
@@ -1078,9 +1079,9 @@ abstract class CommandTransactionChecks
     List("cid" -> Value(ContractId(contractId))).asRecordValue
 
   private def mkWithObserversArg(
-      giver: String,
-      observers: List[String]
-  ): Record =
+                                  giver: String,
+                                  observers: List[String]
+                                ): Record =
     Record(
       Some(templateIds.withObservers),
       Vector(
@@ -1090,9 +1091,9 @@ abstract class CommandTransactionChecks
 
 
   private def createParamShowcaseWith(
-      ctx: LedgerContext,
-      commandId: String,
-      createArguments: Record) = {
+                                       ctx: LedgerContext,
+                                       commandId: String,
+                                       createArguments: Record) = {
     val commandList = List(
       CreateCommand(Some(templateIds.parameterShowcase), Some(createArguments)).wrap)
     ctx.testingHelpers.submitRequestWithId(commandId).update(
@@ -1103,22 +1104,22 @@ abstract class CommandTransactionChecks
     Value(
       Value.Sum.Record(
         args
-            .update(_.fields.modify { originalFields =>
-              originalFields.collect {
-                // prune "operator" -- we do not have it in the choice params
-                case original if original.label != "operator" =>
-                  val newLabel = "new" + original.label.capitalize
-                  RecordField(newLabel, original.value)
-              }
-            })
-            .update(_.recordId.set(templateIds.parameterShowcaseChoice1))))
+          .update(_.fields.modify { originalFields =>
+            originalFields.collect {
+              // prune "operator" -- we do not have it in the choice params
+              case original if original.label != "operator" =>
+                val newLabel = "new" + original.label.capitalize
+                RecordField(newLabel, original.value)
+            }
+          })
+          .update(_.recordId.set(templateIds.parameterShowcaseChoice1))))
 
   private def verifyParamShowcaseChoice(
-      ctx: LedgerContext,
-      choice: String,
-      lbl: String,
-      exerciseArg: Value,
-      expectedCreateArg: Record): Future[Assertion] = {
+                                         ctx: LedgerContext,
+                                         choice: String,
+                                         lbl: String,
+                                         exerciseArg: Value,
+                                         expectedCreateArg: Record): Future[Assertion] = {
     val command: SubmitRequest =
       createParamShowcaseWith(
         ctx,
@@ -1180,13 +1181,13 @@ abstract class CommandTransactionChecks
 
   private def createAgreementFactory(ctx: LedgerContext, receiver: String, giver: String, commandId: String) = {
     ctx.testingHelpers.submitRequestWithId(commandId)
-        .update(
-          _.commands.commands := List(
-            Command(
-              create(
-                templateIds.agreementFactory,
-                List(receiver -> receiver.asParty, giver -> giver.asParty)))),
-          _.commands.party := giver
-        )
+      .update(
+        _.commands.commands := List(
+          Command(
+            create(
+              templateIds.agreementFactory,
+              List(receiver -> receiver.asParty, giver -> giver.asParty)))),
+        _.commands.party := giver
+      )
   }
 }

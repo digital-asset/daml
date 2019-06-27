@@ -10,7 +10,6 @@ import akka.stream.scaladsl.{Flow, Sink}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{EventId, LedgerId}
-import com.digitalasset.ledger.api.testing.utils.MockMessages.{party, _}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
@@ -24,7 +23,7 @@ import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter, _}
+import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, ContractId}
@@ -39,9 +38,11 @@ import com.digitalasset.platform.apitesting.{
   TestIdsGenerator,
   TestTemplateIds
 }
+import com.digitalasset.platform.apitesting._
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.services.time.TimeProviderType
+import com.digitalasset.platform.apitesting.LedgerOffsets._
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest._
@@ -49,10 +50,11 @@ import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import scalaz.syntax.tag._
-import scalaz.{ICons, NonEmptyList, Tag}
+import scalaz.Tag
 
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.Future
+import com.digitalasset.platform.apitesting.TestParties._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceIT
@@ -80,21 +82,9 @@ class TransactionServiceIT
   private def newClient(stub: TransactionService, ledgerId: LedgerId): TransactionClient =
     new TransactionClient(ledgerId, stub)
 
-  private val getAllContracts = transactionFilter
-
-  private def filterSingleTemplate(templateClientSubscribedTo: Identifier) = {
-    TransactionFilter(
-      Map(party -> Filters(Some(InclusiveFilters(List(templateClientSubscribedTo))))))
-  }
-
-  private val NonEmptyList(party1, ICons(party2, ICons(party3, _))) = config.parties
-
   private val smallCommandCount = 5
 
-  private val configuredParties = config.parties.list.toList
-
-  private val filterForAllParties = TransactionFilter(
-    configuredParties.map(_ -> Filters.defaultInstance).toMap)
+  private val configuredParties = config.parties
 
   private val unitArg = Value(Sum.Record(Record.defaultInstance))
 
@@ -105,7 +95,10 @@ class TransactionServiceIT
       "serve an empty stream of transactions" in allFixtures { context =>
         for {
           transactions <- context.transactionClient
-            .getTransactions(ledgerBegin, Some(ledgerBegin), getAllContracts)
+            .getTransactions(
+              LedgerBegin,
+              Some(LedgerBegin),
+              TransactionFilters.allForParties(Alice))
             .runWith(Sink.seq)
         } yield {
           transactions shouldBe empty
@@ -125,7 +118,7 @@ class TransactionServiceIT
             context
           )
           transactions <- context.transactionClient
-            .getTransactions(ledgerBegin, None, getAllContracts)
+            .getTransactions(LedgerBegin, None, TransactionFilters.allForParties(Alice))
             .take(elemsToTake)
             .runWith(Sink.seq)
         } yield {
@@ -141,7 +134,7 @@ class TransactionServiceIT
             _ <- insertCommandsUnique("deduplicated", 1, context)
             _ = insertCommandsUnique("deduplicated", 1, context) // we don't wait for this since the result won't be seen
             txs <- client
-              .getTransactions(le.getOffset, None, getAllContracts)
+              .getTransactions(le.getOffset, None, TransactionFilters.allForParties(Alice))
               .takeWithin(2.seconds)
               .runWith(Sink.seq)
           } yield {
@@ -152,7 +145,7 @@ class TransactionServiceIT
       "return INVALID_ARGUMENT if TransactionFilter is empty" in allFixtures { context =>
         for {
           error <- context.transactionClient
-            .getTransactions(ledgerBegin, None, TransactionFilter())
+            .getTransactions(LedgerBegin, None, TransactionFilters.empty)
             .runWith(Sink.seq)
             .failed
         } yield {
@@ -162,7 +155,7 @@ class TransactionServiceIT
 
       "complete the stream by itself as soon as LedgerEnd is hit" in allFixtures { context =>
         val resultsF = context.transactionClient
-          .getTransactions(ledgerBegin, Some(ledgerEnd), getAllContracts)
+          .getTransactions(LedgerBegin, Some(LedgerEnd), TransactionFilters.allForParties(Alice))
           .runWith(Sink.seq)
 
         for {
@@ -185,7 +178,10 @@ class TransactionServiceIT
             ledgerEndResponse <- client.getLedgerEnd
             _ <- insertCommandsUnique(firstSectionPrefix, commandsPerSection, context)
             firstSection <- client
-              .getTransactions(ledgerEndResponse.getOffset, None, getAllContracts)
+              .getTransactions(
+                ledgerEndResponse.getOffset,
+                None,
+                TransactionFilters.allForParties(Alice))
               .filter(_.commandId.startsWith(sharedPrefix))
               .take(commandsPerSection.toLong)
               .runWith(Sink.seq)
@@ -195,7 +191,10 @@ class TransactionServiceIT
             _ <- insertCommandsUnique(sharedPrefix + "-2", commandsPerSection, context)
 
             secondSection <- client
-              .getTransactions(ledgerEndAfterFirstSection, None, getAllContracts)
+              .getTransactions(
+                ledgerEndAfterFirstSection,
+                None,
+                TransactionFilters.allForParties(Alice))
               .take(commandsPerSection.toLong)
               .runWith(Sink.seq)
 
@@ -205,7 +204,7 @@ class TransactionServiceIT
               .getTransactions(
                 ledgerEndResponse.getOffset,
                 Some(ledgerEndAfterSecondSection),
-                getAllContracts)
+                TransactionFilters.allForParties(Alice))
               .filter(_.commandId.startsWith(sharedPrefix))
               .completionTimeout(3.seconds)
               .runWith(Sink.seq)
@@ -226,7 +225,10 @@ class TransactionServiceIT
           _ <- insertCommandsUnique(commandPrefix, smallCommandCount, context)
           readTransactions = () =>
             client
-              .getTransactions(ledgerEndOnStart.getOffset, None, getAllContracts)
+              .getTransactions(
+                ledgerEndOnStart.getOffset,
+                None,
+                TransactionFilters.allForParties(Alice))
               .filter(_.commandId.startsWith(commandPrefix))
               .take(smallCommandCount.toLong)
               .runWith(Sink.seq)
@@ -248,7 +250,7 @@ class TransactionServiceIT
         val client = context.transactionClient
         val commandPrefix = "visibility-test"
 
-        val anotherParty = "Alice"
+        val anotherParty = TestParties.Bob
         for {
           ledgerEndResponse <- client.getLedgerEnd
           _ <- insertCommandsUnique(commandPrefix, 1, context)
@@ -273,9 +275,12 @@ class TransactionServiceIT
           val client = context.transactionClient
 
           for {
-            ledgerEnd <- client.getLedgerEnd
+            LedgerEnd <- client.getLedgerEnd
             transactions <- client
-              .getTransactions(ledgerEnd.getOffset, Some(ledgerEnd.getOffset), getAllContracts)
+              .getTransactions(
+                LedgerEnd.getOffset,
+                Some(LedgerEnd.getOffset),
+                TransactionFilters.allForParties(Alice))
               .runWith(Sink.seq)
           } yield {
             transactions shouldBe empty
@@ -287,7 +292,10 @@ class TransactionServiceIT
           for {
             savedLedgerEnd <- context.transactionClient.getLedgerEnd
             txs <- context.transactionClient
-              .getTransactions(savedLedgerEnd.getOffset, Some(ledgerEnd), getAllContracts)
+              .getTransactions(
+                savedLedgerEnd.getOffset,
+                Some(LedgerEnd),
+                TransactionFilters.allForParties(Alice))
               .runWith(Sink.seq)
           } yield {
             txs shouldBe empty
@@ -301,14 +309,17 @@ class TransactionServiceIT
           savedLedgerEnd <- client.getLedgerEnd
           _ <- insertCommandsUnique(s"end-before-start-test", 1, context)
           tx <- client
-            .getTransactions(savedLedgerEnd.getOffset, None, getAllContracts)
+            .getTransactions(
+              savedLedgerEnd.getOffset,
+              None,
+              TransactionFilters.allForParties(Alice))
             .runWith(Sink.head)
           higherLedgerOffset = tx.offset
           error <- client
             .getTransactions(
               LedgerOffset(LedgerOffset.Value.Absolute(higherLedgerOffset)),
               Some(savedLedgerEnd.getOffset),
-              getAllContracts)
+              TransactionFilters.allForParties(Alice))
             .runWith(Sink.head)
             .failed
         } yield {
@@ -322,9 +333,9 @@ class TransactionServiceIT
               testIdsGenerator.testCommandId(
                 "Checking_commandId_visibility_for_non-submitter_party"),
               templateIds.agreementFactory,
-              List("receiver" -> party1.asParty, "giver" -> party2.asParty).asRecordFields,
-              party2,
-              party1
+              List("receiver" -> Alice.asParty, "giver" -> Bob.asParty).asRecordFields,
+              Bob,
+              Alice
             )
             .map(_.commandId shouldBe empty)
 
@@ -336,11 +347,13 @@ class TransactionServiceIT
         val otherTemplateCreated = templateIds.dummyFactory
         for {
           tx <- context.testingHelpers.submitAndListenForSingleResultOfCommand(
-            context.command(
-              commandId,
-              List(templateInSubscription, otherTemplateCreated).map(tid =>
-                Command(create(tid, List("operator" -> "party".asParty))))),
-            filterSingleTemplate(templateInSubscription)
+            context
+              .command(
+                commandId,
+                List(templateInSubscription, otherTemplateCreated).map(tid =>
+                  Command(create(tid, List("operator" -> Alice.asParty)))))
+              .update(_.commands.party := Alice),
+            TransactionFilters.templatesByParty(Alice -> List(templateInSubscription))
           )
         } yield {
           val singleEvent = getHead(tx.events.map(_.event))
@@ -361,14 +374,16 @@ class TransactionServiceIT
             createdEvent <- context.submitCreate(
               factoryCreation,
               exercisedTemplate,
-              List("operator" -> "party".asParty).asRecordFields,
-              "party")
+              List("operator" -> Alice.asParty).asRecordFields,
+              Alice)
             factoryContractId = createdEvent.contractId
             exerciseTx <- context.testingHelpers.submitAndListenForSingleResultOfCommand(
-              context.command(
-                exercisingChoice,
-                List(exerciseCallChoice(exercisedTemplate, factoryContractId).wrap)),
-              getAllContracts
+              context
+                .command(
+                  exercisingChoice,
+                  List(exerciseCallChoice(exercisedTemplate, factoryContractId).wrap))
+                .update(_.commands.party := Alice),
+              TransactionFilters.allForParties(Alice)
             )
           } yield {
             val events = exerciseTx.events.map(_.event)
@@ -388,21 +403,25 @@ class TransactionServiceIT
             creation <- context.submitCreate(
               factoryCreation,
               exercisedTemplate,
-              List("operator" -> "party".asParty).asRecordFields,
-              "party")
+              List("operator" -> Alice.asParty).asRecordFields,
+              Alice)
             factoryContractId = creation.contractId
 
             offsetToListenFrom <- context.testingHelpers.submitSuccessfullyAndReturnOffset(
-              context.command(
-                exercisingChoice,
-                List(exerciseCallChoice(exercisedTemplate, factoryContractId).wrap)))
+              context
+                .command(
+                  exercisingChoice,
+                  List(exerciseCallChoice(exercisedTemplate, factoryContractId).wrap))
+                .update(_.commands.party := Alice)
+            )
 
             txsWithCreate <- context.testingHelpers.listenForResultOfCommand(
-              filterSingleTemplate(templateIds.dummyWithParam),
+              TransactionFilters.templatesByParty(Alice -> List(templateIds.dummyWithParam)),
               Some(exercisingChoice),
               offsetToListenFrom)
+
             txsWithArchive <- context.testingHelpers.listenForResultOfCommand(
-              filterSingleTemplate(templateIds.dummyFactory),
+              TransactionFilters.templatesByParty(Alice -> List(templateIds.dummyFactory)),
               Some(exercisingChoice),
               offsetToListenFrom)
 
@@ -427,12 +446,12 @@ class TransactionServiceIT
           dummy <- c.submitCreate(
             testIdsGenerator.testCommandId("Create_for_assertion_failing_test"),
             templateIds.dummy,
-            List("operator" -> party.asParty).asRecordFields,
-            party)
+            List("operator" -> Alice.asParty).asRecordFields,
+            Alice)
           assertion <- failingExercise(
             c,
             "Assertion_failing_exercise",
-            party,
+            Alice,
             templateIds.dummy,
             dummy.contractId,
             "ConsumeIfTimeIsBetween",
@@ -457,7 +476,7 @@ class TransactionServiceIT
             testIdsGenerator.testCommandId("Creating_contract_with_a_multitude_of_param_types"),
             template,
             paramShowcaseArgs(templateIds.testPackageId),
-            "party",
+            Alice,
             verbose = false
           )
         } yield {
@@ -476,7 +495,7 @@ class TransactionServiceIT
               "Creating_contract_with_a_multitude_of_verbose_param_types"),
             template,
             arg,
-            "party",
+            Alice,
             verbose = true)
         } yield {
           val args = create.getCreateArguments
@@ -529,7 +548,7 @@ class TransactionServiceIT
             testIdsGenerator.testCommandId("Huge_command_with_a_long_list"),
             template,
             arg,
-            "party"
+            Alice
           )
         } yield {
           create.getCreateArguments.fields shouldEqual expectedArg
@@ -537,7 +556,7 @@ class TransactionServiceIT
       }
 
       "not archive the exercised contract on non-consuming choices" in allFixtures { c =>
-        val receiver = "party"
+        val receiver = Alice
         val giver = "Alice"
         for {
           created <- c.submitCreateWithListenerAndReturnEvent(
@@ -571,7 +590,7 @@ class TransactionServiceIT
 
       "require only authorization of chosen branching signatory" in allFixtures { c =>
         val branchingSignatoriesArg =
-          getBranchingSignatoriesArg(true, party1, party2)
+          getBranchingSignatoriesArg(true, Alice, Bob)
         val expectedArg = branchingSignatoriesArg.map(_.copy(label = ""))
 
         for {
@@ -579,8 +598,8 @@ class TransactionServiceIT
             testIdsGenerator.testCommandId("BranchingSignatoriesTrue"),
             templateIds.branchingSignatories,
             branchingSignatoriesArg,
-            party1,
-            party1)
+            Alice,
+            Alice)
         } yield {
           branchingSignatories.getCreateArguments.fields shouldEqual expectedArg
         }
@@ -588,26 +607,26 @@ class TransactionServiceIT
 
       "not disclose create to non-chosen branching signatory" in allFixtures { c =>
         val branchingSignatoriesArg =
-          getBranchingSignatoriesArg(false, party1, party2)
+          getBranchingSignatoriesArg(false, Alice, Bob)
         c.submitCreateWithListenerAndAssertNotVisible(
           testIdsGenerator.testCommandId("BranchingSignatoriesFalse"),
           templateIds.branchingSignatories,
           branchingSignatoriesArg,
-          party2,
-          party1)
+          Bob,
+          Alice)
       }
 
       "disclose create to chosen branching controller" in allFixtures { c =>
         val templateId = templateIds.branchingControllers
-        val branchingControllersArgs = getBranchingControllerArgs(party1, party2, party3, true)
+        val branchingControllersArgs = getBranchingControllerArgs(Alice, Bob, Eve, true)
         val expectedArg = branchingControllersArgs.map(_.copy(label = ""))
         for {
           branchingControllers <- c.submitCreateWithListenerAndReturnEvent(
             testIdsGenerator.testCommandId("BranchingControllersTrue"),
             templateId,
             branchingControllersArgs,
-            party1,
-            party2)
+            Alice,
+            Bob)
         } yield {
           branchingControllers.getCreateArguments.fields shouldEqual expectedArg
         }
@@ -616,18 +635,18 @@ class TransactionServiceIT
       "not disclose create to non-chosen branching controller" in allFixtures { c =>
         val templateId = templateIds.branchingControllers
         val branchingControllersArgs =
-          getBranchingControllerArgs(party1, party2, party3, false)
+          getBranchingControllerArgs(Alice, Bob, Eve, false)
         c.submitCreateWithListenerAndAssertNotVisible(
           testIdsGenerator.testCommandId("BranchingControllersFalse"),
           templateId,
           branchingControllersArgs,
-          party1,
-          party2)
+          Alice,
+          Bob)
       }
 
       "disclose create to observers" in allFixtures { c =>
-        val giver = party1
-        val observers = List(party2, party3)
+        val giver = Alice
+        val observers = List(Bob, Eve)
         val withObserversArg =
           Vector(
             RecordField("giver", giver.asParty),
@@ -652,7 +671,7 @@ class TransactionServiceIT
       "DAML engine returns Unit as argument to Nothing" in allFixtures { c =>
         val createArguments =
           Vector(
-            RecordField("operator", "party".asParty),
+            RecordField("operator", Alice.asParty),
             RecordField("arg1", Value(Value.Sum.Optional(Optional(None))))
           )
 
@@ -662,15 +681,15 @@ class TransactionServiceIT
             testIdsGenerator.testCommandId("Creating_contract_with_a_Nothing_argument"),
             templateIds.nothingArgument,
             createArguments,
-            "party")
+            Alice)
           .map(_.getCreateArguments.fields shouldEqual expectedArgs)
       }
 
       "expose the agreement text in CreatedEvents for templates with an explicit agreement text" in allFixtures {
         c =>
-          createAgreement(c, "AgreementTextTest", party1, party2).map(
+          createAgreement(c, "AgreementTextTest", Alice, Bob).map(
             _.agreementText shouldBe Some(
-              s"'$party2' promise to pay the '$party1' on demand the sum of five pounds.")
+              s"'$Bob' promise to pay the '$Alice' on demand the sum of five pounds.")
           )
       }
 
@@ -680,10 +699,9 @@ class TransactionServiceIT
             testIdsGenerator.testCommandId(
               "Creating_dummy_contract_for_default_agreement_text_test"),
             templateIds.dummy,
-            List(RecordField("operator", party1.asParty)),
-            party1
+            List(RecordField("operator", Alice.asParty)),
+            Alice
           )
-
           resultF.map(_.agreementText shouldBe Some(""))
       }
 
@@ -692,15 +710,15 @@ class TransactionServiceIT
           testIdsGenerator.testCommandId("Creating_CallablePayout_contract_for_stakeholders_test"),
           templateIds.callablePayout,
           List(
-            RecordField("giver", party1.asParty),
-            RecordField("receiver", party2.asParty)
+            RecordField("giver", Alice.asParty),
+            RecordField("receiver", Bob.asParty)
           ),
-          party1
+          Alice
         )
 
         resultF.map(contract => {
-          contract.signatories should contain only party1
-          contract.observers should contain only party2
+          contract.signatories should contain only Alice
+          contract.observers should contain only Bob
         })
       }
 
@@ -711,10 +729,10 @@ class TransactionServiceIT
               "Creating_CallablePayout_contract_for_contract_key_test"),
             templateIds.callablePayout,
             List(
-              RecordField("giver", party1.asParty),
-              RecordField("receiver", party2.asParty)
+              RecordField("giver", Alice.asParty),
+              RecordField("receiver", Bob.asParty)
             ),
-            party1
+            Alice
           )
 
           resultF.map(_.contractKey shouldBe None)
@@ -725,11 +743,11 @@ class TransactionServiceIT
           testIdsGenerator.testCommandId("Creating_TextKey_contract_for_contract_key_test"),
           templateIds.textKey,
           List(
-            RecordField("tkParty", party1.asParty),
+            RecordField("tkParty", Alice.asParty),
             RecordField("tkKey", "some-fancy-key".asText),
             RecordField("tkDisclosedTo", Seq.empty[Value].asList)
           ),
-          party1
+          Alice
         )
 
         resultF.map(
@@ -739,13 +757,13 @@ class TransactionServiceIT
                 Record(
                   None,
                   Vector(
-                    RecordField("", Some(party1.asParty)),
+                    RecordField("", Some(Alice.asParty)),
                     RecordField("", Some("some-fancy-key".asText))))))
           ))
       }
 
       "accept exercising a well-authorized multi-actor choice" in allFixtures { c =>
-        val List(operator, receiver, giver) = List(party1, party2, party3)
+        val List(operator, receiver, giver) = List(Alice, Bob, Eve)
         val triProposalArg = mkTriProposalArg(operator, receiver, giver)
 
         val expectedArg = triProposalArg.map(_.copy(label = ""))
@@ -774,7 +792,7 @@ class TransactionServiceIT
 
       "accept exercising a well-authorized multi-actor choice with coinciding controllers" in allFixtures {
         c =>
-          val List(operator, receiver @ _, giver) = List(party1, party2, party3)
+          val List(operator, receiver @ _, giver) = List(Alice, Bob, Eve)
           val triProposalArg = mkTriProposalArg(operator, giver, giver)
           val expectedArg = triProposalArg.map(_.copy(label = ""))
           for {
@@ -797,7 +815,7 @@ class TransactionServiceIT
       }
 
       "reject exercising a multi-actor choice with missing authorizers" in allFixtures { c =>
-        val List(operator, receiver, giver) = List(party1, party2, party3)
+        val List(operator, receiver, giver) = List(Alice, Bob, Eve)
         val triProposalArg = mkTriProposalArg(operator, receiver, giver)
         for {
           triProposal <- c.submitCreate(
@@ -827,7 +845,7 @@ class TransactionServiceIT
       // in the future. Should we delete this test, we should also remove the
       // 'UnrestrictedAcceptTriProposal' choice from the 'Agreement' template.
       "reject exercising a multi-actor choice with too many authorizers" in allFixtures { c =>
-        val List(operator, receiver, giver) = List(party1, party2, party3)
+        val List(operator, receiver, giver) = List(Alice, Bob, Eve)
         val triProposalArg = mkTriProposalArg(operator, giver, giver)
         for {
           agreement <- createAgreement(c, "MA4", receiver, giver)
@@ -859,15 +877,15 @@ class TransactionServiceIT
           dummy <- c.submitCreate(
             testIdsGenerator.testCommandId("Create_dummy_for_creating_AddressWrapper"),
             templateIds.dummy,
-            List("operator" -> party.asParty).asRecordFields,
-            party)
+            List("operator" -> Alice.asParty).asRecordFields,
+            Alice)
           exercise <- c.submitExercise(
             testIdsGenerator.testCommandId("Creating_AddressWrapper"),
             templateIds.dummy,
             List("address" -> arguments.map(e => e -> e.asText).asRecordValue).asRecordValue,
             "WrapWithAddress",
             dummy.contractId,
-            party
+            Alice
           )
         } yield {
           val events = c.testingHelpers.createdEventsIn(exercise)
@@ -887,19 +905,18 @@ class TransactionServiceIT
 
       "serve the proper content for each party, regardless of single/multi party subscription" in allFixtures {
         c =>
-          val configuredParties = config.parties.list.toList
           for {
             mpResults <- c.transactionClient
               .getTransactions(
-                ledgerBegin,
-                Some(ledgerEnd),
+                LedgerBegin,
+                Some(LedgerEnd),
                 TransactionFilter(configuredParties.map(_ -> Filters.defaultInstance).toMap))
               .runWith(Sink.seq)
             spResults <- Future.sequence(configuredParties.map { party =>
               c.transactionClient
                 .getTransactions(
-                  ledgerBegin,
-                  Some(ledgerEnd),
+                  LedgerBegin,
+                  Some(LedgerEnd),
                   TransactionFilter(
                     Map(party -> Filters.defaultInstance)
                   ))
@@ -925,8 +942,8 @@ class TransactionServiceIT
             createdEvent <- context.submitCreate(
               testIdsGenerator.testCommandId("CreateAndFetch_Create"),
               createAndFetchTid,
-              List("p" -> party.asParty).asRecordFields,
-              party)
+              List("p" -> Alice.asParty).asRecordFields,
+              Alice)
             cid = createdEvent.contractId
             exerciseTx <- context.submitExercise(
               testIdsGenerator.testCommandId("CreateAndFetch_Run"),
@@ -934,7 +951,7 @@ class TransactionServiceIT
               Value(Value.Sum.Record(Record())),
               "CreateAndFetch_Run",
               cid,
-              party
+              Alice
             )
           } yield {
             val events = exerciseTx.events.map(_.event)
@@ -951,7 +968,7 @@ class TransactionServiceIT
 
       "fail with the expected status" in allFixtures { context =>
         newClient(context.transactionService, LedgerId("notLedgerId"))
-          .getTransactions(ledgerBegin, Some(ledgerEnd), getAllContracts)
+          .getTransactions(LedgerBegin, Some(LedgerEnd), TransactionFilters.allForParties(Alice))
           .runWith(Sink.head)
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -981,13 +998,13 @@ class TransactionServiceIT
           for {
             _ <- insertCommandsUnique("tree-provenance-by-id", 1, context)
             firstTransaction <- context.transactionClient
-              .getTransactions(beginOffset, None, transactionFilter)
+              .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
               .runWith(Sink.head)
             transactionId = firstTransaction.transactionId
             response <- context.transactionClient
-              .getTransactionById(transactionId, List("party"))
+              .getTransactionById(transactionId, List(Alice))
             notVisibleError <- context.transactionClient
-              .getTransactionById(transactionId, List("Alice"))
+              .getTransactionById(transactionId, List(Bob))
               .failed
           } yield {
             response.transaction should not be empty
@@ -1003,14 +1020,14 @@ class TransactionServiceIT
         context.transactionClient
           .getTransactionById(
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            List("party"))
+            List(Alice))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
-          .getTransactionById(transactionId, List("party"))
+          .getTransactionById("invalid", List(Alice))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
       }
@@ -1018,16 +1035,20 @@ class TransactionServiceIT
       "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
         context =>
           context.transactionClient
-            .getTransactionById(transactionId, Nil)
+            .getTransactionById("invalid", Nil)
             .failed
             .map(IsStatusException(Status.INVALID_ARGUMENT))
       }
 
       "return the same events for each tx as the transaction stream itself" in allFixtures {
         context =>
-          val requestingParties = transactionFilter.filtersByParty.keySet
+          val requestingParties = TransactionFilters.allForParties(Alice).filtersByParty.keySet
           context.transactionClient
-            .getTransactions(ledgerBegin, Some(ledgerEnd), transactionFilter, true)
+            .getTransactions(
+              LedgerBegin,
+              Some(LedgerEnd),
+              TransactionFilters.allForParties(Alice),
+              true)
             .mapAsyncUnordered(16) { tx =>
               context.transactionClient
                 .getTransactionById(tx.transactionId, requestingParties.toList)
@@ -1076,13 +1097,13 @@ class TransactionServiceIT
           for {
             _ <- insertCommandsUnique("flat-provenance-by-id", 1, context)
             firstTransaction <- context.transactionClient
-              .getTransactions(beginOffset, None, transactionFilter)
+              .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
               .runWith(Sink.head)
             transactionId = firstTransaction.transactionId
             response <- context.transactionClient
-              .getFlatTransactionById(transactionId, List("party"))
+              .getFlatTransactionById(transactionId, List(Alice))
             notVisibleError <- context.transactionClient
-              .getFlatTransactionById(transactionId, List("Alice"))
+              .getFlatTransactionById(transactionId, List(Bob))
               .failed
           } yield {
             response.transaction should not be empty
@@ -1098,14 +1119,14 @@ class TransactionServiceIT
         context.transactionClient
           .getFlatTransactionById(
             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            List("party"))
+            List(Alice))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
-          .getFlatTransactionById(transactionId, List("party"))
+          .getFlatTransactionById("invalid", List(Alice))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
       }
@@ -1113,16 +1134,20 @@ class TransactionServiceIT
       "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
         context =>
           context.transactionClient
-            .getFlatTransactionById(transactionId, Nil)
+            .getFlatTransactionById("invalid", Nil)
             .failed
             .map(IsStatusException(Status.INVALID_ARGUMENT))
       }
 
       "return the same events for each tx as the transaction stream itself" in allFixtures {
         context =>
-          val requestingParties = transactionFilter.filtersByParty.keySet
+          val requestingParties = TransactionFilters.allForParties(Alice).filtersByParty.keySet
           context.transactionClient
-            .getTransactions(ledgerBegin, Some(ledgerEnd), transactionFilter, true)
+            .getTransactions(
+              LedgerBegin,
+              Some(LedgerEnd),
+              TransactionFilters.allForParties(Alice),
+              true)
             .mapAsyncUnordered(16) { tx =>
               context.transactionClient
                 .getFlatTransactionById(tx.transactionId, requestingParties.toList)
@@ -1142,7 +1167,7 @@ class TransactionServiceIT
         for {
           _ <- insertCommandsUnique("tree-provenance-by-event-id", 1, context)
           tx <- context.transactionClient
-            .getTransactions(beginOffset, None, transactionFilter)
+            .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
             .runWith(Sink.head)
           eventId = tx.events.headOption
             .map(_.event match {
@@ -1152,10 +1177,10 @@ class TransactionServiceIT
             })
             .value
           result <- context.transactionClient
-            .getTransactionByEventId(eventId, Seq(party))
+            .getTransactionByEventId(eventId, List(Alice))
 
           notVisibleError <- context.transactionClient
-            .getTransactionByEventId(eventId, List("Alice"))
+            .getTransactionByEventId(eventId, List(Bob))
             .failed
         } yield {
           result.transaction should not be empty
@@ -1170,7 +1195,7 @@ class TransactionServiceIT
 
       "return INVALID_ARGUMENT for invalid event IDs" in allFixtures { context =>
         context.transactionClient
-          .getTransactionByEventId("don't worry, be happy", List("party"))
+          .getTransactionByEventId("don't worry, be happy", List(Alice))
           .failed
           .map(IsStatusException(Status.INVALID_ARGUMENT))
       }
@@ -1179,14 +1204,14 @@ class TransactionServiceIT
         context.transactionClient
           .getTransactionByEventId(
             "#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:000",
-            List("party"))
+            List(Alice))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
-          .getTransactionByEventId("#42:0", List("party"))
+          .getTransactionByEventId("#42:0", List(Alice))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
       }
@@ -1194,7 +1219,7 @@ class TransactionServiceIT
       "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
         context =>
           context.transactionClient
-            .getTransactionByEventId(transactionId, Nil)
+            .getTransactionByEventId("invalid", Nil)
             .failed
             .map(IsStatusException(Status.INVALID_ARGUMENT))
       }
@@ -1207,7 +1232,7 @@ class TransactionServiceIT
         for {
           _ <- insertCommandsUnique("flat-provenance-by-event-id", 1, context)
           tx <- context.transactionClient
-            .getTransactions(beginOffset, None, transactionFilter)
+            .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
             .runWith(Sink.head)
           eventId = tx.events.headOption
             .map(_.event match {
@@ -1217,10 +1242,10 @@ class TransactionServiceIT
             })
             .value
           result <- context.transactionClient
-            .getFlatTransactionByEventId(eventId, Seq(party))
+            .getFlatTransactionByEventId(eventId, Seq(Alice))
 
           notVisibleError <- context.transactionClient
-            .getFlatTransactionByEventId(eventId, List("Alice"))
+            .getFlatTransactionByEventId(eventId, List(Bob))
             .failed
         } yield {
           result.transaction should not be empty
@@ -1235,7 +1260,7 @@ class TransactionServiceIT
 
       "return INVALID_ARGUMENT for invalid event IDs" in allFixtures { context =>
         context.transactionClient
-          .getFlatTransactionByEventId("don't worry, be happy", List("party"))
+          .getFlatTransactionByEventId("don't worry, be happy", List(Alice))
           .failed
           .map(IsStatusException(Status.INVALID_ARGUMENT))
       }
@@ -1244,14 +1269,14 @@ class TransactionServiceIT
         context.transactionClient
           .getFlatTransactionByEventId(
             "#aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:000",
-            List("party"))
+            List(Alice))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         newClient(context.transactionService, LedgerId(s"not-${context.ledgerId.unwrap}"))
-          .getFlatTransactionByEventId("#42:0", List("party"))
+          .getFlatTransactionByEventId("#42:0", List(Alice))
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
       }
@@ -1259,7 +1284,7 @@ class TransactionServiceIT
       "fail with INVALID_ARGUMENT status if the requesting parties field is empty" in allFixtures {
         context =>
           context.transactionClient
-            .getFlatTransactionByEventId(transactionId, Nil)
+            .getFlatTransactionByEventId("invalid", Nil)
             .failed
             .map(IsStatusException(Status.INVALID_ARGUMENT))
       }
@@ -1286,8 +1311,6 @@ class TransactionServiceIT
           }
         }
 
-      val configuredParties = config.parties.list.toList
-
       "not arrive out of order when using single party subscription " in allFixtures { c =>
         Future
           .sequence(
@@ -1297,8 +1320,8 @@ class TransactionServiceIT
                   () =>
                     c.transactionClient
                       .getTransactions(
-                        ledgerBegin,
-                        Some(ledgerEnd),
+                        LedgerBegin,
+                        Some(LedgerEnd),
                         TransactionFilter(
                           Map(p -> Filters.defaultInstance)
                         ))
@@ -1313,8 +1336,8 @@ class TransactionServiceIT
           () =>
             c.transactionClient
               .getTransactions(
-                ledgerBegin,
-                Some(ledgerEnd),
+                LedgerBegin,
+                Some(LedgerEnd),
                 TransactionFilter(configuredParties.map(_ -> Filters.defaultInstance).toMap))
               .runWith(Sink.seq)
               .map(_.flatMap(_.events.map(_.event)))
@@ -1326,14 +1349,20 @@ class TransactionServiceIT
 
       "serve an empty stream of transactions" in allFixtures { context =>
         context.transactionClient
-          .getTransactionTrees(ledgerBegin, Some(ledgerBegin), transactionFilter)
+          .getTransactionTrees(
+            LedgerBegin,
+            Some(LedgerBegin),
+            TransactionFilters.allForParties(Alice))
           .runWith(Sink.seq)
           .map(_ shouldBe empty)
       }
 
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         new TransactionClient(LedgerId("notLedgerId"), context.transactionService)
-          .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
+          .getTransactionTrees(
+            LedgerBegin,
+            Some(LedgerEnd),
+            TransactionFilters.allForParties(Alice))
           .runWith(Sink.head)
           .failed
           .map(IsStatusException(Status.NOT_FOUND))
@@ -1347,7 +1376,7 @@ class TransactionServiceIT
           val commandsToSend = 14
 
           val resultsF = context.transactionClient
-            .getTransactionTrees(ledgerBegin, None, transactionFilter)
+            .getTransactionTrees(LedgerBegin, None, TransactionFilters.allForParties(Alice))
             .take(elemsToTake)
             .runWith(Sink.seq)
 
@@ -1361,13 +1390,16 @@ class TransactionServiceIT
           c =>
             for {
               mpResults <- c.transactionClient
-                .getTransactionTrees(ledgerBegin, Some(ledgerEnd), filterForAllParties)
+                .getTransactionTrees(
+                  LedgerBegin,
+                  Some(LedgerEnd),
+                  TransactionFilters.allForParties(configuredParties: _*))
                 .runWith(Sink.seq)
               spResults <- Future.sequence(configuredParties.map { party =>
                 c.transactionClient
                   .getTransactionTrees(
-                    ledgerBegin,
-                    Some(ledgerEnd),
+                    LedgerBegin,
+                    Some(LedgerEnd),
                     TransactionFilter(
                       Map(party -> Filters.defaultInstance)
                     ))
@@ -1409,11 +1441,17 @@ class TransactionServiceIT
 
           for {
             r1 <- context.transactionClient
-              .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
+              .getTransactionTrees(
+                LedgerBegin,
+                Some(LedgerEnd),
+                TransactionFilters.allForParties(Alice))
               .runWith(Sink.seq)
             _ <- insertCommandsUnique("complete_test", noOfCommands, context)
             r2 <- context.transactionClient
-              .getTransactionTrees(ledgerBegin, Some(ledgerEnd), transactionFilter)
+              .getTransactionTrees(
+                LedgerBegin,
+                Some(LedgerEnd),
+                TransactionFilters.allForParties(Alice))
               .runWith(Sink.seq)
           } yield {
             r2.size - r1.size shouldEqual (noOfCommands.toLong)
@@ -1425,14 +1463,14 @@ class TransactionServiceIT
         "serve a subset of the tree data in the flat stream" in allFixtures { context =>
           val treesF = context.transactionClient
             .getTransactionTrees(
-              ledgerBegin,
-              Some(ledgerEnd),
+              LedgerBegin,
+              Some(LedgerEnd),
               TransactionFilter(Map("Bob" -> Filters())))
             .runWith(Sink.seq)
           val txsF = context.transactionClient
             .getTransactions(
-              ledgerBegin,
-              Some(ledgerEnd),
+              LedgerBegin,
+              Some(LedgerEnd),
               TransactionFilter(Map("Bob" -> Filters())))
             .runWith(Sink.seq)
           for {
@@ -1471,8 +1509,8 @@ class TransactionServiceIT
         "serve a stream of transactions" in allFixtures { context =>
           val treesF = context.transactionClient
             .getTransactionTrees(
-              ledgerBegin,
-              Some(ledgerEnd),
+              LedgerBegin,
+              Some(LedgerEnd),
               TransactionFilter(Map("Bob" -> Filters())))
             .map(_.eventsById.values)
             .mapConcat(context.testingHelpers.exercisedEventsInNodes(_).toList)
@@ -1715,7 +1753,7 @@ class TransactionServiceIT
           s"Creating_contract_with_a_multitude_of_param_types_for_exercising_$choice#$lbl"),
         templateIds.parameterShowcase,
         paramShowcaseArgs(templateIds.testPackageId),
-        MockMessages.party
+        Alice
       )
       contractId = creation.contractId
       // first, verify that if we submit with the same inputs they're equal
@@ -1728,8 +1766,9 @@ class TransactionServiceIT
         context
           .command(
             testIdsGenerator.testCommandId(s"Exercising_with_a_multitiude_of_params_$choice#$lbl"),
-            List(exerciseCommand)),
-        getAllContracts
+            List(exerciseCommand))
+          .update(_.commands.party := Alice),
+        TransactionFilters.allForParties(Alice)
       )
     } yield {
       // check that we have the create
