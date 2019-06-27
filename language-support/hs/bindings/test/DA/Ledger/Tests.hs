@@ -119,13 +119,36 @@ tSubmitBad withSandbox = testCase "submit/bad" $ run withSandbox $ \_pid -> do
 tSubmitComplete :: SandboxTest
 tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let command =  createIOU pid alice "A-coin" 100
-    -- TODO: test fails if we use `Nothing` instead of `Just offsetBegin`
-    -- but this seems a bug, w.r.t to the ledger API
-    completions <- completionStream (lid,myAid,[alice],Just offsetBegin)
-    Right cidA <- submitCommand lid alice command
-    Right Completion{cid=cidB} <- liftIO $ takeStream completions
-    liftIO $ assertEqual "same cid sent/completed" cidA cidB
+    let command = createIOU pid alice "A-coin" 100
+    completions <- completionStream (lid,myAid,[alice],LedgerBegin)
+    off0 <- completionEnd lid
+    Right cidA1 <- submitCommand lid alice command
+    Right (Just Checkpoint{offset=cp1},[Completion{cid=cidB1}]) <- liftIO $ takeStream completions
+    off1 <- completionEnd lid
+    Right cidA2 <- submitCommand lid alice command
+    Right (Just Checkpoint{offset=cp2},[Completion{cid=cidB2}]) <- liftIO $ takeStream completions
+    off2 <- completionEnd lid
+
+    liftIO $ do
+        assertEqual "cidB1" cidA1 cidB1
+        assertEqual "cidB2" cidA2 cidB2
+        assertBool "off0 /= off1" (off0 /= off1)
+        assertBool "off1 /= off2" (off1 /= off2)
+
+        assertEqual "cp1" off0 cp1 -- TODO: wrong should be off1 (Sandbox bug?)
+        assertEqual "cp2" off1 cp2 -- TODO: wrong should be off2 (Sandbox bug?)
+
+    completionsX <- completionStream (lid,myAid,[alice],LedgerAbsOffset off0)
+    completionsY <- completionStream (lid,myAid,[alice],LedgerAbsOffset off1)
+
+    Right (Just Checkpoint{offset=cpX},[Completion{cid=cidX}]) <- liftIO $ takeStream completionsX
+    Right (Just Checkpoint{offset=cpY},[Completion{cid=cidY}]) <- liftIO $ takeStream completionsY
+
+    liftIO $ do
+        assertEqual "cidX" cidA1 cidX
+        assertEqual "cidY" cidA2 cidY
+        assertEqual "cpX" cp1 cpX
+        assertEqual "cpY" cp2 cpY
 
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do

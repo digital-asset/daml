@@ -15,7 +15,9 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
 
     Commands(..),
     Command(..),
+    LedgerOffset(..),
     Completion(..),
+    Checkpoint(..),
     Transaction(..),
     Event(..),
     Value(..),
@@ -81,12 +83,25 @@ data Command
         choiceArg  :: Value }
     deriving (Eq,Ord,Show)
 
+-- ledger_offset.proto
+
+data LedgerOffset = LedgerBegin | LedgerEnd | LedgerAbsOffset AbsOffset
+    deriving (Eq,Ord,Show)
+
 -- completion.proto
 
 data Completion
     = Completion {
         cid    :: CommandId,
         status :: Status }
+    deriving (Eq,Ord,Show)
+
+
+data Checkpoint
+    = Checkpoint {
+        -- TODO: add time info
+        offset :: AbsOffset
+        }
     deriving (Eq,Ord,Show)
 
 -- transaction.proto
@@ -209,11 +224,10 @@ instance Show Party where show = Text.unpack . unParty -- TODO: really?
 newtype ModuleName = ModuleName { unModuleName :: Text } deriving (Eq,Ord,Show)
 newtype EntityName = EntityName { unEntityName :: Text } deriving (Eq,Ord,Show)
 
-newtype AbsOffset = AbsOffset { unAbsOffset :: Text }  deriving (Eq,Ord,Show) -- TODO: why not an int?
+newtype AbsOffset = AbsOffset { unAbsOffset :: Text }  deriving (Eq,Ord,Show)
 
 -- TODO: .proto message types not yet handled
 {-
-message Checkpoint {
 message LedgerConfiguration {
 message LedgerOffset {
 message TraceContext {
