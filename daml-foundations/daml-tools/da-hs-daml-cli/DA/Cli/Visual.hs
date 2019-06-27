@@ -22,6 +22,8 @@ import Text.Dot
 import qualified Data.ByteString as B
 import qualified Data.Map as M
 import Data.Generics.Uniplate.Data
+import Data.List.Extra
+-- import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -57,11 +59,11 @@ startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 templatePossibleUpdates :: LF.World -> LF.Template -> Set.Set Action
 templatePossibleUpdates world tpl = Set.unions $ map (startFromChoice world) (NM.toList (LF.tplChoices tpl))
 
-moduleAndTemplates :: LF.World -> LF.Module -> [(LF.TypeConName, Set.Set Action)]
+moduleAndTemplates :: LF.World -> LF.Module -> [(LF.Template, Set.Set Action)]
 moduleAndTemplates world mod = retTypess
     where
         templates = NM.toList $ LF.moduleTemplates mod
-        retTypess = map (\t-> (LF.tplTypeCon t, templatePossibleUpdates world t )) templates
+        retTypess = map (\t-> (t, templatePossibleUpdates world t )) templates
 
 
 dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
@@ -74,19 +76,25 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
     where
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
+type LookupTemplate = (LF.Qualified LF.TypeConName) -> LF.Template
 
-templateInAction :: Action -> LF.TypeConName
-templateInAction (ACreate  (LF.Qualified _ _ tpl) ) = tpl
-templateInAction (AExercise  (LF.Qualified _ _ tpl) _ ) = tpl
+lookupTemplateT :: LF.World -> (LF.Qualified LF.TypeConName) -> LF.Template
+lookupTemplateT world qualTemplate = case AST.lookupTemplate qualTemplate world of
+  Right tpl -> tpl
+  Left _ -> error("Template lookup failed")
 
-srcLabel :: (LF.TypeConName, Set.Set Action) -> [(String, String)]
-srcLabel (tc, _) = [ ("shape","none"),("label",DAP.renderPretty tc) ]
+templateInAction ::  LookupTemplate  -> Action -> LF.Template
+templateInAction lookupTemplate (ACreate  qtpl ) = lookupTemplate qtpl
+templateInAction lookupTemplate (AExercise qtpl _ ) = lookupTemplate qtpl
 
-templatePairs :: (LF.TypeConName, Set.Set Action) -> (LF.TypeConName , (LF.TypeConName , Set.Set Action))
-templatePairs (tc, actions) = (tc , (tc, actions))
+srcLabel :: (LF.Template, [Action]) -> [(String, String)]
+srcLabel (tc, _) = [("shape","none"), ("label",DAP.renderPretty $ LF.tplTypeCon tc) ]
 
-actionsForTemplate :: (LF.TypeConName, Set.Set Action) -> [LF.TypeConName]
-actionsForTemplate (_tplCon, actions) = Set.elems $ Set.map templateInAction actions
+templatePairs :: (LF.Template, Set.Set Action) -> (LF.Template , (LF.Template , [Action]))
+templatePairs (tc, actions) = (tc , (tc,  Set.elems actions))
+
+actionsForTemplate :: LookupTemplate -> (LF.Template, [Action]) -> [LF.Template]
+actionsForTemplate lookupTemplate (_tplCon, actions) = map (templateInAction lookupTemplate) actions
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case
@@ -123,9 +131,10 @@ execVisual darFilePath dotFilePath = do
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
-        res = concatMap (moduleAndTemplates world) modules
+        tplLookUp = lookupTemplateT world
+        res = concatMap (moduleAndTemplates world) modules --  [(LF.Template, Set.Set Action)]
         actionEdges = map templatePairs res
-        dotString = showDot $ netlistGraph' srcLabel actionsForTemplate actionEdges
+        dotString = showDot $ netlistGraph' srcLabel (actionsForTemplate tplLookUp)  actionEdges
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile dotString
         Nothing -> putStrLn dotString
