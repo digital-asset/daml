@@ -128,16 +128,27 @@ tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pi
     Right cidA2 <- submitCommand lid alice command
     Right (Just Checkpoint{offset=cp2},[Completion{cid=cidB2}]) <- liftIO $ takeStream completions
     off2 <- completionEnd lid
+
     liftIO $ do
-        assertEqual "same cid1 sent/completed" cidA1 cidB1
-        assertEqual "same cid2 sent/completed" cidA2 cidB2
+        assertEqual "cidB1" cidA1 cidB1
+        assertEqual "cidB2" cidA2 cidB2
         assertBool "off0 /= off1" (off0 /= off1)
         assertBool "off1 /= off2" (off1 /= off2)
-        --TODO: Resolve if this is a bug, or my understandingis wrong!
-        assertEqual "cp1==off0" off0 cp1 -- WRONG
-        --assertEqual "cp1==off1" off1 (LedgerAbsOffset cp1) -- SHOULD BE THIS
-        assertEqual "cp2==off1" off1 cp2 -- WRONG
-        --assertEqual "cp2==off2" off2 (LedgerAbsOffset cp2) -- SHOULD BE THIS
+
+        assertEqual "cp1" off0 cp1 -- TODO: wrong should be off1 (Sandbox bug?)
+        assertEqual "cp2" off1 cp2 -- TODO: wrong should be off2 (Sandbox bug?)
+
+    completionsX <- completionStream (lid,myAid,[alice],LedgerAbsOffset off0)
+    completionsY <- completionStream (lid,myAid,[alice],LedgerAbsOffset off1)
+
+    Right (Just Checkpoint{offset=cpX},[Completion{cid=cidX}]) <- liftIO $ takeStream completionsX
+    Right (Just Checkpoint{offset=cpY},[Completion{cid=cidY}]) <- liftIO $ takeStream completionsY
+
+    liftIO $ do
+        assertEqual "cidX" cidA1 cidX
+        assertEqual "cidY" cidA2 cidY
+        assertEqual "cpX" cp1 cpX
+        assertEqual "cpY" cp2 cpY
 
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
