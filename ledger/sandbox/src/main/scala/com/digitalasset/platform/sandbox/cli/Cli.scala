@@ -81,6 +81,7 @@ object Cli {
           "Also note that instructing the sandbox to load a scenario will have the side effect of loading _all_ the .dar files provided eagerly (see --eager-package-loading).")
 
     arg[File]("<archive>...")
+      .optional()
       .unbounded()
       .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
       .text("Daml archives to load. Either in .dar or .dalf format. Only DAML-LF v1 Archives are currently supported.")
