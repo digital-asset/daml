@@ -15,6 +15,7 @@ module Development.IDE.Core.FileStore(
 
 import           StringBuffer
 import Development.IDE.GHC.Orphans()
+import Development.IDE.GHC.Util
 
 import Control.Concurrent.Extra
 import qualified Data.Map.Strict as Map
@@ -31,7 +32,6 @@ import           GHC.Generics
 import Data.Either.Extra
 import System.IO.Error
 import qualified Data.ByteString.Char8 as BS
-import qualified StringBuffer as SB
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified Data.Rope.UTF16 as Rope
@@ -180,8 +180,3 @@ setSomethingModified state = do
     when (isJust setVirtualFileContents) $
         fail "setSomethingModified can't be called on this type of VFSHandle"
     void $ shakeRun state [] (const $ pure ())
-
-
--- would be nice to do this more efficiently...
-textToStringBuffer :: T.Text -> SB.StringBuffer
-textToStringBuffer = SB.stringToStringBuffer . T.unpack
