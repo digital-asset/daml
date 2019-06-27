@@ -343,6 +343,8 @@ runCpp dflags filename contents = withTempDir $ \dir -> do
                     | Just x <- stripPrefix "# " x
                     , "___HIE_CORE_MAGIC___" `isInfixOf` x
                     , let num = takeWhile (not . isSpace) x
+                    -- important to use /, and never \ for paths, even on Windows, since then C escapes them
+                    -- and GHC gets all confused
                         = "# " <> num <> " \"" <> map (\x -> if isPathSeparator x then '/' else x) filename <> "\""
                     | otherwise = x
             stringToStringBuffer . unlines . map tweak . lines <$> readFileUTF8' out
