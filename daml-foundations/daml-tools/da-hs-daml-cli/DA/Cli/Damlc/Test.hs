@@ -29,7 +29,6 @@ import qualified Development.Shake as Shake
 import qualified Development.IDE.State.API as CompilerService
 import qualified Development.IDE.Core.Rules.Daml as CompilerService
 import Development.IDE.Types.Diagnostics
-import Development.IDE.LSP.Protocol
 import Development.IDE.Types.Location
 import qualified ScenarioService as SS
 import System.Directory (createDirectoryIfMissing)
@@ -45,9 +44,7 @@ execTest :: [NormalizedFilePath] -> UseColor -> Maybe FilePath -> Compiler.Optio
 execTest inFiles color mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- Compiler.mkOptions cliOptions
-    let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (toNormalizedFilePath fp,) diags
-        eventLogger _ = return ()
-    Compiler.withIdeState opts loggerH eventLogger $ \h -> do
+    Compiler.withIdeState opts loggerH diagnosticsLogger $ \h -> do
         let lfVersion = Compiler.optDamlLfVersion cliOptions
         testRun h inFiles lfVersion color mbJUnitOutput
         -- Run synchronously at the end to make sure that all gRPC requests
