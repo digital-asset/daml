@@ -51,7 +51,6 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
 import Data.Map (Map)
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as Text(unpack)
---import DA.Ledger.AbstractLedgerTypes
 
 -- commands.proto
 

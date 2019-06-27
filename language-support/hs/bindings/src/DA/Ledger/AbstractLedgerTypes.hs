@@ -12,7 +12,7 @@ import DA.Ledger.Types
 import Proto3.Suite.Types
 import qualified Data.Map as Map
 
--- TODO: Make LedgerOffset a proper wrapped type in Types.s
+-- TODO: Make LedgerOffset a proper wrapped type in Types.hs
 
 mkAbsLedgerOffset :: AbsOffset -> LedgerOffset
 mkAbsLedgerOffset abs = LedgerOffset {
