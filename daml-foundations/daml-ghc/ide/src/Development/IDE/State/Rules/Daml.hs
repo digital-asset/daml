@@ -2,43 +2,70 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE OverloadedStrings #-}
 module Development.IDE.Core.Rules.Daml
-    ( module Development.IDE.Core.Rules
-    , module Development.IDE.Core.Rules.Daml
+    (
+      DalfDependency(DalfDependency)
+    , GlobalPkgMap(GlobalPkgMap)
+    , IdeState
+    , damlRule
+    , ddDalfFile
+    , ddName
+    , discardInternalModules
+    , encodeModuleRule
+    , generatePackageMap
+    , Core.Rules.getAtPoint
+    , getDalf
+    , getDalfDependencies
+    , getDalfModule
+    , getDamlLfVersion
+    , Core.Rules.getDefinition
+    , Core.Rules.getDependencies
+    , Core.Rules.getParsedModule
+    , getRawDalf
+    , getScenarioNames
+    , internalModules
+    , mainRule
+    , modIsInternal
+    , runAction
+    , runScenarios
+    , scenariosInModule
+    , uriToVirtualResource
+    , Core.Rules.useE
+    , virtualResourceToUri
     ) where
 
-import Control.Concurrent.Extra
-import Control.Exception
-import Control.Monad.Except
-import Control.Monad.Extra
-import Control.Monad.Trans.Maybe
-import Development.IDE.Core.OfInterest
-import DA.Daml.GHC.Compiler.Options
+import Control.Concurrent.Extra (readVar, modifyVar, modifyVar_)
+import Control.Exception (Exception, throwIO, assert)
+import Control.Monad.Except (lift)
+import Control.Monad.Extra (void, when, whenJust, forM, forM_, guard)
+import Control.Monad.Trans.Maybe (MaybeT)
+import Development.IDE.Core.OfInterest (getFilesOfInterest)
+import qualified DA.Daml.GHC.Compiler.Options as COpts
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import Development.IDE.Types.Location as Base
-import Data.Aeson hiding (Options)
+import Data.Aeson (ToJSON, FromJSON, toJSON, parseJSON, (.=), withObject, (.:), object)
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.UTF8 as BS
-import Data.Either.Extra
-import Data.List
+import qualified Data.ByteString.UTF8 as BSU
+import Data.Either.Extra (mapLeft, partitionEithers)
+import Data.List (intercalate)
 import qualified Data.Map.Strict as Map
-import Data.Maybe
+import Data.Maybe (fromMaybe, catMaybes, isJust)
 import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
 import qualified Data.Text as T
-import Data.Tuple.Extra
-import Development.Shake hiding (Diagnostic, Env)
-import "ghc-lib" GHC
+import Data.Tuple.Extra (dupe)
+import Development.Shake (Rules, Action, liftIO, parallel, alwaysRerun, action, forP)
+import "ghc-lib" GHC (Module, ms_mod, pm_mod_summary, moduleNameString, moduleName)
 import "ghc-lib-parser" Module (UnitId, stringToUnitId, unitIdString, UnitId(..), DefUnitId(..))
-import Safe
+import Safe (tailMay)
 import System.Directory.Extra (listFilesRecursive)
-import System.FilePath
+import System.FilePath (takeExtension, dropExtension, takeFileName, isAbsolute)
 
 import qualified Network.HTTP.Types as HTTP.Types
 import qualified Network.URI as URI
 
-import Development.IDE.Import.DependencyInformation
-import Development.IDE.Core.Rules hiding (mainRule)
+import Development.IDE.Import.DependencyInformation (depErrorNodes, depModuleDeps)
+import qualified Development.IDE.Core.Rules as Core.Rules
 import qualified Development.IDE.Core.Rules as IDE
 import Development.IDE.Core.Service.Daml
 import Development.IDE.Core.Shake
@@ -111,9 +138,9 @@ uriToVirtualResource uri = do
         Just u ->
             Just
           $ Map.fromList
-          $ map (\(k, v) -> (BS.toString k, BS.toString v))
+          $ map (\(k, v) -> (BSU.toString k, BSU.toString v))
           $ HTTP.Types.parseSimpleQuery
-          $ BS.fromString
+          $ BSU.fromString
           $ URI.unEscapeString u
 
 -- | Get an unvalidated DALF package.
@@ -146,7 +173,7 @@ ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
 
 getDalfDependencies :: NormalizedFilePath -> MaybeT Action [DalfDependency]
 getDalfDependencies file = do
-    unitIds <- transitivePkgDeps <$> useE GetDependencies file
+    unitIds <- Core.Rules.transitivePkgDeps <$> Core.Rules.useE GetDependencies file
     GlobalPkgMap pkgMap <- lift getIdeGlobalAction
     pure
         [ DalfDependency (T.pack $ unitIdString uid) fp
@@ -170,7 +197,7 @@ generateRawDalfRule =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
         core <- use_ GenerateCore file
-        setPriority PriorityGenerateDalf
+        setPriority Core.Rules.PriorityGenerateDalf
         -- Generate the map from package names to package hashes
         pkgMap <- use_ GeneratePackageMap ""
         let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> LF.unPackageId pId) pkgMap
@@ -191,8 +218,8 @@ generateDalfRule =
         let world = LF.initWorldSelf pkgs pkg
         unsimplifiedRawDalf <- use_ GenerateRawDalf file
         let rawDalf = LF.simplifyModule unsimplifiedRawDalf
-        setPriority PriorityGenerateDalf
-        pure $ toIdeResult $ do
+        setPriority Core.Rules.PriorityGenerateDalf
+        pure $ Core.Rules.toIdeResult $ do
             let liftError e = [ideErrorPretty file e]
             dalf <- mapLeft liftError $
                 Serializability.inferModule world lfVersion rawDalf
@@ -220,11 +247,11 @@ generatePackageMap fps = do
           Right (unitId, (pkgId, package, dalfBS, dalf))
   return (diags, Map.fromList pkgs)
 
-generatePackageMapRule :: Options -> Rules ()
+generatePackageMapRule :: COpts.Options -> Rules ()
 generatePackageMapRule opts =
-    defineNoFile $ \GeneratePackageMap -> do
+    Core.Rules.defineNoFile $ \GeneratePackageMap -> do
         (errs, res) <-
-            liftIO $ generatePackageMap (optPackageDbs opts)
+            liftIO $ generatePackageMap (COpts.optPackageDbs opts)
         when (errs /= []) $
             reportSeriousError $
             "Rule GeneratePackageMap generated errors " ++ show errs
@@ -239,28 +266,28 @@ generatePackageRule =
 
 -- Generates a DAML-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
-generateRawPackageRule :: Options -> Rules ()
+generateRawPackageRule :: COpts.Options -> Rules ()
 generateRawPackageRule options =
     define $ \GenerateRawPackage file -> do
         lfVersion <- getDamlLfVersion
-        fs <- transitiveModuleDeps <$> use_ GetDependencies file
+        fs <- Core.Rules.transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules (fs ++ [file])
         dalfs <- uses_ GenerateRawDalf files
 
         -- build package
-        let pkg = buildPackage (optMbPackageName options) lfVersion dalfs
+        let pkg = buildPackage (COpts.optMbPackageName options) lfVersion dalfs
         return ([], Just pkg)
 
-generatePackageDepsRule :: Options -> Rules ()
+generatePackageDepsRule :: COpts.Options -> Rules ()
 generatePackageDepsRule options =
     define $ \GeneratePackageDeps file -> do
         lfVersion <- getDamlLfVersion
-        fs <- transitiveModuleDeps <$> use_ GetDependencies file
+        fs <- Core.Rules.transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules fs
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ buildPackage (optMbPackageName options) lfVersion dalfs)
+        return ([], Just $ buildPackage (COpts.optMbPackageName options) lfVersion dalfs)
 
 contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
@@ -276,8 +303,8 @@ contextForFile file = do
         , ctxPackages = map (\(pId, _, p, _) -> (pId, p)) (Map.elems pkgMap)
         , ctxDamlLfVersion = lfVersion
         , ctxLightValidation = case envScenarioValidation of
-              ScenarioValidationFull -> SS.LightValidation False
-              ScenarioValidationLight -> SS.LightValidation True
+              COpts.ScenarioValidationFull -> SS.LightValidation False
+              COpts.ScenarioValidationLight -> SS.LightValidation True
         }
 
 worldForFile :: NormalizedFilePath -> Action LF.World
@@ -318,8 +345,8 @@ dalfForScenario :: NormalizedFilePath -> Action LF.Module
 dalfForScenario file = do
     DamlEnv{..} <- getDamlServiceEnv
     case envScenarioValidation of
-        ScenarioValidationLight -> use_ GenerateRawDalf file
-        ScenarioValidationFull -> use_ GenerateDalf file
+        COpts.ScenarioValidationLight -> use_ GenerateRawDalf file
+        COpts.ScenarioValidationFull -> use_ GenerateDalf file
 
 runScenariosRule :: Rules ()
 runScenariosRule =
@@ -359,12 +386,12 @@ encodeModule lfVersion m =
 
 getScenarioRootsRule :: Rules ()
 getScenarioRootsRule =
-    defineNoFile $ \GetScenarioRoots -> do
+    Core.Rules.defineNoFile $ \GetScenarioRoots -> do
         filesOfInterest <- getFilesOfInterest
         openVRs <- use_ GetOpenVirtualResources ""
         let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
         deps <- forP files $ \file -> do
-            transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
+            transitiveDeps <- maybe [] Core.Rules.transitiveModuleDeps <$> use GetDependencies file
             pure $ Map.fromList [ (f, file) | f <- transitiveDeps ]
         -- We want to ensure that files of interest always map to themselves even if there are dependencies
         -- between files of interest so we union them separately. (`Map.union` is left-biased.)
@@ -377,7 +404,7 @@ getScenarioRootRule =
         case Map.lookup file ctxRoots of
             Nothing -> liftIO $
                 fail $ "No scenario root for file " <> show (fromNormalizedFilePath file) <> "."
-            Just root -> pure (Just $ BS.fromString $ fromNormalizedFilePath root, ([], Just root))
+            Just root -> pure (Just $ BSU.fromString $ fromNormalizedFilePath root, ([], Just root))
 
 
 -- | Virtual resource changed notification
@@ -416,8 +443,8 @@ ofInterestRule :: Rules ()
 ofInterestRule = do
     -- go through a rule (not just an action), so it shows up in the profile
     action $ use OfInterest ""
-    defineNoFile $ \OfInterest -> do
-        setPriority PriorityFilesOfInterest
+    Core.Rules.defineNoFile $ \OfInterest -> do
+        setPriority Core.Rules.PriorityFilesOfInterest
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
         files   <- getFilesOfInterest
@@ -476,7 +503,7 @@ getOpenVirtualResourcesRule = do
         alwaysRerun
         DamlEnv{..} <- getDamlServiceEnv
         openVRs <- liftIO $ readVar envOpenVirtualResources
-        pure (Just $ BS.fromString $ show openVRs, ([], Just openVRs))
+        pure (Just $ BSU.fromString $ show openVRs, ([], Just openVRs))
 
 
 formatScenarioError :: LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
@@ -504,7 +531,7 @@ encodeModuleRule :: Rules ()
 encodeModuleRule =
     define $ \EncodeModule file -> do
         lfVersion <- getDamlLfVersion
-        fs <- transitiveModuleDeps <$> use_ GetDependencies file
+        fs <- Core.Rules.transitiveModuleDeps <$> use_ GetDependencies file
         files <- discardInternalModules fs
         encodedDeps <- uses_ EncodeModule files
         m <- dalfForScenario file
@@ -522,7 +549,7 @@ getDamlLfVersion = envDamlLfVersion <$> getDamlServiceEnv
 discardInternalModules :: [NormalizedFilePath] -> Action [NormalizedFilePath]
 discardInternalModules files = do
     mods <- uses_ GetParsedModule files
-    pure $ map fileFromParsedModule $
+    pure $ map Core.Rules.fileFromParsedModule $
         filter (not . modIsInternal . ms_mod . pm_mod_summary) mods
 
 internalModules :: [String]
@@ -543,7 +570,7 @@ modIsInternal m = moduleNameString (moduleName m) `elem` internalModules
   -- modules is that these do not disappear in the LF conversion.
 
 
-damlRule :: Options -> Rules ()
+damlRule :: COpts.Options -> Rules ()
 damlRule opts = do
     generateRawDalfRule
     generateDalfRule
@@ -559,7 +586,7 @@ damlRule opts = do
     createScenarioContextRule
     getOpenVirtualResourcesRule
 
-mainRule :: Options -> Rules ()
+mainRule :: COpts.Options -> Rules ()
 mainRule options = do
     IDE.mainRule
     damlRule options
