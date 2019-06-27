@@ -6,13 +6,12 @@ package com.digitalasset.platform.sandbox.cli
 import java.io.File
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.scalatest.{Matchers, WordSpec}
-
-import com.digitalasset.ledger.api.domain.LedgerId
 
 class CliSpec extends WordSpec with Matchers {
 
@@ -34,9 +33,9 @@ class CliSpec extends WordSpec with Matchers {
 
   "Cli" should {
 
-    "return None when required arguments are missing" in {
+    "return the default Config when no arguments are specified" in {
       val config = Cli.parse(Array.empty)
-      config shouldEqual None
+      config shouldEqual Some(defaultConfig)
     }
 
     "return a Config with sensible defaults when mandatory arguments are given" in {
