@@ -10,6 +10,7 @@ import "com/digitalasset/ledger/api/v1/trace_context.proto";
 
 option java_outer_classname = "PackageServiceOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 
 // Allows clients to query the DAML-LF packages that are supported by the server.
 service PackageService {

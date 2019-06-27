@@ -12,6 +12,7 @@ import "google/protobuf/timestamp.proto";
 
 option java_outer_classname = "CommandsOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 
 // A composite command that groups multiple commands together.
 message Commands {

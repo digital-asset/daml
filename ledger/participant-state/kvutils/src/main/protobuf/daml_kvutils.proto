@@ -16,6 +16,7 @@
 syntax = "proto3";
 package com.daml.ledger.participant.state.kvutils;
 option java_package = "com.daml.ledger.participant.state.kvutils";
+option csharp_namespace = "Com.Daml.Ledger.Participant.State.KVUtils";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
