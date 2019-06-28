@@ -393,7 +393,7 @@ data Expr
     , letBody    :: !Expr
       -- ^ Expression to bind variable in.
     }
-  -- | Concstruct empty list.
+  -- | Construct empty list.
   | ENil
     -- TODO(MH): When we move 'ECons' to 'BuiltinExpr' or remove it entirely,
     -- do the same to 'ENil'.

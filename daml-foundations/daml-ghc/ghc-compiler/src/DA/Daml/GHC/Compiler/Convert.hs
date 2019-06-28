@@ -25,7 +25,7 @@
 -- DICTIONARY SANITIZATION
 --
 -- GHC's desugaring for default methods relies on the the fact that Haskell is
--- lazy. In contract, DAML-LF is strict. This mismatch causes a few problems.
+-- lazy. In contrast, DAML-LF is strict. This mismatch causes a few problems.
 -- For instance, GHC desugars:
 --
 -- > class Foo a where
@@ -66,7 +66,7 @@
 --
 --
 --
--- GHC produces a @newtype@ rather than a @data@ type for dictionar types of
+-- GHC produces a @newtype@ rather than a @data@ type for dictionary types of
 -- type classes with a single method and no super classes. Since DAML-LF does
 -- not support @newtype@, we could either treat them as some sort of type
 -- synonym or translate them to a record type with a single field. We have
