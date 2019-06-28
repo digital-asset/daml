@@ -176,7 +176,7 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
       let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
       unless (S.null missingExposed) $
           -- FIXME: Should be producing a proper diagnostic
-          fail $
+          error $
               "The following modules are declared in exposed-modules but are not part of the DALF: " <>
               show (S.toList missingExposed)
       let dalf = encodeArchiveLazy pkg
