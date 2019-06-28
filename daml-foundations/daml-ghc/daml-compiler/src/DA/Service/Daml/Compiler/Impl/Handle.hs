@@ -174,7 +174,8 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
       pkg <- useE GeneratePackage file
       let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
       let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
-      unless (S.null missingExposed) $ do
+      unless (S.null missingExposed) $
+          -- FIXME: Should be producing a proper diagnostic
           fail $
               "The following modules are declared in exposed-modules but are not part of the DALF: " <>
               show (S.toList missingExposed)
