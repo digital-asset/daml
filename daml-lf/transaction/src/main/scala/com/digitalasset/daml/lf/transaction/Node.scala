@@ -21,6 +21,18 @@ object Node {
   sealed trait GenNode[+Nid, +Cid, +Val] extends Product with Serializable {
     def mapContractIdAndValue[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): GenNode[Nid, Cid2, Val2]
     def mapNodeId[Nid2](f: Nid => Nid2): GenNode[Nid2, Cid, Val]
+
+    /** Required authorizers (see ledger model); UNSAFE TO USE on fetch nodes of transaction with versions < 5
+      *
+      * The ledger model defines the fetch node actors as the nodes' required authorizers.
+      * However, the our transaction data structure did not include the actors in versions < 5.
+      * The usage of this method must thus be restricted to:
+      * 1. settings where no fetch nodes appear (for example, the `validate` method of DAMLe, which uses it on root
+      *    nodes, which are guaranteed never to contain a fetch node)
+      * 2. DAML ledger implementations that do not store or process any transactions with version < 5
+      *
+      */
+    def requiredAuthorizers: Set[Party]
   }
 
   object GenNode extends WithTxValue3[GenNode]
@@ -45,6 +57,8 @@ object Node {
       copy(coid = f(coid), coinst = coinst.mapValue(g), key = key.map(_.mapValue(g)))
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeCreate[Cid, Val] = this
+
+    override def requiredAuthorizers(): Set[Party] = signatories
   }
 
   object NodeCreate extends WithTxValue2[NodeCreate]
@@ -64,6 +78,12 @@ object Node {
       copy(coid = f(coid))
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeFetch[Cid] = this
+
+    /** This blows up on transactions with version <5. The caller must ensure that the transaction is of
+      * this form.
+      */
+    override def requiredAuthorizers: Set[Party] = actingParties.get
+
   }
 
   /** Denotes a transaction node for an exercise.
@@ -104,6 +124,9 @@ object Node {
       copy(
         children = children.map(f)
       )
+
+    override def requiredAuthorizers(): Set[Party] = actingParties
+
   }
 
   object NodeExercises extends WithTxValue3[NodeExercises] {
@@ -153,6 +176,9 @@ object Node {
       copy(result = result.map(f), key = key.mapValue(g))
 
     override def mapNodeId[Nid2](f: Nothing => Nid2): NodeLookupByKey[Cid, Val] = this
+
+    override def requiredAuthorizers(): Set[Party] = key.maintainers
+
   }
 
   object NodeLookupByKey extends WithTxValue2[NodeLookupByKey]

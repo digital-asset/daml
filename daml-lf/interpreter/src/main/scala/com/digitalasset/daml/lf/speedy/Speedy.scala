@@ -34,8 +34,8 @@ object Speedy {
       var lastLocation: Option[Location],
       /* The current partial transaction */
       var ptx: PartialTransaction,
-      /* Committer, if a scenario commit is in progress. */
-      var committer: Option[Party],
+      /* Committers of the action. */
+      var committers: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
       /* The trace log. */
@@ -173,17 +173,18 @@ object Speedy {
   }
 
   object Machine {
-    private def initial(compiledPackages: CompiledPackages) = Machine(
-      ctrl = null,
-      env = emptyEnv,
-      kont = new ArrayList[Kont](128),
-      lastLocation = None,
-      ptx = PartialTransaction.initial,
-      committer = None,
-      commitLocation = None,
-      traceLog = TraceLog(100),
-      compiledPackages = compiledPackages
-    )
+    private def initial(compiledPackages: CompiledPackages, committers: Set[Party] = Set.empty) =
+      Machine(
+        ctrl = null,
+        env = emptyEnv,
+        kont = new ArrayList[Kont](128),
+        lastLocation = None,
+        ptx = PartialTransaction.initial,
+        committers = committers,
+        commitLocation = None,
+        traceLog = TraceLog(100),
+        compiledPackages = compiledPackages
+      )
 
     def newBuilder(compiledPackages: CompiledPackages): Either[SError, (Expr => Machine)] = {
       val compiler = Compiler(compiledPackages.packages)
@@ -192,8 +193,11 @@ object Speedy {
       })
     }
 
-    def build(sexpr: SExpr, compiledPackages: CompiledPackages): Machine =
-      initial(compiledPackages).copy(
+    def build(
+        sexpr: SExpr,
+        compiledPackages: CompiledPackages,
+        committers: Set[Party] = Set.empty): Machine =
+      initial(compiledPackages, committers).copy(
         // apply token
         ctrl = CtrlExpr(sexpr(SEValue(SToken))),
       )

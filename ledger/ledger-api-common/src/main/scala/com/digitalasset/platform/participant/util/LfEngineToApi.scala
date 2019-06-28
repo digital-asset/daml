@@ -179,7 +179,7 @@ object LfEngineToApi {
             ApiCreateCommand(
               Some(toApiIdentifier(templateId)),
               LfEngineToApi.lfVersionedValueToApiRecord(verbose = true, argument).toOption)))
-      case ExerciseCommand(templateId, contractId, choiceId, _, argument) =>
+      case ExerciseCommand(templateId, contractId, choiceId, argument) =>
         ApiCommand(
           ApiCommand.Command.Exercise(
             ApiExerciseCommand(
@@ -187,7 +187,7 @@ object LfEngineToApi {
               contractId,
               choiceId,
               LfEngineToApi.lfValueToApiValue(verbose = true, argument.value).toOption)))
-      case ExerciseByKeyCommand(templateId, contractKey, choiceId, _, argument) =>
+      case ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
         ApiCommand(
           ApiCommand.Command.ExerciseByKey(ApiExerciseByKeyCommand(
             Some(toApiIdentifier(templateId)),
@@ -195,7 +195,7 @@ object LfEngineToApi {
             choiceId,
             LfEngineToApi.lfValueToApiValue(verbose = true, argument.value).toOption
           )))
-      case CreateAndExerciseCommand(templateId, createArgument, choiceId, choiceArgument, _) =>
+      case CreateAndExerciseCommand(templateId, createArgument, choiceId, choiceArgument) =>
         ApiCommand(
           ApiCommand.Command.CreateAndExercise(ApiCreateAndExerciseCommand(
             Some(toApiIdentifier(templateId)),
