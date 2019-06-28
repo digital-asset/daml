@@ -23,6 +23,7 @@ import qualified Data.ByteString as B
 import qualified Data.Map as M
 import Data.Generics.Uniplate.Data
 import Data.List.Extra
+import qualified Data.Map.Strict as Map
 -- import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
@@ -56,12 +57,8 @@ startFromExpr seen world e = case e of
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
-data ChoiceAndAction = ChoiceAndAction { choice :: LF.TemplateChoice
-                                        ,actions ::Set.Set Action
-                                      }
-
-data TemplateChoiceAction = TemplateChoiceAction { teamplate :: LF.Template
-                                                  ,choiceAndAction :: [ChoiceAndAction] }
+data ChoiceAndAction = ChoiceAndAction { choice :: LF.TemplateChoice ,actions :: Set.Set Action }
+data TemplateChoiceAction = TemplateChoiceAction { template :: LF.Template ,choiceAndAction :: [ChoiceAndAction] }
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map (\c -> (ChoiceAndAction c (startFromChoice world c))  ) (NM.toList (LF.tplChoices tpl))
@@ -71,7 +68,6 @@ moduleAndTemplates world mod = retTypess
     where
         templates = NM.toList $ LF.moduleTemplates mod
         retTypess = map (\t-> TemplateChoiceAction t (templatePossibleUpdates world t ) ) templates
-
 
 dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
 dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
@@ -103,10 +99,51 @@ templatePairs (tc, actions) = (tc , (tc,  Set.elems actions))
 actionsForTemplate :: LookupTemplate -> (LF.Template, [Action]) -> [LF.Template]
 actionsForTemplate lookupTemplate (_tplCon, actions) = map (templateInAction lookupTemplate) actions
 
-errorOnLeft :: Show a => String -> Either a b -> IO b
-errorOnLeft desc = \case
-  Left err -> ioError $ userError $ unlines [ desc, show err ]
-  Right x  -> return x
+-- This to be used to generate the node ids and use as look up table
+choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName NodeId
+choiceNameWithId tplChcActions = Map.fromList $ zip allChoiceFromAction (map userNodeId [0..])
+  where choiceActions =  concatMap choiceAndAction tplChcActions
+        allChoiceFromAction = map (LF.chcName . choice) choiceActions
+
+
+-- This flattening is not doing exhaustive, will be missing the create and archives. Probably will filter for 1st iteration
+nodeIdForChoice ::  Map.Map LF.ChoiceName NodeId -> LF.ChoiceName -> NodeId
+nodeIdForChoice lookUpdata chc = case Map.lookup chc lookUpdata of
+  Just node -> node
+  Nothing -> error("Template node lookup failed")
+
+data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,NodeId)] ,clusterTemplate :: LF.Template }
+
+constructSubgraphsWithLables :: Map.Map LF.ChoiceName NodeId -> TemplateChoiceAction -> SubGraph
+constructSubgraphsWithLables lookupData TemplateChoiceAction {..} = SubGraph  nodes template
+  where choicesInTemplete = map (LF.chcName . choice) choiceAndAction
+        nodes = map (\chc -> (chc, (nodeIdForChoice lookupData chc)) ) choicesInTemplete
+
+actionToChoice :: Action -> LF.ChoiceName
+actionToChoice (ACreate _) = LF.ChoiceName "Create"
+actionToChoice (AExercise _ chc) = chc
+
+choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
+choiceActionToChoicePairs ChoiceAndAction {..} = map (\ac -> (LF.chcName choice, (actionToChoice ac))) (Set.elems actions)
+
+graphEdges :: Map.Map LF.ChoiceName NodeId -> [TemplateChoiceAction] -> [(NodeId, NodeId)]
+graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> ( (nodeIdForChoice lookupData chn1) ,(nodeIdForChoice lookupData chn2) )) choicePairsForTemplates
+  where chcActionsFromAllTemplates = concatMap (choiceAndAction) tplChcActions
+        choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
+
+
+subGraphString :: SubGraph -> [String]
+subGraphString SubGraph {..} = dots
+  where dots = map (\(chc, node) -> showDot (userNode node [("label", DAP.renderPretty chc) , ("shape", "circle") ]) ) nodes
+
+constructDotGraph :: [SubGraph] -> [(NodeId, NodeId)] -> String
+constructDotGraph subgraphs edges = showDot $ userNode (userNodeId 10) []
+-- moduleAndTemplates -> [TemplateChoiceAction]
+-- nodes world  -> choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName NodeId
+-- list of subgraphs constructSubgraphsWithLables :: Map.Map LF.ChoiceName NodeId -> TemplateChoiceAction -> SubGraph
+-- edges to be written - graphEdges :: Map.Map LF.ChoiceName NodeId -> [TemplateChoiceAction] -> [(NodeId, NodeId)]
+
+
 
 -- | 'netlistGraph' generates a simple graph from a netlist.
 -- The default implementation does the edeges other way round. The change is on # 143
@@ -133,17 +170,23 @@ netlistGraph' attrFn outFn assocs = do
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath dotFilePath = do
-    darBytes <- B.readFile darFilePath
-    let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
-    (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
-    let modules = NM.toList $ LF.packageModules lfPkg
-        world = darToWorld manifestData lfPkg
-        tplLookUp = lookupTemplateT world
-        res = concatMap (moduleAndTemplates world) modules --  [(LF.Template, Set.Set Action)]
-        actionEdges = map templatePairs res  -- (LF.Template , (LF.Template , [Action]))
-        dotString = showDot $ netlistGraph' srcLabel (actionsForTemplate tplLookUp)  actionEdges
-    case dotFilePath of
-        Just outDotFile -> writeFile outDotFile dotString
-        Nothing -> putStrLn dotString
+    putStrLn "the thing is commented"
+    -- darBytes <- B.readFile darFilePath
+    -- let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
+    -- (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
+    -- let modules = NM.toList $ LF.packageModules lfPkg
+    --     world = darToWorld manifestData lfPkg
+    --     tplLookUp = lookupTemplateT world
+    --     res = concatMap (moduleAndTemplates world) modules --  [(LF.Template, Set.Set Action)]
+    --     actionEdges = map templatePairs res  -- (LF.Template , (LF.Template , [Action]))
+    --     dotString = showDot $ netlistGraph' srcLabel (actionsForTemplate tplLookUp)  actionEdges
+    -- case dotFilePath of
+    --     Just outDotFile -> writeFile outDotFile dotString
+    --     Nothing -> putStrLn dotString
 
+
+errorOnLeft :: Show a => String -> Either a b -> IO b
+errorOnLeft desc = \case
+  Left err -> ioError $ userError $ unlines [ desc, show err ]
+  Right x  -> return x
 
