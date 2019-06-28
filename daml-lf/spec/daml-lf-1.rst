@@ -214,16 +214,12 @@ Version: 1.5
   * **Add** ``FROM_TEXT_INT64`` and ``FROM_TEXT_DECIMAL`` primitives for 
     parsing integer and decimal values.
 
-Version: 1.dev
-..............
+Version: 1.6
+............
 
   * Introduction date:
 
-      2019-05-27
-
-  * Last amendment date:
-
-      2019-06-26
+      2019-07-01
 
   * **Add** support for built-in ``'Enum'`` type.
 
@@ -235,6 +231,13 @@ Version: 1.dev
   * **Change** Transaction submitter must be in the contract key
     maintainers when performing lookup or fetches by key. See
     `issue #1866 <https://github.com/digital-asset/daml/issues/1866>`_
+
+Version: 1.dev
+..............
+
+  * Last amendment date:
+
+      2019-07-01
 
 
 Abstract syntax
@@ -2229,7 +2232,7 @@ String functions
   <https://en.wikipedia.org/wiki/Code_point>`_ of the input
   string represented as integer.
 
-  [*Available since version 1.dev*]
+  [*Available since version 1.6*]
 
 * ``TEXT_TO_CODE_POINTS``: 'List' 'Int64' → 'Text'
 
@@ -2239,7 +2242,7 @@ String functions
   from `0x000000` to `0x00D7FF` or in the range from `0x00DFFF`
   to `0x10FFFF` (bounds included).
 
-  [*Available since version 1.dev*]
+  [*Available since version 1.6*]
 
 Timestamp functions
 ~~~~~~~~~~~~~~~~~~~
@@ -2590,12 +2593,12 @@ message::
   }
 
 One should use either the field ``self`` to refer the current package or
-one of ``interned_id`` [available since version 1.dev] or ``package_id``
+one of ``interned_id`` [available since version 1.6] or ``package_id``
 to refer to an external package. During deserialization ``self``
 references are replaced by the actual digest of the package in which it
 appears.
 
-[*Available since version 1.dev*]
+[*Available since version 1.6*]
 
 ``Package.interned_package_ids`` is a list of package IDs.
 ``interned_id``, if used, must be a valid zero-based index into this
@@ -2807,7 +2810,7 @@ program using the builtin functions : ``MAP_EMPTY``, ``MAP_INSERT``,
 Enum
 ....
 
-[*Available since version 1.dev]
+[*Available since version 1.6]
 
 The deserialization process will reject any DAML-LF 1.5 (or earlier)
 program using the field ``enum`` in ``DefDataType`` messages, the
@@ -2817,7 +2820,7 @@ in ``Expr`` messages.
 intern package IDs
 ..................
 
-[*Available since version 1.dev]
+[*Available since version 1.6]
 
 In ``PackageRef``, the alternative ``interned_id`` may be used in place
 of ``package_id``, in which case the package ID will be that at the
