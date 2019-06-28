@@ -968,8 +968,8 @@ private class PostgresLedgerDao(
 
   // Note: package upload is idempotent
   private val SQL_INSERT_PACKAGE =
-    """insert into packages(package_id, submission_id, source_description, size, known_since, ledger_offset, package)
-          |select {package_id}, {submission_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
+    """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
+          |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
           |from parameters
           |on conflict (package_id)
           |do nothing
@@ -1024,7 +1024,7 @@ private class PostgresLedgerDao(
     }
 
   override def uploadLfPackages(
-      submissionId: String,
+      uploadId: String,
       packages: List[(Archive, PackageDetails)]): Future[UploadPackagesResult] = {
     dbDispatcher.executeSql { implicit conn =>
       Try {
@@ -1033,7 +1033,7 @@ private class PostgresLedgerDao(
             p =>
               Seq[NamedParameter](
                 "package_id" -> p._1.getHash,
-                "submission_id" -> submissionId,
+                "upload_id" -> uploadId,
                 "source_description" -> p._2.sourceDescription,
                 "size" -> p._2.size,
                 "known_since" -> p._2.knownSince,
