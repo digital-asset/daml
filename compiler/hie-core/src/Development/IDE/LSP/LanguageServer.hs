@@ -109,8 +109,8 @@ setHandlersIgnore = PartialHandlers $ \_ x -> return x
 -- | A message that we need to deal with - the pieces are split up with existentials to gain additional type safety
 --   and defer precise processing until later (allows us to keep at a higher level of abstraction slightly longer)
 data Message
-    = forall m req resp . Response (RequestMessage m req resp) (ResponseMessage resp -> FromServerMessage) (IdeState -> req -> IO resp)
-    | forall m req . Notification (NotificationMessage m req) (IdeState -> req -> IO ())
+    = forall m req resp . (Show m, Show req) => Response (RequestMessage m req resp) (ResponseMessage resp -> FromServerMessage) (IdeState -> req -> IO resp)
+    | forall m req . (Show m, Show req) => Notification (NotificationMessage m req) (IdeState -> req -> IO ())
 
 
 modifyOptions :: LSP.Options -> LSP.Options
