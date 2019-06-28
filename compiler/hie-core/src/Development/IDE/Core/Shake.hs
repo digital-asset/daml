@@ -239,7 +239,7 @@ shakeShut IdeState{..} = withVar shakeAbort $ \stop -> do
 
 -- | Spawn immediately, add an action to collect the results syncronously.
 --   If you are already inside a call to shakeRun that will be aborted with an exception.
--- The callback will be fired as soon as the results are available
+-- The callback will be fired, at most once, as soon as the results are available
 -- even if there are still other rules running while the IO action that is
 -- being returned will wait for all rules to finish.
 shakeRun :: IdeState -> [Action a] -> ([a] -> IO ()) -> IO (IO [a])
