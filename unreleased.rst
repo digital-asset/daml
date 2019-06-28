@@ -8,7 +8,6 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
-
 - [Sandbox] Added `--log-level` command line flag.
 - [Ledger API] Added new CLI flags ``--stable-party-identifiers`` and
   ``--stable-command-identifiers`` to the :doc:`Ledger API Test Tool
@@ -17,3 +16,4 @@ HEAD — ongoing
   configured with a predefined static set of parties.
 - [Sandbox] Fixed an issue when CompletionService returns offsets having inclusive semantics when used for re-subscription. 
   See `#1932 <https://github.com/digital-asset/daml/pull/1932>`__.
+
