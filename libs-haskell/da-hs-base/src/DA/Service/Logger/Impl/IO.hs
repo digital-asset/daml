@@ -11,21 +11,15 @@ module DA.Service.Logger.Impl.IO
 
 import DA.Service.Logger
 
-import           Control.Concurrent           (ThreadId, myThreadId)
-import           Control.Concurrent.STM       (atomically)
 import           Control.Concurrent.MVar      (MVar, newMVar, withMVar)
-import           Control.Concurrent.STM.TVar  (TVar, newTVarIO, readTVarIO, modifyTVar')
-import           Control.Exception            (bracket_)
 
 import Control.Monad
-import Data.Maybe
 
 import qualified Data.Aeson                   as Aeson
 import           Data.Aeson.Encode.Pretty     (encodePretty)
 import qualified Data.ByteString.Lazy.Char8   as BSL8
 import           Data.Time                    ()
 import           Data.Time.Clock              (getCurrentTime)
-import qualified Data.HashMap.Strict          as HMS
 import qualified Data.Text.Extended           as T
 import qualified Data.Text.Encoding           as TE
 import           GHC.Stack
@@ -53,22 +47,14 @@ newIOLogger
   -> IO (Handle IO)
 newIOLogger ioHandle mbMaxMessageLength priorityThreshold handleLabel
   = do
-    tagsTVar     <- newTVarIO HMS.empty
     lockMVar     <- newMVar ()
     return $ makeHandle
-           $ IHandle [handleLabel] tagsTVar ioHandle lockMVar mbMaxMessageLength
+           $ IHandle [handleLabel] ioHandle lockMVar mbMaxMessageLength
   where
     makeHandle ih =
       Handle
         {
           logJson = ioLogJson ih priorityThreshold
-
-        , tagAction = \label action -> do
-            tid <- myThreadId
-            bracket_
-              (addTag ih tid label)
-              (dropTag ih tid)
-              action
 
         , tagHandle = \label ->
             makeHandle $ ih { ihContext = label : ihContext ih }
@@ -78,8 +64,6 @@ newIOLogger ioHandle mbMaxMessageLength priorityThreshold handleLabel
 data IHandle = IHandle
     { ihContext      :: ![T.Text]
       -- ^ The handle context (tagHandle)
-    , ihTags         :: !(TVar (HMS.HashMap ThreadId [T.Text]))
-      -- ^ Per thread tag stack
     , ihOutputH      :: !System.IO.Handle
       -- ^ Output file handle
     , ihOutputLock   :: !(MVar ())
@@ -87,22 +71,6 @@ data IHandle = IHandle
     , ihMaxMessageLength :: !(Maybe Int)
       -- ^ Maximum length of log message body
     }
-
-addTag :: IHandle -> ThreadId -> T.Text -> IO ()
-addTag ih tid tag =
-    atomically . modifyTVar' (ihTags ih) $
-      HMS.insertWith (++) tid [tag]
-
-dropTag :: IHandle -> ThreadId -> IO ()
-dropTag ih tid =
-    atomically . modifyTVar' (ihTags ih) $
-      HMS.update
-        (\case
-           [_tag]      -> Nothing
-           (_tag:tags) -> Just tags
-           _other      -> error "IMPOSSIBLE"
-        )
-        tid
 
 ioLogJson
   :: (HasCallStack, Aeson.ToJSON a)
@@ -115,8 +83,7 @@ ioLogJson ih threshold prio msg =
     when (prio >= threshold) $
     withMVar (ihOutputLock ih) $
     \_ -> do
-        tid <- myThreadId
-        tags <- fromMaybe [] . HMS.lookup tid <$> readTVarIO (ihTags ih)
+        tags <- return []
         now <- getCurrentTime
         let outH = ihOutputH ih
         System.IO.hPutStrLn outH

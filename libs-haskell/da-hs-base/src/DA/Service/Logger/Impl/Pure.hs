@@ -79,7 +79,6 @@ emptyState = LogState
 makeNopHandle :: Monad m => Logger.Handle m
 makeNopHandle = Logger.Handle
     { Logger.logJson = \_prio _msg -> return ()
-    , Logger.tagAction = \_tag action -> action
     , Logger.tagHandle = const makeNopHandle
     }
 
@@ -107,12 +106,6 @@ makeHandle logState handleTag = makeHandle' [handleTag]
               , _leTags     = tags
               }
             logState . lsMessages %= (:) entry
-
-        , Logger.tagAction = \tag action -> do
-            logState . lsTags %= (:) tag
-            result <- action
-            logState . lsTags %= tail
-            return result
 
         , Logger.tagHandle = \tag -> makeHandle' (tag : context)
         }
