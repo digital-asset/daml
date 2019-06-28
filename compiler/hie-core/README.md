@@ -1,4 +1,7 @@
-# `hie-core` (Haskell IDE Core)
+<p style="text-align: left;"> <font size="7"><code>hie-core</code></font> <big><i>(Haskell IDE Engine)</i></big></p>
+<p align="center">
+  <img src="img/vscode2.png"/>
+</p>
 
 Our vision is that you should build an IDE by combining:
 
@@ -46,7 +49,7 @@ Once you have got `hie-core` working outside the editor, the next step is to pic
 
 ### Using with VS Code
 
-Install the VS code extension
+Install the VS code extension (see https://code.visualstudio.com/docs/setup/mac for details on adding `code` to your `$PATH`):
 
 1. `cd compiler/hie-core/extension`
 2. `npm ci`
