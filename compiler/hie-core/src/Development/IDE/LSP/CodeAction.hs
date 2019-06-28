@@ -22,7 +22,7 @@ import Language.Haskell.LSP.Messages
 
 import qualified Data.Text as T
 
--- | Go to the definition of a variable.
+-- | Generate code actions.
 codeAction
     :: IdeState
     -> CodeActionParams
