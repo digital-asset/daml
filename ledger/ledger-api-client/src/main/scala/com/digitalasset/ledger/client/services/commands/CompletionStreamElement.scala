@@ -10,7 +10,6 @@ sealed abstract class CompletionStreamElement extends Product with Serializable
 
 object CompletionStreamElement {
 
-  //TODO it's not an either anymore
   final case class CheckpointElement(checkpoint: Checkpoint) extends CompletionStreamElement
 
   final case class CompletionElement(completion: Completion) extends CompletionStreamElement
