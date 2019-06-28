@@ -50,7 +50,7 @@ suggestAction contents Diagnostic{_range=_range@Range{..},..}
     , " is redundant" `T.isInfixOf` _message
     , let newlineAfter = maybe False (T.isPrefixOf "\n" . T.dropWhile (\x -> isSpace x && x /= '\n') . snd . textAtPosition _end) contents
     , let extend = newlineAfter && _character _start == 0 -- takes up an entire line, so remove the whole line
-    = [("Remove import", [TextEdit (if extend then Range _start (Position (_line _end + 1) 0) else _range) ""])]
+        = [("Remove import", [TextEdit (if extend then Range _start (Position (_line _end + 1) 0) else _range) ""])]
 
 suggestAction _ _ = []
 
