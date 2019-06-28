@@ -35,6 +35,10 @@ codeAction _ CodeActionParams{_textDocument=TextDocumentIdentifier uri,_context=
 
 suggestAction :: Uri -> Diagnostic -> [(T.Text, LSP.WorkspaceEdit)]
 suggestAction uri Diagnostic{..}
+-- File.hs:16:1: warning:
+--     The import of `Data.List' is redundant
+--       except perhaps to import instances from `Data.List'
+--     To import instances alone, use: import Data.List()
     | "The import of " `T.isInfixOf` _message
     , " is redundant" `T.isInfixOf` _message
     = [("Remove import", WorkspaceEdit (Just $ Map.singleton uri $ List [TextEdit _range ""]) Nothing)]
