@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.cli
 import java.io.File
 import java.time.Duration
 
+import ch.qos.logback.classic.Level
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
@@ -13,7 +14,6 @@ import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scopt.Read
-
 import com.digitalasset.ledger.api.domain.LedgerId
 
 // NOTE:
@@ -26,6 +26,22 @@ object Cli {
     override def arity: Int = 1
 
     override val reads: String => Duration = Duration.parse
+  }
+
+  private implicit val levelRead: Read[Level] = new Read[Level] {
+    override def arity: Int = 1
+    override val reads: String => Level = (logLevel: String) => {
+      // format: off
+      logLevel match {
+        case "INFO"  | "info"  => Level.INFO
+        case "TRACE" | "trace" => Level.TRACE
+        case "DEBUG" | "debug" => Level.DEBUG
+        case "WARN"  | "warn"  => Level.WARN
+        case "ERROR" | "error" => Level.ERROR
+        case _                 => throw new IllegalArgumentException(s"Unrecognized logging level $logLevel")
+      }
+      // format: on
+    }
   }
 
   // format: off
@@ -126,6 +142,11 @@ object Cli {
       .optional()
         .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
+
+    opt[Level]("log-level")
+      .optional()
+      .action((level, c) => c.copy(logLevel = level))
+      .text("Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO.")
 
     opt[Unit]("eager-package-loading")
         .optional()

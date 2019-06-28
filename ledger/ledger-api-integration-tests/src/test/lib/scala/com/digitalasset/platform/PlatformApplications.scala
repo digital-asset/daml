@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import ch.qos.logback.classic.Level
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -16,7 +17,6 @@ import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import scalaz.NonEmptyList
 
 import scala.concurrent.duration.{FiniteDuration, _}
-
 import com.digitalasset.ledger.api.domain.LedgerId
 
 object PlatformApplications {
@@ -123,6 +123,7 @@ object PlatformApplications {
       ledgerIdMode = config.ledgerId,
       jdbcUrl = jdbcUrl,
       eagerPackageLoading = false,
+      logLevel = Level.INFO
     )
   }
 }

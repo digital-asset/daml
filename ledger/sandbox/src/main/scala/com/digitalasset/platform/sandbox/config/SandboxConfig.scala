@@ -5,6 +5,7 @@ package com.digitalasset.platform.sandbox.config
 
 import java.io.File
 
+import ch.qos.logback.classic.Level
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
@@ -32,7 +33,8 @@ final case class SandboxConfig(
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
     jdbcUrl: Option[String],
-    eagerPackageLoading: Boolean
+    eagerPackageLoading: Boolean,
+    logLevel: Level
 )
 
 final case class CommandConfiguration(
@@ -61,7 +63,8 @@ object SandboxConfig {
       scenario = None,
       ledgerIdMode = LedgerIdMode.Dynamic(),
       jdbcUrl = None,
-      eagerPackageLoading = false
+      eagerPackageLoading = false,
+      logLevel = Level.INFO
     )
 
   lazy val defaultCommandConfig =
