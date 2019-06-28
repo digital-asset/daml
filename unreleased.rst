@@ -10,3 +10,5 @@ HEAD — ongoing
 --------------
 
 - [Sandbox] Added `--log-level` command line flag.
+- [Sandbox] Fixed an issue when CompletionService returns offsets having inclusive semantics when used for re-subscription. 
+  See `#1932 <https://github.com/digital-asset/daml/pull/1932>`__.
