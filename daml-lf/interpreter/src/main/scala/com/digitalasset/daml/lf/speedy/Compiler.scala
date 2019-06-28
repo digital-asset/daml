@@ -1139,9 +1139,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       tmplId: Identifier,
       contractId: SExpr,
       choiceId: ChoiceName,
-      // actors are either the singleton set of submitter of an exercise command,
-      // or the acting parties of an exercise node (if present)
-      // of a transaction under reconstruction for validation
+      // actors are only present when compiling old LF update expressions;
+      // they are computed from the controllers in newer versions
       optActors: Option[SExpr],
       argument: SExpr): SExpr =
     // Translates 'A does exercise cid Choice with <params>'
@@ -1178,18 +1177,15 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       tmplId: Identifier,
       createArg: SValue,
       choiceId: ChoiceName,
-      choiceArg: SValue,
-      // actors are either the singleton set of submitter of an exercise command,
-      // or the acting parties of an exercise node
-      // of a transaction under reconstruction for validation
-      actors: SExpr): SExpr = {
+      choiceArg: SValue
+  ): SExpr = {
 
     withEnv { _ =>
       SEAbs(1) {
         SELet(
           SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
           SEApp(
-            compileExercise(tmplId, SEVar(1), choiceId, Some(actors), SEValue(choiceArg)),
+            compileExercise(tmplId, SEVar(1), choiceId, None, SEValue(choiceArg)),
             Array(SEVar(2)))
         ) in SEVar(1)
       }
@@ -1199,29 +1195,19 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private def translateCommand(cmd: Command): SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       compileCreate(templateId, SEValue(argument))
-    case Command.Exercise(templateId, contractId, choiceId, submitters, argument) =>
-      compileExercise(
-        templateId,
-        SEValue(contractId),
-        choiceId,
-        Some(SEValue(SList(FrontStack(submitters)))),
-        SEValue(argument))
-    case Command.ExerciseByKey(templateId, contractKey, choiceId, submitters, argument) =>
-      compileExerciseByKey(
-        templateId,
-        SEValue(contractKey),
-        choiceId,
-        Some(SEValue(SList(FrontStack(submitters)))),
-        SEValue(argument))
+    case Command.Exercise(templateId, contractId, choiceId, argument) =>
+      compileExercise(templateId, SEValue(contractId), choiceId, None, SEValue(argument))
+    case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
+      compileExerciseByKey(templateId, SEValue(contractKey), choiceId, None, SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       compileFetch(templateId, SEValue(coid))
-    case Command.CreateAndExercise(templateId, createArg, choice, choiceArg, submitters) =>
+    case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
       compileCreateAndExercise(
         templateId,
         createArg,
         choice,
-        choiceArg,
-        SEValue(SList(FrontStack(submitters))))
+        choiceArg
+      )
   }
 
   private def translateCommands(bindings: ImmArray[Command]): SExpr = {

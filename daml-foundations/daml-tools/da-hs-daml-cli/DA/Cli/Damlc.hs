@@ -11,6 +11,7 @@ module DA.Cli.Damlc (main) where
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
 import DA.Cli.Damlc.Base
+import DA.Cli.Damlc.IdeState
 import Control.Exception.Safe (catchIO)
 import Data.Maybe
 import Control.Exception
@@ -21,7 +22,7 @@ import           DA.Cli.Damlc.BuildInfo
 import           DA.Cli.Damlc.Command.Damldoc      (cmdDamlDoc)
 import           DA.Cli.Args
 import qualified DA.Pretty
-import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
+import DA.Service.Daml.Compiler.Impl.Dar
 import DA.Service.Daml.Compiler.Impl.Scenario
 import DA.Daml.GHC.Compiler.Config
 import DA.Daml.GHC.Compiler.Options
@@ -45,6 +46,7 @@ import qualified Data.Set as Set
 import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import Development.IDE.State.API
 import Development.IDE.Core.Compile
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Rules.Daml (getDalf)
@@ -120,7 +122,7 @@ cmdTest numProcessors =
     junitOutput = optional $ strOption $ long "junit" <> metavar "FILENAME" <> help "Filename of JUnit output file"
     colorOutput = switch $ long "color" <> help "Colored test results"
 
-runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
+runTestsInProjectOrFiles :: ProjectOpts -> Maybe [FilePath] -> UseColor -> Maybe FilePath -> Options -> IO ()
 runTestsInProjectOrFiles projectOpts Nothing color mbJUnitOutput cliOptions =
     withExpectProjectRoot (projectRoot projectOpts) "daml test" $ \pPath _ -> do
         project <- readProjectConfig $ ProjectPath pPath
@@ -189,10 +191,10 @@ cmdPackage numProcessors =
         <*> optionsParser numProcessors (EnableScenarioService False) (Just <$> packageNameOpt)
         <*> optionalOutputFileOpt
         <*> dumpPom
-        <*> optUseDalf
+        <*> optFromDalf
 
-    optUseDalf :: Parser Compiler.UseDalf
-    optUseDalf = fmap UseDalf $
+    optFromDalf :: Parser FromDalf
+    optFromDalf = fmap FromDalf $
       switch $
       help "package an existing dalf file rather than compiling DAML sources" <>
       long "dalf" <>
@@ -268,14 +270,14 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
             Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
             Daml.LanguageServer.runLanguageServer
-                (getIdeState opts mbScenarioService loggerH)
+                (getDamlIdeState opts mbScenarioService loggerH)
 
-execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
+execCompile :: FilePath -> FilePath -> Options -> Command
 execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
     loggerH <- getLogger opts "compile"
     inputFile <- toNormalizedFilePath <$> relativize inputFile
-    opts' <- Compiler.mkOptions opts
-    Compiler.withIdeState opts' loggerH diagnosticsLogger $ \ide -> do
+    opts' <- mkOptions opts
+    withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
         setFilesOfInterest ide (Set.singleton inputFile)
         res <- runAction ide $ getDalf inputFile
         case res of
@@ -381,7 +383,7 @@ createProjectPackageDb lfVersion fps = do
             , "--expand-pkgroot"
             ]
 
-execBuild :: ProjectOpts -> Compiler.Options -> Maybe FilePath -> InitPkgDb -> IO ()
+execBuild :: ProjectOpts -> Options -> Maybe FilePath -> InitPkgDb -> IO ()
 execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts $ \_relativize -> do
     execInit (optDamlLfVersion options) projectOpts initPkgDb
     withPackageConfig $ \PackageConfigFields {..} -> do
@@ -398,16 +400,16 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pVersion
                     pExposedModules
                     pDependencies
-        Compiler.withIdeState opts loggerH diagnosticsLogger $ \compilerH -> do
+        withDamlIdeState opts loggerH diagnosticsLogger $ \compilerH -> do
             mbDar <-
-                Compiler.buildDar
+                buildDar
                     compilerH
                     (toNormalizedFilePath pMain)
                     pExposedModules
                     pName
                     pSdkVersion
                     (\pkg -> [confFile pkg])
-                    (UseDalf False)
+                    (FromDalf False)
             case mbDar of
                 Nothing -> do
                     hPutStrLn stderr "ERROR: Creation of DAR file failed."
@@ -476,26 +478,21 @@ lfVersionString = DA.Pretty.renderPretty
 
 execPackage:: ProjectOpts
             -> FilePath -- ^ input file
-            -> Compiler.Options
+            -> Options
             -> Maybe FilePath
             -> DumpPom
-            -> Compiler.UseDalf
+            -> FromDalf
             -> IO ()
 execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectRoot' projectOpts $ \relativize -> do
     loggerH <- getLogger opts "package"
     filePath <- relativize filePath
-    opts' <- Compiler.mkOptions opts
-    Compiler.withIdeState opts' loggerH diagnosticsLogger $ buildDar (toNormalizedFilePath filePath)
-  where
-    -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
-    -- We could parametrize CliOptions by whether the package name is optional
-    -- but I don’t think that is worth the complexity of carrying around a type parameter.
-    name = fromMaybe (error "Internal error: Package name was not present") (Compiler.optMbPackageName opts)
-    buildDar path compilerH = do
+    opts' <- mkOptions opts
+    withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
+        let path = toNormalizedFilePath filePath
         -- We leave the sdk version blank and the list of exposed modules empty.
         -- This command is being removed anytime now and not present
         -- in the new daml assistant.
-        mbDar <- Compiler.buildDar compilerH path Nothing name "" (const []) dalfInput
+        mbDar <- buildDar ide path Nothing name "" (const []) dalfInput
         case mbDar of
           Nothing -> do
               hPutStrLn stderr "ERROR: Creation of DAR file failed."
@@ -504,9 +501,12 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
             createDirectoryIfMissing True $ takeDirectory targetFilePath
             B.writeFile targetFilePath dar
             putStrLn $ "Created " <> targetFilePath <> "."
-
             when (unDumpPom dumpPom) $ createPomAndSHA256 dar
-
+  where
+    -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
+    -- We could parametrize CliOptions by whether the package name is optional
+    -- but I don’t think that is worth the complexity of carrying around a type parameter.
+    name = fromMaybe (error "Internal error: Package name was not present") (optMbPackageName opts)
     pomContents groupId artifactId version =
         TE.encodeUtf8 $ T.pack $
           "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
@@ -600,7 +600,7 @@ execInspectDar inFile = do
             show (LF.unPackageId pkgId)
 
 execMigrate ::
-       Compiler.Options -> FilePath -> FilePath -> Maybe FilePath -> Command
+       Options -> FilePath -> FilePath -> Maybe FilePath -> Command
 execMigrate opts inFile1 inFile2 mbDir = do
     let pkg1 = takeBaseName inFile1
     let pkg2 = takeBaseName inFile2
@@ -689,8 +689,8 @@ optPackageName = optional $ strOption $
 
 -- | Parametrized by the type of pkgname parser since we want that to be different for
 -- "package".
-optionsParser :: Int -> EnableScenarioService -> Parser (Maybe String) -> Parser Compiler.Options
-optionsParser numProcessors enableScenarioService parsePkgName = Compiler.Options
+optionsParser :: Int -> EnableScenarioService -> Parser (Maybe String) -> Parser Options
+optionsParser numProcessors enableScenarioService parsePkgName = Options
     <$> optImportPath
     <*> optPackageDir
     <*> parsePkgName

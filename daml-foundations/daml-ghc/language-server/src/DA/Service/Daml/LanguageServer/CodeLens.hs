@@ -8,30 +8,37 @@ module DA.Service.Daml.LanguageServer.CodeLens
     ( setHandlersCodeLens
     ) where
 
+import DA.Daml.GHC.Compiler.Convert (sourceLocToRange)
+import qualified DA.Daml.LF.Ast as LF
 import Language.Haskell.LSP.Types
 import qualified Data.Aeson as Aeson
 import Development.IDE.Core.Service.Daml
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
-import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
 import Development.IDE.LSP.Server
 import qualified Language.Haskell.LSP.Core as LSP
 import Language.Haskell.LSP.Messages
+import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 
 -- | Gather code lenses like scenario execution for a DAML file.
 handle
-    :: Compiler.IdeState
+    :: IdeState
     -> CodeLensParams
     -> IO (List CodeLens)
 handle ide (CodeLensParams (TextDocumentIdentifier uri)) = do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath -> filePath) -> do
           logInfo (ideLogger ide) $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
-          vrs <- Compiler.getAssociatedVirtualResources ide filePath
-          pure $ mapMaybe virtualResourceToCodeLens vrs
+          mbMod <- runAction ide (getDalfModule filePath)
+          pure $ mapMaybe virtualResourceToCodeLens
+              [ (sourceLocToRange loc, "Scenario: " <> name, vr)
+              | (valRef, Just loc) <- maybe [] scenariosInModule mbMod
+              , let name = LF.unExprValName (LF.qualObject valRef)
+              , let vr = VRScenario filePath name
+              ]
         Nothing       -> pure []
 
     pure $ List $ toList mbResult
@@ -48,7 +55,7 @@ virtualResourceToCodeLens (range, title, vr) =
         "daml.showResource"
         (Just $ List
               [ Aeson.String title
-              , Aeson.String $ Compiler.virtualResourceToUri vr])
+              , Aeson.String $ virtualResourceToUri vr])
     , _xdata = Nothing
     }
 

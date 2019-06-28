@@ -5,19 +5,31 @@
 
 module DA.Service.Daml.Compiler.Impl.Dar
   ( buildDar
+  , FromDalf(..)
   ) where
 
-import           Control.Monad.Extra
-import           Data.List.Extra
-import qualified Data.Text                  as T
-import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Lazy       as BSL
+import qualified Codec.Archive.Zip as Zip
+import Control.Monad.Extra
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Maybe
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
-import           System.FilePath
+import Data.List.Extra
+import Data.Maybe
+import qualified Data.Set as S
+import qualified Data.Text as T
 import System.Directory
+import System.FilePath
+
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.RuleTypes.Daml
+import Development.IDE.State.API
 import Development.IDE.Types.Location
-import qualified Codec.Archive.Zip          as Zip
+import qualified Development.IDE.Types.Logger as IdeLogger
 import DA.Daml.GHC.Compiler.Options
+import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Proto3.Archive (encodeArchiveLazy)
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -45,16 +57,78 @@ gernerated separately.
 
 -}
 
-buildDar ::
-  BSL.ByteString
+
+-- | If true, we create the DAR from an existing .dalf file instead of compiling a *.daml file.
+newtype FromDalf = FromDalf{unFromDalf :: Bool}
+
+buildDar
+  :: IdeState
   -> NormalizedFilePath
-  -> [(T.Text, BS.ByteString)]
-  -> [NormalizedFilePath]
-  -> [(String, BS.ByteString)]
-  -> String
-  -> String
+  -> Maybe [String] -- ^ exposed modules
+  -> String -- ^ package name
+  -> String -- ^ sdk version
+  -> (LF.Package -> [(String, BS.ByteString)])
+  -- We allow datafiles to depend on the package being produces to
+  -- allow inference of things like exposedModules.
+  -- Once we kill the old "package" command we could instead just
+  -- pass "PackageConfigFields" to this function and construct the data
+  -- files in here.
+  -> FromDalf
+  -> IO (Maybe BS.ByteString)
+buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInput = do
+  let file' = fromNormalizedFilePath file
+  liftIO $
+    IdeLogger.logDebug (ideLogger service) $
+    "Creating dar: " <> T.pack file'
+  if unFromDalf dalfInput
+    then liftIO $ Just <$> do
+      bytes <- BSL.readFile file'
+      createArchive
+        bytes
+        (toNormalizedFilePath $ takeDirectory file')
+        []
+        []
+        []
+        pkgName
+        sdkVersion
+    else runAction service $ runMaybeT $ do
+      pkg <- useE GeneratePackage file
+      let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
+      let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
+      unless (S.null missingExposed) $
+          -- FIXME: Should be producing a proper diagnostic
+          error $
+              "The following modules are declared in exposed-modules but are not part of the DALF: " <>
+              show (S.toList missingExposed)
+      let dalf = encodeArchiveLazy pkg
+      -- get all dalf dependencies.
+      deps <- getDalfDependencies file
+      dalfDependencies<- forM deps $ \(DalfDependency depName fp) -> do
+        pkgDalf <- liftIO $ BS.readFile fp
+        return (depName, pkgDalf)
+      -- get all file dependencies
+      fileDependencies <- MaybeT $ getDependencies file
+      liftIO $
+        createArchive
+          dalf
+          (toNormalizedFilePath $ takeDirectory file')
+          dalfDependencies
+          (file:fileDependencies)
+          (buildDataFiles pkg)
+          pkgName
+          sdkVersion
+
+-- | Helper to bundle up all files into a DAR.
+createArchive
+  :: BSL.ByteString -- ^ DALF
+  -> NormalizedFilePath -- ^ Module root used to locate interface and source files
+  -> [(T.Text, BS.ByteString)] -- ^ DALF dependencies
+  -> [NormalizedFilePath] -- ^ Module dependencies
+  -> [(String, BS.ByteString)] -- ^ Data files
+  -> String -- ^ Name of the main DALF
+  -> String -- ^ SDK version
   -> IO BS.ByteString
-buildDar dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersion = do
+createArchive dalf modRoot dalfDependencies fileDependencies dataFiles name sdkVersion = do
     -- Take all source file dependencies and produced interface files. Only the new package command
     -- produces interface files per default, hence we filter for existent files.
     ifaces <-

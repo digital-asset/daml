@@ -341,10 +341,6 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
       templateId: Identifier,
       contractId: ContractId,
       choiceId: ChoiceName,
-      // actors are either the singleton set of submitter of an exercise command,
-      // or the acting parties of an exercise node
-      // of a transaction under reconstruction for validation
-      actors: Set[Party],
       argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
     Result.needTemplate(
       compiledPackages,
@@ -357,10 +353,9 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
               s"Couldn't find requested choice $choiceId for template $templateId. Available choices: $choicesNames"))
           case Some(choice) =>
             val choiceTyp = choice.argBinder._2
-            val actingParties = ImmArray(actors.toSeq.map(actor => SValue.SParty(actor)))
             translateValue(choiceTyp, argument).map(
               choiceTyp -> SpeedyCommand
-                .Exercise(templateId, SValue.SContractId(contractId), choiceId, actingParties, _))
+                .Exercise(templateId, SValue.SContractId(contractId), choiceId, _))
         }
       }
     )
@@ -369,7 +364,6 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
       templateId: Identifier,
       contractKey: VersionedValue[AbsoluteContractId],
       choiceId: ChoiceName,
-      actors: Set[Party],
       argument: VersionedValue[AbsoluteContractId]): Result[(Type, SpeedyCommand)] =
     Result.needTemplate(
       compiledPackages,
@@ -385,13 +379,12 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
               Error(s"Impossible to exercise by key, no key is defined for template $templateId"))
           case (Some(choice), Some(ck)) =>
             val (_, choiceType) = choice.argBinder
-            val actingParties = ImmArray(actors.map(SValue.SParty))
             for {
               arg <- translateValue(choiceType, argument)
               key <- translateValue(ck.typ, contractKey)
             } yield
               choiceType -> SpeedyCommand
-                .ExerciseByKey(templateId, key, choiceId, actingParties, arg)
+                .ExerciseByKey(templateId, key, choiceId, arg)
         }
       }
     )
@@ -400,8 +393,8 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
       templateId: ValueRef,
       createArgument: VersionedValue[AbsoluteContractId],
       choiceId: ChoiceName,
-      choiceArgument: VersionedValue[AbsoluteContractId],
-      actors: Set[Party]): Result[(Type, SpeedyCommand)] = {
+      choiceArgument: VersionedValue[AbsoluteContractId]
+  ): Result[(Type, SpeedyCommand)] = {
     Result.needDataType(
       compiledPackages,
       templateId,
@@ -426,10 +419,9 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                         s"Couldn't find requested choice $choiceId for template $templateId. Available choices: $choicesNames"))
                     case Some(choice) =>
                       val choiceTyp = choice.argBinder._2
-                      val actingParties = ImmArray(actors.toSeq.map(actor => SValue.SParty(actor)))
                       translateValue(choiceTyp, choiceArgument).map(
                         choiceTyp -> SpeedyCommand
-                          .CreateAndExercise(templateId, createValue, choiceId, _, actingParties))
+                          .CreateAndExercise(templateId, createValue, choiceId, _))
                   }
                 }
               )
@@ -443,33 +435,27 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
     cmd match {
       case CreateCommand(templateId, argument) =>
         preprocessCreate(templateId, argument)
-      case ExerciseCommand(templateId, contractId, choiceId, submitter, argument) =>
-        preprocessExercise(
-          templateId,
-          AbsoluteContractId(contractId),
-          choiceId,
-          Set(submitter),
-          argument)
-      case ExerciseByKeyCommand(templateId, contractKey, choiceId, submitter, argument) =>
+      case ExerciseCommand(templateId, contractId, choiceId, argument) =>
+        preprocessExercise(templateId, AbsoluteContractId(contractId), choiceId, argument)
+      case ExerciseByKeyCommand(templateId, contractKey, choiceId, argument) =>
         preprocessExerciseByKey(
           templateId,
           contractKey,
           choiceId,
-          Set(submitter),
           argument
         )
       case CreateAndExerciseCommand(
           templateId,
           createArgument,
           choiceId,
-          choiceArgument,
-          submitter) =>
+          choiceArgument
+          ) =>
         preprocessCreateAndExercise(
           templateId,
           createArgument,
           choiceId,
-          choiceArgument,
-          Set(submitter))
+          choiceArgument
+        )
     }
 
   private[engine] def preprocessCommands(
