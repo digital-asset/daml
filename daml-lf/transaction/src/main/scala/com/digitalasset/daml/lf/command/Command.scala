@@ -65,14 +65,14 @@ final case class CreateAndExerciseCommand(
 
 /** Commands input adapted from ledger-api
   *
-  *  @param submitters the parties jointly authorizing all commands
+  *  @param submitter the party that authorizes all commands
   *  @param commands a batch of commands to be interpreted/executed
   *  @param ledgerEffectiveTime approximate time the commands to be effective,
   *    interpretation will take this instant
   *  @param commandsReference id passed only for error reporting
   */
 case class Commands(
-    submitters: Set[Party],
+    submitter: Party,
     commands: ImmArray[Command],
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String)

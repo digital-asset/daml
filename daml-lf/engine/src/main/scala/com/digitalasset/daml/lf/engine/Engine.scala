@@ -48,7 +48,7 @@ final class Engine {
   private[this] val _commandTranslation = CommandPreprocessor(_compiledPackages)
 
   /**
-    * Executes commands `cmds` under the authority of `cmds.submitters` and returns one of the following:
+    * Executes commands `cmds` under the authority of `cmds.submitter` and returns one of the following:
     * <ul>
     * <li> `ResultDone(tx)` if `cmds` could be successfully executed, where `tx` is the resulting transaction.
     *      The transaction `tx` conforms to the DAML model consisting of the packages that have been supplied via
@@ -68,11 +68,10 @@ final class Engine {
     *
     * This method does NOT perform authorization checks; ResultDone can contain a transaction that's not well-authorized.
     */
-  def submit(cmds: Commands): Result[Transaction.Transaction] = {
+  def submit(cmds: Commands): Result[Transaction.Transaction] =
     _commandTranslation
       .preprocessCommands(cmds)
-      .flatMap(interpret(cmds.submitters, _, cmds.ledgerEffectiveTime))
-  }
+      .flatMap(interpret(Set(cmds.submitter), _, cmds.ledgerEffectiveTime))
 
   /**
     * Behaves like `submit`, but it takes GenNode arguments instead of a Commands argument.
@@ -107,16 +106,13 @@ final class Engine {
     * Check if the given transaction is a valid result of some single-submitter command.
     *
     * Formally, for all tx, pcs, pkgs, keys:
-    *   evaluate(validate(tx, ledgerEffectiveTime)) == ResultDone(())
-    *   <==> exists cmds. evaluate(submit(cmds)) = tx && cmds.submitters.size = 1
+    *   evaluate(validate(tx, ledgerEffectiveTime)) == ResultDone(()) <==> exists cmds. evaluate(submit(cmds)) = tx
     * where:
     *   evaluate(result) = result.consume(pcs, pkgs, keys)
     *
     * A transaction may contain relative contract IDs and still pass validation, but not in the root nodes.
     *
-    * this function will return an error if relative contract ids are mentioned in the root nodes, which is OK since commands
-    * cannot contain relative contract ids, and root nodes come from commands, and you are only supposed to use this
-    * function for transactions coming from a list of commands.
+    * This is enforced since commands cannot contain relative contract ids, and we check that root nodes come from commands.
     *
     *  @param tx a complete unblinded Transaction to be validated
     *  @param ledgerEffectiveTime time when the transaction is claimed to be submitted
@@ -140,10 +136,11 @@ final class Engine {
         case (ResultDone(None), authorizers2) => ResultDone(Some(authorizers2))
         case (ResultDone(Some(authorizers1)), authorizers2) if authorizers1 == authorizers2 =>
           ResultDone(Some(authorizers2))
-        case _ => ResultError(ValidationError(s"Transaction roots have different authorizers: $tx"))
+        case _ =>
+          ResultError(ValidationError(s"Transaction's roots have different authorizers: $tx"))
       }
 
-      _ <- if (submittersOpt.isDefined && submittersOpt.get.size != 1)
+      _ <- if (submittersOpt.exists(_.size != 1))
         ResultError(ValidationError(s"Transaction's roots do not have exactly one authorizer: $tx"))
       else ResultDone(())
 
@@ -260,6 +257,11 @@ final class Engine {
     interpretLoop(machine, time)
   }
 
+  /** Interprets the given expression under the authority of @submitters
+    *
+    * Submitters are a set, in order to support interpreting subtransactions (a subtransaciton can be authorized
+    * by multiple parties).
+    */
   private[engine] def interpret(
       submitters: Set[Party],
       expr: Expr,
@@ -273,6 +275,11 @@ final class Engine {
     interpretLoop(machine, time)
   }
 
+  /** Interprets the given commands under the authority of @submitters
+    *
+    * Submitters are a set, in order to support interpreting subtransactions (a subtransaciton can be authorized
+    * by multiple parties).
+    */
   private[engine] def interpret(
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],

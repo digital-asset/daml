@@ -310,7 +310,7 @@ class SemanticTester(
                   currentTime <- ledger.currentTime
                   events <- ledger.submit(
                     submitterName,
-                    Commands(Set(submitterName), ImmArray(cmd), currentTime, reference),
+                    Commands(submitterName, ImmArray(cmd), currentTime, reference),
                     opDescription = s"scenario ${scenario} step ${stepId} node ${nodeId}")
                 } yield
                   checkEvents(
@@ -466,8 +466,8 @@ object SemanticTester {
     override def submit(submitterName: Party, cmds: Commands, opDescription: String)
       : Future[Events[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]] = Future {
       assert(
-        cmds.submitters == Set(submitterName),
-        s"submitter and the commands submitter don't match: $submitterName, ${cmds.submitters}")
+        cmds.submitter == submitterName,
+        s"submitter and the commands submitter don't match: $submitterName, ${cmds.submitter}")
       val tx = consumeResult(cmds.commandsReference, engine.submit(cmds))
       val blindingInfo =
         Blinding

@@ -67,7 +67,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
         ledgerEffectiveTime,
         TimestampConversion.toInstant(mrt),
         Commands(
-          Set(submitter),
+          submitter,
           ImmArray(validatedCommands),
           ledgerEffectiveTimestamp,
           workflowId.fold("")(_.unwrap)),
