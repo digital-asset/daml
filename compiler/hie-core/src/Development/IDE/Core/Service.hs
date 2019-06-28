@@ -83,17 +83,12 @@ runActions x acts = do
     _ <- shakeRun x acts (signalBarrier var)
     waitBarrier var
 
--- | This is a synchronous variant of `runAction`. See
--- `runActionsSync` of more details.
-runActionSync :: IdeState -> Action a -> IO a
-runActionSync s a = head <$> runActionsSync s [a]
-
--- | `runActionsSync` is similar to `runActions` but it will
+-- | `runActionSync` is similar to `runAction` but it will
 -- wait for all rules (so in particular the `ofInterestRule`) to
 -- finish running. This is mainly useful in tests, where you want
 -- to wait for all rules to fire so you can check diagnostics.
-runActionsSync :: IdeState -> [Action a] -> IO [a]
-runActionsSync s acts = join $ shakeRun s acts (const $ pure ())
+runActionSync :: IdeState -> Action a -> IO a
+runActionSync s act = fmap head $ join $ shakeRun s [act] (const $ pure ())
 
 getIdeOptions :: Action IdeOptions
 getIdeOptions = do
