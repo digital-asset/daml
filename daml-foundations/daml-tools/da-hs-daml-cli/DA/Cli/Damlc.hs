@@ -270,14 +270,14 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
             Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
             Daml.LanguageServer.runLanguageServer
-                (getIdeState opts mbScenarioService loggerH)
+                (getDamlIdeState opts mbScenarioService loggerH)
 
 execCompile :: FilePath -> FilePath -> Options -> Command
 execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
     loggerH <- getLogger opts "compile"
     inputFile <- toNormalizedFilePath <$> relativize inputFile
     opts' <- mkOptions opts
-    withIdeState opts' loggerH diagnosticsLogger $ \ide -> do
+    withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
         setFilesOfInterest ide (Set.singleton inputFile)
         res <- runAction ide $ getDalf inputFile
         case res of
@@ -400,7 +400,7 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pVersion
                     pExposedModules
                     pDependencies
-        withIdeState opts loggerH diagnosticsLogger $ \compilerH -> do
+        withDamlIdeState opts loggerH diagnosticsLogger $ \compilerH -> do
             mbDar <-
                 buildDar
                     compilerH
@@ -487,7 +487,7 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
     loggerH <- getLogger opts "package"
     filePath <- relativize filePath
     opts' <- mkOptions opts
-    withIdeState opts' loggerH diagnosticsLogger $ \ide -> do
+    withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
         let path = toNormalizedFilePath filePath
         -- We leave the sdk version blank and the list of exposed modules empty.
         -- This command is being removed anytime now and not present

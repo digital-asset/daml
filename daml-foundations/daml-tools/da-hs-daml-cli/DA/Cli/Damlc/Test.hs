@@ -45,7 +45,7 @@ execTest :: [NormalizedFilePath] -> UseColor -> Maybe FilePath -> Options -> IO 
 execTest inFiles color mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
     opts <- mkOptions cliOptions
-    withIdeState opts loggerH diagnosticsLogger $ \h -> do
+    withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
         let lfVersion = optDamlLfVersion cliOptions
         testRun h inFiles lfVersion color mbJUnitOutput
         -- Run synchronously at the end to make sure that all gRPC requests

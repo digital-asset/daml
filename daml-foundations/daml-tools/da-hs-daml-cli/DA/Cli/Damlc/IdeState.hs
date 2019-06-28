@@ -3,8 +3,8 @@
 
 module DA.Cli.Damlc.IdeState
     ( IdeState
-    , getIdeState
-    , withIdeState
+    , getDamlIdeState
+    , withDamlIdeState
     ) where
 
 import qualified Language.Haskell.LSP.Messages as LSP
@@ -17,14 +17,14 @@ import qualified Development.IDE.Core.Shake as Shake
 import Development.IDE.State.API
 import qualified Development.IDE.Types.Logger as IdeLogger
 
-getIdeState
+getDamlIdeState
     :: Options
     -> Maybe Scenario.Handle
     -> Logger.Handle IO
     -> (LSP.FromServerMessage -> IO ())
     -> VFSHandle
     -> IO IdeState
-getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
+getDamlIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
     -- Load the packages from the package database for the scenario service. We swallow errors here
     -- but shake will report them when typechecking anything.
     (_diags, pkgMap) <- generatePackageMap (optPackageDbs compilerOpts)
@@ -35,16 +35,16 @@ getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
 
 -- Wrapper for the common case where the scenario service will be started automatically (if enabled)
 -- and we use the builtin VFSHandle.
-withIdeState
+withDamlIdeState
     :: Options
     -> Logger.Handle IO
     -> (LSP.FromServerMessage -> IO ())
     -> (IdeState -> IO a)
     -> IO a
-withIdeState compilerOpts loggerH eventHandler f =
+withDamlIdeState compilerOpts loggerH eventHandler f =
     Scenario.withScenarioService' (optScenarioService compilerOpts) loggerH $ \mbScenarioService -> do
         vfs <- makeVFSHandle
-        ideState <- getIdeState compilerOpts mbScenarioService loggerH eventHandler vfs
+        ideState <- getDamlIdeState compilerOpts mbScenarioService loggerH eventHandler vfs
         f ideState
 
 -- | Adapter to the IDE logger module.

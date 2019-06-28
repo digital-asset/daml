@@ -5,7 +5,6 @@
 
 module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc, cmdRenderDoc) where
 
-import           DA.Cli.Damlc.Base(Command)
 import           DA.Cli.Options
 import           DA.Daml.GHC.Damldoc.Driver
 import Development.IDE.Types.Location
@@ -15,14 +14,14 @@ import Data.Maybe
 
 ------------------------------------------------------------
 
-cmdDamlDoc :: Mod CommandFields Command
+cmdDamlDoc :: Mod CommandFields (IO ())
 cmdDamlDoc = command "docs" $
              info (helper <*> (exec <$> documentation InputDaml)) $
              progDesc "Generate documentation for the given DAML program."
              <> fullDesc
 
 
-cmdRenderDoc :: Mod CommandFields Command
+cmdRenderDoc :: Mod CommandFields (IO ())
 cmdRenderDoc = command "render-doc-json" $
                info (helper <*> (exec <$> documentation InputJson)) $
                progDesc "Render documentation data from the given json file."
@@ -123,7 +122,7 @@ data CmdArgs = Damldoc { cInputFormat :: InputFormat
                        }
              deriving (Eq, Show, Read)
 
-exec :: CmdArgs -> Command
+exec :: CmdArgs -> IO ()
 exec Damldoc{..} = damlDocDriver cInputFormat cOutput cFormat cPrefix options (map toNormalizedFilePath cMainFiles)
   where options =
           [ IncludeModules cIncludeMods | not $ null cIncludeMods] <>
