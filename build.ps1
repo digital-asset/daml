@@ -34,8 +34,4 @@ bazel build `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/build_execution
 
 bazel shutdown
 
-bazel run //daml-foundations/daml-tools/da-hs-damlc-app `-`- `-h
-
-bazel shutdown
-
 bazel test `-`-experimental_execution_log_file ${ARTIFACT_DIRS}/test_execution_windows.log //...
