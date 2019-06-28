@@ -9,7 +9,6 @@ module Development.IDE.Types.Logger
   ( Priority(..)
   , Logger(..)
   , logError, logWarning, logInfo, logDebug
-  , makeOneLogger
   , noLogging
   ) where
 
@@ -49,6 +48,3 @@ logDebug x = logPriority x Debug
 
 noLogging :: Logger
 noLogging = Logger $ \_ _ -> return ()
-
-makeOneLogger :: (T.Text -> IO ()) -> Logger
-makeOneLogger = Logger . const
