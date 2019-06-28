@@ -6,6 +6,16 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-9:
+
+0.13.9 - 2019-06-28
+-------------------
+
+DAML Studio
+~~~~~~~~~~~
+
+- Fix an error in the ``package.json`` that stopped the extension from being loaded.
+
 .. _release-0-13-8:
 
 0.13.8 - 2019-06-27
