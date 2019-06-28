@@ -19,12 +19,14 @@ module Development.IDE.Core.Service(
     ) where
 
 import           Control.Concurrent.Extra
+import           Control.Concurrent.Async
 import           Control.Monad.Except
 import Development.IDE.Types.Options (IdeOptions(..))
 import           Development.IDE.Core.FileStore
 import           Development.IDE.Core.OfInterest
 import Development.IDE.Types.Logger
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
+import Data.Either.Extra
 import qualified Language.Haskell.LSP.Messages as LSP
 
 import           Development.IDE.Core.Shake
@@ -68,20 +70,17 @@ setProfiling opts shakeOpts =
 shutdown :: IdeState -> IO ()
 shutdown = shakeShut
 
--- | Run a single action using the supplied service. See `runActions`
--- for more details.
-runAction :: IdeState -> Action a -> IO a
-runAction service action = head <$> runActions service [action]
-
--- | Run a list of actions in parallel using the supplied service.
--- This will return as soon as the results of the actions are
+-- This will return as soon as the result of the action is
 -- available.  There might still be other rules running at this point,
 -- e.g., the ofInterestRule.
-runActions :: IdeState -> [Action a] -> IO [a]
-runActions x acts = do
-    var <- newBarrier
-    _ <- shakeRun x acts (signalBarrier var)
-    waitBarrier var
+runAction :: IdeState -> Action a -> IO a
+runAction ide action = do
+    bar <- newBarrier
+    res <- shakeRun ide [do v <- action; liftIO $ signalBarrier bar v; return v] (const $ pure ())
+    -- shakeRun might throw an exception, in which case res will finish first
+    -- killing res only kills waiting for the var, it doesn't kill the actual work
+    fmap fromEither $ race (head <$> res) $ waitBarrier bar
+
 
 -- | `runActionSync` is similar to `runAction` but it will
 -- wait for all rules (so in particular the `ofInterestRule`) to
