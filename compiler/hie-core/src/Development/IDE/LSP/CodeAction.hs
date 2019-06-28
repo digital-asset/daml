@@ -25,7 +25,7 @@ codeAction
     :: IdeState
     -> CodeActionParams
     -> IO (List CAResult)
-codeAction ide arg@CodeActionParams{_textDocument=TextDocumentIdentifier uri,_context=CodeActionContext{_diagnostics=List xs}} = do
+codeAction _ CodeActionParams{_textDocument=TextDocumentIdentifier uri,_context=CodeActionContext{_diagnostics=List xs}} = do
     -- disable logging as its quite verbose
     -- logInfo (ideLogger ide) $ T.pack $ "Code action req: " ++ show arg
     pure $ List
@@ -38,7 +38,7 @@ suggestAction uri Diagnostic{..}
     | "The import of " `T.isInfixOf` _message
     , " is redundant" `T.isInfixOf` _message
     = [("Remove import", WorkspaceEdit (Just $ Map.singleton uri $ List [TextEdit _range ""]) Nothing)]
-
+suggestAction _ _ = []
 
 setHandlersCodeAction :: PartialHandlers
 setHandlersCodeAction = PartialHandlers $ \WithMessage{..} x -> return x{
