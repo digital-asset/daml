@@ -55,10 +55,6 @@ data Handle m = Handle
       -- with the call trace as constructed with tagAction, and with
       -- the handle contexts constructed with tagHandle.
 
-    , tagAction :: !(forall a. T.Text -> m a -> m a)
-      -- ^ @tagAction handle tag action@ tags all log messages on @handle@
-      -- of @action@ with @tag@. Tagging can be nested.
-
     , tagHandle :: !(T.Text -> Handle m)
       -- ^ @tagHandle handle tag@ creates a sub-handle with the
       -- added @tag@.
