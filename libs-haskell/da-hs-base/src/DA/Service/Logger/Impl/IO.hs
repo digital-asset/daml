@@ -78,7 +78,7 @@ ioLogJson ih threshold prio msg =
     when (prio >= threshold) $
     withMVar (ihOutputLock ih) $
     \_ -> do
-        tags <- return []
+        let tags = []
         now <- getCurrentTime
         let outH = ihOutputH ih
         System.IO.hPutStrLn outH
