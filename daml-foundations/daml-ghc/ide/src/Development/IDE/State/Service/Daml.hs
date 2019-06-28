@@ -95,7 +95,7 @@ modifyOpenVirtualResources state f = do
     DamlEnv{..} <- getIdeGlobalState state
     vrs <- modifyVar envOpenVirtualResources $ pure . dupe . f
     logDebug (ideLogger state) $ "Set vrs of interest to: " <> T.pack (show $ Set.toList vrs)
-    void $ shakeRun state [] (const $ pure ())
+    void $ shakeRun state []
 
 initialise
     :: Rules ()

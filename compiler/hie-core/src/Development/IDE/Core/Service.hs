@@ -76,7 +76,7 @@ shutdown = shakeShut
 runAction :: IdeState -> Action a -> IO a
 runAction ide action = do
     bar <- newBarrier
-    res <- shakeRun ide [do v <- action; liftIO $ signalBarrier bar v; return v] (const $ pure ())
+    res <- shakeRun ide [do v <- action; liftIO $ signalBarrier bar v; return v]
     -- shakeRun might throw an exception, in which case res will finish first
     -- killing res only kills waiting for the var, it doesn't kill the actual work
     fmap fromEither $ race (head <$> res) $ waitBarrier bar
@@ -87,7 +87,7 @@ runAction ide action = do
 -- finish running. This is mainly useful in tests, where you want
 -- to wait for all rules to fire so you can check diagnostics.
 runActionSync :: IdeState -> Action a -> IO a
-runActionSync s act = fmap head $ join $ shakeRun s [act] (const $ pure ())
+runActionSync s act = fmap head $ join $ shakeRun s [act]
 
 getIdeOptions :: Action IdeOptions
 getIdeOptions = do
