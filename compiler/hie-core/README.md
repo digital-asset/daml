@@ -1,6 +1,7 @@
-<p style="text-align: left;"> <font size="7"><code>hie-core</code></font> <big><i>(Haskell IDE Engine)</i></big></p>
+# `hie-core` (Haskell IDE engine)
 
 Our vision is that you should build an IDE by combining:
+
 
 <img style="float:right;" src="img/vscode2.png"/>
 
