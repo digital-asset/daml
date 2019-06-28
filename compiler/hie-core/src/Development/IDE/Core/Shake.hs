@@ -32,7 +32,7 @@ module Development.IDE.Core.Shake(
     use_, uses_,
     define, defineEarlyCutoff,
     getDiagnostics, unsafeClearDiagnostics,
-    reportSeriousError,
+    reportInternalError,
     IsIdeGlobal, addIdeGlobal, getIdeGlobalState, getIdeGlobalAction,
     garbageCollect,
     setPriority,
@@ -307,8 +307,8 @@ uses_ key files = do
         Nothing -> liftIO $ throwIO BadDependency
         Just v -> return v
 
-reportSeriousError :: String -> Action ()
-reportSeriousError t = do
+reportInternalError :: String -> Action ()
+reportInternalError t = do
     ShakeExtras{logger} <- getShakeExtras
     liftIO $ logSeriousError logger $ T.pack t
 

@@ -226,8 +226,7 @@ generatePackageMapRule opts =
         (errs, res) <-
             liftIO $ generatePackageMap (optPackageDbs opts)
         when (errs /= []) $
-            reportSeriousError $
-            "Rule GeneratePackageMap generated errors " ++ show errs
+            reportInternalError $ "Rule GeneratePackageMap generated errors " ++ show errs
         return res
 
 generatePackageRule :: Rules ()
