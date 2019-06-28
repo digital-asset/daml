@@ -47,5 +47,5 @@ suggestAction _ = []
 
 setHandlersCodeAction :: PartialHandlers
 setHandlersCodeAction = PartialHandlers $ \WithMessage{..} x -> return x{
-    LSP.codeActionHandler = withResponse RspCodeAction codeAction
+    LSP.codeActionHandler = withResponse RspCodeAction $ const codeAction
     }
