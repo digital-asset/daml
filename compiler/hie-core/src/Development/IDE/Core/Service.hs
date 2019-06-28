@@ -11,8 +11,8 @@
 module Development.IDE.Core.Service(
     getIdeOptions,
     IdeState, initialise, shutdown,
-    runAction, runActions,
-    runActionSync, runActionsSync,
+    runAction,
+    runActionSync,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
     ideLogger
