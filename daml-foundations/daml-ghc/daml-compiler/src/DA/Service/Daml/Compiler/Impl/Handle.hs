@@ -14,7 +14,6 @@ module DA.Service.Daml.Compiler.Impl.Handle
   , modifyOpenVirtualResources
   , getAssociatedVirtualResources
   , toIdeLogger
-  , parseFile
   , UseDalf(..)
   , buildDar
   , getDalfDependencies
@@ -36,7 +35,6 @@ import DA.Daml.GHC.Compiler.Convert (sourceLocToRange)
 import DA.Daml.GHC.Compiler.Options
 import Development.IDE.Core.Service.Daml
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as Scenario
-import "ghc-lib" GHC (ParsedModule)
 
 -- DAML compiler and infrastructure
 import qualified DA.Daml.LF.Ast                             as LF
@@ -44,7 +42,6 @@ import           DA.Daml.LF.Proto3.Archive                  (encodeArchiveLazy)
 import qualified DA.Service.Logger                          as Logger
 import qualified DA.Service.Daml.Compiler.Impl.Dar          as Dar
 
-import           Control.Monad.Trans.Except              as Ex
 import Control.Monad.Trans.Maybe
 import           Control.Monad.Except              as Ex
 import           Control.Monad.IO.Class                     (liftIO)
@@ -59,7 +56,6 @@ import Development.IDE.State.API
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.RuleTypes.Daml
 import qualified Development.IDE.Core.Shake as Shake
-import           Development.IDE.Types.Diagnostics as Base
 import qualified Language.Haskell.LSP.Messages as LSP
 import Development.IDE.Types.Location as Base
 import           System.FilePath
@@ -129,16 +125,6 @@ getAssociatedVirtualResources service filePath = do
             ]
 
 
--- | Parse the supplied file to a ghc ParsedModule.
-parseFile
-    :: IdeState
-    -> NormalizedFilePath
-    -> ExceptT [FileDiagnostic] IO ParsedModule
-parseFile service fp = do
-    liftIO $ setFilesOfInterest service (S.singleton fp)
-    liftIO $ IdeLogger.logDebug (ideLogger service) $ "Parsing: " <> T.pack (fromNormalizedFilePath fp)
-    actionToExceptT service (getParsedModule fp)
-
 newtype UseDalf = UseDalf{unUseDalf :: Bool}
 
 buildDar ::
@@ -154,14 +140,14 @@ buildDar ::
   -- pass "PackageConfigFields" to this function and construct the data
   -- files in here.
   -> UseDalf
-  -> ExceptT [FileDiagnostic] IO BS.ByteString
+  -> IO (Maybe BS.ByteString)
 buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInput = do
   let file' = fromNormalizedFilePath file
   liftIO $
     IdeLogger.logDebug (ideLogger service) $
     "Creating dar: " <> T.pack file'
   if unUseDalf dalfInput
-    then liftIO $ do
+    then liftIO $ Just <$> do
       bytes <- BSL.readFile file'
       Dar.buildDar
         bytes
@@ -171,7 +157,7 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
         []
         pkgName
         sdkVersion
-    else actionToExceptT service $ runMaybeT $ do
+    else runAction service $ runMaybeT $ do
       pkg <- useE GeneratePackage file
       let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
       let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
@@ -197,14 +183,3 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
           (buildDataFiles pkg)
           pkgName
           sdkVersion
-
--- | Run an action with the given state and lift the result into an ExceptT
--- using the diagnostics from `getDiagnostics` in the `Nothing` case.
-actionToExceptT :: IdeState -> Action (Maybe a) -> ExceptT [FileDiagnostic] IO a
-actionToExceptT service act = do
-    mbA <- lift (runAction service act)
-    case mbA of
-        Nothing -> do
-            diag <- liftIO $ getDiagnostics service
-            throwE diag
-        Just a -> pure a
