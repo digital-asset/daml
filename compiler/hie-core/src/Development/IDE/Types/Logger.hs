@@ -12,20 +12,19 @@ module Development.IDE.Types.Logger
   ) where
 
 import qualified Data.Text as T
-import GHC.Stack
 
 -- | Note that this is logging actions _of the program_, not of the user.
 --   You shouldn't call warning/error if the user has caused an error, only
 --   if our code has gone wrong and is itself erroneous (e.g. we threw an exception).
 data Logger = Logger {
-      logError :: HasCallStack => T.Text -> IO ()
-    , logWarning :: HasCallStack => T.Text -> IO ()
-    , logInfo :: HasCallStack => T.Text -> IO ()
-    , logDebug :: HasCallStack => T.Text -> IO ()
+      logError :: T.Text -> IO ()
+    , logInfo :: T.Text -> IO ()
+    , logDebug :: T.Text -> IO ()
+    , logWarning :: T.Text -> IO ()
     }
 
 makeNopLogger :: Logger
 makeNopLogger = makeOneLogger $ const $ pure ()
 
-makeOneLogger :: (HasCallStack => T.Text -> IO ()) -> Logger
+makeOneLogger :: (T.Text -> IO ()) -> Logger
 makeOneLogger x = Logger x x x x
