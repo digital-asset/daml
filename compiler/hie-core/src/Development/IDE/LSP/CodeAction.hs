@@ -11,9 +11,7 @@ module Development.IDE.LSP.CodeAction
 
 import           Language.Haskell.LSP.Types
 
-import Development.IDE.Types.Logger
 import Development.IDE.Core.Rules
-import Development.IDE.Core.Service
 import Development.IDE.LSP.Server
 import qualified Data.HashMap.Strict as Map
 import qualified Language.Haskell.LSP.Core as LSP
@@ -27,8 +25,9 @@ codeAction
     :: IdeState
     -> CodeActionParams
     -> IO (List CAResult)
-codeAction ide arg@(CodeActionParams{_textDocument=TextDocumentIdentifier uri,_context=CodeActionContext{_diagnostics=List xs}}) = do
-    logWarning (ideLogger ide) $ T.pack $ "Code action: " ++ show arg
+codeAction ide arg@CodeActionParams{_textDocument=TextDocumentIdentifier uri,_context=CodeActionContext{_diagnostics=List xs}} = do
+    -- disable logging as its quite verbose
+    -- logInfo (ideLogger ide) $ T.pack $ "Code action req: " ++ show arg
     pure $ List
         [ CACodeAction $ CodeAction title (Just CodeActionQuickFix) (Just $ List [x]) (Just edit) Nothing
         | x <- xs, (title, edit) <- suggestAction uri x]
