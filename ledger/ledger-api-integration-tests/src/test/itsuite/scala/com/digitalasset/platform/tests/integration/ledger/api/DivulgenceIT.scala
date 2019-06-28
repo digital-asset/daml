@@ -3,8 +3,6 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import java.util.UUID
-
 import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString}
@@ -26,7 +24,12 @@ import com.digitalasset.ledger.api.v1.ledger_offset._
 import com.digitalasset.ledger.api.v1.transaction_filter._
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.apitesting.{
+  LedgerContext,
+  MultiLedgerFixture,
+  TestIdsGenerator,
+  TestTemplateIds
+}
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.Inside.inside
@@ -50,6 +53,7 @@ class DivulgenceIT
 
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
   private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
@@ -157,12 +161,10 @@ class DivulgenceIT
   // but that it is visible in the transaction trees.
   case class Setup(div1Cid: String, div2Cid: String)
 
-  private val runSuffix: UUID = UUID.randomUUID
-
   private def createDivulgence1(ctx: LedgerContext, workflowId: String): Future[ContractIdString] =
     create(
       ctx,
-      s"create-Divulgence1-$runSuffix",
+      testIdsGenerator.testCommandId("create-Divulgence1"),
       workflowId,
       "alice",
       templateIds.divulgence1,
@@ -172,7 +174,7 @@ class DivulgenceIT
   private def createDivulgence2(ctx: LedgerContext, workflowId: String): Future[ContractIdString] =
     create(
       ctx,
-      s"create-Divulgence2-$runSuffix",
+      testIdsGenerator.testCommandId("create-Divulgence2"),
       workflowId,
       "bob",
       templateIds.divulgence2,
@@ -190,7 +192,7 @@ class DivulgenceIT
       workflowId: String): Future[Unit] =
     exercise(
       ctx,
-      s"exercise-Divulgence2Fetch-$runSuffix",
+      testIdsGenerator.testCommandId("exercise-Divulgence2Fetch"),
       workflowId,
       "alice",
       templateIds.divulgence2,
@@ -208,7 +210,7 @@ class DivulgenceIT
       workflowId: String): Future[Unit] =
     exercise(
       ctx,
-      s"exercise-Divulgence2Fetch-$runSuffix",
+      testIdsGenerator.testCommandId("exercise-Divulgence2Fetch"),
       workflowId,
       "alice",
       templateIds.divulgence2,
@@ -228,7 +230,7 @@ class DivulgenceIT
     Map("alice" -> Filters.defaultInstance, "bob" -> Filters.defaultInstance))
 
   "should not expose divulged contracts in flat stream" in allFixtures { ctx =>
-    val wfid = s"divulgence-test-workflow-id-$runSuffix"
+    val wfid = testIdsGenerator.testWorkflowId("divulgence-test-workflow-id")
     for {
       beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       div1Cid <- createDivulgence1(ctx, wfid)
@@ -321,7 +323,7 @@ class DivulgenceIT
   }
 
   "should not expose divulged contracts in ACS" in allFixtures { ctx =>
-    val wfid = s"divulgence-test-workflow-id-$runSuffix"
+    val wfid = testIdsGenerator.testWorkflowId("divulgence-test-workflow-id")
     for {
       beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       div1Cid <- createDivulgence1(ctx, wfid)
