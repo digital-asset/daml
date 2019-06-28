@@ -213,7 +213,7 @@ getDiagnostics :: ShakeTest [D.FileDiagnostic]
 getDiagnostics = ShakeTest $ do
     service <- Reader.asks steService
     liftIO $ do
-        void $ API.runActionsSync service []
+        void $ API.runActionSync service $ return ()
         API.getDiagnostics service
 
 -- | Everything that rebuilt in the last execution must pass the predicate
