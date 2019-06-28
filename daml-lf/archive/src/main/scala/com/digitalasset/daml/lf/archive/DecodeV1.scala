@@ -123,7 +123,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
           case PLF.DefDataType.DataConsCase.VARIANT =>
             DataVariant(decodeFields(ImmArray(lfDataType.getVariant.getFieldsList.asScala)))
           case PLF.DefDataType.DataConsCase.ENUM =>
-            assertSince("dev", "DefDataType.DataCons")
+            assertSince(enumVersion, "DefDataType.DataCons.Enum")
             assertEmpty(params.toSeq, "params")
             DataEnum(decodeEnumCons(ImmArray(lfDataType.getEnum.getConstructorsList.asScala)))
           case PLF.DefDataType.DataConsCase.DATACONS_NOT_SET =>
@@ -394,7 +394,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
             decodeExpr(varCon.getVariantArg))
 
         case PLF.Expr.SumCase.ENUM_CON =>
-          assertSince("dev", "Expr.SumCase.ENUM_CON")
+          assertSince(enumVersion, "Expr.SumCase.ENUM_CON")
           val enumCon = lfExpr.getEnumCon
           EEnumCon(
             decodeTypeConName(enumCon.getTycon),
@@ -502,7 +502,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
             name(variant.getVariant),
             name(variant.getBinder))
         case PLF.CaseAlt.SumCase.ENUM =>
-          assertSince("dev", "CaseAlt.Enum")
+          assertSince(enumVersion, "CaseAlt.Enum")
           val enum = lfCaseAlt.getEnum
           CPEnum(decodeTypeConName(enum.getCon), name(enum.getConstructor))
         case PLF.CaseAlt.SumCase.PRIM_CON =>
@@ -705,6 +705,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
 private[lf] object DecodeV1 {
   import LanguageMinorVersion.Implicits._
 
+  private[archive] val enumVersion: LanguageMinorVersion = "dev"
   private[archive] val internedIdsVersion: LanguageMinorVersion = "dev"
 
   private[lf] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
