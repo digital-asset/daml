@@ -4,8 +4,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module DA.Service.Logger.Impl.IO
-    ( newStdoutLogger
-    , newStderrLogger
+    ( newStderrLogger
     , newIOLogger
     ) where
 
@@ -29,10 +28,6 @@ import qualified System.IO
 ------------------------------------------------------------------------------
 -- IO Logger implementation
 ------------------------------------------------------------------------------
-
--- | Create a simple logger that outputs messages to 'stdout'.
-newStdoutLogger :: T.Text -> IO (Handle IO)
-newStdoutLogger = newIOLogger System.IO.stdout Nothing Debug
 
 -- | Create a simple logger that outputs messages to 'stderr'.
 newStderrLogger :: Priority -> T.Text -> IO (Handle IO)
