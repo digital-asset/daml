@@ -310,7 +310,7 @@ uses_ key files = do
 reportInternalError :: String -> Action ()
 reportInternalError t = do
     ShakeExtras{logger} <- getShakeExtras
-    liftIO $ logSeriousError logger $ T.pack t
+    liftIO $ logError logger $ T.pack t
 
 
 -- | When we depend on something that reported an error, and we fail as a direct result, throw BadDependency
