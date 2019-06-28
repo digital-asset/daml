@@ -705,8 +705,8 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
 private[lf] object DecodeV1 {
   import LanguageMinorVersion.Implicits._
 
-  private[archive] val enumVersion: LanguageMinorVersion = "dev"
-  private[archive] val internedIdsVersion: LanguageMinorVersion = "dev"
+  private[archive] val enumVersion: LanguageMinorVersion = "6"
+  private[archive] val internedIdsVersion: LanguageMinorVersion = "6"
 
   private[lf] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
     import PLF.PrimType._
@@ -783,11 +783,11 @@ private[lf] object DecodeV1 {
       TO_TEXT_PARTY -> (BToTextParty -> "2"),
       TO_TEXT_TEXT -> (BToTextText -> "0"),
       TO_QUOTED_TEXT_PARTY -> (BToQuotedTextParty -> "0"),
-      TEXT_FROM_CODE_POINTS -> (BToTextCodePoints -> "dev"),
+      TEXT_FROM_CODE_POINTS -> (BToTextCodePoints -> "6"),
       FROM_TEXT_PARTY -> (BFromTextParty -> "2"),
       FROM_TEXT_INT64 -> (BFromTextInt64 -> "5"),
       FROM_TEXT_DECIMAL -> (BFromTextDecimal -> "5"),
-      TEXT_TO_CODE_POINTS -> (BFromTextCodePoints -> "dev"),
+      TEXT_TO_CODE_POINTS -> (BFromTextCodePoints -> "6"),
       SHA256_TEXT -> (BSHA256Text -> "2"),
       DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> "0"),
       EXPLODE_TEXT -> (BExplodeText -> "0"),

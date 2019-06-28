@@ -14,8 +14,11 @@ lf_targets_with_deps = {
     "1.0": [],
     "1.1": ["1.0"],
     "1.3": ["1.1"],
-    "1.dev": ["1.3"],
+    "1.6": ["1.3"],
+    "1.dev": ["1.6"]
 }
+
+lf_latest = "1.6"
 
 lf_targets = lf_targets_with_deps.keys()
 
@@ -109,3 +112,13 @@ da_scala_binary(
     )
     for target in lf_targets
 ]
+
+filegroup(
+    name = "testing-dar-latest",
+    srcs = [":testing-dar-%s" % lf_latest],
+    visibility = [
+        "//daml-lf:__subpackages__",
+        "//extractor:__subpackages__",
+        "//language-support:__subpackages__",
+    ],
+)

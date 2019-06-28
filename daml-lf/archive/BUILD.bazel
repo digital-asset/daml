@@ -140,7 +140,7 @@ daml_compile(
 daml_compile(
     name = "DarReaderTest-dev",
     main_src = "src/test/daml/DarReaderTest.daml",
-    target = "1.dev",
+    target = "1.6",
 )
 
 filegroup(
