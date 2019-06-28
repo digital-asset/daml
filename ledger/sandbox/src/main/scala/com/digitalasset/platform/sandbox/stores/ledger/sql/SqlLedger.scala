@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
+import java.util.UUID
 
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
@@ -347,9 +348,12 @@ private class SqlLedger(
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] =
-    ledgerDao.uploadLfPackages(payload.map(archive =>
-      (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription))))
+      payload: List[Archive]): Future[UploadPackagesResult] = {
+    val submissionId = UUID.randomUUID().toString
+    val packages = payload.map(archive =>
+      (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
+    ledgerDao.uploadLfPackages(submissionId, packages)
+  }
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao) {
@@ -485,15 +489,17 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
   }
 
   private def copyPackages(store: InMemoryPackageStore, knownSince: Instant): Future[Unit] = {
-    val packages = store.listLfPackagesSync()
-    if (packages.nonEmpty) {
-      logger.info(s"Copying initial packages ${packages.keys.mkString(",")}")
+    val packageDetails = store.listLfPackagesSync()
+    if (packageDetails.nonEmpty) {
+      logger.info(s"Copying initial packages ${packageDetails.keys.mkString(",")}")
+      val submissionId = UUID.randomUUID().toString
+      val packages = packageDetails.toList.map(pkg => {
+        val archive =
+          store.getLfArchiveSync(pkg._1).getOrElse(sys.error(s"Package ${pkg._1} not found"))
+        archive -> PackageDetails(archive.getPayload.size.toLong, knownSince, None)
+      })
       ledgerDao
-        .uploadLfPackages(packages.toList.map(pkg => {
-          val archive =
-            store.getLfArchiveSync(pkg._1).getOrElse(sys.error(s"Package ${pkg._1} not found"))
-          archive -> PackageDetails(archive.getPayload.size.toLong, knownSince, None)
-        }))
+        .uploadLfPackages(submissionId, packages)
         .flatMap {
           case UploadPackagesResult.Ok => Future.successful(())
           case r @ _ => sys.error("Failed to copy initial packages: " + r.description)

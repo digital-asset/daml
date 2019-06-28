@@ -204,11 +204,17 @@ trait LedgerDao extends AutoCloseable {
   /**
     * Stores a set of DAML-LF packages
     *
+    * @param submissionId A unique identifier for this upload. Can be used to find
+    *   out which packages were uploaded together, in the case of concurrent uploads.
+    *
     * @param packages The DAML-LF archives to upload, including their meta-data.
     *
     * @return
     */
-  def uploadLfPackages(packages: List[(Archive, PackageDetails)]): Future[UploadPackagesResult]
+  def uploadLfPackages(
+      submissionId: String,
+      packages: List[(Archive, PackageDetails)]
+  ): Future[UploadPackagesResult]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

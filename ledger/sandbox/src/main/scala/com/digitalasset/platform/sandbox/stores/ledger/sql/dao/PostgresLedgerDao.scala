@@ -4,7 +4,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 
 import java.io.InputStream
 import java.sql.Connection
-import java.util.{Date, UUID}
+import java.util.Date
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
@@ -1024,10 +1024,10 @@ private class PostgresLedgerDao(
     }
 
   override def uploadLfPackages(
+      submissionId: String,
       packages: List[(Archive, PackageDetails)]): Future[UploadPackagesResult] = {
     dbDispatcher.executeSql { implicit conn =>
       Try {
-        val submissionId = UUID.randomUUID().toString
         val namedPackageParams = packages
           .map(
             p =>
