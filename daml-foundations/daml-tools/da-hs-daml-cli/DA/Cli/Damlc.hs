@@ -46,6 +46,8 @@ import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.Compile
+import Development.IDE.Core.Service (runAction)
+import Development.IDE.Core.Rules.Daml (getDalf)
 import Development.IDE.LSP.Protocol
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
@@ -273,11 +275,16 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
 execCompile :: FilePath -> FilePath -> Compiler.Options -> Command
 execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
     loggerH <- getLogger opts "compile"
-    inputFile <- relativize inputFile
+    inputFile <- toNormalizedFilePath <$> relativize inputFile
     opts' <- Compiler.mkOptions opts
-    Compiler.withIdeState opts' loggerH (const $ pure ()) $ \hDamlGhc -> do
-        errOrDalf <- runExceptT $ Compiler.compileFile hDamlGhc (toNormalizedFilePath inputFile)
-        either (reportErr "DAML-1.2 to LF compilation failed") write errOrDalf
+    Compiler.withIdeState opts' loggerH diagnosticsLogger $ \ide -> do
+        setFilesOfInterest ide (Set.singleton inputFile)
+        res <- runAction ide $ getDalf inputFile
+        case res of
+            Nothing -> do
+                hPutStrLn stderr "ERROR: Compilation failed."
+                exitFailure
+            Just dalf -> write dalf
   where
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs

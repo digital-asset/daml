@@ -13,7 +13,6 @@ module DA.Service.Daml.Compiler.Impl.Handle
   , setOpenVirtualResources
   , modifyOpenVirtualResources
   , getAssociatedVirtualResources
-  , compileFile
   , toIdeLogger
   , parseFile
   , UseDalf(..)
@@ -129,22 +128,6 @@ getAssociatedVirtualResources service filePath = do
             , let vr = VRScenario filePath name
             ]
 
-
--- | Compile the supplied file using the Compiler Service into a DAML LF Package.
--- TODO options and warnings
-compileFile
-    :: IdeState
-    -- -> Options
-    -- -> Bool -- ^ collect and display warnings
-    -> NormalizedFilePath
-    -> ExceptT [FileDiagnostic] IO LF.Package
-compileFile service fp = do
-    -- We need to mark the file we are compiling as a file of interest.
-    -- Otherwise all diagnostics produced during compilation will be garbage
-    -- collected afterwards.
-    liftIO $ setFilesOfInterest service (S.singleton fp)
-    liftIO $ IdeLogger.logDebug (ideLogger service) $ "Compiling: " <> T.pack (fromNormalizedFilePath fp)
-    actionToExceptT service (getDalf fp)
 
 -- | Parse the supplied file to a ghc ParsedModule.
 parseFile

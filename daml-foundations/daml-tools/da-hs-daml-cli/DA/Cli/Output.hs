@@ -5,16 +5,17 @@
 module DA.Cli.Output
   ( writeOutput
   , writeOutputBSL
-  , reportErr
   , printDiagnostics
+  , diagnosticsLogger
   ) where
 
 import qualified Data.ByteString.Lazy                           as BSL
 import           Data.String                                    (IsString)
-import qualified Data.Text as T
 import qualified Data.Text.IO as T
+import Development.IDE.LSP.Protocol
 import Development.IDE.Types.Diagnostics
-import Data.List.Extra
+import Development.IDE.Types.Location
+import Language.Haskell.LSP.Messages
 import           System.IO                                      (Handle, hClose, hPutStr, stdout, openFile, IOMode (WriteMode))
 import           Control.Exception (bracket)
 
@@ -45,17 +46,11 @@ writeOutput = writeOutputWith hPutStr
 writeOutputBSL :: FilePath -> BSL.ByteString -> IO ()
 writeOutputBSL = writeOutputWith BSL.hPutStr
 
-
-reportErr :: String -> [FileDiagnostic] -> IO a
-reportErr msg errs =
-  ioError $
-  userError $
-  unlines
-    [ msg
-    , T.unpack $
-      showDiagnosticsColored $ nubOrd errs
-    ]
-
 printDiagnostics :: [FileDiagnostic] -> IO ()
 printDiagnostics [] = return ()
 printDiagnostics xs = T.putStrLn $ showDiagnosticsColored xs
+
+diagnosticsLogger :: FromServerMessage -> IO ()
+diagnosticsLogger = \case
+    EventFileDiagnostics fp diags -> printDiagnostics $ map (toNormalizedFilePath fp,) diags
+    _ -> pure ()
