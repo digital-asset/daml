@@ -1,9 +1,8 @@
 <p style="text-align: left;"> <font size="7"><code>hie-core</code></font> <big><i>(Haskell IDE Engine)</i></big></p>
-<p align="center">
-  <img src="img/vscode2.png"/>
-</p>
 
 Our vision is that you should build an IDE by combining:
+
+<img style="float:right;" src="img/vscode2.png"/>
 
 * [`hie-bios`](https://github.com/mpickering/hie-bios) for determining where your files are, what are their dependencies, what extensions are enabled and so on;
 * `hie-core` (i.e. this library) for defining how to type check, when to type check, and producing diagnostic messages;
