@@ -122,7 +122,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
     let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
-    service <- API.initialise (mainRule options) (atomically . eventLogger) makeNopLogger options vfs mbScenarioService
+    service <- API.initialise (mainRule options) (atomically . eventLogger) noLogging options vfs mbScenarioService
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service

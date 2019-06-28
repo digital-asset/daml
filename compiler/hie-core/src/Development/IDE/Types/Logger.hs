@@ -10,7 +10,7 @@ module Development.IDE.Types.Logger
   , Logger(..)
   , logError, logWarning, logInfo, logDebug
   , makeOneLogger
-  , makeNopLogger
+  , noLogging
   ) where
 
 import qualified Data.Text as T
@@ -47,8 +47,8 @@ logDebug :: Logger -> T.Text -> IO ()
 logDebug x = logPriority x Debug
 
 
-makeNopLogger :: Logger
-makeNopLogger = Logger $ \_ _ -> return ()
+noLogging :: Logger
+noLogging = Logger $ \_ _ -> return ()
 
 makeOneLogger :: (T.Text -> IO ()) -> Logger
 makeOneLogger = Logger . const
