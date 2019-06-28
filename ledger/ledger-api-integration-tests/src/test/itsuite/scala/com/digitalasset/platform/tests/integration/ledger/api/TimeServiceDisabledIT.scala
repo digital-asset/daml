@@ -21,7 +21,6 @@ import org.scalatest._
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-
 import scalaz.syntax.tag._
 
 @SuppressWarnings(

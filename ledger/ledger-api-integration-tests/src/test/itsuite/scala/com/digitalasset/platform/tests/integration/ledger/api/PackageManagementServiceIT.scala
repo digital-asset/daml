@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml_lf.DamlLf.Archive
 
-import scala.util.{Random, Try}
+import scala.util.Try
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
@@ -24,7 +24,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField}
 import com.digitalasset.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
-import com.digitalasset.platform.apitesting.MultiLedgerFixture
+import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestIdsGenerator}
 import com.digitalasset.platform.participant.util.ValueConversions._
 import io.grpc.Status
 import com.google.protobuf.ByteString
@@ -46,13 +46,11 @@ class PackageManagementServiceIT
     with Matchers
     with BazelRunfiles {
 
-  private val runSuffix = "-" + Random.alphanumeric.take(10).mkString
-  private val partyNameMangler =
-    (partyText: String) => partyText + runSuffix + Random.alphanumeric.take(10).mkString
-  private val commandIdMangler =
-    (testName: String, nodeId: String) => s"ledger-api-test-tool-$testName-$nodeId-$runSuffix"
-
   override protected def config: Config = Config.default.copy(darFiles = Nil)
+  protected val testIdsGenerator = new TestIdsGenerator(config)
+
+  private def commandNodeIdUnifier(testName: String, nodeId: String) =
+    testIdsGenerator.testCommandId(s"ledger-api-test-tool-$testName-$nodeId")
 
   private def packageManagementService(stub: PackageManagementService): PackageManagementClient =
     new PackageManagementClient(stub)
@@ -136,7 +134,7 @@ class PackageManagementServiceIT
   }
 
   "should accept commands using the uploaded package" in allFixtures { ctx =>
-    val party = partyNameMangler("operator")
+    val party = testIdsGenerator.testPartyName("operator")
     val createArg = Record(fields = List(RecordField("operator", party.asParty)))
     def createCmd =
       CreateCommand(Some(Identifier(testPackageId, "", "Test", "Dummy")), Some(createArg)).wrap
@@ -147,7 +145,8 @@ class PackageManagementServiceIT
       _ <- client.uploadDarFile(ByteString.copyFrom(testDarBytes))
       createTx <- ctx.testingHelpers.submitAndListenForSingleResultOfCommand(
         ctx.testingHelpers
-          .submitRequestWithId(commandIdMangler("PackageManagementServiceIT_commands", "create"))
+          .submitRequestWithId(
+            commandNodeIdUnifier("PackageManagementServiceIT_commands", "create"))
           .update(
             _.commands.commands := List(createCmd),
             _.commands.party := party

@@ -756,7 +756,6 @@ import GHC.Show    ( Show(..), showString )
 
 import GHC.CString (fromString)
 import GHC.Integer.Type (fromInteger)
-import Control.Exception.Base
 import DA.Internal.Prelude (Optional(..))
 
 -- | The kind of types with values. For example @Int :: Type@.

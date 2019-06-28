@@ -9,6 +9,7 @@ load(
     "c2hs_toolchain",
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
+load("@os_info//:os_info.bzl", "is_windows")
 
 exports_files([".hlint.yaml"])
 
@@ -153,7 +154,7 @@ alias(
 alias(
     name = "hie-core",
     actual = "//compiler/hie-core:hie-core-exe",
-)
+) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream
 
 alias(
     name = "daml-lf-repl",

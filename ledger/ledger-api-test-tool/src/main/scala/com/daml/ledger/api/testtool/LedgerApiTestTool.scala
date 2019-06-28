@@ -45,6 +45,8 @@ object LedgerApiTestTool {
       .withTimeProvider(TimeProviderType.WallClock)
       .withLedgerIdMode(LedgerIdMode.Dynamic())
       .withCommandSubmissionTtlScaleFactor(toolConfig.commandSubmissionTtlScaleFactor)
+      .withUniquePartyIdentifiers(toolConfig.uniquePartyIdentifiers)
+      .withUniqueCommandIdentifiers(toolConfig.uniqueCommandIdentifiers)
       .withRemoteApiEndpoint(
         RemoteApiEndpoint.default
           .withHost(toolConfig.host)
@@ -127,16 +129,11 @@ object LedgerApiTestTool {
       name =>
         new SandboxSemanticTestsLfRunner {
           override def suiteName: String = name
-
           override def actorSystemName = s"${name}TestToolActorSystem"
-
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-
           override implicit lazy val patienceConfig: PatienceConfig =
             PatienceConfig(Span(60L, Seconds))
-
           override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(semanticTestsResource))
       }

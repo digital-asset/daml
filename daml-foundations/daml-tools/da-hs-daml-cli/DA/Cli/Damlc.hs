@@ -48,8 +48,6 @@ import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.Compile
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Rules.Daml (getDalf)
-import Development.IDE.LSP.Protocol
-import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import GHC.Conc
 import qualified Network.Socket                    as NS
@@ -400,11 +398,8 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pVersion
                     pExposedModules
                     pDependencies
-        let eventLogger (EventFileDiagnostics fp diags) = printDiagnostics $ map (toNormalizedFilePath fp,) diags
-            eventLogger _ = return ()
-        Compiler.withIdeState opts loggerH eventLogger $ \compilerH -> do
-            darOrErr <-
-                runExceptT $
+        Compiler.withIdeState opts loggerH diagnosticsLogger $ \compilerH -> do
+            mbDar <-
                 Compiler.buildDar
                     compilerH
                     (toNormalizedFilePath pMain)
@@ -413,10 +408,11 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pSdkVersion
                     (\pkg -> [confFile pkg])
                     (UseDalf False)
-            case darOrErr of
-                Left _ -> -- Errors already displayed via eventHandler.
-                    ioError $ userError "Creation of DAR file failed"
-                Right dar -> do
+            case mbDar of
+                Nothing -> do
+                    hPutStrLn stderr "ERROR: Creation of DAR file failed."
+                    exitFailure
+                Just dar -> do
                     let fp = targetFilePath pName
                     createDirectoryIfMissing True $ takeDirectory fp
                     B.writeFile fp dar
@@ -489,7 +485,7 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
     loggerH <- getLogger opts "package"
     filePath <- relativize filePath
     opts' <- Compiler.mkOptions opts
-    Compiler.withIdeState opts' loggerH (const $ pure ()) $ buildDar (toNormalizedFilePath filePath)
+    Compiler.withIdeState opts' loggerH diagnosticsLogger $ buildDar (toNormalizedFilePath filePath)
   where
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
@@ -499,14 +495,12 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
         -- We leave the sdk version blank and the list of exposed modules empty.
         -- This command is being removed anytime now and not present
         -- in the new daml assistant.
-        darOrErr <- runExceptT $ Compiler.buildDar compilerH path Nothing name "" (const []) dalfInput
-        case darOrErr of
-          Left errs
-           -> ioError $ userError $ unlines
-                [ "Creation of DAR file failed:"
-                , T.unpack $ showDiagnosticsColored
-                    $ Set.toList $ Set.fromList errs ]
-          Right dar -> do
+        mbDar <- Compiler.buildDar compilerH path Nothing name "" (const []) dalfInput
+        case mbDar of
+          Nothing -> do
+              hPutStrLn stderr "ERROR: Creation of DAR file failed."
+              exitFailure
+          Just dar -> do
             createDirectoryIfMissing True $ takeDirectory targetFilePath
             B.writeFile targetFilePath dar
             putStrLn $ "Created " <> targetFilePath <> "."

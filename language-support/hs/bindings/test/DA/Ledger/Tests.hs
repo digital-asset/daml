@@ -8,6 +8,7 @@ module DA.Ledger.Tests (main) where
 import Control.Concurrent (MVar,newMVar,takeMVar,withMVar)
 import Control.Monad(unless)
 import Control.Monad.IO.Class(liftIO)
+import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchive)
 import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
@@ -16,6 +17,7 @@ import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
 import System.Random (randomIO)
 import System.Time.Extra (timeout)
+import System.FilePath
 import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
 import qualified Codec.Archive.Zip as Zip
@@ -295,9 +297,10 @@ assertTextContains text frag =
 enableSharing :: Bool
 enableSharing = True
 
-specQuickstart :: SandboxSpec
-specQuickstart = SandboxSpec {dar}
-    where dar = "language-support/hs/bindings/quickstart.dar"
+createSpecQuickstart :: IO SandboxSpec
+createSpecQuickstart = do
+    dar <- locateRunfiles (mainWorkspace </> "language-support/hs/bindings/quickstart.dar")
+    return SandboxSpec {dar}
 
 testGroupWithSandbox :: TestName -> [WithSandbox -> TestTree] -> TestTree
 testGroupWithSandbox name tests =
@@ -309,6 +312,7 @@ testGroupWithSandbox name tests =
     else do
         -- runs in it's own freshly (and very slowly!) spun-up sandbox
         let withSandbox' f = do
+                specQuickstart <- createSpecQuickstart
                 pid <- mainPackageId specQuickstart
                 withSandbox specQuickstart $ \sandbox -> f sandbox pid
         testGroup name $ map (\f -> f withSandbox') tests
@@ -330,6 +334,7 @@ data SharedSandbox = SharedSandbox (MVar (Sandbox, PackageId))
 
 acquireShared :: IO SharedSandbox
 acquireShared = do
+    specQuickstart <- createSpecQuickstart
     sandbox <- startSandbox specQuickstart
     pid <- mainPackageId specQuickstart
     mv <- newMVar (sandbox, pid)
