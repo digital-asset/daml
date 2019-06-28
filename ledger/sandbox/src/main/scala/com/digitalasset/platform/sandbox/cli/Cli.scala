@@ -28,22 +28,6 @@ object Cli {
     override val reads: String => Duration = Duration.parse
   }
 
-  private implicit val levelRead: Read[Level] = new Read[Level] {
-    override def arity: Int = 1
-    override val reads: String => Level = (logLevel: String) => {
-      // format: off
-      logLevel match {
-        case "INFO"  | "info"  => Level.INFO
-        case "TRACE" | "trace" => Level.TRACE
-        case "DEBUG" | "debug" => Level.DEBUG
-        case "WARN"  | "warn"  => Level.WARN
-        case "ERROR" | "error" => Level.ERROR
-        case _                 => throw new IllegalArgumentException(s"Unrecognized logging level $logLevel")
-      }
-      // format: on
-    }
-  }
-
   // format: off
   private val cmdArgParser = new scopt.OptionParser[SandboxConfig]("sandbox") {
     head(s"Sandbox version ${BuildInfo.Version}")
@@ -143,9 +127,12 @@ object Cli {
         .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
 
-    opt[Level]("log-level")
+    val knownLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
+
+    opt[String]("log-level")
       .optional()
-      .action((level, c) => c.copy(logLevel = level))
+      .validate(l => Either.cond(knownLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l"))
+      .action((level, c) => c.copy(logLevel = Level.toLevel(level.toUpperCase)))
       .text("Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO.")
 
     opt[Unit]("eager-package-loading")
