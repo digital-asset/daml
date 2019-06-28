@@ -213,7 +213,7 @@ getDiagnostics :: ShakeTest [D.FileDiagnostic]
 getDiagnostics = ShakeTest $ do
     service <- Reader.asks steService
     liftIO $ do
-        void $ API.runActionsSync service []
+        void $ API.runActionSync service $ return ()
         API.getDiagnostics service
 
 -- | Everything that rebuilt in the last execution must pass the predicate
@@ -223,7 +223,7 @@ expectLastRebuilt predicate = ShakeTest $ do
     testDir <- Reader.asks steTestDirPath
     liftIO $ withTempDir $ \dir -> do
         let file = dir </> "temp.json"
-        void $ API.runActionsSync service []
+        void $ API.runActionSync service $ return ()
         API.writeProfile service file
         rebuilt <- either error (return . parseShakeProfileJSON testDir) =<< Aeson.eitherDecodeFileStrict' file
         -- ignore those which are set to alwaysRerun - not interesting
@@ -263,7 +263,7 @@ getVirtualResources = ShakeTest $ do
     service <- Reader.asks steService
     virtualResources <- Reader.asks steVirtualResources
     liftIO $ do
-      void $ API.runActionsSync service []
+      void $ API.runActionSync service $ return ()
       readTVarIO virtualResources
 
 -- | Convenient grouping of file path, 0-based line number, 0-based column number.
