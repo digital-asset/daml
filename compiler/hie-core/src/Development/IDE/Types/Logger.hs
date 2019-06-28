@@ -19,9 +19,9 @@ import GHC.Stack
 --   if our code has gone wrong and is itself erroneous (e.g. we threw an exception).
 data Logger = Logger {
       logError :: HasCallStack => T.Text -> IO ()
+    , logWarning :: HasCallStack => T.Text -> IO ()
     , logInfo :: HasCallStack => T.Text -> IO ()
     , logDebug :: HasCallStack => T.Text -> IO ()
-    , logWarning :: HasCallStack => T.Text -> IO ()
     }
 
 makeNopLogger :: Logger
