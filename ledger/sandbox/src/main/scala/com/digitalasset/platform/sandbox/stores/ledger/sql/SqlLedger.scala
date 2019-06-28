@@ -496,8 +496,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
         }))
         .flatMap {
           case UploadPackagesResult.Ok => Future.successful(())
-          case r @ _ =>
-            Future.failed(new RuntimeException("Failed to copy initial packages: " + r.description))
+          case r @ _ => sys.error("Failed to copy initial packages: " + r.description)
         }(DEC)
     } else {
       Future.successful(())
