@@ -13,13 +13,14 @@ import Control.Monad.Except
 import qualified DA.Pretty
 import qualified DA.Pretty as Pretty
 import DA.Cli.Damlc.Base
+import DA.Cli.Damlc.IdeState
 import Data.Maybe
 import Data.List.Extra
 import qualified Data.Set as S
 import Data.Tuple.Extra
 import Control.Monad.Extra
 import Development.IDE.Core.Service.Daml
-import           DA.Service.Daml.Compiler.Impl.Handle as Compiler
+import DA.Daml.GHC.Compiler.Options
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC
@@ -40,12 +41,12 @@ import qualified Text.XML.Light as XML
 newtype UseColor = UseColor {getUseColor :: Bool}
 
 -- | Test a DAML file.
-execTest :: [NormalizedFilePath] -> UseColor -> Maybe FilePath -> Compiler.Options -> IO ()
+execTest :: [NormalizedFilePath] -> UseColor -> Maybe FilePath -> Options -> IO ()
 execTest inFiles color mbJUnitOutput cliOptions = do
     loggerH <- getLogger cliOptions "test"
-    opts <- Compiler.mkOptions cliOptions
-    Compiler.withIdeState opts loggerH diagnosticsLogger $ \h -> do
-        let lfVersion = Compiler.optDamlLfVersion cliOptions
+    opts <- mkOptions cliOptions
+    withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
+        let lfVersion = optDamlLfVersion cliOptions
         testRun h inFiles lfVersion color mbJUnitOutput
         -- Run synchronously at the end to make sure that all gRPC requests
         -- finish properly. We have seen segfaults on CI sometimes
@@ -58,7 +59,7 @@ execTest inFiles color mbJUnitOutput cliOptions = do
 testRun :: IdeState -> [NormalizedFilePath] -> LF.Version -> UseColor -> Maybe FilePath -> IO ()
 testRun h inFiles lfVersion color mbJUnitOutput  = do
     -- make sure none of the files disappear
-    liftIO $ Compiler.setFilesOfInterest h (S.fromList inFiles)
+    liftIO $ setFilesOfInterest h (S.fromList inFiles)
 
     -- take the transitive closure of all imports and run on all of them
     -- If some dependencies can't be resolved we'll get a Diagnostic out anyway, so don't worry
