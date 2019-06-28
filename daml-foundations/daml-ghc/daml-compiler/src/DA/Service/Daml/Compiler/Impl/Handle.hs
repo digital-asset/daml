@@ -176,7 +176,7 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
       let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
       let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
       unless (S.null missingExposed) $ do
-          liftIO $ IdeLogger.logSeriousError (ideLogger service) $
+          liftIO $ IdeLogger.logInfo (ideLogger service) $
               "The following modules are declared in exposed-modules but are not part of the DALF: " <>
               T.pack (show $ S.toList missingExposed)
           fail ""
