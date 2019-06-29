@@ -149,7 +149,8 @@ final case class ContractCreated(
     argument: ApiRecord,
     agreementText: Option[String],
     signatories: List[ApiTypes.Party],
-    observers: List[ApiTypes.Party]
+    observers: List[ApiTypes.Party],
+    key: Option[ApiValue]
 ) extends Event
 
 final case class ChoiceExercised(
@@ -178,7 +179,8 @@ final case class Contract(
     argument: ApiRecord,
     agreementText: Option[String],
     signatories: List[ApiTypes.Party],
-    observers: List[ApiTypes.Party]
+    observers: List[ApiTypes.Party],
+    key: Option[ApiValue]
 ) extends TaggedNode[ApiTypes.ContractIdTag]
 
 // ------------------------------------------------------------------------------------------------
@@ -188,7 +190,8 @@ final case class Contract(
 /** Template for instantiating contracts. */
 final case class Template(
     id: DamlLfIdentifier,
-    choices: List[Choice]
+    choices: List[Choice],
+    key: Option[DamlLfType]
 ) extends DamlLfNode {
   def topLevelDecl: String = id.qualifiedName.toString()
   def parameter: DamlLfTypeCon = DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq())

@@ -4,7 +4,7 @@
 package com.digitalasset.navigator.json
 
 import com.digitalasset.daml.lf.data.SortedLookupList
-import com.digitalasset.navigator.model.DamlLfIdentifier
+import com.digitalasset.navigator.model.{ApiValue, DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import com.digitalasset.navigator.{model => Model}
 import spray.json._
 
@@ -15,6 +15,8 @@ import spray.json._
   * For example, it is impossible to distinguish party and text values in the encoded format.
   *
   * Therefore, this JSON format only includes writers, and not readers.
+  *
+  * [[ApiCodecCompressed.apiValueJsonReader]] can create a JSON reader with the necessary type information
   */
 object ApiCodecCompressed {
   // ------------------------------------------------------------------------------------------------------------------
@@ -86,18 +88,18 @@ object ApiCodecCompressed {
       case (JsString(v), Model.DamlLfPrimType.Date) => Model.ApiDate.fromIso8601(v)
       case (JsBoolean(v), Model.DamlLfPrimType.Bool) => Model.ApiBool(v)
       case (JsArray(v), Model.DamlLfPrimType.List) =>
-        Model.ApiList(v.toList.map(e => jsValueToApiType(e, prim.typArgs.head, defs)))
+        Model.ApiList(v.toList.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)))
       case (JsObject(f), Model.DamlLfPrimType.Optional) =>
         f.headOption match {
           case Some((`fieldNone`, _)) => Model.ApiOptional(None)
           case Some((`fieldSome`, v)) =>
-            Model.ApiOptional(Some(jsValueToApiType(v, prim.typArgs.head, defs)))
+            Model.ApiOptional(Some(jsValueToApiValue(v, prim.typArgs.head, defs)))
           case Some(_) => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
           case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
         }
       case (JsObject(a), Model.DamlLfPrimType.Map) =>
         Model.ApiMap(SortedLookupList(a.map {
-          case (k, v) => k -> jsValueToApiType(v, prim.typArgs.head, defs)
+          case (k, v) => k -> jsValueToApiValue(v, prim.typArgs.head, defs)
         }))
       case _ => deserializationError(s"Can't read ${value.prettyPrint} as $prim")
     }
@@ -118,7 +120,7 @@ object ApiCodecCompressed {
                 f._1,
                 deserializationError(
                   s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '${f._1}'"))
-            Model.ApiRecordField(f._1, jsValueToApiType(jsField, f._2, defs))
+            Model.ApiRecordField(f._1, jsValueToApiValue(jsField, f._2, defs))
           })
         )
       case (JsObject(v), Model.DamlLfVariant(cons)) =>
@@ -137,7 +139,7 @@ object ApiCodecCompressed {
         Model.ApiVariant(
           Some(id),
           constructor._1,
-          jsValueToApiType(constructor._2, constructorType, defs)
+          jsValueToApiValue(constructor._2, constructorType, defs)
         )
       case (JsString(c), Model.DamlLfEnum(cons)) =>
         Model.ApiEnum(
@@ -150,7 +152,7 @@ object ApiCodecCompressed {
   }
 
   /** Deserialize a value, given the type */
-  def jsValueToApiType(
+  def jsValueToApiValue(
       value: JsValue,
       typ: Model.DamlLfType,
       defs: Model.DamlLfTypeLookup): Model.ApiValue = {
@@ -172,7 +174,7 @@ object ApiCodecCompressed {
   }
 
   /** Deserialize a value, given the ID of the corresponding closed type */
-  def jsValueToApiType(
+  def jsValueToApiValue(
       value: JsValue,
       id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup): Model.ApiValue = {
@@ -184,19 +186,27 @@ object ApiCodecCompressed {
     jsValueToApiDataType(value, id, dt, defs)
   }
 
+  /** Creates a [[JsonReader]] for arbitrary [[ApiValue]]s with the relevant type information */
+  def apiValueJsonReader(typ: DamlLfType, defs: DamlLfTypeLookup): JsonReader[ApiValue] =
+    jsValueToApiValue(_, typ, defs)
+
+  /** Creates a [[JsonReader]] for arbitrary [[ApiValue]]s with the relevant type information */
+  def apiValueJsonReader(typ: DamlLfIdentifier, defs: DamlLfTypeLookup): JsonReader[ApiValue] =
+    jsValueToApiValue(_, typ, defs)
+
   /** Same as jsValueToApiType, but with unparsed input */
   def stringToApiType(
       value: String,
       typ: Model.DamlLfType,
       defs: Model.DamlLfTypeLookup): Model.ApiValue =
-    jsValueToApiType(value.parseJson, typ, defs)
+    jsValueToApiValue(value.parseJson, typ, defs)
 
   /** Same as jsValueToApiType, but with unparsed input */
   def stringToApiType(
       value: String,
       id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup): Model.ApiValue =
-    jsValueToApiType(value.parseJson, id, defs)
+    jsValueToApiValue(value.parseJson, id, defs)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Implicits that can be imported to write JSON

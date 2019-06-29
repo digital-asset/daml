@@ -36,7 +36,7 @@ final case class CommandRow(
           recArgJson <- Try(recordArgument.get)
           anyArg <- Try(
             ApiCodecCompressed
-              .jsValueToApiType(recArgJson.parseJson, tid, types.damlLfDefDataType _))
+              .jsValueToApiValue(recArgJson.parseJson, tid, types.damlLfDefDataType _))
           recArg <- Try(anyArg.asInstanceOf[ApiRecord])
         } yield {
           CreateCommand(

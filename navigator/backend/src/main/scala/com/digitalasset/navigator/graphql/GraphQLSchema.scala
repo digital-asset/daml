@@ -320,7 +320,8 @@ final class GraphQLSchema(customEndpoints: Set[CustomEndpoint[_]]) {
         Field("argument", JsonType.ApiRecordType, resolve = _.value.argument),
         Field("agreementText", OptionType(StringType), resolve = _.value.agreementText),
         Field("signatories", ListType(StringType), resolve = _.value.signatories.map(Tag.unwrap)),
-        Field("observers", ListType(StringType), resolve = _.value.observers.map(Tag.unwrap))
+        Field("observers", ListType(StringType), resolve = _.value.observers.map(Tag.unwrap)),
+        Field("key", OptionType(JsonType.ApiValueType), resolve = _.value.key)
     )
   )
 
