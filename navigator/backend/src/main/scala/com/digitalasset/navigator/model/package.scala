@@ -14,8 +14,7 @@ package object model {
 
   /**
     * An opaque identifier used for templates.
-    * Templates are usually identified using a composite type (see [[DamlLfDefRef]]).
-    * FIXME the reference to [[DamlLfDefRef]] is broken, where should it point?
+    * Templates are usually identified using a composite type (see [[DamlLfIdentifier]]).
     */
   sealed trait TemplateStringIdTag
   type TemplateStringId = String @@ TemplateStringIdTag
