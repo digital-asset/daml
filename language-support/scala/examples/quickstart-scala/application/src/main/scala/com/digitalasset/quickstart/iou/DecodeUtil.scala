@@ -34,7 +34,8 @@ object DecodeUtil {
         a,
         event.agreementText,
         event.signatories,
-        event.observers)
+        event.observers,
+        event.contractKey)
   }
 
   def decodeArchived[A <: Template[A]](transaction: Transaction): Option[P.ContractId[A]] = {

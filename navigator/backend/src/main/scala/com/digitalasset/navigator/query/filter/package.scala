@@ -90,18 +90,19 @@ package object filter {
     loop(rootParam, cursor.prev.get)
   }
 
-  def checkArgument(
+  def checkOptionalValue(
+      rootArgument: Option[ApiValue],
+      cursor: PropertyCursor,
+      expectedValue: String,
+      ps: DamlLfTypeLookup): Either[DotNotFailure, Boolean] =
+    rootArgument.fold[Either[DotNotFailure, Boolean]](Right(false))(
+      checkValue(_, cursor, expectedValue, ps))
+
+  def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,
       expectedValue: String,
       ps: DamlLfTypeLookup): Either[DotNotFailure, Boolean] = {
-    def listIndex(cursor: PropertyCursor): Either[DotNotFailure, Int] = {
-      try {
-        Right(cursor.current.toInt)
-      } catch {
-        case e: Exception => Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
-      }
-    }
 
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, Boolean] =
@@ -160,7 +161,7 @@ package object filter {
             case (Some(nextCursor), Some(value)) if nextCursor.current == "Some" =>
               loop(value, nextCursor)
             case (Some(nextCursor), None) if nextCursor.current == "None" => Right(true)
-            case (Some(nextCursor), _) => Right(false)
+            case (Some(_), _) => Right(false)
           }
         case t: ApiTimestamp if cursor.isLast => Right(checkContained(t.toIso8601, expectedValue))
         case t: ApiDate if cursor.isLast => Right(checkContained(t.toIso8601, expectedValue))
@@ -177,7 +178,10 @@ package object filter {
       checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
 
   lazy val argumentFilter =
-    opaque[ApiRecord, Boolean, DamlLfTypeLookup]("argument")(checkArgument)
+    opaque[ApiValue, Boolean, DamlLfTypeLookup]("argument")(checkValue)
+
+  lazy val keyFilter =
+    opaque[Option[ApiValue], Boolean, DamlLfTypeLookup]("key")(checkOptionalValue)
 
   lazy val templateFilter =
     root[Template, Boolean, DamlLfTypeLookup]("template")
@@ -205,6 +209,7 @@ package object filter {
       .perform[String]((contract, id) => checkContained(contract.id.unwrap, id.toLowerCase))
       .onBranch("template", _.template, templateFilter)
       .onBranch("argument", _.argument, argumentFilter)
+      .onBranch("key", _.key, keyFilter)
       .onLeaf("agreementText")
       .onValue("*")
       .const(true)

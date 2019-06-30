@@ -98,18 +98,19 @@ object project {
     loop(rootParam, cursor.prev.get, ps)
   }
 
-  def checkArgument(
+  def checkOptionalValue(
+      rootArgument: Option[ApiValue],
+      cursor: PropertyCursor,
+      expectedValue: String,
+      ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] =
+    rootArgument.fold[Either[DotNotFailure, ProjectValue]](Right(StringValue("")))(
+      checkValue(_, cursor, expectedValue, ps))
+
+  def checkValue(
       rootArgument: ApiValue,
       cursor: PropertyCursor,
       expectedValue: String,
       ps: DamlLfTypeLookup): Either[DotNotFailure, ProjectValue] = {
-    def listIndex(cursor: PropertyCursor): Either[DotNotFailure, Int] = {
-      try {
-        Right(cursor.current.toInt)
-      } catch {
-        case e: Exception => Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
-      }
-    }
 
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, ProjectValue] =
@@ -185,7 +186,10 @@ object project {
       checkParameter(DamlLfTypeCon(DamlLfTypeConName(id), DamlLfImmArraySeq()), c, e, p))
 
   lazy val argumentProject =
-    opaque[ApiRecord, ProjectValue, DamlLfTypeLookup]("argument")(checkArgument)
+    opaque[ApiValue, ProjectValue, DamlLfTypeLookup]("argument")(checkValue)
+
+  lazy val keyProject =
+    opaque[Option[ApiValue], ProjectValue, DamlLfTypeLookup]("key")(checkOptionalValue)
 
   lazy val templateProject =
     root[Template, ProjectValue, DamlLfTypeLookup]("template")
@@ -202,6 +206,7 @@ object project {
       .perform[String]((contract, _) => StringValue(contract.id.unwrap))
       .onBranch("template", _.template, templateProject)
       .onBranch("argument", _.argument, argumentProject)
+      .onBranch("key", _.key, keyProject)
       .onLeaf("agreementText")
       .onAnyValue
       .perform[String]((contract, _) => StringValue(contract.agreementText.getOrElse("")))

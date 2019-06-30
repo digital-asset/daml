@@ -42,7 +42,8 @@ abstract class EventDecoderApi(
         tadt,
         createdEvent.agreementText,
         createdEvent.signatories,
-        createdEvent.observers
+        createdEvent.observers,
+        createdEvent.contractKey
       )
   }
 }
