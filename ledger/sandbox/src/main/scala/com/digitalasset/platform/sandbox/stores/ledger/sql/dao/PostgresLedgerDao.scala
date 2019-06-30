@@ -13,7 +13,6 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v2.{PartyAllocationResult, UploadPackagesResult}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -947,7 +946,7 @@ private class PostgresLedgerDao(
 
   override def storeParty(
       party: Party,
-      displayName: Option[String]): Future[PartyAllocationResult] = {
+      displayName: Option[String]): Future[PersistenceResponse] = {
     dbDispatcher.executeSql { implicit conn =>
       Try {
         SQL_INSERT_PARTY
@@ -956,23 +955,20 @@ private class PostgresLedgerDao(
             "display_name" -> displayName,
           )
           .execute()
-        PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
+        PersistenceResponse.Ok
       }.recover {
         case NonFatal(e) if e.getMessage.contains("duplicate key") =>
           logger.warn("Party with ID {} already exists", party)
           conn.rollback()
-          PartyAllocationResult.AlreadyExists
+          PersistenceResponse.Duplicate
       }.get
     }
   }
 
-  // Note: package upload is idempotent
   private val SQL_INSERT_PACKAGE =
     """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
           |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
           |from parameters
-          |on conflict (package_id)
-          |do nothing
           |""".stripMargin
 
   private val SQL_SELECT_PACKAGES =
@@ -1025,7 +1021,7 @@ private class PostgresLedgerDao(
 
   override def uploadLfPackages(
       uploadId: String,
-      packages: List[(Archive, PackageDetails)]): Future[UploadPackagesResult] = {
+      packages: List[(Archive, PackageDetails)]): Future[PersistenceResponse] = {
     dbDispatcher.executeSql { implicit conn =>
       Try {
         val namedPackageParams = packages
@@ -1044,11 +1040,11 @@ private class PostgresLedgerDao(
           SQL_INSERT_PACKAGE,
           namedPackageParams
         )
-        UploadPackagesResult.Ok
+        PersistenceResponse.Ok
       }.recover {
-        case NonFatal(e) =>
+        case NonFatal(e) if e.getMessage.contains("duplicate key") =>
           conn.rollback()
-          UploadPackagesResult.InvalidPackage(e.getMessage)
+          PersistenceResponse.Duplicate
       }.get
     }
   }

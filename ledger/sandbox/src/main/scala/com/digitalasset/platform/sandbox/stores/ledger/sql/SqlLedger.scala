@@ -36,12 +36,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
   ContinueIfExists
 }
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
-  Contract,
-  LedgerDao,
-  PersistenceEntry,
-  PostgresLedgerDao
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -328,7 +323,14 @@ private class SqlLedger(
   override def allocateParty(
       party: Party,
       displayName: Option[String]): Future[PartyAllocationResult] =
-    ledgerDao.storeParty(party, displayName)
+    ledgerDao
+      .storeParty(party, displayName)
+      .map {
+        case PersistenceResponse.Ok =>
+          PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
+        case PersistenceResponse.Duplicate =>
+          PartyAllocationResult.AlreadyExists
+      }(DEC)
 
   override def parties: Future[List[PartyDetails]] =
     ledgerDao.getParties
@@ -352,7 +354,16 @@ private class SqlLedger(
     val submissionId = UUID.randomUUID().toString
     val packages = payload.map(archive =>
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
-    ledgerDao.uploadLfPackages(submissionId, packages)
+    ledgerDao
+      .uploadLfPackages(submissionId, packages)
+      .map {
+        case PersistenceResponse.Ok =>
+          UploadPackagesResult.Ok
+        case PersistenceResponse.Duplicate =>
+          // Note: package upload is idempotent, apart from the fact that we only keep
+          // the knownSince and sourceDescription of the first upload.
+          UploadPackagesResult.Ok
+      }(DEC)
   }
 }
 
@@ -500,10 +511,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       })
       ledgerDao
         .uploadLfPackages(submissionId, packages)
-        .flatMap {
-          case UploadPackagesResult.Ok => Future.successful(())
-          case r @ _ => sys.error("Failed to copy initial packages: " + r.description)
-        }(DEC)
+        .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(DEC)
     } else {
       Future.successful(())
     }

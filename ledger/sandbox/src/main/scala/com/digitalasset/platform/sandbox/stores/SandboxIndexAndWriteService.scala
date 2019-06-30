@@ -79,8 +79,7 @@ object SandboxIndexAndWriteService {
         queueDepth,
         startMode
       )
-      .map(ledger =>
-        createInstance(Ledger.metered(ledger), timeModel, timeProvider))(DEC)
+      .map(ledger => createInstance(Ledger.metered(ledger), timeModel, timeProvider))(DEC)
 
   def inMemory(
       ledgerId: LedgerId,
@@ -96,10 +95,8 @@ object SandboxIndexAndWriteService {
     createInstance(ledger, timeModel, timeProvider)
   }
 
-  private def createInstance(
-      ledger: Ledger,
-      timeModel: TimeModel,
-      timeProvider: TimeProvider)(implicit mat: Materializer) = {
+  private def createInstance(ledger: Ledger, timeModel: TimeModel, timeProvider: TimeProvider)(
+      implicit mat: Materializer) = {
     val contractStore = new SandboxContractStore(ledger)
     val indexAndWriteService =
       new SandboxIndexAndWriteService(ledger, timeModel, timeProvider, contractStore)

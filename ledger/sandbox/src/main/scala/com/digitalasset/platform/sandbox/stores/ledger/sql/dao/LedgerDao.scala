@@ -9,11 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v2.{
-  PartyAllocationResult,
-  TransactionId,
-  UploadPackagesResult
-}
+import com.daml.ledger.participant.state.v2.TransactionId
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -193,7 +189,7 @@ trait LedgerDao extends AutoCloseable {
   def storeParty(
       party: Party,
       displayName: Option[String]
-  ): Future[PartyAllocationResult]
+  ): Future[PersistenceResponse]
 
   /** Returns a list of all known DAML-LF packages */
   def listLfPackages: Future[Map[PackageId, PackageDetails]]
@@ -214,7 +210,7 @@ trait LedgerDao extends AutoCloseable {
   def uploadLfPackages(
       uploadId: String,
       packages: List[(Archive, PackageDetails)]
-  ): Future[UploadPackagesResult]
+  ): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]
