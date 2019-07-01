@@ -117,16 +117,42 @@ message DamlTransactionEntry {
 message DamlRejectionEntry {
   DamlSubmitterInfo submitter_info = 1;
 
+  message Inconsistent {
+    string details = 1;
+  }
+
+  message Disputed {
+    string details = 1;
+  }
+
+  message ResourcesExhausted {
+    string details = 1;
+  }
+
+  message MaximumRecordTimeExceeded {
+    string details = 1;
+  }
+
+  message DuplicateCommand {
+    string details = 1;
+  }
+
+  message PartyNotKnownOnLedger {
+    string details = 1;
+  }
+
+  message SubmitterCannotActViaParticipant {
+    string details = 1;
+  }
+
   oneof reason {
-    // NOTE(JM): Not all payloads are used, but marked as 'string' for
-    // extensibility.
-    string inconsistent = 2;
-    string disputed = 3;
-    string resources_exhausted = 4;
-    string maximum_record_time_exceeded = 5;
-    string duplicate_command = 6;
-    string party_not_known_on_ledger = 7;
-    string submitter_cannot_act_via_participant = 8;
+    Inconsistent inconsistent = 2;
+    Disputed disputed = 3;
+    ResourcesExhausted resources_exhausted = 4;
+    MaximumRecordTimeExceeded maximum_record_time_exceeded = 5;
+    DuplicateCommand duplicate_command = 6;
+    PartyNotKnownOnLedger party_not_known_on_ledger = 7;
+    SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
   }
 }
 
@@ -159,15 +185,23 @@ message DamlPackageUploadRejectionEntry {
   // the original upload entry.
   string submission_id = 1;
 
-  // Uploading participant's id.
+  // Id of the participant that uploaded the package.
   string participant_id = 2;
 
-  oneof reason {
-    // One of the uploaded packages is not valid.
-    string invalid_package = 3;
+  // One of the uploaded packages is not valid.
+  message InvalidPackage {
+    string details = 1;
+  }
 
-    // The participant was not authorized to submit the upload request.
-    string participant_not_authorized = 4;
+  // The participant was not authorized to submit the upload request.
+  message ParticipantNotAuthorized {
+    string details = 1;
+  }
+
+  oneof reason {
+
+    InvalidPackage invalid_package = 3;
+    ParticipantNotAuthorized participant_not_authorized = 4;
   }
 }
 
@@ -215,15 +249,25 @@ message DamlPartyAllocationRejectionEntry {
   // Uploading participant's id.
   string participant_id = 2;
 
+  // The requested party name already exists.
+  message AlreadyExists {
+    string details = 1;
+  }
+
+  // The requested party name is not valid.
+  message InvalidName {
+    string details = 1;
+  }
+
+  // The participant was not authorized to submit the allocation request.
+  message ParticipantNotAuthorized {
+    string details = 1;
+  }
+
   oneof reason {
-    // The requested party name already exists.
-    string already_exists = 3;
-
-    // The requested party name is not valid.
-    string invalid_name = 4;
-
-    // The participant was not authorized to submit the allocation request.
-    string participant_not_authorized = 5;
+    AlreadyExists already_exists = 3;
+    InvalidName invalid_name = 4;
+    ParticipantNotAuthorized participant_not_authorized = 5;
   }
 }
 
@@ -247,7 +291,7 @@ message DamlStateValue {
     daml_lf.Archive archive = 1;
     DamlContractState contract_state = 2;
     DamlCommandDedupValue command_dedup = 3;
-    DamlPartyValue party = 4;
+    DamlPartyAllocation party = 4;
   }
 }
 
@@ -291,7 +335,11 @@ message DamlContractState {
 }
 
 // Stored information about a given party.
-message DamlPartyValue {
+// Party tenancy is immutable and cannot change once recorded.
+// TODO: Add concept of party allocation time. It would have to follow similar pattern
+// as LET for transactions, so that party allocation submissions remain verifiable by
+// the committers/validators.
+message DamlPartyAllocation {
   // Id of participant where the party is hosted.
   string participant_id = 1;
   // A display name associated with the given party.

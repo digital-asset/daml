@@ -149,56 +149,61 @@ object KeyValueCommitting {
       inputState: Map[DamlStateKey, Option[DamlStateValue]]
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
     val submissionId = packageUploadEntry.getSubmissionId
-    def tracelog(msg: String): Unit =
-      logger.trace(
-        s"processPackageUpload[entryId=${prettyEntryId(entryId)}, submId=$submissionId]: $msg")
 
     val archives = packageUploadEntry.getArchivesList.asScala
-    val packagesValidityResult =
-      archives.foldLeft[(Boolean, String)]((true, ""))(
-        (acc, archive) =>
-          if (archive.getPayload.isEmpty) (false, acc._2 ++ s"empty package '${archive.getHash}';")
-          else acc)
 
-    if (packagesValidityResult._1) {
-      val filteredArchives = archives
-        .filter(
-          archive =>
-            inputState(
-              DamlStateKey.newBuilder
-                .setPackageId(archive.getHash)
-                .build).isEmpty
-        )
-      tracelog(s"""Packages: ${archives
-        .map(_.getHash)
-        .mkString(",")} committed.""")
+    def tracelog(msg: String): Unit =
+      logger.trace(
+        s"""processPackageUpload[entryId=${prettyEntryId(entryId)}, submId=$submissionId], packages=${archives
+          .map(_.getHash)
+          .mkString(",")}]: $msg""")
 
-      (
-        DamlLogEntry.newBuilder
-          .setRecordTime(buildTimestamp(recordTime))
-          .setPackageUploadEntry(
-            DamlPackageUploadEntry.newBuilder
-              .setSubmissionId(submissionId)
-              .addAllArchives(filteredArchives.asJava)
-              .setSourceDescription(packageUploadEntry.getSourceDescription)
-              .setParticipantId(packageUploadEntry.getParticipantId)
-              .build
-          )
-          .build,
-        filteredArchives
-          .map(
+    // TODO: Add more comprehensive validity test, in particular, take the transitive closure
+    // of all packages being uploaded and see if they compile
+    archives.foldLeft[(Boolean, String)]((true, ""))(
+      (acc, archive) =>
+        if (archive.getPayload.isEmpty) (false, acc._2 ++ s"empty package '${archive.getHash}';")
+        else acc) match {
+
+      case (false, error) =>
+        tracelog(s"Package upload failed, invalid package submitted")
+        buildPackageRejectionLogEntry(
+          recordTime,
+          packageUploadEntry,
+          _.setInvalidPackage(
+            DamlPackageUploadRejectionEntry.InvalidPackage.newBuilder
+              .setDetails(error)))
+      case (_, _) =>
+        val filteredArchives = archives
+          .filter(
             archive =>
-              (
-                DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
-                DamlStateValue.newBuilder.setArchive(archive).build
+              inputState(
+                DamlStateKey.newBuilder
+                  .setPackageId(archive.getHash)
+                  .build).isEmpty
+          )
+        tracelog(s"Packages committed")
+        (
+          DamlLogEntry.newBuilder
+            .setRecordTime(buildTimestamp(recordTime))
+            .setPackageUploadEntry(
+              DamlPackageUploadEntry.newBuilder
+                .setSubmissionId(submissionId)
+                .addAllArchives(filteredArchives.asJava)
+                .setSourceDescription(packageUploadEntry.getSourceDescription)
+                .setParticipantId(packageUploadEntry.getParticipantId)
+                .build
             )
-          )(breakOut)
-      )
-    } else {
-      tracelog(s"Packages upload failed, invalid package submitted")
-      buildPackageRejectionLogEntry(recordTime, packageUploadEntry, {
-        _.setInvalidPackage(packagesValidityResult._2)
-      })
+            .build,
+          filteredArchives
+            .map(
+              archive =>
+                (
+                  DamlStateKey.newBuilder.setPackageId(archive.getHash).build,
+                  DamlStateValue.newBuilder.setArchive(archive).build
+              )
+            )(breakOut)
+        )
     }
   }
 
@@ -245,13 +250,19 @@ object KeyValueCommitting {
     (partyValidityResult, dedupResult) match {
       case (false, _) =>
         tracelog(s"Party: $party allocation failed, party string invalid.")
-        buildPartyRejectionLogEntry(recordTime, partyAllocationEntry, {
-          _.setInvalidName(s"Party string '$party' invalid")
-        })
+        buildPartyRejectionLogEntry(
+          recordTime,
+          partyAllocationEntry, {
+            _.setInvalidName(
+              DamlPartyAllocationRejectionEntry.InvalidName.newBuilder
+                .setDetails(s"Party string '$party' invalid"))
+          }
+        )
       case (true, false) =>
         tracelog(s"Party: $party allocation failed, duplicate party.")
         buildPartyRejectionLogEntry(recordTime, partyAllocationEntry, {
-          _.setAlreadyExists("")
+          _.setAlreadyExists(
+            DamlPartyAllocationRejectionEntry.AlreadyExists.newBuilder.setDetails(""))
         })
       case (true, true) =>
         val key =
@@ -265,7 +276,7 @@ object KeyValueCommitting {
           Map(
             key -> DamlStateValue.newBuilder
               .setParty(
-                DamlPartyValue.newBuilder
+                DamlPartyAllocation.newBuilder
                   .setParticipantId(partyAllocationEntry.getParticipantId)
                   .build)
               .build
@@ -486,19 +497,23 @@ object KeyValueCommitting {
 
       reason match {
         case RejectionReason.Inconsistent =>
-          builder.setInconsistent("")
+          builder.setInconsistent(DamlRejectionEntry.Inconsistent.newBuilder.setDetails(""))
         case RejectionReason.Disputed(disputeReason) =>
-          builder.setDisputed(disputeReason)
+          builder.setDisputed(DamlRejectionEntry.Disputed.newBuilder.setDetails(disputeReason))
         case RejectionReason.ResourcesExhausted =>
-          builder.setResourcesExhausted("")
+          builder.setResourcesExhausted(
+            DamlRejectionEntry.ResourcesExhausted.newBuilder.setDetails(""))
         case RejectionReason.MaximumRecordTimeExceeded =>
-          builder.setMaximumRecordTimeExceeded("")
+          builder.setMaximumRecordTimeExceeded(
+            DamlRejectionEntry.MaximumRecordTimeExceeded.newBuilder.setDetails(""))
         case RejectionReason.DuplicateCommand =>
-          builder.setDuplicateCommand("")
+          builder.setDuplicateCommand(DamlRejectionEntry.DuplicateCommand.newBuilder.setDetails(""))
         case RejectionReason.PartyNotKnownOnLedger =>
-          builder.setPartyNotKnownOnLedger("")
+          builder.setPartyNotKnownOnLedger(
+            DamlRejectionEntry.PartyNotKnownOnLedger.newBuilder.setDetails(""))
         case RejectionReason.SubmitterCannotActViaParticipant(details) =>
-          builder.setSubmitterCannotActViaParticipant(details)
+          builder.setSubmitterCannotActViaParticipant(
+            DamlRejectionEntry.SubmitterCannotActViaParticipant.newBuilder.setDetails(details))
       }
       builder.build
     }

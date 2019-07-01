@@ -158,7 +158,7 @@ object KeyValueConsumption {
       submitterInfo = parseSubmitterInfo(rejEntry.getSubmitterInfo),
       reason = rejEntry.getReasonCase match {
         case DamlRejectionEntry.ReasonCase.DISPUTED =>
-          RejectionReason.Disputed(rejEntry.getDisputed)
+          RejectionReason.Disputed(rejEntry.getDisputed.getDetails)
         case DamlRejectionEntry.ReasonCase.INCONSISTENT =>
           RejectionReason.Inconsistent
         case DamlRejectionEntry.ReasonCase.RESOURCES_EXHAUSTED =>
@@ -171,7 +171,7 @@ object KeyValueConsumption {
           RejectionReason.PartyNotKnownOnLedger
         case DamlRejectionEntry.ReasonCase.SUBMITTER_CANNOT_ACT_VIA_PARTICIPANT =>
           RejectionReason.SubmitterCannotActViaParticipant(
-            rejEntry.getSubmitterCannotActViaParticipant
+            rejEntry.getSubmitterCannotActViaParticipant.getDetails
           )
         case DamlRejectionEntry.ReasonCase.REASON_NOT_SET =>
           sys.error("rejectionEntryToUpdate: REASON_NOT_SET!")
@@ -186,7 +186,7 @@ object KeyValueConsumption {
       submissionId = rejEntry.getSubmissionId,
       result = rejEntry.getReasonCase match {
         case DamlPartyAllocationRejectionEntry.ReasonCase.INVALID_NAME =>
-          PartyAllocationResult.InvalidName(rejEntry.getInvalidName)
+          PartyAllocationResult.InvalidName(rejEntry.getInvalidName.getDetails)
         case DamlPartyAllocationRejectionEntry.ReasonCase.ALREADY_EXISTS =>
           PartyAllocationResult.AlreadyExists
         case DamlPartyAllocationRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
@@ -204,7 +204,7 @@ object KeyValueConsumption {
       submissionId = rejEntry.getSubmissionId,
       result = rejEntry.getReasonCase match {
         case DamlPackageUploadRejectionEntry.ReasonCase.INVALID_PACKAGE =>
-          UploadPackagesResult.InvalidPackage(rejEntry.getInvalidPackage)
+          UploadPackagesResult.InvalidPackage(rejEntry.getInvalidPackage.getDetails)
         case DamlPackageUploadRejectionEntry.ReasonCase.PARTICIPANT_NOT_AUTHORIZED =>
           UploadPackagesResult.ParticipantNotAuthorized
         case DamlPackageUploadRejectionEntry.ReasonCase.REASON_NOT_SET =>
