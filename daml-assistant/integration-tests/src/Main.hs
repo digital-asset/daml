@@ -272,8 +272,9 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess ((proc damlName ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }) $
-              \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
+          let sandboxProc = (proc damlName ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }
+          withCreateProcess sandboxProc  $
+              \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
               addr : _ <- getAddrInfo
                   (Just socketHints)
@@ -283,7 +284,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
                   (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
                   close
                   (\s -> connect s (addrAddress addr))
-              -- waitForProcess' will block on Windows so we explicitely kill the process.
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
     ] <>
     -- The mvn tests seem to fail on Windows for some reason so for now we disable them.
@@ -301,12 +302,14 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess ((proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", "target/daml/iou.dar"]) { std_out = UseHandle devNull1 }) $
-              \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
+          let sandboxProc = (proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", "target/daml/iou.dar"]) { std_out = UseHandle devNull1 }
+          withCreateProcess sandboxProc $
+              \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
               restPort :: Int <- fromIntegral <$> getFreePort
-              withCreateProcess ((proc "mvn" [mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }) $
-                  \_ _ _ ph -> race_ (waitForProcess' "mvn" [] ph) $ do
+              let mavenProc = (proc "mvn" [mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }
+              withCreateProcess mavenProc $
+                  \_ _ _ ph -> race_ (waitForProcess' mavenProc ph) $ do
                   let url = "http://localhost:" <> show restPort <> "/iou"
                   waitForHttpServer (threadDelay 1000000) url
                   threadDelay 5000000
@@ -316,9 +319,9 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
                   resp <- httpLbs req manager
                   responseBody resp @?=
                       "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0,\"observers\":[]}}"
-                  -- waitForProcess' will block on Windows so we explicitely kill the process.
+                  -- waitForProcess' will block on Windows so we explicitly kill the process.
                   terminateProcess ph
-              -- waitForProcess' will block on Windows so we explicitely kill the process.
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
     ]
     where
@@ -406,10 +409,10 @@ socketHints :: AddrInfo
 socketHints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
 
 -- | Like waitForProcess' but throws ProcessExitFailure if the process fails to start.
-waitForProcess' :: String -> [String] -> ProcessHandle -> IO ()
-waitForProcess' cmd args ph = do
+waitForProcess' :: CreateProcess -> ProcessHandle -> IO ()
+waitForProcess' cp ph = do
     e <- waitForProcess ph
-    unless (e == ExitSuccess) $ throwIO $ ProcessExitFailure e cmd args
+    unless (e == ExitSuccess) $ throwIO $ ProcessExitFailure e cp
 
 -- | Getting a dev-null handle in a cross-platform way seems to be somewhat tricky so we instead
 -- use a temporary file.
