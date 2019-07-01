@@ -42,12 +42,9 @@ object PackageService {
     (k._2, k._3)
 
   private def filterUniqueTemplateIs(all: Map[K3, Identifier]): Map[K2, Identifier] =
-    all.view
+    all
       .groupBy { case (k, _) => key2(k) }
-      .filter { case (_, v) => v.size == 1 }
-      .values
-      .flatten
-      .map { case (k, v) => (key2(k), v) }(breakOut)
+      .collect { case (k, v) if v.size == 1 => (k, v.values.head) }
 
   def resolveTemplateIds(m: TemplateIdMap)(
       as: Set[domain.TemplateId.OptionalPkg]): Error \/ List[Identifier] =
