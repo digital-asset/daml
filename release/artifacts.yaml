@@ -5,7 +5,7 @@
   mavenUpload: True
 - target: //daml-lf/data:data
   type: jar
-- target: //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist
+- target: //daml-foundations/daml-tools/damlc-app:damlc-dist
   type: targz
   platformDependent: True
   location:

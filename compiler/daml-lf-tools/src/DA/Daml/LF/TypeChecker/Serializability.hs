@@ -20,7 +20,6 @@ module DA.Daml.LF.TypeChecker.Serializability
 import           Control.Lens (matching, toListOf)
 import           Control.Monad.Extra
 import Data.List
-import           Data.Either (isRight)
 import           Data.Foldable (for_)
 import qualified Data.HashSet as HS
 
@@ -45,21 +44,12 @@ serializabilityConditionsType
      -- the caller.
   -> Type
   -> Either UnserializabilityReason (HS.HashSet TypeConName)
-serializabilityConditionsType world0 version mbModNameTpls vars = go
+serializabilityConditionsType world0 _version mbModNameTpls vars = go
   where
     noConditions = Right HS.empty
     go = \case
-      -- This is the only way 'ContractId's are allowed. Other cases handled below.
-      TContractId typ
-        | version `supports` featureSerializablePolymorphicContractIds -> go typ
-        | TCon tcon <- typ, isTemplate tcon -> go typ
-        where
-          isTemplate tcon
-            | Just (modName, tpls) <- mbModNameTpls
-            , Right tconName <- matching (_PRSelfModule modName) tcon =
-                tconName `HS.member` tpls
-            | otherwise = isRight $ lookupTemplate tcon world0
-      -- This is the only way 'List's and 'Optional's are allowed. Other cases handled below.
+      -- This is the only way 'ContractId's, 'List's and 'Optional's are allowed. Other cases handled below.
+      TContractId typ -> go typ
       TList typ -> go typ
       TOptional typ -> go typ
       TMap typ -> go typ
@@ -116,6 +106,7 @@ serializabilityConditionsDataType world0 version mbModNameTpls (DefDataType _loc
     Just (v, k) -> Left (URHigherKinded v k)
     Nothing
       | DataVariant [] <- cons -> Left URUninhabitatedType
+      | DataEnum [] <- cons -> Left URUninhabitatedType
       | otherwise -> do
           let vars = HS.fromList (map fst params)
           mconcatMapM (serializabilityConditionsType world0 version mbModNameTpls vars) (toListOf dataConsType cons)

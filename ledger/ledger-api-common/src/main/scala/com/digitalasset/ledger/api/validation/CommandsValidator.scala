@@ -67,6 +67,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
         ledgerEffectiveTime,
         TimestampConversion.toInstant(mrt),
         Commands(
+          submitter,
           ImmArray(validatedCommands),
           ledgerEffectiveTimestamp,
           workflowId.fold("")(_.unwrap)),
@@ -80,13 +81,12 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
       Right(Vector.empty[Command]))((commandz, command) => {
       for {
         validatedInnerCommands <- commandz
-        validatedInnerCommand <- validateInnerCommand(command.command, submitter)
+        validatedInnerCommand <- validateInnerCommand(command.command)
       } yield validatedInnerCommands :+ validatedInnerCommand
     })
 
   private def validateInnerCommand(
-      command: ProtoCommand.Command,
-      submitter: Ref.Party): Either[StatusRuntimeException, Command] =
+      command: ProtoCommand.Command): Either[StatusRuntimeException, Command] =
     command match {
       case c: ProtoCreate =>
         for {
@@ -113,7 +113,6 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
             templateId = validatedTemplateId,
             contractId = contractId,
             choiceId = choice,
-            submitter = submitter,
             argument = asVersionedValueOrThrow(validatedValue))
 
       case ek: ProtoExerciseByKey =>
@@ -130,7 +129,6 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
             templateId = validatedTemplateId,
             contractKey = asVersionedValueOrThrow(validatedContractKey),
             choiceId = choice,
-            submitter = submitter,
             argument = asVersionedValueOrThrow(validatedValue)
           )
 
@@ -149,8 +147,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
             templateId = validatedTemplateId,
             createArgument = asVersionedValueOrThrow(Lf.ValueRecord(recordId, validatedRecordField)),
             choiceId = choice,
-            choiceArgument = asVersionedValueOrThrow(validatedChoiceArgument),
-            submitter = submitter
+            choiceArgument = asVersionedValueOrThrow(validatedChoiceArgument)
           )
       case ProtoEmpty =>
         Left(missingField("command"))

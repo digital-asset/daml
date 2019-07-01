@@ -11,7 +11,7 @@ groups:
     packages:
       damlc:
         packaging: tar.gz
-        main: da-hs-damlc-app
+        main: damlc-app
 
       daml-extension:
         packaging: tar.gz

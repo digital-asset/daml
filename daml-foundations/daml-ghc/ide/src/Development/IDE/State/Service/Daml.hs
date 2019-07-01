@@ -7,8 +7,8 @@ module Development.IDE.Core.Service.Daml(
     DamlEnv(..),
     getDamlServiceEnv,
     IdeState, initialise, shutdown,
-    runAction, runActions,
-    runActionSync, runActionsSync,
+    runAction,
+    runActionSync,
     setFilesOfInterest, modifyFilesOfInterest, setOpenVirtualResources, modifyOpenVirtualResources,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
@@ -95,7 +95,7 @@ modifyOpenVirtualResources state f = do
     DamlEnv{..} <- getIdeGlobalState state
     vrs <- modifyVar envOpenVirtualResources $ pure . dupe . f
     logDebug (ideLogger state) $ "Set vrs of interest to: " <> T.pack (show $ Set.toList vrs)
-    void $ shakeRun state [] (const $ pure ())
+    void $ shakeRun state []
 
 initialise
     :: Rules ()

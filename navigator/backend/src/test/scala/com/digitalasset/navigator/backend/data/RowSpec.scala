@@ -132,7 +132,8 @@ class RowSpec extends WordSpec with Matchers {
         C.complexRecordV,
         Some("agreement"),
         List(alice),
-        List(bob, charlie)
+        List(bob, charlie),
+        None
       )
 
       "not change the value" in {

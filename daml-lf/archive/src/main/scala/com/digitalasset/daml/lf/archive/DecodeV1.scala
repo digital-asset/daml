@@ -394,6 +394,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
             decodeExpr(varCon.getVariantArg))
 
         case PLF.Expr.SumCase.ENUM_CON =>
+          assertSince("dev", "Expr.SumCase.ENUM_CON")
           val enumCon = lfExpr.getEnumCon
           EEnumCon(
             decodeTypeConName(enumCon.getTycon),
@@ -501,6 +502,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
             name(variant.getVariant),
             name(variant.getBinder))
         case PLF.CaseAlt.SumCase.ENUM =>
+          assertSince("dev", "CaseAlt.Enum")
           val enum = lfCaseAlt.getEnum
           CPEnum(decodeTypeConName(enum.getCon), name(enum.getConstructor))
         case PLF.CaseAlt.SumCase.PRIM_CON =>

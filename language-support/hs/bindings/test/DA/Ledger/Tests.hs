@@ -8,6 +8,7 @@ module DA.Ledger.Tests (main) where
 import Control.Concurrent (MVar,newMVar,takeMVar,withMVar)
 import Control.Monad(unless)
 import Control.Monad.IO.Class(liftIO)
+import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchive)
 import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
@@ -16,6 +17,7 @@ import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
 import System.Random (randomIO)
 import System.Time.Extra (timeout)
+import System.FilePath
 import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
 import qualified Codec.Archive.Zip as Zip
@@ -119,13 +121,36 @@ tSubmitBad withSandbox = testCase "submit/bad" $ run withSandbox $ \_pid -> do
 tSubmitComplete :: SandboxTest
 tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let command =  createIOU pid alice "A-coin" 100
-    -- TODO: test fails if we use `Nothing` instead of `Just offsetBegin`
-    -- but this seems a bug, w.r.t to the ledger API
-    completions <- completionStream (lid,myAid,[alice],Just offsetBegin)
-    Right cidA <- submitCommand lid alice command
-    Right Completion{cid=cidB} <- liftIO $ takeStream completions
-    liftIO $ assertEqual "same cid sent/completed" cidA cidB
+    let command = createIOU pid alice "A-coin" 100
+    completions <- completionStream (lid,myAid,[alice],LedgerBegin)
+    off0 <- completionEnd lid
+    Right cidA1 <- submitCommand lid alice command
+    Right (Just Checkpoint{offset=cp1},[Completion{cid=cidB1}]) <- liftIO $ takeStream completions
+    off1 <- completionEnd lid
+    Right cidA2 <- submitCommand lid alice command
+    Right (Just Checkpoint{offset=cp2},[Completion{cid=cidB2}]) <- liftIO $ takeStream completions
+    off2 <- completionEnd lid
+
+    liftIO $ do
+        assertEqual "cidB1" cidA1 cidB1
+        assertEqual "cidB2" cidA2 cidB2
+        assertBool "off0 /= off1" (off0 /= off1)
+        assertBool "off1 /= off2" (off1 /= off2)
+
+        assertEqual "cp1" off1 cp1
+        assertEqual "cp2" off2 cp2
+
+    completionsX <- completionStream (lid,myAid,[alice],LedgerAbsOffset off0)
+    completionsY <- completionStream (lid,myAid,[alice],LedgerAbsOffset off1)
+
+    Right (Just Checkpoint{offset=cpX},[Completion{cid=cidX}]) <- liftIO $ takeStream completionsX
+    Right (Just Checkpoint{offset=cpY},[Completion{cid=cidY}]) <- liftIO $ takeStream completionsY
+
+    liftIO $ do
+        assertEqual "cidX" cidA1 cidX
+        assertEqual "cidY" cidA2 cidY
+        assertEqual "cpX" cp1 cpX
+        assertEqual "cpY" cp2 cpY
 
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
@@ -272,9 +297,10 @@ assertTextContains text frag =
 enableSharing :: Bool
 enableSharing = True
 
-specQuickstart :: SandboxSpec
-specQuickstart = SandboxSpec {dar}
-    where dar = "language-support/hs/bindings/quickstart.dar"
+createSpecQuickstart :: IO SandboxSpec
+createSpecQuickstart = do
+    dar <- locateRunfiles (mainWorkspace </> "language-support/hs/bindings/quickstart.dar")
+    return SandboxSpec {dar}
 
 testGroupWithSandbox :: TestName -> [WithSandbox -> TestTree] -> TestTree
 testGroupWithSandbox name tests =
@@ -286,6 +312,7 @@ testGroupWithSandbox name tests =
     else do
         -- runs in it's own freshly (and very slowly!) spun-up sandbox
         let withSandbox' f = do
+                specQuickstart <- createSpecQuickstart
                 pid <- mainPackageId specQuickstart
                 withSandbox specQuickstart $ \sandbox -> f sandbox pid
         testGroup name $ map (\f -> f withSandbox') tests
@@ -307,6 +334,7 @@ data SharedSandbox = SharedSandbox (MVar (Sandbox, PackageId))
 
 acquireShared :: IO SharedSandbox
 acquireShared = do
+    specQuickstart <- createSpecQuickstart
     sandbox <- startSandbox specQuickstart
     pid <- mainPackageId specQuickstart
     mv <- newMVar (sandbox, pid)

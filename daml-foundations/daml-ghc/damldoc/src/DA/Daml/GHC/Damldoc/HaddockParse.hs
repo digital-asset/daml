@@ -124,7 +124,7 @@ haddockParse :: IdeOptions ->
                 Ex.ExceptT [FileDiagnostic] IO [ParsedModule]
 haddockParse opts f = ExceptT $ do
   vfs <- makeVFSHandle
-  service <- Service.initialise Service.mainRule (const $ pure ()) makeNopLogger opts vfs
+  service <- Service.initialise Service.mainRule (const $ pure ()) noLogging opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
   parsed  <- Service.runAction service $
              runMaybeT $

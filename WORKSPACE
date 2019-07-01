@@ -42,8 +42,8 @@ nixpkgs_local_repository(
     name = "nixpkgs",
     nix_file = "//nix:nixpkgs.nix",
     nix_file_deps = [
-        "//nix:nixpkgs/nixos-19.03/default.nix",
-        "//nix:nixpkgs/nixos-19.03/default.src.json",
+        "//nix:nixpkgs/default.nix",
+        "//nix:nixpkgs/default.src.json",
     ],
 )
 
@@ -68,8 +68,8 @@ dev_env_nix_repos = {
 common_nix_file_deps = [
     "//nix:bazel.nix",
     "//nix:nixpkgs.nix",
-    "//nix:nixpkgs/nixos-19.03/default.nix",
-    "//nix:nixpkgs/nixos-19.03/default.src.json",
+    "//nix:nixpkgs/default.nix",
+    "//nix:nixpkgs/default.src.json",
 ]
 
 # Use Nix provisioned cc toolchain
@@ -518,10 +518,8 @@ hazel_repositories(
                 "c8905268b7e3b4cf624a40245bf11b35274a6dd836a5d4d531b5760075645303",
                 patches = ["@ai_formation_hazel//third_party/haskell:network.patch"],
             ) +
-            hazel_hackage("zip-archive", "0.3.3", "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d") +
-            hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
+            hazel_hackage("terminal-progress-bar", "0.4.1", "a61ca10c92cacc712dbbe28881dc23f41cc139760b7b2eef66bd0faa60ea5e24") +
             hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
-            hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
             # This corresponds to our normalize-uri branch that enforces a consistent
             # precent-encoding for URIs used as keys.
             hazel_github_external(
@@ -815,7 +813,7 @@ dev_env_tool(
         "bin/initdb",
         "bin/createdb",
         "bin/pg_ctl",
-        "bin/postgresql",
+        "bin/postgres",
     ],
     tools = [
         "createdb",

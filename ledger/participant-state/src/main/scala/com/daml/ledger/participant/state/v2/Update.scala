@@ -38,15 +38,29 @@ object Update {
       s"Configuration changed to: $newConfiguration"
   }
 
-  /** Signal that a party is hosted at this participant.
+  /** Signal that a party is hosted at a participant.
     *
-    * As explained in the note on [[ReadService.stateUpdates]], the
-    * state updates are only expected to signal all updates pertaining
-    * to data affecting the parties hosted at the participant.
+    * @param party
+    *   The newly allocated party identifier.
+    *
+    * @param displayName
+    *   The user readable description of the party. May not be unique.
+    *
+    * @param participantId
+    *   The participant that this party was added to.
+    *
+    * @param recordTime
+    *   The ledger-provided timestamp at which the party was allocated.
     *
     */
-  final case class PartyAddedToParticipant(party: Party) extends Update {
-    override def description: String = s"Add party '$party' to participant"
+  final case class PartyAddedToParticipant(
+      party: Party,
+      displayName: String,
+      participantId: String,
+      recordTime: Timestamp)
+      extends Update {
+    override def description: String =
+      s"Add party '$party' to participant"
   }
 
   /** Signal the uploading of a package that is publicly visible.
@@ -57,6 +71,22 @@ object Update {
     * ledger) will see the uploaded package. It is in contrast to a future
     * extension where we plan to support per-party package visibility
     * https://github.com/digital-asset/daml/issues/311.
+    *
+    *
+    * @param archives
+    *   The list of DAML-LF packages that were uploaded.
+    *
+    * @param sourceDescription
+    *   A description of the packages, provided by the administrator as part of
+    *   the upload.
+    *
+    * @param participantId
+    *   The participant through which the packages were uploaded. This field
+    *   is informative, and can be used by applications to display information
+    *   about the origin of the packages.
+    *
+    * @param recordTime
+    *   The ledger-provided timestamp at which the packages were uploaded.
     *
     */
   final case class PublicPackagesUploaded(

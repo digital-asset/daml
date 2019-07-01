@@ -28,6 +28,11 @@ _MAVEN_COORDINATES_PREFIX = "maven_coordinates="
 
 _SCALA_VERSION = "2.12"
 
+# Map from a dependency to the exclusions for that dependency.
+# The exclusions will be automatically inserted in every pom file that
+# depends on the target.
+EXCLUSIONS = {"io.grpc:grpc-protobuf": ["com.google.protobuf:protobuf-lite"]}
+
 def _maven_coordinates(targets):
     return [target[MavenInfo].maven_coordinates for target in targets if MavenInfo in target and target[MavenInfo].maven_coordinates]
 
@@ -141,6 +146,9 @@ DEP_BLOCK = """
   <groupId>{0}</groupId>
   <artifactId>{1}</artifactId>
   <version>{2}</version>
+  <exclusions>
+{3}
+  </exclusions>
 </dependency>
 """.strip()
 
@@ -151,7 +159,17 @@ CLASSIFIER_DEP_BLOCK = """
   <version>{2}</version>
   <type>{3}</type>
   <classifier>{4}</classifier>
+  <exclusions>
+{5}
+  </exclusions>
 </dependency>
+""".strip()
+
+EXCLUSION_BLOCK = """
+<exclusion>
+  <groupId>{0}</groupId>
+  <artifactId>{1}</artifactId>
+</exclusion>
 """.strip()
 
 def _pom_file(ctx):
@@ -174,7 +192,12 @@ def _pom_file(ctx):
             template = CLASSIFIER_DEP_BLOCK
         else:
             fail("Unknown dependency format: %s" % dep)
-
+        exclusions = EXCLUSIONS.get("{}:{}".format(parts[0], parts[1]), [])
+        formatted_exclusions = []
+        for exclusion in exclusions:
+            exclusion_parts = exclusion.split(":")
+            formatted_exclusions += [EXCLUSION_BLOCK.format(*exclusion_parts)]
+        parts += ["\n".join(["    " + l for l in "\n".join(formatted_exclusions).splitlines()])]
         formatted_deps.append(template.format(*parts))
 
     pom_file_tmpl = ctx.actions.declare_file(ctx.outputs.pom_file.path + ".tmpl")

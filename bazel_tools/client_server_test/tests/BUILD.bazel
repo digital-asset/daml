@@ -9,6 +9,7 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
 )
+load("@os_info//:os_info.bzl", "is_windows")
 
 sh_binary(
     name = "client",
@@ -41,4 +42,4 @@ client_server_test(
         ":client_input_file",
     ],
     server = ":server",
-)
+) if not is_windows else None

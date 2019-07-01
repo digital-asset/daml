@@ -3,7 +3,7 @@
 
 package com.digitalasset.codegen.lf
 
-import com.digitalasset.codegen.lf.DamlRecordOrVariantTypeGen.RecordOrVariant
+import com.digitalasset.codegen.lf.DamlDataTypeGen.DataType
 import com.digitalasset.daml.lf.iface.{Type, TypeVar, TypeCon, TypePrim}
 import scalaz.Monoid
 import scalaz.std.list._
@@ -16,12 +16,12 @@ import scalaz.syntax.monoid._
 object UsedTypeParams {
 
   /**
-    * Returns only type parameters that specified in fields, not relying on `RecordOrVariant.typeVars`.
+    * Returns only type parameters that specified in fields, not relying on `DataType.typeVars`.
     */
-  def collectTypeParamsInUse(typeDecl: RecordOrVariant): Set[String] =
+  def collectTypeParamsInUse(typeDecl: DataType): Set[String] =
     foldMapGenTypes(typeDecl)(collectTypeParams)
 
-  private def foldMapGenTypes[Z: Monoid](typeDecl: RecordOrVariant)(f: Type => Z): Z = {
+  private def foldMapGenTypes[Z: Monoid](typeDecl: DataType)(f: Type => Z): Z = {
     val notAGT = (s: String) => mzero[Z]
     typeDecl.foldMap(_.bifoldMap(f)(_.bifoldMap(_ foldMap (_.bifoldMap(notAGT)(f)))(f)))
   }

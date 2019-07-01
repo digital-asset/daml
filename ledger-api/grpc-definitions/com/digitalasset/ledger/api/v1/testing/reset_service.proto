@@ -10,6 +10,7 @@ import "google/protobuf/empty.proto";
 
 option java_outer_classname = "ResetServiceOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1.testing";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1.Testing";
 
 // Service to reset the ledger state. The goal here is to be able to reset the state in a way
 // that's much faster compared to restarting the whole ledger application (be it a sandbox

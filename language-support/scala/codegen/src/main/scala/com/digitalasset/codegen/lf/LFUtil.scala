@@ -380,6 +380,7 @@ object LFUtil {
   val primitiveObject: Tree = q"$domainApiAlias.Primitive"
   val stdMapType = tq"_root_.scala.collection.immutable.Map"
   val stdMapCompanion = q"_root_.scala.collection.immutable.Map"
+  val stdVectorType = tq"_root_.scala.collection.immutable.Vector"
   val stdSeqCompanion = q"_root_.scala.collection.immutable.Seq"
 
   def toTypeDef(s: String): TypeDef = q"type ${TypeName(s)}"

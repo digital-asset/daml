@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlConfigurationEntry,
   DamlPackageUploadEntry,
+  DamlPartyAllocationEntry,
   DamlSubmission,
   DamlTimeModel,
   DamlTransactionEntry,
@@ -69,15 +70,49 @@ object KeyValueSubmission {
 
   /** Convert an archive into a submission message. */
   def archivesToSubmission(
+      submissionId: String,
       archives: List[Archive],
-      source_description: String,
+      sourceDescription: String,
       participantId: String): DamlSubmission = {
+
+    val inputDamlState = archives.map(
+      archive =>
+        DamlStateKey.newBuilder
+          .setPackageId(archive.getHash)
+          .build)
+
     DamlSubmission.newBuilder
+      .addAllInputDamlState(inputDamlState.asJava)
       .setPackageUploadEntry(
         DamlPackageUploadEntry.newBuilder
+          .setSubmissionId(submissionId)
           .addAllArchives(archives.asJava)
-          .setSourceDescription(source_description)
+          .setSourceDescription(sourceDescription)
           .setParticipantId(participantId)
+          .build
+      )
+      .build
+  }
+
+  /** Convert an archive into a submission message. */
+  def partyToSubmission(
+      submissionId: String,
+      hint: Option[String],
+      displayName: Option[String],
+      participantId: String): DamlSubmission = {
+    val party = hint.getOrElse("")
+    val inputDamlState = List(
+      DamlStateKey.newBuilder
+        .setParty(party)
+        .build)
+    DamlSubmission.newBuilder
+      .addAllInputDamlState(inputDamlState.asJava)
+      .setPartyAllocationEntry(
+        DamlPartyAllocationEntry.newBuilder
+          .setSubmissionId(submissionId)
+          .setParty(party)
+          .setParticipantId(participantId)
+          .setDisplayName(displayName.getOrElse(""))
           .build
       )
       .build

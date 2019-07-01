@@ -10,12 +10,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v2.{
-  PartyAllocationResult,
-  SubmittedTransaction,
-  UploadDarResult,
-  WriteService
-}
+import com.daml.ledger.participant.state.v2.{ApplicationId => _, TransactionId => _, _}
 import com.daml.ledger.participant.state.{v2 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
@@ -336,35 +331,41 @@ private class SandboxIndexAndWriteService(
     val converter = new OffsetConverter()
     converter.toAbsolute(begin).flatMapConcat {
       case LedgerOffset.Absolute(absBegin) =>
-        ledger.ledgerEntries(Some(absBegin.toLong)).collect {
-          case (offset, t: LedgerEntry.Transaction)
-              // We only send out completions for transactions for which we have the full submitter information (appId, submitter, cmdId).
-              //
-              // This doesn't make a difference for the sandbox (because it represents the ledger backend + api server in single package).
-              // But for an api server that is part of a distributed ledger network, we might see
-              // transactions that originated from some other api server. These transactions don't contain the submitter information,
-              // and therefore we don't emit CommandAccepted completions for those
-              if t.applicationId.contains(applicationId.unwrap) &&
-                t.submittingParty.exists(parties.contains) &&
-                t.commandId.nonEmpty =>
-            CommandAccepted(
-              domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
-              t.recordedAt,
-              Tag.subst(t.commandId).get,
-              domain.TransactionId(t.transactionId)
-            )
+        ledger
+          .ledgerEntries(Some(absBegin.toLong))
+          .map {
+            case (offset, entry) =>
+              (offset + 1, entry) //doing the same as above with transactions. The ledger api has to return a non-inclusive offset
+          }
+          .collect {
+            case (offset, t: LedgerEntry.Transaction)
+                // We only send out completions for transactions for which we have the full submitter information (appId, submitter, cmdId).
+                //
+                // This doesn't make a difference for the sandbox (because it represents the ledger backend + api server in single package).
+                // But for an api server that is part of a distributed ledger network, we might see
+                // transactions that originated from some other api server. These transactions don't contain the submitter information,
+                // and therefore we don't emit CommandAccepted completions for those
+                if t.applicationId.contains(applicationId.unwrap) &&
+                  t.submittingParty.exists(parties.contains) &&
+                  t.commandId.nonEmpty =>
+              CommandAccepted(
+                domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
+                t.recordedAt,
+                Tag.subst(t.commandId).get,
+                domain.TransactionId(t.transactionId)
+              )
 
-          case (offset, c: LedgerEntry.Checkpoint) =>
-            Checkpoint(
-              domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
-              c.recordedAt)
-          case (offset, r: LedgerEntry.Rejection) =>
-            CommandRejected(
-              domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
-              r.recordTime,
-              domain.CommandId(r.commandId),
-              r.rejectionReason)
-        }
+            case (offset, c: LedgerEntry.Checkpoint) =>
+              Checkpoint(
+                domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
+                c.recordedAt)
+            case (offset, r: LedgerEntry.Rejection) =>
+              CommandRejected(
+                domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
+                r.recordTime,
+                domain.CommandId(r.commandId),
+                r.rejectionReason)
+          }
     }
   }
 
@@ -379,10 +380,11 @@ private class SandboxIndexAndWriteService(
     packageStore.getLfPackage(packageId)
 
   // PackageWriteService
-  override def uploadDar(
-      sourceDescription: String,
-      payload: Array[Byte]): CompletionStage[UploadDarResult] =
-    packageStore.uploadDar(timeProvider.getCurrentTime, sourceDescription, payload)
+  override def uploadPackages(
+      payload: List[Archive],
+      sourceDescription: Option[String]
+  ): CompletionStage[UploadPackagesResult] =
+    packageStore.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload)
 
   // ContractStore
   override def lookupActiveContract(
@@ -407,7 +409,8 @@ private class SandboxIndexAndWriteService(
         FutureConverters.toJava(
           ledger.allocateParty(PartyIdGenerator.generateRandomId(), displayName))
       case Some(Right(party)) => FutureConverters.toJava(ledger.allocateParty(party, displayName))
-      case Some(Left(error)) => CompletableFuture.completedFuture(PartyAllocationResult.InvalidName)
+      case Some(Left(error)) =>
+        CompletableFuture.completedFuture(PartyAllocationResult.InvalidName(error))
     }
   }
 

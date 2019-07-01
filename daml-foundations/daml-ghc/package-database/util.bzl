@@ -132,7 +132,7 @@ daml_package_rule = rule(
         ),
         "dependencies": attr.label_list(allow_files = False),
         "damlc_bootstrap": attr.label(
-            default = Label("//daml-foundations/daml-tools/da-hs-damlc-app:damlc_bootstrap"),
+            default = Label("//daml-foundations/daml-tools/damlc-app:damlc_bootstrap"),
             executable = True,
             cfg = "host",
         ),

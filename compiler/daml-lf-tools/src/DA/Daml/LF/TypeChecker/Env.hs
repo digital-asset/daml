@@ -83,16 +83,6 @@ introTypeVar v k act = do
   whenM (views tvars (HMS.member v)) $ throwWithContext (EShadowingTypeVar v)
   local (tvars . at v ?~ k) act
 
--- -- | Introduce a fresh type variable to the environment. Uses the given name as
--- -- starting point for searching a fresh name. The fresh name finally found will
--- -- then be put in the enviroment and passed to the continuation.
--- introFreshTypeVar :: MonadGamma m => TypeVarName -> (TypeVarName -> m a) -> m a
--- introFreshTypeVar v act = do
---   let vs = v : map (\n -> fmap (<> T.pack (show n)) v) [1::Int ..]
---   -- NOTE(MH): This 'findM' cannot fail since @tvars@ is finite.
---   v' <- fromJust <$> findM (\v' -> not <$> view (tvars . contains v')) vs
---   introTypeVar v' (act v')
-
 -- | Run a computation in the current enviroment extended by a new term
 -- variable/type binding. Does not fail on shadowing.
 introExprVar :: MonadGamma m => ExprVarName -> Type -> m a -> m a

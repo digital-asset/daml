@@ -702,7 +702,10 @@ private class PostgresLedgerDao(
         recordedAt.toInstant,
         transactionSerializer
           .deserializeTransaction(transactionStream)
-          .getOrElse(sys.error(s"failed to deserialise transaction! trId: $transactionId")),
+          .fold(
+            err =>
+              sys.error(s"failed to deserialise transaction! trId: $transactionId: error: $err"),
+            identity),
         disclosure
       )
     case ParsedEntry(

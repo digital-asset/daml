@@ -5,7 +5,7 @@ package com.digitalasset.ledger.client.binding.encoding
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.binding.encoding.EncodingUtil.normalize
 import com.digitalasset.ledger.client.binding.{Primitive => P}
-import scalaz.Plus
+import scalaz.{OneAnd, Plus}
 
 abstract class EqualityEncoding extends LfTypeEncoding {
   import EqualityEncoding.{RecordFieldsImpl, VariantCasesImpl, primitiveImpl}
@@ -27,6 +27,12 @@ abstract class EqualityEncoding extends LfTypeEncoding {
   override def field[A](fieldName: String, o: Out[A]): Field[A] = o
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
+
+  override def enumAll[A](
+      enumId: Identifier,
+      index: A => Int,
+      cases: OneAnd[Vector, (String, A)],
+  ): Out[A] = index(_) == index(_)
 
   override def variant[A](variantId: Identifier, cases: VariantCases[A]): Out[A] = cases
 

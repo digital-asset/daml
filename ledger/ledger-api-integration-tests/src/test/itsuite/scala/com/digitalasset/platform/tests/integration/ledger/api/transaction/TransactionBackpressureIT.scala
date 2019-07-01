@@ -3,8 +3,6 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api.transaction
 
-import java.util.UUID
-
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.testing.utils.{
@@ -15,7 +13,7 @@ import com.digitalasset.ledger.api.testing.utils.{
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestCommands}
+import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestCommands, TestIdsGenerator}
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
@@ -36,6 +34,7 @@ class TransactionBackpressureIT
     with MultiLedgerFixture {
 
   protected val testCommands = new TestCommands(config)
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
   override def timeLimit: Span = scaled(300.seconds)
 
@@ -48,8 +47,6 @@ class TransactionBackpressureIT
 
   "The transaction service when serving multiple subscriptions" should {
 
-    val runSuffix = UUID.randomUUID()
-
     "handle back pressure" in allFixtures { ctx =>
       val noOfCommands = 1000
       val noOfSubscriptions = 10
@@ -61,8 +58,8 @@ class TransactionBackpressureIT
         Source(1 to noOfCommands)
           .throttle(10, 1.second)
           .mapAsync(10)(i =>
-            commandClient.submitSingleCommand(
-              testCommands.oneKbCommandRequest(ctx.ledgerId, s"command-$i-$runSuffix")))
+            commandClient.submitSingleCommand(testCommands
+              .oneKbCommandRequest(ctx.ledgerId, testIdsGenerator.testCommandId(s"command-$i"))))
           .runWith(Sink.ignore)
 
       def subscribe(begin: LedgerOffset, rate: Int) =

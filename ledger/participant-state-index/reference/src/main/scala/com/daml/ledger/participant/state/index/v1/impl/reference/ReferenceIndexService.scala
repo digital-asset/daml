@@ -272,8 +272,8 @@ final case class ReferenceIndexService(
         .toList
     val rejected =
       currentOffset
-        .fold(state.rejections) { offset =>
-          state.rejections.from(offset).dropWhile(_._1 == offset)
+        .fold(state.commandRejections) { offset =>
+          state.commandRejections.from(offset).dropWhile(_._1 == offset)
         }
         .flatMap {
           case (offset, rejectedCmd) =>

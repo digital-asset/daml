@@ -13,6 +13,7 @@ import "com/digitalasset/ledger/api/v1/trace_context.proto";
 
 option java_outer_classname = "TransactionServiceOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 
 // Allows clients to read transactions from the ledger.
 service TransactionService {

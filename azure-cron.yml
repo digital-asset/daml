@@ -154,3 +154,37 @@ jobs:
         env:
           DOCKER_LOGIN: $(DOCKER_LOGIN)
           DOCKER_PASSWORD: $(DOCKER_PASSWORD)
+
+  - job: vscode_marketplace
+    timeoutInMinutes: 10
+    pool:
+      name: 'linux-pool'
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          eval "$(dev-env/bin/dade-assist)"
+
+          AUTH=$(echo -n "OAuth:${MARKETPLACE_TOKEN}" | base64 -w0)
+          MARKET=$(curl -H "Authorization: Basic $AUTH" \
+                        -H "Accept: application/json;api-version=5.0-preview.2" \
+                        -s \
+                        "https://marketplace.visualstudio.com/_apis/gallery/publishers/DigitalAssetHoldingsLLC/extensions/daml?flags=1" \
+                        | jq -r '.versions[0].version')
+          GITHUB=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[0]')
+          if [[ "${GITHUB#v}" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c $GITHUB; then
+            echo "Publishing $GITHUB to VSCode Marketplace"
+            git checkout $GITHUB
+            cd daml-foundations/daml-tools/daml-extension
+            yarn
+            vsce publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
+          else
+            if [[ "${GITHUB#v}" == "$MARKET" ]]; then
+              echo "Version on marketplace is already the latest ($GITHUB)."
+            else
+              echo "Latest version is not ready for marketplace publication."
+            fi
+          fi
+        env:
+          MARKETPLACE_TOKEN: $(VSCODE_MARKETPLACE_TOKEN)

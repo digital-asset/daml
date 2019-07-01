@@ -110,8 +110,9 @@ private[validation] object Serializability {
       case DataVariant(variants) =>
         if (variants.isEmpty) env.unserializable(URUninhabitatedType)
         else variants.iterator.map(_._2)
-      case DataEnum(_) =>
-        Iterator.empty
+      case DataEnum(constructors) =>
+        if (constructors.isEmpty) env.unserializable(URUninhabitatedType)
+        else Iterator.empty
       case DataRecord(fields, _) =>
         fields.iterator.map(_._2)
     }

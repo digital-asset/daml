@@ -36,7 +36,7 @@ import com.digitalasset.daml.lf.value.Value
   * [[v1.Update]]s.
   *
   * We provide a reference implementation of a participant state in
-  * [[com.daml.ledger.participant.state.v1.impl.reference.Ledger]]. There we
+  * [[com.daml.ledger.api.server.damlonx.reference.ReferenceServer]]. There we
   * model an in-memory ledger, which has by construction a single participant,
   * which hosts all parties. See its comments for details on how that is done,
   * and how its implementation can be used as a blueprint for implementing

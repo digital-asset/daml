@@ -8,6 +8,7 @@ package com.digitalasset.ledger.api.v1.admin;
 
 option java_outer_classname = "PartyManagementServiceOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1.admin";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1.Admin";
 
 // Status: experimental interface, will change before it is deemed production
 // ready

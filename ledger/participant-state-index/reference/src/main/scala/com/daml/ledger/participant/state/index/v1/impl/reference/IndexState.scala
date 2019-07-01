@@ -28,7 +28,7 @@ final case class IndexState(
     txs: TreeMap[Offset, (Update.TransactionAccepted, BlindingInfo)],
     activeContracts: InMemoryActiveContracts,
     // Rejected commands indexed by offset.
-    rejections: TreeMap[Offset, Update.CommandRejected],
+    commandRejections: TreeMap[Offset, Update.CommandRejected],
     // Uploaded packages.
     packages: Map[PackageId, Archive],
     packageKnownTo: Relation[PackageId, Party],
@@ -91,9 +91,10 @@ final case class IndexState(
         case u: Update.CommandRejected =>
           Right(
             state.copy(
-              rejections = rejections + (uId -> u)
+              commandRejections = commandRejections + (uId -> u)
             )
           )
+
         case u: Update.TransactionAccepted =>
           val blindingInfo = Blinding.blind(
             // FIXME(JM): Make Blinding.blind polymorphic.
@@ -157,7 +158,7 @@ object IndexState {
     recordTime = lic.initialRecordTime,
     txs = TreeMap.empty,
     activeContracts = InMemoryActiveContracts.empty,
-    rejections = TreeMap.empty,
+    commandRejections = TreeMap.empty,
     packages = Map.empty,
     packageKnownTo = Map.empty,
     hostedParties = Set.empty

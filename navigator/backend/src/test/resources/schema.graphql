@@ -54,6 +54,7 @@ type Contract implements Node {
   agreementText: String
   signatories: [String!]!
   observers: [String!]!
+  key: DamlLfValue
 }
 
 type ContractEdge {
