@@ -34,5 +34,5 @@ bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
 da-ghci --data yes //:repl -e '()'
 # Check that our IDE works on our codebase
-./compiler/hie-core/hie-core-daml.sh daml-foundations/daml-tools/damlc-app/src/Main.hs |& tee ide-log
+./compiler/hie-core/hie-core-daml.sh daml-foundations/daml-tools/damlc-app/src/Main.hs 2>&1 | tee ide-log
 grep -q "Files that failed: 0" ide-log
