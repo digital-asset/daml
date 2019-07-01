@@ -88,7 +88,7 @@ runLanguageServer options userHandlers getIdeState = do
             modifyTVar cancelledRequests (Set.delete reqId)
         -- We implement request cancellation by racing waitForCancel against
         -- the actual request handler.
-        waitForCancel reqId = atomically $ do
+    let waitForCancel reqId = atomically $ do
             cancelled <- readTVar cancelledRequests
             unless (reqId `Set.member` cancelled) retry
     let PartialHandlers parts =
@@ -129,6 +129,10 @@ runLanguageServer options userHandlers getIdeState = do
                     Response x@RequestMessage{_id, _params} wrap act ->
                         flip finally (clearReqId _id) $
                         catch (do
+                            -- We could optimize this by first checking if the id
+                            -- is in the cancelled set. However, this is unlikely to be a
+                            -- bottleneck and the additional check might hide
+                            -- issues with async exceptions that need to be fixed.
                             cancelOrRes <- race (waitForCancel _id) $ act lspFuncs ide _params
                             case cancelOrRes of
                                 Left () -> do
