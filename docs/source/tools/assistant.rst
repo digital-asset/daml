@@ -133,7 +133,7 @@ You can control the build by changing your project's ``daml.yaml``:
 ``source``
   The path to the source code.
 
-The generated ``.dar`` file is created in ``dist/${name}.dar`` by default. To override the default location, pass the ``-o`` argument to ``daml build``::
+The generated ``.dar`` file is created in ``.daml/dist/${name}.dar`` by default. To override the default location, pass the ``-o`` argument to ``daml build``::
 
   daml build -o path/to/darfile.dar
 

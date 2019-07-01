@@ -428,8 +428,7 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
             case Split.splitOn ":" name of
                 [_g, a, v] -> a <> "-" <> v <> ".dar"
                 _otherwise -> name <> ".dar"
-        defaultOutDir = "dist"
-        targetFilePath name = fromMaybe (defaultOutDir </> defaultDarFile name) mbOutFile
+        targetFilePath name = fromMaybe (distDir </> defaultDarFile name) mbOutFile
         mkConfFile ::
                String
             -> String
@@ -469,9 +468,7 @@ execClean projectOpts = do
                     whenM (doesFileExist path) $ do
                         putStrLn ("Removing file " <> path)
                         removePathForcibly path
-            removeAndWarn projectPackageDatabase
-            removeAndWarn ".interfaces"
-            removeAndWarn "dist"
+            removeAndWarn damlArtifactDir
             putStrLn "Removed build artifacts."
 
 lfVersionString :: LF.Version -> String
