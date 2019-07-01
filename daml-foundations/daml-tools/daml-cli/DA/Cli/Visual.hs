@@ -18,11 +18,10 @@ import qualified DA.Pretty as DAP
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified Codec.Archive.Zip as ZIPArchive
 import qualified Data.ByteString.Lazy as BSL
-import Text.Dot
 import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
--- import Debug.Trace
+import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -98,21 +97,23 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
 -- actionsForTemplate lookupTemplate (_tplCon, actions) = map (templateInAction lookupTemplate) actions
 
 -- This to be used to generate the node ids and use as look up table
-choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName NodeId
-choiceNameWithId tplChcActions = Map.fromList $ zip allChoiceFromAction (map userNodeId [0..])
+choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName Int
+choiceNameWithId tplChcActions = Map.fromList $ zip allChoiceFromAction [0..]
   where choiceActions =  concatMap choiceAndAction tplChcActions
         allChoiceFromAction = map (LF.chcName . choice) choiceActions
 
 
 -- This flattening is not doing exhaustive, will be missing the create and archives. Probably will filter for 1st iteration
-nodeIdForChoice ::  Map.Map LF.ChoiceName NodeId -> LF.ChoiceName -> NodeId
+nodeIdForChoice ::  Map.Map LF.ChoiceName Int -> LF.ChoiceName -> Int
+nodeIdForChoice _ (LF.ChoiceName "Create") = 0
 nodeIdForChoice lookUpdata chc = case Map.lookup chc lookUpdata of
   Just node -> node
-  Nothing -> error("Template node lookup failed")
+  Nothing -> trace ( "template lookup is doing to fail" ++ show chc ) $ error("Template node lookup failed")
 
-data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,NodeId)] ,clusterTemplate :: LF.Template }
+-- probably storing the choice is a better Idea, as we can determine what kind of choice it is.
+data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,Int)], clusterTemplate :: LF.Template }
 
-constructSubgraphsWithLables :: Map.Map LF.ChoiceName NodeId -> TemplateChoiceAction -> SubGraph
+constructSubgraphsWithLables :: Map.Map LF.ChoiceName Int -> TemplateChoiceAction -> SubGraph
 constructSubgraphsWithLables lookupData TemplateChoiceAction {..} = SubGraph  nodes template
   where choicesInTemplete = map (LF.chcName . choice) choiceAndAction
         nodes = map (\chc -> (chc, (nodeIdForChoice lookupData chc)) ) choicesInTemplete
@@ -124,51 +125,39 @@ actionToChoice (AExercise _ chc) = chc
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
 choiceActionToChoicePairs ChoiceAndAction {..} = map (\ac -> (LF.chcName choice, (actionToChoice ac))) (Set.elems actions)
 
-graphEdges :: Map.Map LF.ChoiceName NodeId -> [TemplateChoiceAction] -> [(NodeId, NodeId)]
+graphEdges :: Map.Map LF.ChoiceName Int -> [TemplateChoiceAction] -> [(Int, Int)]
 graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> ( (nodeIdForChoice lookupData chn1) ,(nodeIdForChoice lookupData chn2) )) choicePairsForTemplates
   where chcActionsFromAllTemplates = concatMap (choiceAndAction) tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
 
-
-subGraphString :: SubGraph -> [String]
-subGraphString SubGraph {..} = dots
-  where dots = map (\(chc, node) -> showDot (userNode node [("label", DAP.renderPretty chc) , ("shape", "circle") ]) ) nodes
+subGraphHeader :: LF.Template -> String
+subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{"
 
 
-constructDotGraph :: [SubGraph] -> [(NodeId, NodeId)] -> String
-constructDotGraph subgraphs edges = unlines graphLines
-  where subgraphsLines = concatMap subGraphString subgraphs
-        edgesLines = map (\(n1, n2) -> showDot (edge n1 n2  []) ) edges
+-- Missing label color as only choice name is not carried on
+subGraphBodyLine :: (LF.ChoiceName ,Int) -> String
+subGraphBodyLine (chc, nodeId) = "n" ++ show (nodeId) ++ "[label=" ++ DAP.renderPretty chc ++ "];"
+
+subGraphBody :: [(LF.ChoiceName ,Int)] -> String
+subGraphBody nodes = unlines $ map subGraphBodyLine nodes
+
+subGraphEnd :: LF.Template -> String
+subGraphEnd tpl = "label = " ++(DAP.renderPretty $ LF.tplTypeCon tpl) ++ "color=" ++"blue" ++ "} \n"
+
+
+subGraphCluster :: SubGraph -> String
+subGraphCluster SubGraph {..} = (subGraphHeader clusterTemplate) ++ (subGraphBody nodes ) ++ (subGraphEnd clusterTemplate)
+
+-- Later on should decorate the edge too
+drawEdge :: Int -> Int -> String
+drawEdge n1 n2 = "n"++show (n1) ++ "->" ++ "n"++show (n2)
+
+
+constructDotGraph :: [SubGraph] -> [(Int, Int)] -> String
+constructDotGraph subgraphs edges = "digraph G { \n compound=true \n" ++ graphLines ++ " \n } "
+  where subgraphsLines = concatMap subGraphCluster subgraphs
+        edgesLines = unlines $ map (\(n1, n2) -> drawEdge n1 n2 )  edges
         graphLines = subgraphsLines ++ edgesLines
--- moduleAndTemplates -> [TemplateChoiceAction]
--- nodes world  -> choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName NodeId
--- list of subgraphs constructSubgraphsWithLables :: Map.Map LF.ChoiceName NodeId -> TemplateChoiceAction -> SubGraph
--- edges to be written - graphEdges :: Map.Map LF.ChoiceName NodeId -> [TemplateChoiceAction] -> [(NodeId, NodeId)]
-
-
-
--- | 'netlistGraph' generates a simple graph from a netlist.
--- The default implementation does the edeges other way round. The change is on # 143
--- netlistGraph' :: (Ord a)
---           => (b -> [(String,String)])   -- ^ Attributes for each node
---           -> (b -> [a])                 -- ^ Out edges leaving each node
---           -> [(a,b)]                    -- ^ The netlist
---           -> Dot ()
--- netlistGraph' attrFn outFn assocs = do
---     let nodes = Set.fromList [a | (a, _) <- assocs]
---     let outs = Set.fromList [o | (_, b) <- assocs, o <- outFn b]
---     nodeTab <- sequence
---                 [do nd <- node (attrFn b)
---                     return (a, nd)
---                 | (a, b) <- assocs]
---     otherTab <- sequence
---                [do nd <- node []
---                    return (o, nd)
---                 | o <- Set.toList outs, o `Set.notMember` nodes]
---     let fm = M.fromList (nodeTab ++ otherTab)
---     sequence_
---         [(fm M.! dst) .->. (fm M.! src) | (dst, b) <- assocs,
---         src <- outFn b]
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath _dotFilePath = do
@@ -185,12 +174,6 @@ execVisual darFilePath _dotFilePath = do
         graphEdgesString  = graphEdges nodeWorld res
         strdot = constructDotGraph subgraphsinW graphEdgesString
     putStrLn strdot
-        -- actionEdges = map templatePairs res  -- (LF.Template , (LF.Template , [Action]))
-        -- dotString = showDot $ netlistGraph' srcLabel (actionsForTemplate tplLookUp)  actionEdges
-    -- case dotFilePath of
-    --     Just outDotFile -> writeFile outDotFile dotString
-    --     Nothing -> putStrLn dotString
-
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case
