@@ -12,7 +12,7 @@ You can generate visual graphs for the contracts in your DAML project. To do thi
 4. Generate the visual graph with Graphviz by running ``dot -Tpng <project_name>.dot > <project_name>.png``.
 
 
-Example: visualizing the Quickstart project
+Example: Visualizing the Quickstart project
 *******************************************
 
 If you are working through :doc:`quickstart </getting-started/quickstart>` example you can generate a visual like this. If you do not have Graphviz installed `install it from <http://www.graphviz.org/download/>`_.
