@@ -71,7 +71,7 @@ class PackageServiceTest
     nonEmptyListOf(genApiIdentifier)) { ids =>
     val (_, map) = PackageService.buildMap(ids.toSet)
     val uniqueIds: Set[Identifier] = map.values.toSet
-    val uniqueDomainIds: Set[domain.TemplateId] = uniqueIds.map(x =>
+    val uniqueDomainIds: Set[domain.TemplateId.OptionalPkg] = uniqueIds.map(x =>
       domain.TemplateId(packageId = None, moduleName = x.moduleName, entityName = x.entityName))
 
     inside(PackageService.resolveTemplateIds(map)(uniqueDomainIds)) {
@@ -85,7 +85,7 @@ class PackageServiceTest
     val (_, map) = PackageService.buildMap(knownIds.toSet)
 
     val unknownIds: Set[Identifier] = otherIds.toSet diff knownIds.toSet
-    val unknownDomainIds: Set[domain.TemplateId] = unknownIds.map(x =>
+    val unknownDomainIds: Set[domain.TemplateId.OptionalPkg] = unknownIds.map(x =>
       domain.TemplateId(packageId = None, moduleName = x.moduleName, entityName = x.entityName))
 
     unknownDomainIds.foreach { id =>

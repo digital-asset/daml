@@ -3,11 +3,83 @@
 
 package com.digitalasset.http
 
+import com.digitalasset.ledger.api.{v1 => lav1}
+
+import scalaz.{Functor, \/}
+import scalaz.std.vector._
+import scalaz.syntax.std.option._
+import scalaz.syntax.traverse._
+
 object domain {
+  type Error = String
 
   case class JwtPayload(ledgerId: String, applicationId: String, party: String)
 
-  case class TemplateId(packageId: Option[String], moduleName: String, entityName: String)
+  case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
-  case class GetActiveContractsRequest(templateIds: Set[TemplateId])
+  case class ActiveContract[+LfV](
+      contractId: String,
+      templateId: TemplateId.RequiredPkg,
+      key: Option[LfV],
+      argument: LfV,
+      witnessParties: Seq[String],
+      agreementText: String)
+
+  case class GetActiveContractsRequest(templateIds: Set[TemplateId.OptionalPkg])
+
+  case class GetActiveContractsResponse[+LfV](
+      offset: String,
+      workflowId: Option[String],
+      activeContracts: Seq[ActiveContract[LfV]])
+
+  object TemplateId {
+    type RequiredPkg = TemplateId[String]
+    type OptionalPkg = TemplateId[Option[String]]
+    def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
+      TemplateId(in.packageId, in.moduleName, in.entityName)
+  }
+
+  object ActiveContract {
+    def fromLedgerApi(in: lav1.event.CreatedEvent): Error \/ ActiveContract[lav1.value.Value] =
+      for {
+        templateId <- in.templateId required "templateId"
+        argument <- in.createArguments required "createArguments"
+        boxedArgument = lav1.value.Value(lav1.value.Value.Sum.Record(argument))
+      } yield
+        ActiveContract(
+          contractId = in.contractId,
+          templateId = TemplateId fromLedgerApi templateId,
+          key = in.contractKey,
+          argument = boxedArgument,
+          witnessParties = in.witnessParties,
+          agreementText = in.agreementText getOrElse ""
+        )
+
+    implicit val covariant: Functor[ActiveContract] = new Functor[ActiveContract] {
+      override def map[A, B](fa: ActiveContract[A])(f: A => B) =
+        fa.copy(key = fa.key map f, argument = f(fa.argument))
+    }
+  }
+
+  object GetActiveContractsResponse {
+    def fromLedgerApi(in: lav1.active_contracts_service.GetActiveContractsResponse)
+      : Error \/ GetActiveContractsResponse[lav1.value.Value] =
+      for {
+        activeContracts <- in.activeContracts.toVector traverseU (ActiveContract.fromLedgerApi(_))
+      } yield
+        GetActiveContractsResponse(
+          offset = in.offset,
+          workflowId = Some(in.workflowId) filter (_.nonEmpty),
+          activeContracts = activeContracts)
+
+    implicit val covariant: Functor[GetActiveContractsResponse] =
+      new Functor[GetActiveContractsResponse] {
+        override def map[A, B](fa: GetActiveContractsResponse[A])(f: A => B) =
+          fa copy (activeContracts = fa.activeContracts map (_ map f))
+      }
+  }
+
+  private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {
+    def required(label: String): Error \/ A = o toRightDisjunction s"Missing required field $label"
+  }
 }

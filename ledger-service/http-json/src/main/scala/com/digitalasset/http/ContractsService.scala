@@ -6,7 +6,7 @@ package com.digitalasset.http
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
+import com.digitalasset.ledger.api.v1.value.Value
 import com.digitalasset.ledger.api.v1.transaction_filter
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
@@ -28,21 +28,21 @@ class ContractsService(
 
   import ContractsService._
 
-  private val resolveTemplateIds: Set[domain.TemplateId] => Error \/ List[Identifier] =
+  private val resolveTemplateIds: Set[domain.TemplateId.OptionalPkg] => Error \/ List[Identifier] =
     PackageService.resolveTemplateIds(templateIdMap)
 
-  def search(
-      jwtPayload: domain.JwtPayload,
-      request: domain.GetActiveContractsRequest): Future[Seq[GetActiveContractsResponse]] =
+  def search(jwtPayload: domain.JwtPayload, request: domain.GetActiveContractsRequest)
+    : Future[Seq[domain.GetActiveContractsResponse[Value]]] =
     search(jwtPayload.party, request.templateIds)
 
-  def search(
-      party: String,
-      templateIds: Set[domain.TemplateId]): Future[Seq[GetActiveContractsResponse]] =
+  def search(party: String, templateIds: Set[domain.TemplateId.OptionalPkg])
+    : Future[Seq[domain.GetActiveContractsResponse[Value]]] =
     for {
       templateIds <- toFuture(resolveTemplateIds(templateIds))
       activeContracts <- activeContractSetClient
         .getActiveContracts(transactionFilter(party, templateIds), verbose = true)
+        .mapAsyncUnordered(8)(gacr =>
+          toFuture(domain.GetActiveContractsResponse.fromLedgerApi(gacr)))
         .runWith(Sink.seq)
     } yield activeContracts
 

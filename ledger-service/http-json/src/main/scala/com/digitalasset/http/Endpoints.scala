@@ -9,9 +9,11 @@ import akka.http.scaladsl.server.Directives._
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.digitalasset.http.json.JsonProtocol._
+import com.digitalasset.ledger.api.v1.value.Value
 
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{-\/, \/, \/-}
+import scalaz.syntax.functor._
 import spray.json._
 import json.HttpCodec._
 import json.ResponseFormats._
@@ -106,7 +108,7 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
             JsonApi.subst(
               contractsService
                 .search(jwtPayload, emptyGetActiveContractsRequest)
-                .map(resultJsObject(_))))
+                .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
         } ~
           post {
             entity(as[JsValue]) { jsInput =>
@@ -114,7 +116,7 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
                 JsonApi.subst(
                   contractsService
                     .search(jwtPayload, jsInput.convertTo[domain.GetActiveContractsRequest])
-                    .map(resultJsObject(_))))
+                    .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
             }
           }
       }
@@ -127,6 +129,11 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
   private def httpResponse(output: Future[ByteString]): HttpResponse =
     HttpResponse(entity =
       HttpEntity.CloseDelimited(ContentTypes.`application/json`, Source.fromFuture(output)))
+
+  // TODO SC: this is a placeholder because we can't do this accurately
+  // without type context
+  private def placeholderLfValueEnc(v: Value): JsValue =
+    JsString(v.sum.toString)
 
   lazy val notFound: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)

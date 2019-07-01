@@ -34,13 +34,14 @@ object PackageService {
     })
   }
 
-  def resolveTemplateIds(m: TemplateIdMap)(as: Set[domain.TemplateId]): Error \/ List[Identifier] =
+  def resolveTemplateIds(m: TemplateIdMap)(
+      as: Set[domain.TemplateId.OptionalPkg]): Error \/ List[Identifier] =
     for {
       bs <- as.toList.traverseU(resolveTemplateId(m))
       _ <- validate(as, bs)
     } yield bs
 
-  def resolveTemplateId(m: TemplateIdMap)(a: domain.TemplateId): Error \/ Identifier =
+  def resolveTemplateId(m: TemplateIdMap)(a: domain.TemplateId.OptionalPkg): Error \/ Identifier =
     a.packageId
       .map { x =>
         Identifier(packageId = x, moduleName = a.moduleName, entityName = a.entityName)
@@ -52,7 +53,7 @@ object PackageService {
     m.get(a).toRightDisjunction(s"Cannot resolve $a")
 
   private def validate(
-      requested: Set[domain.TemplateId],
+      requested: Set[domain.TemplateId.OptionalPkg],
       resolved: List[Identifier]): Error \/ Unit =
     if (requested.size == resolved.size) \/.right(())
     else
