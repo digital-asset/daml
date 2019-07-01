@@ -3,7 +3,7 @@
 
 package com.digitalasset.http
 
-import com.digitalasset.http.Generators.{genApiIdentifier, genDuplicateApiIdentifiers}
+import com.digitalasset.http.Generators.{genApiIdentifier, genDuplicateApiIdentifiers, nonEmptySet}
 import com.digitalasset.ledger.api.v1.value.Identifier
 import org.scalacheck.Gen.nonEmptyListOf
 import org.scalacheck.Shrink
@@ -74,8 +74,8 @@ class PackageServiceTest
   behavior of "PackageService.resolveTemplateIds"
 
   it should "return all API Identifier by moduleName and entityName" in forAll(
-    nonEmptyListOf(genApiIdentifier)) { ids =>
-    val map = PackageService.buildTemplateIdMap(ids.toSet)
+    nonEmptySet(genApiIdentifier)) { ids =>
+    val map = PackageService.buildTemplateIdMap(ids)
     val uniqueIds: Set[Identifier] = map.unique.values.toSet
     val uniqueDomainIds: Set[domain.TemplateId.OptionalPkg] = uniqueIds.map(x =>
       domain.TemplateId(packageId = None, moduleName = x.moduleName, entityName = x.entityName))
@@ -85,7 +85,18 @@ class PackageServiceTest
     }
   }
 
-  it should "return error for unmapped ID" in forAll(
+  it should "return all API Identifier by packageId, moduleName and entityName" in forAll(
+    nonEmptySet(genApiIdentifier)) { ids =>
+    val map = PackageService.buildTemplateIdMap(ids)
+    val domainIds: Set[domain.TemplateId.OptionalPkg] =
+      ids.map(x => domain.TemplateId(Some(x.packageId), x.moduleName, x.entityName))
+
+    inside(PackageService.resolveTemplateIds(map)(domainIds)) {
+      case \/-(actualIds) => actualIds.toSet shouldBe ids
+    }
+  }
+
+  it should "return error for unmapped ID requested by moduleName and entityName" in forAll(
     nonEmptyListOf(genApiIdentifier),
     nonEmptyListOf(genApiIdentifier)) { (knownIds, otherIds) =>
     val map = PackageService.buildTemplateIdMap(knownIds.toSet)
@@ -97,7 +108,34 @@ class PackageServiceTest
     unknownDomainIds.foreach { id =>
       inside(PackageService.resolveTemplateId(map)(id)) {
         case -\/(e) =>
-          val t = (id.moduleName, id.entityName)
+          val t: PackageService.K2 = (id.moduleName, id.entityName)
+          e shouldBe s"Cannot resolve ${t.toString}"
+      }
+    }
+
+    inside(PackageService.resolveTemplateIds(map)(unknownDomainIds)) {
+      case -\/(e) => e should startWith("Cannot resolve ")
+    }
+  }
+
+  it should "return error for unmapped ID requested by entityName, moduleName and entityName" in forAll(
+    nonEmptyListOf(genApiIdentifier),
+    nonEmptyListOf(genApiIdentifier)) { (knownIds, otherIds) =>
+    val map = PackageService.buildTemplateIdMap(knownIds.toSet)
+
+    val unknownIds: Set[Identifier] = otherIds.toSet diff knownIds.toSet
+    val unknownDomainIds: Set[domain.TemplateId.OptionalPkg] = unknownIds.map(
+      x =>
+        domain.TemplateId(
+          packageId = Some(x.packageId),
+          moduleName = x.moduleName,
+          entityName = x.entityName))
+
+    unknownDomainIds.foreach { id =>
+      inside(PackageService.resolveTemplateId(map)(id)) {
+        case -\/(e) =>
+          val t: PackageService.K3 =
+            (id.packageId.getOrElse(fail("should never happen!")), id.moduleName, id.entityName)
           e shouldBe s"Cannot resolve ${t.toString}"
       }
     }
