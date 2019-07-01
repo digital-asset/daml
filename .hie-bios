@@ -1,5 +1,5 @@
 #!/bin/sh
-bazel run --define hie_bios_ghci=True //daml-foundations/daml-tools/damlc-app:damlc-app@ghci | sed "s/'//g" | sed "s/-qg//g" | sed "s/+RTS.*-RTS//" | sed "s|/bazel-out|bazel-out|g" | sed "s/-fexternal-interpreter//g"
+cat "$HIE_BIOS_ARGS" | sed "s/'//g" | sed "s/-qg//g" | sed "s/+RTS.*-RTS//" | sed "s|/bazel-out|bazel-out|g" | sed "s/-fexternal-interpreter//g"
 # For now we hardcode include paths as Bazel passes the list of files explicitly
 # and does not use include paths so we cannot get it from the GHCi invocation.
 echo \
