@@ -113,17 +113,17 @@ Run the application using prototyping tools
 
 In this section, you will run the quickstart application and get introduced to the main tools for prototyping DAML:
 
-#. To compile the DAML model, run ``daml build -o target/daml/iou.dar``
+#. To compile the DAML model, run ``daml build``
 
-   This creates a DAR package called ``target/daml/iou.dar``. The output should look like this:
+   This creates a DAR package called ``.daml/dist/quickstart.dar``. The output should look like this:
 
    .. code-block:: none
 
-      Created target/daml/iou.dar.
+      Created .daml/dist/quickstart.dar.
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup target/daml/iou.dar``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup .daml/dist/quickstart.dar``
 
    The output should look like this:
 
