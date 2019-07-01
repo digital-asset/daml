@@ -20,9 +20,7 @@ import qualified Codec.Archive.Zip as ZIPArchive
 import qualified Data.ByteString.Lazy as BSL
 import Text.Dot
 import qualified Data.ByteString as B
-import qualified Data.Map as M
 import Data.Generics.Uniplate.Data
-import Data.List.Extra
 import qualified Data.Map.Strict as Map
 -- import Debug.Trace
 
@@ -79,25 +77,25 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
     where
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
-type LookupTemplate = (LF.Qualified LF.TypeConName) -> LF.Template
+-- type LookupTemplate = (LF.Qualified LF.TypeConName) -> LF.Template
 
-lookupTemplateT :: LF.World -> (LF.Qualified LF.TypeConName) -> LF.Template
-lookupTemplateT world qualTemplate = case AST.lookupTemplate qualTemplate world of
-  Right tpl -> tpl
-  Left _ -> error("Template lookup failed")
+-- lookupTemplateT :: LF.World -> (LF.Qualified LF.TypeConName) -> LF.Template
+-- lookupTemplateT world qualTemplate = case AST.lookupTemplate qualTemplate world of
+--   Right tpl -> tpl
+--   Left _ -> error("Template lookup failed")
 
-templateInAction ::  LookupTemplate  -> Action -> LF.Template
-templateInAction lookupTemplate (ACreate  qtpl ) = lookupTemplate qtpl
-templateInAction lookupTemplate (AExercise qtpl _ ) = lookupTemplate qtpl
+-- templateInAction ::  LookupTemplate  -> Action -> LF.Template
+-- templateInAction lookupTemplate (ACreate  qtpl) = lookupTemplate qtpl
+-- templateInAction lookupTemplate (AExercise qtpl _ ) = lookupTemplate qtpl
 
-srcLabel :: (LF.Template, [Action]) -> [(String, String)]
-srcLabel (tc, _) = [("shape","none"), ("label",DAP.renderPretty $ LF.tplTypeCon tc) ]
+-- srcLabel :: (LF.Template, [Action]) -> [(String, String)]
+-- srcLabel (tc, _) = [("shape","none"), ("label",DAP.renderPretty $ LF.tplTypeCon tc) ]
 
-templatePairs :: (LF.Template, Set.Set Action) -> (LF.Template , (LF.Template , [Action]))
-templatePairs (tc, actions) = (tc , (tc,  Set.elems actions))
+-- templatePairs :: (LF.Template, Set.Set Action) -> (LF.Template , (LF.Template , [Action]))
+-- templatePairs (tc, actions) = (tc , (tc,  Set.elems actions))
 
-actionsForTemplate :: LookupTemplate -> (LF.Template, [Action]) -> [LF.Template]
-actionsForTemplate lookupTemplate (_tplCon, actions) = map (templateInAction lookupTemplate) actions
+-- actionsForTemplate :: LookupTemplate -> (LF.Template, [Action]) -> [LF.Template]
+-- actionsForTemplate lookupTemplate (_tplCon, actions) = map (templateInAction lookupTemplate) actions
 
 -- This to be used to generate the node ids and use as look up table
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName NodeId
@@ -136,8 +134,12 @@ subGraphString :: SubGraph -> [String]
 subGraphString SubGraph {..} = dots
   where dots = map (\(chc, node) -> showDot (userNode node [("label", DAP.renderPretty chc) , ("shape", "circle") ]) ) nodes
 
+
 constructDotGraph :: [SubGraph] -> [(NodeId, NodeId)] -> String
-constructDotGraph subgraphs edges = showDot $ userNode (userNodeId 10) []
+constructDotGraph subgraphs edges = unlines graphLines
+  where subgraphsLines = concatMap subGraphString subgraphs
+        edgesLines = map (\(n1, n2) -> showDot (edge n1 n2  []) ) edges
+        graphLines = subgraphsLines ++ edgesLines
 -- moduleAndTemplates -> [TemplateChoiceAction]
 -- nodes world  -> choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName NodeId
 -- list of subgraphs constructSubgraphsWithLables :: Map.Map LF.ChoiceName NodeId -> TemplateChoiceAction -> SubGraph
@@ -147,39 +149,44 @@ constructDotGraph subgraphs edges = showDot $ userNode (userNodeId 10) []
 
 -- | 'netlistGraph' generates a simple graph from a netlist.
 -- The default implementation does the edeges other way round. The change is on # 143
-netlistGraph' :: (Ord a)
-          => (b -> [(String,String)])   -- ^ Attributes for each node
-          -> (b -> [a])                 -- ^ Out edges leaving each node
-          -> [(a,b)]                    -- ^ The netlist
-          -> Dot ()
-netlistGraph' attrFn outFn assocs = do
-    let nodes = Set.fromList [a | (a, _) <- assocs]
-    let outs = Set.fromList [o | (_, b) <- assocs, o <- outFn b]
-    nodeTab <- sequence
-                [do nd <- node (attrFn b)
-                    return (a, nd)
-                | (a, b) <- assocs]
-    otherTab <- sequence
-               [do nd <- node []
-                   return (o, nd)
-                | o <- Set.toList outs, o `Set.notMember` nodes]
-    let fm = M.fromList (nodeTab ++ otherTab)
-    sequence_
-        [(fm M.! dst) .->. (fm M.! src) | (dst, b) <- assocs,
-        src <- outFn b]
+-- netlistGraph' :: (Ord a)
+--           => (b -> [(String,String)])   -- ^ Attributes for each node
+--           -> (b -> [a])                 -- ^ Out edges leaving each node
+--           -> [(a,b)]                    -- ^ The netlist
+--           -> Dot ()
+-- netlistGraph' attrFn outFn assocs = do
+--     let nodes = Set.fromList [a | (a, _) <- assocs]
+--     let outs = Set.fromList [o | (_, b) <- assocs, o <- outFn b]
+--     nodeTab <- sequence
+--                 [do nd <- node (attrFn b)
+--                     return (a, nd)
+--                 | (a, b) <- assocs]
+--     otherTab <- sequence
+--                [do nd <- node []
+--                    return (o, nd)
+--                 | o <- Set.toList outs, o `Set.notMember` nodes]
+--     let fm = M.fromList (nodeTab ++ otherTab)
+--     sequence_
+--         [(fm M.! dst) .->. (fm M.! src) | (dst, b) <- assocs,
+--         src <- outFn b]
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
-execVisual darFilePath dotFilePath = do
+execVisual darFilePath _dotFilePath = do
     putStrLn "the thing is commented"
-    -- darBytes <- B.readFile darFilePath
-    -- let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
-    -- (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
-    -- let modules = NM.toList $ LF.packageModules lfPkg
-    --     world = darToWorld manifestData lfPkg
-    --     tplLookUp = lookupTemplateT world
-    --     res = concatMap (moduleAndTemplates world) modules --  [(LF.Template, Set.Set Action)]
-    --     actionEdges = map templatePairs res  -- (LF.Template , (LF.Template , [Action]))
-    --     dotString = showDot $ netlistGraph' srcLabel (actionsForTemplate tplLookUp)  actionEdges
+    darBytes <- B.readFile darFilePath
+    let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
+    (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
+    let modules = NM.toList $ LF.packageModules lfPkg
+        world = darToWorld manifestData lfPkg
+        -- tplLookUp = lookupTemplateT world
+        res = concatMap (moduleAndTemplates world) modules --  [TemplateChoiceAction]
+        nodeWorld = choiceNameWithId res
+        subgraphsinW = map (constructSubgraphsWithLables nodeWorld) res
+        graphEdgesString  = graphEdges nodeWorld res
+        strdot = constructDotGraph subgraphsinW graphEdgesString
+    putStrLn strdot
+        -- actionEdges = map templatePairs res  -- (LF.Template , (LF.Template , [Action]))
+        -- dotString = showDot $ netlistGraph' srcLabel (actionsForTemplate tplLookUp)  actionEdges
     -- case dotFilePath of
     --     Just outDotFile -> writeFile outDotFile dotString
     --     Nothing -> putStrLn dotString
