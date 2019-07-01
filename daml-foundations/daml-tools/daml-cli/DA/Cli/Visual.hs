@@ -21,6 +21,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
+import qualified Data.Text as T
 import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
@@ -54,11 +55,12 @@ startFromExpr seen world e = case e of
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
-data ChoiceAndAction = ChoiceAndAction { choice :: LF.TemplateChoice ,actions :: Set.Set Action }
+data ChoiceAndAction = ChoiceAndAction { choiceForTemplate :: LF.Template , choice :: LF.TemplateChoice ,actions :: Set.Set Action }
 data TemplateChoiceAction = TemplateChoiceAction { template :: LF.Template ,choiceAndAction :: [ChoiceAndAction] }
 
+
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
-templatePossibleUpdates world tpl = map (\c -> (ChoiceAndAction c (startFromChoice world c))  ) (NM.toList (LF.tplChoices tpl))
+templatePossibleUpdates world tpl = map (\c -> (ChoiceAndAction tpl c (startFromChoice world c))  ) (NM.toList (LF.tplChoices tpl))
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoiceAction]
 moduleAndTemplates world mod = retTypess
@@ -76,11 +78,25 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
     where
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
+tplName :: LF.Template -> String
+tplName LF.Template {..} = T.unpack $ head (LF.unTypeConName tplTypeCon)
+
+handlechioceAndAction :: ChoiceAndAction -> LF.ChoiceName
+handlechioceAndAction (ChoiceAndAction tpl (LF.TemplateChoice _ (LF.ChoiceName "Create")  _ _ _ _ _ _) _)  = LF.ChoiceName $ T.pack (tplName tpl ++ "_Create")
+handlechioceAndAction (ChoiceAndAction tpl (LF.TemplateChoice _ (LF.ChoiceName "Archive")  _ _ _ _ _ _) _)  = LF.ChoiceName $ T.pack (tplName tpl ++ "_Archive")
+handlechioceAndAction (ChoiceAndAction _ (LF.TemplateChoice _ chc  _ _ _ _ _ _ ) _)  = chc
+
+-- Making choiceName is very weird
+handleCreateAndArchive :: TemplateChoiceAction -> [LF.ChoiceName]
+handleCreateAndArchive TemplateChoiceAction {..} =  [createChoice,archiveChoice] ++  map handlechioceAndAction choiceAndAction
+    where archiveChoice = LF.ChoiceName $ T.pack (tplName template ++ "_Archive")
+          createChoice = LF.ChoiceName $ T.pack (tplName template ++ "_Create")
+
 -- This to be used to generate the node ids and use as look up table
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName Int
-choiceNameWithId tplChcActions = Map.fromList $ zip allChoiceFromAction [0..]
-  where choiceActions =  concatMap choiceAndAction tplChcActions
-        allChoiceFromAction = map (LF.chcName . choice) choiceActions
+choiceNameWithId tplChcActions = trace ("map" ++ show vals) $ vals
+  where choiceActions =  concatMap handleCreateAndArchive tplChcActions
+        vals = Map.fromList $ zip choiceActions [0..]
 
 
 -- This flattening is not doing exhaustive, will be missing the create and archives. Probably will filter for 1st iteration
@@ -95,15 +111,15 @@ data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,Int)], clusterTemplate :: L
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName Int -> TemplateChoiceAction -> SubGraph
 constructSubgraphsWithLables lookupData TemplateChoiceAction {..} = SubGraph  nodes template
-  where choicesInTemplete = map (LF.chcName . choice) choiceAndAction
+  where choicesInTemplete = map handlechioceAndAction choiceAndAction
         nodes = map (\chc -> (chc, (nodeIdForChoice lookupData chc)) ) choicesInTemplete
 
-actionToChoice :: Action -> LF.ChoiceName
-actionToChoice (ACreate _) = LF.ChoiceName "Create"
-actionToChoice (AExercise _ chc) = chc
+actionToChoice :: LF.Template -> Action -> LF.ChoiceName
+actionToChoice tpl (ACreate _) = LF.ChoiceName $ T.pack (tplName tpl ++ "_Create")
+actionToChoice _tpl (AExercise _ chc) = chc
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
-choiceActionToChoicePairs ChoiceAndAction {..} = map (\ac -> (LF.chcName choice, (actionToChoice ac))) (Set.elems actions)
+choiceActionToChoicePairs ChoiceAndAction {..} = map (\ac -> (LF.chcName choice, (actionToChoice choiceForTemplate ac))) (Set.elems actions)
 
 graphEdges :: Map.Map LF.ChoiceName Int -> [TemplateChoiceAction] -> [(Int, Int)]
 graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> ( (nodeIdForChoice lookupData chn1) ,(nodeIdForChoice lookupData chn2) )) choicePairsForTemplates
