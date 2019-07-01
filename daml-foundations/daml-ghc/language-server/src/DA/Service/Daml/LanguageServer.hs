@@ -10,33 +10,29 @@ module DA.Service.Daml.LanguageServer
     ( runLanguageServer
     ) where
 
-import           Development.IDE.LSP.Protocol
+import           Language.Haskell.LSP.Types
 import           Development.IDE.LSP.Server
+import qualified Development.IDE.LSP.LanguageServer as LS
+import Control.Monad.Extra
+import Data.Default
 
-import Control.Monad.IO.Class
-import qualified DA.Service.Daml.LanguageServer.CodeLens   as LS.CodeLens
-import qualified Development.IDE.LSP.Definition as LS.Definition
-import qualified Development.IDE.LSP.Hover      as LS.Hover
-import qualified Development.IDE.Logger as Logger
+import DA.Service.Daml.LanguageServer.CodeLens
+import Development.IDE.Types.Logger
 
 import qualified Data.Aeson                                as Aeson
-import qualified Data.Rope.UTF16 as Rope
 import qualified Data.Set                                  as S
 import qualified Data.Text as T
 
-import Development.IDE.State.FileStore
-import Development.IDE.State.Rules
-import Development.IDE.State.Rules.Daml
-import Development.IDE.State.Service.Daml
-import Development.IDE.Types.Diagnostics
+import Development.IDE.Core.FileStore
+import Development.IDE.Core.Rules
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.Service.Daml
 
 import qualified Network.URI                               as URI
 
-import qualified System.Exit
-
-import Language.Haskell.LSP.Core (LspFuncs(..))
 import Language.Haskell.LSP.Messages
-import Language.Haskell.LSP.VFS
+import qualified Language.Haskell.LSP.Core as LSP
+
 
 textShow :: Show a => a -> T.Text
 textShow = T.pack . show
@@ -45,129 +41,54 @@ textShow = T.pack . show
 -- Request handlers
 ------------------------------------------------------------------------
 
-handleRequest
-    :: Logger.Handle
-    -> IdeState
-    -> (forall resp. resp -> ResponseMessage resp)
-    -> (ErrorCode -> ResponseMessage ())
-    -> ServerRequest
-    -> IO FromServerMessage
-handleRequest loggerH compilerH makeResponse makeErrorResponse = \case
-    Shutdown -> do
-      Logger.logInfo loggerH "Shutdown request received, terminating."
-      System.Exit.exitSuccess
+setHandlersKeepAlive :: PartialHandlers
+setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
+    {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
+        case _method of
+            CustomClientMethod "daml/keepAlive" ->
+                maybe (return ()) ($ msg) $
+                withResponse RspCustomServer (\_ _ _ -> return Aeson.Null)
+            _ -> whenJust (LSP.customRequestHandler x) ($ msg)
+    }
 
-    KeepAlive -> pure $ RspCustomServer $ makeResponse Aeson.Null
+setHandlersVirtualResource :: PartialHandlers
+setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
+    {LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler x) $
+        \_ ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
+            withUriDaml _uri $ \vr -> do
+                logInfo (ideLogger ide) $ "Opened virtual resource NEIL: " <> textShow vr
+                modifyOpenVirtualResources ide (S.insert vr)
 
-    Definition params -> RspDefinition . makeResponse <$> LS.Definition.handle loggerH compilerH params
-    Hover params -> RspHover . makeResponse <$> LS.Hover.handle loggerH compilerH params
-    CodeLens params -> RspCodeLens . makeResponse <$> LS.CodeLens.handle loggerH compilerH params
+    ,LSP.didCloseTextDocumentNotificationHandler = withNotification (LSP.didCloseTextDocumentNotificationHandler x) $
+        \_ ide (DidCloseTextDocumentParams TextDocumentIdentifier{_uri}) -> do
+            withUriDaml _uri $ \vr -> do
+                logInfo (ideLogger ide) $ "Closed virtual resource: " <> textShow vr
+                modifyOpenVirtualResources ide (S.delete vr)
+    }
 
-    req -> do
-        Logger.logWarning loggerH ("Method not found" <> T.pack (show req))
-        pure $ RspError $ makeErrorResponse MethodNotFound
 
+withUriDaml :: Uri -> (VirtualResource -> IO ()) -> IO ()
+withUriDaml x f
+    | Just uri <- URI.parseURI $ T.unpack $ getUri x
+    , URI.uriScheme uri == "daml:"
+    , Just vr <- uriToVirtualResource uri
+    = f vr
+withUriDaml _ _ = return ()
 
-handleNotification :: LspFuncs () -> Logger.Handle -> IdeState -> ServerNotification -> IO ()
-handleNotification lspFuncs loggerH compilerH = \case
-
-    DidOpenTextDocument (DidOpenTextDocumentParams item) -> do
-        case URI.parseURI $ T.unpack $ getUri $ _uri (item :: TextDocumentItem) of
-          Just uri
-              | URI.uriScheme uri == "file:"
-              -> handleDidOpenFile item
-
-              | URI.uriScheme uri == "daml:"
-              -> handleDidOpenVirtualResource uri
-
-              | otherwise
-              -> Logger.logWarning loggerH $ "Unknown scheme in URI: "
-                    <> textShow uri
-
-          _ -> Logger.logSeriousError loggerH $ "Invalid URI in DidOpenTextDocument: "
-                    <> textShow (_uri (item :: TextDocumentItem))
-
-    DidChangeTextDocument (DidChangeTextDocumentParams docId _) -> do
-        let uri = _uri (docId :: VersionedTextDocumentIdentifier)
-
-        case uriToFilePath' uri of
-          Just (toNormalizedFilePath -> filePath) -> do
-            mbVirtual <- getVirtualFileFunc lspFuncs $ toNormalizedUri uri
-            let contents = maybe "" (Rope.toText . (_text :: VirtualFile -> Rope.Rope)) mbVirtual
-            onFileModified compilerH filePath (Just contents)
-            Logger.logInfo loggerH
-              $ "Updated text document: " <> textShow (fromNormalizedFilePath filePath)
-
-          Nothing ->
-            Logger.logSeriousError loggerH
-              $ "Invalid file path: " <> textShow (_uri (docId :: VersionedTextDocumentIdentifier))
-
-    DidCloseTextDocument (DidCloseTextDocumentParams (TextDocumentIdentifier uri)) ->
-        case URI.parseURI $ T.unpack $ getUri uri of
-          Just uri'
-              | URI.uriScheme uri' == "file:" -> do
-                    Just fp <- pure $ toNormalizedFilePath <$> uriToFilePath' uri
-                    handleDidCloseFile fp
-              | URI.uriScheme uri' == "daml:" -> handleDidCloseVirtualResource uri'
-              | otherwise -> Logger.logWarning loggerH $ "Unknown scheme in URI: " <> textShow uri
-
-          _ -> Logger.logSeriousError loggerH
-                 $    "Invalid URI in DidCloseTextDocument: "
-                   <> textShow uri
-
-    DidSaveTextDocument _params ->
-      pure ()
-
-    UnknownNotification _method _params -> return ()
-  where
-    -- Note that the state changes here are not atomic.
-    -- When we have parallel compilation we could manage the state
-    -- changes in STM so that we can atomically change the state.
-    -- Internally it should be done via the IO oracle. See PROD-2808.
-    handleDidOpenFile (TextDocumentItem uri _ _ contents) = do
-        Just filePath <- pure $ toNormalizedFilePath <$> uriToFilePath' uri
-        onFileModified compilerH filePath (Just contents)
-        modifyFilesOfInterest compilerH (S.insert filePath)
-        Logger.logInfo loggerH $ "Opened text document: " <> textShow filePath
-
-    handleDidOpenVirtualResource uri = do
-         case uriToVirtualResource uri of
-           Nothing -> Logger.logWarning loggerH $ "Failed to parse virtual resource URI: " <> textShow uri
-           Just vr -> do
-               Logger.logInfo loggerH $ "Opened virtual resource: " <> textShow vr
-               modifyOpenVirtualResources compilerH (S.insert vr)
-
-    handleDidCloseFile filePath = do
-         Logger.logInfo loggerH $ "Closed text document: " <> textShow (fromNormalizedFilePath filePath)
-         onFileModified compilerH filePath Nothing
-         modifyFilesOfInterest compilerH (S.delete filePath)
-
-    handleDidCloseVirtualResource uri = do
-        Logger.logInfo loggerH $ "Closed virtual resource: " <> textShow uri
-        case uriToVirtualResource uri of
-           Nothing -> Logger.logWarning loggerH "Failed to parse virtual resource URI!"
-           Just vr -> modifyOpenVirtualResources compilerH (S.delete vr)
-
--- | Manages the file store (caching compilation results and unsaved content).
-onFileModified
-    :: IdeState
-    -> NormalizedFilePath
-    -> Maybe T.Text
-    -> IO ()
-onFileModified service fp mbContents = do
-    logDebug service $ "File modified " <> T.pack (show fp)
-    setBufferModified service fp mbContents
 
 ------------------------------------------------------------------------
 -- Server execution
 ------------------------------------------------------------------------
 
 runLanguageServer
-    :: Logger.Handle
-    -> ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
+    :: ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
     -> IO ()
-runLanguageServer loggerH getIdeState = do
-    let getHandlers lspFuncs = do
-            compilerH <- getIdeState (sendFunc lspFuncs) (makeLSPVFSHandle lspFuncs)
-            pure $ Handlers (handleRequest loggerH compilerH) (handleNotification lspFuncs loggerH compilerH)
-    liftIO $ runServer loggerH getHandlers
+runLanguageServer getIdeState = do
+    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens
+    LS.runLanguageServer options handlers getIdeState
+
+
+options :: LSP.Options
+options = def
+    { LSP.codeLensProvider = Just $ CodeLensOptions $ Just False
+    }

@@ -4,16 +4,45 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
-module DA.Ledger.Convert (lowerCommands,raiseTransaction) where
+module DA.Ledger.Convert (
+    lowerCommands, lowerLedgerOffset,
+    Perhaps, raiseList, raiseTransaction, raiseCompletionStreamResponse, raiseAbsLedgerOffset,
+    RaiseFailureReason,
+    ) where
 
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Data.Vector as Vector (Vector,fromList,toList)
 
-import qualified DA.Ledger.LowLevel as LL
+import qualified Google.Protobuf.Empty as LL
+import qualified Google.Protobuf.Timestamp as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.CommandCompletionService as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Commands as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Completion as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Event as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Transaction as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Value as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.LedgerOffset as LL
+import qualified Proto3.Suite.Types as LL
+
 import DA.Ledger.Types
 
 -- lower
+
+lowerLedgerOffset :: LedgerOffset -> LL.LedgerOffset
+lowerLedgerOffset = \case
+    LedgerBegin ->
+        LL.LedgerOffset {
+        ledgerOffsetValue = Just (LL.LedgerOffsetValueBoundary (LL.Enumerated (Right LL.LedgerOffset_LedgerBoundaryLEDGER_BEGIN)))
+        }
+    LedgerEnd ->
+        LL.LedgerOffset {
+        ledgerOffsetValue = Just (LL.LedgerOffsetValueBoundary (LL.Enumerated (Right LL.LedgerOffset_LedgerBoundaryLEDGER_END)))
+        }
+    LedgerAbsOffset abs ->
+        LL.LedgerOffset {
+        ledgerOffsetValue = Just (LL.LedgerOffsetValueAbsolute (unAbsOffset abs))
+        }
 
 lowerCommands :: Commands -> LL.Commands
 lowerCommands = \case
@@ -103,9 +132,12 @@ lowerRecordField = \case
 
 -- raise
 
-data RaiseFailureReason = Missing String deriving Show
+data RaiseFailureReason = Missing String | Unexpected String deriving Show
 
 type Perhaps a = Either RaiseFailureReason a
+
+unexpected :: String -> Perhaps a
+unexpected = Left . Unexpected
 
 missing :: String -> Perhaps a
 missing = Left . Missing
@@ -119,6 +151,38 @@ optional :: Perhaps a -> Maybe a
 optional = \case
     Left _ -> Nothing
     Right a -> Just a
+
+raiseCompletionStreamResponse :: LL.CompletionStreamResponse -> Perhaps (Maybe Checkpoint,[Completion])
+raiseCompletionStreamResponse = \case
+    LL.CompletionStreamResponse{completionStreamResponseCompletions
+                               ,completionStreamResponseCheckpoint} -> do
+        let checkpoint = completionStreamResponseCheckpoint >>= optional . raiseCheckpoint
+        completions <- raiseCompletions completionStreamResponseCompletions
+        return (checkpoint,completions)
+
+raiseCompletions :: Vector LL.Completion -> Perhaps [Completion]
+raiseCompletions = raiseList raiseCompletion
+
+raiseCompletion :: LL.Completion -> Perhaps Completion
+raiseCompletion = \case
+    LL.Completion{completionCommandId} -> do
+        cid <- raiseCommandId completionCommandId
+        let status = Status --TODO: stop loosing info
+        return Completion{cid,status}
+
+raiseCheckpoint :: LL.Checkpoint -> Perhaps Checkpoint
+raiseCheckpoint = \case
+    LL.Checkpoint{checkpointRecordTime,checkpointOffset} -> do
+        let _ = checkpointRecordTime -- TODO: dont ignore!
+        offset <- perhaps "checkpointOffset" checkpointOffset >>= raiseAbsLedgerOffset
+        return Checkpoint{offset}
+
+raiseAbsLedgerOffset :: LL.LedgerOffset -> Perhaps AbsOffset
+raiseAbsLedgerOffset = \case
+    LL.LedgerOffset Nothing -> missing "LedgerOffset"
+    LL.LedgerOffset (Just sum) -> case sum of
+       LL.LedgerOffsetValueAbsolute text -> raiseAbsOffset text
+       LL.LedgerOffsetValueBoundary _ -> unexpected "non-Absolute LedgerOffset"
 
 raiseTransaction :: LL.Transaction -> Perhaps Transaction
 raiseTransaction = \case
@@ -156,14 +220,18 @@ raiseEvent = \case
                                    createdEventTemplateId,
                                    createdEventContractKey,
                                    createdEventCreateArguments,
-                                   createdEventWitnessParties})) -> do
+                                   createdEventWitnessParties,
+                                   createdEventSignatories,
+                                   createdEventObservers})) -> do
         eid <- raiseEventId createdEventEventId
         cid <- raiseContractId createdEventContractId
         tid <- perhaps "createdEventTemplateId" createdEventTemplateId >>= raiseTemplateId
         let key = createdEventContractKey >>= optional . raiseValue
         createArgs <- perhaps "createdEventCreateArguments" createdEventCreateArguments >>= raiseRecord
         witness <- raiseList raiseParty createdEventWitnessParties
-        return CreatedEvent{eid,cid,tid,key,createArgs,witness}
+        signatories <- raiseList raiseParty createdEventSignatories
+        observers <- raiseList raiseParty createdEventObservers
+        return CreatedEvent{eid,cid,tid,key,createArgs,witness,signatories,observers}
 
 raiseRecord :: LL.Record -> Perhaps Record
 raiseRecord = \case

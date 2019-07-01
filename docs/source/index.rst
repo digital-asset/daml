@@ -29,6 +29,7 @@ DAML SDK documentation
 
    daml/intro/0_Intro.rst
    daml/reference/index
+   daml/reference/base
    daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting

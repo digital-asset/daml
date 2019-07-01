@@ -21,7 +21,6 @@ import org.scalatest._
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-
 import scalaz.syntax.tag._
 
 @SuppressWarnings(
@@ -41,7 +40,7 @@ class TimeServiceDisabledIT
     with Inside
     with OptionValues {
 
-  override def timeLimit: Span = 15.seconds
+  override def timeLimit: Span = scaled(15.seconds)
 
   override protected def config: Config = Config.default.withTimeProvider(WallClock)
 

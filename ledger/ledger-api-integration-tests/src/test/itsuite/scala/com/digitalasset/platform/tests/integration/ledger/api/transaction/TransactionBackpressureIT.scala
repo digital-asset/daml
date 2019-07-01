@@ -5,7 +5,6 @@ package com.digitalasset.platform.tests.integration.ledger.api.transaction
 
 import akka.stream.ThrottleMode
 import akka.stream.scaladsl.{Sink, Source}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   MockMessages,
@@ -14,16 +13,13 @@ import com.digitalasset.ledger.api.testing.utils.{
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestCommands}
-import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestCommands, TestIdsGenerator}
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 
 import scala.concurrent.{Await, Future}
-
-import com.digitalasset.ledger.api.domain.LedgerId
 
 @SuppressWarnings(
   Array(
@@ -38,13 +34,11 @@ class TransactionBackpressureIT
     with MultiLedgerFixture {
 
   protected val testCommands = new TestCommands(config)
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
-  override def timeLimit: Span = 300.seconds
+  override def timeLimit: Span = scaled(300.seconds)
 
-  private val testLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledgerId"))
-
-  override protected def config: Config =
-    Config.default.withLedgerIdMode(LedgerIdMode.Static(testLedgerId))
+  override protected def config: Config = Config.default
 
   override protected def parallelExecution: Boolean = false
 
@@ -64,24 +58,25 @@ class TransactionBackpressureIT
         Source(1 to noOfCommands)
           .throttle(10, 1.second)
           .mapAsync(10)(i =>
-            commandClient.submitSingleCommand(
-              testCommands.oneKbCommandRequest(ctx.ledgerId, s"command-$i")))
+            commandClient.submitSingleCommand(testCommands
+              .oneKbCommandRequest(ctx.ledgerId, testIdsGenerator.testCommandId(s"command-$i"))))
           .runWith(Sink.ignore)
 
-      def subscribe(rate: Int) =
+      def subscribe(begin: LedgerOffset, rate: Int) =
         transactionClient
           .getTransactions(begin, None, transactionFilter)
           .take(noOfCommands.toLong)
           .throttle(rate, 1.second, noOfCommands, ThrottleMode.shaping)
           .runWith(Sink.seq)
 
-      def startSubscriptions() = {
-        (1 to noOfSubscriptions).map(i => subscribe(i * 600))
+      def startSubscriptions(begin: LedgerOffset) = {
+        (1 to noOfSubscriptions).map(i => subscribe(begin, i * 600))
       }
 
       val transactionsF = for {
+        currentEnd <- transactionClient.getLedgerEnd
         _ <- sendCommands()
-        transactions <- Future.sequence(startSubscriptions())
+        transactions <- Future.sequence(startSubscriptions(currentEnd.getOffset))
       } yield transactions
 
       transactionsF map { transactions =>

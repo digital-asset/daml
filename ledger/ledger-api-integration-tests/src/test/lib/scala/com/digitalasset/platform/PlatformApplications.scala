@@ -7,6 +7,7 @@ import java.io.File
 import java.nio.file.Path
 import java.time.Duration
 
+import ch.qos.logback.classic.Level
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
@@ -16,7 +17,6 @@ import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
 import scalaz.NonEmptyList
 
 import scala.concurrent.duration.{FiniteDuration, _}
-
 import com.digitalasset.ledger.api.domain.LedgerId
 
 object PlatformApplications {
@@ -41,6 +41,8 @@ object PlatformApplications {
       persistenceEnabled: Boolean = false,
       maxNumberOfAcsContracts: Option[Int] = None,
       commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig,
+      uniqueCommandIdentifiers: Boolean = true,
+      uniquePartyIdentifiers: Boolean = true,
       remoteApiEndpoint: Option[RemoteApiEndpoint] = None) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
@@ -55,6 +57,12 @@ object PlatformApplications {
     def withTimeProvider(tpt: TimeProviderType) = copy(timeProviderType = tpt)
 
     def withLedgerIdMode(mode: LedgerIdMode): Config = copy(ledgerId = mode)
+
+    def withUniquePartyIdentifiers(uniqueIdentifiers: Boolean): Config =
+      copy(uniquePartyIdentifiers = uniqueIdentifiers)
+
+    def withUniqueCommandIdentifiers(uniqueIdentifiers: Boolean): Config =
+      copy(uniqueCommandIdentifiers = uniqueIdentifiers)
 
     def withParties(p1: String, rest: String*) = copy(parties = NonEmptyList(p1, rest: _*))
 
@@ -123,6 +131,7 @@ object PlatformApplications {
       ledgerIdMode = config.ledgerId,
       jdbcUrl = jdbcUrl,
       eagerPackageLoading = false,
+      logLevel = Level.INFO
     )
   }
 }

@@ -19,7 +19,11 @@ import com.digitalasset.ledger.api.v1.command_completion_service.{
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
-import com.digitalasset.ledger.client.services.commands.CompletionStreamElement.CheckpointElement
+import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
+import com.digitalasset.ledger.client.services.commands.CompletionStreamElement.{
+  CheckpointElement,
+  CompletionElement
+}
 import com.digitalasset.ledger.client.services.commands.{
   CommandCompletionSource,
   CompletionStreamElement
@@ -29,8 +33,9 @@ import com.digitalasset.platform.apitesting.MultiLedgerFixture
 import com.digitalasset.platform.services.time.TimeProviderType.WallClock
 import com.digitalasset.util.Ctx
 import org.scalatest.{AsyncWordSpec, Matchers}
-
 import scalaz.syntax.tag._
+
+import scala.concurrent.Future
 import scala.concurrent.duration._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -89,6 +94,64 @@ class CommandCompletionServiceIT
           .runWith(Sink.seq)
           .map { noOfHeartBeats =>
             all(noOfHeartBeats) should be >= 2 // should be fine for 1Hz
+          }
+      }
+
+      "emit checkpoints with exclusive offsets (results for coming back with the same offset will not contain the records)" in allFixtures {
+        ctx =>
+          val configuredParties = config.parties.list.toList
+
+          def completionsFrom(offset: LedgerOffset) =
+            completionSource(
+              ctx.commandCompletionService,
+              ctx.ledgerId,
+              applicationId,
+              configuredParties,
+              offset)
+              .sliding(2, 1)
+              .map(_.toList)
+              .collect {
+                case CompletionElement(completion) :: CheckpointElement(checkpoint) :: Nil =>
+                  checkpoint.getOffset -> completion.commandId
+              }
+
+          for {
+            startingOffsetResponse <- ctx.transactionService.getLedgerEnd(
+              GetLedgerEndRequest(ctx.ledgerId.unwrap))
+            startingOffset = startingOffsetResponse.getOffset
+            commandClient <- ctx.commandClient(ctx.ledgerId)
+            commands = configuredParties
+              .map(p => ctx.command(p, Nil))
+              .zipWithIndex
+              .map { case (req, i) => req.update(_.commands.commandId := s"command-id-$i") }
+            _ <- Future.sequence(
+              commands
+                .map(commandClient.submitSingleCommand))
+
+            completions1 <- completionsFrom(startingOffset)
+              .take(commands.size.toLong)
+              .runWith(Sink.seq)
+
+            completions2 <- completionsFrom(completions1(0)._1)
+              .take(commands.size.toLong - 1)
+              .runWith(Sink.seq)
+
+            completions3 <- completionsFrom(completions1(1)._1)
+              .take(commands.size.toLong - 2)
+              .runWith(Sink.seq)
+          } yield {
+            val commandIds1 = completions1.map(_._2)
+            val commandIds2 = completions2.map(_._2)
+            val commandIds3 = completions3.map(_._2)
+
+            commands.map(_.getCommands.commandId).foreach { commandId =>
+              commandIds1 should contain(commandId)
+            }
+
+            commandIds2 should not contain (commandIds1(0))
+
+            commandIds3 should not contain (commandIds1(0))
+            commandIds3 should not contain (commandIds1(1))
           }
       }
     }

@@ -134,12 +134,6 @@ data Kind
   | KArrow Kind Kind
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | Enumeration types like Bool and Unit.
-data EnumType
-  = ETUnit
-  | ETBool
-  deriving (Eq, Data, Generic, NFData, Ord, Show)
-
 -- | Builtin type.
 data BuiltinType
   = BTInt64
@@ -148,7 +142,8 @@ data BuiltinType
   | BTTimestamp
   | BTDate
   | BTParty
-  | BTEnum EnumType
+  | BTUnit
+  | BTBool
   | BTList
   | BTUpdate
   | BTScenario
@@ -190,13 +185,6 @@ data TypeConApp = TypeConApp
   }
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | Constructors of builtin 'EnumType's.
-data EnumCon
-  = ECUnit   -- ∷ Unit
-  | ECFalse  -- ∷ Bool
-  | ECTrue   -- ∷ Bool
-  deriving (Eq, Data, Generic, NFData, Ord, Show)
-
 data E10
 instance HasResolution E10 where
   resolution _ = 10000000000 -- 10^-10 resolution
@@ -210,7 +198,8 @@ data BuiltinExpr
   | BETimestamp  !Int64          -- :: Timestamp, microseconds since unix epoch
   | BEParty      !PartyLiteral   -- :: Party
   | BEDate       !Int32          -- :: Date, days since unix epoch
-  | BEEnumCon    !EnumCon        -- see 'EnumCon' above
+  | BEUnit                       -- :: Unit
+  | BEBool       !Bool           -- :: Bool
 
   -- Polymorphic functions
   | BEError                      -- :: ∀a. Text -> a
@@ -329,6 +318,13 @@ data Expr
     }
     -- TODO(MH): Move 'EEVariantCon' into 'BuiltinExpr' if we decide to allow
     -- using variant constructors as functions that can be around not applied.
+  -- | Enum construction.
+  | EEnumCon
+    { enumTypeCon :: !(Qualified TypeConName)
+      -- ^ Type constructor of the enum type.
+    , enumDataCon :: !VariantConName
+      -- ^ Data constructor of the enum type.
+    }
   -- | Tuple construction.
   | ETupleCon
     { tupFields :: ![(FieldName, Expr)]
@@ -397,7 +393,7 @@ data Expr
     , letBody    :: !Expr
       -- ^ Expression to bind variable in.
     }
-  -- | Concstruct empty list.
+  -- | Construct empty list.
   | ENil
     -- TODO(MH): When we move 'ECons' to 'BuiltinExpr' or remove it entirely,
     -- do the same to 'ENil'.
@@ -441,7 +437,7 @@ data CaseAlternative = CaseAlternative
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 data CasePattern
-  -- | Match on constructor of variant type.
+  -- | Match on a constructor of a variant type.
   = CPVariant
     { patTypeCon :: !(Qualified TypeConName)
       -- ^ Type constructor of the type to match on.
@@ -450,7 +446,17 @@ data CasePattern
     , patBinder  :: !ExprVarName
       -- ^ Variable to bind the variant constructor argument to.
     }
-  | CPEnumCon !EnumCon
+  -- | Match on a constructor of an enum type.
+  | CPEnum
+    { patTypeCon :: !(Qualified TypeConName)
+      -- ^ Type constructor of the type to match on.
+    , patDataCon :: !VariantConName
+      -- ^ Data constructor to match on.
+    }
+  -- | Match on the unit type.
+  | CPUnit
+  -- | Match on the bool type.
+  | CPBool !Bool
   -- | Match on empty list.
   | CPNil
   -- | Match on head and tail of non-empty list.
@@ -607,7 +613,8 @@ data DefDataType = DefDataType
   , dataSerializable :: !IsSerializable
     -- ^ The data type preserves serializabillity.
   , dataParams  :: ![(TypeVarName, Kind)]
-    -- ^ Type paramaters to the type constructor.
+    -- ^ Type paramaters to the type constructor. They must be empty when
+    -- @dataCons@ is @DataEnum@.
   , dataCons    :: !DataCons
     -- ^ Data constructor of the type.
   }
@@ -619,6 +626,8 @@ data DataCons
   = DataRecord  ![(FieldName, Type)]
   -- | A variant type given by its construtors and their payload types.
   | DataVariant ![(VariantConName, Type)]
+  -- | An enum type given by the name of its constructors.
+  | DataEnum ![VariantConName]
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 newtype HasNoPartyLiterals = HasNoPartyLiterals{getHasNoPartyLiterals :: Bool}
@@ -813,6 +822,7 @@ fmap concat $ sequenceA $
   , makePrisms ''Update
   , makePrisms ''Scenario
   , makePrisms ''DataCons
+  , makePrisms ''PackageRef
   , makeUnderscoreLenses ''DefValue
   , makeUnderscoreLenses ''Package
   ]

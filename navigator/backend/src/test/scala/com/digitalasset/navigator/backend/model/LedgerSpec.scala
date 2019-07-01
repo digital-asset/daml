@@ -20,6 +20,9 @@ class LedgerSpec extends WordSpec with Matchers {
   private val templateId = C.simpleRecordTemplateId
   private val contractArgument = C.simpleRecordV
   private val template = templateRegistry.template(templateId).get
+  private val alice = ApiTypes.Party("Alice")
+  private val bob = ApiTypes.Party("Bob")
+  private val charlie = ApiTypes.Party("Charlie")
 
   def transaction(id: String): Transaction =
     Transaction(
@@ -29,7 +32,14 @@ class LedgerSpec extends WordSpec with Matchers {
       "0",
       List.empty)
   def contract(id: String): Contract =
-    Contract(ApiTypes.ContractId(id), template, contractArgument, Option(""))
+    Contract(
+      ApiTypes.ContractId(id),
+      template,
+      contractArgument,
+      Option(""),
+      List(alice),
+      List(bob, charlie),
+      None)
   def error(commandId: String): CommandStatusError = CommandStatusError("code", "details")
 
   "A ledger with existing contracts" when {
@@ -45,7 +55,10 @@ class LedgerSpec extends WordSpec with Matchers {
             ApiTypes.ContractId("C0"),
             templateId,
             contractArgument,
-            Some("")
+            Some(""),
+            List(alice),
+            List(bob, charlie),
+            None
           )
         )),
       templateRegistry
@@ -71,7 +84,10 @@ class LedgerSpec extends WordSpec with Matchers {
         contractId = ApiTypes.ContractId(contractId),
         templateId = templateId,
         argument = contractArgument,
-        Some("")
+        agreementText = Some(""),
+        signatories = List(alice),
+        observers = List(bob, charlie),
+        key = None
       )
       val created1 = contractCreated("E1", "C1")
       val created2 = contractCreated("E2", "C2")
@@ -184,7 +200,10 @@ class LedgerSpec extends WordSpec with Matchers {
         contractId = ApiTypes.ContractId("C3"),
         templateId = templateId,
         argument = contractArgument,
-        agreementText = Some("")
+        agreementText = Some(""),
+        signatories = List(alice),
+        observers = List(bob, charlie),
+        key = None
       )
       val exercisedEvent = ChoiceExercised(
         id = ApiTypes.EventId("E2"),

@@ -7,28 +7,47 @@ package archive
 import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
+import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion}
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 
+import com.google.protobuf.CodedInputStream
+
 import scala.collection.JavaConverters._
-import scala.collection.mutable
+import scala.collection.{breakOut, mutable}
 
-private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
+private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
 
-  import Decode._
+  import Decode._, DecodeV1._, LanguageMinorVersion.Implicits._
 
   private val languageVersion = LanguageVersion(V1, minor)
 
   private def name(s: String): Name = eitherToParseError(Name.fromString(s))
 
-  override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package =
-    Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, _).decode))
+  override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package = {
+    val interned = decodeInternedPackageIds(lfPackage.getInternedPackageIdsList.asScala)
+    Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, interned, _).decode))
+  }
+
+  type ProtoModule = PLF.Module
+
+  override def protoModule(cis: CodedInputStream): ProtoModule =
+    PLF.Module.parser().parseFrom(cis)
+
+  override def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module =
+    ModuleDecoder(packageId, ImmArraySeq.empty, lfModule).decode()
 
   private[this] def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw new ParseError(err), identity)
+
+  private[this] def decodeInternedPackageIds(internedList: Seq[String]): ImmArraySeq[PackageId] = {
+    if (internedList.nonEmpty)
+      assertSince(internedIdsVersion, "interned package ID table")
+    internedList.map(s => eitherToParseError(PackageId.fromString(s)))(breakOut)
+  }
 
   private[this] def decodeSegments(segments: ImmArray[String]): DottedName =
     DottedName.fromSegments(segments.toSeq) match {
@@ -36,8 +55,10 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
       case Right(x) => x
     }
 
-  case class ModuleDecoder(val packageId: PackageId, val lfModule: PLF.Module) {
-    import LanguageMinorVersion.Implicits._
+  case class ModuleDecoder(
+      packageId: PackageId,
+      internedPackageIds: ImmArraySeq[PackageId],
+      lfModule: PLF.Module) {
 
     val moduleName = eitherToParseError(
       ModuleName.fromSegments(lfModule.getName.getSegmentsList.asScala))
@@ -239,7 +260,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
             (typ, arg) => TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.PRIM =>
           val prim = lfType.getPrim
-          val (tPrim, minVersion) = DecodeV1.primTypeTable(prim.getPrim)
+          val (tPrim, minVersion) = primTypeTable(prim.getPrim)
           assertSince(minVersion, prim.getPrim.getValueDescriptor.getFullName)
           (TBuiltin(tPrim) /: [Type] prim.getArgsList.asScala)((typ, arg) =>
             TApp(typ, decodeType(arg)))
@@ -270,17 +291,26 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
     private[this] def decodeModuleRef(lfRef: PLF.ModuleRef): (PackageId, ModuleName) = {
       val modName = eitherToParseError(
         ModuleName.fromSegments(lfRef.getModuleName.getSegmentsList.asScala))
-      lfRef.getPackageRef.getSumCase match {
-        case PLF.PackageRef.SumCase.SELF =>
-          (this.packageId, modName)
-        case PLF.PackageRef.SumCase.PACKAGE_ID =>
-          val pkgId = PackageId
-            .fromString(lfRef.getPackageRef.getPackageId)
-            .getOrElse(throw ParseError(s"invalid packageId '${lfRef.getPackageRef.getPackageId}'"))
-          (pkgId, modName)
-        case PLF.PackageRef.SumCase.SUM_NOT_SET =>
+      import PLF.PackageRef.{SumCase => SC}
+      val pkgId = lfRef.getPackageRef.getSumCase match {
+        case SC.SELF =>
+          this.packageId
+        case SC.PACKAGE_ID =>
+          val rawPid = lfRef.getPackageRef.getPackageId
+          PackageId
+            .fromString(rawPid)
+            .getOrElse(throw ParseError(s"invalid packageId '$rawPid'"))
+        case SC.INTERNED_ID =>
+          assertSince(internedIdsVersion, "interned package ID")
+          val iidl = lfRef.getPackageRef.getInternedId
+          def outOfRange = ParseError(s"invalid package ID table index $iidl")
+          val iid = iidl.toInt
+          if (iidl != iid.toLong) throw outOfRange
+          internedPackageIds.lift(iid).getOrElse(throw outOfRange)
+        case SC.SUM_NOT_SET =>
           throw ParseError("PackageRef.SUM_NOT_SET")
       }
+      (pkgId, modName)
     }
 
     private[this] def decodeValName(lfVal: PLF.ValName): ValueRef = {
@@ -364,6 +394,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
             decodeExpr(varCon.getVariantArg))
 
         case PLF.Expr.SumCase.ENUM_CON =>
+          assertSince("dev", "Expr.SumCase.ENUM_CON")
           val enumCon = lfExpr.getEnumCon
           EEnumCon(
             decodeTypeConName(enumCon.getTycon),
@@ -447,13 +478,13 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
         case PLF.Expr.SumCase.SCENARIO =>
           EScenario(decodeScenario(lfExpr.getScenario))
 
-        case PLF.Expr.SumCase.NONE =>
-          assertSince("1", "CaseAlt.None")
-          ENone(decodeType(lfExpr.getNone.getType))
+        case PLF.Expr.SumCase.OPTIONAL_NONE =>
+          assertSince("1", "Expr.OptionalNone")
+          ENone(decodeType(lfExpr.getOptionalNone.getType))
 
-        case PLF.Expr.SumCase.SOME =>
-          assertSince("1", "CaseAlt.Some")
-          val some = lfExpr.getSome
+        case PLF.Expr.SumCase.OPTIONAL_SOME =>
+          assertSince("1", "Expr.OptionalSome")
+          val some = lfExpr.getOptionalSome
           ESome(decodeType(some.getType), decodeExpr(some.getBody))
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
@@ -471,6 +502,7 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
             name(variant.getVariant),
             name(variant.getBinder))
         case PLF.CaseAlt.SumCase.ENUM =>
+          assertSince("dev", "CaseAlt.Enum")
           val enum = lfCaseAlt.getEnum
           CPEnum(decodeTypeConName(enum.getCon), name(enum.getConstructor))
         case PLF.CaseAlt.SumCase.PRIM_CON =>
@@ -481,13 +513,13 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
           val cons = lfCaseAlt.getCons
           CPCons(name(cons.getVarHead), name(cons.getVarTail))
 
-        case PLF.CaseAlt.SumCase.NONE =>
-          assertSince("1", "CaseAlt.None")
+        case PLF.CaseAlt.SumCase.OPTIONAL_NONE =>
+          assertSince("1", "CaseAlt.OptionalNone")
           CPNone
 
-        case PLF.CaseAlt.SumCase.SOME =>
-          assertSince("1", "CaseAlt.Some")
-          CPSome(name(lfCaseAlt.getSome.getVarBody))
+        case PLF.CaseAlt.SumCase.OPTIONAL_SOME =>
+          assertSince("1", "CaseAlt.OptionalSome")
+          CPSome(name(lfCaseAlt.getOptionalSome.getVarBody))
 
         case PLF.CaseAlt.SumCase.SUM_NOT_SET =>
           throw ParseError("CaseAlt.SUM_NOT_SET")
@@ -670,8 +702,10 @@ private[lf] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage
 
 }
 
-object DecodeV1 {
+private[lf] object DecodeV1 {
   import LanguageMinorVersion.Implicits._
+
+  private[archive] val internedIdsVersion: LanguageMinorVersion = "dev"
 
   private[lf] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
     import PLF.PrimType._

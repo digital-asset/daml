@@ -56,7 +56,7 @@ class ImplicitPartyAdditionIT
     with Matchers
     with MetricsAround {
 
-  override def timeLimit: Span = 60.seconds
+  override def timeLimit: Span = scaled(60.seconds)
 
   private val ledgerId: LedgerId = LedgerId("ledgerId")
   private val timeProvider = TimeProvider.Constant(Instant.EPOCH.plusSeconds(10))
@@ -151,6 +151,7 @@ class ImplicitPartyAdditionIT
             Set("exercise-signatory"),
             Set("exercise-signatory"),
             ImmArray.empty,
+            None,
             None
           )
         )

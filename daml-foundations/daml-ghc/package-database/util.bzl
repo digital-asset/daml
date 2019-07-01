@@ -91,7 +91,7 @@ def _daml_package_rule_impl(ctx):
         {main}
 
       cp -a {pkg_root}/* {iface_dir}
-      cp -a .interfaces/{pkg_root}/* {iface_dir}
+      cp -a .daml/interfaces/{pkg_root}/* {iface_dir}
     """.format(
             main = modules[ctx.attr.main],
             name = name,
@@ -132,7 +132,7 @@ daml_package_rule = rule(
         ),
         "dependencies": attr.label_list(allow_files = False),
         "damlc_bootstrap": attr.label(
-            default = Label("//daml-foundations/daml-tools/da-hs-damlc-app:damlc_bootstrap"),
+            default = Label("//daml-foundations/daml-tools/damlc-app:damlc_bootstrap"),
             executable = True,
             cfg = "host",
         ),

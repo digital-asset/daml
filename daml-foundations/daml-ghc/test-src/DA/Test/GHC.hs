@@ -31,7 +31,7 @@ import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
-import qualified Development.IDE.Logger as IdeLogger
+import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Lens as A
@@ -57,9 +57,9 @@ import qualified Data.Set as Set
 import qualified Data.Text as T
 import           System.Time.Extra
 import qualified Development.IDE.State.API as Compile
-import qualified Development.IDE.State.Rules.Daml as Compile
+import qualified Development.IDE.Core.Rules.Daml as Compile
 import qualified Development.IDE.Types.Diagnostics as D
-import Development.IDE.UtilGHC
+import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
 import qualified GHC
 import qualified Proto3.Suite.JSONPB as JSONPB
@@ -132,7 +132,7 @@ getIntegrationTests registerTODO scenarioService version = do
     vfs <- Compile.makeVFSHandle
     pure $
       withResource
-      (Compile.initialise (Compile.mainRule opts) (const $ pure ()) IdeLogger.makeNopHandle opts vfs (Just scenarioService))
+      (Compile.initialise (Compile.mainRule opts) (const $ pure ()) IdeLogger.noLogging opts vfs (Just scenarioService))
       Compile.shutdown $ \service ->
       withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
         map (testCase args version service outdir registerTODO) allTestFiles
@@ -163,6 +163,7 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       , resultTime = 0
       }
     else do
+      -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
       Compile.unsafeClearDiagnostics service
       ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
       diags <- Compile.getDiagnostics service

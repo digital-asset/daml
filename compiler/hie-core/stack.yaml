@@ -1,0 +1,14 @@
+resolver: nightly-2019-05-20
+packages:
+- .
+
+extra-deps:
+- git: https://github.com/alanz/haskell-lsp.git
+  commit: d73e2ccb518724e6766833ee3d7e73289cbe0018
+  subdirs:
+  - .
+  - haskell-lsp-types
+- git: https://github.com/mpickering/hie-bios.git
+  commit: 8427e424a83c2f3d60bdd26c02478c00d2189a73
+nix:
+  packages: [zlib]

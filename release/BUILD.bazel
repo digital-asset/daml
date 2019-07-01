@@ -92,7 +92,7 @@ genrule(
         ":install.bat",
         "//:VERSION",
         "//daml-assistant:daml-dist",
-        "//daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist",
+        "//daml-foundations/daml-tools/damlc-app:damlc-dist",
         "//daml-foundations/daml-tools/daml-extension:dist",
         "//daml-assistant/daml-helper:daml-helper-dist",
         "//ledger/sandbox:sandbox-binary_deploy.jar",
@@ -117,7 +117,7 @@ genrule(
       tar xf $(location //daml-assistant:daml-dist) --strip-components=1 -C $$OUT/daml
 
       mkdir -p $$OUT/damlc
-      tar xf $(location //daml-foundations/daml-tools/da-hs-damlc-app:damlc-dist) --strip-components=1 -C $$OUT/damlc
+      tar xf $(location //daml-foundations/daml-tools/damlc-app:damlc-dist) --strip-components=1 -C $$OUT/damlc
 
       mkdir -p $$OUT/daml-helper
       tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper

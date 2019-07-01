@@ -1,14 +1,15 @@
 {
-    "name": "da-vscode-daml-extension",
-    "displayName": "DAML Studio",
+    "name": "daml",
+    "displayName": "DAML",
     "description": "DAML editing and analysis tools",
-    "version": "1.0.0",
-    "publisher": "Digital Asset",
+    "version": "__VERSION__",
+    "publisher": "DigitalAssetHoldingsLLC",
+    "repository": "https://github.com/digital-asset/daml/tree/master/daml-foundations/daml-tools/daml-extension",
     "icon": "images/daml-studio.png",
     "engines": {
         "vscode": "^1.32.0"
     },
-    "license": "All Rights Reserved",
+    "license": "Apache-2.0",
     "private": true,
     "activationEvents": [
         "onLanguage:daml",

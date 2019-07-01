@@ -90,6 +90,7 @@ trait PostgresAround {
     val tempDir = Files.createTempDirectory("postgres_test")
     val tempDirPath = tempDir.toAbsolutePath.toString
     val dataDir = Paths.get(tempDirPath, "data")
+    val postgresConfPath = Paths.get(dataDir.toString, "postgresql.conf");
     val postgresPort = findFreePort()
 
     def runInitDb() = {
@@ -108,20 +109,25 @@ trait PostgresAround {
     }
 
     def createConfigFile() = {
-      val postgresConf = Files.createFile(Paths.get(tempDirPath, "postgresql.conf"))
-
       // taken from here: https://bitbucket.org/eradman/ephemeralpg/src/1b5a3c6be81c69a860b7bd540a16b1249d3e50e2/pg_tmp.sh?at=default&fileviewer=file-view-default#pg_tmp.sh-54
+      // We set unix_socket_directories to /tmp rather than tempDir
+      // since the latter will refer to a temporary directory set by
+      // Bazel which is too long (there is a limit on the length of unix domain
+      // sockets). On Windows, unix domain sockets do not exist and
+      // this option is ignored.
       val configText =
-        s"""|unix_socket_directories = '${tempDirPath}'
-            |listen_addresses = ''
-            |shared_buffers = 12val fsync: Nothing = off
+        s"""|unix_socket_directories = '/tmp'
+            |shared_buffers = 12MB
+            |fsync = off
             |synchronous_commit = off
             |full_page_writes = off
             |log_min_duration_statement = 0
             |log_connections = on
+            |listen_addresses = 'localhost'
+            |port = ${postgresPort}
       """.stripMargin
 
-      Files.write(postgresConf, configText.getBytes(StandardCharsets.UTF_8))
+      Files.write(postgresConfPath, configText.getBytes(StandardCharsets.UTF_8))
     }
 
     def startPostgres() = {
@@ -146,6 +152,8 @@ trait PostgresAround {
     def createTestDatabase() = {
       val command = Array(
         pgToolPath("createdb"),
+        "-h",
+        "localhost",
         "-U",
         testUser,
         "-p",

@@ -13,6 +13,7 @@ load(
 )
 
 dependencies = [
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
     "//3rdparty/jvm/com/github/scopt:scopt",
     "//3rdparty/jvm/com/google/guava:guava",
     "//3rdparty/jvm/com/typesafe/akka:akka_stream",
@@ -90,9 +91,11 @@ da_scala_test_suite(
     # test discovery mechanism in the test_suite macro working only on sources.
     srcs = glob(
         include = ["src/test/itsuite/**/*.scala"],
+        ### GS: enabling all tests again for the regular test suite until we figure out how to
+        ###     run sandbox on postgres with ledger-api-test-tool
         # the excluded tests are run by the conformance test via the ledger-api-test-tool
         # see //ledger/sandbox:conformance-test-*
-        exclude = ["src/test/itsuite/**/TransactionServiceIT.scala"],
+        # exclude = ["src/test/itsuite/**/TransactionServiceIT.scala"],
     ),
     data = [
         "//ledger/sandbox:Test.dar",

@@ -41,7 +41,7 @@ import qualified Data.HashSet as HS
 import qualified Data.Map.Strict as Map
 import           Safe.Exact (zipExactMay)
 
-import           DA.Daml.LF.Ast hiding (dataCons)
+import           DA.Daml.LF.Ast
 import           DA.Daml.LF.Ast.Optics (dataConsType)
 import           DA.Daml.LF.Ast.Type
 import           DA.Daml.LF.TypeChecker.Env
@@ -108,7 +108,8 @@ kindOfBuiltin = \case
   BTText -> KStar
   BTTimestamp -> KStar
   BTParty -> KStar
-  BTEnum _ -> KStar
+  BTUnit -> KStar
+  BTBool -> KStar
   BTDate -> KStar
   BTList -> KStar `KArrow` KStar
   BTUpdate -> KStar `KArrow` KStar
@@ -137,12 +138,6 @@ kindOf = \case
   TForall (v, k) t1 -> introTypeVar v k $ checkType t1 KStar $> KStar
   TTuple recordType -> checkRecordType recordType $> KStar
 
-typeOfEnumCon :: EnumCon -> Type
-typeOfEnumCon = \case
-  ECUnit  -> TUnit
-  ECFalse -> TBool
-  ECTrue  -> TBool
-
 typeOfBuiltin :: MonadGamma m => BuiltinExpr -> m Type
 typeOfBuiltin = \case
   BEInt64 _          -> pure TInt64
@@ -151,7 +146,8 @@ typeOfBuiltin = \case
   BETimestamp _      -> pure TTimestamp
   BEParty   _        -> pure TParty
   BEDate _           -> pure TDate
-  BEEnumCon con      -> pure $ typeOfEnumCon con
+  BEUnit             -> pure TUnit
+  BEBool _           -> pure TBool
   BEError            -> pure $ TForall (alpha, KStar) (TText :-> tAlpha)
   BEEqual     btype  -> pure $ tComparison btype
   BELess      btype  -> pure $ tComparison btype
@@ -162,12 +158,8 @@ typeOfBuiltin = \case
   BETextFromCodePoints -> pure $ TList TInt64 :-> TText
   BEPartyToQuotedText -> pure $ TParty :-> TText
   BEPartyFromText    -> pure $ TText :-> TOptional TParty
-  BEInt64FromText    -> do
-      checkFeature featureNumberFromText
-      pure $ TText :-> TOptional TInt64
-  BEDecimalFromText  -> do
-      checkFeature featureNumberFromText
-      pure $ TText :-> TOptional TDecimal
+  BEInt64FromText    -> pure $ TText :-> TOptional TInt64
+  BEDecimalFromText  -> pure $ TText :-> TOptional TDecimal
   BETextToCodePoints -> pure $ TText :-> TList TInt64
   BEAddDecimal       -> pure $ tBinop TDecimal
   BESubDecimal       -> pure $ tBinop TDecimal
@@ -208,7 +200,6 @@ typeOfBuiltin = \case
     TForall (alpha, KStar) $
     TContractId tAlpha :-> TContractId tAlpha :-> TBool
   BECoerceContractId -> do
-    checkFeature featureCoerceContractId
     pure $ TForall (alpha, KStar) $ TForall (beta, KStar) $ TContractId tAlpha :-> TContractId tBeta
   where
     tComparison btype = TBuiltin btype :-> TBuiltin btype :-> TBool
@@ -228,8 +219,15 @@ checkVariantCon :: MonadGamma m => TypeConApp -> VariantConName -> Expr -> m ()
 checkVariantCon typ@(TypeConApp tcon _) con conArg = do
   dataCons <- checkTypeConApp typ
   variantType <- match _DataVariant (EExpectedVariantType tcon) dataCons
-  conArgType <- match _Just (EUnknownVariantCon con) (con `lookup` variantType)
+  conArgType <- match _Just (EUnknownDataCon con) (con `lookup` variantType)
   checkExpr conArg conArgType
+
+checkEnumCon :: MonadGamma m => Qualified TypeConName -> VariantConName -> m ()
+checkEnumCon tcon con = do
+    checkFeature featureEnumTypes
+    defDataType <- inWorld (lookupDataType tcon)
+    enumCons <- match _DataEnum (EExpectedEnumType tcon) (dataCons defDataType)
+    unless (con `elem` enumCons) $ throwWithContext (EUnknownDataCon con)
 
 typeOfRecProj :: MonadGamma m => TypeConApp -> FieldName -> Expr -> m Type
 typeOfRecProj typ0 field record = do
@@ -301,7 +299,7 @@ introCasePattern scrutType patn cont = case patn of
     DefDataType _loc _name _serializable tparams dataCons <- inWorld (lookupDataType patnTCon)
     variantCons <- match _DataVariant (EExpectedVariantType patnTCon) dataCons
     conArgType <-
-      match _Just (EUnknownVariantCon con) (con `lookup` variantCons)
+      match _Just (EUnknownDataCon con) (con `lookup` variantCons)
     (scrutTCon, scrutTArgs) <-
       match _TConApp (EExpectedDataType scrutType) scrutType
     unless (scrutTCon == patnTCon) $
@@ -314,11 +312,23 @@ introCasePattern scrutType patn cont = case patn of
     let subst1 = map (\((v, _k), t) -> (v, t)) subst0
     let varType = substitute (Map.fromList subst1) conArgType
     introExprVar var varType cont
-  CPEnumCon con
-    | alphaEquiv scrutType conType -> cont
+  CPEnum patnTCon con -> do
+    checkFeature featureEnumTypes
+    defDataType <- inWorld (lookupDataType patnTCon)
+    enumCons <- match _DataEnum (EExpectedEnumType patnTCon) (dataCons defDataType)
+    unless (con `elem` enumCons) $ throwWithContext (EUnknownDataCon con)
+    scrutTCon <- match _TCon (EExpectedDataType scrutType) scrutType
+    unless (scrutTCon == patnTCon) $
+      throwWithContext (ETypeConMismatch patnTCon scrutTCon)
+    cont
+  CPUnit
+    | scrutType == TUnit -> cont
     | otherwise ->
-        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = conType, expr = Nothing}
-    where conType = typeOfEnumCon con
+        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = TUnit, expr = Nothing}
+  CPBool _
+    | scrutType == TBool -> cont
+    | otherwise ->
+        throwWithContext ETypeMismatch{foundType = scrutType, expectedType = TBool, expr = Nothing}
   CPNil -> do
     _ :: Type <- match _TList (EExpectedListType scrutType) scrutType
     cont
@@ -384,9 +394,7 @@ typeOfExercise :: MonadGamma m =>
 typeOfExercise tpl chName cid mbActors arg = do
   choice <- inWorld (lookupChoice (tpl, chName))
   checkExpr cid (TContractId (TCon tpl))
-  case mbActors of
-    Nothing -> checkFeature featureExerciseActorsOptional
-    Just actors -> checkExpr actors (TList TParty)
+  whenJust mbActors $ \actors -> checkExpr actors (TList TParty)
   checkExpr arg (chcArgType choice)
   pure (TUpdate (chcReturnType choice))
 
@@ -459,6 +467,7 @@ typeOf = \case
   ERecProj typ field rec -> typeOfRecProj typ field rec
   ERecUpd typ field record update -> typeOfRecUpd typ field record update
   EVariantCon typ con arg -> checkVariantCon typ con arg $> typeConAppToType typ
+  EEnumCon typ con -> checkEnumCon typ con $> TCon typ
   ETupleCon recordExpr -> typeOfTupleCon recordExpr
   ETupleProj field expr -> typeOfTupleProj field expr
   ETupleUpd field tuple update -> typeOfTupleUpd field tuple update
@@ -495,8 +504,12 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) =
     base = case dataCons of
       DataRecord  fields  -> checkRecordType fields
       DataVariant (unzip -> (names, types)) -> do
-        checkUnique EDuplicateVariantCon names
+        checkUnique EDuplicateConstructor names
         traverse_ (`checkType` KStar) types
+      DataEnum names -> do
+        checkFeature featureEnumTypes
+        unless (null params) $ throwWithContext EEnumTypeWithParams
+        checkUnique EDuplicateConstructor names
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
 checkDefValue (DefValue _loc (_, typ) _noParties (IsTest isTest) expr) = do

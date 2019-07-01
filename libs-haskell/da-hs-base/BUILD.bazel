@@ -55,7 +55,6 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant:daml-project-config",
-        "//libs-haskell/prettyprinter-syntax",
     ],
 )
 

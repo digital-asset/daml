@@ -5,6 +5,7 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.Clock
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
@@ -13,7 +14,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.v1._
+import com.daml.ledger.participant.state.v1.{UploadPackagesResult, _}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -63,6 +64,16 @@ object InMemoryKVParticipantState {
   /** A periodically emitted heartbeat that is committed to the ledger. */
   final case class CommitHeartbeat(recordTime: Timestamp) extends Commit
 
+  sealed trait RequestMatch extends Serializable with Product
+
+  final case class AddPackageUploadRequest(
+      submissionId: String,
+      cf: CompletableFuture[UploadPackagesResult])
+  final case class AddPartyAllocationRequest(
+      submissionId: String,
+      cf: CompletableFuture[PartyAllocationResult])
+  final case class AddPotentialResponse(idx: Int)
+
 }
 
 /** Implementation of the participant-state [[ReadService]] and [[WriteService]] using
@@ -100,6 +111,9 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   // Namespace prefix for DAML state.
   private val NS_DAML_STATE = ByteString.copyFromUtf8("DS")
 
+  // For an in-memory ledger, an atomic integer is enough to guarantee uniqueness
+  private val submissionId = new AtomicInteger()
+
   /** Interval for heartbeats. Heartbeats are committed to [[State.commitLog]]
     * and sent as [[Update.Heartbeat]] to [[stateUpdates]] consumers.
     */
@@ -124,6 +138,62 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
         timeModel = TimeModel.reasonableDefault
       )
     )
+
+  /** Akka actor that matches the requests for party allocation
+    * with asynchronous responses delivered within the log entries.
+    */
+  class ResponseMatcher extends Actor {
+    var partyRequests: Map[String, CompletableFuture[PartyAllocationResult]] = Map.empty
+    var packageRequests: Map[String, CompletableFuture[UploadPackagesResult]] = Map.empty
+
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    override def receive: Receive = {
+      case AddPartyAllocationRequest(submissionId, cf) =>
+        partyRequests += (submissionId -> cf); ()
+
+      case AddPackageUploadRequest(submissionId, cf) =>
+        packageRequests += (submissionId -> cf); ()
+
+      case AddPotentialResponse(idx) =>
+        assert(idx >= 0 && idx < stateRef.commitLog.size)
+
+        stateRef.commitLog(idx) match {
+          case CommitSubmission(entryId, _) =>
+            stateRef.store
+              .get(entryId.getEntryId)
+              .flatMap { blob =>
+                KeyValueConsumption.logEntryToAsyncResponse(
+                  entryId,
+                  KeyValueConsumption.unpackDamlLogEntry(blob),
+                  participantId)
+              }
+              .foreach {
+                case KeyValueConsumption.PartyAllocationResponse(submissionId, result) =>
+                  partyRequests
+                    .getOrElse(
+                      submissionId,
+                      sys.error(
+                        s"partyAllocation response: $submissionId could not be matched with a request!"))
+                    .complete(result)
+                  partyRequests -= submissionId
+
+                case KeyValueConsumption.PackageUploadResponse(submissionId, result) =>
+                  packageRequests
+                    .getOrElse(
+                      submissionId,
+                      sys.error(
+                        s"packageUpload response: $submissionId could not be matched with a request!"))
+                    .complete(result)
+                  packageRequests -= submissionId
+              }
+          case _ => ()
+        }
+    }
+  }
+
+  /** Instance of the [[ResponseMatcher]] to which we send messages used for request-response matching. */
+  private val matcherActorRef =
+    system.actorOf(Props(new ResponseMatcher), s"response-matcher-$ledgerId")
 
   /** Akka actor that receives submissions sequentially and
     * commits them one after another to the state, e.g. appending
@@ -187,6 +257,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
 
           // Wake up consumers.
           dispatcher.signalNewHead(stateRef.commitLog.size)
+          matcherActorRef ! AddPotentialResponse(stateRef.commitLog.size - 1)
         }
     }
   }
@@ -222,7 +293,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     * given offset, and the method [[Dispatcher.signalNewHead]] to signal that
     * new elements has been added.
     */
-  private val dispatcher: Dispatcher[Int, Update] = Dispatcher(
+  private val dispatcher: Dispatcher[Int, Option[Update]] = Dispatcher(
     steppingMode = OneAfterAnother(
       (idx: Int, _) => idx + 1,
       (idx: Int) => Future.successful(getUpdate(idx, stateRef))
@@ -234,7 +305,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
     * state and convert it into [[Update]].
     */
-  private def getUpdate(idx: Int, state: State): Update = {
+  private def getUpdate(idx: Int, state: State): Option[Update] = {
     assert(idx >= 0 && idx < state.commitLog.size)
 
     state.commitLog(idx) match {
@@ -252,7 +323,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
           )
 
       case CommitHeartbeat(recordTime) =>
-        Update.Heartbeat(recordTime)
+        Some(Update.Heartbeat(recordTime))
     }
   }
 
@@ -270,8 +341,8 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
           .map(_.components.head.toInt + 1) // startingAt is inclusive, so jump over one element.
           .getOrElse(beginning)
       )
-      .map {
-        case (idx, update) =>
+      .collect {
+        case (idx, Some(update)) =>
           Offset(Array(idx.toLong)) -> update
       }
   }
@@ -319,22 +390,31 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   /** Allocate a party on the ledger */
   override def allocateParty(
       hint: Option[String],
-      displayName: Option[String]): CompletionStage[PartyAllocationResult] =
-    // TODO: Implement party management
-    CompletableFuture.completedFuture(PartyAllocationResult.NotSupported)
+      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+    val sId = submissionId.getAndIncrement().toString
+    val cf = new CompletableFuture[PartyAllocationResult]
+    matcherActorRef ! AddPartyAllocationRequest(sId, cf)
+    commitActorRef ! CommitSubmission(
+      allocateEntryId,
+      KeyValueSubmission.partyToSubmission(sId, hint, displayName, participantId)
+    )
+    cf
+  }
 
-  /** Upload DAML-LF packages to the ledger.
-    */
-  override def uploadPublicPackages(
+  /** Upload DAML-LF packages to the ledger */
+  override def uploadPackages(
       archives: List[Archive],
-      sourceDescription: String): CompletionStage[SubmissionResult] =
-    CompletableFuture.completedFuture({
-      commitActorRef ! CommitSubmission(
-        allocateEntryId,
-        KeyValueSubmission.archivesToSubmission(archives, sourceDescription, participantId)
-      )
-      SubmissionResult.Acknowledged
-    })
+      sourceDescription: Option[String]): CompletionStage[UploadPackagesResult] = {
+    val sId = submissionId.getAndIncrement().toString
+    val cf = new CompletableFuture[UploadPackagesResult]
+    matcherActorRef ! AddPackageUploadRequest(sId, cf)
+    commitActorRef ! CommitSubmission(
+      allocateEntryId,
+      KeyValueSubmission
+        .archivesToSubmission(sId, archives, sourceDescription.getOrElse(""), participantId)
+    )
+    cf
+  }
 
   /** Retrieve the static initial conditions of the ledger, containing
     * the ledger identifier and the initial ledger record time.

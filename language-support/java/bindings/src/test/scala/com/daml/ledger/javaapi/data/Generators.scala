@@ -193,6 +193,8 @@ object Generators {
       createArgument <- recordGen
       eventId <- Arbitrary.arbString.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      signatories <- Gen.listOf(Gen.asciiPrintableStr)
+      observers <- Gen.listOf(Gen.asciiPrintableStr)
     } yield
       EventOuterClass.CreatedEvent
         .newBuilder()
@@ -201,6 +203,8 @@ object Generators {
         .setCreateArguments(createArgument)
         .setEventId(eventId)
         .addAllWitnessParties(witnessParties.asJava)
+        .addAllSignatories(signatories.asJava)
+        .addAllObservers(observers.asJava)
         .build()
 
   val archivedEventGen: Gen[EventOuterClass.ArchivedEvent] =

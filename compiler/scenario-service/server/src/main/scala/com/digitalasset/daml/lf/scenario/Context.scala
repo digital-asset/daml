@@ -3,8 +3,7 @@
 
 package com.digitalasset.daml.lf.scenario
 
-import com.digitalasset.daml_lf.DamlLf1
-import com.digitalasset.daml.lf.archive.{Decode, DecodeV1}
+import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Decode.ParseError
 import com.digitalasset.daml.lf.data.Ref.{Identifier, ModuleName, PackageId, QualifiedName}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
@@ -70,6 +69,21 @@ class Context(val contextId: Context.ContextId) {
     newCtx
   }
 
+  private def decodeModule(
+      major: LanguageVersion.Major,
+      minor: String,
+      bytes: ByteString): Ast.Module = {
+    val lfVer = LanguageVersion(major, LanguageVersion.Minor fromProtoIdentifier minor)
+    val dop: Decode.OfPackage[_] = Decode.decoders
+      .lift(lfVer)
+      .getOrElse(throw Context.ContextException(s"No decode support for LF ${lfVer.pretty}"))
+      .decoder
+    val lfMod = dop.protoModule(
+      Decode.damlLfCodedInputStream(bytes.newInput)
+    )
+    dop.decodeScenarioModule(homePackageId, lfMod)
+  }
+
   private def validate(pkgIds: Traversable[PackageId], forScenarioService: Boolean): Unit = {
     val validator: PackageId => Either[ValidationError, Unit] =
       if (forScenarioService)
@@ -112,17 +126,7 @@ class Context(val contextId: Context.ContextId) {
     val lfModules = loadModules.map(module =>
       module.getModuleCase match {
         case ProtoModule.ModuleCase.DAML_LF_1 =>
-          // TODO this duplicates/skips the similar logic and extra version
-          // support check from `Decode`'s functions; will improperly accept
-          // too-new versions as a result
-          val lfMod = DamlLf1.Module
-            .parser()
-            .parseFrom(
-              Decode.damlLfCodedInputStream(module.getDamlLf1.newInput)
-            )
-          new DecodeV1(LanguageVersion.Minor fromProtoIdentifier module.getMinor)
-            .ModuleDecoder(homePackageId, lfMod)
-            .decode()
+          decodeModule(LanguageVersion.Major.V1, module.getMinor, module.getDamlLf1)
         case ProtoModule.ModuleCase.DAML_LF_DEV | ProtoModule.ModuleCase.MODULE_NOT_SET =>
           throw Context.ContextException("Module.MODULE_NOT_SET")
     })

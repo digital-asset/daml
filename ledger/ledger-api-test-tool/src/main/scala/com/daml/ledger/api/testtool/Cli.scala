@@ -69,7 +69,7 @@ object Cli {
     opt[Double](name = "timeout-scale-factor")
       .optional()
       .action((v, c) => c.copy(timeoutScaleFactor = v))
-      .text("""Scale factor for timeouts used in "SemanticTests" suite. Useful to tune timeouts
+      .text("""Scale factor for timeouts used in all test suites. Useful to tune timeouts
           |depending on the environment and the Ledger implementation under test.
           |Defaults to 1.0. Use numbers higher than 1.0 to make test timeouts more lax,
           |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
@@ -77,6 +77,20 @@ object Cli {
     opt[Unit]("verbose")
       .action((_, c) => c.copy(verbose = true))
       .text("Prints full stacktraces on failures.")
+
+    opt[Unit]("stable-party-identifiers")
+      .abbr("sp")
+      .action((_, c) => c.copy(uniquePartyIdentifiers = false))
+      .text("""Use the same party identifiers for each run. By default
+          |those are randomized for each execution of the tool to ensure that
+          |the tests are not being failed by command and party deduplication mechanisms.""".stripMargin)
+
+    opt[Unit]("stable-command-identifiers")
+      .abbr("sc")
+      .action((_, c) => c.copy(uniqueCommandIdentifiers = false))
+      .text("""Use the same command identifiers for each run. By default
+          |those are randomized for each execution of the tool to ensure that
+          |the tests are not being failed by command and party deduplication mechanisms.""".stripMargin)
 
     opt[Unit]("must-fail")
       .action((_, c) => c.copy(mustFail = true))

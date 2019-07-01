@@ -60,6 +60,7 @@ da_java_library(
         "//visibility:public",
     ],
     deps = [
+        "//3rdparty/jvm/io/grpc:grpc_netty",
         "//3rdparty/jvm/io/grpc:grpc_protobuf",
         "//3rdparty/jvm/io/grpc:grpc_stub",
         "//3rdparty/jvm/org/checkerframework:checker",

@@ -6,6 +6,168 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-10:
+
+0.13.10 - 2019-06-28
+--------------------
+
+Sandbox
+~~~~~~~
+
+- Added `--log-level` command line flag.   
+- **BREAKING CHANGE**: The Sandbox no longer supports loading from DALF files. You can now only use DAR files. See `#1610 <https://github.com/digital-asset/daml/issues/1610>`__.
+
+
+Ledger API
+~~~~~~~~~~
+
+- Added new CLI flags ``--stable-party-identifiers`` and
+  ``--stable-command-identifiers`` to the :doc:`Ledger API Test Tool
+  </tools/ledger-api-test-tool/index>` to allow disabling randomization of party
+  and command identifiers. It is useful for testing of ledgers which are
+  configured with a predefined static set of parties.
+
+
+.. _release-0-13-9:
+
+0.13.9 - 2019-06-28
+-------------------
+
+DAML Studio
+~~~~~~~~~~~
+
+- Fix an error in the ``package.json`` that stopped the extension from being loaded.
+
+.. _release-0-13-8:
+
+0.13.8 - 2019-06-27
+-------------------
+
+Navigator
+~~~~~~~~~
+
+- Contract details now show signatories and observers.
+  See `#1269 <https://github.com/digital-asset/daml/issues/1269>`__.
+
+Scala Bindings
+~~~~~~~~~~~~~~
+
+- Reflect addition of signatories and observers to the bindings.
+  See `#1269 <https://github.com/digital-asset/daml/issues/1269>`__.
+
+Java Codegen
+~~~~~~~~~~~~
+
+- Generated code supports signatories and observers as exposed by the bindings.
+  See `#1269 <https://github.com/digital-asset/daml/issues/1269>`__.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- Reflect addition of signatories and observers to the bindings.
+  See `#1269 <https://github.com/digital-asset/daml/issues/1269>`__.
+
+Ledger API
+~~~~~~~~~~
+
+- Expose signatories and observers for a contract in ``CreatedEvent``.
+  See `#1269 <https://github.com/digital-asset/daml/issues/1269>`__.
+
+- **BREAKING CHANGE**: Specify pretty C# namespaces in ledger api protos. C# bindings will end up in a different namespace than the default one.
+  See `#1901 <https://github.com/digital-asset/daml/issues/1901>`__.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE**: Drop support for DAML-LF 1.4. Compiling to DAML-LF 1.5 should work without any code changes, although we highly recommend not specifying a target DAML-LF version at all. (The ledger server still supports DAML-LF 1.4.)
+
+Sandbox
+~~~~~~~
+
+- Made the archive CLI arguments optional.
+  See `#1905 <https://github.com/digital-asset/daml/issues/1905>`__.
+
+DAML-LF
+~~~~~~~
+
+- **BREAKING CHANGE**: Specify pretty C# namespaces in archive protos. C# bindings will end up in a different namespace than the default one.
+  See `#1900 <https://github.com/digital-asset/daml/issues/1900>`__.
+
+.. _release-0-13-7:
+
+0.13.7 - 2019-06-26
+-------------------
+
+DAML-LF
+~~~~~~~
+
+- Rename ``none`` and ``some`` to ``optional_none`` and ``optional_some``, resp., in ``Expr`` and ``CasePat``.
+
+.. _release-0-13-6:
+
+0.13.6 - 2019-06-25
+-------------------
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- Added ``--install-assistant`` flag to ``daml install`` command,
+  changing the default behavior of ``daml install`` to install the assistant
+  whenever we are installing a newer version of the SDK. Deprecated the
+  ``--activate`` flag.
+- Added ``--start-navigator``, ``--on-start``, and ``--wait-for-signal``
+  options to ``daml start``, to make scripting and testing with the sandbox much easier.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Opening an already open scenario will now focus it rather than opening
+  it in a new empty tab which is never updated with results.
+- The selected view for scenario results (table or transaction) is now
+  preserved when the scenario results are updated.
+  See `#1675 <https://github.com/digital-asset/daml/issues/1675>`__.
+- Goto definition now works on the export list of modules.
+- Goto definition now works on types.
+
+DAML-LF
+~~~~~~~
+
+- Rename ``TO_TEXT_CODE_POINTS`` and ``FROM_TEXT_CODE_POINTS`` to ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``, resp.
+
+Dependencies
+~~~~~~~~~~~~
+
+- Protobuf has been upgraded to version 3.8.0. This
+  also includes the protobuf-java library used as a dependency.
+
+Ledger API
+~~~~~~~~~~
+
+- Added additional Ledger API integration tests to Ledger API Test Tool.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- The artefact ``com.daml.ledger:bindings-java`` now has ``grpc-netty`` as dependency so that users don't need to explicitly add it.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+
+- Fixed a bug in the test tool that prevented users from running the tests.
+  See `#1841 <https://github.com/digital-asset/daml/issues/1841>`__
+
+Navigator
+~~~~~~~~~
+
+- Added support for SDK project configuration files. If you start Navigator with the SDK Assistant,
+  Navigator will directly read the ``daml.yaml`` config file instead of the old Navigator config file.
+  See `#1128 <https://github.com/digital-asset/daml/issues/1128>`__.
+
+Docker Image
+~~~~~~~~~~~~
+
+- The daml-sdk docker images are now based on Alpine Linux.
+
 .. _release-0-13-5:
 
 0.13.5 - 2019-06-19

@@ -42,7 +42,9 @@ import GHC.Types (Opaque, Symbol, magic)
 import DA.Internal.Prelude
 
 -- | The `Party` type represents a party to a contract.
-data Party = Party Opaque
+data Party =
+  -- | HIDE
+  Party Opaque
 -- Note that before DAML-LF 1.2 BEToText added single quotes around the party.
 -- now it does not, and the old behavior has been renamed BEPartyToQuotedText.
 -- Since we want this to work with both versions, keep the old behavior.
@@ -87,14 +89,19 @@ partyFromText = primitive @"BEPartyFromText"
 getParty : Text -> Scenario Party
 getParty = primitive @"SGetParty"
 
--- | The `Date` type represents a date.
-data Date = Date Opaque
+-- | The `Date` type represents a date, for example `date 2007 Apr 5`.
+data Date =
+  -- | HIDE
+  Date Opaque
 instance Show Date where show = primitive @"BEToText"
 instance Eq Date where (==) = primitive @"BEEqual"
 instance Ord Date where (<=) = primitive @"BELessEq"
 
--- | The `Time` type represents a specific datetime in UTC, i.e. a date and a time in UTC.
-data Time = Time Opaque
+-- | The `Time` type represents a specific datetime in UTC,
+-- for example `time (date 2007 Apr 5) 14 30 05`.
+data Time =
+  -- | HIDE
+  Time Opaque
 instance Show Time where show = primitive @"BEToText"
 instance Eq Time where (==) = primitive @"BEEqual"
 instance Ord Time where (<=) = primitive @"BELessEq"
@@ -105,9 +112,11 @@ data TextMap a =
   -- | HIDE
   TextMap Opaque
 
--- | The `ContractId a` type represents an id for a contract made from template `a`.
---   The id can be used to fetch the contract, among other things.
-data ContractId a = ContractId Opaque
+-- | The `ContractId a` type represents an ID for a contract created from a template `a`.
+--   You can use the ID to fetch the contract, among other things.
+data ContractId a = 
+  -- | HIDE
+  ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
 instance Show (ContractId a) where show _ = "<contract-id>"
 
@@ -116,9 +125,11 @@ instance Show (ContractId a) where show _ = "<contract-id>"
 coerceContractId : ContractId a -> ContractId b
 coerceContractId = primitive @"BECoerceContractId"
 
--- | The `Update a` type represents an action to update or query the ledger,
---   before returning a value of type `a`.
-data Update a = Update Opaque
+-- | The `Update a` type represents an `Action` to update or query the ledger,
+--   before returning a value of type `a`. Examples include `create` and `fetch`.
+data Update a =
+  -- | HIDE
+  Update Opaque
 
 instance Functor Update where
     fmap f x = x >>= \v -> pure (f v)
@@ -153,10 +164,12 @@ instance CanAbort Update where
 instance CanAbort Scenario where
     abort = fail
 
--- | The `Scenario` type is used to simulate multi-party ledger interactions.
+-- | The `Scenario` type is for simulating ledger interactions.
 -- The type `Scenario a` describes a set of actions taken by various parties during
 -- the simulated scenario, before returning a value of type `a`.
-data Scenario a = Scenario Opaque
+data Scenario a =
+  -- | HIDE
+  Scenario Opaque
 
 instance Functor Scenario where
     fmap f x = x >>= \v -> pure (f v)

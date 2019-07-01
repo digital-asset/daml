@@ -75,6 +75,7 @@ object Errors {
 
   implicit def propertyErr(s: Symbol): ErrorLoc = Tag(-\/(s))
   implicit def keyedErr(s: String): ErrorLoc = Tag(\/-(s))
+  implicit def indexErr(i: Int): ErrorLoc = Tag(\/-(i.toString))
   implicit def identifierKeyedErr(s: Name): ErrorLoc = Tag(\/-(s))
   implicit def definitionErr(s: DottedName): ErrorLoc = Tag(\/-(s.toString))
 

@@ -3,70 +3,201 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DA.Ledger.Tests (main)
-where
+module DA.Ledger.Tests (main) where
 
 import Control.Concurrent (MVar,newMVar,takeMVar,withMVar)
-import Control.Exception (SomeException, try)
-import Control.Monad (unless)
-import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,resetSandbox,withSandbox)
-import Data.List (isPrefixOf,isInfixOf)
+import Control.Monad(unless)
+import Control.Monad.IO.Class(liftIO)
+import DA.Bazel.Runfiles
+import DA.Daml.LF.Proto3.Archive (decodeArchive)
+import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
+import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
+import Data.List (elem,isPrefixOf,isInfixOf)
 import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
 import System.Random (randomIO)
 import System.Time.Extra (timeout)
-import Test.Tasty as Tasty (TestName,TestTree,defaultMain,testGroup,withResource)
-import Test.Tasty.HUnit as Tasty (assertBool,assertEqual,assertFailure,testCase)
-import qualified DA.Ledger.Sandbox as Sandbox(port)
-import qualified Data.Text.Lazy as Text (pack,unpack)
+import System.FilePath
+import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
+import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
+import qualified Codec.Archive.Zip as Zip
+import qualified DA.Daml.LF.Ast as LF
+import qualified Data.ByteString.Lazy as BSL
+import qualified Data.Text.Lazy as Text(pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
 
-import DA.Ledger as Ledger -- module under test; import everything
-
-----------------------------------------------------------------------
---main...
+import DA.Ledger.Sandbox as Sandbox
+import DA.Ledger as Ledger
 
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     Tasty.defaultMain tests
 
+type SandboxTest = WithSandbox -> TestTree
+
 tests :: TestTree
-tests = testGroupWithSandbox "Haskell Ledger Bindings" [
-    tConnect,
-    tPastFuture, -- After this test, there is a big delay when resetting the service.
-    tSubmitBad,
-    tSubmitGood,
-    tCreateWithKey,
-    tCreateWithoutKey,
-    tListPackages,
-    tGetPackage
+tests = testGroupWithSandbox "Ledger Bindings"
+    [ tGetLedgerIdentity
+    , tReset
+    , tListPackages
+    , tGetPackage
+    , tGetPackageBad
+    , tGetPackageStatusRegistered
+    , tGetPackageStatusUnknown
+    , tSubmit
+    , tSubmitBad
+    , tSubmitComplete
+    , tCreateWithKey
+    , tCreateWithoutKey
+    , tStakeholders
+    , tPastFuture
     ]
 
-----------------------------------------------------------------------
--- tests...
+run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
+run withSandbox f = withSandbox $ \sandbox pid -> runWithSandbox sandbox (f pid)
 
-tConnect :: WithSandbox -> TestTree
-tConnect withSandbox =
-    testCase "connect, ledgerid" $
-    withSandbox $ \sandbox -> do
-        h <- connect sandbox
-        let lid = Ledger.identity h
-        let got = Text.unpack $ unLedgerId lid
-        assertBool "bad ledgerId" (looksLikeSandBoxLedgerId got)
-            where looksLikeSandBoxLedgerId s = "sandbox-" `isPrefixOf` s && length s == 44
+tGetLedgerIdentity :: SandboxTest
+tGetLedgerIdentity withSandbox = testCase "getLedgerIdentity" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    liftIO $ assertBool "looksLikeSandBoxLedgerId" (looksLikeSandBoxLedgerId lid)
 
-tPastFuture :: WithSandbox -> Tasty.TestTree
-tPastFuture withSandbox =
-    testCase "past/future" $ do
-    withSandbox $ \sandbox -> do
-        h <- connect sandbox
-        [pid,_,_] <- Ledger.listPackages h
-        let command =  createIOU pid alice "A-coin" 100
-        PastAndFuture{past=past1,future=future1} <- Ledger.getTransactionsPF h alice
-        _ <- submitCommand h alice command
-        PastAndFuture{past=past2,future=future2} <- Ledger.getTransactionsPF h alice
-        _ <- submitCommand h alice command
+tReset :: SandboxTest
+tReset withSandbox = testCase "reset" $ run withSandbox $ \_ -> do
+    lid1 <- getLedgerIdentity
+    Ledger.reset lid1
+    lid2 <- getLedgerIdentity
+    liftIO $ assertBool "lid1 /= lid2" (lid1 /= lid2)
+
+tListPackages :: SandboxTest
+tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    pids <- listPackages lid
+    liftIO $ do
+        assertEqual "#packages" 3 (length pids)
+        assertBool "The pid is listed" (pid `elem` pids)
+
+tGetPackage :: SandboxTest
+tGetPackage withSandbox = testCase "getPackage" $ run withSandbox $ \pid -> do
+    lid <-  getLedgerIdentity
+    Just package <- getPackage lid pid
+    liftIO $ assertBool "contents" ("IouTransfer_Accept" `isInfixOf` show package)
+
+tGetPackageBad :: SandboxTest
+tGetPackageBad withSandbox = testCase "getPackage/bad" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    let pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
+    Nothing <- getPackage lid pid
+    return ()
+
+tGetPackageStatusRegistered :: SandboxTest
+tGetPackageStatusRegistered withSandbox = testCase "getPackageStatus/Registered" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    status <- getPackageStatus lid pid
+    liftIO $ assertBool "status" (status == PackageStatusREGISTERED)
+
+tGetPackageStatusUnknown :: SandboxTest
+tGetPackageStatusUnknown withSandbox = testCase "getPackageStatus/Unknown" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    let pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
+    status <- getPackageStatus lid pid
+    liftIO $ assertBool "status" (status == PackageStatusUNKNOWN)
+
+tSubmit :: SandboxTest
+tSubmit withSandbox = testCase "submit" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    let command =  createIOU pid alice "A-coin" 100
+    Right _ <- submitCommand lid alice command
+    return ()
+
+tSubmitBad :: SandboxTest
+tSubmitBad withSandbox = testCase "submit/bad" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    let pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
+    let command =  createIOU pid alice "A-coin" 100
+    Left err <- submitCommand lid alice command
+    liftIO $ assertTextContains err "Couldn't find package"
+
+tSubmitComplete :: SandboxTest
+tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    let command = createIOU pid alice "A-coin" 100
+    completions <- completionStream (lid,myAid,[alice],LedgerBegin)
+    off0 <- completionEnd lid
+    Right cidA1 <- submitCommand lid alice command
+    Right (Just Checkpoint{offset=cp1},[Completion{cid=cidB1}]) <- liftIO $ takeStream completions
+    off1 <- completionEnd lid
+    Right cidA2 <- submitCommand lid alice command
+    Right (Just Checkpoint{offset=cp2},[Completion{cid=cidB2}]) <- liftIO $ takeStream completions
+    off2 <- completionEnd lid
+
+    liftIO $ do
+        assertEqual "cidB1" cidA1 cidB1
+        assertEqual "cidB2" cidA2 cidB2
+        assertBool "off0 /= off1" (off0 /= off1)
+        assertBool "off1 /= off2" (off1 /= off2)
+
+        assertEqual "cp1" off1 cp1
+        assertEqual "cp2" off2 cp2
+
+    completionsX <- completionStream (lid,myAid,[alice],LedgerAbsOffset off0)
+    completionsY <- completionStream (lid,myAid,[alice],LedgerAbsOffset off1)
+
+    Right (Just Checkpoint{offset=cpX},[Completion{cid=cidX}]) <- liftIO $ takeStream completionsX
+    Right (Just Checkpoint{offset=cpY},[Completion{cid=cidY}]) <- liftIO $ takeStream completionsY
+
+    liftIO $ do
+        assertEqual "cidX" cidA1 cidX
+        assertEqual "cidY" cidA2 cidY
+        assertEqual "cpX" cp1 cpX
+        assertEqual "cpY" cp2 cpY
+
+tCreateWithKey :: SandboxTest
+tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    txs <- getAllTransactions lid alice
+    let command = createWithKey pid alice 100
+    Right _ <- submitCommand lid alice command
+    liftIO $ do
+        Just (Right Transaction{events=[CreatedEvent{key}]}) <- timeout 1 (takeStream txs)
+        assertEqual "contract has right key" key (Just (VRecord (Record Nothing [ RecordField "" (VParty alice), RecordField "" (VInt 100) ])))
+        closeStream txs gone
+    where gone = Abnormal "client gone"
+
+tCreateWithoutKey :: SandboxTest
+tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    txs <- getAllTransactions lid alice
+    let command = createWithoutKey pid alice 100
+    Right _ <- submitCommand lid alice command
+    liftIO $ do
+        Just (Right Transaction{events=[CreatedEvent{key}]}) <- timeout 1 (takeStream txs)
+        assertEqual "contract has no key" key Nothing
+        closeStream txs gone
+    where gone = Abnormal "client gone"
+
+tStakeholders :: WithSandbox -> Tasty.TestTree
+tStakeholders withSandbox = testCase "stakeholders are exposed correctly" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    PastAndFuture{future=txs} <- Ledger.getTransactionsPF lid alice
+    let command = createIOU pid alice "alice-in-chains" 100
+    _ <- submitCommand lid alice command
+    liftIO $ do
+        Just (Right Transaction{events=[CreatedEvent{signatories,observers}]}) <- timeout 1 (takeStream txs)
+        assertEqual "the only signatory" signatories [ alice ]
+        assertEqual "observers are empty" observers []
+        closeStream txs gone
+        where gone = Abnormal "client gone"
+
+tPastFuture :: SandboxTest
+tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    let command =  createIOU pid alice "A-coin" 100
+    PastAndFuture {past=past1,future=future1} <- getTransactionsPF lid alice
+    Right _ <- submitCommand lid alice command
+    PastAndFuture {past=past2,future=future2} <- getTransactionsPF lid alice
+    Right _ <- submitCommand lid alice command
+    liftIO $ do
         Just (Right x1) <- timeout 1 (takeStream future1)
         Just (Right y1) <- timeout 1 (takeStream future1)
         Just (Right y2) <- timeout 1 (takeStream future2)
@@ -77,97 +208,11 @@ tPastFuture withSandbox =
         closeStream future2 gone
         where gone = Abnormal "client gone"
 
-tSubmitBad :: WithSandbox -> Tasty.TestTree
-tSubmitBad withSandbox =
-    testCase "submit bad package id" $ do
-    withSandbox $ \sandbox -> do
-        h <- connect sandbox
-        e <- expectException (submitCommand h alice command)
-        assertExceptionTextContains e "Couldn't find package"
-            where command =  createIOU pid alice "A-coin" 100
-                  pid = PackageId "xxxxxxxxxxxxxxxxxxxxxx"
-
-tSubmitGood :: WithSandbox -> Tasty.TestTree
-tSubmitGood withSandbox =
-    testCase "submit good package id" $ do
-    withSandbox $ \sandbox -> do
-        h <- connect sandbox
-        [pid,_,_] <- Ledger.listPackages h -- assume packageId is the 1st of the 3 listed packages.
-        let command =  createIOU pid alice "A-coin" 100
-        completions <- Ledger.completions h myAid [alice]
-        cid1 <- submitCommand h alice command
-        Right comp1 <- takeStream completions
-        let Completion{completionCommandId} = comp1
-        let cid1' = CommandId completionCommandId
-        assertEqual "submit1" cid1' cid1
-
-tCreateWithKey :: WithSandbox -> Tasty.TestTree
-tCreateWithKey withSandbox =
-    testCase "create contract with key" $ do
-    withSandbox $ \sandbox -> do
-        h <- connect sandbox
-        [pid,_,_] <- Ledger.listPackages h -- assume packageId is the 1st of the 3 listed packages.
-        PastAndFuture{future=txs} <- Ledger.getTransactionsPF h alice
-        let command = createWithKey pid alice 100
-        _ <- submitCommand h alice command
-        Just (Right Transaction{events=[CreatedEvent{key}]}) <- timeout 1 (takeStream txs)
-        assertEqual "contract has right key" key (Just (VRecord (Record Nothing [ RecordField "" (VParty alice), RecordField "" (VInt 100) ])))
-        closeStream txs gone
-        where gone = Abnormal "client gone"
-
-tCreateWithoutKey :: WithSandbox -> Tasty.TestTree
-tCreateWithoutKey withSandbox =
-    testCase "create contract without key" $ do
-    withSandbox $ \sandbox -> do
-        h <- connect sandbox
-        [pid,_,_] <- Ledger.listPackages h -- assume packageId is the 1st of the 3 listed packages.
-        PastAndFuture{future=txs} <- Ledger.getTransactionsPF h alice
-        let command = createWithoutKey pid alice 100
-        _ <- submitCommand h alice command
-        Just (Right Transaction{events=[CreatedEvent{key}]}) <- timeout 1 (takeStream txs)
-        assertEqual "contract has no key" key Nothing
-        closeStream txs gone
-        where gone = Abnormal "client gone"
-
-tListPackages :: WithSandbox -> Tasty.TestTree
-tListPackages withSandbox =
-    testCase "package service, listPackages" $ do
-    withSandbox $ \sandbox -> do
-        h <- connect sandbox
-        ids <- Ledger.listPackages h
-        assertEqual "#packages" 3 (length ids)
-
-tGetPackage :: WithSandbox -> Tasty.TestTree
-tGetPackage withSandbox =
-    testCase "package service, get Package" $ do
-    withSandbox $ \sandbox -> do
-        h <- connect sandbox
-        ids <- Ledger.listPackages h
-        ps <- mapM (Ledger.getPackage h) ids
-        assertEqual "#packages" 3 (length ps)
-
-----------------------------------------------------------------------
--- misc expectation combinators
-
-expectException :: IO a -> IO SomeException
-expectException io =
-    try io >>= \case
-        Right _ -> assertFailure "exception was expected"
-        Left (e::SomeException) -> return e
-
-assertExceptionTextContains :: SomeException -> String -> IO ()
-assertExceptionTextContains e frag =
-    unless (frag `isInfixOf` show e) (assertFailure msg)
-    where msg = "expected frag: " ++ frag ++ "\n contained in: " ++ show e
-
 ----------------------------------------------------------------------
 -- misc ledger ops/commands
 
-connect :: Sandbox -> IO LedgerHandle
-connect sandbox = Ledger.connectLogging putStrLn (Sandbox.port sandbox)
-
-alice :: Ledger.Party
-alice = Ledger.Party "Alice"
+alice :: Party
+alice = Party "Alice"
 
 createIOU :: PackageId -> Party -> Text -> Int -> Command
 createIOU quickstart party currency quantity = CreateCommand {tid,args}
@@ -205,13 +250,12 @@ createWithoutKey quickstart owner n = CreateCommand {tid,args}
             RecordField "n" (VInt n)
             ]
 
-submitCommand :: LedgerHandle -> Party -> Command -> IO CommandId
-submitCommand h party com = do
-    let lid = Ledger.identity h
-    cid <- randomCid
-    Ledger.submitCommands h
-        (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,coms=[com]})
-    return cid
+submitCommand :: LedgerId -> Party -> Command -> LedgerService (Either String CommandId)
+submitCommand lid party com = do
+    cid <- liftIO randomCid
+    Ledger.submit (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,coms=[com]}) >>= \case
+        Left s -> return $ Left s
+        Right () -> return $ Right cid
     where
         wid = Nothing
         leTime = Timestamp 0 0
@@ -223,15 +267,40 @@ myAid = ApplicationId ":my-application:"
 randomCid :: IO CommandId
 randomCid = do fmap (CommandId . Text.pack . UUID.toString) randomIO
 
+looksLikeSandBoxLedgerId :: LedgerId -> Bool
+looksLikeSandBoxLedgerId (LedgerId text) =
+    "sandbox-" `isPrefixOf` s && length s == 44 where s = Text.unpack text
+
+----------------------------------------------------------------------
+-- runWithSandbox
+
+runWithSandbox :: Sandbox -> LedgerService a -> IO a
+runWithSandbox Sandbox{port} ls = runLedgerService ls timeout (configOfPort port)
+    where timeout = 30 :: TimeoutSeconds
+
+resetSandbox :: Sandbox-> IO ()
+resetSandbox sandbox = runWithSandbox sandbox $ do
+    lid <- getLedgerIdentity
+    Ledger.reset lid
+
+----------------------------------------------------------------------
+-- misc expectation combinators
+
+assertTextContains :: String -> String -> IO ()
+assertTextContains text frag =
+    unless (frag `isInfixOf` text) (assertFailure msg)
+    where msg = "expected frag: " ++ frag ++ "\n contained in: " ++ text
+
 ----------------------------------------------------------------------
 -- test with/out shared sandboxes...
 
 enableSharing :: Bool
 enableSharing = True
 
-specQuickstart :: SandboxSpec
-specQuickstart = SandboxSpec {dar}
-    where dar = "language-support/hs/bindings/quickstart.dar"
+createSpecQuickstart :: IO SandboxSpec
+createSpecQuickstart = do
+    dar <- locateRunfiles (mainWorkspace </> "language-support/hs/bindings/quickstart.dar")
+    return SandboxSpec {dar}
 
 testGroupWithSandbox :: TestName -> [WithSandbox -> TestTree] -> TestTree
 testGroupWithSandbox name tests =
@@ -240,32 +309,45 @@ testGroupWithSandbox name tests =
         -- waits to run in the one shared sandbox, after first doing a reset
         withResource acquireShared releaseShared $ \resource -> do
         testGroup name $ map (\f -> f (withShared resource)) tests
-    else
+    else do
         -- runs in it's own freshly (and very slowly!) spun-up sandbox
-        testGroup name $ map (\f -> f (withSandbox specQuickstart)) tests
+        let withSandbox' f = do
+                specQuickstart <- createSpecQuickstart
+                pid <- mainPackageId specQuickstart
+                withSandbox specQuickstart $ \sandbox -> f sandbox pid
+        testGroup name $ map (\f -> f withSandbox') tests
+
+mainPackageId :: SandboxSpec -> IO PackageId
+mainPackageId (SandboxSpec dar) = do
+    archive <- Zip.toArchive <$> BSL.readFile dar
+    let ManifestData { mainDalfContent } = manifestFromDar archive
+    case decodeArchive (BSL.toStrict mainDalfContent) of
+        Left err -> fail $ show err
+        Right (LF.PackageId pId, _) -> pure (PackageId $ Text.fromStrict pId)
 
 ----------------------------------------------------------------------
 -- SharedSandbox
 
-type WithSandbox = (Sandbox -> IO ()) -> IO ()
+type WithSandbox = (Sandbox -> PackageId -> IO ()) -> IO ()
 
-data SharedSandbox = SharedSandbox (MVar Sandbox)
+data SharedSandbox = SharedSandbox (MVar (Sandbox, PackageId))
 
 acquireShared :: IO SharedSandbox
 acquireShared = do
+    specQuickstart <- createSpecQuickstart
     sandbox <- startSandbox specQuickstart
-    mv <- newMVar sandbox
+    pid <- mainPackageId specQuickstart
+    mv <- newMVar (sandbox, pid)
     return $ SharedSandbox mv
 
 releaseShared :: SharedSandbox -> IO ()
 releaseShared (SharedSandbox mv) = do
-    sandbox <- takeMVar mv
+    (sandbox, _) <- takeMVar mv
     shutdownSandbox sandbox
 
 withShared :: IO SharedSandbox -> WithSandbox
 withShared resource f = do
     SharedSandbox mv <- resource
-    withMVar mv $ \sandbox -> do
+    withMVar mv $ \(sandbox, pid) -> do
         resetSandbox sandbox
-        f sandbox
-
+        f sandbox pid

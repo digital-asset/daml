@@ -35,7 +35,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-foundations/daml-ghc/damldoc:damldoc-testing",
-        "//daml-foundations/daml-tools/da-hs-daml-cli",
+        "//daml-foundations/daml-tools/daml-cli",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -60,8 +60,9 @@ da_haskell_test(
     src_strip_prefix = "test-src",
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//daml-foundations/daml-ghc/daml-compiler",
+        "//daml-foundations/daml-ghc/ide",
         "//daml-foundations/daml-ghc/ide:ide-testing",
         "//libs-haskell/da-hs-base",
     ],
@@ -145,13 +146,13 @@ sh_test(
     name = "daml-ghc-deterministic",
     srcs = ["tests/daml-ghc-deterministic.sh"],
     args = [
-        "$(location //daml-foundations/daml-tools/da-hs-damlc-app)",
+        "$(location //daml-foundations/daml-tools/damlc-app)",
         "$(location @com_google_protobuf//:protoc)",
     ],
     data = [
         ":tests",
         "//daml-foundations/daml-ghc/package-database:package-db",
-        "//daml-foundations/daml-tools/da-hs-damlc-app",
+        "//daml-foundations/daml-tools/damlc-app",
         "@com_google_protobuf//:protoc",
     ],
     deps = [
@@ -189,8 +190,8 @@ genrule(
         ":daml-base-hoogle-prefix",
     ],
     outs = ["daml-base-hoogle.txt"],
-    cmd = "$(location //daml-foundations/daml-tools/da-hs-damlc-app) -- docs --output=$(OUTS) --format=Hoogle $(locations :daml-base-files) --prefix=$(location :daml-base-hoogle-prefix)",
-    tools = ["//daml-foundations/daml-tools/da-hs-damlc-app"],
+    cmd = "$(location //daml-foundations/daml-tools/damlc-app) -- docs --output=$(OUTS) --format=Hoogle $(locations :daml-base-files) --prefix=$(location :daml-base-hoogle-prefix)",
+    tools = ["//daml-foundations/daml-tools/damlc-app"],
     visibility = ["//visibility:public"],
 )
 
@@ -201,7 +202,7 @@ genrule(
         ":daml-base-rst-prefix",
     ],
     outs = ["daml-base.rst"],
-    cmd = "$(location //daml-foundations/daml-tools/da-hs-damlc-app) -- docs --output=$(OUTS) --format=Rst $(locations :daml-base-files) --prefix=$(location :daml-base-rst-prefix)",
-    tools = ["//daml-foundations/daml-tools/da-hs-damlc-app"],
+    cmd = "$(location //daml-foundations/daml-tools/damlc-app) -- docs --output=$(OUTS) --format=Rst $(locations :daml-base-files) --prefix=$(location :daml-base-rst-prefix)",
+    tools = ["//daml-foundations/daml-tools/damlc-app"],
     visibility = ["//visibility:public"],
 )

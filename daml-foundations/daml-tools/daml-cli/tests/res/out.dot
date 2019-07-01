@@ -1,0 +1,9 @@
+digraph G {
+n0[shape="none",label="Group"];
+n1[shape="none",label="Invitation"];
+n2[shape="none",label="Message"];
+n3[shape="none",label="Membership"];
+n3 -> n3;
+n3 -> n2;
+
+}

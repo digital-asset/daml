@@ -84,7 +84,7 @@ cc_library(
   ],
   copts = ["-D__GLASGOW_HASKELL__=806", "-w"],
   srcs = [":compiler/cbits/genSym.c", ":compiler/parser/cutils.c"],
-  # NOTE(MK) Without linkstatic=True haskell-ide-core falls over probably
+  # NOTE(MK) Without linkstatic=True hie-core falls over probably
   # due to Bazel underlinking the dynamic library which GHC doesn’t like.
   linkstatic = True,
   textual_hdrs = glob([

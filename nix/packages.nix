@@ -6,12 +6,6 @@
 let
   pkgs = import ./nixpkgs.nix { inherit system; };
 
-  pkgs-1903 = import (import ./nixpkgs/nixos-19.03) {
-    inherit system;
-    config = {};
-    overlays = [];
-  };
-
   # Selects "bin" output from multi-output derivations which are has it. For
   # other multi-output derivations, select only the first output. For
   # single-output generation, do nothing.
@@ -83,7 +77,7 @@ in rec {
     # wrapper works.
     ibazel = pkgs.callPackage ./tools/bazel-watcher {};
 
-    scala = (pkgs.scala.override { jre = jdk; }).overrideAttrs (attrs: {
+    scala = (bazel_dependencies.scala.override { jre = jdk; }).overrideAttrs (attrs: {
       buildInputs = attrs.buildInputs ++ [ pkgs.makeWrapper ];
       installPhase = attrs.installPhase + ''
         wrapProgram $out/bin/scala    --add-flags "-nobootcp"
@@ -99,7 +93,9 @@ in rec {
     sbt      = pkgs.sbt;
 
     coursier = pkgs.coursier;
-    scalafmt = pkgs.scalafmt.override { jre = jdk; };
+    # nixpkgs ships with an RC for scalafmt 2.0 that seems to be significantly slower
+    # and changes a lot of formatting so for now we stick to 1.5.1.
+    scalafmt = pkgs.callPackage ./overrides/scalafmt.nix { jre = jdk; };
     dependency-check = (pkgs.callPackage ./tools/dependency-check { });
 
     gradle = pkgs.gradle;
@@ -107,7 +103,7 @@ in rec {
     # Nix development
     cabal2nix = pkgs.cabal2nix;
 
-    pypi2nix  = pkgs.pypi2nix.override { pythonPackages = pkgs.python36Packages; };
+    pypi2nix  = pkgs.pypi2nix.override { pythonPackages = pkgs.python37Packages; };
 
     # Web development
     node        = bazel_dependencies.nodejs;
@@ -128,19 +124,21 @@ in rec {
       (import ./tools/live-server { inherit pkgs; nodejs = tools.node; }).live-server;
     license-checker =
       (import ./tools/license-checker { inherit pkgs; nodejs = tools.node; }).license-checker;
+    vsce =
+      (import ./tools/vsce { inherit pkgs; nodejs = tools.node; }).vsce;
 
     # This override is necessary to be able to run automated UI tests with Selenium 3.12.0
     # The override can be removed when nixpkgs snapshot moved past the commit of 6b91b0d09f582f308a8ad4de526df494ff363622
     chromedriver = pkgs.callPackage ./tools/chromedriver/default.nix {};
 
     # Python development
-    pip3        = python36;
-    python      = python36;
-    python3     = python36;
-    python36    = pkgs.python36Packages.python;
+    pip3        = python37;
+    python      = python37;
+    python3     = python37;
+    python37    = pkgs.python37Packages.python;
 
-    flake8 = pkgs.python36Packages.flake8;
-    yapf = pkgs.python36Packages.yapf;
+    flake8 = pkgs.python37Packages.flake8;
+    yapf = pkgs.python37Packages.yapf;
 
     # Pex packaging has been submitted upsteam as
     # https://github.com/NixOS/nixpkgs/pull/45497.
@@ -148,18 +146,13 @@ in rec {
     pex = pkgs.callPackage ./tools/pex {};
     pipenv = pkgs.pipenv;
 
-    # Databases
-    cassandra = pkgs.cassandra;
-    cqlsh     = cassandra;
-    nodetool  = cassandra;
-
-    sphinx            = pkgs.python36.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
+    sphinx            = pkgs.python37.withPackages (ps: [ps.sphinx ps.sphinx_rtd_theme]);
     sphinx-build      = sphinx;
     sphinx-quickstart = sphinx;
 
     sphinx-autobuild = import ./tools/sphinx-autobuild {
       inherit pkgs;
-      pythonPackages = pkgs.python36Packages;
+      python37Packages = pkgs.python37Packages;
     };
 
     sphinx183 = bazel_dependencies.sphinx183;
@@ -219,7 +212,7 @@ in rec {
 
     patch = pkgs.patch;
     wget = pkgs.wget;
-    grpcurl = pkgs-1903.grpcurl;
+    grpcurl = pkgs.grpcurl;
 
     # String mangling tooling.
     jo   = pkgs.jo;
@@ -229,7 +222,7 @@ in rec {
     base64 = pkgs.coreutils;
     sha1sum = pkgs.coreutils;
     xmlstarlet = pkgs.xmlstarlet;
-    
+
     # Cryptography tooling
     gnupg = pkgs.gnupg;
     gpg   = gnupg;
@@ -255,7 +248,7 @@ in rec {
     gsutil = gcloud;
     # used to set up the webide CI pipeline in azure-cron.yml
     docker-credential-gcr = pkgs.docker-credential-gcr;
-    terraform = pkgs-1903.terraform.withPlugins (p: with p; [
+    terraform = pkgs.terraform.withPlugins (p: with p; [
       google
       google-beta
       random
@@ -269,7 +262,7 @@ in rec {
   cached = bazel_dependencies // {
     # Python packages used via 'python3.6-da'.
     pythonPackages = {
-      inherit (pkgs.python36Packages)
+      inherit (pkgs.python37Packages)
         pyyaml semver GitPython;
     };
     # Packages used in command-line tools, e.g. `dade-info`.
@@ -277,7 +270,7 @@ in rec {
       inherit (pkgs) coreutils nix-info getopt;
     };
     # Used by CI
-    minio  = pkgs-1903.minio;
+    minio  = pkgs.minio;
   } // (if pkgs.stdenv.isLinux then {
     # The following packages are used for CI docker based builds
     bash = pkgs.bash;

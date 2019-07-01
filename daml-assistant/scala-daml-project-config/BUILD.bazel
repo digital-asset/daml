@@ -1,0 +1,41 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+compileDependencies = [
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+    "//3rdparty/jvm/com/typesafe/scala_logging",
+    "//3rdparty/jvm/io/circe:circe_core",
+    "//3rdparty/jvm/io/circe:circe_generic",
+    "//3rdparty/jvm/io/circe:circe_yaml",
+]
+
+testDependencies = [
+    ":scala-daml-project-config",
+    "//3rdparty/jvm/org/scalatest:scalatest",
+] + compileDependencies
+
+da_scala_library(
+    name = "scala-daml-project-config",
+    srcs = glob([
+        "src/main/scala/com/digitalasset/assistant/**/*.scala",
+    ]),
+    visibility = ["//visibility:public"],
+    deps = compileDependencies,
+)
+
+da_scala_test_suite(
+    name = "scala-daml-project-config-tests",
+    size = "small",
+    srcs = glob([
+        "src/test/**/*Spec.scala",
+        "src/test/**/*Test.scala",
+    ]),
+    deps = testDependencies,
+)

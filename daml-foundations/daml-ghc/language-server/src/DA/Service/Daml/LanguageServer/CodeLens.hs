@@ -5,31 +5,40 @@
 
 -- | Gather code lenses like scenario execution for a DAML file.
 module DA.Service.Daml.LanguageServer.CodeLens
-    ( handle
+    ( setHandlersCodeLens
     ) where
 
+import DA.Daml.GHC.Compiler.Convert (sourceLocToRange)
+import qualified DA.Daml.LF.Ast as LF
 import Language.Haskell.LSP.Types
 import qualified Data.Aeson as Aeson
+import Development.IDE.Core.Service.Daml
 import Data.Foldable
 import Data.Maybe
 import qualified Data.Text as T
-import qualified DA.Service.Daml.Compiler.Impl.Handle as Compiler
-import qualified Development.IDE.Logger as Logger
-import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
+import Development.IDE.LSP.Server
+import qualified Language.Haskell.LSP.Core as LSP
+import Language.Haskell.LSP.Messages
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Types.Logger
+import Development.IDE.Types.Location
 
 -- | Gather code lenses like scenario execution for a DAML file.
 handle
-    :: Logger.Handle
-    -> Compiler.IdeState
+    :: IdeState
     -> CodeLensParams
     -> IO (List CodeLens)
-handle loggerH compilerH (CodeLensParams (TextDocumentIdentifier uri)) = do
+handle ide (CodeLensParams (TextDocumentIdentifier uri)) = do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath -> filePath) -> do
-          Logger.logInfo loggerH $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
-          vrs <- Compiler.getAssociatedVirtualResources compilerH filePath
-          pure $ mapMaybe virtualResourceToCodeLens vrs
+          logInfo (ideLogger ide) $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
+          mbMod <- runAction ide (getDalfModule filePath)
+          pure $ mapMaybe virtualResourceToCodeLens
+              [ (sourceLocToRange loc, "Scenario: " <> name, vr)
+              | (valRef, Just loc) <- maybe [] scenariosInModule mbMod
+              , let name = LF.unExprValName (LF.qualObject valRef)
+              , let vr = VRScenario filePath name
+              ]
         Nothing       -> pure []
 
     pure $ List $ toList mbResult
@@ -46,6 +55,11 @@ virtualResourceToCodeLens (range, title, vr) =
         "daml.showResource"
         (Just $ List
               [ Aeson.String title
-              , Aeson.String $ Compiler.virtualResourceToUri vr])
+              , Aeson.String $ virtualResourceToUri vr])
     , _xdata = Nothing
+    }
+
+setHandlersCodeLens :: PartialHandlers
+setHandlersCodeLens = PartialHandlers $ \WithMessage{..} x -> return x{
+    LSP.codeLensHandler = withResponse RspCodeLens $ const handle
     }

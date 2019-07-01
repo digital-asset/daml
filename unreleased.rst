@@ -9,15 +9,12 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
-- [DAML Assistant] Added ``--install-assistant`` flag to ``daml install`` command,
-  changing the default behavior of ``daml install`` to install the assistant
-  whenever we are installing a newer version of the SDK. Deprecated the
-  ``--activate`` flag.
-- [DAML Studio] Opening an already open scenario will now focus it rather than opening
-  it in a new empty tab which is never updated with results.
-- [DAML Studio] The selected view for scenario results (table or transaction) is now
-  preserved when the scenario results are updated.
-  See `#1675 <https://github.com/digital-asset/daml/issues/1675>`__.
-- [DAML-LF] Rename ``TO_TEXT_CODE_POINTS`` and ``FROM_TEXT_CODE_POINTS`` to ``TEXT_FROM_CODE_POINTS`` and ``TEXT_TO_CODE_POINTS``, resp.
-- [Dependencies] Protobuf has been upgraded to version 3.8.0. This
-  also includes the protobuf-java library used as a dependency.
+- [Scala bindings] Contract keys are exposed on CreatedEvent. See `#1681 <https://github.com/digital-asset/daml/issues/1681>`__.
+- [Navigator] Contract keys are show in the contract details page. See `#1681 <https://github.com/digital-asset/daml/issues/1681>`__.
+- [DAML Standard Library] **BREAKING CHANGE**: Remove the deprecated modules ``DA.Map``, ``DA.Set``, ``DA.Experimental.Map`` and ``DA.Experimental.Set``. Please use ``DA.Next.Map`` and ``DA.Next.Set`` instead.
+- [Sandbox] Fixed an issue when CompletionService returns offsets having inclusive semantics when used for re-subscription. 
+  See `#1932 <https://github.com/digital-asset/daml/pull/1932>`__.
+  
+- [DAML Compiler] The default output path for all artifacts is now in the ``.daml`` directory.
+  In particular, the default output path for .dar files in ``daml build`` is now
+  ``.daml/dist/<projectname>.dar``.

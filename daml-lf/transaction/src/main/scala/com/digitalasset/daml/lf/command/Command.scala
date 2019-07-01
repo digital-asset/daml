@@ -25,14 +25,12 @@ final case class CreateCommand(templateId: Identifier, argument: VersionedValue[
   *  @param templateId identifier of the original contract
   *  @param contractId contract on which the choice is exercised
   *  @param choiceId identifier choice
-  *  @param submitter party submitting the choice
   *  @param argument value passed for the choice
   */
 final case class ExerciseCommand(
     templateId: Identifier,
     contractId: ContractIdString,
     choiceId: ChoiceName,
-    submitter: Party,
     argument: VersionedValue[AbsoluteContractId])
     extends Command
 
@@ -41,14 +39,12 @@ final case class ExerciseCommand(
   *  @param templateId identifier of the original contract
   *  @param contractKey key of the contract on which the choice is exercised
   *  @param choiceId identifier choice
-  *  @param submitter party submitting the choice
   *  @param argument value passed for the choice
   */
 final case class ExerciseByKeyCommand(
     templateId: Identifier,
     contractKey: VersionedValue[AbsoluteContractId],
     choiceId: ChoiceName,
-    submitter: Party,
     argument: VersionedValue[AbsoluteContractId])
     extends Command
 
@@ -59,24 +55,24 @@ final case class ExerciseByKeyCommand(
   *  @param createArgument value passed to the template
   *  @param choiceId identifier choice
   *  @param choiceArgument value passed for the choice
-  *  @param submitter party submitting the choice
   */
 final case class CreateAndExerciseCommand(
     templateId: Identifier,
     createArgument: VersionedValue[AbsoluteContractId],
     choiceId: ChoiceName,
-    choiceArgument: VersionedValue[AbsoluteContractId],
-    submitter: Party)
+    choiceArgument: VersionedValue[AbsoluteContractId])
     extends Command
 
 /** Commands input adapted from ledger-api
   *
+  *  @param submitter the party that authorizes all commands
   *  @param commands a batch of commands to be interpreted/executed
   *  @param ledgerEffectiveTime approximate time the commands to be effective,
   *    interpretation will take this instant
   *  @param commandsReference id passed only for error reporting
   */
 case class Commands(
+    submitter: Party,
     commands: ImmArray[Command],
     ledgerEffectiveTime: Time.Timestamp,
     commandsReference: String)

@@ -10,9 +10,12 @@ module DA.Daml.GHC.Compiler.Options
     , mkOptions
     , getBaseDir
     , toCompileOpts
+    , damlArtifactDir
     , projectPackageDatabase
     , ifaceDir
+    , distDir
     , basePackages
+    , runGhcFast
     ) where
 
 
@@ -32,7 +35,7 @@ import Data.Maybe
 import Data.Tuple.Extra
 import "ghc-lib-parser" DynFlags
 import qualified "ghc-lib" GHC
-import Development.IDE.UtilGHC
+import Development.IDE.GHC.Util
 import qualified "ghc-lib-parser" EnumSet
 import qualified "ghc-lib-parser" Packages
 import "ghc-lib-parser" HscTypes
@@ -98,10 +101,12 @@ toCompileOpts Options{..} =
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
           }
-      , optWriteIface = optWriteInterface
+      , optIfaceDir = Compile.InterfaceDirectory (ifaceDir <$ guard optWriteInterface)
       , optExtensions = ["daml"]
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
+      , optLanguageSyntax = "daml"
+      , optNewColonConvention = True
       }
   where
     toRenaming aliases = ModRenaming False [(GHC.mkModuleName mod, GHC.mkModuleName alias) | (mod, alias) <- aliases]
@@ -116,12 +121,18 @@ toCompileOpts Options{..} =
                 else Nothing
       | otherwise = pure Nothing
 
+damlArtifactDir :: FilePath
+damlArtifactDir = ".daml"
+
 -- | The project package database path relative to the project root.
 projectPackageDatabase :: FilePath
-projectPackageDatabase = ".package-database"
+projectPackageDatabase = damlArtifactDir </> "package-database"
 
 ifaceDir :: FilePath
-ifaceDir = ".interfaces"
+ifaceDir = damlArtifactDir </> "interfaces"
+
+distDir :: FilePath
+distDir = damlArtifactDir </> "dist"
 
 -- | Packages that we ship with the compiler.
 basePackages :: [String]

@@ -165,11 +165,11 @@ abstract class ValueRefCompanion {
   @SuppressWarnings(Array("org.wartremover.warts.LeakingSealed"))
   protected abstract class `Value ValueRef`[A] extends Value[A]
 
-  protected val ` recordOrVariantId`: rpcvalue.Identifier
+  protected val ` dataTypeId`: rpcvalue.Identifier
   // recordId and variantId are optional when submitting commands, according to
   // value.proto
 
-  protected final def ` mkRecordOrVariantId`(
+  protected final def ` mkDataTypeId`(
       packageId: String,
       moduleName: String,
       entityName: String): rpcvalue.Identifier =
@@ -180,12 +180,15 @@ abstract class ValueRefCompanion {
       entityName = entityName)
 
   protected final def ` record`(elements: (String, rpcvalue.Value)*): VSum.Record =
-    VSum.Record(Primitive.arguments(` recordOrVariantId`, elements))
+    VSum.Record(Primitive.arguments(` dataTypeId`, elements))
 
   protected final def ` variant`(constructor: String, value: rpcvalue.Value): VSum.Variant =
     VSum.Variant(
       rpcvalue
-        .Variant(variantId = Some(` recordOrVariantId`), constructor = constructor, Some(value)))
+        .Variant(variantId = Some(` dataTypeId`), constructor = constructor, Some(value)))
+
+  protected final def ` enum`(constructor: String): VSum.Enum =
+    VSum.Enum(rpcvalue.Enum(enumId = Some(` dataTypeId`), constructor))
 
   protected final def ` createVariantOfSynthRecord`(
       k: String,
@@ -193,5 +196,5 @@ abstract class ValueRefCompanion {
     ` variant`(
       k,
       rpcvalue.Value(
-        VSum.Record(Primitive.arguments(Value.splattedVariantId(` recordOrVariantId`, k), o))))
+        VSum.Record(Primitive.arguments(Value.splattedVariantId(` dataTypeId`, k), o))))
 }

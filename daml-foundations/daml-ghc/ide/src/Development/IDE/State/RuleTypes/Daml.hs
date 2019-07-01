@@ -5,11 +5,11 @@
 {-# LANGUAGE TypeFamilies #-}
 
 -- | This module extends the general Haskell rule types in
--- `Development.IDE.State.RuleTypes` with DAML specific rule types
+-- `Development.IDE.Core.RuleTypes` with DAML specific rule types
 -- such as those for producing DAML LF.
-module Development.IDE.State.RuleTypes.Daml(
-    module Development.IDE.State.RuleTypes,
-    module Development.IDE.State.RuleTypes.Daml
+module Development.IDE.Core.RuleTypes.Daml(
+    module Development.IDE.Core.RuleTypes,
+    module Development.IDE.Core.RuleTypes.Daml
     ) where
 
 import Control.DeepSeq
@@ -22,10 +22,10 @@ import Data.Typeable (Typeable)
 import Development.Shake
 import GHC.Generics (Generic)
 import "ghc-lib-parser" Module (UnitId)
+import Development.IDE.Core.Service.Daml
 
-import Development.IDE.Types.Diagnostics
-import Development.IDE.Types.LSP
-import Development.IDE.State.RuleTypes
+import Development.IDE.Types.Location
+import Development.IDE.Core.RuleTypes
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient as SS

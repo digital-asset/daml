@@ -6,9 +6,6 @@
 -- Abstraction for a Ledger which is hosting the Nim domain model.
 module NimLedger(Handle, connect, sendCommand, getTrans) where
 
-import Control.Concurrent(forkIO)
-import Control.Exception(SomeException,try)
-import Control.Monad(join)
 import System.Random(randomIO)
 import qualified Data.Text.Lazy as Text (pack)
 import qualified Data.UUID as UUID
@@ -19,31 +16,9 @@ import Logging
 import NimCommand
 import NimTrans
 
-mapListPF :: (a -> IO [b]) -> PastAndFuture a -> IO (PastAndFuture b)
-mapListPF f PastAndFuture{past=past0,future=future0} = do
-    past <- fmap join $ mapM f past0
-    future <- mapListStream f future0
-    return $ PastAndFuture {past, future}
-
--- Here a problem with Stream is revealed: To map one stream into another requires concurrency.
--- TODO: restructure processing to avoid the need for a sep Stream/PF
-mapListStream :: (a -> IO [b]) -> Stream a -> IO (Stream b)
-mapListStream f source = do
-    target <- newStream
-    onClose target (closeStream source)
-    let loop = do
-            takeStream source >>= \case
-                Left closed -> writeStream target (Left closed)
-                Right x -> do
-                    ys <- f x
-                    mapM_ (\y -> writeStream target (Right y)) ys
-                    loop
-    _ <- forkIO loop
-    return target
-
 data Handle = Handle {
     log :: Logger,
-    lh :: LedgerHandle,
+    lid :: LedgerId,
     pid :: PackageId
     }
 
@@ -52,33 +27,33 @@ type Rejection = String
 port :: Port
 port = 6865 -- port on which we expect to find a ledger. should be a command line option
 
+run :: TimeoutSeconds -> LedgerService a -> IO a
+run timeout ls  = runLedgerService ls timeout (configOfPort port)
+
 connect :: Logger -> IO Handle
 connect log = do
-    lh <- Ledger.connectLogging log port
-    ids <- Ledger.listPackages lh
-    --log $ show ids
+    lid <- run 5 getLedgerIdentity
+    ids <- run 5 $ listPackages lid
     [pid,_,_] <- return ids -- assume Nim stuff is in the 1st of 3 packages
-    return Handle{log,lh,pid}
+    return Handle{log,lid,pid}
 
 sendCommand :: Party -> Handle -> NimCommand -> IO (Maybe Rejection)
-sendCommand asParty Handle{pid,lh} xcom = do
+sendCommand asParty h@Handle{pid} xcom = do
     let com = makeLedgerCommands pid xcom
-    submitCommand lh asParty com >>= \case
-        Left e -> return $ Just (show e)
-        Right _cid -> return Nothing
+    submitCommand h asParty com >>= \case
+        Left rejection -> return $ Just rejection
+        Right () -> return Nothing
 
 getTrans :: Player -> Handle -> IO (PastAndFuture NimTrans)
-getTrans player Handle{log,lh} = do
+getTrans player Handle{log,lid} = do
     let party = partyOfPlayer player
-    pf <- Ledger.getTransactionsPF lh party
+    pf <- run 6000 $ getTransactionsPF lid party
     mapListPF (extractTransaction log) pf
 
-submitCommand :: LedgerHandle -> Party -> Command -> IO (Either SomeException CommandId)
-submitCommand h party com = try $ do
-    let lid = Ledger.identity h
+submitCommand :: Handle -> Party -> Command -> IO (Either String ())
+submitCommand Handle{lid} party com = do
     cid <- randomCid
-    Ledger.submitCommands h (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,coms=[com]})
-    return cid
+    run 5 (Ledger.submit (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,coms=[com]}))
     where
         wid = Nothing
         leTime = Timestamp 0 0

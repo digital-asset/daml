@@ -12,7 +12,7 @@ import           DA.Daml.GHC.Damldoc.HaddockParse
 import           DA.Daml.GHC.Damldoc.Render
 import           DA.Daml.GHC.Damldoc.Types
 import           DA.Test.Util
-import Development.IDE.Types.Diagnostics
+import Development.IDE.Types.Location
 
 import           Control.Monad.Except
 import qualified Data.Aeson.Encode.Pretty as AP
@@ -205,7 +205,7 @@ testModHdr = T.pack $ "daml 1.2 module\n  " <> testModule <> " where\n"
 
 
 emptyDocs :: String -> ModuleDoc
-emptyDocs name = ModuleDoc { md_name = T.pack name
+emptyDocs name = ModuleDoc { md_name = Modulename (T.pack name)
                            , md_descr = Nothing
                            , md_templates = []
                            , md_adts = []

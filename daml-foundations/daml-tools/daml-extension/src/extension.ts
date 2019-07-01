@@ -79,10 +79,9 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     });
 
-    let d4 = vscode.commands.registerCommand("daml.upgrade", modifyBuffer)
-    let d5 = vscode.commands.registerCommand("daml.resetTelemetryConsent", resetTelemetryConsent(context));
+    let d4 = vscode.commands.registerCommand("daml.resetTelemetryConsent", resetTelemetryConsent(context));
 
-    context.subscriptions.push(d1, d2, d3, d4, d5);
+    context.subscriptions.push(d1, d2, d3, d4);
 }
 
 
@@ -98,15 +97,6 @@ function getViewColumnForShowResource(): ViewColumn {
 
 function openDamlDocs() {
     vscode.env.openExternal(vscode.Uri.parse("https://docs.daml.com"));
-}
-
-function modifyBuffer(filePath: {uri: string}) {
-    damlLanguageClient.sendRequest(DamlUpgradeRequest.type, {uri: filePath}).then(textEdits => {
-        let edits = new vscode.WorkspaceEdit();
-        let parsed = vscode.Uri.parse(filePath.uri);
-        edits.set(parsed, textEdits);
-        vscode.workspace.applyEdit(edits);
-    });
 }
 
 function addIfInConfig(config:vscode.WorkspaceConfiguration, baseArgs: string[], toAdd: [string, string[]][]): string[]{
@@ -233,11 +223,6 @@ namespace DamlKeepAliveRequest {
       new RequestType<void, void, void, void>('daml/keepAlive');
 }
 
-namespace DamlUpgradeRequest {
-    export let type =
-      new RequestType<{uri: TextDocumentIdentifier}, vscode.TextEdit[], string, void>('daml/upgrade');
-}
-
 // Custom notifications
 
 interface VirtualResourceChangedParams {
@@ -269,13 +254,19 @@ namespace DamlWorkspaceValidationsNotification {
       );
 }
 
+type UriString = string;
+type ScenarioResult = string;
+type SelectedView = string;
+
 class VirtualResourceManager {
+    // Note (MK): While it is tempting to switch to Map<Uri, …> for these types
+    // Map uses reference equality for objects so this goes horribly wrong.
     // Mapping from URIs to the web view panel
-    private _panels: Map<string, vscode.WebviewPanel> = new Map<string, vscode.WebviewPanel>();
+    private _panels: Map<UriString, vscode.WebviewPanel> = new Map<UriString, vscode.WebviewPanel>();
     // Mapping from URIs to the HTML content of the webview
-    private _panelContents: Map<string, string> = new Map<string, string>();
+    private _panelContents: Map<UriString, ScenarioResult> = new Map<UriString, ScenarioResult>();
     // Mapping from URIs to selected view
-    private _panelStates: Map<string, string> = new Map<string, string>();
+    private _panelStates: Map<UriString, SelectedView> = new Map<UriString, SelectedView>();
     private _client: LanguageClient;
     private _disposables: vscode.Disposable[] = [];
     private _webviewSrc : Uri;
@@ -285,7 +276,7 @@ class VirtualResourceManager {
         this._webviewSrc = webviewSrc;
     }
 
-    private open(uri: string) {
+    private open(uri: UriString) {
         this._client.sendNotification(
             'textDocument/didOpen', {
                 textDocument: {
@@ -298,7 +289,7 @@ class VirtualResourceManager {
         );
     }
 
-    private close(uri: string) {
+    private close(uri: UriString) {
         this._client.sendNotification(
             'textDocument/didClose', {
                 textDocument: {uri: uri}
@@ -306,7 +297,7 @@ class VirtualResourceManager {
         );
     }
 
-    public createOrShow(title: string, uri: string) {
+    public createOrShow(title: string, uri: UriString) {
 		const column = getViewColumnForShowResource();
 
         let panel = this._panels.get(uri);
@@ -322,7 +313,7 @@ class VirtualResourceManager {
             { enableScripts: true, enableFindWidget: true, enableCommandUris: true }
         );
         panel.onDidDispose(
-            () => {this.close(uri);},
+            () => {this._panels.delete(uri); this.close(uri);},
             null,
             this._disposables
         );
@@ -339,7 +330,7 @@ class VirtualResourceManager {
         panel.webview.html = this._panelContents.get(uri) || '';
     }
 
-    public setContent(uri: string, contents: string) {
+    public setContent(uri: UriString, contents: ScenarioResult) {
         contents = contents.replace('$webviewSrc', this._webviewSrc.toString());
         this._panelContents.set(uri, contents);
         const panel = this._panels.get(uri);

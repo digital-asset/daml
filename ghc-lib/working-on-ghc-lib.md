@@ -270,3 +270,39 @@ hadrian/build.stack.sh --configure --flavour=quickest -j
 As usual, the compiler is built to `_build/stage1/bin/ghc`.
 
 When you are ready to publish your feature branch, push to `upstream` and raise your PR with base `da-master`.
+
+## Temporary build instructions
+
+At the current time, there are bugs with `stack`/`happy`/`cabal` and the `--configure` hadrian option. While these get worked out we are using the following procedure for building `ghc-lib` for DAML.
+```
+git clone git@github.com:digital-asset/ghc-lib.git ghc-lib.git
+cd ghc-lib.git
+git checkout ghc-8.8.1-alpha2
+git clone https://gitlab.haskell.org/ghc/ghc.git ghc
+cd ghc
+git checkout ghc-8.8.1-alpha2
+git submodule update --init --recursive
+git remote add upstream git@github.com:digital-asset/ghc.git
+git fetch upstream
+git merge --no-edit upstream/da-master-8.8.1 upstream/da-unit-ids-8.8.1
+cd .. # ghc-lib directory
+cabal build
+cabal run -- ghc --ghc-lib-parser
+cd ghc
+# *** Edit ghc/ghc-lib-parser.cabal. Change version number etc as
+#     per the documention. ***
+cabal sdist
+cp dist/ghc-lib-parser-8.8.0.20190620.tar.gz ..
+git clean -xf && git checkout . # Reset for next run
+cd ..
+cabal run -- ghc --ghc-lib
+cd ghc
+# *** Edit ghc/ghc-lib.cabal. Change version number etc as per
+#     the documention. ***
+cabal sdist
+cp dist/ghc-lib-8.8.0.20190620.tar.gz ..
+cd ..
+ls *.tar.gz
+# There are now ghc-lib-parser and ghc-lib sdists in your ghc-lib
+#  directory. Proceed to deployment.
+```

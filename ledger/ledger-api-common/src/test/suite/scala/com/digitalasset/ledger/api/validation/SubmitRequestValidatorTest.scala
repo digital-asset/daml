@@ -76,6 +76,7 @@ class SubmitRequestValidatorTest
       let,
       mrt,
       LfCommands(
+        DomainMocks.party,
         ImmArray.empty,
         Time.Timestamp.assertFromInstant(let),
         workflowId.unwrap

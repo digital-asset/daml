@@ -2,9 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Development.IDE.State.API
-    ( HoverText
-    , getHoverTextContent
-    , IdeState
+    ( IdeState
     , Action
     , initialise
     , getDalf
@@ -17,23 +15,19 @@ module Development.IDE.State.API
     , modifyOpenVirtualResources
     , setBufferModified
     , runAction
-    , runActions
     , runActionSync
-    , runActionsSync
     , writeProfile
     , getDiagnostics
     , unsafeClearDiagnostics
     , generatePackageMap
     , getDependencies
-    , logDebug
-    , logSeriousError
-    , VFSHandle(..)
+    , ideLogger
+    , VFSHandle
     , makeVFSHandle
     , makeLSPVFSHandle
     ) where
 
-import           Development.IDE.Types.LSP
-import           Development.IDE.State.Service.Daml
-import           Development.IDE.State.Rules.Daml
-import           Development.IDE.State.FileStore
+import           Development.IDE.Core.Service.Daml
+import           Development.IDE.Core.Rules.Daml
+import           Development.IDE.Core.FileStore
 import           Development.Shake                             (Action)

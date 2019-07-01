@@ -4,6 +4,7 @@
 load(
     "//bazel_tools:haskell.bzl",
     "da_haskell_library",
+    "da_haskell_repl",
     "da_haskell_test",
 )
 
@@ -28,11 +29,12 @@ da_haskell_library(
         "mtl",
         "prettyprinter",
         "text",
+        "transformers",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//libs-haskell/da-hs-base",
     ],
@@ -56,11 +58,20 @@ da_haskell_library(
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
-        "//compiler/haskell-ide-core",
+        "//compiler/hie-core",
         "//daml-foundations/daml-ghc/damldoc",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//daml-foundations/daml-ghc/test-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_repl(
+    name = "repl",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":damldoc",
+        ":damldoc-testing",
     ],
 )

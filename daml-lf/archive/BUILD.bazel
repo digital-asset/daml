@@ -16,6 +16,7 @@ load(
 )
 load("//bazel_tools:pom_file.bzl", "pom_file")
 load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools:javadoc_library.bzl", "javadoc_library")
 
 LF_MAJOR_VERSIONS = [
     "0",
@@ -111,6 +112,7 @@ da_scala_test_suite(
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
+        ":DarReaderTest-dev.dalf",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -134,6 +136,12 @@ daml_compile(
     main_src = "src/test/daml/DarReaderTest.daml",
 )
 
+daml_compile(
+    name = "DarReaderTest-dev",
+    main_src = "src/test/daml/DarReaderTest.daml",
+    target = "1.dev",
+)
+
 filegroup(
     name = "proto_srcs",
     srcs = ["da/daml_lf.proto"] + ["da/daml_lf_%s.proto" % v for v in LF_MAJOR_VERSIONS],
@@ -149,6 +157,31 @@ java_proto_library(
     name = "daml_lf_proto_lib_java",
     visibility = ["//visibility:public"],
     deps = [":daml_lf_proto_lib"],
+)
+
+javadoc_library(
+    name = "daml_lf_archive_java_javadoc",
+    srcs = [":daml_lf_proto_lib_java"],
+    root_packages = ["com.digitalasset.daml_lf"],
+    visibility = ["//visibility:public"],
+    deps = [":daml_lf_proto_lib_java"],
+)
+
+# This is an hack to avoid having to complicate the release logic.
+# Once we stop bundling proto files in daml_lf_archive_java
+# we can remove this.
+genrule(
+    name = "daml_lf_archive_java_srcjar",
+    srcs = ["daml_lf_proto_lib_java"],
+    outs = ["daml_lf_archive_java_srcjar.jar"],
+    cmd = """
+        for file in $(locations :daml_lf_proto_lib_java); do
+          if [[ $$file == *src* ]]; then
+              cp $$file $(location daml_lf_archive_java_srcjar.jar)
+          fi
+        done
+    """,
+    visibility = ["//visibility:public"],
 )
 
 # NOTE(MH): The pre-bazel release process put the `.proto` files in

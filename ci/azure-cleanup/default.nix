@@ -1,7 +1,7 @@
 { system ? builtins.currentSystem }:
 
 let
-  pkgs = import (import ../../nix/nixpkgs/nixos-19.03) {
+  pkgs = import (import ../../nix/nixpkgs) {
     inherit system;
     config = {};
     overlays = [];

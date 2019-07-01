@@ -908,7 +908,7 @@ object SBuiltin {
             SResultNeedContract(
               acoid,
               templateId,
-              machine.committer,
+              machine.committers,
               cbMissing = _ => machine.tryHandleException(),
               cbPresent = { coinst =>
                 // Note that we cannot throw in this continuation -- instead
@@ -945,7 +945,7 @@ object SBuiltin {
       val stakeholders = observers union signatories
       val contextActors = machine.ptx.context match {
         case ContextExercises(ctx) => ctx.actingParties union ctx.signatories
-        case ContextRoot => machine.committer.toList.toSet
+        case ContextRoot => machine.committers.toList.toSet
       }
 
       machine.ptx = machine.ptx.insertFetch(
@@ -987,7 +987,7 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
-              machine.committer,
+              machine.committers,
               cbMissing = _ => {
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
                 machine.ctrl = CtrlValue(SOptional(None))
@@ -1067,7 +1067,7 @@ object SBuiltin {
           throw SpeedyHungry(
             SResultNeedKey(
               gkey,
-              machine.committer,
+              machine.committers,
               cbMissing = _ => {
                 machine.ptx = machine.ptx.copy(keys = machine.ptx.keys + (gkey -> None))
                 machine.tryHandleException()
@@ -1095,7 +1095,7 @@ object SBuiltin {
   final case class SBSBeginCommit(optLocation: Option[Location]) extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(1))
-      machine.committer = Some(extractParty(args.get(0)))
+      machine.committers = extractParties(args.get(0))
       machine.commitLocation = optLocation
       machine.ctrl = CtrlValue(SUnit(()))
     }
@@ -1114,12 +1114,12 @@ object SBuiltin {
       // a catch. The second argument is a boolean
       // that marks whether an exception was thrown
       // or not.
-      val committerOld = machine.committer.getOrElse(crash("endCommit: no committer"))
+      val committerOld = machine.committers
       val ptxOld = machine.ptx
       val commitLocationOld = machine.commitLocation
 
       def clearCommit(): Unit = {
-        machine.committer = None
+        machine.committers = Set.empty
         machine.commitLocation = None
         machine.ptx = PartialTransaction.initial
       }
@@ -1163,9 +1163,9 @@ object SBuiltin {
         SResultScenarioCommit(
           value = args.get(0),
           tx = tx,
-          committer = machine.committer.getOrElse(crash("endCommit: no committer")),
+          committers = machine.committers,
           callback = newValue => {
-            machine.committer = None
+            machine.committers = Set.empty
             machine.commitLocation = None
             machine.ptx = PartialTransaction.initial
             machine.ctrl = CtrlValue(newValue)
@@ -1246,14 +1246,6 @@ object SBuiltin {
       case SToken => ()
       case _ =>
         crash(s"value not a token: $v")
-    }
-
-  private def extractParty(v: SValue): Party =
-    v match {
-      case SParty(p) =>
-        p
-      case _ =>
-        crash(s"value not a party: $v")
     }
 
   private def extractParties(v: SValue): Set[Party] =

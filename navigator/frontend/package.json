@@ -36,7 +36,7 @@
     "@types/uuidjs": "3.3.2",
     "apollo": "^2.5.1",
     "case-sensitive-paths-webpack-plugin": "^2.1.2",
-    "css-loader": "^0.28.4",
+    "css-loader": "^3.0.0",
     "favicons-webpack-plugin": "0.0.9",
     "file-loader": "^0.11.2",
     "git-revision-webpack-plugin": "^2.5.1",

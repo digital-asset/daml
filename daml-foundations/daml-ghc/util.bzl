@@ -7,6 +7,8 @@ def _daml_ghc_compile_test_impl(ctx):
     stack_opt = "-K" + ctx.attr.stack_limit if ctx.attr.stack_limit else ""
     heap_opt = "-M" + ctx.attr.heap_limit if ctx.attr.heap_limit else ""
     script = """
+      set -eou pipefail
+
       DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
       MAIN=$(rlocation $TEST_WORKSPACE/{main})
 
@@ -45,7 +47,7 @@ daml_ghc_compile_test = rule(
         "srcs": attr.label_list(allow_files = True),
         "main": attr.label(allow_files = True),
         "damlc": attr.label(
-            default = Label("//daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app"),
+            default = Label("//daml-foundations/daml-tools/damlc-app:damlc-app"),
             executable = True,
             cfg = "target",
             allow_files = True,
@@ -59,6 +61,7 @@ daml_ghc_compile_test = rule(
 def daml_ghc_integration_test(name, main_function):
     da_haskell_test(
         name = name,
+        size = "large",
         srcs = ["test-src/DA/Test/GHC.hs"],
         src_strip_prefix = "test-src",
         main_function = main_function,
@@ -72,7 +75,7 @@ def daml_ghc_integration_test(name, main_function):
         deps = [
             "//compiler/daml-lf-ast",
             "//compiler/daml-lf-proto",
-            "//compiler/haskell-ide-core",
+            "//compiler/hie-core",
             "//daml-foundations/daml-ghc/daml-compiler",
             "//daml-foundations/daml-ghc/ghc-compiler",
             "//daml-foundations/daml-ghc/ide",
@@ -80,7 +83,6 @@ def daml_ghc_integration_test(name, main_function):
             "//daml-lf/archive:daml_lf_haskell_proto",
             "//libs-haskell/bazel-runfiles",
             "//libs-haskell/da-hs-base",
-            "//libs-haskell/prettyprinter-syntax",
         ],
         hazel_deps = [
             "aeson",
