@@ -25,23 +25,24 @@ class PackageService(packageClient: PackageClient)(implicit ec: ExecutionContext
 object PackageService {
   type Error = String
 
-  type K3 = (String, String, String)
-  type K2 = (String, String)
-  case class TemplateIdMap(all: Map[K3, Identifier], unique: Map[K2, Identifier])
+  case class TemplateIdMap(
+      all: Map[domain.TemplateId.RequiredPkg, Identifier],
+      unique: Map[domain.TemplateId.NoPkg, Identifier])
 
   def buildTemplateIdMap(ids: Set[Identifier]): TemplateIdMap = {
-    val all: Map[K3, Identifier] = ids.map(a => key3(a) -> a)(breakOut)
-    val unique: Map[K2, Identifier] = filterUniqueTemplateIs(all)
+    val all: Map[domain.TemplateId.RequiredPkg, Identifier] = ids.map(a => key3(a) -> a)(breakOut)
+    val unique: Map[domain.TemplateId.NoPkg, Identifier] = filterUniqueTemplateIs(all)
     TemplateIdMap(all, unique)
   }
 
-  private[http] def key3(a: Identifier): K3 =
-    (a.packageId, a.moduleName, a.entityName)
+  private[http] def key3(a: Identifier): domain.TemplateId.RequiredPkg =
+    domain.TemplateId[String](a.packageId, a.moduleName, a.entityName)
 
-  private[http] def key2(k: K3): K2 =
-    (k._2, k._3)
+  private[http] def key2(k: domain.TemplateId.RequiredPkg): domain.TemplateId.NoPkg =
+    domain.TemplateId[Unit]((), k.moduleName, k.entityName)
 
-  private def filterUniqueTemplateIs(all: Map[K3, Identifier]): Map[K2, Identifier] =
+  private def filterUniqueTemplateIs(all: Map[domain.TemplateId.RequiredPkg, Identifier])
+    : Map[domain.TemplateId.NoPkg, Identifier] =
     all
       .groupBy { case (k, _) => key2(k) }
       .collect { case (k, v) if v.size == 1 => (k, v.values.head) }
@@ -55,15 +56,17 @@ object PackageService {
 
   def resolveTemplateId(m: TemplateIdMap)(a: domain.TemplateId.OptionalPkg): Error \/ Identifier =
     a.packageId match {
-      case Some(p) => findTemplateId(m.all)((p, a.moduleName, a.entityName))
-      case None => findTemplateId(m.unique)((a.moduleName, a.entityName))
+      case Some(p) => findTemplateIdByK3(m.all)(domain.TemplateId(p, a.moduleName, a.entityName))
+      case None => findTemplateIdByK2(m.unique)(domain.TemplateId((), a.moduleName, a.entityName))
     }
 
-  private def findTemplateId(m: Map[K3, Identifier])(k: K3): Error \/ Identifier =
-    m.get(k).toRightDisjunction(s"Cannot resolve $k")
+  private def findTemplateIdByK3(m: Map[domain.TemplateId.RequiredPkg, Identifier])(
+      k: domain.TemplateId.RequiredPkg): Error \/ Identifier =
+    m.get(k).toRightDisjunction(s"Cannot resolve ${k.toString}")
 
-  private def findTemplateId(m: Map[K2, Identifier])(k: K2): Error \/ Identifier =
-    m.get(k).toRightDisjunction(s"Cannot resolve $k")
+  private def findTemplateIdByK2(m: Map[domain.TemplateId.NoPkg, Identifier])(
+      k: domain.TemplateId.NoPkg): Error \/ Identifier =
+    m.get(k).toRightDisjunction(s"Cannot resolve ${k.toString}")
 
   private def validate(
       requested: Set[domain.TemplateId.OptionalPkg],

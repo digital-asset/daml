@@ -108,7 +108,7 @@ class PackageServiceTest
     unknownDomainIds.foreach { id =>
       inside(PackageService.resolveTemplateId(map)(id)) {
         case -\/(e) =>
-          val t: PackageService.K2 = (id.moduleName, id.entityName)
+          val t = domain.TemplateId[Unit]((), id.moduleName, id.entityName)
           e shouldBe s"Cannot resolve ${t.toString}"
       }
     }
@@ -134,8 +134,10 @@ class PackageServiceTest
     unknownDomainIds.foreach { id =>
       inside(PackageService.resolveTemplateId(map)(id)) {
         case -\/(e) =>
-          val t: PackageService.K3 =
-            (id.packageId.getOrElse(fail("should never happen!")), id.moduleName, id.entityName)
+          val t = domain.TemplateId(
+            id.packageId.getOrElse(fail("should never happen!")),
+            id.moduleName,
+            id.entityName)
           e shouldBe s"Cannot resolve ${t.toString}"
       }
     }
@@ -145,6 +147,6 @@ class PackageServiceTest
     }
   }
 
-  private def expectedAll(ids: List[Identifier]): Map[PackageService.K3, Identifier] =
+  private def expectedAll(ids: List[Identifier]): Map[domain.TemplateId.RequiredPkg, Identifier] =
     ids.map(v => PackageService.key3(v) -> v)(breakOut)
 }
