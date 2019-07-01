@@ -1,3 +1,40 @@
 #!/bin/sh
-bazel run --define hie_bios_ghci=True //daml-foundations/daml-tools/da-hs-damlc-app:da-hs-damlc-app@ghci | sed "s/'//g" | sed "s/-qg//g" | sed "s/+RTS.*-RTS//" | sed "s|/bazel-out|bazel-out|g" | sed "s/-fexternal-interpreter//g"
-echo -idaml-foundations/daml-ghc/ide/src -icompiler/scenario-service/client/src -icompiler/daml-lf-ast/src -icompiler/hie-core/src -idaml-foundations/daml-ghc/ghc-compiler/src -icompiler/daml-lf-proto/src -idaml-foundations/daml-ghc/ghc-compiler/src -ilibs-haskell/da-hs-base/src -ilibs-haskell/bazel-runfiles/src -icompiler/daml-lf-tools/src -ibazel-out/k8-fastbuild/genfiles/daml-lf/archive -ibazel-out/k8-fastbuild/genfiles/compiler/scenario-service/protos
+cat "$HIE_BIOS_ARGS" | sed "s/'//g" | sed "s/-qg//g" | sed "s/+RTS.*-RTS//" | sed "s|/bazel-out|bazel-out|g" | sed "s/-fexternal-interpreter//g"
+
+BAZEL_DIR=""
+case $(uname) in
+Linux)
+  BAZEL_DIR=k8-fastbuild
+  ;;
+Darwin)
+  BAZEL_DIR=darwin-fastbuild
+  ;;
+*)
+  echo "Unsupported OS: $(uname)"
+  exit 1
+  ;;
+esac
+
+# For now we hardcode include paths as Bazel passes the list of files explicitly
+# and does not use include paths so we cannot get it from the GHCi invocation.
+echo \
+    -ibazel-out/$BAZEL_DIR/genfiles \
+    -ibazel-out/$BAZEL_DIR/genfiles/compiler/scenario-service/protos \
+    -ibazel-out/$BAZEL_DIR/genfiles/daml-lf/archive \
+    -icompiler/daml-lf-ast/src \
+    -icompiler/daml-lf-proto/src \
+    -icompiler/daml-lf-reader/src \
+    -icompiler/daml-lf-tools/src \
+    -icompiler/hie-core/src \
+    -icompiler/scenario-service/client/src \
+    -idaml-assistant/ \
+    -idaml-assistant/daml-project-config \
+    -idaml-foundations/daml-ghc/daml-compiler/src \
+    -idaml-foundations/daml-ghc/damldoc/src \
+    -idaml-foundations/daml-ghc/ghc-compiler/src \
+    -idaml-foundations/daml-ghc/ghc-compiler/src \
+    -idaml-foundations/daml-ghc/ide/src \
+    -idaml-foundations/daml-ghc/language-server/src \
+    -idaml-foundations/daml-tools/daml-cli \
+    -ilibs-haskell/bazel-runfiles/src \
+    -ilibs-haskell/da-hs-base/src
