@@ -18,7 +18,6 @@ Sandbox
 - **BREAKING CHANGE**: The Sandbox no longer supports loading from DALF files. You can now only use DAR files. See `#1610 <https://github.com/digital-asset/daml/issues/1610>`__.
 
 
-
 Ledger API
 ~~~~~~~~~~
 
