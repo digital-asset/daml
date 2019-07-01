@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary")
-load("//bazel_tools:packaging/packaging.bzl", "package_app")
+load("//bazel_tools/packaging:packaging.bzl", "package_app")
 load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_binary(
