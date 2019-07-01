@@ -75,7 +75,7 @@ class CommandCompletionServiceIT
         for {
           commandClient <- ctx.commandClient(ctx.ledgerId)
           tracker <- commandClient.trackCommands[String](configuredParties)
-          commands = configuredParties.map(p => Ctx(p, ctx.command(p, Nil)))
+          commands = configuredParties.map(p => Ctx(p, ctx.command(p, p, Nil)))
           result <- Source(commands).via(tracker).runWith(Sink.seq)
         } yield {
           val expected = configuredParties.map(p => (p, 0))
@@ -132,7 +132,7 @@ class CommandCompletionServiceIT
             startingOffset = startingOffsetResponse.getOffset
             commandClient <- ctx.commandClient(ctx.ledgerId)
             commands = configuredParties
-              .map(p => ctx.command(p, Nil))
+              .map(p => ctx.command(p, p, Nil))
               .zipWithIndex
               .map { case (req, i) => req.update(_.commands.commandId := s"command-id-$i") }
             _ <- Future.sequence(

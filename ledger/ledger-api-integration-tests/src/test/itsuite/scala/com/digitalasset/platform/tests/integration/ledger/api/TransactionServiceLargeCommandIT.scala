@@ -12,6 +12,7 @@ import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
+import com.digitalasset.platform.apitesting.TestParties._
 import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestTemplateIds}
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.participant.util.ValueConversions._
@@ -57,8 +58,9 @@ class TransactionServiceLargeCommandIT
         val superSizedCommand = c
           .command(
             "Huge-composite-command",
+            Alice,
             List.fill(targetNumberOfSubCommands)(
-              Command(create(templateIds.dummy, List("operator" -> "party".asParty)))))
+              Command(create(templateIds.dummy, List("operator" -> Alice.asParty)))))
           .update(_.commands.maximumRecordTime := Timestamp(60L, 0))
 
         c.testingHelpers

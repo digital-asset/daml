@@ -350,9 +350,9 @@ class TransactionServiceIT
             context
               .command(
                 commandId,
+                Alice,
                 List(templateInSubscription, otherTemplateCreated).map(tid =>
-                  Command(create(tid, List("operator" -> Alice.asParty)))))
-              .update(_.commands.party := Alice),
+                  Command(create(tid, List("operator" -> Alice.asParty))))),
             TransactionFilters.templatesByParty(Alice -> List(templateInSubscription))
           )
         } yield {
@@ -381,8 +381,8 @@ class TransactionServiceIT
               context
                 .command(
                   exercisingChoice,
-                  List(exerciseCallChoice(exercisedTemplate, factoryContractId).wrap))
-                .update(_.commands.party := Alice),
+                  Alice,
+                  List(exerciseCallChoice(exercisedTemplate, factoryContractId).wrap)),
               TransactionFilters.allForParties(Alice)
             )
           } yield {
@@ -411,8 +411,8 @@ class TransactionServiceIT
               context
                 .command(
                   exercisingChoice,
+                  Alice,
                   List(exerciseCallChoice(exercisedTemplate, factoryContractId).wrap))
-                .update(_.commands.party := Alice)
             )
 
             txsWithCreate <- context.testingHelpers.listenForResultOfCommand(
@@ -569,16 +569,16 @@ class TransactionServiceIT
 
           choiceResult <- c.testingHelpers.submitAndListenForSingleResultOfCommand(
             c.command(
-                testIdsGenerator.testCommandId("Calling_non-consuming_choice"),
-                List(
-                  ExerciseCommand(
-                    Some(templateIds.agreementFactory),
-                    created.contractId,
-                    "CreateAgreement",
-                    Some(unitArg)).wrap)
-              )
-              .update(_.commands.party := receiver),
-            TransactionFilter(Map(receiver -> Filters.defaultInstance))
+              testIdsGenerator.testCommandId("Calling_non-consuming_choice"),
+              receiver,
+              List(
+                ExerciseCommand(
+                  Some(templateIds.agreementFactory),
+                  created.contractId,
+                  "CreateAgreement",
+                  Some(unitArg)).wrap)
+            ),
+            TransactionFilters.allForParties(receiver)
           )
         } yield {
 
@@ -1731,11 +1731,9 @@ class TransactionServiceIT
   ): Future[Assertion] =
     c.testingHelpers.assertCommandFailsWithCode(
       c.command(
-          testIdsGenerator.testCommandId(commandId),
-          List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap))
-        .update(
-          _.commands.party := submitter
-        ),
+        testIdsGenerator.testCommandId(commandId),
+        submitter,
+        List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap)),
       code,
       pattern
     )
@@ -1766,8 +1764,8 @@ class TransactionServiceIT
         context
           .command(
             testIdsGenerator.testCommandId(s"Exercising_with_a_multitiude_of_params_$choice#$lbl"),
-            List(exerciseCommand))
-          .update(_.commands.party := Alice),
+            Alice,
+            List(exerciseCommand)),
         TransactionFilters.allForParties(Alice)
       )
     } yield {

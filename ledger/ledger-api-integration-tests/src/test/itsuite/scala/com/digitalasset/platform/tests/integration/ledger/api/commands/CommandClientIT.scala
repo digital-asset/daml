@@ -288,12 +288,14 @@ class CommandClientIT
           assertion <- c.testingHelpers.assertCommandFailsWithCode(
             c.command(
               "Double_spend_test_exercise_2",
+              submittingParty,
               List(
                 ExerciseCommand(
                   Some(templateIds.dummyFactory),
                   contract.contractId,
                   "DummyFactoryCall",
-                  Some(unit)).wrap)),
+                  Some(unit)).wrap)
+            ),
             Code.INVALID_ARGUMENT,
             "dependency",
             ignoreCase = true
@@ -309,6 +311,7 @@ class CommandClientIT
         val commandWithInvalidArgs =
           c.command(
             "Creating_contracts_for_invalid_arg_test",
+            submittingParty,
             List(CreateCommand(Some(templateIds.dummy), Some(Record())).wrap))
 
         c.testingHelpers.assertCommandFailsWithCode(
@@ -325,6 +328,7 @@ class CommandClientIT
           val command =
             c.command(
               "Boolean_param_with_wrong_type",
+              submittingParty,
               List(
                 CreateCommand(
                   Some(templateIds.dummy),
@@ -345,6 +349,7 @@ class CommandClientIT
         val command =
           c.command(
             "Param_with_wrong_name",
+            submittingParty,
             List(
               CreateCommand(
                 Some(templateIds.dummy),
@@ -396,6 +401,7 @@ class CommandClientIT
 
         val command = c.command(
           commandId,
+          submittingParty,
           List(
             CreateCommand(
               Some(templateIds.parameterShowcase),
@@ -418,6 +424,7 @@ class CommandClientIT
         val command =
           c.command(
             "Obligable_error",
+            submittingParty,
             List(
               CreateCommand(
                 Some(templateIds.dummy),
@@ -436,6 +443,7 @@ class CommandClientIT
         val command =
           c.command(
             "Exercise_contract_not_found",
+            submittingParty,
             List(
               ExerciseCommand(Some(templateIds.dummy), contractId, "DummyChoice1", Some(unit)).wrap)
           )
@@ -453,6 +461,7 @@ class CommandClientIT
           assertion <- c.testingHelpers.assertCommandFailsWithCode(
             c.command(
               "Bad_choice_test",
+              submittingParty,
               List(
                 ExerciseCommand(
                   Some(templateIds.dummyFactory),
