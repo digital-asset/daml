@@ -28,6 +28,7 @@ import scala.util.Try
 class InMemoryPackageStore() extends IndexPackagesService {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
+  //TODO: it's unnecessary to have mutable state in this class. Mutating operations could just create new instances of immutable Maps
   private val packageInfos: mutable.Map[PackageId, PackageDetails] = mutable.Map()
   private val packages: mutable.Map[PackageId, Ast.Package] = mutable.Map()
   private val archives: mutable.Map[PackageId, Archive] = mutable.Map()
@@ -113,10 +114,15 @@ class InMemoryPackageStore() extends IndexPackagesService {
       knownSince: Instant,
       sourceDescription: Option[String],
       file: File): Either[String, Map[PackageId, PackageDetails]] = this.synchronized {
-    DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-      .readArchive(new ZipFile(file))
-      .fold(t => Left(s"Failed to parse DAR from $file: $t"), dar => Right(dar.all))
-      .flatMap(archives => addArchives(knownSince, sourceDescription, archives))
+    val archivesTry = for {
+      zipFile <- Try(new ZipFile(file))
+      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchive(zipFile)
+    } yield dar.all
+
+    for {
+      archives <- archivesTry.toEither.left.map(t => s"Failed to parse DAR from $file: $t")
+      packages <- addArchives(knownSince, sourceDescription, archives)
+    } yield packages
   }
 }
 
