@@ -76,26 +76,6 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
     where
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
--- type LookupTemplate = (LF.Qualified LF.TypeConName) -> LF.Template
-
--- lookupTemplateT :: LF.World -> (LF.Qualified LF.TypeConName) -> LF.Template
--- lookupTemplateT world qualTemplate = case AST.lookupTemplate qualTemplate world of
---   Right tpl -> tpl
---   Left _ -> error("Template lookup failed")
-
--- templateInAction ::  LookupTemplate  -> Action -> LF.Template
--- templateInAction lookupTemplate (ACreate  qtpl) = lookupTemplate qtpl
--- templateInAction lookupTemplate (AExercise qtpl _ ) = lookupTemplate qtpl
-
--- srcLabel :: (LF.Template, [Action]) -> [(String, String)]
--- srcLabel (tc, _) = [("shape","none"), ("label",DAP.renderPretty $ LF.tplTypeCon tc) ]
-
--- templatePairs :: (LF.Template, Set.Set Action) -> (LF.Template , (LF.Template , [Action]))
--- templatePairs (tc, actions) = (tc , (tc,  Set.elems actions))
-
--- actionsForTemplate :: LookupTemplate -> (LF.Template, [Action]) -> [LF.Template]
--- actionsForTemplate lookupTemplate (_tplCon, actions) = map (templateInAction lookupTemplate) actions
-
 -- This to be used to generate the node ids and use as look up table
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName Int
 choiceNameWithId tplChcActions = Map.fromList $ zip allChoiceFromAction [0..]
