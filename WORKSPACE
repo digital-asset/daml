@@ -464,12 +464,12 @@ HASKELL_LSP_COMMIT = "d73e2ccb518724e6766833ee3d7e73289cbe0018"
 
 HASKELL_LSP_HASH = "36b92431039e6289eb709b8872f5010a57d4a45e637e1c1c945bdb3128586081"
 
-GHC_LIB_VERSION = "8.8.0.20190723"
+GHC_LIB_VERSION = "8.8.0.20190730.1"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "139c5b58d179a806640f8b56bc3fe8c70a893191dbfd111a593544e7ac71086b",
+    sha256 = "dcd211cac831609cec546050b342ca94a546cb4e672cf2819189332f49361baf",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -517,10 +517,9 @@ hazel_repositories(
     packages = add_extra_packages(
         extra =
 
-            # Read [Working on ghc-lib] for ghc-lib update
-            # instructions at
+            # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "139c5b58d179a806640f8b56bc3fe8c70a893191dbfd111a593544e7ac71086b", "7cfbe3bd12fb38685b86096ad666790326020308138eaf49198631b8792f5b2a") +
+            hazel_ghclibs(GHC_LIB_VERSION, "dcd211cac831609cec546050b342ca94a546cb4e672cf2819189332f49361baf", "6e144d99bc43e861a2895e0c34d73964305db2ad634f14d3e3a41cf0c4523495") +
 
             # Support for Hlint:
             #   - Requires haskell-src-exts 1.21.0 so override hazel/packages.bzl.
