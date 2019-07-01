@@ -10,8 +10,10 @@ module DA.Daml.GHC.Compiler.Options
     , mkOptions
     , getBaseDir
     , toCompileOpts
+    , damlArtifactDir
     , projectPackageDatabase
     , ifaceDir
+    , distDir
     , basePackages
     , runGhcFast
     ) where
@@ -99,7 +101,7 @@ toCompileOpts Options{..} =
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
           }
-      , optWriteIface = optWriteInterface
+      , optIfaceDir = Compile.InterfaceDirectory (ifaceDir <$ guard optWriteInterface)
       , optExtensions = ["daml"]
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
@@ -119,12 +121,18 @@ toCompileOpts Options{..} =
                 else Nothing
       | otherwise = pure Nothing
 
+damlArtifactDir :: FilePath
+damlArtifactDir = ".daml"
+
 -- | The project package database path relative to the project root.
 projectPackageDatabase :: FilePath
-projectPackageDatabase = ".package-database"
+projectPackageDatabase = damlArtifactDir </> "package-database"
 
 ifaceDir :: FilePath
-ifaceDir = ".interfaces"
+ifaceDir = damlArtifactDir </> "interfaces"
+
+distDir :: FilePath
+distDir = damlArtifactDir </> "dist"
 
 -- | Packages that we ship with the compiler.
 basePackages :: [String]
