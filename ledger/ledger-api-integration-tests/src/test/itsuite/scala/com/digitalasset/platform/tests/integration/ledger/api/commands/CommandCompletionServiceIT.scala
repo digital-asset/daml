@@ -110,7 +110,7 @@ class CommandCompletionServiceIT
 
       "emit checkpoints with exclusive offsets (results for coming back with the same offset will not contain the records)" in allFixtures {
         ctx =>
-          val configuredParties = config.parties.list.toList
+          val configuredParties = config.parties
 
           def completionsFrom(offset: LedgerOffset) =
             completionSource(
