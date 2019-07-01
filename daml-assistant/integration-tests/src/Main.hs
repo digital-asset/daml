@@ -105,8 +105,8 @@ packagingTests tmpDir = testGroup "packaging"
     [ testCaseSteps "Build package with dependency" $ \step -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
-        let aDar = projectA </> "dist" </> "a.dar"
-        let bDar = projectB </> "dist" </> "b.dar"
+        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "A.daml") $ unlines
@@ -171,7 +171,7 @@ packagingTests tmpDir = testGroup "packaging"
           , "  - daml-stdlib"
           ]
         withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
-        let dar = projDir </> "dist" </> "proj.dar"
+        let dar = projDir </> ".daml" </> "dist" </> "proj.dar"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         -- Note that we really want a forward slash here instead of </> since filepaths in
@@ -196,8 +196,8 @@ packagingTests tmpDir = testGroup "packaging"
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
         let projectMigrate = tmpDir </> "migrateAB"
-        let aDar = projectA </> "dist" </> "a.dar"
-        let bDar = projectB </> "dist" </> "b.dar"
+        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
