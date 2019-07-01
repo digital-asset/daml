@@ -497,8 +497,8 @@ checkExpr expr typ = void (checkExpr' expr typ)
 
 -- | Check that a type constructor definition is well-formed.
 checkDefDataType :: MonadGamma m => DefDataType -> m ()
-checkDefDataType (DefDataType _loc _name _serializable params dataCons) =
-  -- NOTE(MH): Duplicates in the @params@ list are caught by 'introTypeVar'.
+checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
+  checkUnique EDuplicateTypeParam $ map fst params
   foldr (uncurry introTypeVar) base params
   where
     base = case dataCons of
