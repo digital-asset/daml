@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.language.LanguageVersion
 
 import scala.collection.JavaConverters._
 import java.util.ArrayList
@@ -38,6 +39,16 @@ object Speedy {
       var committers: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
+      /* The _top level_ version of the submission. This is the scenario definition
+       * version for scenarios, and the command version for Ledger API submissions.
+       * This was introduced as part of #1866 when we introduced a restriction
+       * in key lookups.
+       */
+      var submissionVersion: LanguageVersion,
+      /* Whether the current submission is validating the transaction, or interpreting
+       * it. If this is false, the committers must be a singleton set.
+       */
+      var validating: Boolean,
       /* The trace log. */
       traceLog: TraceLog,
       /* Compiled packages (DAML-LF ast + compiled speedy expressions). */
@@ -173,37 +184,45 @@ object Speedy {
   }
 
   object Machine {
-    private def initial(compiledPackages: CompiledPackages, committers: Set[Party] = Set.empty) =
+    private def initial(submissionVersion: LanguageVersion, compiledPackages: CompiledPackages) =
       Machine(
         ctrl = null,
         env = emptyEnv,
         kont = new ArrayList[Kont](128),
         lastLocation = None,
         ptx = PartialTransaction.initial,
-        committers = committers,
+        committers = Set.empty,
         commitLocation = None,
         traceLog = TraceLog(100),
-        compiledPackages = compiledPackages
+        compiledPackages = compiledPackages,
+        submissionVersion = submissionVersion,
+        validating = false,
       )
 
-    def newBuilder(compiledPackages: CompiledPackages): Either[SError, (Expr => Machine)] = {
+    def newBuilder(
+        compiledPackages: CompiledPackages): Either[SError, (LanguageVersion, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
-      Right({ (expr: Expr) =>
-        initial(compiledPackages).copy(ctrl = CtrlExpr(compiler.compile(expr)(SEValue(SToken))))
+      Right({ (submissionVersion: LanguageVersion, expr: Expr) =>
+        initial(submissionVersion, compiledPackages).copy(
+          ctrl = CtrlExpr(compiler.compile(expr)(SEValue(SToken))))
       })
     }
 
     def build(
+        submissionVersion: LanguageVersion,
         sexpr: SExpr,
-        compiledPackages: CompiledPackages,
-        committers: Set[Party] = Set.empty): Machine =
-      initial(compiledPackages, committers).copy(
+        compiledPackages: CompiledPackages): Machine =
+      initial(submissionVersion, compiledPackages).copy(
         // apply token
         ctrl = CtrlExpr(sexpr(SEValue(SToken))),
       )
 
     // Used from repl.
-    def fromExpr(expr: Expr, compiledPackages: CompiledPackages, scenario: Boolean): Machine = {
+    def fromExpr(
+        expr: Expr,
+        submissionVersion: LanguageVersion,
+        compiledPackages: CompiledPackages,
+        scenario: Boolean): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
@@ -211,7 +230,7 @@ object Speedy {
         else
           compiler.compile(expr)
 
-      initial(compiledPackages).copy(
+      initial(submissionVersion, compiledPackages).copy(
         ctrl = CtrlExpr(sexpr),
       )
     }

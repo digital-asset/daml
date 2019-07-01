@@ -56,7 +56,7 @@ class Context(val contextId: Context.ContextId) {
 
   private var modules: Map[ModuleName, Ast.Module] = Map.empty
   private var extPackages: Map[PackageId, Ast.Package] = Map.empty
-  private var defns: Map[SDefinitionRef, SExpr] = Map.empty
+  private var defns: Map[SDefinitionRef, (LanguageVersion, SExpr)] = Map.empty
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
   def loadedPackages(): Iterable[PackageId] = extPackages.keys
@@ -120,7 +120,11 @@ class Context(val contextId: Context.ContextId) {
         Decode.decodeArchiveFromInputStream(archive.newInput)
       }.toMap
     extPackages ++= newPackages
-    defns ++= Compiler(extPackages).compilePackages(extPackages.keys)
+    defns ++= Compiler(extPackages).compilePackages(extPackages.keys).map {
+      case (defRef, defn) =>
+        val module = extPackages(defRef.packageId).modules(defRef.modName)
+        (defRef, (module.languageVersion, defn))
+    }
 
     // And now the new modules can be loaded.
     val lfModules = loadModules.map(module =>
@@ -142,7 +146,11 @@ class Context(val contextId: Context.ContextId) {
         newDefns.filterKeys(ref => ref.packageId != homePackageId || ref.modName != m.name)
           ++ m.definitions.flatMap {
             case (defName, defn) =>
-              compiler.compileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
+              compiler
+                .compileDefn(Identifier(homePackageId, QualifiedName(m.name, defName)), defn)
+                .map {
+                  case (defRef, compiledDefn) => (defRef, (m.languageVersion, compiledDefn))
+                }
 
         }
     )
@@ -153,8 +161,13 @@ class Context(val contextId: Context.ContextId) {
 
   private def buildMachine(identifier: Identifier): Option[Speedy.Machine] = {
     for {
-      defn <- defns.get(LfDefRef(identifier))
-    } yield Speedy.Machine.build(defn, PureCompiledPackages(allPackages, defns).right.get)
+      res <- defns.get(LfDefRef(identifier))
+      (lfVer, defn) = res
+    } yield
+    // note that the use of `Map#mapValues` here is intentional: we lazily project the
+    // definition out rather than rebuilding the map.
+    Speedy.Machine
+      .build(lfVer, defn, PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get)
   }
 
   def interpretScenario(

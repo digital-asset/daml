@@ -724,8 +724,8 @@ object Ledger {
            to look up a contract by key if you're an observer but not a
            signatory.
 
-         - However, this is problematic since lookups will induce work for
-     *all* maintainers even if only a subset of the maintainers have
+         - However, this is problematic since lookups will induce work for *all*
+           maintainers even if only a subset of the maintainers have
            authorized it, violating the tenet that nobody can be forced to
            perform work.
 
@@ -763,10 +763,9 @@ object Ledger {
            re-interpreting the transaction.
 
            Francesco: yes, but there is a key difference: the above scenario
-           requires a malicious (or at the very least negligent / defective)
-     *participant*, while in this case we are talking about malicious
-     *code* being able to induce work. So the "thread model" is quite
-           different.
+           requires a malicious (or at the very least negligent / defective) *participant*,
+           while in this case we are talking about malicious *code* being
+           able to induce work. So the "threat model" is quite different.
 
       To be able to make a statement of non-existence of a key, it's clear
       that we must authorize against the maintainers, and not the

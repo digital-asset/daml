@@ -15,6 +15,8 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.validation.Validation
 import org.scalatest.{Matchers, WordSpec}
+import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.digitalasset.daml.lf.language.LanguageMinorVersion.Dev
 
 class SpeedyTest extends WordSpec with Matchers {
 
@@ -96,7 +98,7 @@ class SpeedyTest extends WordSpec with Matchers {
 object SpeedyTest {
 
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromExpr(e, packages, false)
+    val machine = Speedy.Machine.fromExpr(e, LanguageVersion(LMV.V1, Dev), packages, false)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       while (!machine.isFinal) machine.step() match {

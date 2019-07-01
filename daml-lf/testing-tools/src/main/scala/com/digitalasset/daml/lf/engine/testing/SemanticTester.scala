@@ -61,7 +61,7 @@ class SemanticTester(
           // Keep in sync with `scenarios` method in SemanticTester object
           case (name, DValue(_, _, body, isTest)) if isTest =>
             val qualifiedName = QualifiedName(module.name, name)
-            val machine = buildMachine(body)
+            val machine = buildMachine(module.languageVersion, body)
             ScenarioRunner(machine, partyNameMangler = partyNameMangler).run() match {
               case Left((err, _ledger @ _)) =>
                 sys.error(s"error running scenario $err in scenario: $qualifiedName")

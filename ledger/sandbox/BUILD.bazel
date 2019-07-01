@@ -130,6 +130,14 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
+# We keep this around to test the changes in #1866
+daml_compile(
+    name = "Test-1.5",
+    main_src = "src/test/resources/damls/Test.daml",
+    target = "1.5",
+    visibility = ["//visibility:public"],
+)
+
 daml_compile(
     name = "Test",
     main_src = "src/test/resources/damls/Test.daml",

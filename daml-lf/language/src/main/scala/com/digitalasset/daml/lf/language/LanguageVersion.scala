@@ -10,7 +10,6 @@ final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMin
 }
 
 object LanguageVersion {
-
   type Major = LanguageMajorVersion
   val Major = LanguageMajorVersion
 
@@ -39,4 +38,13 @@ object LanguageVersion {
           LanguageMajorVersion.ordering.compare(leftMajor, rightMajor)
     }
 
+  /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
+    * compatibility, we introduce a new DAML-LF version where this restriction is in
+    * place, and then:
+    * * When committing a scenario, we check that the scenario code is at least of that
+    *   version;
+    * * When executing a Ledger API command, we check that the template underpinning
+    *   said command is at least of that version.
+    */
+  val checkSubmitterIsInLookupMaintainers = LanguageVersion(LMV.V1, Minor.Dev)
 }

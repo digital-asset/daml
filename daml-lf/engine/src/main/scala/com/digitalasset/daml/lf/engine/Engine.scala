@@ -16,6 +16,7 @@ import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
+import com.digitalasset.daml.lf.language.LanguageVersion
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -71,7 +72,11 @@ final class Engine {
   def submit(cmds: Commands): Result[Transaction.Transaction] =
     _commandTranslation
       .preprocessCommands(cmds)
-      .flatMap(interpret(Set(cmds.submitter), _, cmds.ledgerEffectiveTime))
+      .flatMap { processedCmds =>
+        CommandsVersion(_compiledPackages, cmds).flatMap { lfVers =>
+          interpret(false, lfVers, Set(cmds.submitter), processedCmds, cmds.ledgerEffectiveTime)
+        }
+      }
 
   /**
     * Behaves like `submit`, but it takes GenNode arguments instead of a Commands argument.
@@ -98,7 +103,9 @@ final class Engine {
   ): Result[Transaction.Transaction] = {
     for {
       commands <- Result.sequence(ImmArray(nodes).map(translateNode(_commandTranslation)))
-      result <- interpret(submitters, commands, ledgerEffectiveTime)
+      lfVers <- CommandsVersion(_compiledPackages, commands.map(_._2.templateId))
+      // reinterpret is never used for submission, only for validation.
+      result <- interpret(true, lfVers, submitters, commands, ledgerEffectiveTime)
     } yield result
   }
 
@@ -148,7 +155,8 @@ final class Engine {
       submitters = submittersOpt.getOrElse(Set.empty)
 
       commands <- translateTransactionRoots(_commandTranslation, tx)
-      rtx <- interpret(submitters, commands.map(_._2), ledgerEffectiveTime)
+      lfVers <- CommandsVersion(_compiledPackages, commands.map(_._2._2.templateId))
+      rtx <- interpret(true, lfVers, submitters, commands.map(_._2), ledgerEffectiveTime)
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
       } else {
@@ -245,32 +253,25 @@ final class Engine {
     }))
   }
 
-  private[engine] def interpretFromNodeId(
-      command: SpeedyCommand,
-      nodeId: Transaction.NodeId,
-      time: Time.Timestamp
-  ): Result[Transaction.Transaction] = {
-
-    val machine =
-      Machine.build(Compiler(_compiledPackages.packages).compile(command), _compiledPackages)
-    machine.ptx = machine.ptx.copy(nextNodeId = nodeId)
-    interpretLoop(machine, time)
-  }
-
   /** Interprets the given expression under the authority of @submitters
     *
     * Submitters are a set, in order to support interpreting subtransactions (a subtransaciton can be authorized
     * by multiple parties).
     */
   private[engine] def interpret(
+      validating: Boolean,
+      /* See documentation for `Speedy.Machine` for the meaning of this field */
+      submissionVersion: LanguageVersion,
       submitters: Set[Party],
       expr: Expr,
       time: Time.Timestamp): Result[Transaction.Transaction] = {
     val machine =
-      Machine.build(
-        Compiler(_compiledPackages.packages).compile(expr),
-        _compiledPackages,
-        submitters)
+      Machine
+        .build(
+          submissionVersion,
+          Compiler(_compiledPackages.packages).compile(expr),
+          _compiledPackages)
+        .copy(validating = validating, committers = submitters)
 
     interpretLoop(machine, time)
   }
@@ -281,13 +282,18 @@ final class Engine {
     * by multiple parties).
     */
   private[engine] def interpret(
+      validating: Boolean,
+      /* See documentation for `Speedy.Machine` for the meaning of this field */
+      submissionVersion: LanguageVersion,
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
       time: Time.Timestamp): Result[Transaction.Transaction] = {
-    val machine = Machine.build(
-      Compiler(_compiledPackages.packages).compile(commands.map(_._2)),
-      _compiledPackages,
-      submitters)
+    val machine = Machine
+      .build(
+        submissionVersion,
+        Compiler(_compiledPackages.packages).compile(commands.map(_._2)),
+        _compiledPackages)
+      .copy(validating = validating, committers = submitters)
     interpretLoop(machine, time)
   }
 

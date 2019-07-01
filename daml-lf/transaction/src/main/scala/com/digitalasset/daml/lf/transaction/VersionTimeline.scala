@@ -26,7 +26,7 @@ import scala.language.higherKinds
   * version picker uses the timeline in order to describe changes to
   * that same timeline.
   */
-private[lf] object VersionTimeline {
+private[digitalasset] object VersionTimeline {
   import LanguageVersion.Minor.Dev
   import \&/.{Both, That, This}
 
