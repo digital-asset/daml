@@ -3,32 +3,41 @@
 
 package com.digitalasset.platform.sandbox.cli
 
-import java.io.File
+import java.io.{File}
 
+import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
+import org.apache.commons.io.FileUtils
 import org.scalatest.{Matchers, WordSpec}
 
 class CliSpec extends WordSpec with Matchers {
 
-  private val archiveName = "whatever.dar"
+  private val archive = rlocation("ledger/sandbox/Test.dar")
+  private val nonExistingArchive = "whatever.dar"
+  private val invalidArchive = createTempFile.getAbsolutePath
   private val defaultConfig = SandboxConfig.default
 
   private def checkOption(
       options: Array[String],
       expectedChange: SandboxConfig => SandboxConfig) = {
-    val expectedConfig = expectedChange(
-      defaultConfig.copy(damlPackages = List(new File(archiveName))))
+    val expectedConfig = expectedChange(defaultConfig.copy(damlPackages = List(new File(archive))))
 
     val config =
-      Cli.parse(options ++: Array(archiveName))
+      Cli.parse(options ++: Array(archive))
 
     config shouldEqual Some(expectedConfig)
+  }
 
+  private def createTempFile(): File = {
+    val tempFile = File.createTempFile("invalid-archive", ".dar.tmp")
+    FileUtils.writeByteArrayToFile(tempFile, "NOT A ZIP".getBytes)
+    tempFile.deleteOnExit
+    tempFile
   }
 
   "Cli" should {
@@ -38,11 +47,19 @@ class CliSpec extends WordSpec with Matchers {
       config shouldEqual Some(defaultConfig)
     }
 
+    "return None when an archive file does not exist" in {
+      val config = Cli.parse(Array(nonExistingArchive))
+      config shouldEqual None
+    }
+
+    "return None when an archive file is not a ZIP" in {
+      val config = Cli.parse(Array(invalidArchive))
+      config shouldEqual None
+    }
+
     "return a Config with sensible defaults when mandatory arguments are given" in {
-      val expectedConfig = defaultConfig.copy(damlPackages = List(new File(archiveName)))
-
-      val config = Cli.parse(Array(archiveName))
-
+      val expectedConfig = defaultConfig.copy(damlPackages = List(new File(archive)))
+      val config = Cli.parse(Array(archive))
       config shouldEqual Some(expectedConfig)
     }
 
