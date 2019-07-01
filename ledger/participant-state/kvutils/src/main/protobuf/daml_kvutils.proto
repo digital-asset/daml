@@ -34,6 +34,7 @@ message DamlSubmission {
     DamlTransactionEntry transaction_entry = 3;
     DamlPackageUploadEntry package_upload_entry = 4;
     DamlConfigurationEntry configuration_entry = 5;
+    DamlPartyAllocationEntry party_allocation_entry = 6;
   }
 }
 
@@ -58,11 +59,19 @@ message DamlLogEntry {
     DamlRejectionEntry rejection_entry = 3;
 
     // A collection of DAML-LF archives uploaded together by a participant.
-    // Can be converted into `Update.PublicPackageUploaded`.
     DamlPackageUploadEntry package_upload_entry = 4;
 
+    // A rejection of package upload
+    DamlPackageUploadRejectionEntry package_upload_rejection_entry = 5;
+
     // A DAML configuration change.
-    DamlConfigurationEntry configuration_entry = 5;
+    DamlConfigurationEntry configuration_entry = 6;
+
+    // Allocation of a new DAML party and its assignment to a participant
+    DamlPartyAllocationEntry party_allocation_entry = 7;
+
+    // A rejection of party allocation request
+    DamlPartyAllocationRejectionEntry party_allocation_rejection_entry = 8;
   }
 }
 
@@ -98,7 +107,7 @@ message DamlTransactionEntry {
 
   DamlSubmitterInfo submitter_info = 2;
 
-  // Transaction metadata
+  // Transaction metadata.
   string workflow_id = 3;
   google.protobuf.Timestamp ledger_effective_time = 4;
 }
@@ -108,25 +117,92 @@ message DamlTransactionEntry {
 message DamlRejectionEntry {
   DamlSubmitterInfo submitter_info = 1;
 
+  message Inconsistent {
+    string details = 1;
+  }
+
+  message Disputed {
+    string details = 1;
+  }
+
+  message ResourcesExhausted {
+    string details = 1;
+  }
+
+  message MaximumRecordTimeExceeded {
+    string details = 1;
+  }
+
+  message DuplicateCommand {
+    string details = 1;
+  }
+
+  message PartyNotKnownOnLedger {
+    string details = 1;
+  }
+
+  message SubmitterCannotActViaParticipant {
+    string details = 1;
+  }
+
   oneof reason {
-    // NOTE(JM): Not all payloads are used, but marked as 'string' for
-    // extensibility.
-    string inconsistent = 2;
-    string disputed = 3;
-    string resources_exhausted = 4;
-    string maximum_record_time_exceeded = 5;
-    string duplicate_command = 6;
-    string party_not_known_on_ledger = 7;
-    string submitter_cannot_act_via_participant = 8;
+    Inconsistent inconsistent = 2;
+    Disputed disputed = 3;
+    ResourcesExhausted resources_exhausted = 4;
+    MaximumRecordTimeExceeded maximum_record_time_exceeded = 5;
+    DuplicateCommand duplicate_command = 6;
+    PartyNotKnownOnLedger party_not_known_on_ledger = 7;
+    SubmitterCannotActViaParticipant submitter_cannot_act_via_participant = 8;
   }
 }
 
-// A public package upload. We don't store dars as they would
-// not allow for easy deduplication of DAML-LF packages.
+// A public package upload.
+// DAML-LF packages will be deduplicated based on their hashes. Only unique
+// ones will be added to the KV storage. Deduplication has no impact on the
+// upload result.
 message DamlPackageUploadEntry {
-  repeated daml_lf.Archive archives = 1;
-  string source_description = 2;
-  string participant_id = 3;
+  // A unique string scoped to a particular participant.
+  // Implementers are free to select adequate mechanism e.g. UUID or similar.
+  string submission_id = 1;
+
+  // List of archives to be uploaded.
+  repeated daml_lf.Archive archives = 2;
+
+  // Description provided by the backing participant describing where it got
+  // the package from, e.g., when, where, or by whom the packages were
+  // uploaded.
+  string source_description = 3;
+
+  // Uploading participant's id.
+  string participant_id = 4;
+}
+
+// A message indicating that package upload was unsuccessful.
+// If validation of any of the uploaded packages fails, the whole upload fails
+// and a rejection message is produced.
+message DamlPackageUploadRejectionEntry {
+  // An id selected by the submitter, can be used for matching rejection with
+  // the original upload entry.
+  string submission_id = 1;
+
+  // Id of the participant that uploaded the package.
+  string participant_id = 2;
+
+  // One of the uploaded packages is not valid.
+  message InvalidPackage {
+    string details = 1;
+  }
+
+  // The participant was not authorized to submit the upload request.
+  message ParticipantNotAuthorized {
+    string details = 1;
+  }
+
+  oneof reason {
+
+    InvalidPackage invalid_package = 3;
+    ParticipantNotAuthorized participant_not_authorized = 4;
+  }
 }
 
 message DamlConfigurationEntry {
@@ -145,6 +221,55 @@ message DamlTimeModel {
   google.protobuf.Duration maxTtl = 3;
 }
 
+// An allocation of party name and assignment of a party to a given
+// participant.
+// A party can only be hosted once (this may not be true in more
+// sophisticated ledgers in the future).
+message DamlPartyAllocationEntry {
+  // A unique string scoped to a particular participant.
+  // Implementers are free to select adequate mechanism e.g. UUID or similar.
+  string submission_id = 1;
+
+  // The party name to be allocated.
+  string party = 2;
+
+  // Allocating participant's id.
+  string participant_id = 3;
+
+  // A display name associated with the given party.
+  string display_name = 4;
+}
+
+// A message indicating that party allocation was unsuccessful.
+message DamlPartyAllocationRejectionEntry {
+  // An id selected by the submitter, can be used for matching rejection with
+  // the original upload entry.
+  string submission_id = 1;
+
+  // Uploading participant's id.
+  string participant_id = 2;
+
+  // The requested party name already exists.
+  message AlreadyExists {
+    string details = 1;
+  }
+
+  // The requested party name is not valid.
+  message InvalidName {
+    string details = 1;
+  }
+
+  // The participant was not authorized to submit the allocation request.
+  message ParticipantNotAuthorized {
+    string details = 1;
+  }
+
+  oneof reason {
+    AlreadyExists already_exists = 3;
+    InvalidName invalid_name = 4;
+    ParticipantNotAuthorized participant_not_authorized = 5;
+  }
+}
 
 // DAML state key. [[KeyValueCommitting]] produces effects that are committed
 // to the ledger from the `DamlSubmission`: a log entry to be created, and
@@ -155,6 +280,7 @@ message DamlStateKey {
     string package_id = 1;
     DamlContractId contract_id = 2;
     DamlCommandDedupKey command_dedup = 3;
+    string party = 4;
   }
 }
 
@@ -165,7 +291,7 @@ message DamlStateValue {
     daml_lf.Archive archive = 1;
     DamlContractState contract_state = 2;
     DamlCommandDedupValue command_dedup = 3;
-
+    DamlPartyAllocation party = 4;
   }
 }
 
@@ -208,3 +334,14 @@ message DamlContractState {
 
 }
 
+// Stored information about a given party.
+// Party tenancy is immutable and cannot change once recorded.
+// TODO: Add concept of party allocation time. It would have to follow similar pattern
+// as LET for transactions, so that party allocation submissions remain verifiable by
+// the committers/validators.
+message DamlPartyAllocation {
+  // Id of participant where the party is hosted.
+  string participant_id = 1;
+  // A display name associated with the given party.
+  string display_name = 2;
+}
