@@ -32,20 +32,20 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
         serviceFutureStub = CommandCompletionServiceGrpc.newFutureStub(channel);
     }
 
-    @Override
-    public Flowable<CompletionStreamResponse> completionStream(String applicationId, LedgerOffset offset, Set<String> parties) {
-        CommandCompletionServiceOuterClass.CompletionStreamRequest request = new CompletionStreamRequest(ledgerId, applicationId, parties, offset).toProto();
+    private Flowable<CompletionStreamResponse> completionStream(CompletionStreamRequest request) {
         return ClientPublisherFlowable
-                .create(request, serviceStub::completionStream, sequencerFactory)
+                .create(request.toProto(), serviceStub::completionStream, sequencerFactory)
                 .map(CompletionStreamResponse::fromProto);
     }
 
     @Override
+    public Flowable<CompletionStreamResponse> completionStream(String applicationId, LedgerOffset offset, Set<String> parties) {
+        return completionStream(new CompletionStreamRequest(ledgerId, applicationId, parties, offset));
+    }
+
+    @Override
     public Flowable<CompletionStreamResponse> completionStream(String applicationId, Set<String> parties) {
-        CommandCompletionServiceOuterClass.CompletionStreamRequest request = new CompletionStreamRequest(ledgerId, applicationId, parties).toProto();
-        return ClientPublisherFlowable
-                .create(request, serviceStub::completionStream, sequencerFactory)
-                .map(CompletionStreamResponse::fromProto);
+        return completionStream(new CompletionStreamRequest(ledgerId, applicationId, parties));
     }
 
     @Override
