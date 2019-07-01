@@ -27,22 +27,11 @@ object PackageService {
   type TemplateIdMap = Map[(String, String), Identifier]
 
   private[http] def buildMap(ids: Set[Identifier]): (TemplateIdDups, TemplateIdMap) = {
-    ids.foldLeft(
-      (Map.empty[(String, String), List[Identifier]], Map.empty[(String, String), Identifier])) {
-      (b, a) =>
-        val (dups, map) = b
-        val k = (a.moduleName, a.entityName)
-        (dups.get(k), map.get(k)) match {
-          case (None, Some(a0)) =>
-            (dups.updated(k, List(a, a0)), map - k)
-          case (Some(as), None) =>
-            (dups.updated(k, a :: as), map)
-          case (Some(_), Some(_)) =>
-            sys.error(s"This should never happen! The same ID: $a is in both: dups and map")
-          case (None, None) =>
-            (dups, map.updated(k, a))
-        }
-    }
+    val (dupe, nonDupe) = ids.groupBy(a => (a.moduleName, a.entityName)).partition(_._2.size != 1)
+    (dupe transform ((_, as) => as.toList), nonDupe transform { (k, as) =>
+      if (as.size == 1) as.head
+      else sys.error(s"This should never happen! $k is duplicated in the non-duplicate list")
+    })
   }
 
   def resolveTemplateIds(m: TemplateIdMap)(as: Set[domain.TemplateId]): Error \/ List[Identifier] =
@@ -72,5 +61,5 @@ object PackageService {
           s"requested: $requested, resolved: $resolved")
 
   def fold(dups: TemplateIdDups): Set[Identifier] =
-    dups.foldLeft(Set.empty[Identifier])((b, a) => b ++ a._2)
+    dups.values.flatten.toSet
 }
