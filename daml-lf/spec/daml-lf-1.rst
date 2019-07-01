@@ -199,10 +199,6 @@ Version: 1.5
 
       2019-05-27
 
-  * Last amendment date:
-
-      2019-05-27
-
   * **Change** serializability condition for ``ContractId`` such that
     ``ContractId a`` is serializable whenever ``a`` is so. This is more
     relaxed than the previous condition.
@@ -234,10 +230,6 @@ Version: 1.6
 
 Version: 1.dev
 ..............
-
-  * Last amendment date:
-
-      2019-07-01
 
   * Description:
 
