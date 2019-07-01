@@ -372,7 +372,7 @@ createProjectPackageDb lfVersion fps = do
             let path = dbPath </> eRelativePath src
             createDirectoryIfMissing True $ takeDirectory path
             BSL.writeFile path (fromEntry src)
-    ghcPkgPath <- locateRunfiles (mainWorkspace </> "daml-foundations" </> "daml-tools" </> "da-hs-damlc-app" </> "ghc-pkg")
+    ghcPkgPath <- locateRunfiles (mainWorkspace </> "daml-foundations" </> "daml-tools" </> "damlc-app" </> "ghc-pkg")
     callCommand $
         unwords
             [ ghcPkgPath </> "ghc-pkg"

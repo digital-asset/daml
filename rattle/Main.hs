@@ -29,8 +29,8 @@ import Data.List.Extra
 targets =
     ["libs-haskell/prettyprinter-syntax"
     ,"daml-assistant"
-    ,"daml-foundations/daml-tools/da-hs-damlc-app"
-    ,"daml-foundations/daml-tools/da-hs-daml-cli"
+    ,"daml-foundations/daml-tools/damlc-app"
+    ,"daml-foundations/daml-tools/daml-cli"
     ,"compiler/hie-core"
     ,"libs-haskell/da-hs-base"
     ,"libs-haskell/da-hs-pretty"
@@ -129,14 +129,14 @@ buildHaskellPackage (fixNames -> o@Metadata{..}) = do
 
     -- Work around the fact that SdkVersion is bazel-generated
     files <- pure $ files <> (case dhl_name of
-      "da-hs-daml-cli" -> ["SdkVersion.hs"]
+      "daml-cli" -> ["SdkVersion.hs"]
       _ -> [])
 
     let modules = map (intercalate "." . splitDirectories . dropExtension) files
 
     let dirs = [dhl_dir </> dhl_src_strip_prefix] <> (case dhl_name of
             -- Work around the fact that SdkVersion is bazel-generated
-            "da-hs-daml-cli" -> ["rattle" </> "hacks"]
+            "daml-cli" -> ["rattle" </> "hacks"]
             _ -> [])
 
     let commonFlags =

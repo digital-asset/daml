@@ -32,10 +32,10 @@ TAR_PATH=$(rlocation "$TEST_WORKSPACE/$3")
 GZIP_PATH=$(rlocation "$TEST_WORKSPACE/$4")
 
 if [[ "${OSTYPE}" =~ msys* ]]; then
-  DAMLC_PATH="da-hs-damlc-app.exe/da-hs-damlc-app.exe"
+  DAMLC_PATH="damlc-app.exe/damlc-app.exe"
   DAMLC_TAR=$(cygpath $DAMLC_TAR)
 else
-  DAMLC_PATH="da-hs-damlc-app/da-hs-damlc-app"
+  DAMLC_PATH="damlc-app/damlc-app"
 fi
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"

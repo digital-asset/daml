@@ -5,7 +5,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 
 da_haskell_library(
-    name = "da-hs-daml-cli",
+    name = "daml-cli",
     srcs = glob(["DA/**/*.hs"]),
     extra_srcs = [
         "//daml-foundations/daml-tools/docs/daml-licenses/licenses:licensing.md",
@@ -74,7 +74,7 @@ da_haskell_library(
 )
 
 da_haskell_test(
-    name = "da-hs-daml-cli-tests",
+    name = "daml-cli-tests",
     srcs = ["tests/Cli.hs"],
     data = [
         "//compiler/scenario-service/server:scenario_service_jar",
@@ -90,12 +90,12 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
-        ":da-hs-daml-cli",
+        ":daml-cli",
     ],
 )
 
 da_haskell_test(
-    name = "da-hs-daml-cli-visual-test",
+    name = "daml-cli-visual-test",
     srcs = ["tests/VisualTest.hs"],
     data = [
         ":tests/res/out.dot",
@@ -113,7 +113,7 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
-        ":da-hs-daml-cli",
+        ":daml-cli",
         "//libs-haskell/bazel-runfiles",
     ],
 )
@@ -140,7 +140,7 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
-        ":da-hs-daml-cli",
+        ":daml-cli",
         "//compiler/hie-core",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//libs-haskell/da-hs-base",
