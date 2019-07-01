@@ -62,6 +62,7 @@ import System.Directory
 import System.Environment
 import System.Exit
 import System.FilePath
+import System.IO.Extra
 import System.Process(callCommand)
 import           System.IO
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
@@ -71,7 +72,6 @@ import DA.Cli.Visual
 import Data.List
 import qualified Data.NameMap as NM
 import qualified Data.Map.Strict as MS
-import System.IO.Temp
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -676,7 +676,7 @@ execMigrate opts inFile1 inFile2 mbDir = do
             pure $
         NM.lookup modName $ LF.packageModules pkg
     generatePkgMap logH dar =
-        withSystemTempDirectory "generatePkgMap" $ \tmpDir -> do
+        withTempDir $ \tmpDir -> do
             extractFilesFromArchive [OptDestination tmpDir] dar
             (diags, pkgMap) <- generatePackageMap [tmpDir]
             unless (null diags) $ Logger.logWarning logH $ showDiagnostics diags
