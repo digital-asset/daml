@@ -41,6 +41,14 @@ public class CommandCompletionClientImpl implements CommandCompletionClient {
     }
 
     @Override
+    public Flowable<CompletionStreamResponse> completionStream(String applicationId, Set<String> parties) {
+        CommandCompletionServiceOuterClass.CompletionStreamRequest request = new CompletionStreamRequest(ledgerId, applicationId, parties).toProto();
+        return ClientPublisherFlowable
+                .create(request, serviceStub::completionStream, sequencerFactory)
+                .map(CompletionStreamResponse::fromProto);
+    }
+
+    @Override
     public Single<CompletionEndResponse> completionEnd() {
         CommandCompletionServiceOuterClass.CompletionEndRequest request = CommandCompletionServiceOuterClass.CompletionEndRequest.newBuilder().setLedgerId(ledgerId).build();
         return Single

@@ -21,6 +21,21 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
+object GrpcCommandCompletionService {
+
+  private[this] val completionStreamDefaultOffset =
+    LedgerOffset.of(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+
+  private def fillInWithDefaults(request: CompletionStreamRequest): CompletionStreamRequest = {
+    if (request.offset.isDefined) {
+      request
+    } else {
+      request.withOffset(completionStreamDefaultOffset)
+    }
+  }
+
+}
+
 class GrpcCommandCompletionService(
     ledgerId: LedgerId,
     service: CommandCompletionService,
@@ -28,12 +43,14 @@ class GrpcCommandCompletionService(
 )(implicit protected val esf: ExecutionSequencerFactory, protected val mat: Materializer)
     extends CommandCompletionServiceAkkaGrpc {
 
+  import GrpcCommandCompletionService.fillInWithDefaults
+
   private val validator = new CompletionServiceRequestValidator(ledgerId, partyNameChecker)
 
   override def completionStreamSource(
-      request: CompletionStreamRequest): Source[CompletionStreamResponse, akka.NotUsed] =
+      request: CompletionStreamRequest): Source[CompletionStreamResponse, akka.NotUsed] = {
     validator
-      .validateCompletionStreamRequest(request)
+      .validateCompletionStreamRequest(fillInWithDefaults(request))
       .fold(
         Source.failed[CompletionStreamResponse],
         validatedRequest =>
@@ -41,6 +58,7 @@ class GrpcCommandCompletionService(
             .completionStreamSource(validatedRequest)
             .map(toApiCompletion)
       )
+  }
 
   override def completionEnd(request: CompletionEndRequest): Future[CompletionEndResponse] =
     validator

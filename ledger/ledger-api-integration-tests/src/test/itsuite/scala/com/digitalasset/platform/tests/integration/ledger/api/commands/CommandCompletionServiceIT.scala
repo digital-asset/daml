@@ -16,10 +16,15 @@ import com.digitalasset.ledger.api.v1.command_completion_service.{
   Checkpoint,
   CompletionStreamRequest
 }
+import com.digitalasset.ledger.api.v1.commands.{
+  Command => ProtoCommand,
+  CreateCommand => ProtoCreateCommand
+}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
+import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.ledger.client.services.commands.CompletionStreamElement.{
   CheckpointElement,
   CompletionElement
@@ -29,10 +34,10 @@ import com.digitalasset.ledger.client.services.commands.{
   CompletionStreamElement
 }
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
-import com.digitalasset.platform.apitesting.MultiLedgerFixture
+import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestTemplateIds}
 import com.digitalasset.platform.services.time.TimeProviderType.WallClock
 import com.digitalasset.util.Ctx
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
@@ -44,16 +49,19 @@ class CommandCompletionServiceIT
     with AkkaBeforeAndAfterAll
     with Matchers
     with MultiLedgerFixture
-    with SuiteResourceManagementAroundAll {
+    with SuiteResourceManagementAroundAll
+    with OptionValues {
+
+  private[this] val templateIds = new TestTemplateIds(config).templateIds
 
   private def completionSource(
       completionService: CommandCompletionService,
       ledgerId: domain.LedgerId,
       applicationId: String,
       parties: Seq[String],
-      offset: LedgerOffset): Source[CompletionStreamElement, NotUsed] =
+      offset: Option[LedgerOffset]): Source[CompletionStreamElement, NotUsed] =
     CommandCompletionSource(
-      CompletionStreamRequest(ledgerId.unwrap, applicationId, parties, Some(offset)),
+      CompletionStreamRequest(ledgerId.unwrap, applicationId, parties, offset),
       completionService.completionStream)
 
   "Commands Completion Service" when {
@@ -79,7 +87,7 @@ class CommandCompletionServiceIT
             ctx.ledgerId,
             applicationId,
             Seq(party),
-            LedgerOffset(Boundary(LEDGER_BEGIN)))
+            Some(LedgerOffset(Boundary(LEDGER_BEGIN))))
 
         val recordTimes = completionService.collect {
           case CheckpointElement(Checkpoint(Some(recordTime), _)) => recordTime
@@ -107,7 +115,7 @@ class CommandCompletionServiceIT
               ctx.ledgerId,
               applicationId,
               configuredParties,
-              offset)
+              Some(offset))
               .sliding(2, 1)
               .map(_.toList)
               .collect {
@@ -153,6 +161,64 @@ class CommandCompletionServiceIT
             commandIds3 should not contain (commandIds1(0))
             commandIds3 should not contain (commandIds1(1))
           }
+      }
+
+      "implicitly tail the stream if no offset is passed" in allFixtures { ctx =>
+        // A command to create a Test.Dummy contract (see //ledger/sandbox/src/main/resources/damls/Test.daml)
+        val createDummyCommand = ProtoCommand(
+          ProtoCommand.Command.Create(
+            ProtoCreateCommand(
+              templateId = Some(templateIds.dummy),
+              createArguments = Some(
+                Record(
+                  fields = Seq(
+                    RecordField("operator", Some(Value(Value.Sum.Party(party))))
+                  )
+                ))
+            )))
+
+        // Issue the `createDummyCommand` to the ledger using the managed command client
+        def createDummy(id: String) =
+          for {
+            commandClient <- ctx.commandClient(ctx.ledgerId)
+            request = ctx.command(id, Seq(createDummyCommand))
+            _ <- commandClient.submitSingleCommand(request)
+          } yield ()
+
+        // Issues several `createDummyCommand`s
+        def createDummies(ids: List[String]) =
+          Future.sequence(ids.map(createDummy)).map(_ => ())
+
+        // Starts "tailing" the completions service and then issues one more command
+        def tailCompletionsAndConcurrentlyCreateDummyWithCommandId(id: String) = {
+          val completions = completionSource(
+            ctx.commandCompletionService,
+            ctx.ledgerId,
+            applicationId,
+            Seq(party),
+            offset = None).runWith(Sink.queue())
+          createDummy(id)
+          completions
+        }
+
+        // Issue 10 create commands, then listen from the ledger end (implicitly by passing no offset) and
+        // verify that the first received completion is for the last created contract
+
+        val arbitraryCommandIds = List.tabulate(10)(_.toString)
+        val targetCommandId = "the-one"
+
+        for {
+          () <- createDummies(arbitraryCommandIds)
+          completions <- tailCompletionsAndConcurrentlyCreateDummyWithCommandId(targetCommandId)
+            .pull()
+        } yield {
+          completions.value shouldBe a[CompletionElement]
+          completions.value
+            .asInstanceOf[CompletionElement]
+            .completion
+            .commandId shouldBe targetCommandId
+        }
+
       }
     }
   }
