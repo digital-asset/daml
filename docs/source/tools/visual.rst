@@ -12,11 +12,16 @@ You can generate visual graphs for the contracts in your DAML project. To do thi
 4. Generate the visual graph with Graphviz by running ``dot -Tpng <project_name>.dot > <project_name>.png``.
 
 
-Visual for Quickstart
-*********************
-1. Generate the dar using ``daml build``.
-2. Generate a dot file ``daml damlc visual dist/quickstart.dar --dot quickstart.dot``.
-3. Generate image ``dot -Tpng quickstart.dot quickstart.png``.
+Example: visualizing the Quickstart project
+*******************************************
+
+If you are working through :doc:`quickstart </getting-started/quickstart>` example you can generate a visual like this.
+
+1. Generate the dar using ``daml build``
+2. Generate a dot file ``daml damlc visual dist/quickstart.dar --dot quickstart.dot``
+3. Generate the visual graph with Graphviz by running ``dot -Tpng quickstart.dot quickstart.png``
+
+Running the above should produce an image which looks something like.
 
 
 .. image:: images/quickstart.png
