@@ -12,6 +12,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import Development.IDE.Core.OfInterest
+import Development.IDE.Types.Logger
 import DA.Daml.GHC.Compiler.Options
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import Development.IDE.Types.Location as Base
@@ -225,10 +226,14 @@ generatePackageMapRule opts =
     defineNoFile $ \GeneratePackageMap -> do
         (errs, res) <-
             liftIO $ generatePackageMap (optPackageDbs opts)
-        when (errs /= []) $
-            reportSeriousError $
-            "Rule GeneratePackageMap generated errors " ++ show errs
+        when (errs /= []) $ do
+            logger <- actionLogger
+            liftIO $ logError logger $ T.pack $
+                "Rule GeneratePackageMap generated errors\n" ++
+                "Options: " ++ show (optPackageDbs opts) ++ "\n" ++
+                "Errors:\n" ++ unlines (map show errs)
         return res
+
 
 generatePackageRule :: Rules ()
 generatePackageRule =

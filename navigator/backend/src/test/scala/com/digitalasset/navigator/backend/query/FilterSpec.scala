@@ -24,12 +24,13 @@ class FilterSpec extends FlatSpec with Matchers {
       C.simpleUnitT,
       false)
   )
-  val template = Template(C.complexRecordId, choices)
+  val template = Template(C.complexRecordId, choices, None)
   val contractId = ApiTypes.ContractId("ContractIou")
   val commandId = ApiTypes.CommandId("Cmd")
   val workflowId = ApiTypes.WorkflowId("Workflow")
 
-  val contract = Contract(contractId, template, C.complexRecordV, Some(""), List.empty, List.empty)
+  val contract =
+    Contract(contractId, template, C.complexRecordV, Some(""), List.empty, List.empty, None)
   val command =
     CreateCommand(commandId, 1, workflowId, Instant.EPOCH, template.id, C.complexRecordV)
 

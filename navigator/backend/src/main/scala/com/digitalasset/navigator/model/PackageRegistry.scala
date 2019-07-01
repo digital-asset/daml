@@ -21,7 +21,8 @@ case class PackageRegistry(
       t: DamlLfIface.DefTemplate[DamlLfIface.Type]
   ): Template = Template(
     DamlLfIdentifier(packageId, qname),
-    t.choices.toList.map(c => choice(c._1, c._2))
+    t.choices.toList.map(c => choice(c._1, c._2)),
+    t.key
   )
 
   private[this] def choice(

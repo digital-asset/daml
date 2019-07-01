@@ -32,12 +32,12 @@ module Development.IDE.Core.Shake(
     use_, uses_,
     define, defineEarlyCutoff,
     getDiagnostics, unsafeClearDiagnostics,
-    reportSeriousError,
     IsIdeGlobal, addIdeGlobal, getIdeGlobalState, getIdeGlobalAction,
     garbageCollect,
     setPriority,
     sendEvent,
     ideLogger,
+    actionLogger,
     FileVersion(..)
     ) where
 
@@ -237,25 +237,17 @@ shakeShut IdeState{..} = withVar shakeAbort $ \stop -> do
     stop
     shakeClose
 
--- | Spawn immediately, add an action to collect the results syncronously.
---   If you are already inside a call to shakeRun that will be aborted with an exception.
--- The callback will be fired as soon as the results are available
--- even if there are still other rules running while the IO action that is
--- being returned will wait for all rules to finish.
-shakeRun :: IdeState -> [Action a] -> ([a] -> IO ()) -> IO (IO [a])
+-- | Spawn immediately. If you are already inside a call to shakeRun that will be aborted with an exception.
+shakeRun :: IdeState -> [Action a] -> IO (IO [a])
 -- FIXME: If there is already a shakeRun queued up and waiting to send me a kill, I should probably
 --        not even start, which would make issues with async exceptions less problematic.
-shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts callback = modifyVar shakeAbort $ \stop -> do
+shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $ \stop -> do
     (stopTime,_) <- duration stop
     logDebug logger $ T.pack $ "Starting shakeRun (aborting the previous one took " ++ showDuration stopTime ++ ")"
     bar <- newBarrier
     start <- offsetTime
-    let act = do
-            res <- parallel acts
-            liftIO $ callback res
-            pure res
-    thread <- forkFinally (shakeRunDatabaseProfile shakeDb [act]) $ \res -> do
-        signalBarrier bar (mapRight head res)
+    thread <- forkFinally (shakeRunDatabaseProfile shakeDb acts) $ \res -> do
+        signalBarrier bar res
         runTime <- start
         logDebug logger $ T.pack $
             "Finishing shakeRun (took " ++ showDuration runTime ++ ", " ++ (if isLeft res then "exception" else "completed") ++ ")"
@@ -306,11 +298,6 @@ uses_ key files = do
     case sequence res of
         Nothing -> liftIO $ throwIO BadDependency
         Just v -> return v
-
-reportSeriousError :: String -> Action ()
-reportSeriousError t = do
-    ShakeExtras{logger} <- getShakeExtras
-    liftIO $ logSeriousError logger $ T.pack t
 
 
 -- | When we depend on something that reported an error, and we fail as a direct result, throw BadDependency
@@ -391,22 +378,26 @@ updateFileDiagnostics ::
   -> ShakeExtras
   -> [Diagnostic] -- ^ current results
   -> Action ()
-updateFileDiagnostics fp k ShakeExtras{diagnostics, state} current = do
-    (newDiags, oldDiags) <- liftIO $ do
-        modTime <- join <$> getValues state GetModificationTime fp
-        modifyVar diagnostics $ \old -> do
+updateFileDiagnostics fp k ShakeExtras{diagnostics, state, eventer} current = liftIO $ do
+    modTime <- join <$> getValues state GetModificationTime fp
+    mask_ $ do
+        -- Mask async exceptions to ensure that updated diagnostics are always
+        -- published. Otherwise, we might never publish certain diagnostics if
+        -- an exception strikes between modifyVar but before
+        -- publishDiagnosticsNotification.
+        (newDiags, oldDiags) <- modifyVar diagnostics $ \old -> do
             let oldDiags = getFileDiagnostics fp old
             let newDiagsStore = setStageDiagnostics fp (vfsVersion =<< modTime) (T.pack $ show k) current old
             let newDiags = getFileDiagnostics fp newDiagsStore
             pure (newDiagsStore, (newDiags, oldDiags))
-    when (newDiags /= oldDiags) $
-        sendEvent $ publishDiagnosticsNotification (fromNormalizedFilePath fp) newDiags
+        when (newDiags /= oldDiags) $
+            eventer $ publishDiagnosticsNotification fp newDiags
 
-publishDiagnosticsNotification :: FilePath -> [Diagnostic] -> LSP.FromServerMessage
+publishDiagnosticsNotification :: NormalizedFilePath -> [Diagnostic] -> LSP.FromServerMessage
 publishDiagnosticsNotification fp diags =
     LSP.NotPublishDiagnostics $
     LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
-    LSP.PublishDiagnosticsParams (LSP.filePathToUri fp) (List diags)
+    LSP.PublishDiagnosticsParams (fromNormalizedUri $ filePathToUri' fp) (List diags)
 
 setPriority :: (Enum a) => a -> Action ()
 setPriority p =
@@ -419,6 +410,11 @@ sendEvent e = do
 
 ideLogger :: IdeState -> Logger
 ideLogger IdeState{shakeExtras=ShakeExtras{logger}} = logger
+
+actionLogger :: Action Logger
+actionLogger = do
+    ShakeExtras{logger} <- getShakeExtras
+    return logger
 
 
 data GetModificationTime = GetModificationTime

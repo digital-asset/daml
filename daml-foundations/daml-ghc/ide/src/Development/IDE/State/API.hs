@@ -15,9 +15,7 @@ module Development.IDE.State.API
     , modifyOpenVirtualResources
     , setBufferModified
     , runAction
-    , runActions
     , runActionSync
-    , runActionsSync
     , writeProfile
     , getDiagnostics
     , unsafeClearDiagnostics

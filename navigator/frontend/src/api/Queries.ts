@@ -37,6 +37,7 @@ export interface ContractDetailsById_node_Contract {
   agreementText: string | null;
   signatories: string[];
   observers: string[];
+  key: OpaqueTypes.DamlLfValue | null;
   template: ContractDetailsById_node_Contract_template;
 }
 

@@ -14,12 +14,10 @@ import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.platform.apitesting.MultiLedgerFixture
+import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestIdsGenerator}
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{AsyncWordSpec, Matchers}
-
-import scala.util.Random
 
 class SandboxSemanticTestsLfRunner
     extends AsyncWordSpec
@@ -36,6 +34,7 @@ class SandboxSemanticTestsLfRunner
     Config.default
       .withDarFile(defaultDarFile.toPath)
       .withTimeProvider(TimeProviderType.StaticAllowBackwards)
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
   lazy val (mainPkgId, packages, darFile) = {
     val df = config.darFiles.head.toFile
@@ -47,13 +46,9 @@ class SandboxSemanticTestsLfRunner
   }
 
   s"a ledger launched with $darFile" should {
-    val runSuffix = "-" + Random.alphanumeric.take(10).mkString
-    val partyNameMangler =
-      (partyText: String) => partyText + runSuffix + Random.alphanumeric.take(10).mkString
-    val commandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
-      (scenario, stepId, nodeId) => {
-        s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
-      }
+    val scenarioCommandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
+      (scenario, stepId, nodeId) =>
+        testIdsGenerator.testCommandId(s"ledger-api-test-tool-$scenario-$stepId-${nodeId}")
     for {
       (pkgId, names) <- SemanticTester.scenarios(Map(mainPkgId -> packages(mainPkgId))) // we only care about the main pkg
       name <- names
@@ -70,8 +65,8 @@ class SandboxSemanticTestsLfRunner
                 commandSubmissionTtlScaleFactor = config.commandSubmissionTtlScaleFactor),
             pkgId,
             packages,
-            partyNameMangler,
-            commandIdMangler
+            testIdsGenerator.testPartyName,
+            scenarioCommandIdMangler
           ).testScenario(name)
         } yield succeed
       }

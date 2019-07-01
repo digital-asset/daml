@@ -27,29 +27,33 @@
 # be resolvable from external workspaces otherwise.
 
 rules_scala_version = "78104d8014d4e4fc8f905cd34b91dfabd9a268c8"
-rules_haskell_version = "1abeb655147459dfc60eddf556914699d1630d86"
-rules_haskell_sha256 = "d8d4f5247e59182b1c5ce3c19d2f48f0b6fbbbc9b16b2e37dd53533c4f258ba3"
+rules_haskell_version = "0cdcbcdb99f7799ee6e175854cb660cd4a6c1ac9"
+rules_haskell_sha256 = "85d981d07ad973f9ef154baff223b1a837f315473594eb277244dd2cfdc66205"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 def daml_deps():
     if "io_tweag_rules_haskell" not in native.existing_rules():
+        http_file(
+            name = "haskell_static_ghc_patch",
+            urls = ["https://github.com/tweag/rules_haskell/commit/819c4847dcc00fbf0563227b80e08b9ccef9dbc0.patch"],
+            sha256 = "f2d56f9d7b7fd17c0f033404ee5f6ad6bc5bc69744fd13134c965bbfc2c42514",
+        )
         http_archive(
             name = "io_tweag_rules_haskell",
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [
-                "@com_github_digital_asset_daml//bazel_tools:haskell-static-linking.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-package-env.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-keep-hs-extra-libs.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-darwin-symlink-dylib.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
-                # XXX: Remove once rules_haskell is upgraded to include
-                #   https://github.com/tweag/rules_haskell/pull/950 and
-                #   https://github.com/tweag/rules_haskell/pull/952
-                "@com_github_digital_asset_daml//bazel_tools:haskell_ghci_repl_toolchain_lib.patch",
+                # XXX: Remove once upstream PR was merged and we've updated to
+                # Bazel 0.27. https://github.com/tweag/rules_haskell/pull/970
+                "@haskell_static_ghc_patch//file:downloaded",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,

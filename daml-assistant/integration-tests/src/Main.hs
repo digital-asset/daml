@@ -52,13 +52,18 @@ main =
 tests :: FilePath -> FilePath -> TestTree
 tests damlDir tmpDir = testGroup "Integration tests"
     [ testCase "install" $ do
-          releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
-          createDirectory tarballDir
-          runConduitRes
-              $ sourceFileBS releaseTarball
-              .| Zlib.ungzip
-              .| Tar.Conduit.untar (Tar.Conduit.restoreFile throwError tarballDir)
-          callProcessQuiet (tarballDir </> "daml" </> damlInstallerName) ["install", "--activate", "--set-path=no", tarballDir]
+        releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
+        createDirectory tarballDir
+        runConduitRes
+            $ sourceFileBS releaseTarball
+            .| Zlib.ungzip
+            .| Tar.Conduit.untar (Tar.Conduit.restoreFile throwError tarballDir)
+        if isWindows
+            then callProcessQuiet
+                (tarballDir </> "daml" </> damlInstallerName)
+                ["install", "--install-assistant=yes", "--set-path=no", tarballDir]
+            else runCreateProcessQuiet
+                (shell (tarballDir </> "install.sh"))
     , testCase "daml version" $ callProcessQuiet damlName ["version"]
     , testCase "daml --help" $ callProcessQuiet damlName ["--help"]
     , testCase "daml new --list" $ callProcessQuiet damlName ["new", "--list"]
@@ -91,7 +96,7 @@ noassistantTests damlDir = testGroup "no assistant"
               , "a : ()"
               , "a = ()"
               ]
-          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "da-hs-damlc-app"
+          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc-app"
           callProcess damlcPath ["build", "--project-root", projDir, "--init-package-db", "no"]
     ]
 
@@ -100,8 +105,8 @@ packagingTests tmpDir = testGroup "packaging"
     [ testCaseSteps "Build package with dependency" $ \step -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
-        let aDar = projectA </> "dist" </> "a.dar"
-        let bDar = projectB </> "dist" </> "b.dar"
+        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "A.daml") $ unlines
@@ -166,7 +171,7 @@ packagingTests tmpDir = testGroup "packaging"
           , "  - daml-stdlib"
           ]
         withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
-        let dar = projDir </> "dist" </> "proj.dar"
+        let dar = projDir </> ".daml" </> "dist" </> "proj.dar"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         -- Note that we really want a forward slash here instead of </> since filepaths in
@@ -191,17 +196,16 @@ packagingTests tmpDir = testGroup "packaging"
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
         let projectMigrate = tmpDir </> "migrateAB"
-        let aDar = projectA </> "dist" </> "a.dar"
-        let bDar = projectB </> "dist" </> "b.dar"
+        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
             [ "{-# LANGUAGE EmptyCase #-}"
             , "daml 1.2"
             , "module Main where"
-            , "import DA.Generics"
             , "data OnlyA"
-            , "data Both deriving Generic"
+            , "data Both"
             , "template Foo"
             , "  with"
             , "    a : Int"
@@ -267,8 +271,9 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess ((proc damlName ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }) $
-              \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
+          let sandboxProc = (proc damlName ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }
+          withCreateProcess sandboxProc  $
+              \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
               addr : _ <- getAddrInfo
                   (Just socketHints)
@@ -278,7 +283,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
                   (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
                   close
                   (\s -> connect s (addrAddress addr))
-              -- waitForProcess' will block on Windows so we explicitely kill the process.
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
     ] <>
     -- The mvn tests seem to fail on Windows for some reason so for now we disable them.
@@ -296,12 +301,14 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess ((proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", "target/daml/iou.dar"]) { std_out = UseHandle devNull1 }) $
-              \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
+          let sandboxProc = (proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", "target/daml/iou.dar"]) { std_out = UseHandle devNull1 }
+          withCreateProcess sandboxProc $
+              \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
               restPort :: Int <- fromIntegral <$> getFreePort
-              withCreateProcess ((proc "mvn" [mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }) $
-                  \_ _ _ ph -> race_ (waitForProcess' "mvn" [] ph) $ do
+              let mavenProc = (proc "mvn" [mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }
+              withCreateProcess mavenProc $
+                  \_ _ _ ph -> race_ (waitForProcess' mavenProc ph) $ do
                   let url = "http://localhost:" <> show restPort <> "/iou"
                   waitForHttpServer (threadDelay 1000000) url
                   threadDelay 5000000
@@ -311,9 +318,9 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
                   resp <- httpLbs req manager
                   responseBody resp @?=
                       "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0,\"observers\":[]}}"
-                  -- waitForProcess' will block on Windows so we explicitely kill the process.
+                  -- waitForProcess' will block on Windows so we explicitly kill the process.
                   terminateProcess ph
-              -- waitForProcess' will block on Windows so we explicitely kill the process.
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
     ]
     where
@@ -361,13 +368,18 @@ damlInstallerName
     | otherwise = "daml"
 
 -- | Like call process but hides stdout.
-callProcessQuiet :: FilePath -> [String] -> IO ()
-callProcessQuiet cmd args = do
-    (exit, _out, err) <- readCreateProcessWithExitCode (proc cmd args) ""
+runCreateProcessQuiet :: CreateProcess -> IO ()
+runCreateProcessQuiet createProcess = do
+    (exit, _out, err) <- readCreateProcessWithExitCode createProcess ""
     hPutStr stderr err
-    unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit cmd args
+    unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit createProcess
 
-data ProcessExitFailure = ProcessExitFailure !ExitCode !FilePath ![String]
+-- | Like call process but hides stdout.
+callProcessQuiet :: FilePath -> [String] -> IO ()
+callProcessQuiet cmd args =
+    runCreateProcessQuiet (proc cmd args)
+
+data ProcessExitFailure = ProcessExitFailure !ExitCode !CreateProcess
     deriving (Show, Typeable)
 
 instance Exception ProcessExitFailure
@@ -396,10 +408,10 @@ socketHints :: AddrInfo
 socketHints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
 
 -- | Like waitForProcess' but throws ProcessExitFailure if the process fails to start.
-waitForProcess' :: String -> [String] -> ProcessHandle -> IO ()
-waitForProcess' cmd args ph = do
+waitForProcess' :: CreateProcess -> ProcessHandle -> IO ()
+waitForProcess' cp ph = do
     e <- waitForProcess ph
-    unless (e == ExitSuccess) $ throwIO $ ProcessExitFailure e cmd args
+    unless (e == ExitSuccess) $ throwIO $ ProcessExitFailure e cp
 
 -- | Getting a dev-null handle in a cross-platform way seems to be somewhat tricky so we instead
 -- use a temporary file.

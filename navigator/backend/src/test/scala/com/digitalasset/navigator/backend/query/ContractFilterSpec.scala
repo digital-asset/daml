@@ -42,13 +42,31 @@ class ContractFilterSpec extends FlatSpec with Matchers {
           .assertFromString("int") -> DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
       )))
 
+  val damlLfIdKey = DamlLfIdentifier(
+    DamlLfRef.PackageId.assertFromString("hash"),
+    DamlLfQualifiedName(
+      DamlLfDottedName.assertFromString("module"),
+      DamlLfDottedName.assertFromString("K1")))
+
+  val damlLfRecordKey = DamlLfDefDataType(
+    DamlLfImmArraySeq(),
+    DamlLfRecord(
+      DamlLfImmArraySeq(
+        DamlLfRef.Name
+          .assertFromString("foo") -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
+      )))
+
+  val damlLfKeyType =
+    DamlLfTypeCon(DamlLfTypeConName(damlLfIdKey), DamlLfImmArraySeq.empty[DamlLfType])
+
   val damlLfDefDataTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
     damlLfId0 -> damlLfRecord0,
-    damlLfId1 -> damlLfRecord1
+    damlLfId1 -> damlLfRecord1,
+    damlLfIdKey -> damlLfRecordKey
   )
 
-  val template1 = Template(damlLfId0, List.empty)
-  val template2 = Template(damlLfId1, List.empty)
+  val template1 = Template(damlLfId0, List.empty, None)
+  val template2 = Template(damlLfId1, List.empty, Some(damlLfKeyType))
 
   val alice = ApiTypes.Party("Alice")
   val bob = ApiTypes.Party("Bob")
@@ -60,21 +78,25 @@ class ContractFilterSpec extends FlatSpec with Matchers {
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
     None,
     List(alice),
-    List(bob, charlie))
+    List(bob, charlie),
+    None)
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
     ApiRecord(None, List(ApiRecordField("int", ApiInt64(12)))),
     Some(""),
     List(alice),
-    List(bob, charlie))
+    List(bob, charlie),
+    Some(ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))))
+  )
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
     Some("agreement"),
     List(alice),
-    List(bob, charlie))
+    List(bob, charlie),
+    None)
 
   val templates = List(template1, template2)
   val contracts = List(contract1, contract2, contract3)
@@ -109,6 +131,8 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   testAnd(List("template.parameter.int" -> "int64"), List(contract2))
   testAnd(List("template.topLevelDecl" -> template1.topLevelDecl), List(contract1, contract3))
   testAnd(List("argument.foo" -> "bar", "argument.int" -> "1"), Nil)
+  testAnd(List("key.foo" -> "nope"), Nil)
+  testAnd(List("key.foo" -> "bar"), List(contract2))
 
   testOr(List("argument.foo" -> "bar", "argument.int" -> "1"), contracts)
 

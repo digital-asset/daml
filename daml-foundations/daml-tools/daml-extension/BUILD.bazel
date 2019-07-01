@@ -60,10 +60,15 @@ pkg_tar(
 # the tarball to get rid of the `.`.
 genrule(
     name = "dist",
-    srcs = [":dot-dist"],
+    srcs = [
+        ":dot-dist",
+        "//:VERSION",
+    ],
     outs = ["dist.tar.gz"],
     cmd = """
-        tar zxf $<
+        tar zxf $(location :dot-dist)
+        VERSION=$$(cat $(location //:VERSION))
+        sed -i "s/__VERSION__/$$VERSION/" daml-extension/package.json
         tar zcf $@ daml-extension
     """,
 )

@@ -12,6 +12,7 @@ load(
 )
 
 dependencies = [
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
     "//ledger-api/testing-utils",
     "//ledger-api/rs-grpc-bridge",
     "//ledger-api/rs-grpc-akka",

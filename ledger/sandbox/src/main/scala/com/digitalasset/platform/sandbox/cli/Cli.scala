@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.cli
 import java.io.File
 import java.time.Duration
 
+import ch.qos.logback.classic.Level
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
@@ -13,8 +14,9 @@ import com.digitalasset.platform.sandbox.BuildInfo
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType
 import scopt.Read
-
 import com.digitalasset.ledger.api.domain.LedgerId
+
+import scala.util.Try
 
 // NOTE:
 // The config object should not expose Options for mandatory fields as such
@@ -83,8 +85,9 @@ object Cli {
     arg[File]("<archive>...")
       .optional()
       .unbounded()
+      .validate(f => Either.cond(checkIfZip(f), (), s"Invalid dar file: ${f.getName}"))
       .action((f, c) => c.copy(damlPackages = f :: c.damlPackages))
-      .text("Daml archives to load. Either in .dar or .dalf format. Only DAML-LF v1 Archives are currently supported.")
+      .text("DAML archives to load in .dar format. Only DAML-LF v1 Archives are currently supported.")
 
     opt[String]("pem")
       .optional()
@@ -127,6 +130,14 @@ object Cli {
         .action((id, c) => c.copy(ledgerIdMode = LedgerIdMode.Static(LedgerId(Ref.LedgerString.assertFromString(id)))))
       .text("Sandbox ledger ID. If missing, a random unique ledger ID will be used. Only useful with persistent stores.")
 
+    val knownLevels = Set("ERROR", "WARN", "INFO", "DEBUG", "TRACE")
+
+    opt[String]("log-level")
+      .optional()
+      .validate(l => Either.cond(knownLevels.contains(l.toUpperCase), (), s"Unrecognized logging level $l"))
+      .action((level, c) => c.copy(logLevel = Level.toLevel(level.toUpperCase)))
+      .text("Default logging level to use. Available values are INFO, TRACE, DEBUG, WARN, and ERROR. Defaults to INFO.")
+
     opt[Unit]("eager-package-loading")
         .optional()
         .text("Whether to load all the packages in the .dar files provided eagerly, rather than when needed as the commands come.")
@@ -145,6 +156,16 @@ object Cli {
     if (c.timeProviderType != TimeProviderType.default)
       throw new IllegalArgumentException(
         "Error: -w and -o options may not be used together (time mode must be unambiguous).")
+  }
+
+  private def checkIfZip(f: File): Boolean = {
+    import java.io.RandomAccessFile
+    Try {
+      val raf = new RandomAccessFile(f, "r")
+      val n = raf.readInt
+      raf.close()
+      (n == 0x504B0304) //non-empty, non-spanned ZIPs are always beginning with this
+    }.getOrElse(false)
   }
 
   def parse(args: Array[String]): Option[SandboxConfig] =

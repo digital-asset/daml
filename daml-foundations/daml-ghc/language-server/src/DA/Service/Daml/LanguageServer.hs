@@ -47,20 +47,20 @@ setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
         case _method of
             CustomClientMethod "daml/keepAlive" ->
                 maybe (return ()) ($ msg) $
-                withResponse RspCustomServer (\_ _ -> return Aeson.Null)
+                withResponse RspCustomServer (\_ _ _ -> return Aeson.Null)
             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
     }
 
 setHandlersVirtualResource :: PartialHandlers
 setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
     {LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler x) $
-        \ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
+        \_ ide (DidOpenTextDocumentParams TextDocumentItem{_uri}) ->
             withUriDaml _uri $ \vr -> do
                 logInfo (ideLogger ide) $ "Opened virtual resource NEIL: " <> textShow vr
                 modifyOpenVirtualResources ide (S.insert vr)
 
     ,LSP.didCloseTextDocumentNotificationHandler = withNotification (LSP.didCloseTextDocumentNotificationHandler x) $
-        \ide (DidCloseTextDocumentParams TextDocumentIdentifier{_uri}) -> do
+        \_ ide (DidCloseTextDocumentParams TextDocumentIdentifier{_uri}) -> do
             withUriDaml _uri $ \vr -> do
                 logInfo (ideLogger ide) $ "Closed virtual resource: " <> textShow vr
                 modifyOpenVirtualResources ide (S.delete vr)

@@ -65,6 +65,7 @@ abstract class CommandTransactionChecks
 
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
   override protected def config: Config = Config.default
 
@@ -104,8 +105,6 @@ abstract class CommandTransactionChecks
 
   private val emptyRecordValue = Value(Value.Sum.Record(Record()))
 
-  private val runSuffix = UUID.randomUUID()
-
   def assertCompletionIsSuccessful(completion: Completion): Assertion = {
     inside(completion) {
       case c => c.getStatus should have('code (0))
@@ -116,7 +115,7 @@ abstract class CommandTransactionChecks
     "reading completions" should {
       "return the completion of submitted commands for the submitting application" in allFixtures {
         ctx =>
-          val commandId = s"Submitting_application_sees_this-$runSuffix"
+          val commandId = testIdsGenerator.testCommandId("Submitting_application_sees_this")
           val request = createCommandWithId(ctx, commandId)
           for {
             commandClient <- ctx.commandClient()
@@ -133,7 +132,7 @@ abstract class CommandTransactionChecks
       }
 
       "not expose completions of submitted commands to other applications" in allFixtures { ctx =>
-        val commandId = s"The_other_application_does_not_see_this-$runSuffix"
+        val commandId = testIdsGenerator.testCommandId("The_other_application_does_not_see_this")
         val request = createCommandWithId(ctx, commandId)
         for {
           commandClient <- ctx.commandClient()
@@ -152,7 +151,7 @@ abstract class CommandTransactionChecks
       "not expose completions of submitted commands to the application if it down't include the submitting party" in allFixtures {
         ctx =>
           val commandId =
-            s"The_application_should_subscribe_with_the_submitting_party_to_see_this-$runSuffix"
+            testIdsGenerator.testCommandId("The_application_should_subscribe_with_the_submitting_party_to_see_this")
           val request = createCommandWithId(ctx, commandId)
           for {
             commandClient <- ctx.commandClient()
@@ -176,15 +175,15 @@ abstract class CommandTransactionChecks
           // note that the submitting party is not a stakeholder in any event,
           // so this test relies on the sandbox exposing the transactions to the
           // submitter.
-          val factoryCreation = s"Creating_factory_Trees-$runSuffix"
-          val exercisingChoice = s"Exercising_choice_on_factory_Trees-$runSuffix"
+          val factoryCreation = testIdsGenerator.testCommandId("Creating_factory_Trees")
+          val exercisingChoice = testIdsGenerator.testCommandId("Exercising_choice_on_factory_Trees")
           for {
             factoryContractId <- findCreatedEventInResultOf(
               ctx,
               factoryCreation,
               templateIds.dummyFactory)
             transaction <- ctx.testingHelpers.submitAndListenForSingleTreeResultOfCommand(
-              requestToCallExerciseWithId(ctx, factoryContractId.contractId, s"$exercisingChoice-$runSuffix"),
+              requestToCallExerciseWithId(ctx, factoryContractId.contractId, testIdsGenerator.testCommandId(exercisingChoice)),
               getAllContracts)
           } yield {
             val exercisedEvent = ctx.testingHelpers.topLevelExercisedIn(transaction).head
@@ -248,7 +247,7 @@ abstract class CommandTransactionChecks
       }
 
       "run callable payout and return the right events" in allFixtures { ctx =>
-        val commandId = s"callable_payout_command-$runSuffix"
+        val commandId = testIdsGenerator.testCommandId("callable_payout_command")
         val arg = Record(
           Some(templateIds.callablePayout),
           List(
@@ -292,7 +291,7 @@ abstract class CommandTransactionChecks
       "expose transactions to non-submitting stakeholders without the commandId" in allFixtures { ctx =>
         val receiver = "receiver"
         val giver = "giver"
-        val commandId = s"Testing_if_non-submitting_stakeholder_sees_the_commandId-$runSuffix"
+        val commandId = testIdsGenerator.testCommandId("Testing_if_non-submitting_stakeholder_sees_the_commandId")
         val createCmd = createAgreementFactory(ctx, receiver, giver, commandId)
         ctx.testingHelpers.submitAndListenForSingleResultOfCommand(
           createCmd,
@@ -307,12 +306,12 @@ abstract class CommandTransactionChecks
         for {
           agreement <- createAgreement(ctx, "MA1", receiver, giver)
           triProposal <- ctx.testingHelpers.simpleCreate(
-            s"MA1proposal-$runSuffix",
+            testIdsGenerator.testCommandId("MA1proposal"),
             operator,
             templateIds.triProposal,
             triProposalArg)
           tx <- ctx.testingHelpers.simpleExercise(
-            s"MA1acceptance-$runSuffix",
+            testIdsGenerator.testCommandId("MA1acceptance"),
             giver,
             templateIds.agreement,
             agreement.contractId,
@@ -337,12 +336,12 @@ abstract class CommandTransactionChecks
         val triProposalArg = mkTriProposalArg(operator, giver, giver)
         for {
           triProposal <- ctx.testingHelpers.simpleCreate(
-            s"MA2proposal-$runSuffix",
+            testIdsGenerator.testCommandId("MA2proposal"),
             operator,
             templateIds.triProposal,
             triProposalArg)
           tx <- ctx.testingHelpers.simpleExercise(
-            s"MA2acceptance-$runSuffix",
+            testIdsGenerator.testCommandId("MA2acceptance"),
             giver,
             templateIds.triProposal,
             triProposal.contractId,
@@ -365,19 +364,19 @@ abstract class CommandTransactionChecks
         val triProposalArg = mkTriProposalArg(operator, receiver, giver)
         for {
           triProposal <- ctx.testingHelpers.simpleCreate(
-            s"MA3proposal-$runSuffix",
+            testIdsGenerator.testCommandId("MA3proposal"),
             operator,
             templateIds.triProposal,
             triProposalArg)
           assertion <- ctx.testingHelpers.failingExercise(
-            s"MA3acceptance-$runSuffix",
+            testIdsGenerator.testCommandId("MA3acceptance"),
             giver,
             templateIds.triProposal,
             triProposal.contractId,
             "TriProposalAccept",
             emptyRecordValue,
             Code.INVALID_ARGUMENT,
-            "requires controllers"
+            "requires authorizers"
           )
         } yield {
           assertion
@@ -392,14 +391,14 @@ abstract class CommandTransactionChecks
       "reject exercising a multi-actor choice with too many authorizers" ignore allFixtures { ctx =>
         val triProposalArg = mkTriProposalArg(operator, giver, giver)
         for {
-          agreement <- createAgreement(ctx, s"MA4-$runSuffix", receiver, giver)
+          agreement <- createAgreement(ctx, testIdsGenerator.testCommandId("MA4"), receiver, giver)
           triProposal <- ctx.testingHelpers.simpleCreate(
-            s"MA4proposal-$runSuffix",
+            testIdsGenerator.testCommandId("MA4proposal"),
             operator,
             templateIds.triProposal,
             triProposalArg)
           assertion <- ctx.testingHelpers.failingExercise(
-            s"MA4acceptance-$runSuffix",
+            testIdsGenerator.testCommandId("MA4acceptance"),
             giver,
             templateIds.agreement,
             agreement.contractId,
@@ -424,17 +423,17 @@ abstract class CommandTransactionChecks
           pf("delegate", delegate)
         )
         val delegatedCreate = ctx.testingHelpers.simpleCreate(
-          s"SDVl3-$runSuffix",
+          testIdsGenerator.testCommandId("SDVl3"),
           owner,
           templateIds.delegated,
           Record(Some(templateIds.delegated), Seq(pf("owner", owner), RecordField(value = Some(Value(Value.Sum.Text(key)))))))
         val delegationCreate = ctx.testingHelpers.simpleCreate(
-          s"SDVl4-$runSuffix",
+          testIdsGenerator.testCommandId("SDVl4"),
           owner,
           templateIds.delegation,
           Record(Some(templateIds.delegation), odArgs))
         val showIdCreate = ctx.testingHelpers.simpleCreate(
-          s"SDVl5-$runSuffix",
+          testIdsGenerator.testCommandId("SDVl5"),
           owner,
           templateIds.showDelegated,
           Record(Some(templateIds.showDelegated), odArgs))
@@ -457,7 +456,7 @@ abstract class CommandTransactionChecks
             )
           )
           _ <- ctx.testingHelpers.simpleExercise(
-            s"SDVl6-$runSuffix",
+            testIdsGenerator.testCommandId("SDVl6"),
             submitter = owner,
             template = templateIds.showDelegated,
             contractId = showIdEv.contractId,
@@ -465,7 +464,7 @@ abstract class CommandTransactionChecks
             arg = Value(Value.Sum.Record(fetchArg)),
           )
           _ <- ctx.testingHelpers.simpleExercise(
-            s"SDVl7-$runSuffix",
+            testIdsGenerator.testCommandId("SDVl7"),
             submitter = delegate,
             template = templateIds.delegation,
             contractId = delegationEv.contractId,
@@ -473,7 +472,7 @@ abstract class CommandTransactionChecks
             arg = Value(Value.Sum.Record(fetchArg)),
           )
           _ <- ctx.testingHelpers.simpleExercise(
-            s"SDVl8-$runSuffix",
+            testIdsGenerator.testCommandId("SDVl8"),
             submitter = delegate,
             template = templateIds.delegation,
             contractId = delegationEv.contractId,
@@ -490,12 +489,12 @@ abstract class CommandTransactionChecks
         // unique keys. This is not so great though, it'd be better to have a clean environment.
         val key = s"${UUID.randomUUID.toString}-key"
         val delegatedCreate = ctx.testingHelpers.simpleCreate(
-          s"TDVl3-$runSuffix",
+          testIdsGenerator.testCommandId("TDVl3"),
           owner,
           templateIds.delegated,
           Record(Some(templateIds.delegated), Seq(pf("owner", owner), RecordField(value = Some(Value(Value.Sum.Text(key)))))))
         val delegationCreate = ctx.testingHelpers.simpleCreate(
-          s"TDVl4-$runSuffix",
+          testIdsGenerator.testCommandId("TDVl4"),
           owner,
           templateIds.delegation,
           Record(Some(templateIds.delegation), Seq(pf("owner", owner), pf("delegate", delegate))))
@@ -517,7 +516,7 @@ abstract class CommandTransactionChecks
             )
           )
           fetchResult <- ctx.testingHelpers.failingExercise(
-            s"TDVl5-$runSuffix",
+            testIdsGenerator.testCommandId("TDVl5"),
             submitter = delegate,
             template = templateIds.delegation,
             contractId = delegationEv.contractId,
@@ -527,7 +526,7 @@ abstract class CommandTransactionChecks
             pattern = "dependency error: couldn't find contract"
           )
           _ <- ctx.testingHelpers.simpleExercise(
-            s"TDVl6-$runSuffix",
+            testIdsGenerator.testCommandId("TDVl6"),
             submitter = delegate,
             template = templateIds.delegation,
             contractId = delegationEv.contractId,
@@ -538,7 +537,7 @@ abstract class CommandTransactionChecks
       }
 
       "DAML engine returns Unit as argument to Nothing" in allFixtures { ctx =>
-        val commandId = s"Creating_contract_with_a_Nothing_argument-$runSuffix"
+        val commandId = testIdsGenerator.testCommandId("Creating_contract_with_a_Nothing_argument")
 
         val variantId = None
 
@@ -597,7 +596,7 @@ abstract class CommandTransactionChecks
             f flatMap { _ =>
               for {
                 withObservers <- ctx.testingHelpers.simpleCreateWithListener(
-                  s"Obs1create:$observer-$runSuffix",
+                  testIdsGenerator.testCommandId(s"Obs1create:$observer"),
                   giver,
                   observer,
                   templateIds.withObservers,
@@ -619,12 +618,12 @@ abstract class CommandTransactionChecks
             f flatMap { _ =>
               for {
                 withObservers <- ctx.testingHelpers.simpleCreate(
-                  s"Obs2create:$observer-$runSuffix",
+                  testIdsGenerator.testCommandId(s"Obs2create:$observer"),
                   giver,
                   templateIds.withObservers,
                   withObserversArg)
                 tx <- ctx.testingHelpers.simpleExerciseWithListener(
-                  s"Obs2exercise:$observer-$runSuffix",
+                  testIdsGenerator.testCommandId(s"Obs2exercise:$observer"),
                   giver,
                   observer,
                   templateIds.withObservers,
@@ -659,14 +658,14 @@ abstract class CommandTransactionChecks
           Value(Value.Sum.Record(Record(fields = List(RecordField(value = p.asParty), RecordField(value = s"$keyPrefix-$k".asText)))))
         for {
           cid1 <- ctx.testingHelpers.simpleCreate(
-            s"CK-test-cid1-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-cid1"),
             alice,
             templateIds.textKey,
             textKeyRecord(alice, key, List(bob))
           )
           // duplicate keys are not ok
           _ <- ctx.testingHelpers.failingCreate(
-             s"CK-test-duplicate-key-$runSuffix",
+             testIdsGenerator.testCommandId("CK-test-duplicate-key"),
              alice,
              templateIds.textKey,
              textKeyRecord(alice, key, List(bob)),
@@ -675,12 +674,12 @@ abstract class CommandTransactionChecks
            )
           // create handles to perform lookups / fetches
           aliceTKO <- ctx.testingHelpers.simpleCreate(
-              s"CK-test-aliceTKO-$runSuffix",
+              testIdsGenerator.testCommandId("CK-test-aliceTKO"),
               alice,
               templateIds.textKeyOperations,
               Record(fields = List(RecordField(value = alice.asParty))))
           bobTKO <- ctx.testingHelpers.simpleCreate(
-              s"CK-test-bobTKO-$runSuffix",
+              testIdsGenerator.testCommandId("CK-test-bobTKO"),
               bob,
               templateIds.textKeyOperations,
               Record(fields = List(RecordField(value = bob.asParty)))
@@ -690,7 +689,7 @@ abstract class CommandTransactionChecks
           lookupNone = Value(Value.Sum.Optional(Optional(None)))
           lookupSome = (cid: String) => Value(Value.Sum.Optional(Optional(Some(cid.asContractId))))
           _ <- ctx.testingHelpers.failingExercise(
-            s"CK-test-bob-unauthorized-1-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-bob-unauthorized-1"),
             bob,
             templateIds.textKeyOperations,
             bobTKO.contractId,
@@ -704,7 +703,7 @@ abstract class CommandTransactionChecks
           )
           // ..and non-existing ones
           _ <- ctx.testingHelpers.failingExercise(
-            s"CK-test-bob-unauthorized-2-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-bob-unauthorized-2"),
             bob,
             templateIds.textKeyOperations,
             bobTKO.contractId,
@@ -718,7 +717,7 @@ abstract class CommandTransactionChecks
             "requires authorizers")
           // successful, authorized lookup
           _ <- ctx.testingHelpers.simpleExercise(
-            s"CK-test-alice-lookup-found-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-alice-lookup-found"),
             alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
@@ -730,7 +729,7 @@ abstract class CommandTransactionChecks
                   RecordField(value = lookupSome(cid1.contractId)))))))
           // successful fetch
           _ <- ctx.testingHelpers.simpleExercise(
-            s"CK-test-alice-fetch-found-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-alice-fetch-found"),
             alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
@@ -742,7 +741,7 @@ abstract class CommandTransactionChecks
                   RecordField(value = cid1.contractId.asContractId))))))
           // failing, authorized lookup
           _ <- ctx.testingHelpers.simpleExercise(
-            s"CK-test-alice-lookup-not-found-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-alice-lookup-not-found"),
             alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
@@ -754,7 +753,7 @@ abstract class CommandTransactionChecks
                   RecordField(value = lookupNone))))))
           // failing fetch
           _ <- ctx.testingHelpers.failingExercise(
-            s"CK-test-alice-fetch-not-found-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-alice-fetch-not-found"),
             alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
@@ -769,14 +768,14 @@ abstract class CommandTransactionChecks
           // now we exercise the contract, thus archiving it, and then verify
           // that we cannot look it up anymore
           _ <- ctx.testingHelpers.simpleExercise(
-            s"CK-test-alice-consume-cid1-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-alice-consume-cid1"),
             alice,
             templateIds.textKey,
             cid1.contractId,
             "TextKeyChoice",
             emptyRecordValue)
           _ <- ctx.testingHelpers.simpleExercise(
-            s"CK-test-alice-lookup-after-consume-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-alice-lookup-after-consume"),
             alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
@@ -787,13 +786,13 @@ abstract class CommandTransactionChecks
                   RecordField(value = textKeyKey(alice, key)),
                   RecordField(value = lookupNone))))))
           cid2 <- ctx.testingHelpers.simpleCreate(
-            s"CK-test-cid2-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-cid2"),
             alice,
             templateIds.textKey,
             textKeyRecord(alice, "test-key-2", List(bob))
           )
           _ <- ctx.testingHelpers.simpleExercise(
-            s"CK-test-alice-consume-and-lookup-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-alice-consume-and-lookup"),
             alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
@@ -806,7 +805,7 @@ abstract class CommandTransactionChecks
           )
           // failing create when a maintainer is not a signatory
           _ <- ctx.testingHelpers.failingCreate(
-            s"CK-test-alice-create-maintainer-not-signatory-$runSuffix",
+            testIdsGenerator.testCommandId("CK-test-alice-create-maintainer-not-signatory"),
             alice,
             templateIds.maintainerNotSignatory,
             Record(fields = List(RecordField(value = alice.asParty), RecordField(value = bob.asParty))),
@@ -821,7 +820,7 @@ abstract class CommandTransactionChecks
         val alice = "Alice"
         for {
           _ <- ctx.testingHelpers.failingCreate(
-            s"Decimal-scale-$runSuffix",
+            testIdsGenerator.testCommandId("Decimal-scale"),
             alice,
             templateIds.decimalRounding,
             Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("0.00000000005".asDecimal)))),
@@ -829,7 +828,7 @@ abstract class CommandTransactionChecks
             "Could not read Decimal string"
           )
           _ <- ctx.testingHelpers.failingCreate(
-            s"Decimal-bounds-positive-$runSuffix",
+            testIdsGenerator.testCommandId("Decimal-bounds-positive"),
             alice,
             templateIds.decimalRounding,
             Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("10000000000000000000000000000.0000000000".asDecimal)))),
@@ -837,7 +836,7 @@ abstract class CommandTransactionChecks
             "Could not read Decimal string"
           )
           _ <- ctx.testingHelpers.failingCreate(
-            s"Decimal-bounds-negative-$runSuffix",
+            testIdsGenerator.testCommandId("Decimal-bounds-negative"),
             alice,
             templateIds.decimalRounding,
             Record(fields = List(RecordField(value = Some(alice.asParty)), RecordField(value = Some("-10000000000000000000000000000.0000000000".asDecimal)))),
@@ -865,7 +864,7 @@ abstract class CommandTransactionChecks
           Value(Value.Sum.Record(Record(fields = List(RecordField(value = p.asParty), RecordField(value = s"$keyPrefix-$k".asText)))))
         for {
           _ <- ctx.testingHelpers.failingExerciseByKey(
-            s"EK-test-alice-exercise-before-create-$runSuffix",
+            testIdsGenerator.testCommandId("EK-test-alice-exercise-before-create"),
             alice,
             templateIds.textKey,
             textKeyKey(alice, key),
@@ -875,7 +874,7 @@ abstract class CommandTransactionChecks
             "couldn't find key"
           )
           _ <- ctx.testingHelpers.simpleCreate(
-            s"EK-test-cid1-$runSuffix",
+            testIdsGenerator.testCommandId("EK-test-cid1"),
             alice,
             templateIds.textKey,
             textKeyRecord(alice, key, List(bob))
@@ -883,14 +882,14 @@ abstract class CommandTransactionChecks
           // now we exercise by key, thus archiving it, and then verify
           // that we cannot look it up anymore
           _ <- ctx.testingHelpers.simpleExerciseByKey(
-            s"EK-test-alice-exercise-$runSuffix",
+            testIdsGenerator.testCommandId("EK-test-alice-exercise"),
             alice,
             templateIds.textKey,
             textKeyKey(alice, key),
             "TextKeyChoice",
             emptyRecordValue)
           _ <- ctx.testingHelpers.failingExerciseByKey(
-            s"EK-test-alice-exercise-consumed-$runSuffix",
+            testIdsGenerator.testCommandId("EK-test-alice-exercise-consumed"),
             alice,
             templateIds.textKey,
             textKeyKey(alice, key),
@@ -919,7 +918,7 @@ abstract class CommandTransactionChecks
         .update(_.commands.ledgerId := context.ledgerId.unwrap)
 
       "process valid commands successfully" in allFixtures{ c =>
-        val cmdId = s"valid-create-and-exercise-cmd-$runSuffix"
+        val cmdId = testIdsGenerator.testCommandId("valid-create-and-exercise-cmd")
         val request = newRequest(c, validCreateAndExercise)
           .update(_.commands.commandId := cmdId)
 
@@ -959,7 +958,7 @@ abstract class CommandTransactionChecks
       "fail for invalid create arguments" in allFixtures{ implicit c =>
         val createAndExercise = validCreateAndExercise.copy(createArguments = Some(Record()))
         val request = newRequest(c, createAndExercise)
-          .update(_.commands.commandId := s"fail-for-invalid-create-args-$runSuffix")
+          .update(_.commands.commandId := testIdsGenerator.testCommandId("fail-for-invalid-create-args"))
 
         val response = submitCommand(c, request)
         response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
@@ -970,7 +969,7 @@ abstract class CommandTransactionChecks
           validCreateAndExercise.copy(choiceArgument = Some(Value(Value.Sum.Bool(false))))
         val request = newRequest(c, createAndExercise)
           .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(createAndExercise))))
-          .update(_.commands.commandId := s"fail-for-invalid-choice-args-$runSuffix")
+          .update(_.commands.commandId := testIdsGenerator.testCommandId("fail-for-invalid-choice-args"))
 
         val response = submitCommand(c, request)
         response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
@@ -981,7 +980,7 @@ abstract class CommandTransactionChecks
 
         val request = newRequest(c, createAndExercise)
           .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(createAndExercise))))
-          .update(_.commands.commandId := s"fail-for-invalid-choice-$runSuffix")
+          .update(_.commands.commandId := testIdsGenerator.testCommandId("fail-for-invalid-choice"))
 
         val response = submitCommand(c, request)
         response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
@@ -1044,12 +1043,12 @@ abstract class CommandTransactionChecks
     ).asRecordOf(templateIds.agreementFactory)
     for {
       agreementFactory <- ctx.testingHelpers.simpleCreate(
-        s"$commandId-factory-$runSuffix",
+        testIdsGenerator.testCommandId(s"$commandId-factory"),
         giver,
         templateIds.agreementFactory,
         agreementFactoryArg)
       tx <- ctx.testingHelpers.simpleExercise(
-        s"$commandId-agreement-$runSuffix",
+        testIdsGenerator.testCommandId(s"$commandId-agreement"),
         receiver,
         templateIds.agreementFactory,
         agreementFactory.contractId,
@@ -1123,7 +1122,7 @@ abstract class CommandTransactionChecks
     val command: SubmitRequest =
       createParamShowcaseWith(
         ctx,
-        s"Creating_contract_with_a_multitude_of_param_types_for_exercising__$choice#$lbl-$runSuffix",
+        testIdsGenerator.testCommandId(s"Creating_contract_with_a_multitude_of_param_types_for_exercising__$choice#$lbl"),
         paramShowcaseArgs)
     for {
       tx <- ctx.testingHelpers.submitAndListenForSingleResultOfCommand(command, getAllContracts)
@@ -1135,7 +1134,7 @@ abstract class CommandTransactionChecks
         choice,
         exerciseArg).wrap
       tx <- ctx.testingHelpers.submitAndListenForSingleTreeResultOfCommand(
-        ctx.testingHelpers.submitRequestWithId(s"Exercising_with_a_multitiude_of_params__$choice#$lbl-$runSuffix")
+        ctx.testingHelpers.submitRequestWithId(testIdsGenerator.testCommandId(s"Exercising_with_a_multitiude_of_params__$choice#$lbl"))
             .update(_.commands.update(_.commands := List(exercise))),
         getAllContracts,
         true

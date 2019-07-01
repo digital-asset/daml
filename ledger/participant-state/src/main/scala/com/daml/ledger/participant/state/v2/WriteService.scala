@@ -80,11 +80,11 @@ trait WriteService extends WritePackagesService with WritePartyService {
     *                        correlating this submission with its acceptance or rejection on the
     *                        associated [[ReadService]].
     * @param transactionMeta : the meta-data accessible to all consumers of the
-    *   transaction. See [[TransactionMeta]] for more information.
+    *                        transaction. See [[TransactionMeta]] for more information.
     * @param transaction     : the submitted transaction. This transaction can
     *                        contain contract-ids that are relative to this transaction itself.
     *                        These are used to refer to contracts created in the transaction
-    *   itself. The participant state implementation is expected to convert
+    *                        itself. The participant state implementation is expected to convert
     *                        these into absolute contract-ids that are guaranteed to be unique.
     *                        This typically happens after a transaction has been assigned a
     *                        globally unique id, as then the contract-ids can be derived from that
