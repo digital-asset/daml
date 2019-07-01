@@ -15,3 +15,4 @@ HEAD — ongoing
 - [Sandbox] Fixed an issue when CompletionService returns offsets having inclusive semantics when used for re-subscription. 
   See `#1932 <https://github.com/digital-asset/daml/pull/1932>`__.
   
+- [Sandbox] dalf files are not supported as archives anymore. See `#1610 <https://github.com/digital-asset/daml/issues/1610>`__.
