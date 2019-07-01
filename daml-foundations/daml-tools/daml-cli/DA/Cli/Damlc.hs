@@ -45,9 +45,9 @@ import qualified Data.Set as Set
 import qualified Data.List.Split as Split
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Rules.Daml (getDalf)
-import Development.IDE.State.API
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import GHC.Conc

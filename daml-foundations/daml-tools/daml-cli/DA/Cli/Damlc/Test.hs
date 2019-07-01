@@ -27,7 +27,7 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SSC
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Development.Shake as Shake
-import qualified Development.IDE.State.API as CompilerService
+import qualified Development.IDE.Core.API as CompilerService
 import qualified Development.IDE.Core.Rules.Daml as CompilerService
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location

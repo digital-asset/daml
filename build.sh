@@ -33,3 +33,6 @@ bazel test -j 200 //... --test_tag_filters "$tag_filter" --experimental_executio
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
 da-ghci --data yes //:repl -e '()'
+# Check that our IDE works on our codebase
+./bazel-bin/compiler/hie-core/hie-core-exe daml-foundations/daml-tools/da-hs-damlc-app/src/Main.hs |& tee ide-log
+grep -q "Files that failed: 0" ide-log
