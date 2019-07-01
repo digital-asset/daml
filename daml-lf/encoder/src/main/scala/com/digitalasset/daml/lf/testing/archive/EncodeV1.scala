@@ -21,6 +21,9 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
   import LanguageMinorVersion.Implicits._
   import Name.ordering
 
+  private val enumVersion: LanguageMinorVersion = "6"
+//  private val internedIdsVersion: LanguageMinorVersion = "6"
+
   def encodePackage(pkgId: PackageId, pkg: Package): PLF.Package = {
     val moduleEncoder = new ModuleEncoder(pkgId)
 
@@ -346,9 +349,9 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
         case CPVariant(tyCon, variant, binder) =>
           builder.setVariant(
             PLF.CaseAlt.Variant.newBuilder().setCon(tyCon).setVariant(variant).setBinder(binder))
-        case CPEnum(tycon, con) =>
-          assertSince("dev", "CaseAlt.Enum")
-          builder.setEnum(PLF.CaseAlt.Enum.newBuilder().setCon(tycon).setConstructor(con))
+        case CPEnum(tyCon, con) =>
+          assertSince(enumVersion, "CaseAlt.Enum")
+          builder.setEnum(PLF.CaseAlt.Enum.newBuilder().setCon(tyCon).setConstructor(con))
         case CPPrimCon(primCon) =>
           builder.setPrimCon(primCon)
         case CPNil =>
@@ -416,7 +419,7 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
               .setVariantCon(variant)
               .setVariantArg(arg))
         case EEnumCon(tyCon, con) =>
-          assertSince("dev", "Expr.Enum")
+          assertSince(enumVersion, "Expr.Enum")
           newBuilder.setEnumCon(PLF.Expr.EnumCon.newBuilder().setTycon(tyCon).setEnumCon(con))
         case ETupleCon(fields) =>
           newBuilder.setTupleCon(
@@ -487,6 +490,7 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
           builder.setVariant(
             PLF.DefDataType.Fields.newBuilder().accumulateLeft(variants)(_ addFields _))
         case DataEnum(constructors) =>
+          assertSince(enumVersion, "DefDataType.Enum")
           builder.setEnum(
             PLF.DefDataType.EnumConstructors
               .newBuilder()
