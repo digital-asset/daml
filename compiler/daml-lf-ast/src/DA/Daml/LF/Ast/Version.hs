@@ -36,7 +36,7 @@ versionDev :: Version
 versionDev = V1 PointDev
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_5, versionDev]
+supportedInputVersions = [version1_5, version1_6, versionDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions
