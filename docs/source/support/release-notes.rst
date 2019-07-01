@@ -15,7 +15,7 @@ Sandbox
 ~~~~~~~
 
 - Added `--log-level` command line flag.
-- Dropped dalf file support. (only dar files are accepted as an archive). See `#1610 <https://github.com/digital-asset/daml/issues/1610>`__.
+- Only dar files are accepted as an archive, dalf files are not supported anymore. See `#1610 <https://github.com/digital-asset/daml/issues/1610>`__.
 
 
 Ledger API
