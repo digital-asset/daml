@@ -24,7 +24,7 @@ import System.FilePath
 
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.State.API
+import Development.IDE.Core.API
 import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as IdeLogger
 import DA.Daml.GHC.Compiler.Options

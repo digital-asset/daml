@@ -9,7 +9,7 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 
 -- | Testing framework for Shake API.
-module Development.IDE.State.API.Testing
+module Development.IDE.Core.API.Testing
     ( ShakeTest
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
@@ -38,7 +38,7 @@ module Development.IDE.State.API.Testing
     ) where
 
 -- * internal dependencies
-import qualified Development.IDE.State.API         as API
+import qualified Development.IDE.Core.API         as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
 import DA.Service.Daml.Compiler.Impl.Scenario as SS
