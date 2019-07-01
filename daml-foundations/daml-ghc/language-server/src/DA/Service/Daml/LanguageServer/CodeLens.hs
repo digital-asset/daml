@@ -61,5 +61,5 @@ virtualResourceToCodeLens (range, title, vr) =
 
 setHandlersCodeLens :: PartialHandlers
 setHandlersCodeLens = PartialHandlers $ \WithMessage{..} x -> return x{
-    LSP.codeLensHandler = withResponse RspCodeLens handle
+    LSP.codeLensHandler = withResponse RspCodeLens $ const handle
     }
