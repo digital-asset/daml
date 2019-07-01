@@ -1384,7 +1384,7 @@ convFieldName = mkField . unpackFS . flLabel
 convTypeVar :: Var -> ConvertM (TypeVarName, LF.Kind)
 convTypeVar t = do
     k <- convertKind $ tyVarKind t
-    pure (mkTypeVar $ varPrettyPrint t, k)
+    pure (mkTypeVar $ show (varUnique t), k)
 
 convVar :: Var -> ExprVarName
 convVar = mkVar . varPrettyPrint
