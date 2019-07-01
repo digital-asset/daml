@@ -19,20 +19,23 @@ import com.google.rpc.status.Status
 import io.grpc.Status.Code
 import scalaz.syntax.tag._
 
+import com.digitalasset.ledger.api.messages.command.completion.{
+  CompletionStreamRequest => ValidatedCompletionStreamRequest
+}
+
 import scala.concurrent.Future
 
 object GrpcCommandCompletionService {
 
-  private[this] val completionStreamDefaultOffset =
-    LedgerOffset.of(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
+  private[this] val completionStreamDefaultOffset = Some(domain.LedgerOffset.LedgerEnd)
 
-  private def fillInWithDefaults(request: CompletionStreamRequest): CompletionStreamRequest = {
+  private def fillInWithDefaults(
+      request: ValidatedCompletionStreamRequest): ValidatedCompletionStreamRequest =
     if (request.offset.isDefined) {
       request
     } else {
-      request.withOffset(completionStreamDefaultOffset)
+      request.copy(offset = completionStreamDefaultOffset)
     }
-  }
 
 }
 
@@ -50,13 +53,14 @@ class GrpcCommandCompletionService(
   override def completionStreamSource(
       request: CompletionStreamRequest): Source[CompletionStreamResponse, akka.NotUsed] = {
     validator
-      .validateCompletionStreamRequest(fillInWithDefaults(request))
+      .validateCompletionStreamRequest(request)
       .fold(
         Source.failed[CompletionStreamResponse],
-        validatedRequest =>
+        validatedRequest => {
           service
-            .completionStreamSource(validatedRequest)
+            .completionStreamSource(fillInWithDefaults(validatedRequest))
             .map(toApiCompletion)
+        }
       )
   }
 

@@ -17,6 +17,14 @@ object LedgerOffsetValidator {
 
   private val boundary = "boundary"
 
+  def validateOptional(
+      ledgerOffset: Option[LedgerOffset],
+      fieldName: String): Either[StatusRuntimeException, Option[domain.LedgerOffset]] =
+    ledgerOffset
+      .map(validate(_, fieldName))
+      .fold[Either[StatusRuntimeException, Option[domain.LedgerOffset]]](Right(None))(
+        _.map(Some(_)))
+
   def validate(
       ledgerOffset: LedgerOffset,
       fieldName: String): Either[StatusRuntimeException, domain.LedgerOffset] = {
