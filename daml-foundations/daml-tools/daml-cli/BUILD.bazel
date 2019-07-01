@@ -42,6 +42,7 @@ da_haskell_library(
         "tasty-ant-xml",
         "tasty-hunit",
         "tasty",
+        "temporary",
         "text",
         "vector",
         "xml",
