@@ -9,7 +9,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 # e.g., damlc, to get the names of the various environment variables set by the assistant.
 da_haskell_library(
     name = "daml-project-config",
-    srcs = native.glob(["daml-project-config/**/*.hs"]),
+    srcs = glob(["daml-project-config/**/*.hs"]),
     hazel_deps = [
         "base",
         "directory",
@@ -28,7 +28,7 @@ da_haskell_library(
 
 da_haskell_library(
     name = "daml-lib",
-    srcs = native.glob(
+    srcs = glob(
         ["src/**/*.hs"],
         exclude = [
             "src/DAML/Assistant.hs",
