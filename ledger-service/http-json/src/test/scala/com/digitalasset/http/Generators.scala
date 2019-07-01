@@ -14,9 +14,12 @@ object Generators {
       e <- Gen.identifier
     } yield API.value.Identifier(packageId = p, moduleName = m, entityName = e)
 
+  def nonEmptySet[A](gen: Gen[A]): Gen[Set[A]] = Gen.nonEmptyListOf(gen).map(_.toSet)
+
+  // Generate Identifiers with unique packageId values, but the same moduleName and entityName.
   def genDuplicateApiIdentifiers: Gen[List[API.value.Identifier]] =
     for {
       id0 <- genApiIdentifier
-      otherPackageIds <- Gen.nonEmptyListOf(Gen.identifier)
-    } yield id0 :: otherPackageIds.map(a => id0.copy(packageId = a))
+      otherPackageIds <- nonEmptySet(Gen.identifier.filter(x => x != id0.packageId))
+    } yield id0 :: otherPackageIds.map(a => id0.copy(packageId = a)).toList
 }

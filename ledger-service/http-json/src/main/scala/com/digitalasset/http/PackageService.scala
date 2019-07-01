@@ -27,7 +27,7 @@ object PackageService {
   type TemplateIdMap = Map[(String, String), Identifier]
 
   private[http] def buildMap(ids: Set[Identifier]): (TemplateIdDups, TemplateIdMap) = {
-    val (dupe, nonDupe) = ids.groupBy(a => (a.moduleName, a.entityName)).partition(_._2.size != 1)
+    val (dupe, nonDupe) = ids.groupBy(a => (a.moduleName, a.entityName)).partition(_._2.size > 1)
     (dupe transform ((_, as) => as.toList), nonDupe transform { (k, as) =>
       if (as.size == 1) as.head
       else sys.error(s"This should never happen! $k is duplicated in the non-duplicate list")

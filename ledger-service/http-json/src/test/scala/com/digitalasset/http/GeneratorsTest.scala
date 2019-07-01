@@ -11,12 +11,17 @@ import org.scalatest.prop.GeneratorDrivenPropertyChecks
 class GeneratorsTest extends FlatSpec with Matchers with GeneratorDrivenPropertyChecks {
   import Shrink.shrinkAny
 
+  implicit override val generatorDrivenConfig: PropertyCheckConfiguration =
+    PropertyCheckConfiguration(minSuccessful = 10000)
+
   "Generators.genDuplicateApiIdentifiers" should "generate only duplicate API Identifiers" in
     forAll(genDuplicateApiIdentifiers) { ids =>
       ids.size should be >= 2
-      ids.sliding(2).forall {
-        case List(a1, a2) => a1.moduleName == a2.moduleName && a1.entityName == a2.entityName
+      ids.sliding(2).foreach {
+        case List(a1, a2) =>
+          a1.packageId should not be a2.packageId
+          (a1.moduleName, a1.entityName) should be(a2.moduleName -> a2.entityName)
         case x @ _ => fail(s"Should never happen when sliding(2): $x")
-      } shouldBe true
+      }
     }
 }
