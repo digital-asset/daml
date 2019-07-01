@@ -14,8 +14,9 @@ This page contains release notes for the SDK.
 Sandbox
 ~~~~~~~
 
-- Added `--log-level` command line flag.
-- Only dar files are accepted as an archive, dalf files are not supported anymore. See `#1610 <https://github.com/digital-asset/daml/issues/1610>`__.
+- Added `--log-level` command line flag.   
+- **BREAKING CHANGE**: The Sandbox no longer supports loading from DALF files. You can now only use DAR files. See `#1610 <https://github.com/digital-asset/daml/issues/1610>`__.
+
 
 
 Ledger API
