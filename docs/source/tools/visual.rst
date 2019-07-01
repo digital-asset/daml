@@ -22,7 +22,7 @@ Here's an example visualization based on the :doc:`quickstart </getting-started/
 2. Generate a dot file ``daml damlc visual dist/quickstart.dar --dot quickstart.dot``
 3. Generate the visual graph with Graphviz by running ``dot -Tpng quickstart.dot quickstart.png``
 
-Running the above should produce an image which looks something like this.
+Running the above should produce an image which looks something like this:
 
 
 .. image:: images/quickstart.png
