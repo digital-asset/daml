@@ -52,13 +52,18 @@ main =
 tests :: FilePath -> FilePath -> TestTree
 tests damlDir tmpDir = testGroup "Integration tests"
     [ testCase "install" $ do
-          releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
-          createDirectory tarballDir
-          runConduitRes
-              $ sourceFileBS releaseTarball
-              .| Zlib.ungzip
-              .| Tar.Conduit.untar (Tar.Conduit.restoreFile throwError tarballDir)
-          callProcessQuiet (tarballDir </> "daml" </> damlInstallerName) ["install", "--activate", "--set-path=no", tarballDir]
+        releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
+        createDirectory tarballDir
+        runConduitRes
+            $ sourceFileBS releaseTarball
+            .| Zlib.ungzip
+            .| Tar.Conduit.untar (Tar.Conduit.restoreFile throwError tarballDir)
+        if isWindows
+            then callProcessQuiet
+                (tarballDir </> "daml" </> damlInstallerName)
+                ["install", "--install-assistant=yes", "--set-path=no", tarballDir]
+            else runCreateProcessQuiet
+                (shell (tarballDir </> "install.sh"))
     , testCase "daml version" $ callProcessQuiet damlName ["version"]
     , testCase "daml --help" $ callProcessQuiet damlName ["--help"]
     , testCase "daml new --list" $ callProcessQuiet damlName ["new", "--list"]
@@ -361,13 +366,18 @@ damlInstallerName
     | otherwise = "daml"
 
 -- | Like call process but hides stdout.
-callProcessQuiet :: FilePath -> [String] -> IO ()
-callProcessQuiet cmd args = do
-    (exit, _out, err) <- readCreateProcessWithExitCode (proc cmd args) ""
+runCreateProcessQuiet :: CreateProcess -> IO ()
+runCreateProcessQuiet createProcess = do
+    (exit, _out, err) <- readCreateProcessWithExitCode createProcess ""
     hPutStr stderr err
-    unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit cmd args
+    unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit createProcess
 
-data ProcessExitFailure = ProcessExitFailure !ExitCode !FilePath ![String]
+-- | Like call process but hides stdout.
+callProcessQuiet :: FilePath -> [String] -> IO ()
+callProcessQuiet cmd args =
+    runCreateProcessQuiet (proc cmd args)
+
+data ProcessExitFailure = ProcessExitFailure !ExitCode !CreateProcess
     deriving (Show, Typeable)
 
 instance Exception ProcessExitFailure
