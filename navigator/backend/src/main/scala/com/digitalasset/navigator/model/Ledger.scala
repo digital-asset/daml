@@ -116,7 +116,8 @@ case class Ledger(
             event.argument,
             event.agreementText,
             event.signatories,
-            event.observers)
+            event.observers,
+            event.key)
           withContractCreatedInEvent(contract, event)
         }
 

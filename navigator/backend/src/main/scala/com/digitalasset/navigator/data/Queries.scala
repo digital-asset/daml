@@ -21,7 +21,8 @@ object Queries {
             argument JSON NOT NULL,
             agreement_text TEXT DEFAULT NULL,
             signatories JSON DEFAULT NULL,
-            observers JSON DEFAULT NULL
+            observers JSON DEFAULT NULL,
+            contract_key JSON DEFAULT NULL
           )
       """
 
@@ -53,7 +54,8 @@ object Queries {
             is_consuming INTEGER DEFAULT NULL,
             agreement_text TEXT DEFAULT NULL,
             signatories JSON DEFAULT NULL,
-            observers JSON DEFAULT NULL
+            observers JSON DEFAULT NULL,
+            contract_key JSON DEFAULT NULL
           )
       """
 
@@ -126,10 +128,10 @@ object Queries {
       INSERT INTO 
         event 
         (id, transaction_id, workflow_id, parent_id, contract_id, witness_parties, subclass_type, 
-        template_id, record_argument, contract_create_event_id, choice, argument_value, acting_parties, is_consuming)
+        template_id, record_argument, contract_create_event_id, choice, argument_value, acting_parties, is_consuming, agreement_text, signatories, observers, contract_key)
       VALUES 
         (${row.id}, ${row.transactionId}, ${row.workflowId}, ${row.parentId}, ${row.contractId}, ${row.witnessParties}, ${row.subclassType}, 
-        ${row.templateId}, ${row.recordArgument}, ${row.contractCreateEventId}, ${row.choice}, ${row.argumentValue}, ${row.actingParties}, ${row.isConsuming})
+        ${row.templateId}, ${row.recordArgument}, ${row.contractCreateEventId}, ${row.choice}, ${row.argumentValue}, ${row.actingParties}, ${row.isConsuming}, ${row.agreementText}, ${row.signatories}, ${row.observers}, ${row.key})
     """
 
   def eventById(id: String): Fragment =
@@ -228,7 +230,7 @@ object Queries {
         contract 
         (id, template_id, archive_transaction_id, argument, agreement_text, signatories, observers)
       VALUES
-        (${row.id}, ${row.templateId}, ${row.archiveTransactionId}, ${row.argument}, ${row.agreementText}, ${row.signatories}, ${row.observers})
+        (${row.id}, ${row.templateId}, ${row.archiveTransactionId}, ${row.argument}, ${row.agreementText}, ${row.signatories}, ${row.observers}, ${row.key})
     """
 
   def archiveContract(contractId: String, archiveTransactionId: String): Fragment =

@@ -16,6 +16,7 @@ import com.digitalasset.ledger.api.v1.{value => rpcvalue}
   * @param signatories    Signatories of the contract as defined in the DAML template
   * @param observers      Observers of the contract, both explicitly as defined in the DAML template and implicitly as
   *                       choice controllers.
+  * @param key            The value of the key of this contract, if defined by the template.
   *
   * @tparam T             Contract template type parameter.
   */
@@ -24,7 +25,8 @@ final case class Contract[+T](
     value: T with Template[T],
     agreementText: Option[String],
     signatories: Seq[String],
-    observers: Seq[String]) {
+    observers: Seq[String],
+    key: Option[rpcvalue.Value]) {
   def arguments: rpcvalue.Record = value.arguments
 }
 

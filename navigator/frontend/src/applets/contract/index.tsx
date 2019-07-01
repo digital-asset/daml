@@ -158,6 +158,7 @@ const query = gql`
         agreementText
         signatories
         observers
+        key
         template {
           id topLevelDecl
           choices { name parameter }

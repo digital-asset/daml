@@ -41,13 +41,30 @@ class ContractSortSpec extends FlatSpec with Matchers {
           DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
       )))
 
+  val damlLfIdKey = DamlLfIdentifier(
+    DamlLfRef.PackageId.assertFromString("hash"),
+    DamlLfQualifiedName(
+      DamlLfDottedName.assertFromString("module"),
+      DamlLfDottedName.assertFromString("K1")))
+
+  val damlLfRecordKey = DamlLfDefDataType(
+    DamlLfImmArraySeq(),
+    DamlLfRecord(
+      DamlLfImmArraySeq(
+        DamlLfRef.Name
+          .assertFromString("foo") -> DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
+      )))
+
+  val damlLfKeyType =
+    DamlLfTypeCon(DamlLfTypeConName(damlLfIdKey), DamlLfImmArraySeq.empty[DamlLfType])
+
   val damlLfDefDataTypes: Map[DamlLfIdentifier, DamlLfDefDataType] = Map(
     damlLfId0 -> damlLfRecord0,
     damlLfId1 -> damlLfRecord1
   )
 
-  val template1 = Template(damlLfId0, List.empty)
-  val template2 = Template(damlLfId1, List.empty)
+  val template1 = Template(damlLfId0, List.empty, None)
+  val template2 = Template(damlLfId1, List.empty, Some(damlLfKeyType))
 
   val alice = ApiTypes.Party("Alice")
   val bob = ApiTypes.Party("Bob")
@@ -68,28 +85,34 @@ class ContractSortSpec extends FlatSpec with Matchers {
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
     None,
     List(alice),
-    List(bob, charlie))
+    List(bob, charlie),
+    None)
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
     ApiRecord(None, List(ApiRecordField("int", ApiInt64(1)))),
     Some(""),
     List(gloria),
-    List(ernest, francis))
+    List(ernest, francis),
+    Some(ApiRecord(None, List(ApiRecordField("foo", ApiText("foo")))))
+  )
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
     ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
     Some("agreement"),
     List(dana),
-    List(henry, ivy))
+    List(henry, ivy),
+    None)
   val contract4 = Contract(
     ApiTypes.ContractId("id4"),
     template2,
     ApiRecord(None, List(ApiRecordField("int", ApiInt64(2)))),
     None,
     List(john),
-    List(kevin, louise))
+    List(kevin, louise),
+    Some(ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))))
+  )
 
   val contracts = List(contract1, contract2, contract3, contract4)
 
@@ -134,4 +157,8 @@ class ContractSortSpec extends FlatSpec with Matchers {
   test(
     List("argument.int" -> DESCENDING, "id" -> DESCENDING),
     List(contract4, contract2, contract3, contract1))
+
+  // FIXME contract1 and contract3 are not compatible with the criteria and should go at the end
+  test(List("key.foo" -> ASCENDING), List(contract1, contract3, contract4, contract2))
+
 }
