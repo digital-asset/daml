@@ -26,13 +26,13 @@
 # prefix: @com_github_digital_asset_daml//..., as these won't
 # be resolvable from external workspaces otherwise.
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
 rules_scala_version = "78104d8014d4e4fc8f905cd34b91dfabd9a268c8"
 rules_haskell_version = "772f04acc3eec5b6d219db09e46604ccff1f5755"
 rules_haskell_sha256 = "d4bb5ecc0f2d0949a1b4bddd1b64c164d750247cccc1a883ae6b6430ae9c8b6e"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
-
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 def daml_deps():
     if "io_tweag_rules_haskell" not in native.existing_rules():
