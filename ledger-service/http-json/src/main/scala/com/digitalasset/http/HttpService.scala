@@ -47,8 +47,7 @@ object HttpService extends StrictLogging {
       client <- liftET[Error](
         LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
       packageService = new PackageService(client.packageClient)
-      (templateIdDups, templateIdMap) <- eitherT(packageService.getTemplateIdMap())
-      _ = reportDuplicates(templateIdDups)
+      templateIdMap <- eitherT(packageService.getTemplateIdMap())
       contractsService = new ContractsService(templateIdMap, client.activeContractSetClient)
       endpoints = new Endpoints(contractsService)
       binding <- liftET[Error](
@@ -65,10 +64,6 @@ object HttpService extends StrictLogging {
 
     bindingF
   }
-
-  private def reportDuplicates(ids: PackageService.TemplateIdDups): Unit =
-    if (ids.nonEmpty)
-      logger.info(s"Found Template IDs with matching moduleName and entityName: $ids")
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")

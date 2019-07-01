@@ -9,30 +9,45 @@ import com.digitalasset.ledger.service.{LedgerReader, TemplateIds}
 import scalaz.Scalaz._
 import scalaz._
 
+import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
 class PackageService(packageClient: PackageClient)(implicit ec: ExecutionContext) {
   import PackageService._
 
-  def getTemplateIdMap(): Future[Error \/ (TemplateIdDups, TemplateIdMap)] =
+  def getTemplateIdMap(): Future[Error \/ TemplateIdMap] =
     EitherT(LedgerReader.createPackageStore(packageClient)).map { packageStore =>
       val templateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
-      buildMap(templateIds)
+      buildTemplateIdMap(templateIds)
     }.run
 }
 
 object PackageService {
   type Error = String
-  type TemplateIdDups = Map[(String, String), List[Identifier]]
-  type TemplateIdMap = Map[(String, String), Identifier]
 
-  private[http] def buildMap(ids: Set[Identifier]): (TemplateIdDups, TemplateIdMap) = {
-    val (dupe, nonDupe) = ids.groupBy(a => (a.moduleName, a.entityName)).partition(_._2.size > 1)
-    (dupe transform ((_, as) => as.toList), nonDupe transform { (k, as) =>
-      if (as.size == 1) as.head
-      else sys.error(s"This should never happen! $k is duplicated in the non-duplicate list")
-    })
+  type K3 = (String, String, String)
+  type K2 = (String, String)
+  case class TemplateIdMap(all: Map[K3, Identifier], unique: Map[K2, Identifier])
+
+  def buildTemplateIdMap(ids: Set[Identifier]): TemplateIdMap = {
+    val all: Map[K3, Identifier] = ids.map(a => key3(a) -> a)(breakOut)
+    val unique: Map[K2, Identifier] = filterUniqueTemplateIs(all)
+    TemplateIdMap(all, unique)
   }
+
+  private[http] def key3(a: Identifier): K3 =
+    (a.packageId, a.moduleName, a.entityName)
+
+  private[http] def key2(k: K3): K2 =
+    (k._2, k._3)
+
+  private def filterUniqueTemplateIs(all: Map[K3, Identifier]): Map[K2, Identifier] =
+    all.view
+      .groupBy { case (k, _) => key2(k) }
+      .filter { case (_, v) => v.size == 1 }
+      .values
+      .flatten
+      .map { case (k, v) => (key2(k), v) }(breakOut)
 
   def resolveTemplateIds(m: TemplateIdMap)(
       as: Set[domain.TemplateId.OptionalPkg]): Error \/ List[Identifier] =
@@ -42,15 +57,16 @@ object PackageService {
     } yield bs
 
   def resolveTemplateId(m: TemplateIdMap)(a: domain.TemplateId.OptionalPkg): Error \/ Identifier =
-    a.packageId
-      .map { x =>
-        Identifier(packageId = x, moduleName = a.moduleName, entityName = a.entityName)
-      }
-      .toRightDisjunction(())
-      .orElse { findTemplateId(m)((a.moduleName, a.entityName)) }
+    a.packageId match {
+      case Some(p) => findTemplateId(m.all)((p, a.moduleName, a.entityName))
+      case None => findTemplateId(m.unique)((a.moduleName, a.entityName))
+    }
 
-  private def findTemplateId(m: TemplateIdMap)(a: (String, String)): Error \/ Identifier =
-    m.get(a).toRightDisjunction(s"Cannot resolve $a")
+  private def findTemplateId(m: Map[K3, Identifier])(k: K3): Error \/ Identifier =
+    m.get(k).toRightDisjunction(s"Cannot resolve $k")
+
+  private def findTemplateId(m: Map[K2, Identifier])(k: K2): Error \/ Identifier =
+    m.get(k).toRightDisjunction(s"Cannot resolve $k")
 
   private def validate(
       requested: Set[domain.TemplateId.OptionalPkg],
@@ -60,7 +76,4 @@ object PackageService {
       \/.left(
         s"Template ID resolution error, the sizes of requested and resolved collections should match. " +
           s"requested: $requested, resolved: $resolved")
-
-  def fold(dups: TemplateIdDups): Set[Identifier] =
-    dups.values.flatten.toSet
 }
