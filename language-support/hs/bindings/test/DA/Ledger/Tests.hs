@@ -137,8 +137,8 @@ tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pi
         assertBool "off0 /= off1" (off0 /= off1)
         assertBool "off1 /= off2" (off1 /= off2)
 
-        assertEqual "cp1" off0 cp1 -- TODO: wrong should be off1 (Sandbox bug?)
-        assertEqual "cp2" off1 cp2 -- TODO: wrong should be off2 (Sandbox bug?)
+        assertEqual "cp1" off1 cp1
+        assertEqual "cp2" off2 cp2
 
     completionsX <- completionStream (lid,myAid,[alice],LedgerAbsOffset off0)
     completionsY <- completionStream (lid,myAid,[alice],LedgerAbsOffset off1)
