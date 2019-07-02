@@ -108,10 +108,15 @@ nodeIdForChoice lookUpdata chc = case Map.lookup chc lookUpdata of
 -- probably storing the choice is a better Idea, as we can determine what kind of choice it is.
 data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,Int)], clusterTemplate :: LF.Template }
 
+addCreateChoice :: TemplateChoiceAction -> Map.Map LF.ChoiceName Int -> (LF.ChoiceName ,Int)
+addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, (nodeIdForChoice lookupData tplNameCreateChoice))
+    where tplNameCreateChoice = LF.ChoiceName $ T.pack ((DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon template)) ++ "_Create")
+
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName Int -> TemplateChoiceAction -> SubGraph
-constructSubgraphsWithLables lookupData TemplateChoiceAction {..} = SubGraph  nodes template
+constructSubgraphsWithLables lookupData tpla@TemplateChoiceAction {..} = SubGraph  nodesWithCreate template
   where choicesInTemplete = map handlechioceAndAction choiceAndAction
         nodes = map (\chc -> (chc, (nodeIdForChoice lookupData chc)) ) choicesInTemplete
+        nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData ]
 
 actionToChoice :: LF.Template -> Action -> LF.ChoiceName
 actionToChoice tpl (ACreate _) = LF.ChoiceName $ T.pack (tplName tpl ++ "_Create")
@@ -162,7 +167,6 @@ constructDotGraph subgraphs edges = "digraph G { \n compound=true \n" ++ "rankdi
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
 execVisual darFilePath _dotFilePath = do
-    putStrLn "the thing is commented"
     darBytes <- B.readFile darFilePath
     let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
