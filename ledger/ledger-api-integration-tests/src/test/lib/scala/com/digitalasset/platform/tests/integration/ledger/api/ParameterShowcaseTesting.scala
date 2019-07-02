@@ -14,6 +14,7 @@ import com.digitalasset.ledger.api.v1.value.{
 }
 import com.digitalasset.platform.participant.util.ValueConversions._
 
+import com.digitalasset.platform.apitesting.TestParties.Alice
 trait ParameterShowcaseTesting {
 
   protected val integerListRecordLabel = "integerList"
@@ -31,7 +32,7 @@ trait ParameterShowcaseTesting {
     val integerList = Vector(1, 2).map(_.toLong.asInt64).asList
     val optionalText = Optional(Value(Text("foo")))
     Vector(
-      RecordField("operator", "party".asParty),
+      RecordField("operator", Alice.asParty),
       RecordField("integer", 1.asInt64),
       RecordField("decimal", "1.1".asDecimal),
       RecordField("text", Value(Text("text"))),
@@ -49,7 +50,7 @@ trait ParameterShowcaseTesting {
     val integerList = Vector(1, 2).map(_.toLong.asInt64).asList
     val optionalText = Optional(Value(Text("foo")))
     Vector(
-      RecordField("", "party".asParty),
+      RecordField("", Alice.asParty),
       RecordField("", 1.asInt64),
       RecordField("", "1.1".asDecimal),
       RecordField("", Value(Text("text"))),
