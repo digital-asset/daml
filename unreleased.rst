@@ -27,3 +27,7 @@ HEAD — ongoing
   default, but will revert to the extension bundled with the DAML SDK if installation
   fails. You can get the old default behavior of always using the bundled extension
   by running ``daml studio --replace=newer`` or ``daml studio --replace=always`` instead.
+- [DAML Studio] The gRPC message size limit can now be configured in
+  ``daml.yaml`` via ``scenario-service: {"grpc-max-message-size": 1000000}``.
+  This will set the limit to 1000000 bytes. This should
+  only be necessary for very large projects.
