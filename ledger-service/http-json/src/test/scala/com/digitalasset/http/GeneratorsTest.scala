@@ -13,7 +13,7 @@ class GeneratorsTest extends FlatSpec with Matchers with GeneratorDrivenProperty
 
   import org.scalacheck.Shrink.shrinkAny
 
-  "Generators.genDuplicateApiIdentifiers" should "generate only duplicate API Identifiers" in
+  "Generators.genDuplicateApiIdentifiers" should "generate API Identifiers with the same moduleName and entityName" in
     forAll(genDuplicateApiIdentifiers) { ids =>
       ids.size should be >= 2
       val (packageIds, moduleNames, entityNames) =

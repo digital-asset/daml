@@ -37,9 +37,10 @@ object domain {
       activeContracts: Seq[ActiveContract[LfV]])
 
   object TemplateId {
+    type OptionalPkg = TemplateId[Option[String]]
     type RequiredPkg = TemplateId[String]
     type NoPkg = TemplateId[Unit]
-    type OptionalPkg = TemplateId[Option[String]]
+
     def fromLedgerApi(in: lav1.value.Identifier): TemplateId.RequiredPkg =
       TemplateId(in.packageId, in.moduleName, in.entityName)
   }
