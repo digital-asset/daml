@@ -89,7 +89,7 @@ handleChoiceAndAction (ChoiceAndAction tpl choice _)
 
 -- Making choiceName is very weird
 handleCreateAndArchive :: TemplateChoiceAction -> [LF.ChoiceName]
-handleCreateAndArchive TemplateChoiceAction {..} =  [createChoice, archiveChoice] ++ map handleChoiceAndAction choiceAndAction
+handleCreateAndArchive TemplateChoiceAction {..} = [createChoice, archiveChoice] ++ map handleChoiceAndAction choiceAndAction
     where archiveChoice = LF.ChoiceName $ tplName template <> "_Archive"
           createChoice = LF.ChoiceName $ tplName template <> "_Create"
 
@@ -99,7 +99,7 @@ choiceNameWithId tplChcActions = Map.fromList $ zip choiceActions [0..]
   where choiceActions =  concatMap handleCreateAndArchive tplChcActions
 
 nodeIdForChoice ::  Map.Map LF.ChoiceName Int -> LF.ChoiceName -> Int
-nodeIdForChoice lookUpdata chc = case Map.lookup chc lookUpdata of
+nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
   Just node -> node
   Nothing -> error "Template node lookup failed"
 
@@ -114,14 +114,14 @@ addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nod
     where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (head (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName Int -> TemplateChoiceAction -> SubGraph
-constructSubgraphsWithLables lookupData tpla@TemplateChoiceAction {..} = SubGraph  nodesWithCreate template
+constructSubgraphsWithLables lookupData tpla@TemplateChoiceAction {..} = SubGraph nodesWithCreate template
   where choicesInTemplete = map handleChoiceAndAction choiceAndAction
         nodes = map (\chc -> (chc, nodeIdForChoice lookupData chc)) choicesInTemplete
-        nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData ]
+        nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData]
 
 actionToChoice :: LF.Template -> Action -> LF.ChoiceName
 actionToChoice tpl (ACreate _) = LF.ChoiceName $ tplName tpl <> "_Create"
-actionToChoice tpl (AExercise _ (LF.ChoiceName "Archive" )) = LF.ChoiceName $ tplName tpl <> "_Archive"
+actionToChoice tpl (AExercise _ (LF.ChoiceName "Archive")) = LF.ChoiceName $ tplName tpl <> "_Archive"
 actionToChoice _tpl (AExercise _ chc) = chc
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
@@ -129,7 +129,7 @@ choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
     where pairs = map (\ac -> (handleChoiceAndAction cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
 
 graphEdges :: Map.Map LF.ChoiceName Int -> [TemplateChoiceAction] -> [(Int, Int)]
-graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1 ,nodeIdForChoice lookupData chn2)) choicePairsForTemplates
+graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1, nodeIdForChoice lookupData chn2)) choicePairsForTemplates
   where chcActionsFromAllTemplates = concatMap choiceAndAction tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
 
@@ -141,7 +141,7 @@ subGraphBodyLine :: (LF.ChoiceName ,Int) -> String
 subGraphBodyLine (chc, nodeId) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++ "];"
 
 subGraphEnd :: LF.Template -> String
-subGraphEnd tpl = "label=" ++ (DAP.renderPretty $ LF.tplTypeCon tpl) ++ ";color=" ++"blue" ++ "\n}"
+subGraphEnd tpl = "label=" ++ DAP.renderPretty (LF.tplTypeCon tpl) ++ ";color=" ++ "blue" ++ "\n}"
 
 
 subGraphCluster :: SubGraph -> String
@@ -165,10 +165,10 @@ execVisual darFilePath dotFilePath = do
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
-        teamplatesAndModules = concatMap (moduleAndTemplates world) modules
-        nodeWorld = choiceNameWithId teamplatesAndModules
-        subgraphClusters = map (constructSubgraphsWithLables nodeWorld) teamplatesAndModules
-        graphConnectedEdges  = graphEdges nodeWorld teamplatesAndModules
+        templatesAndModules = concatMap (moduleAndTemplates world) modules
+        nodeWorld = choiceNameWithId templatesAndModules
+        subgraphClusters = map (constructSubgraphsWithLables nodeWorld) templatesAndModules
+        graphConnectedEdges  = graphEdges nodeWorld templatesAndModules
         dotString = constructDotGraph subgraphClusters graphConnectedEdges
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile dotString
