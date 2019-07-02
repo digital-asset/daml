@@ -4,7 +4,6 @@
 package com.daml.ledger.api.server.damlonx.reference.v2
 
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.zip.ZipFile
 
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
@@ -16,6 +15,9 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.index.cli.Cli
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
+
+import java.util.zip.ZipInputStream
+import java.io.FileInputStream
 
 import scala.util.Try
 import scala.util.control.NonFatal
@@ -45,8 +47,9 @@ object ReferenceServer extends App {
 
   config.archiveFiles.foreach { file =>
     val archivesTry = for {
-      zipFile <- Try(new ZipFile(file))
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchive(zipFile)
+      zipInputStream <- Try(new ZipInputStream(new FileInputStream(file)))
+      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+        .readArchive(file.getName, zipInputStream)
     } yield ledger.uploadPackages(dar.all, None)
   }
 

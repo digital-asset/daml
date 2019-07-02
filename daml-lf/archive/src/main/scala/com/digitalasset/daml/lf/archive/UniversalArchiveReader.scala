@@ -5,10 +5,9 @@ package com.digitalasset.daml.lf
 package archive
 
 import java.io._
-import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml_lf.DamlLf
 
@@ -17,32 +16,41 @@ import scala.util.{Failure, Success, Try}
 /**
   * Can parse DARs and DALFs.
   * See factories:
-  *   [[com.digitalasset.daml.lf.UniversalArchiveReader]];
-  *   [[com.digitalasset.daml.lf.UniversalArchiveReaderWithVersion]]
+  * [[com.digitalasset.daml.lf.UniversalArchiveReader]];
+  * [[com.digitalasset.daml.lf.UniversalArchiveReaderWithVersion]]
   *
   * @param parseDar  function to parse a DAR file.
   * @param parseDalf function to parse a DALF input stream.
   * @tparam A type of the result, see factories for more details.
   */
 class UniversalArchiveReader[A](
-    parseDar: ZipFile => Try[Dar[A]],
+    parseDar: (String, ZipInputStream) => Try[Dar[A]],
     parseDalf: InputStream => Try[A]) {
+
   import SupportedFileType._
 
-  def readFile(file: File): Try[Dar[A]] = supportedFileType(file).flatMap {
-    case DarFile =>
-      bracket(zipFile(file))(close).flatMap(parseDar)
-    case DalfFile =>
-      bracket(inputStream(file))(close).flatMap(parseDalf).map(Dar(_, List.empty))
-  }
+  def readFile(file: File): Try[Dar[A]] =
+    for {
+      fileType <- supportedFileType(file)
+      inputStream <- fileToInputStream(file)
+      dar <- readStream(file.getName, inputStream, fileType)
+    } yield dar
 
-  private def zipFile(f: File): Try[ZipFile] =
-    Try(new ZipFile(f))
+  def readStream(
+      fileName: String,
+      inputStream: InputStream,
+      fileType: SupportedFileType): Try[Dar[A]] =
+    fileType match {
+      case DarFile => parseDar(fileName, zipInputStream(inputStream))
+      case DalfFile => parseDalf(inputStream).map(Dar(_, List.empty))
+    }
 
-  private def inputStream(f: File): Try[InputStream] =
+  private def zipInputStream(inputStream: InputStream): ZipInputStream =
+    new ZipInputStream(inputStream)
+
+  private def fileToInputStream(f: File): Try[InputStream] =
     Try(new BufferedInputStream(new FileInputStream(f)))
 
-  private def close(f: Closeable): Try[Unit] = Try(f.close())
 }
 
 /**
@@ -57,7 +65,8 @@ object UniversalArchiveReader {
 
   private def parseDalf(is: InputStream) = Try(Reader.decodeArchiveFromInputStream(is))
 
-  private def parseDar[A](parseDalf: InputStream => Try[A]): ZipFile => Try[Dar[A]] =
+  private def parseDar[A](
+      parseDalf: InputStream => Try[A]): (String, ZipInputStream) => Try[Dar[A]] =
     DarReader { case (_, is) => parseDalf(is) }.readArchive
 }
 
@@ -81,9 +90,12 @@ private[lf] object SupportedFileType {
   sealed abstract class SupportedFileType(fileExtension: String) extends Serializable with Product {
     def matchesFileExtension(f: File): Boolean = f.getName.endsWith(fileExtension)
   }
+
   final case object DarFile extends SupportedFileType(".dar")
+
   final case object DalfFile extends SupportedFileType(".dalf")
 
   case class UnsupportedFileExtension(file: File)
       extends RuntimeException(s"Unsupported file extension: ${file.getAbsolutePath}")
+
 }

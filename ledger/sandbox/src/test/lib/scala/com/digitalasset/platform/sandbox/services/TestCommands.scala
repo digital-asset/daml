@@ -3,10 +3,10 @@
 
 package com.digitalasset.platform.sandbox.services
 
-import java.io.File
+import java.io.{File, FileInputStream}
 import java.time.Instant
 import java.util
-import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.archive.DarReader
@@ -36,7 +36,12 @@ trait TestCommands {
 
   @transient
   protected def templateIds = {
-    new TestTemplateIdentifiers(DarReader().readArchive(new ZipFile(darFile)).get.main._1)
+    new TestTemplateIdentifiers(
+      DarReader()
+        .readArchive(darFile.getName, new ZipInputStream(new FileInputStream(darFile)))
+        .get
+        .main
+        ._1)
   }
 
   protected def buildRequest(
@@ -96,7 +101,9 @@ trait TestCommands {
         )))
 
   import com.digitalasset.platform.participant.util.ValueConversions._
+
   private def integerListRecordLabel = "integerList"
+
   protected def paramShowcaseArgs: Record = {
     val variant = Value(Value.Sum.Variant(Variant(None, "SomeInteger", 1.asInt64)))
     val nestedVariant = Vector("value" -> variant).asRecordValue
@@ -116,6 +123,7 @@ trait TestCommands {
       )
     )
   }
+
   protected def paramShowcase = Commands(
     "ledgerId",
     "workflowId",

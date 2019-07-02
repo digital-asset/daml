@@ -3,8 +3,8 @@
 
 package com.digitalasset.daml.lf.archive
 
-import java.io.File
-import java.util.zip.ZipFile
+import java.io.{File, FileInputStream}
+import java.util.zip.ZipInputStream
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref
@@ -28,7 +28,9 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
 
   s"should read dar file: $darFile, main archive: DarReaderTest returned first" in {
     val archives: Try[Dar[((Ref.PackageId, DamlLf.ArchivePayload), LanguageMajorVersion)]] =
-      DarReaderWithVersion.readArchive(new ZipFile(darFile))
+      DarReaderWithVersion.readArchive(
+        darFile.getName,
+        new ZipInputStream(new FileInputStream(darFile)))
 
     inside(archives) {
       case Success(

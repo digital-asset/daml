@@ -3,9 +3,9 @@
 
 package com.digitalasset.platform.sandbox.stores
 
-import java.io.File
+import java.io.{File, FileInputStream}
 import java.time.Instant
-import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
 import com.daml.ledger.participant.state.v2.UploadPackagesResult
@@ -114,8 +114,9 @@ class InMemoryPackageStore() extends IndexPackagesService {
       sourceDescription: Option[String],
       file: File): Either[String, Map[PackageId, PackageDetails]] = this.synchronized {
     val archivesTry = for {
-      zipFile <- Try(new ZipFile(file))
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchive(zipFile)
+      zipStream <- Try(new ZipInputStream(new FileInputStream(file)))
+      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+        .readArchive(file.getName, zipStream)
     } yield dar.all
 
     for {
