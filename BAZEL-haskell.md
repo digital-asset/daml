@@ -185,22 +185,6 @@ alias(
 )
 ```
 
-## Profiling
-
-To produce a binary with profiling information, you need to pass `-c
-dbg` to Bazel. E.g., `bazel build -c dbg damlc` will build a profiled
-version of `damlc`. Note that by default Bazel won’t automatically add
-cost centres in your code. To get cost centres, you can either add
-[cost centres manually](https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/profiling.html#inserting-cost-centres-by-hand)
-or use one of the
-[options provided by GHC](https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/profiling.html#compiler-options-for-profiling)
-to add them automatically.
-You can either add those options in the `compiler_flags` section of a
-specific target, modify the `da_haskell_library` wrapper in
-`bazel_tools/haskell.bzl` to add a flag to all DAML targets and
-libraries or use it for all targets by modifying the
-`compiler_flags` in the `haskell_toolchain`.
-
 ## Further reading:
 
 - ["Bazel User Guide"](https://github.com/DACH-NY/da/blob/master/BAZEL.md) (DAML specific)

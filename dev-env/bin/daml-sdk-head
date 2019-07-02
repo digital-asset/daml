@@ -18,19 +18,29 @@ fi
 
 
 NUKE=0
+PROFILING=0
 for opt in "$@" ; do
   case $opt in
     "--nuke")
       NUKE=1
       ;;
+    "--profiling")
+      PROFILING=1
+      ;;
     *)
       echo "Unknown option: $opt"
       echo "Available options:"
       echo "  --nuke  Remove existing daml installation before installing daml-head."
+      echo "  --profiling  Build Haskell executables with profiling enabled."
       exit 1
   esac
 done
 
+BAZEL_MODE_FLAG=""
+
+if [ "$PROFILING" -ne "0" ] ; then
+  BAZEL_MODE_FLAG="-c dbg"
+fi
 
 readonly DAML_HOME="$HOME/.daml"
 if [ -d $DAML_HOME ] && [ "$NUKE" -ne "0" ] ; then
@@ -58,9 +68,9 @@ function cleanup() {
 trap cleanup EXIT
 
 # Building here separately so the user can see the build process which could take a while
-bazel build //release:sdk-head-tarball.tar.gz
+bazel build $BAZEL_MODE_FLAG //release:sdk-head-tarball.tar.gz
 
-readonly TARBALL=$(bazel info bazel-genfiles)/release/sdk-head-tarball.tar.gz
+readonly TARBALL=$(bazel info bazel-genfiles $BAZEL_MODE_FLAG)/release/sdk-head-tarball.tar.gz
 readonly TMPDIR=$(mktemp -d)
 mkdir -p $TMPDIR/sdk-head
 
