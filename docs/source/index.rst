@@ -72,6 +72,14 @@ DAML SDK documentation
    :titlesonly:
    :maxdepth: 2
    :hidden:
+   :caption: Deploying
+
+   deploy/index
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
    :caption: Examples
 
    examples/examples
