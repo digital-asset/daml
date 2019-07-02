@@ -94,9 +94,9 @@ handleCreateAndArchive TemplateChoiceAction {..} =  [createChoice,archiveChoice]
 
 -- This to be used to generate the node ids and use as look up table
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName Int
-choiceNameWithId tplChcActions = Map.fromList $ zip choiceActions [1..]
+choiceNameWithId tplChcActions = numbered_choices
   where choiceActions =  concatMap handleCreateAndArchive tplChcActions
-
+        numbered_choices =  Map.fromList $ zip choiceActions [0..]
 
 -- This flattening is not doing exhaustive, will be missing the create and archives. Probably will filter for 1st iteration
 nodeIdForChoice ::  Map.Map LF.ChoiceName Int -> LF.ChoiceName -> Int
@@ -121,20 +121,23 @@ actionToChoice _tpl (AExercise _ chc) = chc
 
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
-choiceActionToChoicePairs cha@ChoiceAndAction {..} = map (\ac -> (handlechioceAndAction cha, (actionToChoice choiceForTemplate ac))) (Set.elems actions)
+choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
+    where pairs = map (\ac -> (handlechioceAndAction cha, (actionToChoice choiceForTemplate ac))) (Set.elems actions)
 
 graphEdges :: Map.Map LF.ChoiceName Int -> [TemplateChoiceAction] -> [(Int, Int)]
-graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> ( (nodeIdForChoice lookupData chn1) ,(nodeIdForChoice lookupData chn2) )) choicePairsForTemplates
+graphEdges lookupData tplChcActions = edgs
   where chcActionsFromAllTemplates = concatMap choiceAndAction tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
+        edgs = map (\(chn1, chn2) -> ( (nodeIdForChoice lookupData chn1) ,(nodeIdForChoice lookupData chn2) )) choicePairsForTemplates
 
 subGraphHeader :: LF.Template -> String
-subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{"
+subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{ \n"
 
 
 -- Missing label color as only choice name is not carried on
 subGraphBodyLine :: (LF.ChoiceName ,Int) -> String
 subGraphBodyLine (chc, nodeId) = "n" ++ show (nodeId) ++ "[label=" ++ DAP.renderPretty chc ++ "];"
+
 
 subGraphBody :: [(LF.ChoiceName ,Int)] -> String
 subGraphBody nodes = unlines $ map subGraphBodyLine nodes
@@ -144,7 +147,7 @@ subGraphEnd tpl = "label = " ++(DAP.renderPretty $ LF.tplTypeCon tpl) ++ " color
 
 
 subGraphCluster :: SubGraph -> String
-subGraphCluster SubGraph {..} = (subGraphHeader clusterTemplate) ++ (subGraphBody nodes ) ++ (subGraphEnd clusterTemplate)
+subGraphCluster SubGraph {..} = (subGraphHeader clusterTemplate) ++ (subGraphBody nodes) ++ (subGraphEnd clusterTemplate)
 
 -- Later on should decorate the edge too
 drawEdge :: Int -> Int -> String
