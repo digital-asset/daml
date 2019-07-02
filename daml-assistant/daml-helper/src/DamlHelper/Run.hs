@@ -659,9 +659,9 @@ runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) o
     mbScenario :: Maybe String <-
         requiredE "Failed to parse scenario" $
         queryProjectConfig ["scenario"] projectConfig
-    let darPath = "dist" </> projectName <> ".dar"
+    let darPath = ".daml" </> "dist" </> projectName <> ".dar"
     assistant <- getDamlAssistant
-    callCommand (unwords $ assistant : ["build", "-o", darPath])
+    callCommand (unwords $ assistant : ["build"])
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
         withNavigator' sandboxPh sandboxPort navigatorPort [] $ \navigatorPh -> do
