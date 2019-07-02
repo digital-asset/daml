@@ -54,12 +54,12 @@ startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
 data ChoiceAndAction = ChoiceAndAction
     { choiceForTemplate :: LF.Template
-      , choice :: LF.TemplateChoice
-      , actions :: Set.Set Action
+    , choice :: LF.TemplateChoice
+    , actions :: Set.Set Action
     }
 data TemplateChoiceAction = TemplateChoiceAction
     { template :: LF.Template
-      , choiceAndAction :: [ChoiceAndAction]
+    , choiceAndAction :: [ChoiceAndAction]
     }
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
@@ -104,9 +104,10 @@ nodeIdForChoice lookUpdata chc = case Map.lookup chc lookUpdata of
   Nothing -> error "Template node lookup failed"
 
 -- probably storing the choice is a better Idea, as we can determine what kind of choice it is.
-data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,Int)]
-                         , clusterTemplate :: LF.Template
-                         }
+data SubGraph = SubGraph
+    { nodes :: [(LF.ChoiceName ,Int)]
+    , clusterTemplate :: LF.Template
+    }
 
 addCreateChoice :: TemplateChoiceAction -> Map.Map LF.ChoiceName Int -> (LF.ChoiceName ,Int)
 addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nodeIdForChoice lookupData tplNameCreateChoice)
