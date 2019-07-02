@@ -55,9 +55,7 @@ class TransactionServiceRequestValidator(
       filter <- requirePresence(req.filter, "filter")
       requiredBegin <- requirePresence(req.begin, "begin")
       convertedBegin <- LedgerOffsetValidator.validate(requiredBegin, "begin")
-      convertedEnd <- req.end
-        .fold[Result[Option[domain.LedgerOffset]]](rightNone)(end =>
-          LedgerOffsetValidator.validate(end, "end").map(Some(_)))
+      convertedEnd <- LedgerOffsetValidator.validateOptional(req.end, "end")
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
     } yield
       PartialValidation(

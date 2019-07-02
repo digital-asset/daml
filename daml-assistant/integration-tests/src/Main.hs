@@ -262,7 +262,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
     [ testCase "daml new" $
           callProcessQuiet damlName ["new", quickstartDir, "quickstart-java"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
-          callProcessQuiet damlName ["build", "-o", "target/daml/iou.dar"]
+          callProcessQuiet damlName ["build"]
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
           callProcessQuiet damlName ["test"]
     , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
@@ -271,7 +271,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (proc damlName ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }
+          let sandboxProc = (proc damlName ["sandbox", "--port", show p, ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull }
           withCreateProcess sandboxProc  $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
@@ -301,7 +301,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", "target/daml/iou.dar"]) { std_out = UseHandle devNull1 }
+          let sandboxProc = (proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull1 }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort

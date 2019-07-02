@@ -14,7 +14,7 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as Scenario
 import Development.IDE.Core.Rules.Daml
 import qualified Development.IDE.Core.Shake as Shake
-import Development.IDE.State.API
+import Development.IDE.Core.API
 import qualified Development.IDE.Types.Logger as IdeLogger
 
 getDamlIdeState

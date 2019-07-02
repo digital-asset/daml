@@ -41,6 +41,13 @@ config_setting(
     ],
 )
 
+config_setting(
+    name = "profiling_build",
+    values = {
+        "compilation_mode": "dbg",
+    },
+)
+
 load(
     "@io_tweag_rules_haskell//haskell:c2hs.bzl",
     "c2hs_toolchain",
@@ -180,6 +187,7 @@ buildifier_excluded_patterns = [
     "./3rdparty/jvm/*",
     "./3rdparty/workspace.bzl",
     "./hazel/packages.bzl",
+    "./node_modules/*",
 ]
 
 # Run this to check if BUILD files are well-formatted.

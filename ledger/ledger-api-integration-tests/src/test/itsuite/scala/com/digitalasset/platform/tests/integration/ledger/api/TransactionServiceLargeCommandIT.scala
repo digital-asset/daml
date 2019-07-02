@@ -3,7 +3,6 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import com.digitalasset.ledger.api.testing.utils.MockMessages._
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundAll
@@ -12,7 +11,12 @@ import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
-import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.apitesting.TestParties._
+import com.digitalasset.platform.apitesting.{
+  MultiLedgerFixture,
+  TestTemplateIds,
+  TransactionFilters
+}
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.services.time.TimeProviderType
@@ -46,8 +50,6 @@ class TransactionServiceLargeCommandIT
 
   override val timeLimit: Span = scaled(300.seconds)
 
-  private val getAllContracts = transactionFilter
-
   "Transaction Service" when {
 
     "submitting and reading transactions" should {
@@ -57,12 +59,15 @@ class TransactionServiceLargeCommandIT
         val superSizedCommand = c
           .command(
             "Huge-composite-command",
+            Alice,
             List.fill(targetNumberOfSubCommands)(
-              Command(create(templateIds.dummy, List("operator" -> "party".asParty)))))
+              Command(create(templateIds.dummy, List("operator" -> Alice.asParty)))))
           .update(_.commands.maximumRecordTime := Timestamp(60L, 0))
 
         c.testingHelpers
-          .submitAndListenForSingleResultOfCommand(superSizedCommand, getAllContracts)
+          .submitAndListenForSingleResultOfCommand(
+            superSizedCommand,
+            TransactionFilters.allForParties(Alice))
           .map { tx =>
             tx.events.size shouldEqual targetNumberOfSubCommands
           }

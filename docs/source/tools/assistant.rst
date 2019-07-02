@@ -93,6 +93,8 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
     dependencies:
       - daml-prim
       - daml-stdlib
+    scenario-service:
+      grpc-max-message-size: 134217728
 
 
 Here is what each field means:
@@ -110,6 +112,11 @@ Here is what each field means:
 - ``exposed-modules``: the DAML modules that are exposed by this project, which can be imported in other projects.
   If this field is not specified all modules in the project are exposed.
 - ``dependencies``: the dependencies of this project.
+- ``scenario-service``: settings for the scenario service
+
+  - ``grpc-max-message-size``: This controls the maximum size of gRPC messages.
+    If unspecified this defaults to 128MB (134217728 bytes). Unless you get
+    errors there should be no reason to modify this.
 
 ..  TODO (@robin-da) document the dependency syntax
 

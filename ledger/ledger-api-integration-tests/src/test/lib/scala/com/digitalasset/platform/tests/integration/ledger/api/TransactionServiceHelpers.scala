@@ -20,11 +20,13 @@ import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand}
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.platform.PlatformApplications
+import com.digitalasset.platform.apitesting.TestParties
 import org.scalatest.Matchers
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
+//TODO: move all the necessary logic from here into TestUtils
 class TransactionServiceHelpers(config: PlatformApplications.Config) extends Matchers {
   lazy val defaultDar: File = config.darFiles.head.toFile
 
@@ -50,6 +52,7 @@ class TransactionServiceHelpers(config: PlatformApplications.Config) extends Mat
 
   def submitAndWaitRequestWithId(id: String, command: Command, ledgerId: domain.LedgerId) =
     submitAndWaitRequest
+      .update(_.commands.party := TestParties.Alice)
       .update(_.commands.commandId := id)
       .update(_.commands.commands := Seq(command))
       .update(_.commands.ledgerId := ledgerId.unwrap)
@@ -60,7 +63,7 @@ class TransactionServiceHelpers(config: PlatformApplications.Config) extends Mat
       prefix: String,
       i: Int,
       ledgerId: domain.LedgerId,
-      party: String = "party")(implicit materializer: Materializer): Future[Done] = {
+      party: String = TestParties.Alice)(implicit materializer: Materializer): Future[Done] = {
     val arg =
       Record(Some(dummyTemplate), Vector(RecordField("operator", Some(Value(Sum.Party(party))))))
     val command = Create(CreateCommand(Some(dummyTemplate), Some(arg)))

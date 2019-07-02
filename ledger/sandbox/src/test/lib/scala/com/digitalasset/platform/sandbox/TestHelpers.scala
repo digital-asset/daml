@@ -33,7 +33,7 @@ object TestDar {
 
 trait TestHelpers {
   protected val packageStore = {
-    val packageStore = InMemoryPackageStore()
+    val packageStore = InMemoryPackageStore.empty
     packageStore.putDarFile(Instant.EPOCH, None, TestDar.darFile) match {
       case Right(details @ _) => ()
       case Left(err) => sys.error(s"Could not load package ${TestDar.darFile}: $err")

@@ -53,37 +53,7 @@ da_haskell_binary(
     deps = [],
 )
 
-# NOTE(MH): This tarball contains only metadata for an SDK release. The SDK
-# assistant uses this metadata to download the actual data.
-# TODO(#520): Put changelog in tarball.
-genrule(
-    name = "sdk-metadata-tarball",
-    srcs = [
-        "//:LICENSE",
-        "//:NOTICES",
-        "//:VERSION",
-        "//:component-version",
-        "//:git-revision",
-        "//:CHANGELOG",
-        "sdk.yaml",
-    ],
-    outs = ["sdk-metadata-tarball.tar.gz"],
-    cmd = """
-        VERSION=$$(cat $(location //:VERSION))
-        COMPONENT_VERSION=$$(cat $(location //:component-version))
-        DIR=tmp/sdk
-        mkdir -p $$DIR
-        # NOTE(MH): The sdk assistant operates under the assumption that
-        # there is a template directory. We don't populate it anymore though.
-        mkdir -p $$DIR/templates
-        cp -L $(SRCS) $$DIR
-        rm $$DIR/$$(basename $(location //:component-version))
-        sed -i "s/__VERSION__/$$COMPONENT_VERSION/" $$DIR/sdk.yaml
-        tar zcf $@ -C tmp sdk
-    """,
-)
-
-# This tarball is used by the new daml assistant.sdk
+# This tarball is used by the new daml assistant.
 genrule(
     name = "sdk-release-tarball",
     srcs = [

@@ -25,11 +25,13 @@ object LedgerContextExtensions extends Matchers with OptionValues {
 
     import com.digitalasset.platform.participant.util.ValueConversions._
 
-    def command(commandId: String, individualCommands: Seq[Command]): SubmitRequest =
+    def command(commandId: String, party: String, individualCommands: Seq[Command]): SubmitRequest =
       MockMessages.submitRequest.update(
         _.commands.commandId := commandId,
         _.commands.ledgerId := context.ledgerId.unwrap,
-        _.commands.commands := individualCommands)
+        _.commands.commands := individualCommands,
+        _.commands.party := party
+      )
 
     def testingHelpers(implicit mat: ActorMaterializer): LedgerTestingHelpers = {
       val commandClient = context.commandClient()
@@ -69,12 +71,12 @@ object LedgerContextExtensions extends Matchers with OptionValues {
         argument: Value,
         choice: String,
         contractId: String,
-        submittingParty: String): SubmitRequest = {
+        submittingParty: String): SubmitRequest =
       command(
         commandId,
+        submittingParty,
         List(Command(Exercise(ExerciseCommand(Some(template), contractId, choice, Some(argument)))))
-      ).update(_.commands.party := submittingParty)
-    }
+      )
 
     // Create a template instance and return the resulting create event.
     @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -146,13 +148,12 @@ object LedgerContextExtensions extends Matchers with OptionValues {
         commandId: String,
         template: Identifier,
         args: Seq[RecordField],
-        submitter: String) = {
+        submitter: String) =
       context
         .command(
           commandId,
+          submitter,
           List(CreateCommand(Some(template), Some(Record(Some(template), args))).wrap))
-        .update(_.commands.party := submitter)
-    }
 
     // Create a template instance and verify that the listener can't see it
     @SuppressWarnings(Array("org.wartremover.warts.Any"))

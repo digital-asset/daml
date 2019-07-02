@@ -113,17 +113,17 @@ Run the application using prototyping tools
 
 In this section, you will run the quickstart application and get introduced to the main tools for prototyping DAML:
 
-#. To compile the DAML model, run ``daml build -o target/daml/iou.dar``
+#. To compile the DAML model, run ``daml build``
 
-   This creates a DAR package called ``target/daml/iou.dar``. The output should look like this:
+   This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that DAML compiles to) called ``.daml/dist/quickstart.dar``. The output should look like this:
 
    .. code-block:: none
 
-      Created target/daml/iou.dar.
+      Created .daml/dist/quickstart.dar.
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup target/daml/iou.dar``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup .daml/dist/quickstart.dar``
 
    The output should look like this:
 
@@ -137,7 +137,7 @@ In this section, you will run the quickstart application and get introduced to t
       _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
       /___/\_,_/_//_/\_,_/_.__/\___/_\_\
 
-      Initialized sandbox version 100.12.10 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
+      Initialized sandbox version 100.13.10 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
 
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/index>` on port ``6865``.
 
@@ -168,7 +168,7 @@ Now everything is running, you can try out the quickstart application:
 
    .. figure:: quickstart/images/contracts.png
 
-   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id `#2:2`, created from a *template* called `Iou.Iou@28b...`.
+   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#2:1``, created from a *template* called ``Iou.Iou@28b...``.
 
 #. On the left-hand side, you can see what the pages the Navigator contains:
 
@@ -197,7 +197,7 @@ Now everything is running, you can try out the quickstart application:
 #. Now, try transferring this Iou to someone else. Click on your Iou, select **Iou_Transfer**, enter *Bob* as the new owner and hit **Submit**.
 #. Go to the **Owned Ious** page.
 
-   The screen shows the same contract ``#2:2`` that you already saw on the *Contracts* page. It is an Iou for €100, issued by *EUR_Bank*.
+   The screen shows the same contract ``#2:1`` that you already saw on the *Contracts* page. It is an Iou for €100, issued by *EUR_Bank*.
 #. Go to the **Iou Transfers** page. It shows the transfer of your recently issued Iou to Bob, but Bob has not accepted the transfer, so it is not settled.
 
    This is an important part of DAML: nobody can be forced into owning an *Iou*, or indeed agreeing to any other contract. They must explicitly consent.
@@ -219,8 +219,8 @@ Now everything is running, you can try out the quickstart application:
 
    It also shows an *Iou* for $110 issued by *USD_Bank*. This matches the trade proposal you made earlier as Alice.
 
-   Note its *Contract Id* ``#3:2``.
-#. Settle the trade. Go to the **Trades** page, and click on the row of the proposal. Accept the trade by clicking **IouTrade_Accept**. In the popup, enter ``#3:2`` as the *quoteIouCid*, then click **Submit**.
+   Note its *Contract Id* ``#3:1``.
+#. Settle the trade. Go to the **Trades** page, and click on the row of the proposal. Accept the trade by clicking **IouTrade_Accept**. In the popup, enter ``#3:1`` as the *quoteIouCid*, then click **Submit**.
 
    The two legs of the transfer are now settled atomically in a single transaction. The trade either fails or succeeds as a whole.
 #. Privacy is an important feature of DAML. You can check that Alice and Bob's privacy relative to the Banks was preserved.
@@ -353,109 +353,94 @@ After a short time, the text *Scenario results* should appear above the test. Cl
 
 .. figure:: quickstart/images/ledger.png
 
-Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the "Show archived" box at the top. Clicking the adjacent "Show transaction view" button switches to a view of the entire transaction tree.
+Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the **Show archived** box at the top. Click the adjacent **Show transaction view** button to switch to a view of the entire transaction tree.
 
 In the transaction view, transaction ``#6`` is of particular intest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
 
 .. code-block:: none
 
-  TX #6 1970-01-01T00:00:00Z (unknown source)
+  TX #6 1970-01-01T00:00:00Z (Tests.Trade:61:14)
   #6:0
-  └─> fetch #5:0 (IouTrade.IouTrade)
-
-  #6:1
-  │   known to (since): 'Bob' (#6), 'Alice' (#6)
-  └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade.IouTrade)
+  │   known to (since): 'Alice' (#6), 'Bob' (#6)
+  └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade:IouTrade)
             with
-              quoteIouCid = #3:2
+              quoteIouCid = #3:1
       children:
+      #6:1
+      │   known to (since): 'Alice' (#6), 'Bob' (#6)
+      └─> fetch #4:1 (Iou:Iou)
+      
       #6:2
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #3:2 (Iou.Iou)
-
+      │   known to (since): 'Alice' (#6), 'Bob' (#6)
+      └─> fetch #3:1 (Iou:Iou)
+      
       #6:3
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #3:2 (Iou.Iou)
-
-      #6:4
       │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
-      └─> 'Bob' exercises Iou_Transfer on #3:2 (Iou.Iou)
+      └─> 'Bob' exercises Iou_Transfer on #3:1 (Iou:Iou)
                 with
                   newOwner = 'Alice'
           children:
-          #6:5
-          │   consumed by: #6:7
-          │   referenced by #6:6, #6:7
-          │   known to (since): 'Alice' (#6), 'Bob' (#6), 'USD_Bank' (#6)
-          └─> create Iou.IouTransfer
+          #6:4
+          │   consumed by: #6:5
+          │   referenced by #6:5
+          │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+          └─> create Iou:IouTransfer
               with
                 iou =
-                  (Iou.Iou with
+                  (Iou:Iou with
                      issuer = 'USD_Bank';
                      owner = 'Bob';
                      currency = "USD";
                      amount = 110.0;
                      observers = []);
                 newOwner = 'Alice'
-
-      #6:6
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #6:5 (Iou.IouTransfer)
-
-      #6:7
-      │   known to (since): 'Alice' (#6), 'Bob' (#6), 'USD_Bank' (#6)
-      └─> 'Alice' exercises IouTransfer_Accept on #6:5 (Iou.IouTransfer)
+      
+      #6:5
+      │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+      └─> 'Alice' exercises IouTransfer_Accept on #6:4 (Iou:IouTransfer)
                   with
           children:
-          #6:8
+          #6:6
           │   referenced by #7:0
           │   known to (since): 'Alice' (#6), 'USD_Bank' (#6), 'Bob' (#6)
-          └─> create Iou.Iou
+          └─> create Iou:Iou
               with
                 issuer = 'USD_Bank';
                 owner = 'Alice';
                 currency = "USD";
                 amount = 110.0;
                 observers = []
-
-      #6:9
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #4:2 (Iou.Iou)
-
-      #6:10
+      
+      #6:7
       │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
-      └─> 'Alice' exercises Iou_Transfer on #4:2 (Iou.Iou)
+      └─> 'Alice' exercises Iou_Transfer on #4:1 (Iou:Iou)
                   with
                     newOwner = 'Bob'
           children:
-          #6:11
-          │   consumed by: #6:13
-          │   referenced by #6:12, #6:13
-          │   known to (since): 'Bob' (#6), 'Alice' (#6), 'EUR_Bank' (#6)
-          └─> create Iou.IouTransfer
+          #6:8
+          │   consumed by: #6:9
+          │   referenced by #6:9
+          │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+          └─> create Iou:IouTransfer
               with
                 iou =
-                  (Iou.Iou with
+                  (Iou:Iou with
                      issuer = 'EUR_Bank';
                      owner = 'Alice';
                      currency = "EUR";
                      amount = 100.0;
                      observers = ['Bob']);
                 newOwner = 'Bob'
-
-      #6:12
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #6:11 (Iou.IouTransfer)
-
-      #6:13
-      │   known to (since): 'Bob' (#6), 'Alice' (#6), 'EUR_Bank' (#6)
-      └─> 'Bob' exercises IouTransfer_Accept on #6:11 (Iou.IouTransfer)
+      
+      #6:9
+      │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+      └─> 'Bob' exercises IouTransfer_Accept on #6:8 (Iou:IouTransfer)
                 with
           children:
-          #6:14
+          #6:10
           │   referenced by #8:0
           │   known to (since): 'Bob' (#6), 'EUR_Bank' (#6), 'Alice' (#6)
-          └─> create Iou.Iou
+          └─> create Iou:Iou
               with
                 issuer = 'EUR_Bank'; owner = 'Bob'; currency = "EUR"; amount = 100.0; observers = []
 

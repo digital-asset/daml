@@ -8,12 +8,14 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v2.{PartyAllocationResult, TransactionId}
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v2.TransactionId
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.common.util.DirectExecutionContext
@@ -187,7 +189,28 @@ trait LedgerDao extends AutoCloseable {
   def storeParty(
       party: Party,
       displayName: Option[String]
-  ): Future[PartyAllocationResult]
+  ): Future[PersistenceResponse]
+
+  /** Returns a list of all known DAML-LF packages */
+  def listLfPackages: Future[Map[PackageId, PackageDetails]]
+
+  /** Returns the given DAML-LF archive */
+  def getLfArchive(packageId: PackageId): Future[Option[Archive]]
+
+  /**
+    * Stores a set of DAML-LF packages
+    *
+    * @param uploadId A unique identifier for this upload. Can be used to find
+    *   out which packages were uploaded together, in the case of concurrent uploads.
+    *
+    * @param packages The DAML-LF archives to upload, including their meta-data.
+    *
+    * @return
+    */
+  def uploadLfPackages(
+      uploadId: String,
+      packages: List[(Archive, PackageDetails)]
+  ): Future[PersistenceResponse]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

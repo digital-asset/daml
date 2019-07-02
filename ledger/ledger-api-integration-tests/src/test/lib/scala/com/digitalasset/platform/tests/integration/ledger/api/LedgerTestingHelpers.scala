@@ -369,12 +369,8 @@ class LedgerTestingHelpers(
   ): Future[CreatedEvent] = {
     for {
       tx <- submitAndListenForSingleResultOfCommand(
-        submitRequestWithId(commandId)
-          .update(
-            _.commands.commands :=
-              List(CreateCommand(Some(template), Some(arg)).wrap),
-            _.commands.party := submitter
-          ),
+        submitRequestWithId(commandId, submitter)
+          .update(_.commands.commands := List(CreateCommand(Some(template), Some(arg)).wrap)),
         TransactionFilter(Map(listener -> Filters.defaultInstance))
       )
     } yield {
@@ -400,11 +396,10 @@ class LedgerTestingHelpers(
       pattern: String
   ): Future[Assertion] =
     assertCommandFailsWithCode(
-      submitRequestWithId(commandId)
+      submitRequestWithId(commandId, submitter)
         .update(
           _.commands.commands :=
-            List(CreateCommand(Some(template), Some(arg)).wrap),
-          _.commands.party := submitter
+            List(CreateCommand(Some(template), Some(arg)).wrap)
         ),
       code,
       pattern
@@ -421,11 +416,10 @@ class LedgerTestingHelpers(
       arg: Value
   ): Future[TransactionTree] = {
     submitAndListenForSingleTreeResultOfCommand(
-      submitRequestWithId(commandId)
+      submitRequestWithId(commandId, submitter)
         .update(
           _.commands.commands :=
-            List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap),
-          _.commands.party := submitter
+            List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap)
         ),
       TransactionFilter(Map(listener -> Filters.defaultInstance)),
       false
@@ -443,11 +437,10 @@ class LedgerTestingHelpers(
       arg: Value
   ): Future[TransactionTree] = {
     submitAndListenForSingleTreeResultOfCommand(
-      submitRequestWithId(commandId)
+      submitRequestWithId(commandId, submitter)
         .update(
           _.commands.commands :=
-            List(ExerciseByKeyCommand(Some(template), Some(contractKey), choice, Some(arg)).wrap),
-          _.commands.party := submitter
+            List(ExerciseByKeyCommand(Some(template), Some(contractKey), choice, Some(arg)).wrap)
         ),
       TransactionFilter(Map(listener -> Filters.defaultInstance)),
       false
@@ -463,11 +456,10 @@ class LedgerTestingHelpers(
   ): Future[CreatedEvent] = {
     for {
       tx <- submitAndListenForSingleResultOfCommand(
-        submitRequestWithId(commandId)
+        submitRequestWithId(commandId, submitter)
           .update(
             _.commands.commands :=
-              List(CreateCommand(Some(template), Some(arg)).wrap),
-            _.commands.party := submitter
+              List(CreateCommand(Some(template), Some(arg)).wrap)
           ),
         TransactionFilter(Map(listener -> Filters.defaultInstance))
       )
@@ -525,11 +517,10 @@ class LedgerTestingHelpers(
       arg: Value
   ): Future[Seq[Transaction]] = {
     submitAndListenForTransactionResultOfCommand(
-      submitRequestWithId(commandId)
+      submitRequestWithId(commandId, submitter)
         .update(
           _.commands.commands :=
-            List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap),
-          _.commands.party := submitter
+            List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap)
         ),
       TransactionFilter(Map(listener -> Filters.defaultInstance)),
       false
@@ -574,9 +565,11 @@ class LedgerTestingHelpers(
     }
   }
 
-  def submitRequestWithId(commandId: String): SubmitRequest =
+  def submitRequestWithId(commandId: String, submitter: String): SubmitRequest =
     M.submitRequest.update(
-      _.commands.modify(_.copy(commandId = commandId, ledgerId = context.ledgerId.unwrap)))
+      _.commands.party := submitter,
+      _.commands.commandId := commandId,
+      _.commands.ledgerId := context.ledgerId.unwrap)
 
   // Exercise a choice and return all resulting create events.
   def simpleExercise(
@@ -618,11 +611,10 @@ class LedgerTestingHelpers(
       pattern: String
   ): Future[Assertion] =
     assertCommandFailsWithCode(
-      submitRequestWithId(commandId)
+      submitRequestWithId(commandId, submitter)
         .update(
           _.commands.commands :=
-            List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap),
-          _.commands.party := submitter
+            List(ExerciseCommand(Some(template), contractId, choice, Some(arg)).wrap)
         ),
       code,
       pattern
@@ -640,11 +632,10 @@ class LedgerTestingHelpers(
       pattern: String
   ): Future[Assertion] =
     assertCommandFailsWithCode(
-      submitRequestWithId(commandId)
+      submitRequestWithId(commandId, submitter)
         .update(
           _.commands.commands :=
-            List(ExerciseByKeyCommand(Some(template), contractKey, choice, Some(arg)).wrap),
-          _.commands.party := submitter
+            List(ExerciseByKeyCommand(Some(template), contractKey, choice, Some(arg)).wrap)
         ),
       code,
       pattern

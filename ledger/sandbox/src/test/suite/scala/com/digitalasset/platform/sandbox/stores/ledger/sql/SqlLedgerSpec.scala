@@ -8,7 +8,7 @@ import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.MetricsAround
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundEach
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -38,6 +38,7 @@ class SqlLedgerSpec
         ledgerId = None,
         timeProvider = TimeProvider.UTC,
         acs = InMemoryActiveContracts.empty,
+        packages = InMemoryPackageStore.empty,
         initialLedgerEntries = ImmArray.empty,
         queueDepth
       )
@@ -53,6 +54,7 @@ class SqlLedgerSpec
         ledgerId = Some(ledgerId),
         timeProvider = TimeProvider.UTC,
         acs = InMemoryActiveContracts.empty,
+        packages = InMemoryPackageStore.empty,
         initialLedgerEntries = ImmArray.empty,
         queueDepth
       )
@@ -70,6 +72,7 @@ class SqlLedgerSpec
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
+          packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )
@@ -79,6 +82,7 @@ class SqlLedgerSpec
           ledgerId = Some(ledgerId),
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
+          packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )
@@ -88,6 +92,7 @@ class SqlLedgerSpec
           ledgerId = None,
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
+          packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )
@@ -107,6 +112,7 @@ class SqlLedgerSpec
           ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("TheLedger"))),
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
+          packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )
@@ -115,6 +121,7 @@ class SqlLedgerSpec
           ledgerId = Some(LedgerId(Ref.LedgerString.assertFromString("AnotherLedger"))),
           timeProvider = TimeProvider.UTC,
           acs = InMemoryActiveContracts.empty,
+          packages = InMemoryPackageStore.empty,
           initialLedgerEntries = ImmArray.empty,
           queueDepth
         )

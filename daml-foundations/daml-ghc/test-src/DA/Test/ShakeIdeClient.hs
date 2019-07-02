@@ -25,7 +25,7 @@ import DA.Service.Daml.Compiler.Impl.Scenario as SS
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified DA.Service.Logger.Impl.Pure as Logger
-import Development.IDE.State.API.Testing
+import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 main :: IO ()

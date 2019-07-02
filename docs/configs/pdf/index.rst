@@ -12,7 +12,6 @@ Getting started
    :maxdepth: 2
 
    Installing the SDK <getting-started/installation>
-   getting-started/introduction
    getting-started/quickstart
 
 Writing DAML

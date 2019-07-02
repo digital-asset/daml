@@ -177,7 +177,7 @@ public final class DamlLedgerClient implements LedgerClient {
         pool.close();
     }
 
-    public static void main(String[] args) throws SSLException {
+    public static void main(String[] args) {
         DamlLedgerClient ledgerClient = DamlLedgerClient.forHostWithLedgerIdDiscovery("localhost", 6865, Optional.empty());
         ledgerClient.connect();
         String ledgerId = ledgerClient.ledgerIdentityClient.getLedgerIdentity().blockingGet();
