@@ -115,7 +115,7 @@ In this section, you will run the quickstart application and get introduced to t
 
 #. To compile the DAML model, run ``daml build``
 
-   This creates a `DAR file <../concepts/glossary#dar-file-dalf-file>`__ (DAR is just the format that DAML compiles to) called ``.daml/dist/quickstart.dar``. The output should look like this:
+   This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that DAML compiles to) called ``.daml/dist/quickstart.dar``. The output should look like this:
 
    .. code-block:: none
 

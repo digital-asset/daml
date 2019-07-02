@@ -228,6 +228,8 @@ A contract key requires a `maintainer <#maintainer>`__: a simple key would be so
 
 See :doc:`/daml/reference/contract-keys`.
 
+.. _dar-file-dalf-file:
+
 DAR file, DALF file
 ===================
 
