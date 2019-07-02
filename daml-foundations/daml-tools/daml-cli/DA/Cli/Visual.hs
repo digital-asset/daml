@@ -52,12 +52,15 @@ startFromExpr seen world e = case e of
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
-data ChoiceAndAction = ChoiceAndAction { choiceForTemplate :: LF.Template
-                                       , choice :: LF.TemplateChoice
-                                       , actions :: Set.Set Action
-                                       }
-data TemplateChoiceAction = TemplateChoiceAction { template :: LF.Template
-                                                 , choiceAndAction :: [ChoiceAndAction] }
+data ChoiceAndAction = ChoiceAndAction
+    { choiceForTemplate :: LF.Template
+      , choice :: LF.TemplateChoice
+      , actions :: Set.Set Action
+    }
+data TemplateChoiceAction = TemplateChoiceAction
+    { template :: LF.Template
+      , choiceAndAction :: [ChoiceAndAction]
+    }
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map (\c -> ChoiceAndAction tpl c (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
@@ -107,7 +110,7 @@ data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,Int)]
 
 addCreateChoice :: TemplateChoiceAction -> Map.Map LF.ChoiceName Int -> (LF.ChoiceName ,Int)
 addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nodeIdForChoice lookupData tplNameCreateChoice)
-    where tplNameCreateChoice = LF.ChoiceName $ T.pack ((DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon template)) ++ "_Create")
+    where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (head (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName Int -> TemplateChoiceAction -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoiceAction {..} = SubGraph  nodesWithCreate template
