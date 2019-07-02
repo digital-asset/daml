@@ -96,9 +96,9 @@ handleCreateAndArchive TemplateChoiceAction {..} = [createChoice, archiveChoice]
 -- This is used to generate the node ids and use as look up table
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName Int
 choiceNameWithId tplChcActions = Map.fromList $ zip choiceActions [0..]
-  where choiceActions =  concatMap handleCreateAndArchive tplChcActions
+  where choiceActions = concatMap handleCreateAndArchive tplChcActions
 
-nodeIdForChoice ::  Map.Map LF.ChoiceName Int -> LF.ChoiceName -> Int
+nodeIdForChoice :: Map.Map LF.ChoiceName Int -> LF.ChoiceName -> Int
 nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
   Just node -> node
   Nothing -> error "Template node lookup failed"
