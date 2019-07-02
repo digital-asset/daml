@@ -692,10 +692,6 @@ data Template = Template
   }
   deriving (Eq, Data, Generic, NFData, Show)
 
-instance Ord Template where
-  compare (Template _ tplCon1 _ _ _ _ _ _ _)  (Template _ tplCon2 _ _ _ _ _ _ _) = tplCon1 `compare` tplCon2
-
-
 -- | Single choice of a contract template.
 data TemplateChoice = TemplateChoice
   { chcLocation :: !(Maybe SourceLoc)
