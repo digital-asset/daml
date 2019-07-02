@@ -143,7 +143,7 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
     case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)
   }
 
-  private def parse[A: JsonFormat](str: ByteString): String \/ A =
+  private def parse[A: JsonReader](str: ByteString): String \/ A =
     Try {
       val jsonAst: JsValue = str.utf8String.parseJson
       jsonAst.convertTo[A]
