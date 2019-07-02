@@ -75,6 +75,7 @@ object Cli {
           |use numbers lower than 1.0 to make test timeouts more strict.""".stripMargin)
 
     opt[Unit]("verbose")
+      .abbr("v")
       .action((_, c) => c.copy(verbose = true))
       .text("Prints full stacktraces on failures.")
 
