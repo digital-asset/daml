@@ -293,7 +293,7 @@ def _scaladoc_jar_impl(ctx):
                 # which breaks scala macros
 
             elif hasattr(p, "files"):
-                pluginPaths.extend([f for f in p.files if "-sources.jar" not in f.basename])
+                pluginPaths.extend([f for f in p.files.to_list() if "-sources.jar" not in f.basename])
 
         transitive_deps = [dep[JavaInfo].transitive_deps for dep in ctx.attr.deps]
         classpath = depset([], transitive = transitive_deps).to_list()
