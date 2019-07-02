@@ -32,10 +32,9 @@ and reuse our DAML Ledger server and DAML interpreter code for
 implementing the DAML Ledger API. For example uses of the integration kit see
 :ref:`daml_ledgers_built_or_in_development`.
 
-
 .. _daml_ledgers_built_or_in_development:
 
-TODO include other page
+.. include:: ../deploy/index.rst
 
 .. _status_and_roadmap:
 
