@@ -289,11 +289,8 @@ object Queries {
             toJsonString(v)
           )
 
-        case e @ V.ValueEnum(_, _) =>
-          Fragment(
-            "?::jsonb",
-            toJsonString(e)
-          )
+        case e @ V.ValueEnum(_, constructor) =>
+          Fragment("?", constructor: String)
 
         case o @ V.ValueOptional(_) =>
           Fragment(
