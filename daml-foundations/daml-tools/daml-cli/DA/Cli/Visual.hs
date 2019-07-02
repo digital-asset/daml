@@ -55,14 +55,11 @@ startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 data ChoiceAndAction = ChoiceAndAction { choiceForTemplate :: LF.Template , choice :: LF.TemplateChoice ,actions :: Set.Set Action }
 data TemplateChoiceAction = TemplateChoiceAction { template :: LF.Template ,choiceAndAction :: [ChoiceAndAction] }
 
-
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map (\c -> ChoiceAndAction tpl c (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoiceAction]
-moduleAndTemplates world mod = map (\t -> TemplateChoiceAction t (templatePossibleUpdates world t)) templates
-    where
-        templates = NM.toList $ LF.moduleTemplates mod
+moduleAndTemplates world mod = map (\t -> TemplateChoiceAction t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
 
 dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
 dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
