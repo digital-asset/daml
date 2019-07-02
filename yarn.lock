@@ -26,6 +26,11 @@
     "@bazel/bazel-linux_x64" "0.22.0"
     "@bazel/bazel-win32_x64" "0.22.0"
 
+"@bazel/hide-bazel-files@0.32.2":
+  version "0.32.2"
+  resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-0.32.2.tgz#a482855eafbccb56b1fce0d92ff922c2c6e0a90c"
+  integrity sha512-585XY53mhMZaCjEQJ+aDqkmydWZbuXsKrZsSpoW9YeAVEH0poQY3YhdyCPmMVBo7/l1mkrqpFuOK5BpECfwdtA==
+
 "@bazel/typescript@0.23.2":
   version "0.23.2"
   resolved "https://registry.yarnpkg.com/@bazel/typescript/-/typescript-0.23.2.tgz#a3ff199880855259d84216cb41644c1d9a0fad14"
