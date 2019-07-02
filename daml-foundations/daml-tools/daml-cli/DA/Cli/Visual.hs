@@ -1,8 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE OverloadedStrings   #-}
-{-# LANGUAGE ApplicativeDo       #-}
-
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Visual
   ( execVisual
@@ -22,8 +20,6 @@ import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
--- import Data.List.Extra
--- import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
@@ -78,19 +74,20 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
     where
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
-tplName :: LF.Template -> String
-tplName LF.Template {..} = T.unpack $ head (LF.unTypeConName tplTypeCon)
+tplName :: LF.Template -> T.Text
+tplName LF.Template {..} = head (LF.unTypeConName tplTypeCon)
 
-handlechioceAndAction :: ChoiceAndAction -> LF.ChoiceName
-handlechioceAndAction (ChoiceAndAction tpl (LF.TemplateChoice _ (LF.ChoiceName "Create")  _ _ _ _ _ _) _)  = LF.ChoiceName $ T.pack (tplName tpl ++ "_Create")
-handlechioceAndAction (ChoiceAndAction tpl (LF.TemplateChoice _ (LF.ChoiceName "Archive")  _ _ _ _ _ _) _)  = LF.ChoiceName $ T.pack (tplName tpl ++ "_Archive")
-handlechioceAndAction (ChoiceAndAction _ (LF.TemplateChoice _ chc  _ _ _ _ _ _ ) _)  = chc
+handleChoiceAndAction :: ChoiceAndAction -> LF.ChoiceName
+handleChoiceAndAction (ChoiceAndAction tpl choice _)
+    | LF.chcName choice == LF.ChoiceName "Create" = LF.ChoiceName $ tplName tpl <> "_Create"
+    | LF.chcName choice == LF.ChoiceName "Archive" = LF.ChoiceName $ tplName tpl <> "_Archive"
+    | otherwise = LF.chcName choice
 
 -- Making choiceName is very weird
 handleCreateAndArchive :: TemplateChoiceAction -> [LF.ChoiceName]
-handleCreateAndArchive TemplateChoiceAction {..} =  [createChoice,archiveChoice] ++  map handlechioceAndAction choiceAndAction
-    where archiveChoice = LF.ChoiceName $ T.pack (tplName template ++ "_Archive")
-          createChoice = LF.ChoiceName $ T.pack (tplName template ++ "_Create")
+handleCreateAndArchive TemplateChoiceAction {..} =  [createChoice,archiveChoice] ++  map handleChoiceAndAction choiceAndAction
+    where archiveChoice = LF.ChoiceName $ tplName template <> "_Archive"
+          createChoice = LF.ChoiceName $ tplName template <> "_Create"
 
 -- This is used to generate the node ids and use as look up table
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName Int
@@ -111,18 +108,18 @@ addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nod
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName Int -> TemplateChoiceAction -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoiceAction {..} = SubGraph  nodesWithCreate template
-  where choicesInTemplete = map handlechioceAndAction choiceAndAction
+  where choicesInTemplete = map handleChoiceAndAction choiceAndAction
         nodes = map (\chc -> (chc, nodeIdForChoice lookupData chc)) choicesInTemplete
         nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData ]
 
 actionToChoice :: LF.Template -> Action -> LF.ChoiceName
-actionToChoice tpl (ACreate _) = LF.ChoiceName $ T.pack (tplName tpl ++ "_Create")
-actionToChoice tpl (AExercise _ (LF.ChoiceName "Archive" )) = LF.ChoiceName $ T.pack (tplName tpl ++ "_Archive")
+actionToChoice tpl (ACreate _) = LF.ChoiceName $ tplName tpl <> "_Create"
+actionToChoice tpl (AExercise _ (LF.ChoiceName "Archive" )) = LF.ChoiceName $ tplName tpl <> "_Archive"
 actionToChoice _tpl (AExercise _ chc) = chc
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
 choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
-    where pairs = map (\ac -> (handlechioceAndAction cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
+    where pairs = map (\ac -> (handleChoiceAndAction cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
 
 graphEdges :: Map.Map LF.ChoiceName Int -> [TemplateChoiceAction] -> [(Int, Int)]
 graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1 ,nodeIdForChoice lookupData chn2)) choicePairsForTemplates
