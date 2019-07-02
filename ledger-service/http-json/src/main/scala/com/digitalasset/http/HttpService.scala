@@ -48,7 +48,9 @@ object HttpService extends StrictLogging {
         LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
       packageService = new PackageService(client.packageClient)
       templateIdMap <- eitherT(packageService.getTemplateIdMap())
-      contractsService = new ContractsService(templateIdMap, client.activeContractSetClient)
+      contractsService = new ContractsService(
+        PackageService.resolveTemplateIds(templateIdMap),
+        client.activeContractSetClient)
       endpoints = new Endpoints(contractsService)
       binding <- liftET[Error](
         Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))

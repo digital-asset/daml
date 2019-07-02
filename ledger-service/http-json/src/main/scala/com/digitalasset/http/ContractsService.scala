@@ -5,15 +5,14 @@ package com.digitalasset.http
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
+import com.digitalasset.http.ContractsService._
 import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.ledger.api.v1.value.Value
-import com.digitalasset.ledger.api.v1.transaction_filter
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
   TransactionFilter
 }
-import com.digitalasset.ledger.api.v1.value.Identifier
+import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import scalaz.\/
 import scalaz.std.string._
@@ -21,15 +20,9 @@ import scalaz.std.string._
 import scala.concurrent.{ExecutionContext, Future}
 
 class ContractsService(
-    templateIdMap: PackageService.TemplateIdMap,
-    activeContractSetClient: ActiveContractSetClient)(
-    implicit ec: ExecutionContext,
-    mat: Materializer) {
-
-  import ContractsService._
-
-  private val resolveTemplateIds: Set[domain.TemplateId.OptionalPkg] => Error \/ List[Identifier] =
-    PackageService.resolveTemplateIds(templateIdMap)
+    resolveTemplateIds: ResolveTemplateIds,
+    activeContractSetClient: ActiveContractSetClient,
+    parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer) {
 
   def search(jwtPayload: domain.JwtPayload, request: domain.GetActiveContractsRequest)
     : Future[Seq[domain.GetActiveContractsResponse[Value]]] =
@@ -41,7 +34,7 @@ class ContractsService(
       templateIds <- toFuture(resolveTemplateIds(templateIds))
       activeContracts <- activeContractSetClient
         .getActiveContracts(transactionFilter(party, templateIds), verbose = true)
-        .mapAsyncUnordered(8)(gacr =>
+        .mapAsyncUnordered(parallelism)(gacr =>
           toFuture(domain.GetActiveContractsResponse.fromLedgerApi(gacr)))
         .runWith(Sink.seq)
     } yield activeContracts
@@ -50,10 +43,11 @@ class ContractsService(
     val filters =
       if (templateIds.isEmpty) Filters.defaultInstance
       else Filters(Some(InclusiveFilters(templateIds)))
-    transaction_filter.TransactionFilter(Map(party -> filters))
+    TransactionFilter(Map(party -> filters))
   }
 }
 
 object ContractsService {
   type Error = String
+  type ResolveTemplateIds = Set[domain.TemplateId.OptionalPkg] => Error \/ List[Identifier]
 }
