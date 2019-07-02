@@ -114,20 +114,23 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
     } ~
       path("contracts/search") {
         get {
-          complete(
-            JsonApi.subst(
-              contractsService
-                .search(jwtPayload, emptyGetActiveContractsRequest)
-                .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
+          extractJwtPayload { jwt =>
+            complete(
+              JsonApi.subst(
+                contractsService
+                  .search(jwt, emptyGetActiveContractsRequest)
+                  .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
+          }
         } ~
           post {
-            entity(as[domain.GetActiveContractsRequest @@ JsonApi]) {
-              case JsonApi(gacr) =>
-                complete(
-                  JsonApi.subst(
-                    contractsService
-                      .search(jwtPayload, gacr)
+            extractJwtPayload { jwt =>
+              entity(as[domain.GetActiveContractsRequest @@ JsonApi]) {
+                case JsonApi(gacr) =>
+                  complete(
+                    JsonApi.subst(contractsService
+                      .search(jwt, gacr)
                       .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
+              }
             }
           }
       }
