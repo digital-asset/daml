@@ -259,6 +259,10 @@ haskell_register_ghc_nixpkgs(
         "-hide-package=ghc-boot-th",
         "-hide-package=ghc-boot",
     ],
+    compiler_flags_select = {
+        "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
+        "//conditions:default": [],
+    },
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,

@@ -111,3 +111,10 @@ from the `.bazelrc` file.
 If you work with multiple copies of this repository, you can point all of them to the same disk cache
 by overwriting these configs in either a `.bazelrc.local` file in each copy, or a `~/.bazelrc` file
 in your home directory.
+
+
+### Haskell profiling builds
+
+To build Haskell executables with profiling enabled, pass `-c dbg` to
+Bazel, e.g. `bazel build -c dbg damlc`. If you want to build the whole
+SDK with profiling enabled use `daml-sdk-head --profiling`.
