@@ -60,7 +60,7 @@ data TemplateChoiceAction = TemplateChoiceAction { template :: LF.Template ,choi
 
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
-templatePossibleUpdates world tpl = map (\c -> (ChoiceAndAction tpl c (startFromChoice world c))  ) (NM.toList (LF.tplChoices tpl))
+templatePossibleUpdates world tpl = map (\c -> ChoiceAndAction tpl c (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoiceAction]
 moduleAndTemplates world mod = retTypess
@@ -94,28 +94,26 @@ handleCreateAndArchive TemplateChoiceAction {..} =  [createChoice,archiveChoice]
 
 -- This to be used to generate the node ids and use as look up table
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName Int
-choiceNameWithId tplChcActions = numbered_choices
+choiceNameWithId tplChcActions = Map.fromList $ zip choiceActions [0..]
   where choiceActions =  concatMap handleCreateAndArchive tplChcActions
-        numbered_choices =  Map.fromList $ zip choiceActions [0..]
 
 -- This flattening is not doing exhaustive, will be missing the create and archives. Probably will filter for 1st iteration
 nodeIdForChoice ::  Map.Map LF.ChoiceName Int -> LF.ChoiceName -> Int
-nodeIdForChoice _ (LF.ChoiceName "Create") = error("horror")
 nodeIdForChoice lookUpdata chc = case Map.lookup chc lookUpdata of
   Just node -> node
-  Nothing -> error("Template node lookup failed")
+  Nothing -> error "Template node lookup failed"
 
 -- probably storing the choice is a better Idea, as we can determine what kind of choice it is.
 data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,Int)], clusterTemplate :: LF.Template }
 
 addCreateChoice :: TemplateChoiceAction -> Map.Map LF.ChoiceName Int -> (LF.ChoiceName ,Int)
-addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, (nodeIdForChoice lookupData tplNameCreateChoice))
+addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nodeIdForChoice lookupData tplNameCreateChoice)
     where tplNameCreateChoice = LF.ChoiceName $ T.pack ((DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon template)) ++ "_Create")
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName Int -> TemplateChoiceAction -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoiceAction {..} = SubGraph  nodesWithCreate template
   where choicesInTemplete = map handlechioceAndAction choiceAndAction
-        nodes = map (\chc -> (chc, (nodeIdForChoice lookupData chc)) ) choicesInTemplete
+        nodes = map (\chc -> (chc, nodeIdForChoice lookupData chc)) choicesInTemplete
         nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData ]
 
 actionToChoice :: LF.Template -> Action -> LF.ChoiceName
@@ -127,13 +125,12 @@ actionToChoice _tpl (AExercise _ chc) = chc
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
 choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
-    where pairs = map (\ac -> (handlechioceAndAction cha, (actionToChoice choiceForTemplate ac))) (Set.elems actions)
+    where pairs = map (\ac -> (handlechioceAndAction cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
 
 graphEdges :: Map.Map LF.ChoiceName Int -> [TemplateChoiceAction] -> [(Int, Int)]
-graphEdges lookupData tplChcActions = edgs
+graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1 ,nodeIdForChoice lookupData chn2)) choicePairsForTemplates
   where chcActionsFromAllTemplates = concatMap choiceAndAction tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
-        edgs = map (\(chn1, chn2) -> ( (nodeIdForChoice lookupData chn1) ,(nodeIdForChoice lookupData chn2) )) choicePairsForTemplates
 
 subGraphHeader :: LF.Template -> String
 subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{ \n"
@@ -141,7 +138,7 @@ subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeC
 
 -- Missing label color as only choice name is not carried on
 subGraphBodyLine :: (LF.ChoiceName ,Int) -> String
-subGraphBodyLine (chc, nodeId) = "n" ++ show (nodeId) ++ "[label=" ++ DAP.renderPretty chc ++ "];"
+subGraphBodyLine (chc, nodeId) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++ "];"
 
 
 subGraphBody :: [(LF.ChoiceName ,Int)] -> String
@@ -152,15 +149,15 @@ subGraphEnd tpl = "label = " ++(DAP.renderPretty $ LF.tplTypeCon tpl) ++ " color
 
 
 subGraphCluster :: SubGraph -> String
-subGraphCluster SubGraph {..} = (subGraphHeader clusterTemplate) ++ (subGraphBody nodes) ++ (subGraphEnd clusterTemplate)
+subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ subGraphBody nodes ++ subGraphEnd clusterTemplate
 
 -- Later on should decorate the edge too
 drawEdge :: Int -> Int -> String
-drawEdge n1 n2 = "n"++show (n1) ++ "->" ++ "n"++show (n2)
+drawEdge n1 n2 = "n" ++ show n1 ++ "->" ++ "n" ++ show n2
 
 
 constructDotGraph :: [SubGraph] -> [(Int, Int)] -> String
-constructDotGraph subgraphs edges = "digraph G { \n compound=true \n" ++ "rankdir=LR; \n"++ graphLines ++ " \n } "
+constructDotGraph subgraphs edges = "digraph G { \ncompound=true \n" ++ "rankdir=LR; \n"++ graphLines ++ " \n } "
   where subgraphsLines = concatMap subGraphCluster subgraphs
         edgesLines = unlines $ map (\(n1, n2) -> drawEdge n1 n2 )  edges
         graphLines = subgraphsLines ++ edgesLines
