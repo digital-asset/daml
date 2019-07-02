@@ -187,7 +187,8 @@ runDamlStudio replaceExt remainingArguments = do
                     ["--install-extension", publishedExtensionName]
                 when (exitCode /= ExitSuccess) $ do
                     hPutStr stderr . unlines $
-                        [ "Failed to install DAML Studio extension from marketplace."
+                        [ err
+                        , "Failed to install DAML Studio extension from marketplace."
                         , "Installing bundled DAML Studio extension instead."
                         ]
                     installBundledExtension'
