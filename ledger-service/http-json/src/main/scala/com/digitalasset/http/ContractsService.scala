@@ -24,6 +24,11 @@ class ContractsService(
     activeContractSetClient: ActiveContractSetClient,
     parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer) {
 
+  def lookup(
+      jwtPayload: domain.JwtPayload,
+      request: domain.ContractLookupRequest[Value]): Future[Option[domain.ActiveContract[Value]]] =
+    Future.failed(new RuntimeException("contract lookup not yet supported")) // TODO
+
   def search(jwtPayload: domain.JwtPayload, request: domain.GetActiveContractsRequest)
     : Future[Seq[domain.GetActiveContractsResponse[Value]]] =
     search(jwtPayload.party, request.templateIds)

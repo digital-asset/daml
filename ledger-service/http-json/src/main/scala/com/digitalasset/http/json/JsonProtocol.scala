@@ -34,6 +34,9 @@ object JsonProtocol extends DefaultJsonProtocol {
     case _ => deserializationError("ContractLookupRequest must be an object")
   }
 
+  implicit val ActiveContractFormat: RootJsonFormat[domain.ActiveContract[JsValue]] =
+    jsonFormat6(domain.ActiveContract.apply[JsValue])
+
   implicit val GetActiveContractsRequestFormat: RootJsonFormat[domain.GetActiveContractsRequest] =
     jsonFormat1(domain.GetActiveContractsRequest)
 
