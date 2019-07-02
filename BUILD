@@ -41,6 +41,13 @@ config_setting(
     ],
 )
 
+config_setting(
+    name = "profiling_build",
+    values = {
+        "compilation_mode": "dbg",
+    },
+)
+
 load(
     "@io_tweag_rules_haskell//haskell:c2hs.bzl",
     "c2hs_toolchain",
