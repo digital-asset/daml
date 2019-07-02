@@ -155,7 +155,7 @@ drawEdge n1 n2 = "n" ++ show n1 ++ "->" ++ "n" ++ show n2
 constructDotGraph :: [SubGraph] -> [(Int, Int)] -> String
 constructDotGraph subgraphs edges = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ graphLines ++ "\n}\n"
   where subgraphsLines = concatMap subGraphCluster subgraphs
-        edgesLines = unlines $ map (uncurry drawEdge)  edges
+        edgesLines = unlines $ map (uncurry drawEdge) edges
         graphLines = subgraphsLines ++ edgesLines
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
@@ -168,7 +168,7 @@ execVisual darFilePath dotFilePath = do
         templatesAndModules = concatMap (moduleAndTemplates world) modules
         nodeWorld = choiceNameWithId templatesAndModules
         subgraphClusters = map (constructSubgraphsWithLables nodeWorld) templatesAndModules
-        graphConnectedEdges  = graphEdges nodeWorld templatesAndModules
+        graphConnectedEdges = graphEdges nodeWorld templatesAndModules
         dotString = constructDotGraph subgraphClusters graphConnectedEdges
     case dotFilePath of
         Just outDotFile -> writeFile outDotFile dotString
