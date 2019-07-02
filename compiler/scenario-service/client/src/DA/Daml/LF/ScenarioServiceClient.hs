@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.ScenarioServiceClient
   ( Options(..)
   , LowLevel.TimeoutSeconds
@@ -30,6 +31,11 @@ import Data.Hashable
 import Data.IORef
 import qualified Data.Map.Strict as MS
 import qualified Data.Set as S
+import System.Directory
+
+import DAML.Project.Config
+import DAML.Project.Consts
+import DAML.Project.Types
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient.LowLevel as LowLevel
@@ -42,8 +48,8 @@ data Options = Options
   , optLogError :: String -> IO ()
   }
 
-toLowLevelOpts :: Options -> LowLevel.Options
-toLowLevelOpts Options{..} = LowLevel.Options{..}
+toLowLevelOpts :: Maybe Int -> Options -> LowLevel.Options
+toLowLevelOpts optGrpcMaxMessageSize Options{..} = LowLevel.Options{..}
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -58,16 +64,38 @@ data Handle = Handle
   }
 
 withScenarioService :: Options -> (Handle -> IO a) -> IO a
-withScenarioService hOptions f =
-  LowLevel.withScenarioService (toLowLevelOpts hOptions) $ \hLowLevelHandle ->
-  bracket
-     (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
-     (LowLevel.deleteCtx hLowLevelHandle) $ \hContextId -> do
-         hLoadedPackages <- liftIO $ newIORef S.empty
-         hLoadedModules <- liftIO $ newIORef MS.empty
-         hConcurrencySem <- liftIO $ newQSem (optMaxConcurrency hOptions)
-         hContextLock <- liftIO newLock
-         f Handle {..}
+withScenarioService hOptions f = do
+  ScenarioServiceConfig{..} <- readScenarioServiceConfig
+  LowLevel.withScenarioService (toLowLevelOpts cnfGrpcMaxMessageSize hOptions) $ \hLowLevelHandle ->
+      bracket
+         (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
+         (LowLevel.deleteCtx hLowLevelHandle) $ \hContextId -> do
+             hLoadedPackages <- liftIO $ newIORef S.empty
+             hLoadedModules <- liftIO $ newIORef MS.empty
+             hConcurrencySem <- liftIO $ newQSem (optMaxConcurrency hOptions)
+             hContextLock <- liftIO newLock
+             f Handle {..}
+
+data ScenarioServiceConfig = ScenarioServiceConfig
+    { cnfGrpcMaxMessageSize :: Maybe Int -- In bytes
+    }
+
+defaultScenarioServiceConfig :: ScenarioServiceConfig
+defaultScenarioServiceConfig = ScenarioServiceConfig { cnfGrpcMaxMessageSize = Nothing }
+
+readScenarioServiceConfig :: IO ScenarioServiceConfig
+readScenarioServiceConfig = do
+    exists <- doesFileExist projectConfigName
+    if exists
+        then do
+            project <- readProjectConfig $ ProjectPath "."
+            either throwIO pure $ parseScenarioServiceConfig project
+        else pure defaultScenarioServiceConfig
+
+parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServiceConfig
+parseScenarioServiceConfig conf = do
+    cnfGrpcMaxMessageSize <- queryProjectConfig ["scenario-service", "grpc-max-message-size"] conf
+    pure ScenarioServiceConfig {..}
 
 data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)

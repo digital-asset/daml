@@ -28,6 +28,7 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ) where
 
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
+import Data.Maybe
 import GHC.Generics
 import Text.Read
 import Control.Concurrent.Async
@@ -65,6 +66,7 @@ import qualified ScenarioService as SS
 data Options = Options
   { optServerJar :: FilePath
   , optRequestTimeout :: TimeoutSeconds
+  , optGrpcMaxMessageSize :: Maybe Int
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   }
@@ -185,7 +187,7 @@ withScenarioService opts@Options{..} f = do
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   validateJava opts
-  cp <- javaProc ["-jar" , optServerJar]
+  cp <- javaProc (["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
   withCheckedProcessCleanup' cp $ \processHdl (stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
           flip finally (System.IO.hClose stdinHdl) $ handleCrashingScenarioService processHdl $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
