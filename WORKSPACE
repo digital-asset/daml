@@ -796,6 +796,15 @@ load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_depen
 buildifier_dependencies()
 
 nixpkgs_package(
+    name = "python3_nix",
+    attribute_path = "python3",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+register_toolchains("//:nix_python_toolchain") if not is_windows else None
+
+nixpkgs_package(
     name = "postgresql_nix",
     attribute_path = "postgresql",
     fail_not_supported = False,
