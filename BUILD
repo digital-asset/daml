@@ -180,6 +180,7 @@ buildifier_excluded_patterns = [
     "./3rdparty/jvm/*",
     "./3rdparty/workspace.bzl",
     "./hazel/packages.bzl",
+    "./node_modules/*",
 ]
 
 # Run this to check if BUILD files are well-formatted.
