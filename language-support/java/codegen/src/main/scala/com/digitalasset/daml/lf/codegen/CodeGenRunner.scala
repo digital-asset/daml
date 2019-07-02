@@ -6,7 +6,6 @@ package com.digitalasset.daml.lf.codegen
 import java.nio.file.{Files, Path, StandardOpenOption}
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{Executors, ThreadFactory, TimeUnit}
-import java.util.zip.ZipFile
 
 import com.digitalasset.daml.lf.archive.DarManifestReader
 import com.digitalasset.daml.lf.archive.DarReader
@@ -24,6 +23,9 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
+
+import java.io.FileInputStream
+import java.util.zip.ZipInputStream
 
 private[codegen] object CodeGenRunner extends StrictLogging {
 
@@ -69,8 +71,11 @@ private[codegen] object CodeGenRunner extends StrictLogging {
       conf: Conf): (Seq[Interface], Map[PackageId, String]) = {
     val interfacesAndPrefixes = conf.darFiles.toList.flatMap {
       case (path, pkgPrefix) =>
+        val file = path.toFile
         // Explicitly calling `get` to bubble up any exception when reading the dar
-        val dar = ArchiveReader.readArchive(new ZipFile(path.toFile)).get
+        val dar = ArchiveReader
+          .readArchive(file.getName, new ZipInputStream(new FileInputStream(file)))
+          .get
         dar.all.map { archive =>
           val (_, interface) = InterfaceReader.readInterface(archive)
           logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId}'")

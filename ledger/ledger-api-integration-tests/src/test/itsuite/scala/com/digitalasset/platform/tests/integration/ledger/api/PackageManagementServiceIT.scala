@@ -3,16 +3,14 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import java.io.File
+import java.io.{File, FileInputStream}
 import java.nio.file.Files
-import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml_lf.DamlLf.Archive
-
-import scala.util.Try
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
@@ -23,6 +21,7 @@ import com.digitalasset.ledger.api.v1.commands.CreateCommand
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField}
 import com.digitalasset.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
+import com.digitalasset.platform.apitesting.TestParties._
 import com.digitalasset.platform.apitesting.{
   MultiLedgerFixture,
   TestIdsGenerator,
@@ -39,7 +38,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 
 import scala.concurrent.Future
-import com.digitalasset.platform.apitesting.TestParties._
+import scala.util.Try
 
 class PackageManagementServiceIT
     extends AsyncFreeSpec
@@ -51,6 +50,7 @@ class PackageManagementServiceIT
     with BazelRunfiles {
 
   override protected def config: Config = Config.default.copy(darFiles = Nil)
+
   protected val testIdsGenerator = new TestIdsGenerator(config)
 
   private def commandNodeIdUnifier(testName: String, nodeId: String) =
@@ -68,7 +68,7 @@ class PackageManagementServiceIT
 
     val testPackages = DarReader {
       case (archiveSize, x) => Try(Archive.parseFrom(x)).map(ar => (archiveSize, ar))
-    }.readArchive(new ZipFile(file))
+    }.readArchive(file.getName, new ZipInputStream(new FileInputStream(file)))
       .fold(t => Left(s"Failed to parse DAR from $file: $t"), dar => Right(dar.all))
       .flatMap {
         _ traverseU {
@@ -140,8 +140,10 @@ class PackageManagementServiceIT
   "should accept commands using the uploaded package" in allFixtures { ctx =>
     val party = testIdsGenerator.testPartyName("operator")
     val createArg = Record(fields = List(RecordField("operator", Alice.asParty)))
+
     def createCmd =
       CreateCommand(Some(Identifier(testPackageId, "", "Test", "Dummy")), Some(createArg)).wrap
+
     val filter = TransactionFilters.allForParties(Alice)
     val client = packageManagementService(ctx.packageManagementService)
 
