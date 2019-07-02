@@ -32,8 +32,7 @@ class CompletionServiceRequestValidator(ledgerId: LedgerId, partyNameChecker: Pa
         .map(invalidField("application_id", _))
       nonEmptyParties <- requireNonEmpty(request.parties, "parties")
       knownParties <- partyValidator.requireKnownParties(nonEmptyParties)
-      offset <- FieldValidations.requirePresence(request.offset, "offset")
-      convertedOffset <- LedgerOffsetValidator.validate(offset, "offset")
+      convertedOffset <- LedgerOffsetValidator.validateOptional(request.offset, "offset")
     } yield
       CompletionStreamRequest(
         ledgerId,

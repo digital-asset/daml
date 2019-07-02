@@ -17,6 +17,7 @@ import java.util.Set;
 public interface CommandCompletionClient {
 
     Flowable<CompletionStreamResponse> completionStream(String applicationId, LedgerOffset offset, Set<String> parties);
+    Flowable<CompletionStreamResponse> completionStream(String applicationId, Set<String> parties);
 
     Single<CompletionEndResponse> completionEnd();
 }
