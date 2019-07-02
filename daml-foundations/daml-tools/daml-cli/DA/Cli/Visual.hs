@@ -22,6 +22,7 @@ import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+-- import Data.List.Extra
 -- import Debug.Trace
 
 data Action = ACreate (LF.Qualified LF.TypeConName)
@@ -130,14 +131,14 @@ graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice loo
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
 
 subGraphHeader :: LF.Template -> String
-subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{ \n"
+subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{\n"
 
 
 subGraphBodyLine :: (LF.ChoiceName ,Int) -> String
 subGraphBodyLine (chc, nodeId) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++ "];"
 
 subGraphEnd :: LF.Template -> String
-subGraphEnd tpl = "label = " ++(DAP.renderPretty $ LF.tplTypeCon tpl) ++ " color=" ++"blue" ++ "} \n"
+subGraphEnd tpl = "label=" ++ (DAP.renderPretty $ LF.tplTypeCon tpl) ++ ";color=" ++"blue" ++ "\n}"
 
 
 subGraphCluster :: SubGraph -> String
@@ -149,13 +150,13 @@ drawEdge n1 n2 = "n" ++ show n1 ++ "->" ++ "n" ++ show n2
 
 
 constructDotGraph :: [SubGraph] -> [(Int, Int)] -> String
-constructDotGraph subgraphs edges = "digraph G { \ncompound=true \n" ++ "rankdir=LR; \n"++ graphLines ++ " \n } "
+constructDotGraph subgraphs edges = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ graphLines ++ "\n}\n"
   where subgraphsLines = concatMap subGraphCluster subgraphs
         edgesLines = unlines $ map (\(n1, n2) -> drawEdge n1 n2 )  edges
         graphLines = subgraphsLines ++ edgesLines
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
-execVisual darFilePath _dotFilePath = do
+execVisual darFilePath dotFilePath = do
     darBytes <- B.readFile darFilePath
     let manifestData = manifestFromDar $ ZIPArchive.toArchive (BSL.fromStrict darBytes)
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
@@ -165,8 +166,10 @@ execVisual darFilePath _dotFilePath = do
         nodeWorld = choiceNameWithId teamplatesAndModules
         subgraphClusters = map (constructSubgraphsWithLables nodeWorld) teamplatesAndModules
         graphConnectedEdges  = graphEdges nodeWorld teamplatesAndModules
-        strdot = constructDotGraph subgraphClusters graphConnectedEdges
-    putStrLn strdot
+        dotString = constructDotGraph subgraphClusters graphConnectedEdges
+    case dotFilePath of
+        Just outDotFile -> writeFile outDotFile dotString
+        Nothing -> putStrLn dotString
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case

@@ -1,31 +1,31 @@
 digraph G {
-compound=true
+compound=true;
 rankdir=LR;
 subgraph cluster_Group{
 n2[label=Group_Archive];
 n0[label=Group_Create];
-label = Group color=blue}
-subgraph cluster_Invitation{
+label=Group;color=blue
+}subgraph cluster_Invitation{
 n5[label=Invitation_Archive];
 n3[label=Invitation_Create];
-label = Invitation color=blue}
-subgraph cluster_Message{
+label=Invitation;color=blue
+}subgraph cluster_Message{
 n8[label=Message_Archive];
 n6[label=Message_Create];
-label = Message color=blue}
-subgraph cluster_Membership{
+label=Message;color=blue
+}subgraph cluster_Membership{
 n11[label=Membership_Archive];
 n12[label=Membership_Shutdown];
 n13[label=Membership_SendMessage];
 n14[label=Membership_Leave];
 n15[label=Membership_Join];
 n9[label=Membership_Create];
-label = Membership color=blue}
-n13->n9
+label=Membership;color=blue
+}n13->n9
 n13->n11
 n14->n9
 n14->n11
 n15->n9
 n15->n11
 
- }
+}
