@@ -52,8 +52,12 @@ startFromExpr seen world e = case e of
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
-data ChoiceAndAction = ChoiceAndAction { choiceForTemplate :: LF.Template , choice :: LF.TemplateChoice ,actions :: Set.Set Action }
-data TemplateChoiceAction = TemplateChoiceAction { template :: LF.Template ,choiceAndAction :: [ChoiceAndAction] }
+data ChoiceAndAction = ChoiceAndAction { choiceForTemplate :: LF.Template
+                                       , choice :: LF.TemplateChoice
+                                       , actions :: Set.Set Action
+                                       }
+data TemplateChoiceAction = TemplateChoiceAction { template :: LF.Template
+                                                 , choiceAndAction :: [ChoiceAndAction] }
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map (\c -> ChoiceAndAction tpl c (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
@@ -82,7 +86,7 @@ handleChoiceAndAction (ChoiceAndAction tpl choice _)
 
 -- Making choiceName is very weird
 handleCreateAndArchive :: TemplateChoiceAction -> [LF.ChoiceName]
-handleCreateAndArchive TemplateChoiceAction {..} =  [createChoice,archiveChoice] ++  map handleChoiceAndAction choiceAndAction
+handleCreateAndArchive TemplateChoiceAction {..} =  [createChoice, archiveChoice] ++ map handleChoiceAndAction choiceAndAction
     where archiveChoice = LF.ChoiceName $ tplName template <> "_Archive"
           createChoice = LF.ChoiceName $ tplName template <> "_Create"
 
@@ -97,7 +101,9 @@ nodeIdForChoice lookUpdata chc = case Map.lookup chc lookUpdata of
   Nothing -> error "Template node lookup failed"
 
 -- probably storing the choice is a better Idea, as we can determine what kind of choice it is.
-data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,Int)], clusterTemplate :: LF.Template }
+data SubGraph = SubGraph { nodes :: [(LF.ChoiceName ,Int)]
+                         , clusterTemplate :: LF.Template
+                         }
 
 addCreateChoice :: TemplateChoiceAction -> Map.Map LF.ChoiceName Int -> (LF.ChoiceName ,Int)
 addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nodeIdForChoice lookupData tplNameCreateChoice)
@@ -135,7 +141,7 @@ subGraphEnd tpl = "label=" ++ (DAP.renderPretty $ LF.tplTypeCon tpl) ++ ";color=
 
 
 subGraphCluster :: SubGraph -> String
-subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ (unlines $ map subGraphBodyLine nodes) ++ subGraphEnd clusterTemplate
+subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ unlines (map subGraphBodyLine nodes) ++ subGraphEnd clusterTemplate
 
 -- TODO Later on should decorate the edge too
 drawEdge :: Int -> Int -> String
@@ -145,7 +151,7 @@ drawEdge n1 n2 = "n" ++ show n1 ++ "->" ++ "n" ++ show n2
 constructDotGraph :: [SubGraph] -> [(Int, Int)] -> String
 constructDotGraph subgraphs edges = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ graphLines ++ "\n}\n"
   where subgraphsLines = concatMap subGraphCluster subgraphs
-        edgesLines = unlines $ map (\(n1, n2) -> drawEdge n1 n2 )  edges
+        edgesLines = unlines $ map (uncurry drawEdge)  edges
         graphLines = subgraphsLines ++ edgesLines
 
 execVisual :: FilePath -> Maybe FilePath -> IO ()
