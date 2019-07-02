@@ -12,12 +12,14 @@ import akka.{Done, NotUsed}
 import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
-import com.daml.ledger.participant.state.v2.PartyAllocationResult
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason._
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
@@ -944,7 +946,7 @@ private class PostgresLedgerDao(
 
   override def storeParty(
       party: Party,
-      displayName: Option[String]): Future[PartyAllocationResult] = {
+      displayName: Option[String]): Future[PersistenceResponse] = {
     dbDispatcher.executeSql { implicit conn =>
       Try {
         SQL_INSERT_PARTY
@@ -953,12 +955,96 @@ private class PostgresLedgerDao(
             "display_name" -> displayName,
           )
           .execute()
-        PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
+        PersistenceResponse.Ok
       }.recover {
         case NonFatal(e) if e.getMessage.contains("duplicate key") =>
           logger.warn("Party with ID {} already exists", party)
           conn.rollback()
-          PartyAllocationResult.AlreadyExists
+          PersistenceResponse.Duplicate
+      }.get
+    }
+  }
+
+  private val SQL_INSERT_PACKAGE =
+    """insert into packages(package_id, upload_id, source_description, size, known_since, ledger_offset, package)
+          |select {package_id}, {upload_id}, {source_description}, {size}, {known_since}, ledger_end, {package}
+          |from parameters
+          |""".stripMargin
+
+  private val SQL_SELECT_PACKAGES =
+    SQL("""select package_id, source_description, known_since, size
+          |from packages
+          |""".stripMargin)
+
+  private val SQL_SELECT_PACKAGE =
+    SQL("""select package
+          |from packages
+          |where package_id = {package_id}
+          |""".stripMargin)
+
+  case class ParsedPackageData(
+      packageId: String,
+      sourceDescription: Option[String],
+      size: Long,
+      knownSince: Date)
+
+  private val PackageDataParser: RowParser[ParsedPackageData] =
+    Macro.parser[ParsedPackageData](
+      "package_id",
+      "source_description",
+      "size",
+      "known_since"
+    )
+
+  override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
+    dbDispatcher.executeSql { implicit conn =>
+      SQL_SELECT_PACKAGES
+        .as(PackageDataParser.*)
+        .map(
+          d =>
+            PackageId.assertFromString(d.packageId) -> PackageDetails(
+              d.size,
+              d.knownSince.toInstant,
+              d.sourceDescription))
+        .toMap
+    }
+
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    dbDispatcher.executeSql { implicit conn =>
+      SQL_SELECT_PACKAGE
+        .on(
+          "package_id" -> packageId
+        )
+        .as[Option[Array[Byte]]](SqlParser.byteArray("package").singleOpt)
+        .map(data => Archive.parseFrom(Decode.damlLfCodedInputStreamFromBytes(data)))
+    }
+
+  override def uploadLfPackages(
+      uploadId: String,
+      packages: List[(Archive, PackageDetails)]): Future[PersistenceResponse] = {
+    dbDispatcher.executeSql { implicit conn =>
+      Try {
+        val namedPackageParams = packages
+          .map(
+            p =>
+              Seq[NamedParameter](
+                "package_id" -> p._1.getHash,
+                "upload_id" -> uploadId,
+                "source_description" -> p._2.sourceDescription,
+                "size" -> p._2.size,
+                "known_since" -> p._2.knownSince,
+                "package" -> p._1.toByteArray
+            )
+          )
+        executeBatchSql(
+          SQL_INSERT_PACKAGE,
+          namedPackageParams
+        )
+        PersistenceResponse.Ok
+      }.recover {
+        case NonFatal(e) if e.getMessage.contains("duplicate key") =>
+          conn.rollback()
+          PersistenceResponse.Duplicate
       }.get
     }
   }

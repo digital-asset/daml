@@ -8,23 +8,20 @@ import java.time.Instant
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v2.{
-  PartyAllocationResult,
-  SubmissionResult,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta
-}
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v2._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{SqlLedger, SqlStartMode}
@@ -56,9 +53,22 @@ trait Ledger extends AutoCloseable {
   def lookupTransaction(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]]
 
+  // Party management
   def parties: Future[List[PartyDetails]]
 
   def allocateParty(party: Party, displayName: Option[String]): Future[PartyAllocationResult]
+
+  // Package management
+  def listLfPackages(): Future[Map[PackageId, PackageDetails]]
+
+  def getLfArchive(packageId: PackageId): Future[Option[Archive]]
+
+  def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]]
+
+  def uploadPackages(
+      knownSince: Instant,
+      sourceDescription: Option[String],
+      payload: List[Archive]): Future[UploadPackagesResult]
 }
 
 object Ledger {
@@ -78,8 +88,9 @@ object Ledger {
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
+      packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Ledger =
-    new InMemoryLedger(ledgerId, timeProvider, acs, ledgerEntries)
+    new InMemoryLedger(ledgerId, timeProvider, acs, packages, ledgerEntries)
 
   /**
     * Creates a Postgres backed ledger
@@ -98,11 +109,20 @@ object Ledger {
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
+      packages: InMemoryPackageStore,
       ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode
   )(implicit mat: Materializer, mm: MetricsManager): Future[Ledger] =
-    SqlLedger(jdbcUrl, Some(ledgerId), timeProvider, acs, ledgerEntries, queueDepth, startMode)
+    SqlLedger(
+      jdbcUrl,
+      Some(ledgerId),
+      timeProvider,
+      acs,
+      packages,
+      ledgerEntries,
+      queueDepth,
+      startMode)
 
   /** Wraps the given Ledger adding metrics around important calls */
   def metered(ledger: Ledger)(implicit mm: MetricsManager): Ledger = MeteredLedger(ledger)
