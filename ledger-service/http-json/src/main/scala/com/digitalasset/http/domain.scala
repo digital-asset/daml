@@ -25,6 +25,10 @@ object domain {
       witnessParties: Seq[String],
       agreementText: String)
 
+  case class ContractLookupRequest[+LfV](
+      ledgerId: Option[String],
+      id: (TemplateId.OptionalPkg, LfV) \/ (Option[TemplateId.OptionalPkg], String))
+
   case class GetActiveContractsRequest(templateIds: Set[TemplateId.OptionalPkg])
 
   case class GetActiveContractsResponse[+LfV](

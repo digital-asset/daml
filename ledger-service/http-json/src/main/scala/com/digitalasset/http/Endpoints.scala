@@ -98,8 +98,12 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
 
   lazy val contracts2: Route =
     path("/contracts/lookup") {
-      get {
-        complete(StatusCodes.OK)
+      post {
+        entity(as[JsValue]) { jsInput =>
+          complete(
+            JsonApi(
+              resultJsObject(jsInput.convertTo[domain.ContractLookupRequest[JsValue]].toString)))
+        }
       }
     } ~
       path("contracts/search") {
