@@ -91,24 +91,27 @@ data ReplaceExtension
 -- | Run VS Code command with arguments, returning the exit code, stdout & stderr.
 runVsCodeCommand :: [String] -> IO (ExitCode, String, String)
 runVsCodeCommand args = do
-    -- Strip DAML environment variables before calling vscode.
     originalEnv <- getEnvironment
     let strippedEnv = filter ((`notElem` damlEnvVars) . fst) originalEnv
+            -- ^ Strip DAML environment variables before calling VSCode, to
+            -- prevent setting DAML_SDK_VERSION too early. See issue #1666.
+        commandEnv = addVsCodeToPath strippedEnv
+            -- ^ Ensure "code" is in PATH before running command.
         command = unwords ("code" : args)
-        commandEnv =
-            if isMac
-                then updateSearchPath strippedEnv -- can't assume code is in PATH on mac
-                else strippedEnv
-        updateSearchPath env =
-            let pathM = lookup "PATH" env
-                newSearchPath = maybe "" (<> [searchPathSeparator]) pathM <>
-                    "/Applications/Visual\\ Studio\\ Code.app/Contents/Resources/app/bin"
-            in ("PATH", newSearchPath) : filter ((/= "PATH") . fst) env
-
         process = (shell command) { env = Just commandEnv }
-
     readCreateProcessWithExitCode process ""
 
+-- | Add VSCode bin path to environment PATH. Only need to add it on Mac, as
+-- VSCode is installed in PATH by default on the other platforms.
+addVsCodeToPath :: [(String, String)] -> [(String,String)]
+addVsCodeToPath env | isMac =
+    let pathM = lookup "PATH" env
+        newSearchPath = maybe "" (<> [searchPathSeparator]) pathM <>
+            "/Applications/Visual\\ Studio\\ Code.app/Contents/Resources/app/bin"
+    in ("PATH", newSearchPath) : filter ((/= "PATH") . fst) env
+addVsCodeToPath env = env
+
+-- | Directory where bundled extension gets installed.
 getVsCodeExtensionsDir :: IO FilePath
 getVsCodeExtensionsDir = fmap (</> ".vscode/extensions") getHomeDirectory
 
@@ -175,7 +178,7 @@ runDamlStudio replaceExt remainingArguments = do
                         ]
                     exitWith exitCode
 
-        installBundledExtension' = do
+        installBundledExtension' =
             installBundledExtension bundledExtensionSource bundledExtensionTarget
 
         installPublishedExtension = do
@@ -184,11 +187,10 @@ runDamlStudio replaceExt remainingArguments = do
                     ["--install-extension", publishedExtensionName]
                 when (exitCode /= ExitSuccess) $ do
                     hPutStr stderr . unlines $
-                        [ err
-                        , "Failed to install DAML Studio. Make sure Visual Studio Code is installed."
-                        , "See https://code.visualstudio.com/Download for installation instructions."
+                        [ "Failed to install DAML Studio extension from marketplace."
+                        , "Installing bundled DAML Studio extension instead."
                         ]
-                    exitWith exitCode
+                    installBundledExtension'
 
     -- First, ensure extension is installed as requested.
     case replaceExt of
