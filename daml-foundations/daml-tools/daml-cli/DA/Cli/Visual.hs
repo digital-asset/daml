@@ -92,12 +92,11 @@ handleCreateAndArchive TemplateChoiceAction {..} =  [createChoice,archiveChoice]
     where archiveChoice = LF.ChoiceName $ T.pack (tplName template ++ "_Archive")
           createChoice = LF.ChoiceName $ T.pack (tplName template ++ "_Create")
 
--- This to be used to generate the node ids and use as look up table
+-- This is used to generate the node ids and use as look up table
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName Int
 choiceNameWithId tplChcActions = Map.fromList $ zip choiceActions [0..]
   where choiceActions =  concatMap handleCreateAndArchive tplChcActions
 
--- This flattening is not doing exhaustive, will be missing the create and archives. Probably will filter for 1st iteration
 nodeIdForChoice ::  Map.Map LF.ChoiceName Int -> LF.ChoiceName -> Int
 nodeIdForChoice lookUpdata chc = case Map.lookup chc lookUpdata of
   Just node -> node
@@ -121,8 +120,6 @@ actionToChoice tpl (ACreate _) = LF.ChoiceName $ T.pack (tplName tpl ++ "_Create
 actionToChoice tpl (AExercise _ (LF.ChoiceName "Archive" )) = LF.ChoiceName $ T.pack (tplName tpl ++ "_Archive")
 actionToChoice _tpl (AExercise _ chc) = chc
 
-
-
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
 choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
     where pairs = map (\ac -> (handlechioceAndAction cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
@@ -136,22 +133,17 @@ subGraphHeader :: LF.Template -> String
 subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{ \n"
 
 
--- Missing label color as only choice name is not carried on
 subGraphBodyLine :: (LF.ChoiceName ,Int) -> String
 subGraphBodyLine (chc, nodeId) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++ "];"
-
-
-subGraphBody :: [(LF.ChoiceName ,Int)] -> String
-subGraphBody nodes = unlines $ map subGraphBodyLine nodes
 
 subGraphEnd :: LF.Template -> String
 subGraphEnd tpl = "label = " ++(DAP.renderPretty $ LF.tplTypeCon tpl) ++ " color=" ++"blue" ++ "} \n"
 
 
 subGraphCluster :: SubGraph -> String
-subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ subGraphBody nodes ++ subGraphEnd clusterTemplate
+subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ (unlines $ map subGraphBodyLine nodes) ++ subGraphEnd clusterTemplate
 
--- Later on should decorate the edge too
+-- TODO Later on should decorate the edge too
 drawEdge :: Int -> Int -> String
 drawEdge n1 n2 = "n" ++ show n1 ++ "->" ++ "n" ++ show n2
 
@@ -169,12 +161,11 @@ execVisual darFilePath _dotFilePath = do
     (_, lfPkg) <- errorOnLeft "Cannot decode package" $ Archive.decodeArchive (BSL.toStrict (mainDalfContent manifestData) )
     let modules = NM.toList $ LF.packageModules lfPkg
         world = darToWorld manifestData lfPkg
-        -- tplLookUp = lookupTemplateT world
-        res = concatMap (moduleAndTemplates world) modules --  [TemplateChoiceAction]
-        nodeWorld = choiceNameWithId res
-        subgraphsinW = map (constructSubgraphsWithLables nodeWorld) res
-        graphEdgesString  = graphEdges nodeWorld res
-        strdot = constructDotGraph subgraphsinW graphEdgesString
+        teamplatesAndModules = concatMap (moduleAndTemplates world) modules
+        nodeWorld = choiceNameWithId teamplatesAndModules
+        subgraphClusters = map (constructSubgraphsWithLables nodeWorld) teamplatesAndModules
+        graphConnectedEdges  = graphEdges nodeWorld teamplatesAndModules
+        strdot = constructDotGraph subgraphClusters graphConnectedEdges
     putStrLn strdot
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
