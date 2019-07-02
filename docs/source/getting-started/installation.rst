@@ -38,6 +38,5 @@ Next steps
 **********
 
 - Follow the :doc:`quickstart guide <quickstart>`.
-- Read the :doc:`introduction <introduction>` page.
 - Use ``daml --help`` to see all the commands that the DAML assistant (``daml``) provides.
 - If you run into any problems, :doc:`use the support page </support/support>` to get in touch with us.
