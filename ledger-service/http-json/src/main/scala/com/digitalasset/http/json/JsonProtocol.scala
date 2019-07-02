@@ -15,7 +15,8 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit def TemplateIdFormat[A: JsonFormat]: RootJsonFormat[domain.TemplateId[A]] =
     jsonFormat3(domain.TemplateId.apply[A])
 
-  implicit val ContractLookupRequestFormat: JsonReader[domain.ContractLookupRequest[JsValue]] = {
+  implicit val ContractLookupRequestFormat
+    : RootJsonReader[domain.ContractLookupRequest[JsValue]] = {
     case JsObject(fields) =>
       val ledgerId = fields get "ledgerId" map (_.convertTo[String])
       val id = (fields get "templateId", fields get "key", fields get "contractId") match {

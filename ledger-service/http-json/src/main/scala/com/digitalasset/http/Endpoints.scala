@@ -12,7 +12,7 @@ import com.digitalasset.http.json.JsonProtocol._
 import com.digitalasset.ledger.api.v1.value.Value
 
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, @@, \/, \/-}
 import scalaz.syntax.functor._
 import spray.json._
 import json.HttpCodec._
@@ -99,10 +99,9 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
   lazy val contracts2: Route =
     path("/contracts/lookup") {
       post {
-        entity(as[JsValue]) { jsInput =>
-          complete(
-            JsonApi(
-              resultJsObject(jsInput.convertTo[domain.ContractLookupRequest[JsValue]].toString)))
+        entity(as[domain.ContractLookupRequest[JsValue] @@ JsonApi]) {
+          case JsonApi(clr) =>
+            complete(JsonApi(resultJsObject(clr.toString)))
         }
       }
     } ~
@@ -115,12 +114,13 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
                 .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
         } ~
           post {
-            entity(as[JsValue]) { jsInput =>
-              complete(
-                JsonApi.subst(
-                  contractsService
-                    .search(jwtPayload, jsInput.convertTo[domain.GetActiveContractsRequest])
-                    .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
+            entity(as[domain.GetActiveContractsRequest @@ JsonApi]) {
+              case JsonApi(gacr) =>
+                complete(
+                  JsonApi.subst(
+                    contractsService
+                      .search(jwtPayload, gacr)
+                      .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
             }
           }
       }

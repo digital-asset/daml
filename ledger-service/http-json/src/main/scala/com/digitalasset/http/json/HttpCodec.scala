@@ -44,8 +44,7 @@ object HttpCodec {
   implicit val jsValueMarshaller: ToEntityMarshaller[JsValue] =
     Marshaller.combined((_: JsValue).compactPrint)(Marshaller.stringMarshaller(`application/json`))
 
-  // TODO SC not sure whether we want this for the routes
-  def jsonCodecUnmarshaller[A: RootJsonReader]: FromEntityUnmarshaller[A @@ JsonApi] =
+  implicit def jsonCodecUnmarshaller[A: RootJsonReader]: FromEntityUnmarshaller[A @@ JsonApi] =
     JsonApi.subst[FromEntityUnmarshaller, A](jsValueUnmarshaller map (_.convertTo[A]))
 
   implicit def jsonCodecMarshaller[A: RootJsonWriter]: ToEntityMarshaller[A @@ JsonApi] =
