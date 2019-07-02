@@ -45,8 +45,10 @@ class ApiCommandCompletionService private (
       subscriptionId: Any,
       request)
 
+    val offset = request.offset.getOrElse(LedgerOffset.LedgerEnd)
+
     completionsService
-      .getCompletions(request.offset, request.applicationId, request.parties)
+      .getCompletions(offset, request.applicationId, request.parties)
       .via(Slf4JLog(logger, s"Serving response for completion subscription $subscriptionId"))
   }
 

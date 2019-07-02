@@ -16,8 +16,8 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.digitalasset.ledger.api.v1.trace_context.TraceContext
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
-import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.api.v1.value.Value.Sum.Text
+import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.google.protobuf.timestamp.Timestamp
 
 import scala.util.Random

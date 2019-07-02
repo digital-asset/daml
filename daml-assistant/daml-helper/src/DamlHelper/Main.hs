@@ -46,8 +46,8 @@ commandParser =
     where damlStudioCmd = DamlStudio
               <$> option readReplacement
                   (long "replace" <>
-                   help "Whether an existing extension should be overwritten. ('never', 'newer' or 'always', defaults to newer)" <>
-                   value ReplaceExtNewer
+                   help "Whether an existing extension should be overwritten. ('never', 'newer' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')" <>
+                   value ReplaceExtPublished
                   )
               <*> many (argument str (metavar "ARG"))
           runJarCmd = RunJar
@@ -75,6 +75,7 @@ commandParser =
               "never" -> Just ReplaceExtNever
               "newer" -> Just ReplaceExtNewer
               "always" -> Just ReplaceExtAlways
+              "published" -> Just ReplaceExtPublished
               _ -> Nothing
 
 runCommand :: Command -> IO ()
