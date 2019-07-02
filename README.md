@@ -1,6 +1,6 @@
 [![DAML logo](daml-logo.png)](https://www.daml.com)
 
-[![Download](https://api.bintray.com/packages/digitalassetsdk/DigitalAssetSDK/sdk/images/download.svg)](https://docs.daml.com/getting-started/installation.html)
+[![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/master/LICENSE)
 [![Build](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&label=Build)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master)
 
