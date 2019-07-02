@@ -64,10 +64,9 @@ templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map (\c -> ChoiceAndAction tpl c (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoiceAction]
-moduleAndTemplates world mod = retTypess
+moduleAndTemplates world mod = map (\t -> TemplateChoiceAction t (templatePossibleUpdates world t)) templates
     where
         templates = NM.toList $ LF.moduleTemplates mod
-        retTypess = map (\t-> TemplateChoiceAction t (templatePossibleUpdates world t ) ) templates
 
 dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
 dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
