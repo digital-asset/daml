@@ -14,12 +14,14 @@ import com.digitalasset.ledger.api.testing.utils.{
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_completion_service.{
   Checkpoint,
-  CompletionStreamRequest
+  CompletionStreamRequest,
+  CompletionStreamResponse
 }
 import com.digitalasset.ledger.api.v1.commands.{
   Command => ProtoCommand,
   CreateCommand => ProtoCreateCommand
 }
+import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
@@ -36,9 +38,10 @@ import com.digitalasset.ledger.client.services.commands.{
 }
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.sandbox.utils.FirstElementObserver
 import com.digitalasset.platform.services.time.TimeProviderType.WallClock
 import com.digitalasset.util.Ctx
-import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
+import org.scalatest.{AsyncWordSpec, Matchers}
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
@@ -50,8 +53,7 @@ class CommandCompletionServiceIT
     with AkkaBeforeAndAfterAll
     with Matchers
     with MultiLedgerFixture
-    with SuiteResourceManagementAroundAll
-    with OptionValues {
+    with SuiteResourceManagementAroundAll {
 
   private[this] val templateIds = new TestTemplateIds(config).templateIds
 
@@ -178,48 +180,40 @@ class CommandCompletionServiceIT
                 ))
             )))
 
-        // Issue the `createDummyCommand` to the ledger using the managed command client
-        def createDummy(client: CommandClient, context: LedgerContext, id: String) =
-          client.submitSingleCommand(context.command(id, Seq(createDummyCommand)))
+        def trackDummyCreation(client: CommandClient, context: LedgerContext, id: String) =
+          client.trackSingleCommand(context.command(id, Seq(createDummyCommand)))
 
-        // Issues several `createDummyCommand`s
-        def createDummies(client: CommandClient, context: LedgerContext, ids: List[String]) =
-          Future.sequence(ids.map(createDummy(client, context, _)))
+        def trackDummyCreations(client: CommandClient, context: LedgerContext, ids: List[String]) =
+          Future.sequence(ids.map(trackDummyCreation(client, context, _)))
 
-        // Starts "tailing" the completions service and then issues one command
-        def tailCompletionsAndConcurrentlyCreateDummyWithCommandId(
-            client: CommandClient,
-            context: LedgerContext,
-            id: String) = {
-          val completions = completionSource(
-            context.commandCompletionService,
-            context.ledgerId,
-            applicationId,
-            Seq(party),
-            offset = None).runWith(Sink.queue())
-          createDummy(client, context, id)
-          completions
+        // Don't use the `completionSource` to ensure that the RPC lands on the server before anything else happens
+        def tailCompletions(
+            context: LedgerContext
+        ): Future[Completion] = {
+          val (streamObserver, future) = FirstElementObserver[CompletionStreamResponse]
+          context.commandCompletionService.completionStream(
+            CompletionStreamRequest(
+              context.ledgerId.unwrap,
+              applicationId,
+              Seq(party),
+              offset = None),
+            streamObserver)
+          future.map(_.get).collect {
+            case CompletionStreamResponse(_, completion +: _) => completion
+          }
         }
-
-        // Issue 10 create commands, then listen from the ledger end (implicitly by passing no offset) and
-        // verify that the first received completion is for the last created contract
 
         val arbitraryCommandIds = List.tabulate(10)(_.toString)
         val expectedCommandId = "the-one"
 
         for {
           client <- ctx.commandClient(ctx.ledgerId)
-          _ <- createDummies(client, ctx, arbitraryCommandIds)
-          completions <- tailCompletionsAndConcurrentlyCreateDummyWithCommandId(
-            client,
-            ctx,
-            expectedCommandId).pull()
+          _ <- trackDummyCreations(client, ctx, arbitraryCommandIds)
+          futureCompletion = tailCompletions(ctx) // this action and the following have to run concurrently
+          _ = trackDummyCreation(client, ctx, expectedCommandId) // concurrent to previous action
+          completion <- futureCompletion
         } yield {
-          completions.value shouldBe a[CompletionElement]
-          completions.value
-            .asInstanceOf[CompletionElement]
-            .completion
-            .commandId shouldBe expectedCommandId
+          completion.commandId shouldBe expectedCommandId
         }
 
       }
