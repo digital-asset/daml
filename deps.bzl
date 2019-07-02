@@ -164,6 +164,10 @@ def daml_deps():
             strip_prefix = "grpc-java-1.21.0",
             urls = ["https://github.com/grpc/grpc-java/archive/v1.21.0.tar.gz"],
             sha256 = "9bc289e861c6118623fcb931044d843183c31d0e4d53fc43c4a32b56d6bb87fa",
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:grpc-java-plugin-visibility.patch",
+            ],
+            patch_args = ["-p1"],
         )
 
     if "com_github_johnynek_bazel_jar_jar" not in native.existing_rules():
