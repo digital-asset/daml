@@ -27,6 +27,8 @@ To install the SDK on Mac or Linux:
      curl -sSL https://get.daml.com/ | sh
 2. If prompted, add ``~/.daml/bin`` to your PATH.
 
+   If you don't know how to do this, try following `these instructions for MacOS <https://hathaway.cc/2008/06/how-to-edit-your-path-environment-variables-on-mac/>`_ or `these instructions for Windows <https://www.java.com/en/download/help/path.xml>`_.
+
 Windows
 =======
 
