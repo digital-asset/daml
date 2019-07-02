@@ -23,7 +23,6 @@ import com.digitalasset.ledger.api.v1.commands.{
 import com.digitalasset.ledger.api.v1.completion.Completion
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.TreeEvent.Kind
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndResponse
@@ -38,6 +37,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Variant
 }
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
+import com.digitalasset.platform.apitesting.TestParties._
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.google.rpc.code.Code
 import org.scalatest.Inside._
@@ -71,12 +71,12 @@ abstract class CommandTransactionChecks
 
   private lazy val dummyTemplates =
     List(templateIds.dummy, templateIds.dummyFactory, templateIds.dummyWithParam)
-  private val operator = "operator"
-  private val receiver = "receiver"
-  private val giver = "giver"
-  private val owner = "owner"
-  private val delegate = "delegate"
-  private val observers = List("observer1", "observer2")
+  private val operator = Grace
+  private val receiver = Heidi
+  private val giver = Alice
+  private val owner = Bob
+  private val delegate = Charlie
+  private val observers = List(Eve, Frank)
 
   private val integerListRecordLabel = "integerList"
 
@@ -88,7 +88,7 @@ abstract class CommandTransactionChecks
     Record(
       Some(templateIds.parameterShowcase),
       Vector(
-        RecordField("operator", "party".asParty),
+        RecordField("operator", Alice.asParty),
         RecordField("integer", 1.asInt64),
         RecordField("decimal", "1.1".asDecimal),
         RecordField("text", Value(Text("text"))),
@@ -236,10 +236,10 @@ abstract class CommandTransactionChecks
       "accept huge submissions with a large number of commands" ignore allFixtures { ctx =>
         val commandId = "Huge-composite-command"
         val originalCommand = createCommandWithId(ctx, commandId)
-        val targetNumberOfSubCommands = 15000 // That's around the maximum gRPC input size
+        val targetNumberOfSubCommands = 15 // That's around the maximum gRPC input size
       val superSizedCommand =
-        originalCommand.update(_.commands.update(_.commands.modify(original =>
-          List.fill(targetNumberOfSubCommands)(original.head))))
+        originalCommand.update(_.commands.commands.modify(original =>
+          List.fill(targetNumberOfSubCommands)(original.head)))
         ctx.testingHelpers.submitAndListenForSingleResultOfCommand(superSizedCommand, getAllContracts) map {
           tx =>
             tx.events.size shouldEqual targetNumberOfSubCommands
@@ -382,39 +382,40 @@ abstract class CommandTransactionChecks
           assertion
         }
       }
-
-      // NOTE(MH): This is the current, most conservative semantics of
-      // multi-actor choice authorization. It is likely that this will change
-      // in the future. Should we delete this test, we should also remove the
-      // 'UnrestrictedAcceptTriProposal' choice from the 'Agreement' template.
-      //TODO: check this with Martin Hu or Robin
-      "reject exercising a multi-actor choice with too many authorizers" ignore allFixtures { ctx =>
-        val triProposalArg = mkTriProposalArg(operator, giver, giver)
-        for {
-          agreement <- createAgreement(ctx, testIdsGenerator.testCommandId("MA4"), receiver, giver)
-          triProposal <- ctx.testingHelpers.simpleCreate(
-            testIdsGenerator.testCommandId("MA4proposal"),
-            operator,
-            templateIds.triProposal,
-            triProposalArg)
-          assertion <- ctx.testingHelpers.failingExercise(
-            testIdsGenerator.testCommandId("MA4acceptance"),
-            giver,
-            templateIds.agreement,
-            agreement.contractId,
-            "UnrestrictedAcceptTriProposal",
-            mkCidArg(triProposal.contractId),
-            Code.INVALID_ARGUMENT,
-            "requires controllers"
-          )
-        } yield {
-          assertion
-        }
-      }
+      //
+      //      // NOTE(MH): This is the current, most conservative semantics of
+      //      // multi-actor choice authorization. It is likely that this will change
+      //      // in the future. Should we delete this test, we should also remove the
+      //      // 'UnrestrictedAcceptTriProposal' choice from the 'Agreement' template.
+      //      //TODO: check this with Martin Hu or Robin
+            "reject exercising a multi-actor choice with too many authorizers" ignore allFixtures { ctx =>
+              val triProposalArg = mkTriProposalArg(operator, giver, giver)
+              for {
+                agreement <- createAgreement(ctx, testIdsGenerator.testCommandId("MA4"), receiver, giver)
+                triProposal <- ctx.testingHelpers.simpleCreate(
+                  testIdsGenerator.testCommandId("MA4proposal"),
+                  operator,
+                  templateIds.triProposal,
+                  triProposalArg)
+                assertion <- ctx.testingHelpers.failingExercise(
+                  testIdsGenerator.testCommandId("MA4acceptance"),
+                  giver,
+                  templateIds.agreement,
+                  agreement.contractId,
+                  "UnrestrictedAcceptTriProposal",
+                  mkCidArg(triProposal.contractId),
+                  Code.INVALID_ARGUMENT,
+                  "requires controllers"
+                )
+              } yield {
+                assertion
+              }
+            }
 
       "permit fetching a divulged contract" in allFixtures { ctx =>
         def pf(label: String, party: String) =
           RecordField(label, Some(Value(Value.Sum.Party(party))))
+
         // TODO currently we run multiple suites with the same sandbox, therefore we must generate
         // unique keys. This is not so great though, it'd be better to have a clean environment.
         val key = s"${UUID.randomUUID.toString}-key"
@@ -447,7 +448,7 @@ abstract class CommandTransactionChecks
           lookupArg = (expected: Option[String]) => Record(
             None,
             Seq(
-              pf("", "owner"),
+              pf("", owner),
               RecordField(value = Some(Value(Value.Sum.Text(key)))),
               RecordField(value = expected match {
                 case None => Value(Value.Sum.Optional(Optional(None)))
@@ -485,6 +486,7 @@ abstract class CommandTransactionChecks
       "reject fetching an undisclosed contract" in allFixtures { ctx =>
         def pf(label: String, party: String) =
           RecordField(label, Some(Value(Value.Sum.Party(party))))
+
         // TODO currently we run multiple suites with the same sandbox, therefore we must generate
         // unique keys. This is not so great though, it'd be better to have a clean environment.
         val key = s"${UUID.randomUUID.toString}-key"
@@ -507,7 +509,7 @@ abstract class CommandTransactionChecks
           lookupArg = (expected: Option[String]) => Record(
             None,
             Seq(
-              pf("", "owner"),
+              pf("", owner),
               RecordField(value = Some(Value(Value.Sum.Text(key)))),
               RecordField(value = expected match {
                 case None => Value(Value.Sum.Optional(Optional(None)))
@@ -544,14 +546,14 @@ abstract class CommandTransactionChecks
         val createArguments = Record(
           Some(templateIds.nothingArgument),
           Vector(
-            RecordField("operator", "party".asParty),
+            RecordField("operator", Alice.asParty),
             RecordField("arg1", Value(Value.Sum.Optional(Optional())))
           )
         )
         val commandList =
           List(CreateCommand(Some(templateIds.nothingArgument), Some(createArguments)).wrap)
         val command: SubmitRequest =
-          ctx.testingHelpers.submitRequestWithId(commandId).update(_.commands.commands := commandList)
+          ctx.testingHelpers.submitRequestWithId(commandId, Alice).update(_.commands.commands := commandList)
 
         for {
           tx <- ctx.testingHelpers.submitAndListenForSingleResultOfCommand(command, getAllContracts)
@@ -569,8 +571,8 @@ abstract class CommandTransactionChecks
       "having many transactions all of them has a unique event id" in allFixtures { ctx =>
         val eventIdsF = ctx.transactionClient
           .getTransactions(
-            (LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))),
-            Some(LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))),
+            LedgerOffsets.LedgerBegin,
+            Some(LedgerOffsets.LedgerEnd),
             getAllContracts
           )
           .map(_.events
@@ -638,12 +640,13 @@ abstract class CommandTransactionChecks
             }
         }.map(_ => succeed)
       }
-      // this is basically a port of
-      // `daml-lf/tests/scenario/daml-1.3/contract-keys/Test.daml`.
+      //      // this is basically a port of
+      //      // `daml-lf/tests/scenario/daml-1.3/contract-keys/Test.daml`.
       "process contract keys" in allFixtures { ctx =>
         // TODO currently we run multiple suites with the same sandbox, therefore we must generate
         // unique keys. This is not so great though, it'd be better to have a clean environment.
         val keyPrefix = UUID.randomUUID.toString
+
         def textKeyRecord(p: String, k: String, disclosedTo: List[String]): Record =
           Record(
             fields =
@@ -651,39 +654,40 @@ abstract class CommandTransactionChecks
                 RecordField(value = p.asParty),
                 RecordField(value = s"$keyPrefix-$k".asText),
                 RecordField(value = disclosedTo.map(_.asParty).asList)))
+
         val key = "some-key"
-        val alice = "Alice"
-        val bob = "Bob"
+
         def textKeyKey(p: String, k: String): Value =
           Value(Value.Sum.Record(Record(fields = List(RecordField(value = p.asParty), RecordField(value = s"$keyPrefix-$k".asText)))))
+
         for {
           cid1 <- ctx.testingHelpers.simpleCreate(
             testIdsGenerator.testCommandId("CK-test-cid1"),
-            alice,
+            Alice,
             templateIds.textKey,
-            textKeyRecord(alice, key, List(bob))
+            textKeyRecord(Alice, key, List(Bob))
           )
           // duplicate keys are not ok
           _ <- ctx.testingHelpers.failingCreate(
-             testIdsGenerator.testCommandId("CK-test-duplicate-key"),
-             alice,
-             templateIds.textKey,
-             textKeyRecord(alice, key, List(bob)),
-             Code.INVALID_ARGUMENT,
-             "DuplicateKey"
-           )
+            testIdsGenerator.testCommandId("CK-test-duplicate-key"),
+            Alice,
+            templateIds.textKey,
+            textKeyRecord(Alice, key, List(Bob)),
+            Code.INVALID_ARGUMENT,
+            "DuplicateKey"
+          )
           // create handles to perform lookups / fetches
           aliceTKO <- ctx.testingHelpers.simpleCreate(
-              testIdsGenerator.testCommandId("CK-test-aliceTKO"),
-              alice,
-              templateIds.textKeyOperations,
-              Record(fields = List(RecordField(value = alice.asParty))))
+            testIdsGenerator.testCommandId("CK-test-aliceTKO"),
+            Alice,
+            templateIds.textKeyOperations,
+            Record(fields = List(RecordField(value = Alice.asParty))))
           bobTKO <- ctx.testingHelpers.simpleCreate(
-              testIdsGenerator.testCommandId("CK-test-bobTKO"),
-              bob,
-              templateIds.textKeyOperations,
-              Record(fields = List(RecordField(value = bob.asParty)))
-            )
+            testIdsGenerator.testCommandId("CK-test-bobTKO"),
+            Bob,
+            templateIds.textKeyOperations,
+            Record(fields = List(RecordField(value = Bob.asParty)))
+          )
 
           // unauthorized lookups are not OK
           // both existing lookups...
@@ -691,13 +695,13 @@ abstract class CommandTransactionChecks
           lookupSome = (cid: String) => Value(Value.Sum.Optional(Optional(Some(cid.asContractId))))
           _ <- ctx.testingHelpers.failingExercise(
             testIdsGenerator.testCommandId("CK-test-bob-unauthorized-1"),
-            bob,
+            Bob,
             templateIds.textKeyOperations,
             bobTKO.contractId,
             "TKOLookup",
             Value(
               Value.Sum.Record(Record(fields = List(
-                RecordField(value = textKeyKey(alice, key)),
+                RecordField(value = textKeyKey(Alice, key)),
                 RecordField(value = lookupSome(cid1.contractId)))))),
             Code.INVALID_ARGUMENT,
             "requires authorizers"
@@ -705,64 +709,64 @@ abstract class CommandTransactionChecks
           // ..and non-existing ones
           _ <- ctx.testingHelpers.failingExercise(
             testIdsGenerator.testCommandId("CK-test-bob-unauthorized-2"),
-            bob,
+            Bob,
             templateIds.textKeyOperations,
             bobTKO.contractId,
             "TKOLookup",
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyKey(alice, "bogus-key")),
+                  RecordField(value = textKeyKey(Alice, "bogus-key")),
                   RecordField(value = lookupNone))))),
             Code.INVALID_ARGUMENT,
             "requires authorizers")
           // successful, authorized lookup
           _ <- ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("CK-test-alice-lookup-found"),
-            alice,
+            Alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
             "TKOLookup",
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyKey(alice, key)),
+                  RecordField(value = textKeyKey(Alice, key)),
                   RecordField(value = lookupSome(cid1.contractId)))))))
           // successful fetch
           _ <- ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("CK-test-alice-fetch-found"),
-            alice,
+            Alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
             "TKOFetch",
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyKey(alice, key)),
+                  RecordField(value = textKeyKey(Alice, key)),
                   RecordField(value = cid1.contractId.asContractId))))))
           // failing, authorized lookup
           _ <- ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("CK-test-alice-lookup-not-found"),
-            alice,
+            Alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
             "TKOLookup",
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyKey(alice, "bogus-key")),
+                  RecordField(value = textKeyKey(Alice, "bogus-key")),
                   RecordField(value = lookupNone))))))
           // failing fetch
           _ <- ctx.testingHelpers.failingExercise(
             testIdsGenerator.testCommandId("CK-test-alice-fetch-not-found"),
-            alice,
+            Alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
             "TKOFetch",
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyKey(alice, "bogus-key")),
+                  RecordField(value = textKeyKey(Alice, "bogus-key")),
                   RecordField(value = cid1.contractId.asContractId))))),
             Code.INVALID_ARGUMENT,
             "couldn't find key")
@@ -770,31 +774,31 @@ abstract class CommandTransactionChecks
           // that we cannot look it up anymore
           _ <- ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("CK-test-alice-consume-cid1"),
-            alice,
+            Alice,
             templateIds.textKey,
             cid1.contractId,
             "TextKeyChoice",
             emptyRecordValue)
           _ <- ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("CK-test-alice-lookup-after-consume"),
-            alice,
+            Alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
             "TKOLookup",
             Value(
               Value.Sum.Record(
                 Record(fields = List(
-                  RecordField(value = textKeyKey(alice, key)),
+                  RecordField(value = textKeyKey(Alice, key)),
                   RecordField(value = lookupNone))))))
           cid2 <- ctx.testingHelpers.simpleCreate(
             testIdsGenerator.testCommandId("CK-test-cid2"),
-            alice,
+            Alice,
             templateIds.textKey,
-            textKeyRecord(alice, "test-key-2", List(bob))
+            textKeyRecord(Alice, "test-key-2", List(Bob))
           )
           _ <- ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("CK-test-alice-consume-and-lookup"),
-            alice,
+            Alice,
             templateIds.textKeyOperations,
             aliceTKO.contractId,
             "TKOConsumeAndLookup",
@@ -802,14 +806,14 @@ abstract class CommandTransactionChecks
               Value.Sum.Record(
                 Record(fields = List(
                   RecordField(value = cid2.contractId.asContractId),
-                  RecordField(value = textKeyKey(alice, "test-key-2"))))))
+                  RecordField(value = textKeyKey(Alice, "test-key-2"))))))
           )
           // failing create when a maintainer is not a signatory
           _ <- ctx.testingHelpers.failingCreate(
             testIdsGenerator.testCommandId("CK-test-alice-create-maintainer-not-signatory"),
-            alice,
+            Alice,
             templateIds.maintainerNotSignatory,
-            Record(fields = List(RecordField(value = alice.asParty), RecordField(value = bob.asParty))),
+            Record(fields = List(RecordField(value = Alice.asParty), RecordField(value = Bob.asParty))),
             Code.INVALID_ARGUMENT,
             "are not a subset of the signatories")
         } yield {
@@ -851,6 +855,7 @@ abstract class CommandTransactionChecks
 
       "handle exercise by key" in allFixtures { ctx =>
         val keyPrefix = UUID.randomUUID.toString
+
         def textKeyRecord(p: String, k: String, disclosedTo: List[String]): Record =
           Record(
             fields =
@@ -858,17 +863,18 @@ abstract class CommandTransactionChecks
                 RecordField(value = p.asParty),
                 RecordField(value = s"$keyPrefix-$k".asText),
                 RecordField(value = disclosedTo.map(_.asParty).asList)))
+
         val key = "some-key"
-        val alice = "Alice"
-        val bob = "Bob"
+
         def textKeyKey(p: String, k: String): Value =
           Value(Value.Sum.Record(Record(fields = List(RecordField(value = p.asParty), RecordField(value = s"$keyPrefix-$k".asText)))))
+
         for {
           _ <- ctx.testingHelpers.failingExerciseByKey(
             testIdsGenerator.testCommandId("EK-test-alice-exercise-before-create"),
-            alice,
+            Alice,
             templateIds.textKey,
-            textKeyKey(alice, key),
+            textKeyKey(Alice, key),
             "TextKeyChoice",
             emptyRecordValue,
             Code.INVALID_ARGUMENT,
@@ -876,24 +882,24 @@ abstract class CommandTransactionChecks
           )
           _ <- ctx.testingHelpers.simpleCreate(
             testIdsGenerator.testCommandId("EK-test-cid1"),
-            alice,
+            Alice,
             templateIds.textKey,
-            textKeyRecord(alice, key, List(bob))
+            textKeyRecord(Alice, key, List(Bob))
           )
           // now we exercise by key, thus archiving it, and then verify
           // that we cannot look it up anymore
           _ <- ctx.testingHelpers.simpleExerciseByKey(
             testIdsGenerator.testCommandId("EK-test-alice-exercise"),
-            alice,
+            Alice,
             templateIds.textKey,
-            textKeyKey(alice, key),
+            textKeyKey(Alice, key),
             "TextKeyChoice",
             emptyRecordValue)
           _ <- ctx.testingHelpers.failingExerciseByKey(
             testIdsGenerator.testCommandId("EK-test-alice-exercise-consumed"),
-            alice,
+            Alice,
             templateIds.textKey,
-            textKeyKey(alice, key),
+            textKeyKey(Alice, key),
             "TextKeyChoice",
             emptyRecordValue,
             Code.INVALID_ARGUMENT,
@@ -915,10 +921,12 @@ abstract class CommandTransactionChecks
       val partyFilter = TransactionFilter(Map(party -> Filters(None)))
 
       def newRequest(context: LedgerContext, cmd: CreateAndExerciseCommand) = submitRequest
-        .update(_.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(cmd))))
-        .update(_.commands.ledgerId := context.ledgerId.unwrap)
+        .update(
+          _.commands.commands := Seq[Command](Command(Command.Command.CreateAndExercise(cmd))),
+          _.commands.ledgerId := context.ledgerId.unwrap
+        )
 
-      "process valid commands successfully" in allFixtures{ c =>
+      "process valid commands successfully" in allFixtures { c =>
         val cmdId = testIdsGenerator.testCommandId("valid-create-and-exercise-cmd")
         val request = newRequest(c, validCreateAndExercise)
           .update(_.commands.commandId := cmdId)
@@ -956,7 +964,7 @@ abstract class CommandTransactionChecks
         }
       }
 
-      "fail for invalid create arguments" in allFixtures{ implicit c =>
+      "fail for invalid create arguments" in allFixtures { implicit c =>
         val createAndExercise = validCreateAndExercise.copy(createArguments = Some(Record()))
         val request = newRequest(c, createAndExercise)
           .update(_.commands.commandId := testIdsGenerator.testCommandId("fail-for-invalid-create-args"))
@@ -965,7 +973,7 @@ abstract class CommandTransactionChecks
         response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
       }
 
-      "fail for invalid choice arguments" in allFixtures{ implicit c =>
+      "fail for invalid choice arguments" in allFixtures { implicit c =>
         val createAndExercise =
           validCreateAndExercise.copy(choiceArgument = Some(Value(Value.Sum.Bool(false))))
         val request = newRequest(c, createAndExercise)
@@ -976,7 +984,7 @@ abstract class CommandTransactionChecks
         response.map(_.getStatus should have('code (Code.INVALID_ARGUMENT.value)))
       }
 
-      "fail for an invalid choice" in allFixtures{ implicit c =>
+      "fail for an invalid choice" in allFixtures { implicit c =>
         val createAndExercise = validCreateAndExercise.copy(choice = "DoesNotExist")
 
         val request = newRequest(c, createAndExercise)
@@ -988,19 +996,22 @@ abstract class CommandTransactionChecks
       }
     }
   }
+
   private def createCommandWithId(ctx: LedgerContext, commandId: String) = {
-    val reqWithId = ctx.testingHelpers.submitRequestWithId(commandId)
-    val arguments = List("operator" -> "party".asParty)
+    val reqWithId = ctx.testingHelpers.submitRequestWithId(commandId, Alice)
+    val arguments = List("operator" -> Alice.asParty)
 
     reqWithId.update(
-      _.commands.update(_.commands := dummyTemplates.map(i => Command(create(i, arguments)))))
+      _.commands.party := Alice,
+      _.commands.commands := dummyTemplates.map(i => Command(create(i, arguments)))
+    )
   }
 
   private def create(templateId: Identifier, arguments: immutable.Seq[(String, Value)]): Create = {
     Create(CreateCommand(Some(templateId), Some(arguments.asRecordOf(templateId))))
   }
 
-  private lazy val getAllContracts = M.transactionFilter
+  private lazy val getAllContracts = TransactionFilters.allForParties(config.parties.toArray: _*)
 
   private def createContracts(ctx: LedgerContext, commandId: String) = {
     val command = createCommandWithId(ctx, commandId)
@@ -1021,15 +1032,15 @@ abstract class CommandTransactionChecks
   private def requestToCallExerciseWithId(
                                            ctx: LedgerContext,
                                            factoryContractId: String,
-                                           commandId: String) = {
-    ctx.testingHelpers.submitRequestWithId(commandId).update(
+                                           commandId: String) =
+    ctx.testingHelpers.submitRequestWithId(commandId, Alice).update(
       _.commands.commands := List(
         ExerciseCommand(
           Some(templateIds.dummyFactory),
           factoryContractId,
           "DummyFactoryCall",
-          Some(Value(Sum.Record(Record())))).wrap))
-  }
+          Some(Value(Sum.Record(Record())))).wrap)
+    )
 
   // Create an instance of the 'Agreement' template.
   private def createAgreement(
@@ -1096,8 +1107,10 @@ abstract class CommandTransactionChecks
                                        createArguments: Record) = {
     val commandList = List(
       CreateCommand(Some(templateIds.parameterShowcase), Some(createArguments)).wrap)
-    ctx.testingHelpers.submitRequestWithId(commandId).update(
-      _.commands.modify(_.update(_.commands := commandList)))
+
+    ctx.testingHelpers
+      .submitRequestWithId(commandId, Alice)
+      .update(_.commands.commands := commandList)
   }
 
   private def paramShowcaseArgumentsToChoice1Argument(args: Record): Value =
@@ -1135,8 +1148,8 @@ abstract class CommandTransactionChecks
         choice,
         exerciseArg).wrap
       tx <- ctx.testingHelpers.submitAndListenForSingleTreeResultOfCommand(
-        ctx.testingHelpers.submitRequestWithId(testIdsGenerator.testCommandId(s"Exercising_with_a_multitiude_of_params__$choice#$lbl"))
-            .update(_.commands.update(_.commands := List(exercise))),
+        ctx.testingHelpers.submitRequestWithId(testIdsGenerator.testCommandId(s"Exercising_with_a_multitiude_of_params__$choice#$lbl"), Alice)
+          .update(_.commands.commands := List(exercise)),
         getAllContracts,
         true
       )
@@ -1154,7 +1167,7 @@ abstract class CommandTransactionChecks
 
       exercise.templateId shouldEqual Some(templateIds.parameterShowcase)
       exercise.choice shouldEqual choice
-      exercise.actingParties should contain("party")
+      exercise.actingParties should contain(Alice)
       exercise.getChoiceArgument.getRecord.fields shouldEqual expectedExerciseFields
       // check that we have the create
       val create = ctx.testingHelpers.getHead(ctx.testingHelpers.createdEventsInTreeNodes(exercise.childEventIds.map(tx.eventsById)))
@@ -1180,14 +1193,13 @@ abstract class CommandTransactionChecks
   }
 
   private def createAgreementFactory(ctx: LedgerContext, receiver: String, giver: String, commandId: String) = {
-    ctx.testingHelpers.submitRequestWithId(commandId)
+    ctx.testingHelpers.submitRequestWithId(commandId, giver)
       .update(
         _.commands.commands := List(
           Command(
             create(
               templateIds.agreementFactory,
-              List(receiver -> receiver.asParty, giver -> giver.asParty)))),
-        _.commands.party := giver
+              List(receiver -> receiver.asParty, giver -> giver.asParty))))
       )
   }
 }
