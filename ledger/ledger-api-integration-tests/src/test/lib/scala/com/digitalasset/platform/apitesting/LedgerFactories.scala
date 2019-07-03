@@ -9,7 +9,7 @@ import java.nio.file.Path
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.testing.utils.Resource
-import com.digitalasset.platform.PlatformApplications
+import com.digitalasset.platform.{PlatformApplications, RemoteApiEndpointMode}
 import com.digitalasset.platform.apitesting.LedgerFactories.SandboxStore.InMemory
 import com.digitalasset.platform.damllf.PackageParser
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -56,21 +56,44 @@ object LedgerFactories {
 
   }
 
-  def createRemoteApiProxyResource(config: PlatformApplications.Config)(
-      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
-    require(config.remoteApiEndpoint.isDefined, "config.remoteApiEndpoint has to be set")
-    val endpoint = config.remoteApiEndpoint.get
-    val packageIds = config.darFiles.map(getPackageIdOrThrow)
+  def createRemoteSingleApiProxyResource(config: PlatformApplications.Config)(
+      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext] = {
+    // TODO(gleber): avoid this require by moving endpoint information closer into LedgerBackend stuff by marrying it with PlatformApplications.Config
+    config.remoteApiEndpoint match {
+      case Some(RemoteApiEndpointMode.Single(endpoint)) =>
+        val packageIds = config.darFiles.map(getPackageIdOrThrow)
 
-    RemoteServerResource(endpoint.host, endpoint.port, endpoint.tlsConfig)
-      .map {
-        case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, config.ledgerId, packageIds)
-      }
+        SingleRemoteServerResource.fromHostAndPort(
+          endpoint.host,
+          endpoint.port,
+          endpoint.tlsConfig,
+          config.ledgerId,
+          packageIds)
+      case _ =>
+        sys.error(
+          "config.remoteApiEndpoint has to be set and has to be RemoteApiEndpointMode.Single")
+    }
+  }
+
+  def createRemoteMultiApiProxyResource(config: PlatformApplications.Config)(
+      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext] = {
+    config.remoteApiEndpoint match {
+      case Some(RemoteApiEndpointMode.MultiFromConfig(defaultParty, mappingConfig)) =>
+        val packageIds = config.darFiles.map(getPackageIdOrThrow)
+
+        MultiRemoteServerResource.fromConfig(
+          mappingConfig,
+          defaultParty,
+          config.ledgerId,
+          packageIds)
+      case _ =>
+        sys.error(
+          "config.remoteApiEndpoint has to be set and has to be RemoteApiEndpointMode.Multi")
+    }
   }
 
   def createSandboxResource(config: PlatformApplications.Config, store: SandboxStore = InMemory)(
-      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext.SingleChannelContext] = {
+      implicit esf: ExecutionSequencerFactory): Resource[LedgerContext] = {
     val packageIds = config.darFiles.map(getPackageIdOrThrow)
 
     def createResource(sandboxConfig: SandboxConfig) =

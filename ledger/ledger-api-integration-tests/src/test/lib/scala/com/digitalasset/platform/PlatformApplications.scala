@@ -43,7 +43,7 @@ object PlatformApplications {
       commandConfiguration: CommandConfiguration = SandboxConfig.defaultCommandConfig,
       uniqueCommandIdentifiers: Boolean = true,
       uniquePartyIdentifiers: Boolean = true,
-      remoteApiEndpoint: Option[RemoteApiEndpoint] = None) {
+      remoteApiEndpoint: Option[RemoteApiEndpointMode] = None) {
     require(
       Duration.ofSeconds(timeModel.minTtl.getSeconds) == timeModel.minTtl &&
         Duration.ofSeconds(timeModel.maxTtl.getSeconds) == timeModel.maxTtl,
@@ -79,7 +79,7 @@ object PlatformApplications {
 
     def withCommandConfiguration(cc: CommandConfiguration) = copy(commandConfiguration = cc)
 
-    def withRemoteApiEndpoint(endpoint: RemoteApiEndpoint) =
+    def withRemoteApiEndpoint(endpoint: RemoteApiEndpointMode) =
       copy(remoteApiEndpoint = Some(endpoint))
   }
 

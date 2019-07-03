@@ -94,6 +94,11 @@ trait LedgerContext {
   def partyManagementService: PartyManagementService
   def packageManagementService: PackageManagementService
 
+  /** Default forParty implementation */
+  final def default: LedgerContext = forPartyOpt(None)
+  final def forParty(partyText: String): LedgerContext = forPartyOpt(Some(partyText))
+  def forPartyOpt(partyText: Option[String]): LedgerContext = this
+
   /**
     * resetService is protected on purpose, to disallow moving an instance of LedgerContext into an invalid state,
     * where [[ledgerId]] - if cached by implementation - becomes out of sync with the backend.
@@ -238,5 +243,52 @@ object LedgerContext {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit def withResource(resource: Resource[SingleChannelContext]) =
       ResourceExtensions.MultiResource(resource)
+  }
+
+  class MultiChannelContext(val mapping: Map[String, LedgerContext], val defaultParty: String)(
+      implicit val esf: ExecutionSequencerFactory)
+      extends LedgerContext {
+
+    override def forPartyOpt(party: Option[String]): LedgerContext = {
+      val p = party.getOrElse(defaultParty)
+      require(
+        mapping.contains(p),
+        "Unrecognised party: " + p + ", expecting one of: " + mapping.keySet.toString)
+      mapping(p)
+    }
+
+    override def ledgerId: domain.LedgerId = default.ledgerId
+    override def packageIds: Iterable[Ref.PackageId] = default.packageIds
+    override def ledgerIdentityService: LedgerIdentityService = default.ledgerIdentityService
+    override def ledgerConfigurationService: LedgerConfigurationService =
+      default.ledgerConfigurationService
+    override def packageService: PackageService = default.packageService
+    override def commandSubmissionService: CommandSubmissionService =
+      default.commandSubmissionService
+    override def commandCompletionService: CommandCompletionService =
+      default.commandCompletionService
+    override def commandService: CommandService = default.commandService
+    override def transactionService: TransactionService = default.transactionService
+    override def timeService: TimeService = default.timeService
+    override def acsService: ActiveContractsService = default.acsService
+    override def transactionClient: TransactionClient = default.transactionClient
+    override def packageClient: PackageClient = default.packageClient
+    override def acsClient: ActiveContractSetClient = default.acsClient
+    override def reflectionService: ServerReflectionGrpc.ServerReflectionStub =
+      default.reflectionService
+    override def partyManagementService: PartyManagementService = default.partyManagementService
+    override def packageManagementService: PackageManagementService =
+      default.packageManagementService
+    override def resetService: ResetService = default.resetService
+    override def reset()(implicit system: ActorSystem, mat: Materializer) = {
+      implicit val ec: ExecutionContext = mat.executionContext
+      default
+        .reset()
+        .map(x => {
+          val newMapping = mapping.updated(defaultParty, x)
+          new MultiChannelContext(newMapping, defaultParty)
+        })
+    }
+
   }
 }

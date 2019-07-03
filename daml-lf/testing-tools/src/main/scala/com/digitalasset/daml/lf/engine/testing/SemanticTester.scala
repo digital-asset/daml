@@ -43,6 +43,7 @@ class SemanticTester(
     packageToTest: PackageId,
     packages: Map[PackageId, Package],
     partyNameMangler: (String => String) = identity,
+    partyNameUnmangler: (String => String) = identity,
     commandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
       (scenario, stepId, nodeId) => s"semantic-testing-$scenario-$stepId-$nodeId"
 )(implicit ec: ExecutionContext) {
@@ -312,9 +313,11 @@ class SemanticTester(
                 for {
                   currentTime <- ledger.currentTime
                   events <- ledger.submit(
+                    partyNameUnmangler(submitterName.toString),
                     submitterName,
                     Commands(submitterName, ImmArray(cmd), currentTime, reference),
-                    opDescription = s"scenario ${scenario} step ${stepId} node ${nodeId}")
+                    opDescription = s"scenario ${scenario} step ${stepId} node ${nodeId}"
+                  )
                 } yield
                   checkEvents(
                     reference,
@@ -395,7 +398,7 @@ object SemanticTester {
 
     // create commands deliberately do NOT contain submitter,
     // but in general for tests we should pass in the submitter for the commands
-    def submit(submitterName: Party, cmds: Commands, opDescription: String)
+    def submit(submitterText: String, submitterName: Party, cmds: Commands, opDescription: String)
       : Future[Events[EventNodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]]
 
     def passTime(dtMicros: Long): Future[Unit]
@@ -466,7 +469,11 @@ object SemanticTester {
       go(FrontStack(tx.roots))
     }
 
-    override def submit(submitterName: Party, cmds: Commands, opDescription: String)
+    override def submit(
+        submitterText: String,
+        submitterName: Party,
+        cmds: Commands,
+        opDescription: String)
       : Future[Events[Tx.NodeId, AbsoluteContractId, Tx.Value[AbsoluteContractId]]] = Future {
       assert(
         cmds.submitter == submitterName,

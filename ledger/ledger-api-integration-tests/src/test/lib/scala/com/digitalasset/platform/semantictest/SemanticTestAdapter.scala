@@ -48,9 +48,9 @@ class SemanticTestAdapter(
 
   private val tr = new ApiScenarioTransform(ledgerId.unwrap, packages)
 
-  private def apiCommand(submitterName: String, cmds: Commands) =
+  private def apiCommand(mappedSubmitterName: String, cmds: Commands) =
     LfEngineToApi.lfCommandToApiCommand(
-      submitterName,
+      mappedSubmitterName,
       ledgerId.unwrap,
       cmds.commandsReference,
       "applicationId",
@@ -61,14 +61,17 @@ class SemanticTestAdapter(
       cmds
     )
 
-  override def submit(submitterName: Ref.Party, cmds: Commands, opDescription: String)
+  override def submit(
+      submitterText: String,
+      submitterName: Ref.Party,
+      cmds: Commands,
+      opDescription: String)
     : Future[Event.Events[String, Value.AbsoluteContractId, TxValue[Value.AbsoluteContractId]]] = {
     for {
-      tx <- LedgerTestingHelpers
-        .sync(
-          lc.commandService.submitAndWaitForTransactionId,
-          lc,
-          timeoutScaleFactor = timeoutScaleFactor)
+      tx <- LedgerTestingHelpers(
+        lc.forParty(submitterText).commandService.submitAndWaitForTransactionId,
+        lc.forParty(submitterText),
+        timeoutScaleFactor = timeoutScaleFactor)
         .submitAndListenForSingleTreeResultOfCommand(
           SubmitRequest(Some(apiCommand(submitterName, cmds))),
           TransactionFilter(parties.map(_ -> Filters.defaultInstance)(breakOut)),
@@ -83,6 +86,7 @@ class SemanticTestAdapter(
   override def passTime(dtMicros: Long): Future[Unit] = {
     for {
       time <- getTime
+      // set time for a single LedgerContext, assuming that this passes time in the whole of distributed ledger.
       _ <- lc.timeService.setTime(
         SetTimeRequest(
           ledgerId.unwrap,
