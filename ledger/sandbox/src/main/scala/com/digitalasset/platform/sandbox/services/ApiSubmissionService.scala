@@ -113,7 +113,7 @@ class ApiSubmissionService private (
 
           case Success(NotSupported) =>
             logger.debug(s"Submission of command {} was not supported", commands.commandId.unwrap)
-            Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+            Failure(Status.INVALID_ARGUMENT.asRuntimeException)
 
           case Failure(error) =>
             logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)
