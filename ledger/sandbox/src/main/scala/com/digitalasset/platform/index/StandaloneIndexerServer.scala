@@ -11,6 +11,8 @@ import org.slf4j.LoggerFactory
 
 import scala.concurrent.Await
 
+// Main entry point to start an indexer server.
+// See v2.ReferenceServer for the usage
 object StandaloneIndexerServer {
   private val logger = LoggerFactory.getLogger(this.getClass)
 

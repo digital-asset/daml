@@ -115,13 +115,20 @@ object PostgresIndexer {
   }
 }
 
-class PostgresIndexer(initialOffset: Long, beginAfter: Option[LedgerString], ledgerDao: LedgerDao)(
-    implicit mat: Materializer)
+/**
+  * @param initialInternalOffset The last offset internal to the indexer stored in the database.
+  * @param beginAfterExternalOffset The last offset received from the read service.
+  *                                 This offset has inclusive semantics,
+  */
+class PostgresIndexer private (
+    initialInternalOffset: Long,
+    beginAfterExternalOffset: Option[LedgerString],
+    ledgerDao: LedgerDao)(implicit mat: Materializer)
     extends Indexer
     with AutoCloseable {
 
   @volatile
-  private var headRef = initialOffset
+  private var headRef = initialInternalOffset
 
   /**
     * Subscribes to an instance of ReadService.
@@ -136,7 +143,7 @@ class PostgresIndexer(initialOffset: Long, beginAfter: Option[LedgerString], led
       onError: Throwable => Unit,
       onComplete: () => Unit): Future[IndexFeedHandle] = {
     val (killSwitch, completionFuture) = readService
-      .stateUpdates(beginAfter.map(Offset.assertFromString))
+      .stateUpdates(beginAfterExternalOffset.map(Offset.assertFromString))
       .viaMat(KillSwitches.single)(Keep.right[NotUsed, UniqueKillSwitch])
       .mapAsync(1)((handleStateUpdate _).tupled)
       .toMat(Sink.ignore)(Keep.both)
