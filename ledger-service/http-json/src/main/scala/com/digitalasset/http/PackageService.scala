@@ -30,10 +30,12 @@ object PackageService {
   final case class InputError(message: String) extends Error
   final case class ServerError(message: String) extends Error
 
-  implicit val errorShow: Show[Error] = new Show[Error] {
-    override def shows(e: Error): String = e match {
-      case InputError(m) => s"PackageService input error: ${m: String}"
-      case ServerError(m) => s"PackageService server error: ${m: String}"
+  object Error {
+    implicit val errorShow: Show[Error] = new Show[Error] {
+      override def shows(e: Error): String = e match {
+        case InputError(m) => s"PackageService input error: ${m: String}"
+        case ServerError(m) => s"PackageService server error: ${m: String}"
+      }
     }
   }
 
