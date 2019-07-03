@@ -424,13 +424,13 @@ hsTypeToType_ t = case t of
   HsTupleTy _ _con tys -> TypeTuple $ map hsTypeToType tys
 
   -- GHC specials. FIXME deal with them specially
-  HsRecTy _ _flds -> TypeApp (Typename $ toText t) [] -- FIXME pprConDeclFields flds
+  HsRecTy _ _flds -> TypeApp Nothing (Typename $ toText t) [] -- FIXME pprConDeclFields flds
 
   HsSumTy _ _tys -> undefined -- FIXME tupleParens UnboxedTuple (pprWithBars ppr tys)
 
 
   -- straightforward base case
-  HsTyVar _ _ (L _ name) -> TypeApp (Typename $ idpToText name) []
+  HsTyVar _ _ (L _ name) -> TypeApp Nothing (Typename $ idpToText name) []
 
   HsFunTy _ ty1 ty2 -> case hsTypeToType ty2 of
     TypeFun as -> TypeFun $ hsTypeToType ty1 : as
@@ -446,14 +446,14 @@ hsTypeToType_ t = case t of
   HsExplicitListTy _ _ _tys ->  unexpected "explicit list"
   HsExplicitTupleTy _ _tys  -> unexpected "explicit tuple"
 
-  HsTyLit _ ty      -> TypeApp (Typename $ toText ty) []
+  HsTyLit _ ty      -> TypeApp Nothing (Typename $ toText ty) []
   -- kind things. Can be printed, not sure why we would
-  HsWildCardTy {}   -> TypeApp (Typename "_") []
-  HsStarTy _ _      -> TypeApp (Typename "*") []
+  HsWildCardTy {}   -> TypeApp Nothing (Typename "_") []
+  HsStarTy _ _      -> TypeApp Nothing (Typename "*") []
 
   HsAppTy _ fun_ty arg_ty ->
     case hsTypeToType fun_ty of
-      TypeApp f as -> TypeApp f $ as <> [hsTypeToType arg_ty]  -- flattens app chains
+      TypeApp m f as -> TypeApp m f $ as <> [hsTypeToType arg_ty]  -- flattens app chains
       TypeFun _ -> unexpected "function type in a type app"
       TypeList _   -> unexpected "list type in a type app"
       TypeTuple _   -> unexpected "tuple type in a type app"
@@ -461,7 +461,7 @@ hsTypeToType_ t = case t of
   HsAppKindTy _ _ _ -> unexpected "kind application"
 
   HsOpTy _ ty1 (L _ op) ty2 ->
-    TypeApp (Typename $ toText op) [ hsTypeToType ty1, hsTypeToType ty2 ]
+    TypeApp Nothing (Typename $ toText op) [ hsTypeToType ty1, hsTypeToType ty2 ]
 
   HsParTy _ ty  -> hsTypeToType ty
 

@@ -167,8 +167,8 @@ type2rst = f (0 :: Int)
     -- 0 = no brackets
     -- 1 = brackets around function
     -- 2 = brackets around function AND application
-    f _ (TypeApp n []) = unTypename n
-    f i (TypeApp n as) = (if i >= 2 then inParens else id) $ T.unwords (unTypename n : map (f 2) as)
+    f _ (TypeApp _ n []) = unTypename n
+    f i (TypeApp _ n as) = (if i >= 2 then inParens else id) $ T.unwords (unTypename n : map (f 2) as)
     f i (TypeFun ts) = (if i >= 1 then inParens else id) $ T.intercalate " -> " $ map (f 1) ts
     f _ (TypeList t1) = "[" <> f 0 t1 <> "]"
     f _ (TypeTuple ts) = "(" <> T.intercalate ", " (map (f 0) ts) <>  ")"

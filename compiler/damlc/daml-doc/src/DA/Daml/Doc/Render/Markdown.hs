@@ -143,8 +143,8 @@ type2md t = t2md id t
         t2md _ (TypeTuple ts) = "`(` " <>
                             T.concat (intersperse ", " $ map (t2md id) ts) <>
                             " `)`"
-        t2md _ (TypeApp n []) = asCode (unTypename n)
-        t2md f (TypeApp name args) =
+        t2md _ (TypeApp _ n []) = asCode (unTypename n)
+        t2md f (TypeApp _ name args) =
           f $ T.unwords ( asCode (unTypename name) : map (t2md codeParens) args)
         codeParens s = "`(` " <> s <> " `)`"
 
