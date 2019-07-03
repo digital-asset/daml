@@ -9,7 +9,6 @@
 --   Given a list of paths to find libraries, and a file to compile, produce a list of 'CoreModule' values.
 module Development.IDE.Core.Compile
   ( TcModuleResult(..)
-  , getGhcDynFlags
   , compileModule
   , getSrcSpanInfos
   , parseModule
@@ -164,9 +163,6 @@ compileModule mod packageState deps tmr =
 
             return (warnings, core)
 
-
-getGhcDynFlags :: ParsedModule -> HscEnv -> IO DynFlags
-getGhcDynFlags mod pkg = runGhcSession (Just mod) pkg getSessionDynFlags
 
 -- | Evaluate a GHC session using a new environment constructed with
 -- the supplied options.
