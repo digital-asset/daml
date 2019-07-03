@@ -60,10 +60,10 @@ data UnserializabilityReason
 
 data Error
   = EUnknownTypeVar        !TypeVarName
-  | EShadowingTypeVar      !TypeVarName
   | EUnknownExprVar        !ExprVarName
   | EUnknownDefinition     !LookupError
   | ETypeConAppWrongArity  !TypeConApp
+  | EDuplicateTypeParam    !TypeVarName
   | EDuplicateField        !FieldName
   | EDuplicateConstructor  !VariantConName
   | EDuplicateModule       !ModuleName
@@ -166,10 +166,10 @@ instance Pretty Error where
       ]
 
     EUnknownTypeVar v -> "unknown type variable: " <> pretty v
-    EShadowingTypeVar v -> "shadowing type variable: " <> pretty v
     EUnknownExprVar v -> "unknown expr variable: " <> pretty v
     EUnknownDefinition e -> pretty e
     ETypeConAppWrongArity tapp -> "wrong arity in typecon application: " <> string (show tapp)
+    EDuplicateTypeParam name -> "duplicate type parameter: " <> pretty name
     EDuplicateField name -> "duplicate field: " <> pretty name
     EDuplicateConstructor name -> "duplicate constructor: " <> pretty name
     EDuplicateModule mname -> "duplicate module: " <> pretty mname
