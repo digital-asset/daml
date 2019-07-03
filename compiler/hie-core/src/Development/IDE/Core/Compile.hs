@@ -171,9 +171,7 @@ runGhcSession
     -> HscEnv
     -> Ghc a
     -> IO a
-runGhcSession modu env act = runGhcEnv env $ do
-    whenJust modu $ \pm -> modifyDynFlags $ addRelativeImport pm
-    act
+runGhcSession _ env act = runGhcEnv env act
 
 addRelativeImport :: ParsedModule -> DynFlags -> DynFlags
 addRelativeImport modu dflags = dflags
