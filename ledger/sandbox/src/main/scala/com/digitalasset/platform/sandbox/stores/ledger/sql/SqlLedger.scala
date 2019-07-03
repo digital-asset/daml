@@ -314,11 +314,7 @@ private class SqlLedger(
   override def lookupTransaction(
       transactionId: Ref.TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
     ledgerDao
-      .lookupLedgerEntry(transactionId.toLong)
-      .map(_.collect[(Long, LedgerEntry.Transaction)] {
-        case t: LedgerEntry.Transaction =>
-          (transactionId.toLong, t) // the transaction is also the offset
-      })(DEC)
+      .lookupTransaction(transactionId)
 
   override def allocateParty(
       party: Party,

@@ -6,6 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
+import com.daml.ledger.participant.state.v2.TransactionId
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.digitalasset.daml.lf.transaction.Node
@@ -18,8 +19,9 @@ import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import scala.collection.immutable
 import scala.concurrent.Future
 
-private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends LedgerDao {
-
+private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, mm: MetricsManager)
+    extends LedgerReadDao
+    with AutoCloseable {
   override def lookupLedgerId(): Future[Option[LedgerId]] =
     mm.timedFuture("LedgerDao:lookupLedgerId", ledgerDao.lookupLedgerId())
 
@@ -36,6 +38,10 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
   override def lookupLedgerEntry(offset: Long): Future[Option[LedgerEntry]] =
     mm.timedFuture("LedgerDao:lookupLedgerEntry", ledgerDao.lookupLedgerEntry(offset))
 
+  override def lookupTransaction(
+      transactionId: TransactionId): Future[Option[(LedgerOffset, LedgerEntry.Transaction)]] =
+    mm.timedFuture("LedgerDao:lookupTransaction", ledgerDao.lookupTransaction(transactionId))
+
   override def lookupKey(key: Node.GlobalKey): Future[Option[Value.AbsoluteContractId]] =
     mm.timedFuture("LedgerDao:lookupKey", ledgerDao.lookupKey(key))
 
@@ -47,6 +53,23 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
       endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed] =
     ledgerDao.getLedgerEntries(startInclusive, endExclusive)
 
+  override def getParties: Future[List[PartyDetails]] =
+    mm.timedFuture("getParties", ledgerDao.getParties)
+
+  override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
+    mm.timedFuture("listLfPackages", ledgerDao.listLfPackages)
+
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    mm.timedFuture("getLfArchive", ledgerDao.getLfArchive(packageId))
+
+  override def close(): Unit = {
+    ledgerDao.close()
+  }
+}
+
+private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager)
+    extends MeteredLedgerReadDao(ledgerDao, mm)
+    with LedgerDao {
   override def storeLedgerEntry(
       offset: Long,
       newLedgerEnd: Long,
@@ -77,12 +100,6 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
   override def storeParty(party: Party, displayName: Option[String]): Future[PersistenceResponse] =
     mm.timedFuture("storeParty", ledgerDao.storeParty(party, displayName))
 
-  override def listLfPackages: Future[Map[PackageId, PackageDetails]] =
-    mm.timedFuture("listLfPackages", ledgerDao.listLfPackages)
-
-  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    mm.timedFuture("getLfArchive", ledgerDao.getLfArchive(packageId))
-
   override def uploadLfPackages(
       uploadId: String,
       packages: List[(Archive, PackageDetails)]): Future[PersistenceResponse] =
@@ -96,4 +113,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager) extends
 object MeteredLedgerDao {
   def apply(ledgerDao: LedgerDao)(implicit mm: MetricsManager): LedgerDao =
     new MeteredLedgerDao(ledgerDao, mm)
+
+  def apply(ledgerDao: LedgerReadDao)(implicit mm: MetricsManager): LedgerReadDao =
+    new MeteredLedgerReadDao(ledgerDao, mm)
 }

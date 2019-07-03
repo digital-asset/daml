@@ -22,6 +22,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -81,7 +82,7 @@ object PersistenceResponse {
 
 case class LedgerSnapshot(offset: Long, acs: Source[Contract, NotUsed])
 
-trait LedgerDao extends AutoCloseable {
+trait LedgerReadDao extends AutoCloseable {
 
   type LedgerOffset = Long
 
@@ -106,6 +107,14 @@ trait LedgerDao extends AutoCloseable {
     * @return the optional LedgerEntry found
     */
   def lookupLedgerEntry(offset: LedgerOffset): Future[Option[LedgerEntry]]
+
+  /**
+    * Looks up the transaction with the given id
+    *
+    * @param transactionId the id of the transaction to look up
+    * @return the optional Transaction found
+    */
+  def lookupTransaction(transactionId: TransactionId): Future[Option[(LedgerOffset, Transaction)]]
 
   /**
     * Looks up a LedgerEntry at a given offset
@@ -145,6 +154,22 @@ trait LedgerDao extends AutoCloseable {
     */
   def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot]
 
+  /** Returns a list of all known parties. */
+  def getParties: Future[List[PartyDetails]]
+
+  /** Returns a list of all known DAML-LF packages */
+  def listLfPackages: Future[Map[PackageId, PackageDetails]]
+
+  /** Returns the given DAML-LF archive */
+  def getLfArchive(packageId: PackageId): Future[Option[Archive]]
+}
+
+trait LedgerWriteDao extends AutoCloseable {
+
+  type LedgerOffset = Long
+
+  type ExternalOffset = LedgerString
+
   /**
     * Initializes the ledger. Must be called only once.
     *
@@ -182,9 +207,6 @@ trait LedgerDao extends AutoCloseable {
       newLedgerEnd: LedgerOffset
   ): Future[Unit]
 
-  /** Returns a list of all known parties. */
-  def getParties: Future[List[PartyDetails]]
-
   /**
     * Explicitly adds a new party to the list of known parties.
     *
@@ -196,12 +218,6 @@ trait LedgerDao extends AutoCloseable {
       party: Party,
       displayName: Option[String]
   ): Future[PersistenceResponse]
-
-  /** Returns a list of all known DAML-LF packages */
-  def listLfPackages: Future[Map[PackageId, PackageDetails]]
-
-  /** Returns the given DAML-LF archive */
-  def getLfArchive(packageId: PackageId): Future[Option[Archive]]
 
   /**
     * Stores a set of DAML-LF packages
@@ -223,8 +239,15 @@ trait LedgerDao extends AutoCloseable {
 
 }
 
+trait LedgerDao extends LedgerReadDao with LedgerWriteDao {
+  override type LedgerOffset = Long
+  override type ExternalOffset = LedgerString
+}
+
 object LedgerDao {
 
   /** Wraps the given LedgerDao adding metrics around important calls */
   def metered(dao: LedgerDao)(implicit mm: MetricsManager): LedgerDao = MeteredLedgerDao(dao)
+  def meteredRead(dao: LedgerReadDao)(implicit mm: MetricsManager): LedgerReadDao =
+    new MeteredLedgerReadDao(dao, mm)
 }
