@@ -118,7 +118,7 @@ daml_ghc_compile_test(
 daml_ghc_compile_test(
     name = "bond-trading-memory",
     srcs = [":bond-trading"],
-    heap_limit = "120M" if is_windows else "100M",
+    heap_limit = "200M" if is_windows else "100M",
     main = "bond-trading/Test.daml",
     stack_limit = "35K",
 )

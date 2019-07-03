@@ -18,7 +18,7 @@ def _daml_ghc_compile_test_impl(ctx):
       }}
       trap cleanup EXIT
 
-      $DAMLC compile $MAIN -o $TMP/out +RTS {stack_opt} {heap_opt}
+      $DAMLC compile $MAIN -o $TMP/out +RTS -s {stack_opt} {heap_opt}
     """.format(
         damlc = ctx.executable.damlc.short_path,
         main = ctx.files.main[0].short_path,
