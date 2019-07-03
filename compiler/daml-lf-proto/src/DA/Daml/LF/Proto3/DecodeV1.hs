@@ -47,10 +47,11 @@ decodeVersion minorText = do
   if version `elem` LF.supportedInputVersions then pure version else unsupported
 
 decodePackage :: TL.Text -> LF1.Package -> Decode Package
-decodePackage minorText (LF1.Package mods internedList) = do
+decodePackage minorText (LF1.Package mods internedPkgIds internedModNames) = do
   version <- decodeVersion minorText
-  interned <- decodeInternedPackageIds internedList
-  Package version <$> runReaderT (decodeNM DuplicateModule decodeModule mods) interned
+  pkgIds <- decodeInternedPackageIds internedPkgIds
+  modNames <- decodeInternedModuleNames internedModNames
+  Package version <$> runReaderT (decodeNM DuplicateModule decodeModule mods) (PackageRefCtx pkgIds modNames)
 
 decodeModule :: LF1.Module -> DecodeImpl Module
 decodeModule (LF1.Module name flags dataTypes values templates) =
@@ -564,7 +565,10 @@ decodePackageId = PackageId . TL.toStrict
 
 -- the invariant *does not* hold: pkid `cmp` opkid = index pkid `cmp` index opkid
 -- it is only true internally for one particular encoder implementation
-type PackageRefCtx = Int -> Maybe PackageId
+data PackageRefCtx = PackageRefCtx {
+   uninternPackageId :: Int -> Maybe PackageId
+  ,uninternModuleName :: Int -> Maybe ModuleName
+}
 
 decodePackageRef :: LF1.PackageRef -> DecodeImpl PackageRef
 decodePackageRef (LF1.PackageRef pref) =
@@ -573,19 +577,29 @@ decodePackageRef (LF1.PackageRef pref) =
     LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ decodePackageId pkgId
     LF1.PackageRefSumInternedId ix -> do
       let ixd = fromIntegral ix :: Int
-      interned <- ask
+      ctx <- ask
       maybe (throwError $ MissingPackageRefId ix) pure
-        $ PRImport <$> (guard (ix == fromIntegral ixd) *> interned ixd)
+        $ PRImport <$> (guard (ix == fromIntegral ixd) *> uninternPackageId ctx ixd)
 
-decodeInternedPackageIds :: V.Vector TL.Text -> Decode PackageRefCtx
+decodeInternedPackageIds :: V.Vector TL.Text -> Decode (Int -> Maybe PackageId)
 decodeInternedPackageIds = pure . (V.!?) . fmap decodePackageId
+
+decodeInternedModuleNames :: V.Vector LF1.DottedName -> Decode (Int -> Maybe ModuleName)
+decodeInternedModuleNames = fmap (V.!?) . traverse (decodeDottedName ModuleName)
 
 decodeModuleRef :: LF1.ModuleRef -> DecodeImpl (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
   (,)
     <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
-    <*> mayDecode "moduleRefModuleName" moduleRefModuleName (decodeDottedName ModuleName)
+    <*> mayDecode "moduleRefModuleName" moduleRefSum decodeModuleName
 
+decodeModuleName :: LF1.ModuleRefSum -> DecodeImpl ModuleName
+decodeModuleName (LF1.ModuleRefSumModuleName mn) = decodeDottedName ModuleName mn
+decodeModuleName (LF1.ModuleRefSumInternedId ix) = do
+  let ixd = fromIntegral ix :: Int
+  ctx <- ask
+  maybe (throwError $ MissingModuleName ix) pure
+    $ guard (ix == fromIntegral ixd) *> uninternModuleName ctx ixd
 
 decodeValName :: LF1.ValName -> DecodeImpl (Qualified ExprValName)
 decodeValName LF1.ValName{..} = do

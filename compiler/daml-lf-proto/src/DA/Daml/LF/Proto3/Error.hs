@@ -22,6 +22,7 @@ data Error
   | DuplicateChoice ChoiceName
   | UnsupportedMinorVersion T.Text
   | MissingPackageRefId Word64
+  | MissingModuleName Word64
   deriving (Show, Eq)
 
 type Decode = Either Error
