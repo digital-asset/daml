@@ -89,6 +89,7 @@ class SandboxSemanticTestsLfRunner
             pkgId,
             packages,
             testIdsGenerator.testPartyName,
+            testIdsGenerator.untestPartyName,
             scenarioCommandIdMangler
           ).testScenario(name)
         } yield succeed

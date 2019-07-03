@@ -33,13 +33,23 @@ object Cli {
 
     help("help").text("prints this usage text")
 
+    opt[File]('m', "mapping")
+      .action((x, c) => c.copy(mapping = Some(x)))
+      .text(s"Ledger API server mapping. Defaults to a single host and port for all parties.")
+
+    opt[String]("default-party")
+      .action((x, c) => c.copy(defaultParty = Some(x)))
+      .text("Default party used for e.g. ledgerId and getTime calls. Defaults to OPERATOR.")
+
     opt[Int]('p', "target-port")
       .action((x, c) => c.copy(port = x))
-      .text("Server port of the Ledger API endpoint to test. Defaults to 6865.")
+      .text(
+        "Server port of the Ledger API endpoint to test, if no mapping provided. Defaults to 6865.")
 
     opt[String]('h', "host")
       .action((x, c) => c.copy(host = x))
-      .text("Server host of the Ledger API endpoint to test. Defaults to localhost.")
+      .text(
+        "Server host of the Ledger API endpoint to test, if no mapping provided. Defaults to localhost.")
 
     opt[String]("pem")
       .optional()

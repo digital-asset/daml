@@ -8,6 +8,8 @@ import java.io.File
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 final case class Config(
+    mapping: Option[File],
+    defaultParty: Option[String],
     host: String,
     port: Int,
     darPackages: List[File],
@@ -27,6 +29,8 @@ final case class Config(
 
 object Config {
   val default = Config(
+    mapping = None,
+    defaultParty = None,
     host = "localhost",
     port = 6865,
     darPackages = Nil,

@@ -56,8 +56,9 @@ class LedgerTestingHelpers(
   implicit def submitAndWait2SubmitReq(sw: SubmitAndWaitRequest): SubmitRequest =
     SubmitRequest(sw.commands, sw.traceContext)
 
-  val submitSuccessfully: SubmitRequest => Future[Assertion] =
-    submitCommand.andThen(_.map(assertCompletionIsSuccessful))
+  val submitSuccessfully: SubmitRequest => Future[Assertion] = req => {
+    submitCommand(req).map(assertCompletionIsSuccessful)
+  }
 
   def assertCompletionIsSuccessful(completion: Completion): Assertion = {
     inside(completion) { case c => c.getStatus should have('code (0)) }
@@ -666,21 +667,13 @@ class LedgerTestingHelpers(
 
 object LedgerTestingHelpers extends OptionValues {
 
-  def sync(
+  def apply(
       submitCommand: SubmitAndWaitRequest => Future[SubmitAndWaitForTransactionIdResponse],
       context: LedgerContext,
       timeoutScaleFactor: Double = 1.0)(
       implicit ec: ExecutionContext,
       mat: ActorMaterializer): LedgerTestingHelpers =
-    async(helper(submitCommand), context, timeoutScaleFactor = timeoutScaleFactor)
-
-  def async(
-      submitCommand: SubmitRequest => Future[Completion],
-      context: LedgerContext,
-      timeoutScaleFactor: Double = 1.0)(
-      implicit ec: ExecutionContext,
-      mat: ActorMaterializer): LedgerTestingHelpers =
-    new LedgerTestingHelpers(submitCommand, context, timeoutScaleFactor)
+    new LedgerTestingHelpers(helper(submitCommand), context, timeoutScaleFactor)
 
   def responseToCompletion(commandId: String, respF: Future[SubmitAndWaitForTransactionIdResponse])(
       implicit ec: ExecutionContext): Future[Completion] =

@@ -20,7 +20,15 @@ class TestIdsGenerator(config: PlatformApplications.Config) {
   // Yet lets wrap those identifiers into an appropriate function so we could do it in the future.
   lazy val runWorkflowSuffix = runCommandSuffix
   lazy val runPartySuffix = if (config.uniquePartyIdentifiers) "-" + runSuffix else ""
+
   def testPartyName(partyText: String) = partyText + runPartySuffix
   def testCommandId(commandId: String) = commandId + runCommandSuffix
   def testWorkflowId(workflowId: String) = workflowId + runWorkflowSuffix
+
+  def untestPartyName(partyText: String) =
+    if (config.uniquePartyIdentifiers) partyText.stripSuffix("-" + runPartySuffix) else partyText
+  def untestCommandId(commandId: String) =
+    if (config.uniqueCommandIdentifiers) commandId.stripSuffix("-" + runCommandSuffix)
+    else commandId
+  def untestWorkflowId(workflowId: String) = workflowId.stripSuffix("-" + runWorkflowSuffix)
 }
