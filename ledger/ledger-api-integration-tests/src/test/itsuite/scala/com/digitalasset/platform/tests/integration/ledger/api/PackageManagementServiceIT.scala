@@ -63,7 +63,6 @@ class PackageManagementServiceIT
 
   private def loadTestDar: (Array[Byte], List[LoadedPackage], String) = {
     val file = new File(rlocation("ledger/sandbox/Test.dar"))
-    //val file = config.darFiles.head.toFile
 
     val testDarBytes = Files.readAllBytes(file.toPath)
 

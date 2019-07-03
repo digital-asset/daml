@@ -1,7 +1,12 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.api.server.damlonx.services
 
 import akka.stream.Materializer
-import com.daml.ledger.participant.state.index.v1.{PartyManagementService => IndexPartyManagementService}
+import com.daml.ledger.participant.state.index.v1.{
+  PartyManagementService => IndexPartyManagementService
+}
 import com.daml.ledger.participant.state.v1.{PartyAllocationResult, WritePartyService}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
@@ -27,12 +32,11 @@ class DamlOnXPartyManagementService private (
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
-    PartyManagementServiceGrpc.bindService(this,DirectExecutionContext)
+    PartyManagementServiceGrpc.bindService(this, DirectExecutionContext)
 
   override def getParticipantId(
       request: GetParticipantIdRequest): Future[GetParticipantIdResponse] =
-    indexService
-      .getParticipantId
+    indexService.getParticipantId
       .map(pid => GetParticipantIdResponse(pid.toString))
 
   private[this] def mapPartyDetails(
@@ -41,8 +45,7 @@ class DamlOnXPartyManagementService private (
 
   override def listKnownParties(
       request: ListKnownPartiesRequest): Future[ListKnownPartiesResponse] =
-  indexService
-      .listParties
+    indexService.listParties
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))
 
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
@@ -71,8 +74,8 @@ class DamlOnXPartyManagementService private (
 
 object DamlOnXPartyManagementService {
   def apply(writeService: WritePartyService, indexService: IndexPartyManagementService)(
-    implicit ec: ExecutionContext,
-    esf: ExecutionSequencerFactory,
-    mat: Materializer): GrpcApiService =
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer): GrpcApiService =
     new DamlOnXPartyManagementService(writeService, indexService) with PartyManagementServiceLogging
 }

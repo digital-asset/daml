@@ -37,18 +37,18 @@ class DamlOnXPackageManagementService(
   override def bindService(): ServerServiceDefinition =
     PackageManagementServiceGrpc.bindService(this, DirectExecutionContext)
 
-  override def listKnownPackages(request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] = {
+  override def listKnownPackages(
+      request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] = {
 
-    indexService.listPackageDetails().map{
-      pkgs =>
-        ListKnownPackagesResponse(pkgs.toSeq.map{
-          case (id,details) =>
-            PackageDetails(
-              id,
-              details.size,
-              Some(fromInstant(details.knownSince.toInstant)),
-              details.sourceDescription.getOrElse(""))
-        })
+    indexService.listPackageDetails().map { pkgs =>
+      ListKnownPackagesResponse(pkgs.toSeq.map {
+        case (id, details) =>
+          PackageDetails(
+            id,
+            details.size,
+            Some(fromInstant(details.knownSince.toInstant)),
+            details.sourceDescription.getOrElse(""))
+      })
     }
   }
 
@@ -77,14 +77,13 @@ class DamlOnXPackageManagementService(
               Future.failed(ErrorFactories.permissionDenied(r.description))
             case r @ UploadPackagesResult.NotSupported =>
               Future.failed(ErrorFactories.unimplemented(r.description))
-          }
+        }
     )
   }
 }
 
 object DamlOnXPackageManagementService {
-  def apply(
-      writeService: WritePackagesService,
-      indexService: IndexPackageService): GrpcApiService =
-    new DamlOnXPackageManagementService(writeService, indexService) with PackageManagementServiceLogging
+  def apply(writeService: WritePackagesService, indexService: IndexPackageService): GrpcApiService =
+    new DamlOnXPackageManagementService(writeService, indexService)
+    with PackageManagementServiceLogging
 }
