@@ -8,6 +8,7 @@ import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
+import org.scalatest.exceptions.TestCanceledException
 import org.scalatest.time.Span
 
 import scala.collection.immutable.Iterable
@@ -69,11 +70,15 @@ trait MultiFixtureBase[FixtureId, TestContext]
       testFixture: TestFixture,
       runTest: TestFixture => Future[Assertion]): Future[Assertion] = {
 
-    def failOnFixture(throwable: Throwable): Nothing = {
+    def failOnFixture(throwable: Throwable): Assertion = {
       // Add additional information about failure (which fixture was problematic)
-      throw new RuntimeException(
-        s"Test failed on fixture ${testFixture.id} with ${throwable.getClass}: ${throwable.getMessage}",
-        throwable) with NoStackTrace
+      throwable match {
+        case ex: TestCanceledException => throw ex
+        case _ =>
+          throw new RuntimeException(
+            s"Test failed on fixture ${testFixture.id} with ${throwable.getClass}: ${throwable.getMessage}",
+            throwable) with NoStackTrace
+      }
     }
 
     val timeoutPromise = Promise[Assertion]
