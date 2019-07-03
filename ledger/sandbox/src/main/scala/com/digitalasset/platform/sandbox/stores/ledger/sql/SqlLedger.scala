@@ -4,25 +4,24 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
+import java.util.UUID
 
 import akka.stream.QueueOfferResult.{Dropped, Enqueued, QueueClosed}
 import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, SourceQueueWithComplete}
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import akka.{Done, NotUsed}
-import com.daml.ledger.participant.state.v2.{
-  PartyAllocationResult,
-  SubmissionResult,
-  SubmittedTransaction,
-  SubmitterInfo,
-  TransactionMeta
-}
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v2._
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.Ref.Party
+import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails, RejectionReason}
 import com.digitalasset.platform.akkastreams.dispatcher.Dispatcher
 import com.digitalasset.platform.akkastreams.dispatcher.SubSource.RangeSource
@@ -32,17 +31,12 @@ import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
-import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
+import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
   ContinueIfExists
 }
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
-  Contract,
-  LedgerDao,
-  PersistenceEntry,
-  PostgresLedgerDao
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -56,7 +50,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.immutable
 import scala.collection.immutable.Queue
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 import scalaz.syntax.tag._
 
 sealed abstract class SqlStartMode extends Product with Serializable
@@ -82,6 +76,7 @@ object SqlLedger {
       ledgerId: Option[LedgerId],
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
+      packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
@@ -105,6 +100,7 @@ object SqlLedger {
       timeProvider,
       startMode,
       acs,
+      packages,
       initialLedgerEntries,
       queueDepth)
   }
@@ -115,6 +111,7 @@ private class SqlLedger(
     headAtInitialization: Long,
     ledgerDao: LedgerDao,
     timeProvider: TimeProvider,
+    packages: InMemoryPackageStore,
     queueDepth: Int)(implicit mat: Materializer)
     extends Ledger {
 
@@ -185,7 +182,7 @@ private class SqlLedger(
             case (ledgerEntryGen, i) =>
               val offset = startOffset + i
               ledgerDao
-                .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))
+                .storeLedgerEntry(offset, offset + 1, None, ledgerEntryGen(offset))
                 .map(_ => ())(DEC)
                 .recover {
                   case t =>
@@ -317,19 +314,53 @@ private class SqlLedger(
   override def lookupTransaction(
       transactionId: Ref.TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
     ledgerDao
-      .lookupLedgerEntry(transactionId.toLong)
-      .map(_.collect[(Long, LedgerEntry.Transaction)] {
-        case t: LedgerEntry.Transaction =>
-          (transactionId.toLong, t) // the transaction is also the offset
-      })(DEC)
+      .lookupTransaction(transactionId)
 
   override def allocateParty(
       party: Party,
       displayName: Option[String]): Future[PartyAllocationResult] =
-    ledgerDao.storeParty(party, displayName)
+    ledgerDao
+      .storeParty(party, displayName)
+      .map {
+        case PersistenceResponse.Ok =>
+          PartyAllocationResult.Ok(PartyDetails(party, displayName, true))
+        case PersistenceResponse.Duplicate =>
+          PartyAllocationResult.AlreadyExists
+      }(DEC)
 
   override def parties: Future[List[PartyDetails]] =
     ledgerDao.getParties
+
+  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
+    ledgerDao.listLfPackages
+
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    ledgerDao.getLfArchive(packageId)
+
+  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
+    ledgerDao
+      .getLfArchive(packageId)
+      .flatMap(archiveO =>
+        Future.fromTry(Try(archiveO.map(archive => Decode.decodeArchive(archive)._2))))(DEC)
+
+  override def uploadPackages(
+      knownSince: Instant,
+      sourceDescription: Option[String],
+      payload: List[Archive]): Future[UploadPackagesResult] = {
+    val submissionId = UUID.randomUUID().toString
+    val packages = payload.map(archive =>
+      (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
+    ledgerDao
+      .uploadLfPackages(submissionId, packages)
+      .map {
+        case PersistenceResponse.Ok =>
+          UploadPackagesResult.Ok
+        case PersistenceResponse.Duplicate =>
+          // Note: package upload is idempotent, apart from the fact that we only keep
+          // the knownSince and sourceDescription of the first upload.
+          UploadPackagesResult.Ok
+      }(DEC)
+  }
 }
 
 private class SqlLedgerFactory(ledgerDao: LedgerDao) {
@@ -355,6 +386,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       timeProvider: TimeProvider,
       startMode: SqlStartMode,
       acs: InMemoryActiveContracts,
+      packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
       queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
@@ -364,15 +396,16 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       case AlwaysReset =>
         for {
           _ <- reset()
-          ledgerId <- initialize(initialLedgerId, acs, initialLedgerEntries)
+          ledgerId <- initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
         } yield ledgerId
-      case ContinueIfExists => initialize(initialLedgerId, acs, initialLedgerEntries)
+      case ContinueIfExists =>
+        initialize(initialLedgerId, timeProvider, acs, packages, initialLedgerEntries)
     }
 
     for {
       ledgerId <- init()
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
-    } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider, queueDepth)
+    } yield new SqlLedger(ledgerId, ledgerEnd, ledgerDao, timeProvider, packages, queueDepth)
   }
 
   private def reset(): Future[Unit] =
@@ -380,7 +413,9 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
 
   private def initialize(
       initialLedgerId: Option[LedgerId],
+      timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
+      packages: InMemoryPackageStore,
       initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
@@ -395,6 +430,10 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
               if (initialLedgerEntries.nonEmpty) {
                 logger.warn(
                   s"Initial ledger entries provided, presumably from scenario, but I'm picking up from an existing database, and thus they will not be used")
+              }
+              if (packages.listLfPackagesSync().nonEmpty) {
+                logger.warn(
+                  s"Initial packages provided, presumably as command line arguments, but I'm picking up from an existing database, and thus they will not be used")
               }
               ledgerFound(foundLedgerId)
             case Some(foundLedgerId) =>
@@ -424,6 +463,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
               implicit val ec = DEC
               for {
                 _ <- doInit(initialId)
+                _ <- copyPackages(packages, timeProvider.getCurrentTime)
                 _ <- ledgerDao.storeInitialState(
                   contracts,
                   entriesWithOffset._2,
@@ -453,6 +493,24 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
   private def doInit(ledgerId: LedgerId): Future[Unit] = {
     logger.info(s"Initializing ledger with id: ${ledgerId.unwrap}")
     ledgerDao.initializeLedger(ledgerId, 0)
+  }
+
+  private def copyPackages(store: InMemoryPackageStore, knownSince: Instant): Future[Unit] = {
+    val packageDetails = store.listLfPackagesSync()
+    if (packageDetails.nonEmpty) {
+      logger.info(s"Copying initial packages ${packageDetails.keys.mkString(",")}")
+      val submissionId = UUID.randomUUID().toString
+      val packages = packageDetails.toList.map(pkg => {
+        val archive =
+          store.getLfArchiveSync(pkg._1).getOrElse(sys.error(s"Package ${pkg._1} not found"))
+        archive -> PackageDetails(archive.getPayload.size.toLong, knownSince, None)
+      })
+      ledgerDao
+        .uploadLfPackages(submissionId, packages)
+        .transform(_ => (), e => sys.error("Failed to copy initial packages: " + e.getMessage))(DEC)
+    } else {
+      Future.successful(())
+    }
   }
 
 }

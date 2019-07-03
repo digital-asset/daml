@@ -34,7 +34,7 @@ client_server_test(
     client_args = [
         "--foobar",
         # Use the input file passed in via `data`.
-        "$(location :client_input_file)",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath :client_input_file))",
     ],
 
     # Data files available to both client and server.
@@ -42,4 +42,4 @@ client_server_test(
         ":client_input_file",
     ],
     server = ":server",
-) if not is_windows else None
+)

@@ -15,14 +15,14 @@ import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
 import qualified Data.Vector as Vector
 
-type Request = (LedgerId,ApplicationId,[Party],LedgerOffset)
+type Request = (LedgerId,ApplicationId,[Party],Maybe LedgerOffset)
 type Response = (Maybe Checkpoint, [Completion])
 
 completionStream :: Request -> LedgerService (Stream Response)
-completionStream (lid,aid,partys,offset) =
+completionStream (lid,aid,partys,offsetOpt) =
     makeLedgerService $ \timeout config -> do
     stream <- newStream
-    let request = mkCompletionStreamRequest lid aid partys offset
+    let request = mkCompletionStreamRequest lid aid partys offsetOpt
     _ <- forkIO $
         withGRPCClient config $ \client -> do
             service <- commandCompletionServiceClient client
@@ -30,8 +30,10 @@ completionStream (lid,aid,partys,offset) =
             sendToStream timeout request raiseCompletionStreamResponse stream rpc
     return stream
 
-mkCompletionStreamRequest :: LedgerId -> ApplicationId -> [Party] -> LedgerOffset -> CompletionStreamRequest
-mkCompletionStreamRequest (LedgerId id) aid parties offset = CompletionStreamRequest {
+
+
+mkCompletionStreamRequest :: LedgerId -> ApplicationId -> [Party] -> Maybe LedgerOffset -> CompletionStreamRequest
+mkCompletionStreamRequest (LedgerId id) aid parties offsetOpt = CompletionStreamRequest {
     completionStreamRequestLedgerId = id,
     completionStreamRequestApplicationId = unApplicationId aid,
     completionStreamRequestParties = Vector.fromList (map unParty parties),
@@ -42,7 +44,7 @@ mkCompletionStreamRequest (LedgerId id) aid parties offset = CompletionStreamReq
     --
     -- which is entirely pointless, as it just results in an empty/closed stream of results
     -- so dont support the optionality in the haskell interface
-    completionStreamRequestOffset = Just (lowerLedgerOffset offset)
+    completionStreamRequestOffset = fmap lowerLedgerOffset offsetOpt
     }
 
 completionEnd :: LedgerId -> LedgerService AbsOffset

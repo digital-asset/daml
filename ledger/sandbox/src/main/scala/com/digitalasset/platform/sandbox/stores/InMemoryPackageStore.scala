@@ -5,7 +5,6 @@ package com.digitalasset.platform.sandbox.stores
 
 import java.io.File
 import java.time.Instant
-import java.util.concurrent.{CompletableFuture, CompletionStage}
 import java.util.zip.ZipFile
 
 import com.daml.ledger.participant.state.index.v2.{IndexPackagesService, PackageDetails}
@@ -57,16 +56,16 @@ class InMemoryPackageStore() extends IndexPackagesService {
   def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      packages: List[Archive]): CompletionStage[UploadPackagesResult] = this.synchronized {
+      packages: List[Archive]): UploadPackagesResult = this.synchronized {
     val result = addArchives(knownSince, sourceDescription, packages)
-    CompletableFuture.completedFuture(result match {
+    result match {
       case Right(details @ _) =>
         // TODO(FM) I'd like to include the details above but i get a strange error
         // about mismatching PackageId type
         UploadPackagesResult.Ok
       case Left(err) =>
         UploadPackagesResult.InvalidPackage(err)
-    })
+    }
   }
 
   private def addPackage(
@@ -127,5 +126,5 @@ class InMemoryPackageStore() extends IndexPackagesService {
 }
 
 object InMemoryPackageStore {
-  def apply(): InMemoryPackageStore = new InMemoryPackageStore()
+  def empty: InMemoryPackageStore = new InMemoryPackageStore()
 }

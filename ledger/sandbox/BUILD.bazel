@@ -52,6 +52,7 @@ compileDependencies = [
     "//3rdparty/jvm/io/netty:netty_handler",
     "//3rdparty/jvm/com/github/scopt:scopt",
     "//3rdparty/jvm/com/typesafe/akka:akka_stream",
+    "//3rdparty/jvm/com/typesafe/akka:akka_actor",
     "//3rdparty/jvm/com/google/guava:guava",
     "//3rdparty/jvm/org/postgresql:postgresql",
     "//3rdparty/jvm/com/zaxxer:HikariCP",
@@ -60,6 +61,7 @@ compileDependencies = [
     "//3rdparty/jvm/com/typesafe/play:anorm_akka",
     "//3rdparty/jvm/io/dropwizard/metrics:metrics_core",
     "//3rdparty/jvm/io/dropwizard/metrics:metrics_jmx",
+    "//3rdparty/jvm/io/zipkin/brave",
 ]
 
 da_scala_library(

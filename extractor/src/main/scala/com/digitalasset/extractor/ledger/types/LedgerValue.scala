@@ -31,9 +31,7 @@ object LedgerValue {
   final implicit class ApiValueSumOps(val apiValueSum: api.value.Value.Sum) extends AnyVal {
     def convert: String \/ LedgerValue = apiValueSum match {
       case Sum.Variant(apiVariant) => convertVariant(apiVariant)
-      case Sum.Enum(value) =>
-        // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-        throw new NotImplementedError("Enum types not supported")
+      case Sum.Enum(apiEnum) => convertEnum(apiEnum)
       case Sum.List(apiList) => convertList(apiList)
       case Sum.Record(apiRecord) => convertRecord(apiRecord)
       case Sum.Optional(apiOptional) => convertOptional(apiOptional)
@@ -66,6 +64,12 @@ object LedgerValue {
       value <- apiValue.convert
     } yield V.ValueVariant(tycon, ctor, value)
   }
+
+  private def convertEnum(apiEnum: api.value.Enum) =
+    for {
+      tyCon <- apiEnum.enumId traverseU convertIdentifier map (_.flatten)
+      ctor <- Ref.Name.fromString(apiEnum.constructor).disjunction
+    } yield V.ValueEnum(tyCon, ctor)
 
   private def convertRecord(apiRecord: api.value.Record) = {
     for {

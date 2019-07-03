@@ -16,13 +16,14 @@ final case class ValueVersion(protoValue: String)
   */
 object ValueVersions
     extends LfVersions(
-      maxVersion = ValueVersion("4"),
-      previousVersions = List("1", "2", "3") map ValueVersion)(_.protoValue) {
+      maxVersion = ValueVersion("5"),
+      previousVersions = List("1", "2", "3", "4") map ValueVersion)(_.protoValue) {
 
   private[this] val minVersion = ValueVersion("1")
   private[this] val minOptional = ValueVersion("2")
   private[value] val minContractIdStruct = ValueVersion("3")
   private[this] val minMap = ValueVersion("4")
+  private[this] val minEnum = ValueVersion("5")
 
   def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {
     import com.digitalasset.daml.lf.transaction.VersionTimeline.{maxVersion => maxVV}
@@ -51,8 +52,7 @@ object ValueVersions
               case ValueMap(map) =>
                 go(maxVV(minMap, currentVersion), map.values ++: values)
               case ValueEnum(_, _) =>
-                // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-                throw new NotImplementedError("Enum types not supported")
+                go(maxVV(minEnum, currentVersion), values)
               // tuples are a no-no
               case ValueTuple(fields) =>
                 Left(s"Got tuple when trying to assign version. Fields: $fields")

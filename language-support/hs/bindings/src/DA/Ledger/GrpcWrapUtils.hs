@@ -34,7 +34,7 @@ unwrap = \case
 
 sendToStreamFlat :: Show b => Int -> a -> (b -> Perhaps [c]) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
 sendToStreamFlat timeout request f stream rpc = do
-    ClientReaderResponse _meta _code _details <- rpc $
+    res <- rpc $
         ClientReaderRequestCC request timeout emptyMdm
         (\cc -> onClose stream $ \_cancel -> clientCallCancel cc)
         $ \_mdm recv -> do
@@ -44,7 +44,6 @@ sendToStreamFlat timeout request f stream rpc = do
                     writeStream stream (Left (Abnormal (show e)))
                     return ()
                 Right Nothing -> do
-                    writeStream stream (Left EOS)
                     return ()
                 Right (Just b) ->
                     case f b of
@@ -54,8 +53,13 @@ sendToStreamFlat timeout request f stream rpc = do
                         Right cs -> do
                             mapM_ (writeStream stream . Right) cs
                             again
-    return ()
-
+    case res of
+        ClientReaderResponse _meta StatusOk _details -> do
+            writeStream stream (Left EOS)
+        ClientReaderResponse _meta code details -> do
+            writeStream stream (Left (Abnormal (show (code,details))))
+        ClientErrorResponse e -> do
+            writeStream stream (Left (Abnormal (show e)))
 
 sendToStream :: Show b => Int -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
 sendToStream timeout request f stream rpc =

@@ -126,9 +126,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
   "valid data variant identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Tree")
-      val Right((_, DataVariant(variants))) =
+      val Right((params, DataVariant(variants))) =
         PackageLookup.lookupVariant(basicTestsPkg, id.qualifiedName)
-      variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar("a")))
+      params should have length 1
+      variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar(params(0)._1)))
     }
   }
 

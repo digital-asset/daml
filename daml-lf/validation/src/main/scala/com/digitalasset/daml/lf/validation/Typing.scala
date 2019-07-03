@@ -183,6 +183,7 @@ private[validation] object Typing {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
           Env(mod.languageVersion, world, ContextTemplate(pkgId, mod.name, dfnName), params.toMap)
+        checkUniq[TypeVarName](params.keys, EDuplicateTypeParam(env.ctx, _))
         def tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
         cons match {
           case DataRecord(fields, template) =>
@@ -219,8 +220,6 @@ private[validation] object Typing {
       LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "4"))
 
     private def introTypeVar(v: TypeVarName, k: Kind): Env = {
-      if (tVars.isDefinedAt(v))
-        throw EShadowingTypeVar(ctx, v)
       copy(tVars = tVars + (v -> k))
     }
 

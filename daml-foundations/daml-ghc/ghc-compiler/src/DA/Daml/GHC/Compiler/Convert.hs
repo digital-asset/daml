@@ -85,7 +85,6 @@ import           DA.Daml.GHC.Compiler.UtilLF
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
 import           Development.IDE.GHC.Util
-import           Development.IDE.GHC.Orphans()
 
 import           Control.Applicative
 import           Control.Lens
@@ -570,7 +569,7 @@ convertCtors env (Ctors name tys cs) = do
         case (fldNames, fldTys) of
           ([], []) -> pure ((ctorName, TUnit), [ctorFun [] EUnit])
           ([], [typ]) -> pure ((ctorName, typ), [ctorFun [mkField "arg"] (EVar (mkVar "arg"))])
-          ([], _:_:_) -> unsupported "Data constructor with multiple unnamed fields" (show name)
+          ([], _:_:_) -> unsupported "Data constructor with multiple unnamed fields" (prettyPrint name)
           (_:_, _) ->
             let recName = synthesizeVariantRecord ctorName tconName
                 recData = defDataType recName tys $ DataRecord (zipExact fldNames fldTys)
@@ -1319,8 +1318,8 @@ defValue loc binder@(name, lftype) body =
 ---------------------------------------------------------------------
 -- UNPACK CONSTRUCTORS
 
-data Ctors = Ctors Name [(TypeVarName, LF.Kind)] [Ctor] deriving Show
-data Ctor = Ctor Name [FieldName] [LF.Type] deriving Show
+data Ctors = Ctors Name [(TypeVarName, LF.Kind)] [Ctor]
+data Ctor = Ctor Name [FieldName] [LF.Type]
 
 toCtors :: Env -> GHC.TyCon -> ConvertM Ctors
 toCtors env t = Ctors (getName t) <$> mapM convTypeVar (tyConTyVars t) <*> cs
@@ -1384,7 +1383,7 @@ convFieldName = mkField . unpackFS . flLabel
 convTypeVar :: Var -> ConvertM (TypeVarName, LF.Kind)
 convTypeVar t = do
     k <- convertKind $ tyVarKind t
-    pure (mkTypeVar $ varPrettyPrint t, k)
+    pure (mkTypeVar $ show (varUnique t), k)
 
 convVar :: Var -> ExprVarName
 convVar = mkVar . varPrettyPrint

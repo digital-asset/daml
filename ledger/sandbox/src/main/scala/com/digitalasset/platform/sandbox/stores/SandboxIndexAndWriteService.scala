@@ -9,7 +9,6 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v2.{ApplicationId => _, TransactionId => _, _}
 import com.daml.ledger.participant.state.{v2 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
@@ -42,6 +41,8 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
+import com.daml.ledger.participant.state.index.v2._
+import com.daml.ledger.participant.state.v2.{ApplicationId => _, TransactionId => _, _}
 import scala.util.Try
 
 trait IndexAndWriteService extends AutoCloseable {
@@ -74,12 +75,12 @@ object SandboxIndexAndWriteService {
         ledgerId,
         timeProvider,
         acs,
+        templateStore,
         ledgerEntries,
         queueDepth,
         startMode
       )
-      .map(ledger =>
-        createInstance(Ledger.metered(ledger), timeModel, timeProvider, templateStore))(DEC)
+      .map(ledger => createInstance(Ledger.metered(ledger), timeModel, timeProvider))(DEC)
 
   def inMemory(
       ledgerId: LedgerId,
@@ -90,24 +91,27 @@ object SandboxIndexAndWriteService {
       templateStore: InMemoryPackageStore)(
       implicit mat: Materializer,
       mm: MetricsManager): IndexAndWriteService = {
-    val ledger = Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, ledgerEntries))
-    createInstance(ledger, timeModel, timeProvider, templateStore)
+    val ledger =
+      Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries))
+    createInstance(ledger, timeModel, timeProvider)
   }
 
-  private def createInstance(
-      ledger: Ledger,
-      timeModel: TimeModel,
-      timeProvider: TimeProvider,
-      templateStore: InMemoryPackageStore)(implicit mat: Materializer) = {
+  private def createInstance(ledger: Ledger, timeModel: TimeModel, timeProvider: TimeProvider)(
+      implicit mat: Materializer) = {
     val contractStore = new SandboxContractStore(ledger)
-    val indexAndWriteService =
-      new SandboxIndexAndWriteService(ledger, timeModel, timeProvider, templateStore, contractStore)
+    val indexSvc = new LedgerBackedIndexService(ledger, contractStore) {
+      override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
+        Source
+          .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
+          .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
+    }
+    val writeSvc = new LedgerBackedWriteService(ledger, timeProvider)
     val heartbeats = scheduleHeartbeats(timeProvider, ledger.publishHeartbeat)
 
     new IndexAndWriteService {
-      override def indexService: IndexService = indexAndWriteService
+      override def indexService: IndexService = indexSvc
 
-      override def writeService: WriteService = indexAndWriteService
+      override def writeService: WriteService = writeSvc
 
       override def publishHeartbeat(instant: Instant): Future[Unit] =
         ledger.publishHeartbeat(instant)
@@ -140,21 +144,13 @@ object SandboxIndexAndWriteService {
     }
 }
 
-private class SandboxIndexAndWriteService(
-    ledger: Ledger,
-    timeModel: TimeModel,
-    timeProvider: TimeProvider,
-    packageStore: InMemoryPackageStore,
-    contractStore: ContractStore)(implicit mat: Materializer)
+abstract class LedgerBackedIndexService(
+    ledger: ReadOnlyLedger,
+    contractStore: ContractStore
+)(implicit mat: Materializer)
     extends IndexService
-    with WriteService {
-
+    with AutoCloseable {
   override def getLedgerId(): Future[LedgerId] = Future.successful(ledger.ledgerId)
-
-  override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
-    Source
-      .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
-      .concat(Source.fromFuture(Promise[LedgerConfiguration]().future)) // we should keep the stream open!
 
   override def getActiveContractSetSnapshot(
       filter: TransactionFilter): Future[ActiveContractSetSnapshot] =
@@ -206,12 +202,6 @@ private class SandboxIndexAndWriteService(
           .map(_.map { case (offset, t) => (offset + 1) -> t })(DEC)
     )
   }
-
-  override def submitTransaction(
-      submitterInfo: ParticipantState.SubmitterInfo,
-      transactionMeta: ParticipantState.TransactionMeta,
-      transaction: SubmittedTransaction): CompletionStage[ParticipantState.SubmissionResult] =
-    FutureConverters.toJava(ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
 
   override def transactionTrees(
       begin: LedgerOffset,
@@ -371,20 +361,13 @@ private class SandboxIndexAndWriteService(
 
   // IndexPackagesService
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
-    packageStore.listLfPackages()
+    ledger.listLfPackages()
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    packageStore.getLfArchive(packageId)
+    ledger.getLfArchive(packageId)
 
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    packageStore.getLfPackage(packageId)
-
-  // PackageWriteService
-  override def uploadPackages(
-      payload: List[Archive],
-      sourceDescription: Option[String]
-  ): CompletionStage[UploadPackagesResult] =
-    packageStore.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload)
+    ledger.getLfPackage(packageId)
 
   // ContractStore
   override def lookupActiveContract(
@@ -398,7 +381,28 @@ private class SandboxIndexAndWriteService(
       key: GlobalKey): Future[Option[AbsoluteContractId]] =
     contractStore.lookupContractKey(submitter, key)
 
-  // WriteService (write part of party management)
+  // PartyManagementService
+  override def getParticipantId(): Future[ParticipantId] =
+    // In the case of the sandbox, there is only one participant node
+    // TODO: Make the participant ID configurable
+    Future.successful(ParticipantId(ledger.ledgerId.unwrap))
+
+  override def listParties(): Future[List[PartyDetails]] =
+    ledger.parties
+
+  override def close(): Unit = {
+    ledger.close()
+  }
+}
+
+class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) extends WriteService {
+
+  override def submitTransaction(
+      submitterInfo: ParticipantState.SubmitterInfo,
+      transactionMeta: ParticipantState.TransactionMeta,
+      transaction: SubmittedTransaction): CompletionStage[ParticipantState.SubmissionResult] =
+    FutureConverters.toJava(ledger.publishTransaction(submitterInfo, transactionMeta, transaction))
+
   override def allocateParty(
       hint: Option[String],
       displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
@@ -414,12 +418,11 @@ private class SandboxIndexAndWriteService(
     }
   }
 
-  // PartyManagementService
-  override def getParticipantId(): Future[ParticipantId] =
-    // In the case of the sandbox, there is only one participant node
-    // TODO: Make the participant ID configurable
-    Future.successful(ParticipantId(ledger.ledgerId.unwrap))
-
-  override def listParties(): Future[List[PartyDetails]] =
-    ledger.parties
+  // PackageWriteService
+  override def uploadPackages(
+      payload: List[Archive],
+      sourceDescription: Option[String]
+  ): CompletionStage[UploadPackagesResult] =
+    FutureConverters.toJava(
+      ledger.uploadPackages(timeProvider.getCurrentTime, sourceDescription, payload))
 }

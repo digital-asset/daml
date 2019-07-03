@@ -119,10 +119,10 @@ tSubmitBad withSandbox = testCase "submit/bad" $ run withSandbox $ \_pid -> do
     liftIO $ assertTextContains err "Couldn't find package"
 
 tSubmitComplete :: SandboxTest
-tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pid -> do
+tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
     let command = createIOU pid alice "A-coin" 100
-    completions <- completionStream (lid,myAid,[alice],LedgerBegin)
+    completions <- completionStream (lid,myAid,[alice],Nothing)
     off0 <- completionEnd lid
     Right cidA1 <- submitCommand lid alice command
     Right (Just Checkpoint{offset=cp1},[Completion{cid=cidB1}]) <- liftIO $ takeStream completions
@@ -140,8 +140,8 @@ tSubmitComplete withSandbox = testCase "submit/complete" $ run withSandbox $ \pi
         assertEqual "cp1" off1 cp1
         assertEqual "cp2" off2 cp2
 
-    completionsX <- completionStream (lid,myAid,[alice],LedgerAbsOffset off0)
-    completionsY <- completionStream (lid,myAid,[alice],LedgerAbsOffset off1)
+    completionsX <- completionStream (lid,myAid,[alice],Just (LedgerAbsOffset off0))
+    completionsY <- completionStream (lid,myAid,[alice],Just (LedgerAbsOffset off1))
 
     Right (Just Checkpoint{offset=cpX},[Completion{cid=cidX}]) <- liftIO $ takeStream completionsX
     Right (Just Checkpoint{offset=cpY},[Completion{cid=cidY}]) <- liftIO $ takeStream completionsY

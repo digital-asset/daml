@@ -38,7 +38,8 @@ module Development.IDE.Core.Shake(
     sendEvent,
     ideLogger,
     actionLogger,
-    FileVersion(..)
+    FileVersion(..),
+    Priority(..)
     ) where
 
 import           Development.Shake
@@ -53,7 +54,7 @@ import           Data.Maybe
 import           Data.Either.Extra
 import           Data.List.Extra
 import qualified Data.Text as T
-import Development.IDE.Types.Logger
+import Development.IDE.Types.Logger hiding (Priority)
 import Language.Haskell.LSP.Diagnostics
 import qualified Data.SortedList as SL
 import           Development.IDE.Types.Diagnostics
@@ -72,7 +73,7 @@ import           Data.Time
 import           GHC.Generics
 import           System.IO.Unsafe
 import           Numeric.Extra
-
+import Language.Haskell.LSP.Types
 
 
 -- information we stash inside the shakeExtra field
@@ -399,9 +400,10 @@ publishDiagnosticsNotification fp diags =
     LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
     LSP.PublishDiagnosticsParams (fromNormalizedUri $ filePathToUri' fp) (List diags)
 
-setPriority :: (Enum a) => a -> Action ()
-setPriority p =
-    deprioritize (fromIntegral . negate $ fromEnum p)
+newtype Priority = Priority Double
+
+setPriority :: Priority -> Action ()
+setPriority (Priority p) = deprioritize p
 
 sendEvent :: LSP.FromServerMessage -> Action ()
 sendEvent e = do
@@ -442,14 +444,13 @@ getDiagnosticsFromStore (StoreItem _ diags) = concatMap SL.fromSortedList $ Map.
 
 -- | Sets the diagnostics for a file and compilation step
 --   if you want to clear the diagnostics call this with an empty list
-setStageDiagnostics ::
-  NormalizedFilePath ->
-  Maybe Int ->
-  -- ^ the time that the file these diagnostics originate from was last edited
-  T.Text ->
-  [LSP.Diagnostic] ->
-  DiagnosticStore ->
-  DiagnosticStore
+setStageDiagnostics
+    :: NormalizedFilePath
+    -> TextDocumentVersion -- ^ the time that the file these diagnostics originate from was last edited
+    -> T.Text
+    -> [LSP.Diagnostic]
+    -> DiagnosticStore
+    -> DiagnosticStore
 setStageDiagnostics fp timeM stage diags ds  =
     updateDiagnostics ds uri timeM diagsBySource
     where

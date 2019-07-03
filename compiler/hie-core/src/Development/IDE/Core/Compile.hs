@@ -184,11 +184,7 @@ moduleImportPaths :: GHC.ParsedModule -> Maybe FilePath
 moduleImportPaths pm
   | rootModDir == "." = Just rootPathDir
   | otherwise =
-    -- TODO (MK) stripSuffix (normalise rootModDir) (normalise rootPathDir)
-    -- would be a better choice but at the moment we do not consistently
-    -- normalize file paths in the Shake graph so we can end up with the
-    -- same module being represented twice in the Shake graph.
-    Just $ dropTrailingPathSeparator $ dropEnd (length rootModDir) rootPathDir
+    dropTrailingPathSeparator <$> stripSuffix (normalise rootModDir) (normalise rootPathDir)
   where
     ms   = GHC.pm_mod_summary pm
     file = GHC.ms_hspp_file ms
@@ -289,10 +285,10 @@ getModSummaryFromBuffer fp contents dflags parsed = do
     { ms_mod          = mkModule (fsToUnitId unitId) modName
     , ms_location     = modLoc
     , ms_hs_date      = error "Rules should not depend on ms_hs_date"
-    -- ^ When we are working with a virtual file we do not have a file date.
-    -- To avoid silent issues where something is not processed because the date
-    -- has not changed, we make sure that things blow up if they depend on the
-    -- date.
+        -- When we are working with a virtual file we do not have a file date.
+        -- To avoid silent issues where something is not processed because the date
+        -- has not changed, we make sure that things blow up if they depend on the
+        -- date.
     , ms_textual_imps = imports
     , ms_hspp_file    = fp
     , ms_hspp_opts    = dflags

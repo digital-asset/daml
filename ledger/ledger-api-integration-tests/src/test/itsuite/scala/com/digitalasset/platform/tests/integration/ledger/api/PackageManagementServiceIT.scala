@@ -20,11 +20,14 @@ import com.digitalasset.ledger.api.testing.utils.{
 }
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.commands.CreateCommand
-import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField}
 import com.digitalasset.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
-import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestIdsGenerator}
+import com.digitalasset.platform.apitesting.{
+  MultiLedgerFixture,
+  TestIdsGenerator,
+  TransactionFilters
+}
 import com.digitalasset.platform.participant.util.ValueConversions._
 import io.grpc.Status
 import com.google.protobuf.ByteString
@@ -36,6 +39,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 
 import scala.concurrent.Future
+import com.digitalasset.platform.apitesting.TestParties._
 
 class PackageManagementServiceIT
     extends AsyncFreeSpec
@@ -135,10 +139,10 @@ class PackageManagementServiceIT
 
   "should accept commands using the uploaded package" in allFixtures { ctx =>
     val party = testIdsGenerator.testPartyName("operator")
-    val createArg = Record(fields = List(RecordField("operator", party.asParty)))
+    val createArg = Record(fields = List(RecordField("operator", Alice.asParty)))
     def createCmd =
       CreateCommand(Some(Identifier(testPackageId, "", "Test", "Dummy")), Some(createArg)).wrap
-    val filter = TransactionFilter(Map(party -> Filters.defaultInstance))
+    val filter = TransactionFilters.allForParties(Alice)
     val client = packageManagementService(ctx.packageManagementService)
 
     for {
@@ -146,10 +150,10 @@ class PackageManagementServiceIT
       createTx <- ctx.testingHelpers.submitAndListenForSingleResultOfCommand(
         ctx.testingHelpers
           .submitRequestWithId(
-            commandNodeIdUnifier("PackageManagementServiceIT_commands", "create"))
+            commandNodeIdUnifier("PackageManagementServiceIT_commands", "create"),
+            Alice)
           .update(
-            _.commands.commands := List(createCmd),
-            _.commands.party := party
+            _.commands.commands := List(createCmd)
           ),
         filter
       )

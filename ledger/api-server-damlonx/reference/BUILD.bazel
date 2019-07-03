@@ -49,11 +49,14 @@ client_server_test(
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
     ],
     server = ":reference",
-    server_args = ["ledger/ledger-api-integration-tests/SemanticTests.dar"],
+    server_args = [
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
+    ],
     tags = [
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
         "exclusive",
     ],
-) if not is_windows else None
+)

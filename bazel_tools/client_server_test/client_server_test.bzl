@@ -11,11 +11,18 @@ def _client_server_test_impl(ctx):
     ctx.actions.write(
         output = wrapper,
         content = """#!/usr/bin/env bash
+set -eou pipefail
+
+RUNNER=$(rlocation $TEST_WORKSPACE/{runner})
+CLIENT=$(rlocation $TEST_WORKSPACE/{client})
+SERVER=$(rlocation $TEST_WORKSPACE/{server})
+
 CLIENT_ARGS="$@"
 if [ -z "$CLIENT_ARGS" ]; then
-    CLIENT_ARGS='{client_args}'
+    CLIENT_ARGS="{client_args}"
 fi
-{runner} '{client}' "$CLIENT_ARGS" '{server}' '{server_args}'
+
+$RUNNER "$CLIENT" "$CLIENT_ARGS" "$SERVER" "{server_args}"
 """.format(
             runner = ctx.executable._runner.short_path,
             client = ctx.executable.client.short_path,
