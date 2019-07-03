@@ -12,11 +12,10 @@ final case class Config(
     portFile: Option[File],
     archiveFiles: List[File],
     jdbcUrl: String,
-    badServer: Boolean,
     tlsConfig: Option[TlsConfiguration]
 )
 
 object Config {
   def default: Config =
-    new Config(0, None, List.empty, "", badServer = false, None)
+    new Config(0, None, List.empty, "", None)
 }
