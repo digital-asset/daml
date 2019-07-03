@@ -5,6 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 module Main (main) where
 
+import Control.Concurrent
 import Control.Lens hiding (List)
 import Control.Monad (forM, forM_, void)
 import Control.Monad.IO.Class
@@ -397,9 +398,12 @@ stressTests run _runScenarios = testGroup "Stress tests"
         foo <- openDoc' "Foo.daml" damlId $ fooContent 0
         forM_ [1 .. 999] $ \i ->
             replaceDoc foo $ fooContent i
+        -- We delay to account for debouncing
+        liftIO $ threadDelay (10 ^ (6 :: Int))
         expectDiagnostics [("Foo.daml", [(DsError, (3, 6), "Couldn't match expected type")])]
         forM_ [1000 .. 2000] $ \i ->
             replaceDoc foo $ fooContent i
+        liftIO $ threadDelay (10 ^ (6 :: Int))
         expectDiagnostics [("Foo.daml", [])]
         closeDoc foo
   , testCase "Set 10 files of interest" $ run $ do
