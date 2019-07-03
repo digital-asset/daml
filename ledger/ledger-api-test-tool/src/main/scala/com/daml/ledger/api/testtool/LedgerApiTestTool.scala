@@ -143,38 +143,9 @@ object LedgerApiTestTool {
             commonConfig.withDarFile(resourceAsFile(semanticTestsResource))
       }
     )
-    val packageManagementServiceIT = lazyInit(
-      "PackageManagementServiceIT",
-      name =>
-        new PackageManagementServiceIT {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}ToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
 
-    val partyManagementServiceIT = lazyInit(
-      "PartyManagementServiceIT",
-      name =>
-        new PartyManagementServiceIT {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}ToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
     Map(
-      semanticTestsRunner,
-      packageManagementServiceIT
-      // TODO: Enable when KVUtils participant is backed by a postgres index database
-      // Present implementation is susceptible to race conditions between allocateParty
-      // and listKnownParties
-      //partyManagementServiceIT
+      semanticTestsRunner
     )
   }
   private def optionalTests(
@@ -246,12 +217,43 @@ object LedgerApiTestTool {
       }
     )
 
+    val packageManagementServiceIT = lazyInit(
+      "PackageManagementServiceIT",
+      name =>
+        new PackageManagementServiceIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    val partyManagementServiceIT = lazyInit(
+      "PartyManagementServiceIT",
+      name =>
+        new PartyManagementServiceIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
     Map(
       transactionServiceIT,
       transactionBackpressureIT,
       divulgenceIT,
       commandTransactionChecksHighLevelIT,
-      commandTransactionChecksLowLevelIT
+      commandTransactionChecksLowLevelIT,
+      packageManagementServiceIT
+      // TODO: Enable when KVUtils participant is backed by a postgres index database
+      // Present implementation is susceptible to race conditions between allocateParty
+      // and listKnownParties
+      //partyManagementServiceIT
     )
   }
 
