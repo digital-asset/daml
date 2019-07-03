@@ -10,7 +10,6 @@
 module Development.IDE.Core.Compile
   ( TcModuleResult(..)
   , compileModule
-  , getSrcSpanInfos
   , parseModule
   , parseFileContents
   , typecheckModule
@@ -23,7 +22,6 @@ import           Development.IDE.GHC.CPP
 import           Development.IDE.Types.Diagnostics
 import qualified Development.IDE.Import.FindImports as FindImports
 import           Development.IDE.GHC.Error
-import           Development.IDE.Spans.Calculate
 import Development.IDE.GHC.Orphans()
 import Development.IDE.GHC.Util
 import Development.IDE.GHC.Compat
@@ -54,7 +52,6 @@ import           Data.List.Extra
 import           Data.Maybe
 import           Data.Tuple.Extra
 import qualified Data.Map.Strict                          as Map
-import           Development.IDE.Spans.Type
 import           System.FilePath
 import           System.Directory
 import System.IO.Extra
@@ -72,18 +69,6 @@ instance Show TcModuleResult where
 
 instance NFData TcModuleResult where
     rnf = rwhnf
-
-
--- | Get source span info, used for e.g. AtPoint and Goto Definition.
-getSrcSpanInfos
-    :: HscEnv
-    -> [(Located ModuleName, Maybe NormalizedFilePath)]
-    -> TcModuleResult
-    -> IO [SpanInfo]
-getSrcSpanInfos env imports tc =
-    runGhcEnv env
-        . getSpanInfo imports
-        $ tmrModule tc
 
 
 -- | Given a string buffer, return a pre-processed @ParsedModule@.

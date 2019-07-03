@@ -30,6 +30,7 @@ import           Control.Monad.Except
 import Control.Monad.Trans.Maybe
 import qualified Development.IDE.Core.Compile             as Compile
 import qualified Development.IDE.Types.Options as Compile
+import qualified Development.IDE.Spans.Calculate as Compile
 import Development.IDE.Import.DependencyInformation
 import Development.IDE.Import.FindImports
 import           Development.IDE.Core.FileStore
