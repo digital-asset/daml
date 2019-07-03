@@ -57,11 +57,11 @@ hidden = [
 da_haskell_library(
     name = "hie-core",
     srcs = glob(["src/**/*.hs"]),
-    hidden_modules = hidden,
     hazel_deps = depends + [
         "ghc-lib",
         "ghc-lib-parser",
     ],
+    hidden_modules = hidden,
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
 )
@@ -70,12 +70,12 @@ da_haskell_library(
     name = "hie-core-public",
     srcs = glob(["src/**/*.hs"]),
     compiler_flags = ["-DGHC_STABLE"],
-    hidden_modules = hidden,
     hazel_deps = depends + [
         "ghc",
         "ghc-boot",
         "ghc-boot-th",
     ],
+    hidden_modules = hidden,
     # Override the -hide-package flags defined in WORKSPACE
     #   -hide-package=ghc-boot-th -hide-package=ghc-boot
     repl_ghci_args = [
