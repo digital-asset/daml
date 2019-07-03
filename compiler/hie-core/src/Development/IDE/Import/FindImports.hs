@@ -29,7 +29,6 @@ import Control.DeepSeq
 -- standard imports
 import           Control.Monad.Extra
 import           Control.Monad.IO.Class
-import qualified Control.Monad.Trans.Except            as Ex
 import           System.FilePath
 
 data Import
@@ -44,17 +43,15 @@ instance NFData Import where
 
 -- | GhcMonad function to chase imports of a module given as a StringBuffer. Returns given module's
 -- name and its imports.
-getImportsParsed :: Monad m =>
-               DynFlags ->
+getImportsParsed ::  DynFlags ->
                GHC.ParsedSource ->
-               Ex.ExceptT [FileDiagnostic] m
-                          (M.ModuleName, [(Maybe FastString, Located M.ModuleName)])
+               Either [FileDiagnostic] (M.ModuleName, [(Maybe FastString, Located M.ModuleName)])
 getImportsParsed dflags (L loc parsed) = do
   let modName = maybe (GHC.mkModuleName "Main") GHC.unLoc $ GHC.hsmodName parsed
 
   -- refuse source imports
   let srcImports = filter (ideclSource . GHC.unLoc) $ GHC.hsmodImports parsed
-  when (not $ null srcImports) $ Ex.throwE $
+  when (not $ null srcImports) $ Left $
     concat
       [ diagFromString mloc ("Illegal source import of " <> GHC.moduleNameString (GHC.unLoc $ GHC.ideclName i))
       | L mloc i <- srcImports ]
