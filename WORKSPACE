@@ -1,4 +1,11 @@
-workspace(name = "com_github_digital_asset_daml")
+workspace(
+    name = "com_github_digital_asset_daml",
+    managed_directories = {
+        "@npm": ["node_modules"],
+        "@daml_extension_deps": ["daml-foundations/daml-tools/daml-extension/node_modules"],
+        "@navigator_frontend_deps": ["navigator/frontend/node_modules"],
+    },
+)
 
 load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_github_external", "hazel_hackage")
 
