@@ -109,24 +109,24 @@ client_server_test(
     ],
     server = "//ledger/api-server-damlonx/reference:reference",
     server_args = [
-        "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar)",
-        "$(rootpath //ledger/sandbox:Test.dar)",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
         # without competition to avoid flakyness.
         "exclusive",
     ],
-) if not is_windows else None
+)
 
 client_server_test(
     name = "ledger-api-test-tool-ssltest",
     timeout = "short",
     client = ":ledger-api-test-tool",
     client_args = [
-        "--crt $(rootpath testdata/client.crt)",
-        "--cacrt $(rootpath testdata/ca.crt)",
-        "--pem $(rootpath testdata/client.pem)",
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/client.crt))",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/ca.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath testdata/client.pem))",
         # See note for same argument in :ledger-api-test-tool-test.
         "--timeout-scale-factor=10",
         # See note for same argument in :ledger-api-test-tool-test.
@@ -136,17 +136,18 @@ client_server_test(
     # Data files available to both client and server.
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
     ] + glob(["testdata/*"]),
     server = "//ledger/api-server-damlonx/reference:reference",
     server_args = [
-        "$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar) " +
-        "--crt $(rootpath testdata/server.crt) " +
-        "--cacrt $(rootpath testdata/ca.crt) " +
-        "--pem $(rootpath testdata/server.pem)",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/server.crt))",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/ca.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath testdata/server.pem))",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
         # without competition to avoid flakyness.
         "exclusive",
     ],
-) if not is_windows else None
+)
