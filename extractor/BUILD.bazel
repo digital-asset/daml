@@ -68,7 +68,7 @@ genrule(
         main="$${outs[0]}"
         echo 'daml 1.2
 module VeryLargeArchive.Blobs where
-import VeryLargeArchive.Blob1' > "$$main"
+import VeryLargeArchive.Blob1()' > "$$main"
         firstfil="$${outs[1]}"
         echo 'daml 1.2
 module VeryLargeArchive.Blob1 where
@@ -81,7 +81,7 @@ module VeryLargeArchive.Blob1 where
             echo \\"
         done; } >> $$firstfil
         for filen in `seq 2 $$filecount`; do
-            echo "import VeryLargeArchive.Blob$$filen" >> "$$main"
+            echo "import VeryLargeArchive.Blob$$filen()" >> "$$main"
             sed -e '2s/^\\(module .*\\)1/\\1'$$filen/ "$$firstfil" > "$${outs[$$filen]}"
         done
         ''',
