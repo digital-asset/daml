@@ -5,7 +5,7 @@ package com.digitalasset.extractor
 
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.{Enum, TypeConName}
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import doobie.util.fragment.Fragment
 
 import scala.util.control.NoStackTrace

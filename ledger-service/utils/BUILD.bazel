@@ -1,0 +1,37 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test_suite",
+)
+
+utils_deps = [
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//daml-lf/data",
+    "//daml-lf/archive:daml_lf_java_proto",
+    "//daml-lf/archive:daml_lf_archive_scala",
+    "//daml-lf/transaction",
+    "//daml-lf/interface",
+    "//language-support/scala/bindings-akka",
+    "//ledger-api/rs-grpc-bridge",
+]
+
+da_scala_library(
+    name = "utils",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    tags = ["maven_coordinates=com.digitalasset.ledger-service:utils:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = utils_deps,
+)
+
+da_scala_test_suite(
+    name = "tests",
+    size = "small",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    deps = [
+        ":utils",
+    ],
+)

@@ -4,7 +4,7 @@
 package com.digitalasset.extractor.writers
 
 import com.digitalasset.extractor.config.ExtractorConfig
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.extractor.ledger.types.{Identifier, TransactionTree}
 import com.digitalasset.extractor.targets._
 

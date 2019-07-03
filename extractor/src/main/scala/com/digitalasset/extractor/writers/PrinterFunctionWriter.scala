@@ -4,7 +4,7 @@
 package com.digitalasset.extractor.writers
 
 import com.digitalasset.daml.lf.iface.Interface
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.extractor.ledger.types.{Event, TransactionTree}
 import com.digitalasset.extractor.writers.Writer.RefreshPackages
 
