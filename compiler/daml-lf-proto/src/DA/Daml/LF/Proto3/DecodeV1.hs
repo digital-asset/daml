@@ -17,6 +17,7 @@ import Control.Monad.Error.Class (MonadError(throwError))
 import Control.Monad.Reader (ReaderT, ask, runReaderT)
 import Text.Read
 import           Data.List
+import           Data.Word
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as LF1
 import qualified Data.NameMap as NM
@@ -566,8 +567,8 @@ decodePackageId = PackageId . TL.toStrict
 -- the invariant *does not* hold: pkid `cmp` opkid = index pkid `cmp` index opkid
 -- it is only true internally for one particular encoder implementation
 data PackageRefCtx = PackageRefCtx {
-   uninternPackageId :: Int -> Maybe PackageId
-  ,uninternModuleName :: Int -> Maybe ModuleName
+   uninternPackageId :: Word64 -> Maybe PackageId
+  ,uninternModuleName :: Word64 -> Maybe ModuleName
 }
 
 decodePackageRef :: LF1.PackageRef -> DecodeImpl PackageRef
@@ -576,16 +577,15 @@ decodePackageRef (LF1.PackageRef pref) =
     LF1.PackageRefSumSelf _          -> pure PRSelf
     LF1.PackageRefSumPackageId pkgId -> pure $ PRImport $ decodePackageId pkgId
     LF1.PackageRefSumInternedId ix -> do
-      let ixd = fromIntegral ix :: Int
       ctx <- ask
-      maybe (throwError $ MissingPackageRefId ix) pure
-        $ PRImport <$> (guard (ix == fromIntegral ixd) *> uninternPackageId ctx ixd)
+      maybe (throwError $ MissingPackageRefId ix) (pure . PRImport)
+        $ uninternPackageId ctx ix
 
-decodeInternedPackageIds :: V.Vector TL.Text -> Decode (Int -> Maybe PackageId)
-decodeInternedPackageIds = pure . (V.!?) . fmap decodePackageId
+decodeInternedPackageIds :: V.Vector TL.Text -> Decode (Word64 -> Maybe PackageId)
+decodeInternedPackageIds = pure . (decodeInternIndex >=>) . (V.!?) . fmap decodePackageId
 
-decodeInternedModuleNames :: V.Vector LF1.DottedName -> Decode (Int -> Maybe ModuleName)
-decodeInternedModuleNames = fmap (V.!?) . traverse (decodeDottedName ModuleName)
+decodeInternedModuleNames :: V.Vector LF1.DottedName -> Decode (Word64 -> Maybe ModuleName)
+decodeInternedModuleNames = fmap ((decodeInternIndex >=>) . (V.!?)) . traverse (decodeDottedName ModuleName)
 
 decodeModuleRef :: LF1.ModuleRef -> DecodeImpl (PackageRef, ModuleName)
 decodeModuleRef LF1.ModuleRef{..} =
@@ -596,10 +596,9 @@ decodeModuleRef LF1.ModuleRef{..} =
 decodeModuleName :: LF1.ModuleRefSum -> DecodeImpl ModuleName
 decodeModuleName (LF1.ModuleRefSumModuleName mn) = decodeDottedName ModuleName mn
 decodeModuleName (LF1.ModuleRefSumInternedId ix) = do
-  let ixd = fromIntegral ix :: Int
   ctx <- ask
   maybe (throwError $ MissingModuleName ix) pure
-    $ guard (ix == fromIntegral ixd) *> uninternModuleName ctx ixd
+    $ uninternModuleName ctx ix
 
 decodeValName :: LF1.ValName -> DecodeImpl (Qualified ExprValName)
 decodeValName LF1.ValName{..} = do
@@ -620,6 +619,11 @@ decodeName wrapName segment =
   case unmangleIdentifier (TL.toStrict segment) of
     Left err -> throwError (ParseError ("Could not unmangle part " ++ show segment ++ ": " ++ err))
     Right unmangled -> pure (wrapName unmangled)
+
+decodeInternIndex :: Word64 -> Maybe Int
+decodeInternIndex ix =
+  let ixd = fromIntegral ix :: Int
+  in ixd <$ guard (ix == fromIntegral ixd)
 
 ------------------------------------------------------------------------
 -- Helpers

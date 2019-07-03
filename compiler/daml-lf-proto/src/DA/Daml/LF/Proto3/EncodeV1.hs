@@ -109,9 +109,10 @@ internPackageRefIds pkg =
       (internModuleRef, moduleNames) =
         if packageLfVersion pkg `supports` featureInternedModuleNames
         then let freq = M.unionsWith (\_ _ -> True) $ pkg ^.. packageModuleRef._2.to (`M.singleton` False)
-                 set = S.fromAscList . fmap fst . filter snd . M.toAscList $ freq
+                 list = fmap fst . filter snd . M.toAscList $ freq
+                 set = S.fromDistinctAscList list
                  lookup modname = fromIntegral <$> modname `S.lookupIndex` set
-             in (lookup, S.toAscList set)
+             in (lookup, list)
         else (const Nothing, [])
   in (PackageRefCtx internPackageRef internModuleRef, packageIds, moduleNames)
 
