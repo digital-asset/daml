@@ -4,15 +4,15 @@
 daml 1.2
 module Lib where
 
-import Tests.Template1
-import Tests.Template2
-import Tests.RecordTest
-import Tests.OptionalTest
-import Tests.ListTest
-import Tests.VariantTest
+import Tests.Template1()
+import Tests.Template2()
+import Tests.RecordTest()
+import Tests.OptionalTest()
+import Tests.ListTest()
+import Tests.VariantTest()
 
-import Tests.Import
-import Tests.Escape
-import Tests.MapTest
-import Tests.Serializable
-import Tests.ContractKeys
+import Tests.Import()
+import Tests.Escape()
+import Tests.MapTest()
+import Tests.Serializable()
+import Tests.ContractKeys()
