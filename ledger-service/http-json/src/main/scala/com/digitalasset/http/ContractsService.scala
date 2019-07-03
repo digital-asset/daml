@@ -48,6 +48,8 @@ class ContractsService(
 }
 
 object ContractsService {
-  type Error = String
-  type ResolveTemplateIds = Set[domain.TemplateId.OptionalPkg] => Error \/ List[Identifier]
+  final case class Error(message: String)
+
+  type ResolveTemplateIds =
+    Set[domain.TemplateId.OptionalPkg] => PackageService.Error \/ List[Identifier]
 }

@@ -26,7 +26,7 @@ import scala.{util => u}
 
 object HttpService extends StrictLogging {
 
-  type Error = String
+  final case class Error(message: String)
 
   def start(ledgerHost: String, ledgerPort: Int, applicationId: ApplicationId, httpPort: Int)(
       implicit asys: ActorSystem,
@@ -47,7 +47,7 @@ object HttpService extends StrictLogging {
       client <- liftET[Error](
         LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
       packageService = new PackageService(client.packageClient)
-      templateIdMap <- eitherT(packageService.getTemplateIdMap())
+      templateIdMap <- eitherT(packageService.getTemplateIdMap()).leftMap(httpServiceError)
       contractsService = new ContractsService(
         PackageService.resolveTemplateIds(templateIdMap),
         client.activeContractSetClient)
@@ -66,6 +66,8 @@ object HttpService extends StrictLogging {
 
     bindingF
   }
+
+  private def httpServiceError(e: PackageService.Error): Error = Error(e.shows)
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")

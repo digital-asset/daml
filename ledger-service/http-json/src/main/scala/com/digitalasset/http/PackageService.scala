@@ -16,14 +16,26 @@ class PackageService(packageClient: PackageClient)(implicit ec: ExecutionContext
   import PackageService._
 
   def getTemplateIdMap(): Future[Error \/ TemplateIdMap] =
-    EitherT(LedgerReader.createPackageStore(packageClient)).map { packageStore =>
-      val templateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
-      buildTemplateIdMap(templateIds)
-    }.run
+    EitherT(LedgerReader.createPackageStore(packageClient))
+      .leftMap(e => ServerError(e))
+      .map { packageStore =>
+        val templateIds = TemplateIds.getTemplateIds(packageStore.values.toSet)
+        buildTemplateIdMap(templateIds)
+      }
+      .run
 }
 
 object PackageService {
-  type Error = String
+  sealed trait Error
+  final case class InputError(message: String) extends Error
+  final case class ServerError(message: String) extends Error
+
+  implicit val errorShow: Show[Error] = new Show[Error] {
+    override def shows(e: Error): String = e match {
+      case InputError(m) => s"PackageService input error: ${m: String}"
+      case ServerError(m) => s"PackageService server error: ${m: String}"
+    }
+  }
 
   case class TemplateIdMap(
       all: Map[domain.TemplateId.RequiredPkg, Identifier],
@@ -62,11 +74,11 @@ object PackageService {
 
   private def findTemplateIdByK3(m: Map[domain.TemplateId.RequiredPkg, Identifier])(
       k: domain.TemplateId.RequiredPkg): Error \/ Identifier =
-    m.get(k).toRightDisjunction(s"Cannot resolve ${k.toString}")
+    m.get(k).toRightDisjunction(InputError(s"Cannot resolve ${k.toString}"))
 
   private def findTemplateIdByK2(m: Map[domain.TemplateId.NoPkg, Identifier])(
       k: domain.TemplateId.NoPkg): Error \/ Identifier =
-    m.get(k).toRightDisjunction(s"Cannot resolve ${k.toString}")
+    m.get(k).toRightDisjunction(InputError(s"Cannot resolve ${k.toString}"))
 
   private def validate(
       requested: Set[domain.TemplateId.OptionalPkg],
@@ -74,6 +86,7 @@ object PackageService {
     if (requested.size == resolved.size) \/.right(())
     else
       \/.left(
-        s"Template ID resolution error, the sizes of requested and resolved collections should match. " +
-          s"requested: $requested, resolved: $resolved")
+        ServerError(
+          s"Template ID resolution error, the sizes of requested and resolved collections should match. " +
+            s"requested: $requested, resolved: $resolved"))
 }
