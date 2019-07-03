@@ -36,12 +36,12 @@ da_scala_binary(
         "//ledger/api-server-damlonx",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//ledger/participant-state:participant-state",
+        "//ledger/participant-state",
         "//ledger/participant-state:participant-state-v1",
-        "//ledger/participant-state-index:participant-state-index",
+        "//ledger/participant-state-index",
         "//ledger/participant-state-index/reference",
-        "//ledger/participant-state/kvutils:kvutils",
-        "//ledger/sandbox:sandbox",
+        "//ledger/participant-state/kvutils",
+        "//ledger/sandbox",
     ],
 )
 
@@ -50,9 +50,9 @@ client_server_test(
     timeout = "short",
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     client_args = [
-            "--all-tests",
-            "--exclude SemanticTests",
-        ],
+        "--all-tests",
+        "--exclude SemanticTests",
+    ],
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
         "//ledger/sandbox:Test.dar",
@@ -63,7 +63,7 @@ client_server_test(
         "jdbc:postgresql://localhost/aio?user=aio&password=aio",
         "ledger/ledger-api-integration-tests/SemanticTests.dar",
         "ledger/sandbox/Test.dar",
-        ],
+    ],
     tags = [
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
         "exclusive",
