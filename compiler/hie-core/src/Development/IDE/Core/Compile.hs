@@ -175,10 +175,12 @@ runGhcSession
     -> Ghc a
     -> IO a
 runGhcSession modu env act = runGhcEnv env $ do
-    modifyDynFlags $ \x -> x
-        {importPaths = nubOrd $ maybeToList (moduleImportPaths =<< modu) ++ importPaths x}
+    whenJust modu $ \pm -> modifyDynFlags $ addRelativeImport pm
     act
 
+addRelativeImport :: ParsedModule -> DynFlags -> DynFlags
+addRelativeImport modu dflags = dflags
+    {importPaths = nubOrd $ maybeToList (moduleImportPaths modu) ++ importPaths dflags}
 
 moduleImportPaths :: GHC.ParsedModule -> Maybe FilePath
 moduleImportPaths pm
