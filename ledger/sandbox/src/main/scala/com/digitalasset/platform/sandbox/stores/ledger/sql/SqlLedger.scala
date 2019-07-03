@@ -182,7 +182,7 @@ private class SqlLedger(
             case (ledgerEntryGen, i) =>
               val offset = startOffset + i
               ledgerDao
-                .storeLedgerEntry(offset, offset + 1, ledgerEntryGen(offset))
+                .storeLedgerEntry(offset, offset + 1, None, ledgerEntryGen(offset))
                 .map(_ => ())(DEC)
                 .recover {
                   case t =>
@@ -314,11 +314,7 @@ private class SqlLedger(
   override def lookupTransaction(
       transactionId: Ref.TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] =
     ledgerDao
-      .lookupLedgerEntry(transactionId.toLong)
-      .map(_.collect[(Long, LedgerEntry.Transaction)] {
-        case t: LedgerEntry.Transaction =>
-          (transactionId.toLong, t) // the transaction is also the offset
-      })(DEC)
+      .lookupTransaction(transactionId)
 
   override def allocateParty(
       party: Party,

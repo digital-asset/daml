@@ -147,6 +147,7 @@ class PostgresDaoSpec
         _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
+          None,
           PersistenceEntry.Transaction(
             transaction,
             Map.empty,
@@ -167,7 +168,11 @@ class PostgresDaoSpec
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, PersistenceEntry.Checkpoint(checkpoint))
+        _ <- ledgerDao.storeLedgerEntry(
+          offset,
+          offset + 1,
+          None,
+          PersistenceEntry.Checkpoint(checkpoint))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
       } yield {
@@ -205,7 +210,11 @@ class PostgresDaoSpec
 
         val resultF = for {
           startingOffset <- ledgerDao.lookupLedgerEnd()
-          _ <- ledgerDao.storeLedgerEntry(offset, offset + 1, PersistenceEntry.Rejection(rejection))
+          _ <- ledgerDao.storeLedgerEntry(
+            offset,
+            offset + 1,
+            None,
+            PersistenceEntry.Rejection(rejection))
           entry <- ledgerDao.lookupLedgerEntry(offset)
           endingOffset <- ledgerDao.lookupLedgerEnd()
         } yield {
@@ -276,6 +285,7 @@ class PostgresDaoSpec
         _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
+          None,
           PersistenceEntry.Transaction(transaction, Map.empty, Map.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
@@ -350,6 +360,7 @@ class PostgresDaoSpec
         resp <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
+          None,
           PersistenceEntry.Transaction(transaction, Map.empty, Map.empty))
         entry <- ledgerDao.lookupLedgerEntry(offset)
         endingOffset <- ledgerDao.lookupLedgerEnd()
@@ -456,6 +467,7 @@ class PostgresDaoSpec
           .storeLedgerEntry(
             offset,
             offset + 1,
+            None,
             PersistenceEntry.Transaction(t, Map.empty, Map.empty))
           .map(_ => ())
       }
@@ -467,6 +479,7 @@ class PostgresDaoSpec
           .storeLedgerEntry(
             offset,
             offset + 1,
+            None,
             PersistenceEntry.Transaction(t, Map.empty, Map.empty))
           .map(_ => ())
       }

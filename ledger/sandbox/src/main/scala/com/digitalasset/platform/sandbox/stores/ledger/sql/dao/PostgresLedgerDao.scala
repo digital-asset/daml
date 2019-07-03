@@ -13,6 +13,7 @@ import anorm.SqlParser._
 import anorm.ToStatement.optionToStatement
 import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v2.TransactionId
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
@@ -37,12 +38,12 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.util.Conversions._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
 import com.google.common.io.ByteStreams
 import org.slf4j.LoggerFactory
+import scalaz.syntax.tag._
 
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.Try
 import scala.util.control.NonFatal
-import scalaz.syntax.tag._
 
 private class PostgresLedgerDao(
     dbDispatcher: DbDispatcher,
@@ -68,7 +69,15 @@ private class PostgresLedgerDao(
   override def lookupLedgerEnd(): Future[Long] =
     dbDispatcher.executeSql { implicit conn =>
       SQL_SELECT_LEDGER_END
-        .as[Long](SqlParser.long("ledger_end").single)
+        .as(long("ledger_end").single)
+    }
+
+  private val SQL_SELECT_EXTERNAL_LEDGER_END = SQL("select external_ledger_end from parameters")
+
+  override def lookupExternalLedgerEnd(): Future[Option[LedgerString]] =
+    dbDispatcher.executeSql { implicit conn =>
+      SQL_SELECT_EXTERNAL_LEDGER_END
+        .as(ledgerString("external_ledger_end").?.single)
     }
 
   private val SQL_INITIALIZE = SQL(
@@ -87,11 +96,12 @@ private class PostgresLedgerDao(
   // and thus we need to make sure to only update the ledger end when the ledger entry we're committing
   // is advancing it.
   private val SQL_UPDATE_LEDGER_END = SQL(
-    "update parameters set ledger_end = {LedgerEnd} where ledger_end < {LedgerEnd}")
+    "update parameters set ledger_end = {LedgerEnd}, external_ledger_end = {ExternalLedgerEnd} where ledger_end < {LedgerEnd}")
 
-  private def updateLedgerEnd(ledgerEnd: LedgerOffset)(implicit conn: Connection): Unit = {
+  private def updateLedgerEnd(ledgerEnd: LedgerOffset, externalLedgerEnd: Option[LedgerString])(
+      implicit conn: Connection): Unit = {
     SQL_UPDATE_LEDGER_END
-      .on("LedgerEnd" -> ledgerEnd)
+      .on("LedgerEnd" -> ledgerEnd, "ExternalLedgerEnd" -> externalLedgerEnd)
       .execute()
     ()
   }
@@ -521,6 +531,7 @@ private class PostgresLedgerDao(
   override def storeLedgerEntry(
       offset: Long,
       newLedgerEnd: Long,
+      externalOffset: Option[ExternalOffset],
       ledgerEntry: PersistenceEntry): Future[PersistenceResponse] = {
     import PersistenceResponse._
 
@@ -574,7 +585,7 @@ private class PostgresLedgerDao(
     dbDispatcher
       .executeSql { implicit conn =>
         val resp = insertEntry(ledgerEntry)
-        updateLedgerEnd(newLedgerEnd)
+        updateLedgerEnd(newLedgerEnd, externalOffset)
         resp
       }
   }
@@ -608,7 +619,7 @@ private class PostgresLedgerDao(
         // consistent with the given list of ledger entries.
         activeContracts.foreach(c => storeContract(transactionIdMap(c.transactionId), c))
 
-        updateLedgerEnd(newLedgerEnd)
+        updateLedgerEnd(newLedgerEnd, None)
       }
   }
 
@@ -637,6 +648,9 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_ENTRY =
     SQL("select * from ledger_entries where ledger_offset={ledger_offset}")
+
+  private val SQL_SELECT_TRANSACTION =
+    SQL("select * from ledger_entries where transaction_id={transaction_id}")
 
   private val SQL_SELECT_DISCLOSURE =
     SQL("select * from disclosures where transaction_id={transaction_id}")
@@ -753,6 +767,19 @@ private class PostgresLedgerDao(
           .map(toLedgerEntry)
           .map(_._2)
       }
+  }
+
+  override def lookupTransaction(
+      transactionId: TransactionId): Future[Option[(LedgerOffset, LedgerEntry.Transaction)]] = {
+    dbDispatcher.executeSql { implicit conn =>
+      SQL_SELECT_TRANSACTION
+        .on("transaction_id" -> (transactionId: String))
+        .as(EntryParser.singleOpt)
+        .map(toLedgerEntry)
+        .collect {
+          case (offset, t: LedgerEntry.Transaction) => offset -> t
+        }
+    }
   }
 
   private val ContractDataParser = (ledgerString("id")

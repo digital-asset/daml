@@ -10,7 +10,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v2.TransactionId
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
@@ -22,6 +22,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -81,15 +82,20 @@ object PersistenceResponse {
 
 case class LedgerSnapshot(offset: Long, acs: Source[Contract, NotUsed])
 
-trait LedgerDao extends AutoCloseable {
+trait LedgerReadDao extends AutoCloseable {
 
   type LedgerOffset = Long
+
+  type ExternalOffset = LedgerString
 
   /** Looks up the ledger id */
   def lookupLedgerId(): Future[Option[LedgerId]]
 
   /** Looks up the current ledger end */
   def lookupLedgerEnd(): Future[LedgerOffset]
+
+  /** Looks up the current external ledger end offset*/
+  def lookupExternalLedgerEnd(): Future[Option[LedgerString]]
 
   /** Looks up an active contract. Archived contracts must not be returned by this method */
   def lookupActiveContract(contractId: AbsoluteContractId): Future[Option[Contract]]
@@ -101,6 +107,14 @@ trait LedgerDao extends AutoCloseable {
     * @return the optional LedgerEntry found
     */
   def lookupLedgerEntry(offset: LedgerOffset): Future[Option[LedgerEntry]]
+
+  /**
+    * Looks up the transaction with the given id
+    *
+    * @param transactionId the id of the transaction to look up
+    * @return the optional Transaction found
+    */
+  def lookupTransaction(transactionId: TransactionId): Future[Option[(LedgerOffset, Transaction)]]
 
   /**
     * Looks up a LedgerEntry at a given offset
@@ -140,6 +154,22 @@ trait LedgerDao extends AutoCloseable {
     */
   def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot]
 
+  /** Returns a list of all known parties. */
+  def getParties: Future[List[PartyDetails]]
+
+  /** Returns a list of all known DAML-LF packages */
+  def listLfPackages: Future[Map[PackageId, PackageDetails]]
+
+  /** Returns the given DAML-LF archive */
+  def getLfArchive(packageId: PackageId): Future[Option[Archive]]
+}
+
+trait LedgerWriteDao extends AutoCloseable {
+
+  type LedgerOffset = Long
+
+  type ExternalOffset = LedgerString
+
   /**
     * Initializes the ledger. Must be called only once.
     *
@@ -160,6 +190,7 @@ trait LedgerDao extends AutoCloseable {
   def storeLedgerEntry(
       offset: LedgerOffset,
       newLedgerEnd: LedgerOffset,
+      externalOffset: Option[ExternalOffset],
       ledgerEntry: PersistenceEntry): Future[PersistenceResponse]
 
   /**
@@ -176,9 +207,6 @@ trait LedgerDao extends AutoCloseable {
       newLedgerEnd: LedgerOffset
   ): Future[Unit]
 
-  /** Returns a list of all known parties. */
-  def getParties: Future[List[PartyDetails]]
-
   /**
     * Explicitly adds a new party to the list of known parties.
     *
@@ -190,12 +218,6 @@ trait LedgerDao extends AutoCloseable {
       party: Party,
       displayName: Option[String]
   ): Future[PersistenceResponse]
-
-  /** Returns a list of all known DAML-LF packages */
-  def listLfPackages: Future[Map[PackageId, PackageDetails]]
-
-  /** Returns the given DAML-LF archive */
-  def getLfArchive(packageId: PackageId): Future[Option[Archive]]
 
   /**
     * Stores a set of DAML-LF packages
@@ -217,8 +239,15 @@ trait LedgerDao extends AutoCloseable {
 
 }
 
+trait LedgerDao extends LedgerReadDao with LedgerWriteDao {
+  override type LedgerOffset = Long
+  override type ExternalOffset = LedgerString
+}
+
 object LedgerDao {
 
   /** Wraps the given LedgerDao adding metrics around important calls */
   def metered(dao: LedgerDao)(implicit mm: MetricsManager): LedgerDao = MeteredLedgerDao(dao)
+  def meteredRead(dao: LedgerReadDao)(implicit mm: MetricsManager): LedgerReadDao =
+    new MeteredLedgerReadDao(dao, mm)
 }
