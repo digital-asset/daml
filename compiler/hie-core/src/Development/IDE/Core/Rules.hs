@@ -50,6 +50,7 @@ import           GHC
 import Development.IDE.GHC.Compat
 import           UniqSupply
 import NameCache
+import HscTypes
 
 import qualified Development.IDE.Spans.AtPoint as AtPoint
 import Development.IDE.Core.Service
@@ -143,8 +144,8 @@ getLocatedImportsRule =
         pm <- use_ GetParsedModule file
         let ms = pm_mod_summary pm
         let imports = ms_textual_imps ms
-        packageState <- use_ GhcSession ""
-        dflags <- liftIO $ Compile.getGhcDynFlags pm packageState
+        env <- use_ GhcSession ""
+        let dflags = Compile.addRelativeImport pm $ hsc_dflags env
         opt <- getIdeOptions
         xs <- forM imports $ \(mbPkgName, modName) ->
             (modName, ) <$> locateModule dflags (Compile.optExtensions opt) getFileExists modName mbPkgName

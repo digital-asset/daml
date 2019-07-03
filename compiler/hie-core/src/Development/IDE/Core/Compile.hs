@@ -16,6 +16,7 @@ module Development.IDE.Core.Compile
   , parseFileContents
   , typecheckModule
   , computePackageDeps
+  , addRelativeImport
   ) where
 
 import           Development.IDE.GHC.Warnings
