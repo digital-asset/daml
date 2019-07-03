@@ -12,7 +12,7 @@ import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import Development.IDE.Core.OfInterest
-import Development.IDE.Types.Logger
+import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.GHC.Compiler.Options
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import Development.IDE.Types.Location as Base
@@ -164,6 +164,9 @@ getScenarioNames :: NormalizedFilePath -> Action (Maybe [VirtualResource])
 getScenarioNames file = fmap f <$> use GenerateRawDalf file
     where f = map (VRScenario file . LF.unExprValName . LF.qualObject . fst) . scenariosInModule
 
+priorityGenerateDalf :: Priority
+priorityGenerateDalf = priorityGenerateCore
+
 -- Generates the DALF for a module without adding serializability information
 -- or type checking it.
 generateRawDalfRule :: Rules ()
@@ -171,7 +174,7 @@ generateRawDalfRule =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
         core <- use_ GenerateCore file
-        setPriority PriorityGenerateDalf
+        setPriority priorityGenerateDalf
         -- Generate the map from package names to package hashes
         pkgMap <- use_ GeneratePackageMap ""
         let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> LF.unPackageId pId) pkgMap
@@ -192,7 +195,7 @@ generateDalfRule =
         let world = LF.initWorldSelf pkgs pkg
         unsimplifiedRawDalf <- use_ GenerateRawDalf file
         let rawDalf = LF.simplifyModule unsimplifiedRawDalf
-        setPriority PriorityGenerateDalf
+        setPriority priorityGenerateDalf
         pure $ toIdeResult $ do
             let liftError e = [ideErrorPretty file e]
             dalf <- mapLeft liftError $
@@ -422,7 +425,7 @@ ofInterestRule = do
     -- go through a rule (not just an action), so it shows up in the profile
     action $ use OfInterest ""
     defineNoFile $ \OfInterest -> do
-        setPriority PriorityFilesOfInterest
+        setPriority priorityFilesOfInterest
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
         files   <- getFilesOfInterest
