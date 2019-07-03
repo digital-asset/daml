@@ -17,7 +17,7 @@ import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{UploadPackagesResult, _}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -98,6 +98,7 @@ object InMemoryKVParticipantState {
   * https://doc.akka.io/docs/akka/current/index-actors.html.
   */
 class InMemoryKVParticipantState(
+    val participantId: ParticipantId,
     val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
     file: Option[File] = None)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
@@ -132,9 +133,6 @@ class InMemoryKVParticipantState(
     * and sent as [[Update.Heartbeat]] to [[stateUpdates]] consumers.
     */
   private val HEARTBEAT_INTERVAL = 5.seconds
-
-  // Name of this participant, ultimately pass this info in command-line
-  val participantId = "in-memory-participant"
 
   /** Reference to the latest state of the in-memory ledger.
     * This state is only updated by the [[CommitActor]], which processes submissions
@@ -418,15 +416,33 @@ class InMemoryKVParticipantState(
   override def allocateParty(
       hint: Option[String],
       displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+
+    hint.map(p => Party.fromString(p)) match {
+      case None =>
+        allocatePartyOnLedger(generateRandomId(), displayName)
+      case Some(Right(party)) =>
+        allocatePartyOnLedger(party, displayName)
+      case Some(Left(error)) =>
+        CompletableFuture.completedFuture(PartyAllocationResult.InvalidName(error))
+    }
+  }
+
+  private def allocatePartyOnLedger(
+      party: String,
+      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+
     val sId = submissionId.getAndIncrement().toString
     val cf = new CompletableFuture[PartyAllocationResult]
     matcherActorRef ! AddPartyAllocationRequest(sId, cf)
     commitActorRef ! CommitSubmission(
-      allocateEntryId,
-      KeyValueSubmission.partyToSubmission(sId, hint, displayName, participantId)
+      allocateEntryId(),
+      KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
     )
     cf
   }
+
+  private def generateRandomId(): Ref.Party =
+    Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 
   /** Upload DAML-LF packages to the ledger */
   override def uploadPackages(

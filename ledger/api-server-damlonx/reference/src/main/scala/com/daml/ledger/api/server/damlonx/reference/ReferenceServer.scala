@@ -13,9 +13,9 @@ import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.api.server.damlonx.Server
 import com.daml.ledger.participant.state.index.v1.impl.reference.ReferenceIndexService
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
-import com.daml.ledger.participant.state.v1.{LedgerInitialConditions, Offset, ReadService, Update}
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.common.util.DirectExecutionContext
@@ -33,6 +33,9 @@ object ReferenceServer extends App {
 
   val config = Cli.parse(args).getOrElse(sys.exit(1))
 
+  // Name of this participant, ultimately pass this info in command-line
+  val participantId: ParticipantId = Ref.LedgerString.assertFromString("in-memory-participant")
+
   // Initialize Akka and log exceptions in flows.
   implicit val system: ActorSystem = ActorSystem("ReferenceServer")
   implicit val materializer: ActorMaterializer = ActorMaterializer(
@@ -42,7 +45,7 @@ object ReferenceServer extends App {
         Supervision.Stop
       })
 
-  val ledger = new InMemoryKVParticipantState
+  val ledger = new InMemoryKVParticipantState(participantId)
 
   //val ledger = new Ledger(timeModel, tsb)
   def archivesFromDar(file: File): List[Archive] = {
@@ -66,7 +69,8 @@ object ReferenceServer extends App {
     .foreach { initialConditions =>
       val indexService = ReferenceIndexService(
         participantReadService = if (config.badServer) BadReadService(ledger) else ledger,
-        initialConditions = initialConditions
+        initialConditions = initialConditions,
+        participantId = participantId
       )
 
       val server = Server(

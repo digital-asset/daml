@@ -16,7 +16,12 @@ import com.digitalasset.platform.tests.integration.ledger.api.commands.{
   CommandTransactionChecksHighLevelIT,
   CommandTransactionChecksLowLevelIT
 }
-import com.digitalasset.platform.tests.integration.ledger.api.{DivulgenceIT, TransactionServiceIT}
+import com.digitalasset.platform.tests.integration.ledger.api.{
+  DivulgenceIT,
+  PackageManagementServiceIT,
+  PartyManagementServiceIT,
+  TransactionServiceIT
+}
 import com.digitalasset.platform.tests.integration.ledger.api.transaction.TransactionBackpressureIT
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{Args, Suite}
@@ -138,7 +143,39 @@ object LedgerApiTestTool {
             commonConfig.withDarFile(resourceAsFile(semanticTestsResource))
       }
     )
-    Map(semanticTestsRunner)
+    val packageManagementServiceIT = lazyInit(
+      "PackageManagementServiceIT",
+      name =>
+        new PackageManagementServiceIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    val partyManagementServiceIT = lazyInit(
+      "PartyManagementServiceIT",
+      name =>
+        new PartyManagementServiceIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+    Map(
+      semanticTestsRunner,
+      packageManagementServiceIT
+      // TODO: Enable when KVUtils participant is backed by a postgres index database
+      // Present implementation is susceptible to race conditions between allocateParty
+      // and listKnownParties
+      //partyManagementServiceIT
+    )
   }
   private def optionalTests(
       commonConfig: PlatformApplications.Config,

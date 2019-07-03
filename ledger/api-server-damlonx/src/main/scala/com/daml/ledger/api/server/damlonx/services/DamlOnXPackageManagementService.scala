@@ -1,68 +1,67 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox.services.admin
+package com.daml.ledger.api.server.damlonx.services
 
 import java.io.{File, FileOutputStream}
 import java.util.zip.ZipFile
 
-import com.daml.ledger.participant.state.index.v2.IndexPackagesService
-import com.daml.ledger.participant.state.v2.{UploadPackagesResult, WritePackagesService}
+import com.daml.ledger.participant.state.index.v1.{PackagesService => IndexPackageService}
+import com.daml.ledger.participant.state.v1.{UploadPackagesResult, WritePackagesService}
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
-import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.ledger.api.v1.admin.package_management_service._
-import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
-import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.google.protobuf.timestamp.Timestamp
-import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
-import com.digitalasset.platform.server.api.validation.ErrorFactories
-import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
+import com.digitalasset.api.util.TimestampConversion.fromInstant
+import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
+import com.digitalasset.ledger.api.v1.admin.package_management_service._
+import com.digitalasset.platform.api.grpc.GrpcApiService
+import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.digitalasset.platform.common.util.DirectExecutionContext
+import io.grpc.ServerServiceDefinition
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
-class ApiPackageManagementService(
-    packagesIndex: IndexPackagesService,
-    packagesWrite: WritePackagesService)
+class DamlOnXPackageManagementService(
+    writeService: WritePackagesService,
+    indexService: IndexPackageService)
     extends PackageManagementService
     with GrpcApiService {
 
   protected val logger: Logger = LoggerFactory.getLogger(PackageManagementService.getClass)
+  implicit val ec: ExecutionContext = DirectExecutionContext
 
   override def close(): Unit = ()
 
   override def bindService(): ServerServiceDefinition =
-    PackageManagementServiceGrpc.bindService(this, DE)
+    PackageManagementServiceGrpc.bindService(this, DirectExecutionContext)
 
-  override def listKnownPackages(
-      request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] = {
-    packagesIndex
-      .listLfPackages()
-      .map { pkgs =>
-        ListKnownPackagesResponse(pkgs.toSeq.map {
-          case (pkgId, details) =>
+  override def listKnownPackages(request: ListKnownPackagesRequest): Future[ListKnownPackagesResponse] = {
+
+    indexService.listPackageDetails().map{
+      pkgs =>
+        ListKnownPackagesResponse(pkgs.toSeq.map{
+          case (id,details) =>
             PackageDetails(
-              pkgId.toString,
+              id,
               details.size,
-              Some(Timestamp(details.knownSince.getEpochSecond, details.knownSince.getNano)),
+              Some(fromInstant(details.knownSince.toInstant)),
               details.sourceDescription.getOrElse(""))
         })
-      }(DE)
+    }
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
-    // TODO(RC): Refactor DarReader to use ZipInputStream, to avoid creating a temporary file
+
     val resultT = for {
       file <- Try(File.createTempFile("uploadDarFile", ".dar"))
-      _ <- bracket(Try(new FileOutputStream(file)))(fos => Try(fos.close())).flatMap { fos =>
-        Try(fos.write(request.darFile.toByteArray))
-      }
+      fos <- Try(new FileOutputStream(file))
+      _ <- Try(fos.write(request.darFile.toByteArray))
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchive(new ZipFile(file))
     } yield {
-      packagesWrite.uploadPackages(dar.all, None)
+      fos.close()
+      writeService.uploadPackages(dar.all, None)
     }
     resultT.fold(
       err => Future.failed(ErrorFactories.invalidArgument(err.getMessage)),
@@ -76,14 +75,16 @@ class ApiPackageManagementService(
               Future.failed(ErrorFactories.invalidArgument(r.description))
             case r @ UploadPackagesResult.ParticipantNotAuthorized =>
               Future.failed(ErrorFactories.permissionDenied(r.description))
-          }(DE)
+            case r @ UploadPackagesResult.NotSupported =>
+              Future.failed(ErrorFactories.unimplemented(r.description))
+          }
     )
   }
 }
 
-object ApiPackageManagementService {
-  def createApiService(
-      readBackend: IndexPackagesService,
-      writeBackend: WritePackagesService): GrpcApiService =
-    new ApiPackageManagementService(readBackend, writeBackend) with PackageManagementServiceLogging
+object DamlOnXPackageManagementService {
+  def apply(
+      writeService: WritePackagesService,
+      indexService: IndexPackageService): GrpcApiService =
+    new DamlOnXPackageManagementService(writeService, indexService) with PackageManagementServiceLogging
 }

@@ -3,16 +3,16 @@
 
 package com.daml.ledger.participant.state.index.v1.impl.reference
 
-import com.daml.ledger.participant.state.v1.{Offset, _}
-import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
-import com.digitalasset.daml.lf.data.Relation.Relation
+import com.daml.ledger.participant.state.index.v1.PackageDetails
+import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf.Archive
+import com.digitalasset.ledger.api.domain.PartyDetails
 import com.digitalasset.platform.sandbox.stores.InMemoryActiveContracts
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -20,6 +20,7 @@ import scala.collection.immutable.TreeMap
 
 final case class IndexState(
     ledgerId: LedgerId,
+    participantId: ParticipantId,
     recordTime: Timestamp,
     configuration: Configuration,
     private val updateId: Option[Offset],
@@ -31,8 +32,8 @@ final case class IndexState(
     commandRejections: TreeMap[Offset, Update.CommandRejected],
     // Uploaded packages.
     packages: Map[PackageId, Archive],
-    packageKnownTo: Relation[PackageId, Party],
-    hostedParties: Set[Party]) {
+    packageDetails: Map[PackageId, PackageDetails],
+    knownParties: Set[PartyDetails]) {
 
   val logger: Logger = LoggerFactory.getLogger(this.getClass)
 
@@ -70,22 +71,37 @@ final case class IndexState(
         case u: Update.ConfigurationChanged =>
           Right(state.copy(configuration = u.newConfiguration))
 
+        //party: Ref.Party, displayName: Option[String], isLocal: Boolean
         case u: Update.PartyAddedToParticipant =>
-          Right(state.copy(hostedParties = state.hostedParties + u.party))
+          Right(
+            state.copy(
+              knownParties = state.knownParties + PartyDetails(
+                u.party,
+                Some(u.displayName),
+                u.participantId == state.participantId)))
 
         case Update.PublicPackagesUploaded(
             archives,
             sourceDescription,
             participantId,
-            recordTime) =>
+            uploadRecordTime) =>
           val newPackages =
             state.packages ++ archives.map(a => PackageId.assertFromString(a.getHash) -> a)
 
-          val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
+          val newPackageDetails =
+            state.packageDetails ++ archives.map(
+              a =>
+                PackageId.assertFromString(a.getHash) -> PackageDetails(
+                  a.getPayload.size.toLong,
+                  uploadRecordTime,
+                  sourceDescription))
+
+          //val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
           Right(
             state
               .copy(
-                packages = newPackages
+                packages = newPackages,
+                packageDetails = newPackageDetails
               ))
 
         case u: Update.CommandRejected =>
@@ -150,18 +166,20 @@ object IndexState {
   case object NonMonotonicOffset extends InvariantViolation
   case object SequencingError extends InvariantViolation
 
-  def initialState(lic: LedgerInitialConditions): IndexState = IndexState(
-    ledgerId = lic.ledgerId,
-    updateId = None,
-    beginning = None,
-    configuration = lic.config,
-    recordTime = lic.initialRecordTime,
-    txs = TreeMap.empty,
-    activeContracts = InMemoryActiveContracts.empty,
-    commandRejections = TreeMap.empty,
-    packages = Map.empty,
-    packageKnownTo = Map.empty,
-    hostedParties = Set.empty
-  )
+  def initialState(lic: LedgerInitialConditions, givenParticipantId: ParticipantId): IndexState =
+    IndexState(
+      ledgerId = lic.ledgerId,
+      participantId = givenParticipantId,
+      updateId = None,
+      beginning = None,
+      configuration = lic.config,
+      recordTime = lic.initialRecordTime,
+      txs = TreeMap.empty,
+      activeContracts = InMemoryActiveContracts.empty,
+      commandRejections = TreeMap.empty,
+      packages = Map.empty,
+      packageDetails = Map.empty,
+      knownParties = Set.empty
+    )
 
 }

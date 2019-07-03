@@ -21,6 +21,8 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
   private val emptyTransaction: SubmittedTransaction =
     PartialTransaction.initial.finish.right.get
 
+  val participantId: ParticipantId = Ref.LedgerString.assertFromString("in-memory-participant")
+
   def submitterInfo(rt: Timestamp) = SubmitterInfo(
     submitter = Ref.Party.assertFromString("Alice"),
     applicationId = Ref.LedgerString.assertFromString("tests"),
@@ -38,7 +40,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     // creation & teardown!
 
     "return initial conditions" in {
-      val ps = new InMemoryKVParticipantState
+      val ps = new InMemoryKVParticipantState(participantId)
       ps.getLedgerInitialConditions()
         .runWith(Sink.head)
         .map { _ =>
@@ -48,7 +50,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "provide update after uploadPackages" in {
-      val ps = new InMemoryKVParticipantState
+      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val sourceDescription = Some("provided by test")
@@ -84,7 +86,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "duplicate package removed from update after uploadPackages" in {
-      val ps = new InMemoryKVParticipantState
+      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val sourceDescription = Some("provided by test")
@@ -123,7 +125,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "reject uploadPackages when archive is empty" in {
-      val ps = new InMemoryKVParticipantState
+      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val sourceDescription = Some("provided by test")
@@ -147,7 +149,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "provide update after allocateParty" in {
-      val ps = new InMemoryKVParticipantState
+      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val hint = Some("Alice")
@@ -180,8 +182,8 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       }
     }
 
-    "reject allocateParty when hint is empty" in {
-      val ps = new InMemoryKVParticipantState
+    "accept allocateParty when hint is empty" in {
+      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val hint = None
@@ -192,7 +194,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       } yield {
         ps.close()
         result match {
-          case PartyAllocationResult.InvalidName(_) =>
+          case PartyAllocationResult.Ok(_) =>
             succeed
           case _ =>
             fail("unexpected response to party allocation")
@@ -208,8 +210,28 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 //      }).toScala
     }
 
+    "reject allocateParty when hint contains invalid string for a party" in {
+      val ps = new InMemoryKVParticipantState(participantId)
+      val rt = ps.getNewRecordTime()
+
+      val hint = Some("Alice!@")
+      val displayName = Some("Alice Cooper")
+
+      for {
+        result <- ps.allocateParty(hint, displayName).toScala
+      } yield {
+        ps.close()
+        result match {
+          case PartyAllocationResult.InvalidName(_) =>
+            succeed
+          case _ =>
+            fail("unexpected response to party allocation")
+        }
+      }
+    }
+
     "reject duplicate allocateParty" in {
-      val ps = new InMemoryKVParticipantState
+      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val hint = Some("Alice")
@@ -238,7 +260,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
     "provide update after transaction submission" in {
 
-      val ps = new InMemoryKVParticipantState
+      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val waitForUpdateFuture =
@@ -254,7 +276,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "reject duplicate commands" in {
-      val ps = new InMemoryKVParticipantState
+      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val waitForUpdateFuture =
@@ -281,7 +303,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
 
     "return second update with beginAfter=1" in {
-      val ps = new InMemoryKVParticipantState
+      val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
       val waitForUpdateFuture =
