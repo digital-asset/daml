@@ -77,7 +77,10 @@ message ModuleRef {
   PackageRef package_ref = 1;
 
   // module name
-  DottedName module_name = 2;
+  oneof Sum {
+    DottedName module_name = 2;
+    uint64 interned_id = 3; // available since version 1.dev
+  }
 
 }
 
@@ -1139,5 +1142,6 @@ message Module {
 
 message Package {
   repeated Module modules = 1;
-  repeated string interned_package_ids = 2;
+  repeated string interned_package_ids = 2; /* Available since version 1.dev */
+  repeated DottedName interned_module_names = 3; /* Available since version 1.dev */
 }

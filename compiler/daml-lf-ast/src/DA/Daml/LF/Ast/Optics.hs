@@ -5,16 +5,15 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 module DA.Daml.LF.Ast.Optics(
     moduleModuleRef,
+    packageModuleRef,
     unlocate,
     moduleExpr,
     dataConsType,
     _PRSelfModule,
     exprPartyLiteral,
     exprValueRef,
-    packageRefs,
     templateExpr
     ) where
 
@@ -171,5 +170,5 @@ exprValueRef f = cata go
       EValF val -> EVal <$> f val
       e -> embed <$> sequenceA e
 
-packageRefs :: forall a. MonoTraversable ModuleRef a => Traversal' a PackageRef
-packageRefs = (monoTraverse :: Traversal' a ModuleRef)._1
+packageModuleRef :: Traversal' Package ModuleRef
+packageModuleRef = monoTraverse

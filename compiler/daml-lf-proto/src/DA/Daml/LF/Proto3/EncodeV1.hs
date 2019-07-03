@@ -9,11 +9,12 @@ module DA.Daml.LF.Proto3.EncodeV1
   , encodePackage
   ) where
 
-import           Control.Lens ((^.), (^..), matching)
+import           Control.Lens ((^.), (^..), matching, to, _1, _2)
 import           Control.Lens.Ast (rightSpine)
 
 import           Data.Word
 import qualified Data.NameMap as NM
+import qualified Data.Map.Strict as M
 import qualified Data.Set as S
 import qualified Data.Text           as T
 import qualified Data.Text.Lazy      as TL
@@ -21,7 +22,7 @@ import qualified Data.Vector         as V
 
 import           DA.Pretty
 import           DA.Daml.LF.Ast
-import           DA.Daml.LF.Ast.Optics (packageRefs)
+import           DA.Daml.LF.Ast.Optics (packageModuleRef)
 import           DA.Daml.LF.Mangling
 import qualified Da.DamlLf1 as P
 
@@ -33,7 +34,10 @@ import qualified Proto3.Suite as P (Enumerated (..))
 type Just a = Maybe a
 
 -- package-global state that encodePackageRef requires
-type PackageRefCtx = PackageId -> Maybe Word64
+data PackageRefCtx = PackageRefCtx {
+   internPackageId :: PackageId -> Maybe Word64
+  ,internModuleName :: ModuleName -> Maybe Word64
+}
 
 data EncodeCtx = EncodeCtx {
    version :: Version
@@ -67,8 +71,11 @@ encodeName unwrapName (unwrapName -> unmangled) = case mangleIdentifier unmangle
 encodeValueName :: ExprValName -> V.Vector TL.Text
 encodeValueName = V.singleton . encodeName unExprValName
 
+encodeDottedNameId :: (a -> [T.Text]) -> a -> P.DottedName
+encodeDottedNameId unwrapDottedName = P.DottedName . encodeList (encodeName id) . unwrapDottedName
+
 encodeDottedName :: (a -> [T.Text]) -> a -> Just P.DottedName
-encodeDottedName unwrapDottedName = Just . P.DottedName . encodeList (encodeName id) . unwrapDottedName
+encodeDottedName unwrapDottedName = Just . encodeDottedNameId unwrapDottedName
 
 encodeQualTypeConName :: PackageRefCtx -> Qualified TypeConName -> Just P.TypeConName
 encodeQualTypeConName interned (Qualified pref mname con) = Just $ P.TypeConName (encodeModuleRef interned pref mname) (encodeDottedName unTypeConName con)
@@ -84,28 +91,43 @@ encodeSourceLoc interned SourceLoc{..} =
         (fromIntegral slocEndCol)))
 
 encodePackageRef :: PackageRefCtx -> PackageRef -> Just P.PackageRef
-encodePackageRef interned = Just . \case
+encodePackageRef ctx = Just . \case
     PRSelf -> P.PackageRef $ Just $ P.PackageRefSumSelf P.Unit
     PRImport pkgid -> P.PackageRef $ Just $
       maybe (P.PackageRefSumPackageId $ encodePackageId pkgid)
             (P.PackageRefSumInternedId . fromIntegral)
-            $ interned pkgid
+            $ internPackageId ctx pkgid
 
-internPackageRefIds :: Package -> (PackageRefCtx, [PackageId])
-internPackageRefIds pkg
-  | packageLfVersion pkg `supports` featureInternedPackageIds =
-      let set = S.fromList $ pkg ^.. packageRefs._PRImport
-          lookup pkgid = fromIntegral <$> pkgid `S.lookupIndex` set
-      in (lookup, S.toAscList set)
-  | otherwise = (const Nothing, [])
+internPackageRefIds :: Package -> (PackageRefCtx, [PackageId], [ModuleName])
+internPackageRefIds pkg =
+  let (internPackageRef, packageIds) =
+        if packageLfVersion pkg `supports` featureInternedPackageIds
+        then let set = S.fromList $ pkg ^.. packageModuleRef._1._PRImport
+                 lookup pkgid = fromIntegral <$> pkgid `S.lookupIndex` set
+             in (lookup, S.toAscList set)
+        else (const Nothing, [])
+      (internModuleRef, moduleNames) =
+        if packageLfVersion pkg `supports` featureInternedModuleNames
+        then let freq = M.unionsWith (\_ _ -> True) $ pkg ^.. packageModuleRef._2.to (`M.singleton` False)
+                 set = S.fromAscList . fmap fst . filter snd . M.toAscList $ freq
+                 lookup modname = fromIntegral <$> modname `S.lookupIndex` set
+             in (lookup, S.toAscList set)
+        else (const Nothing, [])
+  in (PackageRefCtx internPackageRef internModuleRef, packageIds, moduleNames)
 
 -- invariant: forall pkgid. pkgid `S.lookupIndex ` input = encodePackageId pkgid `V.elemIndex` output
 encodeInternedPackageIds :: [PackageId] -> V.Vector TL.Text
 encodeInternedPackageIds = encodeList encodePackageId
 
+encodeInternedModuleNames :: [ModuleName] -> V.Vector P.DottedName
+encodeInternedModuleNames = encodeList (encodeDottedNameId unModuleName)
+
 encodeModuleRef :: PackageRefCtx -> PackageRef -> ModuleName -> Just P.ModuleRef
 encodeModuleRef ctx pkgRef modName =
-  Just $ P.ModuleRef (encodePackageRef ctx pkgRef) (encodeDottedName unModuleName modName)
+  Just $ P.ModuleRef (encodePackageRef ctx pkgRef)
+                     $ Just $ maybe (P.ModuleRefSumModuleName $ encodeDottedNameId unModuleName modName)
+                                    P.ModuleRefSumInternedId
+                                    (internModuleName ctx modName)
 
 encodeFieldsWithTypes :: EncodeCtx -> (a -> T.Text) -> [(a, Type)] -> V.Vector P.FieldWithType
 encodeFieldsWithTypes encctx unwrapName =
@@ -493,7 +515,7 @@ encodeFeatureFlags _version FeatureFlags{..} = Just P.FeatureFlags
     }
 
 encodeModuleWithLargePackageIds :: Version -> Module -> P.Module
-encodeModuleWithLargePackageIds = encodeModule . flip EncodeCtx (const Nothing)
+encodeModuleWithLargePackageIds = encodeModule . flip EncodeCtx (PackageRefCtx (const Nothing) (const Nothing))
 
 encodeModule :: EncodeCtx -> Module -> P.Module
 encodeModule encctx@EncodeCtx{..} Module{..} =
@@ -508,8 +530,9 @@ encodeModule encctx@EncodeCtx{..} Module{..} =
 encodePackage :: Package -> P.Package
 encodePackage pkg@(Package version mods) =
     P.Package (encodeNameMap encodeModule (EncodeCtx version interned) mods)
-              (encodeInternedPackageIds internedList)
-  where (interned, internedList) = internPackageRefIds pkg
+              (encodeInternedPackageIds pkgIdList)
+              (encodeInternedModuleNames modNameList)
+  where (interned, pkgIdList, modNameList) = internPackageRefIds pkg
 
 
 -- | NOTE(MH): This functions is used for sanity checking. The actual checks
