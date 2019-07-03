@@ -36,9 +36,28 @@ depends = [
     "utf8-string",
 ]
 
+hidden = [
+    "Development.IDE.Core.Compile",
+    "Development.IDE.GHC.Compat",
+    "Development.IDE.GHC.CPP",
+    "Development.IDE.GHC.Error",
+    "Development.IDE.GHC.Orphans",
+    "Development.IDE.GHC.Warnings",
+    "Development.IDE.Import.FindImports",
+    "Development.IDE.LSP.CodeAction",
+    "Development.IDE.LSP.Definition",
+    "Development.IDE.LSP.Hover",
+    "Development.IDE.LSP.Notifications",
+    "Development.IDE.Spans.AtPoint",
+    "Development.IDE.Spans.Calculate",
+    "Development.IDE.Spans.Documentation",
+    "Development.IDE.Spans.Type",
+]
+
 da_haskell_library(
     name = "hie-core",
     srcs = glob(["src/**/*.hs"]),
+    hidden_modules = hidden,
     hazel_deps = depends + [
         "ghc-lib",
         "ghc-lib-parser",
@@ -51,6 +70,7 @@ da_haskell_library(
     name = "hie-core-public",
     srcs = glob(["src/**/*.hs"]),
     compiler_flags = ["-DGHC_STABLE"],
+    hidden_modules = hidden,
     hazel_deps = depends + [
         "ghc",
         "ghc-boot",
