@@ -76,13 +76,12 @@ instance NFData TcModuleResult where
 
 -- | Get source span info, used for e.g. AtPoint and Goto Definition.
 getSrcSpanInfos
-    :: ParsedModule
-    -> HscEnv
+    :: HscEnv
     -> [(Located ModuleName, Maybe NormalizedFilePath)]
     -> TcModuleResult
     -> IO [SpanInfo]
-getSrcSpanInfos mod env imports tc =
-    runGhcSession (Just mod) env
+getSrcSpanInfos env imports tc =
+    runGhcEnv env
         . getSpanInfo imports
         $ tmrModule tc
 
@@ -97,7 +96,7 @@ parseModule
 parseModule IdeOptions{..} env file =
     fmap (either (, Nothing) (second Just)) .
     -- We need packages since imports fail to resolve otherwise.
-    runGhcSession Nothing env . runExceptT . parseFileContents optPreprocessor file
+    runGhcEnv env . runExceptT . parseFileContents optPreprocessor file
 
 
 -- | Given a package identifier, what packages does it depend on
@@ -122,7 +121,7 @@ typecheckModule
     -> IO ([FileDiagnostic], Maybe TcModuleResult)
 typecheckModule opt packageState deps pm =
     fmap (either (, Nothing) (second Just)) $
-    runGhcSession (Just pm) packageState $
+    runGhcEnv packageState $
         catchSrcErrors $ do
             setupEnv deps
             (warnings, tcm) <- withWarnings $ \tweak ->
@@ -133,14 +132,13 @@ typecheckModule opt packageState deps pm =
 -- | Compile a single type-checked module to a 'CoreModule' value, or
 -- provide errors.
 compileModule
-    :: ParsedModule
-    -> HscEnv
+    :: HscEnv
     -> [TcModuleResult]
     -> TcModuleResult
     -> IO ([FileDiagnostic], Maybe CoreModule)
-compileModule mod packageState deps tmr =
+compileModule packageState deps tmr =
     fmap (either (, Nothing) (second Just)) $
-    runGhcSession (Just mod) packageState $
+    runGhcEnv packageState $
         catchSrcErrors $ do
             setupEnv (deps ++ [tmr])
 
@@ -163,15 +161,6 @@ compileModule mod packageState deps tmr =
 
             return (warnings, core)
 
-
--- | Evaluate a GHC session using a new environment constructed with
--- the supplied options.
-runGhcSession
-    :: Maybe ParsedModule
-    -> HscEnv
-    -> Ghc a
-    -> IO a
-runGhcSession _ env act = runGhcEnv env act
 
 addRelativeImport :: ParsedModule -> DynFlags -> DynFlags
 addRelativeImport modu dflags = dflags

@@ -230,11 +230,10 @@ getDependenciesRule =
 getSpanInfoRule :: Rules ()
 getSpanInfoRule =
     define $ \GetSpanInfo file -> do
-        pm <- use_ GetParsedModule file
         tc <- use_ TypeCheck file
         imports <- use_ GetLocatedImports file
         packageState <- use_ GhcSession ""
-        x <- liftIO $ Compile.getSrcSpanInfos pm packageState (fileImports imports) tc
+        x <- liftIO $ Compile.getSrcSpanInfos packageState (fileImports imports) tc
         return ([], Just x)
 
 -- Typechecks a module.
@@ -255,10 +254,9 @@ generateCoreRule =
     define $ \GenerateCore file -> do
         deps <- use_ GetDependencies file
         (tm:tms) <- uses_ TypeCheck (file:transitiveModuleDeps deps)
-        let pm = tm_parsed_module . Compile.tmrModule $ tm
         setPriority priorityGenerateCore
         packageState <- use_ GhcSession ""
-        liftIO $ Compile.compileModule pm packageState tms tm
+        liftIO $ Compile.compileModule packageState tms tm
 
 loadGhcSession :: Rules ()
 loadGhcSession =
