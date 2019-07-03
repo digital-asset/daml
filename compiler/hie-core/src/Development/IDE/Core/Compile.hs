@@ -11,7 +11,6 @@ module Development.IDE.Core.Compile
   ( TcModuleResult(..)
   , compileModule
   , parseModule
-  , parseFileContents
   , typecheckModule
   , computePackageDeps
   , addRelativeImport
