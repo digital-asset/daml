@@ -44,6 +44,7 @@ import qualified GHC.LanguageExtensions as LangExt
 
 import Control.DeepSeq
 import Control.Monad.Extra
+import Control.Monad.Except
 import Control.Monad.Trans.Except
 import qualified Data.Text as T
 import           Data.IORef
@@ -266,7 +267,7 @@ getModSummaryFromBuffer
     -> GHC.ParsedSource
     -> ExceptT [FileDiagnostic] m ModSummary
 getModSummaryFromBuffer fp contents dflags parsed = do
-  (modName, imports) <- ExceptT $ return $ getImportsParsed dflags parsed
+  (modName, imports) <- liftEither $ getImportsParsed dflags parsed
 
   let modLoc = ModLocation
           { ml_hs_file  = Just fp
