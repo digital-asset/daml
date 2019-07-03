@@ -99,28 +99,38 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
   lazy val contracts2: Route =
     path("/contracts/lookup") {
       post {
-        entity(as[domain.ContractLookupRequest[JsValue] @@ JsonApi]) {
-          case JsonApi(clr) =>
-            complete(JsonApi(resultJsObject(clr.toString)))
+        extractJwtPayload { jwt =>
+          entity(as[domain.ContractLookupRequest[JsValue] @@ JsonApi]) {
+            case JsonApi(clr) =>
+              // TODO SC: the result gets labelled "result" not "contract"; does this matter?
+              complete(
+                JsonApi.subst(
+                  contractsService
+                    .lookup(jwt, clr map placeholderLfValueDec)
+                    .map(oac => resultJsObject(oac.map(_.map(placeholderLfValueEnc))))))
+          }
         }
       }
     } ~
       path("contracts/search") {
         get {
-          complete(
-            JsonApi.subst(
-              contractsService
-                .search(jwtPayload, emptyGetActiveContractsRequest)
-                .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
+          extractJwtPayload { jwt =>
+            complete(
+              JsonApi.subst(
+                contractsService
+                  .search(jwt, emptyGetActiveContractsRequest)
+                  .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
+          }
         } ~
           post {
-            entity(as[domain.GetActiveContractsRequest @@ JsonApi]) {
-              case JsonApi(gacr) =>
-                complete(
-                  JsonApi.subst(
-                    contractsService
-                      .search(jwtPayload, gacr)
+            extractJwtPayload { jwt =>
+              entity(as[domain.GetActiveContractsRequest @@ JsonApi]) {
+                case JsonApi(gacr) =>
+                  complete(
+                    JsonApi.subst(contractsService
+                      .search(jwt, gacr)
                       .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
+              }
             }
           }
       }
@@ -138,6 +148,11 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
   // without type context
   private def placeholderLfValueEnc(v: Value): JsValue =
     JsString(v.sum.toString)
+
+  // TODO SC: this is a placeholder because we can't do this accurately
+  // without type context
+  private def placeholderLfValueDec(v: JsValue): Value =
+    Value(Value.Sum.Text(v.toString))
 
   lazy val notFound: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)

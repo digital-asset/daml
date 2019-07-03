@@ -6,6 +6,7 @@ package com.digitalasset.http
 import com.digitalasset.ledger.api.{v1 => lav1}
 
 import scalaz.{Functor, \/}
+import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
@@ -64,6 +65,13 @@ object domain {
     implicit val covariant: Functor[ActiveContract] = new Functor[ActiveContract] {
       override def map[A, B](fa: ActiveContract[A])(f: A => B) =
         fa.copy(key = fa.key map f, argument = f(fa.argument))
+    }
+  }
+
+  object ContractLookupRequest {
+    implicit val covariant: Functor[ContractLookupRequest] = new Functor[ContractLookupRequest] {
+      override def map[A, B](fa: ContractLookupRequest[A])(f: A => B) =
+        fa.copy(id = fa.id leftMap (_ map f))
     }
   }
 
