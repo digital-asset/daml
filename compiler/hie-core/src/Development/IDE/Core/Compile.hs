@@ -19,11 +19,11 @@ module Development.IDE.Core.Compile
 import           Development.IDE.GHC.Warnings
 import           Development.IDE.GHC.CPP
 import           Development.IDE.Types.Diagnostics
-import qualified Development.IDE.Import.FindImports as FindImports
 import           Development.IDE.GHC.Error
 import Development.IDE.GHC.Orphans()
 import Development.IDE.GHC.Util
 import Development.IDE.GHC.Compat
+import qualified GHC.LanguageExtensions.Type as GHC
 import Development.IDE.Types.Options
 import Development.IDE.Types.Location
 
@@ -228,6 +228,35 @@ loadModuleHome tmr = modifySession $ \e ->
     mod_info = tmrModInfo tmr
     mod      = ms_mod_name ms
 
+
+
+-- | GhcMonad function to chase imports of a module given as a StringBuffer. Returns given module's
+-- name and its imports.
+getImportsParsed ::  DynFlags ->
+               GHC.ParsedSource ->
+               Either [FileDiagnostic] (GHC.ModuleName, [(Maybe FastString, Located GHC.ModuleName)])
+getImportsParsed dflags (L loc parsed) = do
+  let modName = maybe (GHC.mkModuleName "Main") GHC.unLoc $ GHC.hsmodName parsed
+
+  -- refuse source imports
+  let srcImports = filter (ideclSource . GHC.unLoc) $ GHC.hsmodImports parsed
+  when (not $ null srcImports) $ Left $
+    concat
+      [ diagFromString mloc ("Illegal source import of " <> GHC.moduleNameString (GHC.unLoc $ GHC.ideclName i))
+      | L mloc i <- srcImports ]
+
+  -- most of these corner cases are also present in https://hackage.haskell.org/package/ghc-8.6.1/docs/src/HeaderInfo.html#getImports
+  -- but we want to avoid parsing the module twice
+  let implicit_prelude = xopt GHC.ImplicitPrelude dflags
+      implicit_imports = Hdr.mkPrelImports modName loc implicit_prelude $ GHC.hsmodImports parsed
+
+  -- filter out imports that come from packages
+  return (modName, [(fmap sl_fs $ ideclPkgQual i, ideclName i)
+    | i <- map GHC.unLoc $ implicit_imports ++ GHC.hsmodImports parsed
+    , GHC.moduleNameString (GHC.unLoc $ ideclName i) /= "GHC.Prim"
+    ])
+
+
 -- | Produce a module summary from a StringBuffer.
 getModSummaryFromBuffer
     :: GhcMonad m
@@ -237,7 +266,7 @@ getModSummaryFromBuffer
     -> GHC.ParsedSource
     -> ExceptT [FileDiagnostic] m ModSummary
 getModSummaryFromBuffer fp contents dflags parsed = do
-  (modName, imports) <- ExceptT $ return $ FindImports.getImportsParsed dflags parsed
+  (modName, imports) <- ExceptT $ return $ getImportsParsed dflags parsed
 
   let modLoc = ModLocation
           { ml_hs_file  = Just fp
