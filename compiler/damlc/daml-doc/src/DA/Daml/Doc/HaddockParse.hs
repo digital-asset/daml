@@ -10,10 +10,12 @@ import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service     as Service
 import qualified Development.IDE.Core.Rules     as Service
+import qualified Development.IDE.Core.RuleTypes as Service
 import qualified Development.IDE.Core.OfInterest as Service
 import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
+import Development.IDE.Core.Compile
 
 
 import           "ghc-lib" GHC
@@ -36,16 +38,17 @@ mkDocs :: IdeOptions ->
           [NormalizedFilePath] ->
           Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
 mkDocs opts fp = do
-  parsed <- haddockParse opts fp
-  pure $ map mkModuleDocs parsed
+  modules <- haddockParse opts fp
+  pure $ map mkModuleDocs modules
 
   where
     modDoc :: ParsedModule -> Maybe HsDocString
     modDoc = fmap unLoc . hsmodHaddockModHeader . unLoc . pm_parsed_source
 
-    mkModuleDocs :: ParsedModule -> ModuleDoc
-    mkModuleDocs m =
-      let pairs   = pairDeclDocs m
+    mkModuleDocs :: TcModuleResult -> ModuleDoc
+    mkModuleDocs TcModuleResult{..} =
+      let m = tm_parsed_module tmrModule
+          pairs   = pairDeclDocs m
           typeMap = MS.fromList $ mapMaybe getTypeDocs pairs
           (tmpls, choiceMap) = getTemplateData m
           fctDocs = mapMaybe getFctDocs pairs
@@ -111,9 +114,9 @@ collectDocs = go Nothing []
 
     finished decl docs rest = (unLoc decl, reverse docs) : rest
 
--- | Parse a module and its dependencies in Haddock mode (retaining Doc
---   declarations), and return the 'ParsedModule's in dependency order (top
---   module last).
+-- | Parse and typecheck a module and its dependencies in Haddock mode
+--   (retaining Doc declarations), and return the 'TcModuleResult's in
+--   dependency order (top module last).
 --
 --   "Internal" modules are filtered out, they don't contribute to the docs.
 --
@@ -121,16 +124,15 @@ collectDocs = go Nothing []
 --   invoked by a CLI tool.
 haddockParse :: IdeOptions ->
                 [NormalizedFilePath] ->
-                Ex.ExceptT [FileDiagnostic] IO [ParsedModule]
+                Ex.ExceptT [FileDiagnostic] IO [TcModuleResult]
 haddockParse opts f = ExceptT $ do
   vfs <- makeVFSHandle
   service <- Service.initialise Service.mainRule (const $ pure ()) noLogging opts vfs
   Service.setFilesOfInterest service (Set.fromList f)
   parsed  <- Service.runAction service $
              runMaybeT $
-             -- We only _parse_ the modules, the documentation generator is syntax-directed
              do deps <- Service.usesE Service.GetDependencies f
-                Service.usesE Service.GetParsedModule $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
+                Service.usesE Service.TypeCheck $ nubOrd $ f ++ concatMap Service.transitiveModuleDeps deps
                 -- The DAML compiler always parses with Opt_Haddock on
   diags <- Service.getDiagnostics service
   pure (maybe (Left diags) Right parsed)
