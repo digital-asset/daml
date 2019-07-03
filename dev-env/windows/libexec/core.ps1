@@ -125,7 +125,7 @@ function da_install_all([String] $Directory) {
             } Else {
                 $msg = "$app installation failed after clean install."
                 da_error "<< $msg"
-                da_error "<< Check Windows 'Control Panel \ Programs \ Programs and Features' and uninstall manually if installed."
+                da_error $out
                 throw $msg
             }
         } ElseIf ($alreadyInstalled) {
