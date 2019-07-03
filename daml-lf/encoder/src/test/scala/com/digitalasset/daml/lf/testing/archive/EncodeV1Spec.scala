@@ -108,6 +108,7 @@ class EncodeV1Spec extends WordSpec with Matchers with TableDrivenPropertyChecks
                      | Mod:Tree:Node node -> Some @a (Mod:Tree.Node @a { value } node);
            val aEnumMatch: Mod:Color -> Text = \(e: Mod:Color) ->
              case e of Mod:Color:Red -> "Red" | Mod:Color:Green -> "Green" | Mod:Color:Blue -> "Blue";
+           val aLet: Int64 = let i: Int64 = 42 in i;
 
            val aPureUpdate: forall (a: *). a -> Update a = /\ (a: *). \(x: a) ->
              upure @a x;
