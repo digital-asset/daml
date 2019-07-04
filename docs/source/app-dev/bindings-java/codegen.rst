@@ -429,6 +429,61 @@ The Java codegen generates a Java file with a generic class for  the ``Attribute
     public static <a> Attribute<a> fromValue(Value value$, Function<Value, a> fromValuea) { /* ... */ }
   }
 
+
+Enums
+^^^^^
+
+A :ref:`enum type` is a simplified `sum <daml-ref-sum-types>` with multiple
+constructors but without argument nor type parameters. The generated code is
+standard java Enum whose constants map enum type constructors.
+
+
+.. literalinclude:: ./code-snippets/Enum.daml
+   :language: daml
+   :start-after: -- start snippet: enum example
+   :end-before: -- end snippet: enum example
+   :caption: Com/Acme.daml
+
+The Java code generated for this variant is:
+
+.. code-block:: java
+  :caption: com/acme/Color.java
+
+  package com.acme;
+
+
+  public enum Color {
+    RED,
+
+    GREEN,
+
+    BLUE;
+
+    /* ... */
+
+    public static final Color fromValue(Value value$) { /* ... */ }
+
+    public final DamlEnum toValue() {  /* ... */ }
+  }
+
+
+
+.. code-block:: java
+  :caption: com/acme/bookattribute/Authors.java
+
+  package com.acme.bookattribute;
+
+  public class Authors extends BookAttribute {
+    public final List<String> listValue;
+
+    public static Authors fromValue(Value value) { /* ... */ }
+
+    public Author(List<String> listValue) { /* ... */ }
+    public Value toValue() { /* ... */ }
+
+  }
+
+
 Convert a value of a generated type to a Java Bindings value
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
