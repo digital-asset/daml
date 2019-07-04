@@ -963,6 +963,8 @@ private class PostgresLedgerDao(
     dbDispatcher.executeSql { implicit conn =>
       SQL_SELECT_PARTIES
         .as(PartyDataParser.*)
+        // TODO: isLocal should be based on equality of participantId reported in an
+        // update and the locally conmfigured participant
         .map(d => PartyDetails(Party.assertFromString(d.party), d.displayName, true))
     }
 

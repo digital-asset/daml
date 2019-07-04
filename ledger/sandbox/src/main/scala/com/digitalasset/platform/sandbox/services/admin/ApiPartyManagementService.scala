@@ -14,7 +14,6 @@ import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
 import org.slf4j.LoggerFactory
-import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,7 +35,7 @@ class ApiPartyManagementService private (
       request: GetParticipantIdRequest): Future[GetParticipantIdResponse] =
     partyManagementService
       .getParticipantId()
-      .map(pid => GetParticipantIdResponse(pid.unwrap))(DE)
+      .map(pid => GetParticipantIdResponse(pid.toString))(DE)
 
   private[this] def mapPartyDetails(
       details: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =

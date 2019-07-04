@@ -3,6 +3,7 @@
 
 package com.digitalasset.ledger.client.services.admin
 
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.ledger.api.domain.{ParticipantId, PartyDetails}
 import com.digitalasset.ledger.api.v1.admin.party_management_service.{
@@ -28,7 +29,7 @@ final class PartyManagementClient(partyManagementService: PartyManagementService
   def getParticipantId(): Future[ParticipantId] =
     partyManagementService
       .getParticipantId(new GetParticipantIdRequest())
-      .map(r => ParticipantId(r.participantId))
+      .map(r => ParticipantId(Ref.LedgerString.assertFromString(r.participantId)))
 
   def listKnownParties(): Future[List[PartyDetails]] =
     partyManagementService

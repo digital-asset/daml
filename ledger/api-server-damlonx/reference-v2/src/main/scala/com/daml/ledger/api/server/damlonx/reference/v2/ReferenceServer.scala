@@ -10,7 +10,9 @@ import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
 import com.daml.ledger.participant.state.kvutils.v2.ParticipantStateConversion
+import com.daml.ledger.participant.state.v2.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.platform.index.cli.Cli
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
@@ -25,6 +27,9 @@ object ReferenceServer extends App {
 
   val config = Cli.parse(args).getOrElse(sys.exit(1))
 
+  // Name of this participant, ultimately pass this info in command-line
+  val participantId: ParticipantId = Ref.LedgerString.assertFromString("in-memory-participant")
+
   implicit val system: ActorSystem = ActorSystem("indexed-kvutils")
   implicit val materializer: ActorMaterializer = ActorMaterializer(
     ActorMaterializerSettings(system)
@@ -33,7 +38,7 @@ object ReferenceServer extends App {
         Supervision.Stop
       })
 
-  val ledger = new InMemoryKVParticipantState()
+  val ledger = new InMemoryKVParticipantState(participantId)
 
   val readService = ParticipantStateConversion.V1ToV2Rread(ledger)
   val writeService = ParticipantStateConversion.V1ToV2Write(ledger)

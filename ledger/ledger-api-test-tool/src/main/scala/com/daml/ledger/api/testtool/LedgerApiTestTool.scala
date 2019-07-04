@@ -249,11 +249,8 @@ object LedgerApiTestTool {
       divulgenceIT,
       commandTransactionChecksHighLevelIT,
       commandTransactionChecksLowLevelIT,
-      packageManagementServiceIT
-      // TODO: Enable when KVUtils participant is backed by a postgres index database
-      // Present implementation is susceptible to race conditions between allocateParty
-      // and listKnownParties
-      //partyManagementServiceIT
+      packageManagementServiceIT,
+      partyManagementServiceIT
     )
   }
 

@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import com.daml.ledger.participant.state.index.v1.{
   PartyManagementService => IndexPartyManagementService
 }
+
 import com.daml.ledger.participant.state.v1.{PartyAllocationResult, WritePartyService}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
