@@ -19,7 +19,7 @@ find runfiles such as the scenario service and the package database
 when we’re running inside GHCi.
 
 ```
-bazel build //daml-foundations/daml-ghc:daml-ghc-shake-test-ci
+bazel build //daml-foundations/daml-ghc:damlc-shake-tests
 ```
 
 When working on the compiler:
@@ -33,7 +33,7 @@ bazel run damlc -- compile $PWD/MyDaml12File.daml
 When working on the IDE via the test suite:
 
 ```
-bazel run //daml-foundations/daml-ghc:daml-ghc-shake-test-ci -- --pattern=
+bazel run //daml-foundations/daml-ghc:damlc-shake-tests -- --pattern=
 da-ghcid daml-foundations/daml-ghc/test-src/DA/Test/ShakeIdeClient.hs --test=":main --pattern="
 ```
 

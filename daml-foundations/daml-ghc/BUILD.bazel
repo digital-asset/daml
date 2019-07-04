@@ -41,7 +41,7 @@ da_haskell_test(
 )
 
 da_haskell_test(
-    name = "daml-ghc-shake-test-ci",
+    name = "damlc-shake-tests",
     size = "large",
     # this test takes a while and often time out -- tell that to bazel
     timeout = "long",

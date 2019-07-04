@@ -5,7 +5,7 @@
 
 -- | Shake IDE API test suite. Run these manually with:
 --
---      bazel run //daml-foundations/daml-ghc:daml-ghc-shake-test-ci
+--      bazel run //daml-foundations/daml-ghc:damlc-shake-tests
 --
 -- Some tests cover open issues, these are run with 'testCaseFails'.
 -- Once the issue is resolved, switch it to 'testCase'.
@@ -220,14 +220,13 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
                 -- the warning says around because of DEL-7199
                 ,(DsWarning, (a,0,25), "The import of ‘B’ is redundant")]
 
-    ,   testCaseFails mbScenarioService "Early errors kill later warnings DEL-7199" $ do
+    ,   testCase' "Early errors kill later warnings" $ do
             a <- makeFile "A.daml" "daml 1.2 module A where; import B"
             _ <- makeFile "B.daml" "daml 1.2 module B where"
             setFilesOfInterest [a]
             expectWarning (a,0,25) "The import of ‘B’ is redundant"
             setBufferModified a "???"
-            -- Actually keeps the warning from the later stage, even though there is a parse error
-            expectOneError (a,0,0) "Parse error"
+            expectOneError (a,0,0) "Missing daml version"
 
     ,   testCase' "Loading two modules with the same name DEL-7175" $ do
             a <- makeFile "foo/Test.daml" "daml 1.2 module Test where"
@@ -306,15 +305,12 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectGoToDefinition (foo,2,[-1])   Missing             -- (out of range)
-            -- expectGoToDefinition (foo,2,[0..2]) (At (foo,3,0))   -- "foo"            [see failing test]
+            -- expectGoToDefinition (foo,2,[0..2]) (At (foo,3,0))   -- "foo" [see failing test "Go to definition takes type sig to definition"]
             expectGoToDefinition (foo,2,[2..4]) Missing             -- " : "
-            -- expectGoToDefinition (foo,2,[6..8]) (In "GHC.Types") -- "Int"            [see failing test]
             expectGoToDefinition (foo,2,[9])    Missing             -- "\n"
             expectGoToDefinition (foo,2,[10])   Missing             -- (out of range)
-            -- expectGoToDefinition (foo,3,[-1]) Missing            -- (out of range)   [see failing test]
             expectGoToDefinition (foo,3,[0..2]) (At (foo,3,0))      -- "foo"
-            expectGoToDefinition (foo,3,[3,4])  Missing             -- " ="
-            -- expectGoToDefinition (foo,3,[5]) Missing             -- " "              [see failing test]
+            expectGoToDefinition (foo,3,[3..5])  Missing             -- " = "
             expectGoToDefinition (foo,3,[6..8]) (At (foo,5,0))      -- "bar"
             expectGoToDefinition (foo,3,[9])    Missing             -- "\n"
             expectGoToDefinition (foo,3,[10])   Missing             -- (out of range)
@@ -365,7 +361,7 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,5,[12]) (At (foo,3,9)) -- "y"
             expectGoToDefinition (foo,5,[16]) (At (foo,4,2)) -- "z"
 
-    ,   testCaseFails' "[DEL-6941] Go to definition should be tight" $ do
+    ,   testCase' "Go to definition should be tight" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
@@ -374,12 +370,17 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
                 , "baz = 10"
                 ]
             setFilesOfInterest [foo]
-            expectGoToDefinition (foo,2,[5]) Missing
-            expectGoToDefinition (foo,2,[6]) (At (foo,3,0))
-            expectGoToDefinition (foo,3,[3]) Missing
-            expectGoToDefinition (foo,3,[4]) (At (foo,4,0))
+            expectGoToDefinition (foo,2,[0..2]) (At (foo,2,0))
+            expectGoToDefinition (foo,2,[3..5]) Missing
+            expectGoToDefinition (foo,2,[6..8]) (At (foo,3,0))
+            expectGoToDefinition (foo,2,[9]) Missing
 
-    ,   testCaseFails' "[DEL-6941] Go to definition takes type sig to definition" $ do
+            expectGoToDefinition (foo,3,[0..2]) (At (foo,3,0))
+            expectGoToDefinition (foo,3,[3]) Missing
+            expectGoToDefinition (foo,3,[4..6]) (At (foo,4,0))
+            expectGoToDefinition (foo,3,[7]) Missing
+
+    ,   testCaseFails' "Go to definition takes type sig to definition" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
@@ -398,7 +399,7 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
                 , "foo = Y"
                 ]
             setFilesOfInterest [foo]
-            expectGoToDefinition (foo,3,[5]) (At (foo,2,0))
+            expectGoToDefinition (foo,3,[6]) (At (foo,2,0))
 
     ,   testCase' "Go to definition on type annotation" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
@@ -411,16 +412,16 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             setFilesOfInterest [foo]
             expectGoToDefinition (foo,4,[10]) (At (foo,2,0))
 
-    ,   testCaseFails' "[DEL-6941] Go to definition should ignore negative column" $ do
+    ,   testCase' "Go to definition should ignore negative column" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
                 , "foo = 10"
                 ]
             setFilesOfInterest [foo]
-            expectGoToDefinition (foo,2,[-1]) Missing -- (out of range)
+            expectGoToDefinition (foo,2,[-1]) Missing
 
-    ,   testCaseFails' "[DEL-6941] Take variable in template to its declaration" $ do
+    ,   testCaseFails' "Take variable in template to its declaration" $ do
             foo <- makeModule "Foo"
                 [ "template Coin"
                 , "  with"
@@ -431,7 +432,10 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors
+            -- This actually ends up pointing to "concat".
             expectGoToDefinition (foo,6,[14..18]) (At (foo,4,4)) -- "owner" in signatory clause
+            -- We do have a codespan for "owner" at (7,[19..23])
+            -- but we report (7,[4..41]) as the definition for it.
             expectGoToDefinition (foo,7,[19..23]) (At (foo,4,4)) -- "owner" in agreement
 
     ,   testCase' "Standard library type points to standard library" $ do

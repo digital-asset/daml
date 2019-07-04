@@ -270,7 +270,7 @@ requestTests run _runScenarios = testGroup "requests"
                     , "*\t*\t*"
                     , "**Defined at " <> T.pack fp <> ":4:1**"
                     ]
-              , _range = Just $ Range (Position 10 17) (Position 10 20)
+              , _range = Just $ Range (Position 9 17) (Position 9 20)
               }
           closeDoc main'
 
@@ -283,7 +283,7 @@ requestTests run _runScenarios = testGroup "requests"
           r <- getHover main' (Position 2 27)
           liftIO $ r @?= Just Hover
               { _contents = HoverContents $ MarkupContent MkMarkdown "```daml\n: Decimal\n```\n"
-              , _range = Just $ Range (Position 3 27) (Position 3 30)
+              , _range = Just $ Range (Position 2 27) (Position 2 30)
               }
           closeDoc main'
     , testCase "definition" $ run $ do
