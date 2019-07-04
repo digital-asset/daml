@@ -41,10 +41,11 @@ withDamlIdeState
     -> (LSP.FromServerMessage -> IO ())
     -> (IdeState -> IO a)
     -> IO a
-withDamlIdeState compilerOpts loggerH eventHandler f =
-    Scenario.withScenarioService' (optScenarioService compilerOpts) loggerH $ \mbScenarioService -> do
+withDamlIdeState opts@Options{..} loggerH eventHandler f = do
+    scenarioServiceConfig <- Scenario.readScenarioServiceConfig
+    Scenario.withScenarioService' optScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
         vfs <- makeVFSHandle
-        ideState <- getDamlIdeState compilerOpts mbScenarioService loggerH eventHandler vfs
+        ideState <- getDamlIdeState opts mbScenarioService loggerH eventHandler vfs
         f ideState
 
 -- | Adapter to the IDE logger module.

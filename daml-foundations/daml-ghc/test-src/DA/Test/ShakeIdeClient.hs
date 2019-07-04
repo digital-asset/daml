@@ -29,7 +29,7 @@ import Development.IDE.Core.API.Testing
 import Development.IDE.Core.Service.Daml(VirtualResource(..))
 
 main :: IO ()
-main = SS.withScenarioService Logger.makeNopHandle $ \scenarioService -> do
+main = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
   -- The scenario service is a shared resource so running tests in parallel doesn’t work properly.
   setEnv "TASTY_NUM_THREADS" "1" True
   -- The startup of the scenario service is fairly expensive so instead of launching a separate
