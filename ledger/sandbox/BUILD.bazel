@@ -186,22 +186,21 @@ da_scala_test_suite(
 )
 
 client_server_test(
-    name = "conformance-test-wall-clock-inmemory",
+    name = "conformance-test-static-time",
     timeout = "short",
-    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--all-tests",
-        "--exclude SemanticTests",
     ],
     data = [
-        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-        "//ledger/sandbox:Test.dar",
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
-        "-w",
-        "ledger/ledger-api-integration-tests/SemanticTests.dar",
-        "ledger/sandbox/Test.dar",
+        "-s",
+        "ledger/test-common/SemanticTests.dar",
+        "ledger/test-common/Test.dar",
     ],
     tags = [
         "dont-run-on-darwin",
@@ -209,7 +208,7 @@ client_server_test(
 ) if not is_windows else None
 
 client_server_test(
-    name = "conformance-test-wall-clock-postgres",
+    name = "conformance-test-wall-clock",
     timeout = "short",
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     client_args = [
@@ -238,4 +237,3 @@ test_suite(
         "conformance-test-wall-clock",
     ],
 )
-
