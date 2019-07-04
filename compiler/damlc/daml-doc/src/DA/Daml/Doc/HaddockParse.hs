@@ -47,9 +47,9 @@ mkDocs opts fp = do
         . hsmodHaddockModHeader . unLoc
         . pm_parsed_source . tm_parsed_module
 
-    mkModuleDocs :: TcModuleResult -> ModuleDoc
+    mkModuleDocs :: Service.TcModuleResult -> ModuleDoc
     mkModuleDocs tmr =
-        let ctx@DocCtx{..} = buildDocCtx (tmrModule tmr)
+        let ctx@DocCtx{..} = buildDocCtx (Service.tmrModule tmr)
             typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
             fctDocs = mapMaybe (getFctDocs ctx) dc_decls
             clsDocs = mapMaybe (getClsDocs ctx) dc_decls
@@ -155,7 +155,7 @@ buildDocCtx dc_tcmod  =
 --   invoked by a CLI tool.
 haddockParse :: IdeOptions ->
                 [NormalizedFilePath] ->
-                Ex.ExceptT [FileDiagnostic] IO [TcModuleResult]
+                Ex.ExceptT [FileDiagnostic] IO [Service.TcModuleResult]
 haddockParse opts f = ExceptT $ do
   vfs <- makeVFSHandle
   service <- Service.initialise Service.mainRule (const $ pure ()) noLogging opts vfs
