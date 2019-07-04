@@ -44,3 +44,4 @@ HEAD — ongoing
   instances of the underlying type.
 - [DAML Standard Library] Add ``Min`` and ``Max`` newtypes that
   provide ``Semigroup`` instances based ``min`` and ``max``.
+- [DAML Integration Kit] Make DivulgenceIT properly work when run via the Ledger API Test Tool.
