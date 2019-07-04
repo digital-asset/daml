@@ -10,6 +10,9 @@ module DA.Service.Daml.Compiler.Impl.Scenario (
   , EnableScenarioService(..)
   , withScenarioService
   , withScenarioService'
+  , SS.ScenarioServiceConfig
+  , SS.readScenarioServiceConfig
+  , SS.defaultScenarioServiceConfig
   ) where
 
 import DA.Daml.GHC.Compiler.Options
@@ -20,16 +23,17 @@ import qualified Data.Text                                  as T
 
 withScenarioService
     :: Logger.Handle IO
+    -> SS.ScenarioServiceConfig
     -> (SS.Handle -> IO a)
     -> IO a
-withScenarioService loggerH f = do
+withScenarioService loggerH conf f = do
     serverJar <- liftIO SS.findServerJar
     let ssLogHandle = Logger.tagHandle loggerH "ScenarioService"
     let wrapLog f = f ssLogHandle . T.pack
     let opts = SS.Options
           { optMaxConcurrency = 5
-          , optRequestTimeout = 60  -- seconds
           , optServerJar = serverJar
+          , optScenarioServiceConfig = conf
           , optLogInfo = wrapLog Logger.logInfo
           , optLogError = wrapLog Logger.logError
           }
@@ -38,8 +42,9 @@ withScenarioService loggerH f = do
 withScenarioService'
     :: EnableScenarioService
     -> Logger.Handle IO
+    -> SS.ScenarioServiceConfig
     -> (Maybe SS.Handle -> IO a)
     -> IO a
-withScenarioService' (EnableScenarioService enable) loggerH f
-    | enable = withScenarioService loggerH (f . Just)
+withScenarioService' (EnableScenarioService enable) loggerH conf f
+    | enable = withScenarioService loggerH conf (f . Just)
     | otherwise = f Nothing

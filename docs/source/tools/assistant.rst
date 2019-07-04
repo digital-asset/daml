@@ -95,6 +95,7 @@ The existence of a ``daml.yaml`` file is what tells ``daml`` that this directory
       - daml-stdlib
     scenario-service:
       grpc-max-message-size: 134217728
+      grpc-timeout: 60
 
 
 Here is what each field means:
@@ -114,9 +115,12 @@ Here is what each field means:
 - ``dependencies``: the dependencies of this project.
 - ``scenario-service``: settings for the scenario service
 
-  - ``grpc-max-message-size``: This controls the maximum size of gRPC messages.
+  - ``grpc-max-message-size``: This option controls the maximum size of gRPC messages.
     If unspecified this defaults to 128MB (134217728 bytes). Unless you get
-    errors there should be no reason to modify this.
+    errors, there should be no reason to modify this.
+  - ``grpc-timeout``: This option controls the timeout used for communicating
+    with the scenario service. If unspecified this defaults to 60s. Unless you get
+    errors, there should be no reason to modify this.
 
 ..  TODO (@robin-da) document the dependency syntax
 

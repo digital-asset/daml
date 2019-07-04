@@ -35,3 +35,7 @@ HEAD — ongoing
   allowing users to resume a Postgres sandbox ledger without having to again
   specify all packages through the CLI.
   See `#1929 <https://github.com/digital-asset/daml/issues/1929>`__.
+- [DAML Studio] You can now configure the gRPC timeout
+  ``daml.yaml`` via ``scenario-service: {"grpc-timeout": 42}``.
+  This option will set the timeout to 42 seconds. You should
+  only need to set this option for very large projects.

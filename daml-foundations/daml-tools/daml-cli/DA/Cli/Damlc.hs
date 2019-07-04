@@ -264,8 +264,9 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
         , optScenarioValidation = ScenarioValidationLight
         , optThreads = 0
         }
+    scenarioServiceConfig <- readScenarioServiceConfig
     withLogger $ \loggerH ->
-        withScenarioService' enableScenarioService loggerH $ \mbScenarioService -> do
+        withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
             -- TODO we should allow different LF versions in the IDE.
             execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
