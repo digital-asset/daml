@@ -1,0 +1,6 @@
+steps:
+  - bash: |
+      set -euo pipefail
+      echo "##vso[task.setvariable variable=time;isOutput=true]$(date -uIs)"
+    condition: always()
+    name: end

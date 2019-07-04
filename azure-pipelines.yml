@@ -22,40 +22,41 @@ jobs:
     pool:
       name: 'linux-pool'
     steps:
+      - template: ci/report-start.yml
       - template: ci/build-unix.yml
         parameters:
           name: linux
       - template: ci/tell-slack-failed.yml
-        parameters:
-          name: "Linux"
+      - template: ci/report-end.yml
 
   - job: macOS
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
     steps:
+      - template: ci/report-start.yml
       - template: ci/build-unix.yml
         parameters:
           name: macos
       - template: ci/tell-slack-failed.yml
-        parameters:
-          name: "macOS"
+      - template: ci/report-end.yml
 
   - job: Windows
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
     steps:
+      - template: ci/report-start.yml
       - template: ci/build-windows.yml
       - template: ci/tell-slack-failed.yml
-        parameters:
-          name: "Windows"
+      - template: ci/report-end.yml
 
   - job: perf
     timeoutInMinutes: 60
     pool:
       name: 'linux-pool'
     steps:
+      - template: ci/report-start.yml
       - checkout: self
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
@@ -75,8 +76,7 @@ jobs:
           pathtoPublish: '$(Build.StagingDirectory)'
           artifactName: 'Perf test logs'
       - template: ci/tell-slack-failed.yml
-        parameters:
-          name: "perf"
+      - template: ci/report-end.yml
 
   - job: Windows_signing
     # Signing is a separate job so that we can make sure that we only sign on releases.
@@ -89,6 +89,7 @@ jobs:
     variables:
       unsigned-installer: $[ dependencies.Windows.outputs['publish.artifact-unsigned-windows-installer'] ]
     steps:
+      - template: ci/report-start.yml
       - checkout: self
         persistCredentials: true
       - task: DownloadPipelineArtifact@0
@@ -112,6 +113,9 @@ jobs:
         inputs:
           targetPath: $(Build.StagingDirectory)/$(signing.artifact-windows-installer)
           artifactName: $(signing.artifact-windows-installer)
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
   - job: release
     dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
     pool:
@@ -126,6 +130,7 @@ jobs:
       artifact-windows: $[ dependencies.Windows.outputs['publish.artifact'] ]
       artifact-windows-installer: $[ dependencies.Windows_signing.outputs['signing.artifact-windows-installer'] ]
     steps:
+      - template: ci/report-start.yml
       - checkout: self
         persistCredentials: true
       - bash: |
@@ -161,5 +166,88 @@ jobs:
           addChangeLog: false
           isPrerelease: true
       - template: ci/tell-slack-failed.yml
-        parameters:
-          name: "Windows_signing"
+      - template: ci/report-end.yml
+
+  - job: collect_build_data
+    condition: always()
+    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release"]
+    pool:
+      name: "linux-pool"
+    variables:
+      Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
+      Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
+      Linux.end: $[ dependencies.Linux.outputs['end.time'] ]
+      Linux.status: $[ dependencies.Linux.result ]
+      macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
+      macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
+      macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
+      macOS.status: $[ dependencies.macOS.result ]
+      Windows.start: $[ dependencies.Windows.outputs['start.time'] ]
+      Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
+      Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
+      Windows.status: $[ dependencies.Windows.result ]
+      Windows_signing.start: $[ dependencies.Windows_signing.outputs['start.time'] ]
+      Windows_signing.machine: $[ dependencies.Windows_signing.outputs['start.machine'] ]
+      Windows_signing.end: $[ dependencies.Windows_signing.outputs['end.time'] ]
+      Windows_signing.status: $[ dependencies.Windows_signing.result ]
+      perf.start: $[ dependencies.perf.outputs['start.time'] ]
+      perf.machine: $[ dependencies.perf.outputs['start.machine'] ]
+      perf.end: $[ dependencies.perf.outputs['end.time'] ]
+      perf.status: $[ dependencies.perf.result ]
+      release.start: $[ dependencies.release.outputs['start.time'] ]
+      release.machine: $[ dependencies.release.outputs['start.machine'] ]
+      release.end: $[ dependencies.release.outputs['end.time'] ]
+      release.status: $[ dependencies.release.result ]
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          REPORT=$(mktemp)
+          cat >$REPORT <<END
+          {"jobs": {"Linux": {"start": "$(Linux.start)",
+                              "machine": "$(Linux.machine)",
+                              "end": "$(Linux.end)",
+                              "status": "$(Linux.status)"},
+                    "macOS": {"start": "$(macOS.start)",
+                              "machine": "$(macOS.machine)",
+                              "end": "$(macOS.end)",
+                              "status": "$(macOS.status)"},
+                    "Windows": {"start": "$(Windows.start)",
+                                "machine": "$(Windows.machine)",
+                                "end": "$(Windows.end)",
+                                "status": "$(Windows.status)"},
+                    "Windows_signing": {"start": "$(Windows_signing.start)",
+                                        "machine": "$(Windows_signing.machine)",
+                                        "end": "$(Windows_signing.end)",
+                                        "status": "$(Windows_signing.status)"},
+                    "perf": {"start": "$(perf.start)",
+                             "machine": "$(perf.machine)",
+                             "end": "$(perf.end)",
+                             "status": "$(perf.status)"},
+                    "release": {"start": "$(release.start)",
+                                "machine": "$(release.machine)",
+                                "end": "$(release.end)",
+                                "status": "$(release.status)"}},
+           "id": "$(Build.BuildId)",
+           "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
+           "name": "$(Build.DefinitionName)",
+           "version": "$(Build.DefinitionVersion)",
+           "queued_by": "$(Build.QueuedBy)",
+           "reason": "$(Build.Reason)",
+           "branch": "$(Build.SourceBranch)",
+           "commit_sha": "$(Build.SourceVersion)",
+           "commit_message": "$(Build.SourceVersionMessage)",
+           "is_fork": "$(System.PullRequest.IsFork)",
+           "pr": "$(System.PullRequest.PullRequestNumber)",
+           "pr_url": "https://github.com/digital-asset/daml/pull/$(System.PullRequest.PullRequestNumber)",
+           "pr_source_branch": "$(System.PullRequest.SourceBranch)"}
+          END
+          REPORT_GZ=$(mktemp)
+          cat $REPORT | gzip -9 > $REPORT_GZ
+          GCS_KEY=$(mktemp)
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+          gcloud auth activate-service-account --key-file=$GCS_KEY
+          BOTO_CONFIG=/dev/null gsutil cp $REPORT_GZ gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
