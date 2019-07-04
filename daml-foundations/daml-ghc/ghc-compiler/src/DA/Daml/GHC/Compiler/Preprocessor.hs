@@ -4,7 +4,6 @@
 
 module DA.Daml.GHC.Compiler.Preprocessor
   ( damlPreprocessor
-  , damlPreprocessorImports
   ) where
 
 import           DA.Daml.GHC.Compiler.Records
@@ -44,17 +43,6 @@ damlPreprocessor mbPkgName x
     | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName x)
     where name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
 
-
--- | Imports that will be added by the preprocessor
-damlPreprocessorImports :: GHC.ModuleName -> [GHC.ModuleName]
--- FIXME: This function should be deleted, since people should calculate imports from the parse tree
-damlPreprocessorImports name
-    | isInternal name = []
-    | otherwise =
-      map GHC.mkModuleName [
-         "DA.Internal.Record"
-       , "DA.Internal.RebindableSyntax"
-       , "DA.Internal.Desugar"]
 
 -- With RebindableSyntax any missing DAML import results in pretty much nothing
 -- working (literals, if-then-else) so we inject an implicit import DAML for
