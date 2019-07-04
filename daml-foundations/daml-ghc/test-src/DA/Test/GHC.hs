@@ -179,6 +179,7 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
     ignoreVersion version = \case
       Ignore -> True
       SinceLF minVersion -> version < minVersion
+      UntilLF maxVersion -> version > maxVersion
       _ -> False
 
 runJqQuery :: (String -> IO ()) -> [(LF.Package, String)] -> IO [Maybe String]
@@ -253,6 +254,7 @@ withTestArguments f =
 data Ann
     = Ignore                             -- Don't run this test at all
     | SinceLF LF.Version                 -- Only run this test since the given DAML-LF version
+    | UntilLF LF.Version                 -- Only run this test until the given DAML-LF version
     | DiagnosticFields [DiagnosticField] -- I expect a diagnostic that has the given fields
     | QueryLF String                       -- The jq query against the produced DAML-LF returns "true"
     | Todo String                        -- Just a note that is printed out
@@ -268,6 +270,7 @@ readFileAnns file = do
         f (stripPrefix "-- @" . trim -> Just x) = case word1 $ trim x of
             ("IGNORE",_) -> Just Ignore
             ("SINCE-LF", x) -> Just $ SinceLF $ fromJust $ LF.parseVersion $ trim x
+            ("UNTIL-LF", x) -> Just $ UntilLF $ fromJust $ LF.parseVersion $ trim x
             ("ERROR",x) -> Just (DiagnosticFields (DSeverity DsError : parseFields x))
             ("WARN",x) -> Just (DiagnosticFields (DSeverity DsWarning : parseFields x))
             ("QUERY-LF", x) -> Just $ QueryLF x
