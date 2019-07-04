@@ -15,8 +15,6 @@ import qualified Development.IDE.Core.OfInterest as Service
 import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
-import Development.IDE.Core.Compile
-
 
 import           "ghc-lib" GHC
 import qualified "ghc-lib-parser" Outputable                      as Out
