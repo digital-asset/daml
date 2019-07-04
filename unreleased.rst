@@ -39,3 +39,6 @@ HEAD — ongoing
   ``daml.yaml`` via ``scenario-service: {"grpc-timeout": 42}``.
   This option will set the timeout to 42 seconds. You should
   only need to set this option for very large projects.
+- [DAML Standard Library] Add ``Sum`` and ``Product`` newtypes that
+  provide ``Monoid`` instances based on the ``Additive`` and ``Multiplicative``
+  instances of the underlying type.
