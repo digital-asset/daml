@@ -9,7 +9,7 @@ module DA.Daml.Doc.Render.Rst
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util
-import DA.Daml.Doc.Render.Anchor
+import DA.Daml.Doc.Anchor
 
 import qualified Data.Text.Prettyprint.Doc as Pretty
 import           Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
@@ -22,7 +22,7 @@ import qualified Data.Text as T
 import CMarkGFM
 
 renderAnchor :: Anchor -> T.Text
-renderAnchor anchor = "\n.. _" <> anchor <> ":\n"
+renderAnchor anchor = "\n.. _" <> unAnchor anchor <> ":\n"
 
 renderSimpleRst :: ModuleDoc -> T.Text
 renderSimpleRst ModuleDoc{..}

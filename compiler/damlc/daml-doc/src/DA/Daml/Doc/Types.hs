@@ -39,6 +39,10 @@ data Type = TypeApp !(Maybe Modulename) !Typename [Type] -- ^ Type application
 instance Hashable Type where
   hashWithSalt salt = hashWithSalt salt . show
 
+-- | Anchors are URL-safe ids into the docs.
+newtype Anchor = Anchor { unAnchor :: Text }
+    deriving (Eq, Ord, Show)
+
 ------------------------------------------------------------
 -- | Documentation data for a module
 data ModuleDoc = ModuleDoc

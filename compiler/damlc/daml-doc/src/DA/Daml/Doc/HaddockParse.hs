@@ -5,7 +5,7 @@
 
 module DA.Daml.Doc.HaddockParse(mkDocs) where
 
-import           DA.Daml.Doc.Types                 as DDoc
+import DA.Daml.Doc.Types as DDoc
 import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service     as Service

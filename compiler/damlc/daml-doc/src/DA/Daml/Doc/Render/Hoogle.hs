@@ -8,7 +8,7 @@ module DA.Daml.Doc.Render.Hoogle
   ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Anchor
+import DA.Daml.Doc.Anchor
 import DA.Daml.Doc.Render.Util
 
 import           Data.Maybe
@@ -24,7 +24,7 @@ hooglify (Just md) =
             : map ("--   " <>) xs
 
 urlTag :: Anchor -> T.Text
-urlTag = ("@url https://docs.daml.com/daml/reference/base.html#" <>)
+urlTag = ("@url https://docs.daml.com/daml/reference/base.html#" <>) . unAnchor
 
 renderSimpleHoogle :: ModuleDoc -> T.Text
 renderSimpleHoogle ModuleDoc{..}
