@@ -10,10 +10,8 @@
 daml 1.2
 module ComposedKey where
 
-import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, fetchByKey, archive, exercise)
 import DA.Assert
 import DA.Text
-import GenericTemplates
 import GenTemplCompat
 
 -- For any instantiation, `k` has to be the key type of `t`.

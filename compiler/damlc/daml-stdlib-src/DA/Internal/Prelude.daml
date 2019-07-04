@@ -580,3 +580,6 @@ sum = foldl (+) aunit
 -- | Multiply all the elements in the list together.
 product : Multiplicative a => [a] -> a
 product = foldl (*) munit
+
+undefined : a
+undefined = error "undefined"

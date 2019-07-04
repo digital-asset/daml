@@ -11,10 +11,8 @@ module ProposalDSL
   , ProposalInstance
   ) where
 
-import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, archive, fetchByKey, lookupByKey, exercise)
 import DA.List
 import DA.Text
-import GenericTemplates
 
 
 data Proposal t = Proposal with
