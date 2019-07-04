@@ -95,7 +95,7 @@ def _daml_package_rule_impl(ctx):
     """.format(
             main = modules[ctx.attr.main],
             name = name,
-            package_db_dir = package_db_dir.path,
+            package_db_dir = package_db_dir.path.rpartition("/")[0],
             damlc_bootstrap = ctx.executable.damlc_bootstrap.path,
             dalf_file = dalf.path,
             daml_lf_version = ctx.attr.daml_lf_version,
@@ -146,7 +146,7 @@ PackageDb = provider(fields = ["db_dir", "pkgs"])
 
 def _daml_package_db_impl(ctx):
     toolchain = ctx.toolchains["@io_tweag_rules_haskell//haskell:toolchain"]
-    db_dir = ctx.actions.declare_directory(ctx.attr.name + "_dir")
+    db_dir = ctx.actions.declare_directory(ctx.attr.db_name + "_dir/{}".format(ctx.attr.daml_lf_version))
     ctx.actions.run_shell(
         inputs = [inp for pkg in ctx.attr.pkgs for inp in [pkg[DamlPackage].pkg_conf, pkg[DamlPackage].iface_dir, pkg[DamlPackage].dalf]],
         tools = [toolchain.tools.ghc_pkg],
@@ -155,20 +155,16 @@ def _daml_package_db_impl(ctx):
             """
         set -eou pipefail
         shopt -s nullglob
-        mkdir -p {db_dir}
-        for ver in {daml_lf_versions}; do
-            mkdir -p "{db_dir}/$ver/package.conf.d"
-        done
-        """.format(db_dir = db_dir.path, daml_lf_versions = " ".join(ctx.attr.daml_lf_versions)) +
+        mkdir -p "{db_dir}/package.conf.d"
+        """.format(db_dir = db_dir.path, daml_lf_version = ctx.attr.daml_lf_version) +
             "".join(
                 [
                     """
-        mkdir -p "{db_dir}/{daml_lf_version}/{pkg_name}"
-        cp {pkg_conf} "{db_dir}/{daml_lf_version}/package.conf.d/{pkg_name}.conf"
-        cp -aL {iface_dir}/* "{db_dir}/{daml_lf_version}/{pkg_name}/"
-        cp {dalf} "{db_dir}/{daml_lf_version}/{pkg_name}.dalf"
+        mkdir -p "{db_dir}/{pkg_name}"
+        cp {pkg_conf} "{db_dir}/package.conf.d/{pkg_name}.conf"
+        cp -aL {iface_dir}/* "{db_dir}/{pkg_name}/"
+        cp {dalf} "{db_dir}/{pkg_name}.dalf"
         """.format(
-                        daml_lf_version = pkg[DamlPackage].daml_lf_version,
                         pkg_name = pkg[DamlPackage].pkg_name,
                         pkg_conf = pkg[DamlPackage].pkg_conf.path,
                         iface_dir = pkg[DamlPackage].iface_dir.path,
@@ -179,11 +175,10 @@ def _daml_package_db_impl(ctx):
                 ],
             ) +
             """
-        for lf_version in "{db_dir}"/*; do
-          {ghc_pkg} recache --package-db=$lf_version/package.conf.d --no-expand-pkgroot
-        done
+      {ghc_pkg} recache --package-db={db_dir}/package.conf.d --no-expand-pkgroot
         """.format(
                 db_dir = db_dir.path,
+                daml_lf_version = ctx.attr.daml_lf_version,
                 ghc_pkg = toolchain.tools.ghc_pkg.path,
             ),
     )
@@ -196,10 +191,11 @@ daml_package_db = rule(
     implementation = _daml_package_db_impl,
     toolchains = ["@io_tweag_rules_haskell//haskell:toolchain"],
     attrs = {
+        "db_name": attr.string(mandatory = True),
         "pkgs": attr.label_list(
             allow_files = False,
             providers = [DamlPackage],
         ),
-        "daml_lf_versions": attr.string_list(mandatory = True),
+        "daml_lf_version": attr.string(mandatory = True),
     },
 )

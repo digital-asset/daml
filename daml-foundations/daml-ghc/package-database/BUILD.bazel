@@ -18,21 +18,36 @@ DAML_LF_VERSIONS = [
     "1.dev",
 ]
 
-daml_package_db(
-    name = "package_db_for_daml-prim",
-    daml_lf_versions = DAML_LF_VERSIONS,
-    pkgs = [],
-    visibility = ["//visibility:public"],
-)
+[
+    daml_package_db(
+        name = "package_db_for_daml-prim-{}".format(ver),
+        db_name = "package_db_for_daml-prim",
+        daml_lf_version = ver,
+        pkgs = [],
+        visibility = ["//visibility:public"],
+    )
+    for ver in DAML_LF_VERSIONS
+]
 
 [
     daml_package_rule(
         name = "daml-prim-{}".format(ver),
         srcs = "//daml-foundations/daml-ghc/daml-prim-src",
         daml_lf_version = ver,
-        package_db = ":package_db_for_daml-prim",
+        package_db = ":package_db_for_daml-prim-{}".format(ver),
         pkg_name = "daml-prim",
         pkg_root = "daml-foundations/daml-ghc/daml-prim-src",
+        visibility = ["//visibility:public"],
+    )
+    for ver in DAML_LF_VERSIONS
+]
+
+[
+    daml_package_db(
+        name = "package_db_for_daml-stdlib-{}".format(ver),
+        db_name = "package_db_for_daml-stdlib",
+        daml_lf_version = ver,
+        pkgs = [":daml-prim-{}".format(ver)],
         visibility = ["//visibility:public"],
     )
     for ver in DAML_LF_VERSIONS
@@ -44,7 +59,7 @@ daml_package_db(
         srcs = "//daml-foundations/daml-ghc/daml-stdlib-src",
         daml_lf_version = ver,
         dependencies = [":daml-prim-{}".format(ver)],
-        package_db = ":package_db_for_daml-stdlib",
+        package_db = ":package_db_for_daml-stdlib-{}".format(ver),
         pkg_name = "daml-stdlib",
         pkg_root = "daml-foundations/daml-ghc/daml-stdlib-src",
         visibility = ["//visibility:public"],
@@ -52,18 +67,20 @@ daml_package_db(
     for ver in DAML_LF_VERSIONS
 ]
 
-daml_package_db(
-    name = "package_db_for_daml-stdlib",
-    daml_lf_versions = DAML_LF_VERSIONS,
-    pkgs = [":daml-prim-{}".format(ver) for ver in DAML_LF_VERSIONS],
-    visibility = ["//visibility:public"],
-)
+[
+    daml_package_db(
+        name = "package-db-{}".format(ver),
+        db_name = "package-db",
+        daml_lf_version = ver,
+        pkgs = [":daml-prim-{}".format(ver), ":daml-stdlib-{}".format(ver)],
+        visibility = ["//visibility:public"],
+    )
 
-daml_package_db(
+    for ver in DAML_LF_VERSIONS
+]
+
+filegroup(
     name = "package-db",
-    daml_lf_versions = DAML_LF_VERSIONS,
-    pkgs =
-        [":daml-prim-{}".format(ver) for ver in DAML_LF_VERSIONS] +
-        [":daml-stdlib-{}".format(ver) for ver in DAML_LF_VERSIONS],
+    srcs = [":package-db-{}".format(ver) for ver in DAML_LF_VERSIONS],
     visibility = ["//visibility:public"],
 )
