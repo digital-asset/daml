@@ -16,16 +16,12 @@ import com.digitalasset.platform.apitesting.CommandTransactionChecksHighLevel
   * performed in #1866 -- specifically the fact that the submitter must be in
   * lookup maintainers.
   *
-  * If you're tempted to remove this because the compiler cannot generate DAML-LF 1.5
-  * anymore, don't! Instead, generate a DAML-LF 1.5 file with an older compiler
-  * or manually, and check it in. It's important to preserve these tests.
-  *
   * TODO extract version-dependent parts out of the huge `CommandTransactionChecks`.
   */
 class CommandTransactionChecksNo1866IT extends CommandTransactionChecksHighLevel {
   override protected val languageVersion: LanguageVersion =
     LanguageVersion(LMajV.V1, LMinV.fromProtoIdentifier("5"))
   override protected lazy val config: Config = Config.default.copy(
-    darFiles = List(new File(rlocation("ledger/sandbox/Test-1.5.dar")).toPath)
+    darFiles = List(new File(rlocation("ledger/sandbox/historical-dars/Test-1.5.dar")).toPath)
   )
 }
