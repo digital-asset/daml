@@ -57,6 +57,7 @@ jobs:
       name: 'linux-pool'
     steps:
       - checkout: self
+      - template: ci/reset-if-pr.yml
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: ci/configure-bazel.sh
@@ -91,6 +92,7 @@ jobs:
     steps:
       - checkout: self
         persistCredentials: true
+      - template: ci/reset-if-pr.yml
       - task: DownloadPipelineArtifact@0
         inputs:
           artifactName: $(unsigned-installer)
@@ -128,6 +130,7 @@ jobs:
     steps:
       - checkout: self
         persistCredentials: true
+      - template: ci/reset-if-pr.yml
       - bash: |
           set -euxo pipefail
           git tag v$(cat VERSION)

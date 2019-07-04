@@ -1,5 +1,6 @@
 steps:
   - checkout: self
+  - template: reset-if-pr.yml
 
   - bash: ci/configure-bazel.sh
     displayName: 'Configure Bazel'

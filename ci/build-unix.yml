@@ -3,6 +3,7 @@ parameters:
 
 steps:
   - checkout: self
+  - template: reset-if-pr.yml
 
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'

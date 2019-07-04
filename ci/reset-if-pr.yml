@@ -1,0 +1,6 @@
+steps:
+  - bash: |
+      set -euo pipefail
+      if [[ "$(Build.Reason)" == "PullRequest" ]]; then
+        git reset --hard HEAD^2
+      fi
