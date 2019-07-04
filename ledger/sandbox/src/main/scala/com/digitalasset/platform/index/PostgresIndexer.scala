@@ -4,16 +4,19 @@
 package com.digitalasset.platform.index
 
 import java.time.Instant
+import java.util.UUID
 
 import akka.actor.ActorSystem
 import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.{Done, NotUsed}
+import com.daml.ledger.participant.state.index.v2
 import com.daml.ledger.participant.state.v2.Update._
 import com.daml.ledger.participant.state.v2._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
@@ -170,9 +173,25 @@ class PostgresIndexer private (
       case PartyAddedToParticipant(party, displayName, _, _) =>
         ledgerDao.storeParty(party, Some(displayName)).map(_ => ())(DEC)
 
-      case PublicPackagesUploaded(_, _, _, _) =>
-        // TODO (GS) implement once https://github.com/digital-asset/daml/pull/1610 lands
-        Future.successful(())
+      case PublicPackagesUploaded(archives, _, participantId, _) if archives.isEmpty =>
+        Future.successful {
+          PostgresIndexer.logger.warn(
+            s"Received empty list of packages from $participantId, ignoring it")
+        }
+
+      case PublicPackagesUploaded(archives, sourceDescription, _, _) =>
+        val uploadId = UUID.randomUUID().toString
+        val uploadInstant = Instant.now()
+        val packages: List[(DamlLf.Archive, v2.PackageDetails)] = {
+          archives.map { archive =>
+            archive -> v2.PackageDetails(
+              size = archive.getPayload.size.toLong,
+              knownSince = uploadInstant,
+              sourceDescription = Some(sourceDescription)
+            )
+          }
+        }
+        ledgerDao.uploadLfPackages(uploadId, packages).map(_ => ())(DEC)
 
       case TransactionAccepted(
           optSubmitterInfo,
