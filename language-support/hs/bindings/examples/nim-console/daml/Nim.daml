@@ -76,6 +76,6 @@ playMove Move{pileNum,howMany} Game{player1,player2,piles} =
                         player1 = player2
                         player2 = player1
                         piles = before ++ [selected - howMany] ++ after
+        (_, []) -> Left "empty piles, should not happen"
 
-
-type RejectionMessage = String
+type RejectionMessage = Text

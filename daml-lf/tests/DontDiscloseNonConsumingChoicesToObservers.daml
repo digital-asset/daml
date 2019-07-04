@@ -33,7 +33,7 @@ instance Choice NonObservable CreateEvent (ContractId Event) where
 
 -- Bob should not be able to fetch when DontDiscloseNonConsumingExercisesToObservers is set,
 -- because he is only an observer and the choice CreateEventis non-consuming.
-test_DontDiscloseNonConsumingExercisesToObervers = test do
+test_DontDiscloseNonConsumingExercisesToObervers = scenario do
   alice <- getParty "alice"
   bob <- getParty "bob"
   cid <- submit alice $ do
