@@ -64,6 +64,7 @@ HEAD — ongoing
   makes it into DAML-LF ``1.6`` and once DAML-LF ``1.6`` becomes the default.
 - [DAML Integration Toolkit] The submission service shuts down its ExecutorService upon exit to ensure a smooth shutdown.
 - [Sandbox] Added `--log-level` command line flag.
+- [Sandbox] Added ``--log-level`` command line flag.
 - [Ledger API] Added new CLI flags ``--stable-party-identifiers`` and
   ``--stable-command-identifiers`` to the :doc:`Ledger API Test Tool
   </tools/ledger-api-test-tool/index>` to allow disabling randomization of party
@@ -72,20 +73,35 @@ HEAD — ongoing
 - [DAML-LF]: Release version 1.6. This versions provides:
 
   + ``enum`` types.  See `#105 <https://github.com/digital-asset/daml/issues/105>`__.
+    See DAML-LF 1 specification for more details.
   + new builtins for (un)packing strings. See `#16 <https://github.com/digital-asset/daml/issues/16>`__.
   + intern package IDs. See `#1614 <https://github.com/digital-asset/daml/pull/1614>`__.
 
-- [Ledger API] Add support for ``enum`` types.
+- [DAML Compiler]: Add support for DAML-LF 1.6. In particular:
 
-- [Java Codegen]: Add support for ``enum`` types.
+  + Add support for ``enum`` types. DAML variants type that look like
+    enumerations (i.e., those variants without type parameters and without
+    argument) are compiled to DAML-LF ``enum`` type when daml-lf 1.6 target is
+    selected. For instance the daml type declaration of the form::
 
-- [Scala Codegen]: Add support for ``enum`` types.
+      data Color = Red | Green | Blue
+
+    will produce a daml-lf ``enum`` type instead of daml-lf ``variant`` type.
+
+  + Add ``DA.Text.toCodePoints`` and ``DA.Text.fromCodePoints`` primitives to
+    (un)pack strings.
+
+  + Add support for daml-lf intern package IDs.
+
+- [Ledger API] Add support for ``enum`` types. Simple ``variant`` types will
+  be replaced by ``enum`` types.
+
+- [Java Codegen]: Add support for ``enum`` types. Simple ``variant`` types will
+  be replaced by ``enum`` types.
+
+- [Scala Codegen]: Add support for ``enum`` types.  Simple ``variant`` types will
+  be replaced by ``enum`` types.
 
 - [Navigator]: Add support for ``enum`` types.
 
 - [Extractor]: Add support for ``enum`` types.
-
-- [DAML Compiler]: Add support for DAML-LF 1.6. DAML variants type that look
-  like enumerations (i.e., those variants without type parameters and without
-  argument) are compiled to DAML-LF ``enum`` type when daml-lf 1.6 target is
-  selected.
