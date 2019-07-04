@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-set -euxo pipefail
+set -euo pipefail
 
 eval "$($(dirname "$0")/dev-env/bin/dade-assist)"
 
