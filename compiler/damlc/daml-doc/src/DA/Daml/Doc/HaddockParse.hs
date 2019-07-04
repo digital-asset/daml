@@ -123,8 +123,9 @@ data DocCtx = DocCtx
     { dc_mod :: Modulename
     , dc_tcmod :: TypecheckedModule
     , dc_decls :: [DeclData]
-    , dc_templates :: Set.Set RdrName
-    , dc_choices :: MS.Map RdrName (Set.Set RdrName)
+    , dc_templates :: Set.Set Typename
+    , dc_choices :: MS.Map Typename (Set.Set Typename)
+        -- ^ choices per template
     }
 
 -- | Parsed declaration with associated docs.
@@ -221,7 +222,7 @@ getClsDocs ctx (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = Just ClassDoc
     subdocs = memberDocs c
 getClsDocs _ _ = Nothing
 
-getTypeDocs :: DocCtx -> DeclData -> Maybe (RdrName, ADTDoc)
+getTypeDocs :: DocCtx -> DeclData -> Maybe (Typename, ADTDoc)
 getTypeDocs _ (DeclData (L _ (TyClD _ decl)) doc)
   | XTyClDecl{} <- decl =
       Nothing
@@ -231,20 +232,20 @@ getTypeDocs _ (DeclData (L _ (TyClD _ decl)) doc)
       Nothing
 
   | SynDecl{..} <- decl =
-      let name = idpToText $ unLoc tcdLName
-      in Just . (unLoc tcdLName,) $ TypeSynDoc
-         { ad_name = Typename name
+      let name = typenameFromRdrName $ unLoc tcdLName
+      in Just . (name,) $ TypeSynDoc
+         { ad_name = name
          , ad_descr = doc
          , ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
          , ad_rhs  = hsTypeToType tcdRhs
          }
 
   | DataDecl{..} <- decl =
-      let name = idpToText $ unLoc tcdLName
-      in Just . (unLoc tcdLName,) $ ADTDoc
-         { ad_name =  Typename name
-         , ad_args   = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-         , ad_descr  = doc
+      let name = typenameFromRdrName $ unLoc tcdLName
+      in Just . (name,) $ ADTDoc
+         { ad_name = name
+         , ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
+         , ad_descr = doc
          , ad_constrs = map constrDoc . dd_cons $ tcdDataDefn
          }
   where
@@ -277,12 +278,12 @@ getTypeDocs _ (DeclData (L _ (TyClD _ decl)) doc)
     fieldDoc XConDeclField{}  = Nothing
 getTypeDocs _ _other = Nothing
 
-getTemplateDocs :: DocCtx -> MS.Map RdrName ADTDoc -> [TemplateDoc]
+getTemplateDocs :: DocCtx -> MS.Map Typename ADTDoc -> [TemplateDoc]
 getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
     -- defined internally, and not expected to fail on consistent arguments.
-    mkTemplateDoc :: IdP GhcPs -> TemplateDoc
+    mkTemplateDoc :: Typename -> TemplateDoc
     mkTemplateDoc name = TemplateDoc
       { td_name  = ad_name tmplADT
       , td_descr = ad_descr tmplADT
@@ -294,7 +295,7 @@ getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
         tmplADT = asADT name
         choices = Set.toList . fromMaybe Set.empty $ MS.lookup name dc_choices
 
-    mkChoiceDoc :: IdP GhcPs -> ChoiceDoc
+    mkChoiceDoc :: Typename -> ChoiceDoc
     mkChoiceDoc name = ChoiceDoc
       { cd_name = ad_name choiceADT
       , cd_descr = ad_descr choiceADT
@@ -309,7 +310,7 @@ getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
     -- returns a dummy ADT if the choice argument is not in the local type map
     -- (possible if choice instances are defined directly outside the template).
     -- This wouldn't be necessary if we used the type-checked AST.
-      where dummyDT = ADTDoc { ad_name    = Typename $ "External:" <> idpToText n
+      where dummyDT = ADTDoc { ad_name    = Typename $ "External:" <> unTypename n
                              , ad_descr   = Nothing
                              , ad_args = []
                              , ad_constrs = []
@@ -331,7 +332,7 @@ getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
 -- | Extracts all names of Template instances defined in a module and a map of
 -- template to set of its choices (instances of Choice with a particular
 -- template).
-getTemplateData :: ParsedModule -> (Set.Set RdrName, MS.Map RdrName (Set.Set RdrName))
+getTemplateData :: ParsedModule -> (Set.Set Typename, MS.Map Typename (Set.Set Typename))
 getTemplateData ParsedModule{..} =
   let
     instDs    = mapMaybe (isInstDecl . unLoc) . hsmodDecls . unLoc $ pm_parsed_source
@@ -348,7 +349,7 @@ getTemplateData ParsedModule{..} =
 
 -- | If the given instance declaration is declaring a template instance, return
 --   its name (IdP). Used to build the set of templates declared in a module.
-isTemplate :: ClsInstDecl GhcPs -> Maybe RdrName
+isTemplate :: ClsInstDecl GhcPs -> Maybe Typename
 isTemplate (XClsInstDecl _) = Nothing
 isTemplate ClsInstDecl{..}
   | HsIB _ (L _ ty) <-  cid_poly_ty
@@ -356,14 +357,14 @@ isTemplate ClsInstDecl{..}
   , HsTyVar _ _ (L _ tmplClass) <- t1
   , HsTyVar _ _ (L _ tmplName) <- t2
   , toText tmplClass == "DA.Internal.Desugar.Template"
-  = Just tmplName
+  = Just (typenameFromRdrName tmplName)
 
   | otherwise = Nothing
 
 -- | If the given instance declaration is declaring a template choice instance,
 --   return template and choice name (IdP). Used to build the set of choices
 --   per template declared in a module.
-isChoice :: ClsInstDecl GhcPs -> Maybe (IdP GhcPs, IdP GhcPs)
+isChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
 isChoice (XClsInstDecl _) = Nothing
 isChoice ClsInstDecl{..}
   | HsIB _ (L _ ty) <-  cid_poly_ty
@@ -374,7 +375,7 @@ isChoice ClsInstDecl{..}
   , HsTyVar _ _ (L _ choiceName) <- cName
   , HsTyVar _ _ (L _ tmplName) <- cTmpl
   , toText choiceClass == "DA.Internal.Desugar.Choice"
-  = Just (tmplName, choiceName)
+  = Just (typenameFromRdrName tmplName, typenameFromRdrName choiceName)
 
   | otherwise = Nothing
 
@@ -421,6 +422,8 @@ docToText = DocText . T.strip . T.unlines . go . T.lines . T.pack . unpackHDS
 idpToText :: IdP GhcPs -> T.Text
 idpToText = T.pack . Out.showSDocUnsafe . Out.ppr
 
+typenameFromRdrName :: RdrName -> Typename
+typenameFromRdrName = Typename . idpToText
 
 ---------------------------------------------------------------------
 
