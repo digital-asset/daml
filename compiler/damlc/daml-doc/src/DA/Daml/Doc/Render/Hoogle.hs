@@ -64,7 +64,7 @@ adtConstr2hoogle md_name typename PrefixC{..} = concat
       , T.unwords
             [ wrapOp (unTypename ac_name)
             , "::"
-            , type2hoogle $ TypeFun (ac_args ++ [TypeApp (Just md_name) typename []])
+            , type2hoogle $ TypeFun (ac_args ++ [TypeApp Nothing typename []])
             ]
       , "" ]
     ]
@@ -75,7 +75,7 @@ adtConstr2hoogle md_name typename RecordC{..} = concat
             [ wrapOp (unTypename ac_name)
             , "::"
             , type2hoogle $ TypeFun
-                (map fd_type ac_fields ++ [TypeApp (Just md_name) typename []])
+                (map fd_type ac_fields ++ [TypeApp Nothing typename []])
             ]
       , "" ]
     , concatMap (fieldDoc2hoogle typename) ac_fields
@@ -116,7 +116,7 @@ cls2hoogle md_name ClassDoc{..} = concat
         Just ctx -> Just (TypeTuple [contextTy, ctx])
 
     contextTy :: Type
-    contextTy = TypeApp (Just md_name) cl_name [TypeApp Nothing (Typename arg) [] | arg <- cl_args]
+    contextTy = TypeApp Nothing cl_name [TypeApp Nothing (Typename arg) [] | arg <- cl_args]
 
 fct2hoogle :: Modulename -> FunctionDoc -> [T.Text]
 fct2hoogle md_name FunctionDoc{..} = concat
