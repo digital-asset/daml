@@ -83,7 +83,11 @@ case class GenTransaction[Nid, Cid, +Val](
   def mapContractIdAndValue[Cid2, Val2](
       f: Cid => Cid2,
       g: Val => Val2): GenTransaction[Nid, Cid2, Val2] = {
-    val nodes2: Map[Nid, GenNode[Nid, Cid2, Val2]] = nodes.mapValues(_.mapContractIdAndValue(f, g))
+    val nodes2: Map[Nid, GenNode[Nid, Cid2, Val2]] =
+      // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
+      nodes.transform { (_, value) =>
+        value.mapContractIdAndValue(f, g)
+      }
     this.copy(nodes = nodes2)
   }
 

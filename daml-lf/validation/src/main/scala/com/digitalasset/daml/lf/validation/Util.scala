@@ -18,7 +18,7 @@ private[validation] object Util {
 
     def values: Iterator[B] = array.iterator.map(_._2)
 
-    def mapValues[C](f: B => C): ImmArray[(A, C)] = array.map { case (k, v) => k -> f(v) }
+    def transform[C](f: (A, B) => C): ImmArray[(A, C)] = array.map { case (k, v) => k -> f(k, v) }
 
     def toMap: Map[A, B] = array.toSeq.toMap
 

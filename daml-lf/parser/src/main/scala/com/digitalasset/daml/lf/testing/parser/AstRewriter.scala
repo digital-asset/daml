@@ -18,14 +18,25 @@ private[digitalasset] class AstRewriter(
   import AstRewriter._
 
   def apply(pkg: Package): Package =
-    Package(ImmArray(pkg.modules).mapValues(apply).toSeq.toMap)
+    Package(
+      ImmArray(pkg.modules)
+        .transform { (_, x) =>
+          apply(x)
+        }
+        .toSeq
+        .toMap)
 
   def apply(module: Module): Module =
     module match {
       case Module(name, definitions, languageVersion, featureFlags) =>
         Module(
           name,
-          ImmArray(definitions).mapValues(apply).toSeq.toMap,
+          ImmArray(definitions)
+            .transform { (_, x) =>
+              apply(x)
+            }
+            .toSeq
+            .toMap,
           languageVersion,
           featureFlags)
     }
@@ -67,7 +78,9 @@ private[digitalasset] class AstRewriter(
         case ELocation(loc, expr) =>
           ELocation(loc, apply(expr))
         case ERecCon(tycon, fields) =>
-          ERecCon(apply(tycon), fields.mapValues(apply))
+          ERecCon(apply(tycon), fields.transform { (_, x) =>
+            apply(x)
+          })
         case ERecProj(tycon, field, record) =>
           ERecProj(apply(tycon), field, apply(record))
         case ERecUpd(tycon, field, record, update) =>
@@ -77,7 +90,9 @@ private[digitalasset] class AstRewriter(
         case EEnumCon(tyCon, cons) =>
           EEnumCon(apply(tyCon), cons)
         case ETupleCon(fields) =>
-          ETupleCon(fields.mapValues(apply))
+          ETupleCon(fields.transform { (_, x) =>
+            apply(x)
+          })
         case ETupleProj(field, tuple) =>
           ETupleProj(field, apply(tuple))
         case ETupleUpd(field, tuple, update) =>
@@ -195,7 +210,9 @@ private[digitalasset] class AstRewriter(
           apply(precond),
           apply(signatories),
           apply(agreementText),
-          choices.mapValues(apply),
+          choices.transform { (_, x) =>
+            apply(x)
+          },
           apply(observers),
           key.map(apply)
         )
@@ -233,7 +250,7 @@ object AstRewriter {
 
   private implicit final class TupleImmArrayOps[A, B](val array: ImmArray[(A, B)]) extends AnyVal {
 
-    def mapValues[C](f: B => C): ImmArray[(A, C)] = array.map { case (k, v) => k -> f(v) }
+    def transform[C](f: (A, B) => C): ImmArray[(A, C)] = array.map { case (k, v) => k -> f(k, v) }
 
   }
 }
