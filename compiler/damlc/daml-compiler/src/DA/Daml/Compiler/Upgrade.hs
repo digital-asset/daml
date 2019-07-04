@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 --
-
 {-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Compiler.Upgrade
@@ -51,7 +50,6 @@ generateGenInstancesModule qual (pkg, L _l src) =
         , "import \"" <> pkg <> "\" " <> modName
         , "import DA.Generics"
         ]
-
     genericInstances =
         [ generateGenericInstanceFor
             (nameOccName genClassName)
@@ -63,7 +61,6 @@ generateGenInstancesModule qual (pkg, L _l src) =
         | L _ (TyClD _x DataDecl {..}) <- hsmodDecls src
         , not $ hasGenDerivation tcdDataDefn
         ]
-
     hasGenDerivation :: HsDataDefn GhcPs -> Bool
     hasGenDerivation HsDataDefn {..} =
         or [ name `elem` map nameOccName genericClassNames
@@ -106,6 +103,25 @@ upgradeTemplate n =
   , "                    assert $ fromList sigs == fromList (signatory d)"
   , "                    create $ conv d"
   ]
+
+-- | Generate the full source for a daml-lf package.
+generateSrcPkgFromLf ::
+       LF.PackageId
+    -> MS.Map GHC.UnitId LF.PackageId
+    -> LF.Package
+    -> [(NormalizedFilePath, String)]
+generateSrcPkgFromLf thisPkgId pkgMap pkg = do
+    mod <- NM.toList $ LF.packageModules pkg
+    let fp =
+            toNormalizedFilePath $
+            (T.unpack $ T.intercalate "/" $ LF.unModuleName $ LF.moduleName mod) <.>
+            ".daml"
+    pure ( fp
+         , unlines header ++
+           (showSDocForUser fakeDynFlags alwaysQualify $
+            ppr $ generateSrcFromLf thisPkgId pkgMap mod))
+  where
+    header = ["{-# LANGUAGE NoDamlSyntax #-}", "{-# LANGUAGE NoImplicitPrelude #-}"]
 
 -- | Generate the full source for a daml-lf package.
 generateSrcPkgFromLf ::
