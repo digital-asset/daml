@@ -135,12 +135,7 @@ da_scala_test_suite(
 daml_compile(
     name = "DarReaderTest",
     main_src = "src/test/daml/DarReaderTest.daml",
-)
-
-daml_compile(
-    name = "DarReaderTest-dev",
-    main_src = "src/test/daml/DarReaderTest.daml",
-    target = "1.6",
+    target = "1.6"
 )
 
 filegroup(
