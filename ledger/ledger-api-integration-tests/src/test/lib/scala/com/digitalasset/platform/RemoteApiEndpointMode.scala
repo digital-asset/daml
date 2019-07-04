@@ -3,9 +3,6 @@
 
 package com.digitalasset.platform
 
-import java.io.File
-
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.platform.PlatformApplications.RemoteApiEndpoint
 
 /**
@@ -23,6 +20,6 @@ object RemoteApiEndpointMode {
   /**
     * Multi-endpoint configuration driven by a party -> endpoint mapping stored in the provided file.
     */
-  final case class MultiFromConfig(defaultParty: Ref.Party, config: File)
+  final case class MultiFromMapping(mapping: Map[Option[String], RemoteApiEndpoint])
       extends RemoteApiEndpointMode
 }

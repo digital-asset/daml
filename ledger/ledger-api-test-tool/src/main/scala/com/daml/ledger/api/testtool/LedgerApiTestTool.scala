@@ -46,18 +46,30 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
+    val endpoint = toolConfig.mapping.isEmpty match {
+      case true =>
+        RemoteApiEndpointMode.Single(
+          RemoteApiEndpoint.default
+            .withHost(toolConfig.host)
+            .withPort(toolConfig.port)
+            .withTlsConfig(toolConfig.tlsConfig))
+      case false =>
+        val mapping : Map[Option[String], RemoteApiEndpoint] = toolConfig.mapping.map({
+          case (party, (host, port)) => Some(party) -> RemoteApiEndpoint.default.withHost(host).withPort(port).withTlsConfig(None)
+        })
+        RemoteApiEndpointMode.MultiFromMapping(mapping + (None -> RemoteApiEndpoint.default.withHost(toolConfig.host).withPort(toolConfig.port)))
+    }
+
+    println(s"Config: ${toolConfig}")
+//    sys.exit()
+
     val commonConfig = PlatformApplications.Config.default
       .withTimeProvider(TimeProviderType.WallClock)
       .withLedgerIdMode(LedgerIdMode.Dynamic())
       .withCommandSubmissionTtlScaleFactor(toolConfig.commandSubmissionTtlScaleFactor)
       .withUniquePartyIdentifiers(toolConfig.uniquePartyIdentifiers)
       .withUniqueCommandIdentifiers(toolConfig.uniqueCommandIdentifiers)
-      .withRemoteApiEndpoint(
-        RemoteApiEndpointMode.Single(
-          RemoteApiEndpoint.default
-            .withHost(toolConfig.host)
-            .withPort(toolConfig.port)
-            .withTlsConfig(toolConfig.tlsConfig)))
+      .withRemoteApiEndpoint(endpoint)
 
     val default = defaultTests(commonConfig, toolConfig)
     val optional = optionalTests(commonConfig, toolConfig)

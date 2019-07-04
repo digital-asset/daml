@@ -152,3 +152,42 @@ client_server_test(
         "exclusive",
     ],
 )
+
+sh_binary(
+    name = "ledger-api-test-tool-test-multi-runner",
+    srcs = ["ledger-api-test-tool-test-multi-runner.sh"],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
+
+client_server_test(
+    name = "ledger-api-test-tool-test-multi",
+    timeout = "short",
+    client = ":ledger-api-test-tool-test-multi-runner",
+    client_args = [
+        "--executables $(rootpaths :ledger-api-test-tool)",
+        # See note for same argument in :ledger-api-test-tool-test.
+        "--timeout-scale-factor=10",
+        # See note for same argument in :ledger-api-test-tool-test.
+        "--command-submission-ttl-scale-factor=2",
+        "--include=SemanticTests",
+    ],
+
+    # Data files available to both client and server.
+    data = [
+        ":ledger-api-test-tool",
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
+    ],
+    server = "//ledger/api-server-damlonx/reference:reference",
+    server_args = [
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
+    ],
+    tags = [
+        # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
+        # without competition to avoid flakyness.
+        "exclusive",
+    ],
+)

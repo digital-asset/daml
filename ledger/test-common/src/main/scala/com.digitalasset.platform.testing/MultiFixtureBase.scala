@@ -111,13 +111,16 @@ trait MultiFixtureBase[FixtureId, TestContext]
       runTest: PartialFunction[TestFixture, Future[Assertion]]): Future[Assertion] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = global
+    println(s"All fixtures: ${fixtures}")
     if (parallelExecution) {
       val results = fixtures.map(
-        fixture =>
+        fixture => {
+          println(s"Considering ${fixture}")
           if (runTest.isDefinedAt(fixture))
             runTestAgainstFixture(fixture, runTest)
           else
-            Future.successful(succeed))
+            Future.successful(succeed)
+        })
       Future.sequence(results).map(foldAssertions)
     } else {
       fixtures.foldLeft(Future.successful(succeed)) {
