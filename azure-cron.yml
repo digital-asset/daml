@@ -188,3 +188,24 @@ jobs:
           fi
         env:
           MARKETPLACE_TOKEN: $(VSCODE_MARKETPLACE_TOKEN)
+
+  - job: download_stats
+    timeoutInMinutes: 10
+    pool:
+      name: "linux-pool"
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          eval "$(dev-env/bin/dade-assist)"
+
+          STATS=$(mktemp)
+          curl https://api.github.com/repos/digital-asset/daml/releases -s | gzip -9 > $STATS
+
+          GCS_KEY=$(mktemp)
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+          gcloud auth activate-service-account --key-file=$GCS_KEY
+          BOTO_CONFIG=/dev/null gsutil cp $STATS gs://daml-data/downloads/$(date -u +%Y%m%d_%H%M%SZ).json.gz
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
