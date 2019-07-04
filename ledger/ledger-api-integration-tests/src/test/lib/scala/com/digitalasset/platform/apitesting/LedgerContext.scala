@@ -245,16 +245,15 @@ object LedgerContext {
       ResourceExtensions.MultiResource(resource)
   }
 
-  class MultiChannelContext(val mapping: Map[String, LedgerContext], val defaultParty: String)(
+  class MultiChannelContext(val mapping: Map[Option[String], LedgerContext])(
       implicit val esf: ExecutionSequencerFactory)
       extends LedgerContext {
 
     override def forPartyOpt(party: Option[String]): LedgerContext = {
-      val p = party.getOrElse(defaultParty)
       require(
-        mapping.contains(p),
-        "Unrecognised party: " + p + ", expecting one of: " + mapping.keySet.toString)
-      mapping(p)
+        mapping.contains(party),
+        "Unrecognised party " + party.map(p => s"${p}").getOrElse("default party") + ", expecting one of: " + mapping.keySet.toString)
+      mapping(party)
     }
 
     override def ledgerId: domain.LedgerId = default.ledgerId
@@ -285,8 +284,8 @@ object LedgerContext {
       default
         .reset()
         .map(x => {
-          val newMapping = mapping.updated(defaultParty, x)
-          new MultiChannelContext(newMapping, defaultParty)
+          val newMapping = mapping.updated(None, x)
+          new MultiChannelContext(newMapping)
         })
     }
 

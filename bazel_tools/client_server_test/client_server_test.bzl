@@ -57,6 +57,7 @@ client_server_test = rule(
         ),
         "client": attr.label(
             cfg = "target",
+            allow_files = True,
             executable = True,
         ),
         "client_args": attr.string_list(),

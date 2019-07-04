@@ -78,12 +78,11 @@ object LedgerFactories {
   def createRemoteMultiApiProxyResource(config: PlatformApplications.Config)(
       implicit esf: ExecutionSequencerFactory): Resource[LedgerContext] = {
     config.remoteApiEndpoint match {
-      case Some(RemoteApiEndpointMode.MultiFromConfig(defaultParty, mappingConfig)) =>
+      case Some(RemoteApiEndpointMode.MultiFromMapping(mapping)) =>
         val packageIds = config.darFiles.map(getPackageIdOrThrow)
 
-        MultiRemoteServerResource.fromConfig(
-          mappingConfig,
-          defaultParty,
+        MultiRemoteServerResource.fromMapping(
+          mapping,
           config.ledgerId,
           packageIds)
       case _ =>
