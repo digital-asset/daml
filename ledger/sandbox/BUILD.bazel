@@ -97,6 +97,17 @@ da_scala_binary(
     ],
 )
 
+da_scala_binary(
+    name = "sandbox-ephemeral-postgres",
+    main_class = "com.digitalasset.platform.sandbox.persistence.EphemeralPostgresSandboxMain",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox",
+        ":sandbox-scala-tests-lib",
+    ],
+)
+
 genrule(
     name = "sandbox-tarball",
     srcs = [
@@ -175,21 +186,22 @@ da_scala_test_suite(
 )
 
 client_server_test(
-    name = "conformance-test-static-time",
+    name = "conformance-test-wall-clock-inmemory",
     timeout = "short",
-    client = "//ledger/ledger-api-test-tool",
+    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     client_args = [
         "--all-tests",
+        "--exclude SemanticTests",
     ],
     data = [
-        "//ledger/test-common:SemanticTests.dar",
-        "//ledger/test-common:Test.dar",
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
-        "-s",
-        "ledger/test-common/SemanticTests.dar",
-        "ledger/test-common/Test.dar",
+        "-w",
+        "ledger/ledger-api-integration-tests/SemanticTests.dar",
+        "ledger/sandbox/Test.dar",
     ],
     tags = [
         "dont-run-on-darwin",
@@ -197,7 +209,7 @@ client_server_test(
 ) if not is_windows else None
 
 client_server_test(
-    name = "conformance-test-wall-clock",
+    name = "conformance-test-wall-clock-postgres",
     timeout = "short",
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     client_args = [
@@ -226,3 +238,4 @@ test_suite(
         "conformance-test-wall-clock",
     ],
 )
+
