@@ -42,3 +42,5 @@ HEAD — ongoing
 - [DAML Standard Library] Add ``Sum`` and ``Product`` newtypes that
   provide ``Monoid`` instances based on the ``Additive`` and ``Multiplicative``
   instances of the underlying type.
+- [DAML Standard Library] Add ``Min`` and ``Max`` newtypes that
+  provide ``Semigroup`` instances based ``min`` and ``max``.
