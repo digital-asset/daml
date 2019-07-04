@@ -113,7 +113,6 @@ da_scala_test_suite(
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
-        ":DarReaderTest-dev.dalf",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -135,7 +134,6 @@ da_scala_test_suite(
 daml_compile(
     name = "DarReaderTest",
     main_src = "src/test/daml/DarReaderTest.daml",
-    target = "1.6"
 )
 
 filegroup(
