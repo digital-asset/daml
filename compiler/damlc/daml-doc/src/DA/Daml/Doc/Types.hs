@@ -30,7 +30,7 @@ newtype Modulename = Modulename { unModulename :: Text }
     deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Type expression, possibly a (nested) type application
-data Type = TypeApp (Maybe Modulename) Typename [Type] -- ^ Type application
+data Type = TypeApp !(Maybe Modulename) !Typename [Type] -- ^ Type application
           | TypeFun [Type] -- ^ Function type
           | TypeList Type   -- ^ List syntax
           | TypeTuple [Type] -- ^ Tuple syntax

@@ -34,36 +34,39 @@ import qualified Data.Text                                 as T
 import           Data.Tuple.Extra                          (second)
 
 -- | Parse, and process documentation in, a dependency graph of modules.
-mkDocs :: IdeOptions ->
-          [NormalizedFilePath] ->
-          Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
+mkDocs
+    :: IdeOptions
+    -> [NormalizedFilePath]
+    -> Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
 mkDocs opts fp = do
-  modules <- haddockParse opts fp
-  pure $ map mkModuleDocs modules
+    modules <- haddockParse opts fp
+    pure $ map mkModuleDocs modules
 
   where
-    modDoc :: ParsedModule -> Maybe HsDocString
-    modDoc = fmap unLoc . hsmodHaddockModHeader . unLoc . pm_parsed_source
+    modDoc :: TypecheckedModule -> Maybe DocText
+    modDoc
+        = fmap (docToText . unLoc)
+        . hsmodHaddockModHeader . unLoc
+        . pm_parsed_source . tm_parsed_module
 
     mkModuleDocs :: TcModuleResult -> ModuleDoc
-    mkModuleDocs TcModuleResult{..} =
-      let m = tm_parsed_module tmrModule
-          pairs   = pairDeclDocs m
-          typeMap = MS.fromList $ mapMaybe getTypeDocs pairs
-          (tmpls, choiceMap) = getTemplateData m
-          fctDocs = mapMaybe getFctDocs pairs
-          clsDocs = mapMaybe getClsDocs pairs
-          tmplDocs = getTemplateDocs typeMap tmpls choiceMap
-          allChoices = Set.unions $ MS.elems choiceMap
-          adtDocs = MS.elems (typeMap `MS.withoutKeys` tmpls `MS.withoutKeys` allChoices)
-      in ModuleDoc
-           { md_name = Modulename . T.pack . moduleNameString . moduleName . ms_mod . pm_mod_summary $ m
-           , md_descr = fmap (DocText . docToText) (modDoc m)
-           , md_adts = adtDocs
-           , md_templates = tmplDocs
-           , md_functions = fctDocs
-           , md_classes = clsDocs
-           }
+    mkModuleDocs tmr =
+        let ctx@DocCtx{..} = buildDocCtx (tmrModule tmr)
+            typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
+            (tmpls, choiceMap) = getTemplateData ctx (tm_parsed_module dc_tcmod)
+            fctDocs = mapMaybe (getFctDocs ctx) dc_decls
+            clsDocs = mapMaybe (getClsDocs ctx) dc_decls
+            tmplDocs = getTemplateDocs ctx typeMap tmpls choiceMap
+            allChoices = Set.unions $ MS.elems choiceMap
+            adtDocs = MS.elems (typeMap `MS.withoutKeys` tmpls `MS.withoutKeys` allChoices)
+        in ModuleDoc
+            { md_name = dc_mod
+            , md_descr = modDoc dc_tcmod
+            , md_adts = adtDocs
+            , md_templates = tmplDocs
+            , md_functions = fctDocs
+            , md_classes = clsDocs
+            }
 
 -- | Return the names for a given signature.
 -- Equivalent of Haddock’s Haddock.GhcUtils.sigNameNoLoc.
@@ -77,9 +80,9 @@ sigNameNoLoc (FixSig _ (FixitySig _ ns _)) = map unLoc ns
 sigNameNoLoc _                             = []
 
 -- | Given a class, return a map from member names to associated haddocks.
-memberDocs :: TyClDecl GhcPs -> MS.Map (IdP GhcPs) [T.Text]
-memberDocs cls = MS.fromList
-  [ (name, doc) | (d, doc) <- subDecls, name <- declNames d]
+memberDocs :: TyClDecl GhcPs -> MS.Map RdrName DocText
+memberDocs cls = MS.fromList . catMaybes $
+    [ (name,) <$> doc | (d, doc) <- subDecls, name <- declNames (unLoc d) ]
   where
     declNames :: HsDecl GhcPs -> [IdP GhcPs]
     declNames (SigD _ d) = sigNameNoLoc d
@@ -89,7 +92,7 @@ memberDocs cls = MS.fromList
     -- and docs to declarations, sort them by their location
     -- and then use collectDocs.
     -- This is the equivalent of Haddock’s Haddock.Interface.Create.classDecls.
-    subDecls :: [(HsDecl GhcPs, [T.Text])]
+    subDecls :: [(LHsDecl GhcPs, Maybe DocText)]
     subDecls = collectDocs . sortOn getLoc $ decls
     decls = docs ++ defs ++ sigs ++ ats
     docs = map (fmap (DocD noExt)) (tcdDocs cls)
@@ -98,10 +101,10 @@ memberDocs cls = MS.fromList
     ats = map (fmap (TyClD noExt . FamDecl noExt)) (tcdATs cls)
 
 -- | This is equivalent to Haddock’s Haddock.Interface.Create.collectDocs
-collectDocs :: [LHsDecl a] -> [(HsDecl a, [T.Text])]
+collectDocs :: [LHsDecl a] -> [(LHsDecl a, Maybe DocText)]
 collectDocs = go Nothing []
   where
-    go :: Maybe (LHsDecl p) -> [T.Text] -> [LHsDecl p] -> [(HsDecl p, [T.Text])]
+    go :: Maybe (LHsDecl p) -> [DocText] -> [LHsDecl p] -> [(LHsDecl p, Maybe DocText)]
     go Nothing _ [] = []
     go (Just prev) docs [] = finished prev docs []
     go prev docs (L _ (DocD _ (DocCommentNext str)) : ds)
@@ -112,7 +115,25 @@ collectDocs = go Nothing []
     go Nothing docs (d:ds) = go (Just d) docs ds
     go (Just prev) docs (d:ds) = finished prev docs (go (Just d) [] ds)
 
-    finished decl docs rest = (unLoc decl, reverse docs) : rest
+    finished decl docs rest = (decl, toDocText . map unDocText . reverse $ docs) : rest
+
+-- | Context in which to extract a module's docs. This is created from
+-- 'TypecheckedModule' by 'buildDocCtx'.
+data DocCtx = DocCtx
+    { dc_mod :: Modulename
+    , dc_tcmod :: TypecheckedModule
+    , dc_decls :: [(LHsDecl GhcPs, Maybe DocText)]
+    }
+
+buildDocCtx :: TypecheckedModule -> DocCtx
+buildDocCtx dc_tcmod  =
+  let dc_mod
+          = Modulename . T.pack . moduleNameString . moduleName
+          . ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
+      dc_decls
+          = collectDocs . hsmodDecls . unLoc . pm_parsed_source
+          . tm_parsed_module $ dc_tcmod
+  in DocCtx {..}
 
 -- | Parse and typecheck a module and its dependencies in Haddock mode
 --   (retaining Doc declarations), and return the 'TcModuleResult's in
@@ -137,11 +158,6 @@ haddockParse opts f = ExceptT $ do
   diags <- Service.getDiagnostics service
   pure (maybe (Left diags) Right parsed)
 
--- | Pair up all doc decl.s from a parsed module with their referred-to
---   declaration. See Haddock's equivalent Haddock.Interface.Create.collectDocs
-pairDeclDocs :: ParsedModule -> [(HsDecl GhcPs, [T.Text])]
-pairDeclDocs ParsedModule{..} = collectDocs (hsmodDecls . unLoc $ pm_parsed_source)
-
 ------------------------------------------------------------
 
 toDocText :: [T.Text] -> Maybe DocText
@@ -154,10 +170,12 @@ toDocText docs =
 --   adjacent to a type signature, or to the actual function definition. If
 --   neither a comment nor a function type is in the source, we omit the
 --   function.
-getFctDocs :: (HsDecl GhcPs, [T.Text]) ->
-               Maybe FunctionDoc -- (IdP GhcPs, Maybe (LHsType GhcPs), [T.Text])
-getFctDocs (decl, docs) = do
-  (name, mbType) <- case decl of
+getFctDocs
+    :: DocCtx
+    -> (LHsDecl GhcPs, Maybe DocText)
+    -> Maybe FunctionDoc
+getFctDocs _ (decl, docs) = do
+  (name, mbType) <- case unLoc decl of
     SigD _ (TypeSig _ (L _ n :_) t) ->
       Just (n, Just . hsib_body . hswc_body $ t)
     SigD _ (ClassOpSig _ _ (L _ n :_) t) ->
@@ -172,14 +190,16 @@ getFctDocs (decl, docs) = do
     { fct_name = Fieldname (idpToText name)
     , fct_context = hsTypeToContext =<< mbType
     , fct_type = fmap hsTypeToType mbType
-    , fct_descr = toDocText docs
+    , fct_descr = docs
     }
 
-getClsDocs :: (HsDecl GhcPs, [T.Text]) ->
-               Maybe ClassDoc
-getClsDocs (TyClD _ c@ClassDecl{..}, docs) = Just ClassDoc
+getClsDocs
+    :: DocCtx
+    -> (LHsDecl GhcPs, Maybe DocText)
+    -> Maybe ClassDoc
+getClsDocs ctx (L _ (TyClD _ c@ClassDecl{..}), docs) = Just ClassDoc
       {cl_name = Typename . idpToText $ unLoc tcdLName
-      ,cl_descr = toDocText docs
+      ,cl_descr = docs
       ,cl_super = case unLoc tcdCtxt of
         [] -> Nothing
         xs -> Just $ TypeTuple $ map hsTypeToType xs
@@ -188,16 +208,16 @@ getClsDocs (TyClD _ c@ClassDecl{..}, docs) = Just ClassDoc
       }
   where
     f :: LSig GhcPs -> [FunctionDoc]
-    f (L _ (ClassOpSig p b names n)) = catMaybes
-      [ getFctDocs (SigD noExt (ClassOpSig p b [L loc name] n), MS.findWithDefault [] name subdocs)
+    f (L dloc (ClassOpSig p b names n)) = catMaybes
+      [ getFctDocs ctx (L dloc (SigD noExt (ClassOpSig p b [L loc name] n)), MS.lookup name subdocs)
       | L loc name <- names
       ]
     f _ = []
     subdocs = memberDocs c
-getClsDocs _ = Nothing
+getClsDocs _ _ = Nothing
 
-getTypeDocs :: (HsDecl GhcPs, [T.Text]) -> Maybe (IdP GhcPs, ADTDoc)
-getTypeDocs (TyClD _ decl, descrs)
+getTypeDocs :: DocCtx -> (LHsDecl GhcPs, Maybe DocText) -> Maybe (RdrName, ADTDoc)
+getTypeDocs _ (L _ (TyClD _ decl), doc)
   | XTyClDecl{} <- decl =
       Nothing
   | ClassDecl{} <- decl =
@@ -209,7 +229,7 @@ getTypeDocs (TyClD _ decl, descrs)
       let name = idpToText $ unLoc tcdLName
       in Just . (unLoc tcdLName,) $ TypeSynDoc
          { ad_name = Typename name
-         , ad_descr = toDocText descrs
+         , ad_descr = doc
          , ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
          , ad_rhs  = hsTypeToType tcdRhs
          }
@@ -219,7 +239,7 @@ getTypeDocs (TyClD _ decl, descrs)
       in Just . (unLoc tcdLName,) $ ADTDoc
          { ad_name =  Typename name
          , ad_args   = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-         , ad_descr  = toDocText descrs
+         , ad_descr  = doc
          , ad_constrs = map constrDoc . dd_cons $ tcdDataDefn
          }
   where
@@ -228,17 +248,17 @@ getTypeDocs (TyClD _ decl, descrs)
           case con_args con of
             PrefixCon args ->
               PrefixC { ac_name = Typename . idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (DocText . docToText . unLoc) $ con_doc con
+                      , ac_descr = fmap (docToText . unLoc) $ con_doc con
                       , ac_args = map hsTypeToType args
                       }
             InfixCon l r ->
               PrefixC { ac_name = Typename . idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (DocText . docToText . unLoc) $ con_doc con
+                      , ac_descr = fmap (docToText . unLoc) $ con_doc con
                       , ac_args = map hsTypeToType [l, r]
                       }
             RecCon (L _ fs) ->
               RecordC { ac_name  = Typename. idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (DocText . docToText . unLoc) $ con_doc con
+                      , ac_descr = fmap (docToText . unLoc) $ con_doc con
                       , ac_fields = mapMaybe (fieldDoc . unLoc) fs
                       }
 
@@ -247,13 +267,13 @@ getTypeDocs (TyClD _ decl, descrs)
       Just $ FieldDoc
       { fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names -- FIXME why more than one?
       , fd_type = hsTypeToType cd_fld_type
-      , fd_descr = fmap (DocText . docToText . unLoc) cd_fld_doc
+      , fd_descr = fmap (docToText . unLoc) cd_fld_doc
       }
     fieldDoc XConDeclField{}  = Nothing
-getTypeDocs _other = Nothing
+getTypeDocs _ _other = Nothing
 
-getTemplateDocs :: MS.Map RdrName ADTDoc -> Set.Set RdrName -> MS.Map RdrName (Set.Set RdrName) -> [TemplateDoc]
-getTemplateDocs typeMap templates choiceMap = map mkTemplateDoc $ Set.toList templates
+getTemplateDocs :: DocCtx -> MS.Map RdrName ADTDoc -> Set.Set RdrName -> MS.Map RdrName (Set.Set RdrName) -> [TemplateDoc]
+getTemplateDocs _ typeMap templates choiceMap = map mkTemplateDoc $ Set.toList templates
   where
     -- The following functions use the type map and choice map in scope, so
     -- defined internally, and not expected to fail on consistent arguments.
@@ -305,15 +325,15 @@ getTemplateDocs typeMap templates choiceMap = map mkTemplateDoc $ Set.toList tem
 -- | Extracts all names of Template instances defined in a module and a map of
 -- template to set of its choices (instances of Choice with a particular
 -- template).
-getTemplateData :: ParsedModule ->
-                   (Set.Set (IdP GhcPs), MS.Map (IdP GhcPs) (Set.Set (IdP GhcPs)))
-getTemplateData ParsedModule{..} =
+getTemplateData :: DocCtx -> ParsedModule ->
+                   (Set.Set RdrName, MS.Map RdrName (Set.Set RdrName))
+getTemplateData ctx ParsedModule{..} =
   let
     instDs    = mapMaybe (isInstDecl . unLoc) . hsmodDecls . unLoc $ pm_parsed_source
-    templates = mapMaybe isTemplate instDs
+    templates = mapMaybe (isTemplate ctx) instDs
     choiceMap = MS.fromListWith (<>) $
                 map (second Set.singleton) $
-                mapMaybe isChoice instDs
+                mapMaybe (isChoice ctx) instDs
   in
     (Set.fromList templates, choiceMap)
     where
@@ -323,9 +343,9 @@ getTemplateData ParsedModule{..} =
 
 -- | If the given instance declaration is declaring a template instance, return
 --   its name (IdP). Used to build the set of templates declared in a module.
-isTemplate :: ClsInstDecl GhcPs -> Maybe (IdP GhcPs)
-isTemplate (XClsInstDecl _) = Nothing
-isTemplate ClsInstDecl{..}
+isTemplate :: DocCtx -> ClsInstDecl GhcPs -> Maybe RdrName
+isTemplate _ (XClsInstDecl _) = Nothing
+isTemplate _ ClsInstDecl{..}
   | HsIB _ (L _ ty) <-  cid_poly_ty
   , HsAppTy _ (L _ t1) (L _ t2) <- ty
   , HsTyVar _ _ (L _ tmplClass) <- t1
@@ -338,9 +358,9 @@ isTemplate ClsInstDecl{..}
 -- | If the given instance declaration is declaring a template choice instance,
 --   return template and choice name (IdP). Used to build the set of choices
 --   per template declared in a module.
-isChoice :: ClsInstDecl GhcPs -> Maybe (IdP GhcPs, IdP GhcPs)
-isChoice (XClsInstDecl _) = Nothing
-isChoice ClsInstDecl{..}
+isChoice :: DocCtx -> ClsInstDecl GhcPs -> Maybe (IdP GhcPs, IdP GhcPs)
+isChoice _ (XClsInstDecl _) = Nothing
+isChoice _ ClsInstDecl{..}
   | HsIB _ (L _ ty) <-  cid_poly_ty
   , HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
   , HsAppTy _ (L _ cApp2) (L _ cName) <- cApp1
@@ -367,8 +387,8 @@ tyVarText arg = case arg of
 
 
 -- | Converts and trims the bytestring of a doc. decl to Text.
-docToText :: HsDocString -> T.Text
-docToText = T.strip . T.unlines . go . T.lines . T.pack . unpackHDS
+docToText :: HsDocString -> DocText
+docToText = DocText . T.strip . T.unlines . go . T.lines . T.pack . unpackHDS
   where
     -- For a haddock comment of the form
     --
