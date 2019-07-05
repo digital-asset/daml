@@ -104,7 +104,7 @@ upgradeTemplate n =
 
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
-       LF.PackageId -> MS.Map GHC.UnitId T.Text -> LF.Module -> ParsedSource
+       LF.PackageId -> MS.Map GHC.UnitId LF.PackageId -> LF.Module -> ParsedSource
 generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
   where
     thisModuleName =
@@ -115,8 +115,8 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
     getUnitId pkgRef =
         fromJust (error $ "Unknown package: " <> show pkgRef) $
         case pkgRef of
-            LF.PRSelf -> MS.lookup (LF.unPackageId thisPkgId) pkgMapInv
-            LF.PRImport (LF.PackageId pkgId) -> MS.lookup pkgId pkgMapInv
+            LF.PRSelf -> MS.lookup thisPkgId pkgMapInv
+            LF.PRImport pkgId -> MS.lookup pkgId pkgMapInv
     mod =
         HsModule
             { hsmodImports = imports

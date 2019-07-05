@@ -48,6 +48,7 @@ import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Rules.Daml (getDalf)
+import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..))
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import GHC.Conc
@@ -676,7 +677,7 @@ execMigrate opts inFile1 inFile2 mbDir = do
             extractFilesFromArchive [OptDestination tmpDir] dar
             (diags, pkgMap) <- generatePackageMap [tmpDir]
             unless (null diags) $ Logger.logWarning logH $ showDiagnostics diags
-            pure $ MS.map (\(LF.PackageId pkgId, _, _, _) -> pkgId) pkgMap
+            pure $ MS.map dalfPackageId pkgMap
 
 --------------------------------------------------------------------------------
 -- main

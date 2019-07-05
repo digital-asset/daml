@@ -17,10 +17,13 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
 import Data.List.Extra
 import Data.Maybe
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
 import qualified Data.Text as T
 import System.Directory
 import System.FilePath
+
+import Module (unitIdString)
 
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.RuleTypes.Daml
@@ -102,10 +105,10 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
               show (S.toList missingExposed)
       let dalf = encodeArchiveLazy pkg
       -- get all dalf dependencies.
-      deps <- getDalfDependencies file
-      dalfDependencies<- forM deps $ \(DalfDependency depName fp) -> do
-        pkgDalf <- liftIO $ BS.readFile fp
-        return (depName, pkgDalf)
+      dalfDependencies <-
+          fmap
+              (map (\(unitId, pkg) -> (T.pack $ unitIdString unitId, dalfPackageBytes pkg)) . Map.toList)
+              (getDalfDependencies file)
       -- get all file dependencies
       fileDependencies <- MaybeT $ getDependencies file
       liftIO $
