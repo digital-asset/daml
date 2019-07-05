@@ -30,7 +30,7 @@ import qualified Data.Text as T
 import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
-import "ghc-lib-parser" Module (UnitId, stringToUnitId, unitIdString, UnitId(..), DefUnitId(..))
+import "ghc-lib-parser" Module (UnitId, stringToUnitId, UnitId(..), DefUnitId(..))
 import Safe
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
@@ -129,9 +129,6 @@ getDalf file = use GeneratePackage file
 getDalfModule :: NormalizedFilePath -> Action (Maybe LF.Module)
 getDalfModule file = use GenerateDalf file
 
-newtype GlobalPkgMap = GlobalPkgMap (Map.Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
-instance IsIdeGlobal GlobalPkgMap
-
 -- | A dependency on a compiled library.
 data DalfDependency = DalfDependency
   { ddName         :: !T.Text
@@ -145,16 +142,11 @@ ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
 
 
-getDalfDependencies :: NormalizedFilePath -> MaybeT Action [DalfDependency]
+getDalfDependencies :: NormalizedFilePath -> MaybeT Action (Map.Map UnitId DalfPackage)
 getDalfDependencies file = do
     unitIds <- transitivePkgDeps <$> useE GetDependencies file
-    GlobalPkgMap pkgMap <- lift getIdeGlobalAction
-    pure
-        [ DalfDependency (T.pack $ unitIdString uid) fp
-        | (uid, (_, _, _, fp)) <-
-          Map.toList $
-          Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
-        ]
+    pkgMap <- useE GeneratePackageMap ""
+    pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
 runScenarios file = use RunScenarios file
@@ -177,7 +169,7 @@ generateRawDalfRule =
         setPriority priorityGenerateDalf
         -- Generate the map from package names to package hashes
         pkgMap <- use_ GeneratePackageMap ""
-        let pkgMap0 = Map.map (\(pId, _pkg, _bs, _fp) -> LF.unPackageId pId) pkgMap
+        let pkgMap0 = Map.map (LF.unPackageId . dalfPackageId) pkgMap
         -- GHC Core to DAML LF
         case convertModule lfVersion pkgMap0 file core of
             Left e -> return ([e], Nothing)
@@ -191,7 +183,7 @@ generateDalfRule =
         pkg <- use_ GeneratePackageDeps file
         -- The file argument isn’t used in the rule, so we leave it empty to increase caching.
         pkgMap <- use_ GeneratePackageMap ""
-        let pkgs = [(pId, pkg) | (pId, pkg, _bs, _fp) <- Map.elems pkgMap]
+        let pkgs = [(dalfPackageId pkg, dalfPackagePkg pkg) | pkg <- Map.elems pkgMap]
         let world = LF.initWorldSelf pkgs pkg
         unsimplifiedRawDalf <- use_ GenerateRawDalf file
         let rawDalf = LF.simplifyModule unsimplifiedRawDalf
@@ -207,7 +199,7 @@ generateDalfRule =
 -- filename to match the package name.
 -- TODO (drsk): We might want to change this to load only needed packages in the future.
 generatePackageMap ::
-     [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
+     [FilePath] -> IO ([FileDiagnostic], Map.Map UnitId DalfPackage)
 generatePackageMap fps = do
   (diags, pkgs) <-
     fmap (partitionEithers . concat) $
@@ -221,7 +213,7 @@ generatePackageMap fps = do
             mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $
             Archive.decodeArchive dalfBS
           let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
-          Right (unitId, (pkgId, package, dalfBS, dalf))
+          Right (unitId, DalfPackage pkgId package dalfBS)
   return (diags, Map.fromList pkgs)
 
 generatePackageMapRule :: Options -> Rules ()
@@ -281,7 +273,7 @@ contextForFile file = do
     DamlEnv{..} <- getDamlServiceEnv
     pure SS.Context
         { ctxModules = Map.fromList encodedModules
-        , ctxPackages = map (\(pId, _, p, _) -> (pId, p)) (Map.elems pkgMap)
+        , ctxPackages = [(dalfPackageId pkg, dalfPackageBytes pkg) | pkg <- Map.elems pkgMap]
         , ctxDamlLfVersion = lfVersion
         , ctxLightValidation = case envScenarioValidation of
               ScenarioValidationFull -> SS.LightValidation False
@@ -292,7 +284,7 @@ worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
     pkg <- use_ GeneratePackage file
     pkgMap <- use_ GeneratePackageMap ""
-    let pkgs = [ (pId, pkg) | (pId, pkg, _, _) <- Map.elems pkgMap ]
+    let pkgs = [ (dalfPackageId pkg, dalfPackagePkg pkg) | pkg <- Map.elems pkgMap ]
     pure $ LF.initWorldSelf pkgs pkg
 
 data ScenarioBackendException = ScenarioBackendException

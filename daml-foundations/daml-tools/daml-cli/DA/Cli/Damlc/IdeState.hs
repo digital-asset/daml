@@ -13,7 +13,6 @@ import DA.Daml.GHC.Compiler.Options
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as Scenario
 import Development.IDE.Core.Rules.Daml
-import qualified Development.IDE.Core.Shake as Shake
 import Development.IDE.Core.API
 import qualified Development.IDE.Types.Logger as IdeLogger
 
@@ -25,12 +24,7 @@ getDamlIdeState
     -> VFSHandle
     -> IO IdeState
 getDamlIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
-    -- Load the packages from the package database for the scenario service. We swallow errors here
-    -- but shake will report them when typechecking anything.
-    (_diags, pkgMap) <- generatePackageMap (optPackageDbs compilerOpts)
-    let rule = do
-            mainRule compilerOpts
-            Shake.addIdeGlobal $ GlobalPkgMap pkgMap
+    let rule = mainRule compilerOpts
     initialise rule eventHandler (toIdeLogger loggerH) compilerOpts vfs mbScenarioService
 
 -- Wrapper for the common case where the scenario service will be started automatically (if enabled)

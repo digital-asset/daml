@@ -35,7 +35,16 @@ type instance RuleResult GenerateRawDalf = LF.Module
 type instance RuleResult GeneratePackage = LF.Package
 type instance RuleResult GenerateRawPackage = LF.Package
 type instance RuleResult GeneratePackageDeps = LF.Package
-type instance RuleResult GeneratePackageMap = (Map UnitId (LF.PackageId, LF.Package, BS.ByteString, FilePath))
+
+data DalfPackage = DalfPackage
+    { dalfPackageId :: LF.PackageId
+    , dalfPackagePkg :: LF.Package
+    , dalfPackageBytes :: BS.ByteString
+    } deriving (Show, Eq, Generic)
+
+instance NFData DalfPackage
+
+type instance RuleResult GeneratePackageMap = Map UnitId DalfPackage
 
 -- | Runs all scenarios in the given file (but not scenarios in imports).
 type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]
