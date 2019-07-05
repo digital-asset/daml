@@ -50,10 +50,42 @@ getTransactionTrees req =
     where f = raiseList raiseTransactionTree . LL.getTransactionTreesResponseTransactions
 
 getTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe TransactionTree)
-getTransactionByEventId = undefined
+getTransactionByEventId lid eid parties =
+    makeLedgerService $ \timeout config -> do
+    withGRPCClient config $ \client -> do
+        service <- LL.transactionServiceClient client
+        let LL.TransactionService{transactionServiceGetTransactionByEventId=rpc} = service
+        rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout emptyMdm)
+        >>= \case
+            ClientNormalResponse (LL.GetTransactionResponse Nothing) _m1 _m2 _status _details ->
+                fail "GetTransactionResponse, transaction field is missing"
+            ClientNormalResponse (LL.GetTransactionResponse (Just tx)) _m1 _m2 _status _details ->
+                case raiseTransactionTree tx of
+                    Left reason -> fail (show reason)
+                    Right x -> return $ Just x
+            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _details)) ->
+                return Nothing
+            ClientErrorResponse e ->
+                fail (show e)
 
-getTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe Transaction)
-getTransactionById = undefined
+getTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe TransactionTree)
+getTransactionById lid trid parties =
+    makeLedgerService $ \timeout config -> do
+    withGRPCClient config $ \client -> do
+        service <- LL.transactionServiceClient client
+        let LL.TransactionService{transactionServiceGetTransactionById=rpc} = service
+        rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout emptyMdm)
+        >>= \case
+            ClientNormalResponse (LL.GetTransactionResponse Nothing) _m1 _m2 _status _details ->
+                fail "GetTransactionResponse, transaction field is missing"
+            ClientNormalResponse (LL.GetTransactionResponse (Just tx)) _m1 _m2 _status _details ->
+                case raiseTransactionTree tx of
+                    Left reason -> fail (show reason)
+                    Right x -> return $ Just x
+            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _details)) ->
+                return Nothing
+            ClientErrorResponse e ->
+                fail (show e)
 
 getFlatTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionByEventId lid eid parties =
@@ -61,7 +93,7 @@ getFlatTransactionByEventId lid eid parties =
     withGRPCClient config $ \client -> do
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetFlatTransactionByEventId=rpc} = service
-        rpc (ClientNormalRequest (mkRequest lid eid parties) timeout emptyMdm)
+        rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout emptyMdm)
         >>= \case
             ClientNormalResponse (LL.GetFlatTransactionResponse Nothing) _m1 _m2 _status _details ->
                 fail "GetFlatTransactionResponse, transaction field is missing"
@@ -73,14 +105,6 @@ getFlatTransactionByEventId lid eid parties =
                 return Nothing
             ClientErrorResponse e ->
                 fail (show e)
-    where
-    mkRequest :: LedgerId -> EventId -> [Party] -> LL.GetTransactionByEventIdRequest
-    mkRequest lid eid parties =
-        LL.GetTransactionByEventIdRequest
-        (unLedgerId lid)
-        (unEventId eid)
-        (lowerList unParty parties)
-        noTrace
 
 getFlatTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionById lid trid parties =
@@ -88,7 +112,7 @@ getFlatTransactionById lid trid parties =
     withGRPCClient config $ \client -> do
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetFlatTransactionById=rpc} = service
-        rpc (ClientNormalRequest (mkRequest lid trid parties) timeout emptyMdm)
+        rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout emptyMdm)
         >>= \case
             ClientNormalResponse (LL.GetFlatTransactionResponse Nothing) _m1 _m2 _status _details ->
                 fail "GetFlatTransactionResponse, transaction field is missing"
@@ -100,14 +124,6 @@ getFlatTransactionById lid trid parties =
                 return Nothing
             ClientErrorResponse e ->
                 fail (show e)
-    where
-    mkRequest :: LedgerId -> TransactionId -> [Party] -> LL.GetTransactionByIdRequest
-    mkRequest lid trid parties =
-        LL.GetTransactionByIdRequest
-        (unLedgerId lid)
-        (unTransactionId trid)
-        (lowerList unParty parties)
-        noTrace
 
 ledgerEnd :: LedgerId -> LedgerService AbsOffset
 ledgerEnd lid =
@@ -151,3 +167,19 @@ lowerRequest = \case
         getTransactionsRequestVerbose = verbose,
         getTransactionsRequestTraceContext = noTrace
         }
+
+mkByEventIdRequest :: LedgerId -> EventId -> [Party] -> LL.GetTransactionByEventIdRequest
+mkByEventIdRequest lid eid parties =
+    LL.GetTransactionByEventIdRequest
+    (unLedgerId lid)
+    (unEventId eid)
+    (lowerList unParty parties)
+    noTrace
+
+mkByIdRequest :: LedgerId -> TransactionId -> [Party] -> LL.GetTransactionByIdRequest
+mkByIdRequest lid trid parties =
+    LL.GetTransactionByIdRequest
+    (unLedgerId lid)
+    (unTransactionId trid)
+    (lowerList unParty parties)
+    noTrace
