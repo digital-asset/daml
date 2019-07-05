@@ -24,8 +24,6 @@ import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.ValueVersions.asVersionedValue
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
-import com.digitalasset.daml.lf.transaction.VersionTimeline
-import com.digitalasset.daml.lf.language.LanguageVersion
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.HashMap
@@ -1273,8 +1271,6 @@ object SBuiltin {
       templateId: Identifier,
       machine: Machine,
       maintainers: Set[Party]): Unit = {
-    import VersionTimeline.Implicits._
-
     // This check is dependent on whether we are submitting or validating the transaction.
     // See <https://github.com/digital-asset/daml/issues/1866#issuecomment-506315152>,
     // specifically "Consequently it suffices to implement this check
@@ -1284,7 +1280,6 @@ object SBuiltin {
     // then we can lift this restriction without changing the validation
     // parts. In particular, this should not affect whether we have to ship
     // the submitter along with the transaction."
-    // do not check when validating, see
     if (!machine.validating) {
       val submitter = if (machine.committers.size != 1) {
         crash(
@@ -1292,7 +1287,7 @@ object SBuiltin {
       } else {
         machine.committers.toSeq.head
       }
-      if (!(machine.submissionVersion precedes LanguageVersion.checkSubmitterIsInLookupMaintainers)) {
+      if (machine.checkSubmitterInMaintainers) {
         if (!(maintainers.contains(submitter))) {
           throw DamlESubmitterNotInMaintainers(templateId, submitter, maintainers)
         }

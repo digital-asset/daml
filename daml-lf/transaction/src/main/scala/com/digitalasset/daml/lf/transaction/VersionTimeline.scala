@@ -158,4 +158,9 @@ private[digitalasset] object VersionTimeline {
         inAscendingOrder.list.take(li + 1).reverse collectFirst (Function unlift A.extract))
       .getOrElse(minimum)
   }
+
+  def checkSubmitterInMaintainers(lfVers: LanguageVersion): Boolean = {
+    import Implicits._
+    !(lfVers precedes LanguageVersion.checkSubmitterInMaintainers)
+  }
 }

@@ -16,8 +16,6 @@ import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import org.scalatest.{Matchers, WordSpec}
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.language.LanguageMinorVersion.Dev
 
 import scala.language.implicitConversions
 
@@ -26,11 +24,7 @@ class InterpTest extends WordSpec with Matchers {
   private implicit def id(s: String): Ref.Name.T = Name.assertFromString(s)
 
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromExpr(
-      e,
-      LanguageVersion(LMV.V1, Dev),
-      PureCompiledPackages(Map.empty).right.get,
-      false)
+    val machine = Speedy.Machine.fromExpr(e, true, PureCompiledPackages(Map.empty).right.get, false)
     while (!machine.isFinal) {
       machine.step match {
         case SResultContinue => ()
@@ -106,11 +100,8 @@ class InterpTest extends WordSpec with Matchers {
     )
     var machine: Speedy.Machine = null
     "compile" in {
-      machine = Speedy.Machine.fromExpr(
-        list,
-        LanguageVersion(LMV.V1, Dev),
-        PureCompiledPackages(Map.empty).right.get,
-        false)
+      machine =
+        Speedy.Machine.fromExpr(list, true, PureCompiledPackages(Map.empty).right.get, false)
     }
     "interpret" in {
       while (!machine.isFinal) {
@@ -179,7 +170,7 @@ class InterpTest extends WordSpec with Matchers {
     "succeeds" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),
-        LanguageVersion(LMV.V1, Dev),
+        true,
         pkgs1,
         false
       )
@@ -205,7 +196,7 @@ class InterpTest extends WordSpec with Matchers {
     "crashes without definition" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),
-        LanguageVersion(LMV.V1, Dev),
+        true,
         pkgs1,
         false
       )
@@ -233,7 +224,7 @@ class InterpTest extends WordSpec with Matchers {
     "tracks packages" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),
-        LanguageVersion(LMV.V1, Dev),
+        true,
         pkgs1,
         false
       )

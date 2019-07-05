@@ -18,7 +18,8 @@ import org.slf4j.LoggerFactory
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
-import com.digitalasset.daml.lf.language.{LanguageVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
@@ -122,7 +123,8 @@ object ScenarioLoader {
       compiledPackages: CompiledPackages): Speedy.Machine = {
     Speedy.Machine.newBuilder(compiledPackages) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
-      case Right(build) => build(submissionVersion, scenarioExpr)
+      case Right(build) =>
+        build(VersionTimeline.checkSubmitterInMaintainers(submissionVersion), scenarioExpr)
     }
   }
 

@@ -23,8 +23,6 @@ import com.digitalasset.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalatest.{EitherValues, Matchers, WordSpec}
 import scalaz.std.either._
 import scalaz.syntax.apply._
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.language.LanguageMinorVersion.Dev
 
 import scala.language.implicitConversions
 
@@ -517,7 +515,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(false, LanguageVersion(LMV.V1, Dev), Set(party), r, let)
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(party),
+              commands = r,
+              time = let)
             .consume(lookupContract, lookupPackage, lookupKey))
     val Right(tx) = interpretResult
 
@@ -605,7 +608,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(false, LanguageVersion(LMV.V1, Dev), Set(alice), r, let)
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(alice),
+              commands = r,
+              time = let)
             .consume(lookupContractWithKey, lookupPackage, lookupKey))
     val tx = result.right.value
 
@@ -670,7 +678,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(false, LanguageVersion(LMV.V1, Dev), Set(party), r, let)
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(party),
+              commands = r,
+              time = let)
             .consume(lookupContract, lookupPackage, lookupKey))
     val Right(tx) = interpretResult
 
@@ -884,7 +897,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(false, LanguageVersion(LMV.V1, Dev), Set(bob), r, let)
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(bob),
+              commands = r,
+              time = let)
             .consume(lookupContractForPayout, lookupPackage, lookupKey))
     "be translated" in {
       val submitResult = engine
@@ -1081,7 +1099,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(false, LanguageVersion(LMV.V1, Dev), Set(exerciseActor), r, let)
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(exerciseActor),
+              commands = r,
+              time = let)
             .consume(lookupContract, lookupPackage, lookupKey))
 
     }

@@ -14,8 +14,6 @@ import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{FreeSpec, Matchers}
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.language.LanguageMinorVersion.Dev
 
 import scala.collection.immutable.HashMap
 import scala.language.implicitConversions
@@ -1017,10 +1015,10 @@ object SBuiltinTest {
 
   private def eval(e: Expr): Either[SError, SValue] = {
     val machine = Speedy.Machine.fromExpr(
-      e,
-      LanguageVersion(LMV.V1, Dev),
-      PureCompiledPackages(Map.empty).right.get,
-      false)
+      expr = e,
+      checkSubmitterInMaintainers = true,
+      compiledPackages = PureCompiledPackages(Map.empty).right.get,
+      scenario = false)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       while (!machine.isFinal) machine.step() match {

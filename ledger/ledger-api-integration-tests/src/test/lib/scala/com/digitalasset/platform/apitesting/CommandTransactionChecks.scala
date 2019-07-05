@@ -482,7 +482,7 @@ abstract class CommandTransactionChecks
             choice = "FetchDelegated",
             arg = Value(Value.Sum.Record(fetchArg)),
           )
-          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterIsInLookupMaintainers) {
+          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
             ctx.testingHelpers.simpleExercise(
               testIdsGenerator.testCommandId("SDVl8"),
               submitter = delegate,
@@ -503,7 +503,7 @@ abstract class CommandTransactionChecks
               "Expected the submitter 'Charlie' to be in maintainers 'Bob'",
             )
           }
-          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterIsInLookupMaintainers) {
+          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
             ctx.testingHelpers.simpleExercise(
               testIdsGenerator.testCommandId("SDVl9"),
               submitter = delegate,
@@ -574,7 +574,7 @@ abstract class CommandTransactionChecks
           // this fetch still fails even if we do not check that the submitter
           // is in the lookup maintainer, since we have the visibility check
           // implement as part of #753.
-          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterIsInLookupMaintainers) {
+          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
             ctx.testingHelpers.failingExercise(
               testIdsGenerator.testCommandId("TDVl6"),
               submitter = delegate,
@@ -597,7 +597,7 @@ abstract class CommandTransactionChecks
               "Expected the submitter 'Charlie' to be in maintainers 'Bob'",
             )
           }
-          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterIsInLookupMaintainers) {
+          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
             ctx.testingHelpers.simpleExercise(
               testIdsGenerator.testCommandId("TDVl7"),
               submitter = delegate,
@@ -787,7 +787,7 @@ abstract class CommandTransactionChecks
                 RecordField(value = textKeyKey(Alice, key)),
                 RecordField(value = lookupSome(cid1.contractId)))))),
             Code.INVALID_ARGUMENT,
-            if (languageVersion precedes LanguageVersion.checkSubmitterIsInLookupMaintainers) {
+            if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
               "requires authorizers"
             } else {
               "Expected the submitter 'Bob' to be in maintainers 'Alice'"
@@ -806,7 +806,7 @@ abstract class CommandTransactionChecks
                   RecordField(value = textKeyKey(Alice, "bogus-key")),
                   RecordField(value = lookupNone))))),
             Code.INVALID_ARGUMENT,
-            if (languageVersion precedes LanguageVersion.checkSubmitterIsInLookupMaintainers) {
+            if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
               "requires authorizers"
             } else {
               "Expected the submitter 'Bob' to be in maintainers 'Alice'"

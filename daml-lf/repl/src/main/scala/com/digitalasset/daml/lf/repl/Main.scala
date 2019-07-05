@@ -18,6 +18,7 @@ import java.io.{File, PrintWriter, StringWriter}
 import java.nio.file.{Path, Paths}
 import java.io.PrintStream
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import com.digitalasset.daml.lf.PureCompiledPackages
@@ -159,7 +160,7 @@ object Repl {
       .fold(err => sys.error(err.toString), identity)
     def run(submissionVersion: LanguageVersion, expr: Expr)
       : (Speedy.Machine, Either[(SError, Ledger.Ledger), (Double, Int, Ledger.Ledger)]) = {
-      val mach = build(submissionVersion, expr)
+      val mach = build(VersionTimeline.checkSubmitterInMaintainers(submissionVersion), expr)
       (mach, ScenarioRunner(mach).run())
     }
   }
@@ -377,10 +378,11 @@ object Repl {
 
         val machine =
           Speedy.Machine.fromExpr(
-            expr,
-            lfVer,
-            PureCompiledPackages(state.packages).right.get,
-            false)
+            expr = expr,
+            checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
+            compiledPackages = PureCompiledPackages(state.packages).right.get,
+            scenario = false
+          )
         var count = 0
         val startTime = System.nanoTime()
         var errored = false

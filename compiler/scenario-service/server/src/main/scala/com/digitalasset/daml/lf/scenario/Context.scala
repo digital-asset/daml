@@ -19,6 +19,7 @@ import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.speedy.SExpr.{LfDefRef, SDefinitionRef}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
 import com.google.protobuf.ByteString
+import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 /**
   * Scenario interpretation context: maintains a set of modules and external packages, with which
@@ -167,7 +168,11 @@ class Context(val contextId: Context.ContextId) {
     // note that the use of `Map#mapValues` here is intentional: we lazily project the
     // definition out rather than rebuilding the map.
     Speedy.Machine
-      .build(lfVer, defn, PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get)
+      .build(
+        checkSubmitterInMaintainers = VersionTimeline.checkSubmitterInMaintainers(lfVer),
+        sexpr = defn,
+        compiledPackages = PureCompiledPackages(allPackages, defns.mapValues(_._2)).right.get
+      )
   }
 
   def interpretScenario(

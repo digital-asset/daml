@@ -46,5 +46,5 @@ object LanguageVersion {
     * * When executing a Ledger API command, we check that the template underpinning
     *   said command is at least of that version.
     */
-  val checkSubmitterIsInLookupMaintainers = LanguageVersion(LMV.V1, Minor.Dev)
+  val checkSubmitterInMaintainers = LanguageVersion(LMV.V1, Minor.Dev)
 }

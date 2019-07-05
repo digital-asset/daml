@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.value.Value.{
   ContractInst,
   RelativeContractId
 }
+import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
@@ -61,7 +62,9 @@ class SemanticTester(
           // Keep in sync with `scenarios` method in SemanticTester object
           case (name, DValue(_, _, body, isTest)) if isTest =>
             val qualifiedName = QualifiedName(module.name, name)
-            val machine = buildMachine(module.languageVersion, body)
+            val machine = buildMachine(
+              VersionTimeline.checkSubmitterInMaintainers(module.languageVersion),
+              body)
             ScenarioRunner(machine, partyNameMangler = partyNameMangler).run() match {
               case Left((err, _ledger @ _)) =>
                 sys.error(s"error running scenario $err in scenario: $qualifiedName")

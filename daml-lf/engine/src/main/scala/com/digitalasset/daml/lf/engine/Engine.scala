@@ -16,7 +16,6 @@ import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.speedy.{Command => SpeedyCommand}
-import com.digitalasset.daml.lf.language.LanguageVersion
 
 /**
   * Allows for evaluating [[Commands]] and validating [[Transaction]]s.
@@ -73,8 +72,15 @@ final class Engine {
     _commandTranslation
       .preprocessCommands(cmds)
       .flatMap { processedCmds =>
-        CommandsVersion(_compiledPackages, cmds).flatMap { lfVers =>
-          interpret(false, lfVers, Set(cmds.submitter), processedCmds, cmds.ledgerEffectiveTime)
+        ShouldCheckSubmitterInMaintainers(_compiledPackages, cmds).flatMap {
+          checkSubmitterInMaintainers =>
+            interpret(
+              validating = false,
+              checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+              submitters = Set(cmds.submitter),
+              commands = processedCmds,
+              time = cmds.ledgerEffectiveTime
+            )
         }
       }
 
@@ -103,9 +109,16 @@ final class Engine {
   ): Result[Transaction.Transaction] = {
     for {
       commands <- Result.sequence(ImmArray(nodes).map(translateNode(_commandTranslation)))
-      lfVers <- CommandsVersion(_compiledPackages, commands.map(_._2.templateId))
+      checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
+        _compiledPackages,
+        commands.map(_._2.templateId))
       // reinterpret is never used for submission, only for validation.
-      result <- interpret(true, lfVers, submitters, commands, ledgerEffectiveTime)
+      result <- interpret(
+        validating = true,
+        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+        submitters = submitters,
+        commands = commands,
+        time = ledgerEffectiveTime)
     } yield result
   }
 
@@ -155,8 +168,15 @@ final class Engine {
       submitters = submittersOpt.getOrElse(Set.empty)
 
       commands <- translateTransactionRoots(_commandTranslation, tx)
-      lfVers <- CommandsVersion(_compiledPackages, commands.map(_._2._2.templateId))
-      rtx <- interpret(true, lfVers, submitters, commands.map(_._2), ledgerEffectiveTime)
+      checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
+        _compiledPackages,
+        commands.map(_._2._2.templateId))
+      rtx <- interpret(
+        validating = true,
+        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+        submitters = submitters,
+        commands = commands.map(_._2),
+        time = ledgerEffectiveTime)
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
       } else {
@@ -261,16 +281,16 @@ final class Engine {
   private[engine] def interpret(
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
-      submissionVersion: LanguageVersion,
+      checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       expr: Expr,
       time: Time.Timestamp): Result[Transaction.Transaction] = {
     val machine =
       Machine
         .build(
-          submissionVersion,
-          Compiler(_compiledPackages.packages).compile(expr),
-          _compiledPackages)
+          checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+          sexpr = Compiler(_compiledPackages.packages).compile(expr),
+          compiledPackages = _compiledPackages)
         .copy(validating = validating, committers = submitters)
 
     interpretLoop(machine, time)
@@ -284,15 +304,16 @@ final class Engine {
   private[engine] def interpret(
       validating: Boolean,
       /* See documentation for `Speedy.Machine` for the meaning of this field */
-      submissionVersion: LanguageVersion,
+      checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
       time: Time.Timestamp): Result[Transaction.Transaction] = {
     val machine = Machine
       .build(
-        submissionVersion,
-        Compiler(_compiledPackages.packages).compile(commands.map(_._2)),
-        _compiledPackages)
+        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+        sexpr = Compiler(_compiledPackages.packages).compile(commands.map(_._2)),
+        compiledPackages = _compiledPackages
+      )
       .copy(validating = validating, committers = submitters)
     interpretLoop(machine, time)
   }

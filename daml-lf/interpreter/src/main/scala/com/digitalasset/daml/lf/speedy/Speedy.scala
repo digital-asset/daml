@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.value.{Value => V}
-import com.digitalasset.daml.lf.language.LanguageVersion
 
 import scala.collection.JavaConverters._
 import java.util.ArrayList
@@ -39,12 +38,17 @@ object Speedy {
       var committers: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
-      /* The _top level_ version of the submission. This is the scenario definition
-       * version for scenarios, and the command version for Ledger API submissions.
-       * This was introduced as part of #1866 when we introduced a restriction
-       * in key lookups.
+      /* Whether we check if the submitter is in contract key maintainers
+       * when looking up / fetching keys. This was introduced in #1866.
+       * We derive this from the "submission version", which is the scenario
+       * definition DAML-LF version for scenarios, and the command version for
+       * a Ledger API submission.
+       *
+       * We store a specific flag rather than the DAML-LF version mostly here because
+       * we want to avoid the risk of future implementors misusing the DAML-LF
+       * version to influence the operational semantics of DAML-LF.
        */
-      var submissionVersion: LanguageVersion,
+      var checkSubmitterInMaintainers: Boolean,
       /* Whether the current submission is validating the transaction, or interpreting
        * it. If this is false, the committers must be a singleton set.
        */
@@ -184,7 +188,7 @@ object Speedy {
   }
 
   object Machine {
-    private def initial(submissionVersion: LanguageVersion, compiledPackages: CompiledPackages) =
+    private def initial(checkSubmitterInMaintainers: Boolean, compiledPackages: CompiledPackages) =
       Machine(
         ctrl = null,
         env = emptyEnv,
@@ -195,24 +199,24 @@ object Speedy {
         commitLocation = None,
         traceLog = TraceLog(100),
         compiledPackages = compiledPackages,
-        submissionVersion = submissionVersion,
+        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
         validating = false,
       )
 
     def newBuilder(
-        compiledPackages: CompiledPackages): Either[SError, (LanguageVersion, Expr) => Machine] = {
+        compiledPackages: CompiledPackages): Either[SError, (Boolean, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
-      Right({ (submissionVersion: LanguageVersion, expr: Expr) =>
-        initial(submissionVersion, compiledPackages).copy(
+      Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
+        initial(checkSubmitterInMaintainers, compiledPackages).copy(
           ctrl = CtrlExpr(compiler.compile(expr)(SEValue(SToken))))
       })
     }
 
     def build(
-        submissionVersion: LanguageVersion,
+        checkSubmitterInMaintainers: Boolean,
         sexpr: SExpr,
         compiledPackages: CompiledPackages): Machine =
-      initial(submissionVersion, compiledPackages).copy(
+      initial(checkSubmitterInMaintainers, compiledPackages).copy(
         // apply token
         ctrl = CtrlExpr(sexpr(SEValue(SToken))),
       )
@@ -220,7 +224,7 @@ object Speedy {
     // Used from repl.
     def fromExpr(
         expr: Expr,
-        submissionVersion: LanguageVersion,
+        checkSubmitterInMaintainers: Boolean,
         compiledPackages: CompiledPackages,
         scenario: Boolean): Machine = {
       val compiler = Compiler(compiledPackages.packages)
@@ -230,7 +234,7 @@ object Speedy {
         else
           compiler.compile(expr)
 
-      initial(submissionVersion, compiledPackages).copy(
+      initial(checkSubmitterInMaintainers, compiledPackages).copy(
         ctrl = CtrlExpr(sexpr),
       )
     }

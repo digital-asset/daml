@@ -9,8 +9,6 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.ScenarioGetParty
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
-import com.digitalasset.daml.lf.language.LanguageMinorVersion.Dev
 
 class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
 
@@ -18,10 +16,10 @@ class ScenarioRunnerTest extends AsyncWordSpec with Matchers with ScalaFutures {
     "mangle party names correctly" in {
       val e = Ast.EScenario(ScenarioGetParty(Ast.EPrimLit(Ast.PLText(("foo-bar")))))
       val m = Speedy.Machine.fromExpr(
-        e,
-        LanguageVersion(LMV.V1, Dev),
-        PureCompiledPackages(Map.empty).right.get,
-        true)
+        expr = e,
+        checkSubmitterInMaintainers = true,
+        compiledPackages = PureCompiledPackages(Map.empty).right.get,
+        scenario = true)
       val sr = ScenarioRunner(m, _ + "-XXX")
       sr.run()
       m.ctrl shouldBe Speedy.CtrlValue(SValue.SParty(Ref.Party.assertFromString("foo-bar-XXX")))
