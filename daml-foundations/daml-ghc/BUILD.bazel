@@ -14,8 +14,10 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_windows")
 
-daml_ghc_integration_test("daml-ghc-test-all", "DA.Test.GHC.mainAll")
+# Runs the tests with all non-dev DAML-LF versions
+daml_ghc_integration_test("daml-ghc-test-stable", "DA.Test.GHC.mainAll")
 
+# Runs the tests with DAML-LF 1.dev
 daml_ghc_integration_test("daml-ghc-test-dev", "DA.Test.GHC.main")
 
 da_haskell_test(

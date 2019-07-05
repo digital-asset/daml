@@ -45,7 +45,7 @@ Contract keys introduce several new functions.
 
 Use ``fetchByKey`` to fetch the ID and data of the contract with the specified key. It is an alternative to the currently-used ``fetch``.
 
-It returns a tuple of the ID and the contract object (containing all its data). 
+It returns a tuple of the ID and the contract object (containing all its data).
 
 You need authorization from **at least one** of the maintainers to run ``fetchByKey``. A maintainer can authorize by being a signatory, or by submitting the command/being a controller for the choice.
 
@@ -55,6 +55,8 @@ You need authorization from **at least one** of the maintainers to run ``fetchBy
 - you're not a stakeholder of the contract you're trying to fetch
 
 This means that if it fails, it doesn't guarantee that a contract with that key doesn't exist, just that you can't see one.
+
+Moreover, future versions of DAML will enforce that when using ``fetchByKey`` the submitter of the transaction is one of the maintainers. It's therefore advised to write your contract key workflows with this future limitation in mind.
 
 Because different templates can use the same key type, you need to specify the type of the contract you are trying to fetch using the ``@ContractType`` syntax.
 
@@ -72,6 +74,8 @@ If the lookup fails (ie returns ``None``), this guarantees that no contract has 
 Unlike ``fetchByKey``, the transaction **does not fail** if a contract with the key doesn't exist: instead, ``lookupByKey`` just returns ``None``.
 
 To get the data from the contract once you've confirmed it exists, you'll still need to use ``fetch``.
+
+Moreover, like ``fetchByKey``, future versions of DAML will enforce the submitter of the transaction is one of the maintainers. It's therefore advised to write your contract key workflows with this future limitation in mind.
 
 Because different templates can use the same key type, you need to specify the type of the contract you are trying to fetch using the ``@ContractType`` syntax.
 

@@ -145,10 +145,7 @@ class InMemoryLedger(
       val toAbsCoid: ContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(trId)
 
-      //note, that this cannot fail as it's already validated
-      val blindingInfo = Blinding
-        .checkAuthorizationAndBlind(transaction, Set(submitterInfo.submitter))
-        .fold(authorisationError => sys.error(authorisationError.detailMsg), identity)
+      val blindingInfo = Blinding.blind(transaction)
 
       val mappedTx = transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
       // 5b. modify the ActiveContracts, while checking that we do not have double

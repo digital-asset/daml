@@ -44,6 +44,12 @@ import org.scalatest.Inside._
 import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import scalaz.syntax.tag._
+import com.digitalasset.daml.lf.language.{
+  LanguageVersion,
+  LanguageMajorVersion => LMajV,
+  LanguageMinorVersion => LMinV
+}
+import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -61,7 +67,11 @@ abstract class CommandTransactionChecks
     with AsyncTimeLimitedTests
     with Matchers
     with OptionValues {
+  import VersionTimeline.Implicits._
   protected def submitCommand(ctx: LedgerContext, req: SubmitRequest): Future[Completion]
+
+  /** This should be the same version as the dar version. */
+  protected val languageVersion: LanguageVersion = LanguageVersion(LMajV.V1, LMinV.Dev)
 
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
@@ -472,14 +482,48 @@ abstract class CommandTransactionChecks
             choice = "FetchDelegated",
             arg = Value(Value.Sum.Record(fetchArg)),
           )
-          _ <- ctx.testingHelpers.simpleExercise(
-            testIdsGenerator.testCommandId("SDVl8"),
-            submitter = delegate,
-            template = templateIds.delegation,
-            contractId = delegationEv.contractId,
-            choice = "LookupDelegated",
-            arg = Value(Value.Sum.Record(lookupArg(Some(delegatedEv.contractId)))),
-          )
+          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+            ctx.testingHelpers.simpleExercise(
+              testIdsGenerator.testCommandId("SDVl8"),
+              submitter = delegate,
+              template = templateIds.delegation,
+              contractId = delegationEv.contractId,
+              choice = "FetchByKeyDelegated",
+              arg = Value(Value.Sum.Record(lookupArg(Some(delegatedEv.contractId)))),
+            )
+          } else {
+            ctx.testingHelpers.failingExercise(
+              testIdsGenerator.testCommandId("SDVl8"),
+              submitter = delegate,
+              template = templateIds.delegation,
+              contractId = delegationEv.contractId,
+              choice = "FetchByKeyDelegated",
+              arg = Value(Value.Sum.Record(lookupArg(Some(delegatedEv.contractId)))),
+              Code.INVALID_ARGUMENT,
+              "Expected the submitter 'Charlie' to be in maintainers 'Bob'",
+            )
+          }
+          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+            ctx.testingHelpers.simpleExercise(
+              testIdsGenerator.testCommandId("SDVl9"),
+              submitter = delegate,
+              template = templateIds.delegation,
+              contractId = delegationEv.contractId,
+              choice = "LookupByKeyDelegated",
+              arg = Value(Value.Sum.Record(lookupArg(Some(delegatedEv.contractId)))),
+            )
+          } else {
+            ctx.testingHelpers.failingExercise(
+              testIdsGenerator.testCommandId("SDVl9"),
+              submitter = delegate,
+              template = templateIds.delegation,
+              contractId = delegationEv.contractId,
+              choice = "LookupByKeyDelegated",
+              arg = Value(Value.Sum.Record(lookupArg(Some(delegatedEv.contractId)))),
+              Code.INVALID_ARGUMENT,
+              "Expected the submitter 'Charlie' to be in maintainers 'Bob'",
+            )
+          }
         } yield (succeed)
       }
 
@@ -527,14 +571,53 @@ abstract class CommandTransactionChecks
             Code.INVALID_ARGUMENT,
             pattern = "dependency error: couldn't find contract"
           )
-          _ <- ctx.testingHelpers.simpleExercise(
-            testIdsGenerator.testCommandId("TDVl6"),
-            submitter = delegate,
-            template = templateIds.delegation,
-            contractId = delegationEv.contractId,
-            choice = "LookupDelegated",
-            arg = Value(Value.Sum.Record(lookupArg(None))),
-          )
+          // this fetch still fails even if we do not check that the submitter
+          // is in the lookup maintainer, since we have the visibility check
+          // implement as part of #753.
+          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+            ctx.testingHelpers.failingExercise(
+              testIdsGenerator.testCommandId("TDVl6"),
+              submitter = delegate,
+              template = templateIds.delegation,
+              contractId = delegationEv.contractId,
+              choice = "FetchByKeyDelegated",
+              arg = Value(Value.Sum.Record(lookupArg(None))),
+              Code.INVALID_ARGUMENT,
+              "couldn't find key",
+            )
+          } else {
+            ctx.testingHelpers.failingExercise(
+              testIdsGenerator.testCommandId("TDVl6"),
+              submitter = delegate,
+              template = templateIds.delegation,
+              contractId = delegationEv.contractId,
+              choice = "FetchByKeyDelegated",
+              arg = Value(Value.Sum.Record(lookupArg(None))),
+              Code.INVALID_ARGUMENT,
+              "Expected the submitter 'Charlie' to be in maintainers 'Bob'",
+            )
+          }
+          _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+            ctx.testingHelpers.simpleExercise(
+              testIdsGenerator.testCommandId("TDVl7"),
+              submitter = delegate,
+              template = templateIds.delegation,
+              contractId = delegationEv.contractId,
+              choice = "LookupByKeyDelegated",
+              arg = Value(Value.Sum.Record(lookupArg(None))),
+            )
+          } else {
+            ctx.testingHelpers.failingExercise(
+              testIdsGenerator.testCommandId("TDVl7"),
+              submitter = delegate,
+              template = templateIds.delegation,
+              contractId = delegationEv.contractId,
+              choice = "LookupByKeyDelegated",
+              arg = Value(Value.Sum.Record(lookupArg(None))),
+              Code.INVALID_ARGUMENT,
+              "Expected the submitter 'Charlie' to be in maintainers 'Bob'",
+            )
+          }
         } yield (succeed)
       }
 
@@ -704,7 +787,11 @@ abstract class CommandTransactionChecks
                 RecordField(value = textKeyKey(Alice, key)),
                 RecordField(value = lookupSome(cid1.contractId)))))),
             Code.INVALID_ARGUMENT,
-            "requires authorizers"
+            if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+              "requires authorizers"
+            } else {
+              "Expected the submitter 'Bob' to be in maintainers 'Alice'"
+            }
           )
           // ..and non-existing ones
           _ <- ctx.testingHelpers.failingExercise(
@@ -719,7 +806,11 @@ abstract class CommandTransactionChecks
                   RecordField(value = textKeyKey(Alice, "bogus-key")),
                   RecordField(value = lookupNone))))),
             Code.INVALID_ARGUMENT,
-            "requires authorizers")
+            if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+              "requires authorizers"
+            } else {
+              "Expected the submitter 'Bob' to be in maintainers 'Alice'"
+            })
           // successful, authorized lookup
           _ <- ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("CK-test-alice-lookup-found"),

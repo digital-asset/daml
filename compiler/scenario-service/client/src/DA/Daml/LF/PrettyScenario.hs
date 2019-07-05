@@ -263,6 +263,13 @@ prettyScenarioErrorError (Just err) =  do
             $ fcommasep
             $ mapV prettyParty scenarioError_ContractNotVisibleObservers
         ]
+    ScenarioErrorErrorSubmitterNotInMaintainers (ScenarioError_SubmitterNotInMaintainers templateId submitter maintainers) ->
+      pure $ vcat
+        [ "When looking up or fetching a contract of type" <->
+            prettyMay "<missing template id>" (prettyDefName world) templateId <-> "by key, submitter:" <->
+            prettyMay "<missing submitter>" prettyParty submitter
+        , "is not in maintainers:" <-> fcommasep (mapV prettyParty maintainers)
+        ]
 
 prettyFailedAuthorization :: LF.World -> FailedAuthorization -> Doc SyntaxClass
 prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
@@ -380,7 +387,6 @@ prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
                S.fromList (mapV partyParty authParties)
              )
             )
-
 
         Nothing ->
           text "<missing failed_authorization>"

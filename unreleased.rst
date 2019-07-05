@@ -45,3 +45,11 @@ HEAD — ongoing
 - [DAML Standard Library] Add ``Min`` and ``Max`` newtypes that
   provide ``Semigroup`` instances based ``min`` and ``max``.
 - [DAML Integration Kit] Make DivulgenceIT properly work when run via the Ledger API Test Tool.
+
+- [DAML-LF] The DAML-LF developement version (``1.dev``) includes a new, breaking restriction
+  regarding contract key lookups. In short, when looking up or fetching a key,
+  the transaction submitter must be one of the key maintainers.
+
+  Note that this change is not breaking since the compiler does not produce DAML-LF
+  ``1.dev`` by default. However it will be a breaking change once this restriction
+  makes it into DAML-LF ``1.6`` and once DAML-LF ``1.6`` becomes the default.

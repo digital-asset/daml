@@ -248,10 +248,7 @@ private class SqlLedger(
         .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
         .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _))
 
-      //note, that this cannot fail as it's already validated
-      val blindingInfo = Blinding
-        .checkAuthorizationAndBlind(transaction, Set(submitterInfo.submitter))
-        .fold(authorisationError => sys.error(authorisationError.detailMsg), identity)
+      val blindingInfo = Blinding.blind(transaction)
 
       val mappedDisclosure = blindingInfo.explicitDisclosure
         .map {
