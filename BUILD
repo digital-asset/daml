@@ -60,7 +60,7 @@ c2hs_toolchain(
 )
 
 #
-# Pythonh toolchain
+# Python toolchain
 #
 
 py_runtime(
