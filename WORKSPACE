@@ -1,4 +1,11 @@
-workspace(name = "com_github_digital_asset_daml")
+workspace(
+    name = "com_github_digital_asset_daml",
+    managed_directories = {
+        "@npm": ["node_modules"],
+        "@daml_extension_deps": ["daml-foundations/daml-tools/daml-extension/node_modules"],
+        "@navigator_frontend_deps": ["navigator/frontend/node_modules"],
+    },
+)
 
 load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_github_external", "hazel_hackage")
 
@@ -735,8 +742,7 @@ load("@npm//:install_bazel_dependencies.bzl", "install_bazel_dependencies")
 
 install_bazel_dependencies()
 
-# Setup TypeScript toolchain
-load("@build_bazel_rules_typescript//:defs.bzl", "ts_setup_workspace")
+load("@npm_bazel_typescript//:defs.bzl", "ts_setup_workspace")
 
 ts_setup_workspace()
 
@@ -794,6 +800,15 @@ grpc_deps()
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 
 buildifier_dependencies()
+
+nixpkgs_package(
+    name = "python3_nix",
+    attribute_path = "python3",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+register_toolchains("//:nix_python_toolchain") if not is_windows else None
 
 nixpkgs_package(
     name = "postgresql_nix",

@@ -6,7 +6,7 @@
 buildBazelPackage rec {
   name = "bazel-deps-${version}";
   __noChroot = true;
-  version = "2019-03-05";
+  version = "2019-06-29";
 
   meta = with stdenv.lib; {
     homepage = "https://github.com/johnynek/bazel-deps";
@@ -18,8 +18,8 @@ buildBazelPackage rec {
   src = fetchFromGitHub {
     owner = "johnynek";
     repo = "bazel-deps";
-    rev = "a53246efd3bcabc1362c830f53b6ac4818871b12";
-    sha256 = "0fa66yz619lz07lygf7dfvnqbj3ai4g6dwk7l92j2l5c4kpbx29a";
+    rev = "11035a564ff3d535d2d667e6c6fecaeacb252080";
+    sha256 = "0g5cx7sv4p4h6csqqmalsm4r7x56xnsynvb2h2508kwanwasm56s";
   };
 
   patches = [./maven-coordinates.patch];
@@ -74,7 +74,7 @@ buildBazelPackage rec {
       find . -type d -empty -delete
     '';
 
-    sha256 = "0kxb8xh9lqf2b3fx5ln3dm7dbs2min172xa6rdpvqmcl4vy73vcp";
+    sha256 = "1nlcw7p1gcsxkm4zzv4znqdkd42258576m9aavi57b1xqhk68fjm";
   };
 
   buildAttrs = {

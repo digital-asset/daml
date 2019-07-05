@@ -58,13 +58,14 @@ new file mode 100644
 index 0000000..ec944e5
 --- /dev/null
 +++ b/haskell/private/cc_wrapper.bzl
-@@ -0,0 +1,50 @@
+@@ -0,0 +1,52 @@
 +load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
 +load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
 +
 +def _cc_wrapper_impl(ctx):
 +    cc_toolchain = find_cpp_toolchain(ctx)
 +    feature_configuration = cc_common.configure_features(
++        ctx = ctx,
 +        cc_toolchain = cc_toolchain,
 +        requested_features = ctx.features,
 +        unsupported_features = ctx.disabled_features,
@@ -95,7 +96,8 @@ index 0000000..ec944e5
 +        "_cc_toolchain": attr.label(
 +            default = Label("@bazel_tools//tools/cpp:current_cc_toolchain"),
 +        ),
-+    }
++    },
++    fragments = ["cpp"],
 +)
 +
 +def cc_wrapper(name, **kwargs):

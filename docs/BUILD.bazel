@@ -12,7 +12,7 @@ nodejs_binary(
         "@npm//grunt-cli",
         "@npm//matchdep",
     ],
-    entry_point = "grunt-cli/bin/grunt",
+    entry_point = "@npm//:node_modules/grunt-cli/bin/grunt",
 )
 
 genrule(

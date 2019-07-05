@@ -34,7 +34,7 @@ def _haskell_hlint_aspect_impl(target, ctx):
     inputPaths = []
     if hasattr(ctx.rule.attr, "srcs"):
         for src in ctx.rule.attr.srcs:
-            for f in src.files:
+            for f in src.files.to_list():
                 # We want to only do native Haskell source files, which
                 # seems to involve ignoring these generated paths
                 # (the f.is_source almost always returns True)
