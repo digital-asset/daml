@@ -33,7 +33,8 @@ object ReferenceServer extends App {
 
   val config = Cli.parse(args).getOrElse(sys.exit(1))
 
-  // Name of this participant, ultimately pass this info in command-line
+  // Name of this participant
+  // TODO: Pass this info in command-line (See issue #2025)
   val participantId: ParticipantId = Ref.LedgerString.assertFromString("in-memory-participant")
 
   // Initialize Akka and log exceptions in flows.

@@ -394,9 +394,7 @@ abstract class LedgerBackedIndexService(
 
   // PartyManagementService
   override def getParticipantId(): Future[ParticipantId] =
-    // In the case of the sandbox, there is only one participant node
-    // TODO: Make the participant ID configurable
-    Future.successful(Ref.LedgerString.assertFromString(ledger.ledgerId.unwrap))
+    Future.successful(participantId)
 
   override def listParties(): Future[List[PartyDetails]] =
     ledger.parties

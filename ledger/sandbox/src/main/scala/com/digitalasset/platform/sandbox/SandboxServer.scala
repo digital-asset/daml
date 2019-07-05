@@ -83,8 +83,9 @@ object SandboxServer {
 
 class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
 
-  // Name of this participant, ultimately pass this info in command-line
-  val participantId: ParticipantId = Ref.LedgerString.assertFromString("in-memory-participant")
+  // Name of this participant
+  // TODO: Pass this info in command-line (See issue #2025)
+  val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
 
   case class ApiServerState(
       ledgerId: LedgerId,

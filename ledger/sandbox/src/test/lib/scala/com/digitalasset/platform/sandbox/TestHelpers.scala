@@ -50,7 +50,7 @@ trait TestHelpers {
     implicit val mm: MetricsManager = MetricsManager()
 
     val ledgerId = LedgerId("sandbox-ledger")
-    val participantId: ParticipantId = Ref.LedgerString.assertFromString("in-memory-participant")
+    val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
 
     val indexAndWriteService = SandboxIndexAndWriteService
       .inMemory(
