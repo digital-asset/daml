@@ -52,6 +52,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tCreateWithoutKey
     , tStakeholders
     , tPastFuture
+    , tGetFlatTransactionByEventId
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -155,7 +156,8 @@ tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \pi
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactions lid alice
+    let verbose = False
+    txs <- getAllTransactions lid alice verbose
     let command = createWithKey pid alice 100
     Right _ <- submitCommand lid alice command
     liftIO $ do
@@ -167,7 +169,8 @@ tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -
 tCreateWithoutKey :: SandboxTest
 tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactions lid alice
+    let verbose = False
+    txs <- getAllTransactions lid alice verbose
     let command = createWithoutKey pid alice 100
     Right _ <- submitCommand lid alice command
     liftIO $ do
@@ -207,6 +210,19 @@ tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \pid -> do
         closeStream future1 gone
         closeStream future2 gone
         where gone = Abnormal "client gone"
+
+tGetFlatTransactionByEventId :: SandboxTest
+tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventId" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    let verbose = True
+    txs <- getAllTransactions lid alice verbose
+    Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
+    Just (Right txOnStream) <- liftIO $ timeout 1 (takeStream txs)
+    Transaction{events=[CreatedEvent{eid}]} <- return txOnStream
+    Just txByEventId <- getFlatTransactionByEventId lid eid [alice]
+    liftIO $ assertEqual "tx" txOnStream txByEventId
+    Nothing <- getFlatTransactionByEventId lid (EventId "eeeeee") [alice]
+    return ()
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands

@@ -1,9 +1,12 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE GADTs #-}
+
 module DA.Ledger.Services.TransactionService (
     ledgerEnd,
     GetTransactionsRequest(..), filterEverthingForParty, getTransactions,
+    getFlatTransactionByEventId,
     ) where
 
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter
@@ -74,3 +77,30 @@ getTransactions tup =
     return stream
     where
         f = raiseList raiseTransaction . LL.getTransactionsResponseTransactions
+
+getFlatTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe Transaction)
+getFlatTransactionByEventId lid eid parties =
+    makeLedgerService $ \timeout config -> do
+    withGRPCClient config $ \client -> do
+        service <- LL.transactionServiceClient client
+        let LL.TransactionService{transactionServiceGetFlatTransactionByEventId=rpc} = service
+        rpc (ClientNormalRequest (mkRequest lid eid parties) timeout emptyMdm)
+        >>= \case
+            ClientNormalResponse (LL.GetFlatTransactionResponse Nothing) _m1 _m2 _status _details ->
+                fail "GetFlatTransactionResponse, transaction field is missing"
+            ClientNormalResponse (LL.GetFlatTransactionResponse (Just tx)) _m1 _m2 _status _details ->
+                case raiseTransaction tx of
+                    Left reason -> fail (show reason)
+                    Right x -> return $ Just x
+            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _details)) ->
+                return Nothing
+            ClientErrorResponse e ->
+                fail (show e)
+    where
+    mkRequest :: LedgerId -> EventId -> [Party] -> LL.GetTransactionByEventIdRequest
+    mkRequest lid eid parties =
+        LL.GetTransactionByEventIdRequest
+        (unLedgerId lid)
+        (unEventId eid)
+        (lowerList unParty parties)
+        noTrace

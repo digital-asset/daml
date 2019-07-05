@@ -37,10 +37,9 @@ configOfPort port =
 -- Non-primitive, but useful way to get Transactions
 -- TODO: move to separate Utils module?
 
-getAllTransactions :: LedgerId -> Party -> LedgerService (Stream Transaction)
-getAllTransactions lid party = do
+getAllTransactions :: LedgerId -> Party -> Bool -> LedgerService (Stream Transaction)
+getAllTransactions lid party verbose = do
     let filter = filterEverthingForParty party
-    let verbose = False
     let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
     getTransactions req
 

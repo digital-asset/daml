@@ -5,7 +5,7 @@
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (
-    lowerCommands, lowerLedgerOffset,
+    lowerList, lowerCommands, lowerLedgerOffset,
     Perhaps, raiseList, raiseTransaction, raiseCompletionStreamResponse, raiseAbsLedgerOffset,
     RaiseFailureReason,
     ) where
@@ -28,6 +28,9 @@ import qualified Proto3.Suite.Types as LL
 import DA.Ledger.Types
 
 -- lower
+
+lowerList :: (a -> b) -> [a] -> Vector b
+lowerList lowerElem xs = Vector.fromList $ map lowerElem xs
 
 lowerLedgerOffset :: LedgerOffset -> LL.LedgerOffset
 lowerLedgerOffset = \case
