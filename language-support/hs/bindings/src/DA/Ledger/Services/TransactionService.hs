@@ -5,12 +5,14 @@
 
 module DA.Ledger.Services.TransactionService (
     ledgerEnd,
-    GetTransactionsRequest(..), filterEverthingForParty, getTransactions,
+    GetTransactionsRequest(..), filterEverthingForParty,
+    getTransactions,
+    getTransactionTrees,
     getFlatTransactionByEventId,
     getFlatTransactionById,
     ) where
 
-import Com.Digitalasset.Ledger.Api.V1.TransactionFilter
+import Com.Digitalasset.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
 import Control.Concurrent(forkIO)
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
@@ -66,18 +68,28 @@ lowerRequest = \case
         }
 
 getTransactions :: GetTransactionsRequest -> LedgerService (Stream Transaction)
-getTransactions tup =
+getTransactions req =
     makeLedgerService $ \timeout config -> do
     stream <- newStream
-    let request = lowerRequest tup
     _ <- forkIO $
         withGRPCClient config $ \client -> do
             service <- LL.transactionServiceClient client
             let LL.TransactionService {transactionServiceGetTransactions=rpc} = service
-            sendToStreamFlat timeout request f stream rpc
+            sendToStreamFlat timeout (lowerRequest req) f stream rpc
     return stream
-    where
-        f = raiseList raiseTransaction . LL.getTransactionsResponseTransactions
+    where f = raiseList raiseTransaction . LL.getTransactionsResponseTransactions
+
+getTransactionTrees :: GetTransactionsRequest -> LedgerService (Stream TransactionTree)
+getTransactionTrees req =
+    makeLedgerService $ \timeout config -> do
+    stream <- newStream
+    _ <- forkIO $
+        withGRPCClient config $ \client -> do
+            service <- LL.transactionServiceClient client
+            let LL.TransactionService {transactionServiceGetTransactionTrees=rpc} = service
+            sendToStreamFlat timeout (lowerRequest req) f stream rpc
+    return stream
+    where f = raiseList raiseTransactionTree . LL.getTransactionTreesResponseTransactions
 
 getFlatTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionByEventId lid eid parties =

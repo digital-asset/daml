@@ -55,6 +55,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetFlatTransactionByEventId
     , tGetFlatTransactionById
     , tGetTransactions
+    , tGetTransactionTrees
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -246,6 +247,15 @@ tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \
     txs <- getAllTransactions lid alice verbose
     Right cidA <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
     Just (Right Transaction{cid=Just cidB}) <- liftIO $ timeout 1 (takeStream txs)
+    liftIO $ do assertEqual "cid" cidA cidB
+
+tGetTransactionTrees :: SandboxTest
+tGetTransactionTrees withSandbox = testCase "tGetTransactionTrees" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    let verbose = True
+    txs <- getAllTransactionTrees lid alice verbose
+    Right cidA <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
+    Just (Right TransactionTree{cid=Just cidB}) <- liftIO $ timeout 1 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
 
 ----------------------------------------------------------------------
