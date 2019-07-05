@@ -54,6 +54,7 @@ def daml_deps():
                 # XXX: Remove once upstream PR was merged and we've updated to
                 # Bazel 0.27. https://github.com/tweag/rules_haskell/pull/970
                 "@haskell_static_ghc_patch//file:downloaded",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-library-dirs.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
