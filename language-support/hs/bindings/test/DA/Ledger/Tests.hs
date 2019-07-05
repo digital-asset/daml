@@ -54,6 +54,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tPastFuture
     , tGetFlatTransactionByEventId
     , tGetFlatTransactionById
+    , tGetTransactions
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -238,6 +239,14 @@ tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run w
     Nothing <- getFlatTransactionById lid (TransactionId "xxxxx") [alice]
     return ()
 
+tGetTransactions :: SandboxTest
+tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    let verbose = True
+    txs <- getAllTransactions lid alice verbose
+    Right cidA <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
+    Just (Right Transaction{cid=Just cidB}) <- liftIO $ timeout 1 (takeStream txs)
+    liftIO $ do assertEqual "cid" cidA cidB
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands
