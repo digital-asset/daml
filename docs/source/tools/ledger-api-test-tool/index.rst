@@ -131,6 +131,24 @@ You don't need to supply the hosts and ports arguments, because the Ledger API
 Test Tool defaults to using ``localhost:6865``, which the Sandbox uses by
 default.
 
+Testing a DAML Ledger servced by multiple Ledger API endpoints
+==============================================================
+
+Note: Only a subset of tests supports this mode of operation. Refer to
+``--help`` for details.
+
+To test your ledger, which handles different parties at different Ledger API endpoints:
+
+.. code-block:: console
+
+   $ java -jar ledger-api-test-tool.jar --mapping:Alice=serverA:6865 --mapping:Bob=serverB:6865 -h localhost -p 6865
+
+This will route commands related to party ``Alice`` to endpoint ``serverA:6865``
+and commands related to party ``Bob`` to endpoint ``serverB:6865``. For other
+parties and for tests which do not make use of this capability the endpoint
+defined by ``-h`` and ``-p`` arguments will be used, which is ``localhost:6865``
+in this example.
+
 Testing your tool from continuous integration pipelines
 =======================================================
 

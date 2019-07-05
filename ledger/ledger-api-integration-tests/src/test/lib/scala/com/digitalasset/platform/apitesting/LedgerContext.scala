@@ -252,7 +252,9 @@ object LedgerContext {
     override def forPartyOpt(party: Option[String]): LedgerContext = {
       require(
         mapping.contains(party),
-        "Unrecognised party " + party.map(p => s"${p}").getOrElse("default party") + ", expecting one of: " + mapping.keySet.toString)
+        "Unrecognised party " + party
+          .map(p => s"'${p}'")
+          .getOrElse("default party") + ", expecting one of: " + mapping.keySet.toString)
       mapping(party)
     }
 

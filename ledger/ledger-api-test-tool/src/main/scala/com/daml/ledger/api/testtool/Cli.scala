@@ -35,11 +35,16 @@ object Cli {
 
     opt[(String, String)]("mapping")
       .unbounded()
-      .action({case ((party, hostport), c) => {
-        val (host, port) = hostport.split(":") match { case Array(h, p) => (h, Integer.parseInt(p)) }
-        c.copy(mapping = c.mapping + ((party -> ((host, port)))))
-      }})
-      .text(s"Ledger API server mapping. Defaults to a single host and port for all parties. TLS configuration is not implemented for multi-endpoint testing.")
+      .action({
+        case ((party, hostport), c) => {
+          val (host, port) =
+            hostport.split(":") match { case Array(h, p) => (h, Integer.parseInt(p)) }
+          c.copy(mapping = c.mapping + ((party -> ((host, port)))))
+        }
+      })
+      .text(s"""Specifies a mapping from party names to Ledger API endpoints. Supported only in 'SemanticTests' suite.
+               |Other tests will use endpoint specified by '--host' and '--target-port' arguments. TLS configuration is
+               |not implemented for multi-endpoint testing.""".stripMargin)
 
     opt[Int]('p', "target-port")
       .action((x, c) => c.copy(port = x))
