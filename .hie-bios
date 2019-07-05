@@ -1,7 +1,7 @@
 #!/bin/sh
 cat "$HIE_BIOS_ARGS" | sed "s/'//g" | sed "s/-qg//g" | sed "s/+RTS.*-RTS//" | sed "s|/bazel-out|bazel-out|g" | sed "s/-fexternal-interpreter//g"
 
-BAZEL_GENFILES="$(bazel info | awk '/^bazel-genfiles: / { print $2; }')"
+BAZEL_GENFILES="$(bazel info bazel-genfiles)"
 
 # For now we hardcode include paths as Bazel passes the list of files explicitly
 # and does not use include paths so we cannot get it from the GHCi invocation.
