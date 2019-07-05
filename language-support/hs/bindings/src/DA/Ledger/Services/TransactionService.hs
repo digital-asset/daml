@@ -7,6 +7,7 @@ module DA.Ledger.Services.TransactionService (
     ledgerEnd,
     GetTransactionsRequest(..), filterEverthingForParty, getTransactions,
     getFlatTransactionByEventId,
+    getFlatTransactionById,
     ) where
 
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter
@@ -102,5 +103,32 @@ getFlatTransactionByEventId lid eid parties =
         LL.GetTransactionByEventIdRequest
         (unLedgerId lid)
         (unEventId eid)
+        (lowerList unParty parties)
+        noTrace
+
+getFlatTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe Transaction)
+getFlatTransactionById lid trid parties =
+    makeLedgerService $ \timeout config -> do
+    withGRPCClient config $ \client -> do
+        service <- LL.transactionServiceClient client
+        let LL.TransactionService{transactionServiceGetFlatTransactionById=rpc} = service
+        rpc (ClientNormalRequest (mkRequest lid trid parties) timeout emptyMdm)
+        >>= \case
+            ClientNormalResponse (LL.GetFlatTransactionResponse Nothing) _m1 _m2 _status _details ->
+                fail "GetFlatTransactionResponse, transaction field is missing"
+            ClientNormalResponse (LL.GetFlatTransactionResponse (Just tx)) _m1 _m2 _status _details ->
+                case raiseTransaction tx of
+                    Left reason -> fail (show reason)
+                    Right x -> return $ Just x
+            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _details)) ->
+                return Nothing
+            ClientErrorResponse e ->
+                fail (show e)
+    where
+    mkRequest :: LedgerId -> TransactionId -> [Party] -> LL.GetTransactionByIdRequest
+    mkRequest lid trid parties =
+        LL.GetTransactionByIdRequest
+        (unLedgerId lid)
+        (unTransactionId trid)
         (lowerList unParty parties)
         noTrace
