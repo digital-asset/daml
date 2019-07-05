@@ -3,11 +3,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
-import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Zip as Zip
 import Conduit hiding (connect)
 import qualified Data.Conduit.Zlib as Zlib
-import qualified Data.Conduit.Tar.Extra as Tar.Conduit
+import qualified Data.Conduit.Tar as Tar.Conduit
+import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception
@@ -16,6 +16,7 @@ import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import qualified Data.Text as T
 import Data.Typeable
+import Data.Maybe (maybeToList)
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
@@ -43,10 +44,14 @@ main =
     javaPath <- locateRunfiles "local_jdk/bin"
     mvnPath <- locateRunfiles "mvn_dev_env/bin"
     tarPath <- locateRunfiles "tar_dev_env/bin"
+    -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
+    -- on the PATH as mvn.cmd executes cmd.exe
+    mbComSpec <- getEnv "COMSPEC"
+    let mbCmdDir = takeDirectory <$> mbComSpec
     let damlDir = tmpDir </> "daml"
     withEnv
         [ ("DAML_HOME", Just damlDir)
-        , ("PATH", Just $ intercalate [searchPathSeparator] ((damlDir </> "bin") : tarPath : javaPath : mvnPath : oldPath))
+        , ("PATH", Just $ intercalate [searchPathSeparator] $ ((damlDir </> "bin") : tarPath : javaPath : mvnPath : oldPath) ++ maybeToList mbCmdDir)
         ] $ defaultMain (tests damlDir tmpDir)
 
 tests :: FilePath -> FilePath -> TestTree
@@ -57,7 +62,7 @@ tests damlDir tmpDir = testGroup "Integration tests"
         runConduitRes
             $ sourceFileBS releaseTarball
             .| Zlib.ungzip
-            .| Tar.Conduit.untar (Tar.Conduit.restoreFile throwError tarballDir)
+            .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError tarballDir)
         if isWindows
             then callProcessQuiet
                 (tarballDir </> "daml" </> damlInstallerName)
@@ -258,7 +263,7 @@ packagingTests tmpDir = testGroup "packaging"
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
-quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
+quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
           callProcessQuiet damlName ["new", quickstartDir, "quickstart-java"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
@@ -285,17 +290,11 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
                   (\s -> connect s (addrAddress addr))
               -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
-    ] <>
-    -- The mvn tests seem to fail on Windows for some reason so for now we disable them.
-    -- mvn itself does seem to work fine outside of this test so it seems to be some
-    -- setup issue.
-    -- See https://github.com/digital-asset/daml/issues/1127
-    if isWindows then [] else
-    [ testCase "mvn compile" $
+    , testCase "mvn compile" $
       withCurrentDirectory quickstartDir $ do
           mvnDbTarball <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "integration-tests" </> "integration-tests-mvn.tar")
-          Tar.extract (takeDirectory mvnDir) mvnDbTarball
-          callProcess "mvn" [mvnRepoFlag, "-q", "compile"]
+          Tar.Conduit.extractTarball mvnDbTarball $ Just $ takeDirectory mvnDir
+          callCommand $ unwords ["mvn", mvnRepoFlag, "-q", "compile"]
     , testCase "mvn exec:java@run-quickstart" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull1 ->
@@ -306,7 +305,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
               restPort :: Int <- fromIntegral <$> getFreePort
-              let mavenProc = (proc "mvn" [mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }
+              let mavenProc = (shell $ unwords ["mvn", mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }
               withCreateProcess mavenProc $
                   \_ _ _ ph -> race_ (waitForProcess' mavenProc ph) $ do
                   let url = "http://localhost:" <> show restPort <> "/iou"
