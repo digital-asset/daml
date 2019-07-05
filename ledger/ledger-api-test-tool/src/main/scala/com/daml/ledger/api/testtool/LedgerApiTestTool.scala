@@ -46,22 +46,31 @@ object LedgerApiTestTool {
       sys.exit(0)
     }
 
-    val endpoint = toolConfig.mapping.isEmpty match {
-      case true =>
-        RemoteApiEndpointMode.Single(
-          RemoteApiEndpoint.default
-            .withHost(toolConfig.host)
-            .withPort(toolConfig.port)
-            .withTlsConfig(toolConfig.tlsConfig))
-      case false =>
-        val mapping : Map[Option[String], RemoteApiEndpoint] = toolConfig.mapping.map({
-          case (party, (host, port)) => Some(party) -> RemoteApiEndpoint.default.withHost(host).withPort(port).withTlsConfig(None)
-        })
-        RemoteApiEndpointMode.MultiFromMapping(mapping + (None -> RemoteApiEndpoint.default.withHost(toolConfig.host).withPort(toolConfig.port)))
-    }
-
-    println(s"Config: ${toolConfig}")
-//    sys.exit()
+    val (endpoint, backends): (RemoteApiEndpointMode, Set[LedgerBackend]) =
+      toolConfig.mapping.isEmpty match {
+        case true =>
+          (
+            RemoteApiEndpointMode.Single(
+              RemoteApiEndpoint.default
+                .withHost(toolConfig.host)
+                .withPort(toolConfig.port)
+                .withTlsConfig(toolConfig.tlsConfig)),
+            Set(LedgerBackend.RemoteSingleApiProxy))
+        case false =>
+          val mapping: Map[Option[String], RemoteApiEndpoint] = toolConfig.mapping.map({
+            case (party, (host, port)) =>
+              Some(party) -> RemoteApiEndpoint.default
+                .withHost(host)
+                .withPort(port)
+                .withTlsConfig(None)
+          })
+          (
+            RemoteApiEndpointMode.MultiFromMapping(
+              mapping + (None -> RemoteApiEndpoint.default
+                .withHost(toolConfig.host)
+                .withPort(toolConfig.port))),
+            Set(LedgerBackend.RemoteMultiApiProxy))
+      }
 
     val commonConfig = PlatformApplications.Config.default
       .withTimeProvider(TimeProviderType.WallClock)
@@ -71,8 +80,8 @@ object LedgerApiTestTool {
       .withUniqueCommandIdentifiers(toolConfig.uniqueCommandIdentifiers)
       .withRemoteApiEndpoint(endpoint)
 
-    val default = defaultTests(commonConfig, toolConfig)
-    val optional = optionalTests(commonConfig, toolConfig)
+    val default = defaultTests(commonConfig, toolConfig, backends)
+    val optional = optionalTests(commonConfig, toolConfig, backends)
 
     val allTests = default ++ optional
 
@@ -141,15 +150,15 @@ object LedgerApiTestTool {
 
   private def defaultTests(
       commonConfig: PlatformApplications.Config,
-      toolConfig: Config): Map[String, () => Suite] = {
+      toolConfig: Config,
+      backends: Set[LedgerBackend]): Map[String, () => Suite] = {
     val semanticTestsRunner = lazyInit(
       "SemanticTests",
       name =>
         new SandboxSemanticTestsLfRunner {
           override def suiteName: String = name
           override def actorSystemName = s"${name}TestToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteSingleApiProxy)
+          override def fixtureIdsEnabled: Set[LedgerBackend] = backends
           override implicit lazy val patienceConfig: PatienceConfig =
             PatienceConfig(Span(60L, Seconds))
           override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
@@ -164,7 +173,8 @@ object LedgerApiTestTool {
   }
   private def optionalTests(
       commonConfig: PlatformApplications.Config,
-      toolConfig: Config): Map[String, () => Suite] = {
+      toolConfig: Config,
+      backends: Set[LedgerBackend]): Map[String, () => Suite] = {
 
     val transactionServiceIT = lazyInit(
       "TransactionServiceTests",
@@ -173,8 +183,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteSingleApiProxy)
+          override def fixtureIdsEnabled: Set[LedgerBackend] = backends
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }
@@ -187,8 +196,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteSingleApiProxy)
+          override def fixtureIdsEnabled: Set[LedgerBackend] = backends
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }
@@ -201,8 +209,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteSingleApiProxy)
+          override def fixtureIdsEnabled: Set[LedgerBackend] = backends
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }
@@ -215,8 +222,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteSingleApiProxy)
+          override def fixtureIdsEnabled: Set[LedgerBackend] = backends
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }
@@ -229,8 +235,7 @@ object LedgerApiTestTool {
           override def suiteName: String = name
           override def actorSystemName = s"${name}ToolActorSystem"
           override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteSingleApiProxy)
+          override def fixtureIdsEnabled: Set[LedgerBackend] = backends
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(integrationTestResource))
       }

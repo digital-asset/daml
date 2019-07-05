@@ -26,9 +26,9 @@ class TestIdsGenerator(config: PlatformApplications.Config) {
   def testWorkflowId(workflowId: String) = workflowId + runWorkflowSuffix
 
   def untestPartyName(partyText: String) =
-    if (config.uniquePartyIdentifiers) partyText.stripSuffix("-" + runPartySuffix) else partyText
+    if (config.uniquePartyIdentifiers) partyText.stripSuffix(runPartySuffix) else partyText
   def untestCommandId(commandId: String) =
-    if (config.uniqueCommandIdentifiers) commandId.stripSuffix("-" + runCommandSuffix)
+    if (config.uniqueCommandIdentifiers) commandId.stripSuffix(runCommandSuffix)
     else commandId
-  def untestWorkflowId(workflowId: String) = workflowId.stripSuffix("-" + runWorkflowSuffix)
+  def untestWorkflowId(workflowId: String) = workflowId.stripSuffix(runWorkflowSuffix)
 }

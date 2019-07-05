@@ -61,11 +61,8 @@ class SandboxSemanticTestsLfRunner
     for {
       (pkgId, names) <- SemanticTester.scenarios(Map(mainPkgId -> packages(mainPkgId))) // we only care about the main pkg
       name <- names
-      _ = println(s"${name}")
     } {
-      println(s"run test ${name}")
       s"run scenario: $name" in allFixtures { ledger =>
-        println(s"fixture: ${ledger}")
         for {
           _ <- ClientAdapter
             .serverStreaming(GetTimeRequest(ledger.ledgerId.unwrap), ledger.timeService.getTime)

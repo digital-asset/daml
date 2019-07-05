@@ -81,10 +81,7 @@ object LedgerFactories {
       case Some(RemoteApiEndpointMode.MultiFromMapping(mapping)) =>
         val packageIds = config.darFiles.map(getPackageIdOrThrow)
 
-        MultiRemoteServerResource.fromMapping(
-          mapping,
-          config.ledgerId,
-          packageIds)
+        MultiRemoteServerResource.fromMapping(mapping, config.ledgerId, packageIds)
       case _ =>
         sys.error(
           "config.remoteApiEndpoint has to be set and has to be RemoteApiEndpointMode.Multi")

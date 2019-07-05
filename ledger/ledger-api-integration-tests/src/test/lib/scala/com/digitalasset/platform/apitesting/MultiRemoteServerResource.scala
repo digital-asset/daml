@@ -11,23 +11,25 @@ import com.digitalasset.platform.apitesting.LedgerContext.MultiChannelContext
 import com.digitalasset.platform.common.LedgerIdMode
 
 object MultiRemoteServerResource {
-  def fromMapping(mapping: Map[Option[String], RemoteApiEndpoint],
-                  configuredLedgerId: LedgerIdMode,
-                  packageIds: List[PackageId])(
-                   implicit esf: ExecutionSequencerFactory): MultiRemoteServerResource = {
+  def fromMapping(
+      mapping: Map[Option[String], RemoteApiEndpoint],
+      configuredLedgerId: LedgerIdMode,
+      packageIds: List[PackageId])(
+      implicit esf: ExecutionSequencerFactory): MultiRemoteServerResource = {
     val hostMapping = mapping
       .foldRight[Map[Option[String], RemoteServerResource]](Map.empty) {
-      case ((party, endpoint), map) =>
-        map + (party -> RemoteServerResource(endpoint.host, endpoint.port, None))
-    }
+        case ((party, endpoint), map) =>
+          map + (party -> RemoteServerResource(endpoint.host, endpoint.port, None))
+      }
     new MultiRemoteServerResource(hostMapping, configuredLedgerId, packageIds)
   }
 }
 
-class MultiRemoteServerResource(val mapping: Map[Option[String], RemoteServerResource], // maps party name to a remote Ledger API endpoint resource
-                                val configuredLedgerId: LedgerIdMode,
-                                val packageIds: List[PackageId])(implicit val esf: ExecutionSequencerFactory)
-  extends Resource[LedgerContext] {
+class MultiRemoteServerResource(
+    val mapping: Map[Option[String], RemoteServerResource], // maps party name to a remote Ledger API endpoint resource
+    val configuredLedgerId: LedgerIdMode,
+    val packageIds: List[PackageId])(implicit val esf: ExecutionSequencerFactory)
+    extends Resource[LedgerContext] {
 
   @volatile
   private var multiLedgerContext: MultiChannelContext = _
@@ -41,24 +43,22 @@ class MultiRemoteServerResource(val mapping: Map[Option[String], RemoteServerRes
     * Initialize the resource.
     */
   override def setup(): Unit = {
-    val m = mapping.mapValues { server => {
-      server.setup()
-      server.value match {
-        case PlatformChannels(channel) =>
-          LedgerContext.SingleChannelContext(channel, configuredLedgerId, packageIds)
+    val m: Map[Option[String], LedgerContext] = mapping.transform { (_, server) =>
+      {
+        server.setup()
+        server.value match {
+          case PlatformChannels(channel) =>
+            LedgerContext.SingleChannelContext(channel, configuredLedgerId, packageIds)
+        }
       }
     }
-    }
-    multiLedgerContext = new MultiChannelContext( m)
+    multiLedgerContext = new MultiChannelContext(m)
   }
 
   /** Dispose of the resource */
   override def close(): Unit = {
     multiLedgerContext = null
-    mapping.foreach {
-      case (_, server) =>
-        server.close()
-    }
+    mapping.foreach(_._2.close())
   }
 
 }
