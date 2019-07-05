@@ -54,7 +54,7 @@ object Update {
   final case class PartyAddedToParticipant(
       party: Party,
       displayName: String,
-      participantId: String,
+      participantId: ParticipantId,
       recordTime: Timestamp)
       extends Update {
     override def description: String =
@@ -90,7 +90,7 @@ object Update {
   final case class PublicPackagesUploaded(
       archives: List[DamlLf.Archive],
       sourceDescription: Option[String],
-      participantId: String,
+      participantId: ParticipantId,
       recordTime: Timestamp)
       extends Update {
     override def description: String =

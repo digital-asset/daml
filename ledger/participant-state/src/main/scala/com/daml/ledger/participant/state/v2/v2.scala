@@ -50,6 +50,9 @@ package object v2 {
   /** Identifier for the ledger, MUST match regexp [a-zA-Z0-9-]. */
   type LedgerId = String
 
+  /** Identifier for the participant, MUST match regexp [a-zA-Z0-9-]. */
+  type ParticipantId = Ref.LedgerString
+
   /** Identifiers for transactions.
     * Currently unrestricted unicode (See issue #398). */
   type TransactionId = Ref.TransactionIdString

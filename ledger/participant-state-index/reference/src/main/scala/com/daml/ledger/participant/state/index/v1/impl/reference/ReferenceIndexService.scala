@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
-import com.digitalasset.ledger.api.domain.{LedgerOffset, TransactionFilter}
+import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyDetails, TransactionFilter}
 import com.digitalasset.platform.akkastreams.dispatcher.SignalDispatcher
 import com.digitalasset.platform.sandbox.stores.ActiveContracts
 import org.slf4j.LoggerFactory
@@ -27,7 +27,8 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 
 final case class ReferenceIndexService(
     participantReadService: participant.state.v1.ReadService,
-    initialConditions: LedgerInitialConditions)(implicit val mat: Materializer)
+    initialConditions: LedgerInitialConditions,
+    participantId: ParticipantId)(implicit val mat: Materializer)
     extends participant.state.index.v1.IndexService
     with AutoCloseable {
   val logger = LoggerFactory.getLogger(this.getClass)
@@ -37,7 +38,7 @@ final case class ReferenceIndexService(
   object StateController {
     private val stateChangeDispatcher = SignalDispatcher()
     private val currentState: AtomicReference[IndexState] = new AtomicReference(
-      IndexState.initialState(initialConditions)
+      IndexState.initialState(initialConditions, participantId)
     )
 
     def updateState(f: IndexState => IndexState): Unit = {
@@ -110,6 +111,11 @@ final case class ReferenceIndexService(
     stateUpdateKillSwitch.shutdown()
   }
 
+  override def listPackageDetails(): Future[Map[PackageId, PackageDetails]] =
+    futureWithState { state =>
+      Future.successful(state.packageDetails)
+    }
+
   override def listPackages(): Future[Set[PackageId]] =
     futureWithState { state =>
       Future.successful(state.packages.keySet)
@@ -119,6 +125,20 @@ final case class ReferenceIndexService(
     futureWithState { state =>
       Future.successful(
         state.packages.get(packageId)
+      )
+    }
+
+  def getParticipantId: Future[ParticipantId] =
+    futureWithState { state =>
+      Future.successful(
+        state.participantId
+      )
+    }
+
+  def listParties: Future[List[PartyDetails]] =
+    futureWithState { state =>
+      Future.successful(
+        state.knownParties.toList
       )
     }
 

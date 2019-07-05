@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.ledger.api.domain.PartyDetails
@@ -48,7 +49,7 @@ object KeyValueConsumption {
             if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
               Some(entry.getPackageUploadEntry.getSourceDescription)
             else None,
-            entry.getPackageUploadEntry.getParticipantId,
+            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId),
             recordTime
           )
         )
@@ -61,7 +62,7 @@ object KeyValueConsumption {
           Update.PartyAddedToParticipant(
             Party.assertFromString(entry.getPartyAllocationEntry.getParty),
             entry.getPartyAllocationEntry.getDisplayName,
-            entry.getPartyAllocationEntry.getParticipantId,
+            Ref.LedgerString.assertFromString(entry.getPartyAllocationEntry.getParticipantId),
             recordTime
           )
         )

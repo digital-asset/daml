@@ -130,6 +130,8 @@ object Server {
     )
 
     val packageService = DamlOnXPackageService(indexService, ledgerId)
+    val packageManagementService = DamlOnXPackageManagementService(writeService, indexService)
+    val partyManagementService = DamlOnXPartyManagementService(writeService, indexService)
 
     val timeService = new DamlOnXTimeService(indexService)
 
@@ -147,6 +149,8 @@ object Server {
       commandService,
       identityService,
       packageService,
+      packageManagementService,
+      partyManagementService,
       timeService,
       configurationService,
       reflectionService

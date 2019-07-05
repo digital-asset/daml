@@ -261,7 +261,7 @@ object domain {
 
   sealed trait ParticipantIdTag
 
-  type ParticipantId = String @@ ParticipantIdTag
+  type ParticipantId = Ref.LedgerString @@ ParticipantIdTag
   val ParticipantId: Tag.TagOf[ParticipantIdTag] = Tag.of[ParticipantIdTag]
 
   sealed trait ApplicationIdTag

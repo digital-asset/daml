@@ -9,8 +9,9 @@ import java.time.Instant
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v2.{ReadService, WriteService}
+import com.daml.ledger.participant.state.v2.{ParticipantId, ReadService, WriteService}
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
@@ -18,8 +19,8 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.server.apiserver.{ApiServer, ApiServices, LedgerApiServer}
 import com.digitalasset.platform.index.StandaloneIndexServer.{
   asyncTolerance,
-  preloadPackages,
-  logger
+  logger,
+  preloadPackages
 }
 import com.digitalasset.platform.index.config.Config
 import com.digitalasset.platform.sandbox.BuildInfo
@@ -79,6 +80,10 @@ class StandaloneIndexServer(
     readService: ReadService,
     writeService: WriteService) {
 
+  // Name of this participant,
+  // TODO: Pass this info in command-line (See issue #2025)
+  val participantId: ParticipantId = Ref.LedgerString.assertFromString("postgress-participant")
+
   case class ApiServerState(
       ledgerId: LedgerId,
       apiServer: ApiServer,
@@ -128,7 +133,11 @@ class StandaloneIndexServer(
 
     val initF = for {
       cond <- readService.getLedgerInitialConditions().runWith(Sink.head)
-      indexService <- PostgresIndex(readService, domain.LedgerId(cond.ledgerId), config.jdbcUrl)
+      indexService <- PostgresIndex(
+        readService,
+        domain.LedgerId(cond.ledgerId),
+        participantId,
+        config.jdbcUrl)
     } yield (cond.ledgerId, cond.config.timeModel, indexService)
 
     val (actualLedgerId, timeModel, indexService) = Try(Await.result(initF, asyncTolerance))
