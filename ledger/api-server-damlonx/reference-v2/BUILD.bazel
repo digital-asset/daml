@@ -45,27 +45,49 @@ da_scala_binary(
     ],
 )
 
-#client_server_test(
-#    name = "conformance-test",
-#    timeout = "short",
-#    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
-#    client_args = [
-#        "--all-tests",
-#        "--exclude SemanticTests",
-#    ],
-#    data = [
-#        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-#        "//ledger/sandbox:Test.dar",
-#    ],
-#    server = ":reference-v2",
-#    server_args = [
-#        "--jdbc-url",
-#        "jdbc:postgresql://localhost/aio?user=aio&password=aio",
-#        "ledger/ledger-api-integration-tests/SemanticTests.dar",
-#        "ledger/sandbox/Test.dar",
-#    ],
-#    tags = [
-#        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
-#        "exclusive",
-#    ],
-#) if not is_windows else None
+########################################
+### Testing the index server
+########################################
+
+da_scala_binary(
+    name = "ephemeral-postgres-reference-server",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    main_class = "com.daml.ledger.api.server.damlonx.reference.v2.EphemeralPostgresReferenceServerMain",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":reference-v2",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//ledger/sandbox:sandbox-scala-tests-lib",
+    ],
+)
+
+client_server_test(
+    name = "conformance-test",
+    timeout = "short",
+    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client_args = [
+        # disabling all tests for now, so that at least we have the infrastructure
+        # to slowly add and fix tests one after the other.
+        # "--all-tests",
+        "--exclude SemanticTests",
+    ],
+    data = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
+    ],
+    server = ":ephemeral-postgres-reference-server",
+    server_args = [
+        "ledger/ledger-api-integration-tests/SemanticTests.dar",
+        "ledger/sandbox/Test.dar",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
+        "exclusive",
+    ],
+) if not is_windows else None
