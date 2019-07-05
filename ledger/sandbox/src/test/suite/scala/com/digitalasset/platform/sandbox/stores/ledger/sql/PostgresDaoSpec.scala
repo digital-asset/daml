@@ -4,9 +4,14 @@
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
 import java.time.Instant
+import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
+import java.util.zip.ZipFile
 
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.participant.state.index.v2
+import com.digitalasset.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.lf.archive.{Dar, DarReader}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -23,16 +28,13 @@ import com.digitalasset.daml.lf.value.Value.{
   VersionedValue
 }
 import com.digitalasset.daml.lf.value.ValueVersions
-import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
+import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.EventId
+import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.ledger.api.testing.utils.AkkaBeforeAndAfterAll
 import com.digitalasset.platform.sandbox.persistence.PostgresAroundAll
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
-import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
-  Contract,
-  PersistenceEntry,
-  PostgresLedgerDao
-}
+import com.digitalasset.platform.sandbox.stores.ledger.sql.dao._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -40,14 +42,12 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ValueSerializer
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.util.DbDispatcher
-import org.scalacheck.{Arbitrary, Gen}
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{AsyncWordSpec, Matchers}
+import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
 import scala.language.implicitConversions
-import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
+import scala.util.{Success, Try}
 
 //TODO: use scalacheck when we have generators available for contracts and transactions
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -56,17 +56,11 @@ class PostgresDaoSpec
     with Matchers
     with AkkaBeforeAndAfterAll
     with PostgresAroundAll
-    with PropertyChecks {
+    with OptionValues {
 
-  private lazy val dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
-
-  private lazy val ledgerDao =
-    PostgresLedgerDao(
-      dbDispatcher,
-      ContractSerializer,
-      TransactionSerializer,
-      ValueSerializer,
-      KeyHasher)
+  // `dbDispatcher` and `ledgerDao` depend on the `postgresFixture` which is in turn initialized `beforeAll`
+  private[this] var dbDispatcher: DbDispatcher = _
+  private[this] var ledgerDao: LedgerDao = _
 
   private val nextOffset: () => Long = {
     val counter = new AtomicLong(0)
@@ -76,7 +70,14 @@ class PostgresDaoSpec
 
   override def beforeAll(): Unit = {
     super.beforeAll()
-    Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), Duration.Inf)
+    dbDispatcher = DbDispatcher(postgresFixture.jdbcUrl, 4, 4)
+    ledgerDao = PostgresLedgerDao(
+      dbDispatcher,
+      ContractSerializer,
+      TransactionSerializer,
+      ValueSerializer,
+      KeyHasher)
+    Await.result(ledgerDao.initializeLedger(LedgerId("test-ledger"), 0), 10.seconds)
   }
 
   private val alice = Party.assertFromString("Alice")
@@ -181,48 +182,62 @@ class PostgresDaoSpec
       }
     }
 
-    val rejectionReasonGen: Gen[RejectionReason] =
-      for {
-        const <- Gen.oneOf[String => RejectionReason](
-          Seq[String => RejectionReason](
-            RejectionReason.Inconsistent.apply(_),
-            RejectionReason.OutOfQuota.apply(_),
-            RejectionReason.TimedOut.apply(_),
-            RejectionReason.Disputed.apply(_),
-            RejectionReason.DuplicateCommandId.apply(_)
-          ))
-        // need to use Arbitrary.arbString to get only valid unicode characters
-        desc <- Arbitrary.arbitrary[String].map(_.filterNot(_ == 0)).filter(_.nonEmpty)
-      } yield const(desc)
-
     "be able to persist and load a rejection" in {
-      forAll(rejectionReasonGen) { rejectionReason =>
-        val offset = nextOffset()
-        val rejection = LedgerEntry.Rejection(
-          Instant.now,
-          s"commandId-$offset",
-          s"applicationId-$offset",
-          "party",
-          rejectionReason)
+      val offset = nextOffset()
+      val rejection = LedgerEntry.Rejection(
+        Instant.now,
+        s"commandId-$offset",
+        s"applicationId-$offset",
+        "party",
+        RejectionReason.Inconsistent("\uED7Eᇫ뭳ꝳꍆꃓ왎"))
 
-        @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-        implicit val ec = DirectExecutionContext
+      for {
+        startingOffset <- ledgerDao.lookupLedgerEnd()
+        _ <- ledgerDao.storeLedgerEntry(
+          offset,
+          offset + 1,
+          None,
+          PersistenceEntry.Rejection(rejection))
+        entry <- ledgerDao.lookupLedgerEntry(offset)
+        endingOffset <- ledgerDao.lookupLedgerEnd()
+      } yield {
+        entry shouldEqual Some(rejection)
+        endingOffset shouldEqual (startingOffset + 1)
+      }
+    }
 
-        val resultF = for {
-          startingOffset <- ledgerDao.lookupLedgerEnd()
-          _ <- ledgerDao.storeLedgerEntry(
-            offset,
-            offset + 1,
-            None,
-            PersistenceEntry.Rejection(rejection))
-          entry <- ledgerDao.lookupLedgerEntry(offset)
-          endingOffset <- ledgerDao.lookupLedgerEnd()
-        } yield {
-          entry shouldEqual Some(rejection)
-          endingOffset shouldEqual (startingOffset + 1)
-        }
+    "refuse to persist an upload with no packages" in {
+      recoverToSucceededIf[IllegalArgumentException] {
+        ledgerDao.uploadLfPackages(UUID.randomUUID().toString, Nil)
+      }
+    }
 
-        Await.result(resultF, Duration.Inf)
+    "refuse to persist an upload with an empty id" in {
+      recoverToSucceededIf[IllegalArgumentException] {
+        ledgerDao.uploadLfPackages("", PostgresDaoSpec.Fixtures.uploadOnePackage("description"))
+      }
+    }
+
+    "be able to persist a valid upload and refuse to upload a duplicate" in {
+      val expectedDescription = "expected description"
+      for {
+        firstUploadResult <- ledgerDao
+          .uploadLfPackages(
+            UUID.randomUUID().toString,
+            PostgresDaoSpec.Fixtures.uploadOnePackage(expectedDescription))
+        secondUploadResult <- ledgerDao
+          .uploadLfPackages(
+            UUID.randomUUID().toString,
+            PostgresDaoSpec.Fixtures.uploadOnePackage("this description should not be persisted"))
+        loadedPackages <- ledgerDao.listLfPackages
+      } yield {
+        firstUploadResult shouldBe PersistenceResponse.Ok
+        secondUploadResult shouldBe PersistenceResponse.Duplicate
+        loadedPackages
+          .get(PostgresDaoSpec.Fixtures.testPackageId)
+          .value
+          .sourceDescription
+          .value shouldBe expectedDescription
       }
     }
 
@@ -243,17 +258,6 @@ class PostgresDaoSpec
       val keyWithMaintainers = KeyWithMaintainers(
         VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key2")),
         Set(Ref.Party.assertFromString("Alice"))
-      )
-
-      val contract = Contract(
-        absCid,
-        let,
-        "trId2",
-        Some("workflowId"),
-        Set(alice, bob),
-        Map(alice -> "trId2", bob -> "trId2"),
-        contractInstance,
-        Some(keyWithMaintainers)
       )
 
       val transaction = LedgerEntry.Transaction(
@@ -310,16 +314,6 @@ class PostgresDaoSpec
       )
 
       val transactionId = s"trId$offset"
-      val contract = Contract(
-        absCid,
-        let,
-        transactionId,
-        Some("workflowId"),
-        Set(alice, bob),
-        Map(alice -> transactionId, bob -> transactionId),
-        contractInstance,
-        None
-      )
 
       val transaction = LedgerEntry.Transaction(
         Some(s"commandId$offset"),
@@ -357,7 +351,7 @@ class PostgresDaoSpec
 
       for {
         startingOffset <- ledgerDao.lookupLedgerEnd()
-        resp <- ledgerDao.storeLedgerEntry(
+        _ <- ledgerDao.storeLedgerEntry(
           offset,
           offset + 1,
           None,
@@ -385,16 +379,6 @@ class PostgresDaoSpec
           templateId,
           VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
           agreement
-        )
-        val contract = Contract(
-          absCid,
-          let,
-          txId,
-          Some("workflowId"),
-          Set(alice, bob),
-          Map(alice -> txId, bob -> txId),
-          contractInstance,
-          None
         )
 
         LedgerEntry.Transaction(
@@ -424,7 +408,6 @@ class PostgresDaoSpec
 
       def genExerciseTransaction(id: Long, targetCid: AbsoluteContractId) = {
         val txId = s"trId$id"
-        val absCid = AbsoluteContractId(s"cId$id")
         val let = Instant.now
         LedgerEntry.Transaction(
           Some(s"commandId$id"),
@@ -441,7 +424,7 @@ class PostgresDaoSpec
                 templateId,
                 Ref.Name.assertFromString("choice"),
                 None,
-                true,
+                consuming = true,
                 Set(alice),
                 VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
                 Set(alice, bob),
@@ -506,8 +489,8 @@ class PostgresDaoSpec
         snapshot <- ledgerDao.getActiveContractSnapshot()
         _ <- runSequentially(M, _ => storeCreateTransaction())
         endingOffset <- ledgerDao.lookupLedgerEnd()
-        startingSnapshotSize <- startingSnapshot.acs.map(t => 1).runWith(sumSink)
-        snapshotSize <- snapshot.acs.map(t => 1).runWith(sumSink)
+        startingSnapshotSize <- startingSnapshot.acs.map(_ => 1).runWith(sumSink)
+        snapshotSize <- snapshot.acs.map(_ => 1).runWith(sumSink)
       } yield {
         withClue("starting offset: ") {
           startingSnapshot.offset shouldEqual startingOffset
@@ -533,5 +516,29 @@ class PostgresDaoSpec
 
   private implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
+
+}
+
+object PostgresDaoSpec {
+
+  object Fixtures extends BazelRunfiles {
+
+    private val reader = DarReader { (_, stream) =>
+      Try(DamlLf.Archive.parseFrom(stream))
+    }
+    private val Success(Dar(testPackage, _)) =
+      reader.readArchive(new ZipFile(rlocation("ledger/sandbox/Test.dar")))
+    private val archiveSize = testPackage.getSerializedSize.toLong
+    private val now = Instant.now()
+
+    val testPackageId = Ref.PackageId.assertFromString(testPackage.getHash)
+
+    def testDetails(description: String) = v2.PackageDetails(archiveSize, now, Some(description))
+
+    def uploadOnePackage(description: String): List[(DamlLf.Archive, v2.PackageDetails)] = List(
+      testPackage -> testDetails(description)
+    )
+
+  }
 
 }
