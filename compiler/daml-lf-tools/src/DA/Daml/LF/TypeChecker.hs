@@ -4,13 +4,8 @@
 module DA.Daml.LF.TypeChecker
   ( Error (..)
   , checkModule
-  , checkPackage
   , errorLocation
   ) where
-
-import Data.Functor
-import           Data.Either.Combinators           (mapLeft)
-import           Data.Foldable
 
 import           DA.Daml.LF.Ast
 import qualified DA.Daml.LF.TypeChecker.Check      as Check
@@ -31,14 +26,3 @@ checkModule world0 version m = do
       Recursion.checkModule m
       Serializability.checkModule m
       PartyLits.checkModule m
-
--- | Type checks a whole DAML-LF package. Assumes the modules in the package are
--- sorted topologically, i.e., module @A@ appears before module @B@ whenever @B@
--- depends on @A@.
-checkPackage :: [(PackageId, Package)] -> Package -> Either Error ()
-checkPackage pkgDeps pkg = do
-    Package version mods <- mapLeft EImportCycle (topoSortPackage pkg)
-    let check1 world0 mod0 = do
-          checkModule world0 version mod0
-          pure (extendWorldSelf mod0 world0)
-    void (foldlM check1 (initWorld pkgDeps version) mods)
