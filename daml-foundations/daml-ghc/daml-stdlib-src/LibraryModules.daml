@@ -16,7 +16,6 @@ import DA.Either
 import DA.Foldable
 import DA.Functor
 import DA.Generics
-import DA.HKTemplate
 import DA.Internal.Assert
 import DA.Internal.Compatible
 import DA.Internal.Date
@@ -33,7 +32,6 @@ import DA.Math
 import DA.Maybe.Total
 import DA.Maybe
 import DA.Monoid
-import DA.Newtype
 import DA.Next.Map
 import DA.Next.Set
 import DA.NonEmpty
