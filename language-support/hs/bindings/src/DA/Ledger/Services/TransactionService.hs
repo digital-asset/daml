@@ -4,12 +4,14 @@
 {-# LANGUAGE GADTs #-}
 
 module DA.Ledger.Services.TransactionService (
-    ledgerEnd,
-    GetTransactionsRequest(..), filterEverthingForParty,
     getTransactions,
     getTransactionTrees,
+    getTransactionByEventId,
+    getTransactionById,
     getFlatTransactionByEventId,
     getFlatTransactionById,
+    ledgerEnd,
+    GetTransactionsRequest(..), filterEverthingForParty,
     ) where
 
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
@@ -22,50 +24,6 @@ import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
 import qualified Com.Digitalasset.Ledger.Api.V1.TransactionService as LL
 import qualified Data.Map as Map
-
--- TODO:: all the other RPCs
-
-ledgerEnd :: LedgerId -> LedgerService AbsOffset
-ledgerEnd lid =
-    makeLedgerService $ \timeout config -> do
-    withGRPCClient config $ \client -> do
-        service <- LL.transactionServiceClient client
-        let LL.TransactionService{transactionServiceGetLedgerEnd=rpc} = service
-        let request = LL.GetLedgerEndRequest (unLedgerId lid) noTrace
-        response <- rpc (ClientNormalRequest request timeout emptyMdm)
-        unwrap response >>= \case
-            LL.GetLedgerEndResponse (Just offset) ->
-                case raiseAbsLedgerOffset offset of
-                    Left reason -> fail (show reason)
-                    Right abs -> return abs
-            LL.GetLedgerEndResponse Nothing ->
-                fail "GetLedgerEndResponse, offset field is missing"
-
-data GetTransactionsRequest = GetTransactionsRequest {
-    lid :: LedgerId,
-    begin :: LedgerOffset,
-    end :: Maybe LedgerOffset,
-    filter :: TransactionFilter,
-    verbose :: Bool
-    }
-
-filterEverthingForParty :: Party -> TransactionFilter
-filterEverthingForParty party = TransactionFilter (Map.singleton (unParty party) (Just noFilters))
-    where
-        noFilters :: Filters
-        noFilters = Filters Nothing
-
-lowerRequest :: GetTransactionsRequest -> LL.GetTransactionsRequest
-lowerRequest = \case
-    GetTransactionsRequest{lid, begin, end, filter, verbose} ->
-        LL.GetTransactionsRequest {
-        getTransactionsRequestLedgerId = unLedgerId lid,
-        getTransactionsRequestBegin = Just (lowerLedgerOffset begin),
-        getTransactionsRequestEnd = fmap lowerLedgerOffset end,
-        getTransactionsRequestFilter = Just filter,
-        getTransactionsRequestVerbose = verbose,
-        getTransactionsRequestTraceContext = noTrace
-        }
 
 getTransactions :: GetTransactionsRequest -> LedgerService (Stream Transaction)
 getTransactions req =
@@ -90,6 +48,12 @@ getTransactionTrees req =
             sendToStreamFlat timeout (lowerRequest req) f stream rpc
     return stream
     where f = raiseList raiseTransactionTree . LL.getTransactionTreesResponseTransactions
+
+getTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe TransactionTree)
+getTransactionByEventId = undefined
+
+getTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe Transaction)
+getTransactionById = undefined
 
 getFlatTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionByEventId lid eid parties =
@@ -144,3 +108,46 @@ getFlatTransactionById lid trid parties =
         (unTransactionId trid)
         (lowerList unParty parties)
         noTrace
+
+ledgerEnd :: LedgerId -> LedgerService AbsOffset
+ledgerEnd lid =
+    makeLedgerService $ \timeout config -> do
+    withGRPCClient config $ \client -> do
+        service <- LL.transactionServiceClient client
+        let LL.TransactionService{transactionServiceGetLedgerEnd=rpc} = service
+        let request = LL.GetLedgerEndRequest (unLedgerId lid) noTrace
+        response <- rpc (ClientNormalRequest request timeout emptyMdm)
+        unwrap response >>= \case
+            LL.GetLedgerEndResponse (Just offset) ->
+                case raiseAbsLedgerOffset offset of
+                    Left reason -> fail (show reason)
+                    Right abs -> return abs
+            LL.GetLedgerEndResponse Nothing ->
+                fail "GetLedgerEndResponse, offset field is missing"
+
+
+data GetTransactionsRequest = GetTransactionsRequest {
+    lid :: LedgerId,
+    begin :: LedgerOffset,
+    end :: Maybe LedgerOffset,
+    filter :: TransactionFilter,
+    verbose :: Bool
+    }
+
+filterEverthingForParty :: Party -> TransactionFilter
+filterEverthingForParty party = TransactionFilter (Map.singleton (unParty party) (Just noFilters))
+    where
+        noFilters :: Filters
+        noFilters = Filters Nothing
+
+lowerRequest :: GetTransactionsRequest -> LL.GetTransactionsRequest
+lowerRequest = \case
+    GetTransactionsRequest{lid, begin, end, filter, verbose} ->
+        LL.GetTransactionsRequest {
+        getTransactionsRequestLedgerId = unLedgerId lid,
+        getTransactionsRequestBegin = Just (lowerLedgerOffset begin),
+        getTransactionsRequestEnd = fmap lowerLedgerOffset end,
+        getTransactionsRequestFilter = Just filter,
+        getTransactionsRequestVerbose = verbose,
+        getTransactionsRequestTraceContext = noTrace
+        }
