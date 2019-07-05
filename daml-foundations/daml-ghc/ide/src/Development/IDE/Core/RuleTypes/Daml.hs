@@ -44,7 +44,7 @@ data DalfPackage = DalfPackage
 
 instance NFData DalfPackage
 
-type instance RuleResult GeneratePackageMap = (Map UnitId DalfPackage)
+type instance RuleResult GeneratePackageMap = Map UnitId DalfPackage
 
 -- | Runs all scenarios in the given file (but not scenarios in imports).
 type instance RuleResult RunScenarios = [(VirtualResource, Either SS.Error SS.ScenarioResult)]

@@ -105,10 +105,9 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
               show (S.toList missingExposed)
       let dalf = encodeArchiveLazy pkg
       -- get all dalf dependencies.
-      dalfDependencies <-
-          fmap
-              (map (\(unitId, pkg) -> (T.pack $ unitIdString unitId, dalfPackageBytes pkg)) . Map.toList)
-              (getDalfDependencies file)
+      dalfDependencies0 <- getDalfDependencies file
+      let dalfDependencies =
+              [ (T.pack $ unitIdString unitId, dalfPackageBytes pkg) | (unitId, pkg) <- Map.toList dalfDependencies0 ]
       -- get all file dependencies
       fileDependencies <- MaybeT $ getDependencies file
       liftIO $
