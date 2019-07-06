@@ -87,14 +87,14 @@ object Update {
     *   The ledger-provided timestamp at which the packages were uploaded.
     *
     */
-  final case class PublicPackagesUploaded(
-      archives: List[DamlLf.Archive],
+  final case class PublicPackageUploaded(
+      archive: DamlLf.Archive,
       sourceDescription: Option[String],
       participantId: ParticipantId,
       recordTime: Timestamp)
       extends Update {
     override def description: String =
-      s"""Public packages uploaded: ${archives.map(_.getHash).mkString(",")}"""
+      s"""Public packages uploaded: ${archive.getHash}"""
   }
 
   /** Signal the acceptance of a transaction.

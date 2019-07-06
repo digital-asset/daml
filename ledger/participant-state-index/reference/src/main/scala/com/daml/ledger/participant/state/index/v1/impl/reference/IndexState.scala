@@ -80,21 +80,16 @@ final case class IndexState(
                 Some(u.displayName),
                 u.participantId == state.participantId)))
 
-        case Update.PublicPackagesUploaded(
-            archives,
-            sourceDescription,
-            participantId,
-            uploadRecordTime) =>
+        case Update.PublicPackageUploaded(archive, sourceDescription, _, uploadRecordTime) =>
           val newPackages =
-            state.packages ++ archives.map(a => PackageId.assertFromString(a.getHash) -> a)
+            state.packages + (PackageId.assertFromString(archive.getHash) -> archive)
 
           val newPackageDetails =
-            state.packageDetails ++ archives.map(
-              a =>
-                PackageId.assertFromString(a.getHash) -> PackageDetails(
-                  a.getPayload.size.toLong,
-                  uploadRecordTime,
-                  sourceDescription))
+            state.packageDetails +
+              (PackageId.assertFromString(archive.getHash) -> PackageDetails(
+                archive.getPayload.size.toLong,
+                uploadRecordTime,
+                sourceDescription))
 
           //val decodedPackages = newPackages.mapValues(archive => Decode.decodeArchive(archive)._2)
           Right(

@@ -4,7 +4,7 @@
 package com.daml.ledger.participant.state.kvutils
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackagesUploaded}
+import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackageUploaded}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -73,10 +73,10 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
             fail("unexpected response to party allocation")
         }
         updateTuple match {
-          case (offset: Offset, update: PublicPackagesUploaded) =>
+          case (offset: Offset, update: PublicPackageUploaded) =>
             ps.close()
-            assert(offset == Offset(Array(0L)))
-            assert(update.archives == List(archive))
+            assert(offset == Offset(Array(0L, 0L)))
+            assert(update.archive == archive)
             assert(update.sourceDescription == sourceDescription)
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)
@@ -85,7 +85,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       }
     }
 
-    "duplicate package removed from update after uploadPackages" in {
+    "provide two updates after uploadPackages with two archives" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
@@ -94,13 +94,14 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
         .setHash("asdf")
         .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
         .build
+      val otherArchive = DamlLf.Archive.newBuilder
+        .setHash("zxcv")
+        .setPayload(ByteString.copyFromUtf8("ZZZZZZZZZZZZZ"))
+        .build
 
       for {
-        _ <- ps
-          .uploadPackages(List(archive), sourceDescription)
-          .toScala
         result <- ps
-          .uploadPackages(List(archive), sourceDescription)
+          .uploadPackages(List(archive, otherArchive), sourceDescription)
           .toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
@@ -111,11 +112,80 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           case _ =>
             fail("unexpected response to party allocation")
         }
-        updateTuples(1) match {
-          case (offset: Offset, update: PublicPackagesUploaded) =>
+        updateTuples.head match {
+          case (offset: Offset, update: PublicPackageUploaded) =>
             ps.close()
-            assert(offset == Offset(Array(1L)))
-            assert(update.archives == List.empty)
+            assert(offset == Offset(Array(0L, 0L)))
+            assert(update.archive == archive)
+            assert(update.sourceDescription == sourceDescription)
+            assert(update.participantId == ps.participantId)
+            assert(update.recordTime >= rt)
+          case _ => fail("unexpected update message after a package upload")
+        }
+        updateTuples(1) match {
+          case (offset: Offset, update: PublicPackageUploaded) =>
+            ps.close()
+            assert(offset == Offset(Array(0L, 1L)))
+            assert(update.archive == otherArchive)
+            assert(update.sourceDescription == sourceDescription)
+            assert(update.participantId == ps.participantId)
+            assert(update.recordTime >= rt)
+          case _ => fail("unexpected update message after a package upload")
+        }
+      }
+    }
+
+    "remove duplicate package from update after uploadPackages" in {
+      val ps = new InMemoryKVParticipantState(participantId)
+      val rt = ps.getNewRecordTime()
+
+      val sourceDescription = Some("provided by test")
+      val archive = DamlLf.Archive.newBuilder
+        .setHash("asdf")
+        .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
+        .build
+      val otherArchive = DamlLf.Archive.newBuilder
+        .setHash("zxcv")
+        .setPayload(ByteString.copyFromUtf8("ZZZZZZZZZZZZZ"))
+        .build
+
+      for {
+        _ <- ps
+          .uploadPackages(List(archive), sourceDescription)
+          .toScala
+        result <- ps
+          .uploadPackages(List(archive), sourceDescription)
+          .toScala
+        _ <- ps
+          .uploadPackages(List(otherArchive), sourceDescription)
+          .toScala
+        updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
+      } yield {
+        ps.close()
+        result match {
+          case UploadPackagesResult.Ok =>
+            succeed
+          case _ =>
+            fail("unexpected response to party allocation")
+        }
+        // first upload arrives as head update:
+        updateTuples.head match {
+          case (offset: Offset, update: PublicPackageUploaded) =>
+            ps.close()
+            assert(offset == Offset(Array(0L, 0L)))
+            assert(update.archive == archive)
+            assert(update.sourceDescription == sourceDescription)
+            assert(update.participantId == ps.participantId)
+            assert(update.recordTime >= rt)
+          case _ => fail("unexpected update message after a package upload")
+        }
+        // second upload results in no update because it was a duplicate
+        // third upload arrives as a second update:
+        updateTuples(1) match {
+          case (offset: Offset, update: PublicPackageUploaded) =>
+            ps.close()
+            assert(offset == Offset(Array(2L, 0L)))
+            assert(update.archive == otherArchive)
             assert(update.sourceDescription == sourceDescription)
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)
@@ -172,7 +242,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
         }
         updateTuple match {
           case (offset: Offset, update: PartyAddedToParticipant) =>
-            assert(offset == Offset(Array(0L)))
+            assert(offset == Offset(Array(0L, 0L)))
             assert(update.party == hint.get)
             assert(update.displayName == displayName.get)
             assert(update.participantId == ps.participantId)
@@ -267,7 +337,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
         ps.stateUpdates(beginAfter = None).runWith(Sink.head).map {
           case (offset, update) =>
             ps.close()
-            assert(offset == Offset(Array(0L)))
+            assert(offset == Offset(Array(0L, 0L)))
         }
 
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
@@ -285,10 +355,10 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
           val (offset1, update1) = updates.head
           val (offset2, update2) = updates(1)
-          assert(offset1 == Offset(Array(0L)))
+          assert(offset1 == Offset(Array(0L, 0L)))
           assert(update1.isInstanceOf[Update.TransactionAccepted])
 
-          assert(offset2 == Offset(Array(1L)))
+          assert(offset2 == Offset(Array(1L, 0L)))
           assert(update2.isInstanceOf[Update.CommandRejected])
           assert(
             update2
@@ -307,10 +377,10 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       val rt = ps.getNewRecordTime()
 
       val waitForUpdateFuture =
-        ps.stateUpdates(beginAfter = Some(Offset(Array(0L)))).runWith(Sink.head).map {
+        ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head).map {
           case (offset, update) =>
             ps.close()
-            assert(offset == Offset(Array(1L)))
+            assert(offset == Offset(Array(1L, 0L)))
             assert(update.isInstanceOf[Update.CommandRejected])
         }
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)

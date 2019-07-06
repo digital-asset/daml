@@ -107,12 +107,12 @@ object ParticipantStateConversion {
               case v1.Update.ConfigurationChanged(newConfiguration) =>
                 v2.Update.ConfigurationChanged(configurationToV2(newConfiguration))
 
-              case v1.Update.PublicPackagesUploaded(
+              case v1.Update.PublicPackageUploaded(
                   archives,
                   sourceDescription,
                   participantId,
                   recordTime) =>
-                v2.Update.PublicPackagesUploaded(
+                v2.Update.PublicPackageUploaded(
                   archives,
                   sourceDescription.getOrElse(""),
                   participantId,
