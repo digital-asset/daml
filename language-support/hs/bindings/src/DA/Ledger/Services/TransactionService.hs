@@ -86,22 +86,22 @@ handleFlatResponse (LL.GetFlatTransactionResponse (Just tx)) = case Convert.rais
                                                                    Right x -> return $ Just x
 
 getTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe TransactionTree)
-getTransactionByEventId = getTransactionBy (\service -> let LL.TransactionService{transactionServiceGetTransactionByEventId=rpc} = service in rpc)
+getTransactionByEventId = getTransactionBy LL.transactionServiceGetTransactionByEventId
                                            mkByEventIdRequest
                                            handleResponse
 
 getTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe TransactionTree)
-getTransactionById = getTransactionBy (\service -> let LL.TransactionService{transactionServiceGetTransactionById=rpc} = service in rpc)
+getTransactionById = getTransactionBy LL.transactionServiceGetTransactionById
                                       mkByIdRequest
                                       handleResponse
 
 getFlatTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe Transaction)
-getFlatTransactionByEventId = getTransactionBy (\service -> let LL.TransactionService{transactionServiceGetFlatTransactionByEventId=rpc} = service in rpc)
+getFlatTransactionByEventId = getTransactionBy LL.transactionServiceGetFlatTransactionByEventId
                                                mkByEventIdRequest
                                                handleFlatResponse
 
 getFlatTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe Transaction)
-getFlatTransactionById = getTransactionBy (\service -> let LL.TransactionService{transactionServiceGetFlatTransactionById=rpc} = service in rpc)
+getFlatTransactionById = getTransactionBy LL.transactionServiceGetFlatTransactionById
                                           mkByIdRequest
                                           handleFlatResponse
 
