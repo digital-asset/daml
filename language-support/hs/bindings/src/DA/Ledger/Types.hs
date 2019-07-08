@@ -48,6 +48,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     ModuleName(..),
     EntityName(..),
     AbsOffset(..),
+    Verbosity(..),
 
     ) where
 
@@ -258,3 +259,5 @@ message TransactionFilter {
 message Filters {
 message InclusiveFilters {
 -}
+
+newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)

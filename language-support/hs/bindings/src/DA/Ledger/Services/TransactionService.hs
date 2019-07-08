@@ -148,7 +148,7 @@ data GetTransactionsRequest = GetTransactionsRequest {
     begin :: LedgerOffset,
     end :: Maybe LedgerOffset,
     filter :: TransactionFilter,
-    verbose :: Bool
+    verbose :: Verbosity
     }
 
 filterEverthingForParty :: Party -> TransactionFilter
@@ -165,7 +165,7 @@ lowerRequest = \case
         getTransactionsRequestBegin = Just (lowerLedgerOffset begin),
         getTransactionsRequestEnd = fmap lowerLedgerOffset end,
         getTransactionsRequestFilter = Just filter,
-        getTransactionsRequestVerbose = verbose,
+        getTransactionsRequestVerbose = unVerbosity verbose,
         getTransactionsRequestTraceContext = noTrace
         }
 

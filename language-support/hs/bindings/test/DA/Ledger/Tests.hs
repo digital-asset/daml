@@ -161,8 +161,7 @@ tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \pi
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let verbose = False
-    txs <- getAllTransactions lid alice verbose
+    txs <- getAllTransactions lid alice (Verbosity False)
     let command = createWithKey pid alice 100
     Right _ <- submitCommand lid alice command
     liftIO $ do
@@ -174,8 +173,7 @@ tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -
 tCreateWithoutKey :: SandboxTest
 tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let verbose = False
-    txs <- getAllTransactions lid alice verbose
+    txs <- getAllTransactions lid alice (Verbosity False)
     let command = createWithoutKey pid alice 100
     Right _ <- submitCommand lid alice command
     liftIO $ do
@@ -219,8 +217,7 @@ tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \pid -> do
 tGetFlatTransactionByEventId :: SandboxTest
 tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventId" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let verbose = True
-    txs <- getAllTransactions lid alice verbose
+    txs <- getAllTransactions lid alice (Verbosity True)
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
     Just (Right txOnStream) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{events=[CreatedEvent{eid}]} <- return txOnStream
@@ -232,8 +229,7 @@ tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventI
 tGetFlatTransactionById :: SandboxTest
 tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let verbose = True
-    txs <- getAllTransactions lid alice verbose
+    txs <- getAllTransactions lid alice (Verbosity True)
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
     Just (Right txOnStream) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{trid} <- return txOnStream
@@ -245,8 +241,7 @@ tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run w
 tGetTransactions :: SandboxTest
 tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let verbose = True
-    txs <- getAllTransactions lid alice verbose
+    txs <- getAllTransactions lid alice (Verbosity True)
     Right cidA <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
     Just (Right Transaction{cid=Just cidB}) <- liftIO $ timeout 1 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
@@ -254,8 +249,7 @@ tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \
 tGetTransactionTrees :: SandboxTest
 tGetTransactionTrees withSandbox = testCase "tGetTransactionTrees" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let verbose = True
-    txs <- getAllTransactionTrees lid alice verbose
+    txs <- getAllTransactionTrees lid alice (Verbosity True)
     Right cidA <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
     Just (Right TransactionTree{cid=Just cidB}) <- liftIO $ timeout 1 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
@@ -263,8 +257,7 @@ tGetTransactionTrees withSandbox = testCase "tGetTransactionTrees" $ run withSan
 tGetTransactionByEventId :: SandboxTest
 tGetTransactionByEventId withSandbox = testCase "tGetTransactionByEventId" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let verbose = True
-    txs <- getAllTransactionTrees lid alice verbose
+    txs <- getAllTransactionTrees lid alice (Verbosity True)
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
     Just (Right txOnStream) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{roots=[eid]} <- return txOnStream
@@ -276,8 +269,7 @@ tGetTransactionByEventId withSandbox = testCase "tGetTransactionByEventId" $ run
 tGetTransactionById :: SandboxTest
 tGetTransactionById withSandbox = testCase "tGetTransactionById" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    let verbose = True
-    txs <- getAllTransactionTrees lid alice verbose
+    txs <- getAllTransactionTrees lid alice (Verbosity True)
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
     Just (Right txOnStream) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{trid} <- return txOnStream
