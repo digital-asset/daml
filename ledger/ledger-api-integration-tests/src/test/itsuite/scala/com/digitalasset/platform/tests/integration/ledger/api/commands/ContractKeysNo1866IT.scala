@@ -6,7 +6,11 @@ package com.digitalasset.platform.tests.integration.ledger.api.commands
 import java.io.File
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles.rlocation
-import com.digitalasset.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMajV, LanguageMinorVersion => LMinV}
+import com.digitalasset.daml.lf.language.{
+  LanguageVersion,
+  LanguageMajorVersion => LMajV,
+  LanguageMinorVersion => LMinV
+}
 import com.digitalasset.platform.tests.integration.ledger.api.ContractKeysIT
 
 /** Runs tests with an older version of the language that does not include changes
