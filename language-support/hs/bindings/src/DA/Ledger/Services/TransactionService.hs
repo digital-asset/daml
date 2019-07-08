@@ -24,6 +24,7 @@ import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
 import qualified Com.Digitalasset.Ledger.Api.V1.TransactionService as LL
 import qualified Data.Map as Map
+import qualified Data.Vector as Vector
 
 getTransactions :: GetTransactionsRequest -> LedgerService (Stream Transaction)
 getTransactions req =
@@ -173,7 +174,7 @@ mkByEventIdRequest lid eid parties =
     LL.GetTransactionByEventIdRequest
     (unLedgerId lid)
     (unEventId eid)
-    (lowerList unParty parties)
+    (Vector.fromList $ map unParty parties)
     noTrace
 
 mkByIdRequest :: LedgerId -> TransactionId -> [Party] -> LL.GetTransactionByIdRequest
@@ -181,5 +182,5 @@ mkByIdRequest lid trid parties =
     LL.GetTransactionByIdRequest
     (unLedgerId lid)
     (unTransactionId trid)
-    (lowerList unParty parties)
+    (Vector.fromList $ map unParty parties)
     noTrace
