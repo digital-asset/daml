@@ -90,18 +90,20 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       val rt = ps.getNewRecordTime()
 
       val sourceDescription = Some("provided by test")
-      val archive = DamlLf.Archive.newBuilder
-        .setHash("asdf")
-        .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
-        .build
-      val otherArchive = DamlLf.Archive.newBuilder
-        .setHash("zxcv")
-        .setPayload(ByteString.copyFromUtf8("ZZZZZZZZZZZZZ"))
-        .build
+      val archives = List(
+        DamlLf.Archive.newBuilder
+          .setHash("asdf")
+          .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
+          .build,
+        DamlLf.Archive.newBuilder
+          .setHash("zxcv")
+          .setPayload(ByteString.copyFromUtf8("ZZZZZZZZZZZZZ"))
+          .build
+      )
 
       for {
         result <- ps
-          .uploadPackages(List(archive, otherArchive), sourceDescription)
+          .uploadPackages(archives, sourceDescription)
           .toScala
         updateTuples <- ps.stateUpdates(beginAfter = None).take(2).runWith(Sink.seq)
       } yield {
@@ -116,7 +118,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           case (offset: Offset, update: PublicPackageUploaded) =>
             ps.close()
             assert(offset == Offset(Array(0L, 0L)))
-            assert(update.archive == archive)
+            assert(update.archive == archives.head)
             assert(update.sourceDescription == sourceDescription)
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)
@@ -126,7 +128,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
           case (offset: Offset, update: PublicPackageUploaded) =>
             ps.close()
             assert(offset == Offset(Array(0L, 1L)))
-            assert(update.archive == otherArchive)
+            assert(update.archive == archives(1))
             assert(update.sourceDescription == sourceDescription)
             assert(update.participantId == ps.participantId)
             assert(update.recordTime >= rt)
@@ -372,7 +374,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       waitForUpdateFuture
     }
 
-    "return second update with beginAfter=1" in {
+    "return second update with beginAfter=0" in {
       val ps = new InMemoryKVParticipantState(participantId)
       val rt = ps.getNewRecordTime()
 
@@ -389,4 +391,39 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     }
   }
 
+  "return update [0,1] with beginAfter=[0,0]" in {
+    val ps = new InMemoryKVParticipantState(participantId)
+    val rt = ps.getNewRecordTime()
+
+    val sourceDescription = Some("provided by test")
+    val archives = List(
+      DamlLf.Archive.newBuilder
+        .setHash("asdf")
+        .setPayload(ByteString.copyFromUtf8("AAAAAAAHHHHHH"))
+        .build,
+      DamlLf.Archive.newBuilder
+        .setHash("zxcv")
+        .setPayload(ByteString.copyFromUtf8("ZZZZZZZZZZZZZ"))
+        .build
+    )
+
+    for {
+      _ <- ps
+        .uploadPackages(archives, sourceDescription)
+        .toScala
+      updateTuple <- ps.stateUpdates(beginAfter = Some(Offset(Array(0L, 0L)))).runWith(Sink.head)
+    } yield {
+      ps.close()
+      updateTuple match {
+        case (offset, update: PublicPackageUploaded) =>
+          ps.close()
+          assert(offset == Offset(Array(0L, 1L)))
+          assert(update.archive == archives(1))
+          assert(update.sourceDescription == sourceDescription)
+          assert(update.participantId == ps.participantId)
+          assert(update.recordTime >= rt)
+        case _ => fail("unexpected update message after a package upload")
+      }
+    }
+  }
 }

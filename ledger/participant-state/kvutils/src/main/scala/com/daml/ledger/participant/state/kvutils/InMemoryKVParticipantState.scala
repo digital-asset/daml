@@ -363,7 +363,7 @@ class InMemoryKVParticipantState(
     dispatcher
       .startingAt(
         beginAfter
-          .map(_.components.head.toInt + 1) // startingAt is inclusive, so jump over one element.
+          .map(_.components.head.toInt)
           .getOrElse(beginning)
       )
       .collect {
@@ -373,6 +373,12 @@ class InMemoryKVParticipantState(
           }
       }
       .mapConcat(identity)
+      .filter {
+        case (offset, _) =>
+          if (beginAfter.isDefined)
+            offset > beginAfter.get
+          else true
+      }
 
   /** Submit a transaction to the ledger.
     *
