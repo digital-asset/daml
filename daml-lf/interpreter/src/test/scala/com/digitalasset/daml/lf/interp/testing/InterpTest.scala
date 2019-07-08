@@ -24,7 +24,7 @@ class InterpTest extends WordSpec with Matchers {
   private implicit def id(s: String): Ref.Name.T = Name.assertFromString(s)
 
   private def runExpr(e: Expr): SValue = {
-    val machine = Speedy.Machine.fromExpr(e, PureCompiledPackages(Map.empty).right.get, false)
+    val machine = Speedy.Machine.fromExpr(e, true, PureCompiledPackages(Map.empty).right.get, false)
     while (!machine.isFinal) {
       machine.step match {
         case SResultContinue => ()
@@ -100,7 +100,8 @@ class InterpTest extends WordSpec with Matchers {
     )
     var machine: Speedy.Machine = null
     "compile" in {
-      machine = Speedy.Machine.fromExpr(list, PureCompiledPackages(Map.empty).right.get, false)
+      machine =
+        Speedy.Machine.fromExpr(list, true, PureCompiledPackages(Map.empty).right.get, false)
     }
     "interpret" in {
       while (!machine.isFinal) {
@@ -169,6 +170,7 @@ class InterpTest extends WordSpec with Matchers {
     "succeeds" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),
+        true,
         pkgs1,
         false
       )
@@ -194,6 +196,7 @@ class InterpTest extends WordSpec with Matchers {
     "crashes without definition" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),
+        true,
         pkgs1,
         false
       )
@@ -221,6 +224,7 @@ class InterpTest extends WordSpec with Matchers {
     "tracks packages" in {
       val machine = Speedy.Machine.fromExpr(
         EVal(ref),
+        true,
         pkgs1,
         false
       )

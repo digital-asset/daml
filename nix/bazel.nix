@@ -20,6 +20,7 @@ rec {
     patchelf
     postgresql
     protobuf3_5
+    python3
     zip
     ;
 

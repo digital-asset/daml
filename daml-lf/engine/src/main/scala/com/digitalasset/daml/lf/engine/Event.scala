@@ -125,7 +125,10 @@ object Event {
     }
 
     def mapContractIdAndValue[Cid2, Val2](f: Cid => Cid2, g: Val => Val2): Events[Nid, Cid2, Val2] =
-      copy(events = events.mapValues(_.mapContractId(f, g)))
+      // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
+      copy(events = events.transform { (_, value) =>
+        value.mapContractId(f, g)
+      })
 
     /** The function must be injective */
     def mapNodeId[Nid2](f: Nid => Nid2): Events[Nid2, Cid, Val] =

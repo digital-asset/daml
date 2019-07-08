@@ -963,6 +963,9 @@ private class PostgresLedgerDao(
     dbDispatcher.executeSql { implicit conn =>
       SQL_SELECT_PARTIES
         .as(PartyDataParser.*)
+        // TODO: isLocal should be based on equality of participantId reported in an
+        // update and the id given to participant in a command-line argument
+        // (See issue #2026)
         .map(d => PartyDetails(Party.assertFromString(d.party), d.displayName, true))
     }
 
@@ -1049,31 +1052,39 @@ private class PostgresLedgerDao(
   override def uploadLfPackages(
       uploadId: String,
       packages: List[(Archive, PackageDetails)]): Future[PersistenceResponse] = {
-    dbDispatcher.executeSql { implicit conn =>
-      Try {
-        val namedPackageParams = packages
-          .map(
-            p =>
-              Seq[NamedParameter](
-                "package_id" -> p._1.getHash,
-                "upload_id" -> uploadId,
-                "source_description" -> p._2.sourceDescription,
-                "size" -> p._2.size,
-                "known_since" -> p._2.knownSince,
-                "package" -> p._1.toByteArray
-            )
-          )
-        executeBatchSql(
-          SQL_INSERT_PACKAGE,
-          namedPackageParams
-        )
-        PersistenceResponse.Ok
-      }.recover {
-        case NonFatal(e) if e.getMessage.contains("duplicate key") =>
-          conn.rollback()
-          PersistenceResponse.Duplicate
-      }.get
+    val requirements = Try {
+      require(uploadId.nonEmpty, "The upload identifier cannot be the empty string")
+      require(packages.nonEmpty, "The list of packages to upload cannot be empty")
     }
+    requirements.fold(
+      Future.failed,
+      _ =>
+        dbDispatcher.executeSql { implicit conn =>
+          Try {
+            val namedPackageParams = packages
+              .map(
+                p =>
+                  Seq[NamedParameter](
+                    "package_id" -> p._1.getHash,
+                    "upload_id" -> uploadId,
+                    "source_description" -> p._2.sourceDescription,
+                    "size" -> p._2.size,
+                    "known_since" -> p._2.knownSince,
+                    "package" -> p._1.toByteArray
+                )
+              )
+            executeBatchSql(
+              SQL_INSERT_PACKAGE,
+              namedPackageParams
+            )
+            PersistenceResponse.Ok
+          }.recover {
+            case NonFatal(e) if e.getMessage.contains("duplicate key") =>
+              conn.rollback()
+              PersistenceResponse.Duplicate
+          }.get
+      }
+    )
   }
 
   private val SQL_TRUNCATE_ALL_TABLES =

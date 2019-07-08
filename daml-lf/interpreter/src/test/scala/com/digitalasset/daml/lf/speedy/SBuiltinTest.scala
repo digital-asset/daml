@@ -1014,7 +1014,11 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 object SBuiltinTest {
 
   private def eval(e: Expr): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromExpr(e, PureCompiledPackages(Map.empty).right.get, false)
+    val machine = Speedy.Machine.fromExpr(
+      expr = e,
+      checkSubmitterInMaintainers = true,
+      compiledPackages = PureCompiledPackages(Map.empty).right.get,
+      scenario = false)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       while (!machine.isFinal) machine.step() match {

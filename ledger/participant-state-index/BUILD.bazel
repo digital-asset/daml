@@ -37,5 +37,8 @@ da_scala_library(
         "//visibility:public",
     ],
     runtime_deps = [],
-    deps = compileDependencies + ["//3rdparty/jvm/org/scalaz:scalaz_core"],
+    deps = compileDependencies + [
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//ledger/participant-state:participant-state",
+    ],
 )

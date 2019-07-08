@@ -77,7 +77,7 @@ Components
 
 - `testing-tools` helps you run scenarios from Scalatest.
 
-[official LF specification]: ../daml-tools/docs/daml-lf-specification/source/index.rst
+[official LF specification]: spec/daml-lf-1.rst
 [DAML-LF Governance process]: governance.rst
 [CEK machine]: https://gist.github.com/ekmett/f081b5e36bac3fed1ea6b21eb25327c6
 

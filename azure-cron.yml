@@ -176,7 +176,7 @@ jobs:
           if [[ "${GITHUB#v}" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c $GITHUB; then
             echo "Publishing $GITHUB to VSCode Marketplace"
             git checkout $GITHUB
-            cd daml-foundations/daml-tools/daml-extension
+            cd compiler/daml-extension
             yarn
             vsce publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
           else
@@ -188,3 +188,24 @@ jobs:
           fi
         env:
           MARKETPLACE_TOKEN: $(VSCODE_MARKETPLACE_TOKEN)
+
+  - job: download_stats
+    timeoutInMinutes: 10
+    pool:
+      name: "linux-pool"
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          eval "$(dev-env/bin/dade-assist)"
+
+          STATS=$(mktemp)
+          curl https://api.github.com/repos/digital-asset/daml/releases -s | gzip -9 > $STATS
+
+          GCS_KEY=$(mktemp)
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+          gcloud auth activate-service-account --key-file=$GCS_KEY
+          BOTO_CONFIG=/dev/null gsutil cp $STATS gs://daml-data/downloads/$(date -u +%Y%m%d_%H%M%SZ).json.gz
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

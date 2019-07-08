@@ -21,7 +21,7 @@ MavenInfo = provider(
 
 _EMPTY_MAVEN_INFO = MavenInfo(
     maven_coordinates = None,
-    maven_dependencies = depset(),
+    maven_dependencies = [],
 )
 
 _MAVEN_COORDINATES_PREFIX = "maven_coordinates="
@@ -114,7 +114,7 @@ def _collect_maven_info_impl(_target, ctx):
     deps = depset([], transitive = [depset([d]) for d in _maven_coordinates(deps + exports + jars)])
     filtered_deps = [
         d
-        for d in deps
+        for d in deps.to_list()
         if not (only_external_deps and (d.split(":")[0].startswith("com.daml") or
                                         d.split(":")[0].startswith("com.digitalasset")))
     ]

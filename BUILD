@@ -1,5 +1,6 @@
 package(default_visibility = ["//:__subpackages__"])
 
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 load(
     "@io_tweag_rules_haskell//haskell:haskell.bzl",
     "haskell_toolchain",
@@ -57,6 +58,30 @@ c2hs_toolchain(
     name = "c2hs-toolchain",
     c2hs = "@haskell_c2hs//:bin",
 )
+
+#
+# Python toolchain
+#
+
+py_runtime(
+    name = "nix_python3_runtime",
+    interpreter = "@python3_nix//:bin/python",
+    python_version = "PY3",
+) if not is_windows else None
+
+py_runtime_pair(
+    name = "nix_python_runtime_pair",
+    py3_runtime = ":nix_python3_runtime",
+) if not is_windows else None
+
+toolchain(
+    name = "nix_python_toolchain",
+    exec_compatible_with = [
+        "@io_tweag_rules_haskell//haskell/platforms:nixpkgs",
+    ],
+    toolchain = ":nix_python_runtime_pair",
+    toolchain_type = "@bazel_tools//tools/python:toolchain_type",
+) if not is_windows else None
 
 filegroup(
     name = "node_modules",
@@ -145,17 +170,17 @@ genrule(
 
 alias(
     name = "damlc",
-    actual = "//daml-foundations/daml-tools/damlc-app:damlc-app",
+    actual = "//compiler/damlc:damlc",
 )
 
 alias(
     name = "damlc@ghci",
-    actual = "//daml-foundations/daml-tools/damlc-app:damlc-app@ghci",
+    actual = "//compiler/damlc:damlc@ghci",
 )
 
 alias(
     name = "damlc-dist",
-    actual = "//daml-foundations/daml-tools/damlc-app:damlc-dist",
+    actual = "//compiler/damlc:damlc-dist",
 )
 
 alias(

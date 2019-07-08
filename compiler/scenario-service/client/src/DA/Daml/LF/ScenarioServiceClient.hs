@@ -4,6 +4,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.ScenarioServiceClient
   ( Options(..)
+  , ScenarioServiceConfig
+  , defaultScenarioServiceConfig
+  , readScenarioServiceConfig
   , LowLevel.TimeoutSeconds
   , LowLevel.findServerJar
   , Handle
@@ -30,6 +33,7 @@ import qualified Data.ByteString as BS
 import Data.Hashable
 import Data.IORef
 import qualified Data.Map.Strict as MS
+import Data.Maybe
 import qualified Data.Set as S
 import System.Directory
 
@@ -42,14 +46,18 @@ import qualified DA.Daml.LF.ScenarioServiceClient.LowLevel as LowLevel
 
 data Options = Options
   { optServerJar :: FilePath
-  , optRequestTimeout :: LowLevel.TimeoutSeconds
+  , optScenarioServiceConfig :: ScenarioServiceConfig
   , optMaxConcurrency :: Int
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   }
 
-toLowLevelOpts :: Maybe Int -> Options -> LowLevel.Options
-toLowLevelOpts optGrpcMaxMessageSize Options{..} = LowLevel.Options{..}
+toLowLevelOpts :: Options -> LowLevel.Options
+toLowLevelOpts Options{..} =
+    LowLevel.Options{..}
+    where
+        optRequestTimeout = fromMaybe 60 $ cnfGrpcTimeout optScenarioServiceConfig
+        optGrpcMaxMessageSize = cnfGrpcMaxMessageSize optScenarioServiceConfig
 
 data Handle = Handle
   { hLowLevelHandle :: LowLevel.Handle
@@ -65,8 +73,7 @@ data Handle = Handle
 
 withScenarioService :: Options -> (Handle -> IO a) -> IO a
 withScenarioService hOptions f = do
-  ScenarioServiceConfig{..} <- readScenarioServiceConfig
-  LowLevel.withScenarioService (toLowLevelOpts cnfGrpcMaxMessageSize hOptions) $ \hLowLevelHandle ->
+  LowLevel.withScenarioService (toLowLevelOpts hOptions) $ \hLowLevelHandle ->
       bracket
          (either (\err -> fail $ "Failed to start scenario service: " <> show err) pure =<< LowLevel.newCtx hLowLevelHandle)
          (LowLevel.deleteCtx hLowLevelHandle) $ \hContextId -> do
@@ -78,10 +85,14 @@ withScenarioService hOptions f = do
 
 data ScenarioServiceConfig = ScenarioServiceConfig
     { cnfGrpcMaxMessageSize :: Maybe Int -- In bytes
-    }
+    , cnfGrpcTimeout :: Maybe LowLevel.TimeoutSeconds
+    } deriving Show
 
 defaultScenarioServiceConfig :: ScenarioServiceConfig
-defaultScenarioServiceConfig = ScenarioServiceConfig { cnfGrpcMaxMessageSize = Nothing }
+defaultScenarioServiceConfig = ScenarioServiceConfig
+    { cnfGrpcMaxMessageSize = Nothing
+    , cnfGrpcTimeout = Nothing
+    }
 
 readScenarioServiceConfig :: IO ScenarioServiceConfig
 readScenarioServiceConfig = do
@@ -95,6 +106,7 @@ readScenarioServiceConfig = do
 parseScenarioServiceConfig :: ProjectConfig -> Either ConfigError ScenarioServiceConfig
 parseScenarioServiceConfig conf = do
     cnfGrpcMaxMessageSize <- queryProjectConfig ["scenario-service", "grpc-max-message-size"] conf
+    cnfGrpcTimeout <- queryProjectConfig ["scenario-service", "grpc-timeout"] conf
     pure ScenarioServiceConfig {..}
 
 data Context = Context

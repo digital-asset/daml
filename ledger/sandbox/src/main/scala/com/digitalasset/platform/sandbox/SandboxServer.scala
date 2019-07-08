@@ -8,8 +8,9 @@ import java.time.Instant
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import com.daml.ledger.participant.state.v2.ParticipantId
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain.LedgerId
@@ -81,6 +82,10 @@ object SandboxServer {
 }
 
 class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends AutoCloseable {
+
+  // Name of this participant
+  // TODO: Pass this info in command-line (See issue #2025)
+  val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
 
   case class ApiServerState(
       ledgerId: LedgerId,
@@ -187,6 +192,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       case Some(jdbcUrl) =>
         "postgres" -> SandboxIndexAndWriteService.postgres(
           ledgerId,
+          participantId,
           jdbcUrl,
           config.timeModel,
           timeProvider,
@@ -201,6 +207,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         "in-memory" -> Future.successful(
           SandboxIndexAndWriteService.inMemory(
             ledgerId,
+            participantId,
             config.timeModel,
             timeProvider,
             acs,

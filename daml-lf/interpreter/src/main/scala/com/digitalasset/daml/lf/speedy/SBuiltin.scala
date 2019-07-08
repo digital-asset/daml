@@ -962,18 +962,21 @@ object SBuiltin {
 
   /** $lookupKey[T]
     *   :: key
+    *   -> List Party (maintainers)
     *   -> Token
     *   -> Maybe (ContractId T)
     */
-  final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(2) {
+  final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(1))
+      checkToken(args.get(2))
       val key = asVersionedValue(args.get(0).toValue.mapContractId[Nothing] { cid =>
         crash(s"Unexpected contract id in key: $cid")
       }) match {
         case Left(err) => crash(err)
         case Right(x) => x
       }
+      val maintainers = extractParties(args.get(1))
+      checkLookupMaintainers(templateId, machine, maintainers)
       val gkey = GlobalKey(templateId, key)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1004,7 +1007,7 @@ object SBuiltin {
 
   /** $insertLookup[T]
     *    :: key
-    *    -> List Party    (maintainers)
+    *    -> List Party (maintainers)
     *    -> Maybe (ContractId T)
     *    -> Token
     *    -> ()
@@ -1042,18 +1045,21 @@ object SBuiltin {
 
   /** $fetchKey[T]
     *   :: key
+    *   -> List Party (maintainers)
     *   -> Token
     *   -> ContractId T
     */
-  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(2) {
+  final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      checkToken(args.get(1))
+      checkToken(args.get(2))
       val key = asVersionedValue(args.get(0).toValue.mapContractId[Nothing] { cid =>
         crash(s"Unexpected contract id in key: $cid")
       }) match {
         case Left(err) => crash(err)
         case Right(x) => x
       }
+      val maintainers = extractParties(args.get(1))
+      checkLookupMaintainers(templateId, machine, maintainers)
       val gkey = GlobalKey(templateId, key)
       // check if we find it locally
       machine.ptx.keys.get(gkey) match {
@@ -1260,6 +1266,34 @@ object SBuiltin {
       case _ =>
         crash(s"value not a list of parties or party: $v")
     }
+
+  private def checkLookupMaintainers(
+      templateId: Identifier,
+      machine: Machine,
+      maintainers: Set[Party]): Unit = {
+    // This check is dependent on whether we are submitting or validating the transaction.
+    // See <https://github.com/digital-asset/daml/issues/1866#issuecomment-506315152>,
+    // specifically "Consequently it suffices to implement this check
+    // only for the submission. There is no intention to enforce "submitter
+    // must be a maintainer" during validation; if we find in the future a
+    // way to disclose key information or support interactive submission,
+    // then we can lift this restriction without changing the validation
+    // parts. In particular, this should not affect whether we have to ship
+    // the submitter along with the transaction."
+    if (!machine.validating) {
+      val submitter = if (machine.committers.size != 1) {
+        crash(
+          s"expecting exactly one committer since we're not validating, but got ${machine.committers}")
+      } else {
+        machine.committers.toSeq.head
+      }
+      if (machine.checkSubmitterInMaintainers) {
+        if (!(maintainers.contains(submitter))) {
+          throw DamlESubmitterNotInMaintainers(templateId, submitter, maintainers)
+        }
+      }
+    }
+  }
 
   private def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
     mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)

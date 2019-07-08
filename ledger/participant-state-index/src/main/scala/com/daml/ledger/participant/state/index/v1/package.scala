@@ -82,4 +82,20 @@ package object v1 {
       takenAt: LedgerOffset.Absolute,
       activeContracts: Source[(Option[WorkflowId], AcsUpdateEvent.Create), NotUsed])
 
+  /** Meta-data of a DAML-LF package
+    *
+    * @param size              : The size of the archive payload, in bytes.
+    *
+    * @param knownSince        : Indicates since when the package is known to
+    *   the backing participant.
+    *
+    * @param sourceDescription : Optional description provided by the backing
+    *   participant describing where it got the package from.
+    *
+    */
+  final case class PackageDetails(
+      size: Long,
+      knownSince: Timestamp,
+      sourceDescription: Option[String])
+
 }

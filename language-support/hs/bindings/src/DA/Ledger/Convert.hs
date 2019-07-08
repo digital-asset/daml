@@ -6,10 +6,16 @@
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (
     lowerCommands, lowerLedgerOffset,
-    Perhaps, raiseList, raiseTransaction, raiseCompletionStreamResponse, raiseAbsLedgerOffset,
+    Perhaps,
+    raiseList,
+    raiseTransaction,
+    raiseTransactionTree,
+    raiseCompletionStreamResponse,
+    raiseAbsLedgerOffset,
     RaiseFailureReason,
     ) where
 
+import Data.Map(Map)
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Data.Vector as Vector (Vector,fromList,toList)
@@ -23,6 +29,7 @@ import qualified Com.Digitalasset.Ledger.Api.V1.Event as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Transaction as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Value as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.LedgerOffset as LL
+import qualified Data.Map as Map
 import qualified Proto3.Suite.Types as LL
 
 import DA.Ledger.Types
@@ -184,6 +191,74 @@ raiseAbsLedgerOffset = \case
        LL.LedgerOffsetValueAbsolute text -> raiseAbsOffset text
        LL.LedgerOffsetValueBoundary _ -> unexpected "non-Absolute LedgerOffset"
 
+raiseTransactionTree :: LL.TransactionTree -> Perhaps TransactionTree
+raiseTransactionTree = \case
+    LL.TransactionTree{transactionTreeTransactionId,
+                       transactionTreeCommandId,
+                       transactionTreeWorkflowId,
+                       transactionTreeEffectiveAt,
+                       transactionTreeEventsById,
+                       transactionTreeRootEventIds,
+                       transactionTreeOffset} -> do
+    trid <- raiseTransactionId transactionTreeTransactionId
+    let cid = optional (raiseCommandId transactionTreeCommandId)
+    let wid = optional (raiseWorkflowId transactionTreeWorkflowId)
+    leTime <- perhaps "transactionTreeEffectiveAt" transactionTreeEffectiveAt >>= raiseTimestamp
+    offset <- raiseAbsOffset transactionTreeOffset
+    events <- raiseMap raiseEventId raiseTreeEvent transactionTreeEventsById
+    roots <- raiseList raiseEventId transactionTreeRootEventIds
+    return TransactionTree {trid, cid, wid, leTime, offset, events, roots}
+
+raiseTreeEvent :: LL.TreeEvent -> Perhaps TreeEvent
+raiseTreeEvent = \case
+    LL.TreeEvent{treeEventKind = Nothing} -> missing "TreeEvent"
+    LL.TreeEvent(Just (LL.TreeEventKindExercised
+                       LL.ExercisedEvent{
+                              exercisedEventEventId,
+                              exercisedEventContractId,
+                              exercisedEventTemplateId,
+                              exercisedEventContractCreatingEventId,
+                              exercisedEventChoice,
+                              exercisedEventChoiceArgument,
+                              exercisedEventActingParties,
+                              exercisedEventConsuming,
+                              exercisedEventWitnessParties,
+                              exercisedEventChildEventIds,
+                              exercisedEventExerciseResult
+                              })) -> do
+        eid <- raiseEventId exercisedEventEventId
+        cid <- raiseContractId exercisedEventContractId
+        tid <- perhaps "exercisedEventTemplateId" exercisedEventTemplateId >>= raiseTemplateId
+        ccEid <- undefined exercisedEventContractCreatingEventId
+        choice <- raiseChoice exercisedEventChoice
+        choiceArg <- perhaps "exercisedEventChoiceArgument" exercisedEventChoiceArgument >>= raiseValue
+        acting <- raiseList raiseParty exercisedEventActingParties
+        let consuming = exercisedEventConsuming -- no conversion needed for Bool
+        witness <- raiseList raiseParty exercisedEventWitnessParties
+        childEids <- raiseList raiseEventId exercisedEventChildEventIds
+        result <- perhaps "exercisedEventExerciseResult" exercisedEventExerciseResult >>= raiseValue
+        return ExercisedTreeEvent
+            {eid,cid,tid,ccEid,choice,choiceArg,acting,consuming,witness,childEids,result}
+
+    LL.TreeEvent(Just (LL.TreeEventKindCreated
+                       LL.CreatedEvent{createdEventEventId,
+                                       createdEventContractId,
+                                       createdEventTemplateId,
+                                       createdEventContractKey,
+                                       createdEventCreateArguments,
+                                       createdEventWitnessParties,
+                                       createdEventSignatories,
+                                       createdEventObservers})) -> do
+        eid <- raiseEventId createdEventEventId
+        cid <- raiseContractId createdEventContractId
+        tid <- perhaps "createdEventTemplateId" createdEventTemplateId >>= raiseTemplateId
+        let key = createdEventContractKey >>= optional . raiseValue
+        createArgs <- perhaps "createdEventCreateArguments" createdEventCreateArguments >>= raiseRecord
+        witness <- raiseList raiseParty createdEventWitnessParties
+        signatories <- raiseList raiseParty createdEventSignatories
+        observers <- raiseList raiseParty createdEventObservers
+        return CreatedTreeEvent{eid,cid,tid,key,createArgs,witness,signatories,observers}
+
 raiseTransaction :: LL.Transaction -> Perhaps Transaction
 raiseTransaction = \case
     LL.Transaction{transactionTransactionId,
@@ -303,6 +378,21 @@ raiseList f v = loop (Vector.toList v)
               [] -> return []
               x:xs -> do y <- f x; ys <- loop xs; return $ y:ys
 
+raiseMap :: forall k k' v v'. Ord k'
+         => (k -> Perhaps k')
+         -> (v -> Perhaps v')
+         -> Map k (Maybe v) -- The Maybe is an artifact of grpc's encoding of maps, as expressed by grpc-haskell
+         -> Perhaps (Map k' v')
+raiseMap raiseK raiseV = fmap Map.fromList . mapM raiseKV . Map.toList
+    where raiseKV :: (k, Maybe v) -> Perhaps (k', v')
+          raiseKV (kLow,vLowOpt) = do
+              k <- raiseK kLow
+              case vLowOpt of
+                  Nothing -> missing "mapElem"
+                  Just vLow -> do
+                      v <- raiseV vLow
+                      return (k,v)
+
 raiseTransactionId :: Text -> Perhaps TransactionId
 raiseTransactionId = fmap TransactionId . raiseText "TransactionId"
 
@@ -317,6 +407,9 @@ raiseEventId = fmap EventId . raiseText "EventId"
 
 raiseContractId :: Text -> Perhaps ContractId
 raiseContractId = fmap ContractId . raiseText "ContractId"
+
+raiseChoice :: Text -> Perhaps Choice
+raiseChoice = fmap Choice . raiseText "Choice"
 
 raiseParty :: Text -> Perhaps Party
 raiseParty = fmap Party . raiseText "Party"

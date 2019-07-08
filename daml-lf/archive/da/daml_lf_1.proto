@@ -3,7 +3,7 @@
 
 // .proto representation of the first version of the DAML-LF language,
 // as specified by
-// <https://github.com/DACH-NY/da/blob/master/daml-foundations/daml-tools/docs/daml-lf-specification/source/index.rst>.
+// <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>.
 //
 // A few notes:
 //
@@ -31,7 +31,8 @@
 // * dev (special staging area for the next version to be released)
 //        2019-05-27: Add enum type.
 //        2019-06-04: Add BuiltinFunction.{TEXT_FROM_CODE_POINTS, TEXT_TO_CODE_POINTS}
-//        2019-07-12: Add Package.interned_package_ids and PackageRef.interned_id
+//        2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
+//        2019-07-04: Transaction submitters must be in contract key maintainers when looking up. See #1866.
 
 
 syntax = "proto3";

@@ -130,6 +130,12 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
+alias(
+    name = "Test-1.5.dar",
+    actual = ":historical-dars/Test-1.5.dar",
+    visibility = ["//visibility:public"],
+)
+
 daml_compile(
     name = "Test",
     main_src = "src/test/resources/damls/Test.daml",

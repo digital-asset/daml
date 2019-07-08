@@ -76,6 +76,11 @@
     lodash "^4.17.11"
     to-fast-properties "^2.0.0"
 
+"@bazel/hide-bazel-files@0.32.0":
+  version "0.32.0"
+  resolved "https://registry.yarnpkg.com/@bazel/hide-bazel-files/-/hide-bazel-files-0.32.0.tgz#642becc6ac9c27a4486b3f671a078090f93371cb"
+  integrity sha512-eraORpt2iBiHal4FRV2c/3enH2nttWp4myOcHZvEVd8v7P/tt9FWv04MrxDIKHCqZIVt51D/2sXmOJKuKsKqvA==
+
 "@endemolshinegroup/cosmiconfig-typescript-loader@^1.0.0":
   version "1.0.0"
   resolved "https://registry.yarnpkg.com/@endemolshinegroup/cosmiconfig-typescript-loader/-/cosmiconfig-typescript-loader-1.0.0.tgz#a27c0382158e41249ad32264836d21f12b0bb8ff"

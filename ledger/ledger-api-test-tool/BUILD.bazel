@@ -141,6 +141,7 @@ client_server_test(
     server = "//ledger/api-server-damlonx/reference:reference",
     server_args = [
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/server.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath testdata/server.pem))",

@@ -11,7 +11,7 @@ def _fat_cc_library_impl(ctx):
     # For now we assume that we have static PIC libs for all libs.
     # It should be possible to extend this but we do not have a need
     # for it so far and it would complicate things.
-    for lib in cc_info.linking_context.libraries_to_link:
+    for lib in cc_info.linking_context.libraries_to_link.to_list():
         static_lib = None
         if lib.pic_static_library:
             static_lib = lib.pic_static_library
@@ -28,7 +28,7 @@ def _fat_cc_library_impl(ctx):
     static_lib = ctx.outputs.static_library
 
     toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]
-    feature_configuration = cc_common.configure_features(cc_toolchain = toolchain)
+    feature_configuration = cc_common.configure_features(ctx = ctx, cc_toolchain = toolchain)
 
     compiler = None
     if is_darwin:
@@ -101,13 +101,7 @@ def _fat_cc_library_impl(ctx):
         linking_context = new_linking_context,
         compilation_context = cc_info.compilation_context,
     )
-    return struct(
-        # cc is a legacy provider so it needs to be handled differently.
-        # Hopefully, rules_haskell will stop depending onit at somepoint and
-        # we can stop providing both cc and CcInfo.
-        cc = input_lib.cc,
-        providers = [new_cc_info],
-    )
+    return [new_cc_info]
 
 # Shared libraries built with Bazel do not declare their dependencies on other libraries properly.
 # Instead that dependency is tracked in Bazel internally. This breaks the GHCi linker if
@@ -138,6 +132,7 @@ fat_cc_library = rule(
             default = [] if is_darwin else ["-Wl,--no-whole-archive"],
         ),
     }),
+    fragments = ["cpp"],
     outputs = {
         "dynamic_library": "lib%{name}.dll" if is_windows else "lib%{name}.so",
         "static_library": "lib%{name}.a",

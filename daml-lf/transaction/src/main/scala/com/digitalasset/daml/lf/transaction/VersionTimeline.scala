@@ -26,7 +26,7 @@ import scala.language.higherKinds
   * version picker uses the timeline in order to describe changes to
   * that same timeline.
   */
-private[lf] object VersionTimeline {
+private[digitalasset] object VersionTimeline {
   import LanguageVersion.Minor.Dev
   import \&/.{Both, That, This}
 
@@ -157,5 +157,10 @@ private[lf] object VersionTimeline {
       .flatMap(li =>
         inAscendingOrder.list.take(li + 1).reverse collectFirst (Function unlift A.extract))
       .getOrElse(minimum)
+  }
+
+  def checkSubmitterInMaintainers(lfVers: LanguageVersion): Boolean = {
+    import Implicits._
+    !(lfVers precedes LanguageVersion.checkSubmitterInMaintainers)
   }
 }

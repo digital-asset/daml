@@ -17,7 +17,8 @@ import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.google.protobuf.timestamp.Timestamp
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import io.grpc.{BindableService, ServerServiceDefinition}
+import io.grpc.ServerServiceDefinition
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.Future
@@ -28,6 +29,8 @@ class ApiPackageManagementService(
     packagesWrite: WritePackagesService)
     extends PackageManagementService
     with GrpcApiService {
+
+  protected val logger: Logger = LoggerFactory.getLogger(PackageManagementService.getClass)
 
   override def close(): Unit = ()
 
@@ -73,6 +76,8 @@ class ApiPackageManagementService(
               Future.failed(ErrorFactories.invalidArgument(r.description))
             case r @ UploadPackagesResult.ParticipantNotAuthorized =>
               Future.failed(ErrorFactories.permissionDenied(r.description))
+            case r @ UploadPackagesResult.NotSupported =>
+              Future.failed(ErrorFactories.unimplemented(r.description))
           }(DE)
     )
   }
@@ -81,7 +86,6 @@ class ApiPackageManagementService(
 object ApiPackageManagementService {
   def createApiService(
       readBackend: IndexPackagesService,
-      writeBackend: WritePackagesService): GrpcApiService with BindableService = {
-    new ApiPackageManagementService(readBackend, writeBackend) with BindableService
-  }
+      writeBackend: WritePackagesService): GrpcApiService =
+    new ApiPackageManagementService(readBackend, writeBackend) with PackageManagementServiceLogging
 }

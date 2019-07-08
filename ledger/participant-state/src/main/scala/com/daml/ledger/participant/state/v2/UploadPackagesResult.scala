@@ -14,6 +14,11 @@ object UploadPackagesResult {
     override def description: String = "Packages successfully uploaded"
   }
 
+  /** Synchronous package upload is not supported */
+  final case object NotSupported extends UploadPackagesResult {
+    override def description: String = "Packages upload not supported"
+  }
+
   /** One of the uploaded packages is not valid */
   final case class InvalidPackage(reason: String) extends UploadPackagesResult {
     override def description: String = "Uploaded packages were invalid: " + reason

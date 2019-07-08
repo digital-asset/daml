@@ -6,12 +6,14 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1._
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.ledger.api.domain.PartyDetails
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
+import scala.collection.breakOut
 import scala.collection.JavaConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
@@ -36,47 +38,47 @@ object KeyValueConsumption {
     * @param entry: The log entry.
     * @return [[Update]] constructed from log entry.
     */
-  def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): Option[Update] = {
+  def logEntryToUpdate(entryId: DamlLogEntryId, entry: DamlLogEntry): List[Update] = {
 
     val recordTime = parseTimestamp(entry.getRecordTime)
 
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        Some(
-          Update.PublicPackagesUploaded(
-            entry.getPackageUploadEntry.getArchivesList.asScala.toList,
+        entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
+          Update.PublicPackageUploaded(
+            archive,
             if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
               Some(entry.getPackageUploadEntry.getSourceDescription)
             else None,
-            entry.getPackageUploadEntry.getParticipantId,
+            Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId),
             recordTime
           )
-        )
+        }(breakOut)
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
-        None
+        List.empty
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        Some(
+        List(
           Update.PartyAddedToParticipant(
             Party.assertFromString(entry.getPartyAllocationEntry.getParty),
             entry.getPartyAllocationEntry.getDisplayName,
-            entry.getPartyAllocationEntry.getParticipantId,
+            Ref.LedgerString.assertFromString(entry.getPartyAllocationEntry.getParticipantId),
             recordTime
           )
         )
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
-        None
+        List.empty
 
       case DamlLogEntry.PayloadCase.TRANSACTION_ENTRY =>
-        Some(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
+        List(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
-        Some(Update.ConfigurationChanged(parseDamlConfigurationEntry(entry.getConfigurationEntry)))
+        List(Update.ConfigurationChanged(parseDamlConfigurationEntry(entry.getConfigurationEntry)))
 
       case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
-        Some(rejectionEntryToUpdate(entry.getRejectionEntry))
+        List(rejectionEntryToUpdate(entry.getRejectionEntry))
 
       case DamlLogEntry.PayloadCase.PAYLOAD_NOT_SET =>
         sys.error("entryToUpdate: PAYLOAD_NOT_SET!")

@@ -20,6 +20,8 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     Checkpoint(..),
     Transaction(..),
     Event(..),
+    TransactionTree(..),
+    TreeEvent(..),
     Value(..),
     Record(..),
     RecordField(..),
@@ -46,6 +48,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     ModuleName(..),
     EntityName(..),
     AbsOffset(..),
+    Verbosity(..),
 
     ) where
 
@@ -96,7 +99,6 @@ data Completion
         status :: Status }
     deriving (Eq,Ord,Show)
 
-
 data Checkpoint
     = Checkpoint {
         -- TODO: add time info
@@ -114,6 +116,42 @@ data Transaction
         leTime :: Timestamp,
         events :: [Event],
         offset :: AbsOffset } deriving (Eq,Ord,Show)
+
+data TransactionTree
+    = TransactionTree {
+        trid   :: TransactionId,
+        cid    :: Maybe CommandId,
+        wid    :: Maybe WorkflowId,
+        leTime :: Timestamp,
+        offset :: AbsOffset,
+        events :: Map EventId TreeEvent,
+        roots  :: [EventId]
+        } deriving (Eq,Ord,Show)
+
+data TreeEvent
+    = CreatedTreeEvent { -- TODO: dedup TreeEvent / Event ! ?
+        eid         :: EventId,
+        cid         :: ContractId,
+        tid         :: TemplateId,
+        createArgs  :: Record,
+        witness     :: [Party],
+        key         :: Maybe Value,
+        signatories :: [Party],
+        observers   :: [Party] }
+
+    | ExercisedTreeEvent {
+        eid       :: EventId,
+        cid       :: ContractId,
+        tid       :: TemplateId,
+        ccEid     :: EventId,
+        choice    :: Choice,
+        choiceArg :: Value,
+        acting    :: [Party],
+        consuming :: Bool,
+        witness   :: [Party],
+        childEids :: [EventId],
+        result    :: Value}
+    deriving (Eq,Ord,Show)
 
 -- event.proto
 
@@ -133,19 +171,6 @@ data Event
         cid     :: ContractId,
         tid     :: TemplateId,
         witness :: [Party] }
-{-
-    | ExercisedEvent {
-        eid       :: EventId,
-        cid       :: ContractId,
-        tid       :: TemplateId,
-        ccEid     :: EventId,
-        choice    :: Choice,
-        choiceArg :: Value,
-        acting    :: [Party],
-        consuming :: Bool,
-        witness   :: [Party],
-        childEids :: [EventId] }
--}
     deriving (Eq,Ord,Show)
 
 -- value.proto
@@ -229,11 +254,10 @@ newtype AbsOffset = AbsOffset { unAbsOffset :: Text }  deriving (Eq,Ord,Show)
 -- TODO: .proto message types not yet handled
 {-
 message LedgerConfiguration {
-message LedgerOffset {
 message TraceContext {
 message TransactionFilter {
 message Filters {
 message InclusiveFilters {
-message TransactionTree {
-message TreeEvent {
 -}
+
+newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)

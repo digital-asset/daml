@@ -5,11 +5,14 @@
 {-# LANGUAGE RankNTypes #-}
 module Main (main) where
 
+import Control.Applicative.Combinators
 import Control.Lens hiding (List)
-import Control.Monad (forM, forM_, void)
+import Control.Monad
 import Control.Monad.IO.Class
 import DA.Bazel.Runfiles
 import Data.Aeson (toJSON)
+import Data.Foldable (toList)
+import Data.List.Extra
 import qualified Data.Text as T
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens
@@ -22,13 +25,13 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import Daml.Lsp.Test.Util
+import qualified Language.Haskell.LSP.Test as LSP
 
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
-        mainWorkspace </> "daml-foundations" </> "daml-tools" </>
-        "damlc-app" </> "damlc-app"
+        mainWorkspace </> "compiler" </> "damlc" </> "damlc"
     let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps dir s
         runScenarios s
             -- We are currently seeing issues with GRPC FFI calls which make everything
@@ -269,7 +272,7 @@ requestTests run _runScenarios = testGroup "requests"
                     , "*\t*\t*"
                     , "**Defined at " <> T.pack fp <> ":4:1**"
                     ]
-              , _range = Just $ Range (Position 10 17) (Position 10 20)
+              , _range = Just $ Range (Position 9 17) (Position 9 20)
               }
           closeDoc main'
 
@@ -282,7 +285,7 @@ requestTests run _runScenarios = testGroup "requests"
           r <- getHover main' (Position 2 27)
           liftIO $ r @?= Just Hover
               { _contents = HoverContents $ MarkupContent MkMarkdown "```daml\n: Decimal\n```\n"
-              , _range = Just $ Range (Position 3 27) (Position 3 30)
+              , _range = Just $ Range (Position 2 27) (Position 2 30)
               }
           closeDoc main'
     , testCase "definition" $ run $ do
@@ -386,22 +389,40 @@ stressTests
 stressTests run _runScenarios = testGroup "Stress tests"
   [ testCase "Modify a file 2000 times" $ run $ do
         let fooValue :: Int -> T.Text
+            -- Even values should produce empty diagnostics
+            -- while odd values will produce a type error.
             fooValue i = T.pack (show (i `div` 2))
-                      <> if i `mod` 2 == 0 then "" else ".5"
+                      <> if even i then "" else ".5"
             fooContent i = T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
                 , "foo : Int"
                 , "foo = " <> fooValue i
                 ]
+            expect :: Int -> Session ()
+            expect i = when (odd i) $ do
+                -- We do not wait for empty diagnostics on even i since debouncing
+                -- causes them to only be emitted after a delay which slows down
+                -- the tests.
+                -- Depending on debouncing we might first get a message with an empty
+                -- set of diagnostics or we might get the error diagnostics directly
+                -- if debouncing supresses the empty set of diagnostics.
+                diags <-
+                    skipManyTill anyMessage $ do
+                        m <- LSP.message :: Session PublishDiagnosticsNotification;
+                        let diags = toList $ m ^. params . diagnostics
+                        guard (notNull diags)
+                        pure diags
+                liftIO $ unless (length diags == 1) $
+                    assertFailure $ "Incorrect number of diagnostics, expected 1 but got " <> show diags
+                let msg = head diags ^. message
+                liftIO $ assertBool ("Expected type error but got " <> T.unpack msg) $
+                    "Couldn't match expected type" `T.isInfixOf` msg
         foo <- openDoc' "Foo.daml" damlId $ fooContent 0
-        forM_ [1 .. 999] $ \i ->
+        forM_ [1 .. 2000] $ \i -> do
             replaceDoc foo $ fooContent i
-        expectDiagnostics [("Foo.daml", [(DsError, (3, 6), "Couldn't match expected type")])]
-        forM_ [1000 .. 2000] $ \i ->
-            replaceDoc foo $ fooContent i
+            expect i
         expectDiagnostics [("Foo.daml", [])]
-        closeDoc foo
   , testCase "Set 10 files of interest" $ run $ do
         foos <- forM [1 .. 10 :: Int] $ \i ->
             makeModule ("Foo" ++ show i) ["foo  10"]

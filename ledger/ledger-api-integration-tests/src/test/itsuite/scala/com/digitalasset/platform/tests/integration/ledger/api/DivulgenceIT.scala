@@ -3,9 +3,11 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
+import java.util.UUID
+
 import akka.stream.scaladsl.Sink
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
@@ -15,7 +17,7 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
-  SuiteResourceManagementAroundEach
+  SuiteResourceManagementAroundAll
 }
 import com.digitalasset.ledger.api.v1
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
@@ -44,7 +46,7 @@ class DivulgenceIT
     extends AsyncFreeSpec
     with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
-    with SuiteResourceManagementAroundEach
+    with SuiteResourceManagementAroundAll
     with ScalaFutures
     with AsyncTimeLimitedTests
     with Matchers
@@ -54,6 +56,9 @@ class DivulgenceIT
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
   protected val testIdsGenerator = new TestIdsGenerator(config)
+
+  private lazy val alice = testIdsGenerator.testPartyName("alice")
+  private lazy val bob = testIdsGenerator.testPartyName("bob")
 
   private implicit def party(s: String): Ref.Party = Ref.Party.assertFromString(s)
   private implicit def pkgId(s: String): Ref.PackageId = Ref.PackageId.assertFromString(s)
@@ -164,25 +169,25 @@ class DivulgenceIT
   private def createDivulgence1(ctx: LedgerContext, workflowId: String): Future[ContractIdString] =
     create(
       ctx,
-      testIdsGenerator.testCommandId("create-Divulgence1"),
+      testIdsGenerator.testCommandId(s"create-Divulgence1-${UUID.randomUUID()}"),
       workflowId,
-      "alice",
+      alice,
       templateIds.divulgence1,
-      ValueRecord(None, ImmArray(Some[Ref.Name]("div1Party") -> ValueParty("alice")))
+      ValueRecord(None, ImmArray(Some[Ref.Name]("div1Party") -> ValueParty(alice)))
     )
 
   private def createDivulgence2(ctx: LedgerContext, workflowId: String): Future[ContractIdString] =
     create(
       ctx,
-      testIdsGenerator.testCommandId("create-Divulgence2"),
+      testIdsGenerator.testCommandId(s"create-Divulgence2-${UUID.randomUUID()}"),
       workflowId,
-      "bob",
+      bob,
       templateIds.divulgence2,
       ValueRecord(
         None,
         ImmArray(
-          Some[Ref.Name]("div2Signatory") -> ValueParty("bob"),
-          Some[Ref.Name]("div2Fetcher") -> ValueParty("alice")))
+          Some[Ref.Name]("div2Signatory") -> ValueParty(bob),
+          Some[Ref.Name]("div2Fetcher") -> ValueParty(alice)))
     )
 
   private def divulgeViaFetch(
@@ -192,9 +197,9 @@ class DivulgenceIT
       workflowId: String): Future[Unit] =
     exercise(
       ctx,
-      testIdsGenerator.testCommandId("exercise-Divulgence2Fetch"),
+      testIdsGenerator.testCommandId(s"exercise-Divulgence2Fetch-${UUID.randomUUID()}"),
       workflowId,
-      "alice",
+      alice,
       templateIds.divulgence2,
       div2Cid,
       "Divulgence2Fetch",
@@ -210,9 +215,9 @@ class DivulgenceIT
       workflowId: String): Future[Unit] =
     exercise(
       ctx,
-      testIdsGenerator.testCommandId("exercise-Divulgence2Fetch"),
+      testIdsGenerator.testCommandId(s"exercise-Divulgence2Archive-${UUID.randomUUID()}"),
       workflowId,
-      "alice",
+      alice,
       templateIds.divulgence2,
       div2Cid,
       "Divulgence2Archive",
@@ -225,12 +230,12 @@ class DivulgenceIT
     LedgerOffset.Value
       .Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
 
-  private val bobFilter = TransactionFilter(Map("bob" -> Filters.defaultInstance))
+  private val bobFilter = TransactionFilter(Map(bob -> Filters.defaultInstance))
   private val bothFilter = TransactionFilter(
-    Map("alice" -> Filters.defaultInstance, "bob" -> Filters.defaultInstance))
+    Map(alice -> Filters.defaultInstance, bob -> Filters.defaultInstance))
 
   "should not expose divulged contracts in flat stream" in allFixtures { ctx =>
-    val wfid = testIdsGenerator.testWorkflowId("divulgence-test-workflow-id")
+    val wfid = testIdsGenerator.testWorkflowId("divulgence-test-flat-stream-workflow-id")
     for {
       beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       div1Cid <- createDivulgence1(ctx, wfid)
@@ -267,9 +272,9 @@ class DivulgenceIT
         // we expect only one transaction, containing only one create event for Divulgence2.
         // we do _not_ expect the create or archive for Divulgence1, even if Divulgence1 was divulged
         // to bob, and even if the exercise is visible to bob in the transaction trees.
-        bobFlatTransactions.length shouldBe 1
+        bobFlatTransactions should have length 1
         val events = bobFlatTransactions.head.events
-        events.length shouldBe 1
+        events should have length 1
         val event = events.head.event
         inside(event.created) {
           case Some(created) =>
@@ -281,26 +286,26 @@ class DivulgenceIT
       // stream above
       {
         // we should get two transactions -- one for the second create and one for the exercise.
-        bobTreeTransactions.length shouldBe 2
+        bobTreeTransactions should have length 2
         val div2CreateTx = bobTreeTransactions(0)
-        div2CreateTx.rootEventIds.length shouldBe 1
+        div2CreateTx.rootEventIds should have length 1
         val div2CreateEvent = div2CreateTx.eventsById(div2CreateTx.rootEventIds.head)
         inside(div2CreateEvent.kind.created) {
           case Some(created) =>
             created.contractId shouldBe div2Cid
         }
         val div2ExerciseTx = bobTreeTransactions(1)
-        div2ExerciseTx.rootEventIds.length shouldBe 1
+        div2ExerciseTx.rootEventIds should have length 1
         val div2ExerciseEvent = div2ExerciseTx.eventsById(div2ExerciseTx.rootEventIds.head)
         inside(div2ExerciseEvent.kind.exercised) {
           case Some(div2Exercise) =>
             div2Exercise.contractId shouldBe div2Cid
-            div2Exercise.childEventIds.length shouldBe 1
+            div2Exercise.childEventIds should have length 1
             val div1ExerciseEvent = div2ExerciseTx.eventsById(div2Exercise.childEventIds.head)
             inside(div1ExerciseEvent.kind.exercised) {
               case Some(div1Exercise) =>
                 div1Exercise.contractId shouldBe div1Cid
-                div1Exercise.childEventIds.length shouldBe 0
+                div1Exercise.childEventIds should have length 0
             }
         }
       }
@@ -310,20 +315,20 @@ class DivulgenceIT
         // * create Divulgence2
         // * archive Divulgence1
         // note that we do _not_ see the exercise of Divulgence2 because it is nonconsuming
-        bothFlatTransactions.length shouldBe 3
-        bothFlatTransactions(0).events.length shouldBe 1
-        val div1CreateEvent = bothFlatTransactions(0).events.head
+        bothFlatTransactions should have length 3
+        bothFlatTransactions.head.events should have length 1
+        val div1CreateEvent = bothFlatTransactions.head.events.head
         inside(div1CreateEvent.event.created) {
           case Some(created) =>
             created.contractId shouldBe div1Cid
-            created.witnessParties.toList shouldBe List("alice") // bob does not see
+            created.witnessParties.toList shouldBe List(alice) // bob does not see
         }
       }
     }
   }
 
   "should not expose divulged contracts in ACS" in allFixtures { ctx =>
-    val wfid = testIdsGenerator.testWorkflowId("divulgence-test-workflow-id")
+    val wfid = testIdsGenerator.testWorkflowId("divulgence-test-acs-workflow-id")
     for {
       beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       div1Cid <- createDivulgence1(ctx, wfid)
@@ -346,20 +351,20 @@ class DivulgenceIT
     } yield {
       // bob only sees divulgence 2
       {
-        bobEvents.length shouldBe 1
+        bobEvents should have length 1
         bobEvents.head.contractId shouldBe div2Cid
         // note that since the bob filter only concerns bob, here we get only bob as witness, even if alice sees
         // this contract too.
-        bobEvents.head.witnessParties.toList.sorted shouldBe List("bob")
+        bobEvents.head.witnessParties.toList.sorted shouldBe List(bob)
       }
       // alice sees both
       {
-        bothEvents.length shouldBe 2
+        bothEvents should have length 2
         bothEvents.map(_.contractId: String).sorted shouldBe List[String](div1Cid, div2Cid).sorted
         bothEvents.find(_.contractId == div1Cid).map(_.witnessParties.toList) shouldBe Some(
-          List("alice"))
+          List(alice))
         bothEvents.find(_.contractId == div2Cid).map(_.witnessParties.toList.sorted) shouldBe Some(
-          List("alice", "bob"))
+          List(alice, bob))
       }
     }
   }

@@ -12,9 +12,8 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
-import io.grpc.{BindableService, ServerServiceDefinition}
+import io.grpc.ServerServiceDefinition
 import org.slf4j.LoggerFactory
-import scalaz.syntax.tag._
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
@@ -36,7 +35,7 @@ class ApiPartyManagementService private (
       request: GetParticipantIdRequest): Future[GetParticipantIdResponse] =
     partyManagementService
       .getParticipantId()
-      .map(pid => GetParticipantIdResponse(pid.unwrap))(DE)
+      .map(pid => GetParticipantIdResponse(pid.toString))(DE)
 
   private[this] def mapPartyDetails(
       details: com.digitalasset.ledger.api.domain.PartyDetails): PartyDetails =
@@ -65,6 +64,8 @@ class ApiPartyManagementService private (
           Future.failed(ErrorFactories.invalidArgument(r.description))
         case r @ PartyAllocationResult.ParticipantNotAuthorized =>
           Future.failed(ErrorFactories.permissionDenied(r.description))
+        case r @ PartyAllocationResult.NotSupported =>
+          Future.failed(ErrorFactories.unimplemented(r.description))
       }(DE)
   }
 
@@ -74,7 +75,6 @@ object ApiPartyManagementService {
   def createApiService(readBackend: IndexPartyManagementService, writeBackend: WritePartyService)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): GrpcApiService with BindableService with PartyManagementServiceLogging =
-    new ApiPartyManagementService(readBackend, writeBackend) with BindableService
-    with PartyManagementServiceLogging
+      mat: Materializer): GrpcApiService =
+    new ApiPartyManagementService(readBackend, writeBackend) with PartyManagementServiceLogging
 }

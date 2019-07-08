@@ -14,6 +14,7 @@ module DA.Ledger ( -- High level interface to the Ledger API
     module DA.Ledger.Types,
 
     configOfPort, getAllTransactions, getTransactionsPF,
+    getAllTransactionTrees,
 
     ) where
 
@@ -37,18 +38,23 @@ configOfPort port =
 -- Non-primitive, but useful way to get Transactions
 -- TODO: move to separate Utils module?
 
-getAllTransactions :: LedgerId -> Party -> LedgerService (Stream Transaction)
-getAllTransactions lid party = do
+getAllTransactions :: LedgerId -> Party -> Verbosity -> LedgerService (Stream Transaction)
+getAllTransactions lid party verbose = do
     let filter = filterEverthingForParty party
-    let verbose = False
     let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
     getTransactions req
+
+getAllTransactionTrees :: LedgerId -> Party -> Verbosity -> LedgerService (Stream TransactionTree)
+getAllTransactionTrees lid party verbose = do
+    let filter = filterEverthingForParty party
+    let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
+    getTransactionTrees req
 
 getTransactionsPF :: LedgerId -> Party -> LedgerService (PastAndFuture Transaction)
 getTransactionsPF lid party = do
     now <- fmap LedgerAbsOffset (ledgerEnd lid)
     let filter = filterEverthingForParty party
-    let verbose = False
+    let verbose = Verbosity False
     let req1 = GetTransactionsRequest lid LedgerBegin (Just now) filter verbose
     let req2 = GetTransactionsRequest lid now         Nothing    filter verbose
     stream <- getTransactions req1

@@ -19,7 +19,7 @@ type MyOtherDecimal = MyDecimal
 data Option call put = Call call | Put put
   deriving (Show, Eq)
 
-data NestedList = NestedList { options: List (Option OptionPrice OptionPrice) }
+data NestedList = NestedList { options: [Option OptionPrice OptionPrice] }
   deriving (Show, Eq)
 
 type Date = Time
@@ -39,30 +39,30 @@ data Either a b = Left a | Right b
 
 type MaybeMaybe a = Maybe (Maybe a);
 
-data AllTypes = AllTypes { text: Text; value: Integer; b: Bool }
+data AllTypes = AllTypes { text: Text; value: Int; b: Bool }
   deriving (Show, Eq)
 
 data TextToText = TextToText { f: Text -> Text }
 
 data NameClashRecord = NameClashRecord {
-  productArity: Integer;
-  productArity1: Integer;
-  productArity_: Integer;
-  productArity__: Integer;
-  productArity___: Integer;
-  productIterator: Integer;
-  productPrefix: Integer;
-  getClass: Integer;
-  asInstanceOf: Integer;
-  equals: Integer;
-  hashCode: Integer;
-  isInstanceOf: Integer;
-  toString: Integer;
-  notify: Integer;
-  notifyAll: Integer;
-  notifyAll_: Integer;
-  wait: Integer;
-  wait_: Integer
+  productArity: Int;
+  productArity1: Int;
+  productArity_: Int;
+  productArity__: Int;
+  productArity___: Int;
+  productIterator: Int;
+  productPrefix: Int;
+  getClass: Int;
+  asInstanceOf: Int;
+  equals: Int;
+  hashCode: Int;
+  isInstanceOf: Int;
+  toString: Int;
+  notify: Int;
+  notifyAll: Int;
+  notifyAll_: Int;
+  wait: Int;
+  wait_: Int
 }
   deriving (Show, Eq)
 
@@ -70,14 +70,14 @@ data NameClashVariant notifyAll productArity = NotifyAll notifyAll | ProductArit
   deriving (Show, Eq)
 
 data NameClashRecordVariant =
-  NameClashRecordVariantA { wait: Integer; wait_: Integer; wait__: Integer } |
-  NameClashRecordVariantB { notifyAll: Integer; notifyAll_: Integer; notifyAll__: Integer }
+  NameClashRecordVariantA { wait: Int; wait_: Int; wait__: Int } |
+  NameClashRecordVariantB { notifyAll: Int; notifyAll_: Int; notifyAll__: Int }
   deriving (Show, Eq)
 
 data VariantWithUnusedTypeParam a b c = VariantC c | VariantB b
   deriving (Show, Eq)
 
-data MyRecord = MyRecord {a: Integer; b: Decimal; c: Party; d: Text; e: Date; f: Unit; g: Bool; h: (List Integer) }
+data MyRecord = MyRecord {a: Int; b: Decimal; c: Party; d: Text; e: Date; f: Unit; g: Bool; h: [Int] }
   deriving (Show, Eq)
 
 data MyVariant = MyVariantA | MyVariantB
@@ -90,7 +90,7 @@ data RecordWithNestedMyVariant = RecordWithNestedMyVariant {
   deriving (Show, Eq)
 
 data VariantWithRecordWithVariant =
- VariantWithRecordWithVariantA { record: RecordWithNestedMyVariant } | 
+ VariantWithRecordWithVariantA { record: RecordWithNestedMyVariant } |
  Whatever
   deriving (Show, Eq)
 
@@ -117,11 +117,11 @@ template TemplateWithCustomTypes
   with
     owner: Party
     field1: NameClashRecord
-    field2: (NameClashVariant Integer Text)
+    field2: (NameClashVariant Int Text)
     field3: NameClashRecordVariant
   where
     signatory owner
-    
+
 
 template TemplateWithTypeAliases
   with
@@ -139,7 +139,7 @@ template PartyAgrees
     text: Text
   where
     signatory p
-    agreement "party " <> toText p
+    agreement "party " <> show p
               <> "agrees " <> text
 
 template DateAndInstantTest
@@ -149,7 +149,7 @@ template DateAndInstantTest
     t: Time
   where
     signatory p
-    agreement toText p <> " agrees " <> toText t
+    agreement show p <> " agrees " <> show t
 
 
 template PayOut
@@ -160,8 +160,8 @@ template PayOut
     signatory receiver
     signatory giver
     agreement
-      toText giver <> " must pay to "
-      <> toText receiver <> " the sum of five pounds."
+      show giver <> " must pay to "
+      <> show receiver <> " the sum of five pounds."
 
 
 template CallablePayout
@@ -250,9 +250,9 @@ template OptionCall
     signatory owner
     signatory seller
     agreement
-      toText owner <> " buys stock " <> optionPrice.symbol <> " at "
-      <> toText optionPrice.price
-      <> " making a profit of " <> toText (optionPrice.price - newPrice)
+      show owner <> " buys stock " <> optionPrice.symbol <> " at "
+      <> show optionPrice.price
+      <> " making a profit of " <> show (optionPrice.price - newPrice)
 
 
 template OptionPut
@@ -264,16 +264,16 @@ template OptionPut
   where
     signatory owner
     signatory seller
-    agreement 
-      toText owner <> " sells stock " <> optionPrice.symbol <> " at "
-      <> toText optionPrice.price
-      <> " making a profit of " <> toText (newPrice - optionPrice.price)
+    agreement
+      show owner <> " sells stock " <> optionPrice.symbol <> " at "
+      <> show optionPrice.price
+      <> " making a profit of " <> show (newPrice - optionPrice.price)
 
 
 template SimpleListExample
   with
     p: Party
-    xs: List Integer
+    xs: [Int]
   where
     signatory p
     controller p can
@@ -284,12 +284,12 @@ template SimpleListExample
 template MkListExample
   with
     p: Party
-    xs: List Integer
+    xs: [Int]
   where
     signatory p
     agreement
-      let add = \(x: Integer) (y: Integer) -> x + y
-      in "I am worth " <> toText (foldl add 0 xs)
+      let add = \(x: Int) (y: Int) -> x + y
+      in "I am worth " <> show (foldl add 0 xs)
 
 
 -- Function parameters used to be unsupported
@@ -300,7 +300,7 @@ template TemplateWithFunctionParameter
     -- f: TextToText
   where
     signatory p
-    agreement toText p <> " agrees "
+    agreement show p <> " agrees "
     -- <> f t
 
 
@@ -342,22 +342,22 @@ template TemplateWithEmptyRecords
   with
     party: Party
     emptyRecord: EmptyRecord
-    emptyRecordWithTParam: EmptyRecordWithTParam Integer
-    polyRec: (PolyRec Integer Text Date)
+    emptyRecordWithTParam: EmptyRecordWithTParam Int
+    polyRec: (PolyRec Int Text Date)
   where signatory party
 
 
 template TrialTemplate
   with
     party: Party
-    trial: (TrialVariant Integer Text Party)
+    trial: (TrialVariant Int Text Party)
   where signatory party
 
 
 template TemplateWithUnusedTypeParam
   with
     party: Party
-    x: (VariantWithUnusedTypeParam Integer Text Date)
+    x: (VariantWithUnusedTypeParam Int Text Date)
   where signatory party
 
 
@@ -451,17 +451,17 @@ template Enums
 template Twoples
   with
     party: Party
-    aPair: (Integer, Integer)
+    aPair: (Int, Int)
   where
     signatory party
 
 template Maybes
   with
     party: Party
-    intPlusOne: Optional Integer
-    intPlusTwo: Optional (Optional Integer)
-    listOfEm: List (Optional Integer)
-    optList: Optional (List Integer)
+    intPlusOne: Optional Int
+    intPlusTwo: Optional (Optional Int)
+    listOfEm: [Optional Int]
+    optList: Optional [Int]
   where
     signatory party
 
@@ -475,7 +475,7 @@ template OptTextMapInt
 template ListTextMapInt
    with
       party: Party
-      listMap: List (TextMap Int)
+      listMap: [TextMap Int]
     where
       signatory party
 
@@ -504,7 +504,7 @@ template TextMapText
 
 {- can fully test with LF 1.5 supposing that includes https://github.com/digital-asset/daml/pull/1315
 
-data ContractIdNT a = ContractIdNT with unContractIdNT : ContractId a 
+data ContractIdNT a = ContractIdNT with unContractIdNT : ContractId a
   deriving (Eq, Show)
 
 template SelfContractIdReferent

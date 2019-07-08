@@ -423,7 +423,9 @@ private[validation] object Typing {
 
     private def typeOfTupleCon(fields: ImmArray[(FieldName, Expr)]): Type = {
       checkUniq[FieldName](fields.keys, EDuplicateField(ctx, _))
-      TTuple(fields.mapValues(typeOf))
+      TTuple(fields.transform { (_, x) =>
+        typeOf(x)
+      })
     }
 
     private def typeOfTupleProj(field: FieldName, expr: Expr): Type = typeOf(expr) match {

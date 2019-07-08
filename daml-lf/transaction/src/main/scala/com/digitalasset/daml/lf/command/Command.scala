@@ -10,7 +10,9 @@ import com.digitalasset.daml.lf.data.{ImmArray, Time}
 // ---------------------------------
 // Accepted commands coming from API
 // ---------------------------------
-sealed trait Command extends Product with Serializable
+sealed trait Command extends Product with Serializable {
+  val templateId: Identifier
+}
 
 /** Command for creating a contract
   *

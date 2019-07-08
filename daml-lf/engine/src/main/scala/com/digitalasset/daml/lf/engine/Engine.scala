@@ -71,7 +71,18 @@ final class Engine {
   def submit(cmds: Commands): Result[Transaction.Transaction] =
     _commandTranslation
       .preprocessCommands(cmds)
-      .flatMap(interpret(Set(cmds.submitter), _, cmds.ledgerEffectiveTime))
+      .flatMap { processedCmds =>
+        ShouldCheckSubmitterInMaintainers(_compiledPackages, cmds).flatMap {
+          checkSubmitterInMaintainers =>
+            interpret(
+              validating = false,
+              checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+              submitters = Set(cmds.submitter),
+              commands = processedCmds,
+              time = cmds.ledgerEffectiveTime
+            )
+        }
+      }
 
   /**
     * Behaves like `submit`, but it takes GenNode arguments instead of a Commands argument.
@@ -98,7 +109,16 @@ final class Engine {
   ): Result[Transaction.Transaction] = {
     for {
       commands <- Result.sequence(ImmArray(nodes).map(translateNode(_commandTranslation)))
-      result <- interpret(submitters, commands, ledgerEffectiveTime)
+      checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
+        _compiledPackages,
+        commands.map(_._2.templateId))
+      // reinterpret is never used for submission, only for validation.
+      result <- interpret(
+        validating = true,
+        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+        submitters = submitters,
+        commands = commands,
+        time = ledgerEffectiveTime)
     } yield result
   }
 
@@ -148,7 +168,15 @@ final class Engine {
       submitters = submittersOpt.getOrElse(Set.empty)
 
       commands <- translateTransactionRoots(_commandTranslation, tx)
-      rtx <- interpret(submitters, commands.map(_._2), ledgerEffectiveTime)
+      checkSubmitterInMaintainers <- ShouldCheckSubmitterInMaintainers(
+        _compiledPackages,
+        commands.map(_._2._2.templateId))
+      rtx <- interpret(
+        validating = true,
+        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+        submitters = submitters,
+        commands = commands.map(_._2),
+        time = ledgerEffectiveTime)
       validationResult <- if (tx isReplayedBy rtx) {
         ResultDone(())
       } else {
@@ -245,32 +273,25 @@ final class Engine {
     }))
   }
 
-  private[engine] def interpretFromNodeId(
-      command: SpeedyCommand,
-      nodeId: Transaction.NodeId,
-      time: Time.Timestamp
-  ): Result[Transaction.Transaction] = {
-
-    val machine =
-      Machine.build(Compiler(_compiledPackages.packages).compile(command), _compiledPackages)
-    machine.ptx = machine.ptx.copy(nextNodeId = nodeId)
-    interpretLoop(machine, time)
-  }
-
   /** Interprets the given expression under the authority of @submitters
     *
     * Submitters are a set, in order to support interpreting subtransactions (a subtransaciton can be authorized
     * by multiple parties).
     */
   private[engine] def interpret(
+      validating: Boolean,
+      /* See documentation for `Speedy.Machine` for the meaning of this field */
+      checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       expr: Expr,
       time: Time.Timestamp): Result[Transaction.Transaction] = {
     val machine =
-      Machine.build(
-        Compiler(_compiledPackages.packages).compile(expr),
-        _compiledPackages,
-        submitters)
+      Machine
+        .build(
+          checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+          sexpr = Compiler(_compiledPackages.packages).compile(expr),
+          compiledPackages = _compiledPackages)
+        .copy(validating = validating, committers = submitters)
 
     interpretLoop(machine, time)
   }
@@ -281,13 +302,19 @@ final class Engine {
     * by multiple parties).
     */
   private[engine] def interpret(
+      validating: Boolean,
+      /* See documentation for `Speedy.Machine` for the meaning of this field */
+      checkSubmitterInMaintainers: Boolean,
       submitters: Set[Party],
       commands: ImmArray[(Type, SpeedyCommand)],
       time: Time.Timestamp): Result[Transaction.Transaction] = {
-    val machine = Machine.build(
-      Compiler(_compiledPackages.packages).compile(commands.map(_._2)),
-      _compiledPackages,
-      submitters)
+    val machine = Machine
+      .build(
+        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+        sexpr = Compiler(_compiledPackages.packages).compile(commands.map(_._2)),
+        compiledPackages = _compiledPackages
+      )
+      .copy(validating = validating, committers = submitters)
     interpretLoop(machine, time)
   }
 

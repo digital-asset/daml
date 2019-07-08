@@ -9,7 +9,13 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
-import com.daml.ledger.participant.state.v2.{ApplicationId => _, TransactionId => _, _}
+import com.daml.ledger.participant.state.index.v2._
+import com.daml.ledger.participant.state.v2.{
+  ApplicationId => _,
+  LedgerId => _,
+  TransactionId => _,
+  _
+}
 import com.daml.ledger.participant.state.{v2 => ParticipantState}
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
@@ -25,7 +31,7 @@ import com.digitalasset.ledger.api.domain.CompletionEvent.{
   CommandAccepted,
   CommandRejected
 }
-import com.digitalasset.ledger.api.domain.{LedgerId, _}
+import com.digitalasset.ledger.api.domain.{ParticipantId => _, _}
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
@@ -41,9 +47,6 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
-import com.daml.ledger.participant.state.index.v2._
-import com.daml.ledger.participant.state.v2.{ApplicationId => _, TransactionId => _, _}
-import scala.util.Try
 
 trait IndexAndWriteService extends AutoCloseable {
   def indexService: IndexService
@@ -59,6 +62,7 @@ object SandboxIndexAndWriteService {
 
   def postgres(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       jdbcUrl: String,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
@@ -80,10 +84,12 @@ object SandboxIndexAndWriteService {
         queueDepth,
         startMode
       )
-      .map(ledger => createInstance(Ledger.metered(ledger), timeModel, timeProvider))(DEC)
+      .map(ledger =>
+        createInstance(Ledger.metered(ledger), participantId, timeModel, timeProvider))(DEC)
 
   def inMemory(
       ledgerId: LedgerId,
+      participantId: ParticipantId,
       timeModel: TimeModel,
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
@@ -93,13 +99,16 @@ object SandboxIndexAndWriteService {
       mm: MetricsManager): IndexAndWriteService = {
     val ledger =
       Ledger.metered(Ledger.inMemory(ledgerId, timeProvider, acs, templateStore, ledgerEntries))
-    createInstance(ledger, timeModel, timeProvider)
+    createInstance(ledger, participantId, timeModel, timeProvider)
   }
 
-  private def createInstance(ledger: Ledger, timeModel: TimeModel, timeProvider: TimeProvider)(
-      implicit mat: Materializer) = {
+  private def createInstance(
+      ledger: Ledger,
+      participantId: ParticipantId,
+      timeModel: TimeModel,
+      timeProvider: TimeProvider)(implicit mat: Materializer) = {
     val contractStore = new SandboxContractStore(ledger)
-    val indexSvc = new LedgerBackedIndexService(ledger, contractStore) {
+    val indexSvc = new LedgerBackedIndexService(ledger, contractStore, participantId) {
       override def getLedgerConfiguration(): Source[LedgerConfiguration, NotUsed] =
         Source
           .single(LedgerConfiguration(timeModel.minTtl, timeModel.maxTtl))
@@ -146,7 +155,8 @@ object SandboxIndexAndWriteService {
 
 abstract class LedgerBackedIndexService(
     ledger: ReadOnlyLedger,
-    contractStore: ContractStore
+    contractStore: ContractStore,
+    participantId: ParticipantId
 )(implicit mat: Materializer)
     extends IndexService
     with AutoCloseable {
@@ -189,18 +199,9 @@ abstract class LedgerBackedIndexService(
 
   private def getTransactionById(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] = {
-    // for the sandbox we know that if the transactionId is NOT simply a number, we don't even
-    // need to try to look up a transaction, because we will not find it anyway.
-    // This check was previously done in the request validator in the Ledger API server layer,
-    // but was removed for daml-on-x. Now we can only do this check within the implementation
-    // of the sandbox.
-    Try(transactionId.toLong).fold(
-      fa = _ => Future.successful(None),
-      fb = _ =>
-        ledger
-          .lookupTransaction(transactionId)
-          .map(_.map { case (offset, t) => (offset + 1) -> t })(DEC)
-    )
+    ledger
+      .lookupTransaction(transactionId)
+      .map(_.map { case (offset, t) => (offset + 1) -> t })(DEC)
   }
 
   override def transactionTrees(
@@ -383,9 +384,7 @@ abstract class LedgerBackedIndexService(
 
   // PartyManagementService
   override def getParticipantId(): Future[ParticipantId] =
-    // In the case of the sandbox, there is only one participant node
-    // TODO: Make the participant ID configurable
-    Future.successful(ParticipantId(ledger.ledgerId.unwrap))
+    Future.successful(participantId)
 
   override def listParties(): Future[List[PartyDetails]] =
     ledger.parties

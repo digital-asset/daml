@@ -162,7 +162,7 @@ Update the lines for `ghc-lib-parser` and `ghc-lib` with the new `url`s, `stripP
 ```
 3. Check that the DAML tests pass:
 ```bash
-bazel run //daml-foundations/daml-ghc:daml-ghc-test -- --pattern=
+bazel run //compiler/damlc:daml-ghc-test -- --pattern=
 ```
 If they pass, you can move on to [deploying](#how-to-deploy-ghc-lib).
 
@@ -202,7 +202,7 @@ git checkout -b update-ghc-lib
 ```
 4. If you didn't do this before, make sure the DAML tests pass by running:
 ```bash
-bazel run //daml-foundations/daml-ghc:daml-ghc-test -- --pattern=
+bazel run //compiler/damlc:daml-ghc-test -- --pattern=
 ```
 5. When the tests pass, push your branch to origin and raise a PR.
 

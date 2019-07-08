@@ -44,9 +44,6 @@ sealed abstract class InsertOrdMap[K, +V] extends Map[K, V] {
       _keys.filter(k2 => k != k2),
       _hashMap - k
     )
-
-  override def mapValues[V2](f: V => V2): InsertOrdMap[K, V2] =
-    NonEmptyInsertOrdMap(_keys, _hashMap.mapValues(f))
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))

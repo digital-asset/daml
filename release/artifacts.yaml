@@ -5,20 +5,9 @@
   mavenUpload: True
 - target: //daml-lf/data:data
   type: jar
-- target: //daml-foundations/daml-tools/damlc-app:damlc-dist
-  type: targz
-  platformDependent: True
-  location:
-    groupId: com.digitalasset
-    artifactId: damlc
-- target: //daml-foundations/daml-tools/damlc-jar:damlc_jar
+- target: //compiler/damlc/jar:damlc_jar
   type: jar-deploy
   platformDependent: True
-- target: //daml-foundations/daml-tools/daml-extension:dist
-  type: targz
-  location:
-    groupId: com.digitalasset
-    artifactId: daml-extension
 - target: //daml-lf/archive:daml_lf_archive_scala
   type: jar
 - target: //daml-lf/archive:daml_lf_archive_protos_zip
@@ -72,11 +61,6 @@
 - target: //language-support/java/bindings-rxjava:bindings-rxjava
   type: jar-lib
   mavenUpload: True
-- target: //docs:quickstart-java
-  type: targz
-  location:
-    groupId: com.digitalasset.docs
-    artifactId: quickstart-java
 - target: //ledger/sandbox:sandbox-tarball
   type: targz
   location:

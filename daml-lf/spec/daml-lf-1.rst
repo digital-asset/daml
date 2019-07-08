@@ -232,6 +232,10 @@ Version: 1.dev
 
   * **Add** intern package IDs in external package references.
 
+  * **Change** Transaction submitter must be in the contract key
+    maintainers when performing lookup or fetches by key. See
+    `issue #1866 <https://github.com/digital-asset/daml/issues/1866>`_
+
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
