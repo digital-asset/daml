@@ -64,7 +64,7 @@ da_scala_binary(
 
 client_server_test(
     name = "conformance-test",
-    timeout = "short",
+    timeout = "long",
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     client_args = [
         # disabling all tests for now, so that at least we have the infrastructure
