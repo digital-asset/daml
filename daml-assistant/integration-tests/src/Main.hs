@@ -67,11 +67,10 @@ tests damlDir tmpDir = testGroup "Integration tests"
             then callProcessQuiet
                 (tarballDir </> "daml" </> damlInstallerName)
                 ["install", "--install-assistant=yes", "--set-path=no", tarballDir]
-            else runCreateProcessQuiet
-                (shell (tarballDir </> "install.sh"))
-    , testCase "daml version" $ callProcessQuiet damlName ["version"]
-    , testCase "daml --help" $ callProcessQuiet damlName ["--help"]
-    , testCase "daml new --list" $ callProcessQuiet damlName ["new", "--list"]
+            else callCommandQuiet $ tarballDir </> "install.sh"
+    , testCase "daml version" $ callCommandQuiet "daml version"
+    , testCase "daml --help" $ callCommandQuiet "daml --help"
+    , testCase "daml new --list" $ callCommandQuiet "daml new --list"
     , noassistantTests damlDir
     , packagingTests tmpDir
     , quickstartTests quickstartDir mvnDir
@@ -130,7 +129,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectA $ callCommandQuiet "daml build"
         assertBool "a.dar was not created." =<< doesFileExist aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
@@ -152,7 +151,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-stdlib"
             , "  - " <> aDar
             ]
-        withCurrentDirectory projectB $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "b.dar was not created." =<< doesFileExist bDar
     , testCase "Top-level source files" $ do
         -- Test that a source file in the project root will be included in the
@@ -175,7 +174,7 @@ packagingTests tmpDir = testGroup "packaging"
           , "  - daml-prim"
           , "  - daml-stdlib"
           ]
-        withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
         let dar = projDir </> ".daml" </> "dist" </> "proj.dar"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
@@ -196,7 +195,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "source: A.daml"
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
-        withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
     , testCaseSteps "Build migration package" $ \step -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
@@ -228,7 +227,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectA $ callCommandQuiet "daml build"
         assertBool "a.dar was not created." =<< doesFileExist aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
@@ -254,29 +253,29 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectB $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "a.dar was not created." =<< doesFileExist bDar
         step "Creating migration project"
-        callProcessQuiet damlName ["migrate", projectMigrate, aDar, bDar]
+        callCommandQuiet $ unwords ["daml", "migrate", projectMigrate, aDar, bDar]
         step "Build migration project"
-        withCurrentDirectory projectMigrate $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectMigrate $ callCommandQuiet "daml build"
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
 quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
-          callProcessQuiet damlName ["new", quickstartDir, "quickstart-java"]
+          callCommandQuiet $ unwords ["daml", "new", quickstartDir, "quickstart-java"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
-          callProcessQuiet damlName ["build"]
+          callCommandQuiet "daml build"
     , testCase "daml test" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet damlName ["test"]
+          callCommandQuiet "daml test"
     , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet damlName ["damlc", "test", "--files", "daml/Main.daml"]
+          callCommandQuiet "daml damlc test --files daml/Main.daml"
     , testCase "sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (proc damlName ["sandbox", "--port", show p, ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show p, ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull }
           withCreateProcess sandboxProc  $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
@@ -300,7 +299,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull1 }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull1 }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
@@ -339,11 +338,11 @@ cleanTests baseDir = testGroup "daml clean"
                 createDirectoryIfMissing True baseDir
                 withCurrentDirectory baseDir $ do
                     let projectDir = baseDir </> ("proj-" <> templateName)
-                    callProcessQuiet damlName ["new", projectDir, templateName]
+                    callCommandQuiet $ unwords ["daml", "new", projectDir, templateName]
                     withCurrentDirectory projectDir $ do
                         filesAtStart <- sort <$> listFilesRecursive "."
-                        callProcessQuiet damlName ["build"]
-                        callProcessQuiet damlName ["clean"]
+                        callCommandQuiet "daml build"
+                        callCommandQuiet "daml clean"
                         filesAtEnd <- sort <$> listFilesRecursive "."
                         when (filesAtStart /= filesAtEnd) $
                             fail $ unlines
@@ -354,12 +353,6 @@ cleanTests baseDir = testGroup "daml clean"
                                 , "    files at end:"
                                 , unlines (map ("       "++) filesAtEnd)
                                 ]
-
--- | Since we run in bash and not in cmd.exe "daml" won’t look for "daml.cmd" so we use "daml.cmd" directly.
-damlName :: String
-damlName
-    | isWindows = "daml.cmd"
-    | otherwise = "daml"
 
 damlInstallerName :: String
 damlInstallerName
@@ -373,10 +366,15 @@ runCreateProcessQuiet createProcess = do
     hPutStr stderr err
     unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit createProcess
 
--- | Like call process but hides stdout.
+-- | Like callProcess but hides stdout.
 callProcessQuiet :: FilePath -> [String] -> IO ()
 callProcessQuiet cmd args =
     runCreateProcessQuiet (proc cmd args)
+
+-- | Like callCommand but hides stdout.
+callCommandQuiet :: String -> IO ()
+callCommandQuiet cmd =
+    runCreateProcessQuiet (shell cmd)
 
 data ProcessExitFailure = ProcessExitFailure !ExitCode !CreateProcess
     deriving (Show, Typeable)
