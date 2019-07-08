@@ -73,6 +73,7 @@ compileDependencies = [
     "//daml-lf/archive:daml_lf_archive_scala",
     "//daml-lf/archive:daml_lf_java_proto",
     "//daml-lf/data",
+    "//daml-lf/transaction",
     "//daml-lf/interface",
     "//ledger-api/rs-grpc-bridge",
     "//ledger-api/rs-grpc-akka",
