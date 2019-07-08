@@ -70,6 +70,7 @@ client_server_test(
         # disabling all tests for now, so that at least we have the infrastructure
         # to slowly add and fix tests one after the other.
         # "--all-tests",
+        "--include TransactionServiceTests,DivulgenceIT,TransactionBackpressureIT",
         "--exclude SemanticTests",
     ],
     data = [
