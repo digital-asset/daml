@@ -51,15 +51,13 @@ getTransactionTrees req =
     where f = Convert.raiseList Convert.raiseTransactionTree . LL.getTransactionTreesResponseTransactions
 
 getTransactionBy :: (LL.TransactionService HL.ClientRequest HL.ClientResult
-                      -> HL.ClientRequest 'HL.Normal request0 response0
-                      -> IO (HL.ClientResult streamType0 response1))
-                    -> (LedgerId -> tx_ref -> [Party] -> request0)
-                    -> (response1 -> Convert.Perhaps tx)
-                    -> LedgerId
-                    -> tx_ref
-                    -> [Party]
-                    -> LedgerService (Maybe tx)
-getTransactionBy get_rpc mk_request resp_handler ledger_id transaction_ref parties
+                        -> HL.ClientRequest 'HL.Normal request response
+                        -> IO (HL.ClientResult stream response))
+                    -> (LedgerId -> tx_ref -> [Party] -> request)
+                    -> (response -> Convert.Perhaps tx)
+                    -> (LedgerId -> tx_ref -> [Party] -> LedgerService (Maybe tx))
+getTransactionBy get_rpc mk_request resp_handler
+                 ledger_id transaction_ref parties
     = makeLedgerService $ \timeout config -> do
       HL.withGRPCClient config $ \client -> do
           service <- LL.transactionServiceClient client
@@ -73,35 +71,37 @@ getTransactionBy get_rpc mk_request resp_handler ledger_id transaction_ref parti
                   return Nothing
               HL.ClientErrorResponse e ->
                   fail (show e)
-              _ -> fail "I don't know how to express that request0 is either LL.GetTransactionByIdRequest or LL.GetTransactionByEventIdRequest"
+              HL.ClientWriterResponse _ _ _ _ _ -> fail ""
+              HL.ClientReaderResponse _ _ _ -> fail ""
+              HL.ClientBiDiResponse _ _ _ -> fail ""
 
-extractTxResponse :: LL.GetTransactionResponse -> Convert.Perhaps TransactionTree
-extractTxResponse (LL.GetTransactionResponse Nothing) = fail "GetTransactionResponse, transaction field is missing"
-extractTxResponse (LL.GetTransactionResponse (Just tx)) = Convert.raiseTransactionTree tx
+extractTxR :: LL.GetTransactionResponse -> Convert.Perhaps TransactionTree
+extractTxR (LL.GetTransactionResponse Nothing) = fail "GetTransactionResponse, transaction field is missing"
+extractTxR (LL.GetTransactionResponse (Just tx)) = Convert.raiseTransactionTree tx
 
-extractTxFlatResponse :: LL.GetFlatTransactionResponse -> Convert.Perhaps Transaction
-extractTxFlatResponse (LL.GetFlatTransactionResponse Nothing) = fail "GetFlatTransactionResponse, transaction field is missing"
-extractTxFlatResponse (LL.GetFlatTransactionResponse (Just txTree)) = Convert.raiseTransaction txTree
+extractFlatTxR :: LL.GetFlatTransactionResponse -> Convert.Perhaps Transaction
+extractFlatTxR (LL.GetFlatTransactionResponse Nothing) = fail "GetFlatTransactionResponse, transaction field is missing"
+extractFlatTxR (LL.GetFlatTransactionResponse (Just tx)) = Convert.raiseTransaction tx
 
 getTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe TransactionTree)
 getTransactionByEventId = getTransactionBy LL.transactionServiceGetTransactionByEventId
                                            mkByEventIdRequest
-                                           extractTxResponse
+                                           extractTxR
 
 getTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe TransactionTree)
 getTransactionById = getTransactionBy LL.transactionServiceGetTransactionById
                                       mkByIdRequest
-                                      extractTxResponse
+                                      extractTxR
 
 getFlatTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionByEventId = getTransactionBy LL.transactionServiceGetFlatTransactionByEventId
                                                mkByEventIdRequest
-                                               extractTxFlatResponse
+                                               extractFlatTxR
 
 getFlatTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionById = getTransactionBy LL.transactionServiceGetFlatTransactionById
                                           mkByIdRequest
-                                          extractTxFlatResponse
+                                          extractFlatTxR
 
 ledgerEnd :: LedgerId -> LedgerService AbsOffset
 ledgerEnd lid =
