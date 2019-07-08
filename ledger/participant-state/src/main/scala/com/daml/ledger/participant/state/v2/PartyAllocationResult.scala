@@ -16,6 +16,11 @@ object PartyAllocationResult {
     override def description: String = "Party successfully allocated"
   }
 
+  /** Synchronous party allocation is not supported */
+  final case object NotSupported extends PartyAllocationResult {
+    override def description: String = "Party allocation not supported"
+  }
+
   /** The requested party name already exists */
   final case object AlreadyExists extends PartyAllocationResult {
     override def description: String = "Party already exists"
@@ -30,5 +35,4 @@ object PartyAllocationResult {
   final case object ParticipantNotAuthorized extends PartyAllocationResult {
     override def description: String = "Participant is not authorized to allocate a party"
   }
-
 }

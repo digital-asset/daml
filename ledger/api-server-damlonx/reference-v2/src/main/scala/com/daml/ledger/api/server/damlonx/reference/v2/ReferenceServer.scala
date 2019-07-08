@@ -9,7 +9,6 @@ import java.util.zip.ZipFile
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
 import com.daml.ledger.participant.state.kvutils.InMemoryKVParticipantState
-import com.daml.ledger.participant.state.kvutils.v2.ParticipantStateConversion
 import com.daml.ledger.participant.state.v2.ParticipantId
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref
