@@ -474,7 +474,7 @@ object Ledger {
   def initialLedger(t0: Time.Timestamp): Ledger =
     Ledger(
       currentTime = t0,
-      scenarioStepId = ScenarioTransactionId(0),
+      scenarioStepId = ScenarioTransactionId(-1), //we're starting with -1 so the first transaction gets 0! This is important to avoid clashes on the first real transaction coming through the Ledger API.
       scenarioSteps = immutable.IntMap.empty,
       ledgerData = LedgerData.empty
     )
