@@ -9,11 +9,15 @@ import scalaz.syntax.show._
 
 import scala.concurrent.Future
 import scala.language.higherKinds
+import scala.util.Try
 
 object FutureUtil {
   def toFuture[A](o: Option[A]): Future[A] =
     o.fold(Future.failed[A](new IllegalStateException(s"Empty option: $o")))(a =>
       Future.successful(a))
+
+  def toFuture[A](a: Try[A]): Future[A] =
+    a.fold(e => Future.failed(e), a => Future.successful(a))
 
   def toFuture[A: Show, B](a: A \/ B): Future[B] =
     a.fold(e => Future.failed(new IllegalStateException(e.shows)), a => Future.successful(a))

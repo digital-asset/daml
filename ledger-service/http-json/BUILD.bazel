@@ -39,13 +39,17 @@ da_scala_binary(
 
 da_scala_test(
     name = "tests",
-    size = "small",
+    size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
+    data = ["//docs:quickstart-model.dar"],
     deps = [
         ":http-json",
         "//3rdparty/jvm/org/scalacheck",
         "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
-        "//3rdparty/jvm/org/scalatest:scalatest",
+        "//3rdparty/jvm/org/scalatest",
         "//ledger/sandbox:sandbox",
+        "//daml-lf/data:data",
+        "//ledger/ledger-api-common",
+        "//ledger/participant-state",
     ] + http_json_deps,
 )
