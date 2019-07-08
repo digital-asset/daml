@@ -14,7 +14,6 @@ import org.junit.runners.Suite;
 @Suite.SuiteClasses({
         DecoderTest.class,
         RecordTest.class,
-        ListTest.class,
         VariantTest.class,
         SerializableTest.class,
         TemplateMethodTest.class
