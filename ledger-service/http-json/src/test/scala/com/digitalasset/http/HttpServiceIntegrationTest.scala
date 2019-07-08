@@ -5,7 +5,7 @@ package com.digitalasset.http
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpRequest, StatusCodes, Uri}
+import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
 import akka.stream.ActorMaterializer
 import akka.util.ByteString
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
@@ -39,8 +39,7 @@ class HttpServiceIntegrationTest
     Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/contracts/search")))).flatMap {
       resp =>
         resp.status shouldBe StatusCodes.OK
-        val bodyF: Future[ByteString] =
-          resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a)
+        val bodyF: Future[ByteString] = getResponseDataBytes(resp)
         bodyF.foreach(x => println(s"---- body: ${x.utf8String}"))
         bodyF.flatMap { body =>
           val jsonAst: JsValue = body.utf8String.parseJson
@@ -55,4 +54,7 @@ class HttpServiceIntegrationTest
           }
         }
     }
+
+  private def getResponseDataBytes(resp: HttpResponse): Future[ByteString] =
+    resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a)
 }
