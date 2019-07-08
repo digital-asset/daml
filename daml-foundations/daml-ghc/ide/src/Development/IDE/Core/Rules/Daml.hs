@@ -181,9 +181,8 @@ generateDalfRule =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
         pkg <- use_ GeneratePackageDeps file
-        -- The file argument isn’t used in the rule, so we leave it empty to increase caching.
         pkgMap <- use_ GeneratePackageMap ""
-        let pkgs = [(dalfPackageId pkg, dalfPackagePkg pkg) | pkg <- Map.elems pkgMap]
+        let pkgs = map dalfPackagePkg $ Map.elems pkgMap
         let world = LF.initWorldSelf pkgs pkg
         unsimplifiedRawDalf <- use_ GenerateRawDalf file
         let rawDalf = LF.simplifyModule unsimplifiedRawDalf
@@ -213,7 +212,7 @@ generatePackageMap fps = do
             mapLeft (ideErrorPretty $ toNormalizedFilePath dalf) $
             Archive.decodeArchive dalfBS
           let unitId = stringToUnitId $ dropExtension $ takeFileName dalf
-          Right (unitId, DalfPackage pkgId package dalfBS)
+          Right (unitId, DalfPackage pkgId (LF.rewriteSelfReferences pkgId package) dalfBS)
   return (diags, Map.fromList pkgs)
 
 generatePackageMapRule :: Options -> Rules ()
@@ -228,7 +227,6 @@ generatePackageMapRule opts =
                 "Options: " ++ show (optPackageDbs opts) ++ "\n" ++
                 "Errors:\n" ++ unlines (map show errs)
         return res
-
 
 generatePackageRule :: Rules ()
 generatePackageRule =
@@ -284,7 +282,7 @@ worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
     pkg <- use_ GeneratePackage file
     pkgMap <- use_ GeneratePackageMap ""
-    let pkgs = [ (dalfPackageId pkg, dalfPackagePkg pkg) | pkg <- Map.elems pkgMap ]
+    let pkgs = map dalfPackagePkg $ Map.elems pkgMap
     pure $ LF.initWorldSelf pkgs pkg
 
 data ScenarioBackendException = ScenarioBackendException

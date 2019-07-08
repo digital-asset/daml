@@ -68,9 +68,9 @@ templatePossibleUpdates world tpl = map (\c -> ChoiceAndAction tpl c (startFromC
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoiceAction]
 moduleAndTemplates world mod = map (\t -> TemplateChoiceAction t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
 
-dalfBytesToPakage :: BSL.ByteString -> (LF.PackageId, LF.Package)
+dalfBytesToPakage :: BSL.ByteString -> ExternalPackage
 dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
-    Right a -> a
+    Right (pkgId, pkg) -> rewriteSelfReferences pkgId pkg
     Left err -> error (show err)
 
 darToWorld :: ManifestData -> LF.Package -> LF.World

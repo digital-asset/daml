@@ -38,7 +38,7 @@ type instance RuleResult GeneratePackageDeps = LF.Package
 
 data DalfPackage = DalfPackage
     { dalfPackageId :: LF.PackageId
-    , dalfPackagePkg :: LF.Package
+    , dalfPackagePkg :: LF.ExternalPackage
     , dalfPackageBytes :: BS.ByteString
     } deriving (Show, Eq, Generic)
 
