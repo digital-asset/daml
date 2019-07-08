@@ -6,7 +6,6 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import java.util.UUID
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.ledger.api.domain.PartyDetails
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundAll
@@ -163,48 +162,16 @@ class PartyManagementServiceIT
 
       "create unique party names when allocating many parties" in allFixtures { c =>
         val client = partyManagementClient(c.partyManagementService)
+        def allocateParty(i: Int) = client.allocateParty(None, Some(s"Test party $i"))
         val N = 100
-
         for {
           initialParties <- client.listKnownParties()
-          // Note: The following call concurrently creates N parties
-          resultEs <- Future.traverse(1 to N)(i =>
-            withGrpcError(client.allocateParty(None, Some(s"Test party $i"))))
+          results <- Future.traverse(1 to N)(allocateParty)
           finalParties <- client.listKnownParties()
         } yield {
-
-          // Collect outcomes
-          val results = resultEs.foldRight((0, 0, List.empty[PartyDetails])) { (elem, acc) =>
-            elem match {
-              case Right(result) =>
-                acc.copy(_3 = result :: acc._3)
-              case Left(Status.Code.UNIMPLEMENTED) =>
-                acc.copy(_1 = acc._1 + 1)
-              case Left(Status.Code.INVALID_ARGUMENT) =>
-                acc.copy(_2 = acc._2 + 1)
-              case other =>
-                fail(s"Unexpected GRPC error code $other while allocating a party")
-            }
-          }
-
-          results match {
-            case (0, 0, result) =>
-              // All calls succeeded. None of the new parties must be present initially,
-              // all of them must be present at the end, and all new party names must be unique.
-              result.foreach(r => initialParties.exists(p => p.party == r.party) shouldBe false)
-              result.foreach(r => finalParties.contains(r) shouldBe true)
-              result.map(_.party).toSet.size shouldBe N
-            case (_, 0, Nil) =>
-              // All calls returned UNIMPLEMENTED
-              succeed
-            case (0, _, Nil) =>
-              // All calls returned INVALID_ARGUMENT
-              fail(s"Party allocation failed with INVALID_ARGUMENT.")
-            case (u, i, result) =>
-              // A party allocation call may fail, but they all should fail with the same error
-              fail(
-                s"Not all party allocation calls had the same outcome. $u UNIMPLEMENTED, $i INVALID_ARGUMENT, ${result.size} succeeded")
-          }
+          initialParties should contain noElementsOf results
+          finalParties should contain allElementsOf results
+          results.map(_.party).toSet.size shouldBe N
         }
       }
     }

@@ -62,6 +62,14 @@ da_scala_binary(
     ],
 )
 
+conformance_tests_to_run = [
+    "TransactionServiceTests",
+    "DivulgenceIT",
+    "TransactionBackpressureIT",
+    "PackageManagementServiceIT",
+    "PartyManagementServiceIT",
+]
+
 client_server_test(
     name = "conformance-test",
     timeout = "long",
@@ -70,7 +78,7 @@ client_server_test(
         # disabling all tests for now, so that at least we have the infrastructure
         # to slowly add and fix tests one after the other.
         # "--all-tests",
-        "--include TransactionServiceTests,DivulgenceIT,TransactionBackpressureIT",
+        "--include {}".format(",".join(conformance_tests_to_run)),
         "--exclude SemanticTests",
     ],
     data = [

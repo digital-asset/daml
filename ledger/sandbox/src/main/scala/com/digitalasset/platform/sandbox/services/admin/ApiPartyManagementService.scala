@@ -16,7 +16,8 @@ import io.grpc.ServerServiceDefinition
 import org.slf4j.LoggerFactory
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
@@ -47,14 +48,51 @@ class ApiPartyManagementService private (
       .listParties()
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
 
+  /**
+    * Continuously polls tha party management service to check if a party has been persisted.
+    *
+    * Blocking.
+    *
+    * @param party The party whose persistence we're waiting for
+    * @return The number of attempts before the party was found
+    */
+  private def pollUntilPersisted(party: String): Int =
+    Iterator
+      .from(1)
+      .find { attempt =>
+        logger.debug(s"Waiting for party '$party' to be persisted (attempt #$attempt)...")
+        partyManagementService
+          .listParties()
+          .map {
+            case persisted if persisted.exists(_.party == party) => true
+            case _ => false
+          }(DE)
+        Await.result(
+          partyManagementService
+            .listParties()
+            .map {
+              case persisted if persisted.exists(_.party == party) => true
+              case _ => false
+            }(DE),
+          Duration.Inf)
+      }
+      .get
+
+  private def pollUntilPersisted(result: AllocatePartyResponse): Future[AllocatePartyResponse] = {
+    require(result.partyDetails.isDefined, "Party allocation response must have the party details")
+    Future(pollUntilPersisted(result.partyDetails.get.party))(DE).map { numberOfAttempts =>
+      logger.debug(s"Party available read after $numberOfAttempts attempt(s)")
+      result
+    }(DE)
+  }
+
   override def allocateParty(request: AllocatePartyRequest): Future[AllocatePartyResponse] = {
     val party = if (request.partyIdHint.isEmpty) None else Some(request.partyIdHint)
     val displayName = if (request.displayName.isEmpty) None else Some(request.displayName)
 
     FutureConverters
-      .toScala(
-        writeService
-          .allocateParty(party, displayName))
+      .toScala(writeService
+        .allocateParty(party, displayName))
       .flatMap {
         case PartyAllocationResult.Ok(details) =>
           Future.successful(AllocatePartyResponse(Some(mapPartyDetails(details))))
@@ -65,6 +103,7 @@ class ApiPartyManagementService private (
         case r @ PartyAllocationResult.ParticipantNotAuthorized =>
           Future.failed(ErrorFactories.permissionDenied(r.description))
       }(DE)
+      .flatMap(pollUntilPersisted)(DE)
   }
 
 }
@@ -75,4 +114,5 @@ object ApiPartyManagementService {
       esf: ExecutionSequencerFactory,
       mat: Materializer): GrpcApiService =
     new ApiPartyManagementService(readBackend, writeBackend) with PartyManagementServiceLogging
+
 }
