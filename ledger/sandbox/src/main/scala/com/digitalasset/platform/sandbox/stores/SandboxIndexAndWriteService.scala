@@ -9,6 +9,7 @@ import java.util.concurrent.{CompletableFuture, CompletionStage}
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
+import com.daml.ledger.participant.state.index.v2._
 import com.daml.ledger.participant.state.v2.{
   ApplicationId => _,
   LedgerId => _,
@@ -16,7 +17,6 @@ import com.daml.ledger.participant.state.v2.{
   _
 }
 import com.daml.ledger.participant.state.{v2 => ParticipantState}
-import com.daml.ledger.participant.state.index.v2._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -47,7 +47,6 @@ import scalaz.syntax.tag._
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration._
 import scala.concurrent.{Future, Promise}
-import scala.util.Try
 
 trait IndexAndWriteService extends AutoCloseable {
   def indexService: IndexService
@@ -200,18 +199,9 @@ abstract class LedgerBackedIndexService(
 
   private def getTransactionById(
       transactionId: TransactionIdString): Future[Option[(Long, LedgerEntry.Transaction)]] = {
-    // for the sandbox we know that if the transactionId is NOT simply a number, we don't even
-    // need to try to look up a transaction, because we will not find it anyway.
-    // This check was previously done in the request validator in the Ledger API server layer,
-    // but was removed for daml-on-x. Now we can only do this check within the implementation
-    // of the sandbox.
-    Try(transactionId.toLong).fold(
-      fa = _ => Future.successful(None),
-      fb = _ =>
-        ledger
-          .lookupTransaction(transactionId)
-          .map(_.map { case (offset, t) => (offset + 1) -> t })(DEC)
-    )
+    ledger
+      .lookupTransaction(transactionId)
+      .map(_.map { case (offset, t) => (offset + 1) -> t })(DEC)
   }
 
   override def transactionTrees(

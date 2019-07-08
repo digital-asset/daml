@@ -6,7 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api
 import java.time.{Duration, Instant}
 
 import akka.Done
-import akka.stream.scaladsl.{Flow, Sink}
+import akka.stream.scaladsl.{Flow, Sink, Source}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
 import com.digitalasset.ledger.api.domain.{EventId, LedgerId}
@@ -24,6 +24,7 @@ import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
+import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndResponse
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, ContractId}
@@ -32,29 +33,29 @@ import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.api.v1.event.EventOps._
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
+import com.digitalasset.platform.apitesting.LedgerOffsets._
+import com.digitalasset.platform.apitesting.TestParties._
 import com.digitalasset.platform.apitesting.{
   LedgerContext,
   MultiLedgerFixture,
   TestIdsGenerator,
-  TestTemplateIds
+  TestTemplateIds,
+  _
 }
-import com.digitalasset.platform.apitesting._
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
 import com.digitalasset.platform.participant.util.ValueConversions._
 import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.platform.apitesting.LedgerOffsets._
 import com.google.rpc.code.Code
 import io.grpc.{Status, StatusRuntimeException}
 import org.scalatest._
 import org.scalatest.concurrent.AsyncTimeLimitedTests
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
-import scalaz.syntax.tag._
 import scalaz.Tag
+import scalaz.syntax.tag._
 
 import scala.collection.{breakOut, immutable}
 import scala.concurrent.Future
-import com.digitalasset.platform.apitesting.TestParties._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class TransactionServiceIT
@@ -993,9 +994,8 @@ class TransactionServiceIT
 
       "return the transaction tree if it exists, and the party can see it" in allFixtures {
         context =>
-          val beginOffset =
-            LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
           for {
+            GetLedgerEndResponse(Some(beginOffset)) <- context.transactionClient.getLedgerEnd
             _ <- insertCommandsUnique("tree-provenance-by-id", 1, context)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
@@ -1043,12 +1043,18 @@ class TransactionServiceIT
       "return the same events for each tx as the transaction stream itself" in allFixtures {
         context =>
           val requestingParties = TransactionFilters.allForParties(Alice).filtersByParty.keySet
-          context.transactionClient
-            .getTransactions(
-              LedgerBegin,
-              Some(LedgerEnd),
-              TransactionFilters.allForParties(Alice),
-              true)
+
+          Source
+            .fromFuture(context.transactionClient.getLedgerEnd)
+            .map(resp => resp.getOffset)
+            .flatMapConcat(
+              beginOffset =>
+                context.transactionClient
+                  .getTransactions(
+                    beginOffset,
+                    Some(LedgerEnd),
+                    TransactionFilters.allForParties(Alice),
+                    true))
             .mapAsyncUnordered(16) { tx =>
               context.transactionClient
                 .getTransactionById(tx.transactionId, requestingParties.toList)
@@ -1092,9 +1098,8 @@ class TransactionServiceIT
 
       "return the flat transaction if it exists, and the party can see it" in allFixtures {
         context =>
-          val beginOffset =
-            LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
           for {
+            GetLedgerEndResponse(Some(beginOffset)) <- context.transactionClient.getLedgerEnd
             _ <- insertCommandsUnique("flat-provenance-by-id", 1, context)
             firstTransaction <- context.transactionClient
               .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
@@ -1142,12 +1147,17 @@ class TransactionServiceIT
       "return the same events for each tx as the transaction stream itself" in allFixtures {
         context =>
           val requestingParties = TransactionFilters.allForParties(Alice).filtersByParty.keySet
-          context.transactionClient
-            .getTransactions(
-              LedgerBegin,
-              Some(LedgerEnd),
-              TransactionFilters.allForParties(Alice),
-              true)
+          Source
+            .fromFuture(context.transactionClient.getLedgerEnd)
+            .map(resp => resp.getOffset)
+            .flatMapConcat(
+              beginOffset =>
+                context.transactionClient
+                  .getTransactions(
+                    beginOffset,
+                    Some(LedgerEnd),
+                    TransactionFilters.allForParties(Alice),
+                    true))
             .mapAsyncUnordered(16) { tx =>
               context.transactionClient
                 .getFlatTransactionById(tx.transactionId, requestingParties.toList)
@@ -1162,9 +1172,8 @@ class TransactionServiceIT
 
     "asking for historical transaction trees by event id" should {
       "return the transaction tree if it exists" in allFixtures { context =>
-        val beginOffset =
-          LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         for {
+          GetLedgerEndResponse(Some(beginOffset)) <- context.transactionClient.getLedgerEnd
           _ <- insertCommandsUnique("tree-provenance-by-event-id", 1, context)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
@@ -1227,9 +1236,8 @@ class TransactionServiceIT
 
     "asking for historical flat transactions by event id" should {
       "return the flat transaction if it exists" in allFixtures { context =>
-        val beginOffset =
-          LedgerOffset(LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
         for {
+          GetLedgerEndResponse(Some(beginOffset)) <- context.transactionClient.getLedgerEnd
           _ <- insertCommandsUnique("flat-provenance-by-event-id", 1, context)
           tx <- context.transactionClient
             .getTransactions(beginOffset, None, TransactionFilters.allForParties(Alice))
