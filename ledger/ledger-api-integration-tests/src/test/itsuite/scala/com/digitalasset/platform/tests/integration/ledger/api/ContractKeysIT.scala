@@ -60,8 +60,8 @@ class ContractKeysIT
       def pf(label: String, party: String) =
         RecordField(label, Some(Value(Value.Sum.Party(party))))
 
-      // TODO currently we run multiple suites with the same sandbox, therefore we must generate
-      // unique keys. This is not so great though, it'd be better to have a clean environment.
+      // As integration tests can be run multiple times against the same ledger,
+      // we have to create unique keys.
       val key = s"${UUID.randomUUID.toString}-key"
       val odArgs = Seq(
         pf("owner", owner),
@@ -169,8 +169,8 @@ class ContractKeysIT
       def pf(label: String, party: String) =
         RecordField(label, Some(Value(Value.Sum.Party(party))))
 
-      // TODO currently we run multiple suites with the same sandbox, therefore we must generate
-      // unique keys. This is not so great though, it'd be better to have a clean environment.
+      // As integration tests can be run multiple times against the same ledger,
+      // we have to create unique keys.
       val key = s"${UUID.randomUUID.toString}-key"
       val delegatedCreate = ctx.testingHelpers.simpleCreate(
         testIdsGenerator.testCommandId("TDVl3"),
@@ -264,8 +264,8 @@ class ContractKeysIT
       } yield (succeed)
     }
 
-    //      // this is basically a port of
-    //      // `daml-lf/tests/scenario/daml-1.3/contract-keys/Test.daml`.
+    // this is basically a port of
+    // `daml-lf/tests/scenario/daml-1.3/contract-keys/Test.daml`.
     "process contract keys" in allFixtures { ctx =>
       // TODO currently we run multiple suites with the same sandbox, therefore we must generate
       // unique keys. This is not so great though, it'd be better to have a clean environment.
@@ -381,7 +381,7 @@ class ContractKeysIT
                 RecordField(value = textKeyKey(Alice, key)),
                 RecordField(value = cid1.contractId.asContractId)))))
         )
-        // failing, authorized lookup
+        // successful authorized lookup
         _ <- ctx.testingHelpers.simpleExercise(
           testIdsGenerator.testCommandId("CK-test-alice-lookup-not-found"),
           Alice,
