@@ -6,7 +6,6 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 da_haskell_binary(
     name = "hlint-test",
     srcs = ["src/Main.hs"],
-
     hazel_deps = [
         "base",
         "containers",
@@ -19,4 +18,3 @@ da_haskell_binary(
     deps = [
     ],
 )
-
