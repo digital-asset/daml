@@ -13,7 +13,7 @@ import com.digitalasset.platform.tests.integration.ledger.api.ContractKeysIT
   * performed in #1866 -- specifically the fact that the submitter must be in
   * lookup maintainers.
   */
-class CommandTransactionChecksNo1866IT extends ContractKeysIT {
+class ContractKeysNo1866IT extends ContractKeysIT {
   override protected val languageVersion: LanguageVersion =
     LanguageVersion(LMajV.V1, LMinV.fromProtoIdentifier("5"))
   override protected lazy val config: Config = Config.default.copy(
