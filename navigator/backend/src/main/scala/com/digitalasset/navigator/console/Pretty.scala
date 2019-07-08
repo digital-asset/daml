@@ -236,7 +236,7 @@ object Pretty {
     case model.ApiTimestamp(value) => PrettyPrimitive(value.toString)
     case model.ApiDate(value) => PrettyPrimitive(value.toString)
     case model.ApiParty(value) => PrettyPrimitive(value.toString)
-    case model.ApiUnit() => PrettyPrimitive("<unit>")
+    case model.ApiUnit => PrettyPrimitive("<unit>")
     case model.ApiOptional(None) => PrettyPrimitive("<none>")
     case model.ApiOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
     case model.ApiMap(map) =>

@@ -3,8 +3,9 @@
 
 package com.digitalasset.navigator.json
 
-import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
+import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, ImmArray, SortedLookupList}
 import com.digitalasset.navigator.{model => Model}
+import Model.ApiValueImplicits._
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
 import com.digitalasset.navigator.json.Util._
 import com.digitalasset.navigator.model.DamlLfIdentifier
@@ -53,7 +54,8 @@ object ApiCodecVerbose {
     case Model.ApiText(v) => JsObject(propType -> JsString(tagText), propValue -> JsString(v))
     case Model.ApiInt64(v) =>
       JsObject(propType -> JsString(tagInt64), propValue -> JsString(v.toString))
-    case Model.ApiDecimal(v) => JsObject(propType -> JsString(tagDecimal), propValue -> JsString(v))
+    case Model.ApiDecimal(v) =>
+      JsObject(propType -> JsString(tagDecimal), propValue -> JsString(LfDecimal toString v))
     case Model.ApiBool(v) => JsObject(propType -> JsString(tagBool), propValue -> JsBoolean(v))
     case Model.ApiContractId(v) =>
       JsObject(propType -> JsString(tagContractId), propValue -> JsString(v.toString))
@@ -63,7 +65,7 @@ object ApiCodecVerbose {
       JsObject(propType -> JsString(tagDate), propValue -> JsString(v.toIso8601))
     case Model.ApiParty(v) =>
       JsObject(propType -> JsString(tagParty), propValue -> JsString(v.toString))
-    case Model.ApiUnit() => JsObject(propType -> JsString(tagUnit))
+    case Model.ApiUnit => JsObject(propType -> JsString(tagUnit))
     case Model.ApiOptional(None) => JsObject(propType -> JsString(tagOptional), propValue -> JsNull)
     case Model.ApiOptional(Some(v)) =>
       JsObject(propType -> JsString(tagOptional), propValue -> apiValueToJsValue(v))
@@ -73,7 +75,7 @@ object ApiCodecVerbose {
   def apiListToJsValue(value: Model.ApiList): JsValue =
     JsObject(
       propType -> JsString(tagList),
-      propValue -> JsArray(value.elements.map(apiValueToJsValue).toVector)
+      propValue -> JsArray(value.values.map(apiValueToJsValue).toVector)
     )
 
   private[this] val fieldKey = "key"
@@ -91,31 +93,29 @@ object ApiCodecVerbose {
   def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
     JsObject(
       propType -> JsString(tagVariant),
-      propId -> value.variantId.map(_.toJson).getOrElse(JsNull),
-      propConstructor -> JsString(value.constructor),
+      propId -> value.tycon.map(_.toJson).getOrElse(JsNull),
+      propConstructor -> JsString(value.variant),
       propValue -> apiValueToJsValue(value.value)
     )
 
   def apiEnumToJsValue(value: Model.ApiEnum): JsValue =
     JsObject(
       propType -> JsString(tagEnum),
-      propId -> value.enumId.map(_.toJson).getOrElse(JsNull),
-      propConstructor -> JsString(value.constructor),
+      propId -> value.tycon.map(_.toJson).getOrElse(JsNull),
+      propConstructor -> JsString(value.value),
     )
 
   def apiRecordToJsValue(value: Model.ApiRecord): JsValue =
     JsObject(
       propType -> JsString(tagRecord),
-      propId -> value.recordId.map(_.toJson).getOrElse(JsNull),
-      propFields -> JsArray(
-        value.fields
-          .map(
-            f =>
-              JsObject(
-                propLabel -> JsString(f.label),
-                propValue -> apiValueToJsValue(f.value)
-            ))
-          .toVector)
+      propId -> value.tycon.map(_.toJson).getOrElse(JsNull),
+      propFields -> JsArray(value.fields.map {
+        case (Some(flabel), fvalue) =>
+          JsObject(
+            propLabel -> JsString(flabel),
+            propValue -> apiValueToJsValue(fvalue)
+          )
+      }.toVector)
     )
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -125,7 +125,7 @@ object ApiCodecVerbose {
   private[this] def jsValueToApiRecordField(value: JsValue): Model.ApiRecordField = {
     val label = strField(value, propLabel, "ApiRecordField")
     val avalue = jsValueToApiValue(anyField(value, propValue, "ApiRecordField"))
-    Model.ApiRecordField(label, avalue)
+    Model.ApiRecordField(Some(label), avalue)
   }
 
   def jsValueToApiValue(value: JsValue): Model.ApiValue =
@@ -144,7 +144,7 @@ object ApiCodecVerbose {
         Model.ApiTimestamp.fromIso8601(strField(value, propValue, "ApiTimestamp"))
       case `tagDate` => Model.ApiDate.fromIso8601(strField(value, propValue, "ApiDate"))
       case `tagParty` => Model.ApiParty(strField(value, propValue, "ApiParty"))
-      case `tagUnit` => Model.ApiUnit()
+      case `tagUnit` => Model.ApiUnit
       case `tagOptional` =>
         anyField(value, propValue, "ApiOptional") match {
           case JsNull => Model.ApiOptional(None)

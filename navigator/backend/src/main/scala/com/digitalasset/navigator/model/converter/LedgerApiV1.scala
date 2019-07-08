@@ -422,7 +422,7 @@ case object LedgerApiV1 {
       case (VS.Int64(v), _) => Right(Model.ApiInt64(v))
       case (VS.Decimal(v), _) => Right(Model.ApiDecimal(v))
       case (VS.Text(v), _) => Right(Model.ApiText(v))
-      case (VS.Unit(v), _) => Right(Model.ApiUnit())
+      case (VS.Unit(v), _) => Right(Model.ApiUnit)
       case (VS.Bool(v), _) => Right(Model.ApiBool(v))
       case (VS.Party(v), _) => Right(Model.ApiParty(v))
       case (VS.Timestamp(v), _) => Right(Model.ApiTimestamp(v))
@@ -474,7 +474,7 @@ case object LedgerApiV1 {
       case Model.ApiTimestamp(v) => Right(Value(Value.Sum.Timestamp(v)))
       case Model.ApiDate(v) => Right(Value(Value.Sum.Date(v)))
       case Model.ApiContractId(v) => Right(Value(Value.Sum.ContractId(v)))
-      case Model.ApiUnit() => Right(Value(Value.Sum.Unit(com.google.protobuf.empty.Empty())))
+      case Model.ApiUnit => Right(Value(Value.Sum.Unit(com.google.protobuf.empty.Empty())))
       case Model.ApiOptional(None) => Right(Value(Value.Sum.Optional(V1.value.Optional(None))))
       case Model.ApiOptional(Some(v)) =>
         writeArgument(v).map(a => Value(Value.Sum.Optional(V1.value.Optional(Some(a)))))
@@ -486,10 +486,12 @@ case object LedgerApiV1 {
   def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] = {
     for {
       fields <- Converter
-        .sequence(value.fields.map(f =>
-          writeArgument(f.value).map(v => V1.value.RecordField(f.label, Some(v)))))
+        .sequence(value.fields.toSeq.map {
+          case (flabel, fvalue) =>
+            writeArgument(fvalue).map(v => V1.value.RecordField(flabel getOrElse "", Some(v)))
+        })
     } yield {
-      V1.value.Record(value.recordId.map(_.asApi), fields)
+      V1.value.Record(value.tycon.map(_.asApi), fields)
     }
   }
 
@@ -497,13 +499,13 @@ case object LedgerApiV1 {
     for {
       arg <- writeArgument(value.value)
     } yield {
-      V1.value.Variant(value.variantId.map(_.asApi), value.constructor, Some(arg))
+      V1.value.Variant(value.tycon.map(_.asApi), value.variant, Some(arg))
     }
   }
 
   def writeListArgument(value: Model.ApiList): Result[V1.value.List] = {
     for {
-      values <- Converter.sequence(value.elements.map(e => writeArgument(e)))
+      values <- Converter.sequence(value.values.map(e => writeArgument(e)))
     } yield {
       V1.value.List(values)
     }

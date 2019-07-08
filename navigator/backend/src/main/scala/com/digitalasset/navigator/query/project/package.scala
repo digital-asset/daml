@@ -5,6 +5,7 @@ package com.digitalasset.navigator.query
 
 import com.digitalasset.navigator.dotnot._
 import com.digitalasset.navigator.model._
+import ApiValueImplicits._
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -119,8 +120,9 @@ object project {
           cursor.next match {
             case None => Left(MustNotBeLastPart("record", cursor, expectedValue))
             case Some(nextCursor) =>
-              fields.find(f => f.label == nextCursor.current) match {
-                case Some(nextField) => loop(nextField.value, nextCursor)
+              val current: String = nextCursor.current
+              fields.toSeq.collectFirst { case (Some(`current`), value) => value } match {
+                case Some(nextField) => loop(nextField, nextCursor)
                 case None => Left(UnknownProperty("record", nextCursor, expectedValue))
               }
           }
@@ -160,7 +162,7 @@ object project {
         case ApiText(value) if cursor.isLast => Right(StringValue(value))
         case ApiParty(value) if cursor.isLast => Right(StringValue(value))
         case ApiBool(value) if cursor.isLast => Right(BooleanValue(value))
-        case ApiUnit() if cursor.isLast => Right(StringValue(""))
+        case ApiUnit if cursor.isLast => Right(StringValue(""))
         case ApiOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(StringValue("None"))

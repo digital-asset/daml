@@ -5,6 +5,8 @@ package com.digitalasset.navigator.query
 
 import com.digitalasset.navigator.dotnot._
 import com.digitalasset.navigator.model._
+import com.digitalasset.daml.lf.data.{Decimal => LfDecimal}
+import ApiValueImplicits._
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -111,8 +113,9 @@ package object filter {
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
-              fields.find(f => f.label == nextCursor.current) match {
-                case Some(nextField) => loop(nextField.value, nextCursor)
+              val current: String = nextCursor.current
+              fields.collectFirst { case (Some(`current`), value) => value } match {
+                case Some(nextField) => loop(nextField, nextCursor)
                 case None => Right(false)
               }
           }
@@ -149,11 +152,12 @@ package object filter {
         case ApiContractId(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case ApiInt64(value) if cursor.isLast =>
           Right(checkContained(value.toString, expectedValue))
-        case ApiDecimal(value) if cursor.isLast => Right(checkContained(value, expectedValue))
+        case ApiDecimal(value) if cursor.isLast =>
+          Right(checkContained(LfDecimal toString value, expectedValue))
         case ApiText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case ApiParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case ApiBool(value) if cursor.isLast => Right(checkContained(value.toString, expectedValue))
-        case ApiUnit() if cursor.isLast => Right(expectedValue == "")
+        case ApiUnit if cursor.isLast => Right(expectedValue == "")
         case ApiOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(expectedValue == "None")
