@@ -14,7 +14,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import qualified DA.Cli.Damlc.Test as Damlc
-import DA.Daml.GHC.Compiler.Options
+import DA.Daml.GHC.Compiler.Options.Types
 import Development.IDE.Types.Location
 
 main :: IO ()

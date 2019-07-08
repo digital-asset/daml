@@ -78,7 +78,7 @@ genrule(
 genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
-        "//daml-foundations/daml-ghc:daml-base-rst-docs",
+        "//compiler/damlc:daml-base-rst-docs",
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
@@ -88,7 +88,7 @@ genrule(
         cp -rL docs/source source
 
         # Copy in Stdlib
-        cp -rL $(location //daml-foundations/daml-ghc:daml-base-rst-docs) source/daml/reference/base.rst
+        cp -rL $(location //compiler/damlc:daml-base-rst-docs) source/daml/reference/base.rst
 
         # Copy in Protobufs
         cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
@@ -156,8 +156,8 @@ genrule(
     ]) + [
         ":sources",
         ":theme",
-        "//daml-foundations/daml-ghc:daml-base-rst-docs",
-        "//daml-foundations/daml-ghc:daml-base-hoogle-docs",
+        "//compiler/damlc:daml-base-rst-docs",
+        "//compiler/damlc:daml-base-hoogle-docs",
         "//language-support/java:javadoc",
     ],
     outs = ["html-only.tar.gz"],
@@ -192,7 +192,7 @@ genrule(
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
-        cp -rL ../$(location //daml-foundations/daml-ghc:daml-base-hoogle-docs) html/hoogle_db/base.txt
+        cp -rL ../$(location //compiler/damlc:daml-base-hoogle-docs) html/hoogle_db/base.txt
 
         tar -zcf ../$(location html-only.tar.gz) html
         """,
