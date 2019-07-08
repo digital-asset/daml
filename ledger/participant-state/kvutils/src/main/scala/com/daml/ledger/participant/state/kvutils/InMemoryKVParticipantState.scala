@@ -318,7 +318,7 @@ class InMemoryKVParticipantState(
     * given offset, and the method [[Dispatcher.signalNewHead]] to signal that
     * new elements has been added.
     */
-  private val dispatcher: Dispatcher[Int, Option[Update]] = Dispatcher(
+  private val dispatcher: Dispatcher[Int, List[Update]] = Dispatcher(
     steppingMode = OneAfterAnother(
       (idx: Int, _) => idx + 1,
       (idx: Int) => Future.successful(getUpdate(idx, stateRef))
@@ -330,7 +330,7 @@ class InMemoryKVParticipantState(
   /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
     * state and convert it into [[Update]].
     */
-  private def getUpdate(idx: Int, state: State): Option[Update] = {
+  private def getUpdate(idx: Int, state: State): List[Update] = {
     assert(idx >= 0 && idx < state.commitLog.size)
 
     state.commitLog(idx) match {
@@ -348,7 +348,7 @@ class InMemoryKVParticipantState(
           )
 
       case CommitHeartbeat(recordTime) =>
-        Some(Update.Heartbeat(recordTime))
+        List(Update.Heartbeat(recordTime))
     }
   }
 
@@ -359,18 +359,26 @@ class InMemoryKVParticipantState(
     * See [[ReadService.stateUpdates]] for full documentation for the properties
     * of this method.
     */
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
+  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     dispatcher
       .startingAt(
         beginAfter
-          .map(_.components.head.toInt + 1) // startingAt is inclusive, so jump over one element.
+          .map(_.components.head.toInt)
           .getOrElse(beginning)
       )
       .collect {
-        case (idx, Some(update)) =>
-          Offset(Array(idx.toLong)) -> update
+        case (offset, updates) =>
+          updates.zipWithIndex.map {
+            case (el, idx) => Offset(Array(offset.toLong, idx.toLong)) -> el
+          }
       }
-  }
+      .mapConcat(identity)
+      .filter {
+        case (offset, _) =>
+          if (beginAfter.isDefined)
+            offset > beginAfter.get
+          else true
+      }
 
   /** Submit a transaction to the ledger.
     *

@@ -173,24 +173,16 @@ class PostgresIndexer private (
       case PartyAddedToParticipant(party, displayName, _, _) =>
         ledgerDao.storeParty(party, Some(displayName)).map(_ => ())(DEC)
 
-      case PublicPackagesUploaded(archives, _, participantId, _) if archives.isEmpty =>
-        Future.successful {
-          PostgresIndexer.logger.warn(
-            s"Received empty list of packages from $participantId, ignoring it")
-        }
-
-      case PublicPackagesUploaded(archives, sourceDescription, _, _) =>
+      case PublicPackageUploaded(archive, sourceDescription, _, _) =>
         val uploadId = UUID.randomUUID().toString
         val uploadInstant = Instant.now()
-        val packages: List[(DamlLf.Archive, v2.PackageDetails)] = {
-          archives.map { archive =>
-            archive -> v2.PackageDetails(
-              size = archive.getPayload.size.toLong,
-              knownSince = uploadInstant,
-              sourceDescription = Some(sourceDescription)
-            )
-          }
-        }
+        val packages: List[(DamlLf.Archive, v2.PackageDetails)] = List(
+          archive -> v2.PackageDetails(
+            size = archive.getPayload.size.toLong,
+            knownSince = uploadInstant,
+            sourceDescription = Some(sourceDescription)
+          )
+        )
         ledgerDao.uploadLfPackages(uploadId, packages).map(_ => ())(DEC)
 
       case TransactionAccepted(

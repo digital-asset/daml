@@ -71,30 +71,30 @@ object Update {
     * https://github.com/digital-asset/daml/issues/311.
     *
     *
-    * @param archives
-    *   The list of DAML-LF packages that were uploaded.
+    * @param archive
+    *   The DAML-LF package that was uploaded.
     *
     * @param sourceDescription
-    *   A description of the packages, provided by the administrator as part of
+    *   A description of the package, provided by the administrator as part of
     *   the upload.
     *
     * @param participantId
-    *   The participant through which the packages were uploaded. This field
+    *   The participant through which the package was uploaded. This field
     *   is informative, and can be used by applications to display information
-    *   about the origin of the packages.
+    *   about the origin of the package.
     *
     * @param recordTime
-    *   The ledger-provided timestamp at which the packages were uploaded.
+    *   The ledger-provided timestamp at which the package was uploaded.
     *
     */
-  final case class PublicPackagesUploaded(
-      archives: List[DamlLf.Archive],
+  final case class PublicPackageUploaded(
+      archive: DamlLf.Archive,
       sourceDescription: Option[String],
       participantId: ParticipantId,
       recordTime: Timestamp)
       extends Update {
     override def description: String =
-      s"""Public packages uploaded: ${archives.map(_.getHash).mkString(",")}"""
+      s"""Public package uploaded: ${archive.getHash}"""
   }
 
   /** Signal the acceptance of a transaction.
