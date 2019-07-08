@@ -9,3 +9,4 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
+- [daml assistant] Fix VSCode path for use if not already in PATH on mac
