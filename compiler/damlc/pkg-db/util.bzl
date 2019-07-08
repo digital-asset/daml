@@ -126,13 +126,13 @@ daml_package_rule = rule(
         "srcs": attr.label(allow_files = True),
         "pkg_root": attr.string(),
         "package_db": attr.label(
-            default = Label("//daml-foundations/daml-ghc/package-database:package-db"),
+            default = Label("//compiler/damlc/pkg-db"),
             executable = False,
             cfg = "host",
         ),
         "dependencies": attr.label_list(allow_files = False),
         "damlc_bootstrap": attr.label(
-            default = Label("//daml-foundations/daml-tools/damlc-app:damlc_bootstrap"),
+            default = Label("//compiler/damlc:damlc-bootstrap"),
             executable = True,
             cfg = "host",
         ),

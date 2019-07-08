@@ -18,8 +18,8 @@ main = defaultMain  =<< unitTests
 unitTests :: IO TestTree
 unitTests = do
     withTempFile $ \path -> do
-        darPath <- locateRunfiles (mainWorkspace </> "daml-foundations/daml-tools/daml-cli/visual-test-daml.dar")
-        dotFile <- locateRunfiles (mainWorkspace </> "daml-foundations/daml-tools/daml-cli/tests/res/out.dot")
+        darPath <- locateRunfiles (mainWorkspace </> "compiler/damlc/visual-test-daml.dar")
+        dotFile <- locateRunfiles (mainWorkspace </> "compiler/damlc/cli-tests/visual/Basic.dot")
         return $ testGroup "making sure we do not add extra edges" [
             goldenVsFile
                 "dot file test"

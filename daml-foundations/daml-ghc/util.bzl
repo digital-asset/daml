@@ -47,7 +47,7 @@ daml_ghc_compile_test = rule(
         "srcs": attr.label_list(allow_files = True),
         "main": attr.label(allow_files = True),
         "damlc": attr.label(
-            default = Label("//daml-foundations/daml-tools/damlc-app:damlc-app"),
+            default = Label("//compiler/damlc"),
             executable = True,
             cfg = "target",
             allow_files = True,
@@ -66,7 +66,7 @@ def daml_ghc_integration_test(name, main_function):
         src_strip_prefix = "test-src",
         main_function = main_function,
         data = [
-            "//daml-foundations/daml-ghc/package-database:package-db",
+            "//compiler/damlc/pkg-db",
             "//compiler/scenario-service/server:scenario_service_jar",
             "@jq_dev_env//:jq",
             ":tests",

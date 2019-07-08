@@ -986,7 +986,7 @@ typescript projects. It works in conjunction with rules_nodejs to provide access
 npm packages.
 
 Please refer to the documentation in the above url for usage.
-For an example, please see `daml-foundations/daml-tools/daml-extension/BUILD.bazel`.
+For an example, please see `compiler/daml-extension/BUILD.bazel`.
 
 ## Protocol buffers in Bazel
 

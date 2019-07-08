@@ -8,7 +8,7 @@ da_haskell_test(
     name = "lsp-tests",
     srcs = glob(["src/**/*.hs"]),
     data = [
-        "//daml-foundations/daml-tools/damlc-app",
+        "//compiler/damlc",
     ],
     # For some reason this test sometimes seems to time out on Windows.
     # It hits the Bazel timeout rather than the timeout in lsp-tests

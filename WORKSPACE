@@ -2,7 +2,7 @@ workspace(
     name = "com_github_digital_asset_daml",
     managed_directories = {
         "@npm": ["node_modules"],
-        "@daml_extension_deps": ["daml-foundations/daml-tools/daml-extension/node_modules"],
+        "@daml_extension_deps": ["compiler/daml-extension/node_modules"],
         "@navigator_frontend_deps": ["navigator/frontend/node_modules"],
     },
 )
@@ -749,8 +749,8 @@ ts_setup_workspace()
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "daml_extension_deps",
-    package_json = "//daml-foundations/daml-tools/daml-extension:package.json",
-    yarn_lock = "//daml-foundations/daml-tools/daml-extension:yarn.lock",
+    package_json = "//compiler/daml-extension:package.json",
+    yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
 
 # TODO use fine-grained managed dependency
