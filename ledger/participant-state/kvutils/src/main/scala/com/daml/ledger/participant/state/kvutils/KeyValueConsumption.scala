@@ -13,6 +13,7 @@ import com.digitalasset.ledger.api.domain.PartyDetails
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
+import scala.collection.breakOut
 import scala.collection.JavaConverters._
 
 /** Utilities for producing [[Update]] events from [[DamlLogEntry]]'s committed to a
@@ -43,7 +44,7 @@ object KeyValueConsumption {
 
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        entry.getPackageUploadEntry.getArchivesList.asScala.toList.map { archive =>
+        entry.getPackageUploadEntry.getArchivesList.asScala.map { archive =>
           Update.PublicPackageUploaded(
             archive,
             if (entry.getPackageUploadEntry.getSourceDescription.nonEmpty)
@@ -52,7 +53,7 @@ object KeyValueConsumption {
             Ref.LedgerString.assertFromString(entry.getPackageUploadEntry.getParticipantId),
             recordTime
           )
-        }
+        }(breakOut)
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
         List.empty
