@@ -43,7 +43,7 @@ import Language.Haskell.HLint4
    main : IO ()
    main = print $ 3 + 4
    ```
-   then, bazel run //compiler/hlint-testing:hlint-test ~/Test.daml.
+   then, bazel run //hlint-testing:hlint-test ~/Test.daml.
 
    For the above module, we expect output like,
    ```
@@ -60,7 +60,7 @@ import Language.Haskell.HLint4
 -}
 
 hlintDataDir :: FilePath
-hlintDataDir = "/Users/shaynefletcher/project/daml.git/compiler/hlint-testing/data"
+hlintDataDir = "/Users/shaynefletcher/project/daml.git/hlint-testing/data"
 
 hlintSettings :: IO (ParseFlags, [Classify], Hint)
 hlintSettings = do
