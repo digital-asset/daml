@@ -3,7 +3,6 @@
 
 -- A little program to help prove the use of hlint with DAML.
 
-{-# LANGUAGE PackageImports #-}
 {-# OPTIONS_GHC -Wno-missing-fields #-}
 
 module Main (main) where
