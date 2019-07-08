@@ -11,13 +11,13 @@ import com.digitalasset.daml.lf.language.{
   LanguageMajorVersion => LMajV,
   LanguageMinorVersion => LMinV
 }
-import com.digitalasset.platform.tests.integration.ledger.api.ContractKeysIT
+import com.digitalasset.platform.apitesting.ContractKeysChecks
 
 /** Runs tests with an older version of the language that does not include changes
   * performed in #1866 -- specifically the fact that the submitter must be in
   * lookup maintainers.
   */
-class ContractKeysNo1866IT extends ContractKeysIT {
+class ContractKeysNo1866IT extends ContractKeysChecks {
   override protected val languageVersion: LanguageVersion =
     LanguageVersion(LMajV.V1, LMinV.fromProtoIdentifier("5"))
   override protected lazy val config: Config = Config.default.copy(

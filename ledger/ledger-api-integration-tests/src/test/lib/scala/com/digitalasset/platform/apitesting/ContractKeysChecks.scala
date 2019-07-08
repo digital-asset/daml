@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.tests.integration.ledger.api
+package com.digitalasset.platform.apitesting
 
 import java.util.UUID
 
@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.language.{
   LanguageMajorVersion => LMajV,
   LanguageMinorVersion => LMinV
 }
+import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach
@@ -17,14 +18,12 @@ import com.digitalasset.ledger.api.testing.utils.{
 import com.digitalasset.ledger.api.v1.value.{Optional, Record, RecordField, Value}
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.TestParties._
-import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestIdsGenerator, TestTemplateIds}
 import com.digitalasset.platform.participant.util.ValueConversions._
-import com.digitalasset.daml.lf.transaction.VersionTimeline.Implicits._
 import com.google.rpc.code.Code
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.{AsyncWordSpec, Matchers, OptionValues}
 
-class ContractKeysIT
+class ContractKeysChecks
     extends AsyncWordSpec
     with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
