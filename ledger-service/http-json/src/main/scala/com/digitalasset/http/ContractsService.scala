@@ -6,6 +6,7 @@ package com.digitalasset.http
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.http.ContractsService._
+import com.digitalasset.http.domain.TemplateId
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
@@ -14,7 +15,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 }
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import scalaz.\/
+import scalaz.{-\/, \/, \/-}
 import scalaz.std.string._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,7 +28,48 @@ class ContractsService(
   def lookup(
       jwtPayload: domain.JwtPayload,
       request: domain.ContractLookupRequest[Value]): Future[Option[domain.ActiveContract[Value]]] =
-    Future.failed(new RuntimeException("contract lookup not yet supported")) // TODO
+    request.id match {
+      case -\/((templateId, contractKey)) =>
+        lookup(jwtPayload.party, templateId, contractKey)
+      case \/-((templateId, contractId)) =>
+        lookup(jwtPayload.party, templateId, contractId)
+    }
+
+  def lookup(
+      party: String,
+      templateId: TemplateId.OptionalPkg,
+      contractKey: Value): Future[Option[domain.ActiveContract[Value]]] =
+    for {
+      as <- search(party, Set(templateId))
+      a = findByContractKey(contractKey)(as)
+    } yield a
+
+  private def findByContractKey(k: Value)(
+      as: Seq[domain.GetActiveContractsResponse[Value]]): Option[domain.ActiveContract[Value]] =
+    (as.view: Seq[domain.GetActiveContractsResponse[Value]])
+      .flatMap(a => a.activeContracts)
+      .find(isContractKey(k))
+
+  private def isContractKey(k: Value)(a: domain.ActiveContract[Value]): Boolean =
+    a.key.fold(false)(_ == k)
+
+  def lookup(
+      party: String,
+      templateId: Option[TemplateId.OptionalPkg],
+      contractId: String): Future[Option[domain.ActiveContract[Value]]] =
+    for {
+      as <- search(party, templateIds(templateId))
+      a = findByContractId(contractId)(as)
+    } yield a
+
+  private def templateIds(a: Option[TemplateId.OptionalPkg]): Set[TemplateId.OptionalPkg] =
+    a.fold(Set.empty[TemplateId.OptionalPkg])(x => Set(x))
+
+  private def findByContractId(k: String)(
+      as: Seq[domain.GetActiveContractsResponse[Value]]): Option[domain.ActiveContract[Value]] =
+    (as.view: Seq[domain.GetActiveContractsResponse[Value]])
+      .flatMap(a => a.activeContracts)
+      .find(x => x.contractId == k)
 
   def search(jwtPayload: domain.JwtPayload, request: domain.GetActiveContractsRequest)
     : Future[Seq[domain.GetActiveContractsResponse[Value]]] =

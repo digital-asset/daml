@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
-import akka.stream.scaladsl.Flow
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
@@ -52,8 +51,7 @@ object HttpService extends StrictLogging {
         PackageService.resolveTemplateIds(templateIdMap),
         client.activeContractSetClient)
       endpoints = new Endpoints(contractsService)
-      binding <- liftET[Error](
-        Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))
+      binding <- liftET[Error](Http().bindAndHandle(endpoints.all2, "localhost", httpPort))
     } yield binding
 
     val bindingF: Future[Error \/ ServerBinding] = bindingS.run
