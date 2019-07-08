@@ -57,7 +57,7 @@ def _daml_package_rule_impl(ctx):
     modules = {}
     for file in ctx.files.srcs:
         # FIXME(JM): HACK: the `[3:]` assumes we're in
-        # daml-foundations/daml-ghc! Find a way to get the
+        # compiler/damlc! Find a way to get the
         # base path...
         modules[".".join(file.path[:-5].split("/")[3:])] = file.path
 

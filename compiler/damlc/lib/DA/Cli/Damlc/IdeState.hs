@@ -10,6 +10,7 @@ module DA.Cli.Damlc.IdeState
 import qualified Language.Haskell.LSP.Messages as LSP
 
 import DA.Daml.GHC.Compiler.Options
+import DA.Daml.GHC.Compiler.Options.Types
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Daml.Compiler.Impl.Scenario as Scenario
 import Development.IDE.Core.Rules.Daml
@@ -25,7 +26,8 @@ getDamlIdeState
     -> IO IdeState
 getDamlIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
     let rule = mainRule compilerOpts
-    initialise rule eventHandler (toIdeLogger loggerH) compilerOpts vfs mbScenarioService
+    damlEnv <- mkDamlEnv compilerOpts mbScenarioService
+    initialise rule eventHandler (toIdeLogger loggerH) damlEnv (toCompileOpts compilerOpts) vfs
 
 -- Wrapper for the common case where the scenario service will be started automatically (if enabled)
 -- and we use the builtin VFSHandle.

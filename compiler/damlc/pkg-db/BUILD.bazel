@@ -22,11 +22,11 @@ daml_package_db(
 [
     daml_package_rule(
         name = "daml-prim-{}".format(ver),
-        srcs = "//daml-foundations/daml-ghc/daml-prim-src",
+        srcs = "//compiler/damlc/daml-prim-src",
         daml_lf_version = ver,
         package_db = ":package_db_for_daml-prim",
         pkg_name = "daml-prim",
-        pkg_root = "daml-foundations/daml-ghc/daml-prim-src",
+        pkg_root = "compiler/damlc/daml-prim-src",
         visibility = ["//visibility:public"],
     )
     for ver in DAML_LF_VERSIONS
@@ -35,12 +35,12 @@ daml_package_db(
 [
     daml_package_rule(
         name = "daml-stdlib-{}".format(ver),
-        srcs = "//daml-foundations/daml-ghc/daml-stdlib-src",
+        srcs = "//compiler/damlc/daml-stdlib-src",
         daml_lf_version = ver,
         dependencies = [":daml-prim-{}".format(ver)],
         package_db = ":package_db_for_daml-stdlib",
         pkg_name = "daml-stdlib",
-        pkg_root = "daml-foundations/daml-ghc/daml-stdlib-src",
+        pkg_root = "compiler/damlc/daml-stdlib-src",
         visibility = ["//visibility:public"],
     )
     for ver in DAML_LF_VERSIONS

@@ -24,8 +24,8 @@ import           DA.Cli.Args
 import qualified DA.Pretty
 import DA.Service.Daml.Compiler.Impl.Dar
 import DA.Service.Daml.Compiler.Impl.Scenario
-import DA.Daml.GHC.Compiler.Options
-import DA.Daml.GHC.Compiler.Upgrade
+import DA.Service.Daml.Compiler.Impl.Upgrade
+import DA.Daml.GHC.Compiler.Options.Types
 import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
