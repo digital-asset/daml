@@ -14,7 +14,7 @@ object UploadPackagesResult {
     override def description: String = "Packages successfully uploaded"
   }
 
-  /** Synchronous party allocation is not supported */
+  /** Synchronous package upload is not supported */
   final case object NotSupported extends UploadPackagesResult {
     override def description: String = "Packages upload not supported"
   }

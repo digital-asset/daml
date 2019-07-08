@@ -76,6 +76,8 @@ class ApiPackageManagementService(
               Future.failed(ErrorFactories.invalidArgument(r.description))
             case r @ UploadPackagesResult.ParticipantNotAuthorized =>
               Future.failed(ErrorFactories.permissionDenied(r.description))
+            case r @ UploadPackagesResult.NotSupported =>
+              Future.failed(ErrorFactories.unimplemented(r.description))
           }(DE)
     )
   }

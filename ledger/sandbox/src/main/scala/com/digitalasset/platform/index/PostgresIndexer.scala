@@ -180,7 +180,7 @@ class PostgresIndexer private (
           archive -> v2.PackageDetails(
             size = archive.getPayload.size.toLong,
             knownSince = uploadInstant,
-            sourceDescription = Some(sourceDescription)
+            sourceDescription = sourceDescription
           )
         )
         ledgerDao.uploadLfPackages(uploadId, packages).map(_ => ())(DEC)

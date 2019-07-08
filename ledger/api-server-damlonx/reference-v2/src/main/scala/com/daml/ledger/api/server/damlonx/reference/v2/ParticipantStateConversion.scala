@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.participant.state.kvutils.v2
+package com.daml.ledger.api.server.damlonx.reference.v2
 
 import java.time.Duration
 import java.util.concurrent.CompletionStage
@@ -51,7 +51,7 @@ object ParticipantStateConversion {
             case v1.UploadPackagesResult.ParticipantNotAuthorized =>
               v2.UploadPackagesResult.ParticipantNotAuthorized
             case v1.UploadPackagesResult.NotSupported =>
-              v2.UploadPackagesResult.InvalidPackage("Not supported")
+              v2.UploadPackagesResult.NotSupported
         })
     }
 
@@ -68,7 +68,7 @@ object ParticipantStateConversion {
             case v1.PartyAllocationResult.InvalidName(name) =>
               v2.PartyAllocationResult.InvalidName(name)
             case v1.PartyAllocationResult.NotSupported =>
-              v2.PartyAllocationResult.InvalidName("Not supported")
+              v2.PartyAllocationResult.NotSupported
         })
     }
   }
@@ -112,11 +112,8 @@ object ParticipantStateConversion {
                   sourceDescription,
                   participantId,
                   recordTime) =>
-                v2.Update.PublicPackageUploaded(
-                  archives,
-                  sourceDescription.getOrElse(""),
-                  participantId,
-                  recordTime)
+                v2.Update
+                  .PublicPackageUploaded(archives, sourceDescription, participantId, recordTime)
 
               case v1.Update.TransactionAccepted(
                   optSubmitterInfo,
