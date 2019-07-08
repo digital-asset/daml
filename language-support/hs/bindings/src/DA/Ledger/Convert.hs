@@ -378,10 +378,13 @@ raiseList f v = loop (Vector.toList v)
               [] -> return []
               x:xs -> do y <- f x; ys <- loop xs; return $ y:ys
 
-raiseMap :: forall a b c. Ord a =>
-                (Text -> Perhaps a) -> (b -> Perhaps c) -> Map Text (Maybe b) -> Perhaps (Map a c)
+raiseMap :: forall k k' v v'. Ord k'
+         => (k -> Perhaps k')
+         -> (v -> Perhaps v')
+         -> Map k (Maybe v) -- The Maybe is an artifact of grpc's encoding of maps, as expressed by grpc-haskell
+         -> Perhaps (Map k' v')
 raiseMap raiseK raiseV = fmap Map.fromList . mapM raiseKV . Map.toList
-    where raiseKV :: (Text, Maybe b) -> Perhaps (a, c)
+    where raiseKV :: (k, Maybe v) -> Perhaps (k', v')
           raiseKV (kLow,vLowOpt) = do
               k <- raiseK kLow
               case vLowOpt of
