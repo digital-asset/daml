@@ -3,10 +3,11 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql
 
+import java.io.FileInputStream
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
-import java.util.zip.ZipFile
+import java.util.zip.ZipInputStream
 
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v2
@@ -527,7 +528,9 @@ object PostgresDaoSpec {
       Try(DamlLf.Archive.parseFrom(stream))
     }
     private val Success(Dar(testPackage, _)) =
-      reader.readArchive(new ZipFile(rlocation("ledger/sandbox/Test.dar")))
+      reader.readArchive(
+        "Test.dar",
+        new ZipInputStream(new FileInputStream(rlocation("ledger/sandbox/Test.dar"))))
     private val archiveSize = testPackage.getSerializedSize.toLong
     private val now = Instant.now()
 
