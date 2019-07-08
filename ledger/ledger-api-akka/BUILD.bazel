@@ -7,8 +7,8 @@ load("//bazel_tools:proto.bzl", "proto_gen")
 proto_gen(
     name = "ledger-api-akka-srcs",
     srcs = ["//ledger-api/grpc-definitions:protos"],
-    plugin_exec = "//scala-protoc-plugins/scala-akka:protoc-gen-scala-akka",
-    plugin_name = "scala-akka",
+    plugin_exec = "//scala_protoc_plugins/scala_akka:protoc-gen-scala-akka",
+    plugin_name = "scala_akka",
     deps = [
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",

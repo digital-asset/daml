@@ -63,7 +63,7 @@ proto_gen(
         "@com_github_googleapis_googleapis//google/rpc:code_proto",
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
     ],
-    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_exec = "//scala_protoc_plugins/scalapb:protoc-gen-scalapb",
     plugin_name = "scalapb",
     plugin_options = ["grpc"],
     visibility = [

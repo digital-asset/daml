@@ -13,7 +13,7 @@ proto_library(
 proto_gen(
     name = "sample-service-scalapb-sources",
     srcs = [":sample-service-proto"],
-    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
+    plugin_exec = "//scala_protoc_plugins/scalapb:protoc-gen-scalapb",
     plugin_name = "scalapb",
     plugin_options = ["grpc"],
     visibility = [

@@ -80,7 +80,7 @@
   type: jar-scala
 - target: //ledger/ledger-api-akka:ledger-api-akka
   type: jar-scala
-- target: //scala-protoc-plugins/scala-logging:scala-logging-lib
+- target: //scala_protoc_plugins/scala_logging:scala-logging-lib
   type: jar-scala
 - target: //ledger/ledger-api-scala-logging:ledger-api-scala-logging
   type: jar-scala

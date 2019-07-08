@@ -7,7 +7,7 @@ load("//bazel_tools:proto.bzl", "proto_gen")
 proto_gen(
     name = "ledger-api-scala-logging-srcs",
     srcs = ["//ledger-api/grpc-definitions:protos"],
-    plugin_exec = "//scala-protoc-plugins/scala-logging:protoc-gen-scala-logging",
+    plugin_exec = "//scala_protoc_plugins/scala_logging:protoc-gen-scala-logging",
     plugin_name = "scala-logging",
     deps = [
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
@@ -31,14 +31,14 @@ da_scala_library(
         "//3rdparty/jvm/io/grpc:grpc_stub",
         "//3rdparty/jvm/org/slf4j:slf4j_api",
         "//ledger-api/grpc-definitions:ledger-api-scalapb",
-        "//scala-protoc-plugins/scala-logging:scala-logging-lib",
+        "//scala_protoc_plugins/scala_logging:scala-logging-lib",
     ],
 )
 
 testDependencies = [
     "//3rdparty/jvm/io/grpc:grpc_stub",
     "//ledger-api/grpc-definitions:ledger-api-scalapb",
-    "//scala-protoc-plugins/scala-logging:scala-logging-lib",
+    "//scala_protoc_plugins/scala_logging:scala-logging-lib",
     ":ledger-api-scala-logging",
     "//3rdparty/jvm/org/scalatest:scalatest",
     "//3rdparty/jvm/ch/qos/logback:logback_classic",
