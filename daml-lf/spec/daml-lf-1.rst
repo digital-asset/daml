@@ -2806,7 +2806,7 @@ program using the builtin functions : ``MAP_EMPTY``, ``MAP_INSERT``,
 Enum
 ....
 
-[*Available since version 1.6]
+[*Available since version 1.6*]
 
 The deserialization process will reject any DAML-LF 1.5 (or earlier)
 program using the field ``enum`` in ``DefDataType`` messages, the
@@ -2816,7 +2816,7 @@ in ``Expr`` messages.
 intern package IDs
 ..................
 
-[*Available since version 1.6]
+[*Available since version 1.6*]
 
 In ``PackageRef``, the alternative ``interned_id`` may be used in place
 of ``package_id``, in which case the package ID will be that at the
