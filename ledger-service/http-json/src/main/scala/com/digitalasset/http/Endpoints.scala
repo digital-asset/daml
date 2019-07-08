@@ -6,22 +6,20 @@ package com.digitalasset.http
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.digitalasset.http.json.HttpCodec._
 import com.digitalasset.http.json.JsonProtocol._
+import com.digitalasset.http.json.ResponseFormats._
+import com.digitalasset.http.json.SprayJson.parse
 import com.digitalasset.ledger.api.v1.value.Value
-
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.{-\/, @@, \/, \/-}
 import scalaz.syntax.functor._
+import scalaz.{-\/, @@, \/-}
 import spray.json._
-import json.HttpCodec._
-import json.ResponseFormats._
-
-import akka.http.scaladsl.server.{Directive, Directive1, Route}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
 
 class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContext)
     extends StrictLogging {
@@ -157,12 +155,6 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
   lazy val notFound: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)
   }
-
-  private def parse[A: JsonReader](str: ByteString): String \/ A =
-    Try {
-      val jsonAst: JsValue = str.utf8String.parseJson
-      jsonAst.convertTo[A]
-    } fold (t => \/.left(s"JSON parser error: ${t.getMessage}"), a => \/.right(a))
 
   private def format(a: JsValue): ByteString =
     ByteString(a.compactPrint)
