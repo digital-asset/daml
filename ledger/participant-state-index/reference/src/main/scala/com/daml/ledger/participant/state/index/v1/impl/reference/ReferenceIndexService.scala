@@ -161,7 +161,7 @@ final case class ReferenceIndexService(
     }
 
   private def nodeIdToEventId(txId: TransactionIdString, nodeId: NodeId): EventId =
-    Ref.PackageId.assertFromString(s"$txId/${nodeId.index}")
+    Ref.PackageId.assertFromString(s"$txId-${nodeId.index}")
 
   private def transactionToAcsUpdateEvents(
       filter: TransactionFiltering,

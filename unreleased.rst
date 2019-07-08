@@ -53,3 +53,4 @@ HEAD — ongoing
   Note that this change is not breaking since the compiler does not produce DAML-LF
   ``1.dev`` by default. However it will be a breaking change once this restriction
   makes it into DAML-LF ``1.6`` and once DAML-LF ``1.6`` becomes the default.
+- [DAML Integration Toolkit] The submission service shuts down its ExecutorService upon exit to ensure a smooth shutdown.

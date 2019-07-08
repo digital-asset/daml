@@ -203,6 +203,10 @@ final class Server private (
 
   override def close(): Unit = {
     logger.info("Shutting down server...")
+    services.foreach {
+      case closeable: AutoCloseable => closeable.close()
+      case _ => ()
+    }
     server.shutdownNow()
     assume(server.awaitTermination(10, TimeUnit.SECONDS))
     serverEventLoopGroup
