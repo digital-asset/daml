@@ -70,28 +70,41 @@ HEAD — ongoing
   </tools/ledger-api-test-tool/index>` to allow disabling randomization of party
   and command identifiers. It is useful for testing of ledgers which are
   configured with a predefined static set of parties.
+
 - [DAML-LF]: Release version 1.6. This versions provides:
 
-  + ``enum`` types.  See `#105 <https://github.com/digital-asset/daml/issues/105>`__.
-    See DAML-LF 1 specification for more details.
-  + new builtins for (un)packing strings. See `#16 <https://github.com/digital-asset/daml/issues/16>`__.
-  + intern package IDs. See `#1614 <https://github.com/digital-asset/daml/pull/1614>`__.
+  + ``enum`` types. See issue
+    `#105 <https://github.com/digital-asset/daml/issues/105>`__ and DAML-LF 1
+    specification for more details.
+
+  + new builtins for (un)packing strings. See
+    `#16 <https://github.com/digital-asset/daml/issues/16>`__.
+
+  + intern package IDs. See
+    `#1614 <https://github.com/digital-asset/daml/pull/1614>`__.
+
+  + **Breaking Change** Restrict contract key lookups for DAML-LF 1.6. In
+    short, when looking up or fetching a key, the transaction submitter
+    must be one of the key maintainers. See
+    `#1866 <https://github.com/digital-asset/daml/issues/1866>`__.
 
 - [DAML Compiler]: Add support for DAML-LF 1.6. In particular:
 
-  + Add support for ``enum`` types. DAML variants type that look like
-    enumerations (i.e., those variants without type parameters and without
-    argument) are compiled to DAML-LF ``enum`` type when daml-lf 1.6 target is
-    selected. For instance the daml type declaration of the form::
+  + **Breaking Change** Add support for ``enum`` types. DAML variants type that
+    look like enumerations (i.e., those variants without type parameters and
+    without argument) are compiled to DAML-LF ``enum`` type when daml-lf 1.6
+    target is selected. For instance the daml type declaration of the form::
 
       data Color = Red | Green | Blue
 
-    will produce a daml-lf ``enum`` type instead of daml-lf ``variant`` type.
+    will produce a DAML-LF ``enum`` type instead of DAML-LF ``variant`` type.
 
   + Add ``DA.Text.toCodePoints`` and ``DA.Text.fromCodePoints`` primitives to
     (un)pack strings.
 
   + Add support for daml-lf intern package IDs.
+
+- [DAML Compiler]: Make DAML-LF 1.6 the default output.
 
 - [Ledger API] Add support for ``enum`` types. Simple ``variant`` types will
   be replaced by ``enum`` types.
