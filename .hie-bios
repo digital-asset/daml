@@ -9,6 +9,7 @@ echo \
     -i"${BAZEL_GENFILES}" \
     -i"${BAZEL_GENFILES}"/compiler/scenario-service/protos \
     -i"${BAZEL_GENFILES}"/daml-lf/archive \
+    -icompiler/damlc/lib \
     -icompiler/daml-lf-ast/src \
     -icompiler/daml-lf-proto/src \
     -icompiler/daml-lf-reader/src \
@@ -23,6 +24,5 @@ echo \
     -idaml-foundations/daml-ghc/ghc-compiler/src \
     -idaml-foundations/daml-ghc/ide/src \
     -idaml-foundations/daml-ghc/language-server/src \
-    -idaml-foundations/daml-tools/daml-cli \
     -ilibs-haskell/bazel-runfiles/src \
     -ilibs-haskell/da-hs-base/src

@@ -2,13 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "//bazel_tools:haskell.bzl",
-    "da_haskell_binary",
-    "da_haskell_library",
-    "da_haskell_test",
-)
-load(
-    "//daml-foundations/daml-ghc/package-database:util.bzl",
+    ":util.bzl",
     "daml_package_db",
     "daml_package_rule",
 )
@@ -60,7 +54,7 @@ daml_package_db(
 )
 
 daml_package_db(
-    name = "package-db",
+    name = "pkg-db",
     daml_lf_versions = DAML_LF_VERSIONS,
     pkgs =
         [":daml-prim-{}".format(ver) for ver in DAML_LF_VERSIONS] +

@@ -29,7 +29,7 @@ alias(
 genrule(
     name = "damlc-dist-resource-jar",
     srcs = [
-        "//daml-foundations/daml-tools/damlc-app:damlc-dist",
+        "//compiler/damlc:damlc-dist",
     ],
     outs = ["damlc-dist.jar"],
     cmd = """

@@ -5,7 +5,7 @@
   mavenUpload: True
 - target: //daml-lf/data:data
   type: jar
-- target: //daml-foundations/daml-tools/damlc-jar:damlc_jar
+- target: //compiler/damlc/jar:damlc_jar
   type: jar-deploy
   platformDependent: True
 - target: //daml-lf/archive:daml_lf_archive_scala

@@ -212,8 +212,8 @@ setPackageImports hideAllPkgs pkgImports dflags = dflags {
 mkOptions :: Options -> IO Options
 mkOptions opts@Options {..} = do
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
-    mbDefaultPkgDb <- locateRunfilesMb (mainWorkspace </> "daml-foundations" </> "daml-ghc" </> "package-database")
-    let mbDefaultPkgDbDir = fmap (</> "package-db_dir") mbDefaultPkgDb
+    mbDefaultPkgDb <- locateRunfilesMb (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
+    let mbDefaultPkgDbDir = fmap (</> "pkg-db_dir") mbDefaultPkgDb
     pkgDbs <- filterM Dir.doesDirectoryExist (toList mbDefaultPkgDbDir ++ [projectPackageDatabase])
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =

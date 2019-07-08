@@ -1,14 +1,85 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
 load("//rules_daml:daml.bzl", "daml_compile")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools/packaging:packaging.bzl", "package_app")
+
+da_haskell_binary(
+    name = "damlc",
+    srcs = ["exe/Main.hs"],
+
+    # We need to tell the linker to statically link pthread on Windows
+    # otherwise the library is not found at runtime.
+    compiler_flags = [
+        "-optl-static",
+        "-optl-pthread",
+    ] if is_windows else [],
+    data = [
+        "//compiler/damlc/pkg-db",
+        "//compiler/scenario-service/server:scenario_service_jar",
+    ],
+    hazel_deps = [
+        "base",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":damlc-lib",
+    ],
+)
+
+# damlc without runfiles. We use that to build the daml-prim and daml-stdlib
+# package databases.
+da_haskell_binary(
+    name = "damlc-bootstrap",
+    srcs = ["exe/Main.hs"],
+
+    # We need to tell the linker to statically link pthread on Windows
+    # otherwise the library is not found at runtime.
+    compiler_flags = [
+        "-optl-static",
+        "-optl-pthread",
+    ] if is_windows else [],
+    hazel_deps = [
+        "base",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":damlc-lib",
+    ],
+)
+
+package_app(
+    name = "damlc-dist",
+    binary = ":damlc",
+    resources = [
+        ":ghc-pkg-dist",
+        "//compiler/damlc/pkg-db",
+        "//compiler/scenario-service/server:scenario_service_jar",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)
+
+# ghc-pkg is linked dynamically on Linux by default so we need to run it through package_app
+# before we distribute it.
+package_app(
+    name = "ghc-pkg-dist",
+    # bin/ghc-pkg is actually a wrapper script on Unix systems so it is
+    # important that we use lib/ghc-$VERSION/bin/ghc-pkg instead which is the
+    # actual executable.
+    binary = "@io_tweag_rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg",
+    visibility = ["//visibility:public"],
+)
 
 da_haskell_library(
-    name = "daml-cli",
-    srcs = glob(["DA/**/*.hs"]),
+    name = "damlc-lib",
+    srcs = glob(["lib/**/*.hs"]),
     extra_srcs = [
-        "//daml-foundations/daml-tools/docs/daml-licenses/licenses:licensing.md",
+        "//compiler/daml-licenses/licenses:licensing.md",
     ],
     hazel_deps = [
         "aeson-pretty",
@@ -73,13 +144,10 @@ da_haskell_library(
     ],
 )
 
+# Tests for the lax CLI parser
 da_haskell_test(
-    name = "daml-cli-tests",
-    srcs = ["tests/Cli.hs"],
-    data = [
-        "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-foundations/daml-ghc/package-database:package-db",
-    ],
+    name = "damlc-cliparser-test",
+    srcs = ["cli-tests/CliParser.hs"],
     hazel_deps = [
         "tasty",
         "base",
@@ -90,17 +158,18 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
-        ":daml-cli",
+        ":damlc-lib",
     ],
 )
 
+# Tests for damlc visual
 da_haskell_test(
-    name = "daml-cli-visual-test",
-    srcs = ["tests/VisualTest.hs"],
+    name = "damlc-visual-test",
+    srcs = ["cli-tests/DamlcVisual.hs"],
     data = [
-        ":tests/res/out.dot",
+        ":cli-tests/visual/Basic.dot",
         ":visual-test-daml.dar",
-        "//daml-foundations/daml-ghc/package-database:package-db",
+        # "//daml-foundations/daml-ghc/package-database:package-db",
     ],
     hazel_deps = [
         "tasty",
@@ -113,22 +182,24 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
-        ":daml-cli",
+        ":damlc-lib",
         "//libs-haskell/bazel-runfiles",
     ],
 )
 
+# Test file used in damlc-visual-test
 daml_compile(
     name = "visual-test-daml",
-    main_src = "tests/Basic.daml",
+    main_src = "cli-tests/visual/Basic.daml",
 )
 
+# Tests for damlc test
 da_haskell_test(
-    name = "damlc-test-tests",
-    srcs = ["tests/DamlcTest.hs"],
+    name = "damlc-test-test",
+    srcs = ["cli-tests/DamlcTest.hs"],
     data = [
+        "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//daml-foundations/daml-ghc/package-database:package-db",
     ],
     hazel_deps = [
         "base",
@@ -140,7 +211,7 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
-        ":daml-cli",
+        ":damlc-lib",
         "//compiler/hie-core",
         "//daml-foundations/daml-ghc/ghc-compiler",
         "//libs-haskell/da-hs-base",

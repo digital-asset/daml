@@ -37,11 +37,11 @@ daml_compile(
         srcs = ["daml-lf-test.sh"],
         args = [
             "$(location //daml-lf/repl:repl)",
-            "$(location //daml-foundations/daml-tools/damlc-app)",
+            "$(location //compiler/damlc)",
             "$(location :%s.dar)" % name,
         ],
         data = [
-            "//daml-foundations/daml-tools/damlc-app",
+            "//compiler/damlc",
             "//daml-lf/repl",
             ":%s.dar" % name,
         ],
@@ -59,11 +59,11 @@ daml_compile(
         srcs = ["scenario/test.sh"],
         args = [
             "$(location //daml-lf/repl:repl)",
-            "$(location //daml-foundations/daml-tools/damlc-app:damlc-app)",
+            "$(location //compiler/damlc)",
             "$(location :%s)" % file,
         ],
         data = [
-            "//daml-foundations/daml-tools/damlc-app",
+            "//compiler/damlc",
             "//daml-lf/repl",
             file,
             "%s/EXPECTED.ledger" % "/".join(file.split("/")[0:3]),

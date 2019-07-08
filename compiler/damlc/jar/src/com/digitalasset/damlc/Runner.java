@@ -15,7 +15,7 @@ import java.util.jar.*;
 
 public class Runner {
 
-    private static String name = "damlc-app";
+    private static String name = "damlc";
 
     // Main entry-point. Useful when running the jar directly.
     public static void main(String[] args) {
