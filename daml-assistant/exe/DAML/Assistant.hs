@@ -7,6 +7,7 @@ module DAML.Assistant
     ( main
     ) where
 
+import DA.Signals
 import DAML.Project.Config
 import DAML.Assistant.Types
 import DAML.Assistant.Env
@@ -30,6 +31,7 @@ import Safe
 -- | Run the assistant and exit.
 main :: IO ()
 main = displayErrors $ do
+    installSignalHandlers
     builtinCommandM <- tryBuiltinCommand
     case builtinCommandM of
         Just builtinCommand -> do

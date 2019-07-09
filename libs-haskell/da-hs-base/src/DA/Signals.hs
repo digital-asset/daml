@@ -4,7 +4,7 @@
 {-# LANGUAGE CPP #-}
 
 -- | Module that turns SIGTERM into a UserInterrupt exception in Unix.
-module DamlHelper.Signals
+module DA.Signals
     ( installSignalHandlers
     ) where
 
@@ -25,4 +25,3 @@ installSignalHandlers = do
     mainThread <- myThreadId
     void $ installHandler sigTERM (Catch $ throwTo mainThread UserInterrupt) Nothing
 #endif
-

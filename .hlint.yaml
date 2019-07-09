@@ -83,7 +83,7 @@
     - DA.Sdk.Cli.System
     - DA.Sdk.Cli.Version
     - DAML.Assistant.Install.Path
-    - DamlHelper.Signals
+    - DA.Signals
     - Development.IDE.Core.Compile
     - Development.IDE.GHC.Compat
   - {name: ImplicitParams, within: []}
