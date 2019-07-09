@@ -10,22 +10,17 @@ import os
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("source", type=str)
-    parser.add_argument("destination", type=str)
     args = parser.parse_args()
 
-    create_symlinks(args.source, args.destination)
+    list_contents(args.source)
 
 
-def create_symlinks(source_dir, dest_dir):
-    print(os.getcwd(), source_dir, dest_dir)
-    os.makedirs(dest_dir, exist_ok=True)
+def list_contents(source_dir):
     for item in os.listdir(source_dir):
         if item in ["BUILD", "BUILD.bazel", "WORKSPACE"]:
             # Skip nested BUILD files as they confuse Bazel.
             continue
-        relpath = os.path.relpath(os.path.join(source_dir, item), dest_dir)
-        print("ln -s {} {}".format(relpath, os.path.join(dest_dir, item)))
-        os.symlink(relpath, os.path.join(dest_dir, item))
+        print(item)
 
 
 if __name__ == "__main__":

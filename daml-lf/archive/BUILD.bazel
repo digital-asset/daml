@@ -195,7 +195,7 @@ genrule(
     ],
     outs = ["daml_lf_archive_java.jar"],
     cmd = """
-    INPUT=$$(echo "$(locations :daml_lf_proto_lib_java)" | cut -d ' ' -f 1)
+    INPUT=$$(echo "$(locations :daml_lf_proto_lib_java)" | tr ' ' '\n' | grep -v '\-src.jar')
     cp -L $$INPUT $@
     chmod u+w $@
     $(location @zip_dev_env//:zip) -g $@ $(locations :proto_srcs)

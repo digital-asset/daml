@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module DA.Ledger.Tests (main) where
 
@@ -58,6 +59,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetTransactionTrees
     , tGetTransactionByEventId
     , tGetTransactionById
+    , tGetActiveContracts
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -165,7 +167,7 @@ tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -
     let command = createWithKey pid alice 100
     Right _ <- submitCommand lid alice command
     liftIO $ do
-        Just (Right Transaction{events=[CreatedEvent{key}]}) <- timeout 1 (takeStream txs)
+        Just (Right [Transaction{events=[CreatedEvent{key}]}]) <- timeout 1 (takeStream txs)
         assertEqual "contract has right key" key (Just (VRecord (Record Nothing [ RecordField "" (VParty alice), RecordField "" (VInt 100) ])))
         closeStream txs gone
     where gone = Abnormal "client gone"
@@ -177,7 +179,7 @@ tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ 
     let command = createWithoutKey pid alice 100
     Right _ <- submitCommand lid alice command
     liftIO $ do
-        Just (Right Transaction{events=[CreatedEvent{key}]}) <- timeout 1 (takeStream txs)
+        Just (Right [Transaction{events=[CreatedEvent{key}]}]) <- timeout 1 (takeStream txs)
         assertEqual "contract has no key" key Nothing
         closeStream txs gone
     where gone = Abnormal "client gone"
@@ -189,7 +191,7 @@ tStakeholders withSandbox = testCase "stakeholders are exposed correctly" $ run 
     let command = createIOU pid alice "alice-in-chains" 100
     _ <- submitCommand lid alice command
     liftIO $ do
-        Just (Right Transaction{events=[CreatedEvent{signatories,observers}]}) <- timeout 1 (takeStream txs)
+        Just (Right [Transaction{events=[CreatedEvent{signatories,observers}]}]) <- timeout 1 (takeStream txs)
         assertEqual "the only signatory" signatories [ alice ]
         assertEqual "observers are empty" observers []
         closeStream txs gone
@@ -219,7 +221,7 @@ tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventI
     lid <- getLedgerIdentity
     txs <- getAllTransactions lid alice (Verbosity True)
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
-    Just (Right txOnStream) <- liftIO $ timeout 1 (takeStream txs)
+    Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{events=[CreatedEvent{eid}]} <- return txOnStream
     Just txByEventId <- getFlatTransactionByEventId lid eid [alice]
     liftIO $ assertEqual "tx" txOnStream txByEventId
@@ -231,7 +233,7 @@ tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run w
     lid <- getLedgerIdentity
     txs <- getAllTransactions lid alice (Verbosity True)
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
-    Just (Right txOnStream) <- liftIO $ timeout 1 (takeStream txs)
+    Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{trid} <- return txOnStream
     Just txById <- getFlatTransactionById lid trid [alice]
     liftIO $ assertEqual "tx" txOnStream txById
@@ -243,7 +245,7 @@ tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \
     lid <- getLedgerIdentity
     txs <- getAllTransactions lid alice (Verbosity True)
     Right cidA <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
-    Just (Right Transaction{cid=Just cidB}) <- liftIO $ timeout 1 (takeStream txs)
+    Just (Right [Transaction{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
 
 tGetTransactionTrees :: SandboxTest
@@ -251,7 +253,7 @@ tGetTransactionTrees withSandbox = testCase "tGetTransactionTrees" $ run withSan
     lid <- getLedgerIdentity
     txs <- getAllTransactionTrees lid alice (Verbosity True)
     Right cidA <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
-    Just (Right TransactionTree{cid=Just cidB}) <- liftIO $ timeout 1 (takeStream txs)
+    Just (Right [TransactionTree{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
 
 tGetTransactionByEventId :: SandboxTest
@@ -259,7 +261,7 @@ tGetTransactionByEventId withSandbox = testCase "tGetTransactionByEventId" $ run
     lid <- getLedgerIdentity
     txs <- getAllTransactionTrees lid alice (Verbosity True)
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
-    Just (Right txOnStream) <- liftIO $ timeout 1 (takeStream txs)
+    Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{roots=[eid]} <- return txOnStream
     Just txByEventId <- getTransactionByEventId lid eid [alice]
     liftIO $ assertEqual "tx" txOnStream txByEventId
@@ -271,12 +273,32 @@ tGetTransactionById withSandbox = testCase "tGetTransactionById" $ run withSandb
     lid <- getLedgerIdentity
     txs <- getAllTransactionTrees lid alice (Verbosity True)
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
-    Just (Right txOnStream) <- liftIO $ timeout 1 (takeStream txs)
+    Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{trid} <- return txOnStream
     Just txById <- getTransactionById lid trid [alice]
     liftIO $ assertEqual "tx" txOnStream txById
     Nothing <- getTransactionById lid (TransactionId "xxxxx") [alice]
     return ()
+
+tGetActiveContracts :: SandboxTest
+tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    -- no active contracts here
+    [(off1,_,[])] <- getActiveContracts lid (filterEverthingForParty alice) (Verbosity True)
+    -- so let's create one
+    Right _ <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
+    txs <- getAllTransactions lid alice (Verbosity True)
+    Just (Right [Transaction{events=[ev]}]) <- liftIO $ timeout 1 (takeStream txs)
+    -- and then we get it
+    [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverthingForParty alice) (Verbosity True)
+    liftIO $ do
+        assertEqual "off1" (AbsOffset "0") off1
+        assertEqual "off2" (AbsOffset "" ) off2 -- strange
+        assertEqual "off3" (AbsOffset "1") off3
+        -- for some reason the active contracts event has no signatory information...
+        let ev' :: Event = ev { signatories = [] }
+        assertEqual "active" ev' active
+        -- assertEqual "active" ev active -- TODO: enable if this should be true & we get a fix
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands

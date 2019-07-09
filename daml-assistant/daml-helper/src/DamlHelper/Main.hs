@@ -9,8 +9,8 @@ import System.Environment
 import System.Exit
 import System.IO
 
+import DA.Signals
 import DamlHelper.Run
-import DamlHelper.Signals
 
 main :: IO ()
 main =

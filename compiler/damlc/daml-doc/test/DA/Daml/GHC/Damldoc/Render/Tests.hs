@@ -3,11 +3,11 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DA.Daml.GHC.Damldoc.Render.Tests(mkTestTree)
+module DA.Daml.Doc.Render.Tests(mkTestTree)
   where
 
-import           DA.Daml.GHC.Damldoc.Types
-import           DA.Daml.GHC.Damldoc.Render
+import           DA.Daml.Doc.Types
+import           DA.Daml.Doc.Render
 
 import           Control.Monad.Except
 import qualified Data.Text as T
@@ -20,7 +20,7 @@ import           Test.Tasty.HUnit
 
 mkTestTree :: IO Tasty.TestTree
 mkTestTree = do
-  pure $ Tasty.testGroup "DA.Daml.GHC.Damldoc.Render"
+  pure $ Tasty.testGroup "DA.Daml.Doc.Render"
     [ Tasty.testGroup "RST Rendering" $
       zipWith (renderTest Rst) cases expectRst
     , Tasty.testGroup "Markdown Rendering" $
@@ -33,19 +33,19 @@ cases = [ ("Empty module",
            ModuleDoc "Empty" Nothing [] [] [] [])
         , ("Type def with argument",
            ModuleDoc "Typedef" Nothing []
-            [TypeSynDoc "T" (Just "T descr") ["a"] (TypeApp "TT" [TypeApp "TTT" []])]
+            [TypeSynDoc "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [TypeApp Nothing "TTT" []])]
             [] []
           )
         , ("Two types",
            ModuleDoc "TwoTypes" Nothing []
-            [ TypeSynDoc "T" (Just "T descr") ["a"] (TypeApp "TT" [])
-            , ADTDoc "D" Nothing ["d"] [PrefixC "D" (Just "D descr") [TypeApp "a" []]]
+            [ TypeSynDoc "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [])
+            , ADTDoc "D" Nothing ["d"] [PrefixC "D" (Just "D descr") [TypeApp Nothing "a" []]]
             ]
             [] []
           )
         , ("Documented function with type",
            ModuleDoc "Function1" Nothing [] []
-            [FunctionDoc "f" Nothing (Just $ TypeApp "TheType" []) (Just "the doc")] []
+            [FunctionDoc "f" Nothing (Just $ TypeApp Nothing "TheType" []) (Just "the doc")] []
           )
         , ("Documented function without type",
            ModuleDoc "Function2" Nothing [] []
@@ -53,12 +53,12 @@ cases = [ ("Empty module",
           )
         , ("Undocumented function with type",
            ModuleDoc "Function3" Nothing [] []
-            [FunctionDoc "f" Nothing (Just $ TypeApp "TheType" []) Nothing] []
+            [FunctionDoc "f" Nothing (Just $ TypeApp Nothing "TheType" []) Nothing] []
           )
         -- The doc extraction won't generate functions without type nor description
         , ("Module with only a type class",
            ModuleDoc "OnlyClass" Nothing [] [] []
-            [ClassDoc "C" Nothing Nothing ["a"] [FunctionDoc "member" Nothing (Just (TypeApp "a" [])) Nothing]])
+            [ClassDoc "C" Nothing Nothing ["a"] [FunctionDoc "member" Nothing (Just (TypeApp Nothing "a" [])) Nothing]])
         , ("Multiline field description",
            ModuleDoc
              "MultiLineField"
@@ -68,7 +68,7 @@ cases = [ ("Empty module",
                 "D"
                 Nothing
                 []
-                [RecordC "D" Nothing [FieldDoc "f" (TypeApp "T" []) (Just "This is a multiline\nfield description")]]]
+                [RecordC "D" Nothing [FieldDoc "f" (TypeApp Nothing "T" []) (Just "This is a multiline\nfield description")]]]
              []
              []
           )
@@ -84,13 +84,13 @@ expectRst =
             ["\n.. _type-twotypes-t-17090:\n\ntype **T a**\n    = TT\n\n  T descr"
             , "\n.. _data-twotypes-d-66754:\n\ndata **D d**\n\n  \n  \n  .. _constr-twotypes-d-45919:\n  \n  **D** a\n  \n  D descr"]
             []
-        , mkExpectRst "module-function1-29590" "Function1" "" [] [] [] [ "\n.. _function-function1-f-2320:\n\n**f**\n  : TheType\n\n  the doc\n"]
+        , mkExpectRst "module-function1-29590" "Function1" "" [] [] [] [ "\n.. _function-function1-f-45407:\n\n**f**\n  : TheType\n\n  the doc\n"]
         , mkExpectRst "module-function2-7227" "Function2" "" [] [] [] [ "\n.. _function-function2-f-87524:\n\n**f**\n  :   the doc\n"]
-        , mkExpectRst "module-function3-84844" "Function3" "" [] [] [] [ "\n.. _function-function3-f-53414:\n\n**f**\n  : TheType\n\n"]
+        , mkExpectRst "module-function3-84844" "Function3" "" [] [] [] [ "\n.. _function-function3-f-32653:\n\n**f**\n  : TheType\n\n"]
         , mkExpectRst "module-onlyclass-88463" "OnlyClass" ""
             []
             [ "\n.. _class-onlyclass-c-63566:"
-            , "**class C a where**\n  \n  .. _function-onlyclass-member-29050:\n  \n  **member**\n    : a"
+            , "**class C a where**\n  \n  .. _function-onlyclass-member-45125:\n  \n  **member**\n    : a"
             ]
             []
             []

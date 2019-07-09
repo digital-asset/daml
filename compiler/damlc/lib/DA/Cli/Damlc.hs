@@ -22,11 +22,11 @@ import           DA.Cli.Damlc.BuildInfo
 import           DA.Cli.Damlc.Command.Damldoc      (cmdDamlDoc)
 import           DA.Cli.Args
 import qualified DA.Pretty
-import DA.Service.Daml.Compiler.Impl.Dar
-import DA.Service.Daml.Compiler.Impl.Scenario
-import DA.Service.Daml.Compiler.Impl.Upgrade
-import DA.Daml.GHC.Compiler.Options.Types
-import qualified DA.Service.Daml.LanguageServer    as Daml.LanguageServer
+import DA.Daml.Compiler.Dar
+import DA.Daml.Compiler.Scenario
+import DA.Daml.Compiler.Upgrade
+import DA.Daml.Options.Types
+import DA.Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Service.Logger                 as Logger
@@ -272,7 +272,7 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
             execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
             Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-            Daml.LanguageServer.runLanguageServer
+            runLanguageServer
                 (getDamlIdeState opts mbScenarioService loggerH)
 
 execCompile :: FilePath -> FilePath -> Options -> Command

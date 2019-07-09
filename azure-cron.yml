@@ -178,6 +178,8 @@ jobs:
             git checkout $GITHUB
             cd compiler/daml-extension
             yarn
+            # This produces out/src/extension.js
+            yarn run compile
             vsce publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
           else
             if [[ "${GITHUB#v}" == "$MARKET" ]]; then

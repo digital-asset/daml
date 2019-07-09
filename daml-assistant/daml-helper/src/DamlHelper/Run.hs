@@ -107,7 +107,7 @@ addVsCodeToPath :: [(String, String)] -> [(String,String)]
 addVsCodeToPath env | isMac =
     let pathM = lookup "PATH" env
         newSearchPath = maybe "" (<> [searchPathSeparator]) pathM <>
-            "/Applications/Visual\\ Studio\\ Code.app/Contents/Resources/app/bin"
+            "/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
     in ("PATH", newSearchPath) : filter ((/= "PATH") . fst) env
 addVsCodeToPath env = env
 

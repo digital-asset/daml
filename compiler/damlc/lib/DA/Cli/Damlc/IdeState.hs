@@ -9,10 +9,10 @@ module DA.Cli.Damlc.IdeState
 
 import qualified Language.Haskell.LSP.Messages as LSP
 
-import DA.Daml.GHC.Compiler.Options
-import DA.Daml.GHC.Compiler.Options.Types
+import DA.Daml.Options
+import DA.Daml.Options.Types
 import qualified DA.Service.Logger as Logger
-import qualified DA.Service.Daml.Compiler.Impl.Scenario as Scenario
+import qualified DA.Daml.Compiler.Scenario as Scenario
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.API
 import qualified Development.IDE.Types.Logger as IdeLogger

@@ -48,7 +48,7 @@ getTrans :: Player -> Handle -> IO (PastAndFuture NimTrans)
 getTrans player Handle{log,lid} = do
     let party = partyOfPlayer player
     pf <- run 6000 $ getTransactionsPF lid party
-    mapListPF (extractTransaction log) pf
+    mapListPF (fmap concat . mapM (extractTransaction log)) pf
 
 submitCommand :: Handle -> Party -> Command -> IO (Either String ())
 submitCommand Handle{lid} party com = do
