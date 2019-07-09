@@ -169,27 +169,50 @@ filegroup(
 )
 
 genrule(
+    name = "daml-prim-json-docs",
+    srcs = ["//compiler/damlc/daml-prim-src"],
+    outs = ["daml-prim.json"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --package-name=daml-prim \
+            --format=Json \
+            $(locations //compiler/damlc/daml-prim-src)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-stdlib-json-docs",
+    srcs = ["//compiler/damlc/daml-stdlib-src"],
+    outs = ["daml-stdlib.json"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --package-name=daml-stdlib \
+            --format=Json \
+            $(locations //compiler/damlc/daml-stdlib-src)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
     name = "daml-base-hoogle-docs",
     srcs = [
-        "//compiler/damlc/daml-prim-src",
-        "//compiler/damlc/daml-stdlib-src",
+        ":daml-prim.json",
+        ":daml-stdlib.json",
         ":daml-base-hoogle-prefix",
     ],
     outs = ["daml-base-hoogle.txt"],
     cmd = """
-        TMP_DOC=`mktemp`
-        $(location //compiler/damlc) -- docs \
-            --output=$$TMP_DOC \
-            --package-name=daml-stlib \
-            --format=Hoogle \
-            $(locations //compiler/damlc/daml-stdlib-src) \
-            --prefix=$(location :daml-base-hoogle-prefix)
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
-            --package-name=daml-prim \
+            --input-format=json \
             --format=Hoogle \
-            $(locations //compiler/damlc/daml-prim-src) \
-            --prefix=$$TMP_DOC
+            --prefix=$(location :daml-base-hoogle-prefix) \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
@@ -198,25 +221,18 @@ genrule(
 genrule(
     name = "daml-base-rst-docs",
     srcs = [
-        "//compiler/damlc/daml-prim-src",
-        "//compiler/damlc/daml-stdlib-src",
+        ":daml-prim.json",
+        ":daml-stdlib.json",
         ":daml-base-rst-prefix",
     ],
     outs = ["daml-base.rst"],
     cmd = """
-        TMP_DOC=`mktemp`
-        $(location //compiler/damlc) -- docs \
-            --output=$$TMP_DOC \
-            --package-name=daml-stlib \
-            --format=Rst \
-            $(locations //compiler/damlc/daml-stdlib-src) \
-            --prefix=$(location :daml-base-rst-prefix)
         $(location //compiler/damlc) -- docs \
             --output=$(OUTS) \
-            --package-name=daml-prim \
+            --input-format=json \
             --format=Rst \
-            $(locations //compiler/damlc/daml-prim-src) \
-            --prefix=$$TMP_DOC
+            --prefix=$(location :daml-base-rst-prefix) \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],

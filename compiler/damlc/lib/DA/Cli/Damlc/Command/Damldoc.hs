@@ -3,7 +3,7 @@
 
 {-# LANGUAGE OverloadedStrings   #-}
 
-module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc, cmdRenderDoc) where
+module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc) where
 
 import           DA.Cli.Options
 import           DA.Daml.Doc.Driver
@@ -18,21 +18,14 @@ import Data.Maybe
 
 cmdDamlDoc :: Mod CommandFields (IO ())
 cmdDamlDoc = command "docs" $
-             info (helper <*> (exec <$> documentation InputDaml)) $
+             info (helper <*> (exec <$> documentation)) $
              progDesc "Generate documentation for the given DAML program."
              <> fullDesc
 
-
-cmdRenderDoc :: Mod CommandFields (IO ())
-cmdRenderDoc = command "render-doc-json" $
-               info (helper <*> (exec <$> documentation InputJson)) $
-               progDesc "Render documentation data from the given json file."
-               <> fullDesc
-
-
-documentation :: InputFormat -> Parser CmdArgs
-documentation x = Damldoc x <$>
-                optOutput
+documentation :: Parser CmdArgs
+documentation = Damldoc
+                <$> optInputFormat
+                <*> optOutput
                 <*> optJsonOrFormat
                 <*> optMbPackageName
                 <*> optPrefix
@@ -43,6 +36,20 @@ documentation x = Damldoc x <$>
                 <*> optExclude
                 <*> argMainFiles
   where
+    optInputFormat :: Parser InputFormat
+    optInputFormat =
+        option readInputFormat
+            $ metavar "FORMAT"
+            <> help "Input format, either 'daml' or 'json' (default is daml)."
+            <> long "input-format"
+            <> value InputDaml
+
+    readInputFormat =
+        eitherReader $ \case
+            "daml" -> Right InputDaml
+            "json" -> Right InputJson
+            _ -> Left "Unknown input format. Expected 'daml' or 'json'."
+
     optOutput :: Parser FilePath
     optOutput = option str $ metavar "OUTPUT"
                 <> help "Output name of generated files (required)"

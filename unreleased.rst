@@ -15,4 +15,4 @@ HEAD — ongoing
   ``daml sandbox`` will also kill the sandbox process.
 
 - [DAML Docs] **BREAKING CHANGE** ``damlc docs`` now typechecks the source files before doc generation, to be able to use type information during doc generation. This may break existing doc builds.
-- [DAML Docs] Added a ``--package-name`` flag to ``damlc docs``.
+- [DAML Docs] Added ``--package-name`` and ``--input-format`` flags to ``damlc docs``.
