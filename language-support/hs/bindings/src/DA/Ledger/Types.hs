@@ -50,11 +50,16 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     AbsOffset(..),
     Verbosity(..),
 
+    LedgerConfiguration(..),
+    Duration --(..),
+
     ) where
 
 import Data.Map (Map)
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as Text(unpack)
+
+import qualified Google.Protobuf.Duration as LL
 
 -- commands.proto
 
@@ -249,11 +254,11 @@ instance Show Party where show = Text.unpack . unParty -- TODO: really?
 newtype ModuleName = ModuleName { unModuleName :: Text } deriving (Eq,Ord,Show)
 newtype EntityName = EntityName { unEntityName :: Text } deriving (Eq,Ord,Show)
 
-newtype AbsOffset = AbsOffset { unAbsOffset :: Text }  deriving (Eq,Ord,Show)
+newtype AbsOffset = AbsOffset { unAbsOffset :: Text } deriving (Eq,Ord,Show)
 
 -- TODO: .proto message types not yet handled
 {-
-message LedgerConfiguration {
+
 message TraceContext {
 message TransactionFilter {
 message Filters {
@@ -261,3 +266,11 @@ message InclusiveFilters {
 -}
 
 newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)
+
+data LedgerConfiguration = LedgerConfiguration
+    { minTtl :: Duration
+    , maxTtl :: Duration
+    } deriving (Eq,Ord,Show)
+
+--data Duration = Duration deriving (Eq,Ord,Show)
+type Duration = LL.Duration

@@ -13,18 +13,22 @@ module DA.Ledger.Convert (
     raiseCompletionStreamResponse,
     raiseGetActiveContractsResponse,
     raiseAbsLedgerOffset,
+    raiseGetLedgerConfigurationResponse,
     RaiseFailureReason,
     ) where
 
+import Control.Monad((>=>))
 import Data.Map(Map)
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Data.Vector as Vector (Vector,fromList,toList)
 
+import qualified Google.Protobuf.Duration as LL
 import qualified Google.Protobuf.Empty as LL
 import qualified Google.Protobuf.Timestamp as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.ActiveContractsService as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.CommandCompletionService as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.LedgerConfigurationService as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Commands as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Completion as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Event as LL
@@ -160,6 +164,23 @@ optional :: Perhaps a -> Maybe a
 optional = \case
     Left _ -> Nothing
     Right a -> Just a
+
+raiseGetLedgerConfigurationResponse :: LL.GetLedgerConfigurationResponse -> Perhaps LedgerConfiguration
+raiseGetLedgerConfigurationResponse =
+    (perhaps "ledgerConfiguration" >=> raiseLedgerConfiguration)
+    . LL.getLedgerConfigurationResponseLedgerConfiguration
+
+raiseLedgerConfiguration :: LL.LedgerConfiguration -> Perhaps LedgerConfiguration
+raiseLedgerConfiguration = \case
+    LL.LedgerConfiguration{ledgerConfigurationMinTtl,
+                           ledgerConfigurationMaxTtl
+                          } -> do
+        minTtl <- perhaps "min_ttl" ledgerConfigurationMinTtl >>= raiseDuration
+        maxTtl <- perhaps "max_ttl" ledgerConfigurationMaxTtl >>= raiseDuration
+        return $ LedgerConfiguration {minTtl, maxTtl}
+
+raiseDuration :: LL.Duration -> Perhaps Duration
+raiseDuration = return -- Duration === LL.Duration
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case

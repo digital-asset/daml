@@ -60,6 +60,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetTransactionByEventId
     , tGetTransactionById
     , tGetActiveContracts
+    , tGetLedgerConfiguration
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -299,6 +300,15 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
         let ev' :: Event = ev { signatories = [] }
         assertEqual "active" ev' active
         -- assertEqual "active" ev active -- TODO: enable if this should be true & we get a fix
+
+tGetLedgerConfiguration :: SandboxTest
+tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    xs <- getLedgerConfiguration lid
+    Just(Right x) <- liftIO $ timeout 1 (takeStream xs)
+    liftIO $ do
+        --print x
+        assertEqual "defined" x x -- check nothing is undefined
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands
