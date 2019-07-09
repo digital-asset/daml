@@ -89,3 +89,4 @@ daml-lf/project
 daml-lf/gen
 daml-lf/build.sbt
 .markdown-preview.html
+compiler/damlc/output

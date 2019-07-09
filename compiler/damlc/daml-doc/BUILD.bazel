@@ -60,10 +60,10 @@ da_haskell_library(
         "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/damlc/test-utils",
         "//compiler/hie-core",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//libs-haskell/test-utils",
     ],
 )
 

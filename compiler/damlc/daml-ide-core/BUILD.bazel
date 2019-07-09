@@ -79,7 +79,7 @@ da_haskell_library(
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
-        "//compiler/damlc/test-utils",
         "//compiler/hie-core",
+        "//libs-haskell/test-utils",
     ],
 )

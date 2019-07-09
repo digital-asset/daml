@@ -7,7 +7,7 @@
 -- | Test driver for DAML-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,
 -- typecheck with LF, test it.  Test annotations are documented as 'Ann'.
-module DA.Test.GHC
+module DA.Test.DamlcIntegration
   ( main
   , mainAll
   ) where
@@ -114,13 +114,13 @@ getIntegrationTests registerTODO scenarioService version = do
     do n <- getNumCapabilities; putStrLn $ "getNumCapabilities: " ++ show n
 
     -- test files are declared as data in BUILD.bazel
-    testsLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/test-files"
+    testsLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
     damlTestFiles <- filter (".daml" `isExtensionOf`) <$> listFiles testsLocation
     -- only run Test.daml (see https://github.com/digital-asset/daml/issues/726)
-    bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/bond-trading"
+    bondTradingLocation <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/bond-trading"
     let allTestFiles = damlTestFiles ++ [bondTradingLocation </> "Test.daml"]
 
-    let outdir = "compiler/dmalc/output"
+    let outdir = "compiler/damlc/output"
     createDirectoryIfMissing True outdir
 
     opts <- defaultOptionsIO (Just version)

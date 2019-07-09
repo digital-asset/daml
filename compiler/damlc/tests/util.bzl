@@ -3,7 +3,7 @@
 
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 
-def _daml_ghc_compile_test_impl(ctx):
+def _damlc_compile_test_impl(ctx):
     stack_opt = "-K" + ctx.attr.stack_limit if ctx.attr.stack_limit else ""
     heap_opt = "-M" + ctx.attr.heap_limit if ctx.attr.heap_limit else ""
     script = """
@@ -41,8 +41,8 @@ def _daml_ghc_compile_test_impl(ctx):
         runfiles = runfiles,
     )]
 
-daml_ghc_compile_test = rule(
-    implementation = _daml_ghc_compile_test_impl,
+damlc_compile_test = rule(
+    implementation = _damlc_compile_test_impl,
     attrs = {
         "srcs": attr.label_list(allow_files = True),
         "main": attr.label(allow_files = True),
@@ -58,18 +58,18 @@ daml_ghc_compile_test = rule(
     test = True,
 )
 
-def daml_ghc_integration_test(name, main_function):
+def damlc_integration_test(name, main_function):
     da_haskell_test(
         name = name,
         size = "large",
-        srcs = ["test-src/DA/Test/GHC.hs"],
-        src_strip_prefix = "test-src",
+        srcs = ["src/DA/Test/DamlcIntegration.hs"],
+        src_strip_prefix = "src",
         main_function = main_function,
         data = [
             "//compiler/damlc/pkg-db",
             "//compiler/scenario-service/server:scenario_service_jar",
             "@jq_dev_env//:jq",
-            ":test-files",
+            ":daml-test-files",
             ":bond-trading",
         ],
         deps = [
@@ -81,10 +81,10 @@ def daml_ghc_integration_test(name, main_function):
             "//compiler/damlc/daml-lf-conversion",
             "//compiler/damlc/daml-opts:daml-opts-types",
             "//compiler/damlc/daml-opts",
-            "//compiler/damlc/test-utils",
             "//daml-lf/archive:daml_lf_haskell_proto",
             "//libs-haskell/bazel-runfiles",
             "//libs-haskell/da-hs-base",
+            "//libs-haskell/test-utils",
         ],
         hazel_deps = [
             "aeson",
