@@ -34,6 +34,7 @@ documentation :: InputFormat -> Parser CmdArgs
 documentation x = Damldoc x <$>
                 optOutput
                 <*> optJsonOrFormat
+                <*> optMbPackageName
                 <*> optPrefix
                 <*> optOmitEmpty
                 <*> optDataOnly
@@ -47,6 +48,13 @@ documentation x = Damldoc x <$>
                 <> help "Output name of generated files (required)"
                 <> long "output"
                 <> short 'o'
+
+    optMbPackageName :: Parser (Maybe String)
+    optMbPackageName =
+        option (Just <$> str) $ metavar "NAME"
+            <> help "Name of package to generate."
+            <> long "package-name"
+            <> value Nothing
 
     optPrefix :: Parser (Maybe FilePath)
     optPrefix = option (Just <$> str) $ metavar "FILE"
@@ -114,6 +122,7 @@ documentation x = Damldoc x <$>
 data CmdArgs = Damldoc { cInputFormat :: InputFormat
                        , cOutput   :: FilePath
                        , cFormat   :: DocFormat
+                       , cPkgName :: Maybe String
                        , cPrefix   :: Maybe FilePath
                        , cOmitEmpty :: Bool
                        , cDataOnly  :: Bool
@@ -127,7 +136,7 @@ data CmdArgs = Damldoc { cInputFormat :: InputFormat
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
     opts <- defaultOptionsIO Nothing
-    damlDocDriver cInputFormat (toCompileOpts opts) cOutput cFormat cPrefix options (map toNormalizedFilePath cMainFiles)
+    damlDocDriver cInputFormat (toCompileOpts opts { optMbPackageName = cPkgName })  cOutput cFormat cPrefix options (map toNormalizedFilePath cMainFiles)
   where options =
           [ IncludeModules cIncludeMods | not $ null cIncludeMods] <>
           [ ExcludeModules cExcludeMods | not $ null cExcludeMods] <>

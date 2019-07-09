@@ -171,11 +171,26 @@ filegroup(
 genrule(
     name = "daml-base-hoogle-docs",
     srcs = [
-        ":daml-base-files",
+        "//compiler/damlc/daml-prim-src",
+        "//compiler/damlc/daml-stdlib-src",
         ":daml-base-hoogle-prefix",
     ],
     outs = ["daml-base-hoogle.txt"],
-    cmd = "$(location //compiler/damlc) -- docs --output=$(OUTS) --format=Hoogle $(locations :daml-base-files) --prefix=$(location :daml-base-hoogle-prefix)",
+    cmd = """
+        TMP_DOC=`mktemp`
+        $(location //compiler/damlc) -- docs \
+            --output=$$TMP_DOC \
+            --package-name=daml-stlib \
+            --format=Hoogle \
+            $(locations //compiler/damlc/daml-stdlib-src) \
+            --prefix=$(location :daml-base-hoogle-prefix)
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --package-name=daml-prim \
+            --format=Hoogle \
+            $(locations //compiler/damlc/daml-prim-src) \
+            --prefix=$$TMP_DOC
+    """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
@@ -183,11 +198,26 @@ genrule(
 genrule(
     name = "daml-base-rst-docs",
     srcs = [
-        ":daml-base-files",
+        "//compiler/damlc/daml-prim-src",
+        "//compiler/damlc/daml-stdlib-src",
         ":daml-base-rst-prefix",
     ],
     outs = ["daml-base.rst"],
-    cmd = "$(location //compiler/damlc) -- docs --output=$(OUTS) --format=Rst $(locations :daml-base-files) --prefix=$(location :daml-base-rst-prefix)",
+    cmd = """
+        TMP_DOC=`mktemp`
+        $(location //compiler/damlc) -- docs \
+            --output=$$TMP_DOC \
+            --package-name=daml-stlib \
+            --format=Rst \
+            $(locations //compiler/damlc/daml-stdlib-src) \
+            --prefix=$(location :daml-base-rst-prefix)
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --package-name=daml-prim \
+            --format=Rst \
+            $(locations //compiler/damlc/daml-prim-src) \
+            --prefix=$$TMP_DOC
+    """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
 )
