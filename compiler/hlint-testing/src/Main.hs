@@ -69,11 +69,11 @@ getHlintDataDir = do
 
 hlintSettings :: IO (ParseFlags, [Classify], Hint)
 hlintSettings = do
-    hlintDataDir <- getHlintDataDir
-    putStrLn $ "Data dir is " ++ hlintDataDir
-    (fixities, classify, hints) <-
-      findSettings (readSettingsFile (Just hlintDataDir)) Nothing
-    return (parseFlagsAddFixities fixities defaultParseFlags, classify, hints)
+  hlintDataDir <- getHlintDataDir
+  putStrLn $ "Data dir is " ++ hlintDataDir
+  (fixities, classify, hints) <-
+    findSettings (readSettingsFile (Just hlintDataDir)) Nothing
+  return (parseFlagsAddFixities fixities defaultParseFlags, classify, hints)
 
 analyzeModule :: Located (HsModule GhcPs) -> ApiAnns -> IO ()
 analyzeModule modu anns = do
