@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package protoc.plugins.scalapb
+package com.digitalasset.protoc.plugins.scalapb
 
 import scala.reflect.io.Streamable
 
