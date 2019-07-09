@@ -5,7 +5,7 @@
 {-# LANGUAGE GADTs             #-}
 
 module DA.Ledger.GrpcWrapUtils (
-    noTrace, emptyMdm, unwrap, sendToStream, sendToStreamFlat
+    noTrace, emptyMdm, unwrap, sendToStream,
     ) where
 
 import Prelude hiding (fail)
@@ -32,8 +32,8 @@ unwrap = \case
     ClientErrorResponse (ClientIOError e) -> throwIO e
     ClientErrorResponse ce -> fail (show ce)
 
-sendToStreamFlat :: Show b => Int -> a -> (b -> Perhaps [c]) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
-sendToStreamFlat timeout request f stream rpc = do
+sendToStream :: Show b => Int -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
+sendToStream timeout request f stream rpc = do
     res <- rpc $
         ClientReaderRequestCC request timeout emptyMdm
         (\cc -> onClose stream $ \_cancel -> clientCallCancel cc)
@@ -51,7 +51,7 @@ sendToStreamFlat timeout request f stream rpc = do
                             let mes = "convert failed: " <> show reason <> ":\n" <> show b
                             writeStream stream (Left (Abnormal mes))
                         Right cs -> do
-                            mapM_ (writeStream stream . Right) cs
+                            writeStream stream $ Right cs
                             again
     case res of
         ClientReaderResponse _meta StatusOk _details -> do
@@ -60,8 +60,3 @@ sendToStreamFlat timeout request f stream rpc = do
             writeStream stream (Left (Abnormal (show (code,details))))
         ClientErrorResponse e -> do
             writeStream stream (Left (Abnormal (show e)))
-
-sendToStream :: Show b => Int -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
-sendToStream timeout request f stream rpc =
-    sendToStreamFlat timeout request (fmap singleton . f) stream rpc
-    where singleton x = [x]

@@ -26,7 +26,7 @@ import qualified Com.Digitalasset.Ledger.Api.V1.TransactionService as LL
 import qualified Data.Map as Map
 import qualified Data.Vector as Vector
 
-getTransactions :: GetTransactionsRequest -> LedgerService (Stream Transaction)
+getTransactions :: GetTransactionsRequest -> LedgerService (Stream [Transaction])
 getTransactions req =
     makeLedgerService $ \timeout config -> do
     stream <- newStream
@@ -34,11 +34,11 @@ getTransactions req =
         withGRPCClient config $ \client -> do
             service <- LL.transactionServiceClient client
             let LL.TransactionService {transactionServiceGetTransactions=rpc} = service
-            sendToStreamFlat timeout (lowerRequest req) f stream rpc
+            sendToStream timeout (lowerRequest req) f stream rpc
     return stream
     where f = raiseList raiseTransaction . LL.getTransactionsResponseTransactions
 
-getTransactionTrees :: GetTransactionsRequest -> LedgerService (Stream TransactionTree)
+getTransactionTrees :: GetTransactionsRequest -> LedgerService (Stream [TransactionTree])
 getTransactionTrees req =
     makeLedgerService $ \timeout config -> do
     stream <- newStream
@@ -46,7 +46,7 @@ getTransactionTrees req =
         withGRPCClient config $ \client -> do
             service <- LL.transactionServiceClient client
             let LL.TransactionService {transactionServiceGetTransactionTrees=rpc} = service
-            sendToStreamFlat timeout (lowerRequest req) f stream rpc
+            sendToStream timeout (lowerRequest req) f stream rpc
     return stream
     where f = raiseList raiseTransactionTree . LL.getTransactionTreesResponseTransactions
 
