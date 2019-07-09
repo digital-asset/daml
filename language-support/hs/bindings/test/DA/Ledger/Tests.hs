@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 module DA.Ledger.Tests (main) where
 
@@ -58,6 +59,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetTransactionTrees
     , tGetTransactionByEventId
     , tGetTransactionById
+    , tGetActiveContracts
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -277,6 +279,26 @@ tGetTransactionById withSandbox = testCase "tGetTransactionById" $ run withSandb
     liftIO $ assertEqual "tx" txOnStream txById
     Nothing <- getTransactionById lid (TransactionId "xxxxx") [alice]
     return ()
+
+tGetActiveContracts :: SandboxTest
+tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    -- no active contracts here
+    [(off1,_,[])] <- getActiveContracts lid (filterEverthingForParty alice) (Verbosity True)
+    -- so let's create one
+    Right _ <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
+    txs <- getAllTransactions lid alice (Verbosity True)
+    Just (Right [Transaction{events=[ev]}]) <- liftIO $ timeout 1 (takeStream txs)
+    -- and then we get it
+    [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverthingForParty alice) (Verbosity True)
+    liftIO $ do
+        assertEqual "off1" (AbsOffset "0") off1
+        assertEqual "off2" (AbsOffset "" ) off2 -- strange
+        assertEqual "off3" (AbsOffset "1") off3
+        -- for some reason the active contracts event has no signatory information...
+        let ev' :: Event = ev { signatories = [] }
+        assertEqual "active" ev' active
+        -- assertEqual "active" ev active -- TODO: enable if this should be true & we get a fix
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands
