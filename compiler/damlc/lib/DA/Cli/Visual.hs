@@ -81,42 +81,49 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
 tplName :: LF.Template -> T.Text
 tplName LF.Template {..} = head (LF.unTypeConName tplTypeCon)
 
-handleChoiceAndAction :: ChoiceAndAction -> LF.ChoiceName
+handleChoiceAndAction :: ChoiceAndAction -> (LF.ChoiceName, IsConsuming)
 handleChoiceAndAction (ChoiceAndAction tpl choice _)
-    | LF.chcName choice == LF.ChoiceName "Create" = LF.ChoiceName $ tplName tpl <> "_Create"
-    | LF.chcName choice == LF.ChoiceName "Archive" = LF.ChoiceName $ tplName tpl <> "_Archive"
-    | otherwise = LF.chcName choice
+    | LF.chcName choice == LF.ChoiceName "Create" = (LF.ChoiceName $ tplName tpl <> "_Create", False)
+    | LF.chcName choice == LF.ChoiceName "Archive" = (LF.ChoiceName $ tplName tpl <> "_Archive", True)
+    | otherwise = (LF.chcName choice, LF.chcConsuming choice)
 
+type IsConsuming = Bool
 -- Making choiceName is very weird
-handleCreateAndArchive :: TemplateChoiceAction -> [LF.ChoiceName]
+handleCreateAndArchive :: TemplateChoiceAction -> [(LF.ChoiceName, IsConsuming)]
 handleCreateAndArchive TemplateChoiceAction {..} = [createChoice, archiveChoice] ++ map handleChoiceAndAction choiceAndAction
-    where archiveChoice = LF.ChoiceName $ tplName template <> "_Archive"
-          createChoice = LF.ChoiceName $ tplName template <> "_Create"
+    where archiveChoice = (LF.ChoiceName $ tplName template <> "_Archive", True)
+          createChoice = (LF.ChoiceName $ tplName template <> "_Create", False)
 
+data ChoiceStyle = ChoiceStyle
+    { nodeId :: Int
+    , consuming :: Bool
+    }
 -- This is used to generate the node ids and use as look up table
-choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName Int
-choiceNameWithId tplChcActions = Map.fromList $ zip choiceActions [0..]
-  where choiceActions = concatMap handleCreateAndArchive tplChcActions
 
-nodeIdForChoice :: Map.Map LF.ChoiceName Int -> LF.ChoiceName -> Int
+choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName ChoiceStyle
+choiceNameWithId tplChcActions = Map.fromList choiceWithIds
+  where choiceActions = concatMap handleCreateAndArchive tplChcActions
+        choiceWithIds = map (\ ((cName, consume) , id) -> (cName, ChoiceStyle id consume) ) $ zip choiceActions [0..]
+
+nodeIdForChoice :: Map.Map LF.ChoiceName ChoiceStyle -> LF.ChoiceName -> ChoiceStyle
 nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
   Just node -> node
   Nothing -> error "Template node lookup failed"
 
 -- probably storing the choice is a better Idea, as we can determine what kind of choice it is.
 data SubGraph = SubGraph
-    { nodes :: [(LF.ChoiceName ,Int)]
+    { nodes :: [(LF.ChoiceName, ChoiceStyle)]
     , clusterTemplate :: LF.Template
     }
 
-addCreateChoice :: TemplateChoiceAction -> Map.Map LF.ChoiceName Int -> (LF.ChoiceName ,Int)
+addCreateChoice :: TemplateChoiceAction -> Map.Map LF.ChoiceName ChoiceStyle -> (LF.ChoiceName, ChoiceStyle)
 addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nodeIdForChoice lookupData tplNameCreateChoice)
     where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (head (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
 
-constructSubgraphsWithLables :: Map.Map LF.ChoiceName Int -> TemplateChoiceAction -> SubGraph
+constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceStyle -> TemplateChoiceAction -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoiceAction {..} = SubGraph nodesWithCreate template
   where choicesInTemplete = map handleChoiceAndAction choiceAndAction
-        nodes = map (\chc -> (chc, nodeIdForChoice lookupData chc)) choicesInTemplete
+        nodes = map (\(chc, _) -> (chc, nodeIdForChoice lookupData chc)) choicesInTemplete
         nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData]
 
 actionToChoice :: LF.Template -> Action -> LF.ChoiceName
@@ -126,9 +133,9 @@ actionToChoice _tpl (AExercise _ chc) = chc
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
 choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
-    where pairs = map (\ac -> (handleChoiceAndAction cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
+    where pairs = map (\ac -> (fst $ handleChoiceAndAction cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
 
-graphEdges :: Map.Map LF.ChoiceName Int -> [TemplateChoiceAction] -> [(Int, Int)]
+graphEdges :: Map.Map LF.ChoiceName ChoiceStyle -> [TemplateChoiceAction] -> [(ChoiceStyle, ChoiceStyle)]
 graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1, nodeIdForChoice lookupData chn2)) choicePairsForTemplates
   where chcActionsFromAllTemplates = concatMap choiceAndAction tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
@@ -137,8 +144,8 @@ subGraphHeader :: LF.Template -> String
 subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{\n"
 
 
-subGraphBodyLine :: (LF.ChoiceName ,Int) -> String
-subGraphBodyLine (chc, nodeId) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++ "];"
+subGraphBodyLine :: (LF.ChoiceName, ChoiceStyle) -> String
+subGraphBodyLine (chc, ChoiceStyle{..}) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++ "];"
 
 subGraphEnd :: LF.Template -> String
 subGraphEnd tpl = "label=" ++ DAP.renderPretty (LF.tplTypeCon tpl) ++ ";color=" ++ "blue" ++ "\n}"
@@ -148,11 +155,11 @@ subGraphCluster :: SubGraph -> String
 subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ unlines (map subGraphBodyLine nodes) ++ subGraphEnd clusterTemplate
 
 -- TODO Later on should decorate the edge too
-drawEdge :: Int -> Int -> String
-drawEdge n1 n2 = "n" ++ show n1 ++ "->" ++ "n" ++ show n2
+drawEdge :: ChoiceStyle -> ChoiceStyle -> String
+drawEdge n1 n2 = "n" ++ show (nodeId n1) ++ "->" ++ "n" ++ show (nodeId n2)
 
 
-constructDotGraph :: [SubGraph] -> [(Int, Int)] -> String
+constructDotGraph :: [SubGraph] -> [(ChoiceStyle, ChoiceStyle)] -> String
 constructDotGraph subgraphs edges = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ graphLines ++ "\n}\n"
   where subgraphsLines = concatMap subGraphCluster subgraphs
         edgesLines = unlines $ map (uncurry drawEdge) edges
