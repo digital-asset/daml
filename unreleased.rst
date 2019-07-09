@@ -11,3 +11,5 @@ HEAD — ongoing
 
 - [daml assistant] Fix VSCode path for use if not already in PATH on mac
 - [DAML-LF] Fixed regression that produced an invalid daml-lf-archive artefact. See `#2058 <https://github.com/digital-asset/daml/issues/2058>`__.
+- [daml assistant] Kill child processes on ``SIGTERM``. This means that killing
+  ``daml sandbox`` will also kill the sandbox process.
