@@ -48,36 +48,33 @@ class PartyManagementServiceIT
     new PartyManagementClient(stub)
   }
 
-  private type GrpcResult[T] = Either[Status.Code, T]
-
   /**
     * Takes the future produced by a GRPC call.
     * If the call was successful, returns Right(result).
     * If the call failed, returns Left(statusCode).
     */
-  private def withGrpcError[T](future: Future[T]): Future[GrpcResult[T]] = {
+  private def withGrpcError[T](future: Future[T]): Future[Either[Status.Code, T]] =
     future
       .map(Right(_))
-      .recoverWith {
-        case s: StatusRuntimeException => Future.successful(Left(s.getStatus.getCode))
-        case s: StatusException => Future.successful(Left(s.getStatus.getCode))
-        case other => fail(s"$other is not a gRPC Status exception.")
+      .recover {
+        case s: StatusRuntimeException => Left(s.getStatus.getCode)
+        case s: StatusException => Left(s.getStatus.getCode)
       }
-  }
 
   /**
     * Performs checks on the result of a party allocation call.
     * Since the result of the call depends on the implementation,
     * we need to handle all error cases.
     */
-  private def whenSuccessful[T, R](resultE: GrpcResult[T])(check: T => Assertion): Assertion =
+  private def whenSuccessful[T, R](resultE: Either[Status.Code, T])(
+      check: T => Assertion): Assertion =
     resultE match {
       case Right(result) =>
         // The call succeeded, check the result.
         check(result)
       case Left(Status.Code.UNIMPLEMENTED) =>
         // Ledgers are allowed to not implement this call.
-        succeed
+        cancel("The tested ledger does not implement this endpoint")
       case Left(Status.Code.INVALID_ARGUMENT) =>
         // Ledgers are allowed to reject the request if they don't like the hint and/or display name.
         // However, we try really hard to use globally unique hints
@@ -93,7 +90,7 @@ class PartyManagementServiceIT
       "succeed" in allFixtures { c =>
         partyManagementClient(c.partyManagementService)
           .getParticipantId()
-          .map(id => id.unwrap.isEmpty shouldBe false)
+          .map(_.unwrap should not be empty)
 
       }
     }
@@ -119,9 +116,9 @@ class PartyManagementServiceIT
           finalParties <- client.listKnownParties()
         } yield {
           whenSuccessful(resultE)(result => {
-            result.displayName shouldBe Some(displayName)
-            initialParties.exists(p => p.party == result.party) shouldBe false
-            finalParties.contains(result) shouldBe true
+            result.displayName.value shouldBe displayName
+            initialParties shouldNot contain(result)
+            finalParties should contain(result)
           })
         }
       }
@@ -137,9 +134,9 @@ class PartyManagementServiceIT
           finalParties <- client.listKnownParties()
         } yield {
           whenSuccessful(resultE)(result => {
-            result.displayName shouldBe Some(displayName)
-            initialParties.exists(p => p.party == result.party) shouldBe false
-            finalParties.contains(result) shouldBe true
+            result.displayName.value shouldBe displayName
+            initialParties shouldNot contain(result)
+            finalParties should contain(result)
           })
         }
       }
@@ -154,24 +151,38 @@ class PartyManagementServiceIT
         } yield {
           whenSuccessful(resultE)(result => {
             // Note: the ledger may or may not assign a display name
-            initialParties.exists(p => p.party == result.party) shouldBe false
-            finalParties.contains(result) shouldBe true
+            initialParties shouldNot contain(result)
+            finalParties should contain(result)
           })
         }
       }
 
       "create unique party names when allocating many parties" in allFixtures { c =>
         val client = partyManagementClient(c.partyManagementService)
-        def allocateParty(i: Int) = client.allocateParty(None, Some(s"Test party $i"))
+        def allocateParty(i: Int) =
+          client.allocateParty(None, Some(s"Test party $i")).map(Right(_)).recover {
+            case s: StatusRuntimeException if s.getStatus.getCode == Status.Code.UNIMPLEMENTED =>
+              Left(s.getStatus.getCode)
+            case s: StatusException if s.getStatus.getCode == Status.Code.UNIMPLEMENTED =>
+              Left(s.getStatus.getCode)
+          }
         val N = 100
         for {
           initialParties <- client.listKnownParties()
           results <- Future.traverse(1 to N)(allocateParty)
           finalParties <- client.listKnownParties()
         } yield {
-          initialParties should contain noElementsOf results
-          finalParties should contain allElementsOf results
-          results.map(_.party).toSet.size shouldBe N
+          results should have size N.toLong
+          if (results.head.isLeft) {
+            all(results) shouldBe a[Left[_, _]]
+            cancel("The tested ledger does not implement this endpoint")
+          } else {
+            all(results) shouldBe a[Right[_, _]]
+            val rights = results.map(_.right.get)
+            initialParties should contain noElementsOf rights
+            finalParties should contain allElementsOf rights
+            results.map(_.right.get.party).toSet.size shouldBe N
+          }
         }
       }
     }
