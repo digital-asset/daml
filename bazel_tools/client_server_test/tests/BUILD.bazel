@@ -21,7 +21,7 @@ exports_files(["client_input_file"])
 da_scala_binary(
     name = "server",
     srcs = ["server.scala"],
-    main_class = "Main",
+    main_class = "bazeltools.clientservertest.tests.Main",
     deps = [
         "//3rdparty/jvm/com/github/scopt",
     ],
