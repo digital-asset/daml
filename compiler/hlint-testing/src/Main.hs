@@ -27,6 +27,7 @@ import "ghc-lib-parser" GHC.LanguageExtensions.Type
 
 import Control.Monad
 import Control.Monad.Extra
+import System.FilePath
 import System.Environment
 import System.IO.Extra
 import qualified Data.Map as Map
@@ -58,11 +59,18 @@ import Language.Haskell.HLint4
     ```
 -}
 
-hlintDataDir :: FilePath
-hlintDataDir = "/Users/shaynefletcher/project/daml.git/compiler/hlint-testing/data"
+-- Calculate the HLint data directory from the exe path. It seems
+-- bazel automatically copies the data directory to a location
+-- relative to it.
+getHlintDataDir :: IO FilePath
+getHlintDataDir = do
+  exePath <- getExecutablePath
+  return $ takeDirectory exePath </> "hlint-test.runfiles/haskell_hlint/data"
 
 hlintSettings :: IO (ParseFlags, [Classify], Hint)
 hlintSettings = do
+    hlintDataDir <- getHlintDataDir
+    putStrLn $ "Data dir is " ++ hlintDataDir
     (fixities, classify, hints) <-
       findSettings (readSettingsFile (Just hlintDataDir)) Nothing
     return (parseFlagsAddFixities fixities defaultParseFlags, classify, hints)
