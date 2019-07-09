@@ -117,7 +117,7 @@ class PartyManagementServiceIT
         } yield {
           whenSuccessful(resultE)(result => {
             result.displayName.value shouldBe displayName
-            initialParties shouldNot contain(result)
+            initialParties.map(_.party) shouldNot contain(result.party)
             finalParties should contain(result)
           })
         }
@@ -135,7 +135,7 @@ class PartyManagementServiceIT
         } yield {
           whenSuccessful(resultE)(result => {
             result.displayName.value shouldBe displayName
-            initialParties shouldNot contain(result)
+            initialParties.map(_.party) shouldNot contain(result.party)
             finalParties should contain(result)
           })
         }
@@ -151,7 +151,7 @@ class PartyManagementServiceIT
         } yield {
           whenSuccessful(resultE)(result => {
             // Note: the ledger may or may not assign a display name
-            initialParties shouldNot contain(result)
+            initialParties.map(_.party) shouldNot contain(result.party)
             finalParties should contain(result)
           })
         }
@@ -179,7 +179,7 @@ class PartyManagementServiceIT
           } else {
             all(results) shouldBe a[Right[_, _]]
             val rights = results.map(_.right.get)
-            initialParties should contain noElementsOf rights
+            initialParties.map(_.party) should contain noElementsOf rights.map(_.party)
             finalParties should contain allElementsOf rights
             results.map(_.right.get.party).toSet.size shouldBe N
           }
