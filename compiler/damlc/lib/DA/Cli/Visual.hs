@@ -143,9 +143,12 @@ graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice loo
 subGraphHeader :: LF.Template -> String
 subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{\n"
 
+choiceStyleColorCode :: Bool -> String
+choiceStyleColorCode True = "red"
+choiceStyleColorCode False = "green"
 
 subGraphBodyLine :: (LF.ChoiceName, ChoiceStyle) -> String
-subGraphBodyLine (chc, ChoiceStyle{..}) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++ "];"
+subGraphBodyLine (chc, ChoiceStyle{..}) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++";color=" ++ choiceStyleColorCode consuming ++"]; "
 
 subGraphEnd :: LF.Template -> String
 subGraphEnd tpl = "label=" ++ DAP.renderPretty (LF.tplTypeCon tpl) ++ ";color=" ++ "blue" ++ "\n}"
@@ -156,7 +159,7 @@ subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ unlines (map s
 
 -- TODO Later on should decorate the edge too
 drawEdge :: ChoiceStyle -> ChoiceStyle -> String
-drawEdge n1 n2 = "n" ++ show (nodeId n1) ++ "->" ++ "n" ++ show (nodeId n2)
+drawEdge n1 n2 = "n" ++ show (nodeId n1)  ++ "->" ++ "n" ++ show (nodeId n2)
 
 
 constructDotGraph :: [SubGraph] -> [(ChoiceStyle, ChoiceStyle)] -> String
