@@ -159,7 +159,7 @@ subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ unlines (map s
 
 -- TODO Later on should decorate the edge too
 drawEdge :: ChoiceStyle -> ChoiceStyle -> String
-drawEdge n1 n2 = "n" ++ show (nodeId n1)  ++ "->" ++ "n" ++ show (nodeId n2)
+drawEdge n1 n2 = "n" ++ show (nodeId n1) ++ "->" ++ "n" ++ show (nodeId n2)
 
 
 constructDotGraph :: [SubGraph] -> [(ChoiceStyle, ChoiceStyle)] -> String
