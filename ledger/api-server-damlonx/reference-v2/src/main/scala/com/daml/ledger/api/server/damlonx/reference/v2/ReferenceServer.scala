@@ -16,9 +16,6 @@ import com.digitalasset.platform.index.cli.Cli
 import com.digitalasset.platform.index.{StandaloneIndexServer, StandaloneIndexerServer}
 import org.slf4j.LoggerFactory
 
-import java.util.zip.ZipInputStream
-import java.io.FileInputStream
-
 import scala.util.Try
 import scala.util.control.NonFatal
 
@@ -47,9 +44,8 @@ object ReferenceServer extends App {
 
   config.archiveFiles.foreach { file =>
     val archivesTry = for {
-      zipInputStream <- Try(new ZipInputStream(new FileInputStream(file)))
       dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-        .readArchive(file.getName, zipInputStream)
+        .readArchiveFromFile(file)
     } yield ledger.uploadPackages(dar.all, None)
   }
 

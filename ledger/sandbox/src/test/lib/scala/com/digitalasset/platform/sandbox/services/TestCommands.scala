@@ -3,10 +3,9 @@
 
 package com.digitalasset.platform.sandbox.services
 
-import java.io.{File, FileInputStream}
+import java.io.File
 import java.time.Instant
 import java.util
-import java.util.zip.ZipInputStream
 
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.archive.DarReader
@@ -38,7 +37,7 @@ trait TestCommands {
   protected def templateIds = {
     new TestTemplateIdentifiers(
       DarReader()
-        .readArchive(darFile.getName, new ZipInputStream(new FileInputStream(darFile)))
+        .readArchiveFromFile(darFile)
         .get
         .main
         ._1)

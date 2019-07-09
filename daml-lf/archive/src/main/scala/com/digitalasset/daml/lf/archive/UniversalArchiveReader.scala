@@ -48,6 +48,7 @@ class UniversalArchiveReader[A](
   private def zipInputStream(inputStream: InputStream): ZipInputStream =
     new ZipInputStream(inputStream)
 
+  //TODO: use bracket here?
   private def fileToInputStream(f: File): Try[InputStream] =
     Try(new BufferedInputStream(new FileInputStream(f)))
 

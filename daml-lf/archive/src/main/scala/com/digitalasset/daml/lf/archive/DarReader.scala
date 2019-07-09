@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.archive
 
-import java.io.{ByteArrayInputStream, InputStream}
+import java.io.{ByteArrayInputStream, File, FileInputStream, InputStream}
 import java.util.zip.ZipInputStream
 
 import com.digitalasset.daml.lf.archive.Errors.{InvalidDar, InvalidLegacyDar, InvalidZipEntry}
@@ -25,6 +25,9 @@ class DarReader[A](
 
   import DarReader._
 
+  def readArchiveFromFile(darFile: File) =
+    readArchive(darFile.getName, new ZipInputStream(new FileInputStream(darFile)))
+
   def readArchive(name: String, darStream: ZipInputStream): Try[Dar[A]] = {
     for {
       entries <- loadZipEntries(name, darStream)
@@ -41,15 +44,15 @@ class DarReader[A](
         case Some(entry) =>
           go(
             accT.flatMap { acc =>
-              Try {
-                val buffer = IOUtils.toByteArray(darStream)
-                darStream.closeEntry()
-                val inputStream: InputStream = new ByteArrayInputStream(buffer)
-                acc + (entry.getName -> (buffer.length.toLong -> inputStream))
-              }
+              bracket[Array[Byte], Unit](Try {
+                IOUtils.toByteArray(darStream)
+              })(_ => Try(darStream.closeEntry()))
+                .map { buffer =>
+                  val inputStream: InputStream = new ByteArrayInputStream(buffer)
+                  acc + (entry.getName -> (buffer.length.toLong -> inputStream))
+                }
             }
           )
-
         case None => accT
       }
 

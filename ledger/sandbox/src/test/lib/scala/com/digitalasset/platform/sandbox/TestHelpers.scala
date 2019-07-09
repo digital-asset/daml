@@ -3,9 +3,8 @@
 
 package com.digitalasset.platform.sandbox
 
-import java.io.{File, FileInputStream}
+import java.io.File
 import java.time.Instant
-import java.util.zip.ZipInputStream
 
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.v2.ParticipantId
@@ -30,7 +29,7 @@ import scala.concurrent.ExecutionContext
 object TestDar {
   val darFile: File = new File("ledger/sandbox/Test.dar")
   lazy val parsedPackageId = DarReader()
-    .readArchive(darFile.getName, new ZipInputStream(new FileInputStream(darFile)))
+    .readArchiveFromFile(darFile)
     .get
     .main
     ._1

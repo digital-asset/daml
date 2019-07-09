@@ -24,9 +24,6 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
-import java.io.FileInputStream
-import java.util.zip.ZipInputStream
-
 private[codegen] object CodeGenRunner extends StrictLogging {
 
   def run(conf: Conf): Unit = {
@@ -74,7 +71,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
         val file = path.toFile
         // Explicitly calling `get` to bubble up any exception when reading the dar
         val dar = ArchiveReader
-          .readArchive(file.getName, new ZipInputStream(new FileInputStream(file)))
+          .readArchiveFromFile(file)
           .get
         dar.all.map { archive =>
           val (_, interface) = InterfaceReader.readInterface(archive)

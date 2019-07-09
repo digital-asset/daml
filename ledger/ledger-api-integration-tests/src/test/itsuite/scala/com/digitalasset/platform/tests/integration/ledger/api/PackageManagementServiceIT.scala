@@ -3,9 +3,8 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
-import java.io.{File, FileInputStream}
+import java.io.File
 import java.nio.file.Files
-import java.util.zip.ZipInputStream
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
@@ -68,7 +67,7 @@ class PackageManagementServiceIT
 
     val testPackages = DarReader {
       case (archiveSize, x) => Try(Archive.parseFrom(x)).map(ar => (archiveSize, ar))
-    }.readArchive(file.getName, new ZipInputStream(new FileInputStream(file)))
+    }.readArchiveFromFile(file)
       .fold(t => Left(s"Failed to parse DAR from $file: $t"), dar => Right(dar.all))
       .flatMap {
         _ traverseU {
