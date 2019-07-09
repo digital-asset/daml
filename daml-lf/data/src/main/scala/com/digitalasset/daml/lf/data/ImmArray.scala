@@ -7,6 +7,7 @@ import scalaz.syntax.applicative._
 import scalaz.{Applicative, Equal, Foldable, Traverse}
 
 import scala.annotation.tailrec
+import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.generic.{
   CanBuildFrom,
   GenericCompanion,
@@ -379,6 +380,15 @@ object ImmArray {
   implicit def immArrayEqualInstance[A: Equal]: Equal[ImmArray[A]] =
     ScalazEqual.withNatural(Equal[A].equalIsNatural)(_ equalz _)
 
+  private[ImmArray] final class IACanBuildFrom[A]
+      extends CanBuildFrom[ImmArray[_], A, ImmArray[A]] {
+    override def apply(from: ImmArray[_]) = newBuilder[A]
+    override def apply() = newBuilder[A]
+  }
+
+  implicit def `ImmArray canBuildFrom`[A]: CanBuildFrom[ImmArray[_], A, ImmArray[A]] =
+    new IACanBuildFrom
+
   def newBuilder[A]: mutable.Builder[A, ImmArray[A]] =
     mutable.ArraySeq.newBuilder[A].mapResult(ImmArray.unsafeFromArraySeq)
 
@@ -409,6 +419,14 @@ object ImmArray {
       new ImmArraySeq(array.relaxedSlice(from, to))
     override def copyToArray[B >: A](xs: Array[B], dstStart: Int, dstLen: Int): Unit =
       array.copyToArray(xs, dstStart, dstLen)
+
+    override def to[Col[_]](implicit bf: CanBuildFrom[Nothing, A, Col[A @uncheckedVariance]])
+      : Col[A @uncheckedVariance] =
+      bf match {
+        case _: IACanBuildFrom[A] => toImmArray
+        case _: FrontStack.FSCanBuildFrom[A] => FrontStack(toImmArray)
+        case _ => super.to(bf)
+      }
 
     override def companion: GenericCompanion[ImmArraySeq] = ImmArraySeq
 

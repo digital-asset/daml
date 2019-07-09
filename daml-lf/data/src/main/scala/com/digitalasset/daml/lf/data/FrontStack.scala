@@ -8,6 +8,7 @@ import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
 
 import scalaz.Equal
 
+import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable
 
 /** A stackk which allows to cons, prepend, and pop in constant time, and generate an ImmArray in linear time.
@@ -128,6 +129,17 @@ object FrontStack {
     apply(ImmArray(elements))
 
   def unapply[T](xs: FrontStack[T]): Boolean = xs.isEmpty
+
+  private[data] final class FSCanBuildFrom[A]
+      extends CanBuildFrom[FrontStack[_], A, FrontStack[A]] {
+    override def apply(from: FrontStack[_]) = apply()
+
+    override def apply() =
+      ImmArray.newBuilder[A].mapResult(FrontStack(_))
+  }
+
+  implicit def `FrontStack canBuildFrom`[A]: CanBuildFrom[FrontStack[_], A, FrontStack[A]] =
+    new FSCanBuildFrom
 
   implicit def equalInstance[A](implicit A: Equal[A]): Equal[FrontStack[A]] =
     ScalazEqual.withNatural(Equal[A].equalIsNatural) { (as, bs) =>
