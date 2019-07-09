@@ -9,7 +9,7 @@ module DA.Daml.Doc.Render.Rst
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util
-import DA.Daml.Doc.Render.Anchor
+import DA.Daml.Doc.Anchor
 
 import qualified Data.Text.Prettyprint.Doc as Pretty
 import           Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
@@ -22,7 +22,7 @@ import qualified Data.Text as T
 import CMarkGFM
 
 renderAnchor :: Anchor -> T.Text
-renderAnchor anchor = "\n.. _" <> anchor <> ":\n"
+renderAnchor anchor = "\n.. _" <> unAnchor anchor <> ":\n"
 
 renderSimpleRst :: ModuleDoc -> T.Text
 renderSimpleRst ModuleDoc{..}
@@ -167,8 +167,8 @@ type2rst = f (0 :: Int)
     -- 0 = no brackets
     -- 1 = brackets around function
     -- 2 = brackets around function AND application
-    f _ (TypeApp n []) = unTypename n
-    f i (TypeApp n as) = (if i >= 2 then inParens else id) $ T.unwords (unTypename n : map (f 2) as)
+    f _ (TypeApp _ n []) = unTypename n
+    f i (TypeApp _ n as) = (if i >= 2 then inParens else id) $ T.unwords (unTypename n : map (f 2) as)
     f i (TypeFun ts) = (if i >= 1 then inParens else id) $ T.intercalate " -> " $ map (f 1) ts
     f _ (TypeList t1) = "[" <> f 0 t1 <> "]"
     f _ (TypeTuple ts) = "(" <> T.intercalate ", " (map (f 0) ts) <>  ")"

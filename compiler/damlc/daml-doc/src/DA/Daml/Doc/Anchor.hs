@@ -8,7 +8,7 @@
 -- satisfy the regex /[a-z0-9]+(-[a-z0-9]+)*/). It's also nice for them to be readable.
 -- So we generate a human readable tag, and append a hash to guarantee uniqueness.
 
-module DA.Daml.Doc.Render.Anchor
+module DA.Daml.Doc.Anchor
     ( Anchor
     , moduleAnchor
     , classAnchor
@@ -24,11 +24,9 @@ import Data.Hashable
 import qualified Data.Text as T
 import qualified Data.Char as C
 
-type Anchor = T.Text
-
 moduleAnchor :: Modulename -> Anchor
 -- calculating a hash on String instead of Data.Text as hash output of the later is different on Windows than other OSes
-moduleAnchor m = T.intercalate "-" ["module", convertModulename m, hashText . T.unpack . unModulename $ m]
+moduleAnchor m = Anchor $ T.intercalate "-" ["module", convertModulename m, hashText . T.unpack . unModulename $ m]
 
 convertModulename :: Modulename -> T.Text
 convertModulename = T.toLower . T.replace "." "-" . T.replace "_" "" . unModulename
@@ -47,10 +45,9 @@ dataAnchor     m n = anchor "data"     m (unTypename n) ()
 constrAnchor   m n = anchor "constr"   m (unTypename n) ()
 functionAnchor m n = anchor "function" m (unFieldname n)
 
-
 anchor :: Hashable v => T.Text -> Modulename -> T.Text -> v -> Anchor
 -- calculating a hash on String instead of Data.Text as hash output of the later is different on Windows than other OSes
-anchor k m n v = T.intercalate "-" [k, convertModulename m, expandOps n, hashText (T.unpack k, T.unpack (unModulename m), T.unpack n, v)]
+anchor k m n v = Anchor $ T.intercalate "-" [k, convertModulename m, expandOps n, hashText (T.unpack k, T.unpack (unModulename m), T.unpack n, v)]
   where
     expandOps :: T.Text -> T.Text
     expandOps = T.pack . replaceEmpty . concatMap expandOp . T.unpack

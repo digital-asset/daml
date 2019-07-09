@@ -30,7 +30,7 @@ newtype Modulename = Modulename { unModulename :: Text }
     deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 -- | Type expression, possibly a (nested) type application
-data Type = TypeApp Typename [Type] -- ^ Type application
+data Type = TypeApp !(Maybe Anchor) !Typename [Type] -- ^ Type application
           | TypeFun [Type] -- ^ Function type
           | TypeList Type   -- ^ List syntax
           | TypeTuple [Type] -- ^ Tuple syntax
@@ -38,6 +38,10 @@ data Type = TypeApp Typename [Type] -- ^ Type application
 
 instance Hashable Type where
   hashWithSalt salt = hashWithSalt salt . show
+
+-- | Anchors are URL-safe ids into the docs.
+newtype Anchor = Anchor { unAnchor :: Text }
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
 
 ------------------------------------------------------------
 -- | Documentation data for a module

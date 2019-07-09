@@ -8,7 +8,7 @@ module DA.Daml.Doc.Render.Hoogle
   ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Anchor
+import DA.Daml.Doc.Anchor
 import DA.Daml.Doc.Render.Util
 
 import           Data.Maybe
@@ -24,7 +24,7 @@ hooglify (Just md) =
             : map ("--   " <>) xs
 
 urlTag :: Anchor -> T.Text
-urlTag = ("@url https://docs.daml.com/daml/reference/base.html#" <>)
+urlTag = ("@url https://docs.daml.com/daml/reference/base.html#" <>) . unAnchor
 
 renderSimpleHoogle :: ModuleDoc -> T.Text
 renderSimpleHoogle ModuleDoc{..}
@@ -64,7 +64,7 @@ adtConstr2hoogle md_name typename PrefixC{..} = concat
       , T.unwords
             [ wrapOp (unTypename ac_name)
             , "::"
-            , type2hoogle $ TypeFun (ac_args ++ [TypeApp typename []])
+            , type2hoogle $ TypeFun (ac_args ++ [TypeApp Nothing typename []])
             ]
       , "" ]
     ]
@@ -75,7 +75,7 @@ adtConstr2hoogle md_name typename RecordC{..} = concat
             [ wrapOp (unTypename ac_name)
             , "::"
             , type2hoogle $ TypeFun
-                (map fd_type ac_fields ++ [TypeApp typename []])
+                (map fd_type ac_fields ++ [TypeApp Nothing typename []])
             ]
       , "" ]
     , concatMap (fieldDoc2hoogle typename) ac_fields
@@ -116,7 +116,7 @@ cls2hoogle md_name ClassDoc{..} = concat
         Just ctx -> Just (TypeTuple [contextTy, ctx])
 
     contextTy :: Type
-    contextTy = TypeApp cl_name [TypeApp (Typename arg) [] | arg <- cl_args]
+    contextTy = TypeApp Nothing cl_name [TypeApp Nothing (Typename arg) [] | arg <- cl_args]
 
 fct2hoogle :: Modulename -> FunctionDoc -> [T.Text]
 fct2hoogle md_name FunctionDoc{..} = concat
@@ -142,6 +142,6 @@ t2hg _ _ (TypeList t1) =
     "[" <> t2hg id id t1 <> "]"
 t2hg _ _ (TypeTuple ts) =
     "(" <> T.intercalate ", " (map (t2hg id id) ts) <> ")"
-t2hg _ _ (TypeApp n []) = unTypename n
-t2hg _ f (TypeApp name args) = f $
+t2hg _ _ (TypeApp _ n []) = unTypename n
+t2hg _ f (TypeApp _ name args) = f $
     T.unwords (wrapOp (unTypename name) : map (t2hg inParens inParens) args)
