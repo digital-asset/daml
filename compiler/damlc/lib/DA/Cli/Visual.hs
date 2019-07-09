@@ -143,7 +143,7 @@ graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice loo
 subGraphHeader :: LF.Template -> String
 subGraphHeader tpl = "subgraph cluster_" ++ (DAP.renderPretty $ head (LF.unTypeConName $ LF.tplTypeCon tpl)) ++ "{\n"
 
-choiceStyleColorCode :: Bool -> String
+choiceStyleColorCode :: IsConsuming -> String
 choiceStyleColorCode True = "red"
 choiceStyleColorCode False = "green"
 
