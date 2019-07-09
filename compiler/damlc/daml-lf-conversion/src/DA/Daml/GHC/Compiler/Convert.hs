@@ -772,11 +772,13 @@ convertExpr env0 e = do
 
     -- conversion of bodies of $con2tag functions
     go env (VarIs "getTag") (LType (TypeCon t _) : LExpr x : args) = fmap (, args) $ do
-        Ctors _ _ cs <- toCtors env t
+        ctors@(Ctors _ _ cs) <- toCtors env t
         x' <- convertExpr env x
         t' <- convertQualified env t
         let mkCasePattern con
-                | envLfVersion env `supports` featureEnumTypes = CPEnum t' con
+                -- Note that tagToEnum# can also be used on non-enum types, i.e.,
+                -- types where not all constructors are nullary.
+                | envLfVersion env `supports` featureEnumTypes && isEnumCtors ctors = CPEnum t' con
                 | otherwise = CPVariant t' con (mkVar "_")
         pure $ ECase x'
             [ CaseAlternative (mkCasePattern (mkVariantCon (getOccString variantName))) (EBuiltin $ BEInt64 i)
@@ -796,11 +798,13 @@ convertExpr env0 e = do
         pure $ EBuiltin (BEEqual BTInt64) `ETmApp` EBuiltin (BEInt64 1) `ETmApp` x'
     go env (VarIs "tagToEnum#") (LType tt@(TypeCon t _) : LExpr x : args) = fmap (, args) $ do
         -- FIXME: Should generate a binary tree of eq and compare
-        Ctors _ _ cs@(c1:_) <- toCtors env t
+        ctors@(Ctors _ _ cs@(c1:_)) <- toCtors env t
         tt' <- convertType env tt
         x' <- convertExpr env x
         let mkCtor (Ctor c _ _)
-              | envLfVersion env `supports` featureEnumTypes
+              -- Note that tagToEnum# can also be used on non-enum types, i.e.,
+              -- types where not all constructors are nullary.
+              | envLfVersion env `supports` featureEnumTypes && isEnumCtors ctors
               = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccString c))
               | otherwise
               = EVariantCon (fromTCon tt') (mkVariantCon (getOccString c)) EUnit
