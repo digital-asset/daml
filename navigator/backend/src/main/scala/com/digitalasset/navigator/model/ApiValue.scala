@@ -18,7 +18,7 @@ object ApiValueImplicits {
 
   implicit final class `ApiDate additions`(private val it: ApiDate) extends AnyVal {
     import it._
-    def toLocalDate: LocalDate = LocalDate.ofEpochDay(value.days)
+    def toLocalDate: LocalDate = LocalDate.ofEpochDay((value.days: Int).toLong)
     def toInstant: Instant = Instant.from(toLocalDate)
     def toIso8601: String = DateTimeFormatter.ISO_LOCAL_DATE.format(toLocalDate)
   }

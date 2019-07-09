@@ -225,21 +225,9 @@ object LfEngineToApi {
   def assertOrRuntimeEx[A](failureContext: String, ea: Either[String, A]): A =
     ea.fold(e => throw new RuntimeException(s"Unexpected error when $failureContext: $e"), identity)
 
-  /** This traversal fails the identity law so is unsuitable for [[scalaz.Traverse]].
-    * It is, nevertheless, what is meant sometimes.
-    */
   private[this] def traverseEitherStrictly[A, B, C, This, That](seq: IterableLike[A, This])(
       f: A => Either[B, C])(implicit cbf: CanBuildFrom[This, C, That]): Either[B, That] = {
-    val that = cbf()
-    that.sizeHint(seq)
-    val i = seq.iterator
-    @tailrec def lp(): Either[B, That] =
-      if (i.hasNext) f(i.next) match {
-        case Left(b) => Left(b)
-        case Right(c) =>
-          that += c
-          lp()
-      } else Right(that.result)
-    lp()
+    import com.digitalasset.daml.lf.data.LawlessTraversals._
+    seq traverseEitherStrictly f
   }
 }

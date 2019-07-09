@@ -284,8 +284,8 @@ case object LedgerApiV1 {
         case iface.Variant(_) | iface.Enum(_) => Left(GenericConversionError(s"Record expected"))
       }
       fields <- Converter.sequence(
-        value.fields.toList
-          .zip(dt.fields.toList)
+        value.fields
+          .zip(dt.fields)
           .map(
             p =>
               Converter
@@ -468,11 +468,11 @@ case object LedgerApiV1 {
       case arg: Model.ApiList => writeListArgument(arg).map(a => Value(Value.Sum.List(a)))
       case Model.ApiBool(v) => Right(Value(Value.Sum.Bool(v)))
       case Model.ApiInt64(v) => Right(Value(Value.Sum.Int64(v)))
-      case Model.ApiDecimal(v) => Right(Value(Value.Sum.Decimal(v)))
+      case Model.ApiDecimal(v) => Right(Value(Value.Sum.Decimal(v.decimalToString)))
       case Model.ApiParty(v) => Right(Value(Value.Sum.Party(v)))
       case Model.ApiText(v) => Right(Value(Value.Sum.Text(v)))
       case Model.ApiTimestamp(v) => Right(Value(Value.Sum.Timestamp(v)))
-      case Model.ApiDate(v) => Right(Value(Value.Sum.Date(v)))
+      case Model.ApiDate(v) => Right(Value(Value.Sum.Date(v.days)))
       case Model.ApiContractId(v) => Right(Value(Value.Sum.ContractId(v)))
       case Model.ApiUnit => Right(Value(Value.Sum.Unit(com.google.protobuf.empty.Empty())))
       case Model.ApiOptional(None) => Right(Value(Value.Sum.Optional(V1.value.Optional(None))))

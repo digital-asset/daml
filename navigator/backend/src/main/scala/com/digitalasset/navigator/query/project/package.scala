@@ -158,7 +158,7 @@ object project {
           }
         case ApiContractId(value) if cursor.isLast => Right(StringValue(value))
         case ApiInt64(value) if cursor.isLast => Right(NumberValue(value))
-        case ApiDecimal(value) if cursor.isLast => Right(StringValue(value))
+        case ApiDecimal(value) if cursor.isLast => Right(StringValue(value.decimalToString))
         case ApiText(value) if cursor.isLast => Right(StringValue(value))
         case ApiParty(value) if cursor.isLast => Right(StringValue(value))
         case ApiBool(value) if cursor.isLast => Right(BooleanValue(value))

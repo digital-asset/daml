@@ -3,7 +3,7 @@
 
 package com.digitalasset.navigator.json
 
-import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, ImmArray, SortedLookupList}
+import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
 import com.digitalasset.navigator.{model => Model}
 import Model.ApiValueImplicits._
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
@@ -55,7 +55,7 @@ object ApiCodecVerbose {
     case Model.ApiInt64(v) =>
       JsObject(propType -> JsString(tagInt64), propValue -> JsString(v.toString))
     case Model.ApiDecimal(v) =>
-      JsObject(propType -> JsString(tagDecimal), propValue -> JsString(LfDecimal toString v))
+      JsObject(propType -> JsString(tagDecimal), propValue -> JsString(v.decimalToString))
     case Model.ApiBool(v) => JsObject(propType -> JsString(tagBool), propValue -> JsBoolean(v))
     case Model.ApiContractId(v) =>
       JsObject(propType -> JsString(tagContractId), propValue -> JsString(v.toString))

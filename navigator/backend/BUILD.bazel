@@ -8,9 +8,10 @@ load(
     "da_scala_test_suite",
 )
 
-common_scalacopts = [
+navigator_scalacopts = [
     "-Xelide-below",
     "CONFIG",
+    "-Xsource:2.13",
 ]
 
 common_jvm_flags = [
@@ -114,6 +115,7 @@ da_scala_library(
     srcs = glob([
         "src/main/scala/com/digitalasset/navigator/**/*.scala",
     ]),
+    scalacopts = navigator_scalacopts,
     deps = compileDependencies,
 )
 
@@ -126,6 +128,7 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
+    scalacopts = navigator_scalacopts,
     deps = testDependencies,
 )
 
@@ -161,6 +164,7 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
+    scalacopts = navigator_scalacopts,
     deps = [
         ":navigator-tests-library",
         ":test-resources",

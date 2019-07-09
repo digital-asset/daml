@@ -36,7 +36,7 @@ object ApiCodecCompressed {
     case v: Model.ApiList => apiListToJsValue(v)
     case Model.ApiText(v) => JsString(v)
     case Model.ApiInt64(v) => JsString(v.toString)
-    case Model.ApiDecimal(v) => JsString(v)
+    case Model.ApiDecimal(v) => JsString(v.decimalToString)
     case Model.ApiBool(v) => JsBoolean(v)
     case Model.ApiContractId(v) => JsString(v.toString)
     case t: Model.ApiTimestamp => JsString(t.toIso8601)
@@ -52,7 +52,7 @@ object ApiCodecCompressed {
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =
-    JsArray(value.elements.map(apiValueToJsValue).toVector)
+    JsArray(value.values.map(apiValueToJsValue).toVector)
 
   def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
     JsObject(Map((value.variant: String) -> apiValueToJsValue(value.value)))

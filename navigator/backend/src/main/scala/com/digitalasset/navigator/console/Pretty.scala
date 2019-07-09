@@ -230,7 +230,7 @@ object Pretty {
       )
     case model.ApiText(value) => PrettyPrimitive(value)
     case model.ApiInt64(value) => PrettyPrimitive(value.toString)
-    case model.ApiDecimal(value) => PrettyPrimitive(value)
+    case model.ApiDecimal(value) => PrettyPrimitive(value.decimalToString)
     case model.ApiBool(value) => PrettyPrimitive(value.toString)
     case model.ApiContractId(value) => PrettyPrimitive(value.toString)
     case model.ApiTimestamp(value) => PrettyPrimitive(value.toString)
