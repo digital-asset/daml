@@ -7,8 +7,14 @@ import java.time.{Instant, LocalDate}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
+import com.digitalasset.daml.lf.data.{
+  Decimal => LfDecimal,
+  Ref,
+  Time,
+  FrontStack,
+  ImmArray,
+  SortedLookupList
+}
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
@@ -21,6 +27,8 @@ import com.digitalasset.navigator.model.{
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code.Code
 import scalaz.Tag
+import scalaz.syntax.bifunctor._
+import scalaz.std.either._
 
 import scala.util.Try
 
@@ -286,13 +294,14 @@ case object LedgerApiV1 {
       fields <- Converter.sequence(
         value.fields
           .zip(dt.fields)
-          .map(
-            p =>
+          .map {
+            case (vfield, dtfield) =>
               Converter
-                .checkExists("RecordField.value", p._1.value)
-                .flatMap(value => readArgument(value, p._2._2, ctx))
-                .map(a => Model.ApiRecordField(p._2._1, a))))
-    } yield Model.ApiRecord(Some(typeCon.name.identifier), fields)
+                .checkExists("RecordField.value", vfield.value)
+                .flatMap(value => readArgument(value, dtfield._2, ctx))
+                .map(a => Model.ApiRecordField(Some(dtfield._1), a))
+          })
+    } yield Model.ApiRecord(Some(typeCon.name.identifier), fields.to[ImmArray])
   }
 
   private def readListArgument(
@@ -309,7 +318,7 @@ case object LedgerApiV1 {
       values <- Converter.sequence(
         list.elements.map(value => readArgument(value, elementType, ctx)))
     } yield {
-      Model.ApiList(values)
+      Model.ApiList(values.to[FrontStack])
     }
   }
 
@@ -371,6 +380,7 @@ case object LedgerApiV1 {
         case t @ Model.DamlLfTypeCon(_, _) => Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $variant as $typ"))
       }
+      constructor <- Ref.Name fromString variant.constructor leftMap GenericConversionError
       ddt <- ctx.templates
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
@@ -384,7 +394,7 @@ case object LedgerApiV1 {
         .toRight(GenericConversionError(s"Unknown enum constructor ${variant.constructor}"))
       argument <- readArgument(value, choice._2, ctx)
     } yield {
-      Model.ApiVariant(Some(typeCon.name.identifier), variant.constructor, argument)
+      Model.ApiVariant(Some(typeCon.name.identifier), constructor, argument)
     }
   }
 
@@ -398,6 +408,7 @@ case object LedgerApiV1 {
         case t @ Model.DamlLfTypeCon(_, _) => Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $enum as $typ"))
       }
+      constructor <- Ref.Name fromString enum.constructor leftMap GenericConversionError
       ddt <- ctx.templates
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
@@ -410,7 +421,7 @@ case object LedgerApiV1 {
         dt.constructors.contains(enum.constructor),
         (),
         GenericConversionError(s"Unknown choice ${enum.constructor}"))
-    } yield Model.ApiEnum(Some(typeCon.name.identifier), enum.constructor)
+    } yield Model.ApiEnum(Some(typeCon.name.identifier), constructor)
 
   private def readArgument(
       value: V1.value.Value,
@@ -420,13 +431,16 @@ case object LedgerApiV1 {
     import V1.value.Value.{Sum => VS}
     (value.sum, typ) match {
       case (VS.Int64(v), _) => Right(Model.ApiInt64(v))
-      case (VS.Decimal(v), _) => Right(Model.ApiDecimal(v))
+      case (VS.Decimal(v), _) =>
+        LfDecimal fromString v bimap (GenericConversionError, Model.ApiDecimal)
       case (VS.Text(v), _) => Right(Model.ApiText(v))
       case (VS.Unit(v), _) => Right(Model.ApiUnit)
       case (VS.Bool(v), _) => Right(Model.ApiBool(v))
-      case (VS.Party(v), _) => Right(Model.ApiParty(v))
-      case (VS.Timestamp(v), _) => Right(Model.ApiTimestamp(v))
-      case (VS.Date(v), _) => Right(Model.ApiDate(v))
+      case (VS.Party(v), _) => Ref.Party fromString v bimap (GenericConversionError, Model.ApiParty)
+      case (VS.Timestamp(v), _) =>
+        Time.Timestamp fromLong v bimap (GenericConversionError, Model.ApiTimestamp)
+      case (VS.Date(v), _) =>
+        Time.Date fromDaysSinceEpoch v bimap (GenericConversionError, Model.ApiDate)
       case (VS.ContractId(v), _) => Right(Model.ApiContractId(v))
       case (VS.Optional(v), t) => readOptionalArgument(v, t, ctx)
       case (VS.List(v), t) => readListArgument(v, t, ctx)
@@ -505,7 +519,7 @@ case object LedgerApiV1 {
 
   def writeListArgument(value: Model.ApiList): Result[V1.value.List] = {
     for {
-      values <- Converter.sequence(value.values.map(e => writeArgument(e)))
+      values <- Converter.sequence(value.values.toImmArray.map(e => writeArgument(e)).toSeq)
     } yield {
       V1.value.List(values)
     }

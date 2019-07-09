@@ -226,7 +226,7 @@ object Pretty {
       PrettyPrimitive(constructor)
     case model.ApiList(elements) =>
       PrettyArray(
-        elements.map(e => argument(e))
+        elements.toImmArray.map(e => argument(e)).toSeq: _*
       )
     case model.ApiText(value) => PrettyPrimitive(value)
     case model.ApiInt64(value) => PrettyPrimitive(value.toString)

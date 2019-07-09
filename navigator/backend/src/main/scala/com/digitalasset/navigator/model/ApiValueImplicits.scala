@@ -5,10 +5,25 @@ package com.digitalasset.navigator.model
 
 import java.time.{Instant, LocalDate}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
+import scala.annotation.tailrec
 
-import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.value.{Value => V}
 
 object ApiValueImplicits {
+
+  implicit final class `FrontStack additions`[A](private val it: FrontStack[A]) extends AnyVal {
+    @throws[IndexOutOfBoundsException]
+    def slowApply(ix: Int): A = {
+      val i = it.iterator
+      @tailrec def lp(ix: Int): A =
+        if (!i.hasNext) throw new IndexOutOfBoundsException("it")
+        else if (ix <= 0) i.next
+        else lp(ix - 1)
+      lp(ix)
+    }
+
+  }
 
   implicit final class `ApiTimestamp additions`(private val it: ApiTimestamp) extends AnyVal {
     import it._
@@ -40,5 +55,18 @@ object ApiValueImplicits {
       fromLocalDate(LocalDate.parse(t, DateTimeFormatter.ISO_LOCAL_DATE))
     def fromLocalDate(t: LocalDate): ApiDate =
       ApiDate(Time.Date.assertFromDaysSinceEpoch(t.toEpochDay.toInt))
+  }
+
+  object FullyNamedApiRecord {
+    def unapply[Cid](
+        r: V.ValueRecord[Cid]): Option[(Option[Ref.Identifier], ImmArray[(Ref.Name, V[Cid])])] = {
+      val V.ValueRecord(tycon, fields) = r
+      if (fields.toSeq.forall(_._1.isDefined))
+        Some((tycon, fields.map {
+          case (Some(n), v) => (n, v)
+          case (None, _) => sys.error("impossible None")
+        }))
+      else None
+    }
   }
 }

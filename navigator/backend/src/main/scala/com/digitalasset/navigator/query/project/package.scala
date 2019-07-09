@@ -151,7 +151,7 @@ object project {
             case None => Left(MustNotBeLastPart("list", cursor, expectedValue))
             case Some(nextCursor) =>
               Try(nextCursor.current.toInt) match {
-                case Success(index) => loop(elements(index), nextCursor)
+                case Success(index) => loop(elements.slowApply(index), nextCursor)
                 case Failure(e) =>
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }

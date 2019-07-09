@@ -3,7 +3,7 @@
 
 package com.digitalasset.navigator.json
 
-import com.digitalasset.daml.lf.data.SortedLookupList
+import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList}
 import com.digitalasset.navigator.model.{ApiValue, DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import com.digitalasset.navigator.{model => Model}
 import spray.json._
@@ -52,7 +52,7 @@ object ApiCodecCompressed {
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =
-    JsArray(value.values.map(apiValueToJsValue).toVector)
+    JsArray(value.values.map(apiValueToJsValue).toImmArray.toSeq: _*)
 
   def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
     JsObject(Map((value.variant: String) -> apiValueToJsValue(value.value)))
@@ -61,8 +61,19 @@ object ApiCodecCompressed {
     JsString(value.value)
 
   def apiRecordToJsValue(value: Model.ApiRecord): JsValue =
-    JsObject(
-      value.fields.toSeq.map { case (flabel, fvalue) => flabel -> apiValueToJsValue(fvalue) }.toMap)
+    value match {
+      case FullyNamedApiRecord(_, fields) =>
+        JsObject(fields.toSeq.map {
+          case (flabel, fvalue) => (flabel: String) -> apiValueToJsValue(fvalue)
+        }.toMap)
+      case _ =>
+        // TODO SC the inverse function doesn't recognize this format, yet, and
+        // anyway it should only be done with accurate type information
+        JsArray(value.fields.toSeq.map {
+          case (flabel, fvalue) =>
+            JsArray(flabel.fold[JsValue](JsNull)(JsString(_)), apiValueToJsValue(fvalue))
+        }: _*)
+    }
 
   def apiMapToJsValue(value: Model.ApiMap): JsValue =
     JsObject(
@@ -80,17 +91,19 @@ object ApiCodecCompressed {
       prim: Model.DamlLfTypePrim,
       defs: Model.DamlLfTypeLookup): Model.ApiValue = {
     (value, prim.typ) match {
-      case (JsString(v), Model.DamlLfPrimType.Decimal) => Model.ApiDecimal(v)
+      case (JsString(v), Model.DamlLfPrimType.Decimal) =>
+        LfDecimal fromString v fold (deserializationError(_), Model.ApiDecimal)
       case (JsString(v), Model.DamlLfPrimType.Int64) => Model.ApiInt64(v.toLong)
       case (JsString(v), Model.DamlLfPrimType.Text) => Model.ApiText(v)
-      case (JsString(v), Model.DamlLfPrimType.Party) => Model.ApiParty(v)
+      case (JsString(v), Model.DamlLfPrimType.Party) =>
+        Ref.Party fromString v fold (deserializationError(_), Model.ApiParty)
       case (JsString(v), Model.DamlLfPrimType.ContractId) => Model.ApiContractId(v)
       case (JsObject(_), Model.DamlLfPrimType.Unit) => Model.ApiUnit
       case (JsString(v), Model.DamlLfPrimType.Timestamp) => Model.ApiTimestamp.fromIso8601(v)
       case (JsString(v), Model.DamlLfPrimType.Date) => Model.ApiDate.fromIso8601(v)
       case (JsBoolean(v), Model.DamlLfPrimType.Bool) => Model.ApiBool(v)
       case (JsArray(v), Model.DamlLfPrimType.List) =>
-        Model.ApiList(v.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)))
+        Model.ApiList(v.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to[FrontStack])
       case (JsObject(f), Model.DamlLfPrimType.Optional) =>
         f.headOption match {
           case Some((`fieldNone`, _)) => Model.ApiOptional(None)
@@ -116,14 +129,14 @@ object ApiCodecCompressed {
       case (JsObject(v), Model.DamlLfRecord(fields)) =>
         Model.ApiRecord(
           Some(id),
-          fields.map(f => {
+          fields.map { f =>
             val jsField = v
               .getOrElse(
                 f._1,
                 deserializationError(
                   s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '${f._1}'"))
             Model.ApiRecordField(Some(f._1), jsValueToApiValue(jsField, f._2, defs))
-          })
+          }.toImmArray
         )
       case (JsObject(v), Model.DamlLfVariant(cons)) =>
         val constructor = v.toList match {

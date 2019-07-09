@@ -179,7 +179,7 @@ package object model {
   import scala.language.higherKinds
   type OfCid[V[_]] = V[String]
   type ApiValue = OfCid[V]
-  type ApiRecordField = (Option[String], ApiValue)
+  type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)
   val ApiRecordField = Tuple2
   type ApiRecord = OfCid[V.ValueRecord]
   val ApiRecord = V.ValueRecord

@@ -143,7 +143,7 @@ package object filter {
             case None => Right(false)
             case Some(nextCursor) =>
               Try(nextCursor.current.toInt) match {
-                case Success(index) => loop(elements(index), nextCursor)
+                case Success(index) => loop(elements.slowApply(index), nextCursor)
                 case Failure(e) =>
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }
