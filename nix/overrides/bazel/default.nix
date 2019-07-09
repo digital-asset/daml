@@ -41,7 +41,6 @@ let
         in builtins.listToAttrs (map toFetchurl [
       srcs.desugar_jdk_libs
       srcs.io_bazel_skydoc
-      srcs.bazel_skylib
       srcs.io_bazel_rules_sass
       (if stdenv.hostPlatform.isDarwin
        then srcs.${"java_tools_javac11_darwin-v2.0.zip"}
@@ -439,9 +438,6 @@ stdenv.mkDerivation rec {
     tar xf ${srcDepsSet.io_bazel_skydoc} -C $TEST_TMPDIR
     mv $(ls | grep skydoc-) io_bazel_skydoc
 
-    tar xf ${srcDepsSet.bazel_skylib} -C $TEST_TMPDIR
-    mv $(ls | grep bazel-skylib-) bazel_skylib
-
     tar xf ${srcDepsSet.io_bazel_rules_sass} -C $TEST_TMPDIR
     mv $(ls | grep rules_sass-) rules_sass
 
@@ -451,7 +447,6 @@ stdenv.mkDerivation rec {
     hello_test () {
       $out/bin/bazel test \
         --override_repository=io_bazel_skydoc=$TEST_TMPDIR/io_bazel_skydoc \
-        --override_repository=bazel_skylib=$TEST_TMPDIR/bazel_skylib \
         --override_repository=io_bazel_rules_sass=$TEST_TMPDIR/rules_sass \
         --override_repository=build_bazel_rules_nodejs=$TEST_TMPDIR/build_bazel_rules_nodejs \
         --test_output=errors \

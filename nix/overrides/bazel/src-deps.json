@@ -48,15 +48,6 @@
             "https://github.com/buchgr/bazel_rbe_toolchains/archive/f50471a57cd05a313a953fa54756db6e8fd93673.tar.gz"
         ]
     },
-    "bazel_skylib": {
-        "name": "bazel_skylib",
-        "sha256": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
-        "strip_prefix": "bazel-skylib-f83cb8dd6f5658bc574ccd873e25197055265d1c",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz"
-        ]
-    },
     "bazel_toolchains": {
         "name": "bazel_toolchains",
         "sha256": "67335b3563d9b67dc2550b8f27cc689b64fadac491e69ce78763d9ba894cc5cc",
@@ -106,14 +97,6 @@
         "urls": [
             "https://mirror.bazel.build/github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip",
             "https://github.com/google/desugar_jdk_libs/archive/e0b0291b2c51fbe5a7cfa14473a1ae850f94f021.zip"
-        ]
-    },
-    "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz": {
-        "name": "f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-        "sha256": "ba5d15ca230efca96320085d8e4d58da826d1f81b444ef8afccd8b23e0799b52",
-        "urls": [
-            "https://mirror.bazel.build/github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz",
-            "https://github.com/bazelbuild/bazel-skylib/archive/f83cb8dd6f5658bc574ccd873e25197055265d1c.tar.gz"
         ]
     },
     "io_bazel_rules_sass": {
