@@ -6,7 +6,7 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 da_scala_binary(
     name = "compiler_plugin",
     srcs = ["LoggingCompilerPlugin.scala"],
-    main_class = "protoc.plugins.logging.LoggingCompilerPlugin",
+    main_class = "com.digitalasset.protoc.plugins.logging.LoggingCompilerPlugin",
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@com_github_scalapb_scalapb//:scala-library",
