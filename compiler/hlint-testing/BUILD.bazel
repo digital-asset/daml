@@ -1,0 +1,23 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary")
+
+da_haskell_binary(
+    name = "hlint-test",
+    srcs = ["src/Main.hs"],
+    data = [":data"],
+    hazel_deps = [
+        "base",
+        "containers",
+        "extra",
+        "filepath",
+        "ghc-lib-parser",
+        "hlint",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//libs-haskell/bazel-runfiles",
+    ],
+)

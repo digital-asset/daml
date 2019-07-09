@@ -17,9 +17,10 @@
    new version is visible.
 1. Run through the following test plan on Linux or MacOS:
 
-   1. Install the SDK using `curl -sSL https://get.daml.com/ | sh -s $SDK_VERSION`.
-   1. Run `daml version --assistant=yes` and verify that `$SDK_VERSION` is the 
-      assistant version and the default version for new projects.
+   1. Install the SDK using `curl -sSL https://get.daml.com/ | sh -s X.XX.XX`,
+      where `X.XX.XX` is the new version number.
+   1. Run `daml version --assistant=yes` and verify that the new version is
+      selected as the assistant version and the default version for new projects.
    1. Create a new project with `daml new quickstart quickstart-java`
       and switch to it using `cd quickstart`.
    1. Run `daml start`. Your browser should be opened automatically at
@@ -38,11 +39,15 @@
       {"0":{"issuer":"EUR_Bank","owner":"Alice","currency":"EUR","amount":100.0,"observers":[]}}
       ```
    1. Kill all processes.
-   1. Run `daml studio --replace=always` and open `daml/Main.daml`.
-      (the VSCode extension will not be updated in the market place at this point).
+   1. Run `daml studio --replace=always`.
+      This should open the VSCode application and trigger the DAML extension
+      bundled with the new SDK version.
+      (The new VSCode extension will not be in the marketplace at this point.)
+   1. Open `daml/Main.daml`
    1. Click on `Scenario results` above `setup` and wait for the scenario results 
       to appear.
-   1. Add `+` at the end of line 11, after `"Alice"` and confirm you get an error in line 12.
+   1. Add `+` at the end of line 11, after `"Alice"` and confirm you get an
+      error in line 12.
    1. Add `1` after the `1` and confirm you get an error in line 11.
    1. Delete the `+1`, and the `e` in `Alice` and verify that the scenario results 
       are updated.

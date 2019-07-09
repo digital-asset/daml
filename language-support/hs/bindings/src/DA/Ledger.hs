@@ -38,19 +38,19 @@ configOfPort port =
 -- Non-primitive, but useful way to get Transactions
 -- TODO: move to separate Utils module?
 
-getAllTransactions :: LedgerId -> Party -> Verbosity -> LedgerService (Stream Transaction)
+getAllTransactions :: LedgerId -> Party -> Verbosity -> LedgerService (Stream [Transaction])
 getAllTransactions lid party verbose = do
     let filter = filterEverthingForParty party
     let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
     getTransactions req
 
-getAllTransactionTrees :: LedgerId -> Party -> Verbosity -> LedgerService (Stream TransactionTree)
+getAllTransactionTrees :: LedgerId -> Party -> Verbosity -> LedgerService (Stream [TransactionTree])
 getAllTransactionTrees lid party verbose = do
     let filter = filterEverthingForParty party
     let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
     getTransactionTrees req
 
-getTransactionsPF :: LedgerId -> Party -> LedgerService (PastAndFuture Transaction)
+getTransactionsPF :: LedgerId -> Party -> LedgerService (PastAndFuture [Transaction])
 getTransactionsPF lid party = do
     now <- fmap LedgerAbsOffset (ledgerEnd lid)
     let filter = filterEverthingForParty party

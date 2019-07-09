@@ -1,0 +1,221 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
+load("//rules_daml:daml.bzl", "daml_compile")
+load("@os_info//:os_info.bzl", "is_windows")
+load(":util.bzl", "damlc_compile_test", "damlc_integration_test")
+
+# Tests for the lax CLI parser
+da_haskell_test(
+    name = "damlc-cliparser",
+    srcs = ["src/CliParser.hs"],
+    hazel_deps = [
+        "tasty",
+        "base",
+        "optparse-applicative",
+        "tasty-hunit",
+    ],
+    main_function = "Cli.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//compiler/damlc:damlc-lib",
+    ],
+)
+
+# Tests for damlc visual
+da_haskell_test(
+    name = "damlc-visual",
+    srcs = ["src/DamlcVisual.hs"],
+    data = [
+        ":visual-test-daml.dar",
+        ":visual/Basic.dot",
+    ],
+    hazel_deps = [
+        "tasty",
+        "base",
+        "extra",
+        "filepath",
+        "tasty-golden",
+    ],
+    main_function = "VisualTest.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//compiler/damlc:damlc-lib",
+        "//libs-haskell/bazel-runfiles",
+    ],
+)
+
+# Test file used in damlc-visual-test
+daml_compile(
+    name = "visual-test-daml",
+    main_src = "visual/Basic.daml",
+)
+
+# Tests for damlc test
+da_haskell_test(
+    name = "damlc-test",
+    srcs = ["src/DamlcTest.hs"],
+    data = [
+        "//compiler/damlc/pkg-db",
+        "//compiler/scenario-service/server:scenario_service_jar",
+    ],
+    hazel_deps = [
+        "base",
+        "extra",
+        "tasty",
+        "tasty-hunit",
+    ],
+    main_function = "DamlcTest.main",
+    src_strip_prefix = "tests",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/hie-core",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Integration tests for all non-dev DAML-LF versions
+damlc_integration_test("integration-stable", "DA.Test.DamlcIntegration.mainAll")
+
+# Integration tests for DAML-LF 1.dev
+damlc_integration_test("integration-dev", "DA.Test.DamlcIntegration.main")
+
+# Tests for daml-doc
+da_haskell_test(
+    name = "daml-doc",
+    srcs = ["src/DA/Test/TastyMain.hs"],
+    data = [
+        ":daml-test-files",
+        "//compiler/damlc/pkg-db",
+    ],
+    hazel_deps = [
+        "base",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.TastyMain.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-doc:daml-doc-testing",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Tests of damlc at the Shake API layer
+da_haskell_test(
+    name = "shake",
+    size = "large",
+    # this test takes a while and often time out -- tell that to bazel
+    timeout = "long",
+    srcs = ["src/DA/Test/ShakeIdeClient.hs"],
+    data = [
+        "//compiler/damlc/pkg-db",
+        "//compiler/scenario-service/server:scenario_service_jar",
+    ],
+    hazel_deps = [
+        "base",
+        "directory",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.ShakeIdeClient.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-ide-core:ide-testing",
+        "//compiler/hie-core",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Memory tests
+
+da_haskell_binary(
+    name = "generate-module-tree",
+    srcs = ["src/DA/Test/GenerateModuleTree.hs"],
+    hazel_deps = [
+        "base",
+        "filepath",
+    ],
+    main_function = "DA.Test.GenerateModuleTree.main",
+    src_strip_prefix = "src",
+    deps = ["//libs-haskell/da-hs-base"],
+)
+
+genrule(
+    name = "module-tree-test",
+    outs = ["FatTree{i}.daml".format(i = i) for i in range(1, 19)],
+    cmd = "$(location :generate-module-tree) $(@D) 18",
+    tools = [":generate-module-tree"],
+    visibility = ["//visibility:public"],
+)
+
+damlc_compile_test(
+    name = "memory-module-tree",
+    srcs = [":module-tree-test"],
+    main = "FatTree18.daml",
+    visibility = ["//visibility:public"],
+)
+
+damlc_compile_test(
+    name = "memory-examples",
+    srcs = [":daml-test-files"],
+    heap_limit = "200M",
+    main = "daml-test-files/Examples.daml",
+    stack_limit = "230K",
+)
+
+damlc_compile_test(
+    name = "memory-bond-trading",
+    srcs = [":bond-trading"],
+    heap_limit = "200M" if is_windows else "100M",
+    main = "bond-trading/Test.daml",
+    stack_limit = "35K",
+)
+
+filegroup(
+    name = "daml-test-files",
+    srcs = glob(["daml-test-files/**"]),
+    visibility = [
+        "__pkg__",
+        "//daml-foundations/integration-tests:__pkg__",
+    ],
+)
+
+filegroup(
+    name = "bond-trading",
+    srcs = glob(["bond-trading/**"]),
+    visibility = [
+        "__pkg__",
+        "//daml-foundations/integration-tests:__pkg__",
+    ],
+)
+
+# Check that DAML compilation is deterministic.
+
+sh_test(
+    name = "deterministic",
+    srcs = ["src/daml-ghc-deterministic.sh"],
+    args = [
+        "$(location //compiler/damlc)",
+        "$(location @com_google_protobuf//:protoc)",
+    ],
+    data = [
+        ":daml-test-files",
+        "//compiler/damlc",
+        "//compiler/damlc/pkg-db",
+        "@com_google_protobuf//:protoc",
+    ],
+    deps = [
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
