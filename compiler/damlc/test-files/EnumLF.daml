@@ -6,6 +6,7 @@
 -- @QUERY-LF .modules[] | .data_types[] | select(.name.segments == ["Color"]) | has("enum")
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$ctor$u003aRed"]) | .expr | has("enum_con")
 -- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["isRed"]) | .expr.abs.body.case.alts | .[0] | has("enum")
+-- @QUERY-LF .modules[] | .data_types[] | select(.name.segments == ["Tag"]) | (has("enum") | not)
 daml 1.2
 module EnumLF where
 
@@ -19,3 +20,20 @@ isRed : Color -> Bool
 isRed = \case
     Red -> True
     _ -> False
+
+-- Note that it is important to use so many constructors
+-- to get GHC to implement the Eq instance using getTag/tagToEnum#.
+data Tag
+  = A
+  | B
+  | C
+  | D
+  | E
+  | F
+  | G
+  | H
+  | I
+  | J
+  | K
+  | L Text
+  deriving Eq
