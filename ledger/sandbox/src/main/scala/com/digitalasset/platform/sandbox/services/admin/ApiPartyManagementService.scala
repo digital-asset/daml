@@ -48,7 +48,7 @@ class ApiPartyManagementService private (
       .map(ps => ListKnownPartiesResponse(ps.map(mapPartyDetails)))(DE)
 
   /**
-    * Continuously polls tha party management service to check if a party has been persisted.
+    * Continuously polls the party management service to check if a party has been persisted.
     *
     * Despite the `go` inner function not being stack-safe per se, only one stack frame will be on
     * the stack at any given time since the "recursive" invocation happens on a different thread.
