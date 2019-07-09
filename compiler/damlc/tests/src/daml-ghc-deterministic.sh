@@ -1,5 +1,5 @@
-# Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
-# All rights reserved.
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
 # --- begin runfiles.bash initialization ---
@@ -24,7 +24,7 @@ else
 fi
 # --- end runfiles.bash initialization ---
 
-TESTS_DIR=$(dirname $(rlocation "$TEST_WORKSPACE/compiler/damlc/test-files/Examples.daml"))
+TESTS_DIR=$(dirname $(rlocation "$TEST_WORKSPACE/compiler/damlc/tests/daml-test-files/Examples.daml"))
 damlc=$(rlocation "$TEST_WORKSPACE/$1")
 protoc=$(rlocation "$TEST_WORKSPACE/$2")
 
@@ -60,3 +60,4 @@ $protoc --decode_raw < "$TMP_OUT/out_proj_1" > "$TMP_OUT/decoded_out_proj_1"
 $protoc --decode_raw < "$TMP_OUT/out_proj_2" > "$TMP_OUT/decoded_out_proj_2"
 diff -u "$TMP_OUT/decoded_out_proj_1" "$TMP_OUT/decoded_out_proj_2"
 diff -u "$TMP_OUT/out_proj_1" "$TMP_OUT/out_proj_2"
+

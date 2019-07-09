@@ -1,31 +1,23 @@
 ## Developing
 
-Before you start, build the IDE test suite. We fall back to this to
-find runfiles such as the scenario service and the package database
-when we’re running inside GHCi.
-
-```
-bazel build //compiler/damlc:damlc-shake-tests
-```
-
 When working on the compiler:
 
 ```
-da-ghcid //compiler/damlc:daml-ghc-test-dev --reload=compiler/damlc/test-files --test=":main --pattern="
-bazel run //compiler/damlc:daml-ghc-test-dev -- --pattern=
+da-ghcid //compiler/damlc/tests:integration-dev --reload=compiler/damlc/tests/daml-test-files --test=":main --pattern="
+bazel run //compiler/damlc/tests:integration-dev -- --pattern=
 bazel run damlc -- compile $PWD/MyDaml12File.daml
 ```
 
 When working on the IDE via the test suite:
 
 ```
-bazel run //compiler/damlc:damlc-shake-tests -- --pattern=
-da-ghcid //compiler/damlc:damlc-shake-tests --test=":main --pattern="
+bazel run //compiler/damlc/tests:shake -- --pattern=
+da-ghcid //compiler/damlc/tests:shake --test=":main --pattern="
 ```
 
 The above commands do not execute scenarios. To do that, use a command like
 ```
-bazel run damlc test $PWD/compiler/damlc/bond-trading/Test.daml
+bazel run damlc test $PWD/compiler/damlc/tests/bond-trading/Test.daml
 ```
 
 At the moment, commands relying on ghc-pkg, e.g., `damlc build` do not

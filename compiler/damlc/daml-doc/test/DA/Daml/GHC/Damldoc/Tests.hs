@@ -34,7 +34,7 @@ import Data.Maybe
 mkTestTree :: IO Tasty.TestTree
 mkTestTree = do
 
-  testDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/test-files"
+  testDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
 
   let isExpectationFile filePath =
         ".EXPECTED" == takeExtensions (dropExtension filePath)
