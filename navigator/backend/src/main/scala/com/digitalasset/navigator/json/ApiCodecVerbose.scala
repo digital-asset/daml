@@ -116,17 +116,13 @@ object ApiCodecVerbose {
     JsObject(
       propType -> JsString(tagRecord),
       propId -> value.tycon.map(_.toJson).getOrElse(JsNull),
-      propFields -> JsArray(
-        value.fields
-          .map {
-            case (Some(flabel), fvalue) =>
-              JsObject(
-                propLabel -> JsString(flabel),
-                propValue -> apiValueToJsValue(fvalue)
-              )
-          }
-          .toSeq
-          .toVector)
+      propFields -> JsArray(value.fields.toSeq.zipWithIndex.map {
+        case ((oflabel, fvalue), ix) =>
+          JsObject(
+            propLabel -> JsString(oflabel getOrElse (ix: Int).toString),
+            propValue -> apiValueToJsValue(fvalue)
+          )
+      }.toVector)
     )
 
   // ------------------------------------------------------------------------------------------------------------------
