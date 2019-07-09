@@ -8,7 +8,7 @@ proto_gen(
     name = "ledger-api-scala-logging-srcs",
     srcs = ["//ledger-api/grpc-definitions:protos"],
     plugin_exec = "//scala_protoc_plugins/scala_logging:protoc-gen-scala-logging",
-    plugin_name = "scala-logging",
+    plugin_name = "scala_logging",
     deps = [
         "@com_github_googleapis_googleapis//google/rpc:status_proto",
         "@com_google_protobuf//:any_proto",
