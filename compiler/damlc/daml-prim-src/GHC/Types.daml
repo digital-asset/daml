@@ -8,7 +8,7 @@
 {-# OPTIONS -Wno-unused-binds #-} -- the opaque constructors are not exported
 daml 1.2
 
--- | MOVE Prelude
+-- | Included in Prelude
 module GHC.Types (
         -- Data types that are built-in syntax
         -- They are defined here, but not explicitly exported
