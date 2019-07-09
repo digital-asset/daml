@@ -433,7 +433,7 @@ The Java codegen generates a Java file with a generic class for  the ``Attribute
 Enums
 ^^^^^
 
-A :ref:`enum type` is a simplified `sum <daml-ref-sum-types>` with multiple
+An enum type is a simplified :ref:`sum type <daml-ref-sum-types>` with multiple
 constructors but without argument nor type parameters. The generated code is
 standard java Enum whose constants map enum type constructors.
 
