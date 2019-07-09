@@ -471,7 +471,7 @@ case object LedgerApiV1 {
       case Model.ApiDecimal(v) => Right(Value(Value.Sum.Decimal(v.decimalToString)))
       case Model.ApiParty(v) => Right(Value(Value.Sum.Party(v)))
       case Model.ApiText(v) => Right(Value(Value.Sum.Text(v)))
-      case Model.ApiTimestamp(v) => Right(Value(Value.Sum.Timestamp(v)))
+      case Model.ApiTimestamp(v) => Right(Value(Value.Sum.Timestamp(v.micros)))
       case Model.ApiDate(v) => Right(Value(Value.Sum.Date(v.days)))
       case Model.ApiContractId(v) => Right(Value(Value.Sum.ContractId(v)))
       case Model.ApiUnit => Right(Value(Value.Sum.Unit(com.google.protobuf.empty.Empty())))

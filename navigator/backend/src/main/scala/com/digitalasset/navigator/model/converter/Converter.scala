@@ -5,7 +5,7 @@ package com.digitalasset.navigator.model.converter
 
 case object Converter {
 
-  /** Returns the sequence of values, or the first error encountered */
+  /** Returns the sequence of values, or the last error encountered */
   def sequence[T](xs: Seq[Either[ConversionError, T]]): Either[ConversionError, List[T]] =
     xs.foldRight(Right(Nil): Either[ConversionError, List[T]]) { (e, acc) =>
       for (xs <- acc.right; x <- e.right) yield x :: xs

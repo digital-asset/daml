@@ -3,6 +3,10 @@
 
 package com.digitalasset.daml.lf.data
 
+import scala.collection.IterableLike
+import scala.collection.generic.CanBuildFrom
+import scala.annotation.tailrec
+
 private[digitalasset] object LawlessTraversals {
   implicit final class `Lawless iterable traversal`[A, This](private val seq: IterableLike[A, This])
       extends AnyVal {
@@ -11,7 +15,7 @@ private[digitalasset] object LawlessTraversals {
       val that = cbf()
       that.sizeHint(seq)
       val i = seq.iterator
-      @tailrec def lp(): Either[B, That] =
+      @tailrec def lp(): Either[E, That] =
         if (i.hasNext) f(i.next) match {
           case Left(b) => Left(b)
           case Right(c) =>
