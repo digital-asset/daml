@@ -117,5 +117,6 @@ mapListStream f source = do
 streamToList :: Stream a -> IO [a]
 streamToList stream = do
     takeStream stream >>= \case
-        Left _ -> return []
+        Left (Abnormal s) -> fail s
+        Left EOS -> return []
         Right x -> fmap (x:) $ streamToList stream
