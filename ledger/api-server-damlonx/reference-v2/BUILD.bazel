@@ -66,7 +66,6 @@ conformance_tests_to_run = [
     "TransactionServiceTests",
     "DivulgenceIT",
     "TransactionBackpressureIT",
-    "PackageManagementServiceIT",
     "PartyManagementServiceIT",
 ]
 
