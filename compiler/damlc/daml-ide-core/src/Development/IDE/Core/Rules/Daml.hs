@@ -13,7 +13,7 @@ import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
 import Development.IDE.Core.OfInterest
 import Development.IDE.Types.Logger hiding (Priority)
-import DA.Daml.GHC.Compiler.Options.Types
+import DA.Daml.Options.Types
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
@@ -49,8 +49,8 @@ import qualified Language.Haskell.LSP.Types as LSP
 
 import Development.IDE.Core.RuleTypes.Daml
 
-import DA.Daml.GHC.Compiler.Convert (convertModule, sourceLocToRange)
-import DA.Daml.GHC.Compiler.UtilLF
+import DA.Daml.LFConversion (convertModule, sourceLocToRange)
+import DA.Daml.LFConversion.UtilLF
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.InferSerializability as Serializability
 import qualified DA.Daml.LF.PrettyScenario as LF

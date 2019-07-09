@@ -38,7 +38,7 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Options
 import qualified Language.Haskell.LSP.Messages as LSP
 
-import DA.Daml.GHC.Compiler.Options.Types
+import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 

@@ -6,9 +6,9 @@
 module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc, cmdRenderDoc) where
 
 import           DA.Cli.Options
-import           DA.Daml.GHC.Damldoc.Driver
-import DA.Daml.GHC.Compiler.Options
-import DA.Daml.GHC.Compiler.Options.Types
+import           DA.Daml.Doc.Driver
+import DA.Daml.Options
+import DA.Daml.Options.Types
 import Development.IDE.Types.Location
 
 import           Options.Applicative

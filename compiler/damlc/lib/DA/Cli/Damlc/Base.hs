@@ -10,7 +10,7 @@ module DA.Cli.Damlc.Base
 where
 import           DA.Cli.Options
 import           DA.Cli.Output
-import DA.Daml.GHC.Compiler.Options.Types
+import DA.Daml.Options.Types
 import qualified Data.Text as T
 import qualified DA.Service.Logger                 as Logger
 import qualified DA.Service.Logger.Impl.IO         as Logger.IO

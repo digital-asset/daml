@@ -538,7 +538,7 @@ One specific library in the `daml-foundations` stack is
 da_haskell_library(
     name = "daml-ghc-compiler",
     srcs = glob([
-        "src/DA/Daml/GHC/Compiler/**/*.hs",
+        "src/**/*.hs",
     ]),
     src_strip_prefix = "src",
     deps = [

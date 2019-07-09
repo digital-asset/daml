@@ -3,11 +3,11 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DA.Daml.GHC.Damldoc.Render.Tests(mkTestTree)
+module DA.Daml.Doc.Render.Tests(mkTestTree)
   where
 
-import           DA.Daml.GHC.Damldoc.Types
-import           DA.Daml.GHC.Damldoc.Render
+import           DA.Daml.Doc.Types
+import           DA.Daml.Doc.Render
 
 import           Control.Monad.Except
 import qualified Data.Text as T
@@ -20,7 +20,7 @@ import           Test.Tasty.HUnit
 
 mkTestTree :: IO Tasty.TestTree
 mkTestTree = do
-  pure $ Tasty.testGroup "DA.Daml.GHC.Damldoc.Render"
+  pure $ Tasty.testGroup "DA.Daml.Doc.Render"
     [ Tasty.testGroup "RST Rendering" $
       zipWith (renderTest Rst) cases expectRst
     , Tasty.testGroup "Markdown Rendering" $
