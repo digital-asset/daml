@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
 
 set -Eeuo pipefail
 
@@ -44,3 +47,4 @@ echo "Client: $CLIENT"
 echo "Other:"
 echo $CLIENT $@ --mapping:Alice=localhost:$PORT --mapping:Bank=localhost:$PORT --mapping:Peggy=localhost:$PORT --include=SemanticTests
 exec $CLIENT $@ --mapping:Alice=localhost:$PORT --mapping:Bank=localhost:$PORT --mapping:Peggy=localhost:$PORT --include=SemanticTests
+
