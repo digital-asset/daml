@@ -32,6 +32,7 @@ import System.Environment
 import System.IO.Extra
 import qualified Data.Map as Map
 import Data.List
+import DA.Bazel.Runfiles
 
 import Language.Haskell.HLint4
 
@@ -59,13 +60,10 @@ import Language.Haskell.HLint4
     ```
 -}
 
--- Calculate the HLint data directory from the exe path. It seems
--- bazel automatically copies the data directory to a location
--- relative to it.
+-- Calculate the HLint data directory.
 getHlintDataDir :: IO FilePath
 getHlintDataDir = do
-  exePath <- getExecutablePath
-  return $ takeDirectory exePath </> "hlint-test.runfiles/haskell_hlint/data"
+  locateRunfiles $ mainWorkspace </> "compiler/hlint-testing/data"
 
 hlintSettings :: IO (ParseFlags, [Classify], Hint)
 hlintSettings = do
