@@ -152,6 +152,8 @@ class ImmArrayTest extends FlatSpec with Matchers with Checkers {
     val seq = ImmArray.ImmArraySeq("hello")
     val stillSeq: ImmArray.ImmArraySeq[String] = seq.map(_ => "hello")
     seq shouldBe stillSeq
+    val stillSeqAgain: ImmArray.ImmArraySeq[String] = seq.flatMap(_ => Seq("hello"))
+    seq shouldBe stillSeqAgain
   }
 
   it should "drop correctly" in {
