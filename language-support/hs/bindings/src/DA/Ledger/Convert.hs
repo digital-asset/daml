@@ -11,6 +11,7 @@ module DA.Ledger.Convert (
     raiseTransaction,
     raiseTransactionTree,
     raiseCompletionStreamResponse,
+    raiseGetActiveContractsResponse,
     raiseAbsLedgerOffset,
     RaiseFailureReason,
     ) where
@@ -22,6 +23,7 @@ import Data.Vector as Vector (Vector,fromList,toList)
 
 import qualified Google.Protobuf.Empty as LL
 import qualified Google.Protobuf.Timestamp as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.ActiveContractsService as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.CommandCompletionService as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Commands as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Completion as LL
@@ -159,6 +161,19 @@ optional = \case
     Left _ -> Nothing
     Right a -> Just a
 
+raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
+raiseGetActiveContractsResponse = \case
+    LL.GetActiveContractsResponse{getActiveContractsResponseOffset,
+                                  getActiveContractsResponseWorkflowId,
+                                  getActiveContractsResponseActiveContracts} -> do
+        offset <- raiseAbsOffset getActiveContractsResponseOffset
+        let wid = optional (raiseWorkflowId getActiveContractsResponseWorkflowId)
+        events <- raiseList (raiseEvent . mkEventFromCreatedEvent) getActiveContractsResponseActiveContracts
+        return (offset,wid,events)
+    where
+        mkEventFromCreatedEvent :: LL.CreatedEvent -> LL.Event
+        mkEventFromCreatedEvent = LL.Event . Just . LL.EventEventCreated
+
 raiseCompletionStreamResponse :: LL.CompletionStreamResponse -> Perhaps (Maybe Checkpoint,[Completion])
 raiseCompletionStreamResponse = \case
     LL.CompletionStreamResponse{completionStreamResponseCompletions
@@ -229,7 +244,7 @@ raiseTreeEvent = \case
         eid <- raiseEventId exercisedEventEventId
         cid <- raiseContractId exercisedEventContractId
         tid <- perhaps "exercisedEventTemplateId" exercisedEventTemplateId >>= raiseTemplateId
-        ccEid <- undefined exercisedEventContractCreatingEventId
+        ccEid <- raiseEventId exercisedEventContractCreatingEventId
         choice <- raiseChoice exercisedEventChoice
         choiceArg <- perhaps "exercisedEventChoiceArgument" exercisedEventChoiceArgument >>= raiseValue
         acting <- raiseList raiseParty exercisedEventActingParties

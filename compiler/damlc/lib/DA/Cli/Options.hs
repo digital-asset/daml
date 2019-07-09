@@ -11,7 +11,7 @@ import Options.Applicative.Extended
 import Data.List
 import Text.Read
 import qualified DA.Pretty           as Pretty
-import DA.Daml.GHC.Compiler.Options.Types
+import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast.Version as LF
 import DAML.Project.Consts
 import DAML.Project.Types

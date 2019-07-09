@@ -6,6 +6,28 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-12:
+
+0.13.12 - 2019-07-09
+--------------------
+
+DAML Assistant
+~~~~~~~~~~~~~~
+- Fix VSCode path for use if not already in PATH on mac.
+- Kill child processes on ``SIGTERM``. This means that killing
+  ``daml sandbox`` will also kill the sandbox process.
+
+DAML-LF
+~~~~~~~
+- Fixed regression that produced an invalid daml-lf-archive artefact.
+  See `#2058 <https://github.com/digital-asset/daml/issues/2058>`__.
+
+DAML Docs
+~~~~~~~~~
+- **BREAKING CHANGE** ``damlc docs`` now typechecks the source files before doc generation, to be able to use type information during doc generation. This may break existing doc builds.
+- Added ``--package-name`` and ``--input-format`` flags to ``damlc docs``.
+
+
 .. _release-0-13-11:
 
 0.13.11 - 2019-07-08

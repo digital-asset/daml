@@ -180,7 +180,7 @@ let keepAliveInterval = 60000; // Send KA every 60s.
 // NOTE(JM): If you change this, make sure to also change the server-side timeouts to get
 // detailed errors rather than cause a restart.
 // Legacy DAML timeout for language server is defined in
-// DA.Service.Daml.LanguageServer.
+// DA.Daml.LanguageServer.
 let keepAliveTimeout = 120000;
 
 function startKeepAliveWatchdog() {

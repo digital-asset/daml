@@ -88,7 +88,7 @@ damlc_integration_test("integration-dev", "DA.Test.DamlcIntegration.main")
 # Tests for daml-doc
 da_haskell_test(
     name = "daml-doc",
-    srcs = ["src/DA/Test/TastyMain.hs"],
+    srcs = ["src/DA/Test/DamlDoc.hs"],
     data = [
         ":daml-test-files",
         "//compiler/damlc/pkg-db",
@@ -98,7 +98,7 @@ da_haskell_test(
         "tasty-hunit",
         "text",
     ],
-    main_function = "DA.Test.TastyMain.main",
+    main_function = "DA.Test.DamlDoc.main",
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [

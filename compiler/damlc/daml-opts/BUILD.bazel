@@ -8,7 +8,7 @@ load(
 
 da_haskell_library(
     name = "daml-opts-types",
-    srcs = ["daml-opts-types/DA/Daml/GHC/Compiler/Options/Types.hs"],
+    srcs = ["daml-opts-types/DA/Daml/Options/Types.hs"],
     hazel_deps = [
         "base",
         "directory",
@@ -33,7 +33,7 @@ da_haskell_library(
 # does not need to depend on the preprocessor.
 da_haskell_library(
     name = "daml-opts",
-    srcs = ["daml-opts/DA/Daml/GHC/Compiler/Options.hs"],
+    srcs = ["daml-opts/DA/Daml/Options.hs"],
     hazel_deps = [
         "base",
         "directory",
