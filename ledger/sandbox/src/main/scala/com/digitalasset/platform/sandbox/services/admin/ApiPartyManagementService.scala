@@ -16,8 +16,7 @@ import io.grpc.ServerServiceDefinition
 import org.slf4j.LoggerFactory
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.{ExecutionContext, Future}
 
 class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
@@ -51,36 +50,35 @@ class ApiPartyManagementService private (
   /**
     * Continuously polls tha party management service to check if a party has been persisted.
     *
-    * Blocking.
+    * Despite the `go` inner function not being stack-safe per se, only one stack frame will be on
+    * the stack at any given time since the "recursive" invocation happens on a different thread.
     *
     * @param party The party whose persistence we're waiting for
-    * @return The number of attempts before the party was found
+    * @return The number of attempts before the party was found wrapped in a [[Future]]
     */
-  private def pollUntilPersisted(party: String): Int =
-    Iterator
-      .from(1)
-      .find { attempt =>
-        logger.debug(s"Waiting for party '$party' to be persisted (attempt #$attempt)...")
-        partyManagementService
-          .listParties()
-          .map {
-            case persisted if persisted.exists(_.party == party) => true
-            case _ => false
-          }(DE)
-        Await.result(
-          partyManagementService
-            .listParties()
-            .map {
-              case persisted if persisted.exists(_.party == party) => true
-              case _ => false
-            }(DE),
-          Duration.Inf)
-      }
-      .get
+  private def pollUntilPersisted(party: String): Future[Int] = {
+    def go(party: String, attempt: Int): Future[Int] = {
+      partyManagementService
+        .listParties()
+        .flatMap {
+          case persisted if persisted.exists(_.party == party) => Future.successful(attempt)
+          case _ => go(party, attempt + 1)
+        }(DE)
+    }
+    go(party, 1)
+  }
 
+  /**
+    * Wraps a call [[pollUntilPersisted]] so that it can be chained on the party allocation with a `flatMap`.
+    *
+    * Checks invariants and forwards the original result after the party is found to be persisted.
+    *
+    * @param result The result of the party allocation
+    * @return The result of the party allocation received originally, wrapped in a [[Future]]
+    */
   private def pollUntilPersisted(result: AllocatePartyResponse): Future[AllocatePartyResponse] = {
     require(result.partyDetails.isDefined, "Party allocation response must have the party details")
-    Future(pollUntilPersisted(result.partyDetails.get.party))(DE).map { numberOfAttempts =>
+    pollUntilPersisted(result.partyDetails.get.party).map { numberOfAttempts =>
       logger.debug(s"Party available read after $numberOfAttempts attempt(s)")
       result
     }(DE)
