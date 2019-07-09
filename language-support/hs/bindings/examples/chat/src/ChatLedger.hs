@@ -46,7 +46,7 @@ sendCommand asParty h@Handle{pid} cc = do
 getTrans :: Party -> Handle -> IO (PastAndFuture ChatContract)
 getTrans party Handle{log,lid} = do
     pf <- run 6000 $ getTransactionsPF lid party
-    mapListPF (fmap maybeToList . extractTransaction log) pf
+    mapListPF (fmap concat . mapM (fmap maybeToList . extractTransaction log)) pf
 
 submitCommand :: Handle -> Party -> Command -> IO (Either String ())
 submitCommand Handle{lid} party com = do
