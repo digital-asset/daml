@@ -3,7 +3,9 @@
 
 package com.digitalasset.platform.sandbox.services.admin
 
-import akka.stream.Materializer
+import akka.actor.Scheduler
+import akka.pattern.after
+import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.IndexPartyManagementService
 import com.daml.ledger.participant.state.v2.{PartyAllocationResult, WritePartyService}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
@@ -16,12 +18,13 @@ import io.grpc.ServerServiceDefinition
 import org.slf4j.LoggerFactory
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.duration.{Duration, DurationInt}
-import scala.concurrent.{ExecutionContext, Future, blocking}
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.{ExecutionContext, Future}
 
 class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
-    writeService: WritePartyService
+    writeService: WritePartyService,
+    scheduler: Scheduler
 ) extends PartyManagementService
     with GrpcApiService {
 
@@ -68,10 +71,10 @@ class ApiPartyManagementService private (
     */
   private def pollUntilPersisted(
       party: String,
-      minWait: Duration,
-      maxWait: Duration,
-      backoffProgression: Duration => Duration): Future[Int] = {
-    def go(party: String, attempt: Int, waitTime: Duration): Future[Int] = {
+      minWait: FiniteDuration,
+      maxWait: FiniteDuration,
+      backoffProgression: FiniteDuration => FiniteDuration): Future[Int] = {
+    def go(party: String, attempt: Int, waitTime: FiniteDuration): Future[Int] = {
       logger.debug(s"Polling for party '$party' being persisted (attempt #$attempt)...")
       partyManagementService
         .listParties()
@@ -79,12 +82,11 @@ class ApiPartyManagementService private (
           case persisted if persisted.exists(_.party == party) => Future.successful(attempt)
           case _ =>
             logger.debug(s"Party '$party' not yet persisted, backing off for $waitTime...")
-            Future(blocking { Thread.sleep(waitTime.toMillis) })(DE).flatMap(
-              _ =>
-                go(
-                  party,
-                  attempt + 1,
-                  backoffProgression(waitTime).min(maxWait).max(50.milliseconds)))(DE)
+            after(waitTime, scheduler)(
+              go(
+                party,
+                attempt + 1,
+                backoffProgression(waitTime).min(maxWait).max(50.milliseconds)))(DE)
         }(DE)
     }
     go(party, 1, minWait.min(maxWait).max(50.milliseconds))
@@ -100,9 +102,9 @@ class ApiPartyManagementService private (
     */
   private def pollUntilPersisted(
       result: AllocatePartyResponse,
-      minWait: Duration,
-      maxWait: Duration,
-      iteration: Duration => Duration): Future[AllocatePartyResponse] = {
+      minWait: FiniteDuration,
+      maxWait: FiniteDuration,
+      iteration: FiniteDuration => FiniteDuration): Future[AllocatePartyResponse] = {
     require(result.partyDetails.isDefined, "Party allocation response must have the party details")
     pollUntilPersisted(result.partyDetails.get.party, minWait, maxWait, iteration).map {
       numberOfAttempts =>
@@ -128,7 +130,8 @@ class ApiPartyManagementService private (
         case r @ PartyAllocationResult.ParticipantNotAuthorized =>
           Future.failed(ErrorFactories.permissionDenied(r.description))
       }(DE)
-      .flatMap(pollUntilPersisted(_, 50.milliseconds, 500.milliseconds, (d: Duration) => d * 2))(DE)
+      .flatMap(
+        pollUntilPersisted(_, 50.milliseconds, 500.milliseconds, (d: FiniteDuration) => d * 2))(DE)
   }
 
 }
@@ -137,7 +140,8 @@ object ApiPartyManagementService {
   def createApiService(readBackend: IndexPartyManagementService, writeBackend: WritePartyService)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
-      mat: Materializer): GrpcApiService =
-    new ApiPartyManagementService(readBackend, writeBackend) with PartyManagementServiceLogging
+      mat: ActorMaterializer): GrpcApiService =
+    new ApiPartyManagementService(readBackend, writeBackend, mat.system.scheduler)
+    with PartyManagementServiceLogging
 
 }
