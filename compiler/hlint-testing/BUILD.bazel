@@ -6,6 +6,7 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary")
 da_haskell_binary(
     name = "hlint-test",
     srcs = ["src/Main.hs"],
+    data = [":data"],
     hazel_deps = [
         "base",
         "containers",
@@ -17,7 +18,6 @@ da_haskell_binary(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-      "//libs-haskell/bazel-runfiles"
+        "//libs-haskell/bazel-runfiles",
     ],
-    data= [":data"]
 )
