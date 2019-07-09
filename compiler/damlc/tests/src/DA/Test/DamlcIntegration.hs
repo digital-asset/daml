@@ -13,9 +13,9 @@ module DA.Test.DamlcIntegration
   ) where
 
 import           DA.Bazel.Runfiles
-import           DA.Daml.GHC.Compiler.Options
-import           DA.Daml.GHC.Compiler.Options.Types
-import           DA.Daml.GHC.Compiler.UtilLF
+import           DA.Daml.Options
+import           DA.Daml.Options.Types
+import           DA.Daml.LFConversion.UtilLF
 import           DA.Test.Util (standardizeQuotes)
 
 import           DA.Daml.LF.Ast as LF hiding (IsTest)
@@ -30,7 +30,7 @@ import           Control.Monad
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.Proto3.EncodeV1
 import           DA.Pretty hiding (first)
-import qualified DA.Service.Daml.Compiler.Impl.Scenario as SS
+import qualified DA.Daml.Compiler.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location

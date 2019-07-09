@@ -41,11 +41,11 @@ module Development.IDE.Core.API.Testing
 import qualified Development.IDE.Core.API         as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
-import DA.Service.Daml.Compiler.Impl.Scenario as SS
+import DA.Daml.Compiler.Scenario as SS
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
-import DA.Daml.GHC.Compiler.Options
-import DA.Daml.GHC.Compiler.Options.Types
+import DA.Daml.Options
+import DA.Daml.Options.Types
 import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))

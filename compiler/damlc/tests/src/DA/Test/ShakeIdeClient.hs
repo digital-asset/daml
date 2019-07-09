@@ -21,7 +21,7 @@ import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
 
-import DA.Service.Daml.Compiler.Impl.Scenario as SS
+import DA.Daml.Compiler.Scenario as SS
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified DA.Service.Logger.Impl.Pure as Logger
