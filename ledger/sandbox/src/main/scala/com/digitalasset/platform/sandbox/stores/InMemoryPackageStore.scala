@@ -113,8 +113,7 @@ class InMemoryPackageStore() extends IndexPackagesService {
       sourceDescription: Option[String],
       file: File): Either[String, Map[PackageId, PackageDetails]] = this.synchronized {
     val archivesTry = for {
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
-        .readArchiveFromFile(file)
+      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(file)
     } yield dar.all
 
     for {

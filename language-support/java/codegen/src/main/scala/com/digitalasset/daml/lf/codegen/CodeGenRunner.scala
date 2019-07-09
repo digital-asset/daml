@@ -70,9 +70,7 @@ private[codegen] object CodeGenRunner extends StrictLogging {
       case (path, pkgPrefix) =>
         val file = path.toFile
         // Explicitly calling `get` to bubble up any exception when reading the dar
-        val dar = ArchiveReader
-          .readArchiveFromFile(file)
-          .get
+        val dar = ArchiveReader.readArchiveFromFile(file).get
         dar.all.map { archive =>
           val (_, interface) = InterfaceReader.readInterface(archive)
           logger.trace(s"DAML-LF Archive decoded, packageId '${interface.packageId}'")

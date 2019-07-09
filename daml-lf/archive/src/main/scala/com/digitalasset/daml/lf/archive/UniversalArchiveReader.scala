@@ -97,12 +97,9 @@ private[lf] object SupportedFileType {
   sealed abstract class SupportedFileType(fileExtension: String) extends Serializable with Product {
     def matchesFileExtension(f: File): Boolean = f.getName.endsWith(fileExtension)
   }
-
   final case object DarFile extends SupportedFileType(".dar")
-
   final case object DalfFile extends SupportedFileType(".dalf")
 
   case class UnsupportedFileExtension(file: File)
       extends RuntimeException(s"Unsupported file extension: ${file.getAbsolutePath}")
-
 }

@@ -35,12 +35,7 @@ trait TestCommands {
 
   @transient
   protected def templateIds = {
-    new TestTemplateIdentifiers(
-      DarReader()
-        .readArchiveFromFile(darFile)
-        .get
-        .main
-        ._1)
+    new TestTemplateIdentifiers(DarReader().readArchiveFromFile(darFile).get.main._1)
   }
 
   protected def buildRequest(
@@ -100,9 +95,7 @@ trait TestCommands {
         )))
 
   import com.digitalasset.platform.participant.util.ValueConversions._
-
   private def integerListRecordLabel = "integerList"
-
   protected def paramShowcaseArgs: Record = {
     val variant = Value(Value.Sum.Variant(Variant(None, "SomeInteger", 1.asInt64)))
     val nestedVariant = Vector("value" -> variant).asRecordValue
@@ -122,7 +115,6 @@ trait TestCommands {
       )
     )
   }
-
   protected def paramShowcase = Commands(
     "ledgerId",
     "workflowId",
