@@ -16,7 +16,8 @@ import io.grpc.ServerServiceDefinition
 import org.slf4j.LoggerFactory
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.duration.{Duration, DurationInt}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 
 class ApiPartyManagementService private (
     partyManagementService: IndexPartyManagementService,
@@ -53,19 +54,40 @@ class ApiPartyManagementService private (
     * Despite the `go` inner function not being stack-safe per se, only one stack frame will be on
     * the stack at any given time since the "recursive" invocation happens on a different thread.
     *
+    * The backoff waiting time are applied after the first poll returns without a result (i.e. the first call is not delayed).
+    *
     * @param party The party whose persistence we're waiting for
+    * @param minWait The minimum waiting time - will not be enforced if less than `maxWait`
+    *                Does not make sense to set this lower than the OS scheduler threshold
+    *                Anyway always padded to 50 milliseconds
+    * @param maxWait The maximum waiting time - takes precedence over `minWait` and `backoffProgression`
+    *                Does not make sense to set this lower than the OS scheduler threshold
+    *                Anyway always padded to 50 milliseconds
+    * @param backoffProgression How the following backoff time is computed as a function of the current one - `maxWait` takes precedence though
     * @return The number of attempts before the party was found wrapped in a [[Future]]
     */
-  private def pollUntilPersisted(party: String): Future[Int] = {
-    def go(party: String, attempt: Int): Future[Int] = {
+  private def pollUntilPersisted(
+      party: String,
+      minWait: Duration,
+      maxWait: Duration,
+      backoffProgression: Duration => Duration): Future[Int] = {
+    def go(party: String, attempt: Int, waitTime: Duration): Future[Int] = {
+      logger.debug(s"Polling for party '$party' being persisted (attempt #$attempt)...")
       partyManagementService
         .listParties()
         .flatMap {
           case persisted if persisted.exists(_.party == party) => Future.successful(attempt)
-          case _ => go(party, attempt + 1)
+          case _ =>
+            logger.debug(s"Party '$party' not yet persisted, backing off for $waitTime...")
+            Future(blocking { Thread.sleep(waitTime.toMillis) })(DE).flatMap(
+              _ =>
+                go(
+                  party,
+                  attempt + 1,
+                  backoffProgression(waitTime).min(maxWait).max(50.milliseconds)))(DE)
         }(DE)
     }
-    go(party, 1)
+    go(party, 1, minWait.min(maxWait).max(50.milliseconds))
   }
 
   /**
@@ -76,11 +98,16 @@ class ApiPartyManagementService private (
     * @param result The result of the party allocation
     * @return The result of the party allocation received originally, wrapped in a [[Future]]
     */
-  private def pollUntilPersisted(result: AllocatePartyResponse): Future[AllocatePartyResponse] = {
+  private def pollUntilPersisted(
+      result: AllocatePartyResponse,
+      minWait: Duration,
+      maxWait: Duration,
+      iteration: Duration => Duration): Future[AllocatePartyResponse] = {
     require(result.partyDetails.isDefined, "Party allocation response must have the party details")
-    pollUntilPersisted(result.partyDetails.get.party).map { numberOfAttempts =>
-      logger.debug(s"Party available read after $numberOfAttempts attempt(s)")
-      result
+    pollUntilPersisted(result.partyDetails.get.party, minWait, maxWait, iteration).map {
+      numberOfAttempts =>
+        logger.debug(s"Party available, read after $numberOfAttempts attempt(s)")
+        result
     }(DE)
   }
 
@@ -101,7 +128,7 @@ class ApiPartyManagementService private (
         case r @ PartyAllocationResult.ParticipantNotAuthorized =>
           Future.failed(ErrorFactories.permissionDenied(r.description))
       }(DE)
-      .flatMap(pollUntilPersisted)(DE)
+      .flatMap(pollUntilPersisted(_, 50.milliseconds, 500.milliseconds, (d: Duration) => d * 2))(DE)
   }
 
 }
