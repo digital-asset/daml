@@ -494,6 +494,7 @@ case object LedgerApiV1 {
         writeArgument(v).map(a => Value(Value.Sum.Optional(V1.value.Optional(Some(a)))))
       case arg: Model.ApiMap =>
         writeMapArgument(arg).map(a => Value(Value.Sum.Map(a)))
+      case _: Model.ApiImpossible => sys.error("impossible! tuples are not serializable")
     }
   }
 

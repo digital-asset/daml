@@ -211,4 +211,6 @@ package object model {
   val ApiTimestamp = V.ValueTimestamp
   type ApiDate = V.ValueDate
   val ApiDate = V.ValueDate
+  type ApiImpossible = OfCid[V.ValueTuple]
+  val ApiImpossible = V.ValueTuple
 }

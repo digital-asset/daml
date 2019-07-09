@@ -76,6 +76,7 @@ object ApiCodecVerbose {
     case Model.ApiOptional(Some(v)) =>
       JsObject(propType -> JsString(tagOptional), propValue -> apiValueToJsValue(v))
     case v: Model.ApiMap => apiMapToJsValue(v)
+    case _: Model.ApiImpossible => sys.error("impossible! tuples are not serializable")
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =

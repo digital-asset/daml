@@ -245,6 +245,7 @@ object Pretty {
       PrettyObject(map.toImmArray.toList.map {
         case (key, value) => PrettyField(key, argument(arg))
       })
+    case _: model.ApiImpossible => sys.error("impossible! tuples are not serializable")
   }
 
   /** Outputs an object in YAML format */

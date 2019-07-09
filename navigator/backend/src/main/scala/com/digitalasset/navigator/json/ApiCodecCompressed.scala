@@ -49,6 +49,7 @@ object ApiCodecCompressed {
     case Model.ApiOptional(Some(v)) => JsObject(fieldSome -> apiValueToJsValue(v))
     case v: Model.ApiMap =>
       apiMapToJsValue(v)
+    case _: Model.ApiImpossible => sys.error("impossible! tuples are not serializable")
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =
