@@ -155,11 +155,12 @@ fakeSettings = Settings
   }
   where
     platform =
-      Platform{platformWordSize=8
+      Platform{ platformWordSize=8
               , platformOS=OSUnknown
-              , platformUnregisterised=True}
+              , platformUnregisterised=True
+              }
     platformConstants =
-      PlatformConstants{pc_DYNAMIC_BY_DEFAULT=False,pc_WORD_SIZE=8}
+      PlatformConstants{ pc_DYNAMIC_BY_DEFAULT=False, pc_WORD_SIZE=8 }
 
 fakeLlvmConfig :: (LlvmTargets, LlvmPasses)
 fakeLlvmConfig = ([], [])
