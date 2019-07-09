@@ -11,8 +11,6 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
-import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestCommands, TestIdsGenerator}
 import org.scalatest._
 import org.scalatest.concurrent.ScalaFutures
@@ -43,7 +41,6 @@ class TransactionBackpressureIT
   override protected def parallelExecution: Boolean = false
 
   private val transactionFilter = MockMessages.transactionFilter
-  private val begin = LedgerOffset(Boundary(LEDGER_BEGIN))
 
   "The transaction service when serving multiple subscriptions" should {
 

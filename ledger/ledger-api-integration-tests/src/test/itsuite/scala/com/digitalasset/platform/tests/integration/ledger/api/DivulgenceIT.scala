@@ -22,7 +22,6 @@ import com.digitalasset.ledger.api.testing.utils.{
 import com.digitalasset.ledger.api.v1
 import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.commands._
-import com.digitalasset.ledger.api.v1.ledger_offset._
 import com.digitalasset.ledger.api.v1.transaction_filter._
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
@@ -36,14 +35,14 @@ import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.google.protobuf.timestamp.Timestamp
 import org.scalatest.Inside.inside
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
-import org.scalatest.{AsyncFreeSpec, Matchers, OptionValues}
+import org.scalatest.{AsyncFlatSpec, Matchers, OptionValues}
 import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 import scala.language.implicitConversions
 
 class DivulgenceIT
-    extends AsyncFreeSpec
+    extends AsyncFlatSpec
     with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
@@ -152,7 +151,7 @@ class DivulgenceIT
         )
       )
 
-      transaction <- transactionClient(ctx)
+      _ <- transactionClient(ctx)
         .getTransactions(
           ledgerEndBeforeSubmission,
           None,
@@ -226,15 +225,13 @@ class DivulgenceIT
         ImmArray(Some[Ref.Name]("div1ToArchive") -> ValueContractId(AbsoluteContractId(div1Cid))))
     )
 
-  private val ledgerGenesis = LedgerOffset(
-    LedgerOffset.Value
-      .Boundary(LedgerOffset.LedgerBoundary.LEDGER_BEGIN))
-
   private val bobFilter = TransactionFilter(Map(bob -> Filters.defaultInstance))
   private val bothFilter = TransactionFilter(
     Map(alice -> Filters.defaultInstance, bob -> Filters.defaultInstance))
 
-  "should not expose divulged contracts in flat stream" in allFixtures { ctx =>
+  behavior of "Divulgence"
+
+  it should "not expose divulged contracts in flat stream" in allFixtures { ctx =>
     val wfid = testIdsGenerator.testWorkflowId("divulgence-test-flat-stream-workflow-id")
     for {
       beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
@@ -327,10 +324,9 @@ class DivulgenceIT
     }
   }
 
-  "should not expose divulged contracts in ACS" in allFixtures { ctx =>
+  it should "not expose divulged contracts in ACS" in allFixtures { ctx =>
     val wfid = testIdsGenerator.testWorkflowId("divulgence-test-acs-workflow-id")
     for {
-      beforeTest <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       div1Cid <- createDivulgence1(ctx, wfid)
       div2Cid <- createDivulgence2(ctx, wfid)
       _ <- divulgeViaFetch(ctx, div1Cid, div2Cid, wfid)
