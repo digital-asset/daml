@@ -327,7 +327,6 @@ class DivulgenceIT
   it should "not expose divulged contracts in ACS" in allFixtures { ctx =>
     val wfid = testIdsGenerator.testWorkflowId("divulgence-test-acs-workflow-id")
     for {
-      _ <- transactionClient(ctx).getLedgerEnd.map(_.getOffset)
       div1Cid <- createDivulgence1(ctx, wfid)
       div2Cid <- createDivulgence2(ctx, wfid)
       _ <- divulgeViaFetch(ctx, div1Cid, div2Cid, wfid)
