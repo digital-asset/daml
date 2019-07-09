@@ -51,17 +51,18 @@ documentation x = Damldoc x <$>
 
     optMbPackageName :: Parser (Maybe String)
     optMbPackageName =
-        option (Just <$> str) $ metavar "NAME"
+        optional . option str
+            $ metavar "NAME"
             <> help "Name of package to generate."
             <> long "package-name"
-            <> value Nothing
 
     optPrefix :: Parser (Maybe FilePath)
-    optPrefix = option (Just <$> str) $ metavar "FILE"
-                <> help "File to prepend to all generated files"
-                <> long "prefix"
-                <> short 'p'
-                <> value Nothing
+    optPrefix =
+        optional . option str
+            $ metavar "FILE"
+            <> help "File to prepend to all generated files"
+            <> long "prefix"
+            <> short 'p'
 
     argMainFiles :: Parser [FilePath]
     argMainFiles = some $ argument str $ metavar "FILE..."
