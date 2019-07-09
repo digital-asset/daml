@@ -84,13 +84,13 @@ expectRst =
             ["\n.. _type-twotypes-t-17090:\n\ntype **T a**\n    = TT\n\n  T descr"
             , "\n.. _data-twotypes-d-66754:\n\ndata **D d**\n\n  \n  \n  .. _constr-twotypes-d-45919:\n  \n  **D** a\n  \n  D descr"]
             []
-        , mkExpectRst "module-function1-29590" "Function1" "" [] [] [] [ "\n.. _function-function1-f-2320:\n\n**f**\n  : TheType\n\n  the doc\n"]
+        , mkExpectRst "module-function1-29590" "Function1" "" [] [] [] [ "\n.. _function-function1-f-45407:\n\n**f**\n  : TheType\n\n  the doc\n"]
         , mkExpectRst "module-function2-7227" "Function2" "" [] [] [] [ "\n.. _function-function2-f-87524:\n\n**f**\n  :   the doc\n"]
-        , mkExpectRst "module-function3-84844" "Function3" "" [] [] [] [ "\n.. _function-function3-f-53414:\n\n**f**\n  : TheType\n\n"]
+        , mkExpectRst "module-function3-84844" "Function3" "" [] [] [] [ "\n.. _function-function3-f-32653:\n\n**f**\n  : TheType\n\n"]
         , mkExpectRst "module-onlyclass-88463" "OnlyClass" ""
             []
             [ "\n.. _class-onlyclass-c-63566:"
-            , "**class C a where**\n  \n  .. _function-onlyclass-member-29050:\n  \n  **member**\n    : a"
+            , "**class C a where**\n  \n  .. _function-onlyclass-member-45125:\n  \n  **member**\n    : a"
             ]
             []
             []
