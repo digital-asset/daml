@@ -13,3 +13,6 @@ HEAD — ongoing
 - [DAML-LF] Fixed regression that produced an invalid daml-lf-archive artefact. See `#2058 <https://github.com/digital-asset/daml/issues/2058>`__.
 - [daml assistant] Kill child processes on ``SIGTERM``. This means that killing
   ``daml sandbox`` will also kill the sandbox process.
+
+- [DAML Docs] **BREAKING CHANGE** ``damlc docs`` now typechecks the source files before doc generation, to be able to use type information during doc generation. This may break existing doc builds.
+- [DAML Docs] Added a ``--package-name`` flag to ``damlc docs``.
