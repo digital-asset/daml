@@ -46,7 +46,7 @@ commandParser =
     where damlStudioCmd = DamlStudio
               <$> option readReplacement
                   (long "replace" <>
-                   help "Whether an existing extension should be overwritten. ('never', 'newer' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')" <>
+                   help "Whether an existing extension should be overwritten. ('never' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')" <>
                    value ReplaceExtPublished
                   )
               <*> many (argument str (metavar "ARG"))
@@ -73,7 +73,6 @@ commandParser =
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
               "never" -> Just ReplaceExtNever
-              "newer" -> Just ReplaceExtNewer
               "always" -> Just ReplaceExtAlways
               "published" -> Just ReplaceExtPublished
               _ -> Nothing

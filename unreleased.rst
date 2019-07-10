@@ -10,6 +10,9 @@ HEAD — ongoing
 --------------
 
 - [daml assistant] Fix VSCode path for use if not already in PATH on mac
+- [daml assistant] **BREAKING**: remove `--replace=newer` option.
+- [DAML Studio] Fix a bug where the extension seemed to disappear every other
+  time VS Code was opened.
 
 - [Sandbox] Fixing an issue around handling passTime in scenario loader
   See `#1953 <https://github.com/digital-asset/daml/issues/1953>`__.
@@ -17,7 +20,7 @@ HEAD — ongoing
   left while the IDE is doing work in the background.
 - [Sandbox] Remembering already loaded packages after reset
   See `#1979 <https://github.com/digital-asset/daml/issues/1953>`__.
-  
+
 - [DAML-LF]: Release version 1.6. This versions provides:
 
   + ``enum`` types. See `issue #105
