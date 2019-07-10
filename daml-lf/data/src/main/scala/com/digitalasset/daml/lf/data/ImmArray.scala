@@ -430,6 +430,7 @@ object ImmArray {
     override def to[Col[_]](implicit bf: CanBuildFrom[Nothing, A, Col[A @uncheckedVariance]])
       : Col[A @uncheckedVariance] =
       bf match {
+        case _: IASCanBuildFrom[A] => this
         case _: IACanBuildFrom[A] => toImmArray
         case _: FrontStack.FSCanBuildFrom[A] => FrontStack(toImmArray)
         case _ => super.to(bf)
