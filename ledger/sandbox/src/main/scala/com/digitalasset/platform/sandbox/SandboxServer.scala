@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox
 
-import java.io.FileWriter
+import java.io.{File, FileWriter}
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -52,20 +52,20 @@ object SandboxServer {
   private val engine = Engine()
 
   // if requested, initialize the ledger state with the given scenario
-  private def createInitialState(config: SandboxConfig, packages: InMemoryPackageStore)
+  private def createInitialState(config: SandboxConfig, packageStore: InMemoryPackageStore)
     : (InMemoryActiveContracts, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
     // [[ScenarioLoader]] needs all the packages to be already compiled --
     // make sure that that's the case
     if (config.eagerPackageLoading || config.scenario.nonEmpty) {
-      for (pkgId <- packages.listLfPackagesSync().keys) {
-        val pkg = packages.getLfPackageSync(pkgId).get
+      for (pkgId <- packageStore.listLfPackagesSync().keys) {
+        val pkg = packageStore.getLfPackageSync(pkgId).get
         engine
           .preloadPackage(pkgId, pkg)
           .consume(
             { _ =>
               sys.error("Unexpected request of contract")
             },
-            packages.getLfPackageSync, { _ =>
+            packageStore.getLfPackageSync, { _ =>
               sys.error("Unexpected request of contract key")
             }
           )
@@ -75,7 +75,7 @@ object SandboxServer {
       case None => (InMemoryActiveContracts.empty, ImmArray.empty, None)
       case Some(scenario) =>
         val (acs, records, ledgerTime) =
-          ScenarioLoader.fromScenario(packages, engine.compiledPackages(), scenario)
+          ScenarioLoader.fromScenario(packageStore, engine.compiledPackages(), scenario)
         (acs, records, Some(ledgerTime))
     }
   }
@@ -116,7 +116,10 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
 
   @volatile private var sandboxState: SandboxState = _
 
-  case class SandboxState(apiServerState: ApiServerState, infra: Infrastructure)
+  case class SandboxState(
+      apiServerState: ApiServerState,
+      infra: Infrastructure,
+      packageStore: InMemoryPackageStore)
       extends AutoCloseable {
     override def close(): Unit = {
       apiServerState.close()
@@ -131,8 +134,9 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
         apiServerState.close // fully tear down the old server
         //TODO: eliminate the state mutation somehow
         //yes, it's horrible that we mutate the state here, but believe me, it's still an improvement to what we had before!
-        sandboxState =
-          copy(apiServerState = buildAndStartApiServer(infra, SqlStartMode.AlwaysReset))
+        sandboxState = copy(
+          apiServerState =
+            buildAndStartApiServer(infra, sandboxState.packageStore, SqlStartMode.AlwaysReset))
       }(infra.executionContext)
 
       // waits for the services to be closed, so we can guarantee that future API calls after finishing the reset will never be handled by the old one
@@ -155,6 +159,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
   private def buildAndStartApiServer(
       infra: Infrastructure,
+      packageStore: InMemoryPackageStore,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists): ApiServerState = {
     implicit val mat = infra.materializer
     implicit val ec: ExecutionContext = infra.executionContext
@@ -163,17 +168,6 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     val ledgerId = config.ledgerIdMode match {
       case LedgerIdMode.Static(id) => id
       case LedgerIdMode.Dynamic() => LedgerIdGenerator.generateRandomId()
-    }
-
-    val packageStore = InMemoryPackageStore.empty
-
-    // TODO is it sensible to have all the initial packages to be known
-    // since the epoch?
-    for (file <- config.damlPackages) {
-      packageStore.putDarFile(Instant.EPOCH, None, file) match {
-        case Right(details @ _) => ()
-        case Left(err) => sys.error(s"Could not load package $file: $err")
-      }
     }
 
     val (acs, ledgerEntries, mbLedgerTime) = createInitialState(config, packageStore)
@@ -276,9 +270,20 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
     val actorSystem = ActorSystem(actorSystemName)
     val infrastructure =
       Infrastructure(actorSystem, ActorMaterializer()(actorSystem), MetricsManager())
-    val apiState = buildAndStartApiServer(infrastructure)
+    val packageStore = loadDamlPackages
+    val apiState = buildAndStartApiServer(infrastructure, packageStore)
+    SandboxState(apiState, infrastructure, packageStore)
+  }
 
-    SandboxState(apiState, infrastructure)
+  private def loadDamlPackages(): InMemoryPackageStore = {
+    // TODO is it sensible to have all the initial packages to be known since the epoch?
+    config.damlPackages
+      .foldLeft[Either[(String, File), InMemoryPackageStore]](Right(InMemoryPackageStore.empty)) {
+        case (storeE, f) =>
+          storeE.flatMap(_.withDarFile(Instant.EPOCH, None, f).left.map(_ -> f))
+
+      }
+      .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
   }
 
   override def close(): Unit = sandboxState.close()
