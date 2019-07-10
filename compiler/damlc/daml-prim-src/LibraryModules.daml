@@ -7,7 +7,7 @@
 daml 1.2
 
 -- Remove this module when DEL-6311 is done.
-module LibraryModules where
+module LibraryModules () where
 
 import Data.String
 import Control.Exception.Base

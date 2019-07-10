@@ -80,8 +80,6 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
                 , "module Foo where"
-                , "foo : Int -> Int"
-                , "foo x = x + 1"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors

@@ -435,14 +435,17 @@ ofInterestRule = do
                 mbVrs <- use RunScenarios file
                 forM_ (fromMaybe [] mbVrs) $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
-                    when (vr `Set.member` openVRs) $
+                    when  (vr `Set.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
-        -- We don’t always have a scenario service (e.g., damlc compile)
-        -- so only run scenarios if we have one.
+
+        -- We don’t always have a scenario service (e.g., damlc
+        -- compile) so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
-        _ <- parallel $
-            map (void . getDalf) (Set.toList scenarioFiles) <>
-            [runScenarios file | shouldRunScenarios, file <- Set.toList scenarioFiles]
+        let files = Set.toList scenarioFiles
+        let dalfActions = [(void . getDalf) f | f <- files]
+        let hlintActions = [use_ GetHlintDiagnostics f | f <- files]
+        let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
+        _ <- parallel $ dalfActions <> hlintActions <> runScenarioActions
         return ()
   where
       gc :: Set NormalizedFilePath -> Action ()
@@ -578,6 +581,7 @@ damlRule opts = do
     runScenariosRule
     getScenarioRootsRule
     getScenarioRootRule
+    getHlintDiagnosticsRule
     ofInterestRule
     encodeModuleRule
     createScenarioContextRule
