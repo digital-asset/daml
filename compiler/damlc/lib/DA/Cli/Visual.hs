@@ -81,18 +81,17 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
 tplName :: LF.Template -> T.Text
 tplName LF.Template {..} = head (LF.unTypeConName tplTypeCon)
 
-handleChoiceAndAction :: ChoiceAndAction -> (LF.ChoiceName, IsConsuming)
-handleChoiceAndAction (ChoiceAndAction tpl choice _)
-    | LF.chcName choice == LF.ChoiceName "Create" = (LF.ChoiceName $ tplName tpl <> "_Create", False)
-    | LF.chcName choice == LF.ChoiceName "Archive" = (LF.ChoiceName $ tplName tpl <> "_Archive", True)
-    | otherwise = (LF.chcName choice, LF.chcConsuming choice)
+extractChoiceData :: ChoiceAndAction -> (LF.ChoiceName, IsConsuming)
+extractChoiceData (ChoiceAndAction tpl choice _) = (newChoiceName, LF.chcConsuming choice)
+    where newChoiceName
+            | LF.chcName choice == LF.ChoiceName "Archive" = LF.ChoiceName $ tplName tpl <> "_Archive"
+            | otherwise = LF.chcName choice
 
 type IsConsuming = Bool
 -- Making choiceName is very weird
-handleCreateAndArchive :: TemplateChoiceAction -> [(LF.ChoiceName, IsConsuming)]
-handleCreateAndArchive TemplateChoiceAction {..} = [createChoice, archiveChoice] ++ map handleChoiceAndAction choiceAndAction
-    where archiveChoice = (LF.ChoiceName $ tplName template <> "_Archive", True)
-          createChoice = (LF.ChoiceName $ tplName template <> "_Create", False)
+templateWithCreateChoice :: TemplateChoiceAction -> [(LF.ChoiceName, IsConsuming)]
+templateWithCreateChoice TemplateChoiceAction {..} = createChoice : map extractChoiceData choiceAndAction
+    where createChoice = (LF.ChoiceName $ tplName template <> "_Create", False)
 
 data ChoiceStyle = ChoiceStyle
     { nodeId :: Int
@@ -102,7 +101,7 @@ data ChoiceStyle = ChoiceStyle
 
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName ChoiceStyle
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
-  where choiceActions = concatMap handleCreateAndArchive tplChcActions
+  where choiceActions = concatMap templateWithCreateChoice tplChcActions
         choiceWithIds = map (\ ((cName, consume) , id) -> (cName, ChoiceStyle id consume) ) $ zip choiceActions [0..]
 
 nodeIdForChoice :: Map.Map LF.ChoiceName ChoiceStyle -> LF.ChoiceName -> ChoiceStyle
@@ -122,7 +121,7 @@ addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nod
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceStyle -> TemplateChoiceAction -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoiceAction {..} = SubGraph nodesWithCreate template
-  where choicesInTemplete = map handleChoiceAndAction choiceAndAction
+  where choicesInTemplete = map extractChoiceData choiceAndAction
         nodes = map (\(chc, _) -> (chc, nodeIdForChoice lookupData chc)) choicesInTemplete
         nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData]
 
@@ -133,7 +132,7 @@ actionToChoice _tpl (AExercise _ chc) = chc
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
 choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
-    where pairs = map (\ac -> (fst $ handleChoiceAndAction cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
+    where pairs = map (\ac -> (fst $ extractChoiceData cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
 
 graphEdges :: Map.Map LF.ChoiceName ChoiceStyle -> [TemplateChoiceAction] -> [(ChoiceStyle, ChoiceStyle)]
 graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1, nodeIdForChoice lookupData chn2)) choicePairsForTemplates
