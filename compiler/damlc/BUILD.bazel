@@ -59,6 +59,7 @@ package_app(
         ":ghc-pkg-dist",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
+        "//compiler/damlc/daml-ide-core:hlint-yaml"
     ],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],

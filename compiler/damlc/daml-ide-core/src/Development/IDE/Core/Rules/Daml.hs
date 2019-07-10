@@ -523,9 +523,18 @@ getHlintDiagnosticsRule =
         let modu = pm_parsed_source pm
         (_, classify, hint) <- liftIO hlintSettings
         let ideas = applyHints classify hint [createModuleEx anns modu]
-        return ([toDiagnostic file i | i <- ideas], Just ())
+        return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
-      toDiagnostic file i = ideErrorText file (T.pack $ show i)
+      -- To-do : Improve this.
+      toDiagnostic file i = ideHintText file (T.pack $ show i)
+      ideHintText fp msg = (fp, LSP.Diagnostic {
+         _range = noRange,
+         _severity = Just LSP.DsHint,
+         _code = Nothing,
+         _source = Just "linter",
+         _message = msg,
+         _relatedInformation = Nothing
+      })
 
       getHlintDataDir :: IO FilePath
       getHlintDataDir = do
