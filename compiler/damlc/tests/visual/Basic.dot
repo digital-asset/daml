@@ -2,30 +2,30 @@ digraph G {
 compound=true;
 rankdir=LR;
 subgraph cluster_Group{
-n2[label=Group_Archive];
-n0[label=Group_Create];
+n1[label=Group_Archive;color=red]; 
+n0[label=Group_Create;color=green]; 
 label=Group;color=blue
 }subgraph cluster_Invitation{
-n5[label=Invitation_Archive];
-n3[label=Invitation_Create];
+n3[label=Invitation_Archive;color=red]; 
+n2[label=Invitation_Create;color=green]; 
 label=Invitation;color=blue
 }subgraph cluster_Message{
-n8[label=Message_Archive];
-n6[label=Message_Create];
+n5[label=Message_Archive;color=red]; 
+n4[label=Message_Create;color=green]; 
 label=Message;color=blue
 }subgraph cluster_Membership{
-n11[label=Membership_Archive];
-n12[label=Membership_Shutdown];
-n13[label=Membership_SendMessage];
-n14[label=Membership_Leave];
-n15[label=Membership_Join];
-n9[label=Membership_Create];
+n7[label=Membership_Archive;color=red]; 
+n8[label=Membership_Shutdown;color=red]; 
+n9[label=Membership_SendMessage;color=green]; 
+n10[label=Membership_Leave;color=red]; 
+n11[label=Membership_Join;color=red]; 
+n6[label=Membership_Create;color=green]; 
 label=Membership;color=blue
-}n13->n9
-n13->n11
-n14->n9
-n14->n11
-n15->n9
-n15->n11
+}n9->n6
+n9->n7
+n10->n6
+n10->n7
+n11->n6
+n11->n7
 
 }
