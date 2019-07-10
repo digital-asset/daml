@@ -438,7 +438,6 @@ class InMemoryKVParticipantState(
   private def allocatePartyOnLedger(
       party: String,
       displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
-
     val sId = submissionId.getAndIncrement().toString
     val cf = new CompletableFuture[PartyAllocationResult]
     matcherActorRef ! AddPartyAllocationRequest(sId, cf)

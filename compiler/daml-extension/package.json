@@ -135,6 +135,7 @@
         "@bazel/hide-bazel-files": "0.32.2",
         "typescript": "3.3.3",
         "@types/node": "6.0.42",
-        "vscode": "1.1.33"
+        "vscode": "1.1.33",
+        "vsce": "1.64.0"
     }
 }

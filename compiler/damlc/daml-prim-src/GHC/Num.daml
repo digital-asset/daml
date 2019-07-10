@@ -4,7 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 daml 1.2
 
--- | Included in Prelude
+-- | MOVE Prelude
 --
 -- Has to live here so GHC can find it for deriving instances.
 module GHC.Num

@@ -48,7 +48,7 @@
       to appear.
    1. Add `+` at the end of line 11, after `"Alice"` and confirm you get an
       error in line 12.
-   1. Add `1` after the `1` and confirm you get an error in line 11.
+   1. Add `1` after the `+` and confirm you get an error in line 11.
    1. Delete the `+1`, and the `e` in `Alice` and verify that the scenario results 
       are updated.
    1. Right click on `eurBank` in line 17 and verify that goto
@@ -69,7 +69,7 @@
    1. Open your browser at `http://localhost:7500`, verify that you
       can login as Alice and there is one template and one contract.
    1. Kill `daml start` with Ctrl-C
-   1. Run `daml studio` and open `daml/Main.daml`.
+   1. Run `daml studio --replace=always` and open `daml/Main.daml`.
    1. Verify that the scenario result appears within 30 seconds.
    1. Add `+` at the end of line 26 after `"Alice"` and verify that you get a red squiggly line.
 

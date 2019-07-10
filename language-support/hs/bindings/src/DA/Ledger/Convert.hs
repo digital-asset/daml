@@ -13,6 +13,7 @@ module DA.Ledger.Convert (
     raiseCompletionStreamResponse,
     raiseGetActiveContractsResponse,
     raiseAbsLedgerOffset,
+    raiseGetLedgerConfigurationResponse,
     RaiseFailureReason,
     ) where
 
@@ -25,6 +26,7 @@ import qualified Google.Protobuf.Empty as LL
 import qualified Google.Protobuf.Timestamp as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.ActiveContractsService as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.CommandCompletionService as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.LedgerConfigurationService as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Commands as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Completion as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Event as LL
@@ -160,6 +162,21 @@ optional :: Perhaps a -> Maybe a
 optional = \case
     Left _ -> Nothing
     Right a -> Just a
+
+raiseGetLedgerConfigurationResponse :: LL.GetLedgerConfigurationResponse -> Perhaps LedgerConfiguration
+raiseGetLedgerConfigurationResponse x =
+    perhaps "ledgerConfiguration" (LL.getLedgerConfigurationResponseLedgerConfiguration x)
+    >>= raiseLedgerConfiguration
+
+
+raiseLedgerConfiguration :: LL.LedgerConfiguration -> Perhaps LedgerConfiguration
+raiseLedgerConfiguration = \case
+    LL.LedgerConfiguration{ledgerConfigurationMinTtl,
+                           ledgerConfigurationMaxTtl
+                          } -> do
+        minTtl <- perhaps "min_ttl" ledgerConfigurationMinTtl
+        maxTtl <- perhaps "max_ttl" ledgerConfigurationMaxTtl
+        return $ LedgerConfiguration {minTtl, maxTtl}
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case

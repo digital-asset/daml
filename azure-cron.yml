@@ -177,10 +177,10 @@ jobs:
             echo "Publishing $GITHUB to VSCode Marketplace"
             git checkout $GITHUB
             cd compiler/daml-extension
-            yarn
             # This produces out/src/extension.js
-            yarn run compile
-            vsce publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
+            bazel run @nodejs//:bin/yarn
+            bazel run @nodejs//:bin/yarn compile
+            bazel run @daml_extension_deps//vsce/bin:vsce -- publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
           else
             if [[ "${GITHUB#v}" == "$MARKET" ]]; then
               echo "Version on marketplace is already the latest ($GITHUB)."

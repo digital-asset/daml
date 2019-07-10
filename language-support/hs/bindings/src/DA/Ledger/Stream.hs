@@ -22,7 +22,7 @@ import Control.Concurrent
 
 newtype Stream a = Stream {status :: MVar (Either Closed (Open a))}
 
-data Closed = EOS | Abnormal { reason :: String } deriving Show
+data Closed = EOS | Abnormal { reason :: String } deriving (Eq,Show)
 
 data Open a = Open {
     chan :: Chan (Either Closed a),
