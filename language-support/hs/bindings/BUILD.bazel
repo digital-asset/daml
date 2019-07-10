@@ -8,6 +8,7 @@ da_haskell_library(
     name = "hs-ledger",
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
+        "async",
         "base",
         "bytestring",
         "containers",
@@ -72,7 +73,6 @@ da_haskell_test(
         ":quickstart.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
-    flaky = True,  # FIXME Remove this once #1927 is solved
     hazel_deps = [
         "async",
         "base",

@@ -15,7 +15,6 @@ module DA.Ledger.Services.TransactionService (
     ) where
 
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
-import Control.Concurrent(forkIO)
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
@@ -29,25 +28,21 @@ import qualified Data.Vector as Vector
 getTransactions :: GetTransactionsRequest -> LedgerService (Stream [Transaction])
 getTransactions req =
     makeLedgerService $ \timeout config -> do
-    stream <- newStream
-    _ <- forkIO $
+    asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- LL.transactionServiceClient client
             let LL.TransactionService {transactionServiceGetTransactions=rpc} = service
             sendToStream timeout (lowerRequest req) f stream rpc
-    return stream
     where f = raiseList raiseTransaction . LL.getTransactionsResponseTransactions
 
 getTransactionTrees :: GetTransactionsRequest -> LedgerService (Stream [TransactionTree])
 getTransactionTrees req =
     makeLedgerService $ \timeout config -> do
-    stream <- newStream
-    _ <- forkIO $
+    asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- LL.transactionServiceClient client
             let LL.TransactionService {transactionServiceGetTransactionTrees=rpc} = service
             sendToStream timeout (lowerRequest req) f stream rpc
-    return stream
     where f = raiseList raiseTransactionTree . LL.getTransactionTreesResponseTransactions
 
 getTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe TransactionTree)
