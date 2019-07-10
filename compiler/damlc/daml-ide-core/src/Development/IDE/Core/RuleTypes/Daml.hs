@@ -35,6 +35,7 @@ type instance RuleResult GenerateRawDalf = LF.Module
 type instance RuleResult GeneratePackage = LF.Package
 type instance RuleResult GenerateRawPackage = LF.Package
 type instance RuleResult GeneratePackageDeps = LF.Package
+type instance RuleResult GetHlintDiagnostics = ()
 
 data DalfPackage = DalfPackage
     { dalfPackageId :: LF.PackageId
@@ -140,6 +141,11 @@ data GetOpenVirtualResources = GetOpenVirtualResources
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetOpenVirtualResources
 instance NFData   GetOpenVirtualResources
+
+data GetHlintDiagnostics = GetHlintDiagnostics
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable GetHlintDiagnostics
+instance NFData   GetHlintDiagnostics
 
 -- | Kick off things
 type instance RuleResult OfInterest = ()

@@ -14,6 +14,7 @@ import Control.Monad.Trans.Maybe
 import Development.IDE.Core.OfInterest
 import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options.Types
+import DA.Bazel.Runfiles
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
@@ -59,6 +60,8 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
+
+import Language.Haskell.HLint4
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
 -- document provider that will handle our special documents.
@@ -508,6 +511,29 @@ encodeModuleRule =
         m <- dalfForScenario file
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
+
+getHlintDiagnosticsRule :: Rules ()
+getHlintDiagnosticsRule =
+    define $ \GetHlintDiagnostics file -> do
+        pm <- use_ GetParsedModule file
+        let anns = pm_annotations pm
+        let modu = pm_parsed_source pm
+        (_, classify, hint) <- liftIO hlintSettings
+        let ideas = applyHints classify hint [createModuleEx anns modu]
+        return ([toDiagnostic file i | i <- ideas], Just ())
+    where
+      toDiagnostic file i = ideErrorText file (T.pack $ show i)
+
+      getHlintDataDir :: IO FilePath
+      getHlintDataDir = do
+        locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+
+      hlintSettings :: IO (ParseFlags, [Classify], Hint)
+      hlintSettings = do
+        hlintDataDir <- getHlintDataDir
+        (fixities, classify, hints) <-
+          findSettings (readSettingsFile (Just hlintDataDir)) Nothing
+        return (parseFlagsAddFixities fixities defaultParseFlags, classify, hints)
 
 scenariosInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scenariosInModule m =

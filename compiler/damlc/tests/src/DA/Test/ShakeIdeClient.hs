@@ -76,6 +76,17 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
             setFilesOfInterest [foo]
             expectOneError (foo,2,0) "Parse error"
 
+    ,   testCase' "Set files of interest and expect hlint idea" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "foo : Int -> Int"
+                , "foo x = x + 1"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectOnlyDiagnostics []
+
     ,   testCase' "Set files of interest to clear parse error" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
