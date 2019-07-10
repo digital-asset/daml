@@ -1,7 +1,7 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test", "da_haskell_repl")
 load("//rules_daml:daml.bzl", "daml_compile")
 
 da_haskell_library(
@@ -99,5 +99,17 @@ da_haskell_test(
         "//compiler/daml-lf-reader",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
+    ],
+)
+
+da_haskell_repl(
+    name = "repl",
+    testonly = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/hs/bindings:test",
+        "//language-support/hs/bindings:nim",
+        #"//language-support/hs/bindings/examples/chat", # TODO: avoid issue of duplicate Main
     ],
 )
