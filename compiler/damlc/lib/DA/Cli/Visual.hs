@@ -21,8 +21,30 @@ import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 
+type IsConsuming = Bool
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
+
+data ChoiceAndAction = ChoiceAndAction
+    { choiceForTemplate :: LF.Template
+    , choice :: LF.TemplateChoice
+    , actions :: Set.Set Action
+    }
+
+data TemplateChoiceAction = TemplateChoiceAction
+    { template :: LF.Template
+    , choiceAndAction :: [ChoiceAndAction]
+    }
+
+data ChoiceDetails = ChoiceDetails
+    { nodeId :: Int
+    , consuming :: Bool
+    }
+
+data SubGraph = SubGraph
+    { nodes :: [(LF.ChoiceName, ChoiceDetails)]
+    , clusterTemplate :: LF.Template
+    }
 
 startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Update -> Set.Set Action
 startFromUpdate seen world update = case update of
@@ -52,16 +74,6 @@ startFromExpr seen world e = case e of
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
-data ChoiceAndAction = ChoiceAndAction
-    { choiceForTemplate :: LF.Template
-    , choice :: LF.TemplateChoice
-    , actions :: Set.Set Action
-    }
-data TemplateChoiceAction = TemplateChoiceAction
-    { template :: LF.Template
-    , choiceAndAction :: [ChoiceAndAction]
-    }
-
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map (\c -> ChoiceAndAction tpl c (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
 
@@ -87,17 +99,11 @@ extractChoiceData (ChoiceAndAction tpl choice _) = (newChoiceName, LF.chcConsumi
             | LF.chcName choice == LF.ChoiceName "Archive" = LF.ChoiceName $ tplName tpl <> "_Archive"
             | otherwise = LF.chcName choice
 
-type IsConsuming = Bool
+
 -- Making choiceName is very weird
 templateWithCreateChoice :: TemplateChoiceAction -> [(LF.ChoiceName, IsConsuming)]
 templateWithCreateChoice TemplateChoiceAction {..} = createChoice : map extractChoiceData choiceAndAction
     where createChoice = (LF.ChoiceName $ tplName template <> "_Create", False)
-
-data ChoiceDetails = ChoiceDetails
-    { nodeId :: Int
-    , consuming :: Bool
-    }
--- This is used to generate the node ids and use as look up table
 
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
@@ -108,12 +114,6 @@ nodeIdForChoice :: Map.Map LF.ChoiceName ChoiceDetails -> LF.ChoiceName -> Choic
 nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
   Just node -> node
   Nothing -> error "Template node lookup failed"
-
--- probably storing the choice is a better Idea, as we can determine what kind of choice it is.
-data SubGraph = SubGraph
-    { nodes :: [(LF.ChoiceName, ChoiceDetails)]
-    , clusterTemplate :: LF.Template
-    }
 
 addCreateChoice :: TemplateChoiceAction -> Map.Map LF.ChoiceName ChoiceDetails -> (LF.ChoiceName, ChoiceDetails)
 addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nodeIdForChoice lookupData tplNameCreateChoice)
