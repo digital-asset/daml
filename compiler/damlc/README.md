@@ -1,31 +1,81 @@
+## Code layout
+
+The following list is ordered topologicaly based on the dependency graph.
+
+### daml-preprocessor
+
+`daml-preprocessor` contains the DAML preprocessor which runs our version of the
+`record-dot-preprocessor` and the preprocessor for generating
+`Generic` instances. The preprocessor also performs a few additional
+checks, e.g., that you do not import internal modules.
+
+### daml-opts
+
+`daml-opts` contains two libraries: `daml-opt-types` and `daml-opts`.
+
+`daml-opt-types` contains the `Options` type which controls the
+various flags affecting most `damlc` commands. Most of the options can
+be controlled via command line flags.
+
+`daml-opts` contains the conversion from `damlc`’s `Options` type to
+`hie-core`’s `IdeOptions` type. This is in a separate package to avoid
+making everything depend on `daml-preprocessor`.
+
+### daml-lf-conversion
+
+`daml-lf-conversion` handles the conversion from GHC’s Core to DAML-LF.
+
+### daml-ide-core
+
+`daml-ide-core` is a wrapper around `hie-core` that adds DAML-specific
+rules such as rules for producing `DAML-LF`.
+
+
+### daml-doc
+
+`daml-doc` contains our variant of `haddock`.
+
+
+### daml-ide
+
+`daml-ide` contains the LSP layer of the IDE and wraps the
+corresponding LSP layer in `hie-core` and adds custom handlers such as
+those for scenario results.
+
+### daml-compiler
+
+`daml-compiler` contains the implementation of a few top-level `damlc`
+commands, e.g., `upgrade`.
+
+### lib
+
+`lib` is all of `damlc` but packaged as a library since that can be
+more convenient for tests.
+
+### exe
+
+This is a tiny wrapper around `lib` to produce the `damlc` executable.
+
 ## Developing
-
-Before you start, build the IDE test suite. We fall back to this to
-find runfiles such as the scenario service and the package database
-when we’re running inside GHCi.
-
-```
-bazel build //compiler/damlc:damlc-shake-tests
-```
 
 When working on the compiler:
 
 ```
-da-ghcid //compiler/damlc:daml-ghc-test-dev --reload=compiler/damlc/test-files --test=":main --pattern="
-bazel run //compiler/damlc:daml-ghc-test-dev -- --pattern=
+da-ghcid //compiler/damlc/tests:integration-dev --reload=compiler/damlc/tests/daml-test-files --test=":main --pattern="
+bazel run //compiler/damlc/tests:integration-dev -- --pattern=
 bazel run damlc -- compile $PWD/MyDaml12File.daml
 ```
 
 When working on the IDE via the test suite:
 
 ```
-bazel run //compiler/damlc:damlc-shake-tests -- --pattern=
-da-ghcid //compiler/damlc:damlc-shake-tests --test=":main --pattern="
+bazel run //compiler/damlc/tests:shake -- --pattern=
+da-ghcid //compiler/damlc/tests:shake --test=":main --pattern="
 ```
 
 The above commands do not execute scenarios. To do that, use a command like
 ```
-bazel run damlc test $PWD/compiler/damlc/bond-trading/Test.daml
+bazel run damlc test $PWD/compiler/damlc/tests/bond-trading/Test.daml
 ```
 
 At the moment, commands relying on ghc-pkg, e.g., `damlc build` do not

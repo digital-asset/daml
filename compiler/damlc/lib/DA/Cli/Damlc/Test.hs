@@ -20,7 +20,7 @@ import qualified Data.Set as S
 import Data.Tuple.Extra
 import Control.Monad.Extra
 import Development.IDE.Core.Service.Daml
-import DA.Daml.GHC.Compiler.Options.Types
+import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScenario as SS
 import qualified DA.Daml.LF.ScenarioServiceClient as SSC

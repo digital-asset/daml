@@ -3,15 +3,15 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
-module DA.Daml.GHC.Damldoc.Tests(mkTestTree)
+module DA.Daml.Doc.Tests(mkTestTree)
   where
 
 import           DA.Bazel.Runfiles
-import           DA.Daml.GHC.Compiler.Options
-import           DA.Daml.GHC.Compiler.Options.Types
-import           DA.Daml.GHC.Damldoc.HaddockParse
-import           DA.Daml.GHC.Damldoc.Render
-import           DA.Daml.GHC.Damldoc.Types
+import           DA.Daml.Options
+import           DA.Daml.Options.Types
+import           DA.Daml.Doc.HaddockParse
+import           DA.Daml.Doc.Render
+import           DA.Daml.Doc.Types
 import           DA.Test.Util
 import Development.IDE.Types.Location
 
@@ -34,7 +34,7 @@ import Data.Maybe
 mkTestTree :: IO Tasty.TestTree
 mkTestTree = do
 
-  testDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/test-files"
+  testDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/tests/daml-test-files"
 
   let isExpectationFile filePath =
         ".EXPECTED" == takeExtensions (dropExtension filePath)
@@ -43,7 +43,7 @@ mkTestTree = do
   let goldenSrcs = nubOrd $ map (flip replaceExtensions "daml") expectFiles
   goldenTests <- mapM (fileTest . (testDir </>))  goldenSrcs
 
-  pure $ Tasty.testGroup "DA.Daml.GHC.Damldoc" $ unitTests <> concat goldenTests
+  pure $ Tasty.testGroup "DA.Daml.Doc" $ unitTests <> concat goldenTests
 
 unitTests :: [Tasty.TestTree]
 unitTests =

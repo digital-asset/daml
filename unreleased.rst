@@ -12,3 +12,4 @@ HEAD — ongoing
 - [daml assistant] Fix VSCode path for use if not already in PATH on mac
 - [Sandbox] Fixing an issue around handling passTime in scenario loader
   See `#1953 <https://github.com/digital-asset/daml/issues/1953>`__.
+  

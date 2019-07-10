@@ -11,8 +11,6 @@ import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml_lf.DamlLf.Archive
-
-import scala.util.Try
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
@@ -23,26 +21,27 @@ import com.digitalasset.ledger.api.v1.commands.CreateCommand
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField}
 import com.digitalasset.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
+import com.digitalasset.platform.apitesting.TestParties._
 import com.digitalasset.platform.apitesting.{
   MultiLedgerFixture,
   TestIdsGenerator,
   TransactionFilters
 }
 import com.digitalasset.platform.participant.util.ValueConversions._
-import io.grpc.Status
 import com.google.protobuf.ByteString
-import org.scalatest.{AsyncFreeSpec, Matchers}
+import io.grpc.Status
 import org.scalatest.Inspectors._
 import org.scalatest.concurrent.AsyncTimeLimitedTests
-import scalaz.syntax.traverse._
+import org.scalatest.{AsyncFlatSpec, Matchers}
 import scalaz.std.either._
 import scalaz.std.list._
+import scalaz.syntax.traverse._
 
 import scala.concurrent.Future
-import com.digitalasset.platform.apitesting.TestParties._
+import scala.util.Try
 
 class PackageManagementServiceIT
-    extends AsyncFreeSpec
+    extends AsyncFlatSpec
     with AkkaBeforeAndAfterAll
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
@@ -95,7 +94,9 @@ class PackageManagementServiceIT
 
   private val (testDarBytes, testPackages, testPackageId) = loadTestDar
 
-  "should accept packages" in allFixtures { ctx =>
+  behavior of "Package Management Service"
+
+  it should "accept packages" in allFixtures { ctx =>
     val client = packageManagementService(ctx.packageManagementService)
 
     // Note: this may be a long running ledger, and the test package may have been uploaded before.
@@ -113,7 +114,7 @@ class PackageManagementServiceIT
     }
   }
 
-  "should accept duplicate packages" in allFixtures { ctx =>
+  it should "accept duplicate packages" in allFixtures { ctx =>
     val client = packageManagementService(ctx.packageManagementService)
     val N = 8
 
@@ -129,7 +130,7 @@ class PackageManagementServiceIT
     }
   }
 
-  "fail with the expected status on an invalid upload" in allFixtures { ctx =>
+  it should "fail with the expected status on an invalid upload" in allFixtures { ctx =>
     packageManagementService(ctx.packageManagementService)
       .uploadDarFile(ByteString.EMPTY)
       .failed map { ex =>
@@ -137,8 +138,7 @@ class PackageManagementServiceIT
     }
   }
 
-  "should accept commands using the uploaded package" in allFixtures { ctx =>
-    val party = testIdsGenerator.testPartyName("operator")
+  it should "accept commands using the uploaded package" in allFixtures { ctx =>
     val createArg = Record(fields = List(RecordField("operator", Alice.asParty)))
     def createCmd =
       CreateCommand(Some(Identifier(testPackageId, "", "Test", "Dummy")), Some(createArg)).wrap

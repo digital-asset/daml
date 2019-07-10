@@ -88,7 +88,7 @@ fi
 
 cat > $DAML_HOME/bin/daml-head << EOF
 #!/bin/bash
-DAML_SDK_VERSION=0.0.0 $DAML_HEAD_SDK/daml/daml "\$@"
+exec env DAML_SDK_VERSION=0.0.0 $DAML_HEAD_SDK/daml/daml "\$@"
 EOF
 chmod +x $DAML_HOME/bin/daml-head
 

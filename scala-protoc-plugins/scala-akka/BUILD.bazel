@@ -6,7 +6,7 @@ load("//bazel_tools:scala.bzl", "da_scala_binary", "da_scala_library")
 da_scala_binary(
     name = "compiler_plugin",
     srcs = glob(["*.scala"]),
-    main_class = "AkkaStreamCompilerPlugin",
+    main_class = "com.digitalasset.protoc.plugins.akka.AkkaStreamCompilerPlugin",
     visibility = ["//visibility:public"],
     runtime_deps = [
         "@com_github_scalapb_scalapb//:scala-library",

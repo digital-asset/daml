@@ -3,12 +3,12 @@
 
 {-# LANGUAGE OverloadedStrings   #-}
 
-module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc, cmdRenderDoc) where
+module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc) where
 
 import           DA.Cli.Options
-import           DA.Daml.GHC.Damldoc.Driver
-import DA.Daml.GHC.Compiler.Options
-import DA.Daml.GHC.Compiler.Options.Types
+import           DA.Daml.Doc.Driver
+import DA.Daml.Options
+import DA.Daml.Options.Types
 import Development.IDE.Types.Location
 
 import           Options.Applicative
@@ -18,22 +18,16 @@ import Data.Maybe
 
 cmdDamlDoc :: Mod CommandFields (IO ())
 cmdDamlDoc = command "docs" $
-             info (helper <*> (exec <$> documentation InputDaml)) $
+             info (helper <*> (exec <$> documentation)) $
              progDesc "Generate documentation for the given DAML program."
              <> fullDesc
 
-
-cmdRenderDoc :: Mod CommandFields (IO ())
-cmdRenderDoc = command "render-doc-json" $
-               info (helper <*> (exec <$> documentation InputJson)) $
-               progDesc "Render documentation data from the given json file."
-               <> fullDesc
-
-
-documentation :: InputFormat -> Parser CmdArgs
-documentation x = Damldoc x <$>
-                optOutput
+documentation :: Parser CmdArgs
+documentation = Damldoc
+                <$> optInputFormat
+                <*> optOutput
                 <*> optJsonOrFormat
+                <*> optMbPackageName
                 <*> optPrefix
                 <*> optOmitEmpty
                 <*> optDataOnly
@@ -42,18 +36,40 @@ documentation x = Damldoc x <$>
                 <*> optExclude
                 <*> argMainFiles
   where
+    optInputFormat :: Parser InputFormat
+    optInputFormat =
+        option readInputFormat
+            $ metavar "FORMAT"
+            <> help "Input format, either 'daml' or 'json' (default is daml)."
+            <> long "input-format"
+            <> value InputDaml
+
+    readInputFormat =
+        eitherReader $ \case
+            "daml" -> Right InputDaml
+            "json" -> Right InputJson
+            _ -> Left "Unknown input format. Expected 'daml' or 'json'."
+
     optOutput :: Parser FilePath
     optOutput = option str $ metavar "OUTPUT"
                 <> help "Output name of generated files (required)"
                 <> long "output"
                 <> short 'o'
 
+    optMbPackageName :: Parser (Maybe String)
+    optMbPackageName =
+        optional . option str
+            $ metavar "NAME"
+            <> help "Name of package to generate."
+            <> long "package-name"
+
     optPrefix :: Parser (Maybe FilePath)
-    optPrefix = option (Just <$> str) $ metavar "FILE"
-                <> help "File to prepend to all generated files"
-                <> long "prefix"
-                <> short 'p'
-                <> value Nothing
+    optPrefix =
+        optional . option str
+            $ metavar "FILE"
+            <> help "File to prepend to all generated files"
+            <> long "prefix"
+            <> short 'p'
 
     argMainFiles :: Parser [FilePath]
     argMainFiles = some $ argument str $ metavar "FILE..."
@@ -114,6 +130,7 @@ documentation x = Damldoc x <$>
 data CmdArgs = Damldoc { cInputFormat :: InputFormat
                        , cOutput   :: FilePath
                        , cFormat   :: DocFormat
+                       , cPkgName :: Maybe String
                        , cPrefix   :: Maybe FilePath
                        , cOmitEmpty :: Bool
                        , cDataOnly  :: Bool
@@ -127,7 +144,7 @@ data CmdArgs = Damldoc { cInputFormat :: InputFormat
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
     opts <- defaultOptionsIO Nothing
-    damlDocDriver cInputFormat (toCompileOpts opts) cOutput cFormat cPrefix options (map toNormalizedFilePath cMainFiles)
+    damlDocDriver cInputFormat (toCompileOpts opts { optMbPackageName = cPkgName })  cOutput cFormat cPrefix options (map toNormalizedFilePath cMainFiles)
   where options =
           [ IncludeModules cIncludeMods | not $ null cIncludeMods] <>
           [ ExcludeModules cExcludeMods | not $ null cExcludeMods] <>
