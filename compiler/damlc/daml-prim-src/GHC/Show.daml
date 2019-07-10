@@ -5,7 +5,7 @@
 {-# LANGUAGE MagicHash #-}
 
 daml 1.2
--- | Included in Prelude
+-- | MOVE Prelude
 module GHC.Show
   ( Show(..)
   , ShowS
