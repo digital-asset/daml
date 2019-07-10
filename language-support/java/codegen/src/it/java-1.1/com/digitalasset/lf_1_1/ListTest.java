@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-
+// copy of language-support/java/codegen/src/it/java-1.0/com/digitalasset/lf_1_0/ListTest.java
 @RunWith(JUnitPlatform.class)
 public class ListTest {
 

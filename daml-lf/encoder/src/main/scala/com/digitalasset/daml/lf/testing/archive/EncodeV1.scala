@@ -22,7 +22,6 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
   import Name.ordering
 
   private val enumVersion: LanguageMinorVersion = "6"
-//  private val internedIdsVersion: LanguageMinorVersion = "6"
 
   def encodePackage(pkgId: PackageId, pkg: Package): PLF.Package = {
     val moduleEncoder = new ModuleEncoder(pkgId)

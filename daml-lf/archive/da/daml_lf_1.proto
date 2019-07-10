@@ -33,7 +33,7 @@
 //        2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
 //        2019-07-04: Transaction submitters must be in contract key maintainers when looking up. See #1866.
 // * dev (special staging area for the next version to be released)
-//        2019-07-01: no change yet.
+//        2019-07-04: no change yet.
 
 syntax = "proto3";
 package daml_lf_1;
