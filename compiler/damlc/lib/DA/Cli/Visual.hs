@@ -31,7 +31,7 @@ data ChoiceAndAction = ChoiceAndAction
     , actions :: Set.Set Action
     }
 
-data TemplateChoiceAction = TemplateChoiceAction
+data TemplateChoices = TemplateChoices
     { template :: LF.Template
     , choiceAndAction :: [ChoiceAndAction]
     }
@@ -77,8 +77,8 @@ startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map (\c -> ChoiceAndAction tpl c (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
 
-moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoiceAction]
-moduleAndTemplates world mod = map (\t -> TemplateChoiceAction t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
+moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
+moduleAndTemplates world mod = map (\t -> TemplateChoices t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
 
 dalfBytesToPakage :: BSL.ByteString -> ExternalPackage
 dalfBytesToPakage bytes = case Archive.decodeArchive $ BSL.toStrict bytes of
@@ -101,11 +101,11 @@ extractChoiceData (ChoiceAndAction tpl choice _) = (newChoiceName, LF.chcConsumi
 
 
 -- Making choiceName is very weird
-templateWithCreateChoice :: TemplateChoiceAction -> [(LF.ChoiceName, IsConsuming)]
-templateWithCreateChoice TemplateChoiceAction {..} = createChoice : map extractChoiceData choiceAndAction
+templateWithCreateChoice :: TemplateChoices -> [(LF.ChoiceName, IsConsuming)]
+templateWithCreateChoice TemplateChoices {..} = createChoice : map extractChoiceData choiceAndAction
     where createChoice = (LF.ChoiceName $ tplName template <> "_Create", False)
 
-choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName ChoiceDetails
+choiceNameWithId :: [TemplateChoices] -> Map.Map LF.ChoiceName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
   where choiceActions = concatMap templateWithCreateChoice tplChcActions
         choiceWithIds = map (\((cName, consume), id) -> (cName, ChoiceDetails id consume)) $ zip choiceActions [0..]
@@ -115,12 +115,12 @@ nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
   Just node -> node
   Nothing -> error "Template node lookup failed"
 
-addCreateChoice :: TemplateChoiceAction -> Map.Map LF.ChoiceName ChoiceDetails -> (LF.ChoiceName, ChoiceDetails)
-addCreateChoice TemplateChoiceAction {..} lookupData = (tplNameCreateChoice, nodeIdForChoice lookupData tplNameCreateChoice)
+addCreateChoice :: TemplateChoices -> Map.Map LF.ChoiceName ChoiceDetails -> (LF.ChoiceName, ChoiceDetails)
+addCreateChoice TemplateChoices {..} lookupData = (tplNameCreateChoice, nodeIdForChoice lookupData tplNameCreateChoice)
     where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (head (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
 
-constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoiceAction -> SubGraph
-constructSubgraphsWithLables lookupData tpla@TemplateChoiceAction {..} = SubGraph nodesWithCreate template
+constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
+constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate template
   where choicesInTemplete = map extractChoiceData choiceAndAction
         nodes = map (\(chc, _) -> (chc, nodeIdForChoice lookupData chc)) choicesInTemplete
         nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData]
@@ -134,7 +134,7 @@ choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
 choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
     where pairs = map (\ac -> (fst $ extractChoiceData cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
 
-graphEdges :: Map.Map LF.ChoiceName ChoiceDetails -> [TemplateChoiceAction] -> [(ChoiceDetails, ChoiceDetails)]
+graphEdges :: Map.Map LF.ChoiceName ChoiceDetails -> [TemplateChoices] -> [(ChoiceDetails, ChoiceDetails)]
 graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1, nodeIdForChoice lookupData chn2)) choicePairsForTemplates
   where chcActionsFromAllTemplates = concatMap choiceAndAction tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
