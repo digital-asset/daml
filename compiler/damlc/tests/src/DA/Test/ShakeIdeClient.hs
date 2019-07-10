@@ -460,7 +460,7 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors
-            expectOnlyDiagnostics [(DsHint, (foo, 0, 0), "Suggestion: Use newtype")] -- hlint!
+            expectOnlyDiagnostics [(DsInfo, (foo, 0, 0), "Suggestion: Use newtype")] -- hlint!
             -- foo
             expectGoToDefinition (foo,1,[13..14]) (At (foo,3,0))
             -- A
