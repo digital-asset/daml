@@ -80,12 +80,11 @@ object ScenarioLoader {
         processed: BackStack[LedgerEntryOrBump],
         toProcess: ImmArray[(ScenarioTransactionId, LedgerEntry)]): ImmArray[LedgerEntryOrBump] = {
 
-      def bumps(entryTxId: ScenarioTransactionId, nextTxId: ScenarioTransactionId) = {
+      def bumps(entryTxId: ScenarioTransactionId, nextTxId: ScenarioTransactionId) =
         if ((nextTxId.index - entryTxId.index) == 1)
           ImmArray.empty
         else
           ImmArray(LedgerEntryOrBump.Bump((nextTxId.index - entryTxId.index - 1)))
-      }
 
       toProcess match {
         case ImmArray() => processed.toImmArray
