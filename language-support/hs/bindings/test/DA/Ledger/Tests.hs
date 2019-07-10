@@ -305,10 +305,11 @@ tGetLedgerConfiguration :: SandboxTest
 tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run withSandbox $ \_pid -> do
     lid <- getLedgerIdentity
     xs <- getLedgerConfiguration lid
-    Just(Right x) <- liftIO $ timeout 1 (takeStream xs)
-    liftIO $ do
-        --print x
-        assertEqual "defined" x x -- check nothing is undefined
+    Just (Right config) <- liftIO $ timeout 1 (takeStream xs)
+    let expected = LedgerConfiguration {
+            minTtl = Duration {durationSeconds = 2, durationNanos = 0},
+            maxTtl = Duration {durationSeconds = 30, durationNanos = 0}}
+    liftIO $ assertEqual "config" expected config
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands

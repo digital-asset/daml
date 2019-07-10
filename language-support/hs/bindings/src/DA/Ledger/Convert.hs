@@ -17,13 +17,11 @@ module DA.Ledger.Convert (
     RaiseFailureReason,
     ) where
 
-import Control.Monad((>=>))
 import Data.Map(Map)
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Data.Vector as Vector (Vector,fromList,toList)
 
-import qualified Google.Protobuf.Duration as LL
 import qualified Google.Protobuf.Empty as LL
 import qualified Google.Protobuf.Timestamp as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.ActiveContractsService as LL
@@ -166,21 +164,19 @@ optional = \case
     Right a -> Just a
 
 raiseGetLedgerConfigurationResponse :: LL.GetLedgerConfigurationResponse -> Perhaps LedgerConfiguration
-raiseGetLedgerConfigurationResponse =
-    (perhaps "ledgerConfiguration" >=> raiseLedgerConfiguration)
-    . LL.getLedgerConfigurationResponseLedgerConfiguration
+raiseGetLedgerConfigurationResponse x =
+    perhaps "ledgerConfiguration" (LL.getLedgerConfigurationResponseLedgerConfiguration x)
+    >>= raiseLedgerConfiguration
+
 
 raiseLedgerConfiguration :: LL.LedgerConfiguration -> Perhaps LedgerConfiguration
 raiseLedgerConfiguration = \case
     LL.LedgerConfiguration{ledgerConfigurationMinTtl,
                            ledgerConfigurationMaxTtl
                           } -> do
-        minTtl <- perhaps "min_ttl" ledgerConfigurationMinTtl >>= raiseDuration
-        maxTtl <- perhaps "max_ttl" ledgerConfigurationMaxTtl >>= raiseDuration
+        minTtl <- perhaps "min_ttl" ledgerConfigurationMinTtl
+        maxTtl <- perhaps "max_ttl" ledgerConfigurationMaxTtl
         return $ LedgerConfiguration {minTtl, maxTtl}
-
-raiseDuration :: LL.Duration -> Perhaps Duration
-raiseDuration = return -- Duration === LL.Duration
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case

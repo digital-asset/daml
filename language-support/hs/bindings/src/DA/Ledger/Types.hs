@@ -51,7 +51,8 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     Verbosity(..),
 
     LedgerConfiguration(..),
-    Duration --(..),
+
+    LL.Duration(..),
 
     ) where
 
@@ -272,5 +273,4 @@ data LedgerConfiguration = LedgerConfiguration
     , maxTtl :: Duration
     } deriving (Eq,Ord,Show)
 
---data Duration = Duration deriving (Eq,Ord,Show)
 type Duration = LL.Duration
