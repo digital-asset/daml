@@ -45,14 +45,14 @@ private[parser] object Parsers extends scala.util.parsing.combinator.Parsers {
     def ~>![U](q: => Parser[U]): Parser[U] = {
       lazy val p = q // lazy argument
       OnceParser {
-        (for (a <- parser; b <- commit(p)) yield b).named("~>!")
+        (for (_ <- parser; b <- commit(p)) yield b).named("~>!")
       }
     }
 
     def <~![U](q: => Parser[U]): Parser[T] = {
       lazy val p = q // lazy argument
       OnceParser {
-        (for (a <- parser; b <- commit(p)) yield a).named("<~!")
+        (for (a <- parser; _ <- commit(p)) yield a).named("<~!")
       }
     }
   }
