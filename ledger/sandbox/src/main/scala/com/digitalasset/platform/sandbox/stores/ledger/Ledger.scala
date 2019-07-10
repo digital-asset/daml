@@ -22,7 +22,7 @@ import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.inmemory.InMemoryLedger
 import com.digitalasset.platform.sandbox.stores.ledger.sql.{
   ReadOnlySqlLedger,
@@ -101,7 +101,7 @@ object Ledger {
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
-      ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Ledger =
+      ledgerEntries: ImmArray[LedgerEntryOrBump]): Ledger =
     new InMemoryLedger(ledgerId, timeProvider, acs, packages, ledgerEntries)
 
   /**
@@ -122,7 +122,7 @@ object Ledger {
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
-      ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
+      ledgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       startMode: SqlStartMode
   )(implicit mat: Materializer, mm: MetricsManager): Future[Ledger] =

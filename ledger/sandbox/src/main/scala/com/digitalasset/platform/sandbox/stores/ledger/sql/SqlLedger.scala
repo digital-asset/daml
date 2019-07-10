@@ -30,7 +30,7 @@ import com.digitalasset.platform.sandbox.LedgerIdGenerator
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.{InMemoryActiveContracts, InMemoryPackageStore}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode.{
   AlwaysReset,
@@ -77,7 +77,7 @@ object SqlLedger {
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
-      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int,
       startMode: SqlStartMode = SqlStartMode.ContinueIfExists)(
       implicit mat: Materializer,
@@ -384,7 +384,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       startMode: SqlStartMode,
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
-      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement],
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump],
       queueDepth: Int)(implicit mat: Materializer): Future[SqlLedger] = {
     @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val ec = DEC
@@ -413,7 +413,7 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts,
       packages: InMemoryPackageStore,
-      initialLedgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement]): Future[LedgerId] = {
+      initialLedgerEntries: ImmArray[LedgerEntryOrBump]): Future[LedgerId] = {
     // Note that here we only store the ledger entry and we do not update anything else, such as the
     // headRef. We also are not concerns with heartbeats / checkpoints. This is OK since this initialization
     // step happens before we start up the sql ledger at all, so it's running in isolation.
@@ -453,7 +453,12 @@ private class SqlLedgerFactory(ledgerDao: LedgerDao) {
                 (initialLedgerEnd, immutable.Seq.empty[(Long, LedgerEntry)]))((acc, le) => {
                 val offset = acc._1
                 val seq = acc._2
-                (offset + le.increment, seq :+ offset -> le.entry)
+                le match {
+                  case LedgerEntryOrBump.Entry(entry) =>
+                    (offset + 1, seq :+ offset -> entry)
+                  case LedgerEntryOrBump.Bump(increment) =>
+                    (offset + increment, seq)
+                }
               })
 
               @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))

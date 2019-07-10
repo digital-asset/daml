@@ -41,7 +41,12 @@ object ScenarioLoader {
     * otherwise we'll get duplicates. See
     * <https://github.com/digital-asset/daml/issues/1079>.
     */
-  case class LedgerEntryWithLedgerEndIncrement(entry: LedgerEntry, increment: Long)
+  sealed abstract class LedgerEntryOrBump extends Serializable with Product
+
+  object LedgerEntryOrBump {
+    final case class Entry(ledgerEntry: LedgerEntry) extends LedgerEntryOrBump
+    final case class Bump(bump: Int) extends LedgerEntryOrBump
+  }
 
   /**
     * @param packages All the packages where we're going to look for the scenario definition.
@@ -56,8 +61,7 @@ object ScenarioLoader {
   def fromScenario(
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
-      scenario: String)
-    : (InMemoryActiveContracts, ImmArray[LedgerEntryWithLedgerEndIncrement], Instant) = {
+      scenario: String): (InMemoryActiveContracts, ImmArray[LedgerEntryOrBump], Instant) = {
     val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, compiledPackages, scenario)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
@@ -73,22 +77,39 @@ object ScenarioLoader {
     // now decorate the entries with what the next increment is
     @tailrec
     def decorateWithIncrement(
-        processed: BackStack[LedgerEntryWithLedgerEndIncrement],
-        toProcess: ImmArray[(ScenarioTransactionId, LedgerEntry)])
-      : ImmArray[LedgerEntryWithLedgerEndIncrement] =
+        processed: BackStack[LedgerEntryOrBump],
+        toProcess: ImmArray[(ScenarioTransactionId, LedgerEntry)]): ImmArray[LedgerEntryOrBump] = {
+
+      def bumps(entryTxId: ScenarioTransactionId, nextTxId: ScenarioTransactionId) = {
+        if ((nextTxId.index - entryTxId.index) == 1)
+          ImmArray.empty
+        else
+          ImmArray(LedgerEntryOrBump.Bump((nextTxId.index - entryTxId.index - 1)))
+      }
+
       toProcess match {
         case ImmArray() => processed.toImmArray
+        // we have to bump the offsets when the first one is not zero (passTimes),
+        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _))
+            if (processed.isEmpty && entryTxId.index > 0) =>
+          val newProcessed = (processed :++ ImmArray(
+            LedgerEntryOrBump.Bump(entryTxId.index),
+            LedgerEntryOrBump.Entry(entry))) :++ bumps(entryTxId, nextTxId)
+
+          decorateWithIncrement(newProcessed, entries)
         // the last one just bumps by 1 -- it does not matter as long as it's
         // positive
         case ImmArrayCons((_, entry), ImmArray()) =>
-          (processed :+ LedgerEntryWithLedgerEndIncrement(entry, 1)).toImmArray
+          (processed :+ LedgerEntryOrBump.Entry(entry)).toImmArray
+
         case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _)) =>
-          decorateWithIncrement(
-            processed :+ LedgerEntryWithLedgerEndIncrement(
-              entry,
-              (nextTxId.index - entryTxId.index).toLong),
-            entries)
+          val newProcessed = processed :+ LedgerEntryOrBump.Entry(entry) :++ bumps(
+            entryTxId,
+            nextTxId)
+
+          decorateWithIncrement(newProcessed, entries)
       }
+    }
     (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
   }
 

@@ -13,7 +13,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.sandbox.stores.ledger.Ledger
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 
 import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
@@ -35,7 +35,7 @@ object LedgerResource {
       timeProvider: TimeProvider,
       acs: InMemoryActiveContracts = InMemoryActiveContracts.empty,
       packages: InMemoryPackageStore = InMemoryPackageStore.empty,
-      entries: ImmArray[LedgerEntryWithLedgerEndIncrement] = ImmArray.empty): Resource[Ledger] =
+      entries: ImmArray[LedgerEntryOrBump] = ImmArray.empty): Resource[Ledger] =
     LedgerResource.resource(
       () =>
         Future.successful(
