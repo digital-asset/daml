@@ -108,7 +108,7 @@ templateWithCreateChoice TemplateChoiceAction {..} = createChoice : map extractC
 choiceNameWithId :: [TemplateChoiceAction] -> Map.Map LF.ChoiceName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
   where choiceActions = concatMap templateWithCreateChoice tplChcActions
-        choiceWithIds = map (\ ((cName, consume) , id) -> (cName, ChoiceDetails id consume) ) $ zip choiceActions [0..]
+        choiceWithIds = map (\((cName, consume), id) -> (cName, ChoiceDetails id consume)) $ zip choiceActions [0..]
 
 nodeIdForChoice :: Map.Map LF.ChoiceName ChoiceDetails -> LF.ChoiceName -> ChoiceDetails
 nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
