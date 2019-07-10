@@ -147,7 +147,7 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-navigator:
 
-#. Open a new terminal window and navigate to your project directory.
+#. Open a new terminal window and navigate to your project directory, ``quickstart``.
 #. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``daml navigator server``
 
    The Navigator automatically connects the sandbox. You can access it on port ``4000``.
