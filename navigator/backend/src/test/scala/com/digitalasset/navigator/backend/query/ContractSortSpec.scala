@@ -7,6 +7,7 @@ import org.scalatest.{FlatSpec, Matchers}
 import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 import com.digitalasset.navigator.model._
 import scalaz.syntax.tag._
+import com.digitalasset.navigator.DamlConstants.singletonRecord
 import com.digitalasset.navigator.query.SortDirection.{ASCENDING, DESCENDING}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import scalaz.Tag
@@ -82,7 +83,7 @@ class ContractSortSpec extends FlatSpec with Matchers {
   val contract1 = Contract(
     ApiTypes.ContractId("id1"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
+    singletonRecord("foo", ApiText("bar")),
     None,
     List(alice),
     List(bob, charlie),
@@ -90,16 +91,16 @@ class ContractSortSpec extends FlatSpec with Matchers {
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
-    ApiRecord(None, List(ApiRecordField("int", ApiInt64(1)))),
+    singletonRecord("int", ApiInt64(1)),
     Some(""),
     List(gloria),
     List(ernest, francis),
-    Some(ApiRecord(None, List(ApiRecordField("foo", ApiText("foo")))))
+    Some(singletonRecord("foo", ApiText("foo")))
   )
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
+    singletonRecord("foo", ApiText("bar")),
     Some("agreement"),
     List(dana),
     List(henry, ivy),
@@ -107,11 +108,11 @@ class ContractSortSpec extends FlatSpec with Matchers {
   val contract4 = Contract(
     ApiTypes.ContractId("id4"),
     template2,
-    ApiRecord(None, List(ApiRecordField("int", ApiInt64(2)))),
+    singletonRecord("int", ApiInt64(2)),
     None,
     List(john),
     List(kevin, louise),
-    Some(ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))))
+    Some(singletonRecord("foo", ApiText("bar")))
   )
 
   val contracts = List(contract1, contract2, contract3, contract4)
