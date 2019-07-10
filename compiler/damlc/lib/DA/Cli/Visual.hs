@@ -147,7 +147,7 @@ choiceDetailsColorCode True = "red"
 choiceDetailsColorCode False = "green"
 
 subGraphBodyLine :: (LF.ChoiceName, ChoiceDetails) -> String
-subGraphBodyLine (chc, ChoiceDetails{..}) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++";color=" ++ choiceDetailsColorCode consuming ++"]; "
+subGraphBodyLine (chc, ChoiceDetails{..}) = "n" ++ show nodeId ++ "[label=" ++ DAP.renderPretty chc ++"][color=" ++ choiceDetailsColorCode consuming ++"]; "
 
 subGraphEnd :: LF.Template -> String
 subGraphEnd tpl = "label=" ++ DAP.renderPretty (LF.tplTypeCon tpl) ++ ";color=" ++ "blue" ++ "\n}"
