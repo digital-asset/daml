@@ -94,7 +94,7 @@ DAML Integration Kit
 
 DAML-LF
 ~~~~~~~
-- The DAML-LF developement version (``1.dev``) includes a new, breaking restriction
+- The DAML-LF development version (``1.dev``) includes a new, breaking restriction
   regarding contract key lookups. In short, when looking up or fetching a key,
   the transaction submitter must be one of the key maintainers.
   Note that this change is not breaking since the compiler does not produce DAML-LF
