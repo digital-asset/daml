@@ -167,6 +167,7 @@ xFlagsSet :: [ GeneralFlag ]
 xFlagsSet = [
    Opt_Haddock
  , Opt_Ticky
+ , Opt_KeepRawTokenStream -- Harvest comments when lexing.
  ]
 
 -- | Warning options set for DAML compilation. Note that these can be modified
