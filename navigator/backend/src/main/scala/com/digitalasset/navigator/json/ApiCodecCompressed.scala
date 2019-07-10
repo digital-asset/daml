@@ -35,13 +35,13 @@ object ApiCodecCompressed {
     case v: Model.ApiEnum => apiEnumToJsValue(v)
     case v: Model.ApiList => apiListToJsValue(v)
     case Model.ApiText(v) => JsString(v)
-    case Model.ApiInt64(v) => JsString(v.toString)
+    case Model.ApiInt64(v) => JsString((v: Long).toString)
     case Model.ApiDecimal(v) => JsString(v.decimalToString)
     case Model.ApiBool(v) => JsBoolean(v)
-    case Model.ApiContractId(v) => JsString(v.toString)
+    case Model.ApiContractId(v) => JsString(v)
     case t: Model.ApiTimestamp => JsString(t.toIso8601)
     case d: Model.ApiDate => JsString(d.toIso8601)
-    case Model.ApiParty(v) => JsString(v.toString)
+    case Model.ApiParty(v) => JsString(v)
     case Model.ApiUnit => JsObject.empty
     // Note: Optional needs to be boxed, otherwise the following values are indistinguishable:
     // None, Some(None), Some(Some(None)), ...
@@ -49,7 +49,7 @@ object ApiCodecCompressed {
     case Model.ApiOptional(Some(v)) => JsObject(fieldSome -> apiValueToJsValue(v))
     case v: Model.ApiMap =>
       apiMapToJsValue(v)
-    case _: Model.ApiImpossible => sys.error("impossible! tuples are not serializable")
+    case _: Model.ApiImpossible => serializationError("impossible! tuples are not serializable")
   }
 
   private[this] def apiListToJsValue(value: Model.ApiList): JsValue =

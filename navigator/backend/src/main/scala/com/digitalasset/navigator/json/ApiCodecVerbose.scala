@@ -59,24 +59,24 @@ object ApiCodecVerbose {
     case v: Model.ApiList => apiListToJsValue(v)
     case Model.ApiText(v) => JsObject(propType -> JsString(tagText), propValue -> JsString(v))
     case Model.ApiInt64(v) =>
-      JsObject(propType -> JsString(tagInt64), propValue -> JsString(v.toString))
+      JsObject(propType -> JsString(tagInt64), propValue -> JsString((v: Long).toString))
     case Model.ApiDecimal(v) =>
       JsObject(propType -> JsString(tagDecimal), propValue -> JsString(v.decimalToString))
     case Model.ApiBool(v) => JsObject(propType -> JsString(tagBool), propValue -> JsBoolean(v))
     case Model.ApiContractId(v) =>
-      JsObject(propType -> JsString(tagContractId), propValue -> JsString(v.toString))
+      JsObject(propType -> JsString(tagContractId), propValue -> JsString(v))
     case v: Model.ApiTimestamp =>
       JsObject(propType -> JsString(tagTimestamp), propValue -> JsString(v.toIso8601))
     case v: Model.ApiDate =>
       JsObject(propType -> JsString(tagDate), propValue -> JsString(v.toIso8601))
     case Model.ApiParty(v) =>
-      JsObject(propType -> JsString(tagParty), propValue -> JsString(v.toString))
+      JsObject(propType -> JsString(tagParty), propValue -> JsString(v))
     case Model.ApiUnit => JsObject(propType -> JsString(tagUnit))
     case Model.ApiOptional(None) => JsObject(propType -> JsString(tagOptional), propValue -> JsNull)
     case Model.ApiOptional(Some(v)) =>
       JsObject(propType -> JsString(tagOptional), propValue -> apiValueToJsValue(v))
     case v: Model.ApiMap => apiMapToJsValue(v)
-    case _: Model.ApiImpossible => sys.error("impossible! tuples are not serializable")
+    case _: Model.ApiImpossible => serializationError("impossible! tuples are not serializable")
   }
 
   def apiListToJsValue(value: Model.ApiList): JsValue =
