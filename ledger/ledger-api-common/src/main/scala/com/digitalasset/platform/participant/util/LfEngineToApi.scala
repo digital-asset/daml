@@ -34,7 +34,6 @@ import com.digitalasset.ledger.api.v1.value.{
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
 
-import scala.annotation.tailrec
 import scala.collection.IterableLike
 import scala.collection.generic.CanBuildFrom
 

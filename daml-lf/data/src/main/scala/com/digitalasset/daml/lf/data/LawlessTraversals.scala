@@ -12,7 +12,7 @@ private[digitalasset] object LawlessTraversals {
       extends AnyVal {
     def traverseEitherStrictly[E, B, That](f: A => Either[E, B])(
         implicit cbf: CanBuildFrom[This, B, That]): Either[E, That] = {
-      val that = cbf()
+      val that = cbf(seq.repr)
       that.sizeHint(seq)
       val i = seq.iterator
       @tailrec def lp(): Either[E, That] =
