@@ -33,9 +33,9 @@ message TransactionTree {
   // Optional
   string workflow_id = 3;
 
-  // Ledger effective time.
+  // Submitter time
   // Required
-  google.protobuf.Timestamp effective_at = 4;
+  google.protobuf.Timestamp submitter_time = 4;
 
   // field ID 5 deprecated
 
@@ -93,9 +93,8 @@ message Transaction {
   string workflow_id = 3;
 
   // Ledger effective time.
-  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
-  google.protobuf.Timestamp effective_at = 4;
+  google.protobuf.Timestamp submitter_time = 4;
 
   // The collection of events.
   // Only contains ``CreatedEvent`` or ``ArchivedEvent``.

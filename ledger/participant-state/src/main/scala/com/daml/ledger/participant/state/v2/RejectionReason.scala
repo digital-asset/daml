@@ -74,8 +74,8 @@ object RejectionReason {
     * identity-manager.
     *
     */
-  final case object PartyNotKnownOnLedger extends RejectionReason {
-    override def description: String = "Party not known on ledger"
+  final case object PartyNotKnownOnLedger(party: String) extends RejectionReason {
+    override def description: String = s"Party $party not known on ledger"
   }
 
   /** The submitter cannot act via this participant.

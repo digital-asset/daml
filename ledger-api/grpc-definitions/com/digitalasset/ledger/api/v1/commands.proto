@@ -39,6 +39,10 @@ message Commands {
   // Required
   string command_id = 4;
 
+  // Timeout for how long the participant node will enforce de-duplication on
+  // command-id for the given command
+  google.protobuf.Timestamp command_id_deduplication_expiry = 9;
+
   // Party on whose behalf the command should be executed. It is up to the server to verify that the
   // authorisation can be granted and that the connection has been authenticated for that party.
   // Must be a valid PartyIdString (as described in ``value.proto``).
@@ -47,7 +51,7 @@ message Commands {
 
   // MUST be an approximation of the wall clock time on the ledger server.
   // Required
-  google.protobuf.Timestamp ledger_effective_time = 6;
+  google.protobuf.Timestamp submitter_time = 6;
 
   // The deadline for observing this command in the completion stream before it can be considered to have timed out.
   // Required

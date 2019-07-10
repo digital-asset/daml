@@ -18,7 +18,13 @@ import java.time.Instant
   *
   * @param commandId: a submitter provided identifier that he can use to
   *   correlate the stream of changes to the participant state with the
-  *   changes he submitted.
+  *   changes he submitted. In addition, the participant will reject any 
+  *   subsequent command using the same commandId until the deuplication
+  *   timeout has been reached
+  *
+  * @param commandIdDeduplicationTimeout: a submitter provided time until when
+  *   the given commandId should be stored at the participant and used for
+  *   deduplication purposes.
   *
   * @param maxRecordTime: the maximum record time (inclusive) until which
   *   the submitted change can be validly added to the ledger. This is used
@@ -30,5 +36,6 @@ final case class SubmitterInfo(
     submitter: Party,
     applicationId: ApplicationId,
     commandId: CommandId,
+    commandIdDeduplicationTimeout: Instant,
     maxRecordTime: Instant
 )

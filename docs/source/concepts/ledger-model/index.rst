@@ -30,3 +30,4 @@ They also briefly describe the link between DAML and the model.
    ledger-integrity
    ledger-privacy
    ledger-daml
+   ledger-time

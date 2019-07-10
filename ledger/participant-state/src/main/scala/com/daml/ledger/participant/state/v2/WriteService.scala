@@ -42,14 +42,15 @@ trait WriteService extends WritePackagesService with WritePartyService {
     * communicated using a [[Update.TransactionAccepted]] message. Failed
     * transaction acceptance is communicated when possible via a
     * [[Update.CommandRejected]] message referencing the same `submitterInfo` as
-    * provided in the submission. There can be failure modes where a
-    * transaction submission is lost in transit, and no [[Update.CommandRejected]] is
-    * generated. These failures are communicated via [[Update.Heartbeat]]s signalling
-    * that the `maximumRecordTime` provided in the submitter info has been
-    * exceeded. See the comments on [[ReadService.stateUpdates]] for further details.
+    * provided in the submission.
     *
-    * A note on ledger effective time and record time: transactions are
-    * submitted together with a `ledgerEffectiveTime` provided as part of the
+    * In order to deal with potentially lost commands, the underlying
+    * synchronisation layer must implement command-id de-duplication logic
+    * based on the (command-id, command-id-deduplication-expiry) in order to
+    * support application crash recovery.
+    *
+    * A note on ledger effective time: Transactions are submitted together
+    * with a `ledgerEffectiveTime` provided as part of the
     * `transactionMeta` information. The ledger-effective time is used by the
     * DAML Engine to resolve calls to the `getTime :: Update Time`
     * function. Letting the submitter freely choose the ledger-effective time
@@ -58,23 +59,15 @@ trait WriteService extends WritePackagesService with WritePartyService {
     * submit transactions that are effective far in the past or future
     * relative to the wall-clock time of the other participants. This gives
     * the submitter an unfair advantage and make the semantics of `getTime`
-    * quite surprising. We've chosen the following solution to provide useful
-    * guarantees for contracts relying on `getTime`.
+    * quite surprising.
     *
-    * The ledger is charged with (1) associating record-time stamps to accepted
-    * transactions and (2) to provide a guarantee on the maximal skew between the
-    * ledger effective time and the record time stamp associated to an
-    * accepted transaction. The ledger is also expected to provide guarantees
-    * on the distribution of the maximal skew between record time stamps on
-    * accepted transactions and the wall-clock time at delivery of accepted transactions to a ledger
-    * participant. Thereby providing ledger participants with a guarantee on the
-    * maximal skew between the ledger effective time of an accepted
-    * transaction and the wall-clock time at delivery to these participants.
+    * However, time is a local property and in a distributed system, there is
+    * no single time. Therefore, we treat `getTime` as an approximate property
+    * and assume that the underlying sychronisation layer has some criteria to
+    * decide on how much clock skew it is willing to accept.
     *
-    * Concretely, we typically expect the allowed skew between record time and
-    * ledger effective time to be in the minute range. Thereby leaving ample
-    * time for submitting and validating large transactions before they are
-    * timestamped with their record time.
+    * A consequence of that is that we do not guarantee transactions to be
+    * ordered by LET on the event stream.
     *
     * @param submitterInfo   : the information provided by the submitter for
     *                        correlating this submission with its acceptance or rejection on the
