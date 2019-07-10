@@ -180,7 +180,7 @@ jobs:
             # This produces out/src/extension.js
             bazel run @nodejs//:bin/yarn
             bazel run @nodejs//:bin/yarn compile
-            bazel run @daml_extension_deps//vsce/bin:vsce -- publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
+            bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
           else
             if [[ "${GITHUB#v}" == "$MARKET" ]]; then
               echo "Version on marketplace is already the latest ($GITHUB)."
