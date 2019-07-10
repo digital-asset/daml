@@ -64,6 +64,7 @@ da_haskell_test(
     srcs = glob(["tests/**/*.hs"]),
     hazel_deps = [
         "aeson",
+        "extra",
         "tasty",
         "base",
         "directory",
