@@ -7,6 +7,7 @@ import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Decimal
+import com.digitalasset.daml.lf.data.LawlessTraversals._
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
@@ -33,9 +34,6 @@ import com.digitalasset.ledger.api.v1.value.{
 
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
-
-import scala.collection.IterableLike
-import scala.collection.generic.CanBuildFrom
 
 object LfEngineToApi {
 
@@ -118,7 +116,7 @@ object LfEngineToApi {
           .map(list => ApiValue(ApiValue.Sum.Map(ApiMap(list))))
       case Lf.ValueTuple(_) => Left("tuples not allowed")
       case Lf.ValueList(vs) =>
-        traverseEitherStrictly(vs.toImmArray.toSeq)(lfValueToApiValue(verbose, _)) map { xs =>
+        vs.toImmArray.toSeq.traverseEitherStrictly(lfValueToApiValue(verbose, _)) map { xs =>
           ApiValue(ApiValue.Sum.List(ApiList(xs)))
         }
       case Lf.ValueVariant(tycon, variant, v) =>
@@ -140,7 +138,7 @@ object LfEngineToApi {
                 value
               ))))
       case Lf.ValueRecord(tycon, fields) =>
-        traverseEitherStrictly(fields.toSeq) { field =>
+        fields.toSeq.traverseEitherStrictly { field =>
           lfValueToApiValue(verbose, field._2) map { x =>
             RecordField(
               if (verbose)
@@ -223,10 +221,4 @@ object LfEngineToApi {
   @throws[RuntimeException]
   def assertOrRuntimeEx[A](failureContext: String, ea: Either[String, A]): A =
     ea.fold(e => throw new RuntimeException(s"Unexpected error when $failureContext: $e"), identity)
-
-  private[this] def traverseEitherStrictly[A, B, C, This, That](seq: IterableLike[A, This])(
-      f: A => Either[B, C])(implicit cbf: CanBuildFrom[This, C, That]): Either[B, That] = {
-    import com.digitalasset.daml.lf.data.LawlessTraversals._
-    seq traverseEitherStrictly f
-  }
 }
