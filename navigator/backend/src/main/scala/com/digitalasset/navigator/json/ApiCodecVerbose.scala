@@ -132,7 +132,7 @@ object ApiCodecVerbose {
   private[this] def jsValueToApiRecordField(value: JsValue): Model.ApiRecordField = {
     val label = strField(value, propLabel, "ApiRecordField")
     val avalue = jsValueToApiValue(anyField(value, propValue, "ApiRecordField"))
-    Model.ApiRecordField(Some(assertE(Ref.Name fromString label)), avalue)
+    Model.ApiRecordField(Some(assertDE(Ref.Name fromString label)), avalue)
   }
 
   def jsValueToApiValue(value: JsValue): Model.ApiValue =
@@ -145,14 +145,14 @@ object ApiCodecVerbose {
       case `tagText` => Model.ApiText(strField(value, propValue, "ApiText"))
       case `tagInt64` => Model.ApiInt64(strField(value, propValue, "ApiInt64").toLong)
       case `tagDecimal` =>
-        Model.ApiDecimal(assertE(LfDecimal fromString strField(value, propValue, "ApiDecimal")))
+        Model.ApiDecimal(assertDE(LfDecimal fromString strField(value, propValue, "ApiDecimal")))
       case `tagBool` => Model.ApiBool(boolField(value, propValue, "ApiBool"))
       case `tagContractId` => Model.ApiContractId(strField(value, propValue, "ApiContractId"))
       case `tagTimestamp` =>
         Model.ApiTimestamp.fromIso8601(strField(value, propValue, "ApiTimestamp"))
       case `tagDate` => Model.ApiDate.fromIso8601(strField(value, propValue, "ApiDate"))
       case `tagParty` =>
-        Model.ApiParty(assertE(Ref.Party fromString strField(value, propValue, "ApiParty")))
+        Model.ApiParty(assertDE(Ref.Party fromString strField(value, propValue, "ApiParty")))
       case `tagUnit` => Model.ApiUnit
       case `tagOptional` =>
         anyField(value, propValue, "ApiOptional") match {
@@ -205,7 +205,7 @@ object ApiCodecVerbose {
           asObject(value, "ApiVariant").fields
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
-          assertE(Ref.Name fromString strField(value, propConstructor, "ApiVariant")),
+          assertDE(Ref.Name fromString strField(value, propConstructor, "ApiVariant")),
           jsValueToApiValue(anyField(value, propValue, "ApiVariant"))
         )
       case t =>
@@ -220,7 +220,7 @@ object ApiCodecVerbose {
           asObject(value, "ApiEnum").fields
             .get(propId)
             .flatMap(_.convertTo[Option[DamlLfIdentifier]]),
-          assertE(Ref.Name fromString strField(value, propConstructor, "ApiEnum"))
+          assertDE(Ref.Name fromString strField(value, propConstructor, "ApiEnum"))
         )
       case t =>
         deserializationError(
@@ -248,6 +248,6 @@ object ApiCodecVerbose {
     }
   }
 
-  private[this] def assertE[A](ea: Either[String, A]): A =
+  private[this] def assertDE[A](ea: Either[String, A]): A =
     ea fold (deserializationError(_), identity)
 }

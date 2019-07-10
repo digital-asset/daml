@@ -52,16 +52,16 @@ object ApiCodecCompressed {
     case _: Model.ApiImpossible => sys.error("impossible! tuples are not serializable")
   }
 
-  def apiListToJsValue(value: Model.ApiList): JsValue =
+  private[this] def apiListToJsValue(value: Model.ApiList): JsValue =
     JsArray(value.values.map(apiValueToJsValue).toImmArray.toSeq: _*)
 
-  def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
+  private[this] def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
     JsObject(Map((value.variant: String) -> apiValueToJsValue(value.value)))
 
-  def apiEnumToJsValue(value: Model.ApiEnum): JsValue =
+  private[this] def apiEnumToJsValue(value: Model.ApiEnum): JsValue =
     JsString(value.value)
 
-  def apiRecordToJsValue(value: Model.ApiRecord): JsValue =
+  private[this] def apiRecordToJsValue(value: Model.ApiRecord): JsValue =
     value match {
       case FullyNamedApiRecord(_, fields) =>
         JsObject(fields.toSeq.map {
@@ -76,7 +76,7 @@ object ApiCodecCompressed {
         }: _*)
     }
 
-  def apiMapToJsValue(value: Model.ApiMap): JsValue =
+  private[this] def apiMapToJsValue(value: Model.ApiMap): JsValue =
     JsObject(
       value.value.toImmArray
         .map { case (k, v) => k -> apiValueToJsValue(v) }
@@ -87,17 +87,17 @@ object ApiCodecCompressed {
   // Decoding - this needs access to DAML-LF types
   // ------------------------------------------------------------------------------------------------------------------
 
-  def jsValueToApiPrimitive(
+  private[this] def jsValueToApiPrimitive(
       value: JsValue,
       prim: Model.DamlLfTypePrim,
       defs: Model.DamlLfTypeLookup): Model.ApiValue = {
     (value, prim.typ) match {
       case (JsString(v), Model.DamlLfPrimType.Decimal) =>
-        LfDecimal fromString v fold (deserializationError(_), Model.ApiDecimal)
+        Model.ApiDecimal(assertDE(LfDecimal fromString v))
       case (JsString(v), Model.DamlLfPrimType.Int64) => Model.ApiInt64(v.toLong)
       case (JsString(v), Model.DamlLfPrimType.Text) => Model.ApiText(v)
       case (JsString(v), Model.DamlLfPrimType.Party) =>
-        Ref.Party fromString v fold (deserializationError(_), Model.ApiParty)
+        Model.ApiParty(assertDE(Ref.Party fromString v))
       case (JsString(v), Model.DamlLfPrimType.ContractId) => Model.ApiContractId(v)
       case (JsObject(_), Model.DamlLfPrimType.Unit) => Model.ApiUnit
       case (JsString(v), Model.DamlLfPrimType.Timestamp) => Model.ApiTimestamp.fromIso8601(v)
@@ -121,7 +121,7 @@ object ApiCodecCompressed {
     }
   }
 
-  def jsValueToApiDataType(
+  private[this] def jsValueToApiDataType(
       value: JsValue,
       id: DamlLfIdentifier,
       dt: Model.DamlLfDataType,
@@ -227,6 +227,9 @@ object ApiCodecCompressed {
       id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup): Model.ApiValue =
     jsValueToApiValue(value.parseJson, id, defs)
+
+  private[this] def assertDE[A](ea: Either[String, A]): A =
+    ea fold (deserializationError(_), identity)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Implicits that can be imported to write JSON

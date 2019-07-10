@@ -217,7 +217,8 @@ object Pretty {
     case model.ApiRecord(id, fields) =>
       PrettyObject(
         fields.toSeq.zipWithIndex.map {
-          case ((flabel, fvalue), ix) => PrettyField(flabel getOrElse ix.toString, argument(fvalue))
+          case ((flabel, fvalue), ix) =>
+            PrettyField(flabel getOrElse (ix: Int).toString, argument(fvalue))
         }: _*
       )
     case model.ApiVariant(id, constructor, value) =>
