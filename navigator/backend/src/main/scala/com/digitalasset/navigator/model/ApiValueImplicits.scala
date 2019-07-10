@@ -5,25 +5,11 @@ package com.digitalasset.navigator.model
 
 import java.time.{Instant, LocalDate}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
-import scala.annotation.tailrec
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.value.{Value => V}
 
 object ApiValueImplicits {
-
-  implicit final class `FrontStack additions`[A](private val it: FrontStack[A]) extends AnyVal {
-    @throws[IndexOutOfBoundsException]
-    def slowApply(ix: Int): A = {
-      val i = it.iterator
-      @tailrec def lp(ix: Int): A =
-        if (!i.hasNext) throw new IndexOutOfBoundsException("it")
-        else if (ix <= 0) i.next
-        else lp(ix - 1)
-      lp(ix)
-    }
-
-  }
 
   implicit final class `ApiTimestamp additions`(private val it: ApiTimestamp) extends AnyVal {
     import it._
