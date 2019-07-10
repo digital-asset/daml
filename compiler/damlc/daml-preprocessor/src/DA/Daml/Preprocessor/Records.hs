@@ -108,12 +108,14 @@ instanceTemplate abstract selector record field = ClsInstD noE $ ClsInstDecl noE
 
 
 onDecl :: LHsDecl GhcPs -> [LHsDecl GhcPs]
-onDecl o@(L _ (GHC.TyClD _ x)) = o :
-    [ noL $ InstD noE $ instanceTemplate (length ctors == 1) field (unLoc record) typ
-    | let fields = nubOrdOn (\(_,_,x,_) -> GHC.occNameFS $ GHC.rdrNameOcc $ unLoc $ rdrNameFieldOcc x) $ getFields x
-    , (record, _, field, typ) <- fields]
-    where ctors = dd_cons $ tcdDataDefn x
-onDecl x = [descendBi onExp x]
+onDecl o = descendBi onExp o : extraDecls o
+    where
+        extraDecls (L _ (GHC.TyClD _ x)) =
+            [ noL $ InstD noE $ instanceTemplate (length ctors == 1) field (unLoc record) typ
+            | let fields = nubOrdOn (\(_,_,x,_) -> GHC.occNameFS $ GHC.rdrNameOcc $ unLoc $ rdrNameFieldOcc x) $ getFields x
+            , (record, _, field, typ) <- fields]
+            where ctors = dd_cons $ tcdDataDefn x
+        extraDecls _ = []
 
 getFields :: TyClDecl GhcPs -> [(LHsType GhcPs, IdP GhcPs, FieldOcc GhcPs, HsType GhcPs)]
 getFields DataDecl{tcdDataDefn=HsDataDefn{..}, ..} = concatMap ctor dd_cons
