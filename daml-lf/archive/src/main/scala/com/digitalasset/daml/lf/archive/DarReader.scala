@@ -25,12 +25,15 @@ class DarReader[A](
 
   import DarReader._
 
+  /** Reads an archive from a File. */
   def readArchiveFromFile(darFile: File) =
     readArchive(darFile.getName, new ZipInputStream(new FileInputStream(darFile)))
 
+  /** Reads an archive from a ZipInputStream. The stream will be closed by this function! */
   def readArchive(name: String, darStream: ZipInputStream): Try[Dar[A]] = {
     for {
-      entries <- loadZipEntries(name, darStream)
+      entries <- bracket(Try(darStream))(zis => Try(zis.close())).flatMap(zis =>
+        loadZipEntries(name, zis))
       names <- entries.readDalfNames(readDalfNamesFromManifest): Try[Dar[String]]
       main <- parseOne(entries.getInputStreamFor)(names.main): Try[A]
       deps <- parseAll(entries.getInputStreamFor)(names.dependencies): Try[List[A]]
@@ -64,7 +67,7 @@ class DarReader[A](
     sequence(names.map(parseOne(getInputStreamFor)))
 
   private def parseOne(getInputStreamFor: String => Try[(Long, InputStream)])(s: String): Try[A] =
-    bracket(getInputStreamFor(s))({ case (_, is) => Try(is.close())}).flatMap({
+    bracket(getInputStreamFor(s))({ case (_, is) => Try(is.close()) }).flatMap({
       case (size, is) =>
         parseDalf(size, is)
     })
