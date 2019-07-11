@@ -516,6 +516,42 @@ encodeModuleRule =
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
+-- hlint
+
+-- We need to provide hlint the path to the directory of a file
+-- containing a base configuration file called 'hlint.yaml'.
+-- We test with one version of 'hlint.yaml' and deploy with another
+-- (at the current time, there are good reasons for this). The code
+-- below (which relies on the behavior of `package_app` deploying to
+-- '~/.daml/sdk/x.x.x/damlc/resources/daml-ide-core/data') selects one
+-- or the other depending on context.
+getHlintDataDir :: IO FilePath
+getHlintDataDir = do
+  root <- locateRunfiles $
+    mainWorkspace </> "compiler/damlc/daml-ide-core"
+  let test = root </> "data/test"
+      prod = root </> "daml-ide-core/data/prod"
+  useProd <- System.Directory.doesDirectoryExist $ prod
+  return $ case useProd of False -> test; True -> prod
+
+-- This next function harvests hlint settings using 'hlint.yaml'. What
+-- we don't have at this time but I will follow up with in a later
+-- update, is the ability to augment the settings via per-project
+-- overrides from user provided '.hlint.yaml' files (found by by
+-- searching the directory from which 'daml studio' is invoked [and
+-- possibly its ancestors]). It's in anticpation of users updating
+-- these '.hlint.yaml' files that we read settings on every
+-- invocation.
+hlintSettings :: IO (ParseFlags, [Classify], Hint)
+hlintSettings = do
+  hlintDataDir <- getHlintDataDir
+  (fixities, classify, hints) <-
+    findSettings (readSettingsFile (Just hlintDataDir)) Nothing
+  return (parseFlagsAddFixities fixities defaultParseFlags, classify, hints)
+
+-- The 'getHlintDiagnosticsRule' reads settings, runs hlint on a
+-- parsed module and returns its ideas on how to make it better as
+-- diagnostics.
 getHlintDiagnosticsRule :: Rules ()
 getHlintDiagnosticsRule =
     define $ \GetHlintDiagnostics file -> do
@@ -537,21 +573,7 @@ getHlintDiagnosticsRule =
          _relatedInformation = Nothing
       })
 
-      getHlintDataDir :: IO FilePath
-      getHlintDataDir = do
-        dir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-        let test = dir </> "data/test"
-            prod = dir </> "daml-ide-core/data/prod"
-        prodExists <- System.Directory.doesDirectoryExist prod
-        return $ case prodExists of True -> prod; False -> test
-
-      hlintSettings :: IO (ParseFlags, [Classify], Hint)
-      hlintSettings = do
-        hlintDataDir <- getHlintDataDir
-        (fixities, classify, hints) <-
-          findSettings (readSettingsFile (Just hlintDataDir)) Nothing
-        return (parseFlagsAddFixities fixities defaultParseFlags, classify, hints)
-
+--
 scenariosInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scenariosInModule m =
     [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
