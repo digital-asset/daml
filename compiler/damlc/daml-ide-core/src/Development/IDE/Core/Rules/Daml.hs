@@ -4,6 +4,7 @@
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
     , module Development.IDE.Core.Rules.Daml
+    , getHLintDataDir
     ) where
 
 import Control.Concurrent.Extra

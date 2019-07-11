@@ -5,6 +5,7 @@
 {-# LANGUAGE RankNTypes #-}
 module Main (main) where
 
+import Development.IDE.Core.Rules.Daml
 import Control.Applicative.Combinators
 import Control.Lens hiding (List)
 import Control.Monad
@@ -17,6 +18,7 @@ import qualified Data.Text as T
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens
 import Network.URI
+import System.Directory (doesDirectoryExist, doesFileExist)
 import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra
@@ -388,6 +390,7 @@ stressTests
   -> TestTree
 stressTests run _runScenarios = testGroup "Stress tests"
   [ testCase "Modify a file 2000 times" $ run $ do
+
         let fooValue :: Int -> T.Text
             -- Even values should produce empty diagnostics
             -- while odd values will produce a type error.
@@ -401,6 +404,19 @@ stressTests run _runScenarios = testGroup "Stress tests"
                 ]
             expect :: Int -> Session ()
             expect i = when (odd i) $ do
+                -- Despite these checks succeeding, the rest of the
+                -- block can fail for failing to read 'hlint.yaml'.
+                -- It's read at the end of the day by
+                -- Data.Yaml.decodeFileEither. Is there some sort of
+                -- contention going on?
+                hlintDataDir <- liftIO getHlintDataDir
+                hlintDataDirExists <- liftIO $ doesDirectoryExist hlintDataDir
+                hlintDataFileExists <- liftIO $ doesFileExist (hlintDataDir </> "hlint.yaml")
+                liftIO $ unless hlintDataDirExists $
+                  assertFailure $ "Directory " ++ hlintDataDir ++ " doesn't exist"
+                liftIO $ unless hlintDataFileExists $
+                  assertFailure $ "File " ++ (hlintDataDir </> "hlint.yaml") ++ " doesn't exist"
+
                 -- We do not wait for empty diagnostics on even i since debouncing
                 -- causes them to only be emitted after a delay which slows down
                 -- the tests.
@@ -418,6 +434,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
                 let msg = head diags ^. message
                 liftIO $ assertBool ("Expected type error but got " <> T.unpack msg) $
                     "Couldn't match expected type" `T.isInfixOf` msg
+
         foo <- openDoc' "Foo.daml" damlId $ fooContent 0
         forM_ [1 .. 2000] $ \i -> do
             replaceDoc foo $ fooContent i

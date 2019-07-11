@@ -19,6 +19,7 @@ da_haskell_test(
         "base",
         "containers",
         "extra",
+        "directory",
         "filepath",
         "haskell-lsp",
         "haskell-lsp-types",
@@ -34,6 +35,7 @@ da_haskell_test(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-ide-core:hlint-yaml",
         "//compiler/hie-core",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
