@@ -169,9 +169,10 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       Compile.unsafeClearDiagnostics service
       ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
       diags <- Compile.getDiagnostics service
+      let diags' = [d | d <- diags, _severity (snd d) /= Just D.DsInfo] -- Discard hlint hints!
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
-        [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
+        [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags'
       resQueries <- runJqQuery log [(pkg, q) | Right pkg <- [ex], QueryLF q <- anns]
       let failures = catMaybes $ resDiag : resQueries
       case failures of
