@@ -40,7 +40,7 @@ class CommandService(
   private def createCommand(
       input: domain.CreateCommand): Error \/ lav1.commands.Command.Command.Create = {
     val arguments = input.arguments.getOrElse(lav1.value.Record())
-    resolveTemplateIds(Set(input.templateId))
+    resolveTemplateIds(Set(input.templateId)) // TODO(Leo) introduce a service that resolves one template ID at a time
       .leftMap(e => Error(e.shows))
       .flatMap {
         case List(x) =>
