@@ -27,4 +27,4 @@ makeLedgerService :: (TimeoutSeconds -> ClientConfig -> IO a) -> LedgerService a
 makeLedgerService f = LedgerService $ ReaderT $ \(ts,cc) -> ledgerRetry $ f ts cc
 
 askTimeout :: LedgerService TimeoutSeconds
-askTimeout = LedgerService $ fmap fst $ ask
+askTimeout = LedgerService $ fmap fst ask
