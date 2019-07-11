@@ -20,7 +20,7 @@ module DA.Ledger.Stream(
     ) where
 
 import Control.Concurrent
-import Control.Exception (SomeException,catch)
+import Control.Exception (SomeException,catch,mask_)
 import Control.Concurrent.Async(async,cancel)
 
 newtype Stream a = Stream {status :: MVar (Either Closed (Open a))}
@@ -126,7 +126,7 @@ streamToList stream = do
 
 -- Generate a stream in an asyncronous thread
 asyncStreamGen :: (Stream a -> IO ()) -> IO (Stream a)
-asyncStreamGen act = do
+asyncStreamGen act = mask_ $ do
     stream <- newStream
     gen <- async $ act stream
         `catch` \(e::SomeException) -> closeStream stream (Abnormal (show e))
