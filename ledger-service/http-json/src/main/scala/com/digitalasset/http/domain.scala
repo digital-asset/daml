@@ -3,6 +3,8 @@
 
 package com.digitalasset.http
 
+import java.time.Instant
+
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.std.tuple._
@@ -98,9 +100,10 @@ object domain {
   }
 
   case class CreateCommand(
+      templateId: TemplateId.OptionalPkg,
+      arguments: Option[lav1.value.Record],
       workflowId: Option[lar.WorkflowId],
       commandId: Option[lar.CommandId],
-      templateId: TemplateId.OptionalPkg,
-      argument: Option[lav1.value.Record])
-
+      ledgerEffectiveTime: Option[Instant],
+      maximumRecordTime: Option[Instant])
 }

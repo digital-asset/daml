@@ -3,6 +3,8 @@
 
 package com.digitalasset.http.json
 
+import java.time.Instant
+
 import spray.json._
 import com.digitalasset.http.domain
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -28,6 +30,15 @@ object JsonProtocol extends DefaultJsonProtocol {
     taggedJsonFormat[String, lar.CommandIdTag]
 
   implicit val JwtPayloadFormat: RootJsonFormat[domain.JwtPayload] = jsonFormat3(domain.JwtPayload)
+
+  implicit val InstantFormat: JsonFormat[java.time.Instant] = new JsonFormat[Instant] {
+    override def write(obj: Instant): JsValue = JsNumber(obj.toEpochMilli)
+
+    override def read(json: JsValue): Instant = json match {
+      case JsNumber(a) => java.time.Instant.ofEpochMilli(a.toLongExact)
+      case _ => deserializationError("java.time.Instant must be epoch millis")
+    }
+  }
 
   implicit def TemplateIdFormat[A: JsonFormat]: RootJsonFormat[domain.TemplateId[A]] =
     jsonFormat3(domain.TemplateId.apply[A])
@@ -73,6 +84,6 @@ object JsonProtocol extends DefaultJsonProtocol {
       override def read(json: JsValue): Record = sys.error("not implemented")
     }
 
-  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand] = jsonFormat4(
+  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand] = jsonFormat6(
     domain.CreateCommand)
 }

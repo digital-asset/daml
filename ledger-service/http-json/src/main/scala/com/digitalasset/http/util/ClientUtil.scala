@@ -11,7 +11,12 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.ledger.api.domain.LedgerId
-import com.digitalasset.ledger.api.refinements.ApiTypes.{ApplicationId, Party, WorkflowId}
+import com.digitalasset.ledger.api.refinements.ApiTypes.{
+  ApplicationId,
+  CommandId,
+  Party,
+  WorkflowId
+}
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitRequest
@@ -84,8 +89,10 @@ object ClientUtil {
   def transactionFilter(ps: Party*): TransactionFilter =
     TransactionFilter(Party.unsubst(ps).map((_, Filters.defaultInstance)).toMap)
 
-  def uniqueId: String = UUID.randomUUID.toString
+  def uniqueId(): String = UUID.randomUUID.toString
 
-  def workflowIdFromParty(p: String): WorkflowId =
-    WorkflowId(s"$p Workflow")
+  def workflowIdFromParty(p: Party): WorkflowId =
+    WorkflowId(s"${Party.unwrap(p)} Workflow")
+
+  def uniqueCommandId(): CommandId = CommandId(uniqueId())
 }

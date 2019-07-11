@@ -5,19 +5,18 @@ package com.digitalasset.http
 
 import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
-import com.digitalasset.http.ContractsService._
 import com.digitalasset.http.domain.TemplateId
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
 import scalaz.std.string._
-import scalaz.{-\/, \/, \/-}
+import scalaz.{-\/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class ContractsService(
-    resolveTemplateIds: ResolveTemplateIds,
+    resolveTemplateIds: Services.ResolveTemplateIds,
     activeContractSetClient: ActiveContractSetClient,
     parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer) {
 
@@ -99,7 +98,4 @@ class ContractsService(
 
 object ContractsService {
   final case class Error(message: String)
-
-  type ResolveTemplateIds =
-    Set[domain.TemplateId.OptionalPkg] => PackageService.Error \/ List[lav1.value.Identifier]
 }
