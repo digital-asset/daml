@@ -5,7 +5,6 @@ package com.digitalasset.platform.sandbox
 
 import java.io.File
 import java.time.Instant
-import java.util.zip.ZipFile
 
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.v2.ParticipantId
@@ -16,12 +15,12 @@ import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
+import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.sandbox.stores.{
   InMemoryActiveContracts,
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
-import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.services.time.TimeModel
 
@@ -29,7 +28,11 @@ import scala.concurrent.ExecutionContext
 
 object TestDar {
   val darFile: File = new File("ledger/sandbox/Test.dar")
-  lazy val parsedPackageId = DarReader().readArchive(new ZipFile(darFile)).get.main._1
+  lazy val parsedPackageId = DarReader()
+    .readArchiveFromFile(darFile)
+    .get
+    .main
+    ._1
 }
 
 trait TestHelpers {

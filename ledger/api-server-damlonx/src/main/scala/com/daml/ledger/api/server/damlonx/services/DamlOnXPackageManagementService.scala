@@ -3,21 +3,21 @@
 
 package com.daml.ledger.api.server.damlonx.services
 
-import java.io.{File, FileOutputStream}
-import java.util.zip.ZipFile
+import java.io.ByteArrayInputStream
+import java.util.zip.ZipInputStream
 
 import com.daml.ledger.participant.state.index.v1.{PackagesService => IndexPackageService}
 import com.daml.ledger.participant.state.v1.{UploadPackagesResult, WritePackagesService}
-import com.digitalasset.daml.lf.archive.DarReader
-import org.slf4j.{Logger, LoggerFactory}
 import com.digitalasset.api.util.TimestampConversion.fromInstant
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.common.util.DirectExecutionContext
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.ServerServiceDefinition
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,14 +53,12 @@ class DamlOnXPackageManagementService(
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
-
     val resultT = for {
-      file <- Try(File.createTempFile("uploadDarFile", ".dar"))
-      fos <- Try(new FileOutputStream(file))
-      _ <- Try(fos.write(request.darFile.toByteArray))
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchive(new ZipFile(file))
+      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+        .readArchive(
+          "package-upload",
+          new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray)))
     } yield {
-      fos.close()
       writeService.uploadPackages(dar.all, None)
     }
     resultT.fold(

@@ -5,7 +5,6 @@ package com.digitalasset.platform.tests.integration.ledger.api
 
 import java.io.File
 import java.nio.file.Files
-import java.util.zip.ZipFile
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
@@ -50,6 +49,7 @@ class PackageManagementServiceIT
     with BazelRunfiles {
 
   override protected def config: Config = Config.default.copy(darFiles = Nil)
+
   protected val testIdsGenerator = new TestIdsGenerator(config)
 
   private def commandNodeIdUnifier(testName: String, nodeId: String) =
@@ -67,7 +67,7 @@ class PackageManagementServiceIT
 
     val testPackages = DarReader {
       case (archiveSize, x) => Try(Archive.parseFrom(x)).map(ar => (archiveSize, ar))
-    }.readArchive(new ZipFile(file))
+    }.readArchiveFromFile(file)
       .fold(t => Left(s"Failed to parse DAR from $file: $t"), dar => Right(dar.all))
       .flatMap {
         _ traverseU {
@@ -140,8 +140,10 @@ class PackageManagementServiceIT
 
   it should "accept commands using the uploaded package" in allFixtures { ctx =>
     val createArg = Record(fields = List(RecordField("operator", Alice.asParty)))
+
     def createCmd =
       CreateCommand(Some(Identifier(testPackageId, "", "Test", "Dummy")), Some(createArg)).wrap
+
     val filter = TransactionFilters.allForParties(Alice)
     val client = packageManagementService(ctx.packageManagementService)
 
