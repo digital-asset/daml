@@ -17,6 +17,7 @@ azure-cron.yml      @garyverhaegen-da
 /compiler/          @hurryabit
 /daml-foundations/  @hurryabit
 /libs-haskell/      @hurryabit
+/daml-assistant/    @associahedron
 
 # Runtime
 /daml-lf/               @leo-da @S11001001
