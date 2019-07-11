@@ -6,6 +6,7 @@
 module DA.Daml.Doc.HaddockParse(mkDocs) where
 
 import DA.Daml.Doc.Types as DDoc
+import DA.Daml.Doc.Anchor as DDoc
 import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service     as Service
@@ -58,7 +59,8 @@ mkDocs opts fp = do
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
         in ModuleDoc
-            { md_name = dc_mod
+            { md_anchor = Just (moduleAnchor dc_mod)
+            , md_name = dc_mod
             , md_descr = modDoc dc_tcmod
             , md_adts = adtDocs
             , md_templates = tmplDocs
@@ -181,7 +183,7 @@ toDocText docs =
 --   neither a comment nor a function type is in the source, we omit the
 --   function.
 getFctDocs :: DocCtx -> DeclData -> Maybe FunctionDoc
-getFctDocs _ (DeclData decl docs) = do
+getFctDocs DocCtx{..} (DeclData decl docs) = do
   (name, mbType) <- case unLoc decl of
     SigD _ (TypeSig _ (L _ n :_) t) ->
       Just (n, Just . hsib_body . hswc_body $ t)
@@ -193,23 +195,24 @@ getFctDocs _ (DeclData decl docs) = do
       -- pairs (otherwise we'll get a duplicate)
     _ ->
       Nothing
-  Just $ FunctionDoc
-    { fct_name = Fieldname (idpToText name)
-    , fct_context = hsTypeToContext =<< mbType
-    , fct_type = fmap hsTypeToType mbType
-    , fct_descr = docs
-    }
+  let fct_name = Fieldname (idpToText name)
+      fct_context = hsTypeToContext =<< mbType
+      fct_type = fmap hsTypeToType mbType
+      fct_anchor = Just $ functionAnchor dc_mod fct_name fct_type
+      fct_descr = docs
+  Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
-getClsDocs ctx (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = Just ClassDoc
-      {cl_name = Typename . idpToText $ unLoc tcdLName
-      ,cl_descr = docs
-      ,cl_super = case unLoc tcdCtxt of
-        [] -> Nothing
-        xs -> Just $ TypeTuple $ map hsTypeToType xs
-      ,cl_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-      ,cl_functions = concatMap f tcdSigs
-      }
+getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
+    let cl_name = Typename . idpToText $ unLoc tcdLName
+        cl_descr = docs
+        cl_super = case unLoc tcdCtxt of
+            [] -> Nothing
+            xs -> Just $ TypeTuple $ map hsTypeToType xs
+        cl_functions = concatMap f tcdSigs
+        cl_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
+        cl_anchor = Just $ classAnchor dc_mod cl_name
+    Just ClassDoc {..}
   where
     f :: LSig GhcPs -> [FunctionDoc]
     f (L dloc (ClassOpSig p b names n)) = catMaybes
@@ -221,7 +224,7 @@ getClsDocs ctx (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = Just ClassDoc
 getClsDocs _ _ = Nothing
 
 getTypeDocs :: DocCtx -> DeclData -> Maybe (Typename, ADTDoc)
-getTypeDocs _ (DeclData (L _ (TyClD _ decl)) doc)
+getTypeDocs DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
   | XTyClDecl{} <- decl =
       Nothing
   | ClassDecl{} <- decl =
@@ -232,7 +235,8 @@ getTypeDocs _ (DeclData (L _ (TyClD _ decl)) doc)
   | SynDecl{..} <- decl =
       let name = typenameFromRdrName $ unLoc tcdLName
       in Just . (name,) $ TypeSynDoc
-         { ad_name = name
+         { ad_anchor = Just $ typeAnchor dc_mod name
+         , ad_name = name
          , ad_descr = doc
          , ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
          , ad_rhs  = hsTypeToType tcdRhs
@@ -241,7 +245,8 @@ getTypeDocs _ (DeclData (L _ (TyClD _ decl)) doc)
   | DataDecl{..} <- decl =
       let name = typenameFromRdrName $ unLoc tcdLName
       in Just . (name,) $ ADTDoc
-         { ad_name = name
+         { ad_anchor = Just $ typeAnchor dc_mod name
+         , ad_name = name
          , ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
          , ad_descr = doc
          , ad_constrs = map constrDoc . dd_cons $ tcdDataDefn
@@ -249,30 +254,32 @@ getTypeDocs _ (DeclData (L _ (TyClD _ decl)) doc)
   where
     constrDoc :: LConDecl GhcPs -> ADTConstr
     constrDoc (L _ con) =
-          case con_args con of
+        let ac_name = Typename . idpToText . unLoc $ con_name con
+            ac_anchor = Just $ constrAnchor dc_mod ac_name
+            ac_descr = fmap (docToText . unLoc) $ con_doc con
+        in case con_args con of
             PrefixCon args ->
-              PrefixC { ac_name = Typename . idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (docToText . unLoc) $ con_doc con
-                      , ac_args = map hsTypeToType args
-                      }
+              let ac_args = map hsTypeToType args
+              in PrefixC {..}
+
             InfixCon l r ->
-              PrefixC { ac_name = Typename . idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (docToText . unLoc) $ con_doc con
-                      , ac_args = map hsTypeToType [l, r]
-                      }
+              let ac_args = map hsTypeToType [l, r]
+              in PrefixC {..}
+
             RecCon (L _ fs) ->
-              RecordC { ac_name  = Typename. idpToText . unLoc $ con_name con
-                      , ac_descr = fmap (docToText . unLoc) $ con_doc con
-                      , ac_fields = mapMaybe (fieldDoc . unLoc) fs
-                      }
+              let ac_fields = mapMaybe (fieldDoc . unLoc) fs
+              in RecordC {..}
 
     fieldDoc :: ConDeclField GhcPs -> Maybe FieldDoc
-    fieldDoc ConDeclField{..} =
-      Just $ FieldDoc
-      { fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names -- FIXME why more than one?
-      , fd_type = hsTypeToType cd_fld_type
-      , fd_descr = fmap (docToText . unLoc) cd_fld_doc
-      }
+    fieldDoc ConDeclField{..} = do
+        let fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names
+            fd_type = hsTypeToType cd_fld_type
+            fd_anchor = Just $ functionAnchor dc_mod fd_name Nothing
+                -- FIXME (FM): add the right type, or (better yet) get rid of the
+                -- type argument for function anchors while maintaining anchor
+                -- uniqueness.
+            fd_descr = fmap (docToText . unLoc) cd_fld_doc
+        Just FieldDoc{..}
     fieldDoc XConDeclField{}  = Nothing
 getTypeDocs _ _other = Nothing
 
@@ -283,7 +290,8 @@ getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
     -- defined internally, and not expected to fail on consistent arguments.
     mkTemplateDoc :: Typename -> TemplateDoc
     mkTemplateDoc name = TemplateDoc
-      { td_name  = ad_name tmplADT
+      { td_anchor = Just $ templateAnchor dc_mod (ad_name tmplADT)
+      , td_name = ad_name tmplADT
       , td_descr = ad_descr tmplADT
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
@@ -308,7 +316,8 @@ getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
     -- returns a dummy ADT if the choice argument is not in the local type map
     -- (possible if choice instances are defined directly outside the template).
     -- This wouldn't be necessary if we used the type-checked AST.
-      where dummyDT = ADTDoc { ad_name    = Typename $ "External:" <> unTypename n
+      where dummyDT = ADTDoc { ad_anchor = Nothing
+                             , ad_name    = Typename $ "External:" <> unTypename n
                              , ad_descr   = Nothing
                              , ad_args = []
                              , ad_constrs = []

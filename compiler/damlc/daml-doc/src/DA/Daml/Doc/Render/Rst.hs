@@ -9,7 +9,6 @@ module DA.Daml.Doc.Render.Rst
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util
-import DA.Daml.Doc.Anchor
 
 import qualified Data.Text.Prettyprint.Doc as Pretty
 import           Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
@@ -21,8 +20,9 @@ import qualified Data.Text as T
 
 import CMarkGFM
 
-renderAnchor :: Anchor -> T.Text
-renderAnchor anchor = "\n.. _" <> unAnchor anchor <> ":\n"
+renderAnchor :: Maybe Anchor -> T.Text
+renderAnchor Nothing = ""
+renderAnchor (Just anchor) = "\n.. _" <> unAnchor anchor <> ":\n"
 
 renderSimpleRst :: ModuleDoc -> T.Text
 renderSimpleRst ModuleDoc{..}
@@ -30,8 +30,7 @@ renderSimpleRst ModuleDoc{..}
     null md_adts && null md_functions &&
     isNothing md_descr = T.empty
 renderSimpleRst ModuleDoc{..} = T.unlines $
-  [ ""
-  , renderAnchor (moduleAnchor md_name)
+  [ renderAnchor md_anchor
   , title
   , T.replicate (T.length title) "-"
   , maybe "" docTextToRst md_descr
@@ -42,36 +41,36 @@ renderSimpleRst ModuleDoc{..} = T.unlines $
     else [""
          , "Templates"
          , "^^^^^^^^^"
-         , T.unlines $ map (tmpl2rst md_name) md_templates
+         , T.unlines $ map tmpl2rst md_templates
          ]
   , if null md_classes
     then []
     else [ ""
          , "Typeclasses"
          , "^^^^^^^^^^^"
-         , T.unlines $ map (cls2rst md_name) md_classes
+         , T.unlines $ map cls2rst md_classes
          ]
   , if null md_adts
     then []
     else [ ""
          , "Data types"
          , "^^^^^^^^^^"
-         , T.unlines $ map (adt2rst md_name) md_adts
+         , T.unlines $ map adt2rst md_adts
          ]
   , if null md_functions
     then []
     else [ ""
          , "Functions"
          , "^^^^^^^^^"
-         , T.unlines $ map (fct2rst md_name) md_functions
+         , T.unlines $ map fct2rst md_functions
          ]
   ]
 
   where title = "Module " <> unModulename md_name
 
-tmpl2rst :: Modulename -> TemplateDoc -> T.Text
-tmpl2rst md_name TemplateDoc{..} = T.unlines $
-  renderAnchor (templateAnchor md_name td_name) :
+tmpl2rst :: TemplateDoc -> T.Text
+tmpl2rst TemplateDoc{..} = T.unlines $
+  renderAnchor td_anchor :
   ("template " <> enclosedIn "**" (unTypename td_name)) :
   maybe "" (T.cons '\n' . indent 2 . docTextToRst) td_descr :
   "" :
@@ -87,38 +86,38 @@ choiceBullet ChoiceDoc{..} = T.unlines
   , indent 2 (fieldTable cd_fields)
   ]
 
-cls2rst :: Modulename ->  ClassDoc -> T.Text
-cls2rst md_name ClassDoc{..} = T.unlines $
-  renderAnchor (classAnchor md_name cl_name) :
+cls2rst ::  ClassDoc -> T.Text
+cls2rst ClassDoc{..} = T.unlines $
+  renderAnchor cl_anchor :
   "**class " <> maybe "" (\x -> type2rst x <> " => ") cl_super <> T.unwords (unTypename cl_name : cl_args) <> " where**" :
   maybe [] ((:[""]) . indent 2 . docTextToRst) cl_descr ++
-  map (indent 2 . fct2rst md_name) cl_functions
+  map (indent 2 . fct2rst) cl_functions
 
-adt2rst :: Modulename -> ADTDoc -> T.Text
-adt2rst md_name TypeSynDoc{..} = T.unlines $
-    [ renderAnchor (typeAnchor md_name ad_name)
+adt2rst :: ADTDoc -> T.Text
+adt2rst TypeSynDoc{..} = T.unlines $
+    [ renderAnchor ad_anchor
     , "type " <> enclosedIn "**"
         (T.unwords (unTypename ad_name : ad_args))
     , "    = " <> type2rst ad_rhs
     ] ++ maybe [] ((:[]) . T.cons '\n' . indent 2 . docTextToRst) ad_descr
-adt2rst md_name ADTDoc{..} = T.unlines $
-    [ renderAnchor (dataAnchor md_name ad_name)
+adt2rst ADTDoc{..} = T.unlines $
+    [ renderAnchor ad_anchor
     , "data " <> enclosedIn "**"
         (T.unwords (unTypename ad_name : ad_args))
     , maybe "" (T.cons '\n' . indent 2 . docTextToRst) ad_descr
-    ] ++ map (indent 2 . T.cons '\n' . constr2rst md_name) ad_constrs
+    ] ++ map (indent 2 . T.cons '\n' . constr2rst) ad_constrs
 
 
-constr2rst :: Modulename -> ADTConstr -> T.Text
-constr2rst md_name PrefixC{..} = T.unlines $
-    [ renderAnchor (constrAnchor md_name ac_name)
+constr2rst ::  ADTConstr -> T.Text
+constr2rst PrefixC{..} = T.unlines $
+    [ renderAnchor ac_anchor
     , T.unwords (enclosedIn "**" (unTypename ac_name) : map type2rst ac_args)
         -- FIXME: Parentheses around args seems necessary here
         -- if they are type application or function (see type2rst).
     ] ++ maybe [] ((:[]) . T.cons '\n' . docTextToRst) ac_descr
 
-constr2rst md_name RecordC{..} = T.unlines
-    [ renderAnchor (constrAnchor md_name ac_name)
+constr2rst RecordC{..} = T.unlines
+    [ renderAnchor ac_anchor
     , enclosedIn "**" (unTypename ac_name)
     , maybe "" (T.cons '\n' . docTextToRst) ac_descr
     , ""
@@ -174,9 +173,9 @@ type2rst = f (0 :: Int)
     f _ (TypeTuple ts) = "(" <> T.intercalate ", " (map (f 0) ts) <>  ")"
 
 
-fct2rst :: Modulename -> FunctionDoc -> T.Text
-fct2rst md_name  FunctionDoc{..} = T.unlines
-    [ renderAnchor (functionAnchor md_name fct_name fct_type)
+fct2rst :: FunctionDoc -> T.Text
+fct2rst FunctionDoc{..} = T.unlines
+    [ renderAnchor fct_anchor
     , enclosedIn "**" (wrapOp (unFieldname fct_name))
     , T.concat
         [ "  : "
