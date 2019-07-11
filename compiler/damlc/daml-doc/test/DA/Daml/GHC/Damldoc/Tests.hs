@@ -9,9 +9,12 @@ module DA.Daml.Doc.Tests(mkTestTree)
 import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
-import           DA.Daml.Doc.HaddockParse
-import           DA.Daml.Doc.Render
-import           DA.Daml.Doc.Types
+
+import DA.Daml.Doc.HaddockParse
+import DA.Daml.Doc.Render
+import DA.Daml.Doc.Types
+import DA.Daml.Doc.Anchor
+
 import           DA.Test.Util
 import Development.IDE.Types.Location
 
@@ -206,15 +209,15 @@ testModHdr = T.pack $ "daml 1.2 module\n  " <> testModule <> " where\n"
 
 
 emptyDocs :: String -> ModuleDoc
-emptyDocs name = ModuleDoc { md_anchor = Nothing
-                           , md_name = Modulename (T.pack name)
-                           , md_descr = Nothing
-                           , md_templates = []
-                           , md_adts = []
-                           , md_functions = []
-                           , md_classes = []
-                           }
-
+emptyDocs name =
+    let md_name = Modulename (T.pack name)
+        md_anchor = Just (moduleAnchor md_name)
+        md_descr = Nothing
+        md_templates = []
+        md_adts = []
+        md_functions = []
+        md_classes = []
+    in ModuleDoc {..}
 
 -- | Compiles the given input string (in a tmp file) and checks generated doc.s
 -- using the predicate provided.
