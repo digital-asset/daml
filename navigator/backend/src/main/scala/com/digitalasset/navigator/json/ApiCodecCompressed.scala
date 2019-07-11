@@ -68,11 +68,8 @@ object ApiCodecCompressed {
           case (flabel, fvalue) => (flabel: String) -> apiValueToJsValue(fvalue)
         }.toMap)
       case _ =>
-        // TODO SC the inverse function doesn't recognize this format, yet, and
-        // anyway it should only be done with accurate type information
         JsArray(value.fields.toSeq.map {
-          case (flabel, fvalue) =>
-            JsArray(flabel.fold[JsValue](JsNull)(JsString(_)), apiValueToJsValue(fvalue))
+          case (_, fvalue) => apiValueToJsValue(fvalue)
         }: _*)
     }
 
@@ -139,6 +136,18 @@ object ApiCodecCompressed {
             Model.ApiRecordField(Some(f._1), jsValueToApiValue(jsField, f._2, defs))
           }.toImmArray
         )
+      case (JsArray(fValues), Model.DamlLfRecord(fields)) =>
+        if (fValues.length != fields.length)
+          deserializationError(
+            s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields")
+        else
+          Model.ApiRecord(
+            Some(id),
+            (fields zip fValues).map {
+              case ((fName, fTy), fValue) =>
+                (Some(fName), jsValueToApiValue(fValue, fTy, defs))
+            }.toImmArray
+          )
       case (JsObject(v), Model.DamlLfVariant(cons)) =>
         val constructor = v.toList match {
           case x :: Nil => x
