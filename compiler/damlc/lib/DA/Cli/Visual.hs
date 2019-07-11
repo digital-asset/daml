@@ -74,13 +74,13 @@ startFromExpr seen world e = case e of
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
+-- We adding template name to archive as we need to have unique choice names
 archiveChoiceAndAction :: LF.Template -> ChoiceAndAction
 archiveChoiceAndAction tpl = ChoiceAndAction (LF.ChoiceName $ tplName tpl <> "_Archive") True Set.empty
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = actions ++ [archiveChoiceAndAction tpl]
     where actions =  map (\c -> ChoiceAndAction (LF.chcName c) (LF.chcConsuming c) (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
-
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
 moduleAndTemplates world mod = map (\t -> TemplateChoices t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
@@ -106,6 +106,7 @@ templateWithCreateChoice :: TemplateChoices -> [(LF.ChoiceName, IsConsuming)]
 templateWithCreateChoice TemplateChoices {..} = createChoice : map extractChoiceData choiceAndAction
     where createChoice = (LF.ChoiceName $ tplName template <> "_Create", False)
 
+-- We are adding create as a choice to the graph ,
 choiceNameWithId :: [TemplateChoices] -> Map.Map LF.ChoiceName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
   where choiceActions = concatMap templateWithCreateChoice tplChcActions
