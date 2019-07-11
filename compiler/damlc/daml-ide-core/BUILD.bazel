@@ -8,7 +8,10 @@ load(
 
 filegroup (
   name = "hlint-yaml",
-  srcs = ["hlint.yaml"],
+  srcs = [
+    "data/test/hlint.yaml",
+    "data/prod/hlint.yaml"
+  ],
   visibility = ["//visibility:public"],
 )
 

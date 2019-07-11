@@ -33,6 +33,7 @@ import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module (UnitId, stringToUnitId, UnitId(..), DefUnitId(..))
 import Safe
+import qualified System.Directory (doesDirectoryExist)
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
 
@@ -538,7 +539,11 @@ getHlintDiagnosticsRule =
 
       getHlintDataDir :: IO FilePath
       getHlintDataDir = do
-        locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+        dir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+        let test = dir </> "data/test"
+            prod = dir </> "data/daml-ide-core/prod"
+        prodExists <- System.Directory.doesDirectoryExist prod
+        return $ case prodExists of True -> prod; False -> test
 
       hlintSettings :: IO (ParseFlags, [Classify], Hint)
       hlintSettings = do
