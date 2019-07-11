@@ -30,17 +30,12 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "8092d5f6165a8d9c4797d5f089c1ba4eee3326b1"
-rules_haskell_version = "772f04acc3eec5b6d219db09e46604ccff1f5755"
-rules_haskell_sha256 = "d4bb5ecc0f2d0949a1b4bddd1b64c164d750247cccc1a883ae6b6430ae9c8b6e"
+rules_haskell_version = "2f5e87989d8676aae1e15d75004ba94c14b3a27a"
+rules_haskell_sha256 = "9e55ee80a7790e6701fb2147b8aff69edc1212f91505685b72b7c636913dcf8b"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
 def daml_deps():
     if "io_tweag_rules_haskell" not in native.existing_rules():
-        http_file(
-            name = "haskell_static_ghc_patch",
-            urls = ["https://github.com/tweag/rules_haskell/commit/819c4847dcc00fbf0563227b80e08b9ccef9dbc0.patch"],
-            sha256 = "f2d56f9d7b7fd17c0f033404ee5f6ad6bc5bc69744fd13134c965bbfc2c42514",
-        )
         http_archive(
             name = "io_tweag_rules_haskell",
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
@@ -51,10 +46,8 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-darwin-symlink-dylib.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
-                # XXX: Remove once upstream PR was merged and we've updated to
-                # Bazel 0.27. https://github.com/tweag/rules_haskell/pull/970
-                "@haskell_static_ghc_patch//file:downloaded",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-library-dirs.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-runfiles.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -74,6 +67,10 @@ def daml_deps():
             strip_prefix = "rules_haskell-{}/hazel".format(rules_haskell_version),
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             sha256 = rules_haskell_sha256,
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:hazel-runfiles.patch",
+            ],
+            patch_args = ["-p2"],
         )
 
     if "com_github_madler_zlib" not in native.existing_rules():

@@ -60,6 +60,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetTransactionByEventId
     , tGetTransactionById
     , tGetActiveContracts
+    , tGetLedgerConfiguration
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -299,6 +300,16 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
         let ev' :: Event = ev { signatories = [] }
         assertEqual "active" ev' active
         -- assertEqual "active" ev active -- TODO: enable if this should be true & we get a fix
+
+tGetLedgerConfiguration :: SandboxTest
+tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    xs <- getLedgerConfiguration lid
+    Just (Right config) <- liftIO $ timeout 1 (takeStream xs)
+    let expected = LedgerConfiguration {
+            minTtl = Duration {durationSeconds = 2, durationNanos = 0},
+            maxTtl = Duration {durationSeconds = 30, durationNanos = 0}}
+    liftIO $ assertEqual "config" expected config
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands

@@ -4,7 +4,7 @@
 {-# LANGUAGE NoImplicitPrelude #-}
 daml 1.2
 
--- | Included in Prelude
+-- | MOVE Prelude
 --
 -- A weird module - based on base.GHC.Err, but not realy in the GHC namespace.
 -- Has to live here so GHC can find it for deriving instances.

@@ -26,7 +26,7 @@ import com.digitalasset.platform.sandbox.stores.{
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
 import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
 import com.digitalasset.platform.server.services.testing.TimeServiceBackend
@@ -53,7 +53,7 @@ object SandboxServer {
 
   // if requested, initialize the ledger state with the given scenario
   private def createInitialState(config: SandboxConfig, packages: InMemoryPackageStore)
-    : (InMemoryActiveContracts, ImmArray[LedgerEntryWithLedgerEndIncrement], Option[Instant]) = {
+    : (InMemoryActiveContracts, ImmArray[LedgerEntryOrBump], Option[Instant]) = {
     // [[ScenarioLoader]] needs all the packages to be already compiled --
     // make sure that that's the case
     if (config.eagerPackageLoading || config.scenario.nonEmpty) {

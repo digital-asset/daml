@@ -34,7 +34,7 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import com.digitalasset.platform.sandbox.stores.{
   ActiveContracts,
@@ -54,7 +54,7 @@ class InMemoryLedger(
     timeProvider: TimeProvider,
     acs0: InMemoryActiveContracts,
     packages0: InMemoryPackageStore,
-    ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])
+    ledgerEntries: ImmArray[LedgerEntryOrBump])
     extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -62,8 +62,11 @@ class InMemoryLedger(
   private val entries = {
     val l = new LedgerEntries[LedgerEntry](_.toString)
     ledgerEntries.foreach {
-      case LedgerEntryWithLedgerEndIncrement(entry, increment) =>
-        l.publishWithLedgerEndIncrement(entry, increment)
+      case LedgerEntryOrBump.Bump(increment) =>
+        l.incrementOffset(increment)
+        ()
+      case LedgerEntryOrBump.Entry(entry) =>
+        l.publish(entry)
         ()
     }
     l

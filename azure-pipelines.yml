@@ -249,5 +249,14 @@ jobs:
           echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
           gcloud auth activate-service-account --key-file=$GCS_KEY
           BOTO_CONFIG=/dev/null gsutil cp $REPORT_GZ gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz
+
+          if [[ "$(Linux.status)" == "Canceled"
+              || "$(macOS.status)" == "Canceled"
+              || "$(Windows.status)" == "Canceled"
+              || "$(perf.status)" == "Canceled"
+              || "$(Windows_signing.status)" == "Canceled"
+              || "$(release.status)" == "Canceled" ]]; then
+              exit 1
+          fi
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

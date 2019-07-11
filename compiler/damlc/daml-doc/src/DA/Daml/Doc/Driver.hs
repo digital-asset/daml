@@ -9,10 +9,12 @@ module DA.Daml.Doc.Driver(
     , DocOption(..)
     ) where
 
-import           DA.Daml.Doc.Types
-import           DA.Daml.Doc.Render
-import           DA.Daml.Doc.HaddockParse
-import           DA.Daml.Doc.Transform
+import DA.Daml.Doc.Types
+import DA.Daml.Doc.Render
+import DA.Daml.Doc.HaddockParse
+import DA.Daml.Doc.Transform
+import DA.Daml.Doc.Annotate
+
 import Development.IDE.Types.Location
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Options
@@ -54,7 +56,7 @@ damlDocDriver cInputFormat ideOpts output cFormat prefixFile options files = do
             InputJson -> do
                 input <- mapM (BS.readFile . fromNormalizedFilePath) files
                 let mbData = map AE.eitherDecode input :: [Either String [ModuleDoc]]
-                concatMapM (either printAndExit pure) mbData
+                applyAnnotations <$> concatMapM (either printAndExit pure) mbData
 
             InputDaml ->
                 onErrorExit $ runExceptT
