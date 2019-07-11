@@ -541,7 +541,7 @@ getHlintDiagnosticsRule =
       getHlintDataDir = do
         dir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
         let test = dir </> "data/test"
-            prod = dir </> "data/daml-ide-core/prod"
+            prod = dir </> "daml-ide-core/data/prod"
         prodExists <- System.Directory.doesDirectoryExist prod
         return $ case prodExists of True -> prod; False -> test
 
