@@ -285,7 +285,7 @@ telemetryOpt = do
         help "Send crash data + telemetry to Digital Asset" <> long optInS
     optOut <-
         switch $
-        help "Opt out of sending + telemetry to Digital Asset" <> long optOutS
+        help "Opt out of sending crash data + telemetry to Digital Asset" <> long optOutS
     pure $ case (optIn, optOut) of
         (False, False) -> Undecided
         (True, False) -> OptedIn
