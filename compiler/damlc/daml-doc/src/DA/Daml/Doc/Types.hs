@@ -41,7 +41,7 @@ instance Hashable Type where
 
 -- | Anchors are URL-safe ids into the docs.
 newtype Anchor = Anchor { unAnchor :: Text }
-    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 ------------------------------------------------------------
 -- | Documentation data for a module
