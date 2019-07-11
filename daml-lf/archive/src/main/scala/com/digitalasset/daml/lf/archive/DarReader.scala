@@ -64,7 +64,7 @@ class DarReader[A](
     sequence(names.map(parseOne(getInputStreamFor)))
 
   private def parseOne(getInputStreamFor: String => Try[(Long, InputStream)])(s: String): Try[A] =
-    bracket(getInputStreamFor(s))({ case (_, is) => close(is) }).flatMap({
+    bracket(getInputStreamFor(s))({ case (_, is) => Try(is.close())}).flatMap({
       case (size, is) =>
         parseDalf(size, is)
     })
@@ -116,7 +116,7 @@ object DarReader {
 
     private def parseDalfNamesFromManifest(
         readDalfNamesFromManifest: InputStream => Try[Dar[String]]): Try[Dar[String]] =
-      bracket(getInputStreamFor(ManifestName)) { case (_, is) => close(is) }
+      bracket(getInputStreamFor(ManifestName)) { case (_, is) => Try(is.close()) }
         .flatMap { case (_, is) => readDalfNamesFromManifest(is) }
 
     // There are three cases:
@@ -138,8 +138,6 @@ object DarReader {
 
     private def isPrimDalf(s: String): Boolean = s.toLowerCase.contains("-prim") && isDalf(s)
   }
-
-  private[archive] def close(is: InputStream): Try[Unit] = Try(is.close())
 
   def apply(): DarReader[(Ref.PackageId, DamlLf.ArchivePayload)] =
     new DarReader(DarManifestReader.dalfNames, {
