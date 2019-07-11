@@ -16,9 +16,12 @@ module DA.Ledger.Stream(
     whenClosed, isClosed,
     mapListStream,
     streamToList,
+    asyncStreamGen,
     ) where
 
 import Control.Concurrent
+import Control.Exception (SomeException,catch,mask_)
+import Control.Concurrent.Async(async,cancel)
 
 newtype Stream a = Stream {status :: MVar (Either Closed (Open a))}
 
@@ -110,7 +113,7 @@ mapListStream f source = do
                     ys <- f x
                     mapM_ (\y -> writeStream target (Right y)) ys
                     loop
-    _ <- forkIO loop
+    _ <- async loop
     return target
 
 -- Force a Stream, which we expect to reach EOS, to a list
@@ -120,3 +123,12 @@ streamToList stream = do
         Left (Abnormal s) -> fail s
         Left EOS -> return []
         Right x -> fmap (x:) $ streamToList stream
+
+-- Generate a stream in an asyncronous thread
+asyncStreamGen :: (Stream a -> IO ()) -> IO (Stream a)
+asyncStreamGen act = mask_ $ do
+    stream <- newStream
+    gen <- async $ act stream
+        `catch` \(e::SomeException) -> closeStream stream (Abnormal (show e))
+    onClose stream $ \_ -> cancel gen
+    return stream
