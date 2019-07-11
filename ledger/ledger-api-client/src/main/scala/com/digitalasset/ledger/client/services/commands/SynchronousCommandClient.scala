@@ -14,4 +14,19 @@ class SynchronousCommandClient(commandService: CommandService) {
   def submitAndWait(submitAndWaitRequest: SubmitAndWaitRequest): Future[Empty] = {
     commandService.submitAndWait(submitAndWaitRequest)
   }
+
+  def submitAndWaitForTransactionId(
+      submitAndWaitRequest: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionIdResponse] = {
+    commandService.submitAndWaitForTransactionId(submitAndWaitRequest)
+  }
+
+  def submitAndWaitForTransaction(
+      submitAndWaitRequest: SubmitAndWaitRequest): Future[SubmitAndWaitForTransactionResponse] = {
+    commandService.submitAndWaitForTransaction(submitAndWaitRequest)
+  }
+
+  def submitAndWaitForTransactionTree(submitAndWaitRequest: SubmitAndWaitRequest)
+    : Future[SubmitAndWaitForTransactionTreeResponse] = {
+    commandService.submitAndWaitForTransactionTree(submitAndWaitRequest)
+  }
 }

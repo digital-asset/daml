@@ -5,10 +5,27 @@ package com.digitalasset.http.json
 
 import spray.json._
 import com.digitalasset.http.domain
-
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import com.digitalasset.ledger.api.{v1 => lav1}
+import com.digitalasset.http.json.TaggedJsonFormat._
+import com.digitalasset.ledger.api.v1.value.Record
 import scalaz.{-\/, \/-}
 
 object JsonProtocol extends DefaultJsonProtocol {
+
+  implicit val LedgerIdFormat: JsonFormat[lar.LedgerId] = taggedJsonFormat[String, lar.LedgerIdTag]
+
+  implicit val ApplicationIdFormat: JsonFormat[lar.ApplicationId] =
+    taggedJsonFormat[String, lar.ApplicationIdTag]
+
+  implicit val WorkflowIdFormat: JsonFormat[lar.WorkflowId] =
+    taggedJsonFormat[String, lar.WorkflowIdTag]
+
+  implicit val PartyFormat: JsonFormat[lar.Party] =
+    taggedJsonFormat[String, lar.PartyTag]
+
+  implicit val CommandIdFormat: JsonFormat[lar.CommandId] =
+    taggedJsonFormat[String, lar.CommandIdTag]
 
   implicit val JwtPayloadFormat: RootJsonFormat[domain.JwtPayload] = jsonFormat3(domain.JwtPayload)
 
@@ -47,4 +64,15 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val GetActiveContractsResponseFormat
     : JsonWriter[domain.GetActiveContractsResponse[JsValue]] =
     gacr => JsString(gacr.toString) // TODO actual format
+
+  // TODO (Leo): get rid of this
+  implicit val RecordFormat: RootJsonFormat[lav1.value.Record] =
+    new RootJsonFormat[lav1.value.Record] {
+      override def write(obj: Record): JsValue = sys.error("not implemented")
+
+      override def read(json: JsValue): Record = sys.error("not implemented")
+    }
+
+  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand] = jsonFormat4(
+    domain.CreateCommand)
 }

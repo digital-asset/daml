@@ -3,8 +3,19 @@
 
 package com.digitalasset.http
 
-class CommandService {
+import com.digitalasset.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitRequest
+}
 
-  def create() = ()
+import scala.concurrent.Future
+
+class CommandService(
+    submitAndWaitForTransaction: SubmitAndWaitRequest => Future[
+      SubmitAndWaitForTransactionResponse]) {
+
+  def create(jwtPayload: domain.JwtPayload) = {
+    ???
+  }
 
 }

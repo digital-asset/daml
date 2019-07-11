@@ -3,18 +3,18 @@
 
 package com.digitalasset.http
 
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
-
-import scalaz.{Functor, \/}
 import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
+import scalaz.{Functor, \/}
 
 object domain {
   type Error = String
 
-  case class JwtPayload(ledgerId: String, applicationId: String, party: String)
+  case class JwtPayload(ledgerId: lar.LedgerId, applicationId: lar.ApplicationId, party: lar.Party)
 
   case class TemplateId[+PkgId](packageId: PkgId, moduleName: String, entityName: String)
 
@@ -96,4 +96,11 @@ object domain {
   private[this] implicit final class ErrorOps[A](private val o: Option[A]) extends AnyVal {
     def required(label: String): Error \/ A = o toRightDisjunction s"Missing required field $label"
   }
+
+  case class CreateCommand(
+      workflowId: Option[lar.WorkflowId],
+      commandId: Option[lar.CommandId],
+      templateId: TemplateId.OptionalPkg,
+      argument: Option[lav1.value.Record])
+
 }

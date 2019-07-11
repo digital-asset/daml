@@ -18,6 +18,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.functor._
 import scalaz.{-\/, @@, \/-}
 import spray.json._
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -26,7 +27,10 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
-    domain.JwtPayload(ledgerId = "ledgerId", applicationId = "applicationId", party = "Alice")
+    domain.JwtPayload(
+      lar.LedgerId("ledgerId"),
+      lar.ApplicationId("applicationId"),
+      lar.Party("Alice"))
 
   private val extractJwtPayload: Directive1[domain.JwtPayload] =
     Directive(_(Tuple1(jwtPayload))) // TODO from header
