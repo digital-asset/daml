@@ -198,7 +198,7 @@ getFctDocs DocCtx{..} (DeclData decl docs) = do
   let fct_name = Fieldname (idpToText name)
       fct_context = hsTypeToContext =<< mbType
       fct_type = fmap hsTypeToType mbType
-      fct_anchor = Just $ functionAnchor dc_mod fct_name fct_type
+      fct_anchor = Just $ functionAnchor dc_mod fct_name
       fct_descr = docs
   Just FunctionDoc {..}
 
@@ -274,10 +274,7 @@ getTypeDocs DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     fieldDoc ConDeclField{..} = do
         let fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names
             fd_type = hsTypeToType cd_fld_type
-            fd_anchor = Just $ functionAnchor dc_mod fd_name Nothing
-                -- FIXME (FM): add the right type, or (better yet) get rid of the
-                -- type argument for function anchors while maintaining anchor
-                -- uniqueness.
+            fd_anchor = Just $ functionAnchor dc_mod fd_name
             fd_descr = fmap (docToText . unLoc) cd_fld_doc
         Just FieldDoc{..}
     fieldDoc XConDeclField{}  = Nothing
