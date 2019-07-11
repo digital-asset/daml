@@ -6,7 +6,7 @@
 
 daml 1.2
 
-module LibraryModules () where
+module LibraryModules where
 
 import DA.Action
 import DA.Assert

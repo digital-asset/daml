@@ -57,9 +57,9 @@ package_app(
     binary = ":damlc",
     resources = [
         ":ghc-pkg-dist",
+        "//compiler/damlc/daml-ide-core:hlint-yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//compiler/damlc/daml-ide-core:hlint-yaml"
     ],
     tags = ["no-cache"],
     visibility = ["//visibility:public"],

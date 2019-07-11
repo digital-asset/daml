@@ -531,8 +531,8 @@ getHlintDataDir = do
     mainWorkspace </> "compiler/damlc/daml-ide-core"
   let test = root </> "data/test"
       prod = root </> "daml-ide-core/data/prod"
-  useProd <- System.Directory.doesDirectoryExist $ prod
-  return $ case useProd of False -> test; True -> prod
+  useProd <- System.Directory.doesDirectoryExist prod
+  return $ if useProd then prod else test
 
 -- This next function harvests hlint settings using 'hlint.yaml'. What
 -- we don't have at this time but I will follow up with in a later

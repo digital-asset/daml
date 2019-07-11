@@ -6,13 +6,13 @@ load(
     "da_haskell_library",
 )
 
-filegroup (
-  name = "hlint-yaml",
-  srcs = [
-    "data/test/hlint.yaml",
-    "data/prod/hlint.yaml"
-  ],
-  visibility = ["//visibility:public"],
+filegroup(
+    name = "hlint-yaml",
+    srcs = [
+        "data/prod/hlint.yaml",
+        "data/test/hlint.yaml",
+    ],
+    visibility = ["//visibility:public"],
 )
 
 da_haskell_library(
@@ -59,8 +59,8 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/hie-core",
         "//compiler/scenario-service/client",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//libs-haskell/bazel-runfiles"
     ],
 )
 
