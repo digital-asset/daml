@@ -41,12 +41,13 @@ instance Hashable Type where
 
 -- | Anchors are URL-safe ids into the docs.
 newtype Anchor = Anchor { unAnchor :: Text }
-    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON)
+    deriving newtype (Eq, Ord, Show, ToJSON, FromJSON, IsString)
 
 ------------------------------------------------------------
 -- | Documentation data for a module
 data ModuleDoc = ModuleDoc
-  { md_name      :: Modulename
+  { md_anchor    :: Maybe Anchor
+  , md_name      :: Modulename
   , md_descr     :: Maybe DocText
   , md_templates :: [TemplateDoc]
   , md_adts      :: [ADTDoc]
@@ -61,7 +62,8 @@ data ModuleDoc = ModuleDoc
 
 -- | Documentation data for a template
 data TemplateDoc = TemplateDoc
-  { td_name    :: Typename
+  { td_anchor  :: Maybe Anchor
+  , td_name    :: Typename
   , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
@@ -69,7 +71,8 @@ data TemplateDoc = TemplateDoc
   deriving (Eq, Show, Generic)
 
 data ClassDoc = ClassDoc
-  { cl_name :: Typename
+  { cl_anchor :: Maybe Anchor
+  , cl_name :: Typename
   , cl_descr :: Maybe DocText
   , cl_super :: Maybe Type
   , cl_args :: [Text]
@@ -79,13 +82,15 @@ data ClassDoc = ClassDoc
 
 -- | Documentation data for an ADT or type synonym
 data ADTDoc = ADTDoc
-  { ad_name   :: Typename
+  { ad_anchor :: Maybe Anchor
+  , ad_name   :: Typename
   , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_constrs :: [ADTConstr]  -- allowed to be empty
   }
   | TypeSynDoc
-  { ad_name   :: Typename
+  { ad_anchor :: Maybe Anchor
+  , ad_name   :: Typename
   , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_rhs    :: Type
@@ -95,11 +100,13 @@ data ADTDoc = ADTDoc
 
 -- | Constructors (Record or Prefix)
 data ADTConstr =
-    PrefixC { ac_name :: Typename
+    PrefixC { ac_anchor :: Maybe Anchor
+            , ac_name :: Typename
             , ac_descr :: Maybe DocText
             , ac_args :: [Type]   -- use retained var.names
             }
-  | RecordC { ac_name :: Typename
+  | RecordC { ac_anchor :: Maybe Anchor
+            , ac_name :: Typename
             , ac_descr :: Maybe DocText
             , ac_fields :: [FieldDoc]
             }
@@ -119,7 +126,8 @@ data ChoiceDoc = ChoiceDoc
 
 -- | Documentation data for a field in a record
 data FieldDoc = FieldDoc
-  { fd_name  :: Fieldname
+  { fd_anchor :: Maybe Anchor
+  , fd_name  :: Fieldname
   , fd_type  :: Type
     -- TODO align with GHC data structure. The type representation must use FQ
     -- names in components to enable links, and it Can use bound type var.s.
@@ -130,7 +138,8 @@ data FieldDoc = FieldDoc
 
 -- | Documentation data for functions (top level only, type optional)
 data FunctionDoc = FunctionDoc
-  { fct_name  :: Fieldname
+  { fct_anchor :: Maybe Anchor
+  , fct_name  :: Fieldname
   , fct_context :: Maybe Type
   , fct_type  :: Maybe Type
   , fct_descr :: Maybe DocText

@@ -8,7 +8,6 @@ module DA.Daml.Doc.Render.Hoogle
   ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Anchor
 import DA.Daml.Doc.Render.Util
 
 import           Data.Maybe
@@ -23,8 +22,9 @@ hooglify (Just md) =
         (x:xs) -> ("-- | " <>  x)
             : map ("--   " <>) xs
 
-urlTag :: Anchor -> T.Text
-urlTag = ("@url https://docs.daml.com/daml/reference/base.html#" <>) . unAnchor
+urlTag :: Maybe Anchor -> T.Text
+urlTag Nothing = ""
+urlTag (Just (Anchor t)) = "@url https://docs.daml.com/daml/reference/base.html#" <> t
 
 renderSimpleHoogle :: ModuleDoc -> T.Text
 renderSimpleHoogle ModuleDoc{..}
@@ -32,35 +32,34 @@ renderSimpleHoogle ModuleDoc{..}
     null md_functions && isNothing md_descr = T.empty
 renderSimpleHoogle ModuleDoc{..} = T.unlines . concat $
   [ hooglify md_descr
-  , [ urlTag (moduleAnchor md_name)
+  , [ urlTag md_anchor
     , "module " <> unModulename md_name
     , "" ]
-  -- , concatMap tmpl2hoogle md_templates    -- just ignore templates
-  , concatMap (adt2hoogle md_name) md_adts
-  , concatMap (cls2hoogle md_name) md_classes
-  , concatMap (fct2hoogle md_name) md_functions
+  , concatMap adt2hoogle md_adts
+  , concatMap cls2hoogle md_classes
+  , concatMap fct2hoogle md_functions
   ]
 
-adt2hoogle :: Modulename -> ADTDoc -> [T.Text]
-adt2hoogle md_name TypeSynDoc{..} = concat
+adt2hoogle :: ADTDoc -> [T.Text]
+adt2hoogle TypeSynDoc{..} = concat
     [ hooglify ad_descr
-    , [ urlTag (typeAnchor md_name ad_name)
+    , [ urlTag ad_anchor
       , T.unwords ("type" : wrapOp (unTypename ad_name) :
           ad_args ++ ["=", type2hoogle ad_rhs])
       , "" ]
     ]
-adt2hoogle md_name ADTDoc{..} = concat
+adt2hoogle ADTDoc{..} = concat
     [ hooglify ad_descr
-    , [ urlTag (dataAnchor md_name ad_name)
+    , [ urlTag ad_anchor
       , T.unwords ("data" : wrapOp (unTypename ad_name) : ad_args)
       , "" ]
-    , concatMap (adtConstr2hoogle md_name ad_name) ad_constrs
+    , concatMap (adtConstr2hoogle ad_name) ad_constrs
     ]
 
-adtConstr2hoogle :: Modulename -> Typename -> ADTConstr -> [T.Text]
-adtConstr2hoogle md_name typename PrefixC{..} = concat
+adtConstr2hoogle :: Typename -> ADTConstr -> [T.Text]
+adtConstr2hoogle typename PrefixC{..} = concat
     [ hooglify ac_descr
-    , [ urlTag (constrAnchor md_name ac_name)
+    , [ urlTag ac_anchor
       , T.unwords
             [ wrapOp (unTypename ac_name)
             , "::"
@@ -68,9 +67,9 @@ adtConstr2hoogle md_name typename PrefixC{..} = concat
             ]
       , "" ]
     ]
-adtConstr2hoogle md_name typename RecordC{..} = concat
+adtConstr2hoogle typename RecordC{..} = concat
     [ hooglify ac_descr
-    , [ urlTag (constrAnchor md_name ac_name)
+    , [ urlTag ac_anchor
       , T.unwords
             [ wrapOp (unTypename ac_name)
             , "::"
@@ -95,15 +94,15 @@ fieldDoc2hoogle typename FieldDoc{..} = concat
     ]
 
 
-cls2hoogle :: Modulename -> ClassDoc -> [T.Text]
-cls2hoogle md_name ClassDoc{..} = concat
+cls2hoogle :: ClassDoc -> [T.Text]
+cls2hoogle ClassDoc{..} = concat
     [ hooglify cl_descr
-    , [ urlTag (classAnchor md_name cl_name)
+    , [ urlTag cl_anchor
       , T.unwords $ ["class"]
                  ++ maybe [] ((:["=>"]) . type2hoogle) cl_super
                  ++ wrapOp (unTypename cl_name) : cl_args
       , "" ]
-    , concatMap (fct2hoogle md_name . addToContext) cl_functions
+    , concatMap (fct2hoogle . addToContext) cl_functions
     ]
   where
     addToContext :: FunctionDoc -> FunctionDoc
@@ -118,10 +117,10 @@ cls2hoogle md_name ClassDoc{..} = concat
     contextTy :: Type
     contextTy = TypeApp Nothing cl_name [TypeApp Nothing (Typename arg) [] | arg <- cl_args]
 
-fct2hoogle :: Modulename -> FunctionDoc -> [T.Text]
-fct2hoogle md_name FunctionDoc{..} = concat
+fct2hoogle :: FunctionDoc -> [T.Text]
+fct2hoogle FunctionDoc{..} = concat
     [ hooglify fct_descr
-    , [ urlTag (functionAnchor md_name fct_name fct_type)
+    , [ urlTag fct_anchor
       , T.unwords $ [wrapOp (unFieldname fct_name), "::"]
                  ++ maybe [] ((:["=>"]) . type2hoogle) fct_context
                  ++ maybe ["_"] ((:[]) . type2hoogle) fct_type -- FIXME(FM): what to do when missing type?
