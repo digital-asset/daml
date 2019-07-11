@@ -3,7 +3,7 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS  @bitonic @neil-da @hurryabit @cbaatz-da
+CODEOWNERS  @bitonic @hurryabit @cbaatz-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -22,10 +22,10 @@ azure-cron.yml      @garyverhaegen-da
 # Runtime
 /daml-lf/               @leo-da @S11001001
 /daml-lf/governance.rst @gerolf-da @S11001001
-/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit @gerolf-da @neil-da
+/daml-lf/archive/da/    @remyhaemmerle-da @hurryabit @gerolf-da
 /daml-lf/spec/value.rst @S11001001 @gerolf-da
 /daml-lf/spec/transaction.rst @S11001001 @gerolf-da
-/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit @gerolf-da @neil-da
+/daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit @gerolf-da
 /daml-lf/validation/    @remyhaemmerle-da
 
 /ledger/      @gerolf-da @rautenrieth-da
