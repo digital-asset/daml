@@ -378,7 +378,6 @@ object Repl {
         println(s"Error: cannot parser arguments '${args.mkString(" ")}'")
 
       case Right(argExprs) =>
-
         lookup(state, id) match {
           case None =>
             println("Error: definition '" + id + "' not found. Try :list.")
@@ -575,7 +574,7 @@ object Repl {
 
   case class ParseError(error: String) extends RuntimeException(error)
 
-  private def assertRight[X](e: Either[String, X]):X =
+  private def assertRight[X](e: Either[String, X]): X =
     e.fold(
       err => throw ParseError(err),
       identity

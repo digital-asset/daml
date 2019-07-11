@@ -29,7 +29,7 @@ package object parser {
       implicit parserParameters: ParserParameters[P]): Either[String, Expr] =
     safeParse(new ExprParser[P](parserParameters).expr, s)
   def parseExprs[P](s: String)(
-    implicit parserParameters: ParserParameters[P]): Either[String, List[Expr]] =
+      implicit parserParameters: ParserParameters[P]): Either[String, List[Expr]] =
     safeParse(new ExprParser[P](parserParameters).exprs, s)
   def parseModules[P](s: String)(
       implicit parserParameters: ParserParameters[P]): Either[String, List[Module]] =
