@@ -60,6 +60,7 @@ genrule(
         ":sdk-config.yaml.tmpl",
         ":install.sh",
         ":install.bat",
+        "//:NOTICES",
         "//:VERSION",
         "//daml-assistant:daml-dist",
         "//compiler/damlc:damlc-dist",
@@ -76,6 +77,8 @@ genrule(
       VERSION=$$(cat $(location //:VERSION))
       OUT=sdk-$$VERSION
       mkdir -p $$OUT
+
+      cp $(location //:NOTICES) $$OUT/NOTICES
 
       cp $(location :install.sh) $$OUT/install.sh
       cp $(location :install.bat) $$OUT/install.bat
