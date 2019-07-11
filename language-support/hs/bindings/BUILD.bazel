@@ -19,6 +19,7 @@ da_haskell_library(
         "text",
         "time",
         "transformers",
+        "unliftio",
         "vector",
     ],
     visibility = ["//visibility:public"],

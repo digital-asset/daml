@@ -33,8 +33,7 @@ import DA.Ledger.Services
 import DA.Ledger.Stream
 import DA.Ledger.Types
 
-import Control.Exception (try,SomeException,throwIO)
-import Control.Monad.IO.Class(liftIO)
+import UnliftIO (liftIO,timeout,bracket)
 
 configOfPort :: Port -> ClientConfig
 configOfPort port =
@@ -43,6 +42,11 @@ configOfPort port =
                  , clientArgs = []
                  , clientSSLConfig = Nothing
                  }
+
+withTimeout :: LedgerService a -> LedgerService (Maybe a)
+withTimeout ls = do
+    nSecs <- askTimeout
+    timeout (1_000_000 * nSecs) ls
 
 
 getTransactionsPF :: LedgerId -> Party -> LedgerService (PastAndFuture [Transaction])
@@ -54,34 +58,28 @@ getTransactionsPF lid party = do
     let req2 = GetTransactionsRequest lid now         Nothing    filter verbose
     stream <- getTransactions req1
     future <- getTransactions req2
-    past <- withTimeout $ liftIO $ streamToList stream
+    Just past <- withTimeout $ liftIO $ streamToList stream
     return PastAndFuture { past, future }
+
+
+closeStreamLS :: Stream a -> LedgerService ()
+closeStreamLS stream = liftIO $ closeStream stream EOS
 
 
 withGetTransactions
     :: GetTransactionsRequest
     -> (Stream [Transaction] -> LedgerService a)
     -> LedgerService a
-withGetTransactions req act = do
-    stream <- getTransactions req
-    res <- mapIOLedgerService try (act stream)
-    liftIO $ closeStream stream EOS
-    case res of
-        Left e -> liftIO $ throwIO (e::SomeException)
-        Right x -> return x
+withGetTransactions req =
+    bracket (getTransactions req) closeStreamLS
 
 
 withGetTransactionTrees
     :: GetTransactionsRequest
     -> (Stream [TransactionTree] -> LedgerService a)
     -> LedgerService a
-withGetTransactionTrees req act = do
-    stream <- getTransactionTrees req
-    res <- mapIOLedgerService try (act stream)
-    liftIO $ closeStream stream EOS
-    case res of
-        Left e -> liftIO $ throwIO (e::SomeException)
-        Right x -> return x
+withGetTransactionTrees req =
+    bracket (getTransactionTrees req) closeStreamLS
 
 
 withGetAllTransactions
@@ -92,7 +90,6 @@ withGetAllTransactions lid party verbose act = do
     let filter = filterEverthingForParty party
     let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
     withGetTransactions req act
-
 
 withGetTransactionsPF
     :: LedgerId -> Party
@@ -106,7 +103,7 @@ withGetTransactionsPF lid party act = do
     let req2 = GetTransactionsRequest lid now         Nothing    filter verbose
     withGetTransactions req1 $ \stream -> do
     withGetTransactions req2 $ \future -> do
-    past <- withTimeout $ liftIO $ streamToList stream
+    Just past <- withTimeout $ liftIO $ streamToList stream
     act $ PastAndFuture { past, future }
 
 
