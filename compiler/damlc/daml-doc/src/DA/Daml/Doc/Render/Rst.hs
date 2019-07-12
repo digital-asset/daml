@@ -167,7 +167,7 @@ adt2rst ADTDoc{..} = mconcat $
 
 
 constr2rst ::  ADTConstr -> RenderOut
-constr2rst PrefixC{..} = mconcat $
+constr2rst PrefixC{..} = mconcat
     [ renderAnchor ac_anchor
     , renderLineDep $ \env ->
         T.unwords (enclosedIn "**" (unTypename ac_name) : map (type2rst env) ac_args)
