@@ -58,15 +58,12 @@ data Options = Options
     -- ^ Controls whether the scenario service server runs all checks
     -- or only a subset of them. This is mostly used to run additional
     -- checks on CI while keeping the IDE fast.
-<<<<<<< HEAD
   , optHlintEnabled :: Bool
   -- ^ Whether or not to enable hlint
   , optHlintDataDir :: Maybe FilePath
-    -- ^ Where hlints base configuration file (hlint.yaml) resides
-=======
+    -- ^ Where hlint's base configuration file (hlint.yaml) resides
   , optIsGenerated :: Bool
-    -- Whether we're compiling generated code. Then we allow internal imports.
->>>>>>> origin/master
+    -- ^ Whether we're compiling generated code. Then we allow internal imports.
   } deriving Show
 
 data ScenarioValidation
