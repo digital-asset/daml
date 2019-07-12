@@ -535,31 +535,20 @@ getHlintDataDir = do
   useProd <- System.Directory.doesDirectoryExist prod
   return $ if useProd then prod else test
 
--- This next function harvests hlint settings using 'hlint.yaml'. What
--- we don't have at this time but I will follow up with in a later
--- update, is the ability to augment the settings via per-project
--- overrides from user provided '.hlint.yaml' files (found by by
--- searching the directory from which 'daml studio' is invoked [and
--- possibly its ancestors]). It's in anticpation of users updating
--- these '.hlint.yaml' files that we read settings on every
--- invocation.
-hlintSettings :: IO (ParseFlags, [Classify], Hint)
+hlintSettings :: IO ([Classify], Hint)
 hlintSettings = do
   hlintDataDir <- getHlintDataDir
-  (fixities, classify, hints) <-
+  (_, classify, hints) <-
     findSettings (readSettingsFile (Just hlintDataDir)) Nothing
-  return (parseFlagsAddFixities fixities defaultParseFlags, classify, hints)
+  return (classify, hints)
 
--- The 'getHlintDiagnosticsRule' reads settings, runs hlint on a
--- parsed module and returns its ideas on how to make it better as
--- diagnostics.
 getHlintDiagnosticsRule :: Rules ()
 getHlintDiagnosticsRule =
     define $ \GetHlintDiagnostics file -> do
         pm <- use_ GetParsedModule file
         let anns = pm_annotations pm
         let modu = pm_parsed_source pm
-        (_, classify, hint) <- liftIO hlintSettings
+        (classify, hint) <- liftIO hlintSettings
         let ideas = applyHints classify hint [createModuleEx anns modu]
         return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
