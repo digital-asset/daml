@@ -17,7 +17,7 @@ ts_library(
     tsconfig = ":tsconfig.json",
     deps = [
         "@daml_extension_deps//@types",
-        "@daml_extension_deps//vscode",
+        "@daml_extension_deps//@types/vscode",
         "@daml_extension_deps//vscode-languageclient",
     ],
 )
