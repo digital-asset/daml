@@ -706,9 +706,9 @@ private[lf] object DecodeV1 {
   import LanguageMinorVersion.Implicits._
 
   private[archive] val enumVersion: LanguageMinorVersion = "6"
-  private[archive] val internedIdsVersion: LanguageMinorVersion = "6"
+  private val internedIdsVersion: LanguageMinorVersion = "6"
 
-  private[lf] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
+  val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
     import PLF.PrimType._
 
     Map(
@@ -730,7 +730,7 @@ private[lf] object DecodeV1 {
     )
   }
 
-  private[lf] val builtinFunctionMap = {
+  val builtinFunctionMap = {
     import PLF.BuiltinFunction._
 
     Map[PLF.BuiltinFunction, (Ast.BuiltinFunction, LanguageMinorVersion)](

@@ -1,9 +1,9 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.archive
+package com.digitalasset.daml.lf.archive
+package testing
 
-import com.digitalasset.daml.lf.archive.DecodeV1
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
@@ -18,10 +18,11 @@ import scala.language.implicitConversions
 private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
 
   import EncodeV1._
+  import Encode._
   import LanguageMinorVersion.Implicits._
   import Name.ordering
 
-  private val enumVersion: LanguageMinorVersion = "6"
+  private val enumVersion: LanguageMinorVersion = DecodeV1.enumVersion
 
   def encodePackage(pkgId: PackageId, pkg: Package): PLF.Package = {
     val moduleEncoder = new ModuleEncoder(pkgId)
@@ -562,11 +563,6 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
 
 object EncodeV1 {
 
-  case class EncodeError(message: String) extends RuntimeException
-
-  private def unexpectedError(): Unit =
-    throw EncodeError("unexpected error")
-
   private sealed abstract class LeftRecMatcher[Left, Right] {
     def unapply(arg: Left): Option[(Left, ImmArray[Right])]
   }
@@ -630,9 +626,6 @@ object EncodeV1 {
     @inline
     def accumulateLeft[Y](option: Option[Y])(f: (X, Y) => X): X = option.fold(x)(f(x, _))
   }
-
-  private def expect(b: Boolean): Unit =
-    if (!b) unexpectedError()
 
   private implicit class IdentifierOps(val identifier: Identifier) extends AnyVal {
     import identifier._
