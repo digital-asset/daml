@@ -24,7 +24,6 @@ import           "ghc-lib-parser" ConLike
 import           "ghc-lib-parser" DataCon
 import           "ghc-lib-parser" Id
 import           "ghc-lib-parser" Name
---import           "ghc-lib-parser" OccName
 import           "ghc-lib-parser" RdrName
 import qualified "ghc-lib-parser" Outputable                      as Out
 import qualified "ghc-lib-parser" DynFlags                        as DF
