@@ -233,13 +233,17 @@ getFctDocs DocCtx{..} (DeclData decl docs) = do
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
 getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
     let cl_name = Typename . packRdrName $ unLoc tcdLName
+        cl_anchor = Just $ classAnchor dc_mod cl_name
         cl_descr = docs
-        cl_super = case unLoc tcdCtxt of
-            [] -> Nothing
-            xs -> Just $ TypeTuple $ map hsTypeToType xs
         cl_functions = concatMap f tcdSigs
         cl_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-        cl_anchor = Just $ classAnchor dc_mod cl_name
+        cl_super = do
+            tycon <- MS.lookup cl_name dc_tycons
+            cls <- tyConClass_maybe tycon
+            let theta = classSCTheta cls
+            guard (notNull theta)
+            Just (TypeTuple $ map typeToType theta)
+
     Just ClassDoc {..}
   where
     f :: LSig GhcPs -> [FunctionDoc]
