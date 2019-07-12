@@ -149,9 +149,7 @@ data DeclData = DeclData
 
 buildDocCtx :: TypecheckedModule -> DocCtx
 buildDocCtx dc_tcmod  =
-  let dc_mod
-          = Modulename . T.pack . moduleNameString . moduleName
-          . ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
+  let dc_mod = packModule . ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
       dc_decls
           = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
           . pm_parsed_source . tm_parsed_module $ dc_tcmod
@@ -487,7 +485,7 @@ tyConAnchor :: DocCtx -> TyCon -> Maybe Anchor
 tyConAnchor DocCtx{..} tycon = do
     let ghcName = tyConName tycon
         name = Typename . packName $ ghcName
-        mod = maybe dc_mod packModule (nameModule_maybe $ ghcName)
+        mod = maybe dc_mod packModule (nameModule_maybe ghcName)
         anchorFn
             | isClassTyCon tycon = classAnchor
             | isDataTyCon tycon = dataAnchor
