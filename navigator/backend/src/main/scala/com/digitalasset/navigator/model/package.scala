@@ -8,10 +8,11 @@ import com.digitalasset.daml.lf.{data => DamlLfData}
 import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 import com.digitalasset.daml.lf.{iface => DamlLfIface}
 import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.json.NavigatorModelAliases
 import com.digitalasset.ledger.api.{v1 => ApiV1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 
-package object model {
+package object model extends NavigatorModelAliases[String] {
 
   /**
     * An opaque identifier used for templates.
@@ -44,38 +45,7 @@ package object model {
   type DamlLfQualifiedName = DamlLfRef.QualifiedName
   val DamlLfQualifiedName = DamlLfRef.QualifiedName
 
-  /**
-    * An absolute reference of a DAML-LF entity.
-    * Contains a DAML-LF package ID and a qualified name.
-    * Currently, such identifiers can point to:
-    * - Templates
-    * - User-defined records
-    * - User-defined variants
-    */
-  type DamlLfIdentifier = DamlLfRef.Identifier
-  val DamlLfIdentifier = DamlLfRef.Identifier
-
-  /**
-    * A simple DAML-LF type
-    * Currently, these can be:
-    * - Primitive types
-    * - Type constructor applications (i.e., dereferencing a DamlLfIdentifier)
-    * - Type variables
-    */
-  type DamlLfType = DamlLfIface.Type
-  type DamlLfTypeCon = DamlLfIface.TypeCon
-  val DamlLfTypeCon = DamlLfIface.TypeCon
-  type DamlLfTypePrim = DamlLfIface.TypePrim
-  val DamlLfTypePrim = DamlLfIface.TypePrim
-  type DamlLfTypeVar = DamlLfIface.TypeVar
-  val DamlLfTypeVar = DamlLfIface.TypeVar
-  type DamlLfTypeConName = DamlLfIface.TypeConName
-  val DamlLfTypeConName = DamlLfIface.TypeConName
-
   type DamlLfTypeConNameOrPrimType = DamlLfIface.TypeConNameOrPrimType
-
-  type DamlLfPrimType = DamlLfIface.PrimType
-  val DamlLfPrimType = DamlLfIface.PrimType
 
   type DamlLfImmArraySeq[T] = DamlLfData.ImmArray.ImmArraySeq[T]
   val DamlLfImmArraySeq = DamlLfData.ImmArray.ImmArraySeq
@@ -83,50 +53,7 @@ package object model {
   type DamlLfImmArray[T] = DamlLfData.ImmArray[T]
   val DamlLfImmArray = DamlLfData.ImmArray
 
-  /** A user-defined DAML-LF type (generic form). Can be a record or variant. */
-  type DamlLfDefDataType = DamlLfIface.DefDataType.FWT
-  val DamlLfDefDataType = DamlLfIface.DefDataType
-
-  /** A user-defined DAML-LF type (closed form). Can be a record or variant. */
-  type DamlLfDataType = DamlLfIface.DataType.FWT
-  val DamlLfDataType = DamlLfIface.DataType
-
-  /** A user-defined DAML-LF record */
-  type DamlLfRecord = DamlLfIface.Record.FWT
-  val DamlLfRecord = DamlLfIface.Record
-
-  /** A user-defined DAML-LF variant */
-  type DamlLfVariant = DamlLfIface.Variant.FWT
-  val DamlLfVariant = DamlLfIface.Variant
-
-  /** A user-defined DAML-LF enum */
-  type DamlLfEnum = DamlLfIface.Enum
-  val DamlLfEnum = DamlLfIface.Enum
-
   type DamlLfFieldWithType = DamlLfIface.FieldWithType
-
-  type DamlLfTypeLookup = DamlLfIdentifier => Option[DamlLfDefDataType]
-
-  def damlLfInstantiate(typeCon: DamlLfTypeCon, defn: DamlLfDefDataType): DamlLfDataType =
-    if (defn.typeVars.length != typeCon.typArgs.length) {
-      throw new RuntimeException(
-        s"Mismatching type vars and applied types, expected ${defn.typeVars} but got ${typeCon.typArgs} types")
-    } else {
-      if (defn.typeVars.isEmpty) { // optimization
-        defn.dataType
-      } else {
-        val paramsMap = Map(defn.typeVars.zip(typeCon.typArgs): _*)
-        def mapTypeVars(typ: DamlLfType, f: DamlLfTypeVar => DamlLfType): DamlLfType = typ match {
-          case t @ DamlLfTypeVar(_) => f(t)
-          case t @ DamlLfTypeCon(_, _) => DamlLfTypeCon(t.name, t.typArgs.map(mapTypeVars(_, f)))
-          case t @ DamlLfTypePrim(_, _) => DamlLfTypePrim(t.typ, t.typArgs.map(mapTypeVars(_, f)))
-        }
-        val withTyp: DamlLfIface.Type => DamlLfIface.Type = { typ =>
-          mapTypeVars(typ, v => paramsMap.getOrElse(v.name, v))
-        }
-        defn.dataType.bimap(withTyp, withTyp)
-      }
-    }
 
   // ----------------------------------------------------------------------------------------------
   // Conversion between API Identifier, DAML-LF Identifier, and String
@@ -175,42 +102,4 @@ package object model {
 
   def parseOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.Identifier] =
     parseOpaqueIdentifier(TemplateStringId.unwrap(id))
-
-  import scala.language.higherKinds
-  type OfCid[V[_]] = V[String]
-  type ApiValue = OfCid[V]
-  type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)
-  val ApiRecordField = Tuple2
-  type ApiRecord = OfCid[V.ValueRecord]
-  val ApiRecord = V.ValueRecord
-  type ApiVariant = OfCid[V.ValueVariant]
-  val ApiVariant = V.ValueVariant
-  type ApiEnum = V.ValueEnum
-  val ApiEnum = V.ValueEnum
-  type ApiList = OfCid[V.ValueList]
-  val ApiList = V.ValueList
-  type ApiOptional = OfCid[V.ValueOptional]
-  val ApiOptional = V.ValueOptional
-  type ApiMap = OfCid[V.ValueMap]
-  val ApiMap = V.ValueMap
-  type ApiContractId = OfCid[V.ValueContractId]
-  val ApiContractId = V.ValueContractId
-  type ApiInt64 = V.ValueInt64
-  val ApiInt64 = V.ValueInt64
-  type ApiDecimal = V.ValueDecimal
-  val ApiDecimal = V.ValueDecimal
-  type ApiText = V.ValueText
-  val ApiText = V.ValueText
-  type ApiParty = V.ValueParty
-  val ApiParty = V.ValueParty
-  type ApiBool = V.ValueBool
-  val ApiBool = V.ValueBool
-  type ApiUnit = V.ValueUnit.type
-  val ApiUnit = V.ValueUnit
-  type ApiTimestamp = V.ValueTimestamp
-  val ApiTimestamp = V.ValueTimestamp
-  type ApiDate = V.ValueDate
-  val ApiDate = V.ValueDate
-  type ApiImpossible = OfCid[V.ValueTuple]
-  val ApiImpossible = V.ValueTuple
 }

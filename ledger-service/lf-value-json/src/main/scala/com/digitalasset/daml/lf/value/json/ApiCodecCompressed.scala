@@ -4,10 +4,11 @@
 package com.digitalasset.navigator.json
 
 import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList}
-import com.digitalasset.navigator.model.{ApiValue, DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
-import com.digitalasset.navigator.{model => Model}
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
+import Model.{ApiValue, DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import spray.json._
-import Model.ApiValueImplicits._
+import ApiValueImplicits._
 
 /**
   * A compressed encoding of API values.
@@ -207,7 +208,7 @@ object ApiCodecCompressed {
       value: JsValue,
       id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup): Model.ApiValue = {
-    val typeCon = Model.DamlLfTypeCon(Model.DamlLfTypeConName(id), Model.DamlLfImmArraySeq())
+    val typeCon = Model.DamlLfTypeCon(Model.DamlLfTypeConName(id), ImmArraySeq())
     // val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
     val dt = Model.damlLfInstantiate(
       typeCon,

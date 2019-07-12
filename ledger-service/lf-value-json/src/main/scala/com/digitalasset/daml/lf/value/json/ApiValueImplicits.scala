@@ -1,13 +1,14 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.model
+package com.digitalasset.navigator.json
 
 import java.time.{Instant, LocalDate}
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.json.NavigatorModelAliases._
 
 object ApiValueImplicits {
 
