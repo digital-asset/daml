@@ -95,7 +95,7 @@ mkOptions opts@Options {..} = do
     let mbDefaultPkgDbDir = fmap (</> "pkg-db_dir") mbDefaultPkgDb
     pkgDbs <- filterM Dir.doesDirectoryExist (toList mbDefaultPkgDbDir ++ [projectPackageDatabase])
     hlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    checkDirExists $ hlintDataDir
+    checkDirExists hlintDataDir
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs
               , optHlintDataDir=Just hlintDataDir}
   where checkDirExists f =
