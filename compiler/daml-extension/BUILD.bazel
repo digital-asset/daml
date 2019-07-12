@@ -3,38 +3,57 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("@npm_bazel_typescript//:index.bzl", "ts_library")
-load("@build_bazel_rules_nodejs//:defs.bzl", "npm_package")
-load("//bazel_tools:pkg.bzl", "pkg_tar")
+load("@os_info//:os_info.bzl", "is_windows")
 
-ts_library(
-    name = "daml_extension_lib",
-    # TODO(MH): Unfortunately, the current packaging setup does not work with
-    # multiple source files. We need to figure out how to split this file up
-    # before it gets too big and package it properly.
-    srcs = ["src/extension.ts"],
-    node_modules = "@daml_extension_deps//:node_modules",
-    tsconfig = ":tsconfig.json",
-    deps = [
-        "@daml_extension_deps//@types",
-        "@daml_extension_deps//@types/vscode",
-        "@daml_extension_deps//vscode-languageclient",
-    ],
+# For some reason,
+# 1. Bazel only exposes the node_modules dependency as a list of files, not as
+#    a folder, and
+# 2. Copying these files over is surprisingly slow on my machine.
+#
+# Because `vsce` needs to run in a folder where all of the node_modules
+# dependencies are already populated, this separate step takes all of the
+# node_module files, one by one (because that is how Bazel exposes them),
+# copies them to their intended place, and then bundles the whole node_modules
+# folder as a tarball so the next task, below, can depend on that cached
+# tarball and be fast.
+# Also for some reason on Windows I get "cannot ceate node_modules: file
+# exists", so at this point I'm completely out of trust.
+genrule(
+    name = "node_deps_cache",
+    srcs = ["@daml_extension_deps//:node_modules"],
+    outs = ["node_modules.tar.gz"],
+    cmd = """
+        if [[ -d node_modules ]]; then
+            rm -rf node_modules
+        fi
+        mkdir node_modules
+        cd node_modules
+        for f in $(locations @daml_extension_deps//:node_modules); do
+            # Because Bazel paths are weird, we need to remove everything
+            # before node_modules. We also need to extract the path separately
+            # from the filename because we need to create the path (mkdir -p)
+            # before we can write the file
+            file=$$(basename $$f)
+            dir=$$(dirname $$f | sed 's:^.*/node_modules/::')
+            mkdir -p $$dir
+            cp ../$$f $$dir/$$file
+        done
+        cd ..
+        tar czf node_modules.tar.gz node_modules
+        cp node_modules.tar.gz $@
+    """,
 )
 
-# With this rule we get access to extension.js, as
-# the ts_library only has the .d.ts file in the outputs.
-# Could possibly also use filegroup, which allows specifying
-# the output group (es5_source).
-npm_package(
-    name = "out",  # named out, so it goes to same place as before
-    deps = [
-        ":daml_extension_lib",
-    ],
+# This is needed to be able to call `$(location ...)` in the vsix rule.
+# Otherwise I have not found a way to express the conditional within the
+# `$(location ...)` substitution.
+alias(
+    name = "yarn",
+    actual = "@nodejs//:bin/yarn.cmd" if is_windows else "@nodejs//:bin/yarn",
 )
 
-pkg_tar(
-    name = "dot-dist",
+genrule(
+    name = "vsix",
     srcs = glob([
         "package.json",
         "syntaxes/*",
@@ -42,38 +61,27 @@ pkg_tar(
         "images/*",
         "*.json",
         "README.md",
+        "yarn.lock",
+        "src/*",
     ]) + [
-        ":out",
-        "src/webview.js",
-        "@daml_extension_deps//vscode-jsonrpc:vscode-jsonrpc",
-        "@daml_extension_deps//vscode-languageclient:vscode-languageclient",
-        "@daml_extension_deps//vscode-languageserver-types:vscode-languageserver-types",
-        "@daml_extension_deps//which:which",
+        ":node_deps_cache",
         "//:VERSION",
     ],
-    extension = "tar.gz",
-    mode = "0755",
-    package_dir = "daml-extension",
-    remap_paths = {
-        "../daml_extension_deps/node_modules": "node_modules",
-    },
-    strip_prefix = "./",
-)
-
-# NOTE(MH): The `pkg_tar` rule puts a `.` at the beginning of every path, which
-# would break assumptions made in the sdk assistant. Hence we need to repack
-# the tarball to get rid of the `.`.
-genrule(
-    name = "dist",
-    srcs = [
-        ":dot-dist",
-        "//:VERSION",
-    ],
-    outs = ["dist.tar.gz"],
+    outs = ["daml-bundled.vsix"],
     cmd = """
-        tar zxf $(location :dot-dist)
+        set -x
+        DIR=$$PWD
         VERSION=$$(cat $(location //:VERSION))
-        sed -i "s/__VERSION__/$$VERSION/" daml-extension/package.json
-        tar zcf $@ daml-extension
+        cd compiler/daml-extension
+        tar xzf $$DIR/$(location :node_deps_cache)
+        sed -i "s/__VERSION__/$$VERSION/" package.json
+        sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
+        $$DIR/$(location :yarn)
+        $$DIR/$(location :yarn) compile
+        $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package -o $$DIR/$@
     """,
+    tools = [
+        ":yarn",
+        "@daml_extension_deps//vsce/bin:vsce",
+    ],
 )
