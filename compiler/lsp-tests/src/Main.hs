@@ -5,7 +5,6 @@
 {-# LANGUAGE RankNTypes #-}
 module Main (main) where
 
-import Development.IDE.Core.Rules.Daml
 import Control.Applicative.Combinators
 import Control.Lens hiding (List)
 import Control.Monad
@@ -18,7 +17,6 @@ import qualified Data.Text as T
 import Language.Haskell.LSP.Types
 import Language.Haskell.LSP.Types.Lens
 import Network.URI
-import System.Directory (doesDirectoryExist, doesFileExist)
 import System.Environment.Blank
 import System.FilePath
 import System.Info.Extra
@@ -404,18 +402,6 @@ stressTests run _runScenarios = testGroup "Stress tests"
                 ]
             expect :: Int -> Session ()
             expect i = when (odd i) $ do
-                -- Despite these checks succeeding, the rest of the
-                -- block can fail for failing to read 'hlint.yaml'.
-                -- It's read at the end of the day by
-                -- Data.Yaml.decodeFileEither. Is there some sort of
-                -- contention going on?
-                hlintDataDir <- liftIO getHlintDataDir
-                hlintDataDirExists <- liftIO $ doesDirectoryExist hlintDataDir
-                hlintDataFileExists <- liftIO $ doesFileExist (hlintDataDir </> "hlint.yaml")
-                liftIO $ unless hlintDataDirExists $
-                  assertFailure $ "Directory " ++ hlintDataDir ++ " doesn't exist"
-                liftIO $ unless hlintDataFileExists $
-                  assertFailure $ "File " ++ (hlintDataDir </> "hlint.yaml") ++ " doesn't exist"
 
                 -- We do not wait for empty diagnostics on even i since debouncing
                 -- causes them to only be emitted after a delay which slows down

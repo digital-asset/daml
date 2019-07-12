@@ -19,6 +19,7 @@ da_haskell_binary(
     data = [
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
+        "//compiler/damlc/daml-ide-core:hlint-yaml",
     ],
     hazel_deps = [
         "base",

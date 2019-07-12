@@ -440,8 +440,8 @@ ofInterestRule = do
                     when  (vr `Set.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
 
-        -- We don’t always have a scenario service (e.g., damlc
-        -- compile) so only run scenarios if we have one.
+        -- We don’t always have a scenario service (e.g., damlc compile)
+        -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
         let files = Set.toList scenarioFiles
         let dalfActions = [(void . getDalf) f | f <- files]
