@@ -20,7 +20,8 @@ import Development.IDE.Types.Location
 import           "ghc-lib" GHC
 import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" TyCon
---import           "ghc-lib-parser" DataCon
+import           "ghc-lib-parser" ConLike
+import           "ghc-lib-parser" DataCon
 import           "ghc-lib-parser" Id
 import           "ghc-lib-parser" Name
 --import           "ghc-lib-parser" OccName
@@ -132,6 +133,7 @@ data DocCtx = DocCtx
     , dc_decls :: [DeclData]
 
     , dc_tycons :: MS.Map Typename TyCon
+    , dc_datacons :: MS.Map Typename DataCon
     , dc_ids :: MS.Map Fieldname Id
 
     , dc_templates :: Set.Set Typename
@@ -162,6 +164,12 @@ buildDocCtx dc_tcmod  =
           ATyCon tycon ->
               let typename = Typename . packName . tyConName $ tycon
               in Just (typename, tycon)
+          _ -> Nothing
+
+      dc_datacons = MS.fromList . catMaybes . flip map tythings $ \case
+          AConLike (RealDataCon datacon) ->
+              let conname = Typename . packName . dataConName $ datacon
+              in Just (conname, datacon)
           _ -> Nothing
 
       dc_ids = MS.fromList . catMaybes . flip map tythings $ \case
@@ -279,35 +287,32 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
           ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
       tycon <- MS.lookup ad_name dc_tycons
       let ad_anchor = tyConAnchor ctx tycon
-          ad_constrs = map constrDoc . dd_cons $ tcdDataDefn -- get from tycon
+          ad_constrs = mapMaybe constrDoc . dd_cons $ tcdDataDefn
       Just (ad_name, ADTDoc {..})
   where
-    constrDoc :: LConDecl GhcPs -> ADTConstr
-    constrDoc (L _ con) =
+    constrDoc :: LConDecl GhcPs -> Maybe ADTConstr
+    constrDoc (L _ con) = do
         let ac_name = Typename . packRdrName . unLoc $ con_name con
             ac_anchor = Just $ constrAnchor dc_mod ac_name
             ac_descr = fmap (docToText . unLoc) $ con_doc con
-        in case con_args con of
-            PrefixCon args ->
-              let ac_args = map hsTypeToType args
-              in PrefixC {..}
 
-            InfixCon l r ->
-              let ac_args = map hsTypeToType [l, r]
-              in PrefixC {..}
+        datacon <- MS.lookup ac_name dc_datacons
+        let ac_args = map (typeToType ctx) (dataConOrigArgTys datacon)
 
+        Just $ case con_args con of
+            PrefixCon _ -> PrefixC {..}
+            InfixCon _ _ -> PrefixC {..} -- FIXME: should probably change this!
             RecCon (L _ fs) ->
-              let ac_fields = mapMaybe (fieldDoc . unLoc) fs
+              let ac_fields = mapMaybe fieldDoc (zip ac_args fs)
               in RecordC {..}
 
-    fieldDoc :: ConDeclField GhcPs -> Maybe FieldDoc
-    fieldDoc ConDeclField{..} = do
+    fieldDoc :: (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
+    fieldDoc (fd_type, L _ ConDeclField{..}) = do
         let fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names
-            fd_type = hsTypeToType cd_fld_type
             fd_anchor = Just $ functionAnchor dc_mod fd_name
             fd_descr = fmap (docToText . unLoc) cd_fld_doc
         Just FieldDoc{..}
-    fieldDoc XConDeclField{}  = Nothing
+    fieldDoc (_, L _ XConDeclField{}) = Nothing
 getTypeDocs _ _other = Nothing
 
 getTemplateDocs :: DocCtx -> MS.Map Typename ADTDoc -> [TemplateDoc]
@@ -557,69 +562,6 @@ typeToType ctx = \case
     -- | Unhandled case.
     unexpected x = error $ "typeToType: found an unexpected " <> x
 
-
-hsTypeToType :: LHsType GhcPs -> DDoc.Type
-hsTypeToType (L _ t) = hsTypeToType_ t
-
-hsTypeToType_ :: HsType GhcPs -> DDoc.Type
-hsTypeToType_ t = case t of
-
-  -- drop context things
-  HsForAllTy{..} -> hsTypeToType hst_body
-  HsQualTy {..} -> hsTypeToType hst_body
-  HsBangTy _ _b ty -> hsTypeToType ty
-
-  -- drop comments (we might want to re-add those at some point)
-  HsDocTy _ ty _doc -> hsTypeToType ty
-
-  -- special tuple syntax
-  HsTupleTy _ _con tys -> TypeTuple $ map hsTypeToType tys
-
-  -- GHC specials. FIXME deal with them specially
-  HsRecTy _ _flds -> TypeApp Nothing (Typename $ toText t) [] -- FIXME pprConDeclFields flds
-
-  HsSumTy _ _tys -> undefined -- FIXME tupleParens UnboxedTuple (pprWithBars ppr tys)
-
-
-  -- straightforward base case
-  HsTyVar _ _ (L _ name) -> TypeApp Nothing (Typename $ packRdrName name) []
-
-  HsFunTy _ ty1 ty2 -> case hsTypeToType ty2 of
-    TypeFun as -> TypeFun $ hsTypeToType ty1 : as
-    ty22 -> TypeFun [hsTypeToType ty1, ty22]
-
-  HsKindSig _ ty _kind -> hsTypeToType ty
-
-  HsListTy _ ty -> TypeList (hsTypeToType ty)
-
-  HsIParamTy _ _n ty -> hsTypeToType ty
-  -- currently bailing out when we meet promoted structures
-  HsSpliceTy _ _s     -> unexpected "splice"
-  HsExplicitListTy _ _ _tys ->  unexpected "explicit list"
-  HsExplicitTupleTy _ _tys  -> unexpected "explicit tuple"
-
-  HsTyLit _ ty      -> TypeApp Nothing (Typename $ toText ty) []
-  -- kind things. Can be printed, not sure why we would
-  HsWildCardTy {}   -> TypeApp Nothing (Typename "_") []
-  HsStarTy _ _      -> TypeApp Nothing (Typename "*") []
-
-  HsAppTy _ fun_ty arg_ty ->
-    case hsTypeToType fun_ty of
-      TypeApp m f as -> TypeApp m f $ as <> [hsTypeToType arg_ty]  -- flattens app chains
-      TypeFun _ -> unexpected "function type in a type app"
-      TypeList _   -> unexpected "list type in a type app"
-      TypeTuple _   -> unexpected "tuple type in a type app"
-
-  HsAppKindTy _ _ _ -> unexpected "kind application"
-
-  HsOpTy _ ty1 (L _ op) ty2 ->
-    TypeApp Nothing (Typename $ toText op) [ hsTypeToType ty1, hsTypeToType ty2 ]
-
-  HsParTy _ ty  -> hsTypeToType ty
-
-  XHsType _t -> unexpected "XHsType"
-
-  where unexpected x = error $ "hsTypeToType: found an unexpected " <> x
 
 ---- HACK ZONE --------------------------------------------------------
 
