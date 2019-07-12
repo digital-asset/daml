@@ -100,7 +100,7 @@ mkOptions opts@Options {..} = do
               , optHlintDataDir=Just hlintDataDir}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
-          unless ok $ error $ "Required directory does not exist: " <> f
+          unless ok $ fail $ "Required directory does not exist: " <> f
         versionSuffix = renderPretty optDamlLfVersion
 
 -- | Default configuration for the compiler with package database set according to daml-lf version
