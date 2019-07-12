@@ -412,8 +412,8 @@ vrChangedNotification vr doc =
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
 -- TODO (MK): We should have a non-DAML version of this rule
-ofInterestRule :: Rules ()
-ofInterestRule = do
+ofInterestRule :: Options -> Rules ()
+ofInterestRule opts = do
     -- go through a rule (not just an action), so it shows up in the profile
     action $ use OfInterest ""
     defineNoFile $ \OfInterest -> do
@@ -440,9 +440,10 @@ ofInterestRule = do
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
+        let shouldEnableHlint = optHlintEnabled opts
         let files = Set.toList scenarioFiles
         let dalfActions = [(void . getDalf) f | f <- files]
-        let hlintActions = [use_ GetHlintDiagnostics f | f <- files]
+        let hlintActions = [use_ GetHlintDiagnostics f | shouldEnableHlint, f <- files]
         let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
         _ <- parallel $ dalfActions <> hlintActions <> runScenarioActions
         return ()
@@ -521,8 +522,8 @@ hlintSettings hlintDataDir = do
   -- `findSettings` ends up calling `readFilesConfig` which in turn
   -- calls `readFileConfigYaml` which finally calls `decodeFileEither`
   -- from the `yaml` library.  Annoyingly that function catches async
-  -- exceptions in particular it ends up catching `ThreadKilled` so we
-  -- have to mask to stop it from doing that.
+  -- exceptions and in particular, it ends up catching `ThreadKilled`.
+  -- So, we have to mask to stop it from doing that.
   (_, classify, hints) <- mask $ \unmask ->
     findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
   return (classify, hints)
@@ -530,22 +531,20 @@ hlintSettings hlintDataDir = do
 getHlintDiagnosticsRule :: Options -> Rules ()
 getHlintDiagnosticsRule opts =
     define $ \GetHlintDiagnostics file -> do
-        if not $ optHlintEnabled opts then return ([], Just ()) else
-          do
-            pm <- use_ GetParsedModule file
-            let anns = pm_annotations pm
-            let modu = pm_parsed_source pm
-            case optHlintDataDir opts of
-              Just dir -> do
-                (classify, hint) <- liftIO $ hlintSettings dir
-                let ideas = applyHints classify hint [createModuleEx anns modu]
-                return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
-              Nothing -> do
-                logger <- actionLogger
-                liftIO $ logError logger $ T.pack $
-                    "Rule getHlintDiagnosticsRule\n" ++
-                    "Errors: Hlint configuration data directory not specified"
-                return ([], Just ())
+        pm <- use_ GetParsedModule file
+        let anns = pm_annotations pm
+        let modu = pm_parsed_source pm
+        case optHlintDataDir opts of
+          Just dir -> do
+            (classify, hint) <- liftIO $ hlintSettings dir
+            let ideas = applyHints classify hint [createModuleEx anns modu]
+            return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
+          Nothing -> do
+            logger <- actionLogger
+            liftIO $ logError logger $ T.pack $
+                "Rule getHlintDiagnosticsRule\n" ++
+                "Errors: Linter configuration data directory not specified"
+            return ([], Just ())
     where
       -- To-do : Improve this.
       toDiagnostic file i = ideHintText file (T.pack $ show i)
@@ -603,7 +602,7 @@ damlRule opts = do
     getScenarioRootsRule
     getScenarioRootRule
     getHlintDiagnosticsRule opts
-    ofInterestRule
+    ofInterestRule opts
     encodeModuleRule
     createScenarioContextRule
     getOpenVirtualResourcesRule
