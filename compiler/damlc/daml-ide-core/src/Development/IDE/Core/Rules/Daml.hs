@@ -530,20 +530,23 @@ hlintSettings hlintDataDir = do
 getHlintDiagnosticsRule :: Options -> Rules ()
 getHlintDiagnosticsRule opts =
     define $ \GetHlintDiagnostics file -> do
-        pm <- use_ GetParsedModule file
-        let anns = pm_annotations pm
-        let modu = pm_parsed_source pm
-        case optHlintDataDir opts of
-          Just dir -> do
-            (classify, hint) <- liftIO $ hlintSettings dir
-            let ideas = applyHints classify hint [createModuleEx anns modu]
-            return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
-          Nothing -> do
-            logger <- actionLogger
-            liftIO $ logError logger $ T.pack $
-                "Rule getHlintDiagnosticsRule\n" ++
-                "Errors: Hlint configuration data directory not specified"
-            return ([], Just ())
+        if (not $ optHlintEnabled opts) then
+          return ([], Just ())
+        else do
+          pm <- use_ GetParsedModule file
+          let anns = pm_annotations pm
+          let modu = pm_parsed_source pm
+          case optHlintDataDir opts of
+            Just dir -> do
+              (classify, hint) <- liftIO $ hlintSettings dir
+              let ideas = applyHints classify hint [createModuleEx anns modu]
+              return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
+            Nothing -> do
+              logger <- actionLogger
+              liftIO $ logError logger $ T.pack $
+                  "Rule getHlintDiagnosticsRule\n" ++
+                  "Errors: Hlint configuration data directory not specified"
+              return ([], Just ())
     where
       -- To-do : Improve this.
       toDiagnostic file i = ideHintText file (T.pack $ show i)
