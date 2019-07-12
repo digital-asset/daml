@@ -7,7 +7,6 @@ import scalaz.{@@, Tag}
 import com.digitalasset.daml.lf.{data => DamlLfData}
 import com.digitalasset.daml.lf.data.{Ref => DamlLfRef}
 import com.digitalasset.daml.lf.{iface => DamlLfIface}
-import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.NavigatorModelAliases
 import com.digitalasset.ledger.api.{v1 => ApiV1}
 import com.digitalasset.ledger.api.refinements.ApiTypes

@@ -8,7 +8,7 @@ import java.time.{Instant, LocalDate}
 import org.scalatest.{Matchers, WordSpec}
 
 import com.digitalasset.daml.lf.data.{Time => LfTime}
-import ApiValueImplicits._
+import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
 
 class ApiValueSpec extends WordSpec with Matchers {
 

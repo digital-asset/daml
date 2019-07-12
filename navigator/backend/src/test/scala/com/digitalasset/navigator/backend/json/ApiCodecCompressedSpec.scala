@@ -15,7 +15,8 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
   private def serializeAndParse(
       value: model.ApiValue,
       typ: model.DamlLfType): Try[model.ApiValue] = {
-    import com.digitalasset.navigator.json.ApiCodecCompressed.JsonImplicits._
+    import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
+    import ApiCodecCompressed.JsonImplicits._
     import spray.json._
 
     for {

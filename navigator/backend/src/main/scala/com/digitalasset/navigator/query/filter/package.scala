@@ -5,7 +5,7 @@ package com.digitalasset.navigator.query
 
 import com.digitalasset.navigator.dotnot._
 import com.digitalasset.navigator.model._
-import ApiValueImplicits._
+import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
 import scalaz.Tag
 import scalaz.syntax.tag._
 

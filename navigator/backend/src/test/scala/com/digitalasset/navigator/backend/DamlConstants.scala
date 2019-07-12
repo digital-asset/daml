@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.data.{
 }
 import com.digitalasset.navigator.model._
 import com.digitalasset.daml.lf.{iface => DamlLfIface}
-import ApiValueImplicits._
+import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
 
 import scala.language.implicitConversions
 
