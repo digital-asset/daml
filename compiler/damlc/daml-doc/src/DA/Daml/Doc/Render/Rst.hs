@@ -1,10 +1,11 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, DerivingStrategies #-}
 
 module DA.Daml.Doc.Render.Rst
   ( renderSimpleRst
+  , renderFinish
   ) where
 
 import DA.Daml.Doc.Types
@@ -17,110 +18,170 @@ import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import           Data.Char
 import           Data.Maybe
 import qualified Data.Text as T
+import qualified Data.Set as Set
 
 import CMarkGFM
 
-renderAnchor :: Maybe Anchor -> T.Text
-renderAnchor Nothing = ""
-renderAnchor (Just anchor) = "\n.. _" <> unAnchor anchor <> ":\n"
+-- | Renderer output. This is the set of anchors that were generated, and a
+-- list of output functions that depend on that set. The goal is to prevent
+-- the creation of spurious anchors links.
+--
+-- (In theory this could be done in two steps, but that seems more error prone
+-- than building up both steps at the same time, and combining them at the
+-- end, as is done here.)
+--
+-- Using a newtype here so we can derive the semigroup / monoid instances we
+-- want automatically. :-)
+newtype RenderOut = RenderOut (RenderEnv, [RenderEnv -> [T.Text]])
+    deriving newtype (Semigroup, Monoid)
 
-renderSimpleRst :: ModuleDoc -> T.Text
+newtype RenderEnv = RenderEnv (Set.Set Anchor)
+    deriving newtype (Semigroup, Monoid)
+
+renderAnchorAvailable :: RenderEnv -> Anchor -> Bool
+renderAnchorAvailable (RenderEnv anchors) anchor = Set.member anchor anchors
+
+renderFinish :: RenderOut -> T.Text
+renderFinish (RenderOut (xs, fs)) = T.unlines (concatMap ($ xs) fs)
+
+renderAnchor :: Maybe Anchor -> RenderOut
+renderAnchor Nothing = mempty
+renderAnchor (Just anchor) = RenderOut
+    ( RenderEnv (Set.singleton anchor)
+    , [const ["", ".. _" <> unAnchor anchor <> ":", ""]]
+    )
+
+renderLine :: T.Text -> RenderOut
+renderLine l = renderLines [l]
+
+renderLines :: [T.Text] -> RenderOut
+renderLines ls = renderLinesDep (const ls)
+
+renderLineDep :: (RenderEnv -> T.Text) -> RenderOut
+renderLineDep f = renderLinesDep (pure . f)
+
+renderLinesDep :: (RenderEnv -> [T.Text]) -> RenderOut
+renderLinesDep f = RenderOut (mempty, [f])
+
+renderIndent :: Int -> RenderOut -> RenderOut
+renderIndent n (RenderOut (env, fs)) =
+    RenderOut (env, map (map (T.replicate n " " <>) .) fs)
+
+renderDocText :: DocText -> RenderOut
+renderDocText = renderLines . T.lines . docTextToRst
+
+renderSimpleRst :: ModuleDoc -> RenderOut
 renderSimpleRst ModuleDoc{..}
   | null md_templates && null md_classes &&
     null md_adts && null md_functions &&
-    isNothing md_descr = T.empty
-renderSimpleRst ModuleDoc{..} = T.unlines $
+    isNothing md_descr = mempty
+renderSimpleRst ModuleDoc{..} = mconcat $
   [ renderAnchor md_anchor
-  , title
-  , T.replicate (T.length title) "-"
-  , maybe "" docTextToRst md_descr
+  , renderLines
+      [ title
+      , T.replicate (T.length title) "-"
+      , maybe "" docTextToRst md_descr
+      ]
   ]
   <> concat
   [ if null md_templates
     then []
-    else [""
-         , "Templates"
-         , "^^^^^^^^^"
-         , T.unlines $ map tmpl2rst md_templates
+    else [ renderLines
+              [ ""
+              , "Templates"
+              , "^^^^^^^^^" ]
+         , mconcat $ map tmpl2rst md_templates
          ]
   , if null md_classes
     then []
-    else [ ""
-         , "Typeclasses"
-         , "^^^^^^^^^^^"
-         , T.unlines $ map cls2rst md_classes
+    else [ renderLines
+              [ ""
+              , "Typeclasses"
+              , "^^^^^^^^^^^" ]
+         , mconcat $ map cls2rst md_classes
          ]
   , if null md_adts
     then []
-    else [ ""
-         , "Data types"
-         , "^^^^^^^^^^"
-         , T.unlines $ map adt2rst md_adts
+    else [ renderLines
+              [ ""
+              , "Data types"
+              , "^^^^^^^^^^"]
+         , mconcat $ map adt2rst md_adts
          ]
   , if null md_functions
     then []
-    else [ ""
-         , "Functions"
-         , "^^^^^^^^^"
-         , T.unlines $ map fct2rst md_functions
+    else [ renderLines
+              [ ""
+              , "Functions"
+              , "^^^^^^^^^" ]
+         , mconcat $ map fct2rst md_functions
          ]
   ]
 
   where title = "Module " <> unModulename md_name
 
-tmpl2rst :: TemplateDoc -> T.Text
-tmpl2rst TemplateDoc{..} = T.unlines $
-  renderAnchor td_anchor :
-  ("template " <> enclosedIn "**" (unTypename td_name)) :
-  maybe "" (T.cons '\n' . indent 2 . docTextToRst) td_descr :
-  "" :
-  indent 2 (fieldTable td_payload) :
-  "" :
-  map (indent 2 . choiceBullet) td_choices -- ends by "\n" because of unlines above
+tmpl2rst :: TemplateDoc -> RenderOut
+tmpl2rst TemplateDoc{..} = mconcat $
+  [ renderAnchor td_anchor
+  , renderLine $ "template " <> enclosedIn "**" (unTypename td_name)
+  , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) td_descr
+  , renderLine ""
+  , renderIndent 2 (fieldTable td_payload)
+  , renderLine ""
+  ] ++ map (renderIndent 2 . choiceBullet) td_choices
 
-
-choiceBullet :: ChoiceDoc -> T.Text
-choiceBullet ChoiceDoc{..} = T.unlines
-  [ prefix "+ " $ enclosedIn "**" $ "Choice " <> unTypename cd_name
-  , maybe "" (flip T.snoc '\n' . indent 2 . docTextToRst) cd_descr
-  , indent 2 (fieldTable cd_fields)
+choiceBullet :: ChoiceDoc -> RenderOut
+choiceBullet ChoiceDoc{..} = mconcat
+  [ renderLine $ prefix "+ " $ enclosedIn "**" $ "Choice " <> unTypename cd_name
+  , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cd_descr
+  , renderIndent 2 (fieldTable cd_fields)
   ]
 
-cls2rst ::  ClassDoc -> T.Text
-cls2rst ClassDoc{..} = T.unlines $
-  renderAnchor cl_anchor :
-  "**class " <> maybe "" (\x -> type2rst x <> " => ") cl_super <> T.unwords (unTypename cl_name : cl_args) <> " where**" :
-  maybe [] ((:[""]) . indent 2 . docTextToRst) cl_descr ++
-  map (indent 2 . fct2rst) cl_functions
+cls2rst ::  ClassDoc -> RenderOut
+cls2rst ClassDoc{..} = mconcat
+    [ renderAnchor cl_anchor
+    , renderLineDep $ \env ->
+        "**class " <> maybe "" (\x -> type2rst env x <> " => ") cl_super <> T.unwords (unTypename cl_name : cl_args) <> " where**"
+    , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cl_descr
+    , mconcat $ map (renderIndent 2 . fct2rst) cl_functions
+    ]
 
-adt2rst :: ADTDoc -> T.Text
-adt2rst TypeSynDoc{..} = T.unlines $
+adt2rst :: ADTDoc -> RenderOut
+adt2rst TypeSynDoc{..} = mconcat
     [ renderAnchor ad_anchor
-    , "type " <> enclosedIn "**"
-        (T.unwords (unTypename ad_name : ad_args))
-    , "    = " <> type2rst ad_rhs
-    ] ++ maybe [] ((:[]) . T.cons '\n' . indent 2 . docTextToRst) ad_descr
-adt2rst ADTDoc{..} = T.unlines $
+    , renderLinesDep $ \env ->
+        [ "type " <> enclosedIn "**"
+            (T.unwords (unTypename ad_name : ad_args))
+        , "    = " <> type2rst env ad_rhs
+        , ""
+        ]
+    , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
+    ]
+adt2rst ADTDoc{..} = mconcat $
     [ renderAnchor ad_anchor
-    , "data " <> enclosedIn "**"
-        (T.unwords (unTypename ad_name : ad_args))
-    , maybe "" (T.cons '\n' . indent 2 . docTextToRst) ad_descr
-    ] ++ map (indent 2 . T.cons '\n' . constr2rst) ad_constrs
+    , renderLines
+        [ "data " <> enclosedIn "**" (T.unwords (unTypename ad_name : ad_args))
+        , "" ]
+    , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
+    ] ++ map (renderIndent 2 . (renderLine "" <>) . constr2rst) ad_constrs
 
 
-constr2rst ::  ADTConstr -> T.Text
-constr2rst PrefixC{..} = T.unlines $
+constr2rst ::  ADTConstr -> RenderOut
+constr2rst PrefixC{..} = mconcat $
     [ renderAnchor ac_anchor
-    , T.unwords (enclosedIn "**" (unTypename ac_name) : map type2rst ac_args)
-        -- FIXME: Parentheses around args seems necessary here
-        -- if they are type application or function (see type2rst).
-    ] ++ maybe [] ((:[]) . T.cons '\n' . docTextToRst) ac_descr
+    , renderLineDep $ \env ->
+        T.unwords (enclosedIn "**" (unTypename ac_name) : map (type2rst env) ac_args)
+            -- FIXME: Parentheses around args seems necessary here
+            -- if they are type application or function (see type2rst).
+    , maybe mempty ((renderLine "" <>) . renderDocText) ac_descr
+    ]
 
-constr2rst RecordC{..} = T.unlines
+constr2rst RecordC{..} = mconcat
     [ renderAnchor ac_anchor
-    , enclosedIn "**" (unTypename ac_name)
-    , maybe "" (T.cons '\n' . docTextToRst) ac_descr
-    , ""
+    , renderLine $ enclosedIn "**" (unTypename ac_name)
+    , renderLine ""
+    , maybe mempty renderDocText ac_descr
+    , renderLine ""
     , fieldTable ac_fields
     ]
 
@@ -144,24 +205,29 @@ constr2rst RecordC{..} = T.unlines
 >      - `Text`
 >      - and text
 -}
-fieldTable :: [FieldDoc] -> T.Text
-fieldTable []  = ""
-fieldTable fds = T.unlines $ -- NB final empty line is essential and intended
-  [ ".. list-table::", "   :widths: 15 10 30", "   :header-rows: 1", ""]
-  <> map (indent 3) (headerRow <> fieldRows)
+fieldTable :: [FieldDoc] -> RenderOut
+fieldTable []  = mempty
+fieldTable fds = mconcat -- NB final empty line is essential and intended
+    [ renderLines
+        [ ".. list-table::"
+        , "   :widths: 15 10 30"
+        , "   :header-rows: 1"
+        , ""
+        , "   * - Field"
+        , "     - Type"
+        , "     - Description" ]
+    , fieldRows
+    ]
   where
-    headerRow = [ "* - Field"
-                , "  - Type"
-                , "  - Description" ]
-    fieldRows = concat
-       [ [ prefix "* - " $ escapeTr_ (unFieldname fd_name)
-         , prefix "  - " $ type2rst fd_type
-         , prefix "  - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ] -- FIXME: this makes no sense
+    fieldRows = renderLinesDep $ \env -> concat
+       [ [ prefix "   * - " $ escapeTr_ (unFieldname fd_name)
+         , prefix "     - " $ type2rst env fd_type
+         , prefix "     - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ] -- FIXME: indent properly instead of this
        | FieldDoc{..} <- fds ]
 
 -- | Render a type. Nested type applications are put in parentheses.
-type2rst :: Type -> T.Text
-type2rst = f 0
+type2rst :: RenderEnv -> Type -> T.Text
+type2rst env = f 0
   where
     -- 0 = no brackets
     -- 1 = brackets around function
@@ -178,30 +244,22 @@ type2rst = f 0
     link :: Maybe Anchor -> Typename -> T.Text
     link Nothing n = unTypename n
     link (Just anchor) n =
-        if anchor `elem` excludedAnchors
-            then unTypename n
-            else T.concat ["`", unTypename n, " <", unAnchor anchor, "_>`_"]
+        if renderAnchorAvailable env anchor
+            then T.concat ["`", unTypename n, " <", unAnchor anchor, "_>`_"]
+            else unTypename n
 
--- | A list of anchors to exclude because they don't appear in the stdlib docs.
--- This is a temporary approach -- available anchors should be derived automatically
--- before rendering everything.
-excludedAnchors :: [Anchor]
-excludedAnchors =
-    [ "class-ghc-classes-eq-21216"
-    , "class-ghc-classes-ord-70960"
-    , "type-ghc-types-textlit-43215"
-    ]
-
-fct2rst :: FunctionDoc -> T.Text
-fct2rst FunctionDoc{..} = T.unlines
+fct2rst :: FunctionDoc -> RenderOut
+fct2rst FunctionDoc{..} = mconcat
     [ renderAnchor fct_anchor
-    , enclosedIn "**" (wrapOp (unFieldname fct_name))
-    , T.concat
-        [ "  : "
-        , maybe "" ((<> " => ") . type2rst) fct_context
-        , maybe "" ((<> "\n\n") . type2rst) fct_type
-            -- FIXME: when would a function not have a type?
-        , maybe "" (indent 2 . docTextToRst) fct_descr
+    , renderLinesDep $ \ env ->
+        [ enclosedIn "**" (wrapOp (unFieldname fct_name))
+        , T.concat
+            [ "  : "
+            , maybe "" ((<> " => ") . type2rst env) fct_context
+            , maybe "" ((<> "\n\n") . type2rst env) fct_type
+                -- FIXME: when would a function not have a type?
+            , maybe "" (indent 2 . docTextToRst) fct_descr
+            ]
         ]
     ]
 
