@@ -21,8 +21,10 @@ n10[label=Membership_Leave][color=red];
 n11[label=Membership_Join][color=red]; 
 n6[label=Membership_Create][color=green]; 
 label=Membership;color=blue
-}n9->n6
-n9->n7
+}n8->n0
+n8->n1
+n9->n4
+n9->n5
 n10->n6
 n10->n7
 n11->n6

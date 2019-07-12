@@ -13,6 +13,7 @@ module DA.Daml.Options.Types
     , projectPackageDatabase
     , ifaceDir
     , distDir
+    , genDir
     , basePackages
     ) where
 
@@ -34,7 +35,9 @@ data Options = Options
   , optMbPackageName :: Maybe String
     -- ^ compile in the context of the given package name and create interface files
   , optWriteInterface :: Bool
-    -- ^ Directory to write interface files to. Default is current working directory.
+    -- ^ whether to write interface files or not.
+  , optIfaceDir :: Maybe FilePath
+    -- ^ alternative directory to write interface files to. Default is <current working dir>.daml/interfaces.
   , optHideAllPkgs :: Bool
     -- ^ hide all imported packages
   , optPackageImports :: [(String, [(String, String)])]
@@ -55,6 +58,12 @@ data Options = Options
     -- ^ Controls whether the scenario service server runs all checks
     -- or only a subset of them. This is mostly used to run additional
     -- checks on CI while keeping the IDE fast.
+  , optHlintEnabled :: Bool
+  -- ^ Whether or not to enable hlint
+  , optHlintDataDir :: Maybe FilePath
+    -- ^ Where hlint's base configuration file (hlint.yaml) resides
+  , optIsGenerated :: Bool
+    -- ^ Whether we're compiling generated code. Then we allow internal imports.
   } deriving Show
 
 data ScenarioValidation
@@ -75,6 +84,9 @@ projectPackageDatabase = damlArtifactDir </> "package-database"
 ifaceDir :: FilePath
 ifaceDir = damlArtifactDir </> "interfaces"
 
+genDir :: FilePath
+genDir = damlArtifactDir </> "generated"
+
 distDir :: FilePath
 distDir = damlArtifactDir </> "dist"
 
@@ -82,19 +94,21 @@ distDir = damlArtifactDir </> "dist"
 basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
 
--- | Check that import paths and package db directories exist
--- and add the default package db if it exists
+-- | Check that import paths and package db directories exist and add
+-- the default package db if it exists
 mkOptions :: Options -> IO Options
 mkOptions opts@Options {..} = do
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
     mbDefaultPkgDb <- locateRunfilesMb (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
     let mbDefaultPkgDbDir = fmap (</> "pkg-db_dir") mbDefaultPkgDb
     pkgDbs <- filterM Dir.doesDirectoryExist (toList mbDefaultPkgDbDir ++ [projectPackageDatabase])
-    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
+    hlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+    checkDirExists hlintDataDir
+    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs
+              , optHlintDataDir=Just hlintDataDir}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
-          unless ok $ error $
-            "Required configuration/package database directory does not exist: " <> f
+          unless ok $ fail $ "Required directory does not exist: " <> f
         versionSuffix = renderPretty optDamlLfVersion
 
 -- | Default configuration for the compiler with package database set according to daml-lf version
@@ -110,6 +124,7 @@ defaultOptions mbVersion =
         , optPackageDbs = []
         , optMbPackageName = Nothing
         , optWriteInterface = False
+        , optIfaceDir = Nothing
         , optHideAllPkgs = False
         , optPackageImports = []
         , optShakeProfiling = Nothing
@@ -119,6 +134,9 @@ defaultOptions mbVersion =
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optScenarioValidation = ScenarioValidationFull
+        , optHlintEnabled = False
+        , optHlintDataDir = Nothing
+        , optIsGenerated = False
         }
 
 getBaseDir :: IO FilePath

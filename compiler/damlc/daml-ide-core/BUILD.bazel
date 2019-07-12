@@ -6,9 +6,12 @@ load(
     "da_haskell_library",
 )
 
+exports_files(["hlint.yaml"])
+
 da_haskell_library(
     name = "daml-ide-core",
     srcs = glob(["src/**/*.hs"]),
+    data = [":hlint.yaml"],
     hazel_deps = [
         "aeson",
         "base",
@@ -24,6 +27,7 @@ da_haskell_library(
         "hashable",
         "haskell-lsp",
         "haskell-lsp-types",
+        "hlint",
         "http-types",
         "mtl",
         "network-uri",
@@ -48,6 +52,7 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/hie-core",
         "//compiler/scenario-service/client",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )

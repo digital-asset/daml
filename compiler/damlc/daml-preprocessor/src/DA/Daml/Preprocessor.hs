@@ -4,6 +4,7 @@
 
 module DA.Daml.Preprocessor
   ( damlPreprocessor
+  , noPreprocessor
   ) where
 
 import           DA.Daml.Preprocessor.Records
@@ -40,6 +41,10 @@ damlPreprocessor mbPkgName x
     | maybe False (isInternal ||^ (`elem` mayImportInternal)) name = ([], x)
     | otherwise = (checkImports x ++ checkDataTypes x ++ checkModuleDefinition x, recordDotPreprocessor $ importDamlPreprocessor $ genericsPreprocessor mbPkgName x)
     where name = fmap GHC.unLoc $ GHC.hsmodName $ GHC.unLoc x
+
+-- | No preprocessing. Used for generated code.
+noPreprocessor :: GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource)
+noPreprocessor x = ([], x)
 
 
 -- With RebindableSyntax any missing DAML import results in pretty much nothing

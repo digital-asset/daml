@@ -19,6 +19,7 @@ da_haskell_test(
         "base",
         "containers",
         "extra",
+        "directory",
         "filepath",
         "haskell-lsp",
         "haskell-lsp-types",

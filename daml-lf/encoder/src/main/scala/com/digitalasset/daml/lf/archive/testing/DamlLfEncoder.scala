@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.archive
+package com.digitalasset.daml.lf.archive.testing
 
 import java.io.File
 import java.nio.file.Paths
@@ -9,16 +9,17 @@ import java.util.zip.ZipEntry
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.testing.archive.EncodeV1.EncodeError
 import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parseModules}
 import com.digitalasset.daml.lf.validation.Validation
 
 import scala.annotation.tailrec
+import scala.collection.breakOut
 import scala.io.Source
 import scala.util.control.NonFatal
-import scala.collection.breakOut
 
 private[digitalasset] object DamlLfEncoder extends App {
+
+  import Encode._
 
   private def error[X](message: String): X = {
     System.err.println(message)
@@ -59,7 +60,7 @@ private[digitalasset] object DamlLfEncoder extends App {
 
     Validation.checkPackage(pkgs, pkgId).left.foreach(e => error(e.pretty))
 
-    Encode.encodeArchive(pkgId -> pkgs(pkgId), parserParameters.languageVersion)
+    encodeArchive(pkgId -> pkgs(pkgId), parserParameters.languageVersion)
   }
 
   private def makeDar(source: String, file: File)(

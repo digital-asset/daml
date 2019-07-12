@@ -59,9 +59,7 @@ class RecordsAndVariantsSpec
               ]
             }
           },
-          "enumVariant" : {
-            "EitherRight" : {}
-          },
+          "enum" : "EitherRight",
           "simpleRecord" : {
             "foo" : true
           },

@@ -4,12 +4,14 @@
 package com.digitalasset.lf_1_0;
 
 import com.digitalasset.AllGenericTests;
+import com.digitalasset.ListTest;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
         OptionalTest.class,
+        ListTest.class,
         AllGenericTests.class
 })
 public class AllTests {

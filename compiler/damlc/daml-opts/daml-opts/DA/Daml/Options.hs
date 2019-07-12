@@ -12,6 +12,7 @@ module DA.Daml.Options(toCompileOpts) where
 import Control.Monad
 import qualified CmdLineParser as Cmd (warnMsg)
 import Data.Bifunctor
+import Data.Maybe
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
@@ -34,7 +35,7 @@ import qualified Development.IDE.Types.Options as HieCore
 toCompileOpts :: Options -> HieCore.IdeOptions
 toCompileOpts Options{..} =
     HieCore.IdeOptions
-      { optPreprocessor = damlPreprocessor optMbPackageName
+      { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
       , optGhcSession = do
             env <- liftIO $ runGhcFast $ do
                 setupDamlGHC optImportPath optMbPackageName optGhcCustomOpts
@@ -45,7 +46,7 @@ toCompileOpts Options{..} =
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
           }
-      , optIfaceDir = HieCore.InterfaceDirectory (ifaceDir <$ guard optWriteInterface)
+      , optIfaceDir = HieCore.InterfaceDirectory (fromMaybe ifaceDir optIfaceDir <$ guard optWriteInterface)
       , optExtensions = ["daml"]
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling

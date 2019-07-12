@@ -123,7 +123,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
           case PLF.DefDataType.DataConsCase.VARIANT =>
             DataVariant(decodeFields(ImmArray(lfDataType.getVariant.getFieldsList.asScala)))
           case PLF.DefDataType.DataConsCase.ENUM =>
-            assertSince("dev", "DefDataType.DataCons")
+            assertSince(enumVersion, "DefDataType.DataCons.Enum")
             assertEmpty(params.toSeq, "params")
             DataEnum(decodeEnumCons(ImmArray(lfDataType.getEnum.getConstructorsList.asScala)))
           case PLF.DefDataType.DataConsCase.DATACONS_NOT_SET =>
@@ -394,7 +394,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
             decodeExpr(varCon.getVariantArg))
 
         case PLF.Expr.SumCase.ENUM_CON =>
-          assertSince("dev", "Expr.SumCase.ENUM_CON")
+          assertSince(enumVersion, "Expr.Enum")
           val enumCon = lfExpr.getEnumCon
           EEnumCon(
             decodeTypeConName(enumCon.getTycon),
@@ -502,7 +502,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
             name(variant.getVariant),
             name(variant.getBinder))
         case PLF.CaseAlt.SumCase.ENUM =>
-          assertSince("dev", "CaseAlt.Enum")
+          assertSince(enumVersion, "CaseAlt.Enum")
           val enum = lfCaseAlt.getEnum
           CPEnum(decodeTypeConName(enum.getCon), name(enum.getConstructor))
         case PLF.CaseAlt.SumCase.PRIM_CON =>
@@ -705,9 +705,10 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
 private[lf] object DecodeV1 {
   import LanguageMinorVersion.Implicits._
 
-  private[archive] val internedIdsVersion: LanguageMinorVersion = "dev"
+  private[archive] val enumVersion: LanguageMinorVersion = "6"
+  private val internedIdsVersion: LanguageMinorVersion = "6"
 
-  private[lf] val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
+  val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
     import PLF.PrimType._
 
     Map(
@@ -729,7 +730,7 @@ private[lf] object DecodeV1 {
     )
   }
 
-  private[lf] val builtinFunctionMap = {
+  val builtinFunctionMap = {
     import PLF.BuiltinFunction._
 
     Map[PLF.BuiltinFunction, (Ast.BuiltinFunction, LanguageMinorVersion)](
@@ -782,11 +783,11 @@ private[lf] object DecodeV1 {
       TO_TEXT_PARTY -> (BToTextParty -> "2"),
       TO_TEXT_TEXT -> (BToTextText -> "0"),
       TO_QUOTED_TEXT_PARTY -> (BToQuotedTextParty -> "0"),
-      TEXT_FROM_CODE_POINTS -> (BToTextCodePoints -> "dev"),
+      TEXT_FROM_CODE_POINTS -> (BToTextCodePoints -> "6"),
       FROM_TEXT_PARTY -> (BFromTextParty -> "2"),
       FROM_TEXT_INT64 -> (BFromTextInt64 -> "5"),
       FROM_TEXT_DECIMAL -> (BFromTextDecimal -> "5"),
-      TEXT_TO_CODE_POINTS -> (BFromTextCodePoints -> "dev"),
+      TEXT_TO_CODE_POINTS -> (BFromTextCodePoints -> "6"),
       SHA256_TEXT -> (BSHA256Text -> "2"),
       DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> "0"),
       EXPLODE_TEXT -> (BExplodeText -> "0"),
