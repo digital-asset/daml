@@ -18,6 +18,12 @@ import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 
 import           "ghc-lib" GHC
+import           "ghc-lib-parser" TyCoRep
+import           "ghc-lib-parser" TyCon
+--import           "ghc-lib-parser" DataCon
+import           "ghc-lib-parser" Id
+import           "ghc-lib-parser" Name
+--import           "ghc-lib-parser" OccName
 import qualified "ghc-lib-parser" Outputable                      as Out
 import qualified "ghc-lib-parser" DynFlags                        as DF
 import           "ghc-lib-parser" Bag (bagToList)
@@ -123,6 +129,10 @@ data DocCtx = DocCtx
     { dc_mod :: Modulename
     , dc_tcmod :: TypecheckedModule
     , dc_decls :: [DeclData]
+
+    , dc_tycons :: MS.Map Typename TyCon
+    , dc_ids :: MS.Map Fieldname Id
+
     , dc_templates :: Set.Set Typename
     , dc_choices :: MS.Map Typename (Set.Set Typename)
         -- ^ choices per template
@@ -145,7 +155,33 @@ buildDocCtx dc_tcmod  =
       (dc_templates, dc_choices)
           = getTemplateData . tm_parsed_module $ dc_tcmod
 
+      tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
+
+      dc_tycons = MS.fromList . catMaybes . flip map tythings $ \case
+          ATyCon tycon ->
+              let typename = Typename . packName . tyConName $ tycon
+              in Just (typename, tycon)
+          _ -> Nothing
+
+      dc_ids = MS.fromList . catMaybes . flip map tythings $ \case
+          AnId id ->
+              let fieldname = Fieldname . packId $ id
+              in Just (fieldname, id)
+          _ -> Nothing
+
   in DocCtx {..}
+
+-- | Turn an Id into Text by taking the unqualified name it represents.
+packId :: Id -> T.Text
+packId = packName . idName
+
+-- | Turn a Name into Text by taking the unqualified name it represents.
+packName :: Name -> T.Text
+packName = packOccName . nameOccName
+
+-- | Turn an OccName into Text by taking the unqualified name it represents.
+packOccName :: OccName -> T.Text
+packOccName = T.pack . occNameString
 
 -- | Parse and typecheck a module and its dependencies in Haddock mode
 --   (retaining Doc declarations), and return the 'TcModuleResult's in
@@ -184,20 +220,23 @@ toDocText docs =
 --   function.
 getFctDocs :: DocCtx -> DeclData -> Maybe FunctionDoc
 getFctDocs DocCtx{..} (DeclData decl docs) = do
-  (name, mbType) <- case unLoc decl of
-    SigD _ (TypeSig _ (L _ n :_) t) ->
-      Just (n, Just . hsib_body . hswc_body $ t)
-    SigD _ (ClassOpSig _ _ (L _ n :_) t) ->
-      Just (n, Just . hsib_body $ t)
+  (name, keepContext) <- case unLoc decl of
+    SigD _ (TypeSig _ (L _ n :_) _) ->
+      Just (n, True)
+    SigD _ (ClassOpSig _ _ (L _ n :_) _) ->
+      Just (n, False)
     ValD _ FunBind{..} | not (null docs) ->
-      Just (unLoc fun_id, Nothing)
+      Just (unLoc fun_id, True)
       -- NB assuming we do _not_ have a type signature for the function in the
       -- pairs (otherwise we'll get a duplicate)
     _ ->
       Nothing
+
   let fct_name = Fieldname (idpToText name)
-      fct_context = hsTypeToContext =<< mbType
-      fct_type = fmap hsTypeToType mbType
+      mbId = MS.lookup fct_name dc_ids
+      mbType = idType <$> mbId
+      fct_context = guard keepContext >> mbType >>= typeToContext
+      fct_type = typeToType <$> mbType
       fct_anchor = Just $ functionAnchor dc_mod fct_name
       fct_descr = docs
   Just FunctionDoc {..}
@@ -431,11 +470,67 @@ typenameFromRdrName = Typename . idpToText
 
 ---------------------------------------------------------------------
 
-hsTypeToContext :: LHsType GhcPs -> Maybe DDoc.Type
-hsTypeToContext (L _ HsQualTy{..}) = case unLoc hst_ctxt of
-    [] -> Nothing
-    xs -> Just $ TypeTuple $ map hsTypeToType xs
-hsTypeToContext _ = Nothing
+-- | Extract context from GHC type. Returns Nothing if there are no constraints.
+typeToContext :: TyCoRep.Type -> Maybe DDoc.Type
+typeToContext ty =
+    let ctx = typeToConstraints ty
+    in guard (notNull ctx) >> Just (TypeTuple ctx)
+
+-- | Extract constraints from GHC type, returning list of constraints.
+typeToConstraints :: TyCoRep.Type -> [DDoc.Type]
+typeToConstraints = \case
+    FunTy a@(TyConApp tycon _) b | isClassTyCon tycon ->
+        typeToType a : typeToConstraints b
+    FunTy _ b ->
+        typeToConstraints b
+    ForAllTy _ b -> -- TODO: I think forall can introduce constraints?
+        typeToConstraints b
+    _ -> []
+
+-- | Convert GHC Type into a damldoc type, ignoring constraints.
+typeToType :: TyCoRep.Type -> DDoc.Type
+typeToType = \case
+    TyVarTy var -> TypeApp Nothing (Typename $ packId var) [] -- TODO: anchor if global?
+    AppTy a b ->
+        case typeToType a of
+            TypeApp m f bs -> TypeApp m f (bs <> [typeToType b]) -- flatten app chains
+            TypeFun _ -> unexpected "function type in a type app"
+            TypeList _ -> unexpected "list type in a type app"
+            TypeTuple _ -> unexpected "tuple type in a type app"
+    TyConApp tycon bs ->
+        -- TODO: add anchor, possibly qualify name in some cases?
+        typeApp Nothing (Typename . packName . tyConName $ tycon) (map typeToType bs)
+
+    -- ignore context
+    ForAllTy _ b -> typeToType b
+    FunTy (TyConApp tycon _) b | isClassTyCon tycon ->
+        typeToType b
+
+    FunTy a b ->
+        case typeToType b of
+            TypeFun bs -> TypeFun (typeToType a : bs) -- flatten function types
+            b' -> TypeFun [typeToType a, b']
+
+    CastTy a _ -> typeToType a
+    LitTy x -> TypeApp Nothing (Typename $ toText x) []
+    CoercionTy _ -> unexpected "coercion" -- TODO?
+
+  where
+    -- | Deal with list and tuple type constructors specially.
+    typeApp _ (Typename "[]") [x] = TypeList x
+    typeApp _ (Typename c) xs | isTupleCons (T.unpack c) = TypeTuple xs
+    typeApp anchor name xs = TypeApp anchor name xs
+
+    -- | Is the input a tuple constructor?
+    isTupleCons xs = and
+        [ length xs >= 3
+        , take 1 xs == "("
+        , takeEnd 1 xs == ")"
+        , all (== ',') (dropEnd 1 $ drop 1 xs)
+        ]
+
+    -- | Unhandled case.
+    unexpected x = error $ "typeToType: found an unexpected " <> x
 
 
 hsTypeToType :: LHsType GhcPs -> DDoc.Type
