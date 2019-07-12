@@ -437,7 +437,7 @@ ofInterestRule = do
                 mbVrs <- use RunScenarios file
                 forM_ (fromMaybe [] mbVrs) $ \(vr, res) -> do
                     let doc = formatScenarioResult world res
-                    when  (vr `Set.member` openVRs) $
+                    when (vr `Set.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
 
         -- We don’t always have a scenario service (e.g., damlc
