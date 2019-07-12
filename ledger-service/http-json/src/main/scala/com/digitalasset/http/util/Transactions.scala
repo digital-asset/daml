@@ -6,7 +6,7 @@ package com.digitalasset.http.util
 import com.digitalasset.ledger.api.v1.event.{ArchivedEvent, CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 
-object TransactionUtil {
+object Transactions {
   def decodeCreatedEvent(transaction: Transaction): Option[CreatedEvent] =
     for {
       event <- transaction.events.headOption: Option[Event]

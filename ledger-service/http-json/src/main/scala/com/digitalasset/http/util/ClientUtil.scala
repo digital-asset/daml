@@ -8,20 +8,13 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import akka.{Done, NotUsed}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.{
   ApplicationId,
   CommandId,
   Party,
   WorkflowId
 }
-import com.digitalasset.ledger.api.v1.command_service.{
-  SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitRequest
-}
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
@@ -40,7 +33,6 @@ class ClientUtil(
 
   private val ledgerId = client.ledgerId
   private val packageClient = client.packageClient
-  private val commandServiceClient = client.commandServiceClient
   private val transactionClient = client.transactionClient
 
   def listPackages(implicit ec: ExecutionContext): Future[Set[String]] =
@@ -48,25 +40,6 @@ class ClientUtil(
 
   def ledgerEnd(implicit ec: ExecutionContext): Future[LedgerOffset] =
     transactionClient.getLedgerEnd.flatMap(response => toFuture(response.offset))
-
-  def submitCommandAndWait(
-      party: Party,
-      workflowId: WorkflowId,
-      cmd: Command.Command): Future[SubmitAndWaitForTransactionResponse] = {
-    val now = timeProvider.getCurrentTime
-    val commands = Commands(
-      ledgerId = LedgerId.unwrap(ledgerId),
-      workflowId = WorkflowId.unwrap(workflowId),
-      applicationId = ApplicationId.unwrap(applicationId),
-      commandId = uniqueId,
-      party = Party.unwrap(party),
-      ledgerEffectiveTime = Some(fromInstant(now)),
-      maximumRecordTime = Some(fromInstant(now.plusNanos(ttl.toNanos))),
-      commands = Seq(Command(cmd))
-    )
-
-    commandServiceClient.submitAndWaitForTransaction(SubmitAndWaitRequest(Some(commands), None))
-  }
 
   def nextTransaction(party: Party, offset: LedgerOffset)(
       implicit mat: Materializer): Future[Transaction] =

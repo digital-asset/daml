@@ -12,6 +12,9 @@ object Services {
   type ResolveTemplateIds =
     Set[domain.TemplateId.OptionalPkg] => PackageService.Error \/ List[lav1.value.Identifier]
 
+  type ResolveTemplateId =
+    domain.TemplateId.OptionalPkg => PackageService.Error \/ lav1.value.Identifier
+
   type SubmitAndWaitForTransaction =
     lav1.command_service.SubmitAndWaitRequest => Future[
       lav1.command_service.SubmitAndWaitForTransactionResponse]
