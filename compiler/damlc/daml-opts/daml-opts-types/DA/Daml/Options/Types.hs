@@ -125,7 +125,7 @@ defaultOptions mbVersion =
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optScenarioValidation = ScenarioValidationFull
-        , optHlintEnabled = True
+        , optHlintEnabled = False
         , optHlintDataDir = Nothing
         }
 
