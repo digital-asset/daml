@@ -529,8 +529,8 @@ encodeModuleRule =
 getHlintDataDir :: IO FilePath
 getHlintDataDir = do
   root <- locateRunfiles $
-    mainWorkspace </> "compiler/damlc/daml-ide-core"
-  let test = root </> "data/test"
+    mainWorkspace </> "compiler/damlc"
+  let test = root </> "damlc-ide-core/data/test"
       prod = root </> "daml-ide-core/data/prod"
   useProd <- System.Directory.doesDirectoryExist prod
   return $ if useProd then prod else test
