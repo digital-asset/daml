@@ -124,7 +124,7 @@ class StandaloneIndexServer(
     config.archiveFiles
       .foldLeft[Either[(String, File), InMemoryPackageStore]](Right(InMemoryPackageStore.empty)) {
         case (storeE, f) =>
-          storeE.flatMap(_.withDarFile(Instant.EPOCH, None, f).left.map(_ -> f))
+          storeE.flatMap(_.withDarFile(Instant.now(), None, f).left.map(_ -> f))
       }
       .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
   }
