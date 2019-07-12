@@ -24,6 +24,7 @@ import           "ghc-lib-parser" TyCon
 import           "ghc-lib-parser" Id
 import           "ghc-lib-parser" Name
 --import           "ghc-lib-parser" OccName
+import           "ghc-lib-parser" RdrName
 import qualified "ghc-lib-parser" Outputable                      as Out
 import qualified "ghc-lib-parser" DynFlags                        as DF
 import           "ghc-lib-parser" Bag (bagToList)
@@ -171,18 +172,6 @@ buildDocCtx dc_tcmod  =
 
   in DocCtx {..}
 
--- | Turn an Id into Text by taking the unqualified name it represents.
-packId :: Id -> T.Text
-packId = packName . idName
-
--- | Turn a Name into Text by taking the unqualified name it represents.
-packName :: Name -> T.Text
-packName = packOccName . nameOccName
-
--- | Turn an OccName into Text by taking the unqualified name it represents.
-packOccName :: OccName -> T.Text
-packOccName = T.pack . occNameString
-
 -- | Parse and typecheck a module and its dependencies in Haddock mode
 --   (retaining Doc declarations), and return the 'TcModuleResult's in
 --   dependency order (top module last).
@@ -232,7 +221,7 @@ getFctDocs DocCtx{..} (DeclData decl docs) = do
     _ ->
       Nothing
 
-  let fct_name = Fieldname (idpToText name)
+  let fct_name = Fieldname (packRdrName name)
       mbId = MS.lookup fct_name dc_ids
       mbType = idType <$> mbId
       fct_context = guard keepContext >> mbType >>= typeToContext
@@ -243,7 +232,7 @@ getFctDocs DocCtx{..} (DeclData decl docs) = do
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
 getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
-    let cl_name = Typename . idpToText $ unLoc tcdLName
+    let cl_name = Typename . packRdrName $ unLoc tcdLName
         cl_descr = docs
         cl_super = case unLoc tcdCtxt of
             [] -> Nothing
@@ -272,7 +261,7 @@ getTypeDocs DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
       Nothing
 
   | SynDecl{..} <- decl =
-      let name = typenameFromRdrName $ unLoc tcdLName
+      let name = Typename . packRdrName $ unLoc tcdLName
       in Just . (name,) $ TypeSynDoc
          { ad_anchor = Just $ typeAnchor dc_mod name
          , ad_name = name
@@ -282,7 +271,7 @@ getTypeDocs DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
          }
 
   | DataDecl{..} <- decl =
-      let name = typenameFromRdrName $ unLoc tcdLName
+      let name = Typename . packRdrName $ unLoc tcdLName
       in Just . (name,) $ ADTDoc
          { ad_anchor = Just $ typeAnchor dc_mod name
          , ad_name = name
@@ -293,7 +282,7 @@ getTypeDocs DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
   where
     constrDoc :: LConDecl GhcPs -> ADTConstr
     constrDoc (L _ con) =
-        let ac_name = Typename . idpToText . unLoc $ con_name con
+        let ac_name = Typename . packRdrName . unLoc $ con_name con
             ac_anchor = Just $ constrAnchor dc_mod ac_name
             ac_descr = fmap (docToText . unLoc) $ con_doc con
         in case con_args con of
@@ -400,7 +389,7 @@ isTemplate ClsInstDecl{..}
   , HsTyVar _ _ (L _ tmplClass) <- t1
   , HsTyVar _ _ (L _ tmplName) <- t2
   , toText tmplClass == "DA.Internal.Desugar.Template"
-  = Just (typenameFromRdrName tmplName)
+  = Just (Typename . packRdrName $ tmplName)
 
   | otherwise = Nothing
 
@@ -418,7 +407,7 @@ isChoice ClsInstDecl{..}
   , HsTyVar _ _ (L _ choiceName) <- cName
   , HsTyVar _ _ (L _ tmplName) <- cTmpl
   , toText choiceClass == "DA.Internal.Desugar.Choice"
-  = Just (typenameFromRdrName tmplName, typenameFromRdrName choiceName)
+  = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing
 
@@ -426,11 +415,12 @@ isChoice ClsInstDecl{..}
 ------------------------------------------------------------
 -- Generating doc.s from parsed modules
 
+
 -- render type variables as text (ignore kind information)
 tyVarText :: HsTyVarBndr GhcPs -> T.Text
 tyVarText arg = case arg of
-                  UserTyVar _ (L _ idp)         -> idpToText idp
-                  KindedTyVar _ (L _ idp) _kind -> idpToText idp
+                  UserTyVar _ (L _ idp)         -> packRdrName idp
+                  KindedTyVar _ (L _ idp) _kind -> packRdrName idp
                   XTyVarBndr _
                     -> error "unexpected X thing"
 
@@ -461,12 +451,21 @@ docToText = DocText . T.strip . T.unlines . go . T.lines . T.pack . unpackHDS
     stripLine limit = T.stripEnd . stripLeading limit
     stripLeading limit = T.pack . map snd . dropWhile (\(i, c) -> i < limit && isSpace c) . zip [0..] . T.unpack
 
--- | show a parsed ID (IdP GhcPs == RdrName) as a string
-idpToText :: IdP GhcPs -> T.Text
-idpToText = T.pack . Out.showSDocUnsafe . Out.ppr
+-- | Turn an Id into Text by taking the unqualified name it represents.
+packId :: Id -> T.Text
+packId = packName . idName
 
-typenameFromRdrName :: RdrName -> Typename
-typenameFromRdrName = Typename . idpToText
+-- | Turn a Name into Text by taking the unqualified name it represents.
+packName :: Name -> T.Text
+packName = packOccName . nameOccName
+
+-- | Turn an OccName into Text by taking the unqualified name it represents.
+packOccName :: OccName -> T.Text
+packOccName = T.pack . occNameString
+
+-- | Turn a RdrName into Text by taking the unqualified name it represents.
+packRdrName :: RdrName -> T.Text
+packRdrName = packOccName . rdrNameOcc
 
 ---------------------------------------------------------------------
 
@@ -557,7 +556,7 @@ hsTypeToType_ t = case t of
 
 
   -- straightforward base case
-  HsTyVar _ _ (L _ name) -> TypeApp Nothing (Typename $ idpToText name) []
+  HsTyVar _ _ (L _ name) -> TypeApp Nothing (Typename $ packRdrName name) []
 
   HsFunTy _ ty1 ty2 -> case hsTypeToType ty2 of
     TypeFun as -> TypeFun $ hsTypeToType ty1 : as
