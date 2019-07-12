@@ -516,10 +516,17 @@ encodeModuleRule =
 
 -- hlint
 
-hlintSettings :: FilePath -> IO ([Classify], Hint)
-hlintSettings hlintDataDir = do
-  (_, classify, hints) <-
-    findSettings (readSettingsFile (Just hlintDataDir)) Nothing
+hlintSettings :: IO ([Classify], Hint)
+hlintSettings = do
+  hlintDataDir <- getHlintDataDir
+  -- `findSettings` ends up calling `readFilesConfig` which
+  -- in turn calls `readFileConfigYaml` which finally calls
+  -- `decodeFileEither` from the `yaml` library.
+  -- Annoyingly that function catches async exceptions in
+  -- particular it ends up catching `ThreadKilled` so we
+  -- have to mask to stop it from doing that.
+  (_, classify, hints) <- mask $ \unmask ->
+    findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
   return (classify, hints)
 
 getHlintDiagnosticsRule :: Options -> Rules ()

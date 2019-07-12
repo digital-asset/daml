@@ -17,9 +17,9 @@ da_haskell_binary(
         "-optl-pthread",
     ] if is_windows else [],
     data = [
+        "//compiler/damlc/daml-ide-core:hlint-yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
-        "//compiler/damlc/daml-ide-core:hlint-yaml",
     ],
     hazel_deps = [
         "base",
