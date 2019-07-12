@@ -161,17 +161,36 @@ fieldTable fds = T.unlines $ -- NB final empty line is essential and intended
 
 -- | Render a type. Nested type applications are put in parentheses.
 type2rst :: Type -> T.Text
-type2rst = f (0 :: Int)
+type2rst = f 0
   where
     -- 0 = no brackets
     -- 1 = brackets around function
     -- 2 = brackets around function AND application
-    f _ (TypeApp _ n []) = unTypename n
-    f i (TypeApp _ n as) = (if i >= 2 then inParens else id) $ T.unwords (unTypename n : map (f 2) as)
-    f i (TypeFun ts) = (if i >= 1 then inParens else id) $ T.intercalate " -> " $ map (f 1) ts
+    f :: Int -> Type -> T.Text
+    f _ (TypeApp a n []) = link a n
+    f i (TypeApp a n as) = (if i >= 2 then inParens else id) $
+        T.unwords (link a n : map (f 2) as)
+    f i (TypeFun ts) = (if i >= 1 then inParens else id) $
+        T.intercalate " -> " $ map (f 1) ts
     f _ (TypeList t1) = "[" <> f 0 t1 <> "]"
     f _ (TypeTuple ts) = "(" <> T.intercalate ", " (map (f 0) ts) <>  ")"
 
+    link :: Maybe Anchor -> Typename -> T.Text
+    link Nothing n = unTypename n
+    link (Just anchor) n =
+        if anchor `elem` excludedAnchors
+            then unTypename n
+            else T.concat ["`", unTypename n, " <", unAnchor anchor, "_>`_"]
+
+-- | A list of anchors to exclude because they don't appear in the stdlib docs.
+-- This is a temporary approach -- missing anchors should be derived automatically
+-- before rendering everything.
+excludedAnchors :: [Anchor]
+excludedAnchors =
+    [ "class-ghc-classes-eq-21216"
+    , "class-ghc-classes-ord-70960"
+    , "type-ghc-types-textlit-43215"
+    ]
 
 fct2rst :: FunctionDoc -> T.Text
 fct2rst FunctionDoc{..} = T.unlines
