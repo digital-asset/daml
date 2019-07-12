@@ -5,17 +5,24 @@ package com.digitalasset.http.util
 
 import java.time.Instant
 
+import com.digitalasset.api.util.TimestampConversion.fromInstant
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
-import com.digitalasset.api.util.TimestampConversion.fromInstant
 
 object Commands {
-
   def create(
-      templateId: lav1.value.Identifier,
+      templateId: lar.TemplateId,
       arguments: lav1.value.Record): lav1.commands.Command.Command.Create =
     lav1.commands.Command.Command.Create(
-      lav1.commands.CreateCommand(templateId = Some(templateId), createArguments = Some(arguments)))
+      lav1.commands.CreateCommand(
+        templateId = Some(lar.TemplateId.unwrap(templateId)),
+        createArguments = Some(arguments)))
+
+//  def exercise(templateId: lar.TemplateId, contractId: lar.ContractId, arguments: lav1.value.Record)
+//    : CommandService.Error \/ lav1.commands.Command.Command.Exercise = {
+//    lav1.commands.Command.Command.Exercise(
+//      lav1.commands.ExerciseCommand(
+//  }
 
   def submitAndWaitRequest(
       ledgerId: lar.LedgerId,

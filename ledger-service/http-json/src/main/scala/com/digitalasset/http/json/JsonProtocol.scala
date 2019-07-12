@@ -29,6 +29,11 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val CommandIdFormat: JsonFormat[lar.CommandId] =
     taggedJsonFormat[String, lar.CommandIdTag]
 
+  implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
+
+  implicit val ContractIdFormat: JsonFormat[lar.ContractId] =
+    taggedJsonFormat[String, lar.ContractIdTag]
+
   implicit val JwtPayloadFormat: RootJsonFormat[domain.JwtPayload] = jsonFormat3(domain.JwtPayload)
 
   implicit val InstantFormat: JsonFormat[java.time.Instant] = new JsonFormat[Instant] {
@@ -86,4 +91,7 @@ object JsonProtocol extends DefaultJsonProtocol {
 
   implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand] = jsonFormat6(
     domain.CreateCommand)
+
+  implicit val ExerciseCommandFormat: RootJsonFormat[domain.ExerciseCommand] = jsonFormat4(
+    domain.ExerciseCommand)
 }

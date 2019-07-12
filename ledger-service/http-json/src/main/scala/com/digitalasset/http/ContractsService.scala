@@ -85,12 +85,13 @@ class ContractsService(
 
   private def transactionFilter(
       party: lar.Party,
-      templateIds: List[lav1.value.Identifier]): lav1.transaction_filter.TransactionFilter = {
+      templateIds: List[lar.TemplateId]): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
 
     val filters =
       if (templateIds.isEmpty) Filters.defaultInstance
-      else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds)))
+      else
+        Filters(Some(lav1.transaction_filter.InclusiveFilters(lar.TemplateId.unsubst(templateIds))))
 
     TransactionFilter(Map(lar.Party.unwrap(party) -> filters))
   }

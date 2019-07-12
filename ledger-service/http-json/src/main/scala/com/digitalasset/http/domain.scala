@@ -106,4 +106,10 @@ object domain {
       commandId: Option[lar.CommandId],
       ledgerEffectiveTime: Option[Instant],
       maximumRecordTime: Option[Instant])
+
+  case class ExerciseCommand(
+      templateId: TemplateId.OptionalPkg,
+      contractId: lar.ContractId,
+      choice: lar.Choice,
+      arguments: Option[lav1.value.Record])
 }

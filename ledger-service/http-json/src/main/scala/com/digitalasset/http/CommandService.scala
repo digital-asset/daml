@@ -33,13 +33,24 @@ class CommandService(
       contract <- activeContract(response)
     } yield contract
 
+  def execute(jwtPayload: domain.JwtPayload, input: domain.CreateCommand) = {}
+
   private def createCommand(
       input: domain.CreateCommand): Error \/ lav1.commands.Command.Command.Create = {
-    val arguments = input.arguments.getOrElse(lav1.value.Record())
+    val arguments = input.arguments.getOrElse(emptyRecord)
     resolveTemplateId(input.templateId)
       .leftMap(e => Error(e.shows))
       .map(x => Commands.create(x, arguments))
   }
+
+  private def exerciseCommand(
+      input: domain.ExerciseCommand): Error \/ lav1.commands.Command.Command.Exercise = {
+    val arguments = input.arguments.getOrElse(emptyRecord)
+//    Commands.exercise(input.contractId, arguments)
+    ???
+  }
+
+  private val emptyRecord = lav1.value.Record()
 
   private def submitAndWaitRequest(
       jwtPayload: domain.JwtPayload,
