@@ -396,7 +396,6 @@ object Repl {
             val startTime = System.nanoTime()
             var errored = false
             while (!machine.isFinal && !errored) {
-//              machine.print(count)
               machine.step match {
                 case SResultError(err) =>
                   println(prettyError(err, machine.ptx).render(128))
