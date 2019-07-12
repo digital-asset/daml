@@ -99,17 +99,21 @@ object domain {
     def required(label: String): Error \/ A = o toRightDisjunction s"Missing required field $label"
   }
 
-  case class CreateCommand(
-      templateId: TemplateId.OptionalPkg,
-      arguments: Option[lav1.value.Record],
+  final case class CommandMeta(
       workflowId: Option[lar.WorkflowId],
       commandId: Option[lar.CommandId],
       ledgerEffectiveTime: Option[Instant],
       maximumRecordTime: Option[Instant])
 
-  case class ExerciseCommand(
+  final case class CreateCommand(
+      templateId: TemplateId.OptionalPkg,
+      arguments: Option[lav1.value.Record],
+      meta: Option[CommandMeta])
+
+  final case class ExerciseCommand(
       templateId: TemplateId.OptionalPkg,
       contractId: lar.ContractId,
       choice: lar.Choice,
-      arguments: Option[lav1.value.Record])
+      arguments: Option[lav1.value.Record],
+      meta: Option[CommandMeta])
 }

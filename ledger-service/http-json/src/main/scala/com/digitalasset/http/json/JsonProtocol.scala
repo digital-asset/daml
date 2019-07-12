@@ -89,9 +89,12 @@ object JsonProtocol extends DefaultJsonProtocol {
       override def read(json: JsValue): Record = sys.error("not implemented")
     }
 
-  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand] = jsonFormat6(
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat4(
+    domain.CommandMeta)
+
+  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand] = jsonFormat3(
     domain.CreateCommand)
 
-  implicit val ExerciseCommandFormat: RootJsonFormat[domain.ExerciseCommand] = jsonFormat4(
+  implicit val ExerciseCommandFormat: RootJsonFormat[domain.ExerciseCommand] = jsonFormat5(
     domain.ExerciseCommand)
 }

@@ -7,12 +7,13 @@ import java.time.Instant
 
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.http.CommandService.Error
+import com.digitalasset.http.util.ClientUtil.{uniqueCommandId, workflowIdFromParty}
 import com.digitalasset.http.util.FutureUtil.toFuture
-import com.digitalasset.http.util.{ClientUtil, Commands, Transactions}
+import com.digitalasset.http.util.{Commands, Transactions}
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
-import scalaz.std.string._
 import scalaz.syntax.show._
-import scalaz.{Show, \/}
+import scalaz.{-\/, Show, \/, \/-}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,12 +29,20 @@ class CommandService(
       input: domain.CreateCommand): Future[domain.ActiveContract[lav1.value.Value]] =
     for {
       command <- toFuture(createCommand(input))
-      request = submitAndWaitRequest(jwtPayload, input, command)
+      request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- submitAndWaitForTransaction(request)
-      contract <- activeContract(response)
+      contract <- toFuture(exactlyOneActiveContract(response))
     } yield contract
 
-  def execute(jwtPayload: domain.JwtPayload, input: domain.CreateCommand) = {}
+  def exercise(
+      jwtPayload: domain.JwtPayload,
+      input: domain.ExerciseCommand): Future[List[domain.ActiveContract[lav1.value.Value]]] =
+    for {
+      command <- toFuture(exerciseCommand(input))
+      request = submitAndWaitRequest(jwtPayload, input.meta, command)
+      response <- submitAndWaitForTransaction(request)
+      contracts <- toFuture(activeContracts(response))
+    } yield contracts
 
   private def createCommand(
       input: domain.CreateCommand): Error \/ lav1.commands.Command.Command.Create = {
@@ -46,27 +55,32 @@ class CommandService(
   private def exerciseCommand(
       input: domain.ExerciseCommand): Error \/ lav1.commands.Command.Command.Exercise = {
     val arguments = input.arguments.getOrElse(emptyRecord)
-//    Commands.exercise(input.contractId, arguments)
-    ???
+    resolveTemplateId(input.templateId)
+      .leftMap(e => Error(e.shows))
+      .map(x => Commands.exercise(x, input.contractId, input.choice, arguments))
   }
 
   private val emptyRecord = lav1.value.Record()
 
   private def submitAndWaitRequest(
       jwtPayload: domain.JwtPayload,
-      input: domain.CreateCommand,
+      meta: Option[domain.CommandMeta],
       command: lav1.commands.Command.Command): lav1.command_service.SubmitAndWaitRequest = {
 
     val ledgerEffectiveTime: Instant =
-      input.ledgerEffectiveTime.getOrElse(timeProvider.getCurrentTime)
-    val maximumRecordTime: Instant =
-      input.maximumRecordTime.getOrElse(ledgerEffectiveTime.plusNanos(defaultTimeToLive.toNanos))
+      meta.flatMap(_.ledgerEffectiveTime).getOrElse(timeProvider.getCurrentTime)
+    val maximumRecordTime: Instant = meta
+      .flatMap(_.maximumRecordTime)
+      .getOrElse(ledgerEffectiveTime.plusNanos(defaultTimeToLive.toNanos))
+    val workflowId: lar.WorkflowId =
+      meta.flatMap(_.workflowId).getOrElse(workflowIdFromParty(jwtPayload.party))
+    val commandId: lar.CommandId = meta.flatMap(_.commandId).getOrElse(uniqueCommandId())
 
     Commands.submitAndWaitRequest(
       jwtPayload.ledgerId,
       jwtPayload.applicationId,
-      input.workflowId.getOrElse(ClientUtil.workflowIdFromParty(jwtPayload.party)),
-      input.commandId.getOrElse(ClientUtil.uniqueCommandId()),
+      workflowId,
+      commandId,
       ledgerEffectiveTime,
       maximumRecordTime,
       jwtPayload.party,
@@ -74,13 +88,36 @@ class CommandService(
     )
   }
 
-  private def activeContract(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Future[domain.ActiveContract[lav1.value.Value]] =
-    for {
-      t <- toFuture(response.transaction)
-      c <- toFuture(Transactions.decodeCreatedEvent(t))
-      a <- toFuture(domain.ActiveContract.fromLedgerApi(c))
-    } yield a
+  private def exactlyOneActiveContract(
+      response: lav1.command_service.SubmitAndWaitForTransactionResponse)
+    : Error \/ domain.ActiveContract[lav1.value.Value] =
+    activeContracts(response).flatMap {
+      case List(x) => \/-(x)
+      case xs @ _ => -\/(Error(s"Expected exactly one active contract, got: $xs"))
+    }
+
+  private def activeContracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
+    : Error \/ List[domain.ActiveContract[lav1.value.Value]] =
+    response.transaction match {
+      case None =>
+        -\/(Error(s"Received response without transaction: $response"))
+      case Some(tx) =>
+        activeContracts(tx)
+    }
+
+  private def activeContracts(
+      tx: lav1.transaction.Transaction): Error \/ List[domain.ActiveContract[lav1.value.Value]] = {
+
+    import scalaz.std.list._
+    import scalaz.syntax.traverse._
+
+    Transactions
+      .decodeAllCreatedEvents(tx)
+      .toList
+      .traverseU(domain.ActiveContract.fromLedgerApi)
+      .leftMap(Error(_))
+  }
+
 }
 
 object CommandService {
