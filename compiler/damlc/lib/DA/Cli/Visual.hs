@@ -75,7 +75,7 @@ startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
 -- We adding template name to archive as we need to have unique choice names
 archiveChoiceWithTemplateName :: LF.Template -> ChoiceAndAction -> ChoiceAndAction
-archiveChoiceWithTemplateName tpl (ChoiceAndAction (LF.ChoiceName "Archive") _ _)  = ChoiceAndAction (LF.ChoiceName $ tplName tpl <> "_Archive") True Set.empty
+archiveChoiceWithTemplateName tpl (ChoiceAndAction (LF.ChoiceName "Archive") _ _)  = ChoiceAndAction (LF.ChoiceName $ tplNameUnqual tpl <> "_Archive") True Set.empty
 archiveChoiceWithTemplateName _ cha = cha
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
@@ -95,8 +95,8 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
     where
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
-tplName :: LF.Template -> T.Text
-tplName LF.Template {..} = head (LF.unTypeConName tplTypeCon)
+tplNameUnqual :: LF.Template -> T.Text
+tplNameUnqual LF.Template {..} = head (LF.unTypeConName tplTypeCon)
 
 extractChoiceData :: ChoiceAndAction -> (LF.ChoiceName, IsConsuming)
 extractChoiceData (ChoiceAndAction choiceN consuming _) = (choiceN, consuming)
@@ -104,9 +104,9 @@ extractChoiceData (ChoiceAndAction choiceN consuming _) = (choiceN, consuming)
 
 templateWithCreateChoice :: TemplateChoices -> [(LF.ChoiceName, IsConsuming)]
 templateWithCreateChoice TemplateChoices {..} = createChoice : map extractChoiceData choiceAndActions
-    where createChoice = (LF.ChoiceName $ tplName template <> "_Create", False)
+    where createChoice = (LF.ChoiceName $ tplNameUnqual template <> "_Create", False)
 
--- We are adding create as a choice to the graph ,
+-- Adding create as a choice to the graph
 choiceNameWithId :: [TemplateChoices] -> Map.Map LF.ChoiceName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
   where choiceActions = concatMap templateWithCreateChoice tplChcActions
