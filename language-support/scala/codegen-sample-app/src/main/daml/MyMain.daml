@@ -80,17 +80,20 @@ data VariantWithUnusedTypeParam a b c = VariantC c | VariantB b
 data MyRecord = MyRecord {a: Int; b: Decimal; c: Party; d: Text; e: Date; f: Unit; g: Bool; h: [Int] }
   deriving (Show, Eq)
 
-data MyVariant = MyVariantA | MyVariantB
+data MyVariant = MyVariantA Unit | MyVariantB Unit
   deriving (Show, Eq)
 
-data RecordWithNestedMyVariant = RecordWithNestedMyVariant {
+data MyEnum = MyEnumA | MyEnumB
+  deriving (Show, Eq)
+
+data RecordWithNestedMyVariantMyEnum = RecordWithNestedMyVariantMyEnum {
   a: MyVariant;
-  b: MyVariant
+  b: MyEnum
 }
   deriving (Show, Eq)
 
 data VariantWithRecordWithVariant =
- VariantWithRecordWithVariantA { record: RecordWithNestedMyVariant } |
+ VariantWithRecordWithVariantA { record: RecordWithNestedMyVariantMyEnum } |
  Whatever
   deriving (Show, Eq)
 
@@ -328,12 +331,13 @@ template TemplateWithCyclicDependencyB
     signatory party
 
 
-template TemplateWithNestedRecordsAndVariants
+template TemplateWithNestedRecordsVariantsAndEnums
   with
     party: Party
     myRecord: MyRecord
     myVariant: MyVariant
-    recordWithNestedMyVariant: RecordWithNestedMyVariant
+    myEnum: MyEnum
+    recordWithNestedMyVariantMyEnum: RecordWithNestedMyVariantMyEnum
     variantWithRecordWithVariant: VariantWithRecordWithVariant
   where signatory party
 
