@@ -6,12 +6,12 @@ module Main (main) where
 import qualified Codec.Archive.Zip as Zip
 import Conduit hiding (connect)
 import qualified Data.Conduit.Zlib as Zlib
-import qualified Data.Conduit.Tar as Tar.Conduit
 import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
+import Control.Monad.Fail (MonadFail)
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import qualified Data.Text as T
@@ -80,7 +80,9 @@ tests damlDir tmpDir = testGroup "Integration tests"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
-          throwError msg e = fail (T.unpack $ msg <> " " <> e)
+
+throwError :: MonadFail m => T.Text -> T.Text -> m ()
+throwError msg e = fail (T.unpack $ msg <> " " <> e)
 
 -- | These tests check that it is possible to invoke (a subset) of damlc
 -- commands outside of the assistant.
@@ -292,7 +294,9 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     , testCase "mvn compile" $
       withCurrentDirectory quickstartDir $ do
           mvnDbTarball <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "integration-tests" </> "integration-tests-mvn.tar")
-          Tar.Conduit.extractTarball mvnDbTarball $ Just $ takeDirectory mvnDir
+          runConduitRes
+            $ sourceFileBS mvnDbTarball
+            .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError mvnDir)
           callCommand $ unwords ["mvn", mvnRepoFlag, "-q", "compile"]
     , testCase "mvn exec:java@run-quickstart" $
       withCurrentDirectory quickstartDir $
