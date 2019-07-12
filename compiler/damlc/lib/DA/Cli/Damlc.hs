@@ -712,7 +712,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> (concat <$> many optGhcCustomOptions)
     <*> pure enableScenarioService
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
-    <*> optHlintEnabled
+    <*> optHlintEnable
     <*> optHlintDataDir
   where
     optImportPath :: Parser [FilePath]
