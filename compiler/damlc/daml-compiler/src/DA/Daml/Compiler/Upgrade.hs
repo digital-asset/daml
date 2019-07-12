@@ -8,14 +8,15 @@ module DA.Daml.Compiler.Upgrade
     ( generateUpgradeModule
     , generateGenInstancesModule
     , generateSrcFromLf
+    , generateSrcPkgFromLf
     ) where
 
 import "ghc-lib-parser" BasicTypes
 import Control.Lens (toListOf)
-import DA.Daml.Preprocessor.Generics
 import qualified DA.Daml.LF.Ast.Base as LF
 import DA.Daml.LF.Ast.Optics
 import qualified DA.Daml.LF.Ast.Util as LF
+import DA.Daml.Preprocessor.Generics
 import Data.List.Extra
 import qualified Data.Map.Strict as MS
 import Data.Maybe
@@ -23,22 +24,26 @@ import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import Data.Tuple
 import Development.IDE.GHC.Util
-import "ghc-lib-parser" FastString
+import Development.IDE.Types.Location
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module
 import "ghc-lib-parser" Name
-import "ghc-lib-parser" Outputable (ppr, showSDoc)
+import "ghc-lib-parser" Outputable (ppr, showSDoc, showSDocForUser, alwaysQualify)
 import "ghc-lib-parser" PrelNames
 import "ghc-lib-parser" RdrName
+import System.FilePath.Posix
 import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
+import "ghc-lib-parser" FastString
 
 -- | Generate a module containing generic instances for data types that don't have them already.
 generateGenInstancesModule :: String -> (String, ParsedSource) -> String
 generateGenInstancesModule qual (pkg, L _l src) =
     unlines $ header ++ map (showSDoc fakeDynFlags . ppr) genericInstances
   where
-    modName = moduleNameString $ unLoc $ fromMaybe (error "missing module name") $ hsmodName src
+    modName =
+        moduleNameString $
+        unLoc $ fromMaybe (error "missing module name") $ hsmodName src
     header =
         [ "{-# LANGUAGE EmptyCase #-}"
         , "daml 1.2"
@@ -102,21 +107,44 @@ upgradeTemplate n =
   , "                    create $ conv d"
   ]
 
+-- | Generate the full source for a daml-lf package.
+generateSrcPkgFromLf ::
+       LF.PackageId
+    -> MS.Map GHC.UnitId LF.PackageId
+    -> LF.Package
+    -> [(NormalizedFilePath, String)]
+generateSrcPkgFromLf thisPkgId pkgMap pkg = do
+    mod <- NM.toList $ LF.packageModules pkg
+    let fp =
+            toNormalizedFilePath $
+            (T.unpack $ T.intercalate "/" $ LF.unModuleName $ LF.moduleName mod) <.>
+            ".daml"
+    pure
+        ( fp
+        , unlines header ++
+          (showSDocForUser fakeDynFlags alwaysQualify $
+           ppr $ generateSrcFromLf thisPkgId pkgMap mod))
+  where
+    header =
+        ["{-# LANGUAGE NoDamlSyntax #-}", "{-# LANGUAGE NoImplicitPrelude #-}"]
+
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
-       LF.PackageId -> MS.Map GHC.UnitId LF.PackageId -> LF.Module -> ParsedSource
+       LF.PackageId
+    -> MS.Map GHC.UnitId LF.PackageId
+    -> LF.Module
+    -> ParsedSource
 generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
   where
-    thisModuleName =
-        mkModuleName $ T.unpack $ LF.moduleNameString $ LF.moduleName m
-    thisModule = mkModule (getUnitId LF.PRSelf) thisModuleName
     pkgMapInv = MS.fromList $ map swap $ MS.toList pkgMap
     getUnitId :: LF.PackageRef -> UnitId
     getUnitId pkgRef =
-        fromJust (error $ "Unknown package: " <> show pkgRef) $
+        fromMaybe (error $ "Unknown package: " <> show pkgRef) $
         case pkgRef of
             LF.PRSelf -> MS.lookup thisPkgId pkgMapInv
             LF.PRImport pkgId -> MS.lookup pkgId pkgMapInv
+    -- TODO (drsk) how come those '#' appear in daml-lf names?
+    sanitize = T.dropWhileEnd (== '#')
     mod =
         HsModule
             { hsmodImports = imports
@@ -130,7 +158,6 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
             , hsmodHaddockModHeader = Nothing
             , hsmodExports = Nothing
             }
-
     decls =
         [ mkNoLoc $
         TyClD NoExt $
@@ -138,9 +165,10 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
             { tcdDExt = NoExt
             , tcdLName =
                   mkNoLoc $
-                  mkOrig thisModule $
+                  mkRdrUnqual $
                   mkOccName varName $
-                  T.unpack $ T.intercalate "." $ LF.unTypeConName dataTypeCon
+                  T.unpack $
+                  sanitize $ T.intercalate "." $ LF.unTypeConName dataTypeCon
             , tcdTyVars =
                   HsQTvs
                       { hsq_ext = NoExt
@@ -163,7 +191,6 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
             }
         | LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
         ]
-
     convDataCons :: LF.TypeConName -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon =
         \case
@@ -173,9 +200,10 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
                       { con_ext = NoExt
                       , con_name =
                             mkNoLoc $
-                            mkOrig thisModule $
+                            mkRdrUnqual $
                             mkOccName dataName $
                             T.unpack $
+                            sanitize $
                             T.intercalate "." $ LF.unTypeConName dataTypeCon
                       , con_forall = mkNoLoc False
                       , con_ex_tvs = []
@@ -209,8 +237,9 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
                     { con_ext = NoExt
                     , con_name =
                           mkNoLoc $
-                          mkOrig thisModule $
-                          mkOccName varName $ T.unpack $ LF.unVariantConName conName
+                          mkRdrUnqual $
+                          mkOccName varName $
+                          T.unpack $ sanitize $ LF.unVariantConName conName
                     , con_forall = mkNoLoc False
                     , con_ex_tvs = []
                     , con_mb_cxt = Nothing
@@ -218,7 +247,13 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
                     , con_args =
                           case ty of
                               LF.TBuiltin LF.BTUnit -> PrefixCon []
-                              otherTy -> PrefixCon [mkNoLoc $ convType otherTy]
+                              otherTy ->
+                                  PrefixCon
+                                      [ mkNoLoc $
+                                        HsParTy
+                                            NoExt
+                                            (mkNoLoc $ convType otherTy)
+                                      ]
                     }
                 | (conName, ty) <- cons
                 ]
@@ -228,8 +263,9 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
                     { con_ext = NoExt
                     , con_name =
                           mkNoLoc $
-                          mkOrig thisModule $
-                          mkOccName varName $ T.unpack $ LF.unVariantConName conName
+                          mkRdrUnqual $
+                          mkOccName varName $
+                          T.unpack $ sanitize $ LF.unVariantConName conName
                     , con_forall = mkNoLoc False
                     , con_ex_tvs = []
                     , con_mb_cxt = Nothing
@@ -238,26 +274,26 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
                     }
                 | conName <- cons
                 ]
-
-    mkRdrName = mkNoLoc . mkOrig thisModule . mkOccName varName . T.unpack
-
+    mkRdrName = mkNoLoc . mkRdrUnqual . mkOccName varName . T.unpack
     mkUserTyVar :: T.Text -> LHsTyVarBndr GhcPs
     mkUserTyVar =
         mkNoLoc .
-        UserTyVar NoExt . mkNoLoc . mkOrig thisModule . mkOccName tvName . T.unpack
-
+        UserTyVar NoExt .
+        mkNoLoc . mkRdrUnqual . mkOccName tvName . T.unpack
     convType :: LF.Type -> HsType GhcPs
     convType =
         \case
             LF.TVar tyVarName ->
-                HsTyVar NoExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
+                HsTyVar NoExt NotPromoted $
+                mkRdrName $ LF.unTypeVarName tyVarName
             LF.TCon LF.Qualified {..} ->
                 HsTyVar NoExt NotPromoted $
                 mkNoLoc $
                 mkOrig
                     (mkModule
                          (getUnitId qualPackage)
-                         (mkModuleName $ T.unpack $ LF.moduleNameString qualModule))
+                         (mkModuleName $
+                          T.unpack $ LF.moduleNameString qualModule))
                     (mkOccName varName $
                      T.unpack $ T.intercalate "." $ LF.unTypeConName qualObject)
             LF.TApp ty1 ty2 ->
@@ -274,7 +310,6 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
                     NoExt
                     HsBoxedTuple
                     [mkNoLoc $ convType ty | (_fldName, ty) <- fls]
-
     convBuiltInTy :: LF.BuiltinType -> HsType GhcPs
     convBuiltInTy =
         \case
@@ -293,31 +328,40 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
             LF.BTOptional -> mkLfInternalPrelude "Optional"
             LF.BTMap -> mkLfInternalType "TextMap"
             LF.BTArrow -> mkTyConType funTyCon
-
     mkGhcType =
-        HsTyVar NoExt NotPromoted . mkNoLoc . mkOrig gHC_TYPES . mkOccName varName
-
+        HsTyVar NoExt NotPromoted .
+        mkNoLoc . mkOrig gHC_TYPES . mkOccName varName
     damlStdlibUnitId = stringToUnitId "daml-stdlib"
-
     mkLfInternalType =
         HsTyVar NoExt NotPromoted .
         mkNoLoc .
         mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.LF") .
         mkOccName varName
-
     mkLfInternalPrelude =
         HsTyVar NoExt NotPromoted .
         mkNoLoc .
         mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.Prelude") .
         mkOccName varName
-
     mkTyConType :: TyCon -> HsType GhcPs
     mkTyConType tyCon =
         let name = getName tyCon
          in HsTyVar NoExt NotPromoted . mkNoLoc $
             mkOrig (nameModule name) (occName name)
-
     imports =
+        (mkNoLoc $
+         ImportDecl
+             { ideclExt = NoExt
+             , ideclSourceSrc = NoSourceText
+             , ideclName = mkNoLoc $ mkModuleName "GHC.Types"
+             , ideclPkgQual =
+                   Just $ StringLiteral NoSourceText $ mkFastString "daml-prim"
+             , ideclSource = False
+             , ideclSafe = False
+             , ideclImplicit = False
+             , ideclQualified = True
+             , ideclAs = Nothing
+             , ideclHiding = Nothing
+             }) :
         [ mkNoLoc $
         ImportDecl
             { ideclExt = NoExt
@@ -325,7 +369,7 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
             , ideclName =
                   mkNoLoc $ mkModuleName $ T.unpack $ LF.moduleNameString modRef
             , ideclPkgQual =
-                  Just $ StringLiteral NoSourceText $ mkFastString $ T.unpack pkgId
+                  Just $ StringLiteral NoSourceText $ unitIdFS $ getUnitId pkgRef
             , ideclSource = False
             , ideclSafe = False
             , ideclImplicit = False
@@ -333,8 +377,8 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
             , ideclAs = Nothing
             , ideclHiding = Nothing
             } :: LImportDecl GhcPs
-        | (LF.PRImport (LF.PackageId pkgId), modRef) <-
+        | (pkgRef@(LF.PRImport pkgId), modRef) <-
               nubSort $ toListOf moduleModuleRef m
+        , pkgId /= thisPkgId
         ]
-
     mkNoLoc = L noSrcSpan
