@@ -208,7 +208,7 @@ toDocText docs =
 --   neither a comment nor a function type is in the source, we omit the
 --   function.
 getFctDocs :: DocCtx -> DeclData -> Maybe FunctionDoc
-getFctDocs DocCtx{..} (DeclData decl docs) = do
+getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
   (name, keepContext) <- case unLoc decl of
     SigD _ (TypeSig _ (L _ n :_) _) ->
       Just (n, True)
@@ -224,8 +224,8 @@ getFctDocs DocCtx{..} (DeclData decl docs) = do
   let fct_name = Fieldname (packRdrName name)
       mbId = MS.lookup fct_name dc_ids
       mbType = idType <$> mbId
-      fct_context = guard keepContext >> mbType >>= typeToContext
-      fct_type = typeToType <$> mbType
+      fct_context = guard keepContext >> mbType >>= typeToContext ctx
+      fct_type = typeToType ctx <$> mbType
       fct_anchor = Just $ functionAnchor dc_mod fct_name
       fct_descr = docs
   Just FunctionDoc {..}
@@ -233,17 +233,17 @@ getFctDocs DocCtx{..} (DeclData decl docs) = do
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
 getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
     let cl_name = Typename . packRdrName $ unLoc tcdLName
-        cl_anchor = Just $ classAnchor dc_mod cl_name
+        tyconMb = MS.lookup cl_name dc_tycons
+        cl_anchor = tyConAnchor ctx =<< tyconMb
         cl_descr = docs
         cl_functions = concatMap f tcdSigs
         cl_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
         cl_super = do
-            tycon <- MS.lookup cl_name dc_tycons
+            tycon <- tyconMb
             cls <- tyConClass_maybe tycon
             let theta = classSCTheta cls
             guard (notNull theta)
-            Just (TypeTuple $ map typeToType theta)
-
+            Just (TypeTuple $ map (typeToType ctx) theta)
     Just ClassDoc {..}
   where
     f :: LSig GhcPs -> [FunctionDoc]
@@ -471,50 +471,74 @@ packOccName = T.pack . occNameString
 packRdrName :: RdrName -> T.Text
 packRdrName = packOccName . rdrNameOcc
 
+-- | Turn a GHC Module into a Modulename. (Unlike the above functions,
+-- we only ever want this to be a Modulename, so no reason to return
+-- Text.)
+packModule :: Module -> Modulename
+packModule = Modulename . T.pack . moduleNameString . moduleName
+
+---------------------------------------------------------------------
+
+-- | Create an anchor from a TyCon. Don't make anchors for wired in names.
+tyConAnchor :: DocCtx -> TyCon -> Maybe Anchor
+tyConAnchor DocCtx{..} tycon = do
+    let ghcName = tyConName tycon
+        name = Typename . packName $ ghcName
+        mod = maybe dc_mod packModule (nameModule_maybe $ ghcName)
+        anchorFn
+            | isClassTyCon tycon = classAnchor
+            | isDataTyCon tycon = dataAnchor
+            | otherwise = typeAnchor
+    guard (not (isWiredInName ghcName))
+    Just (anchorFn mod name)
+
 ---------------------------------------------------------------------
 
 -- | Extract context from GHC type. Returns Nothing if there are no constraints.
-typeToContext :: TyCoRep.Type -> Maybe DDoc.Type
-typeToContext ty =
-    let ctx = typeToConstraints ty
+typeToContext :: DocCtx -> TyCoRep.Type -> Maybe DDoc.Type
+typeToContext dc ty =
+    let ctx = typeToConstraints dc ty
     in guard (notNull ctx) >> Just (TypeTuple ctx)
 
 -- | Extract constraints from GHC type, returning list of constraints.
-typeToConstraints :: TyCoRep.Type -> [DDoc.Type]
-typeToConstraints = \case
+typeToConstraints :: DocCtx -> TyCoRep.Type -> [DDoc.Type]
+typeToConstraints dc = \case
     FunTy a@(TyConApp tycon _) b | isClassTyCon tycon ->
-        typeToType a : typeToConstraints b
+        typeToType dc a : typeToConstraints dc b
     FunTy _ b ->
-        typeToConstraints b
+        typeToConstraints dc b
     ForAllTy _ b -> -- TODO: I think forall can introduce constraints?
-        typeToConstraints b
+        typeToConstraints dc b
     _ -> []
 
+
 -- | Convert GHC Type into a damldoc type, ignoring constraints.
-typeToType :: TyCoRep.Type -> DDoc.Type
-typeToType = \case
-    TyVarTy var -> TypeApp Nothing (Typename $ packId var) [] -- TODO: anchor if global?
+typeToType :: DocCtx -> TyCoRep.Type -> DDoc.Type
+typeToType ctx = \case
+    TyVarTy var -> TypeApp Nothing (Typename $ packId var) []
     AppTy a b ->
-        case typeToType a of
-            TypeApp m f bs -> TypeApp m f (bs <> [typeToType b]) -- flatten app chains
+        case typeToType ctx a of
+            TypeApp m f bs -> TypeApp m f (bs <> [typeToType ctx b]) -- flatten app chains
             TypeFun _ -> unexpected "function type in a type app"
             TypeList _ -> unexpected "list type in a type app"
             TypeTuple _ -> unexpected "tuple type in a type app"
     TyConApp tycon bs ->
-        -- TODO: add anchor, possibly qualify name in some cases?
-        typeApp Nothing (Typename . packName . tyConName $ tycon) (map typeToType bs)
+        typeApp
+            (tyConAnchor ctx tycon)
+            (Typename . packName . tyConName $ tycon)
+            (map (typeToType ctx) bs)
 
     -- ignore context
-    ForAllTy _ b -> typeToType b
+    ForAllTy _ b -> typeToType ctx b
     FunTy (TyConApp tycon _) b | isClassTyCon tycon ->
-        typeToType b
+        typeToType ctx b
 
     FunTy a b ->
-        case typeToType b of
-            TypeFun bs -> TypeFun (typeToType a : bs) -- flatten function types
-            b' -> TypeFun [typeToType a, b']
+        case typeToType ctx b of
+            TypeFun bs -> TypeFun (typeToType ctx a : bs) -- flatten function types
+            b' -> TypeFun [typeToType ctx a, b']
 
-    CastTy a _ -> typeToType a
+    CastTy a _ -> typeToType ctx a
     LitTy x -> TypeApp Nothing (Typename $ toText x) []
     CoercionTy _ -> unexpected "coercion" -- TODO?
 
