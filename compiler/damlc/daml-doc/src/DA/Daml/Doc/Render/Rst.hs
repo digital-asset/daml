@@ -183,7 +183,7 @@ type2rst = f 0
             else T.concat ["`", unTypename n, " <", unAnchor anchor, "_>`_"]
 
 -- | A list of anchors to exclude because they don't appear in the stdlib docs.
--- This is a temporary approach -- missing anchors should be derived automatically
+-- This is a temporary approach -- available anchors should be derived automatically
 -- before rendering everything.
 excludedAnchors :: [Anchor]
 excludedAnchors =
