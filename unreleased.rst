@@ -14,3 +14,5 @@ HEAD — ongoing
   See `#1953 <https://github.com/digital-asset/daml/issues/1953>`__.
 - [DAML Studio] DAML Studio now displays a “Processing” indicator on the bottom
   left while the IDE is doing work in the background.
+- [Sandbox] Remembering already loaded packages after reset
+  See `#1979 <https://github.com/digital-asset/daml/issues/1953>`__.
