@@ -145,7 +145,7 @@ ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
 getDalfDependencies :: NormalizedFilePath -> MaybeT Action (Map.Map UnitId DalfPackage)
 getDalfDependencies file = do
     unitIds <- transitivePkgDeps <$> useE GetDependencies file
-    pkgMap <- useE GeneratePackageMap ""
+    pkgMap <- useNoFileE GeneratePackageMap
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
@@ -168,7 +168,7 @@ generateRawDalfRule =
         core <- use_ GenerateCore file
         setPriority priorityGenerateDalf
         -- Generate the map from package names to package hashes
-        pkgMap <- use_ GeneratePackageMap ""
+        pkgMap <- useNoFile_ GeneratePackageMap
         let pkgMap0 = Map.map (LF.unPackageId . dalfPackageId) pkgMap
         -- GHC Core to DAML LF
         case convertModule lfVersion pkgMap0 file core of
@@ -181,7 +181,7 @@ generateDalfRule =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
         pkg <- use_ GeneratePackageDeps file
-        pkgMap <- use_ GeneratePackageMap ""
+        pkgMap <- useNoFile_ GeneratePackageMap
         let pkgs = map dalfPackagePkg $ Map.elems pkgMap
         let world = LF.initWorldSelf pkgs pkg
         unsimplifiedRawDalf <- use_ GenerateRawDalf file
@@ -264,7 +264,7 @@ contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
     lfVersion <- getDamlLfVersion
     pkg <- use_ GeneratePackage file
-    pkgMap <- use_ GeneratePackageMap ""
+    pkgMap <- useNoFile_ GeneratePackageMap
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
         NM.toList $ LF.packageModules pkg
@@ -281,7 +281,7 @@ contextForFile file = do
 worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
     pkg <- use_ GeneratePackage file
-    pkgMap <- use_ GeneratePackageMap ""
+    pkgMap <- useNoFile_ GeneratePackageMap
     let pkgs = map dalfPackagePkg $ Map.elems pkgMap
     pure $ LF.initWorldSelf pkgs pkg
 
@@ -359,7 +359,7 @@ getScenarioRootsRule :: Rules ()
 getScenarioRootsRule =
     defineNoFile $ \GetScenarioRoots -> do
         filesOfInterest <- getFilesOfInterest
-        openVRs <- use_ GetOpenVirtualResources ""
+        openVRs <- useNoFile_ GetOpenVirtualResources
         let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
         deps <- forP files $ \file -> do
             transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
@@ -371,7 +371,7 @@ getScenarioRootsRule =
 getScenarioRootRule :: Rules ()
 getScenarioRootRule =
     defineEarlyCutoff $ \GetScenarioRoot file -> do
-        ctxRoots <- use_ GetScenarioRoots ""
+        ctxRoots <- useNoFile_ GetScenarioRoots
         case Map.lookup file ctxRoots of
             Nothing -> liftIO $
                 fail $ "No scenario root for file " <> show (fromNormalizedFilePath file) <> "."
@@ -413,13 +413,13 @@ vrChangedNotification vr doc =
 ofInterestRule :: Rules ()
 ofInterestRule = do
     -- go through a rule (not just an action), so it shows up in the profile
-    action $ use OfInterest ""
+    action $ useNoFile OfInterest
     defineNoFile $ \OfInterest -> do
         setPriority priorityFilesOfInterest
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
         files   <- getFilesOfInterest
-        openVRs <- use_ GetOpenVirtualResources ""
+        openVRs <- useNoFile_ GetOpenVirtualResources
         let vrFiles = Set.map vrScenarioFile openVRs
         -- We run scenarios for all files of interest to get diagnostics
         -- and for the files for which we have open VRs so that they get
