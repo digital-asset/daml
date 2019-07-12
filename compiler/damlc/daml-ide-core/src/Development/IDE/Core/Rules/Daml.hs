@@ -528,23 +528,22 @@ hlintSettings hlintDataDir = do
     findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
   return (classify, hints)
 
-getHlintDiagnosticsRule :: Options -> Rules ()
-getHlintDiagnosticsRule opts =
+getHlintSettingsRule :: Maybe FilePath -> Rules ()
+getHlintSettingsRule dir =
+    defineNoFile $ \GetHlintSettings -> do
+      case dir of
+        Just dir -> liftIO $ hlintSettings dir
+        Nothing -> liftIO $ fail "Linter configuration unspecified"
+
+getHlintDiagnosticsRule :: Rules ()
+getHlintDiagnosticsRule =
     define $ \GetHlintDiagnostics file -> do
         pm <- use_ GetParsedModule file
         let anns = pm_annotations pm
         let modu = pm_parsed_source pm
-        case optHlintDataDir opts of
-          Just dir -> do
-            (classify, hint) <- liftIO $ hlintSettings dir
-            let ideas = applyHints classify hint [createModuleEx anns modu]
-            return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
-          Nothing -> do
-            logger <- actionLogger
-            liftIO $ logError logger $ T.pack $
-                "Rule getHlintDiagnosticsRule\n" ++
-                "Errors: Linter configuration data directory not specified"
-            return ([], Just ())
+        (classify, hint) <- use_ GetHlintSettings ""
+        let ideas = applyHints classify hint [createModuleEx anns modu]
+        return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
       -- To-do : Improve this.
       toDiagnostic file i = ideHintText file (T.pack $ show i)
@@ -601,11 +600,12 @@ damlRule opts = do
     runScenariosRule
     getScenarioRootsRule
     getScenarioRootRule
-    getHlintDiagnosticsRule opts
+    getHlintDiagnosticsRule
     ofInterestRule opts
     encodeModuleRule
     createScenarioContextRule
     getOpenVirtualResourcesRule
+    getHlintSettingsRule (optHlintDataDir opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do

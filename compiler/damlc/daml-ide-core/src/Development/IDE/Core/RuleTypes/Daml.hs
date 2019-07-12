@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -29,6 +30,8 @@ import Development.IDE.Core.RuleTypes
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
+
+import Language.Haskell.HLint4
 
 type instance RuleResult GenerateDalf = LF.Module
 type instance RuleResult GenerateRawDalf = LF.Module
@@ -140,6 +143,16 @@ data GetOpenVirtualResources = GetOpenVirtualResources
     deriving (Eq, Show, Typeable, Generic)
 instance Hashable GetOpenVirtualResources
 instance NFData   GetOpenVirtualResources
+
+data GetHlintSettings = GetHlintSettings
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable GetHlintSettings
+instance NFData   GetHlintSettings
+instance NFData Hint where rnf = rwhnf
+instance NFData Classify where rnf = rwhnf
+instance Show Hint where show = const "<hint>"
+
+type instance RuleResult GetHlintSettings = ([Classify], Hint)
 
 data GetHlintDiagnostics = GetHlintDiagnostics
     deriving (Eq, Show, Typeable, Generic)
