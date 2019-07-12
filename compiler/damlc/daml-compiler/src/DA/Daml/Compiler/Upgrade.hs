@@ -34,6 +34,8 @@ import System.FilePath.Posix
 import "ghc-lib-parser" TysPrim
 import "ghc-lib-parser" TysWiredIn
 import "ghc-lib-parser" FastString
+import "ghc-lib-parser" Bag
+import "ghc-lib-parser" TcEvidence (HsWrapper(..))
 
 -- | Generate a module containing generic instances for data types that don't have them already.
 generateGenInstancesModule :: String -> (String, ParsedSource) -> String
@@ -123,27 +125,6 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
   where
     header = ["{-# LANGUAGE NoDamlSyntax #-}", "{-# LANGUAGE NoImplicitPrelude #-}"]
 
--- | Generate the full source for a daml-lf package.
-generateSrcPkgFromLf ::
-       LF.PackageId
-    -> MS.Map GHC.UnitId LF.PackageId
-    -> LF.Package
-    -> [(NormalizedFilePath, String)]
-generateSrcPkgFromLf thisPkgId pkgMap pkg = do
-    mod <- NM.toList $ LF.packageModules pkg
-    let fp =
-            toNormalizedFilePath $
-            (T.unpack $ T.intercalate "/" $ LF.unModuleName $ LF.moduleName mod) <.>
-            ".daml"
-    pure
-        ( fp
-        , unlines header ++
-          (showSDocForUser fakeDynFlags alwaysQualify $
-           ppr $ generateSrcFromLf thisPkgId pkgMap mod))
-  where
-    header =
-        ["{-# LANGUAGE NoDamlSyntax #-}", "{-# LANGUAGE NoImplicitPrelude #-}"]
-
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
        LF.PackageId
@@ -174,39 +155,140 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
             , hsmodHaddockModHeader = Nothing
             , hsmodExports = Nothing
             }
+    templateTy =
+        mkNoLoc $
+        HsTyVar NoExt NotPromoted $
+        mkNoLoc $
+        mkRdrQual (mkModuleName "DA.Internal.Template") $
+        mkOccName varName "Template" :: LHsType GhcPs
+    sigRdrName = mkNoLoc $ mkRdrUnqual $ mkOccName varName "signatory"
     decls =
-        [ mkNoLoc $
-        TyClD NoExt $
-        DataDecl
-            { tcdDExt = NoExt
-            , tcdLName =
-                  mkNoLoc $
-                  mkRdrUnqual $
-                  mkOccName varName $
-                  T.unpack $
-                  sanitize $ T.intercalate "." $ LF.unTypeConName dataTypeCon
-            , tcdTyVars =
-                  HsQTvs
-                      { hsq_ext = NoExt
-                      , hsq_explicit =
-                            [ mkUserTyVar $ LF.unTypeVarName tyVarName
-                            | (tyVarName, _kind) <- dataParams
-                            ]
-                      }
-            , tcdFixity = Prefix
-            , tcdDataDefn =
-                  HsDataDefn
-                      { dd_ext = NoExt
-                      , dd_ND = DataType
-                      , dd_ctxt = mkNoLoc []
-                      , dd_cType = Nothing
-                      , dd_kindSig = Nothing
-                      , dd_cons = convDataCons dataTypeCon dataCons
-                      , dd_derivs = mkNoLoc []
-                      }
-            }
-        | LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
-        ]
+        concat $ do
+            LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
+            let templType =
+                    LF.mkTApps
+                        (LF.TCon
+                             (LF.Qualified LF.PRSelf (LF.moduleName m) dataTypeCon))
+                        (map (LF.TVar . fst) dataParams)
+            let occName =
+                    mkOccName varName $
+                    T.unpack $
+                    sanitize $ T.intercalate "." $ LF.unTypeConName dataTypeCon
+            let dataDecl =
+                    mkNoLoc $
+                    TyClD NoExt $
+                    DataDecl
+                        { tcdDExt = NoExt
+                        , tcdLName = mkNoLoc $ mkRdrUnqual $ occName
+                        , tcdTyVars =
+                              HsQTvs
+                                  { hsq_ext = NoExt
+                                  , hsq_explicit =
+                                        [ mkUserTyVar $ LF.unTypeVarName tyVarName
+                                        | (tyVarName, _kind) <- dataParams
+                                        ]
+                                  }
+                        , tcdFixity = Prefix
+                        , tcdDataDefn =
+                              HsDataDefn
+                                  { dd_ext = NoExt
+                                  , dd_ND = DataType
+                                  , dd_ctxt = mkNoLoc []
+                                  , dd_cType = Nothing
+                                  , dd_kindSig = Nothing
+                                  , dd_cons = convDataCons dataTypeCon dataCons
+                                  , dd_derivs = mkNoLoc []
+                                  }
+                        }
+            -- dummy template instance to make sure we get a template instance in the interface
+            -- file
+            let templInstDecl =
+                    mkNoLoc $
+                    InstD NoExt $
+                    ClsInstD
+                        NoExt
+                        ClsInstDecl
+                            { cid_ext = noExt
+                            , cid_poly_ty =
+                                  HsIB
+                                      { hsib_ext = noExt
+                                      , hsib_body =
+                                            mkNoLoc $
+                                            HsAppTy noExt templateTy $
+                                            noLoc $ convType templType
+                                      }
+                            , cid_binds =
+                                  listToBag
+                                      [ mkNoLoc $
+                                        FunBind
+                                            { fun_ext = noExt
+                                            , fun_id = sigRdrName
+                                            , fun_matches =
+                                                  MG
+                                                      { mg_ext = noExt
+                                                      , mg_alts =
+                                                            mkNoLoc
+                                                                [ mkNoLoc $
+                                                                  Match
+                                                                      { m_ext =
+                                                                            noExt
+                                                                      , m_ctxt =
+                                                                            FunRhs
+                                                                                { mc_fun =
+                                                                                      sigRdrName
+                                                                                , mc_fixity =
+                                                                                      Prefix
+                                                                                , mc_strictness =
+                                                                                      NoSrcStrict
+                                                                                }
+                                                                      , m_pats = []
+                                                                      , m_rhs_sig =
+                                                                            Nothing
+                                                                      , m_grhss =
+                                                                            GRHSs
+                                                                                { grhssExt =
+                                                                                      noExt
+                                                                                , grhssGRHSs =
+                                                                                      [ mkNoLoc $
+                                                                                        GRHS
+                                                                                            noExt
+                                                                                            [
+                                                                                            ]
+                                                                                            (mkNoLoc $
+                                                                                             HsApp
+                                                                                                 noExt
+                                                                                                 (noLoc $
+                                                                                                  HsVar
+                                                                                                      noExt
+                                                                                                      (noLoc
+                                                                                                           error_RDR))
+                                                                                                 (noLoc $
+                                                                                                  HsLit
+                                                                                                      NoExt $
+                                                                                                  HsString
+                                                                                                      NoSourceText $
+                                                                                                  mkFastString
+                                                                                                      "undefined template class method in generated code"))
+                                                                                      ]
+                                                                                , grhssLocalBinds =
+                                                                                      noLoc $
+                                                                                      emptyLocalBinds
+                                                                                }
+                                                                      }
+                                                                ]
+                                                      , mg_origin = Generated
+                                                      }
+                                            , fun_co_fn = WpHole
+                                            , fun_tick = []
+                                            }
+                                      ]
+                            , cid_sigs = []
+                            , cid_tyfam_insts = []
+                            , cid_datafam_insts = []
+                            , cid_overlap_mode = Nothing
+                            }
+            let templateDataCons = NM.names $ LF.moduleTemplates m
+            pure $ dataDecl : [templInstDecl | dataTypeCon `elem` templateDataCons]
     convDataCons :: LF.TypeConName -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon =
         \case
@@ -294,8 +376,7 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
     mkUserTyVar :: T.Text -> LHsTyVarBndr GhcPs
     mkUserTyVar =
         mkNoLoc .
-        UserTyVar NoExt .
-        mkNoLoc . mkRdrUnqual . mkOccName tvName . T.unpack
+        UserTyVar NoExt . mkNoLoc . mkRdrUnqual . mkOccName tvName . T.unpack
     convType :: LF.Type -> HsType GhcPs
     convType =
         \case
@@ -363,21 +444,27 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
         let name = getName tyCon
          in HsTyVar NoExt NotPromoted . mkNoLoc $
             mkOrig (nameModule name) (occName name)
+    mkGhcPrimImport :: Bool -> String -> LImportDecl GhcPs
+    mkGhcPrimImport qualified  modName =  mkNoLoc $
+           ImportDecl
+               { ideclExt = NoExt
+               , ideclSourceSrc = NoSourceText
+               , ideclName = mkNoLoc $ mkModuleName modName
+               , ideclPkgQual =
+                     Just $ StringLiteral NoSourceText $ mkFastString "daml-prim"
+               , ideclSource = False
+               , ideclSafe = False
+               , ideclImplicit = False
+               , ideclQualified = qualified
+               , ideclAs = Nothing
+               , ideclHiding = Nothing
+               }
     imports =
-        (mkNoLoc $
-         ImportDecl
-             { ideclExt = NoExt
-             , ideclSourceSrc = NoSourceText
-             , ideclName = mkNoLoc $ mkModuleName "GHC.Types"
-             , ideclPkgQual =
-                   Just $ StringLiteral NoSourceText $ mkFastString "daml-prim"
-             , ideclSource = False
-             , ideclSafe = False
-             , ideclImplicit = False
-             , ideclQualified = True
-             , ideclAs = Nothing
-             , ideclHiding = Nothing
-             }) :
+        -- first, imports that we need in any case
+        map (mkGhcPrimImport True) ["GHC.Types", "GHC.Err"] ++
+        -- qualified imports from daml-prim
+        map (mkGhcPrimImport False) ["Data.String"] ++
+        -- unqualified importts from daml-prim
         [ mkNoLoc $
         ImportDecl
             { ideclExt = NoExt
@@ -397,4 +484,5 @@ generateSrcFromLf thisPkgId pkgMap m = mkNoLoc mod
               nubSort $ toListOf moduleModuleRef m
         , pkgId /= thisPkgId
         ]
+        -- imports needed by the module declarations
     mkNoLoc = L noSrcSpan
