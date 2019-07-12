@@ -541,7 +541,7 @@ getHlintDiagnosticsRule =
         pm <- use_ GetParsedModule file
         let anns = pm_annotations pm
         let modu = pm_parsed_source pm
-        (classify, hint) <- use_ GetHlintSettings ""
+        (classify, hint) <- useNoFile_ GetHlintSettings
         let ideas = applyHints classify hint [createModuleEx anns modu]
         return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
