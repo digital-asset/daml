@@ -440,7 +440,7 @@ ofInterestRule opts = do
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
-        let hlintEnabled = optHlintEnabled opts
+        let hlintEnabled = case optHlintUsage opts of Just (HlintEnabled _) -> True ; _ -> False
         let files = Set.toList scenarioFiles
         let dalfActions = [(void . getDalf) f | f <- files]
         let hlintActions = [use_ GetHlintDiagnostics f | hlintEnabled, f <- files]
@@ -528,12 +528,12 @@ hlintSettings hlintDataDir = do
     findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
   return (classify, hints)
 
-getHlintSettingsRule :: Maybe FilePath -> Rules ()
-getHlintSettingsRule dir =
+getHlintSettingsRule :: Maybe HlintUsage -> Rules ()
+getHlintSettingsRule usage =
     defineNoFile $ \GetHlintSettings ->
-      liftIO $ case dir of
-          Just dir -> hlintSettings dir
-          Nothing -> fail "linter configuration unspecified"
+      liftIO $ case usage of
+          Just (HlintEnabled dir) -> hlintSettings dir
+          _ -> fail "linter configuration unspecified"
 
 getHlintDiagnosticsRule :: Rules ()
 getHlintDiagnosticsRule =
@@ -605,7 +605,7 @@ damlRule opts = do
     encodeModuleRule
     createScenarioContextRule
     getOpenVirtualResourcesRule
-    getHlintSettingsRule (optHlintDataDir opts)
+    getHlintSettingsRule (optHlintUsage opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do

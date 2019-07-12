@@ -333,3 +333,19 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
 enableScenarioOpt :: Parser EnableScenarioService
 enableScenarioOpt = EnableScenarioService <$>
     flagYesNoAuto "scenarios" True "Enable/disable support for running scenarios" idm
+
+hlintEnabledOpt :: Parser HlintUsage
+hlintEnabledOpt = HlintEnabled <$> strOption
+  ( long "with-hlint"
+    <> metavar "DIR"
+    <> help "Enable hlint with hlint.yaml directory"
+  )
+
+hlintDisabledOpt :: Parser HlintUsage
+hlintDisabledOpt = flag' HlintDisabled
+  ( long "without-hlint"
+    <> help "Disable hlint"
+  )
+
+hlintUsageOpt :: Parser (Maybe HlintUsage)
+hlintUsageOpt = optional (hlintEnabledOpt <|> hlintDisabledOpt)
