@@ -13,6 +13,7 @@ module DA.Daml.Options.Types
     , projectPackageDatabase
     , ifaceDir
     , distDir
+    , genDir
     , basePackages
     ) where
 
@@ -34,7 +35,9 @@ data Options = Options
   , optMbPackageName :: Maybe String
     -- ^ compile in the context of the given package name and create interface files
   , optWriteInterface :: Bool
-    -- ^ Directory to write interface files to. Default is current working directory.
+    -- ^ whether to write interface files or not.
+  , optIfaceDir :: Maybe FilePath
+    -- ^ alternative directory to write interface files to. Default is <current working dir>.daml/interfaces.
   , optHideAllPkgs :: Bool
     -- ^ hide all imported packages
   , optPackageImports :: [(String, [(String, String)])]
@@ -55,10 +58,15 @@ data Options = Options
     -- ^ Controls whether the scenario service server runs all checks
     -- or only a subset of them. This is mostly used to run additional
     -- checks on CI while keeping the IDE fast.
+<<<<<<< HEAD
   , optHlintEnabled :: Bool
   -- ^ Whether or not to enable hlint
   , optHlintDataDir :: Maybe FilePath
     -- ^ Where hlints base configuration file (hlint.yaml) resides
+=======
+  , optIsGenerated :: Bool
+    -- Whether we're compiling generated code. Then we allow internal imports.
+>>>>>>> origin/master
   } deriving Show
 
 data ScenarioValidation
@@ -78,6 +86,9 @@ projectPackageDatabase = damlArtifactDir </> "package-database"
 
 ifaceDir :: FilePath
 ifaceDir = damlArtifactDir </> "interfaces"
+
+genDir :: FilePath
+genDir = damlArtifactDir </> "generated"
 
 distDir :: FilePath
 distDir = damlArtifactDir </> "dist"
@@ -116,6 +127,7 @@ defaultOptions mbVersion =
         , optPackageDbs = []
         , optMbPackageName = Nothing
         , optWriteInterface = False
+        , optIfaceDir = Nothing
         , optHideAllPkgs = False
         , optPackageImports = []
         , optShakeProfiling = Nothing
@@ -127,6 +139,7 @@ defaultOptions mbVersion =
         , optScenarioValidation = ScenarioValidationFull
         , optHlintEnabled = False
         , optHlintDataDir = Nothing
+        , optIsGenerated = False
         }
 
 getBaseDir :: IO FilePath

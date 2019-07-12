@@ -21,6 +21,7 @@ module DA.Service.Logger.Impl.GCP
     , GCPState(..)
     , initialiseGcpState
     , logOptOut
+    , logMetaData
     , SendResult(..)
     , isSuccess
     , sendData
@@ -31,11 +32,10 @@ module DA.Service.Logger.Impl.GCP
 
 import GHC.Generics(Generic)
 import Data.Int
-import Data.Tuple
 import Text.Read(readMaybe)
 import Data.Aeson as Aeson
 import Control.Monad
-import Control.Monad.IO.Class
+import Control.Monad.Loops
 import GHC.Stack
 import System.Directory
 import System.Environment
@@ -53,7 +53,9 @@ import qualified Data.ByteString as BS
 import Data.Time as Time
 import Data.UUID (UUID)
 import qualified Data.UUID as UUID
+import Control.Concurrent.Async
 import Control.Concurrent.Extra
+import Control.Concurrent.STM
 import Control.Exception.Safe
 import Network.HTTP.Simple
 
@@ -62,16 +64,20 @@ import Network.HTTP.Simple
 data GCPState = GCPState
     { gcpFallbackLogger :: Lgr.Handle IO
     -- ^ Fallback logger to log exceptions caused by the GCP logging itself.
-    , gcpLogQueue :: Var [LogEntry]
-    -- ^ Unsent logs with the oldest log entry first.
+    , gcpLogChan :: TChan (LogEntry, IO ())
+    -- ^ Unsent logs. The IO action is a finalizer that is run when the log entry
+    -- has been sent successfully.
     , gcpSessionID :: UUID
     -- ^ Identifier for the current session
     , gcpDamlDir :: FilePath
     -- ^ Directory where we store various files such as the amount of
     -- data sent so far.
     , gcpSentDataFileLock :: Lock
-    -- ^ Lock for accessing sendData
-    -- TODO (MK) This doesn’t actually work for concurrent executions.
+    -- ^ Lock for accessing sendData.
+    -- Note that this is not safe if there are multiple damlc executables
+    -- running. However, we can handle a corrupted data file gracefully
+    -- and cross-platform file locking is annoying so we do not bother
+    -- with a lock that works across processes.
     }
 
 newtype SentBytes = SentBytes { getSentBytes :: Int64 }
@@ -81,6 +87,18 @@ data SentData = SentData
     { date :: Time.Day
     , sent :: SentBytes
     }
+
+-- Parameters
+
+-- | Number of messages that need to end up in the log before we send
+-- them as a batch. This is done to avoid sending a ton of small
+-- messages.
+batchSize :: Int
+batchSize = 10
+
+-- | Timeout on log requests
+requestTimeout :: Int
+requestTimeout = 5_000_000
 
 -- Files used to record data that should persist over restarts.
 
@@ -124,47 +142,52 @@ validateSentData = \case
 initialiseGcpState :: Lgr.Handle IO -> IO GCPState
 initialiseGcpState lgr =
     GCPState lgr
-        <$> newVar []
+        <$> newTChanIO
         <*> randomIO
         <*> getDamlDir
         <*> newLock
 
+readBatch :: TChan a -> Int -> IO [a]
+readBatch chan n = atomically $ replicateM n (readTChan chan)
+
+-- | Read everything from the chan that you can within a single transaction.
+drainChan :: TChan a -> IO [a]
+drainChan chan = atomically $ unfoldM (tryReadTChan chan)
 
 -- | retains the normal logging capacities of the handle but adds logging
 --   to GCP
 --   will attempt to flush the logs
-withGcpLogger ::
-    HasCallStack =>
-    (Lgr.Priority -> Bool) -- ^ if this is true log to GCP
+withGcpLogger
+    :: (Lgr.Priority -> Bool) -- ^ if this is true log to GCP
     -> Lgr.Handle IO
-    -> (Lgr.Handle IO -> IO a)
+    -> (GCPState -> Lgr.Handle IO -> IO a)
+    -- ^ We give access to both the GCPState as well as the modified logger
+    -- since the GCPState can be useful to bypass the message filter, e.g.,
+    -- for metadata messages which have info prio.
     -> IO a
-withGcpLogger p hnd f =
-    bracket
-      init
-      (\(gcp,_) -> flushLogsGCP gcp Lgr.Info logsFlushed) $ f . snd
+withGcpLogger p hnd f = do
+    gcpState <- initialiseGcpState hnd
+    let logger = hnd
+            { Lgr.logJson = newLogJson gcpState
+            }
+    let worker = forever $ mask_ $ do
+            -- We mask to avoid messages getting lost.
+            entries <- readBatch (gcpLogChan gcpState) batchSize
+            sendLogs gcpState entries
+    (withAsync worker $ \_ -> do
+        f gcpState logger) `finally` do
+        logs <- drainChan (gcpLogChan gcpState)
+        sendLogs gcpState logs
+        Lgr.logJson hnd Lgr.Info ("Flushed " <> show (length logs) <> " logs")
   where
-
-  init :: HasCallStack => IO (GCPState, Lgr.Handle IO)
-  init = do
-      gcpState <- initialiseGcpState hnd
-      let logger = hnd{Lgr.logJson = newLogJson gcpState}
-      -- this is here because it should be sent regardless of filtering
-      -- TODO (MK) This is a bad idea, we block every startup on this.
-      logGCP gcpState Lgr.Info =<< metaData gcpState
-      pure (gcpState, logger)
-
-  logsFlushed :: T.Text
-  logsFlushed = "Logs have been flushed"
-
-  newLogJson ::
-      HasCallStack =>
-      Aeson.ToJSON a =>
-      GCPState -> Lgr.Priority -> a -> IO ()
-  newLogJson gcp priority js = do
-    Lgr.logJson hnd priority js
-    when (p priority) $
-      logGCP gcp priority js
+      newLogJson ::
+          HasCallStack =>
+          Aeson.ToJSON a =>
+          GCPState -> Lgr.Priority -> a -> IO ()
+      newLogJson gcp priority js = do
+          Lgr.logJson hnd priority js
+          when (p priority) $
+              logGCP gcp priority js (pure ())
 
 data LogEntry = LogEntry
     { severity :: !Lgr.Priority
@@ -188,8 +211,13 @@ data MetaData = MetaData
     } deriving Generic
 instance ToJSON MetaData
 
-metaData :: GCPState -> IO MetaData
-metaData gcp = do
+logMetaData :: GCPState -> IO ()
+logMetaData gcpState = do
+    metadata <- getMetaData gcpState
+    logGCP gcpState Lgr.Info metadata (pure ())
+
+getMetaData :: GCPState -> IO MetaData
+getMetaData gcp = do
     machineID <- fetchMachineID gcp
     v <- lookupEnv sdkVersionEnvVar
     let version = case v of
@@ -212,10 +240,8 @@ instance ToJSON a => ToJSON (WithSession a) where
             toJsonObject $
             toJSON wsContents
 
-createLog
-    :: (Aeson.ToJSON a, HasCallStack)
-    => GCPState -> Lgr.Priority -> a -> IO LogEntry
-createLog GCPState{gcpSessionID} severity m = do
+toLogEntry :: Aeson.ToJSON a => GCPState -> Lgr.Priority -> a -> IO LogEntry
+toLogEntry GCPState{gcpSessionID} severity m = do
     let message = WithSession gcpSessionID $ toJSON m
     timeStamp <- getCurrentTime
     pure LogEntry{..}
@@ -247,57 +273,28 @@ priorityToGCP prio = ("severity",prio')
             Lgr.Info -> "INFO"
             Lgr.Debug -> "DEBUG"
 
--- | This attempts to send all the logs off to the server but will give up
---   after 5 seconds
-flushLogsGCP
-    :: Aeson.ToJSON a
-    => GCPState
-    -> Lgr.Priority
-    -> a
-    -- ^ explain why you're flushing the logs e.g. crash, shutdown ect
-    -> IO ()
-flushLogsGCP gcp priority js = do
-    le <- createLog gcp priority js
-    pushLogQueue gcp [le]
-    void $ sendLogQueue gcp Sync
-
-minBatchSize, maxBatchSize :: Int
-minBatchSize = 10
-maxBatchSize = 50
-
 -- | Add something to the log queue.
--- If we reached the batch size, we will publish the logs.
 logGCP
     :: Aeson.ToJSON a
     => GCPState
     -> Lgr.Priority
     -> a
     -> IO ()
-logGCP gcp priority js = do
-    le <- createLog gcp priority js
-    pushLogQueue gcp [le]
-    len <- logQueueLength gcp
-    when (len >= minBatchSize) $
-        sendLogQueue gcp Async
+    -> IO ()
+logGCP gcp@GCPState{gcpLogChan} priority js finalizer = do
+    le <- toLogEntry gcp priority js
+    atomically $ writeTChan gcpLogChan (le, finalizer)
 
--- | try sending logs and return the ones that weren't sent
---   don't use this directly, instead use sendLogQueue
-sendLogs :: GCPState -> [LogEntry] -> IO [LogEntry]
-sendLogs gcp contents = do
-    res <- sendData gcp (void . httpNoBody . toRequest) $ encode contents
+-- | Try sending logs. If anything fails, the logs are simply discarded.
+-- sendLogs also takes care of adding a timeout.
+sendLogs :: GCPState -> [(LogEntry, IO ())] -> IO ()
+sendLogs gcp (unzip -> (entries, finalizers)) = unless (null entries) $ do
+    res <- timeout requestTimeout $ sendData gcp (void . httpNoBody . toRequest) $ encode entries
     case res of
-        -- The limit has been reached so don't re-add anything
-        ReachedDataLimit -> pure []
-        -- Sending failed so re-add
-        -- TODO (MK) This is a bad idea, the most likely cause
-        -- for this is that we are behind a firewall so we will
-        -- repeatedly fail and keep increasing memory usage.
-        -- Given that logs are not critical, we a more sensible
-        -- option would probably be to
-        HttpError e -> do
-            logException gcp e
-            pure contents
-        SendSuccess -> pure []
+        Nothing -> Lgr.logJson (gcpFallbackLogger gcp) Lgr.Info ("Timeout while sending log request" :: T.Text)
+        Just (HttpError e) -> logException gcp e
+        Just ReachedDataLimit -> pure ()
+        Just SendSuccess -> sequence_ (map (void . tryAny) finalizers)
 
 logsHost :: BS.ByteString
 logsHost = "logs.daml.com"
@@ -313,45 +310,6 @@ toRequest le =
     $ setRequestBodyLBS le
     $ setRequestCheckStatus
       defaultRequest
-
-pushLogQueue ::
-    GCPState ->
-    [LogEntry] ->
-    IO ()
-pushLogQueue GCPState{..} logs =
-    modifyVar_ gcpLogQueue (pure . (logs ++))
-
-popLogQueue ::
-    GCPState ->
-    IO [LogEntry]
-popLogQueue GCPState{..} =
-    modifyVar gcpLogQueue $ pure . swap . splitAt maxBatchSize
-
-logQueueLength ::
-    GCPState ->
-    IO Int
-logQueueLength GCPState{..} =
-    withVar gcpLogQueue (pure . length)
-
-data RunSync =
-    Async
-  | Sync
-
-sendLogQueue ::
-    GCPState ->
-    RunSync ->
-    IO ()
-sendLogQueue gcp@GCPState{..} runSync = do
-  toSend <- popLogQueue gcp
-  let send = do
-          remainder <- sendLogs gcp toSend
-          pushLogQueue gcp remainder
-  case runSync of
-      Sync -> void $ timeout 5_000_000 send
-      Async ->
-          -- TODO (MK) This is a bad idea, we should
-          -- just have a separate thread that process log requests.
-          void $ forkIO send
 
 -- | We log exceptions at Info priority instead of Error since the most likely cause
 -- is a firewall.
@@ -376,19 +334,14 @@ fetchMachineID gcp = do
         generateID
 
 -- | If it hasn't already been done log that the user has opted out of telemetry.
--- TODO (MK) This is stupid for two reasons:
--- 1. It tries to send the log synchronously which is a stupid idea
--- 2. It doesn’t go through withGcpLogger for no good reason.
-logOptOut :: Lgr.Handle IO -> IO ()
-logOptOut hnd = do
-    gcp <- initialiseGcpState hnd
+-- This assumes that the logger has already been
+logOptOut :: GCPState -> IO ()
+logOptOut gcp = do
     let fp = optedOutFile gcp
     exists <- doesFileExist fp
     let msg :: T.Text = "Opted out of telemetry"
-    optOut <- createLog gcp Lgr.Info msg
     unless exists do
-        res <- sendLogs gcp [optOut]
-        when (null res) $ writeFile fp ""
+        logGCP gcp Lgr.Info msg (writeFile fp "")
 
 today :: IO Time.Day
 today = Time.utctDay <$> getCurrentTime
@@ -406,7 +359,7 @@ getDamlDir = do
         Nothing -> fallback
         Just "" -> fallback
         Just var -> pure var
-    liftIO $ createDirectoryIfMissing True dir
+    createDirectoryIfMissing True dir
     pure dir
     where fallback = getAppUserDataDirectory "daml"
 
@@ -452,9 +405,8 @@ sendData gcp sendRequest payload = withSentDataFile gcp $ \sentDataFile -> do
 --------------------------------------------------------------------------------
 -- | These are not in the test suite because it hits an external endpoint
 test :: IO ()
-test = withGcpLogger (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \hnd -> do
+test = withGcpLogger (Lgr.Error ==) Lgr.Pure.makeNopHandle $ \_gcp hnd -> do
     let lg = Lgr.logError hnd
     let (ls :: [T.Text]) = replicate 13 $ "I like short songs!"
-    liftIO do
-        mapM_ lg ls
-        putStrLn "Done!"
+    mapM_ lg ls
+    putStrLn "Done!"

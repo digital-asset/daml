@@ -8,6 +8,7 @@ da_haskell_library(
     name = "hs-ledger",
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
+        "async",
         "base",
         "bytestring",
         "containers",
@@ -18,6 +19,7 @@ da_haskell_library(
         "text",
         "time",
         "transformers",
+        "unliftio",
         "vector",
     ],
     visibility = ["//visibility:public"],

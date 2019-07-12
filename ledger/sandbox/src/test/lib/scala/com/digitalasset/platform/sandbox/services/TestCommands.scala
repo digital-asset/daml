@@ -6,7 +6,6 @@ package com.digitalasset.platform.sandbox.services
 import java.io.File
 import java.time.Instant
 import java.util
-import java.util.zip.ZipFile
 
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.archive.DarReader
@@ -36,7 +35,7 @@ trait TestCommands {
 
   @transient
   protected def templateIds = {
-    new TestTemplateIdentifiers(DarReader().readArchive(new ZipFile(darFile)).get.main._1)
+    new TestTemplateIdentifiers(DarReader().readArchiveFromFile(darFile).get.main._1)
   }
 
   protected def buildRequest(

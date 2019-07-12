@@ -10,6 +10,7 @@ module DA.Cli.Damlc (main) where
 
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
+import DA.Signals
 import DA.Cli.Damlc.Base
 import DA.Cli.Damlc.IdeState
 import Control.Exception.Safe (catchIO)
@@ -254,9 +255,11 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
       threshold
       "LanguageServer"
     let withLogger f = case telemetry of
-            OptedIn -> Logger.GCP.withGcpLogger (>= Logger.Warning) loggerH f
-            OptedOut -> do
-                Logger.GCP.logOptOut loggerH
+            OptedIn -> Logger.GCP.withGcpLogger (>= Logger.Warning) loggerH $ \gcpState loggerH' -> do
+                Logger.GCP.logMetaData gcpState
+                f loggerH'
+            OptedOut -> Logger.GCP.withGcpLogger (const False) loggerH $ \gcpState loggerH -> do
+                Logger.GCP.logOptOut gcpState
                 f loggerH
             Undecided -> f loggerH
     opts <- defaultOptionsIO Nothing
@@ -703,6 +706,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> optPackageDir
     <*> parsePkgName
     <*> optWriteIface
+    <*> pure Nothing
     <*> optHideAllPackages
     <*> many optPackage
     <*> optShakeProfiling
@@ -714,6 +718,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
     <*> optHlintEnable
     <*> optHlintDataDir
+    <*> pure False
   where
     optImportPath :: Parser [FilePath]
     optImportPath =
@@ -826,6 +831,8 @@ parserInfo numProcessors =
 
 main :: IO ()
 main = do
+    -- We need this to ensure that logs are flushed on SIGTERM.
+    installSignalHandlers
     numProcessors <- getNumProcessors
     withProgName "damlc" $ join $ execParserLax (parserInfo numProcessors)
 

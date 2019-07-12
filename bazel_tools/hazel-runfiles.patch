@@ -1,0 +1,50 @@
+diff --git a/hazel/paths-template.hs b/hazel/paths-template.hs
+index b439d74..6f9cb16 100644
+--- a/hazel/paths-template.hs
++++ b/hazel/paths-template.hs
+@@ -5,6 +5,7 @@ module %{module} (
+     getDataFileName,
+     ) where
+ 
++import qualified Bazel.Runfiles as Runfiles
+ import Data.Version (Version, makeVersion)
+ import Prelude
+ import System.FilePath ((</>), takeDirectory)
+@@ -13,8 +14,8 @@ import System.Environment (getExecutablePath)
+ -- TODO: automatically locate root directory
+ getDataDir :: IO FilePath
+ getDataDir = do
+-    exePath <- getExecutablePath
+-    return $ takeDirectory exePath </> "%{base_dir}"
++    r <- Runfiles.create
++    pure $! Runfiles.rlocation r "%{data_dir}"
+ 
+ getDataFileName :: FilePath -> IO FilePath
+ getDataFileName name = do
+diff --git a/hazel/third_party/cabal2bazel/bzl/cabal_paths.bzl b/hazel/third_party/cabal2bazel/bzl/cabal_paths.bzl
+index 90fe60a..2deb10c 100644
+--- a/hazel/third_party/cabal2bazel/bzl/cabal_paths.bzl
++++ b/hazel/third_party/cabal2bazel/bzl/cabal_paths.bzl
+@@ -40,12 +40,8 @@ def _impl_path_module_gen(ctx):
+         output = paths_file,
+         substitutions = {
+             "%{module}": ctx.attr.module,
+-            "%{base_dir}": paths.join(
+-                # TODO: this probably won't work for packages not in external
+-                # repositories.  See:
+-                # https://github.com/bazelbuild/bazel/wiki/Updating-the-runfiles-tree-structure
+-                "..",
+-                paths.relativize(ctx.label.workspace_root, "external"),
++            "%{data_dir}": paths.join(
++                ctx.label.workspace_name,
+                 base_dir,
+             ),
+             "%{version}": str(ctx.attr.version),
+@@ -123,6 +119,7 @@ def cabal_paths(name = None, package = None, data_dir = "", data = [], version =
+         deps = [
+             hazel_library("base"),
+             hazel_library("filepath"),
++            "@io_tweag_rules_haskell//tools/runfiles",
+         ],
+         # TODO: run directory resolution.
+         **kwargs

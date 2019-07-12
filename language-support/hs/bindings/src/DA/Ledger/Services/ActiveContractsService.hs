@@ -7,7 +7,6 @@ module DA.Ledger.Services.ActiveContractsService (getActiveContracts) where
 
 import Com.Digitalasset.Ledger.Api.V1.ActiveContractsService
 import Com.Digitalasset.Ledger.Api.V1.TransactionFilter --TODO: HL mirror
-import Control.Concurrent (forkIO)
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
@@ -20,9 +19,8 @@ type Response = (AbsOffset,Maybe WorkflowId,[Event]) -- Always CreatedEvent. TOD
 getActiveContracts :: LedgerId -> TransactionFilter -> Verbosity -> LedgerService [Response]
 getActiveContracts lid tf verbosity =
     makeLedgerService $ \timeout config -> do
-    stream <- newStream
     let request = mkRequest lid tf verbosity
-    _ <- forkIO $
+    stream <- asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- activeContractsServiceClient client
             let ActiveContractsService {activeContractsServiceGetActiveContracts=rpc} = service

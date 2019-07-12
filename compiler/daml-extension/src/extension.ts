@@ -26,8 +26,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const consent = getTelemetryConsent(config, context);
 
     damlLanguageClient = createLanguageClient(config, await consent);
-    // lsClient.trace = 2;
-
+    damlLanguageClient.registerProposedFeatures();
 
     const webviewSrc: Uri =
         vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')).
@@ -37,7 +36,6 @@ export async function activate(context: vscode.ExtensionContext) {
 
     let _unused = damlLanguageClient.onReady().then(() => {
         startKeepAliveWatchdog();
-        setupWorkspaceValidationStatusBarItem(damlLanguageClient);
         damlLanguageClient.onNotification(
             DamlVirtualResourceDidChangeNotification.type,
             (params) => virtualResourceManager.setContent(params.uri, params.contents)
@@ -240,20 +238,6 @@ namespace DamlVirtualResourceDidChangeNotification {
       );
 }
 
-interface WorkspaceValidationsParams {
-    /** Tracks the number of validations we have already finished. */
-    finishedValidations: number;
-    /** Tracks the number of total validation steps we need to perform. */
-    totalValidations: number;
-}
-
-namespace DamlWorkspaceValidationsNotification {
-    export let type =
-      new NotificationType<WorkspaceValidationsParams, void>(
-        'daml/workspace/validations'
-      );
-}
-
 type UriString = string;
 type ScenarioResult = string;
 type SelectedView = string;
@@ -351,40 +335,6 @@ class VirtualResourceManager {
             disposable.dispose();
         }
     }
-}
-
-// StatusBarItem
-
-/**
- * The text to display on the workspace validations StatusBarItem.
- */
-function statusBarText(finishedValidations: number, totalValidations: number) {
-    return `DAML files checked: ${finishedValidations} / ${totalValidations}`;
-}
-
-/**
- * Adds a StatusBarItem to the left of the StatusBar and attaches itself to the right event to track
- * updates.
- */
-function setupWorkspaceValidationStatusBarItem(client: LanguageClient) {
-    let statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
-    statusBarItem.text = statusBarText(0, 0);
-    statusBarItem.show()
-    var updateTimer: NodeJS.Timer;
-
-    client.onNotification(DamlWorkspaceValidationsNotification.type, (params) => {
-        let setStatusBarText =
-          () => statusBarItem.text = statusBarText(params.finishedValidations, params.totalValidations);
-
-        clearTimeout(updateTimer);
-        if (params.finishedValidations == params.totalValidations) {
-          setStatusBarText();
-        } else {
-          // To avoid annoying flicker due to periodic re-validations only update
-          // every 300ms
-          updateTimer = setTimeout(setStatusBarText, 300);
-        }
-    });
 }
 
 let telemetryOverride = {
