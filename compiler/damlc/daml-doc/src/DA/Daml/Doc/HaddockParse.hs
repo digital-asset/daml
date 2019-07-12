@@ -256,7 +256,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
 getClsDocs _ _ = Nothing
 
 getTypeDocs :: DocCtx -> DeclData -> Maybe (Typename, ADTDoc)
-getTypeDocs DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
+getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
   | XTyClDecl{} <- decl =
       Nothing
   | ClassDecl{} <- decl =
@@ -264,25 +264,23 @@ getTypeDocs DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
   | FamDecl{}   <- decl =
       Nothing
 
-  | SynDecl{..} <- decl =
-      let name = Typename . packRdrName $ unLoc tcdLName
-      in Just . (name,) $ TypeSynDoc
-         { ad_anchor = Just $ typeAnchor dc_mod name
-         , ad_name = name
-         , ad_descr = doc
-         , ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-         , ad_rhs  = hsTypeToType tcdRhs
-         }
+  | SynDecl{..} <- decl = do
+      let ad_name = Typename . packRdrName $ unLoc tcdLName
+          ad_descr = doc
+          ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
+      tycon <- MS.lookup ad_name dc_tycons
+      ad_rhs <- typeToType ctx <$> synTyConRhs_maybe tycon
+      let ad_anchor = tyConAnchor ctx tycon
+      Just (ad_name, TypeSynDoc {..})
 
-  | DataDecl{..} <- decl =
-      let name = Typename . packRdrName $ unLoc tcdLName
-      in Just . (name,) $ ADTDoc
-         { ad_anchor = Just $ typeAnchor dc_mod name
-         , ad_name = name
-         , ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-         , ad_descr = doc
-         , ad_constrs = map constrDoc . dd_cons $ tcdDataDefn
-         }
+  | DataDecl{..} <- decl = do
+      let ad_name = Typename . packRdrName $ unLoc tcdLName
+          ad_descr = doc
+          ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
+      tycon <- MS.lookup ad_name dc_tycons
+      let ad_anchor = tyConAnchor ctx tycon
+          ad_constrs = map constrDoc . dd_cons $ tcdDataDefn -- get from tycon
+      Just (ad_name, ADTDoc {..})
   where
     constrDoc :: LConDecl GhcPs -> ADTConstr
     constrDoc (L _ con) =
