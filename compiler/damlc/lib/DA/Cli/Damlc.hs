@@ -689,6 +689,9 @@ execMigrate opts inFile1 inFile2 mbDir = do
 optDebugLog :: Parser Bool
 optDebugLog = switch $ help "Enable debug output" <> long "debug"
 
+optHlintEnable :: Parser Bool
+optHlintEnable = switch $ help "Enable hlint" <> long "hlint"
+
 optPackageName :: Parser (Maybe String)
 optPackageName = optional $ strOption $
        metavar "PACKAGE-NAME"
@@ -713,6 +716,8 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> (concat <$> many optGhcCustomOptions)
     <*> pure enableScenarioService
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
+    <*> optHlintEnable
+    <*> optHlintDataDir
     <*> pure False
   where
     optImportPath :: Parser [FilePath]
@@ -754,6 +759,12 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
            metavar "PROFILING-REPORT"
         <> help "path to Shake profiling report"
         <> long "shake-profiling"
+
+    optHlintDataDir :: Parser (Maybe FilePath)
+    optHlintDataDir = optional $ strOption $
+        metavar "HLINT-DATA"
+        <> help "Path to a directory containing a hlint.yaml"
+        <> long "hlint-data-dir"
 
     -- optparse-applicative does not provide a nice way
     -- to make the argument for -j optional, see

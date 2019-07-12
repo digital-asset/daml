@@ -4,6 +4,7 @@
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
     , module Development.IDE.Core.Rules.Daml
+    , getHLintDataDir
     ) where
 
 import Control.Concurrent.Extra
@@ -59,6 +60,8 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
+
+import Language.Haskell.HLint4
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
 -- document provider that will handle our special documents.
@@ -227,7 +230,6 @@ generatePackageMapRule opts =
                 "Options: " ++ show (optPackageDbs opts) ++ "\n" ++
                 "Errors:\n" ++ unlines (map show errs)
         return res
-
 generatePackageRule :: Rules ()
 generatePackageRule =
     define $ \GeneratePackage file -> do
@@ -410,8 +412,8 @@ vrChangedNotification vr doc =
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
 -- TODO (MK): We should have a non-DAML version of this rule
-ofInterestRule :: Rules ()
-ofInterestRule = do
+ofInterestRule :: Options -> Rules ()
+ofInterestRule opts = do
     -- go through a rule (not just an action), so it shows up in the profile
     action $ useNoFile OfInterest
     defineNoFile $ \OfInterest -> do
@@ -434,12 +436,16 @@ ofInterestRule = do
                     let doc = formatScenarioResult world res
                     when (vr `Set.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
+
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
-        _ <- parallel $
-            map (void . getDalf) (Set.toList scenarioFiles) <>
-            [runScenarios file | shouldRunScenarios, file <- Set.toList scenarioFiles]
+        let hlintEnabled = optHlintEnabled opts
+        let files = Set.toList scenarioFiles
+        let dalfActions = [(void . getDalf) f | f <- files]
+        let hlintActions = [use_ GetHlintDiagnostics f | hlintEnabled, f <- files]
+        let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
+        _ <- parallel $ dalfActions <> hlintActions <> runScenarioActions
         return ()
   where
       gc :: Set NormalizedFilePath -> Action ()
@@ -509,6 +515,48 @@ encodeModuleRule =
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
+-- hlint
+
+hlintSettings :: FilePath -> IO ([Classify], Hint)
+hlintSettings hlintDataDir = do
+  -- `findSettings` ends up calling `readFilesConfig` which in turn
+  -- calls `readFileConfigYaml` which finally calls `decodeFileEither`
+  -- from the `yaml` library.  Annoyingly that function catches async
+  -- exceptions and in particular, it ends up catching `ThreadKilled`.
+  -- So, we have to mask to stop it from doing that.
+  (_, classify, hints) <- mask $ \unmask ->
+    findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
+  return (classify, hints)
+
+getHlintSettingsRule :: Maybe FilePath -> Rules ()
+getHlintSettingsRule dir =
+    defineNoFile $ \GetHlintSettings ->
+      liftIO $ case dir of
+          Just dir -> hlintSettings dir
+          Nothing -> fail "linter configuration unspecified"
+
+getHlintDiagnosticsRule :: Rules ()
+getHlintDiagnosticsRule =
+    define $ \GetHlintDiagnostics file -> do
+        pm <- use_ GetParsedModule file
+        let anns = pm_annotations pm
+        let modu = pm_parsed_source pm
+        (classify, hint) <- useNoFile_ GetHlintSettings
+        let ideas = applyHints classify hint [createModuleEx anns modu]
+        return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
+    where
+      -- To-do : Improve this.
+      toDiagnostic file i = ideHintText file (T.pack $ show i)
+      ideHintText fp msg = (fp, LSP.Diagnostic {
+         _range = noRange,
+         _severity = Just LSP.DsInfo,
+         _code = Nothing,
+         _source = Just "linter",
+         _message = msg,
+         _relatedInformation = Nothing
+      })
+
+--
 scenariosInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scenariosInModule m =
     [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
@@ -552,10 +600,12 @@ damlRule opts = do
     runScenariosRule
     getScenarioRootsRule
     getScenarioRootRule
-    ofInterestRule
+    getHlintDiagnosticsRule
+    ofInterestRule opts
     encodeModuleRule
     createScenarioContextRule
     getOpenVirtualResourcesRule
+    getHlintSettingsRule (optHlintDataDir opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do
