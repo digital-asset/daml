@@ -4,6 +4,7 @@
 package com.digitalasset.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -53,7 +54,7 @@ class InMemoryLedger(
     val ledgerId: LedgerId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveContracts,
-    packages0: InMemoryPackageStore,
+    packageStoreInit: InMemoryPackageStore,
     ledgerEntries: ImmArray[LedgerEntryOrBump])
     extends Ledger {
 
@@ -72,8 +73,7 @@ class InMemoryLedger(
     l
   }
 
-  // TODO(RC): Do we need a clone here? The package store contains mutable state.
-  private val packages = packages0
+  private val packageStoreRef = new AtomicReference[InMemoryPackageStore](packageStoreInit)
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     entries.getSource(offset)
@@ -248,17 +248,28 @@ class InMemoryLedger(
     })
 
   override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
-    packages.listLfPackages()
+    packageStoreRef.get.listLfPackages()
 
   override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
-    packages.getLfArchive(packageId)
+    packageStoreRef.get.getLfArchive(packageId)
 
   override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
-    packages.getLfPackage(packageId)
+    packageStoreRef.get.getLfPackage(packageId)
 
   override def uploadPackages(
       knownSince: Instant,
       sourceDescription: Option[String],
-      payload: List[Archive]): Future[UploadPackagesResult] =
-    Future.successful(packages.uploadPackages(knownSince, sourceDescription, payload))
+      payload: List[Archive]): Future[UploadPackagesResult] = {
+    val oldStore = packageStoreRef.get
+    oldStore
+      .withPackages(knownSince, sourceDescription, payload)
+      .fold(
+        err => Future.successful(UploadPackagesResult.InvalidPackage(err)),
+        newStore => {
+          if (packageStoreRef.compareAndSet(oldStore, newStore))
+            Future.successful(UploadPackagesResult.Ok)
+          else uploadPackages(knownSince, sourceDescription, payload)
+        }
+      )
+  }
 }

@@ -13,13 +13,13 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.{MockMessages, Resource}
+import com.digitalasset.ledger.api.testing.utils.MockMessages
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
-import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
+import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
+import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc
 import com.digitalasset.ledger.api.v1.command_completion_service.CommandCompletionServiceGrpc.CommandCompletionService
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
@@ -35,8 +35,8 @@ import com.digitalasset.ledger.api.v1.ledger_identity_service.{
 }
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc
 import com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService
-import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import com.digitalasset.ledger.api.v1.testing.reset_service.ResetServiceGrpc.ResetService
+import com.digitalasset.ledger.api.v1.testing.reset_service.{ResetRequest, ResetServiceGrpc}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
@@ -48,17 +48,14 @@ import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.testing.ResourceExtensions
-import io.grpc.{Channel, StatusRuntimeException}
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc
+import io.grpc.{Channel, StatusRuntimeException}
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
 
-import scala.concurrent.{ExecutionContext, Future}
-import scala.language.implicitConversions
-import scala.util.Success
 import scala.concurrent.duration._
-import scalaz.syntax.tag._
+import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Success
 
 trait LedgerContext {
   import LedgerContext._
@@ -233,10 +230,4 @@ object LedgerContext {
       PackageManagementServiceGrpc.stub(channel)
   }
 
-  object SingleChannelContext {
-
-    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
-    implicit def withResource(resource: Resource[SingleChannelContext]) =
-      ResourceExtensions.MultiResource(resource)
-  }
 }

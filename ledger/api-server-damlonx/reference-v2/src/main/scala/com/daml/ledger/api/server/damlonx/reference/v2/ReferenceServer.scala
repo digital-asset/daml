@@ -4,7 +4,6 @@
 package com.daml.ledger.api.server.damlonx.reference.v2
 
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.zip.ZipFile
 
 import akka.actor.ActorSystem
 import akka.stream.{ActorMaterializer, ActorMaterializerSettings, Supervision}
@@ -45,8 +44,8 @@ object ReferenceServer extends App {
 
   config.archiveFiles.foreach { file =>
     val archivesTry = for {
-      zipFile <- Try(new ZipFile(file))
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchive(zipFile)
+      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+        .readArchiveFromFile(file)
     } yield ledger.uploadPackages(dar.all, None)
   }
 

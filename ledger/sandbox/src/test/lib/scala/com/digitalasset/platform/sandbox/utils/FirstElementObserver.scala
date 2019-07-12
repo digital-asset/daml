@@ -9,12 +9,17 @@ import scala.concurrent.{Future, Promise}
 
 object FirstElementObserver {
 
-  def apply[T]: (StreamObserver[T], Future[Option[T]]) = {
+  def apply[T]: (StreamObserver[T], Future[Option[T]]) = filter(_ => true)
+
+  def filter[T](predicate: T => Boolean): (StreamObserver[T], Future[Option[T]]) = {
     val promise = Promise[Option[T]]
 
     val streamObserver = new StreamObserver[T] {
       override def onNext(value: T): Unit = {
-        val _ = promise.trySuccess(Some(value))
+        if (predicate(value)) {
+          promise.trySuccess(Some(value))
+          ()
+        } else ()
       }
 
       override def onError(t: Throwable): Unit = {
@@ -27,4 +32,5 @@ object FirstElementObserver {
     }
     streamObserver -> promise.future
   }
+
 }

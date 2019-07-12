@@ -74,7 +74,7 @@ data GCPState = GCPState
     -- data sent so far.
     , gcpSentDataFileLock :: Lock
     -- ^ Lock for accessing sendData.
-    -- Note that this is not save if there are multiple damlc executables
+    -- Note that this is not safe if there are multiple damlc executables
     -- running. However, we can handle a corrupted data file gracefully
     -- and cross-platform file locking is annoying so we do not bother
     -- with a lock that works across processes.
