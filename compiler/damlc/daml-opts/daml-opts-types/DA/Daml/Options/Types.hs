@@ -55,6 +55,10 @@ data Options = Options
     -- ^ Controls whether the scenario service server runs all checks
     -- or only a subset of them. This is mostly used to run additional
     -- checks on CI while keeping the IDE fast.
+  , optHlintEnabled :: Bool
+  -- ^ Whether or not to enable hlint
+  , optHlintDataDir :: Maybe FilePath
+    -- ^ Where hlints base configuration file (hlint.yaml) resides
   } deriving Show
 
 data ScenarioValidation
@@ -82,19 +86,21 @@ distDir = damlArtifactDir </> "dist"
 basePackages :: [String]
 basePackages = ["daml-prim", "daml-stdlib"]
 
--- | Check that import paths and package db directories exist
--- and add the default package db if it exists
+-- | Check that import paths and package db directories exist and add
+-- the default package db if it exists
 mkOptions :: Options -> IO Options
 mkOptions opts@Options {..} = do
     mapM_ checkDirExists $ optImportPath <> optPackageDbs
     mbDefaultPkgDb <- locateRunfilesMb (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
     let mbDefaultPkgDbDir = fmap (</> "pkg-db_dir") mbDefaultPkgDb
     pkgDbs <- filterM Dir.doesDirectoryExist (toList mbDefaultPkgDbDir ++ [projectPackageDatabase])
-    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
+    hlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+    checkDirExists $ hlintDataDir
+    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs
+              , optHlintDataDir=Just hlintDataDir}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
-          unless ok $ error $
-            "Required configuration/package database directory does not exist: " <> f
+          unless ok $ error $ "Required directory does not exist: " <> f
         versionSuffix = renderPretty optDamlLfVersion
 
 -- | Default configuration for the compiler with package database set according to daml-lf version
@@ -119,6 +125,8 @@ defaultOptions mbVersion =
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optScenarioValidation = ScenarioValidationFull
+        , optHlintEnabled = True
+        , optHlintDataDir = Nothing
         }
 
 getBaseDir :: IO FilePath

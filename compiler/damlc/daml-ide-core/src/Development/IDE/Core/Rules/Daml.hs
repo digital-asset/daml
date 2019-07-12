@@ -15,7 +15,6 @@ import Control.Monad.Trans.Maybe
 import Development.IDE.Core.OfInterest
 import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options.Types
-import DA.Bazel.Runfiles
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
 import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
@@ -34,7 +33,6 @@ import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module (UnitId, stringToUnitId, UnitId(..), DefUnitId(..))
 import Safe
-import qualified System.Directory (doesDirectoryExist)
 import System.Directory.Extra (listFilesRecursive)
 import System.FilePath
 
@@ -232,7 +230,6 @@ generatePackageMapRule opts =
                 "Options: " ++ show (optPackageDbs opts) ++ "\n" ++
                 "Errors:\n" ++ unlines (map show errs)
         return res
-
 generatePackageRule :: Rules ()
 generatePackageRule =
     define $ \GeneratePackage file -> do
@@ -519,38 +516,29 @@ encodeModuleRule =
 
 -- hlint
 
--- We need to provide hlint the path to the directory of a file
--- containing a base configuration file called 'hlint.yaml'.
--- We test with one version of 'hlint.yaml' and deploy with another
--- (at the current time, there are good reasons for this). The code
--- below (which relies on the behavior of `package_app` deploying to
--- '~/.daml/sdk/x.x.x/damlc/resources/daml-ide-core/data') selects one
--- or the other depending on context.
-getHlintDataDir :: IO FilePath
-getHlintDataDir = do
-  root <- locateRunfiles $
-    mainWorkspace </> "compiler/damlc/daml-ide-core"
-  let test = root </> "data/test"
-      prod = root </> "daml-ide-core/data/prod"
-  useProd <- System.Directory.doesDirectoryExist prod
-  return $ if useProd then prod else test
-
-hlintSettings :: IO ([Classify], Hint)
-hlintSettings = do
-  hlintDataDir <- getHlintDataDir
+hlintSettings :: FilePath -> IO ([Classify], Hint)
+hlintSettings hlintDataDir = do
   (_, classify, hints) <-
     findSettings (readSettingsFile (Just hlintDataDir)) Nothing
   return (classify, hints)
 
-getHlintDiagnosticsRule :: Rules ()
-getHlintDiagnosticsRule =
+getHlintDiagnosticsRule :: Options -> Rules ()
+getHlintDiagnosticsRule opts =
     define $ \GetHlintDiagnostics file -> do
         pm <- use_ GetParsedModule file
         let anns = pm_annotations pm
         let modu = pm_parsed_source pm
-        (classify, hint) <- liftIO hlintSettings
-        let ideas = applyHints classify hint [createModuleEx anns modu]
-        return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
+        case optHlintDataDir opts of
+          Just dir -> do
+            (classify, hint) <- liftIO $ hlintSettings dir
+            let ideas = applyHints classify hint [createModuleEx anns modu]
+            return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
+          Nothing -> do
+            logger <- actionLogger
+            liftIO $ logError logger $ T.pack $
+                "Rule getHlintDiagnosticsRule\n" ++
+                "Errors: Hlint configuration data directory not specified"
+            return ([], Just ())
     where
       -- To-do : Improve this.
       toDiagnostic file i = ideHintText file (T.pack $ show i)
@@ -607,7 +595,7 @@ damlRule opts = do
     runScenariosRule
     getScenarioRootsRule
     getScenarioRootRule
-    getHlintDiagnosticsRule
+    getHlintDiagnosticsRule opts
     ofInterestRule
     encodeModuleRule
     createScenarioContextRule
