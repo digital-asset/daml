@@ -14,3 +14,6 @@ HEAD — ongoing
 - [DAML Docs] The ``damlc docs`` flag ``--json`` has been dropped in favor of ``--format=json``.
 - [Java Bindings]: Add all packages of java bindings to the javadocs.
   See `#2280 <https://github.com/digital-asset/daml/issues/2280>`__.
+- [Sandbox] Fix a bug preventing more than one package to Sandbox with a Postgres backend
+  See `#2130 <https://github.com/digital-asset/daml/issues/2130>`__.
+

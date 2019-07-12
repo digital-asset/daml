@@ -102,7 +102,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager)
 
   override def uploadLfPackages(
       uploadId: String,
-      packages: List[(Archive, PackageDetails)]): Future[PersistenceResponse] =
+      packages: List[(Archive, PackageDetails)]): Future[Map[PersistenceResponse, Int]] =
     mm.timedFuture("uploadLfPackages", ledgerDao.uploadLfPackages(uploadId, packages))
 
   override def close(): Unit = {

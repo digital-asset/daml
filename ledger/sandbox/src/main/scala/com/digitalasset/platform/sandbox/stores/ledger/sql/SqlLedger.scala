@@ -349,13 +349,17 @@ private class SqlLedger(
       (archive, PackageDetails(archive.getPayload.size().toLong, knownSince, sourceDescription)))
     ledgerDao
       .uploadLfPackages(submissionId, packages)
-      .map {
-        case PersistenceResponse.Ok =>
-          UploadPackagesResult.Ok
-        case PersistenceResponse.Duplicate =>
-          // Note: package upload is idempotent, apart from the fact that we only keep
-          // the knownSince and sourceDescription of the first upload.
-          UploadPackagesResult.Ok
+      .map { result =>
+        result.get(PersistenceResponse.Ok).fold(logger.info(s"No package uploaded")) { uploaded =>
+          logger.info(s"Successfully uploaded $uploaded packages")
+        }
+        for (duplicates <- result.get(PersistenceResponse.Ok)) {
+          logger.info(s"$duplicates packages discarded as duplicates")
+        }
+        // Unlike the data access layer, the API has no concept of duplicates, so we
+        // discard the information; package upload is idempotent, apart from the fact
+        // that we only keep the knownSince and sourceDescription of the first upload.
+        UploadPackagesResult.Ok
       }(DEC)
   }
 }
