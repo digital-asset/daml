@@ -33,7 +33,7 @@ data ChoiceAndAction = ChoiceAndAction
 
 data TemplateChoices = TemplateChoices
     { template :: LF.Template
-    , choiceAndAction :: [ChoiceAndAction]
+    , choiceAndActions :: [ChoiceAndAction]
     }
 
 data ChoiceDetails = ChoiceDetails
@@ -103,7 +103,7 @@ extractChoiceData (ChoiceAndAction choiceN consuming _) = (choiceN, consuming)
 
 
 templateWithCreateChoice :: TemplateChoices -> [(LF.ChoiceName, IsConsuming)]
-templateWithCreateChoice TemplateChoices {..} = createChoice : map extractChoiceData choiceAndAction
+templateWithCreateChoice TemplateChoices {..} = createChoice : map extractChoiceData choiceAndActions
     where createChoice = (LF.ChoiceName $ tplName template <> "_Create", False)
 
 -- We are adding create as a choice to the graph ,
@@ -123,7 +123,7 @@ addCreateChoice TemplateChoices {..} lookupData = (tplNameCreateChoice, nodeIdFo
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate template
-  where choicesInTemplete = map extractChoiceData choiceAndAction
+  where choicesInTemplete = map extractChoiceData choiceAndActions
         nodes = map (\(chc, _) -> (chc, nodeIdForChoice lookupData chc)) choicesInTemplete
         nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData]
 
@@ -141,7 +141,7 @@ choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
 
 graphEdges :: Map.Map LF.ChoiceName ChoiceDetails -> [TemplateChoices] -> [(ChoiceDetails, ChoiceDetails)]
 graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1, nodeIdForChoice lookupData chn2)) choicePairsForTemplates
-  where chcActionsFromAllTemplates = concatMap choiceAndAction tplChcActions
+  where chcActionsFromAllTemplates = concatMap choiceAndActions tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
 
 subGraphHeader :: LF.Template -> String
