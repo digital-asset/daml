@@ -35,9 +35,20 @@ final case class Contract(
     witnesses: Set[Party],
     divulgences: Map[Party, TransactionId],
     coinst: ContractInst[VersionedValue[AbsoluteContractId]],
-    key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]]) {
+    key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]],
+    signatories: Set[Party],
+    observers: Set[Party]) {
   def toActiveContract: ActiveContract =
-    ActiveContract(let, transactionId, workflowId, coinst, witnesses, divulgences, key)
+    ActiveContract(
+      let,
+      transactionId,
+      workflowId,
+      coinst,
+      witnesses,
+      divulgences,
+      key,
+      signatories,
+      observers)
 }
 
 object Contract {
@@ -50,7 +61,9 @@ object Contract {
       ac.witnesses,
       ac.divulgences,
       ac.contract,
-      ac.key)
+      ac.key,
+      ac.signatories,
+      ac.observers)
 }
 
 /**

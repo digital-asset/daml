@@ -15,10 +15,11 @@ import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlPa
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.TransactionId
 import com.digitalasset.daml.lf.archive.Decode
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers, NodeCreate}
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger._
@@ -193,15 +194,15 @@ private class PostgresLedgerDao(
               "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
               "contract" -> contractSerializer
-                .serialiseContractInstance(c.coinst)
-                .getOrElse(sys.error(s"failed to serialise contract! cid:${c.contractId.coid}")),
+                .serializeContractInstance(c.coinst)
+                .getOrElse(sys.error(s"failed to serialize contract! cid:${c.contractId.coid}")),
               "key" -> c.key
                 .map(
                   k =>
                     valueSerializer
-                      .serialiseValue(k.key)
+                      .serializeValue(k.key)
                       .getOrElse(sys.error(
-                        s"failed to serialise contract key value! cid:${c.contractId.coid}")))
+                        s"failed to serialize contract key value! cid:${c.contractId.coid}")))
           )
         )
 
@@ -470,11 +471,11 @@ private class PostgresLedgerDao(
         "effective_at" -> tx.ledgerEffectiveTime,
         "recorded_at" -> tx.recordedAt,
         "transaction" -> transactionSerializer
-          .serialiseTransaction(tx.transaction)
+          .serializeTransaction(tx.transaction)
           .fold(
             err =>
               sys.error(
-                s"Failed to serialise transaction! trId: ${tx.transactionId}. Details: ${err.errorMessage}."),
+                s"Failed to serialize transaction! trId: ${tx.transactionId}. Details: ${err.errorMessage}."),
             identity
           )
       )
@@ -720,7 +721,7 @@ private class PostgresLedgerDao(
           .deserializeTransaction(transactionStream)
           .fold(
             err =>
-              sys.error(s"failed to deserialise transaction! trId: $transactionId: error: $err"),
+              sys.error(s"failed to deserialize transaction! trId: $transactionId: error: $err"),
             identity),
         disclosure
       )
@@ -787,11 +788,12 @@ private class PostgresLedgerDao(
     ~ ledgerString("workflow_id").?
     ~ date("effective_at")
     ~ binaryStream("contract")
-    ~ binaryStream("key").? map (flatten))
+    ~ binaryStream("key").?
+    ~ binaryStream("transaction") map (flatten))
 
   private val SQL_SELECT_CONTRACT =
     SQL(
-      "select c.*, le.effective_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
+      "select c.*, le.effective_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
@@ -826,29 +828,47 @@ private class PostgresLedgerDao(
           Option[WorkflowId],
           Date,
           InputStream,
-          Option[InputStream]))(implicit conn: Connection) =
+          Option[InputStream],
+          InputStream))(implicit conn: Connection) =
     contractResult match {
-      case (coid, transactionId, workflowId, ledgerEffectiveTime, contractStream, keyStreamO) =>
+      case (coid, transactionId, workflowId, ledgerEffectiveTime, contractStream, keyStreamO, tx) =>
         val witnesses = lookupWitnesses(coid)
         val divulgences = lookupDivulgences(coid)
+        val absoluteCoid = AbsoluteContractId(coid)
+
+        val (signatories, observers) =
+          transactionSerializer
+            .deserializeTransaction(ByteStreams.toByteArray(tx))
+            .getOrElse(sys.error(s"failed to deserialize transaction! cid:$coid"))
+            .nodes
+            .collectFirst {
+              case (_, NodeCreate(coid, _, _, signatories, stakeholders, _))
+                  if coid == absoluteCoid =>
+                (signatories, stakeholders diff signatories)
+            } getOrElse {
+            logger.warn(s"Unable to read stakeholders for contract $coid, returning empty result")
+            (Set.empty[Ref.Party], Set.empty[Ref.Party])
+          }
 
         Contract(
-          AbsoluteContractId(coid),
+          absoluteCoid,
           ledgerEffectiveTime.toInstant,
           transactionId,
           workflowId,
           witnesses,
           divulgences,
           contractSerializer
-            .deserialiseContractInstance(ByteStreams.toByteArray(contractStream))
-            .getOrElse(sys.error(s"failed to deserialise contract! cid:$coid")),
+            .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
+            .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
           keyStreamO.map(keyStream => {
             val keyMaintainers = lookupKeyMaintainers(coid)
             val keyValue = valueSerializer
-              .deserialiseValue(ByteStreams.toByteArray(keyStream))
-              .getOrElse(sys.error(s"failed to deserialise key value! cid:$coid"))
+              .deserializeValue(ByteStreams.toByteArray(keyStream))
+              .getOrElse(sys.error(s"failed to deserialize key value! cid:$coid"))
             KeyWithMaintainers(keyValue, keyMaintainers)
-          })
+          }),
+          signatories,
+          observers
         )
     }
 
@@ -919,7 +939,7 @@ private class PostgresLedgerDao(
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(
-      "select c.*, le.effective_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
+      "select c.*, le.effective_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
 
   override def getActiveContractSnapshot()(implicit mat: Materializer): Future[LedgerSnapshot] = {
 

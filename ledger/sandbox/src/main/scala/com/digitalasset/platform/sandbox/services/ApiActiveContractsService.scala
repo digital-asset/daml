@@ -73,7 +73,9 @@ class ApiActiveContractsService private (
                                   .lfValueToApiRecord(
                                     verbose = request.verbose,
                                     create.argument.value))),
-                            create.stakeholders.toSeq
+                            create.stakeholders.toSeq,
+                            signatories = create.signatories.map(_.toString)(collection.breakOut),
+                            observers = create.observers.map(_.toString)(collection.breakOut)
                           )
                         )
                       )
