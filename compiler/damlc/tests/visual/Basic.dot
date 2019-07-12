@@ -2,34 +2,32 @@ digraph G {
 compound=true;
 rankdir=LR;
 subgraph cluster_Group{
-n10[label=Archive][color=red]; 
-n2[label=Group_Archive][color=red]; 
+n1[label=Group_Archive][color=red]; 
 n0[label=Group_Create][color=green]; 
 label=Group;color=blue
 }subgraph cluster_Invitation{
-n10[label=Archive][color=red]; 
-n5[label=Invitation_Archive][color=red]; 
-n3[label=Invitation_Create][color=green]; 
+n3[label=Invitation_Archive][color=red]; 
+n2[label=Invitation_Create][color=green]; 
 label=Invitation;color=blue
 }subgraph cluster_Message{
-n10[label=Archive][color=red]; 
-n8[label=Message_Archive][color=red]; 
-n6[label=Message_Create][color=green]; 
+n5[label=Message_Archive][color=red]; 
+n4[label=Message_Create][color=green]; 
 label=Message;color=blue
 }subgraph cluster_Membership{
-n10[label=Archive][color=red]; 
-n11[label=Membership_Shutdown][color=red]; 
-n12[label=Membership_SendMessage][color=green]; 
-n13[label=Membership_Leave][color=red]; 
-n14[label=Membership_Join][color=red]; 
-n15[label=Membership_Archive][color=red]; 
-n9[label=Membership_Create][color=green]; 
+n7[label=Membership_Archive][color=red]; 
+n8[label=Membership_Shutdown][color=red]; 
+n9[label=Membership_SendMessage][color=green]; 
+n10[label=Membership_Leave][color=red]; 
+n11[label=Membership_Join][color=red]; 
+n6[label=Membership_Create][color=green]; 
 label=Membership;color=blue
-}n12->n6
-n12->n8
-n13->n9
-n13->n15
-n14->n9
-n14->n15
+}n8->n0
+n8->n1
+n9->n4
+n9->n5
+n10->n6
+n10->n7
+n11->n6
+n11->n7
 
 }

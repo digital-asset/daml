@@ -68,18 +68,18 @@ startFromExpr seen world e = case e of
         Left _ -> error "This should not happen"
     LF.EUpdate upd -> startFromUpdate seen world upd
     LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ (LF.ModuleName ["DA","Internal","Template"]) (LF.ExprValName "fetch"))) _) _ -> Set.empty
-    LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _  (LF.ModuleName ["DA","Internal","Template"])  (LF.ExprValName "archive"))) _) _ -> Set.empty
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
 -- We adding template name to archive as we need to have unique choice names
-archiveChoiceAndAction :: LF.Template -> ChoiceAndAction
-archiveChoiceAndAction tpl = ChoiceAndAction (LF.ChoiceName $ tplName tpl <> "_Archive") True Set.empty
+archiveChoiceWithTemplateName :: LF.Template -> ChoiceAndAction -> ChoiceAndAction
+archiveChoiceWithTemplateName tpl (ChoiceAndAction (LF.ChoiceName "Archive") _ _)  = ChoiceAndAction (LF.ChoiceName $ tplName tpl <> "_Archive") True Set.empty
+archiveChoiceWithTemplateName _ cha = cha
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
-templatePossibleUpdates world tpl = actions ++ [archiveChoiceAndAction tpl]
+templatePossibleUpdates world tpl = map (archiveChoiceWithTemplateName tpl) actions
     where actions =  map (\c -> ChoiceAndAction (LF.chcName c) (LF.chcConsuming c) (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
