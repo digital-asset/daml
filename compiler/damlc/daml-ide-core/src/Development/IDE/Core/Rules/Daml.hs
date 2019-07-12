@@ -530,10 +530,10 @@ hlintSettings hlintDataDir = do
 
 getHlintSettingsRule :: Maybe FilePath -> Rules ()
 getHlintSettingsRule dir =
-    defineNoFile $ \GetHlintSettings -> do
-      case dir of
-        Just dir -> liftIO $ hlintSettings dir
-        Nothing -> liftIO $ fail "Linter configuration unspecified"
+    defineNoFile $ \GetHlintSettings ->
+      liftIO $ case dir of
+          Just dir -> hlintSettings dir
+          Nothing -> fail "linter configuration unspecified"
 
 getHlintDiagnosticsRule :: Rules ()
 getHlintDiagnosticsRule =
