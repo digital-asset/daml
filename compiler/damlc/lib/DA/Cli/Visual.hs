@@ -27,7 +27,7 @@ data Action = ACreate (LF.Qualified LF.TypeConName)
 
 data ChoiceAndAction = ChoiceAndAction
     { choiceName :: LF.ChoiceName
-    , consumingChc :: IsConsuming
+    , choiceConsuming :: IsConsuming
     , actions :: Set.Set Action
     }
 
