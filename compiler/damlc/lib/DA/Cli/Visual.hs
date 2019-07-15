@@ -77,14 +77,13 @@ startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
-templatePossibleUpdates world tpl = actions
-    where actions =  map (\c ->
-            ChoiceAndAction
-                (LF.chcName c)
-                (LF.ChoiceName $ tplNameUnqual tpl <> (LF.unChoiceName .LF.chcName) c)
-                (LF.chcConsuming c)
-                (startFromChoice world c))
-                (NM.toList (LF.tplChoices tpl))
+templatePossibleUpdates world tpl = map toActions $ NM.toList $ LF.tplChoices tpl
+    where toActions c = ChoiceAndAction {
+                choiceName = LF.chcName c
+              , internalChcName = LF.ChoiceName $ tplNameUnqual tpl <> (LF.unChoiceName .LF.chcName) c
+              , choiceConsuming = LF.chcConsuming c
+              , actions = startFromChoice world c
+              }
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
 moduleAndTemplates world mod = map (\t -> TemplateChoices t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
