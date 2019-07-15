@@ -12,7 +12,6 @@ Templates
 
 template **Iou**
 
-
   .. list-table::
      :widths: 15 10 30
      :header-rows: 1
@@ -37,8 +36,8 @@ template **Iou**
        - ``regulators`` may observe any use of the ``Iou``
 
   + **Choice Merge**
-    merges two "compatible" ``Iou``s
   
+    merges two "compatible" ``Iou``s
     .. list-table::
        :widths: 15 10 30
        :header-rows: 1
@@ -50,9 +49,9 @@ template **Iou**
          - ContractId Iou
          - Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original ``Iou``.
   + **Choice Split**
+  
     splits into two ``Iou``s with
     smaller amounts
-  
     .. list-table::
        :widths: 15 10 30
        :header-rows: 1
@@ -64,8 +63,8 @@ template **Iou**
          - Decimal
          - must be between zero and original amount
   + **Choice Transfer**
-    changes the owner
   
+    changes the owner
     .. list-table::
        :widths: 15 10 30
        :header-rows: 1
@@ -77,16 +76,14 @@ template **Iou**
          - Party
          -
 
-
-
 Functions
 ^^^^^^^^^
 
 .. _function-ioutemplate-main-13221:
 
 **main**
-  :   A single test scenario covering all functionality that ``Iou`` implements.
+  : Scenario ()
+
+  A single test scenario covering all functionality that ``Iou`` implements.
   This description contains a link(http://example.com), some bogus <inline html>,
   and words\_ with\_ underscore, to test damldoc capabilities.
-
-

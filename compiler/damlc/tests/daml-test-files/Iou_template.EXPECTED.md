@@ -51,7 +51,7 @@
 
 ## Functions
 
-* `main`  
+* `main` : `Scenario` `(`  `)`  
   A single test scenario covering all functionality that `Iou` implements.
   This description contains [a link](http://example.com), some bogus <inline html>,
   and words_ with_ underscore, to test damldoc capabilities.
