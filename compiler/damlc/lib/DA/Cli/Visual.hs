@@ -22,11 +22,13 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 
 type IsConsuming = Bool
+type InternalChcName = LF.ChoiceName
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
 
 data ChoiceAndAction = ChoiceAndAction
     { choiceName :: LF.ChoiceName
+    , internalChcName :: InternalChcName -- as we have choices with same name across modules
     , choiceConsuming :: IsConsuming
     , actions :: Set.Set Action
     }
@@ -75,12 +77,17 @@ startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
 -- We adding template name to archive as we need to have unique choice names
 archiveChoiceWithTemplateName :: LF.Template -> ChoiceAndAction -> ChoiceAndAction
-archiveChoiceWithTemplateName tpl (ChoiceAndAction (LF.ChoiceName "Archive") _ _)  = ChoiceAndAction (LF.ChoiceName $ tplNameUnqual tpl <> "_Archive") True Set.empty
+archiveChoiceWithTemplateName tpl (ChoiceAndAction (LF.ChoiceName "Archive") _ _ _)  =
+    ChoiceAndAction
+        (LF.ChoiceName $ tplNameUnqual tpl <> "_Archive")
+        (LF.ChoiceName $ tplNameUnqual tpl <> "_Archive")
+        True
+        Set.empty
 archiveChoiceWithTemplateName _ cha = cha
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map (archiveChoiceWithTemplateName tpl) actions
-    where actions =  map (\c -> ChoiceAndAction (LF.chcName c) (LF.chcConsuming c) (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
+    where actions =  map (\c -> ChoiceAndAction (LF.chcName c) (LF.chcName c) (LF.chcConsuming c) (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
 moduleAndTemplates world mod = map (\t -> TemplateChoices t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
@@ -99,7 +106,7 @@ tplNameUnqual :: LF.Template -> T.Text
 tplNameUnqual LF.Template {..} = head (LF.unTypeConName tplTypeCon)
 
 extractChoiceData :: ChoiceAndAction -> (LF.ChoiceName, IsConsuming)
-extractChoiceData (ChoiceAndAction choiceN consuming _) = (choiceN, consuming)
+extractChoiceData (ChoiceAndAction choiceN _ consuming _) = (choiceN, consuming)
 
 
 templateWithCreateChoice :: TemplateChoices -> [(LF.ChoiceName, IsConsuming)]
