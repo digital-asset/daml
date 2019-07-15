@@ -441,7 +441,9 @@ ofInterestRule opts = do
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
-        let hlintEnabled = case optHlintUsage opts of HlintEnabled _ -> True ; HlintDisabled -> False
+        let hlintEnabled = case optHlintUsage opts of
+              HlintEnabled _ -> True
+              HlintDisabled -> False
         let files = Set.toList scenarioFiles
         let dalfActions = [(void . getDalf) f | f <- files]
         let hlintActions = [use_ GetHlintDiagnostics f | hlintEnabled, f <- files]

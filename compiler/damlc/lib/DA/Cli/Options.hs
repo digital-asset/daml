@@ -7,8 +7,8 @@ module DA.Cli.Options
 
 import qualified Data.Text           as T
 import           Data.List.Extra     (trim, splitOn)
-import qualified Data.List.Safe      (last)
 import Options.Applicative.Extended
+import Safe (lastMay)
 import Data.List
 import Data.Maybe
 import Text.Read
@@ -350,5 +350,5 @@ hlintDisabledOpt = flag' HlintDisabled
   )
 
 hlintUsageOpt :: Parser HlintUsage
-hlintUsageOpt = fmap (fromMaybe HlintDisabled . Data.List.Safe.last) $
+hlintUsageOpt = fmap (fromMaybe HlintDisabled . lastMay) $
   many (hlintEnabledOpt <|> hlintDisabledOpt)

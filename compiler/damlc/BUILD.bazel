@@ -101,7 +101,6 @@ da_haskell_library(
         "haskell-lsp",
         "lens-aeson",
         "lens",
-        "listsafe",
         "memory",
         "mtl",
         "network",
