@@ -9,6 +9,7 @@ import qualified Data.Text           as T
 import           Data.List.Extra     (trim, splitOn)
 import Options.Applicative.Extended
 import Data.List
+import Data.Maybe
 import Text.Read
 import qualified DA.Pretty           as Pretty
 import DA.Daml.Options.Types
@@ -347,5 +348,6 @@ hlintDisabledOpt = flag' HlintDisabled
     <> help "Disable hlint"
   )
 
-hlintUsageOpt :: Parser (Maybe HlintUsage)
-hlintUsageOpt = optional (hlintEnabledOpt <|> hlintDisabledOpt)
+hlintUsageOpt :: Parser HlintUsage
+hlintUsageOpt = fmap (fromMaybe HlintDisabled) $
+  optional (hlintEnabledOpt <|> hlintDisabledOpt)
