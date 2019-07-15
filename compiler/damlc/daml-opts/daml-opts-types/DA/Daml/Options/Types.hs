@@ -5,6 +5,7 @@ module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
     , ScenarioValidation(..)
+    , HlintUsage(..)
     , defaultOptionsIO
     , defaultOptions
     , mkOptions
@@ -58,13 +59,16 @@ data Options = Options
     -- ^ Controls whether the scenario service server runs all checks
     -- or only a subset of them. This is mostly used to run additional
     -- checks on CI while keeping the IDE fast.
-  , optHlintEnabled :: Bool
-  -- ^ Whether or not to enable hlint
-  , optHlintDataDir :: Maybe FilePath
-    -- ^ Where hlint's base configuration file (hlint.yaml) resides
+  , optHlintUsage :: Maybe HlintUsage
+  -- ^ Information about hlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
   } deriving Show
+
+data HlintUsage
+  = HlintEnabled { hlintUseDataDir::FilePath }
+  | HlintDisabled
+  deriving Show
 
 data ScenarioValidation
     = ScenarioValidationLight
@@ -102,10 +106,10 @@ mkOptions opts@Options {..} = do
     mbDefaultPkgDb <- locateRunfilesMb (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
     let mbDefaultPkgDbDir = fmap (</> "pkg-db_dir") mbDefaultPkgDb
     pkgDbs <- filterM Dir.doesDirectoryExist (toList mbDefaultPkgDbDir ++ [projectPackageDatabase])
-    hlintDataDir <- locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    checkDirExists hlintDataDir
-    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs
-              , optHlintDataDir=Just hlintDataDir}
+    case optHlintUsage of
+      Just (HlintEnabled dir) -> checkDirExists dir
+      _ -> return ()
+    pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
           unless ok $ fail $ "Required directory does not exist: " <> f
@@ -134,8 +138,7 @@ defaultOptions mbVersion =
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optScenarioValidation = ScenarioValidationFull
-        , optHlintEnabled = False
-        , optHlintDataDir = Nothing
+        , optHlintUsage = Nothing
         , optIsGenerated = False
         }
 
