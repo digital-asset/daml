@@ -157,23 +157,23 @@ buildDocCtx dc_tcmod  =
 
       tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
 
-      dc_tycons = MS.fromList . flip mapMaybe tythings $ \case
-          ATyCon tycon ->
-              let typename = Typename . packName . tyConName $ tycon
-              in Just (typename, tycon)
-          _ -> Nothing
+      dc_tycons = MS.fromList
+          [ (typename, tycon)
+          | ATyCon tycon <- tythings
+          , let typename = Typename . packName . tyConName $ tycon
+          ]
 
-      dc_datacons = MS.fromList . flip mapMaybe tythings $ \case
-          AConLike (RealDataCon datacon) ->
-              let conname = Typename . packName . dataConName $ datacon
-              in Just (conname, datacon)
-          _ -> Nothing
+      dc_datacons = MS.fromList
+          [ (conname, datacon)
+          | AConLike (RealDataCon datacon) <- tythings
+          , let conname = Typename . packName . dataConName $ datacon
+          ]
 
-      dc_ids = MS.fromList . flip mapMaybe tythings $ \case
-          AnId id ->
-              let fieldname = Fieldname . packId $ id
-              in Just (fieldname, id)
-          _ -> Nothing
+      dc_ids = MS.fromList
+          [ (fieldname, id)
+          | AnId id <- tythings
+          , let fieldname = Fieldname . packId $ id
+          ]
 
   in DocCtx {..}
 
