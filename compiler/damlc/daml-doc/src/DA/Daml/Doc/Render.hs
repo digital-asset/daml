@@ -13,6 +13,7 @@ module DA.Daml.Doc.Render
   , jsonConf
   ) where
 
+import DA.Daml.Doc.Render.Monoid
 import DA.Daml.Doc.Render.Rst
 import DA.Daml.Doc.Render.Markdown
 import DA.Daml.Doc.Render.Hoogle
