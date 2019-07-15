@@ -76,18 +76,8 @@ startFromExpr seen world e = case e of
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
--- We adding template name to archive as we need to have unique choice names
-archiveChoiceWithTemplateName :: LF.Template -> ChoiceAndAction -> ChoiceAndAction
-archiveChoiceWithTemplateName tpl (ChoiceAndAction (LF.ChoiceName "Archive") _ _ _)  =
-    ChoiceAndAction
-        (LF.ChoiceName"Archive")
-        (LF.ChoiceName $ tplNameUnqual tpl <> "_Archive")
-        True
-        Set.empty
-archiveChoiceWithTemplateName _ cha = cha
-
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
-templatePossibleUpdates world tpl = map (archiveChoiceWithTemplateName tpl) actions
+templatePossibleUpdates world tpl = actions
     where actions =  map (\c ->
             ChoiceAndAction
                 (LF.chcName c)
@@ -147,7 +137,6 @@ tplNamet tplConName = head (LF.unTypeConName tplConName)
 
 actionToChoice :: Action -> LF.ChoiceName
 actionToChoice (ACreate LF.Qualified {..}) = LF.ChoiceName $ tplNamet qualObject <> "_Create"
-actionToChoice (AExercise LF.Qualified {..} (LF.ChoiceName "Archive")) = LF.ChoiceName $ tplNamet qualObject <> "_Archive"
 actionToChoice (AExercise LF.Qualified {..} (LF.ChoiceName chcT)) = LF.ChoiceName $ tplNamet qualObject <> chcT
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
