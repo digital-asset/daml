@@ -10,12 +10,12 @@ load(
 da_scala_library(
     name = "transaction-scalacheck",
     srcs = glob(["src/main/**/*.scala"]),
-    scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-scalacheck:__VERSION__"],
-    visibility = ["//visibility:public"],
     plugins = [
         "//external:jar/org/spire_math/kind_projector_2_12",
     ],
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-transaction-scalacheck:__VERSION__"],
+    visibility = ["//visibility:public"],
     deps = [
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
         "//3rdparty/jvm/org/scalacheck",
