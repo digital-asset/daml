@@ -17,19 +17,22 @@ Valid Ledgers
 At the core is the concept of a *valid ledger*; changes
 are permissible if adding the corresponding commit to the
 ledger results in a valid ledger. **Valid ledgers** are
-those that fulfill three conditions:
+those that fulfill four conditions:
 
 :ref:`da-model-consistency`
-   Exercises on inactive contracts are not allowed, i.e.
+   Exercises and fetches on inactive contracts are not allowed, i.e.
    contracts that have not yet been created or have already been
    consumed by an exercise.
 :ref:`da-model-conformance`
    Only a restricted set of actions is allowed on a given contract.
+:ref:`da-model-key-consistency`
+   A contract with a contract key can be created only if the key is not associated to another active contract,
+   and all key assertions hold.
 :ref:`da-model-authorization`
    The parties who may request a particular change are restricted.
 
-Only the last of these conditions is dependent on the party (or
-parties) requesting the change; the other two are general.
+Only the last of these conditions depends on the party (or
+parties) requesting the change; the other three are general.
 
 
 .. _da-model-consistency:
@@ -84,7 +87,7 @@ and the `Iou Bank A` contracts are used without being created before:
 However, the transaction can still be appended to a ledger
 that creates these contracts and yield a consistent ledger. Such
 transactions are said to be internally consistent,
-and contracts such as the `PaintOffer A P Bank` and `Iou Bank A` are called
+and contracts such as the `PaintOffer A P Bank P123` and `Iou Bank A` are called
 input contracts of the transaction.
 Dually, output contracts of a transactions are the contracts that a transactions creates and does not archive.
 
@@ -214,7 +217,7 @@ and `MustPaint` contracts.
 .. https://www.lucidchart.com/documents/edit/1ea6f551-c212-4620-9417-27784adccbcc
 .. image:: ./images/models-paint-offer.svg
    :align: center
-   :width: 80%
+   :width: 90%
 
 The problem with example where Alice changes the
 offer's outcome to avoid transferring the money now
@@ -226,7 +229,103 @@ becomes apparent.
 `A`'s commit is not conformant to the contract model, as the model does
 not contain the top-level action she is trying to commit.
 
-.. _`da-model-authorization`:
+.. _da-model-key-consistency:
+
+Key Consistency
++++++++++++++++
+
+Contract keys introduce two validity constraints for ledgers: :ref:`key uniqueness <def-key-uniqueness>` and :ref:`key assertion validity <def-key-assertion-validity>`.
+To capture these notions, the contract model must specify for every contract in the system whether the contract has a key and, if so, the key.
+Every contract can have at most one key.
+Additionally, the model must provide the function `maintainers` that takes a key and returns the non-empty set of maintainers of the key.
+
+Key uniqueness ensures that every contract key refers to at most one contract.
+It ensures that a contract with an associated key can only be created if there is no active contract with the same key.
+
+.. _def-key-uniqueness:
+
+Definition »key uniqueness«
+    A ledger is said to satisfy **key uniqueness** for a key `k` if every **Create** action on a contract with associated key `k` happens only when there is no active contract with associated key `k`.
+
+    The ledger satisfies **key uniqueness** if it satisfies key uniqueness for all keys.
+
+For example, suppose that the painter `P` has made a paint offer to `A` with reference number `P123`, but `A` has not yet accepted it.
+When `P` tries to create another paint offer to `David` with the same reference number `P123`,
+then this creation action would violate key uniqueness.
+The following ledger violates key uniqueness.
+
+.. figure:: ./images/double-key-creation-highlighted.svg
+   :align: center
+   :name: double-key-creation
+
+.. _def-key-assertion-validity:
+
+Definition »key assertion validity«
+  A ledger is said to satisfy **key assertion validity** for a key `k` if and only if at every key assertion **NoKey** `k`, there is no active contract with key `k`.
+  
+  The ledger satisfies **key assertion validity** if it satisfies key assertion validity for all keys.
+
+Key assertions can be used in workflows to evidence the inexistence of a certain kind of contract.
+For example, consider a subscription service that operates a support hotline on the ledger.
+The hotline is free of charge for customers with an active subscription; other customers will be charged via the ledger.
+The business workflow model requires that every support request is accompanied with a key lookup on the subscription contract;
+this way, customers can be sure that their support requests will incur fees only if they do not have an active subscription contract.
+Conversely, the subscription service can be sure that it will charge a fee as soon as a customer cancels his subscription.
+
+We also introduce the notions of internal key consistency and input key map.
+They summarize the inexistence constraints on contracts for a given key such that ensure that **Create** actions do not violate key uniqueness and **NoKey** assertions are satisfied.
+Like for internal consistency and input contracts, internal key consistency takes care of transaction-internal conditions and the input key map summarizes the key inexistence constraints at the start of the transaction.
+
+Definition »internal key consistency«
+  A transaction is **internally key consistent** for a key `k` if the following holds:
+  
+  - For every **Create** `c` action with key `k`, if there is another **Create** `c'` action with key `k` that precedes the **Create** `c` action,
+    then there is a consuming **Exercise** action on `c'` between the two **Create** actions.
+
+  - For every **NoKey** `k` assertion, if there is a **Create** `c` action with key `k` that precedes the key asssertion,
+    then there is a consuming **Exercise** action on `c` between the **Create** `c` action and the key assertion.
+
+  A transaction is **internally key consistent** if it is internally key consistent for all keys.
+
+The input key map associates keys with a set of contracts.
+The input key map for an internally key consistent transaction encodes a precondition on the ledger under which adding the transaction to the ledger preserves key uniqueness.
+More precisely, this is the weakest precondition such that the following holds for all subactions of the transaction:
+
+ - **Create** actions for a key `k` do not cause a key uniqueness violation for `k`.
+ - **NoKey** `k` assertions are satisfied.
+
+An input key map encodes the following precondition:
+Every active contract with a key `k` in the domain must be in the set associated with `k`.
+
+.. note::
+  If the ledger satisfies key uniqueness, then there can be at most one contract active for any key.
+  However, if key uniqueness is violated for a key, then there may be multiple active contracts with the given key.
+  Associating a set of contracts to a key takes care of this corner case.
+
+Definition »input key map«
+  The **input key map** of an internally consistent transaction maps a key `k` to a set of contracts as follows:
+
+  - The domain of the input key map consists of all keys for which the transaction contains a **Create** `c` action with key `k` or a **NoKey** `k` assertion.
+    
+  - A contract `c` is in the set that the input key map associates with `k` in its domain if all of the following hold:
+    
+    - The contract `c` has the key `k`.
+    - The transaction contains a consuming **Exercise** action on `c` before all **Create** actions with key `k` and before all **NoKey** `k` assertions.
+    - The transaction does not contain a **Create** `c` action.
+
+The input key map is defined only for transactions that are internally consistent.
+All contracts in the range of the input key map are input contracts.
+
+If key uniqueness holds for a key, transactions where the input key map associates several contracts with the key cannot be accepted:
+For if there were two such associated contracts, both of them must be active at the same time, as they are also input contracts;
+so key uniqueness would be violated.
+Nevertheless, if key uniqueness has been violated, say because of a bug in the implementation, transactions with several contracts associated to the same key can be useful to recover a sane state.
+For example, suppose that there are two active account contracts between a bank and its client for the same account number, which is the key.
+Such a transaction could be used to archive both account contracts and atomically create a single new account contract,
+where the new balance is computed in some pre-agreed way from the two former balances.
+
+
+.. _da-model-authorization:
 
 Authorization
 +++++++++++++
@@ -268,22 +367,32 @@ In the example, the contract model specifies that
    and the `owner` as signatories, with an agreement text requiring
    the obligor to pay the owner a certain amount, off the ledger.
 
-#. a `PaintOffer houseOwner painter obligor` contract has only the
+#. a `PaintOffer houseOwner painter obligor refNo` contract has only the
    painter as the signatory, with no agreement text.
 
-#. a `PaintAgree houseOwner painter` contract has both the
+#. a `PaintAgree houseOwner painter refNo` contract has both the
    house owner and the painter as signatories, with an agreement
    text requiring the painter to paint the house.
+
+The contract model must meet the following property:
+
+Definition »maintainer-signatory consistency«
+    A contract model is **maintainer-signatory consistent** if for every contract `c` with a key `k`,
+    then `maintainers(k)` must be a non-empty subset of the signatories of `c`.
+
+In the following, we only consider maintainer-signatory consistent contract models.
 
 In the graphical representation below, signatories of a contract are indicated
 with a dollar sign (as a mnemonic for an obligation) and use a bold
 font. For example, annotating the paint offer acceptance action with
 signatories yields the image below.
+Since maintainers are always signatories, parties marked with the maintainer prefix `@` are implicitly signatories.
 
 .. https://www.lucidchart.com/documents/edit/4a3fdcbc-e521-4fd8-a636-1035b4d65126/0
 .. image:: ./images/signatories-paint-offer.svg
    :align: center
    :width: 60%
+
 
 .. _da-ledgers-authorization-rules:
 
@@ -324,6 +433,8 @@ authorized by at least all of the **required authorizers** of `act`, where:
    signatories of `c`.
 
 #. the required authorizers of an **Exercise** or a **Fetch** action are its actors.
+
+#. the required authorizers of a **NoKey** assertion are the maintainers of the key.
 
 We lift this notion to ledgers, whereby a ledger is well-authorized exactly when all of its commits are.
 
@@ -395,6 +506,26 @@ Similarly, the painter authorizes the exercise that transfers the IOU
 to him. However, the actor of this exercise is Alice, who has not
 authorized the exercise. Thus, this ledger is not
 well-authorized.
+
+Setting the maintainers as required authorizers for a **NoKey** assertion ensures
+that parties cannot learn about the existence of a contract without having a right to know about their existence.
+So we use authorization to impose *access controls* that ensure confidentiality about the existence of contracts.
+For example, suppose now that for a `PaintAgreement` contract, both signatories are key maintainers, not only the painter.
+That is, we consider `PaintAgreement @A @P &P123` instead of `PaintAgreement $A @P &P123`.
+Then, when the painter's competitor `Q` passes by `A`'s house and sees that the house desperately needs painting,
+`Q` would like to know whether there is any point in spending marketing efforts and making a paint offer to `A`.
+Without key authorization, `Q` could test whether a ledger implementation accepts the action **NoKey** `(A, P, refNo)` for different guesses of the reference number `refNo`.
+In particular, if the ledger does not accept the transaction for some `refNo`, then `Q` knows that `P` has some business with `A` and his chances of `A` accepting his offer are lower.
+Key authorization prevents this flow of information because the ledger always rejects `Q`\ 's action for violating the authorization rules.
+
+For these access controls, it suffices if one maintainer authorizes a **NoKey** assertion.
+However, we demand that *all* maintainers must authorize it.
+This is to prevent a denial of service attack vector.
+If only one maintainer sufficed to authorize a key assertion,
+then a malicious party `p` could submit a command resulting in a key assertion **NoKey** `k` without a contract as the only action.
+The set `maintainers(k)` includes, in addition to `p` itself, the parties under attack.
+If the parties in `maintainers(k)` want to comply to the Ledger Model, then they must validate that there indeed is no such contract, which may require a non-trivial effort.
+This violates the idea that complying to the Ledger Model only requires validation work due to requests from parties that one has a business relationship with, i.e., parties that are stakeholders on a contract where one is a signatory. (These requests might though arrive indirectly due to other parties delegating rights further.)
 
 Valid Ledgers, Obligations, Offers and Rights
 +++++++++++++++++++++++++++++++++++++++++++++

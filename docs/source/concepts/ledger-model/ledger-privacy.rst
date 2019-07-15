@@ -34,7 +34,7 @@ Note that in DAML, as detailed :ref:`later <da-model-daml>`, controllers specifi
 
 In the graphical representation of the paint offer acceptance below, observers who are not signatories are indicated by an underline.
 
-.. https://www.lucidchart.com/documents/edit/33f1c8fc-001b-48e9-a9fc-d0d499dac943
+.. https://www.lucidchart.com/documents/edit/ea40a651-a2e0-4365-ae7d-4cee8cd07071/0
 .. image:: ./images/stakeholders-paint-offer.svg
    :align: center
    :width: 60%
@@ -98,6 +98,8 @@ This motivates the following definition: a party `p` is an **informee** of an ac
   * `A` is a non-consuming **Exercise** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
 
   * `A` is a **Fetch** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
+
+  * `A` is a **NoKey** `k` assertion and `p` is a maintainer of `k`.
 
 .. _def-tx-projection:
 

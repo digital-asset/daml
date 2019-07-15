@@ -1,6 +1,8 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _daml-ref-contract-keys:
+   
 Contract keys
 #############
 
@@ -38,6 +40,8 @@ Contract keys functions
 
 Contract keys introduce several new functions.
 
+.. _fetchbykey:
+
 ``fetchByKey``
 ==============
 
@@ -59,6 +63,8 @@ This means that if it fails, it doesn't guarantee that a contract with that key 
 Moreover, future versions of DAML will enforce that when using ``fetchByKey`` the submitter of the transaction is one of the maintainers. It's therefore advised to write your contract key workflows with this future limitation in mind.
 
 Because different templates can use the same key type, you need to specify the type of the contract you are trying to fetch using the ``@ContractType`` syntax.
+
+.. _lookupbykey:
 
 ``lookupByKey``
 ===============

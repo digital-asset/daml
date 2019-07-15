@@ -20,7 +20,7 @@ This structure is illustrated below on a toy example of a multi-party
 interaction. Alice (`A`) gets some digital cash, in the form of an I-Owe-You
 (IOU for short)
 from a bank, and she needs her house painted. She gets an offer from
-a painter (`P`) to paint her house in
+a painter (`P`) with reference number `P123` to paint her house in
 exchange for this IOU. Lastly, `A`
 accepts the offer, transfering the money and signing
 a contract with `P`, whereby he is promising to paint her house.
@@ -69,12 +69,14 @@ Formally, an **action** is one of the following:
    The action also contains **actors**, the parties who fetch the contract.
    A **Fetch** behaves like a non-consuming exercise with no consequences, and can be repeated.
 
+#. a **Key assertion** records the assertion that the given :ref:`contract key <daml-ref-contract-keys>` is not assigned to any active contract on the ledger.
+
 An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
 Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
 
 The following EBNF-like grammar summarizes the structure of actions
 and transactions. Here, "s | t" represents the choice between `s` and
-`t`, "s t" represents `s` followed by `t`, and "s*" represents the
+`t`, "s t" represents `s` followed by `t` and "s*" represents the
 repetition of `s` zero or more times. The terminal 'contract' denotes
 the underlying type of contracts, and the terminal 'party' the
 underlying type of parties.
@@ -86,6 +88,7 @@ underlying type of parties.
    Action       ::= 'Create' contract
                     | 'Exercise' party* contract Kind Transaction
                     | 'Fetch' party* contract
+                    | 'NoKey' key
    Transaction  ::= Action*
    Kind         ::= 'Consuming' | 'NonConsuming'
 
@@ -102,6 +105,7 @@ conventions that:
 An alternative shorthand notation, shown below uses the abbreviations **Exe** and **ExeN** for exercises, and omits the
 **Create** labels on create actions.
 
+.. https://www.lucidchart.com/documents/edit/84166777-17e9-4254-a2f5-f52fff4881f0/0
 .. image:: ./images/action-structure-paint-offer.svg
    :align: center
    :width: 60%
@@ -129,12 +133,12 @@ Thus, when accepting the offer, `A` has to additionally show a valid quality cer
 In the paint offer example, the underlying type of contracts consists
 of three sorts of contracts:
 
-PaintOffer houseOwner painter obligor
-  Intuitively an offer by
+PaintOffer houseOwner painter obligor refNo
+  Intuitively an offer with a reference number by
   which the painter proposes to the house owner to paint her house, in
   exchange for a single IOU token issued by the specified obligor.
 
-PaintAgree painter houseOwner
+PaintAgree painter houseOwner refNo
   Intuitively a contract whereby
   the painter agrees to paint the owner's house
 
@@ -185,6 +189,12 @@ below shows all its proper subtransactions on the right (yellow boxes).
    :align: center
    :width: 100%
 
+To illustrate contract keys, suppose that the contract key for a `PaintOffer` consists of the reference number and the painter as the key maintainer.
+So Alice can refer to the `PaintOffer` by its key `(P, P123)`.
+To make this explicit, we use the notation `PaintOffer @P A &P123` for contracts, where `@` marks the maintainers and `&` the other key parts.
+The ledger integrity constraints in the next section ensure that there is always at most one active `PaintOffer` for a given key.
+So if the painter retracts its `PaintOffer` and later Alice tries to accept it, she can then record the absence with a `NoKey (P, P123)` key assertion.
+
 
 Ledgers
 +++++++
@@ -195,7 +205,7 @@ of a **commit**: a transaction paired with the parties that
 requested it, called the **requesters** of the commit.
 In the ledger model, a commit is allowed to have multiple requesters,
 although the current DA Platform API offers the request functionality only to individual parties.
-Given a commit `(p, tx)` with transaction `tx = act₁, …, actₙ`, every `actᵢ` is
+Given a commit `(p, tx)` with transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is
 called a **top-level action** of the commit. A **ledger** is a sequence of
 commits. A top-level action of any ledger commit is also a top-level action of
 the ledger.
@@ -208,7 +218,7 @@ The following EBNF grammar summarizes the structure of commits and ledgers:
    Ledger   ::= Commit*
 
 A DA ledger thus represents the full history of all actions taken by
-parties. [#ledger-vs-journal]_ Since the ledger is a sequence (of dependent actions), it induces an
+parties.\ [#ledger-vs-journal]_ Since the ledger is a sequence (of dependent actions), it induces an
 *order* on the commits in the ledger. Visually, a ledger can be represented
 as a sequence growing from left to right as time progresses. Below,
 dashed vertical lines mark the boundaries of commits, and each commit is
@@ -257,7 +267,19 @@ following ledgers are not.
    Painter stealing Alice's IOU. Note that the ledger would be
    intuitively permissible if it was Alice performing the last commit.
 
+.. figure:: ./images/failed-key-assertion.svg
+   :align: center
+   :name: alice-claiming-retracted-offer
 
+   Alice falsely claiming that the painter has retracted the offer.
+
+.. figure:: ./images/double-key-creation.svg
+   :align: center
+   :name: painter-creating-two-offers-with-same-key
+
+   Painter tries to create two different paint offers with the same reference number.
+
+   
 The next section discusses the criteria that rule out the above examples as
 invalid ledgers.
 
