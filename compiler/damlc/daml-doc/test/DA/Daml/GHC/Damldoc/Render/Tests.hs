@@ -30,45 +30,47 @@ mkTestTree = do
 
 cases :: [(String, ModuleDoc)]
 cases = [ ("Empty module",
-           ModuleDoc "Empty" Nothing [] [] [] [])
+           ModuleDoc Nothing "Empty" Nothing [] [] [] [])
         , ("Type def with argument",
-           ModuleDoc "Typedef" Nothing []
-            [TypeSynDoc "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [TypeApp Nothing "TTT" []])]
+           ModuleDoc (Just "module-typedef") "Typedef" Nothing []
+            [TypeSynDoc (Just "type-typedef-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [TypeApp Nothing "TTT" []])]
             [] []
           )
         , ("Two types",
-           ModuleDoc "TwoTypes" Nothing []
-            [ TypeSynDoc "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [])
-            , ADTDoc "D" Nothing ["d"] [PrefixC "D" (Just "D descr") [TypeApp Nothing "a" []]]
+           ModuleDoc (Just "module-twotypes") "TwoTypes" Nothing []
+            [ TypeSynDoc (Just "type-twotypes-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [])
+            , ADTDoc (Just "data-twotypes-d") "D" Nothing ["d"] [PrefixC (Just "constr-twotypes-d") "D" (Just "D descr") [TypeApp Nothing "a" []]]
             ]
             [] []
           )
         , ("Documented function with type",
-           ModuleDoc "Function1" Nothing [] []
-            [FunctionDoc "f" Nothing (Just $ TypeApp Nothing "TheType" []) (Just "the doc")] []
+           ModuleDoc (Just "module-function1") "Function1" Nothing [] []
+            [FunctionDoc (Just "function-function1-f") "f" Nothing (Just $ TypeApp Nothing "TheType" []) (Just "the doc")] []
           )
         , ("Documented function without type",
-           ModuleDoc "Function2" Nothing [] []
-            [FunctionDoc "f" Nothing Nothing (Just "the doc")] []
+           ModuleDoc (Just "module-function2") "Function2" Nothing [] []
+            [FunctionDoc (Just "function-function2-f") "f" Nothing Nothing (Just "the doc")] []
           )
         , ("Undocumented function with type",
-           ModuleDoc "Function3" Nothing [] []
-            [FunctionDoc "f" Nothing (Just $ TypeApp Nothing "TheType" []) Nothing] []
+           ModuleDoc (Just "module-function3") "Function3" Nothing [] []
+            [FunctionDoc (Just "function-function3-f") "f" Nothing (Just $ TypeApp Nothing "TheType" []) Nothing] []
           )
         -- The doc extraction won't generate functions without type nor description
         , ("Module with only a type class",
-           ModuleDoc "OnlyClass" Nothing [] [] []
-            [ClassDoc "C" Nothing Nothing ["a"] [FunctionDoc "member" Nothing (Just (TypeApp Nothing "a" [])) Nothing]])
+           ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] []
+            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (Just (TypeApp Nothing "a" [])) Nothing]])
         , ("Multiline field description",
            ModuleDoc
+             (Just "module-multilinefield")
              "MultiLineField"
              Nothing
              []
              [ADTDoc
+                (Just "data-multilinefield-d")
                 "D"
                 Nothing
                 []
-                [RecordC "D" Nothing [FieldDoc "f" (TypeApp Nothing "T" []) (Just "This is a multiline\nfield description")]]]
+                [RecordC (Just "constr-multilinefield-d") "D" Nothing [FieldDoc (Just "function-multilinefield-f") "f" (TypeApp Nothing "T" []) (Just "This is a multiline\nfield description")]]]
              []
              []
           )
@@ -77,31 +79,31 @@ cases = [ ("Empty module",
 expectRst :: [T.Text]
 expectRst =
         [ T.empty
-        , mkExpectRst "module-typedef-50108" "Typedef" "" [] []
-            ["\n.. _type-typedef-t-88479:\n\ntype **T a**\n    = TT TTT\n\n  T descr"] []
-        , mkExpectRst "module-twotypes-33303" "TwoTypes" "" []
+        , mkExpectRst "module-typedef" "Typedef" "" [] []
+            ["\n.. _type-typedef-t:\n\ntype **T a**\n    = TT TTT\n\n  T descr"] []
+        , mkExpectRst "module-twotypes" "TwoTypes" "" []
             []
-            ["\n.. _type-twotypes-t-17090:\n\ntype **T a**\n    = TT\n\n  T descr"
-            , "\n.. _data-twotypes-d-66754:\n\ndata **D d**\n\n  \n  \n  .. _constr-twotypes-d-45919:\n  \n  **D** a\n  \n  D descr"]
+            ["\n.. _type-twotypes-t:\n\ntype **T a**\n    = TT\n\n  T descr"
+            , "\n.. _data-twotypes-d:\n\ndata **D d**\n\n  \n  \n  .. _constr-twotypes-d:\n  \n  **D** a\n  \n  D descr"]
             []
-        , mkExpectRst "module-function1-29590" "Function1" "" [] [] [] [ "\n.. _function-function1-f-45407:\n\n**f**\n  : TheType\n\n  the doc\n"]
-        , mkExpectRst "module-function2-7227" "Function2" "" [] [] [] [ "\n.. _function-function2-f-87524:\n\n**f**\n  :   the doc\n"]
-        , mkExpectRst "module-function3-84844" "Function3" "" [] [] [] [ "\n.. _function-function3-f-32653:\n\n**f**\n  : TheType\n\n"]
-        , mkExpectRst "module-onlyclass-88463" "OnlyClass" ""
+        , mkExpectRst "module-function1" "Function1" "" [] [] [] [ "\n.. _function-function1-f:\n\n**f**\n  : TheType\n\n  the doc\n"]
+        , mkExpectRst "module-function2" "Function2" "" [] [] [] [ "\n.. _function-function2-f:\n\n**f**\n  :   the doc\n"]
+        , mkExpectRst "module-function3" "Function3" "" [] [] [] [ "\n.. _function-function3-f:\n\n**f**\n  : TheType\n\n"]
+        , mkExpectRst "module-onlyclass" "OnlyClass" ""
             []
-            [ "\n.. _class-onlyclass-c-63566:"
-            , "**class C a where**\n  \n  .. _function-onlyclass-member-45125:\n  \n  **member**\n    : a"
+            [ "\n.. _class-onlyclass-c:"
+            , "**class C a where**\n  \n  .. _function-onlyclass-member:\n  \n  **member**\n    : a"
             ]
             []
             []
-        , mkExpectRst "module-multilinefield-24755" "MultiLineField" ""
+        , mkExpectRst "module-multilinefield" "MultiLineField" ""
             []
             []
-            [ "\n.. _data-multilinefield-d-47142:"
+            [ "\n.. _data-multilinefield-d:"
             , "data **D**"
             , T.concat
                   [ "  \n  \n"
-                  , "  .. _constr-multilinefield-d-61939:\n  \n"
+                  , "  .. _constr-multilinefield-d:\n  \n"
                   , "  **D**\n  \n  \n"
                   , "  .. list-table::\n"
                   , "     :widths: 15 10 30\n"
@@ -217,7 +219,7 @@ renderTest format (name, input) expected =
   let
     renderer = case format of
                  Json -> error "Json encoder testing not done here"
-                 Rst -> renderSimpleRst
+                 Rst -> renderFinish . renderSimpleRst
                  Markdown -> renderSimpleMD
                  Html -> error "HTML testing not supported (use Markdown)"
                  Hoogle -> error "Hoogle doc testing not yet supported."

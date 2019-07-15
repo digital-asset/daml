@@ -191,7 +191,10 @@ class CommandCompletionServiceIT
         def tailCompletions(
             context: LedgerContext
         ): Future[Completion] = {
-          val (streamObserver, future) = FirstElementObserver[CompletionStreamResponse]
+          val (streamObserver, future) = FirstElementObserver.filter[CompletionStreamResponse] {
+            case CompletionStreamResponse(_, Nil) => false
+            case _ => true
+          }
           context.commandCompletionService.completionStream(
             CompletionStreamRequest(
               context.ledgerId.unwrap,

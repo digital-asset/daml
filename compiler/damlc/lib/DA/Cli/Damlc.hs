@@ -703,6 +703,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> optPackageDir
     <*> parsePkgName
     <*> optWriteIface
+    <*> pure Nothing
     <*> optHideAllPackages
     <*> many optPackage
     <*> optShakeProfiling
@@ -712,6 +713,8 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> (concat <$> many optGhcCustomOptions)
     <*> pure enableScenarioService
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
+    <*> hlintUsageOpt
+    <*> pure False
   where
     optImportPath :: Parser [FilePath]
     optImportPath =

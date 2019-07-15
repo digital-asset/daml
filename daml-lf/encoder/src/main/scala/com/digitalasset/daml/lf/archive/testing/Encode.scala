@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.testing.archive
+package com.digitalasset.daml.lf.archive.testing
 
 import java.security.MessageDigest
 
@@ -49,4 +49,9 @@ private[digitalasset] object Encode {
 
   }
 
+  case class EncodeError(message: String) extends RuntimeException
+
+  private[testing] def unexpectedError(): Unit = throw EncodeError("unexpected error")
+
+  private[testing] def expect(b: Boolean): Unit = if (!b) unexpectedError()
 }

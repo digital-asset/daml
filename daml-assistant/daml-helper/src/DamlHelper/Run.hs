@@ -34,7 +34,6 @@ import Control.Exception.Safe
 import Control.Monad
 import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
-import Data.Either.Extra
 import Data.Maybe
 import Data.List.Extra
 import qualified Data.ByteString as BS
@@ -45,13 +44,13 @@ import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
 import System.FilePath
+import qualified System.Directory as Dir
 import System.Directory.Extra
 import System.Environment
 import System.Exit
 import System.Info.Extra
 import System.Process hiding (runCommand)
 import System.IO
-import System.IO.Error
 import System.IO.Extra
 import Web.Browser
 
@@ -81,8 +80,6 @@ requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . disp
 data ReplaceExtension
     = ReplaceExtNever
     -- ^ Never replace an existing extension.
-    | ReplaceExtNewer
-    -- ^ Replace the extension if the current extension is newer.
     | ReplaceExtAlways
     -- ^ Always replace the extension.
     | ReplaceExtPublished
@@ -119,15 +116,21 @@ getVsCodeExtensionsDir = fmap (</> ".vscode/extensions") getHomeDirectory
 publishedExtensionName :: String
 publishedExtensionName = "DigitalAssetHoldingsLLC.daml"
 
--- | Name of VS Code extension bundled with the SDK. Legacy, but also
--- useful in a pinch, in case published extension goes bad.
+-- | Name of VS Code extension bundled with older SDKs (up to 0.13.12). Was
+-- implemented as a symlink to extension files stored under ~/.daml.
+oldBundledExtensionDirName :: String
+oldBundledExtensionDirName = "da-vscode-daml-extension"
+
+-- | Name of VS Code extension bundled with the SDK as a vsix.
 bundledExtensionName :: String
-bundledExtensionName = "da-vscode-daml-extension"
+bundledExtensionName = "DigitalAssetHoldingsLLC.daml-bundled"
 
 -- | Status of installed VS Code extensions.
 data InstalledExtensions = InstalledExtensions
-    { bundledExtensionVersion :: Maybe SdkVersion
-        -- ^ bundled extension version, if installed
+    { oldBundled :: Maybe FilePath
+        -- ^ bundled extension, if installed (0.13.12 and earlier)
+    , bundledInstalled :: Bool
+        -- ^ bundled extension, installed through vsix (0.13.13 and up)
     , publishedExtensionIsInstalled :: Bool
         -- ^ true if published extension is installed
     } deriving (Show, Eq)
@@ -135,53 +138,53 @@ data InstalledExtensions = InstalledExtensions
 -- | Get status of installed VS code extensions.
 getInstalledExtensions :: IO InstalledExtensions
 getInstalledExtensions = do
-    extensionsDir <- getVsCodeExtensionsDir
-
-    let bundledExtensionDir = extensionsDir </> bundledExtensionName
-    bundledExtensionVersion <- readVersionFile bundledExtensionDir
-
-    (_exitCode, extensionsStr, _err) <- runVsCodeCommand ["--list-extensions"]
-    let extensions = lines extensionsStr
-        publishedExtensionIsInstalled = publishedExtensionName `elem` extensions
-
+    oldBundled <- getOldExt
+    extensions <- getExtensions
+    let oldBundledIsInstalled = isJust oldBundled
+        publishedExtensionIsInstalled = not oldBundledIsInstalled && publishedExtensionName `elem` extensions
+        bundledInstalled = bundledExtensionName `elem` extensions
     pure InstalledExtensions {..}
-
--- | Read VERSION file in directory. Returns Nothing on failure.
-readVersionFile :: FilePath -> IO (Maybe SdkVersion)
-readVersionFile dir = do
-    versionStrE <- tryIO $ readFileUTF8 (dir </> "VERSION")
-    pure $ do
-        versionStr <- eitherToMaybe versionStrE
-        eitherToMaybe . parseVersion . T.strip . T.pack $ versionStr
+    where getOldExt :: IO (Maybe FilePath)
+          getOldExt = do
+              extensionsDir <- getVsCodeExtensionsDir
+              let oldBundledDir = extensionsDir </> oldBundledExtensionDirName
+              exists <- Dir.doesPathExist oldBundledDir
+              pure $ if exists then Just oldBundledDir else Nothing
+          getExtensions :: IO [String]
+          getExtensions = do
+              (_exitCode, extensionsStr, _err) <- runVsCodeCommand ["--list-extensions"]
+              pure $ lines extensionsStr
 
 runDamlStudio :: ReplaceExtension -> [String] -> IO ()
 runDamlStudio replaceExt remainingArguments = do
     sdkPath <- getSdkPath
-    vscodeExtensionsDir <- getVsCodeExtensionsDir
     InstalledExtensions {..} <- getInstalledExtensions
 
-    let bundledExtensionSource = sdkPath </> "studio"
-        bundledExtensionTarget = vscodeExtensionsDir </> bundledExtensionName
+    let bundledExtensionVsix = sdkPath </> "studio/daml-bundled.vsix"
+        removeOldBundledExtension = whenJust oldBundled removePathForcibly
+        uninstall name = do
+            (exitCode, out, err) <- runVsCodeCommand ["--uninstall-extension", name]
+            when (exitCode /= ExitSuccess) $ do
+                hPutStrLn stderr . unlines $
+                    [ "Failed to uninstall published version of DAML Studio."
+                    , "Messages from VS Code:"
+                    , "--- stdout ---"
+                    , out
+                    , "--- stderr ---"
+                    , err
+                    ]
+                exitWith exitCode
 
         removeBundledExtension =
-            when (isJust bundledExtensionVersion) $
-                removePathForcibly bundledExtensionTarget
+            when bundledInstalled $ uninstall bundledExtensionName
 
         removePublishedExtension =
-            when publishedExtensionIsInstalled $ do
-                (exitCode, _out, err) <- runVsCodeCommand
-                    ["--uninstall-extension", publishedExtensionName]
-                when (exitCode /= ExitSuccess) $ do
-                    hPutStrLn stderr . unlines $
-                        [ err
-                        , "Failed to uninstall published version of DAML Studio."
-                        ]
-                    exitWith exitCode
+            when publishedExtensionIsInstalled $ uninstall publishedExtensionName
 
         installBundledExtension' =
-            installBundledExtension bundledExtensionSource bundledExtensionTarget
+            installBundledExtension bundledExtensionVsix
 
-        installPublishedExtension = do
+        installPublishedExtension =
             when (not publishedExtensionIsInstalled) $ do
                 (exitCode, _out, err) <- runVsCodeCommand
                     ["--install-extension", publishedExtensionName]
@@ -196,24 +199,18 @@ runDamlStudio replaceExt remainingArguments = do
     -- First, ensure extension is installed as requested.
     case replaceExt of
         ReplaceExtNever ->
-            when (isNothing bundledExtensionVersion)
+            when (not bundledInstalled && isNothing oldBundled)
                 installPublishedExtension
 
         ReplaceExtAlways -> do
             removePublishedExtension
             removeBundledExtension
+            removeOldBundledExtension
             installBundledExtension'
-
-        ReplaceExtNewer -> do
-            sdkVersion <- requiredE "Failed to parse SDK version"
-                . parseVersion . T.pack =<< getSdkVersion
-            removePublishedExtension
-            when (maybe True (< sdkVersion) bundledExtensionVersion) $ do
-                removeBundledExtension
-                installBundledExtension'
 
         ReplaceExtPublished -> do
             removeBundledExtension
+            removeOldBundledExtension
             installPublishedExtension
 
     -- Then, open visual studio code.
@@ -228,22 +225,16 @@ runDamlStudio replaceExt remainingArguments = do
             ]
         exitWith exitCode
 
-installBundledExtension :: FilePath -> FilePath -> IO ()
-installBundledExtension src target = do
-    -- Create .vscode/extensions if it does not already exist.
-    createDirectoryIfMissing True (takeDirectory target)
-    catchJust
-        (guard . isAlreadyExistsError)
-        install
-        (const $ pure ())
-        -- If we get an exception, we just keep the existing extension.
-     where
-         install
-             | isWindows = do
-                   -- We create the directory to throw an isAlreadyExistsError.
-                   createDirectory target
-                   copyDirectory src target
-             | otherwise = createDirectoryLink src target
+installBundledExtension :: FilePath -> IO ()
+installBundledExtension pathToVsix = do
+    (exitCode, _out, err) <- runVsCodeCommand ["--install-extension", pathToVsix]
+    when (exitCode /= ExitSuccess) $ do
+        hPutStr stderr . unlines $
+           [ err
+           , "Failed to install DAML Studio extension from SDK bundle."
+           , "Please open an issue on GitHub with the above message."
+           , "https://github.com/digital-asset/daml/issues/new?template=bug_report.md"
+           ]
 
 runJar :: FilePath -> [String] -> IO ()
 runJar jarPath remainingArguments = do

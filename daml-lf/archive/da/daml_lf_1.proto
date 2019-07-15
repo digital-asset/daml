@@ -28,12 +28,12 @@
 // * 5 -- 2019-05-22: Relax serializability constraints for contract ids
 //        2019-05-23: Add BuiltinFunction.COERCE_CONTRACT_ID
 //        2019-05-24: Make actors in exercise optional
-// * dev (special staging area for the next version to be released)
-//        2019-05-27: Add enum type.
+// * 6 -- 2019-05-27: Add enum type.
 //        2019-06-04: Add BuiltinFunction.{TEXT_FROM_CODE_POINTS, TEXT_TO_CODE_POINTS}
 //        2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
 //        2019-07-04: Transaction submitters must be in contract key maintainers when looking up. See #1866.
-
+// * dev (special staging area for the next version to be released)
+//        2019-07-04: no change yet.
 
 syntax = "proto3";
 package daml_lf_1;
@@ -60,7 +60,7 @@ message PackageRef {
 
     // An index into `interned_package_ids` of the Package containing
     // this reference.
-    uint64 interned_id = 3; /* Available since version 1.dev */
+    uint64 interned_id = 3; /* Available since version 1.6 */
   }
 }
 
@@ -412,8 +412,8 @@ enum BuiltinFunction {
 
   COERCE_CONTRACT_ID = 102;
 
-  TEXT_FROM_CODE_POINTS = 105;  // : List Int64 -> Text   *Available since version 1.dev*
-  TEXT_TO_CODE_POINTS = 106; //: Text -> List Int64    *Available since version 1.dev*
+  TEXT_FROM_CODE_POINTS = 105;  // : List Int64 -> Text   *Available since version 1.6*
+  TEXT_TO_CODE_POINTS = 106; //: Text -> List Int64    *Available since version 1.6*
   // Next id is 107. 106 is TEXT_TO_CODE_POINTS.
 }
 
@@ -543,7 +543,7 @@ message Expr {
   }
 
    // Enum construction ('ExpEnumCon')
-   // *Available since version 1.dev*
+   // *Available since version 1.6*
    message EnumCon {
 
      // Name of the type constructor name
@@ -705,7 +705,7 @@ message Expr {
     VariantCon variant_con = 8;
 
     // Enum construction ('ExpEnumCon')
-    EnumCon enum_con = 28;  // *Available since version 1.dev*
+    EnumCon enum_con = 28;  // *Available since version 1.6*
 
     // Tuple construction ('ExpTupleCon')
     TupleCon tuple_con = 9;
@@ -778,7 +778,7 @@ message CaseAlt {
   }
 
   // Enum pattern
-  // *Available since version 1.dev*
+  // *Available since version 1.6*
   message Enum {
 
     // name of the type constructor
@@ -814,7 +814,7 @@ message CaseAlt {
     Cons cons = 5;
     Unit optional_none = 7; // * Available since version 1.1*
     OptionalSome optional_some = 8; // * Available since version 1.1*
-    Enum enum = 9; // * Available since version 1.dev*
+    Enum enum = 9; // * Available since version 1.6*
   }
 
   Expr body = 6;
@@ -1062,7 +1062,7 @@ message DefDataType {
     repeated FieldWithType fields = 1;
   }
 
-  // *Available since version 1.dev*
+  // *Available since version 1.6*
   message EnumConstructors {
     repeated string constructors = 1;
   }
@@ -1077,7 +1077,7 @@ message DefDataType {
   oneof DataCons {
     Fields record = 3; // Records without fields are explicitly allowed.
     Fields variant = 4; // Variants without constructors are explicitly allowed.
-    EnumConstructors enum = 7; // *Available since version 1.dev*
+    EnumConstructors enum = 7; // *Available since version 1.6*
   }
 
   // If true, this data type preserves serializability in the sense that when
@@ -1144,5 +1144,5 @@ message Module {
 
 message Package {
   repeated Module modules = 1;
-  repeated string interned_package_ids = 2; /* Available since version 1.dev */
+  repeated string interned_package_ids = 2; /* Available since version 1.6 */
 }

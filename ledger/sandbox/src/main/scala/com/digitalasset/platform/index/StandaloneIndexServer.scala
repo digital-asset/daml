@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.index
 
-import java.io.FileWriter
+import java.io.{File, FileWriter}
 import java.time.Instant
 
 import akka.actor.ActorSystem
@@ -119,16 +119,23 @@ class StandaloneIndexServer(
     }
   }
 
+  private def loadDamlPackages(): InMemoryPackageStore = {
+    // TODO is it sensible to have all the initial packages to be known since the epoch?
+    config.archiveFiles
+      .foldLeft[Either[(String, File), InMemoryPackageStore]](Right(InMemoryPackageStore.empty)) {
+        case (storeE, f) =>
+          storeE.flatMap(_.withDarFile(Instant.now(), None, f).left.map(_ -> f))
+      }
+      .fold({ case (err, file) => sys.error(s"Could not load package $file: $err") }, identity)
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
   private def buildAndStartApiServer(infra: Infrastructure): ApiServerState = {
     implicit val mat = infra.materializer
     implicit val ec: ExecutionContext = infra.executionContext
     implicit val mm: MetricsManager = infra.metricsManager
 
-    val packageStore = new InMemoryPackageStore()
-    config.archiveFiles.foreach { f =>
-      packageStore.putDarFile(Instant.now, Some(f.getName), f)
-    }
+    val packageStore = loadDamlPackages()
     preloadPackages(packageStore)
 
     val initF = for {

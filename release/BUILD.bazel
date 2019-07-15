@@ -64,7 +64,7 @@ genrule(
         "//:VERSION",
         "//daml-assistant:daml-dist",
         "//compiler/damlc:damlc-dist",
-        "//compiler/daml-extension:dist",
+        "//compiler/daml-extension:vsix",
         "//daml-assistant/daml-helper:daml-helper-dist",
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//navigator/backend:navigator-binary_deploy.jar",
@@ -96,7 +96,7 @@ genrule(
       tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
 
       mkdir -p $$OUT/studio
-      tar xf $(location //compiler/daml-extension:dist) --strip-components=1 -C $$OUT/studio
+      cp $(location //compiler/daml-extension:vsix) $$OUT/studio/daml-bundled.vsix
 
       mkdir -p $$OUT/sandbox
       cp $(location //ledger/sandbox:sandbox-binary_deploy.jar) $$OUT/sandbox/sandbox.jar

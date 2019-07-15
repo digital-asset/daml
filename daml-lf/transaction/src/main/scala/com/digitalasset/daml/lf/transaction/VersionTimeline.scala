@@ -53,7 +53,7 @@ private[digitalasset] object VersionTimeline {
       That(LanguageVersion(LMV.V1, "4")),
       That(LanguageVersion(LMV.V1, "5")),
       This(That(TransactionVersion("8"))),
-      This(This(ValueVersion("5"))),
+      Both(This(ValueVersion("5")), LanguageVersion(LMV.V1, "6")),
       That(LanguageVersion(LMV.V1, Dev)),
       // add new versions above this line
       // do *not* backfill to make more Boths, because such would

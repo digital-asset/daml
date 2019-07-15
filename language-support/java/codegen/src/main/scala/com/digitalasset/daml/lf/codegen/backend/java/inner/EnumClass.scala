@@ -78,7 +78,7 @@ private[inner] object EnumClass extends StrictLogging {
         "$T constructor$$ = value$$.asEnum().orElseThrow(() -> new $T($S)).getConstructor()",
         classOf[String],
         classOf[IllegalArgumentException],
-        s"Expected DamlEnum to build an instance of the  ${className.simpleName()}"
+        s"Expected DamlEnum to build an instance of the Enum ${className.simpleName()}"
       )
       .addStatement(
         "if (!$T.__enums$$.containsKey(constructor$$)) throw new $T($S + constructor$$)",

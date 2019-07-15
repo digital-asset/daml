@@ -3,20 +3,19 @@
 
 package com.digitalasset.platform.sandbox.services.admin
 
-import java.io.{File, FileOutputStream}
-import java.util.zip.ZipFile
+import java.io.ByteArrayInputStream
+import java.util.zip.ZipInputStream
 
 import com.daml.ledger.participant.state.index.v2.IndexPackagesService
 import com.daml.ledger.participant.state.v2.{UploadPackagesResult, WritePackagesService}
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import com.digitalasset.daml_lf.DamlLf.Archive
-import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.ledger.api.v1.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
+import com.digitalasset.ledger.api.v1.admin.package_management_service._
 import com.digitalasset.platform.api.grpc.GrpcApiService
-import com.google.protobuf.timestamp.Timestamp
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DE}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
+import com.google.protobuf.timestamp.Timestamp
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
@@ -54,13 +53,11 @@ class ApiPackageManagementService(
   }
 
   override def uploadDarFile(request: UploadDarFileRequest): Future[UploadDarFileResponse] = {
-    // TODO(RC): Refactor DarReader to use ZipInputStream, to avoid creating a temporary file
     val resultT = for {
-      file <- Try(File.createTempFile("uploadDarFile", ".dar"))
-      _ <- bracket(Try(new FileOutputStream(file)))(fos => Try(fos.close())).flatMap { fos =>
-        Try(fos.write(request.darFile.toByteArray))
-      }
-      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchive(new ZipFile(file))
+      dar <- DarReader { case (_, x) => Try(Archive.parseFrom(x)) }
+        .readArchive(
+          "package-upload",
+          new ZipInputStream(new ByteArrayInputStream(request.darFile.toByteArray)))
     } yield {
       packagesWrite.uploadPackages(dar.all, None)
     }
