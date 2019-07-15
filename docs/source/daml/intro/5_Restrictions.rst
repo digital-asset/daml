@@ -94,7 +94,7 @@ Time in scenarios
 In scenarios, record and ledger effective time are always equal. You can set them using the following functions:
 
 - ``passToDate``, which takes a date sets the time to midnight (UTC) of that date and ``pass``
-- ``pass``, which takes a ``Reltime`` (a relative time) and moves the ledger by that much
+- ``pass``, which takes a ``Reltime`` (a relative time) and moves the ledger by that much. That is, ``pass (days (3))`` moves the ledger 3 days forward
 
 Time on ledgers
 ~~~~~~~~~~~~~~~~~
