@@ -11,6 +11,7 @@ import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import Network.GRPC.HighLevel.Generated
 
+-- | Upload a DAR file to the ledger. If the ledger responds with `INVALID_ARGUMENT`, we return `Left details`.
 uploadDarFile :: ByteString -> LedgerService (Either String ()) -- Unlike other services, no LedgerId is needed. (why?!)
 uploadDarFile bytes =
     makeLedgerService $ \timeout config ->
