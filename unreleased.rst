@@ -80,3 +80,6 @@ HEAD — ongoing
   `restriction about contract key lookup
   <https://github.com/digital-asset/daml/issues/1866>`__ described in the
   DAML-LF section
+
+- [DAML Docs]: Added links to type signatures in generated docs. Check out the updated
+`the standard library docs <https://docs.daml.com/daml/reference/base.html>`__.
