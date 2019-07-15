@@ -61,6 +61,7 @@ import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
 
+import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
@@ -543,17 +544,26 @@ getHlintDiagnosticsRule =
         let modu = pm_parsed_source pm
         (classify, hint) <- useNoFile_ GetHlintSettings
         let ideas = applyHints classify hint [createModuleEx anns modu]
-        return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
+        return ([diagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
-      -- To-do : Improve this.
-      toDiagnostic file i = ideHintText file (T.pack $ show i)
-      ideHintText fp msg = (fp, LSP.Diagnostic {
-         _range = noRange,
-         _severity = Just LSP.DsInfo,
-         _code = Nothing,
-         _source = Just "linter",
-         _message = msg,
-         _relatedInformation = Nothing
+      srcSpanToRange :: HSE.SrcSpan -> LSP.Range
+      srcSpanToRange span = Range {
+          _start = LSP.Position {
+                _line = HSE.srcSpanStartLine span - 1
+              , _character  = HSE.srcSpanStartColumn span - 1}
+        , _end   = LSP.Position {
+                _line = HSE.srcSpanEndLine span - 1
+             , _character = HSE.srcSpanEndColumn span - 1}
+        }
+      diagnostic :: NormalizedFilePath -> Idea -> FileDiagnostic
+      diagnostic file i =
+        (file, LSP.Diagnostic {
+              _range = srcSpanToRange $ ideaSpan i
+            , _severity = Just LSP.DsInfo
+            , _code = Nothing
+            , _source = Just "linter"
+            , _message = T.pack $ show i
+            , _relatedInformation = Nothing
       })
 
 --
