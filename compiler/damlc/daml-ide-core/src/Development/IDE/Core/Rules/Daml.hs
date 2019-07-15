@@ -61,6 +61,7 @@ import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
 
+import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
@@ -440,7 +441,7 @@ ofInterestRule opts = do
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
-        let hlintEnabled = optHlintEnabled opts
+        let hlintEnabled = case optHlintUsage opts of Just (HlintEnabled _) -> True ; _ -> False
         let files = Set.toList scenarioFiles
         let dalfActions = [(void . getDalf) f | f <- files]
         let hlintActions = [use_ GetHlintDiagnostics f | hlintEnabled, f <- files]
@@ -528,12 +529,12 @@ hlintSettings hlintDataDir = do
     findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
   return (classify, hints)
 
-getHlintSettingsRule :: Maybe FilePath -> Rules ()
-getHlintSettingsRule dir =
+getHlintSettingsRule :: Maybe HlintUsage -> Rules ()
+getHlintSettingsRule usage =
     defineNoFile $ \GetHlintSettings ->
-      liftIO $ case dir of
-          Just dir -> hlintSettings dir
-          Nothing -> fail "linter configuration unspecified"
+      liftIO $ case usage of
+          Just (HlintEnabled dir) -> hlintSettings dir
+          _ -> fail "linter configuration unspecified"
 
 getHlintDiagnosticsRule :: Rules ()
 getHlintDiagnosticsRule =
@@ -543,17 +544,26 @@ getHlintDiagnosticsRule =
         let modu = pm_parsed_source pm
         (classify, hint) <- useNoFile_ GetHlintSettings
         let ideas = applyHints classify hint [createModuleEx anns modu]
-        return ([toDiagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
+        return ([diagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
-      -- To-do : Improve this.
-      toDiagnostic file i = ideHintText file (T.pack $ show i)
-      ideHintText fp msg = (fp, LSP.Diagnostic {
-         _range = noRange,
-         _severity = Just LSP.DsInfo,
-         _code = Nothing,
-         _source = Just "linter",
-         _message = msg,
-         _relatedInformation = Nothing
+      srcSpanToRange :: HSE.SrcSpan -> LSP.Range
+      srcSpanToRange span = Range {
+          _start = LSP.Position {
+                _line = HSE.srcSpanStartLine span - 1
+              , _character  = HSE.srcSpanStartColumn span - 1}
+        , _end   = LSP.Position {
+                _line = HSE.srcSpanEndLine span - 1
+             , _character = HSE.srcSpanEndColumn span - 1}
+        }
+      diagnostic :: NormalizedFilePath -> Idea -> FileDiagnostic
+      diagnostic file i =
+        (file, LSP.Diagnostic {
+              _range = srcSpanToRange $ ideaSpan i
+            , _severity = Just LSP.DsInfo
+            , _code = Nothing
+            , _source = Just "linter"
+            , _message = T.pack $ show i
+            , _relatedInformation = Nothing
       })
 
 --
@@ -605,7 +615,7 @@ damlRule opts = do
     encodeModuleRule
     createScenarioContextRule
     getOpenVirtualResourcesRule
-    getHlintSettingsRule (optHlintDataDir opts)
+    getHlintSettingsRule (optHlintUsage opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do

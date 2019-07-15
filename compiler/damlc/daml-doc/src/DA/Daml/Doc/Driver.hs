@@ -72,7 +72,7 @@ damlDocDriver cInputFormat ideOpts output cFormat prefixFile options files = do
 
     case cFormat of
             Json -> write output $ T.decodeUtf8 . BS.toStrict $ AP.encodePretty' jsonConf docData
-            Rst  -> write output $ T.concat $ map renderSimpleRst docData
+            Rst  -> write output $ renderFinish $ mconcat $ map renderSimpleRst docData
             Hoogle   -> write output $ T.concat $ map renderSimpleHoogle docData
             Markdown -> write output $ T.concat $ map renderSimpleMD docData
             Html -> sequence_

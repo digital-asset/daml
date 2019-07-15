@@ -27,6 +27,7 @@ da_haskell_library(
         "hashable",
         "haskell-lsp",
         "haskell-lsp-types",
+        "haskell-src-exts",
         "hlint",
         "http-types",
         "mtl",
@@ -52,7 +53,6 @@ da_haskell_library(
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/hie-core",
         "//compiler/scenario-service/client",
-        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
     ],
 )
@@ -85,6 +85,7 @@ da_haskell_library(
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/hie-core",
+        "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
     ],
 )
