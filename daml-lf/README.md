@@ -145,13 +145,10 @@ The REPL can be compiled with `bazel build //:daml-lf-repl` and run with
 `bazel run //:daml-lf-repl -- repl`. The `//:` prefix is not needed when
 at repository root.
 
-Note that the REPL currently only supports loading from .dalf files,
-not from .dar files.
-
 Example use:
 
 $ bazel run //:daml-lf-repl -- repl
-daml> :load project.dalf
+daml> :load project.dar
 daml> Project.double 4
 8
 daml> :scenario Project.tests
