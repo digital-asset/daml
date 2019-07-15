@@ -4,6 +4,7 @@
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
     , module Development.IDE.Core.Rules.Daml
+    , getHLintDataDir
     ) where
 
 import Control.Concurrent.Extra
@@ -59,6 +60,9 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
+
+import qualified Language.Haskell.Exts.SrcLoc as HSE
+import Language.Haskell.HLint4
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
 -- document provider that will handle our special documents.
@@ -145,7 +149,7 @@ ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
 getDalfDependencies :: NormalizedFilePath -> MaybeT Action (Map.Map UnitId DalfPackage)
 getDalfDependencies file = do
     unitIds <- transitivePkgDeps <$> useE GetDependencies file
-    pkgMap <- useE GeneratePackageMap ""
+    pkgMap <- useNoFileE GeneratePackageMap
     pure $ Map.restrictKeys pkgMap (Set.fromList $ map (DefiniteUnitId . DefUnitId) unitIds)
 
 runScenarios :: NormalizedFilePath -> Action (Maybe [(VirtualResource, Either SS.Error SS.ScenarioResult)])
@@ -168,7 +172,7 @@ generateRawDalfRule =
         core <- use_ GenerateCore file
         setPriority priorityGenerateDalf
         -- Generate the map from package names to package hashes
-        pkgMap <- use_ GeneratePackageMap ""
+        pkgMap <- useNoFile_ GeneratePackageMap
         let pkgMap0 = Map.map (LF.unPackageId . dalfPackageId) pkgMap
         -- GHC Core to DAML LF
         case convertModule lfVersion pkgMap0 file core of
@@ -181,7 +185,7 @@ generateDalfRule =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
         pkg <- use_ GeneratePackageDeps file
-        pkgMap <- use_ GeneratePackageMap ""
+        pkgMap <- useNoFile_ GeneratePackageMap
         let pkgs = map dalfPackagePkg $ Map.elems pkgMap
         let world = LF.initWorldSelf pkgs pkg
         unsimplifiedRawDalf <- use_ GenerateRawDalf file
@@ -227,7 +231,6 @@ generatePackageMapRule opts =
                 "Options: " ++ show (optPackageDbs opts) ++ "\n" ++
                 "Errors:\n" ++ unlines (map show errs)
         return res
-
 generatePackageRule :: Rules ()
 generatePackageRule =
     define $ \GeneratePackage file -> do
@@ -264,7 +267,7 @@ contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
     lfVersion <- getDamlLfVersion
     pkg <- use_ GeneratePackage file
-    pkgMap <- use_ GeneratePackageMap ""
+    pkgMap <- useNoFile_ GeneratePackageMap
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
         NM.toList $ LF.packageModules pkg
@@ -281,7 +284,7 @@ contextForFile file = do
 worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
     pkg <- use_ GeneratePackage file
-    pkgMap <- use_ GeneratePackageMap ""
+    pkgMap <- useNoFile_ GeneratePackageMap
     let pkgs = map dalfPackagePkg $ Map.elems pkgMap
     pure $ LF.initWorldSelf pkgs pkg
 
@@ -359,7 +362,7 @@ getScenarioRootsRule :: Rules ()
 getScenarioRootsRule =
     defineNoFile $ \GetScenarioRoots -> do
         filesOfInterest <- getFilesOfInterest
-        openVRs <- use_ GetOpenVirtualResources ""
+        openVRs <- useNoFile_ GetOpenVirtualResources
         let files = Set.toList (filesOfInterest `Set.union` Set.map vrScenarioFile openVRs)
         deps <- forP files $ \file -> do
             transitiveDeps <- maybe [] transitiveModuleDeps <$> use GetDependencies file
@@ -371,7 +374,7 @@ getScenarioRootsRule =
 getScenarioRootRule :: Rules ()
 getScenarioRootRule =
     defineEarlyCutoff $ \GetScenarioRoot file -> do
-        ctxRoots <- use_ GetScenarioRoots ""
+        ctxRoots <- useNoFile_ GetScenarioRoots
         case Map.lookup file ctxRoots of
             Nothing -> liftIO $
                 fail $ "No scenario root for file " <> show (fromNormalizedFilePath file) <> "."
@@ -410,16 +413,16 @@ vrChangedNotification vr doc =
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
 -- TODO (MK): We should have a non-DAML version of this rule
-ofInterestRule :: Rules ()
-ofInterestRule = do
+ofInterestRule :: Options -> Rules ()
+ofInterestRule opts = do
     -- go through a rule (not just an action), so it shows up in the profile
-    action $ use OfInterest ""
+    action $ useNoFile OfInterest
     defineNoFile $ \OfInterest -> do
         setPriority priorityFilesOfInterest
         DamlEnv{..} <- getDamlServiceEnv
         -- query for files of interest
         files   <- getFilesOfInterest
-        openVRs <- use_ GetOpenVirtualResources ""
+        openVRs <- useNoFile_ GetOpenVirtualResources
         let vrFiles = Set.map vrScenarioFile openVRs
         -- We run scenarios for all files of interest to get diagnostics
         -- and for the files for which we have open VRs so that they get
@@ -434,12 +437,18 @@ ofInterestRule = do
                     let doc = formatScenarioResult world res
                     when (vr `Set.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
+
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
-        _ <- parallel $
-            map (void . getDalf) (Set.toList scenarioFiles) <>
-            [runScenarios file | shouldRunScenarios, file <- Set.toList scenarioFiles]
+        let hlintEnabled = case optHlintUsage opts of
+              HlintEnabled _ -> True
+              HlintDisabled -> False
+        let files = Set.toList scenarioFiles
+        let dalfActions = [(void . getDalf) f | f <- files]
+        let hlintActions = [use_ GetHlintDiagnostics f | hlintEnabled, f <- files]
+        let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
+        _ <- parallel $ dalfActions <> hlintActions <> runScenarioActions
         return ()
   where
       gc :: Set NormalizedFilePath -> Action ()
@@ -509,6 +518,57 @@ encodeModuleRule =
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
+-- hlint
+
+hlintSettings :: FilePath -> IO ([Classify], Hint)
+hlintSettings hlintDataDir = do
+  -- `findSettings` ends up calling `readFilesConfig` which in turn
+  -- calls `readFileConfigYaml` which finally calls `decodeFileEither`
+  -- from the `yaml` library.  Annoyingly that function catches async
+  -- exceptions and in particular, it ends up catching `ThreadKilled`.
+  -- So, we have to mask to stop it from doing that.
+  (_, classify, hints) <- mask $ \unmask ->
+    findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
+  return (classify, hints)
+
+getHlintSettingsRule :: HlintUsage -> Rules ()
+getHlintSettingsRule usage =
+    defineNoFile $ \GetHlintSettings ->
+      liftIO $ case usage of
+          HlintEnabled dir -> hlintSettings dir
+          HlintDisabled -> fail "linter configuration unspecified"
+
+getHlintDiagnosticsRule :: Rules ()
+getHlintDiagnosticsRule =
+    define $ \GetHlintDiagnostics file -> do
+        pm <- use_ GetParsedModule file
+        let anns = pm_annotations pm
+        let modu = pm_parsed_source pm
+        (classify, hint) <- useNoFile_ GetHlintSettings
+        let ideas = applyHints classify hint [createModuleEx anns modu]
+        return ([diagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
+    where
+      srcSpanToRange :: HSE.SrcSpan -> LSP.Range
+      srcSpanToRange span = Range {
+          _start = LSP.Position {
+                _line = HSE.srcSpanStartLine span - 1
+              , _character  = HSE.srcSpanStartColumn span - 1}
+        , _end   = LSP.Position {
+                _line = HSE.srcSpanEndLine span - 1
+             , _character = HSE.srcSpanEndColumn span - 1}
+        }
+      diagnostic :: NormalizedFilePath -> Idea -> FileDiagnostic
+      diagnostic file i =
+        (file, LSP.Diagnostic {
+              _range = srcSpanToRange $ ideaSpan i
+            , _severity = Just LSP.DsInfo
+            , _code = Nothing
+            , _source = Just "linter"
+            , _message = T.pack $ show i
+            , _relatedInformation = Nothing
+      })
+
+--
 scenariosInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scenariosInModule m =
     [ (LF.Qualified LF.PRSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
@@ -552,10 +612,12 @@ damlRule opts = do
     runScenariosRule
     getScenarioRootsRule
     getScenarioRootRule
-    ofInterestRule
+    getHlintDiagnosticsRule
+    ofInterestRule opts
     encodeModuleRule
     createScenarioContextRule
     getOpenVirtualResourcesRule
+    getHlintSettingsRule (optHlintUsage opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do

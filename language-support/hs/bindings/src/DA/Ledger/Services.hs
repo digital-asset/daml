@@ -8,6 +8,7 @@ import DA.Ledger.Services.CommandCompletionService as X
 import DA.Ledger.Services.CommandSubmissionService as X
 import DA.Ledger.Services.LedgerConfigurationService as X
 import DA.Ledger.Services.LedgerIdentityService as X
+import DA.Ledger.Services.PackageManagementService as X
 import DA.Ledger.Services.PackageService as X
 import DA.Ledger.Services.ResetService as X
 import DA.Ledger.Services.TransactionService as X

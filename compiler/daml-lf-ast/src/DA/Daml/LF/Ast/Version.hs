@@ -24,21 +24,19 @@ data MinorVersion = PointStable Int | PointDev
 version1_5 :: Version
 version1_5 = V1 $ PointStable 5
 
--- TODO(MH): Roll this when freezing DAML-LF 1.6.
 version1_6 :: Version
-version1_6 = versionDev
--- version1_6 = V1 $ PointStable 6
+version1_6 = V1 $ PointStable 6
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_5
+versionDefault = version1_6
 
 -- | The DAML-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_5, versionDev]
+supportedInputVersions = [version1_5, version1_6, versionDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions

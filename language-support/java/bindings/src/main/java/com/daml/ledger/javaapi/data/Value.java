@@ -16,6 +16,8 @@ public abstract class Value {
                 return Record.fromProto(value.getRecord());
             case VARIANT:
                 return Variant.fromProto(value.getVariant());
+            case ENUM:
+                return DamlEnum.fromProto(value.getEnum());
             case CONTRACT_ID:
                 return new ContractId(value.getContractId());
             case LIST:

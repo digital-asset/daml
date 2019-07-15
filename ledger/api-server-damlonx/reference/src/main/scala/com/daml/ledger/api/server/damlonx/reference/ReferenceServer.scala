@@ -4,7 +4,6 @@
 package com.daml.ledger.api.server.damlonx.reference
 
 import java.io.{File, FileWriter}
-import java.util.zip.ZipFile
 
 import akka.NotUsed
 import akka.actor.ActorSystem
@@ -51,7 +50,7 @@ object ReferenceServer extends App {
   //val ledger = new Ledger(timeModel, tsb)
   def archivesFromDar(file: File): List[Archive] = {
     DarReader[Archive] { case (_, x) => Try(Archive.parseFrom(x)) }
-      .readArchive(new ZipFile(file))
+      .readArchiveFromFile(file)
       .fold(t => throw new RuntimeException(s"Failed to parse DAR from $file", t), dar => dar.all)
   }
 

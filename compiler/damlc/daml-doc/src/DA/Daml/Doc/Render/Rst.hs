@@ -1,15 +1,15 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, DerivingStrategies #-}
 
 module DA.Daml.Doc.Render.Rst
   ( renderSimpleRst
+  , renderFinish
   ) where
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util
-import DA.Daml.Doc.Anchor
 
 import qualified Data.Text.Prettyprint.Doc as Pretty
 import           Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
@@ -18,110 +18,177 @@ import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import           Data.Char
 import           Data.Maybe
 import qualified Data.Text as T
+import qualified Data.Set as Set
 
 import CMarkGFM
 
-renderAnchor :: Anchor -> T.Text
-renderAnchor anchor = "\n.. _" <> unAnchor anchor <> ":\n"
+-- | Renderer output. This is the set of anchors that were generated, and a
+-- list of output functions that depend on that set. The goal is to prevent
+-- the creation of spurious anchors links (i.e. links to anchors that don't
+-- exist).
+--
+-- (In theory this could be done in two steps, but that seems more error prone
+-- than building up both steps at the same time, and combining them at the
+-- end, as is done here.)
+--
+-- Using a newtype here so we can derive the semigroup / monoid instances we
+-- want automatically. :-)
+newtype RenderOut = RenderOut (RenderEnv, [RenderEnv -> [T.Text]])
+    deriving newtype (Semigroup, Monoid)
 
-renderSimpleRst :: ModuleDoc -> T.Text
+newtype RenderEnv = RenderEnv (Set.Set Anchor)
+    deriving newtype (Semigroup, Monoid)
+
+-- | Is the anchor available in the render environment? Renderers should avoid
+-- generating links to anchors that don't actually exist.
+--
+-- One reason an anchor may be unavailable is because of a @-- | HIDE@ directive.
+-- Another possibly reason is that the anchor refers to a definition in another
+-- package (and at the moment it's not possible to link accross packages).
+renderAnchorAvailable :: RenderEnv -> Anchor -> Bool
+renderAnchorAvailable (RenderEnv anchors) anchor = Set.member anchor anchors
+
+renderFinish :: RenderOut -> T.Text
+renderFinish (RenderOut (xs, fs)) = T.unlines (concatMap ($ xs) fs)
+
+renderAnchor :: Maybe Anchor -> RenderOut
+renderAnchor Nothing = mempty
+renderAnchor (Just anchor) = RenderOut
+    ( RenderEnv (Set.singleton anchor)
+    , [const ["", ".. _" <> unAnchor anchor <> ":", ""]]
+    )
+
+renderLine :: T.Text -> RenderOut
+renderLine l = renderLines [l]
+
+renderLines :: [T.Text] -> RenderOut
+renderLines ls = renderLinesDep (const ls)
+
+renderLineDep :: (RenderEnv -> T.Text) -> RenderOut
+renderLineDep f = renderLinesDep (pure . f)
+
+renderLinesDep :: (RenderEnv -> [T.Text]) -> RenderOut
+renderLinesDep f = RenderOut (mempty, [f])
+
+renderIndent :: Int -> RenderOut -> RenderOut
+renderIndent n (RenderOut (env, fs)) =
+    RenderOut (env, map (map (T.replicate n " " <>) .) fs)
+
+renderDocText :: DocText -> RenderOut
+renderDocText = renderLines . T.lines . docTextToRst
+
+renderSimpleRst :: ModuleDoc -> RenderOut
 renderSimpleRst ModuleDoc{..}
   | null md_templates && null md_classes &&
     null md_adts && null md_functions &&
-    isNothing md_descr = T.empty
-renderSimpleRst ModuleDoc{..} = T.unlines $
-  [ ""
-  , renderAnchor (moduleAnchor md_name)
-  , title
-  , T.replicate (T.length title) "-"
-  , maybe "" docTextToRst md_descr
+    isNothing md_descr = mempty
+renderSimpleRst ModuleDoc{..} = mconcat $
+  [ renderAnchor md_anchor
+  , renderLines
+      [ title
+      , T.replicate (T.length title) "-"
+      , maybe "" docTextToRst md_descr
+      ]
   ]
   <> concat
   [ if null md_templates
     then []
-    else [""
-         , "Templates"
-         , "^^^^^^^^^"
-         , T.unlines $ map (tmpl2rst md_name) md_templates
+    else [ renderLines
+              [ ""
+              , "Templates"
+              , "^^^^^^^^^" ]
+         , mconcat $ map tmpl2rst md_templates
          ]
   , if null md_classes
     then []
-    else [ ""
-         , "Typeclasses"
-         , "^^^^^^^^^^^"
-         , T.unlines $ map (cls2rst md_name) md_classes
+    else [ renderLines
+              [ ""
+              , "Typeclasses"
+              , "^^^^^^^^^^^" ]
+         , mconcat $ map cls2rst md_classes
          ]
   , if null md_adts
     then []
-    else [ ""
-         , "Data types"
-         , "^^^^^^^^^^"
-         , T.unlines $ map (adt2rst md_name) md_adts
+    else [ renderLines
+              [ ""
+              , "Data types"
+              , "^^^^^^^^^^"]
+         , mconcat $ map adt2rst md_adts
          ]
   , if null md_functions
     then []
-    else [ ""
-         , "Functions"
-         , "^^^^^^^^^"
-         , T.unlines $ map (fct2rst md_name) md_functions
+    else [ renderLines
+              [ ""
+              , "Functions"
+              , "^^^^^^^^^" ]
+         , mconcat $ map fct2rst md_functions
          ]
   ]
 
   where title = "Module " <> unModulename md_name
 
-tmpl2rst :: Modulename -> TemplateDoc -> T.Text
-tmpl2rst md_name TemplateDoc{..} = T.unlines $
-  renderAnchor (templateAnchor md_name td_name) :
-  ("template " <> enclosedIn "**" (unTypename td_name)) :
-  maybe "" (T.cons '\n' . indent 2 . docTextToRst) td_descr :
-  "" :
-  indent 2 (fieldTable td_payload) :
-  "" :
-  map (indent 2 . choiceBullet) td_choices -- ends by "\n" because of unlines above
+tmpl2rst :: TemplateDoc -> RenderOut
+tmpl2rst TemplateDoc{..} = mconcat $
+  [ renderAnchor td_anchor
+  , renderLine $ "template " <> enclosedIn "**" (unTypename td_name)
+  , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) td_descr
+  , renderLine ""
+  , renderIndent 2 (fieldTable td_payload)
+  , renderLine ""
+  ] ++ map (renderIndent 2 . choiceBullet) td_choices
 
-
-choiceBullet :: ChoiceDoc -> T.Text
-choiceBullet ChoiceDoc{..} = T.unlines
-  [ prefix "+ " $ enclosedIn "**" $ "Choice " <> unTypename cd_name
-  , maybe "" (flip T.snoc '\n' . indent 2 . docTextToRst) cd_descr
-  , indent 2 (fieldTable cd_fields)
+choiceBullet :: ChoiceDoc -> RenderOut
+choiceBullet ChoiceDoc{..} = mconcat
+  [ renderLine $ prefix "+ " $ enclosedIn "**" $ "Choice " <> unTypename cd_name
+  , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cd_descr
+  , renderIndent 2 (fieldTable cd_fields)
   ]
 
-cls2rst :: Modulename ->  ClassDoc -> T.Text
-cls2rst md_name ClassDoc{..} = T.unlines $
-  renderAnchor (classAnchor md_name cl_name) :
-  "**class " <> maybe "" (\x -> type2rst x <> " => ") cl_super <> T.unwords (unTypename cl_name : cl_args) <> " where**" :
-  maybe [] ((:[""]) . indent 2 . docTextToRst) cl_descr ++
-  map (indent 2 . fct2rst md_name) cl_functions
+cls2rst ::  ClassDoc -> RenderOut
+cls2rst ClassDoc{..} = mconcat
+    [ renderAnchor cl_anchor
+    , renderLineDep $ \env ->
+        "**class " <> maybe "" (\x -> type2rst env x <> " => ") cl_super <> T.unwords (unTypename cl_name : cl_args) <> " where**"
+    , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cl_descr
+    , mconcat $ map (renderIndent 2 . fct2rst) cl_functions
+    ]
 
-adt2rst :: Modulename -> ADTDoc -> T.Text
-adt2rst md_name TypeSynDoc{..} = T.unlines $
-    [ renderAnchor (typeAnchor md_name ad_name)
-    , "type " <> enclosedIn "**"
-        (T.unwords (unTypename ad_name : ad_args))
-    , "    = " <> type2rst ad_rhs
-    ] ++ maybe [] ((:[]) . T.cons '\n' . indent 2 . docTextToRst) ad_descr
-adt2rst md_name ADTDoc{..} = T.unlines $
-    [ renderAnchor (dataAnchor md_name ad_name)
-    , "data " <> enclosedIn "**"
-        (T.unwords (unTypename ad_name : ad_args))
-    , maybe "" (T.cons '\n' . indent 2 . docTextToRst) ad_descr
-    ] ++ map (indent 2 . T.cons '\n' . constr2rst md_name) ad_constrs
+adt2rst :: ADTDoc -> RenderOut
+adt2rst TypeSynDoc{..} = mconcat
+    [ renderAnchor ad_anchor
+    , renderLinesDep $ \env ->
+        [ "type " <> enclosedIn "**"
+            (T.unwords (unTypename ad_name : ad_args))
+        , "    = " <> type2rst env ad_rhs
+        , ""
+        ]
+    , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
+    ]
+adt2rst ADTDoc{..} = mconcat $
+    [ renderAnchor ad_anchor
+    , renderLines
+        [ "data " <> enclosedIn "**" (T.unwords (unTypename ad_name : ad_args))
+        , "" ]
+    , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
+    ] ++ map (renderIndent 2 . (renderLine "" <>) . constr2rst) ad_constrs
 
 
-constr2rst :: Modulename -> ADTConstr -> T.Text
-constr2rst md_name PrefixC{..} = T.unlines $
-    [ renderAnchor (constrAnchor md_name ac_name)
-    , T.unwords (enclosedIn "**" (unTypename ac_name) : map type2rst ac_args)
-        -- FIXME: Parentheses around args seems necessary here
-        -- if they are type application or function (see type2rst).
-    ] ++ maybe [] ((:[]) . T.cons '\n' . docTextToRst) ac_descr
+constr2rst ::  ADTConstr -> RenderOut
+constr2rst PrefixC{..} = mconcat
+    [ renderAnchor ac_anchor
+    , renderLineDep $ \env ->
+        T.unwords (enclosedIn "**" (unTypename ac_name) : map (type2rst env) ac_args)
+            -- FIXME: Parentheses around args seems necessary here
+            -- if they are type application or function (see type2rst).
+    , maybe mempty ((renderLine "" <>) . renderDocText) ac_descr
+    ]
 
-constr2rst md_name RecordC{..} = T.unlines
-    [ renderAnchor (constrAnchor md_name ac_name)
-    , enclosedIn "**" (unTypename ac_name)
-    , maybe "" (T.cons '\n' . docTextToRst) ac_descr
-    , ""
+constr2rst RecordC{..} = mconcat
+    [ renderAnchor ac_anchor
+    , renderLine $ enclosedIn "**" (unTypename ac_name)
+    , renderLine ""
+    , maybe mempty renderDocText ac_descr
+    , renderLine ""
     , fieldTable ac_fields
     ]
 
@@ -145,45 +212,61 @@ constr2rst md_name RecordC{..} = T.unlines
 >      - `Text`
 >      - and text
 -}
-fieldTable :: [FieldDoc] -> T.Text
-fieldTable []  = ""
-fieldTable fds = T.unlines $ -- NB final empty line is essential and intended
-  [ ".. list-table::", "   :widths: 15 10 30", "   :header-rows: 1", ""]
-  <> map (indent 3) (headerRow <> fieldRows)
+fieldTable :: [FieldDoc] -> RenderOut
+fieldTable []  = mempty
+fieldTable fds = mconcat -- NB final empty line is essential and intended
+    [ renderLines
+        [ ".. list-table::"
+        , "   :widths: 15 10 30"
+        , "   :header-rows: 1"
+        , ""
+        , "   * - Field"
+        , "     - Type"
+        , "     - Description" ]
+    , fieldRows
+    ]
   where
-    headerRow = [ "* - Field"
-                , "  - Type"
-                , "  - Description" ]
-    fieldRows = concat
-       [ [ prefix "* - " $ escapeTr_ (unFieldname fd_name)
-         , prefix "  - " $ type2rst fd_type
-         , prefix "  - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ] -- FIXME: this makes no sense
+    fieldRows = renderLinesDep $ \env -> concat
+       [ [ prefix "   * - " $ escapeTr_ (unFieldname fd_name)
+         , prefix "     - " $ type2rst env fd_type
+         , prefix "     - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ] -- FIXME: indent properly instead of this
        | FieldDoc{..} <- fds ]
 
 -- | Render a type. Nested type applications are put in parentheses.
-type2rst :: Type -> T.Text
-type2rst = f (0 :: Int)
+type2rst :: RenderEnv -> Type -> T.Text
+type2rst env = f 0
   where
     -- 0 = no brackets
     -- 1 = brackets around function
     -- 2 = brackets around function AND application
-    f _ (TypeApp _ n []) = unTypename n
-    f i (TypeApp _ n as) = (if i >= 2 then inParens else id) $ T.unwords (unTypename n : map (f 2) as)
-    f i (TypeFun ts) = (if i >= 1 then inParens else id) $ T.intercalate " -> " $ map (f 1) ts
+    f :: Int -> Type -> T.Text
+    f _ (TypeApp a n []) = link a n
+    f i (TypeApp a n as) = (if i >= 2 then inParens else id) $
+        T.unwords (link a n : map (f 2) as)
+    f i (TypeFun ts) = (if i >= 1 then inParens else id) $
+        T.intercalate " -> " $ map (f 1) ts
     f _ (TypeList t1) = "[" <> f 0 t1 <> "]"
     f _ (TypeTuple ts) = "(" <> T.intercalate ", " (map (f 0) ts) <>  ")"
 
+    link :: Maybe Anchor -> Typename -> T.Text
+    link Nothing n = unTypename n
+    link (Just anchor) n =
+        if renderAnchorAvailable env anchor
+            then T.concat ["`", unTypename n, " <", unAnchor anchor, "_>`_"]
+            else unTypename n
 
-fct2rst :: Modulename -> FunctionDoc -> T.Text
-fct2rst md_name  FunctionDoc{..} = T.unlines
-    [ renderAnchor (functionAnchor md_name fct_name fct_type)
-    , enclosedIn "**" (wrapOp (unFieldname fct_name))
-    , T.concat
-        [ "  : "
-        , maybe "" ((<> " => ") . type2rst) fct_context
-        , maybe "" ((<> "\n\n") . type2rst) fct_type
-            -- FIXME: when would a function not have a type?
-        , maybe "" (indent 2 . docTextToRst) fct_descr
+fct2rst :: FunctionDoc -> RenderOut
+fct2rst FunctionDoc{..} = mconcat
+    [ renderAnchor fct_anchor
+    , renderLinesDep $ \ env ->
+        [ enclosedIn "**" (wrapOp (unFieldname fct_name))
+        , T.concat
+            [ "  : "
+            , maybe "" ((<> " => ") . type2rst env) fct_context
+            , maybe "" ((<> "\n\n") . type2rst env) fct_type
+                -- FIXME: when would a function not have a type?
+            , maybe "" (indent 2 . docTextToRst) fct_descr
+            ]
         ]
     ]
 

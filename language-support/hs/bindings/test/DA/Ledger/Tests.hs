@@ -13,7 +13,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchive)
 import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
-import Data.List (elem,isPrefixOf,isInfixOf)
+import Data.List (elem,isPrefixOf,isInfixOf,(\\))
 import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
 import System.Random (randomIO)
@@ -23,7 +23,9 @@ import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
 import qualified Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString as BS (readFile)
+import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
+import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.Text.Lazy as Text(pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
 
@@ -61,6 +63,8 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetTransactionById
     , tGetActiveContracts
     , tGetLedgerConfiguration
+    , tUploadDarFileBad
+    , tUploadDarFile
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -164,47 +168,41 @@ tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \pi
 tCreateWithKey :: SandboxTest
 tCreateWithKey withSandbox = testCase "createWithKey" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactions lid alice (Verbosity False)
+    withGetAllTransactions lid alice (Verbosity False) $ \txs -> do
     let command = createWithKey pid alice 100
     Right _ <- submitCommand lid alice command
     liftIO $ do
         Just (Right [Transaction{events=[CreatedEvent{key}]}]) <- timeout 1 (takeStream txs)
         assertEqual "contract has right key" key (Just (VRecord (Record Nothing [ RecordField "" (VParty alice), RecordField "" (VInt 100) ])))
-        closeStream txs gone
-    where gone = Abnormal "client gone"
 
 tCreateWithoutKey :: SandboxTest
 tCreateWithoutKey withSandbox = testCase "createWithoutKey" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactions lid alice (Verbosity False)
+    withGetAllTransactions lid alice (Verbosity False) $ \txs -> do
     let command = createWithoutKey pid alice 100
     Right _ <- submitCommand lid alice command
     liftIO $ do
         Just (Right [Transaction{events=[CreatedEvent{key}]}]) <- timeout 1 (takeStream txs)
         assertEqual "contract has no key" key Nothing
-        closeStream txs gone
-    where gone = Abnormal "client gone"
 
 tStakeholders :: WithSandbox -> Tasty.TestTree
 tStakeholders withSandbox = testCase "stakeholders are exposed correctly" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    PastAndFuture{future=txs} <- Ledger.getTransactionsPF lid alice
+    withGetTransactionsPF lid alice $ \PastAndFuture {future=txs} -> do
     let command = createIOU pid alice "alice-in-chains" 100
     _ <- submitCommand lid alice command
     liftIO $ do
         Just (Right [Transaction{events=[CreatedEvent{signatories,observers}]}]) <- timeout 1 (takeStream txs)
         assertEqual "the only signatory" signatories [ alice ]
         assertEqual "observers are empty" observers []
-        closeStream txs gone
-        where gone = Abnormal "client gone"
 
 tPastFuture :: SandboxTest
 tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
     let command =  createIOU pid alice "A-coin" 100
-    PastAndFuture {past=past1,future=future1} <- getTransactionsPF lid alice
+    withGetTransactionsPF lid alice $ \PastAndFuture {past=past1,future=future1} -> do
     Right _ <- submitCommand lid alice command
-    PastAndFuture {past=past2,future=future2} <- getTransactionsPF lid alice
+    withGetTransactionsPF lid alice $ \PastAndFuture {past=past2,future=future2} -> do
     Right _ <- submitCommand lid alice command
     liftIO $ do
         Just (Right x1) <- timeout 1 (takeStream future1)
@@ -213,14 +211,11 @@ tPastFuture withSandbox = testCase "past/future" $ run withSandbox $ \pid -> do
         assertEqual "past is initially empty" [] past1
         assertEqual "future becomes the past" [x1] past2
         assertEqual "continuing future matches" y1 y2
-        closeStream future1 gone
-        closeStream future2 gone
-        where gone = Abnormal "client gone"
 
 tGetFlatTransactionByEventId :: SandboxTest
 tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventId" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactions lid alice (Verbosity True)
+    withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{events=[CreatedEvent{eid}]} <- return txOnStream
@@ -232,7 +227,7 @@ tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventI
 tGetFlatTransactionById :: SandboxTest
 tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactions lid alice (Verbosity True)
+    withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{trid} <- return txOnStream
@@ -244,7 +239,7 @@ tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run w
 tGetTransactions :: SandboxTest
 tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactions lid alice (Verbosity True)
+    withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
     Right cidA <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
     Just (Right [Transaction{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
@@ -252,7 +247,7 @@ tGetTransactions withSandbox = testCase "tGetTransactions" $ run withSandbox $ \
 tGetTransactionTrees :: SandboxTest
 tGetTransactionTrees withSandbox = testCase "tGetTransactionTrees" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactionTrees lid alice (Verbosity True)
+    withGetAllTransactionTrees lid alice (Verbosity True) $ \txs -> do
     Right cidA <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
     Just (Right [TransactionTree{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
@@ -260,7 +255,7 @@ tGetTransactionTrees withSandbox = testCase "tGetTransactionTrees" $ run withSan
 tGetTransactionByEventId :: SandboxTest
 tGetTransactionByEventId withSandbox = testCase "tGetTransactionByEventId" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactionTrees lid alice (Verbosity True)
+    withGetAllTransactionTrees lid alice (Verbosity True) $ \txs -> do
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{roots=[eid]} <- return txOnStream
@@ -272,7 +267,7 @@ tGetTransactionByEventId withSandbox = testCase "tGetTransactionByEventId" $ run
 tGetTransactionById :: SandboxTest
 tGetTransactionById withSandbox = testCase "tGetTransactionById" $ run withSandbox $ \pid -> do
     lid <- getLedgerIdentity
-    txs <- getAllTransactionTrees lid alice (Verbosity True)
+    withGetAllTransactionTrees lid alice (Verbosity True) $ \txs -> do
     Right _ <- submitCommand lid alice $ createIOU pid alice "A-coin" 100
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{trid} <- return txOnStream
@@ -288,7 +283,7 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
     [(off1,_,[])] <- getActiveContracts lid (filterEverthingForParty alice) (Verbosity True)
     -- so let's create one
     Right _ <- submitCommand lid alice (createIOU pid alice "A-coin" 100)
-    txs <- getAllTransactions lid alice (Verbosity True)
+    withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
     Just (Right [Transaction{events=[ev]}]) <- liftIO $ timeout 1 (takeStream txs)
     -- and then we get it
     [(off2,_,[active]),(off3,_,[])] <- getActiveContracts lid (filterEverthingForParty alice) (Verbosity True)
@@ -310,6 +305,49 @@ tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run w
             minTtl = Duration {durationSeconds = 2, durationNanos = 0},
             maxTtl = Duration {durationSeconds = 30, durationNanos = 0}}
     liftIO $ assertEqual "config" expected config
+
+tUploadDarFileBad :: SandboxTest
+tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    let bytes = BS.fromString "not-the-bytes-for-a-darfile"
+    Left err <- uploadDarFileGetPid lid bytes
+    liftIO $ assertTextContains err "Invalid DAR: package-upload"
+
+tUploadDarFile :: SandboxTest
+tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    bytes <- liftIO $ do
+        let extraDarFilename = "language-support/hs/bindings/for-upload.dar"
+        file <- locateRunfiles (mainWorkspace </> extraDarFilename)
+        BS.readFile file
+    pid <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
+    cidA <- submitCommand lid alice (createExtra pid alice) >>= either (liftIO . assertFailure) return
+    withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
+    Just (Right [Transaction{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
+    liftIO $ do assertEqual "cid" cidA cidB
+    where
+        createExtra :: PackageId -> Party -> Command
+        createExtra pid party = CreateCommand {tid,args}
+            where
+                tid = TemplateId (Identifier pid mod ent)
+                mod = ModuleName "ExtraModule"
+                ent = EntityName "ExtraTemplate"
+                args = Record Nothing [
+                    RecordField "owner" (VParty party),
+                    RecordField "message" (VString "Hello extra module")
+                    ]
+
+
+-- Would be nice if the underlying service returned the pid on successful upload.
+uploadDarFileGetPid :: LedgerId -> BS.ByteString -> LedgerService (Either String PackageId)
+uploadDarFileGetPid lid bytes = do
+    before <- listPackages lid
+    uploadDarFile bytes >>= \case -- call the actual service
+        Left m -> return $ Left m
+        Right () -> do
+            after <- listPackages lid
+            [newPid] <- return (after \\ before) -- see what new pid appears
+            return $ Right newPid
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands

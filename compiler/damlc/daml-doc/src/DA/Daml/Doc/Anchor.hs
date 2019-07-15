@@ -36,14 +36,14 @@ templateAnchor :: Modulename -> Typename  -> Anchor
 typeAnchor     :: Modulename -> Typename  -> Anchor
 dataAnchor     :: Modulename -> Typename  -> Anchor
 constrAnchor   :: Modulename -> Typename  -> Anchor
-functionAnchor :: Modulename -> Fieldname -> Maybe Type -> Anchor
+functionAnchor :: Modulename -> Fieldname -> Anchor
 
 classAnchor    m n = anchor "class"    m (unTypename n) ()
 templateAnchor m n = anchor "template" m (unTypename n) ()
 typeAnchor     m n = anchor "type"     m (unTypename n) ()
 dataAnchor     m n = anchor "data"     m (unTypename n) ()
 constrAnchor   m n = anchor "constr"   m (unTypename n) ()
-functionAnchor m n = anchor "function" m (unFieldname n)
+functionAnchor m n = anchor "function" m (unFieldname n) ()
 
 anchor :: Hashable v => T.Text -> Modulename -> T.Text -> v -> Anchor
 -- calculating a hash on String instead of Data.Text as hash output of the later is different on Windows than other OSes

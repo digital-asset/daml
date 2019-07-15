@@ -22,10 +22,10 @@ final class FrontStack[+A] private (fq: FQ[A], len: Int) {
   /** O(n) */
   @throws[IndexOutOfBoundsException]
   def slowApply(ix: Int): A = {
-    if (ix < 0) throw new IndexOutOfBoundsException("ix")
+    if (ix < 0) throw new IndexOutOfBoundsException(ix.toString)
     val i = iterator
     @tailrec def lp(ix: Int): A =
-      if (!i.hasNext) throw new IndexOutOfBoundsException("ix")
+      if (!i.hasNext) throw new IndexOutOfBoundsException(ix.toString)
       else {
         val v = i.next
         if (ix <= 0) v else lp(ix - 1)

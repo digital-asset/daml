@@ -8,7 +8,9 @@ module DA.Cli.Options
 import qualified Data.Text           as T
 import           Data.List.Extra     (trim, splitOn)
 import Options.Applicative.Extended
+import Safe (lastMay)
 import Data.List
+import Data.Maybe
 import Text.Read
 import qualified DA.Pretty           as Pretty
 import DA.Daml.Options.Types
@@ -333,3 +335,20 @@ projectOpts name = ProjectOpts <$> projectRootOpt <*> projectCheckOpt name
 enableScenarioOpt :: Parser EnableScenarioService
 enableScenarioOpt = EnableScenarioService <$>
     flagYesNoAuto "scenarios" True "Enable/disable support for running scenarios" idm
+
+hlintEnabledOpt :: Parser HlintUsage
+hlintEnabledOpt = HlintEnabled <$> strOption
+  ( long "with-hlint"
+    <> metavar "DIR"
+    <> help "Enable hlint with hlint.yaml directory"
+  )
+
+hlintDisabledOpt :: Parser HlintUsage
+hlintDisabledOpt = flag' HlintDisabled
+  ( long "without-hlint"
+    <> help "Disable hlint"
+  )
+
+hlintUsageOpt :: Parser HlintUsage
+hlintUsageOpt = fmap (fromMaybe HlintDisabled . lastMay) $
+  many (hlintEnabledOpt <|> hlintDisabledOpt)

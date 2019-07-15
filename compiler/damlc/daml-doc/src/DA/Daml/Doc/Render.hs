@@ -5,6 +5,7 @@
 
 module DA.Daml.Doc.Render
   ( DocFormat(..)
+  , renderFinish
   , renderSimpleRst
   , renderSimpleMD
   , renderSimpleHtml

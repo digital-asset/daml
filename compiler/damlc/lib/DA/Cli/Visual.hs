@@ -26,14 +26,14 @@ data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
 
 data ChoiceAndAction = ChoiceAndAction
-    { choiceForTemplate :: LF.Template
-    , choice :: LF.TemplateChoice
+    { choiceName :: LF.ChoiceName
+    , choiceConsuming :: IsConsuming
     , actions :: Set.Set Action
     }
 
 data TemplateChoices = TemplateChoices
     { template :: LF.Template
-    , choiceAndAction :: [ChoiceAndAction]
+    , choiceAndActions :: [ChoiceAndAction]
     }
 
 data ChoiceDetails = ChoiceDetails
@@ -68,14 +68,19 @@ startFromExpr seen world e = case e of
         Left _ -> error "This should not happen"
     LF.EUpdate upd -> startFromUpdate seen world upd
     LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ (LF.ModuleName ["DA","Internal","Template"]) (LF.ExprValName "fetch"))) _) _ -> Set.empty
-    LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _  (LF.ModuleName ["DA","Internal","Template"])  (LF.ExprValName "archive"))) _) _ -> Set.empty
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 
+-- We adding template name to archive as we need to have unique choice names
+archiveChoiceWithTemplateName :: LF.Template -> ChoiceAndAction -> ChoiceAndAction
+archiveChoiceWithTemplateName tpl (ChoiceAndAction (LF.ChoiceName "Archive") _ _)  = ChoiceAndAction (LF.ChoiceName $ tplNameUnqual tpl <> "_Archive") True Set.empty
+archiveChoiceWithTemplateName _ cha = cha
+
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
-templatePossibleUpdates world tpl = map (\c -> ChoiceAndAction tpl c (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
+templatePossibleUpdates world tpl = map (archiveChoiceWithTemplateName tpl) actions
+    where actions =  map (\c -> ChoiceAndAction (LF.chcName c) (LF.chcConsuming c) (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
 moduleAndTemplates world mod = map (\t -> TemplateChoices t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
@@ -90,21 +95,18 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
     where
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
-tplName :: LF.Template -> T.Text
-tplName LF.Template {..} = head (LF.unTypeConName tplTypeCon)
+tplNameUnqual :: LF.Template -> T.Text
+tplNameUnqual LF.Template {..} = head (LF.unTypeConName tplTypeCon)
 
 extractChoiceData :: ChoiceAndAction -> (LF.ChoiceName, IsConsuming)
-extractChoiceData (ChoiceAndAction tpl choice _) = (newChoiceName, LF.chcConsuming choice)
-    where newChoiceName
-            | LF.chcName choice == LF.ChoiceName "Archive" = LF.ChoiceName $ tplName tpl <> "_Archive"
-            | otherwise = LF.chcName choice
+extractChoiceData (ChoiceAndAction choiceN consuming _) = (choiceN, consuming)
 
 
--- Making choiceName is very weird
 templateWithCreateChoice :: TemplateChoices -> [(LF.ChoiceName, IsConsuming)]
-templateWithCreateChoice TemplateChoices {..} = createChoice : map extractChoiceData choiceAndAction
-    where createChoice = (LF.ChoiceName $ tplName template <> "_Create", False)
+templateWithCreateChoice TemplateChoices {..} = createChoice : map extractChoiceData choiceAndActions
+    where createChoice = (LF.ChoiceName $ tplNameUnqual template <> "_Create", False)
 
+-- Adding create as a choice to the graph
 choiceNameWithId :: [TemplateChoices] -> Map.Map LF.ChoiceName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
   where choiceActions = concatMap templateWithCreateChoice tplChcActions
@@ -121,22 +123,25 @@ addCreateChoice TemplateChoices {..} lookupData = (tplNameCreateChoice, nodeIdFo
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate template
-  where choicesInTemplete = map extractChoiceData choiceAndAction
+  where choicesInTemplete = map extractChoiceData choiceAndActions
         nodes = map (\(chc, _) -> (chc, nodeIdForChoice lookupData chc)) choicesInTemplete
         nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData]
 
-actionToChoice :: LF.Template -> Action -> LF.ChoiceName
-actionToChoice tpl (ACreate _) = LF.ChoiceName $ tplName tpl <> "_Create"
-actionToChoice tpl (AExercise _ (LF.ChoiceName "Archive")) = LF.ChoiceName $ tplName tpl <> "_Archive"
-actionToChoice _tpl (AExercise _ chc) = chc
+tplNamet :: LF.TypeConName -> T.Text
+tplNamet tplConName = head (LF.unTypeConName tplConName)
+
+actionToChoice :: Action -> LF.ChoiceName
+actionToChoice (ACreate LF.Qualified {..}) = LF.ChoiceName $ tplNamet qualObject <> "_Create"
+actionToChoice (AExercise LF.Qualified {..} (LF.ChoiceName "Archive")) = LF.ChoiceName $ tplNamet qualObject <> "_Archive"
+actionToChoice (AExercise _ chc) = chc
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
 choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
-    where pairs = map (\ac -> (fst $ extractChoiceData cha, actionToChoice choiceForTemplate ac)) (Set.elems actions)
+    where pairs = map (\ac -> (fst $ extractChoiceData cha, actionToChoice ac)) (Set.elems actions)
 
 graphEdges :: Map.Map LF.ChoiceName ChoiceDetails -> [TemplateChoices] -> [(ChoiceDetails, ChoiceDetails)]
 graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1, nodeIdForChoice lookupData chn2)) choicePairsForTemplates
-  where chcActionsFromAllTemplates = concatMap choiceAndAction tplChcActions
+  where chcActionsFromAllTemplates = concatMap choiceAndActions tplChcActions
         choicePairsForTemplates = concatMap choiceActionToChoicePairs chcActionsFromAllTemplates
 
 subGraphHeader :: LF.Template -> String
@@ -152,14 +157,11 @@ subGraphBodyLine (chc, ChoiceDetails{..}) = "n" ++ show nodeId ++ "[label=" ++ D
 subGraphEnd :: LF.Template -> String
 subGraphEnd tpl = "label=" ++ DAP.renderPretty (LF.tplTypeCon tpl) ++ ";color=" ++ "blue" ++ "\n}"
 
-
 subGraphCluster :: SubGraph -> String
 subGraphCluster SubGraph {..} = subGraphHeader clusterTemplate ++ unlines (map subGraphBodyLine nodes) ++ subGraphEnd clusterTemplate
 
--- TODO Later on should decorate the edge too
 drawEdge :: ChoiceDetails -> ChoiceDetails -> String
 drawEdge n1 n2 = "n" ++ show (nodeId n1) ++ "->" ++ "n" ++ show (nodeId n2)
-
 
 constructDotGraph :: [SubGraph] -> [(ChoiceDetails, ChoiceDetails)] -> String
 constructDotGraph subgraphs edges = "digraph G {\ncompound=true;\n" ++ "rankdir=LR;\n"++ graphLines ++ "\n}\n"

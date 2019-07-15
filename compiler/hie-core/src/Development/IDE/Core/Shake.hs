@@ -28,8 +28,8 @@ module Development.IDE.Core.Shake(
     shakeRun,
     shakeProfile,
     useStale,
-    use, uses,
-    use_, uses_,
+    use, useNoFile, uses,
+    use_, useNoFile_, uses_,
     define, defineEarlyCutoff,
     getDiagnostics, unsafeClearDiagnostics,
     IsIdeGlobal, addIdeGlobal, getIdeGlobalState, getIdeGlobalAction,
@@ -55,6 +55,7 @@ import Data.Map.Strict (Map)
 import           Data.Either.Extra
 import           Data.List.Extra
 import qualified Data.Text as T
+import Data.Unique
 import Development.IDE.Core.Debouncer
 import Development.IDE.Types.Logger hiding (Priority)
 import Language.Haskell.LSP.Diagnostics
@@ -231,10 +232,46 @@ shakeOpen eventer logger opts rules = do
         publishedDiagnostics <- newVar mempty
         debouncer <- newDebouncer
         pure ShakeExtras{..}
-    (shakeDb, shakeClose) <- shakeOpenDatabase opts{shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts} rules
+    (shakeDb, shakeClose) <-
+        shakeOpenDatabase
+            opts
+                { shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts
+                , shakeProgress = lspShakeProgress eventer
+                }
+            rules
     shakeAbort <- newVar $ return ()
     shakeDb <- shakeDb
     return IdeState{..}
+
+lspShakeProgress :: (LSP.FromServerMessage -> IO ()) -> IO Progress -> IO ()
+lspShakeProgress sendMsg prog = do
+    u <- T.pack . show . hashUnique <$> newUnique
+    bracket_ (start u) (stop u) (loop u)
+    where
+        start id = sendMsg $ LSP.NotProgressStart $ LSP.fmServerProgressStartNotification
+            ProgressStartParams
+                { _id = id
+                , _title = "Processing"
+                , _cancellable = Nothing
+                , _message = Nothing
+                , _percentage = Nothing
+                }
+        stop id = sendMsg $ LSP.NotProgressDone $ LSP.fmServerProgressDoneNotification
+            ProgressDoneParams
+                { _id = id
+                }
+        sample = 0.1
+        loop id = forever $ do
+            sleep sample
+            p <- prog
+            let done = countSkipped p + countBuilt p
+            let todo = done + countUnknown p + countTodo p
+            sendMsg $ LSP.NotProgressReport $ LSP.fmServerProgressReportNotification
+                ProgressReportParams
+                    { _id = id
+                    , _message = Just $ T.pack $ show done <> "/" <> show todo
+                    , _percentage = Nothing
+                    }
 
 shakeProfile :: IdeState -> FilePath -> IO ()
 shakeProfile IdeState{..} = shakeProfileDatabase shakeDb
@@ -298,8 +335,14 @@ use :: IdeRule k v
     => k -> NormalizedFilePath -> Action (Maybe v)
 use key file = head <$> uses key [file]
 
+useNoFile :: IdeRule k v => k -> Action (Maybe v)
+useNoFile key = use key ""
+
 use_ :: IdeRule k v => k -> NormalizedFilePath -> Action v
 use_ key file = head <$> uses_ key [file]
+
+useNoFile_ :: IdeRule k v => k -> Action v
+useNoFile_ key = use_ key ""
 
 uses_ :: IdeRule k v => k -> [NormalizedFilePath] -> Action [v]
 uses_ key files = do

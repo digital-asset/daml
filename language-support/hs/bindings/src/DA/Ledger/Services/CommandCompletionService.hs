@@ -6,7 +6,6 @@
 module DA.Ledger.Services.CommandCompletionService (completionStream, completionEnd) where
 
 import Com.Digitalasset.Ledger.Api.V1.CommandCompletionService hiding (Checkpoint)
-import Control.Concurrent (forkIO)
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
@@ -21,14 +20,12 @@ type Response = (Maybe Checkpoint, [Completion])
 completionStream :: Request -> LedgerService (Stream Response)
 completionStream (lid,aid,partys,offsetOpt) =
     makeLedgerService $ \timeout config -> do
-    stream <- newStream
     let request = mkCompletionStreamRequest lid aid partys offsetOpt
-    _ <- forkIO $
+    asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- commandCompletionServiceClient client
             let CommandCompletionService {commandCompletionServiceCompletionStream=rpc} = service
             sendToStream timeout request raiseCompletionStreamResponse stream rpc
-    return stream
 
 
 

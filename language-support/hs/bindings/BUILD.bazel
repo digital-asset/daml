@@ -8,6 +8,7 @@ da_haskell_library(
     name = "hs-ledger",
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
+        "async",
         "base",
         "bytestring",
         "containers",
@@ -18,6 +19,7 @@ da_haskell_library(
         "text",
         "time",
         "transformers",
+        "unliftio",
         "vector",
     ],
     visibility = ["//visibility:public"],
@@ -65,10 +67,17 @@ daml_compile(
     main_src = "test/daml/quickstart/Main.daml",
 )
 
+daml_compile(
+    name = "for-upload",
+    srcs = glob(["test/daml/for-upload/ExtraModule.daml"]),
+    main_src = "test/daml/for-upload/ExtraModule.daml",
+)
+
 da_haskell_test(
     name = "test",
     srcs = glob(["test/**/*.hs"]),
     data = [
+        ":for-upload.dar",
         ":quickstart.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
@@ -87,6 +96,7 @@ da_haskell_test(
         "tasty-hunit",
         "text",
         "time",
+        "utf8-string",
         "uuid",
         "zip-archive",
     ],

@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset;
+package com.digitalasset.lf_latest;
 
 import com.daml.ledger.javaapi.data.*;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
@@ -10,8 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.platform.runner.JUnitPlatform;
 import org.junit.runner.RunWith;
 import tests.listtest.*;
-import tests.listtest.color.Green;
-import tests.listtest.color.Red;
+import tests.listtest.Color;
 import tests.listtest.listitem.Node;
 import tests.varianttest.variantitem.ParameterizedRecordVariant;
 
@@ -125,15 +124,14 @@ public class ListTest {
                 ValueOuterClass.RecordField.newBuilder()
                         .setLabel("colors")
                         .setValue(ValueOuterClass.Value.newBuilder().setList(ValueOuterClass.List.newBuilder().addAllElements(Arrays.asList(
-                                ValueOuterClass.Value.newBuilder().setVariant(
-                                        ValueOuterClass.Variant.newBuilder()
+                                ValueOuterClass.Value.newBuilder().setEnum(
+                                        ValueOuterClass.Enum.newBuilder()
                                                 .setConstructor("Green")
-                                                .setValue(ValueOuterClass.Value.newBuilder().setUnit(Empty.newBuilder().build()))).build(),
-                                ValueOuterClass.Value.newBuilder().setVariant(
-                                        ValueOuterClass.Variant.newBuilder()
+                                ).build(),
+                                ValueOuterClass.Value.newBuilder().setEnum(
+                                        ValueOuterClass.Enum.newBuilder()
                                                 .setConstructor("Red")
-                                                .setValue(ValueOuterClass.Value.newBuilder().setUnit(Empty.newBuilder().build()))).build()
-
+                                ).build()
                         )).build()))
                 .build()
         )).build();
@@ -141,8 +139,7 @@ public class ListTest {
         Record record = Record.fromProto(protoColorListRecord);
         ColorListRecord fromRecord = ColorListRecord.fromValue(record);
 
-        ColorListRecord fromCodegen = new ColorListRecord(Arrays.asList(
-                new Green(Unit.getInstance()), new Red(Unit.getInstance())));
+        ColorListRecord fromCodegen = new ColorListRecord(Arrays.asList(Color.GREEN, Color.RED));
 
         assertEquals(fromRecord, fromCodegen);
         assertEquals(fromCodegen.toValue().toProtoRecord(), protoColorListRecord);

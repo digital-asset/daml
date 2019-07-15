@@ -16,12 +16,12 @@ For a more interesting chat-room model under development, see: ../group-chat/
 
 ## Start a sandbox ledger running the Nim game server
 
-    $ daml sandbox bazel-out/k8-fastbuild/bin/language-support/hs/bindings/example/chat/Chat.dar
+    $ daml sandbox bazel-out/k8-fastbuild/bin/language-support/hs/bindings/examples/chat/Chat.dar
 
 ## Start chat-consoles for multiple participants in different terminals
 
-    $ bazel run language-support/hs/bindings/examples:chat -- Alice
-    $ bazel run language-support/hs/bindings/examples:chat -- Bob
+    $ bazel run language-support/hs/bindings/examples/chat -- Alice
+    $ bazel run language-support/hs/bindings/examples/chat -- Bob
     $ ...
 
 ## Chat as Alice

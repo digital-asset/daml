@@ -216,10 +216,10 @@ object Pretty {
   def argument(arg: model.ApiValue): PrettyNode = arg match {
     case model.ApiRecord(id, fields) =>
       PrettyObject(
-        fields.toSeq.zipWithIndex.map {
+        fields.iterator.zipWithIndex.map {
           case ((flabel, fvalue), ix) =>
             PrettyField(flabel getOrElse (ix: Int).toString, argument(fvalue))
-        }: _*
+        }.toSeq: _*
       )
     case model.ApiVariant(id, constructor, value) =>
       PrettyObject(
