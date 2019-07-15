@@ -66,8 +66,8 @@ mkDocs opts fp = do
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.elems dc_choices
         in ModuleDoc
-            { md_anchor = Just (moduleAnchor dc_mod)
-            , md_name = dc_mod
+            { md_anchor = Just (moduleAnchor dc_modname)
+            , md_name = dc_modname
             , md_descr = modDoc dc_tcmod
             , md_adts = adtDocs
             , md_templates = tmplDocs
@@ -127,7 +127,7 @@ collectDocs = go Nothing []
 -- | Context in which to extract a module's docs. This is created from
 -- 'TypecheckedModule' by 'buildDocCtx'.
 data DocCtx = DocCtx
-    { dc_mod :: Modulename
+    { dc_modname :: Modulename
     , dc_tcmod :: TypecheckedModule
     , dc_decls :: [DeclData]
 
@@ -148,7 +148,7 @@ data DeclData = DeclData
 
 buildDocCtx :: TypecheckedModule -> DocCtx
 buildDocCtx dc_tcmod  =
-  let dc_mod = packModule . ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
+  let dc_modname = getModulename . ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
       dc_decls
           = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
           . pm_parsed_source . tm_parsed_module $ dc_tcmod
@@ -231,7 +231,7 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
       mbType = idType <$> mbId
       fct_context = guard keepContext >> mbType >>= typeToContext ctx
       fct_type = typeToType ctx <$> mbType
-      fct_anchor = Just $ functionAnchor dc_mod fct_name
+      fct_anchor = Just $ functionAnchor dc_modname fct_name
       fct_descr = docs
   Just FunctionDoc {..}
 
@@ -290,7 +290,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     constrDoc :: LConDecl GhcPs -> Maybe ADTConstr
     constrDoc (L _ con) = do
         let ac_name = Typename . packRdrName . unLoc $ con_name con
-            ac_anchor = Just $ constrAnchor dc_mod ac_name
+            ac_anchor = Just $ constrAnchor dc_modname ac_name
             ac_descr = fmap (docToText . unLoc) $ con_doc con
 
         datacon <- MS.lookup ac_name dc_datacons
@@ -306,7 +306,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     fieldDoc :: (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
     fieldDoc (fd_type, L _ ConDeclField{..}) = do
         let fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names
-            fd_anchor = Just $ functionAnchor dc_mod fd_name
+            fd_anchor = Just $ functionAnchor dc_modname fd_name
             fd_descr = fmap (docToText . unLoc) cd_fld_doc
         Just FieldDoc{..}
     fieldDoc (_, L _ XConDeclField{}) = Nothing
@@ -319,7 +319,7 @@ getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
     -- defined internally, and not expected to fail on consistent arguments.
     mkTemplateDoc :: Typename -> TemplateDoc
     mkTemplateDoc name = TemplateDoc
-      { td_anchor = Just $ templateAnchor dc_mod (ad_name tmplADT)
+      { td_anchor = Just $ templateAnchor dc_modname (ad_name tmplADT)
       , td_name = ad_name tmplADT
       , td_descr = ad_descr tmplADT
       , td_payload = getFields tmplADT
@@ -474,8 +474,8 @@ packRdrName = packOccName . rdrNameOcc
 -- | Turn a GHC Module into a Modulename. (Unlike the above functions,
 -- we only ever want this to be a Modulename, so no reason to return
 -- Text.)
-packModule :: Module -> Modulename
-packModule = Modulename . T.pack . moduleNameString . moduleName
+getModulename :: Module -> Modulename
+getModulename = Modulename . T.pack . moduleNameString . moduleName
 
 ---------------------------------------------------------------------
 
@@ -484,7 +484,7 @@ tyConAnchor :: DocCtx -> TyCon -> Maybe Anchor
 tyConAnchor DocCtx{..} tycon = do
     let ghcName = tyConName tycon
         name = Typename . packName $ ghcName
-        mod = maybe dc_mod packModule (nameModule_maybe ghcName)
+        mod = maybe dc_modname getModulename (nameModule_maybe ghcName)
         anchorFn
             | isClassTyCon tycon = classAnchor
             | isDataTyCon tycon = dataAnchor
