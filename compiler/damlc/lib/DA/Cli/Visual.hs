@@ -101,17 +101,16 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
 tplNameUnqual :: LF.Template -> T.Text
 tplNameUnqual LF.Template {..} = head (LF.unTypeConName tplTypeCon)
 
--- As create is never seen as a choice
-templateWithCreateChoice :: TemplateChoices -> [(LF.ChoiceName, InternalChcName, IsConsuming)]
-templateWithCreateChoice TemplateChoices {..} = createChoice : tplChoiceActions
-    where createChoice = (LF.ChoiceName "Create", LF.ChoiceName $ tplNameUnqual template <> "_Create", False)
-          tplChoiceActions = map (\c -> (choiceName c, internalChcName c, choiceConsuming c) ) choiceAndActions
-
--- Adding create as a choice to the graph
 choiceNameWithId :: [TemplateChoices] -> Map.Map InternalChcName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
-  where choiceActions = concatMap templateWithCreateChoice tplChcActions
-        choiceWithIds = map (\((cName, inAlias, consume), id) -> (inAlias, ChoiceDetails id consume cName)) $ zip choiceActions [0..]
+  where choiceWithIds = map (\(ChoiceAndAction {..}, id) -> (internalChcName, ChoiceDetails id choiceConsuming choiceName)) $ zip choiceActions [0..]
+        choiceActions = concatMap (\t -> createChoice (template t) : choiceAndActions t) tplChcActions
+        createChoice tpl = ChoiceAndAction
+            { choiceName = LF.ChoiceName "Create"
+            , internalChcName = LF.ChoiceName $ tplNameUnqual tpl <> "_Create"
+            , choiceConsuming = False
+            , actions = Set.empty
+            }
 
 nodeIdForChoice :: Map.Map LF.ChoiceName ChoiceDetails -> LF.ChoiceName -> ChoiceDetails
 nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
