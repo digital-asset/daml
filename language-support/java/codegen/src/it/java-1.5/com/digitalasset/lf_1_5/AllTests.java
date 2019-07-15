@@ -1,19 +1,19 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.lf_1_1;
+package com.digitalasset.lf_1_5;
 
-import com.digitalasset.AllGenericTests;
 import org.junit.runner.RunWith;
 import org.junit.runners.Suite;
-
-import java.util.List;
+import com.digitalasset.AllGenericTests;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
-        OptionalTest.class,
+        AllGenericTests.class,
         ListTest.class,
-        AllGenericTests.class
+        OptionalTest.class,
+        MapTest.class,
+        ContractKeysTest.class,
 })
 public class AllTests {
 }

@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.lf_1_0;
+package com.digitalasset.lf_1_5;
 
 import com.daml.ledger.javaapi.data.*;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
@@ -135,7 +135,7 @@ public class ListTest {
                                                 .setValue(ValueOuterClass.Value.newBuilder().setUnit(Empty.newBuilder().build()))).build()
 
                         )).build()))
-                .build()
+                        .build()
         )).build();
 
         Record record = Record.fromProto(protoColorListRecord);
@@ -202,9 +202,9 @@ public class ListTest {
                                                                         ValueOuterClass.Value.newBuilder().setText("Element4").build())
                                                                 ).build()
                                                         ).build()
+                                                        ))
+                                                                .build()
                                                 ))
-                                                .build()
-                                ))
                                 .build()
                 )
                 .build();
@@ -214,8 +214,8 @@ public class ListTest {
                 f -> f.asList().orElseThrow(() -> new IllegalArgumentException("Expected list to be of type com.daml.ledger.javaapi.data.DamlList")).getValues().stream()
                         .map(f1 -> f1.asText().orElseThrow(() -> new IllegalArgumentException("Expected list to be of type com.daml.ledger.javaapi.data.Text")).getValue()).collect(Collectors.toList()));
         ParameterizedListRecord<List<String>> fromConstructor = new ParameterizedListRecord<List<String>>(Arrays.asList(
-            Arrays.asList("Element1", "Element2"),
-            Arrays.asList("Element3", "Element4")
+                Arrays.asList("Element1", "Element2"),
+                Arrays.asList("Element3", "Element4")
         ));
 
         assertEquals(fromValue, fromConstructor);

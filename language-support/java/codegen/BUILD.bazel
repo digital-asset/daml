@@ -166,6 +166,7 @@ test_daml_lf_target_versions = [
 it_daml_lf_target_versions = [
     "1.0",
     "1.1",
+    "1.5",
     "latest",
 ]
 
@@ -181,6 +182,14 @@ alias(
 alias(
     name = "integration-tests-model-1.1.dar",
     actual = ":src/it/dar/integration-tests-model-1.1.dar",
+)
+
+
+# This file was created using
+# DAML_SDK_VERSION=0.13.10 daml damlc package src/it/daml/Lib.daml integration-tests-model-1.5 --target=1.5 --output src/it/dar/integration-tests-model-1.5.dar
+alias(
+    name = "integration-tests-model-1.5.dar",
+    actual = ":src/it/dar/integration-tests-model-1.5.dar",
 )
 
 daml_compile(
