@@ -516,17 +516,25 @@ typeToConstraints dc = \case
 typeToType :: DocCtx -> TyCoRep.Type -> DDoc.Type
 typeToType ctx = \case
     TyVarTy var -> TypeApp Nothing (Typename $ packId var) []
+
+    TyConApp tycon bs | isTupleTyCon tycon ->
+        TypeTuple (map (typeToType ctx) bs)
+
+    TyConApp tycon [b] | "[]" == packName (tyConName tycon) ->
+        TypeList (typeToType ctx b)
+
+    TyConApp tycon bs ->
+        TypeApp
+            (tyConAnchor ctx tycon)
+            (Typename . packName . tyConName $ tycon)
+            (map (typeToType ctx) bs)
+
     AppTy a b ->
         case typeToType ctx a of
             TypeApp m f bs -> TypeApp m f (bs <> [typeToType ctx b]) -- flatten app chains
             TypeFun _ -> unexpected "function type in a type app"
             TypeList _ -> unexpected "list type in a type app"
             TypeTuple _ -> unexpected "tuple type in a type app"
-    TyConApp tycon bs ->
-        typeApp
-            (tyConAnchor ctx tycon)
-            (Typename . packName . tyConName $ tycon)
-            (map (typeToType ctx) bs)
 
     -- ignore context
     ForAllTy _ b -> typeToType ctx b
@@ -543,19 +551,6 @@ typeToType ctx = \case
     CoercionTy _ -> unexpected "coercion" -- TODO?
 
   where
-    -- | Deal with list and tuple type constructors specially.
-    typeApp _ (Typename "[]") [x] = TypeList x
-    typeApp _ (Typename c) xs | isTupleCons (T.unpack c) = TypeTuple xs
-    typeApp anchor name xs = TypeApp anchor name xs
-
-    -- | Is the input a tuple constructor?
-    isTupleCons xs = and
-        [ length xs >= 3
-        , take 1 xs == "("
-        , takeEnd 1 xs == ")"
-        , all (== ',') (dropEnd 1 $ drop 1 xs)
-        ]
-
     -- | Unhandled case.
     unexpected x = error $ "typeToType: found an unexpected " <> x
 
