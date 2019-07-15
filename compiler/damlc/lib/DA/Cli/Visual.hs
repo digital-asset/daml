@@ -45,7 +45,7 @@ data ChoiceDetails = ChoiceDetails
     }
 
 data SubGraph = SubGraph
-    { nodes :: [(ChoiceDetails, ChoiceDetails)]
+    { nodes :: [ChoiceDetails]
     , clusterTemplate :: LF.Template
     }
 
@@ -101,13 +101,11 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
 tplNameUnqual :: LF.Template -> T.Text
 tplNameUnqual LF.Template {..} = head (LF.unTypeConName tplTypeCon)
 
-extractChoiceData :: ChoiceAndAction -> (LF.ChoiceName, InternalChcName, IsConsuming)
-extractChoiceData ChoiceAndAction {..} = (choiceName, internalChcName, choiceConsuming)
-
 -- As create is never seen as a choice
 templateWithCreateChoice :: TemplateChoices -> [(LF.ChoiceName, InternalChcName, IsConsuming)]
-templateWithCreateChoice TemplateChoices {..} = createChoice : map extractChoiceData choiceAndActions
+templateWithCreateChoice TemplateChoices {..} = createChoice : tplChoiceActions
     where createChoice = (LF.ChoiceName "Create", LF.ChoiceName $ tplNameUnqual template <> "_Create", False)
+          tplChoiceActions = map (\c -> (choiceName c, internalChcName c, choiceConsuming c) ) choiceAndActions
 
 -- Adding create as a choice to the graph
 choiceNameWithId :: [TemplateChoices] -> Map.Map InternalChcName ChoiceDetails
@@ -120,15 +118,14 @@ nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
   Just node -> node
   Nothing -> error "Template node lookup failed"
 
-addCreateChoice :: TemplateChoices -> Map.Map LF.ChoiceName ChoiceDetails -> (ChoiceDetails, ChoiceDetails)
-addCreateChoice TemplateChoices {..} lookupData = (createChoiceDetails, createChoiceDetails)
+addCreateChoice :: TemplateChoices -> Map.Map LF.ChoiceName ChoiceDetails -> ChoiceDetails
+addCreateChoice TemplateChoices {..} lookupData = nodeIdForChoice lookupData tplNameCreateChoice
     where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (head (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
-          createChoiceDetails = nodeIdForChoice lookupData tplNameCreateChoice
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate template
-  where choicesInTemplete = map extractChoiceData choiceAndActions
-        nodes = map (\(_, inChc, _) -> (nodeIdForChoice lookupData inChc, nodeIdForChoice lookupData inChc)) choicesInTemplete
+  where choicesInTemplate = map internalChcName choiceAndActions
+        nodes = map (nodeIdForChoice lookupData) choicesInTemplate
         nodesWithCreate = nodes ++ [addCreateChoice tpla lookupData]
 
 tplNamet :: LF.TypeConName -> T.Text
@@ -139,9 +136,8 @@ actionToChoice (ACreate LF.Qualified {..}) = LF.ChoiceName $ tplNamet qualObject
 actionToChoice (AExercise LF.Qualified {..} (LF.ChoiceName chcT)) = LF.ChoiceName $ tplNamet qualObject <> chcT
 
 choiceActionToChoicePairs :: ChoiceAndAction -> [(LF.ChoiceName, LF.ChoiceName)]
-choiceActionToChoicePairs cha@ChoiceAndAction {..} = pairs
-    where pairs = map (\ac -> (inCh, actionToChoice ac)) (Set.elems actions)
-          (_, inCh, _) = extractChoiceData cha
+choiceActionToChoicePairs ChoiceAndAction{..} = pairs
+    where pairs = map (\ac -> (internalChcName, actionToChoice ac)) (Set.elems actions)
 
 graphEdges :: Map.Map LF.ChoiceName ChoiceDetails -> [TemplateChoices] -> [(ChoiceDetails, ChoiceDetails)]
 graphEdges lookupData tplChcActions = map (\(chn1, chn2) -> (nodeIdForChoice lookupData chn1, nodeIdForChoice lookupData chn2)) choicePairsForTemplates
@@ -155,8 +151,8 @@ choiceDetailsColorCode :: IsConsuming -> String
 choiceDetailsColorCode True = "red"
 choiceDetailsColorCode False = "green"
 
-subGraphBodyLine :: (ChoiceDetails, ChoiceDetails) -> String
-subGraphBodyLine (chcFrm, chcTo) = "n" ++ show (nodeId chcTo)++ "[label=" ++ DAP.renderPretty (displayChoiceName chcFrm) ++"][color=" ++ choiceDetailsColorCode (consuming chcTo) ++"]; "
+subGraphBodyLine :: ChoiceDetails -> String
+subGraphBodyLine chc = "n" ++ show (nodeId chc)++ "[label=" ++ DAP.renderPretty (displayChoiceName chc) ++"][color=" ++ choiceDetailsColorCode (consuming chc) ++"]; "
 
 subGraphEnd :: LF.Template -> String
 subGraphEnd tpl = "label=" ++ DAP.renderPretty (LF.tplTypeCon tpl) ++ ";color=" ++ "blue" ++ "\n}"
