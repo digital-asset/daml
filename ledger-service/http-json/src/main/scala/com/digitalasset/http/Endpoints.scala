@@ -9,21 +9,27 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.digitalasset.http.Endpoints.InvalidUserInput
 import com.digitalasset.http.json.HttpCodec._
-import com.digitalasset.http.json.JsonProtocol._
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.parse
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.v1.value.Value
+import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.functor._
-import scalaz.{-\/, @@, \/-}
+import scalaz.{-\/, @@, \/, \/-}
 import spray.json._
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContext)
+class Endpoints(
+    commandService: CommandService,
+    contractsService: ContractsService,
+    parallelism: Int = 8)(implicit ec: ExecutionContext)
     extends StrictLogging {
+
+  import json.JsonProtocol._
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
@@ -43,22 +49,45 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
   lazy val all2: Route = command2 ~ contracts2
 
   lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
-    case HttpRequest(
-        POST,
-        Uri.Path("/command/create"),
-        _,
-        HttpEntity.Strict(ContentTypes.`application/json`, data),
-        _) =>
-      HttpResponse(entity = HttpEntity.Strict(ContentTypes.`application/json`, data))
+    case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
+      httpResponse(
+        parseInput[domain.CreateCommand](req)
+          .mapAsync(parallelism) {
+            case -\/(e) =>
+              Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
+            case \/-(c) =>
+              commandService.create(jwtPayload, c)
+          }
+          .map { a: domain.ActiveContract[lav1.value.Value] =>
+            format(resultJsObject(toJsValue(a): domain.ActiveContract[JsValue]))
+          }
+      )
 
-    case HttpRequest(
-        POST,
-        Uri.Path("/command/exercise"),
-        _,
-        HttpEntity.Strict(ContentTypes.`application/json`, data),
-        _) =>
-      HttpResponse(entity = HttpEntity.Strict(ContentTypes.`application/json`, data))
+    case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
+      httpResponse(
+        parseInput[domain.ExerciseCommand](req)
+          .mapAsync(parallelism) {
+            case -\/(e) =>
+              Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
+            case \/-(c) =>
+              commandService.exercise(jwtPayload, c)
+          }
+          .map { as: List[domain.ActiveContract[lav1.value.Value]] =>
+            format(resultJsObject(as.map(toJsValue): List[domain.ActiveContract[JsValue]]))
+          }
+      )
   }
+
+  private def parseInput[A: JsonReader](req: HttpRequest): Source[InvalidUserInput \/ A, _] =
+    req.entity.dataBytes
+      .fold(ByteString.empty)(_ ++ _)
+      .map { data: ByteString =>
+        parse[A](data).leftMap(e => InvalidUserInput(e))
+      }
+
+  private def toJsValue(
+      a: domain.ActiveContract[lav1.value.Value]): domain.ActiveContract[JsValue] =
+    a.map(_.toJson)
 
   lazy val command2: Route =
     post {
@@ -146,6 +175,9 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
     HttpResponse(entity =
       HttpEntity.CloseDelimited(ContentTypes.`application/json`, Source.fromFuture(output)))
 
+  private def httpResponse(output: Source[ByteString, _]): HttpResponse =
+    HttpResponse(entity = HttpEntity.CloseDelimited(ContentTypes.`application/json`, output))
+
   // TODO SC: this is a placeholder because we can't do this accurately
   // without type context
   private def placeholderLfValueEnc(v: Value): JsValue =
@@ -162,4 +194,8 @@ class Endpoints(contractsService: ContractsService)(implicit ec: ExecutionContex
 
   private def format(a: JsValue): ByteString =
     ByteString(a.compactPrint)
+}
+
+object Endpoints {
+  final case class InvalidUserInput(message: String) extends RuntimeException(message)
 }

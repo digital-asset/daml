@@ -8,6 +8,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
+import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
@@ -48,10 +49,14 @@ object HttpService extends StrictLogging {
         LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
       packageService = new PackageService(client.packageClient)
       templateIdMap <- eitherT(packageService.getTemplateIdMap()).leftMap(httpServiceError)
+      commandService = new CommandService(
+        PackageService.resolveTemplateId(templateIdMap),
+        client.commandServiceClient.submitAndWaitForTransaction,
+        TimeProvider.UTC)
       contractsService = new ContractsService(
         PackageService.resolveTemplateIds(templateIdMap),
         client.activeContractSetClient)
-      endpoints = new Endpoints(contractsService)
+      endpoints = new Endpoints(commandService, contractsService)
       binding <- liftET[Error](
         Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))
     } yield binding
