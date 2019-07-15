@@ -549,11 +549,11 @@ getHlintDiagnosticsRule =
       srcSpanToRange :: HSE.SrcSpan -> LSP.Range
       srcSpanToRange span = Range {
           _start = LSP.Position {
-                _line = HSE.srcSpanStartLine span
-              , _character  = HSE.srcSpanStartColumn span }
+                _line = HSE.srcSpanStartLine span - 1
+              , _character  = HSE.srcSpanStartColumn span - 1}
         , _end   = LSP.Position {
-                _line = HSE.srcSpanEndLine span
-             , _character = HSE.srcSpanEndColumn span }
+                _line = HSE.srcSpanEndLine span - 1
+             , _character = HSE.srcSpanEndColumn span - 1}
         }
       diagnostic :: NormalizedFilePath -> Idea -> FileDiagnostic
       diagnostic file i =
