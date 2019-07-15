@@ -67,10 +67,17 @@ daml_compile(
     main_src = "test/daml/quickstart/Main.daml",
 )
 
+daml_compile(
+    name = "for-upload",
+    srcs = glob(["test/daml/for-upload/ExtraModule.daml"]),
+    main_src = "test/daml/for-upload/ExtraModule.daml",
+)
+
 da_haskell_test(
     name = "test",
     srcs = glob(["test/**/*.hs"]),
     data = [
+        ":for-upload.dar",
         ":quickstart.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
@@ -89,6 +96,7 @@ da_haskell_test(
         "tasty-hunit",
         "text",
         "time",
+        "utf8-string",
         "uuid",
         "zip-archive",
     ],

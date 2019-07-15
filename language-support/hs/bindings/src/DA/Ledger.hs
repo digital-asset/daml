@@ -24,6 +24,8 @@ module DA.Ledger ( -- High level interface to the Ledger API
     withGetTransactionsPF,
     withGetAllTransactionTrees,
 
+    uploadDarFileGetPid,
+
     ) where
 
 import Network.GRPC.HighLevel.Generated(Port(..),Host(..),ClientConfig(..))
@@ -33,7 +35,9 @@ import DA.Ledger.Services
 import DA.Ledger.Stream
 import DA.Ledger.Types
 
+import Data.List ((\\))
 import UnliftIO (liftIO,timeout,bracket)
+import qualified Data.ByteString as BS (ByteString)
 
 configOfPort :: Port -> ClientConfig
 configOfPort port =
@@ -115,3 +119,15 @@ withGetAllTransactionTrees lid party verbose act = do
     let filter = filterEverthingForParty party
     let req = GetTransactionsRequest lid LedgerBegin Nothing filter verbose
     withGetTransactionTrees req act
+
+
+-- Would be nice if the underlying service returned the pid on successful upload.
+uploadDarFileGetPid :: LedgerId -> BS.ByteString -> LedgerService (Either String PackageId)
+uploadDarFileGetPid lid bytes = do
+    before <- listPackages lid
+    uploadDarFile bytes >>= \case -- call the actual service
+        Left m -> return $ Left m
+        Right () -> do
+            after <- listPackages lid
+            [newPid] <- return (after \\ before) -- see what new pid appears
+            return $ Right newPid
