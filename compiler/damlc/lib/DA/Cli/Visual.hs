@@ -125,7 +125,7 @@ constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceDetails -> TemplateC
 constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate template
   where choicesInTemplate = map internalChcName choiceAndActions
         nodes = map (nodeIdForChoice lookupData) choicesInTemplate
-        nodesWithCreate = (addCreateChoice tpla lookupData) : nodes
+        nodesWithCreate = addCreateChoice tpla lookupData : nodes
 
 tplNamet :: LF.TypeConName -> T.Text
 tplNamet tplConName = head (LF.unTypeConName tplConName)
