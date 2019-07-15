@@ -47,6 +47,7 @@ Just like ``Scenario`` is a recipe for a test, ``Update`` is a recipe for a tran
 
 You'll learn all about the syntax ``Token with owner = alice`` in :doc:`3_Data`.
 
+.. At this point I’m wondering if I need to include parantheses for it to be read as a single Update.
 You could write this as ``submit alice (create Token with owner = alice)``, but just like scenarios, you can assemble updates using ``do`` blocks. A ``do`` block always takes the value of the last statement within it so the syntax shown in the scenario above gives the same result, whilst being easier to read.
 
 Running scenarios
@@ -63,6 +64,7 @@ In DAML Studio, you should see the text "Scenario results" just above the line `
 
 This opens the scenario view in a separate column in VS Code. The default view is a tabular representation of the final state of the ledger:
 
+.. Unsure how to add new image correctly, but the below image doesn’t match up with what should be read. It shouldn’t read Intro_2_Scenario. It should read Token_Test, as described after the image. Please change accordingly with all images in this section.
 .. figure:: images/2_Scenario/tabular_view1.png
 
 What this display means:
@@ -76,6 +78,7 @@ What this display means:
 - The third column shows the status of the contract, either ``active`` or ``archived``.
 - The remaining columns show the contract arguments, with one column per field. As expected, field ``owner`` is ``'Alice'``. The single quotation marks indicate that ``Alice`` is a party.
 
+.. Explain here what damlc is and what's actually happening. Confused about syntax.
 To run the same test from the command line, save your module in a file ``Token_Test.daml`` and run ``daml damlc -- test Token_Test.daml``. If your file contains more than one scenario, all of them will be run.
 
 .. _intro_2_failure:
@@ -94,7 +97,7 @@ However, if you open the scenario view for that scenario, you see the following 
 
 .. figure:: images/2_Scenario/failure.png
 
-The scenario failed, as expected, but scenarios abort at the first failure. This means that it only tested that Alice can't create a token for Bob, and the second ``submit`` statement was never reached.
+The scenario failed, as expected, but scenarios abort at the first failure. This means that it only tested that Alice can't create a token for Bob, and the second ``submit`` statement was never reached. Thus, in this scenario, there is no indication of there being a failure when Bob tries to create a Token contract if Alice is the owner.
 
 To test for failing submits and keep the scenario running thereafter, or fail if the submission succeeds, you can use the ``submitMustFail`` function:
 
@@ -105,14 +108,18 @@ To test for failing submits and keep the scenario running thereafter, or fail if
 
 ``submitMustFail`` never has an impact on the ledger so the resulting tabular scenario view just shows the two Tokens resulting from the successful ``submit`` statements. Note the new column for Bob as well as the visibilities. Alice and Bob cannot see each others' Tokens.
 
+Note, if the ``Update`` is valid but ``submitMustFail`` is used rather than ``submit``, the scenario aborts at this ``Update`` since this is in actuality a failure. 
+.. Include code example of the above statement to illustrate this aborting mechanism
+
 .. _archiving:
 
 Archiving contracts
 -------------------
+.. Archive is an Update (like create), correct? If this is the case, it’s not in the Updates tab under “Language reference docs”
 
 Archiving contracts works just like creating them, but using ``archive`` instead of ``create``. Where ``create`` takes an instance of a template, ``archive`` takes a reference to a contract.
 
-References to contracts have the type ``ContractId a``, where ``a`` is a *type parameter* representing the type of contract that the ID refers to. For example, a reference to a ``Token`` would be a ``ContractId Token``.
+References to contracts have the type ``ContractId a``, where ``a`` is a *type parameter* representing the type of contract that the ID refers to. For example, a reference to a ``Token`` would be a ``ContractId Token``. This can be thought of as being the equivalent of pointers in other programming languages. That is, (the data) of the contract is pointing to that ``ContractId`` and that it’s not the actual contract.
 
 To ``archive`` the Token Alice has created, you need to get a handle on its contract ID. In scenarios, you do this using ``<-`` notation. That's because the contract ID needs to be retrieved from the ledger. How this works is discussed in :doc:`5_Restrictions`.
 
