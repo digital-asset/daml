@@ -120,7 +120,7 @@ pattern EventVirtualResourceChanged vr doc <-
 runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTest mbScenarioService (ShakeTest m) = do
     hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    options <- mkOptions $ (defaultOptions Nothing){optHlintUsage=Just(HlintEnabled hlintDataDir)}
+    options <- mkOptions $ (defaultOptions Nothing){optHlintUsage=HlintEnabled hlintDataDir}
     virtualResources <- newTVarIO Map.empty
     let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
         eventLogger _ = pure ()
