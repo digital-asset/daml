@@ -298,7 +298,7 @@ daml_compile(
     main_src = "source/getting-started/quickstart/template-root/daml/Main.daml",
     visibility = [
         "//language-support/scala/examples:__subpackages__",
-        "//ledger-service/http-json:__subpackages__",
+        "//ledger-service:__subpackages__",
     ],
 )
 
