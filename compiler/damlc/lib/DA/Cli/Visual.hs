@@ -79,7 +79,7 @@ startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
 archiveChoiceWithTemplateName :: LF.Template -> ChoiceAndAction -> ChoiceAndAction
 archiveChoiceWithTemplateName tpl (ChoiceAndAction (LF.ChoiceName "Archive") _ _ _)  =
     ChoiceAndAction
-        (LF.ChoiceName $ tplNameUnqual tpl <> "_Archive")
+        (LF.ChoiceName"Archive")
         (LF.ChoiceName $ tplNameUnqual tpl <> "_Archive")
         True
         Set.empty
@@ -87,7 +87,13 @@ archiveChoiceWithTemplateName _ cha = cha
 
 templatePossibleUpdates :: LF.World -> LF.Template -> [ChoiceAndAction]
 templatePossibleUpdates world tpl = map (archiveChoiceWithTemplateName tpl) actions
-    where actions =  map (\c -> ChoiceAndAction (LF.chcName c) (LF.chcName c) (LF.chcConsuming c) (startFromChoice world c)) (NM.toList (LF.tplChoices tpl))
+    where actions =  map (\c ->
+            ChoiceAndAction
+                (LF.chcName c)
+                ((LF.ChoiceName $ tplNameUnqual tpl <> (LF.unChoiceName .LF.chcName) c))
+                (LF.chcConsuming c)
+                (startFromChoice world c))
+                (NM.toList (LF.tplChoices tpl))
 
 moduleAndTemplates :: LF.World -> LF.Module -> [TemplateChoices]
 moduleAndTemplates world mod = map (\t -> TemplateChoices t (templatePossibleUpdates world t)) $ NM.toList $ LF.moduleTemplates mod
