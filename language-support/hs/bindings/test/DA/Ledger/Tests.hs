@@ -13,7 +13,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchive)
 import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
-import Data.List (elem,isPrefixOf,isInfixOf)
+import Data.List (elem,isPrefixOf,isInfixOf,(\\))
 import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
 import System.Random (randomIO)
@@ -24,7 +24,7 @@ import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
 import qualified Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
 import qualified Data.ByteString as BS (readFile)
-import qualified Data.ByteString.UTF8 as BS (fromString)
+import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.Text.Lazy as Text(pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
@@ -336,6 +336,18 @@ tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \
                     RecordField "owner" (VParty party),
                     RecordField "message" (VString "Hello extra module")
                     ]
+
+
+-- Would be nice if the underlying service returned the pid on successful upload.
+uploadDarFileGetPid :: LedgerId -> BS.ByteString -> LedgerService (Either String PackageId)
+uploadDarFileGetPid lid bytes = do
+    before <- listPackages lid
+    uploadDarFile bytes >>= \case -- call the actual service
+        Left m -> return $ Left m
+        Right () -> do
+            after <- listPackages lid
+            [newPid] <- return (after \\ before) -- see what new pid appears
+            return $ Right newPid
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands
