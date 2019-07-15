@@ -59,7 +59,7 @@ data Options = Options
     -- ^ Controls whether the scenario service server runs all checks
     -- or only a subset of them. This is mostly used to run additional
     -- checks on CI while keeping the IDE fast.
-  , optHlintUsage :: Maybe HlintUsage
+  , optHlintUsage :: HlintUsage
   -- ^ Information about hlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
@@ -107,8 +107,8 @@ mkOptions opts@Options {..} = do
     let mbDefaultPkgDbDir = fmap (</> "pkg-db_dir") mbDefaultPkgDb
     pkgDbs <- filterM Dir.doesDirectoryExist (toList mbDefaultPkgDbDir ++ [projectPackageDatabase])
     case optHlintUsage of
-      Just (HlintEnabled dir) -> checkDirExists dir
-      _ -> return ()
+      HlintEnabled dir -> checkDirExists dir
+      HlintDisabled -> return ()
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
@@ -138,7 +138,7 @@ defaultOptions mbVersion =
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optScenarioValidation = ScenarioValidationFull
-        , optHlintUsage = Nothing
+        , optHlintUsage = HlintDisabled
         , optIsGenerated = False
         }
 

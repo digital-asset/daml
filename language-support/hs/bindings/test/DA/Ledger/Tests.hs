@@ -13,7 +13,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchive)
 import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
-import Data.List (elem,isPrefixOf,isInfixOf)
+import Data.List (elem,isPrefixOf,isInfixOf,(\\))
 import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
 import System.Random (randomIO)
@@ -23,7 +23,9 @@ import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
 import qualified Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
-import qualified Data.ByteString.Lazy as BSL
+import qualified Data.ByteString as BS (readFile)
+import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
+import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.Text.Lazy as Text(pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
 
@@ -61,6 +63,8 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetTransactionById
     , tGetActiveContracts
     , tGetLedgerConfiguration
+    , tUploadDarFileBad
+    , tUploadDarFile
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -301,6 +305,49 @@ tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run w
             minTtl = Duration {durationSeconds = 2, durationNanos = 0},
             maxTtl = Duration {durationSeconds = 30, durationNanos = 0}}
     liftIO $ assertEqual "config" expected config
+
+tUploadDarFileBad :: SandboxTest
+tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    let bytes = BS.fromString "not-the-bytes-for-a-darfile"
+    Left err <- uploadDarFileGetPid lid bytes
+    liftIO $ assertTextContains err "Invalid DAR: package-upload"
+
+tUploadDarFile :: SandboxTest
+tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_pid -> do
+    lid <- getLedgerIdentity
+    bytes <- liftIO $ do
+        let extraDarFilename = "language-support/hs/bindings/for-upload.dar"
+        file <- locateRunfiles (mainWorkspace </> extraDarFilename)
+        BS.readFile file
+    pid <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
+    cidA <- submitCommand lid alice (createExtra pid alice) >>= either (liftIO . assertFailure) return
+    withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
+    Just (Right [Transaction{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
+    liftIO $ do assertEqual "cid" cidA cidB
+    where
+        createExtra :: PackageId -> Party -> Command
+        createExtra pid party = CreateCommand {tid,args}
+            where
+                tid = TemplateId (Identifier pid mod ent)
+                mod = ModuleName "ExtraModule"
+                ent = EntityName "ExtraTemplate"
+                args = Record Nothing [
+                    RecordField "owner" (VParty party),
+                    RecordField "message" (VString "Hello extra module")
+                    ]
+
+
+-- Would be nice if the underlying service returned the pid on successful upload.
+uploadDarFileGetPid :: LedgerId -> BS.ByteString -> LedgerService (Either String PackageId)
+uploadDarFileGetPid lid bytes = do
+    before <- listPackages lid
+    uploadDarFile bytes >>= \case -- call the actual service
+        Left m -> return $ Left m
+        Right () -> do
+            after <- listPackages lid
+            [newPid] <- return (after \\ before) -- see what new pid appears
+            return $ Right newPid
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands
