@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset;
+package com.digitalasset.lf_1_1;
 
 import com.daml.ledger.javaapi.data.*;
 import com.digitalasset.ledger.api.v1.ValueOuterClass;
