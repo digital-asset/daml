@@ -10,7 +10,11 @@ import data.{Decimal, FrontStack, Ref, Time}
 import data.ImmArray.ImmArraySeq
 import iface.{PrimType => PT, Type, TypePrim}
 
-import org.scalacheck.{Arbitrary, Shrink}
+import scalaz.Id.Id
+import scalaz.syntax.traverse._
+import scalaz.std.option._
+import org.scalacheck.{Arbitrary, Gen, Shrink}
+import Arbitrary.arbitrary
 
 /** [[ValueGenerators]] produce untyped values; for example, if you use the list gen,
   * you get a heterogeneous list.  The generation target here, on the other hand, is
@@ -24,8 +28,8 @@ object TypedValueGenerators {
     type Inj[Cid]
     def t: Type
     def inj[Cid]: Inj[Cid] => Value[Cid]
-    def prj[Cid]: Value[Cid] PartialFunction Inj[Cid]
-    implicit def injarb[Cid: Arbitrary]: Arbitrary[Inj[Cid]]
+    def prj[Cid]: Value[Cid] => Option[Inj[Cid]]
+    def injgen[Cid](cid: Gen[Cid]): Gen[Inj[Cid]]
     implicit def injshrink[Cid: Shrink]: Shrink[Inj[Cid]]
   }
 
@@ -44,8 +48,8 @@ object TypedValueGenerators {
       type Inj[Cid] = Inj0
       override val t = TypePrim(pt, ImmArraySeq.empty)
       override def inj[Cid] = inj0
-      override def prj[Cid] = prj0
-      override def injarb[Cid: Arbitrary] = arb
+      override def prj[Cid] = prj0.lift
+      override def injgen[Cid](cid: Gen[Cid]) = arb.arbitrary
       override def injshrink[Cid: Shrink] = shr
     }
 
@@ -59,15 +63,50 @@ object TypedValueGenerators {
     val bool = noCid(PT.Bool, ValueBool) { case ValueBool(b) => b }
     val party = noCid(PT.Party, ValueParty) { case ValueParty(p) => p }
 
-    type Compose[F[_], G[_], A] = F[G[A]]
-    def list(elt: ValueAddend): Aux[Compose[FrontStack, elt.Inj, ?]] = new ValueAddend {
-      type Inj[Cid] = FrontStack[elt.Inj[Cid]]
-      override val t = TypePrim(PT.List, ImmArraySeq(elt.t))
-      override def inj[Cid] = elts => ValueList(elts map elt.inj)
-      override def prj[Cid] = { case ValueList(v) => v map elt.prj }
-      override def injarb[Cid: Arbitrary] = ???
-      override def injshrink[Cid: Shrink] = ???
+    val contractId: Aux[Id] = new ValueAddend {
+      type Inj[Cid] = Cid
+      // TODO SC it probably doesn't make much difference for our initial use case,
+      // but the proper arg should probably end up here, not Unit
+      override val t = TypePrim(PT.ContractId, ImmArraySeq(TypePrim(PT.Unit, ImmArraySeq.empty)))
+      override def inj[Cid] = ValueContractId(_)
+      override def prj[Cid] = {
+        case ValueContractId(cid) => Some(cid)
+        case _ => None
+      }
+      override def injgen[Cid](cid: Gen[Cid]) = cid
+      override def injshrink[Cid](implicit shr: Shrink[Cid]) = shr
     }
+
+    type Compose[F[_], G[_], A] = F[G[A]]
+    def list(elt: ValueAddend): Aux[Compose[Vector, elt.Inj, ?]] = new ValueAddend {
+      import scalaz.std.vector._
+      type Inj[Cid] = Vector[elt.Inj[Cid]]
+      override val t = TypePrim(PT.List, ImmArraySeq(elt.t))
+      override def inj[Cid] = elts => ValueList(elts.map(elt.inj).to[FrontStack])
+      override def prj[Cid] = {
+        case ValueList(v) => v.toImmArray.toSeq.to[Vector] traverse elt.prj
+        case _ => None
+      }
+      override def injgen[Cid](cid: Gen[Cid]) = {
+        implicit val ae: Arbitrary[elt.Inj[Cid]] = Arbitrary(elt.injgen(cid))
+        arbitrary[Vector[elt.Inj[Cid]]] // TODO SC propagate smaller size
+      }
+      override def injshrink[Cid: Shrink] = {
+        import elt.injshrink
+        implicitly[Shrink[Vector[elt.Inj[Cid]]]]
+      }
+    }
+
+    /*
+    override def optional(elt: ValueAddend): Aux[Compose[Option, elt.Inj, ?]] = new ValueAddend {
+      type Inj[Cid] = Option[elt.Inj[Cid]]
+      override val t = TypePrim(PT.Optional, ImmArraySeq(elt.t))
+      override def inj[Cid] = oe => ValueOptional(oe map elt.inj)
+      override def prj[Cid] = {case ValueOptional(v) => v map elt.prj}
+      override implicit def injarb[Cid: Arbitrary] = ???
+      override implicit def injshrink[Cid: Shrink] = ???
+    }
+   */
   }
 
   trait PrimInstances[F[_]] {
