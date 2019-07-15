@@ -24,7 +24,8 @@ import CMarkGFM
 
 -- | Renderer output. This is the set of anchors that were generated, and a
 -- list of output functions that depend on that set. The goal is to prevent
--- the creation of spurious anchors links.
+-- the creation of spurious anchors links (i.e. links to anchors that don't
+-- exist).
 --
 -- (In theory this could be done in two steps, but that seems more error prone
 -- than building up both steps at the same time, and combining them at the
@@ -38,6 +39,12 @@ newtype RenderOut = RenderOut (RenderEnv, [RenderEnv -> [T.Text]])
 newtype RenderEnv = RenderEnv (Set.Set Anchor)
     deriving newtype (Semigroup, Monoid)
 
+-- | Is the anchor available in the render environment? Renderers should avoid
+-- generating links to anchors that don't actually exist.
+--
+-- One reason an anchor may be unavailable is because of a @-- | HIDE@ directive.
+-- Another possibly reason is that the anchor refers to a definition in another
+-- package (and at the moment it's not possible to link accross packages).
 renderAnchorAvailable :: RenderEnv -> Anchor -> Bool
 renderAnchorAvailable (RenderEnv anchors) anchor = Set.member anchor anchors
 
