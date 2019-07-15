@@ -8,54 +8,66 @@
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Damlc (main) where
 
+import Codec.Archive.Zip
+import Control.Exception
+import Control.Exception.Safe (catchIO)
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
-import DA.Signals
-import DA.Cli.Damlc.Base
-import DA.Cli.Damlc.IdeState
-import Control.Exception.Safe (catchIO)
-import Data.Maybe
-import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
-import Codec.Archive.Zip
-import qualified Da.DamlLf as PLF
-import           DA.Cli.Damlc.BuildInfo
-import           DA.Cli.Damlc.Command.Damldoc      (cmdDamlDoc)
-import           DA.Cli.Args
-import qualified DA.Pretty
+import DA.Bazel.Runfiles
+import DA.Cli.Args
+import DA.Cli.Damlc.Base
+import DA.Cli.Damlc.BuildInfo
+import DA.Cli.Damlc.Command.Damldoc (cmdDamlDoc)
+import DA.Cli.Damlc.IdeState
+import DA.Cli.Damlc.Test
+import DA.Cli.Visual
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.Scenario
 import DA.Daml.Compiler.Upgrade
-import DA.Daml.Options
-import DA.Daml.Options.Types
-import DA.Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
-import qualified DA.Service.Logger                 as Logger
-import qualified DA.Service.Logger.Impl.IO         as Logger.IO
-import qualified DA.Service.Logger.Impl.GCP        as Logger.GCP
-import DAML.Project.Consts
+import DA.Daml.LanguageServer
+import DA.Daml.Options
+import DA.Daml.Options.Types
+import qualified DA.Pretty
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
+import qualified DA.Service.Logger.Impl.IO as Logger.IO
+import DA.Signals
 import DAML.Project.Config
-import DAML.Project.Types (ProjectPath(..), ConfigError)
+import DAML.Project.Consts
+import DAML.Project.Types (ConfigError, ProjectPath(..))
+import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
-import Data.ByteArray.Encoding (Base (Base16), convertToBase)
-import qualified Data.ByteString                   as B
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteArray.Encoding (Base(Base16), convertToBase)
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy as BSL
 import Data.FileEmbed (embedFile)
-import qualified Data.Set as Set
+import Data.Graph
+import Data.List
 import qualified Data.List.Split as Split
+import qualified Data.Map.Strict as MS
+import Data.Maybe
+import qualified Data.NameMap as NM
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.API
-import Development.IDE.Core.Service (runAction)
-import Development.IDE.Core.Rules.Daml (getDalf)
 import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..))
+import Development.IDE.Core.Rules
+import Development.IDE.Core.Rules.Daml (getDalf)
+import Development.IDE.Core.Service (runAction)
+import Development.IDE.GHC.Util
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import qualified Network.Socket                    as NS
+import "ghc-lib-parser" Module
+import qualified Network.Socket as NS
 import Options.Applicative.Extended
+import "ghc-lib-parser" Packages
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import Safe
@@ -63,22 +75,9 @@ import System.Directory
 import System.Environment
 import System.Exit
 import System.FilePath
-import System.IO.Extra
-import System.Process(callCommand)
-import           System.IO
-import qualified Text.PrettyPrint.ANSI.Leijen      as PP
-import DA.Cli.Damlc.Test
-import DA.Bazel.Runfiles
-import DA.Cli.Visual
-import Data.List
-import qualified Data.NameMap as NM
-import qualified Data.Map.Strict as MS
-import "ghc-lib-parser" DynFlags
-import "ghc-lib-parser" Module
-import Data.Graph
-import Development.IDE.GHC.Util
-import Development.IDE.Core.Rules
-import "ghc-lib-parser" Packages
+import System.IO
+import System.Process (callCommand)
+import qualified Text.PrettyPrint.ANSI.Leijen as PP
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -690,7 +689,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                                   ioError $
                                   userError $
                                   "Compilation of generated source for " <>
-                                  (installedUnitIdString iuid) <>
+                                  installedUnitIdString iuid <>
                                   " failed."
                               Just _core -> pure ()
         -- get the package name and the lf-package
@@ -759,7 +758,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
   where
     decode dalf =
         errorOnLeft
-            ("Cannot decode daml-lf archive")
+            "Cannot decode daml-lf archive"
             (Archive.decodeArchive dalf)
     getEntry fp dar =
         maybe (ioError $ userError $ "Package does not contain " <> fp) pure $
