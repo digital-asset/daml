@@ -388,12 +388,13 @@ getTemplateData ParsedModule{..} =
 isTemplate :: ClsInstDecl GhcPs -> Maybe Typename
 isTemplate (XClsInstDecl _) = Nothing
 isTemplate ClsInstDecl{..}
-  | HsIB _ (L _ ty) <-  cid_poly_ty
-  , HsAppTy _ (L _ t1) (L _ t2) <- ty
+  | L _ ty <- getLHsInstDeclHead cid_poly_ty
+  , HsAppTy _ (L _ t1) t2 <- ty
   , HsTyVar _ _ (L _ tmplClass) <- t1
-  , HsTyVar _ _ (L _ tmplName) <- t2
+  , Just (L _ t2name) <- hsTyGetAppHead_maybe t2
   , toText tmplClass == "DA.Internal.Desugar.Template"
-  = Just (Typename . packRdrName $ tmplName)
+  || "Template" `T.isSuffixOf` toText tmplClass -- temporary
+  = Just (Typename $ packRdrName t2name)
 
   | otherwise = Nothing
 
