@@ -5,26 +5,25 @@ package com.digitalasset.daml.lf
 package value.json
 
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{genTypeAndValue}
+import value.TypedValueGenerators.{genTypeAndValue, genAddend}
 
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
-import org.scalacheck.Gen
+import org.scalacheck.{Arbitrary, Gen}
 
 import scala.util.{Success, Try}
 
 class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
 
+  /** XXX SC replace when TypedValueGenerators supports TypeCons */
+  private val typeLookup: NavigatorModelAliases.DamlLfTypeLookup = _ => None
+
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse(
       value: model.ApiValue,
       typ: model.DamlLfType): Try[model.ApiValue] = {
-    import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
     import ApiCodecCompressed.JsonImplicits._
     import spray.json._
-
-    /** XXX SC replace when TypedValueGenerators supports TypeCons */
-    val typeLookup: NavigatorModelAliases.DamlLfTypeLookup = _ => None
 
     for {
       serialized <- Try(value.toJson.prettyPrint)
@@ -33,6 +32,7 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDriven
     } yield parsed
   }
 
+  type Cid = String
   private val genCid = Gen.alphaStr.filter(_.nonEmpty)
 
   "API compressed JSON codec" when {
@@ -42,6 +42,18 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDriven
       "work for arbitrary reference-free types" in forAll(genTypeAndValue(genCid)) {
         case (typ, value) =>
           serializeAndParse(value, typ) shouldBe Success(value)
+      }
+
+      "work for many, many values in raw format" in forAll(genAddend) { va =>
+        import va.injshrink
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = Arbitrary(va.injgen(genCid))
+        forAll { v: va.Inj[Cid] =>
+          va.prj(
+            ApiCodecCompressed.jsValueToApiValue(
+              ApiCodecCompressed.apiValueToJsValue(va.inj(v)),
+              va.t,
+              typeLookup)) should ===(Some(v))
+        }
       }
       /*
       "work for EmptyRecord" in {
