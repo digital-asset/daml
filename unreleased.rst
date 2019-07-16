@@ -61,8 +61,11 @@ HEAD — ongoing
 
   + Add support for DAML-LF intern package IDs.
 
-- [Ledger API] Add support for ``enum`` types. Simple ``variant`` types will
-  be replaced by ``enum`` types when using a DAML-LF ``1.6`` archive.
+- [Ledger API] Add support for ``enum`` types. Simple DAML ``variant`` types
+  will be mapped to DAML-LF ``enum`` types when using a DAML-LF ``1.6``
+  archive. Ledger API Value Protobuf provides the new ``Enum`` message.
+  This message must be used to communicate this new data type throught the
+  API.
 
 - [Java Codegen]: Add support for ``enum`` types. ``enum`` types are mapped to
   standard java enum. See `Generate Java code from DAML
