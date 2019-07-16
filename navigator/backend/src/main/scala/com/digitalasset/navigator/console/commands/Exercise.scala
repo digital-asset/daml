@@ -68,7 +68,7 @@ case object Exercise extends SimpleCommand {
         .find(c => ApiTypes.Choice.unwrap(c.name) == choice) ~> s"Unknown choice $choice"
       apiValue <- Try(
         // Use unit value if no argument is given
-        damlA.fold[ApiValue](ApiUnit())(
+        damlA.fold[ApiValue](ApiUnit)(
           arg =>
             ApiCodecCompressed.stringToApiType(
               arg.mkString(" "),

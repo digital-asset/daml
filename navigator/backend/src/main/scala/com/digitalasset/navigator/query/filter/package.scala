@@ -5,6 +5,7 @@ package com.digitalasset.navigator.query
 
 import com.digitalasset.navigator.dotnot._
 import com.digitalasset.navigator.model._
+import ApiValueImplicits._
 import scalaz.Tag
 import scalaz.syntax.tag._
 
@@ -111,8 +112,9 @@ package object filter {
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
-              fields.find(f => f.label == nextCursor.current) match {
-                case Some(nextField) => loop(nextField.value, nextCursor)
+              val current: String = nextCursor.current
+              fields.toSeq.collectFirst { case (Some(`current`), value) => value } match {
+                case Some(nextField) => loop(nextField, nextCursor)
                 case None => Right(false)
               }
           }
@@ -141,7 +143,7 @@ package object filter {
             case None => Right(false)
             case Some(nextCursor) =>
               Try(nextCursor.current.toInt) match {
-                case Success(index) => loop(elements(index), nextCursor)
+                case Success(index) => loop(elements.slowApply(index), nextCursor)
                 case Failure(e) =>
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }
@@ -149,11 +151,12 @@ package object filter {
         case ApiContractId(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case ApiInt64(value) if cursor.isLast =>
           Right(checkContained(value.toString, expectedValue))
-        case ApiDecimal(value) if cursor.isLast => Right(checkContained(value, expectedValue))
+        case ApiDecimal(value) if cursor.isLast =>
+          Right(checkContained(value.decimalToString, expectedValue))
         case ApiText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case ApiParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case ApiBool(value) if cursor.isLast => Right(checkContained(value.toString, expectedValue))
-        case ApiUnit() if cursor.isLast => Right(expectedValue == "")
+        case ApiUnit if cursor.isLast => Right(expectedValue == "")
         case ApiOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(expectedValue == "None")

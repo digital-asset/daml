@@ -124,3 +124,16 @@ abstract class DecimalModule {
       s"Decimal $x does not fit into an Int64")
 
 }
+
+object DecimalModule {
+
+  /** You cannot overload or override any method ''names'' defined on [[BigDecimal]],
+    * such as `toString` or `+`, even if the signature's different.
+    * Anything else defined here will be found ''with no additional imports needed'',
+    * provided that `-Xsource:2.13` is used to compile the call point.
+    */
+  implicit final class `Decimal methods`(private val self: Decimal) extends AnyVal {
+    def decimalToString: String = Decimal toString self
+    def decimalToLong: Either[String, Long] = Decimal toLong self
+  }
+}

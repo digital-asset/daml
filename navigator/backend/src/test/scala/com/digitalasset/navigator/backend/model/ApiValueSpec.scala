@@ -7,6 +7,9 @@ import java.time.{Instant, LocalDate}
 
 import org.scalatest.{Matchers, WordSpec}
 
+import com.digitalasset.daml.lf.data.{Time => LfTime}
+import ApiValueImplicits._
+
 class ApiValueSpec extends WordSpec with Matchers {
 
   "Api values" when {
@@ -20,7 +23,7 @@ class ApiValueSpec extends WordSpec with Matchers {
     }
 
     "converting Date to ISO and back" should {
-      val date = ApiDate(10000)
+      val date = ApiDate(LfTime.Date assertFromDaysSinceEpoch 10000)
       val result = ApiDate.fromIso8601(date.toIso8601)
 
       "not change the value" in {
@@ -48,7 +51,7 @@ class ApiValueSpec extends WordSpec with Matchers {
     }
 
     "converting Timestamp to ISO and back" should {
-      val timestamp = ApiTimestamp(123456789123456L)
+      val timestamp = ApiTimestamp(LfTime.Timestamp assertFromLong 123456789123456L)
       val result = ApiTimestamp.fromIso8601(timestamp.toIso8601)
 
       "not change the value" in {

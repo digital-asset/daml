@@ -216,7 +216,10 @@ object Pretty {
   def argument(arg: model.ApiValue): PrettyNode = arg match {
     case model.ApiRecord(id, fields) =>
       PrettyObject(
-        fields.map(f => PrettyField(f.label, argument(f.value)))
+        fields.iterator.zipWithIndex.map {
+          case ((flabel, fvalue), ix) =>
+            PrettyField(flabel getOrElse (ix: Int).toString, argument(fvalue))
+        }.toSeq: _*
       )
     case model.ApiVariant(id, constructor, value) =>
       PrettyObject(
@@ -226,23 +229,24 @@ object Pretty {
       PrettyPrimitive(constructor)
     case model.ApiList(elements) =>
       PrettyArray(
-        elements.map(e => argument(e))
+        elements.toImmArray.map(e => argument(e)).toSeq: _*
       )
     case model.ApiText(value) => PrettyPrimitive(value)
     case model.ApiInt64(value) => PrettyPrimitive(value.toString)
-    case model.ApiDecimal(value) => PrettyPrimitive(value)
+    case model.ApiDecimal(value) => PrettyPrimitive(value.decimalToString)
     case model.ApiBool(value) => PrettyPrimitive(value.toString)
     case model.ApiContractId(value) => PrettyPrimitive(value.toString)
     case model.ApiTimestamp(value) => PrettyPrimitive(value.toString)
     case model.ApiDate(value) => PrettyPrimitive(value.toString)
     case model.ApiParty(value) => PrettyPrimitive(value.toString)
-    case model.ApiUnit() => PrettyPrimitive("<unit>")
+    case model.ApiUnit => PrettyPrimitive("<unit>")
     case model.ApiOptional(None) => PrettyPrimitive("<none>")
     case model.ApiOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
     case model.ApiMap(map) =>
       PrettyObject(map.toImmArray.toList.map {
         case (key, value) => PrettyField(key, argument(arg))
       })
+    case _: model.ApiImpossible => sys.error("impossible! tuples are not serializable")
   }
 
   /** Outputs an object in YAML format */

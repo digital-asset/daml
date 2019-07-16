@@ -8,15 +8,30 @@ import FrontStack.{FQ, FQCons, FQEmpty, FQPrepend}
 
 import scalaz.Equal
 
+import scala.collection.generic.CanBuildFrom
 import scala.collection.mutable
 
-/** A stackk which allows to cons, prepend, and pop in constant time, and generate an ImmArray in linear time.
+/** A stack which allows to cons, prepend, and pop in constant time, and generate an ImmArray in linear time.
   * Very useful when needing to traverse stuff in topological order or similar situations.
   */
 final class FrontStack[+A] private (fq: FQ[A], len: Int) {
 
   /** O(1) */
   def length: Int = len
+
+  /** O(n) */
+  @throws[IndexOutOfBoundsException]
+  def slowApply(ix: Int): A = {
+    if (ix < 0) throw new IndexOutOfBoundsException(ix.toString)
+    val i = iterator
+    @tailrec def lp(ix: Int): A =
+      if (!i.hasNext) throw new IndexOutOfBoundsException(ix.toString)
+      else {
+        val v = i.next
+        if (ix <= 0) v else lp(ix - 1)
+      }
+    lp(ix)
+  }
 
   /** O(1) */
   def +:[B >: A](x: B): FrontStack[B] = new FrontStack(FQCons(x, fq), len + 1)
@@ -128,6 +143,17 @@ object FrontStack {
     apply(ImmArray(elements))
 
   def unapply[T](xs: FrontStack[T]): Boolean = xs.isEmpty
+
+  private[data] final class FSCanBuildFrom[A]
+      extends CanBuildFrom[FrontStack[_], A, FrontStack[A]] {
+    override def apply(from: FrontStack[_]) = apply()
+
+    override def apply() =
+      ImmArray.newBuilder[A].mapResult(FrontStack(_))
+  }
+
+  implicit def `FrontStack canBuildFrom`[A]: CanBuildFrom[FrontStack[_], A, FrontStack[A]] =
+    new FSCanBuildFrom
 
   implicit def equalInstance[A](implicit A: Equal[A]): Equal[FrontStack[A]] =
     ScalazEqual.withNatural(Equal[A].equalIsNatural) { (as, bs) =>

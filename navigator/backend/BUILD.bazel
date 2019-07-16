@@ -8,9 +8,10 @@ load(
     "da_scala_test_suite",
 )
 
-common_scalacopts = [
+navigator_scalacopts = [
     "-Xelide-below",
     "CONFIG",
+    "-Xsource:2.13",
 ]
 
 common_jvm_flags = [
@@ -73,6 +74,7 @@ compileDependencies = [
     "//daml-lf/archive:daml_lf_archive_scala",
     "//daml-lf/archive:daml_lf_java_proto",
     "//daml-lf/data",
+    "//daml-lf/transaction",
     "//daml-lf/interface",
     "//ledger-api/rs-grpc-bridge",
     "//ledger-api/rs-grpc-akka",
@@ -105,6 +107,7 @@ testDependencies = [
     ":navigator-library",
     "//3rdparty/jvm/com/typesafe/akka:akka_http_testkit",
     "//3rdparty/jvm/org/scalatest:scalatest",
+    "//3rdparty/jvm/org/scalacheck",
     "//3rdparty/jvm/org/slf4j:slf4j_simple",
 ] + compileDependencies
 
@@ -113,6 +116,7 @@ da_scala_library(
     srcs = glob([
         "src/main/scala/com/digitalasset/navigator/**/*.scala",
     ]),
+    scalacopts = navigator_scalacopts,
     deps = compileDependencies,
 )
 
@@ -125,6 +129,7 @@ da_scala_library(
             "src/test/**/*Test.scala",
         ],
     ),
+    scalacopts = navigator_scalacopts,
     deps = testDependencies,
 )
 
@@ -160,6 +165,7 @@ da_scala_test_suite(
         "src/test/**/*Spec.scala",
         "src/test/**/*Test.scala",
     ]),
+    scalacopts = navigator_scalacopts,
     deps = [
         ":navigator-tests-library",
         ":test-resources",
