@@ -22,7 +22,7 @@ object ApiValueToLfValueConverter {
   type ApiValueToLfValue =
     lav1.value.Value => Error \/ lf.value.Value[lf.value.Value.AbsoluteContractId]
 
-  def apiToLf(ledgerId: lar.LedgerId, packageStore: PackageStore): ApiValueToLfValue = {
+  def apiValueToLfValue(ledgerId: lar.LedgerId, packageStore: PackageStore): ApiValueToLfValue = {
     val commandsValidator =
       new CommandsValidator(domainLedgerId(ledgerId), new ApiIdentifierResolver(packageStore))
 
