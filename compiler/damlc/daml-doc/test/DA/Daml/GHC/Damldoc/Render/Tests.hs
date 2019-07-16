@@ -220,7 +220,7 @@ renderTest format (name, input) expected =
     renderer = case format of
                  Json -> error "Json encoder testing not done here"
                  Rst -> renderFinish . renderSimpleRst
-                 Markdown -> renderSimpleMD
+                 Markdown -> renderFinish . renderSimpleMD
                  Html -> error "HTML testing not supported (use Markdown)"
                  Hoogle -> error "Hoogle doc testing not yet supported."
     output = T.strip $ renderer input

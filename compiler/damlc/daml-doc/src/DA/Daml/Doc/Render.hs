@@ -42,7 +42,7 @@ data DocFormat = Json | Rst | Markdown | Html | Hoogle
 -- | Html renderer, using cmark-gfm
 renderSimpleHtml :: ModuleDoc -> T.Text
 renderSimpleHtml m@ModuleDoc{..} =
-  wrapHtml t $ GFM.commonmarkToHtml [] [GFM.extTable] $ renderSimpleMD m
+  wrapHtml t $ GFM.commonmarkToHtml [] [GFM.extTable] $ renderFinish $ renderSimpleMD m
   where t = "Module " <> unModulename md_name
 
 wrapHtml :: T.Text -> T.Text -> T.Text
