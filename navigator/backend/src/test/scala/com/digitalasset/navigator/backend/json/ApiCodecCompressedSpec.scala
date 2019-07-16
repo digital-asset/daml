@@ -29,10 +29,6 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
   "API verbose JSON codec" when {
 
     "serializing and parsing a value" should {
-      "work for Optional" in {
-        serializeAndParse(C.simpleOptionalV, C.simpleOptionalT(C.simpleTextT)) shouldBe Success(
-          C.simpleOptionalV)
-      }
       "work for EmptyRecord" in {
         serializeAndParse(C.emptyRecordV, C.emptyRecordTC) shouldBe Success(C.emptyRecordV)
       }
@@ -50,9 +46,6 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
       }
       "work for Enum" in {
         serializeAndParse(C.redV, C.redTC) shouldBe Success(C.redV)
-      }
-      "work for Map" in {
-        serializeAndParse(C.simpleMapV, C.simpleMapT(C.simpleInt64T)) shouldBe Success(C.simpleMapV)
       }
     }
   }

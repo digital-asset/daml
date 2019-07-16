@@ -5,8 +5,7 @@ package com.digitalasset.daml.lf
 package value
 
 import scala.language.higherKinds
-
-import data.{Decimal, FrontStack, Ref, Time}
+import data.{Decimal, FrontStack, Ref, SortedLookupList, Time}
 import data.ImmArray.ImmArraySeq
 import iface.{PrimType => PT, Type, TypePrim}
 
@@ -101,16 +100,34 @@ object TypedValueGenerators {
       }
     }
 
-    /*
-    override def optional(elt: ValueAddend): Aux[Compose[Option, elt.Inj, ?]] = new ValueAddend {
+    def optional(elt: ValueAddend): Aux[Compose[Option, elt.Inj, ?]] = new ValueAddend {
       type Inj[Cid] = Option[elt.Inj[Cid]]
       override val t = TypePrim(PT.Optional, ImmArraySeq(elt.t))
       override def inj[Cid] = oe => ValueOptional(oe map elt.inj)
-      override def prj[Cid] = {case ValueOptional(v) => v map elt.prj}
-      override implicit def injarb[Cid: Arbitrary] = ???
-      override implicit def injshrink[Cid: Shrink] = ???
+      override def prj[Cid] = {
+        case ValueOptional(v) => v traverse elt.prj
+        case _ => None
+      }
+      override def injgen[Cid](cid: Gen[Cid]) = Gen.option(elt.injgen(cid))
+      override def injshrink[Cid: Shrink] = {
+        import elt.injshrink
+        implicitly[Shrink[Option[elt.Inj[Cid]]]]
+      }
     }
-   */
+
+    def map(elt: ValueAddend): Aux[Compose[SortedLookupList, elt.Inj, ?]] = new ValueAddend {
+      type Inj[Cid] = SortedLookupList[elt.Inj[Cid]]
+      override val t = TypePrim(PT.Map, ImmArraySeq(elt.t))
+      override def inj[Cid] =
+        (sll: SortedLookupList[elt.Inj[Cid]]) => ValueMap(sll map elt.inj)
+      override def prj[Cid] = {
+        case ValueMap(sll) => sll traverse elt.prj
+        case _ => None
+      }
+      override def injgen[Cid](cid: Gen[Cid]) =
+        Gen.mapOf(Gen.zip(Gen.asciiPrintableStr, elt.injgen(cid))) map (SortedLookupList(_))
+      override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
+    }
   }
 
   trait PrimInstances[F[_]] {
@@ -140,7 +157,9 @@ object TypedValueGenerators {
     Gen.frequency(
       (ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
       (1, Gen.const(ValueAddend.contractId)),
-      (1, Gen.lzy(genAddend).map(ValueAddend.list(_)))
+      (1, Gen.lzy(genAddend).map(ValueAddend.list(_))),
+      (1, Gen.lzy(genAddend).map(ValueAddend.optional(_))),
+      (1, Gen.lzy(genAddend).map(ValueAddend.map(_))),
     )
 
   /** Generate a type and value guaranteed to conform to that type. */
