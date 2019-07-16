@@ -195,7 +195,7 @@ submit = primitive @"SCommit"
 infixr 0 `submitMustFail`
 -- | `submitMustFail` describes the scenario in which party `p` attempts to update the
 -- ledger with update action `u`, and the update is *expected to fail*. Therefore, this
--- scenario is fails if the underlying update action *succeeds*.
+-- scenario fails if the underlying update action *succeeds*.
 submitMustFail : Party -> Update a -> Scenario ()
 submitMustFail = primitive @"SMustFailAt"
 

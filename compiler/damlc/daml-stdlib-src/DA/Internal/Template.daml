@@ -140,7 +140,7 @@ class Template c => Choice c e r | c e -> r where
     
     -- | The controller of a choice on a contract.
     choiceController : c -> e -> [Party]
-    -- | A choice on a contract.
+    -- | The follow-up update of a choice on a contract.
     choice : c -> ContractId c -> e -> Update r
 
     -- | HIDE
