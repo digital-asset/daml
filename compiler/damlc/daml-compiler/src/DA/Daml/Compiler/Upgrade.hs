@@ -165,7 +165,7 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
     sigRdrName = noLoc $ mkRdrUnqual $ mkOccName varName "signatory"
     errTooManyNameComponents cs =
         error $
-        "Internal error: Dalf contains data constructors with more than two name components: " <>
+        "Internal error: Dalf contains type constructors with more than two name components: " <>
         (T.unpack $ T.intercalate "." cs)
     sumProdRecords =
         MS.fromList
