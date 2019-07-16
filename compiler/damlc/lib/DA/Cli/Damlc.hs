@@ -338,6 +338,7 @@ execLint inputFile opts =
         setFilesOfInterest ide (Set.singleton inputFile)
         runAction ide $ getHlintIdeas inputFile
         diags <- getDiagnostics ide
+        when (null diags) $ hPutStrLn stderr "No hints."
         unless (null diags) exitFailure
   where
      setHlintDataDir :: Options -> IO Options
