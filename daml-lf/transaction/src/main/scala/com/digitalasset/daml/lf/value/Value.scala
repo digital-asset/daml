@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.data.Ref.{
   `Name equal instance`
 }
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.language.LanguageVersion
 
 import scala.annotation.tailrec
 import scalaz.Equal
@@ -154,25 +153,18 @@ object Value {
     */
   val MAXIMUM_NESTING: Int = 100
 
-  final case class VersionedValue[+Cid](version: ValueVersion, value: Value[Cid]) {
-    def mapContractId[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
-      this.copy(value = value.mapContractId(f))
-
-    /** Increase the `version` if appropriate for `languageVersions`. */
-    def typedBy(languageVersions: LanguageVersion*): VersionedValue[Cid] = {
-      import com.digitalasset.daml.lf.transaction.VersionTimeline, VersionTimeline._, Implicits._
-      copy(version =
-        latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
-    }
-  }
+  type VersionedValue[+Cid] = Versioned[ValueVersion, Value[Cid]]
 
   object VersionedValue {
-    implicit def `VersionedValue Equal instance`[Cid: Equal]: Equal[VersionedValue[Cid]] =
-      ScalazEqual.withNatural(Equal[Cid].equalIsNatural) { (a, b) =>
-        import a._
-        val VersionedValue(bVersion, bValue) = b
-        version == bVersion && value === bValue
-      }
+    def apply[Cid](version: ValueVersion, value: Value[Cid]) = new Versioned(version, value)
+  }
+
+  implicit class VersionedValueOps[Cid](val versioned: Value.VersionedValue[Cid]) extends AnyVal {
+
+    def mapContractId[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
+      versioned.copy(x = versioned.x.mapContractId(f))
+
+    def value: Value[Cid] = versioned.x
   }
 
   final case class ValueRecord[+Cid](

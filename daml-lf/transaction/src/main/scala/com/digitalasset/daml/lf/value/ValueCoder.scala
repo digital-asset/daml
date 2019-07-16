@@ -212,7 +212,7 @@ object ValueCoder {
   def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
       protoValue0: proto.VersionedValue): Either[DecodeError, Value[Cid]] =
-    decodeVersionedValue(decodeCid, protoValue0) map (_.value)
+    decodeVersionedValue(decodeCid, protoValue0) map (_.x)
 
   /**
     * Serializes [[Value]] to protobuf, library decides which [[ValueVersion]] to assign.
@@ -247,7 +247,7 @@ object ValueCoder {
       encodeCid: EncodeCid[Cid],
       versionedValue: VersionedValue[Cid]): Either[EncodeError, proto.VersionedValue] =
     for {
-      value <- encodeValue(encodeCid, versionedValue.version, versionedValue.value)
+      value <- encodeValue(encodeCid, versionedValue.version, versionedValue.x)
     } yield {
       val builder = proto.VersionedValue.newBuilder()
       builder.setVersion(versionedValue.version.protoValue).setValue(value).build()

@@ -80,7 +80,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         builder.setTemplatePrecondViolated(
           uepvBuilder
             .setTemplateId(convertIdentifier(tid))
-            .setArg(convertValue(arg.value))
+            .setArg(convertValue(arg.x))
             .build
         )
       case SError.DamlELocalContractNotActive(coid, tid, consumedBy) =>
@@ -151,7 +151,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
   def convertGlobalKey(globalKey: N.GlobalKey): GlobalKey = {
     GlobalKey.newBuilder
       .setTemplateId(convertIdentifier(globalKey.templateId))
-      .setKey(convertValue(globalKey.key.value))
+      .setKey(convertValue(globalKey.key.x))
       .build
   }
 
@@ -366,7 +366,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
         val ecBuilder = ExerciseContext.newBuilder
           .setTargetId(mkContractRef(ctx.targetId, ctx.templateId))
           .setChoiceId(ctx.choiceId)
-          .setChosenValue(convertValue(ctx.chosenValue.value))
+          .setChosenValue(convertValue(ctx.chosenValue.x))
         ctx.optLocation.map(loc => ecBuilder.setExerciseLocation(convertLocation(loc)))
         builder.setExerciseContext(ecBuilder.build)
     }
@@ -405,7 +405,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .setContractInstance(
               ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.coinst.template))
-                .setValue(convertValue(create.coinst.arg.value))
+                .setValue(convertValue(create.coinst.arg.x))
                 .build
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
@@ -434,7 +434,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .setChoiceId(ex.choiceId)
             .setConsuming(ex.consuming)
             .addAllActingParties(ex.actingParties.map(convertParty).asJava)
-            .setChosenValue(convertValue(ex.chosenValue.value))
+            .setChosenValue(convertValue(ex.chosenValue.x))
             .addAllSignatories(ex.signatories.map(convertParty).asJava)
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
             .addAllControllers(ex.controllers.map(convertParty).asJava)
@@ -461,7 +461,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       key: N.KeyWithMaintainers[V.VersionedValue[V.ContractId]]): KeyWithMaintainers = {
     KeyWithMaintainers
       .newBuilder()
-      .setKey(convertValue(key.key.value))
+      .setKey(convertValue(key.key.x))
       .addAllMaintainers(key.maintainers.map(convertParty).asJava)
       .build()
   }
@@ -478,7 +478,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .setContractInstance(
               ContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.coinst.template))
-                .setValue(convertValue(create.coinst.arg.value))
+                .setValue(convertValue(create.coinst.arg.x))
                 .build
             )
             .addAllSignatories(create.signatories.map(convertParty).asJava)
@@ -505,7 +505,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .setChoiceId(ex.choiceId)
             .setConsuming(ex.consuming)
             .addAllActingParties(ex.actingParties.map(convertParty).asJava)
-            .setChosenValue(convertValue(ex.chosenValue.value))
+            .setChosenValue(convertValue(ex.chosenValue.x))
             .addAllSignatories(ex.signatories.map(convertParty).asJava)
             .addAllStakeholders(ex.stakeholders.map(convertParty).asJava)
             .addAllControllers(ex.controllers.map(convertParty).asJava)

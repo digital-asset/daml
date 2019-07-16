@@ -195,7 +195,7 @@ class PostgresIndexer private (
         val toAbsCoid: ContractId => AbsoluteContractId =
           SandboxEventIdFormatter.makeAbsCoid(transactionId)
 
-        val blindingInfo = Blinding.blind(transaction.mapContractId(cid => cid: ContractId))
+        val blindingInfo = Blinding.blind(transaction.mapContractId(identity))
 
         val mappedDisclosure = blindingInfo.explicitDisclosure.map {
           case (nodeId, parties) =>

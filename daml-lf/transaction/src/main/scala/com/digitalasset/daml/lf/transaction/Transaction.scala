@@ -9,45 +9,12 @@ import com.digitalasset.daml.lf.data._
 import Node._
 import value.Value
 import Value._
-import com.digitalasset.daml.lf.language.LanguageVersion
 import scalaz.Equal
 
 import scala.annotation.tailrec
 import scala.annotation.unchecked.uncheckedVariance
 import scala.collection.breakOut
 import scala.util.Try
-
-case class VersionedTransaction[Nid, Cid](
-    version: TransactionVersion,
-    transaction: GenTransaction.WithTxValue[Nid, Cid]) {
-  def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] = this.copy(
-    transaction = transaction.mapContractIdAndValue(f, _.mapContractId(f))
-  )
-
-  /** Increase the `version` if appropriate for `languageVersions`.
-    *
-    * This does not recur into the values herein; it is safe to apply
-    * [[VersionedValue#typedBy]] to any subset of this `languageVersions` for all
-    * values herein, unlike most [[value.Value]] operations.
-    *
-    * {{{
-    *   val vt2 = vt.typedBy(someVers:_*)
-    *   // safe if and only if vx() yields a subset of someVers
-    *   vt2.copy(transaction = vt2.transaction
-    *              .mapContractIdAndValue(identity, _.typedBy(vx():_*)))
-    * }}}
-    *
-    * However, applying the ''same'' version set is probably not what you mean,
-    * because the set of language versions that types a whole transaction is
-    * probably not the same set as those language version[s] that type each
-    * value, since each value can be typed by different modules.
-    */
-  def typedBy(languageVersions: LanguageVersion*): VersionedTransaction[Nid, Cid] = {
-    import VersionTimeline._, Implicits._
-    copy(
-      version = latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*))
-  }
-}
 
 /** General transaction type
   *
@@ -89,12 +56,6 @@ case class GenTransaction[Nid, Cid, +Val](
         value.mapContractIdAndValue(f, g)
       }
     this.copy(nodes = nodes2)
-  }
-
-  def mapContractId[Cid2](f: Cid => Cid2)(
-      implicit ev: Val <:< VersionedValue[Cid]): WithTxValue[Nid, Cid2] = {
-    def g(v: Val): VersionedValue[Cid2] = v.mapContractId(f)
-    this.mapContractIdAndValue(f, g)
   }
 
   /** Note: the provided function must be injective, otherwise the transaction will be corrupted. */

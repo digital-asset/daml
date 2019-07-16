@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.value.{Value => V}
+import V.VersionedValueOps
 import com.digitalasset.daml.lf.value.ValueVersions.asVersionedValue
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}

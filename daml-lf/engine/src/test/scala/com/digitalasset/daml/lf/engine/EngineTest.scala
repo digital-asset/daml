@@ -16,6 +16,7 @@ import com.digitalasset.daml.lf.transaction.Node._
 import com.digitalasset.daml.lf.transaction.{GenTransaction => GenTx, Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
 import Value._
+import com.digitalasset.daml.lf.value.Versioned
 import com.digitalasset.daml.lf.speedy.SValue
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.command._
@@ -112,7 +113,7 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     key match {
       case GlobalKey(
           BasicTests_WithKey,
-          Value.VersionedValue(_, ValueRecord(_, ImmArray((_, p), (_, ValueInt64(42))))))
+          Versioned(_, ValueRecord(_, ImmArray((_, p), (_, ValueInt64(42))))))
           if p == ValueParty(alice) =>
         Some(AbsoluteContractId("1"))
       case _ =>

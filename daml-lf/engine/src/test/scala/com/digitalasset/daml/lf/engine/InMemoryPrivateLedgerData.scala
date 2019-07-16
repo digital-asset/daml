@@ -26,8 +26,10 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
     new ConcurrentHashMap()
   private val txCounter: AtomicInteger = new AtomicInteger(0)
 
-  def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit =
-    updateWithAbsoluteContractId(tx.mapContractId(toAbsoluteContractId(txCounter.get)))
+  def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit = {
+    val mapCoid = toAbsoluteContractId(txCounter.get)(_)
+    updateWithAbsoluteContractId(tx.mapContractIdAndValue(mapCoid, _.mapContractId(mapCoid)))
+  }
 
   def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId =
     cid match {

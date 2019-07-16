@@ -56,6 +56,6 @@ object TransactionSerializer extends TransactionSerializer {
         TransactionOuterClass.Transaction.parseFrom(
           Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT))
       )
-      .map(_.transaction)
+      .map(_.x)
 
 }

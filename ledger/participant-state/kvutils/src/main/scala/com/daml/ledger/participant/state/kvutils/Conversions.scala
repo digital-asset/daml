@@ -164,7 +164,7 @@ private[kvutils] object Conversions {
         cidDecoder,
         tx
       )
-      .fold(err => sys.error(s"decodeTransaction error: $err"), _.transaction)
+      .fold(err => sys.error(s"decodeTransaction error: $err"), _.x)
   }
 
   // FIXME(JM): Should we have a well-defined schema for this?

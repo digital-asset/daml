@@ -278,7 +278,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
       }
     }
 
-    exceptionToResultError(go(0, ty0, v0.value))
+    exceptionToResultError(go(0, ty0, v0.x))
   }
 
   private[engine] def labeledRecordToMap(

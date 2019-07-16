@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
+
+import com.digitalasset.daml.lf.value.Value.VersionedValue
+import com.digitalasset.daml.lf.value.Versioned
+
 import scala.collection.TraversableLike
 import scala.collection.generic.CanBuildFrom
 
@@ -22,4 +26,41 @@ package object transaction {
       }
       Right(b.result())
     }
+
+  /**
+    * the method VersionedTransaction#typedBy does not recur into the values herein;
+    * it is safe to apply [[com.digitalasset.daml.lf.value.Value.VersionedValue#typedBy]]
+    * to any subset of this `languageVersions` for all values herein, unlike most
+    * [[value.Value]] operations.
+    *
+    * {{{
+    *   val vt2 = vt.typedBy(someVers:_*)
+    *   // safe if and only if vx() yields a subset of someVers
+    *   vt2.copy(transaction = vt2.transaction
+    *              .mapContractIdAndValue(identity, _.typedBy(vx():_*)))
+    * }}}
+    *
+    * However, applying the ''same'' version set is probably not what you mean,
+    * because the set of language versions that types a whole transaction is
+    * probably not the same set as those language version[s] that type each
+    * value, since each value can be typed by different modules.
+    */
+  type VersionedTransaction[Nid, Cid] =
+    Versioned[TransactionVersion, GenTransaction.WithTxValue[Nid, Cid]]
+
+  object VersionedTransaction {
+    def apply[Nid, Cid](
+        version: TransactionVersion,
+        transaction: GenTransaction.WithTxValue[Nid, Cid]): VersionedTransaction[Nid, Cid] =
+      Versioned(version, transaction)
+  }
+
+  implicit class GenTransactionOps[Nid, Cid](
+      transaction: GenTransaction[Nid, Cid, VersionedValue[Cid]]) {
+
+    def mapContractId[Cid2](f: Cid => Cid2): GenTransaction[Nid, Cid2, VersionedValue[Cid2]] =
+      transaction.mapContractIdAndValue(f, _.mapContractId(f))
+
+  }
+
 }

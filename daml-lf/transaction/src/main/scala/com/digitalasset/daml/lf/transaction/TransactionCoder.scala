@@ -407,7 +407,7 @@ object TransactionCoder {
       encodeCid: EncodeCid[Cid],
       transaction: VersionedTransaction[Nid, Cid])
     : Either[EncodeError, TransactionOuterClass.Transaction] = {
-    val tx = transaction.transaction
+    val tx = transaction.x
     val txVersion: TransactionVersion = transaction.version
     val roots = tx.roots.map(encodeNid)
     // use `ImmArray` rather than `toStream` or similar since `traverseU` for `ImmArray` is stack safe.

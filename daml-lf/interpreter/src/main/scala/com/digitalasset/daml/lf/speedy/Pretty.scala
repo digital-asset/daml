@@ -349,7 +349,7 @@ object Pretty {
     text(id.qualifiedName.toString) + char('@') + prettyPackageId(id.packageId)
 
   def prettyVersionedValue(verbose: Boolean)(v: Transaction.Value[ContractId]): Doc =
-    prettyValue(verbose)(v.value) & text("value-version: ") + text(v.version.protoValue)
+    prettyValue(verbose)(v.x) & text("value-version: ") + text(v.version.protoValue)
 
   // Pretty print a value. If verbose then the top-level value is printed with type constructor
   // if possible.
