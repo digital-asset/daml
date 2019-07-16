@@ -64,7 +64,7 @@ mkDocs opts fp = do
             tmplDocs = getTemplateDocs ctx typeMap
             adtDocs
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
-                $ dc_templates : MS.elems dc_choices
+                $ dc_templates : MS.keysSet dc_templateInstances : MS.elems dc_choices
         in ModuleDoc
             { md_anchor = Just (moduleAnchor dc_modname)
             , md_name = dc_modname
@@ -138,6 +138,10 @@ data DocCtx = DocCtx
     , dc_templates :: Set.Set Typename
     , dc_choices :: MS.Map Typename (Set.Set Typename)
         -- ^ choices per template
+    , dc_templateInstances :: MS.Map Typename Typename
+        -- ^ maps template instance name to generic template name
+        -- (note that the generic template may be in a different module,
+        -- so one should not rely on it being in dc_templates)
     }
 
 -- | Parsed declaration with associated docs.
@@ -152,7 +156,7 @@ buildDocCtx dc_tcmod  =
       dc_decls
           = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
           . pm_parsed_source . tm_parsed_module $ dc_tcmod
-      (dc_templates, dc_choices)
+      (dc_templates, dc_choices, dc_templateInstances)
           = getTemplateData . tm_parsed_module $ dc_tcmod
 
       tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
@@ -249,6 +253,8 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
             let theta = classSCTheta cls
             guard (notNull theta)
             Just (TypeTuple $ map (typeToType ctx) theta)
+    guard (isNothing (stripInstanceSuffix cl_name))
+       -- don't generate docs for template instance classes
     Just ClassDoc {..}
   where
     f :: LSig GhcPs -> [FunctionDoc]
@@ -368,7 +374,10 @@ getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
 -- | Extracts all names of Template instances defined in a module and a map of
 -- template to set of its choices (instances of Choice with a particular
 -- template).
-getTemplateData :: ParsedModule -> (Set.Set Typename, MS.Map Typename (Set.Set Typename))
+getTemplateData :: ParsedModule ->
+    ( Set.Set Typename
+    , MS.Map Typename (Set.Set Typename)
+    , MS.Map Typename Typename )
 getTemplateData ParsedModule{..} =
   let
     instDs    = mapMaybe (isInstDecl . unLoc) . hsmodDecls . unLoc $ pm_parsed_source
@@ -376,8 +385,9 @@ getTemplateData ParsedModule{..} =
     choiceMap = MS.fromListWith (<>) $
                 map (second Set.singleton) $
                 mapMaybe isChoice instDs
+    instanceMap = MS.fromList $ mapMaybe isTemplateInstance instDs
   in
-    (Set.fromList templates, choiceMap)
+    (Set.fromList templates, choiceMap, instanceMap)
     where
       isInstDecl (InstD _ (ClsInstD _ i)) = Just i
       isInstDecl _ = Nothing
@@ -393,7 +403,7 @@ isTemplate ClsInstDecl{..}
   , HsTyVar _ _ (L _ tmplClass) <- t1
   , Just (L _ tmplName) <- hsTyGetAppHead_maybe t2
   , toText tmplClass == "DA.Internal.Desugar.Template"
-  || toText tmplClass == "Template" -- temporary
+  || toText tmplClass == "Template" -- temporary for generic templates
   = Just (Typename . packRdrName $ tmplName)
 
   | otherwise = Nothing
@@ -412,11 +422,32 @@ isChoice ClsInstDecl{..}
   , Just (L _ choiceName) <- hsTyGetAppHead_maybe cName
   , Just (L _ tmplName) <- hsTyGetAppHead_maybe cTmpl
   , toText choiceClass == "DA.Internal.Desugar.Choice"
-  || toText choiceClass == "Choice" -- temporary
+  || toText choiceClass == "Choice" -- temporary for generic templates
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing
 
+-- | Is this a "template instance" instance declaration? If so,
+-- we want to hold on to the typename of the template instance,
+-- so return that, and the corresponding template name.
+--
+-- Returns @(templateInstanceName, genericTemplateName)@ on success.
+isTemplateInstance :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
+isTemplateInstance (XClsInstDecl _) = Nothing
+isTemplateInstance ClsInstDecl{..}
+  | L _ ty <- getLHsInstDeclHead cid_poly_ty
+  , HsAppTy _ (L _ t1) t2 <- ty
+  , HsTyVar _ _ (L _ className) <- t1
+  , Just (L _ instanceName) <- hsTyGetAppHead_maybe t2
+  , Just genericName <- stripInstanceSuffix (Typename . packRdrName $ className)
+  = Just (Typename . packRdrName $ instanceName, genericName)
+
+  | otherwise = Nothing
+
+-- | Strip the @Instance@ suffix off of a typename, if it's there.
+-- Otherwise returns 'Nothing'.
+stripInstanceSuffix :: Typename -> Maybe Typename
+stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
 
 ------------------------------------------------------------
 -- Generating doc.s from parsed modules
