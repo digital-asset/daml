@@ -315,7 +315,7 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
                       , con_name =
                             noLoc $
                             mkRdrUnqual $
-                            mkOccName dataName $ T.unpack $ sanitize $ dataTypeCon0
+                            mkOccName dataName $ T.unpack $ sanitize dataTypeCon0
                       , con_forall = noLoc False
                       , con_ex_tvs = []
                       , con_mb_cxt = Nothing
