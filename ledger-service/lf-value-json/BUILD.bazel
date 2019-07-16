@@ -8,13 +8,8 @@ load(
 )
 
 lf_value_json_deps = [
-    "//3rdparty/jvm/ch/qos/logback:logback_classic",
-    "//3rdparty/jvm/com/github/pureconfig",
-    "//3rdparty/jvm/com/github/scopt",
-    "//3rdparty/jvm/com/typesafe/akka:akka_http_spray_json",
-    "//3rdparty/jvm/com/typesafe/scala_logging",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//ledger-service/utils",
+    "//3rdparty/jvm/io/spray:spray_json",
     "//daml-lf/data",
     "//daml-lf/interface",
     "//daml-lf/transaction",
@@ -42,7 +37,5 @@ da_scala_test(
         "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//3rdparty/jvm/org/scalatest",
         "//daml-lf/transaction-scalacheck",
-        "//ledger/ledger-api-common",
-        "//ledger/participant-state",
     ] + lf_value_json_deps,
 )
