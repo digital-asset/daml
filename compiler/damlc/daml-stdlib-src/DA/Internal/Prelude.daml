@@ -26,6 +26,8 @@ import GHC.Tuple()
 import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive)
 
 infixr 0 $
+-- | Take a function from `a` to `b` and a value of type `a`, and apply the
+-- function to `a`, returning a `b`.
 ($) : (a -> b) -> a -> b
 f $ x =  f x
 
@@ -45,7 +47,7 @@ class Functor f => Applicative f where
     -- | Lift a value.
     pure : a -> f a
 
-    -- | Sequential application.
+    -- | Sequentially apply the function.
     --
     -- A few functors support an implementation of `<*>` that is more
     -- efficient than the default one.
@@ -70,7 +72,7 @@ class Functor f => Applicative f where
     (<*) = liftA2 const
 
 -- | Sequentially compose two actions, discarding any value produced
--- by the first, like sequencing operators (such as the semicolon)
+-- by the first. This is like sequencing operators (such as the semicolon)
 -- in imperative languages.
 (>>) : Applicative m => m a -> m b -> m b
 (>>) = (*>)
@@ -80,6 +82,7 @@ infixl 1 >>
 ap : Applicative f => f (a -> b) -> f a -> f b
 ap = (<*>)
 
+-- This is a poor doc string but I don't know what the correct improvement would be.
 -- | Inject a value into the monadic type.
 return      : Applicative m => a -> m a
 return      = pure
@@ -188,9 +191,9 @@ infixl 4 <$>
 -- deal with errors or exceptional cases without resorting to drastic
 -- measures such as `error`.
 --
--- The `Optional` type is also a monad.  It is a simple kind of error
--- monad, where all errors are represented by `None`.  A richer
--- error monad can be built using the `Data.Either.Either` type.
+-- The `Optional` type is also an `Action`.  It is a simple kind of error
+-- `Action`, where all errors are represented by `None`.  A richer
+-- error `Action` could be built using the `Data.Either.Either` type.
 --
 data Optional a  =  None | Some a
     deriving (Eq, Ord, Show)

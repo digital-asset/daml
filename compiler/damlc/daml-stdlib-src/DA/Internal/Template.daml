@@ -31,7 +31,7 @@ create = internalCreate
 exercise : forall c e r . Choice c e r => ContractId c -> e -> Update r
 exercise = internalExercise
 
--- | Fetch the contract data associated with the given contract id.
+-- | Fetch the contract data associated with the given contract ID.
 -- This fails and aborts the entire transaction if the `ContractId c`
 -- supplied is not the contract ID of an active contract.
 fetch : Template c => ContractId c -> Update c
@@ -87,7 +87,7 @@ exerciseByKey k e = do
 
 class Template c where
 
-    -- | Predicate that must hold for the succesful creation of the contract.
+    -- | A predicate that must be true, otherwise contract creation will fail.
     ensure : c -> Bool
     ensure _ = True
 
@@ -116,6 +116,7 @@ class Template c where
 
 
 -- Deliberately not exported.
+-- | HIDE
 data Consuming = PreConsuming  -- Archive before executing exercise body.
                | PostConsuming -- Execute exercise body then archive.
                | NonConsuming  -- Don't archive.
@@ -136,8 +137,10 @@ class Template c => Choice c e r | c e -> r where
     -- | HIDE
     consuming : NoEvent c e -> Consuming
     consuming = preconsuming
-
+    
+    -- | The controller of a choice on a contract.
     choiceController : c -> e -> [Party]
+    -- | A choice on a contract.
     choice : c -> ContractId c -> e -> Update r
 
     -- | HIDE
@@ -177,7 +180,9 @@ class Template c => TemplateKey c k | c -> k where
     -- | The key of a contract.
     key : c -> k
 
-    -- | The maintainers of the contract key.
+    -- | The maintainers of the contract key. The maintainers guarantee
+    -- that contract keys are unique: this means that keys are only unique
+    -- to the specified maintainers.
     maintainer : k -> [Party]
 
     -- | HIDE
