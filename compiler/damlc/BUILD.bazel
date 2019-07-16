@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
-load("//rules_daml:daml.bzl", "daml_compile")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_doc_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
 
@@ -264,4 +264,11 @@ genrule(
     """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
+)
+
+daml_doc_test(
+    name = "daml-stdlib-doctest",
+    srcs = ["//compiler/damlc/daml-stdlib-src"],
+    damlc_flags = "--package-name=daml-stdlib",
+    ignored_srcs = ["LibraryModules.daml"],
 )

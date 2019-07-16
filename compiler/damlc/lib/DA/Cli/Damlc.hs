@@ -23,6 +23,7 @@ import DA.Cli.Damlc.IdeState
 import DA.Cli.Damlc.Test
 import DA.Cli.Visual
 import DA.Daml.Compiler.Dar
+import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario
 import DA.Daml.Compiler.Upgrade
 import qualified DA.Daml.LF.Ast as LF
@@ -46,20 +47,21 @@ import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import Data.FileEmbed (embedFile)
 import Data.Graph
-import Data.List
+import qualified Data.Set as Set
+import Data.List.Extra
 import qualified Data.List.Split as Split
 import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.API
-import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..))
+import Development.IDE.Core.Service (runAction)
+import Development.IDE.Core.Shake
 import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml (getDalf)
-import Development.IDE.Core.Service (runAction)
-import Development.IDE.GHC.Util
+import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..))
+import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import "ghc-lib-parser" DynFlags
@@ -75,9 +77,9 @@ import System.Directory
 import System.Environment
 import System.Exit
 import System.FilePath
-import System.IO
-import System.Process (callCommand)
-import qualified Text.PrettyPrint.ANSI.Leijen as PP
+import System.IO.Extra
+import System.Process(callCommand)
+import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -232,6 +234,16 @@ cmdMigrate numProcessors =
         <*> inputDarOpt
         <*> inputDarOpt
         <*> targetSrcDirOpt
+
+cmdDocTest :: Int -> Mod CommandFields Command
+cmdDocTest numProcessors =
+    command "doctest" $
+    info (helper <*> cmd) $
+    progDesc "doc tests" <> fullDesc
+  where
+    cmd = execDocTest
+        <$> optionsParser numProcessors (EnableScenarioService True) optPackageName
+        <*> many inputFileOpt
 
 --------------------------------------------------------------------------------
 -- Execution
@@ -562,7 +574,7 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
             putErrLn $ "ERROR: Not creating pom file as package name '" <> name <> "' is not a valid Maven coordinate (expected '<groupId>:<artifactId>:<version>')"
             exitFailure
 
-    putErrLn = hPutStrLn System.IO.stderr
+    putErrLn = hPutStrLn stderr
 
 execInspect :: FilePath -> FilePath -> Bool -> Command
 execInspect inFile outFile jsonOutput = do
@@ -764,6 +776,23 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
             pure $
         NM.lookup modName $ LF.packageModules pkg
 
+
+execDocTest :: Options -> [FilePath] -> IO ()
+execDocTest opts files = do
+    let files' = map toNormalizedFilePath files
+    logger <- getLogger opts "doctest"
+    -- We don’t add a logger here since we will otherwise emit logging messages twice.
+    importPaths <-
+        withDamlIdeState opts { optScenarioService = EnableScenarioService False }
+            logger (const $ pure ()) $ \ideState -> runAction ideState $ do
+        pmS <- catMaybes <$> uses GetParsedModule files'
+        -- This is horrible but we do not have a way to change the import paths in a running
+        -- IdeState at the moment.
+        pure $ nubOrd $ mapMaybe moduleImportPaths pmS
+    opts <- mkOptions opts { optImportPath = importPaths <> optImportPath opts}
+    withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
+        docTest ideState files'
+
 --------------------------------------------------------------------------------
 -- main
 --------------------------------------------------------------------------------
@@ -879,6 +908,7 @@ options numProcessors =
       <> cmdDamlDoc
       <> cmdVisual
       <> cmdInspectDar
+      <> cmdDocTest numProcessors
       )
     <|> subparser
       (internal -- internal commands
