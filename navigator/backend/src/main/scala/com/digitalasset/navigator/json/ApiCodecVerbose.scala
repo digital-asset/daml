@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.{
   SortedLookupList
 }
 import com.digitalasset.navigator.{model => Model}
-import Model.ApiValueImplicits._
+import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
 import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
 import com.digitalasset.navigator.json.Util._
 import com.digitalasset.navigator.model.DamlLfIdentifier
