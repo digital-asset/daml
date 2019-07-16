@@ -37,6 +37,7 @@ import Control.Monad.Loops (untilJust)
 import Data.Maybe
 import Data.List.Extra
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.Text as T
 import qualified Data.Yaml as Y
 import qualified Data.Yaml.Pretty as Y
@@ -46,10 +47,10 @@ import Network.Socket
 import System.FilePath
 import qualified System.Directory as Dir
 import System.Directory.Extra
-import System.Environment
+import System.Environment hiding (setEnv)
 import System.Exit
 import System.Info.Extra
-import System.Process hiding (runCommand)
+import System.Process.Typed
 import System.IO
 import System.IO.Extra
 import Web.Browser
@@ -95,8 +96,9 @@ runVsCodeCommand args = do
         commandEnv = addVsCodeToPath strippedEnv
             -- ^ Ensure "code" is in PATH before running command.
         command = unwords ("code" : args)
-        process = (shell command) { env = Just commandEnv }
-    readCreateProcessWithExitCode process ""
+        process = setEnv commandEnv (shell command)
+    (exit, out, err) <- readProcess process
+    pure (exit, UTF8.toString out, UTF8.toString err)
 
 -- | Add VSCode bin path to environment PATH. Only need to add it on Mac, as
 -- VSCode is installed in PATH by default on the other platforms.
@@ -237,15 +239,13 @@ installBundledExtension pathToVsix = do
            ]
 
 runJar :: FilePath -> [String] -> IO ()
-runJar jarPath remainingArguments = do
-    exitCode <- withJar jarPath remainingArguments waitForProcess
-    exitWith exitCode
+runJar jarPath remainingArguments = withJar jarPath remainingArguments (const $ pure ())
 
-withJar :: FilePath -> [String] -> (ProcessHandle -> IO a) -> IO a
+withJar :: FilePath -> [String] -> (Process () () () -> IO a) -> IO a
 withJar jarPath args a = do
     sdkPath <- getSdkPath
     let absJarPath = sdkPath </> jarPath
-    (withCreateProcess (proc "java" ("-jar" : absJarPath : args)) $ \_ _ _ -> a) `catchIO`
+    withProcessWait_ (proc "java" ("-jar" : absJarPath : args)) a `catchIO`
         (\e -> hPutStrLn stderr "Failed to start java. Make sure it is installed and in the PATH." *> throwIO e)
 
 getTemplatesFolder :: IO FilePath
@@ -547,8 +547,8 @@ runMigrate targetFolder pkgPath1 pkgPath2
 
     -- Call damlc to create the upgrade source files.
     assistant <- getDamlAssistant
-    callCommand
-        (unwords $
+    runProcess_
+        (shell $ unwords $
          assistant :
          [ "damlc"
          , "migrate"
@@ -613,7 +613,7 @@ navigatorPortNavigatorArgs (NavigatorPort p) = ["--port", show p]
 navigatorURL :: NavigatorPort -> String
 navigatorURL (NavigatorPort p) = "http://localhost:" <> show p
 
-withSandbox :: SandboxPort -> [String] -> (ProcessHandle -> IO a) -> IO a
+withSandbox :: SandboxPort -> [String] -> (Process () () () -> IO a) -> IO a
 withSandbox (SandboxPort port) args a = do
     withJar sandboxPath (["--port", show port] ++ args) $ \ph -> do
         putStrLn "Waiting for sandbox to start: "
@@ -621,7 +621,7 @@ withSandbox (SandboxPort port) args a = do
         waitForConnectionOnPort (putStr "." *> threadDelay 500000) port
         a ph
 
-withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (ProcessHandle-> IO a) -> IO a
+withNavigator :: SandboxPort -> NavigatorPort -> [String] -> (Process () () () -> IO a) -> IO a
 withNavigator (SandboxPort sandboxPort) navigatorPort args a = do
     let navigatorArgs = concat
             [ ["server", "localhost", show sandboxPort]
@@ -654,18 +654,15 @@ runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) o
         queryProjectConfig ["scenario"] projectConfig
     let darPath = ".daml" </> "dist" </> projectName <> ".dar"
     assistant <- getDamlAssistant
-    callCommand (unwords $ assistant : ["build"])
+    runProcess_ (shell $ unwords $ assistant : ["build"])
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
         withNavigator' sandboxPh sandboxPort navigatorPort [] $ \navigatorPh -> do
-            whenJust onStartM $ \onStart -> do
-                exitCode <- withCreateProcess (shell onStart) $ \ _ _ _ -> waitForProcess
-                when (exitCode /= ExitSuccess) $
-                    exitWith exitCode
+            whenJust onStartM $ \onStart -> runProcess_ (shell onStart)
             when (shouldStartNavigator && shouldOpenBrowser) $
                 void $ openBrowser (navigatorURL navigatorPort)
             when shouldWaitForSignal $
-                void $ race (waitForProcess navigatorPh) (waitForProcess sandboxPh)
+                void $ race (waitExitCode navigatorPh) (waitExitCode sandboxPh)
 
     where sandboxPort = SandboxPort 6865
           navigatorPort = NavigatorPort 7500
