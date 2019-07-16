@@ -169,10 +169,10 @@ trait TransactionConversion {
       verbose: Boolean): List[Event] = {
     val event = events(root)
     event match {
-      case create: P.CreateEvent[Lf.AbsoluteContractId @unchecked] =>
+      case create: P.CreateEvent[Lf.AbsoluteContractId] @unchecked =>
         List(Event(Created(lfCreateToApi(root, create, false, verbose))))
 
-      case exercise: P.ExerciseEvent[EventId, Lf.AbsoluteContractId] =>
+      case exercise: P.ExerciseEvent[EventId, Lf.AbsoluteContractId] @unchecked =>
         val children: List[Event] =
           exercise.children.toSeq
             .sortBy(getEventIndex)

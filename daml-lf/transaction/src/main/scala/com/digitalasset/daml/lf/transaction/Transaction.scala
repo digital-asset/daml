@@ -343,7 +343,7 @@ object Transaction {
 
   type TContractId = Value.ContractId
 
-  type Value[+Cid] = Value.VersionedValue[Cid]
+  type Value[+Cid] = Value.WellTypedVersionedValue[Cid]
 
   /** Transaction nodes */
   type Node = GenNode.WithTxValue[NodeId, TContractId]
@@ -636,7 +636,7 @@ object Transaction {
     def insertLookup(
         templateId: TypeConName,
         optLocation: Option[Location],
-        key: KeyWithMaintainers[Value.VersionedValue[Nothing]],
+        key: KeyWithMaintainers[Value.WellTypedVersionedValue[Nothing]],
         result: Option[TContractId]): PartialTransaction =
       insertFreshNode(_ => NodeLookupByKey(templateId, optLocation, key, result), None)._2
 

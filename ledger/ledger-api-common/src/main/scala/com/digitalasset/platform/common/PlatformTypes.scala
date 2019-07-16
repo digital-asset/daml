@@ -4,10 +4,11 @@
 package com.digitalasset.platform.common
 
 import com.digitalasset.daml.lf.transaction.{Node => N}
-import com.digitalasset.daml.lf.value.{ValueVersions, Value => V}
+import com.digitalasset.daml.lf.value.{ValueVersions, Versioned, Value => V}
 import com.digitalasset.daml.lf.{transaction => T}
 import com.digitalasset.daml.lf.{engine => E}
 import com.digitalasset.daml.lf.data.Ref
+
 import scala.collection.breakOut
 
 object PlatformTypes {
@@ -44,14 +45,13 @@ object PlatformTypes {
       f: Cid => Cid2): GenTransaction[Nid, Cid2] =
     tx.mapContractIdAndValue(f, _.mapContractId(f))
 
-  def asVersionedValue[Cid](v: V[Cid]): scala.Either[String, V.VersionedValue[Cid]] =
-    ValueVersions.asVersionedValue(v)
-
-  def asVersionedValueOrThrow[Cid](v: V[Cid]): V.VersionedValue[Cid] = {
-    asVersionedValue(v).fold(
-      s => throw new IllegalArgumentException(s"Can't convert to versioned value: $s"),
-      identity)
-  }
+  def asVersionedValueOrThrow[Cid](v: V[Cid]): V.VersionedValue[Cid] =
+    ValueVersions
+      .assignVersion(v)
+      .fold(
+        s => throw new IllegalArgumentException(s"Can't convert to versioned value: $s"),
+        Versioned(_, v)
+      )
 
   def packageId(str: String): Ref.PackageId = Ref.PackageId.assertFromString(str)
 

@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf
 
-import com.digitalasset.daml.lf.value.Value.VersionedValue
 import com.digitalasset.daml.lf.value.Versioned
 
 import scala.collection.TraversableLike
@@ -56,9 +55,9 @@ package object transaction {
   }
 
   implicit class GenTransactionOps[Nid, Cid](
-      transaction: GenTransaction[Nid, Cid, VersionedValue[Cid]]) {
+      transaction: GenTransaction[Nid, Cid, Transaction.Value[Cid]]) {
 
-    def mapContractId[Cid2](f: Cid => Cid2): GenTransaction[Nid, Cid2, VersionedValue[Cid2]] =
+    def mapContractId[Cid2](f: Cid => Cid2): GenTransaction[Nid, Cid2, Transaction.Value[Cid2]] =
       transaction.mapContractIdAndValue(f, _.mapContractId(f))
 
   }

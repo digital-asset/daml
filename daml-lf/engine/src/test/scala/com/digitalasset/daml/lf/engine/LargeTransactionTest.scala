@@ -291,4 +291,7 @@ class LargeTransactionTest extends WordSpec with Matchers with BazelRunfiles {
 
   private implicit def toChoiceName(s: String): Ref.Name = Name.assertFromString(s)
 
+  private implicit def asWellTyped[Cid](x: Value[Cid]): WellTypedValue[Cid] =
+    WellTypedValue.castWellTypedValue(x)
+
 }

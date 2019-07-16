@@ -12,13 +12,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node.NodeCreate
 import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.value.Value.{
-  AbsoluteContractId,
-  ContractId,
-  ContractInst,
-  NodeId,
-  VersionedValue
-}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, ContractInst, NodeId}
 import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
@@ -555,7 +549,7 @@ object KeyValueCommitting {
       }
       .flatMap { node: Transaction.Node =>
         node match {
-          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
+          case create: NodeCreate[ContractId, Transaction.Value[ContractId]] =>
             // FixMe (RH) toAbsCoid can throw an IllegalArgumentException
             Some(
               create.coinst.mapValue(

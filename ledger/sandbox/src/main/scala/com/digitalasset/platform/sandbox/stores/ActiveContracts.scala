@@ -8,8 +8,8 @@ import java.time.Instant
 import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Node => N}
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction, Node => N}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.ledger.WorkflowId
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.ActiveContracts._
@@ -194,9 +194,9 @@ object ActiveContracts {
       let: Instant, // time when the contract was committed
       transactionId: TransactionIdString, // transaction id where the contract originates
       workflowId: Option[WorkflowId], // workflow id from where the contract originates
-      contract: ContractInst[VersionedValue[AbsoluteContractId]],
+      contract: ContractInst[Transaction.Value[AbsoluteContractId]],
       witnesses: Set[Party],
       divulgences: Map[Party, TransactionIdString], // for each party, the transaction id at which the contract was divulged
-      key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
+      key: Option[KeyWithMaintainers[Transaction.Value[AbsoluteContractId]]])
 
 }

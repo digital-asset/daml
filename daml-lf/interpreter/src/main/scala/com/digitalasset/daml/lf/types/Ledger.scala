@@ -994,8 +994,8 @@ object Ledger {
 
   def makeAbsolute(
       commitPrefix: LedgerString,
-      value: VersionedValue[ContractId]): VersionedValue[AbsoluteContractId] = {
-    VersionedValue(value.version, makeAbsolute(commitPrefix, value.value))
+      value: WellTypedVersionedValue[ContractId]): WellTypedVersionedValue[AbsoluteContractId] = {
+    WellTypedVersionedValue(value.version, makeAbsolute(commitPrefix, value.value))
   }
 
   /** Convert all relative to absolute contract-ids in the value.
@@ -1004,7 +1004,7 @@ object Ledger {
     */
   def makeAbsolute(
       commitPrefix: LedgerString,
-      value: Value[ContractId]): Value[AbsoluteContractId] = {
+      value: WellTypedValue[ContractId]): WellTypedValue[AbsoluteContractId] = {
     def rewrite(v: Value[ContractId]): Value[AbsoluteContractId] =
       v match {
         case ValueRecord(tycon, fs) =>
@@ -1033,7 +1033,7 @@ object Ledger {
         case ValueOptional(mbV) => ValueOptional(mbV.map(rewrite))
         case ValueMap(map) => ValueMap(map.mapValue(rewrite))
       }
-    rewrite(value)
+    WellTypedValue.castWellTypedValue(rewrite(value))
   }
 
   /*

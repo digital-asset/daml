@@ -75,13 +75,13 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
     Some(
       ContractInst(
         TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
-        assertAsVersionedValue(
-          ValueRecord(
-            Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-            ImmArray(
-              (Some("giver"), ValueParty(alice)),
-              (Some("receiver"), ValueParty(bob))
-            ))),
+        assertAsVersionedValue(ValueRecord(
+          Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
+          ImmArray(
+            (Some[Name]("giver"), ValueParty(alice)),
+            (Some[Name]("receiver"), ValueParty(bob))
+          )
+        )),
         ""
       ))
   }
@@ -96,8 +96,8 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           ValueRecord(
             Some(BasicTests_WithKey),
             ImmArray(
-              (Some("p"), ValueParty(alice)),
-              (Some("k"), ValueInt64(42))
+              (Some[Name]("p"), ValueParty(alice)),
+              (Some[Name]("k"), ValueInt64(42))
             ))),
         ""
       ))
@@ -329,7 +329,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           assertAsVersionedValue(
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray((Some("giver"), ValueParty(clara)), (Some("receiver"), ValueParty(clara))))),
+              ImmArray(
+                (Some[Name]("giver"), ValueParty(clara)),
+                (Some[Name]("receiver"), ValueParty(clara)))
+            )),
           "Transfer",
           assertAsVersionedValue(
             ValueRecord(None, ImmArray((Some[Name]("newReceiver"), ValueParty(clara)))))
@@ -371,7 +374,9 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
           assertAsVersionedValue(
             ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
-              ImmArray((None, ValueParty(clara)), (Some("this_is_not_the_one"), ValueParty(clara)))
+              ImmArray(
+                (None, ValueParty(clara)),
+                (Some[Name]("this_is_not_the_one"), ValueParty(clara)))
             )),
           "Transfer",
           assertAsVersionedValue(ValueRecord(None, ImmArray((None, ValueParty(clara)))))
@@ -1159,5 +1164,8 @@ object EngineTest {
     as.foreach(a.add)
     a
   }
+
+  private implicit def asWellTyped[Cid](x: Value[Cid]): WellTypedValue[Cid] =
+    WellTypedValue.castWellTypedValue(x)
 
 }

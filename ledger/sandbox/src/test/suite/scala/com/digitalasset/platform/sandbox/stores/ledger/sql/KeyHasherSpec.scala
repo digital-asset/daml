@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value._
-import com.digitalasset.daml.lf.value.{Value, ValueVersion}
+import com.digitalasset.daml.lf.value.{Value, ValueVersion, Versioned}
 import org.scalatest.{Matchers, WordSpec}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.KeyHasher
 
@@ -354,5 +354,10 @@ class KeyHasherSpec extends WordSpec with Matchers {
   }
 
   private implicit def decimal(x: BigDecimal): Decimal = Decimal.assertFromBigDecimal(x)
+
+  private implicit def asWellTyped[Cid](x: VersionedValue[Cid]): WellTypedVersionedValue[Cid] = {
+    type C[+Val] = Versioned[ValueVersion, Val]
+    WellTypedValue.castWellTyped[Cid, C](x)
+  }
 
 }

@@ -15,6 +15,7 @@ import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyDetails, TransactionFilter}
@@ -174,7 +175,7 @@ final case class ReferenceIndexService(
           acceptedTx.transaction.nodes(nodeId) match {
             case create: NodeCreate[
                   Value.AbsoluteContractId,
-                  Value.VersionedValue[Value.AbsoluteContractId]] =>
+                  Transaction.Value[Value.AbsoluteContractId]] =>
               List(
                 acceptedTx.transactionMeta.workflowId ->
                   AcsUpdateEvent.Create(
@@ -189,7 +190,7 @@ final case class ReferenceIndexService(
             case exe: NodeExercises[
                   NodeId,
                   Value.AbsoluteContractId,
-                  Value.VersionedValue[Value.AbsoluteContractId]] =>
+                  Transaction.Value[Value.AbsoluteContractId]] =>
               List(
                 acceptedTx.transactionMeta.workflowId ->
                   AcsUpdateEvent.Archive(
@@ -335,7 +336,7 @@ final case class ReferenceIndexService(
   }
 
   override def lookupActiveContract(submitter: Party, contractId: Value.AbsoluteContractId)
-    : Future[Option[Value.ContractInst[Value.VersionedValue[Value.AbsoluteContractId]]]] =
+    : Future[Option[Value.ContractInst[Transaction.Value[Value.AbsoluteContractId]]]] =
     futureWithState { state =>
       Future {
         state.activeContracts

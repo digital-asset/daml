@@ -1,7 +1,8 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.transaction
+package com.digitalasset.daml.lf
+package transaction
 
 import scala.language.higherKinds
 import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
@@ -14,7 +15,6 @@ import com.digitalasset.daml.lf.transaction.GenTransaction.{
 }
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.{Value => V}
-import V.ContractInst
 import com.digitalasset.daml.lf.value.ValueGenerators.danglingRefGenNode
 import org.scalacheck.Gen
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
@@ -78,7 +78,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
   "isReplayedBy" - {
     // the whole-transaction-relevant parts are handled by equalForest testing
     import Node.isReplayedBy
-    type CidVal[F[_, _]] = F[V.ContractId, V.VersionedValue[V.ContractId]]
+    type CidVal[F[_, _]] = F[V.ContractId, V.WellTypedVersionedValue[V.ContractId]]
     val genEmptyNode
       : Gen[Node.GenNode.WithTxValue[Nothing, V.ContractId]] = danglingRefGenNode map {
       case (_, n: CidVal[Node.LeafOnlyNode]) => n
@@ -111,7 +111,7 @@ class TransactionSpec extends FreeSpec with Matchers with GeneratorDrivenPropert
 }
 
 object TransactionSpec {
-  private[this] type Value[+Cid] = V[Cid]
+  private[this] type Value[+Cid] = V.WellTypedValue[Cid]
   type StringTransaction = GenTransaction[String, String, Value[String]]
   def StringTransaction(
       nodes: Map[String, GenNode[String, String, Value[String]]],
@@ -141,7 +141,7 @@ object TransactionSpec {
   val dummyCreateNode: NodeCreate[String, Value[String]] =
     NodeCreate(
       "dummyCoid",
-      ContractInst(
+      V.ContractInst(
         Ref.Identifier(
           PackageId.assertFromString("-dummyPkg-"),
           QualifiedName.assertFromString("DummyModule:dummyName")),
@@ -155,5 +155,8 @@ object TransactionSpec {
     )
 
   private implicit def toChoiceName(s: String): Ref.Name = Ref.Name.assertFromString(s)
+
+  private implicit def asWellTyped[Cid](x: value.Value[Cid]): V.WellTypedValue[Cid] =
+    V.WellTypedValue.castWellTypedValue(x)
 
 }

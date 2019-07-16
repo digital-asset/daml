@@ -207,37 +207,36 @@ object ValueGenerators {
     Gen.frequency((1, genRel), (3, genAbs))
   }
 
-  def coidValueGen: Gen[ValueContractId[ContractId]] = {
+  def coidValueGen: Gen[ValueContractId[ContractId]] =
     coidGen.map(ValueContractId(_))
-  }
 
-  private def valueGen(nesting: Int): Gen[Value[ContractId]] = {
-    Gen.sized(sz => {
-      val newNesting = nesting + 1
-      val nested = List(
-        (sz / 2 + 1, Gen.resize(sz / 5, valueListGen(newNesting))),
-        (sz / 2 + 1, Gen.resize(sz / 5, variantGen(newNesting))),
-        (sz / 2 + 1, Gen.resize(sz / 5, recordGen(newNesting))),
-        (sz / 2 + 1, Gen.resize(sz / 5, valueOptionalGen(newNesting))),
-        (sz / 2 + 1, Gen.resize(sz / 5, valueMapGen(newNesting))),
-      )
-      val flat = List(
-        (sz + 1, dateGen.map(ValueDate)),
-        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
-        (sz + 1, decimalGen),
-        (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
-        (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
-        (sz + 1, timestampGen.map(ValueTimestamp)),
-        (sz + 1, coidValueGen),
-        (sz + 1, party.map(ValueParty)),
-        (sz + 1, Gen.oneOf(true, false).map(ValueBool))
-      )
-      val all =
-        if (nesting >= MAXIMUM_NESTING) { List() } else { nested } ++
-          flat
-      Gen.frequency(all: _*)
-    })
-  }
+  private def valueGen(nesting: Int): Gen[Value[ContractId]] =
+    Gen
+      .sized(sz => {
+        val newNesting = nesting + 1
+        val nested = List(
+          (sz / 2 + 1, Gen.resize(sz / 5, valueListGen(newNesting))),
+          (sz / 2 + 1, Gen.resize(sz / 5, variantGen(newNesting))),
+          (sz / 2 + 1, Gen.resize(sz / 5, recordGen(newNesting))),
+          (sz / 2 + 1, Gen.resize(sz / 5, valueOptionalGen(newNesting))),
+          (sz / 2 + 1, Gen.resize(sz / 5, valueMapGen(newNesting))),
+        )
+        val flat = List(
+          (sz + 1, dateGen.map(ValueDate)),
+          (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
+          (sz + 1, decimalGen),
+          (sz + 1, Arbitrary.arbLong.arbitrary.map(ValueInt64)),
+          (sz + 1, Gen.alphaStr.map(x => ValueText(x))),
+          (sz + 1, timestampGen.map(ValueTimestamp)),
+          (sz + 1, coidValueGen),
+          (sz + 1, party.map(ValueParty)),
+          (sz + 1, Gen.oneOf(true, false).map(ValueBool))
+        )
+        val all =
+          if (nesting >= MAXIMUM_NESTING) { List() } else { nested } ++
+            flat
+        Gen.frequency(all: _*)
+      })
 
   private val simpleChars =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_ ".toVector
@@ -256,11 +255,11 @@ object ValueGenerators {
 
   def valueGen: Gen[Value[ContractId]] = valueGen(0)
 
-  def versionedValueGen: Gen[VersionedValue[ContractId]] =
+  def versionedValueGen: Gen[WellTypedVersionedValue[ContractId]] =
     for {
       version <- valueVersionGen
       value <- valueGen
-    } yield VersionedValue(version, value)
+    } yield WellTypedVersionedValue(version, WellTypedValue.castWellTypedValue(value))
 
   private[lf] val genMaybeEmptyParties: Gen[Set[Party]] = Gen.listOf(party).map(_.toSet)
 

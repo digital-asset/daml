@@ -22,6 +22,7 @@ import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party, Transa
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
+import com.digitalasset.daml.lf.transaction.{Transaction => Tx}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -374,7 +375,7 @@ abstract class LedgerBackedIndexService(
   override def lookupActiveContract(
       submitter: Ref.Party,
       contractId: AbsoluteContractId
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]] =
+  ): Future[Option[ContractInst[Tx.Value[AbsoluteContractId]]]] =
     contractStore.lookupActiveContract(submitter, contractId)
 
   override def lookupContractKey(

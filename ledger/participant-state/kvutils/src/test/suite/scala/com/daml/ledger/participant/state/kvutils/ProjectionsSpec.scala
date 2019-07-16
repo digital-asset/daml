@@ -7,28 +7,30 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Transaction.Transaction
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Node}
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Node, Transaction}
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
   ContractInst,
   NodeId,
   RelativeContractId,
   ValueText,
-  VersionedValue
+  WellTypedValue
 }
-import com.digitalasset.daml.lf.value.ValueVersions
+import com.digitalasset.daml.lf.value.{Value, ValueVersions, Versioned}
 import org.scalatest.{Matchers, WordSpec}
+
+import scala.language.implicitConversions
 
 class ProjectionsSpec extends WordSpec with Matchers {
 
   def makeCreateNode(cid: ContractId, signatories: Set[Party], stakeholders: Set[Party]) =
-    Node.NodeCreate(
+    Node.NodeCreate[ContractId, Transaction.Value[ContractId]](
       cid,
       ContractInst(
         Identifier(
           PackageId.assertFromString("some-package"),
           QualifiedName.assertFromString("Foo:Bar")),
-        VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
+        Versioned(ValueVersions.acceptedVersions.last, ValueText("foo")),
         "agreement"
       ),
       None,
@@ -42,7 +44,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
-      children: ImmArray[NodeId]) =
+      children: ImmArray[NodeId]): Node.GenNode[NodeId, ContractId, Transaction.Value[Nothing]] =
     Node.NodeExercises(
       target,
       Identifier(
@@ -52,7 +54,7 @@ class ProjectionsSpec extends WordSpec with Matchers {
       None,
       true,
       actingParties,
-      VersionedValue(ValueVersions.acceptedVersions.last, ValueText("foo")),
+      Versioned(ValueVersions.acceptedVersions.last, ValueText("foo")),
       stakeholders,
       signatories,
       children,
@@ -135,4 +137,8 @@ class ProjectionsSpec extends WordSpec with Matchers {
     }
 
   }
+
+  private implicit def asWellTyped[Cid](x: Value[Cid]): WellTypedValue[Cid] =
+    WellTypedValue.castWellTypedValue(x)
+
 }

@@ -71,11 +71,12 @@ object ValueVersions
       case Right(x) => x
     }
 
-  def asVersionedValue[Cid](value: Value[Cid]): Either[String, VersionedValue[Cid]] =
-    assignVersion(value).map(version => VersionedValue(version = version, value = value))
+  def asVersionedValue[Cid](
+      value: WellTypedValue[Cid]): Either[String, WellTypedVersionedValue[Cid]] =
+    assignVersion(value).map(version => WellTypedVersionedValue(version = version, value = value))
 
   @throws[IllegalArgumentException]
-  def assertAsVersionedValue[Cid](value: Value[Cid]): VersionedValue[Cid] =
+  def assertAsVersionedValue[Cid](value: WellTypedValue[Cid]): WellTypedVersionedValue[Cid] =
     asVersionedValue(value) match {
       case Left(err) => throw new IllegalArgumentException(err)
       case Right(x) => x

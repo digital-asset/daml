@@ -25,9 +25,9 @@ import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
   ValueText,
-  VersionedValue
+  WellTypedValue
 }
-import com.digitalasset.daml.lf.value.ValueVersions
+import com.digitalasset.daml.lf.value.{Value, ValueVersions, Versioned}
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.EventId
 import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
@@ -82,7 +82,7 @@ class PostgresDaoSpec
 
   private val alice = Party.assertFromString("Alice")
   private val bob = Party.assertFromString("Bob")
-  private val someValueText = ValueText("some text")
+  private def valueText(s: String) = WellTypedValue.castWellTypedValue(ValueText(s))
   private val agreement = "agreement"
 
   "Postgres Ledger DAO" should {
@@ -100,11 +100,11 @@ class PostgresDaoSpec
           Ref.QualifiedName(
             Ref.ModuleName.assertFromString("moduleName"),
             Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+        Versioned(ValueVersions.acceptedVersions.head, valueText("some text")),
         agreement
       )
       val keyWithMaintainers = KeyWithMaintainers(
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key")),
+        Versioned(ValueVersions.acceptedVersions.head, valueText("key")),
         Set(alice)
       )
 
@@ -251,12 +251,12 @@ class PostgresDaoSpec
           Ref.QualifiedName(
             Ref.ModuleName.assertFromString("moduleName"),
             Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+        Versioned(ValueVersions.acceptedVersions.head, valueText("some text")),
         agreement
       )
 
       val keyWithMaintainers = KeyWithMaintainers(
-        VersionedValue(ValueVersions.acceptedVersions.head, ValueText("key2")),
+        Versioned(ValueVersions.acceptedVersions.head, valueText("key2")),
         Set(Ref.Party.assertFromString("Alice"))
       )
 
@@ -309,7 +309,7 @@ class PostgresDaoSpec
           Ref.QualifiedName(
             Ref.ModuleName.assertFromString("moduleName"),
             Ref.DottedName.assertFromString("name"))),
-        VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+        Versioned(ValueVersions.acceptedVersions.head, valueText("some text")),
         agreement
       )
 
@@ -377,7 +377,7 @@ class PostgresDaoSpec
         val let = Instant.now
         val contractInstance = ContractInst(
           templateId,
-          VersionedValue(ValueVersions.acceptedVersions.head, someValueText),
+          Versioned(ValueVersions.acceptedVersions.head, valueText("some text")),
           agreement
         )
 
@@ -426,14 +426,14 @@ class PostgresDaoSpec
                 None,
                 consuming = true,
                 Set(alice),
-                VersionedValue(ValueVersions.acceptedVersions.head, ValueText("some choice value")),
+                Versioned(ValueVersions.acceptedVersions.head, valueText("some choice value")),
                 Set(alice, bob),
                 Set(alice, bob),
                 ImmArray.empty,
                 Some(
-                  VersionedValue(
+                  Versioned(
                     ValueVersions.acceptedVersions.head,
-                    ValueText("some exercise result"))),
+                    valueText("some exercise result"))),
                 None
               )),
             ImmArray[EventId](s"event$id"),
@@ -516,6 +516,9 @@ class PostgresDaoSpec
 
   private implicit def toLedgerString(s: String): Ref.LedgerString =
     Ref.LedgerString.assertFromString(s)
+
+  private implicit def asWellTyped[Cid](x: Value[Cid]): WellTypedValue[Cid] =
+    WellTypedValue.castWellTypedValue(x)
 
 }
 

@@ -21,9 +21,10 @@ import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SValue._
 import com.digitalasset.daml.lf.transaction.Transaction._
 import com.digitalasset.daml.lf.value.{Value => V}
-import V.VersionedValueOps
+import V.WellTypedVersionedValueOps
 import com.digitalasset.daml.lf.value.ValueVersions.asVersionedValue
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, RelativeContractId}
 
 import scala.collection.JavaConverters._
@@ -970,11 +971,9 @@ object SBuiltin {
   final case class SBULookupKey(templateId: TypeConName) extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(2))
-      val key = asVersionedValue(args.get(0).toValue.mapContractId[Nothing] { cid =>
-        crash(s"Unexpected contract id in key: $cid")
-      }) match {
+      val key = asVersionedValue(args.get(0).toValue) match {
         case Left(err) => crash(err)
-        case Right(x) => x
+        case Right(x) => assertNoContractId(x)
       }
       val maintainers = extractParties(args.get(1))
       checkLookupMaintainers(templateId, machine, maintainers)
@@ -1017,13 +1016,9 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(3))
       val key =
-        asVersionedValue(
-          args
-            .get(0)
-            .toValue
-            .mapContractId(coid => crash(s"Unexpected contract id in key: $coid"))) match {
+        asVersionedValue(args.get(0).toValue) match {
           case Left(err) => crash(err)
-          case Right(v) => v
+          case Right(v) => assertNoContractId(v)
         }
       val maintainers = extractParties(args.get(1))
       val mbCoid = args.get(2) match {
@@ -1053,11 +1048,9 @@ object SBuiltin {
   final case class SBUFetchKey(templateId: TypeConName) extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       checkToken(args.get(2))
-      val key = asVersionedValue(args.get(0).toValue.mapContractId[Nothing] { cid =>
-        crash(s"Unexpected contract id in key: $cid")
-      }) match {
+      val key = asVersionedValue(args.get(0).toValue) match {
         case Left(err) => crash(err)
-        case Right(x) => x
+        case Right(x) => assertNoContractId(x)
       }
       val maintainers = extractParties(args.get(1))
       checkLookupMaintainers(templateId, machine, maintainers)
@@ -1295,6 +1288,9 @@ object SBuiltin {
       }
     }
   }
+
+  private def assertNoContractId[Cid](value: Transaction.Value[Cid]): Transaction.Value[Nothing] =
+    value.mapContractId[Nothing](cid => crash(s"Unexpected contract id in key: $cid"))
 
   private def rightOrArithmeticError[A](message: String, mb: Either[String, A]): A =
     mb.fold(_ => throw DamlEArithmeticError(s"$message"), identity)

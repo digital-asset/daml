@@ -7,8 +7,9 @@ import com.digitalasset.daml.lf.data.Ref.{ChoiceName, ContractIdString, PackageI
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, VersionedValue}
-import com.digitalasset.daml.lf.value.{Value, ValueVersions}
+import com.digitalasset.daml.lf.transaction.Transaction
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, WellTypedValue}
+import com.digitalasset.daml.lf.value.ValueVersions
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.event.{
   CreatedEvent => ApiCreatedEvent,
@@ -38,19 +39,19 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
 
   private def toLfVersionedValue[Cid](
       record: Record
-  ): Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]] =
+  ): Either[StatusRuntimeException, Transaction.Value[AbsoluteContractId]] =
     recordToLfValue(record).flatMap(determineVersion)
 
   private def toLfVersionedValue[Cid](
-      value: ApiValue): Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]] = {
+      value: ApiValue): Either[StatusRuntimeException, Transaction.Value[AbsoluteContractId]] = {
     toLfValue(value).flatMap(determineVersion)
   }
 
-  private def determineVersion(value: Value[AbsoluteContractId])
-    : Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]] =
+  private def determineVersion(value: WellTypedValue[AbsoluteContractId])
+    : Either[StatusRuntimeException, Transaction.Value[AbsoluteContractId]] =
     ValueVersions
       .asVersionedValue(value)
-      .fold[Either[StatusRuntimeException, VersionedValue[AbsoluteContractId]]](
+      .fold[Either[StatusRuntimeException, Transaction.Value[AbsoluteContractId]]](
         s => Left(invalidArgument(s"Cannot parse '$value' as versioned value: $s")),
         Right.apply)
 
@@ -64,8 +65,8 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
     toLfValue(ApiValue(ApiValue.Sum.Record(record)))
 
   private def toLfValue[Cid](
-      apiV: ApiValue): Either[StatusRuntimeException, Value[AbsoluteContractId]] =
-    commandsValidator.validateValue(apiV)
+      apiV: ApiValue): Either[StatusRuntimeException, WellTypedValue[AbsoluteContractId]] =
+    commandsValidator.validateValue(apiV).map(WellTypedValue.castWellTypedValue)
 
   // this is roughly the inverse operation of EventConverter in sandbox
   def eventsFromApiTransaction(transactionTree: TransactionTree)

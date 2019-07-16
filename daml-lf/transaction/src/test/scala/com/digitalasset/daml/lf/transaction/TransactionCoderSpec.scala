@@ -4,11 +4,17 @@
 package com.digitalasset.daml.lf.transaction
 
 import com.digitalasset.daml.lf.EitherAssertions
-import com.digitalasset.daml.lf.data.{ImmArray}
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.digitalasset.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
 import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => proto}
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInst, ValueParty, VersionedValue}
+import com.digitalasset.daml.lf.value.Value.{
+  ContractId,
+  ContractInst,
+  ValueParty,
+  WellTypedValue,
+  WellTypedVersionedValue
+}
 import com.digitalasset.daml.lf.value.ValueCoder.{DecodeCid, DecodeError, EncodeCid, EncodeError}
 import com.digitalasset.daml.lf.value.{ValueVersion, ValueVersions}
 import com.digitalasset.daml.lf.transaction.TransactionVersions._
@@ -119,7 +125,7 @@ class TransactionCoderSpec
               .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))
 
         decodedVersionedTx.version shouldEqual TransactionVersions.assignVersion(t)
-        decodedVersionedTx.transaction shouldEqual t
+        decodedVersionedTx.x shouldEqual t
       }
     }
 
@@ -139,7 +145,7 @@ class TransactionCoderSpec
           val decodedVersionedTx = assertRight(
             TransactionCoder
               .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))
-          decodedVersionedTx.transaction shouldBe minimalistTx(txVer, tx)
+          decodedVersionedTx.x shouldBe minimalistTx(txVer, tx)
       }
     }
 
@@ -169,9 +175,8 @@ class TransactionCoderSpec
             inside((encWithMin, encWithMax) umap (TransactionCoder
               .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, _))) {
               case (Right(decWithMin), Right(decWithMax)) =>
-                decWithMin.transaction shouldBe minimalistTx(txvMin, tx)
-                decWithMin.transaction shouldBe
-                  minimalistTx(txvMin, decWithMax.transaction)
+                decWithMin.x shouldBe minimalistTx(txvMin, tx)
+                decWithMin.x shouldBe minimalistTx(txvMin, decWithMax.x)
             }
         }
       }
@@ -230,15 +235,15 @@ class TransactionCoderSpec
     }
 
     "do tx with a lot of root nodes" in {
-      val node: Node.NodeCreate[String, VersionedValue[String]] = Node.NodeCreate(
+      val node: Node.NodeCreate[String, WellTypedVersionedValue[String]] = Node.NodeCreate(
         "test-cid",
         ContractInst(
           Identifier(
             PackageId.assertFromString("pkg-id"),
             QualifiedName.assertFromString("Test:Name")),
-          VersionedValue(
+          WellTypedVersionedValue(
             ValueVersions.acceptedVersions.last,
-            ValueParty(Party.assertFromString("francesco"))),
+            WellTypedValue.castWellTypedValue(ValueParty(Party.assertFromString("francesco")))),
           ("agreement")
         ),
         None,
@@ -269,7 +274,7 @@ class TransactionCoderSpec
         )
         .right
         .get
-        .transaction
+        .x
     }
   }
 

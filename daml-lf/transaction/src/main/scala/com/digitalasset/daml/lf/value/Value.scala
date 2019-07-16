@@ -18,6 +18,8 @@ import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.syntax.equal._
 
+import scala.language.higherKinds
+
 /** Values   */
 sealed abstract class Value[+Cid] extends Product with Serializable {
   import Value._
@@ -143,6 +145,27 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
 
 object Value {
 
+  sealed abstract class WellTypedValueModule {
+    import scala.language.higherKinds
+    type T[+Cid] <: Value[Cid]
+
+    def castWellTyped[Cid, C[+ _]](v: C[Value[Cid]]): C[T[Cid]]
+    private type Id[+X] = X
+    final def castWellTypedValue[Cid](v: Value[Cid]): T[Cid] = castWellTyped[Cid, Id](v)
+  }
+
+  val WellTypedValue: WellTypedValueModule = new WellTypedValueModule {
+    type T[+Cid] = Value[Cid]
+    override def castWellTyped[Cid, C[+ _]](c: C[Value[Cid]]): C[T[Cid]] = c
+  }
+
+  type WellTypedValue[+Cid] = WellTypedValue.T[Cid]
+
+  implicit class WellTypedValueOps[Cid](val value: WellTypedValue[Cid]) extends AnyVal {
+    def mapContractId[Cid2](f: Cid => Cid2): WellTypedValue[Cid2] =
+      WellTypedValue.castWellTypedValue(value.mapContractId(f))
+  }
+
   /** the maximum nesting level for DAML-LF serializable values. we put this
     * limitation to be able to reliably implement stack safe programs with it.
     * right now it's 100 to be conservative -- it's in the same order of magnitude
@@ -154,17 +177,35 @@ object Value {
   val MAXIMUM_NESTING: Int = 100
 
   type VersionedValue[+Cid] = Versioned[ValueVersion, Value[Cid]]
+  type WellTypedVersionedValue[+Cid] = Versioned[ValueVersion, WellTypedValue[Cid]]
 
   object VersionedValue {
-    def apply[Cid](version: ValueVersion, value: Value[Cid]) = new Versioned(version, value)
+    def apply[Cid](version: ValueVersion, value: Value[Cid]): Versioned[ValueVersion, Value[Cid]] =
+      new Versioned(version, value)
   }
 
-  implicit class VersionedValueOps[Cid](val versioned: Value.VersionedValue[Cid]) extends AnyVal {
+  implicit class VersionedValueOps[Cid](val versioned: VersionedValue[Cid]) extends AnyVal {
 
     def mapContractId[Cid2](f: Cid => Cid2): VersionedValue[Cid2] =
       versioned.copy(x = versioned.x.mapContractId(f))
 
     def value: Value[Cid] = versioned.x
+  }
+
+  object WellTypedVersionedValue {
+    def apply[Cid](
+        version: ValueVersion,
+        value: WellTypedValue[Cid]): WellTypedVersionedValue[Cid] =
+      new Versioned(version, value)
+  }
+
+  implicit class WellTypedVersionedValueOps[Cid](val versioned: WellTypedVersionedValue[Cid])
+      extends AnyVal {
+
+    def mapContractId[Cid2](f: Cid => Cid2): WellTypedVersionedValue[Cid2] =
+      versioned.copy(x = WellTypedValue.castWellTypedValue(versioned.x.mapContractId(f)))
+
+    def value: WellTypedValue[Cid] = versioned.x
   }
 
   final case class ValueRecord[+Cid](
@@ -240,6 +281,9 @@ object Value {
         }
       }
     }
+
+  implicit def `WellTypedValue Equal instance`[Cid: Equal]: Equal[WellTypedValue[Cid]] =
+    Equal.equalBy[WellTypedValue[Cid], Value[Cid]](identity)
 
   /** A contract instance is a value plus the template that originated it. */
   final case class ContractInst[+Val](template: Identifier, arg: Val, agreementText: String) {

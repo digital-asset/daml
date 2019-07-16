@@ -6,7 +6,7 @@ package com.daml.ledger.participant.state.index.v2
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 
 import scala.concurrent.Future
@@ -18,7 +18,7 @@ trait ContractStore {
   def lookupActiveContract(
       submitter: Ref.Party,
       contractId: AbsoluteContractId
-  ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
+  ): Future[Option[ContractInst[Transaction.Value[AbsoluteContractId]]]]
 
   def lookupContractKey(submitter: Party, key: GlobalKey): Future[Option[AbsoluteContractId]]
 

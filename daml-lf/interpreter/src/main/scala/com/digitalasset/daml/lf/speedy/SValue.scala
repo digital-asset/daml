@@ -27,8 +27,8 @@ sealed trait SValue {
 
   import SValue._
 
-  def toValue: V[V.ContractId] =
-    this match {
+  def toValue: V.WellTypedValue[V.ContractId] = {
+    val value = this match {
       case SInt64(x) => V.ValueInt64(x)
       case SDecimal(x) => V.ValueDecimal(x)
       case SText(x) => V.ValueText(x)
@@ -76,6 +76,8 @@ sealed trait SValue {
       case SToken =>
         throw SErrorCrash("SValue.toValue: unexpected SToken")
     }
+    V.WellTypedValue.castWellTypedValue(value)
+  }
 
   private def mapArrayList(
       as: util.ArrayList[SValue],

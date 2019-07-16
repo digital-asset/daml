@@ -203,11 +203,11 @@ object ValueCoder {
     */
   def decodeVersionedValue[Cid](
       decodeCid: DecodeCid[Cid],
-      protoValue0: proto.VersionedValue): Either[DecodeError, VersionedValue[Cid]] =
+      protoValue0: proto.VersionedValue): Either[DecodeError, WellTypedVersionedValue[Cid]] =
     for {
       version <- decodeVersion(protoValue0.getVersion)
       value <- decodeValue(decodeCid, version, protoValue0.getValue)
-    } yield VersionedValue(version, value)
+    } yield WellTypedVersionedValue(version, value)
 
   def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
@@ -266,7 +266,7 @@ object ValueCoder {
   def decodeValue[Cid](
       decodeCid: DecodeCid[Cid],
       valueVersion: ValueVersion,
-      protoValue0: proto.Value): Either[DecodeError, Value[Cid]] = {
+      protoValue0: proto.Value): Either[DecodeError, WellTypedValue[Cid]] = {
     case class Err(msg: String) extends Throwable(null, null, true, false)
 
     def identifier(s: String): Name =
@@ -389,7 +389,7 @@ object ValueCoder {
     }
 
     try {
-      Right(go(0, protoValue0))
+      Right(WellTypedValue.castWellTypedValue(go(0, protoValue0)))
     } catch {
       case Err(msg) => Left(DecodeError(msg))
     }

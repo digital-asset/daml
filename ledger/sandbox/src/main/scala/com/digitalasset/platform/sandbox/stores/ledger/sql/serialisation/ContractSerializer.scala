@@ -5,18 +5,18 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
 import com.digitalasset.daml.lf.archive.{Decode, Reader}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.TransactionCoder
-import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst, VersionedValue}
+import com.digitalasset.daml.lf.transaction.{Transaction => Tx, TransactionCoder}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass
 
 trait ContractSerializer {
-  def serialiseContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
+  def serialiseContractInstance(coinst: ContractInst[Tx.Value[AbsoluteContractId]])
     : Either[ValueCoder.EncodeError, Array[Byte]]
 
   def deserialiseContractInstance(
-      blob: Array[Byte]): Either[DecodeError, ContractInst[VersionedValue[AbsoluteContractId]]]
+      blob: Array[Byte]): Either[DecodeError, ContractInst[Tx.Value[AbsoluteContractId]]]
 }
 
 /**
@@ -24,16 +24,16 @@ trait ContractSerializer {
   */
 object ContractSerializer extends ContractSerializer {
 
-  override def serialiseContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
+  override def serialiseContractInstance(coinst: ContractInst[Tx.Value[AbsoluteContractId]])
     : Either[ValueCoder.EncodeError, Array[Byte]] =
     TransactionCoder
-      .encodeContractInstance[VersionedValue[AbsoluteContractId]](defaultValEncode, coinst)
+      .encodeContractInstance[Tx.Value[AbsoluteContractId]](defaultValEncode, coinst)
       .map(_.toByteArray())
 
   override def deserialiseContractInstance(
-      blob: Array[Byte]): Either[DecodeError, ContractInst[VersionedValue[AbsoluteContractId]]] =
+      blob: Array[Byte]): Either[DecodeError, ContractInst[Tx.Value[AbsoluteContractId]]] =
     TransactionCoder
-      .decodeContractInstance[VersionedValue[AbsoluteContractId]](
+      .decodeContractInstance[Tx.Value[AbsoluteContractId]](
         defaultValDecode,
         TransactionOuterClass.ContractInstance.parseFrom(
           Decode.damlLfCodedInputStreamFromBytes(blob, Reader.PROTOBUF_RECURSION_LIMIT)))
@@ -58,12 +58,12 @@ object ContractSerializer extends ContractSerializer {
     }
   )
 
-  private val defaultValEncode: TransactionCoder.EncodeVal[VersionedValue[AbsoluteContractId]] =
+  private val defaultValEncode: TransactionCoder.EncodeVal[Tx.Value[AbsoluteContractId]] =
     a => ValueCoder.encodeVersionedValueWithCustomVersion(defaultCidEncode, a).map((a.version, _))
 
   private val defaultValDecode: ValueOuterClass.VersionedValue => Either[
     ValueCoder.DecodeError,
-    VersionedValue[AbsoluteContractId]] =
+    Tx.Value[AbsoluteContractId]] =
     a => ValueCoder.decodeVersionedValue(defaultCidDecode, a)
 
 }

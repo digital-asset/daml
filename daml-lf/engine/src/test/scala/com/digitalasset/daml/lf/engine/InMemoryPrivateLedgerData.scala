@@ -14,7 +14,7 @@ import scala.annotation.tailrec
 
 trait PrivateLedgerData {
   def update(tx: GenTransaction.WithTxValue[NodeId, ContractId]): Unit
-  def get(id: AbsoluteContractId): Option[ContractInst[VersionedValue[AbsoluteContractId]]]
+  def get(id: AbsoluteContractId): Option[ContractInst[Tx.Value[AbsoluteContractId]]]
   def toAbsoluteContractId(txCounter: Int)(cid: ContractId): AbsoluteContractId
   def transactionCounter: Int
   def clear(): Unit
@@ -63,7 +63,7 @@ private[engine] class InMemoryPrivateLedgerData extends PrivateLedgerData {
       ()
     }
 
-  def get(id: AbsoluteContractId): Option[ContractInst[VersionedValue[AbsoluteContractId]]] =
+  def get(id: AbsoluteContractId): Option[ContractInst[Tx.Value[AbsoluteContractId]]] =
     this.synchronized {
       Option(pcs.get(id))
     }

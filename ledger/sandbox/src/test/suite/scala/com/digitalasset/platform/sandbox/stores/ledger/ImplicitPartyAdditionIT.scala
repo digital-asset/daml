@@ -16,9 +16,9 @@ import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractInst,
   ValueText,
-  VersionedValue
+  WellTypedValue
 }
-import com.digitalasset.daml.lf.value.ValueVersions
+import com.digitalasset.daml.lf.value.{ValueVersions, Versioned}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   Resource,
@@ -70,7 +70,7 @@ class ImplicitPartyAdditionIT
   )
 
   private def textValue(t: String) =
-    VersionedValue(ValueVersions.acceptedVersions.head, ValueText(t))
+    Versioned(ValueVersions.acceptedVersions.head, WellTypedValue.castWellTypedValue(ValueText(t)))
 
   /** Overriding this provides an easy way to narrow down testing to a single implementation. */
   override protected def fixtureIdsEnabled: Set[BackendType] =

@@ -7,6 +7,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, ImmArrayCons}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
+import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.value.Value._
 import scalaz.Monad
 
@@ -41,7 +42,7 @@ sealed trait Result[+A] extends Product with Serializable {
 
   // quick and dirty way to consume a Result
   def consume(
-      pcs: AbsoluteContractId => Option[ContractInst[VersionedValue[AbsoluteContractId]]],
+      pcs: AbsoluteContractId => Option[ContractInst[Transaction.Value[AbsoluteContractId]]],
       packages: PackageId => Option[Package],
       keys: GlobalKey => Option[AbsoluteContractId]): Either[Error, A] = {
     @tailrec
@@ -70,7 +71,7 @@ final case class ResultError(err: Error) extends Result[Nothing]
   */
 final case class ResultNeedContract[A](
     acoid: AbsoluteContractId,
-    resume: Option[ContractInst[VersionedValue[AbsoluteContractId]]] => Result[A])
+    resume: Option[ContractInst[Transaction.Value[AbsoluteContractId]]] => Result[A])
     extends Result[A]
 
 /**
@@ -148,7 +149,7 @@ object Result {
 
   def needContract[A](
       acoid: AbsoluteContractId,
-      resume: ContractInst[VersionedValue[AbsoluteContractId]] => Result[A]) =
+      resume: ContractInst[Transaction.Value[AbsoluteContractId]] => Result[A]) =
     ResultNeedContract(acoid, {
       case None => ResultError(Error(s"dependency error: couldn't find contract $acoid"))
       case Some(contract) => resume(contract)
