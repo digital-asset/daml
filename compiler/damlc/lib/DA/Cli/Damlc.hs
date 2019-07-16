@@ -717,7 +717,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 (mainPkgId, mainLfPkg) <-
                     decode $ BSL.toStrict $ fromEntry mainDalfEntry
                 pure (pkgName, mainPkgId, mainLfPkg)
-      -- generate upgrade modules and instances modules
+        -- generate upgrade modules and instances modules
         let eqModNames =
                 (NM.names $ LF.packageModules lfPkg1) `intersect`
                 (NM.names $ LF.packageModules lfPkg2)
