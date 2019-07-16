@@ -136,7 +136,7 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
   where
     pkgMapInv = MS.fromList $ map swap $ MS.toList pkgMap
     getUnitId :: LF.PackageRef -> UnitId
-    getUnitId pkgRef =
+    getUnitId pkgRef = 
         fromMaybe (error $ "Unknown package: " <> show pkgRef) $
         case pkgRef of
             LF.PRSelf -> MS.lookup thisPkgId pkgMapInv
@@ -393,43 +393,45 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
         \case
             LF.TVar tyVarName ->
                 HsTyVar NoExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
-            LF.TCon LF.Qualified {..}
-                | [name] <- LF.unTypeConName qualObject ->
-                    HsTyVar NoExt NotPromoted $
-                    noLoc $
-                    mkOrig
-                        (mkModule
-                             (getUnitId qualPackage)
-                             (mkModuleName $
-                              T.unpack $ LF.moduleNameString qualModule))
-                        (mkOccName varName $ T.unpack name)
-                | n@[_name0, _name1] <- LF.unTypeConName qualObject ->
-                    let fs =
-                            fromMaybe
-                                (error $
-                                 "Internal error: Could not find generated record type: " <>
-                                 (T.unpack $ T.intercalate "." n)) $
-                            MS.lookup n sumProdRecords
-                     in HsRecTy
-                            NoExt
-                            [ noLoc $
-                            ConDeclField
-                                { cd_fld_ext = noExt
-                                , cd_fld_names =
-                                      [ noLoc $
-                                        FieldOcc
-                                            { extFieldOcc = noExt
-                                            , rdrNameFieldOcc =
-                                                  mkRdrName $
-                                                  LF.unFieldName fieldName
-                                            }
-                                      ]
-                                , cd_fld_type = noLoc $ convType fieldTy
-                                , cd_fld_doc = Nothing
-                                }
-                            | (fieldName, fieldTy) <- fs
-                            ]
-                | cs <- LF.unTypeConName qualObject -> errTooManyNameComponents cs
+            LF.TCon LF.Qualified {..} ->
+                case LF.unTypeConName qualObject of
+                    [name] ->
+                        HsTyVar NoExt NotPromoted $
+                        noLoc $
+                        mkOrig
+                            (mkModule
+                                 (getUnitId qualPackage)
+                                 (mkModuleName $
+                                  T.unpack $ LF.moduleNameString qualModule))
+                            (mkOccName varName $ T.unpack name)
+                    n@[_name0, _name1] ->
+                        let fs =
+                                MS.findWithDefault
+                                    (error $
+                                     "Internal error: Could not find generated record type: " <>
+                                     (T.unpack $ T.intercalate "." n))
+                                    n
+                                    sumProdRecords
+                         in HsRecTy
+                                NoExt
+                                [ noLoc $
+                                ConDeclField
+                                    { cd_fld_ext = noExt
+                                    , cd_fld_names =
+                                          [ noLoc $
+                                            FieldOcc
+                                                { extFieldOcc = noExt
+                                                , rdrNameFieldOcc =
+                                                      mkRdrName $
+                                                      LF.unFieldName fieldName
+                                                }
+                                          ]
+                                    , cd_fld_type = noLoc $ convType fieldTy
+                                    , cd_fld_doc = Nothing
+                                    }
+                                | (fieldName, fieldTy) <- fs
+                                ]
+                    cs -> errTooManyNameComponents cs
             LF.TApp ty1 ty2 ->
                 HsParTy noExt $
                 noLoc $ HsAppTy NoExt (noLoc $ convType ty1) (noLoc $ convType ty2)
