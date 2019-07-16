@@ -5,11 +5,11 @@
 
 module DA.Daml.Doc.Render.Rst
   ( renderSimpleRst
-  , renderFinish
   ) where
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util
+import DA.Daml.Doc.Render.Monoid
 
 import qualified Data.Text.Prettyprint.Doc as Pretty
 import           Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
@@ -18,61 +18,19 @@ import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import           Data.Char
 import           Data.Maybe
 import qualified Data.Text as T
-import qualified Data.Set as Set
 
 import CMarkGFM
 
--- | Renderer output. This is the set of anchors that were generated, and a
--- list of output functions that depend on that set. The goal is to prevent
--- the creation of spurious anchors links (i.e. links to anchors that don't
--- exist).
---
--- (In theory this could be done in two steps, but that seems more error prone
--- than building up both steps at the same time, and combining them at the
--- end, as is done here.)
---
--- Using a newtype here so we can derive the semigroup / monoid instances we
--- want automatically. :-)
-newtype RenderOut = RenderOut (RenderEnv, [RenderEnv -> [T.Text]])
-    deriving newtype (Semigroup, Monoid)
-
-newtype RenderEnv = RenderEnv (Set.Set Anchor)
-    deriving newtype (Semigroup, Monoid)
-
--- | Is the anchor available in the render environment? Renderers should avoid
--- generating links to anchors that don't actually exist.
---
--- One reason an anchor may be unavailable is because of a @-- | HIDE@ directive.
--- Another possibly reason is that the anchor refers to a definition in another
--- package (and at the moment it's not possible to link accross packages).
-renderAnchorAvailable :: RenderEnv -> Anchor -> Bool
-renderAnchorAvailable (RenderEnv anchors) anchor = Set.member anchor anchors
-
-renderFinish :: RenderOut -> T.Text
-renderFinish (RenderOut (xs, fs)) = T.unlines (concatMap ($ xs) fs)
-
 renderAnchor :: Maybe Anchor -> RenderOut
 renderAnchor Nothing = mempty
-renderAnchor (Just anchor) = RenderOut
-    ( RenderEnv (Set.singleton anchor)
-    , [const ["", ".. _" <> unAnchor anchor <> ":", ""]]
-    )
-
-renderLine :: T.Text -> RenderOut
-renderLine l = renderLines [l]
-
-renderLines :: [T.Text] -> RenderOut
-renderLines ls = renderLinesDep (const ls)
-
-renderLineDep :: (RenderEnv -> T.Text) -> RenderOut
-renderLineDep f = renderLinesDep (pure . f)
-
-renderLinesDep :: (RenderEnv -> [T.Text]) -> RenderOut
-renderLinesDep f = RenderOut (mempty, [f])
-
-renderIndent :: Int -> RenderOut -> RenderOut
-renderIndent n (RenderOut (env, fs)) =
-    RenderOut (env, map (map (T.replicate n " " <>) .) fs)
+renderAnchor (Just anchor) = mconcat
+    [ renderDeclareAnchor anchor
+    , renderLines
+        [ ""
+        , ".. _" <> unAnchor anchor <> ":"
+        , ""
+        ]
+    ]
 
 renderDocText :: DocText -> RenderOut
 renderDocText = renderLines . T.lines . docTextToRst

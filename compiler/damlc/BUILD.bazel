@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
-load("//rules_daml:daml.bzl", "daml_compile")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_doc_test")
 load("@os_info//:os_info.bzl", "is_windows")
 load("//bazel_tools/packaging:packaging.bzl", "package_app")
 
@@ -170,6 +170,12 @@ filegroup(
     visibility = ["__pkg__"],
 )
 
+filegroup(
+    name = "daml-base-md-prefix",
+    srcs = ["base-md-prefix.md"],
+    visibility = ["__pkg__"],
+)
+
 genrule(
     name = "daml-prim-json-docs",
     srcs = ["//compiler/damlc/daml-prim-src"],
@@ -238,4 +244,31 @@ genrule(
     """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-base-md-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+        ":daml-base-md-prefix",
+    ],
+    outs = ["daml-base.md"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --input-format=json \
+            --format=Markdown \
+            --prefix=$(location :daml-base-md-prefix) \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+daml_doc_test(
+    name = "daml-stdlib-doctest",
+    srcs = ["//compiler/damlc/daml-stdlib-src"],
+    damlc_flags = "--package-name=daml-stdlib",
+    ignored_srcs = ["LibraryModules.daml"],
 )

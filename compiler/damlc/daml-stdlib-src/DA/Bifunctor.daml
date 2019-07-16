@@ -52,13 +52,13 @@ class Bifunctor p where
     -- @'bimap' f g ≡ 'first' f '.' 'second' g@
     --
     -- ==== __Examples__
-    -- >>> bimap toUpper (+1) ('j', 3)
-    -- ('J',4)
+    -- >>> bimap not (+1) (True, 3)
+    -- (False,4)
     --
-    -- >>> bimap toUpper (+1) (Left 'j')
-    -- Left 'J'
+    -- >>> bimap not (+1) (Left True)
+    -- Left False
     --
-    -- >>> bimap toUpper (+1) (Right 3)
+    -- >>> bimap not (+1) (Right 3)
     -- Right 4
     bimap : (a -> b) -> (c -> d) -> p a c -> p b d
     bimap f g = first f . second g
@@ -69,11 +69,11 @@ class Bifunctor p where
     -- @'first' f ≡ 'bimap' f 'identity'@
     --
     -- ==== __Examples__
-    -- >>> first toUpper ('j', 3)
-    -- ('J',3)
+    -- >>> first not (True, 3)
+    -- (False,3)
     --
-    -- >>> first toUpper (Left 'j')
-    -- Left 'J'
+    -- >>> first not (Left True : Either Bool Int)
+    -- Left False
     first : (a -> b) -> p a c -> p b c
     first f = bimap f identity
 
@@ -83,10 +83,10 @@ class Bifunctor p where
     -- @'second' ≡ 'bimap' 'identity'@
     --
     -- ==== __Examples__
-    -- >>> second (+1) ('j', 3)
-    -- ('j',4)
+    -- >>> second (+1) (True, 3)
+    -- (True,4)
     --
-    -- >>> second (+1) (Right 3)
+    -- >>> second (+1) (Right 3 : Either Bool Int)
     -- Right 4
     second : (b -> c) -> p a b -> p a c
     second = bimap identity

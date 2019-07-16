@@ -108,6 +108,31 @@ da_haskell_test(
     ],
 )
 
+# Tests for daml-doctest
+da_haskell_test(
+    name = "daml-doctest",
+    srcs = ["src/DA/Test/DamlDocTest.hs"],
+    data = ["//compiler/damlc/pkg-db"],
+    hazel_deps = [
+        "base",
+        "extra",
+        "tasty",
+        "tasty-hunit",
+        "text",
+    ],
+    main_function = "DA.Test.DamlDocTest.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-doctest",
+        "//compiler/damlc/daml-opts",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/hie-core",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
 # Tests of damlc at the Shake API layer
 da_haskell_test(
     name = "shake",

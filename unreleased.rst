@@ -83,3 +83,5 @@ HEAD — ongoing
 
 - [DAML Docs]: Added links to type signatures in generated docs. Check out the updated
 `the standard library docs <https://docs.daml.com/daml/reference/base.html>`__.
+
+- [DAML Compiler] **BREAKING CHANGE** Drop support for DAML-LF 1.5. Compiling to DAML-LF 1.6 requires some changes regarding enum types to applications using the Ledger API, see above. (The ledger server still supports DAML-LF 1.5.)

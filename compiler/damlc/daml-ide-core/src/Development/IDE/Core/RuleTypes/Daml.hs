@@ -28,6 +28,7 @@ import Development.IDE.Core.Service.Daml
 import Development.IDE.Types.Location
 import Development.IDE.Core.RuleTypes
 
+import DA.Daml.DocTest
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 
@@ -160,6 +161,14 @@ instance Hashable GetHlintDiagnostics
 instance NFData   GetHlintDiagnostics
 
 type instance RuleResult GetHlintDiagnostics = ()
+
+data GenerateDocTestModule = GenerateDocTestModule
+    deriving (Eq, Show, Typeable, Generic)
+instance Hashable GenerateDocTestModule
+instance NFData   GenerateDocTestModule
+
+-- | File path of the generated module
+type instance RuleResult GenerateDocTestModule = GeneratedModule
 
 -- | Kick off things
 type instance RuleResult OfInterest = ()

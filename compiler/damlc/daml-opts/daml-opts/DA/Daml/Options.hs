@@ -7,7 +7,11 @@
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 -- | Set up the GHC monad in a way that works for us
-module DA.Daml.Options(toCompileOpts) where
+module DA.Daml.Options
+    ( toCompileOpts
+    , generatePackageState
+    , PackageDynFlags(..)
+    ) where
 
 import Control.Monad
 import qualified CmdLineParser as Cmd (warnMsg)

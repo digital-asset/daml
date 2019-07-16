@@ -101,4 +101,42 @@ package object model extends NavigatorModelAliases[String] {
 
   def parseOpaqueIdentifier(id: TemplateStringId): Option[DamlLfRef.Identifier] =
     parseOpaqueIdentifier(TemplateStringId.unwrap(id))
+
+  import scala.language.higherKinds
+  type OfCid[V[_]] = V[String]
+  type ApiValue = OfCid[V]
+  type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)
+  val ApiRecordField = Tuple2
+  type ApiRecord = OfCid[V.ValueRecord]
+  val ApiRecord = V.ValueRecord
+  type ApiVariant = OfCid[V.ValueVariant]
+  val ApiVariant = V.ValueVariant
+  type ApiEnum = V.ValueEnum
+  val ApiEnum = V.ValueEnum
+  type ApiList = OfCid[V.ValueList]
+  val ApiList = V.ValueList
+  type ApiOptional = OfCid[V.ValueOptional]
+  val ApiOptional = V.ValueOptional
+  type ApiMap = OfCid[V.ValueMap]
+  val ApiMap = V.ValueMap
+  type ApiContractId = OfCid[V.ValueContractId]
+  val ApiContractId = V.ValueContractId
+  type ApiInt64 = V.ValueInt64
+  val ApiInt64 = V.ValueInt64
+  type ApiDecimal = V.ValueDecimal
+  val ApiDecimal = V.ValueDecimal
+  type ApiText = V.ValueText
+  val ApiText = V.ValueText
+  type ApiParty = V.ValueParty
+  val ApiParty = V.ValueParty
+  type ApiBool = V.ValueBool
+  val ApiBool = V.ValueBool
+  type ApiUnit = V.ValueUnit.type
+  val ApiUnit = V.ValueUnit
+  type ApiTimestamp = V.ValueTimestamp
+  val ApiTimestamp = V.ValueTimestamp
+  type ApiDate = V.ValueDate
+  val ApiDate = V.ValueDate
+  type ApiImpossible = OfCid[V.ValueTuple]
+  val ApiImpossible = V.ValueTuple
 }
