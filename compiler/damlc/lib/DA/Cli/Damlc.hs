@@ -8,53 +8,68 @@
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Damlc (main) where
 
+import Codec.Archive.Zip
+import Control.Exception
+import Control.Exception.Safe (catchIO)
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
-import DA.Signals
-import DA.Cli.Damlc.Base
-import DA.Cli.Damlc.IdeState
-import Control.Exception.Safe (catchIO)
-import Data.Maybe
-import Control.Exception
 import qualified "cryptonite" Crypto.Hash as Crypto
-import Codec.Archive.Zip
-import qualified Da.DamlLf as PLF
-import           DA.Cli.Damlc.BuildInfo
-import           DA.Cli.Damlc.Command.Damldoc      (cmdDamlDoc)
-import           DA.Cli.Args
-import qualified DA.Pretty
+import DA.Bazel.Runfiles
+import DA.Cli.Args
+import DA.Cli.Damlc.Base
+import DA.Cli.Damlc.BuildInfo
+import DA.Cli.Damlc.Command.Damldoc (cmdDamlDoc)
+import DA.Cli.Damlc.IdeState
+import DA.Cli.Damlc.Test
+import DA.Cli.Visual
 import DA.Daml.Compiler.Dar
+import DA.Daml.Compiler.DocTest
 import DA.Daml.Compiler.Scenario
 import DA.Daml.Compiler.Upgrade
-import DA.Daml.Options.Types
-import DA.Daml.LanguageServer
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
-import qualified DA.Service.Logger                 as Logger
-import qualified DA.Service.Logger.Impl.IO         as Logger.IO
-import qualified DA.Service.Logger.Impl.GCP        as Logger.GCP
-import DAML.Project.Consts
+import DA.Daml.LanguageServer
+import DA.Daml.Options
+import DA.Daml.Options.Types
+import qualified DA.Pretty
+import qualified DA.Service.Logger as Logger
+import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
+import qualified DA.Service.Logger.Impl.IO as Logger.IO
+import DA.Signals
 import DAML.Project.Config
-import DAML.Project.Types (ProjectPath(..), ConfigError)
+import DAML.Project.Consts
+import DAML.Project.Types (ConfigError, ProjectPath(..))
+import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
-import Data.ByteArray.Encoding (Base (Base16), convertToBase)
-import qualified Data.ByteString                   as B
-import qualified Data.ByteString.Lazy as BSL
+import Data.ByteArray.Encoding (Base(Base16), convertToBase)
+import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSC
+import qualified Data.ByteString.Lazy as BSL
 import Data.FileEmbed (embedFile)
+import Data.Graph
 import qualified Data.Set as Set
+import Data.List.Extra
 import qualified Data.List.Split as Split
+import qualified Data.Map.Strict as MS
+import Data.Maybe
+import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
+import Development.IDE.Core.Shake
+import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml (getDalf)
-import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..))
+import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..))
+import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import qualified Network.Socket                    as NS
+import "ghc-lib-parser" Module
+import qualified Network.Socket as NS
 import Options.Applicative.Extended
+import "ghc-lib-parser" Packages
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
 import Safe
@@ -64,14 +79,7 @@ import System.Exit
 import System.FilePath
 import System.IO.Extra
 import System.Process(callCommand)
-import           System.IO
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
-import DA.Cli.Damlc.Test
-import DA.Bazel.Runfiles
-import DA.Cli.Visual
-import Data.List
-import qualified Data.NameMap as NM
-import qualified Data.Map.Strict as MS
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -218,13 +226,24 @@ cmdMigrate numProcessors =
   where
     cmd =
         execMigrate
-        <$> optionsParser
+        <$> projectOpts "daml damlc migrate"
+        <*> optionsParser
             numProcessors
             (EnableScenarioService False)
             (Just <$> packageNameOpt)
         <*> inputDarOpt
         <*> inputDarOpt
         <*> targetSrcDirOpt
+
+cmdDocTest :: Int -> Mod CommandFields Command
+cmdDocTest numProcessors =
+    command "doctest" $
+    info (helper <*> cmd) $
+    progDesc "doc tests" <> fullDesc
+  where
+    cmd = execDocTest
+        <$> optionsParser numProcessors (EnableScenarioService True) optPackageName
+        <*> many inputFileOpt
 
 --------------------------------------------------------------------------------
 -- Execution
@@ -555,7 +574,7 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
             putErrLn $ "ERROR: Not creating pom file as package name '" <> name <> "' is not a valid Maven coordinate (expected '<groupId>:<artifactId>:<version>')"
             exitFailure
 
-    putErrLn = hPutStrLn System.IO.stderr
+    putErrLn = hPutStrLn stderr
 
 execInspect :: FilePath -> FilePath -> Bool -> Command
 execInspect inFile outFile jsonOutput = do
@@ -603,68 +622,149 @@ execInspectDar inFile = do
             show (LF.unPackageId pkgId)
 
 execMigrate ::
-       Options -> FilePath -> FilePath -> Maybe FilePath -> Command
-execMigrate opts inFile1 inFile2 mbDir = do
+       ProjectOpts
+    -> Options
+    -> FilePath
+    -> FilePath
+    -> Maybe FilePath
+    -> Command
+execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
+    opts <- mkOptions opts0
+    inFile1 <- makeAbsolute inFile1_
+    inFile2 <- makeAbsolute inFile2_
     loggerH <- getLogger opts "migrate"
-    [(pkgName1, pkgId1, lfPkg1, pkgMap1), (pkgName2, pkgId2, lfPkg2, pkgMap2)] <-
-        forM [inFile1, inFile2] $ \inFile -> do
-            let pkg = takeBaseName inFile
-            bytes <- B.readFile inFile
-            let dar = toArchive $ BSL.fromStrict bytes
-            manifest <- getEntry "META-INF/MANIFEST.MF" dar
-            mainDalfPath <-
-                maybe (ioError $ userError "Missing Main-Dalf entry in META-INF/MANIFEST.MF") pure $
-                headMay
-                    [ main
-                    | l <-
-                          lines $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
-                    , Just main <- [stripPrefix "Main-Dalf: " l]
-                    ]
-            mainDalf <- BSL.toStrict . fromEntry <$> getEntry mainDalfPath dar
-            (pkgId, lfPkg) <-
-                errorOnLeft
-                    ("Cannot decode package " <> mainDalfPath)
-                    (Archive.decodeArchive mainDalf)
-            pkgMap <- generatePkgMap loggerH dar
-            pure (pkg, pkgId, lfPkg, pkgMap)
-    let eqModNames =
-            (NM.names $ LF.packageModules lfPkg1) `intersect`
-            (NM.names $ LF.packageModules lfPkg2)
-    forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
-        [genSrc1, genSrc2] <-
-            forM [(pkgId1, lfPkg1, pkgMap1), (pkgId2, lfPkg2, pkgMap2)] $ \(pkgId, pkg, pkgMap) -> do
-                generateSrcFromLf pkgId pkgMap <$> getModule m pkg
-        let upgradeModPath =
-                (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
-                ".daml"
-        let instancesModPath1 =
-                replaceBaseName upgradeModPath $
-                takeBaseName upgradeModPath <> "InstancesA"
-        let instancesModPath2 =
-                replaceBaseName upgradeModPath $
-                takeBaseName upgradeModPath <> "InstancesB"
-        templateNames <-
-            map (T.unpack . T.intercalate "." . LF.unTypeConName) .
-            NM.names . LF.moduleTemplates <$>
-            getModule m lfPkg1
-        let generatedUpgradeMod =
-                generateUpgradeModule
-                    templateNames
-                    (T.unpack $ LF.moduleNameString m)
-                    pkgName1
-                    pkgName2
-        let generatedInstancesMod1 =
-                generateGenInstancesModule "A" (pkgName1, genSrc1)
-        let generatedInstancesMod2 =
-                generateGenInstancesModule "B" (pkgName2, genSrc2)
-        forM_
-            [ (upgradeModPath, generatedUpgradeMod)
-            , (instancesModPath1, generatedInstancesMod1)
-            , (instancesModPath2, generatedInstancesMod2)
-            ] $ \(path, mod) -> do
-            createDirectoryIfMissing True $ takeDirectory path
-            writeFile path mod
+    -- initialise the package database
+    execInit (optDamlLfVersion opts) projectOpts (InitPkgDb True)
+    withProjectRoot' projectOpts $ \_relativize
+     -> do
+        -- for all contained dalfs, generate source, typecheck and generate interface files and
+        -- overwrite the existing ones.
+        dbPath <- makeAbsolute $
+                projectPackageDatabase </>
+                lfVersionString (optDamlLfVersion opts)
+        (diags, pkgMap) <- generatePackageMap [dbPath]
+        unless (null diags) $ Logger.logWarning loggerH $ showDiagnostics diags
+        let pkgMap0 = MS.map dalfPackageId pkgMap
+        let genSrcs =
+                [ ( unitId
+                  , generateSrcPkgFromLf (dalfPackageId dalfPkg) pkgMap0 dalf)
+                | (unitId, dalfPkg) <- MS.toList pkgMap
+                , LF.ExternalPackage _ dalf <- [dalfPackagePkg dalfPkg]
+                ]
+        -- order the packages in topological order
+        packageState <-
+            generatePackageState (dbPath : optPackageDbs opts) False []
+        let (depGraph, vertexToNode, _keyToVertex) =
+                graphFromEdges $ do
+                    (uid, src) <- genSrcs
+                    let iuid = toInstalledUnitId uid
+                    Just pkgInfo <-
+                        [ lookupInstalledPackage
+                              (fakeDynFlags
+                                   {pkgState = pdfPkgState packageState})
+                              iuid
+                        ]
+                    pure (src, iuid, depends pkgInfo)
+        let unitIdsTopoSorted = reverse $ topSort depGraph
+        createDirectoryIfMissing True genDir
+        projectPkgDb <- makeAbsolute projectPackageDatabase
+        forM_ unitIdsTopoSorted $ \vertex -> withCurrentDirectory genDir $ do
+            let (src, iuid, _) = vertexToNode vertex
+            unless
+                -- TODO (drsk) remove this filter
+                (iuid `elem`
+                 map stringToInstalledUnitId ["daml-prim", "daml-stdlib"]) $ do
+                  -- typecheck and generate interface files
+                  forM_ src $ \(fp, content) -> do
+                      let path = fromNormalizedFilePath fp
+                      createDirectoryIfMissing True $ takeDirectory path
+                      writeFile path content
+                  opts' <-
+                      mkOptions $
+                      opts
+                          { optWriteInterface = True
+                          , optPackageDbs = [projectPkgDb]
+                          , optIfaceDir =
+                                Just
+                                    (dbPath </> installedUnitIdString iuid)
+                          , optIsGenerated = True
+                          , optMbPackageName =
+                                Just $ installedUnitIdString iuid
+                          }
+                  withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+                      forM_ src $ \(fp, _content) -> do
+                          mbCore <-
+                              runAction ide $
+                              getGhcCore fp
+                          case mbCore of
+                              Nothing ->
+                                  ioError $
+                                  userError $
+                                  "Compilation of generated source for " <>
+                                  installedUnitIdString iuid <>
+                                  " failed."
+                              Just _core -> pure ()
+        -- get the package name and the lf-package
+        [(pkgName1, pkgId1, lfPkg1), (pkgName2, pkgId2, lfPkg2)] <-
+            forM [inFile1, inFile2] $ \inFile -> do
+                bytes <- B.readFile inFile
+                let pkgName = takeBaseName inFile
+                let dar = toArchive $ BSL.fromStrict bytes
+                -- get the main pkg
+                manifest <- getEntry "META-INF/MANIFEST.MF" dar
+                let mainDalfPath =
+                        headNote
+                            "Missing Main-Dalf entry in META-INF/MANIFEST.MF"
+                            [ main
+                            | l <- lines $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
+                            , Just main <- [stripPrefix "Main-Dalf: " l]
+                            ]
+                mainDalfEntry <- getEntry mainDalfPath dar
+                (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ fromEntry mainDalfEntry
+                pure (pkgName, mainPkgId, mainLfPkg)
+        -- generate upgrade modules and instances modules
+        let eqModNames =
+                (NM.names $ LF.packageModules lfPkg1) `intersect`
+                (NM.names $ LF.packageModules lfPkg2)
+        forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
+            [genSrc1, genSrc2] <-
+                forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
+                    generateSrcFromLf pkgId pkgMap0 <$> getModule m pkg
+            let upgradeModPath =
+                    (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
+                    ".daml"
+            let instancesModPath1 =
+                    replaceBaseName upgradeModPath $
+                    takeBaseName upgradeModPath <> "InstancesA"
+            let instancesModPath2 =
+                    replaceBaseName upgradeModPath $
+                    takeBaseName upgradeModPath <> "InstancesB"
+            templateNames <-
+                map (T.unpack . T.intercalate "." . LF.unTypeConName) .
+                NM.names . LF.moduleTemplates <$>
+                getModule m lfPkg1
+            let generatedUpgradeMod =
+                    generateUpgradeModule
+                        templateNames
+                        (T.unpack $ LF.moduleNameString m)
+                        pkgName1
+                        pkgName2
+            let generatedInstancesMod1 =
+                    generateGenInstancesModule "A" (pkgName1, genSrc1)
+            let generatedInstancesMod2 =
+                    generateGenInstancesModule "B" (pkgName2, genSrc2)
+            forM_
+                [ (upgradeModPath, generatedUpgradeMod)
+                , (instancesModPath1, generatedInstancesMod1)
+                , (instancesModPath2, generatedInstancesMod2)
+                ] $ \(path, mod) -> do
+                createDirectoryIfMissing True $ takeDirectory path
+                writeFile path mod
   where
+    decode dalf =
+        errorOnLeft
+            "Cannot decode daml-lf archive"
+            (Archive.decodeArchive dalf)
     getEntry fp dar =
         maybe (ioError $ userError $ "Package does not contain " <> fp) pure $
         findEntryByPath fp dar
@@ -675,12 +775,23 @@ execMigrate opts inFile1 inFile2 mbDir = do
              T.unpack $ "Can't find module" <> LF.moduleNameString modName)
             pure $
         NM.lookup modName $ LF.packageModules pkg
-    generatePkgMap logH dar =
-        withTempDir $ \tmpDir -> do
-            extractFilesFromArchive [OptDestination tmpDir] dar
-            (diags, pkgMap) <- generatePackageMap [tmpDir]
-            unless (null diags) $ Logger.logWarning logH $ showDiagnostics diags
-            pure $ MS.map dalfPackageId pkgMap
+
+
+execDocTest :: Options -> [FilePath] -> IO ()
+execDocTest opts files = do
+    let files' = map toNormalizedFilePath files
+    logger <- getLogger opts "doctest"
+    -- We don’t add a logger here since we will otherwise emit logging messages twice.
+    importPaths <-
+        withDamlIdeState opts { optScenarioService = EnableScenarioService False }
+            logger (const $ pure ()) $ \ideState -> runAction ideState $ do
+        pmS <- catMaybes <$> uses GetParsedModule files'
+        -- This is horrible but we do not have a way to change the import paths in a running
+        -- IdeState at the moment.
+        pure $ nubOrd $ mapMaybe moduleImportPaths pmS
+    opts <- mkOptions opts { optImportPath = importPaths <> optImportPath opts}
+    withDamlIdeState opts logger diagnosticsLogger $ \ideState ->
+        docTest ideState files'
 
 --------------------------------------------------------------------------------
 -- main
@@ -797,6 +908,7 @@ options numProcessors =
       <> cmdDamlDoc
       <> cmdVisual
       <> cmdInspectDar
+      <> cmdDocTest numProcessors
       )
     <|> subparser
       (internal -- internal commands

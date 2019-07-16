@@ -13,6 +13,7 @@ module DA.Daml.Doc.Render
   , jsonConf
   ) where
 
+import DA.Daml.Doc.Render.Monoid
 import DA.Daml.Doc.Render.Rst
 import DA.Daml.Doc.Render.Markdown
 import DA.Daml.Doc.Render.Hoogle
@@ -41,7 +42,7 @@ data DocFormat = Json | Rst | Markdown | Html | Hoogle
 -- | Html renderer, using cmark-gfm
 renderSimpleHtml :: ModuleDoc -> T.Text
 renderSimpleHtml m@ModuleDoc{..} =
-  wrapHtml t $ GFM.commonmarkToHtml [] [GFM.extTable] $ renderSimpleMD m
+  wrapHtml t $ GFM.commonmarkToHtml [] [GFM.extTable] $ renderFinish $ renderSimpleMD m
   where t = "Module " <> unModulename md_name
 
 wrapHtml :: T.Text -> T.Text -> T.Text

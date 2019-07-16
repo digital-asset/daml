@@ -133,10 +133,10 @@ convertPrim _ "BEInt64FromText" (TText :-> TOptional TInt64) =
     EBuiltin BEInt64FromText
 convertPrim _ "BEDecimalFromText" (TText :-> TOptional TDecimal) =
     EBuiltin BEDecimalFromText
-convertPrim version "BETextToCodePoints" t@(TText :-> TList TInt64) =
-    whenRuntimeSupports version featureTextCodePoints t $ EBuiltin BETextToCodePoints
-convertPrim version "BETextFromCodePoints" t@(TList TInt64 :-> TText) =
-    whenRuntimeSupports version featureTextCodePoints t $ EBuiltin BETextFromCodePoints
+convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
+    EBuiltin BETextToCodePoints
+convertPrim _ "BETextFromCodePoints" (TList TInt64 :-> TText) =
+    EBuiltin BETextFromCodePoints
 
 -- Map operations
 
@@ -161,8 +161,8 @@ convertPrim _ x ty = error $ "Unknown primitive " ++ show x ++ " at type " ++ re
 -- | Some builtins are only supported in specific versions of DAML-LF.
 -- Since we don't have conditional compilation in daml-stdlib, we compile
 -- them to calls to `error` in unsupported versions.
-whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
-whenRuntimeSupports version feature t e
+_whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr
+_whenRuntimeSupports version feature t e
     | version `supports` feature = e
     | otherwise = runtimeUnsupported feature t
 

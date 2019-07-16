@@ -3,10 +3,13 @@
 
 package com.digitalasset.daml.lf.data
 
-import scalaz.Equal
+import scala.language.higherKinds
+
+import scalaz.{Applicative, Equal, Traverse}
 import scalaz.std.tuple._
 import scalaz.std.string._
 import scalaz.syntax.equal._
+import scalaz.syntax.traverse._
 
 import scala.collection.immutable.HashMap
 
@@ -69,6 +72,13 @@ object SortedLookupList {
   implicit def `SLL Equal instance`[X: Equal]: Equal[SortedLookupList[X]] =
     ScalazEqual.withNatural(Equal[X].equalIsNatural) { (self, other) =>
       self.toImmArray === other.toImmArray
+    }
+
+  implicit val `SLL covariant instance`: Traverse[SortedLookupList] =
+    new Traverse[SortedLookupList] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: SortedLookupList[A])(
+          f: A => G[B]): G[SortedLookupList[B]] =
+        fa.toImmArray traverse (_ traverse f) map (new SortedLookupList(_))
     }
 
 }

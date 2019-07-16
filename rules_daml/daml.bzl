@@ -144,6 +144,55 @@ daml_test = rule(
     test = True,
 )
 
+def _daml_doctest_impl(ctx):
+    script = """
+      set -eou pipefail
+      DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
+      rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
+      $DAMLC doctest {damlc_flags} $(rlocations "{files}")
+    """.format(
+        damlc = ctx.executable.damlc.short_path,
+        damlc_flags = ctx.attr.damlc_flags,
+        files = " ".join([
+            f.short_path
+            for f in ctx.files.srcs
+            if all([not f.short_path.endswith(ignore) for ignore in ctx.attr.ignored_srcs])
+        ]),
+    )
+    ctx.actions.write(
+        output = ctx.outputs.executable,
+        content = script,
+    )
+    damlc_runfiles = ctx.attr.damlc[DefaultInfo].data_runfiles
+    runfiles = ctx.runfiles(
+        collect_data = True,
+        files = ctx.files.srcs,
+    ).merge(damlc_runfiles)
+    return [DefaultInfo(runfiles = runfiles)]
+
+daml_doc_test = rule(
+    implementation = _daml_doctest_impl,
+    attrs = {
+        "srcs": attr.label_list(
+            allow_files = [".daml"],
+            default = [],
+            doc = "DAML source files that should be tested.",
+        ),
+        "ignored_srcs": attr.string_list(
+            default = [],
+            doc = "DAML source files that should be ignored.",
+        ),
+        "damlc": attr.label(
+            executable = True,
+            cfg = "host",
+            allow_files = True,
+            default = Label("//compiler/damlc"),
+        ),
+        "damlc_flags": attr.string(),
+    },
+    test = True,
+)
+
 _daml_binary_script_template = """
 #!/usr/bin/env sh
 {java} -jar {sandbox} $@ {dar}

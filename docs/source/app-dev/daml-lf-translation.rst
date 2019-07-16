@@ -58,12 +58,13 @@ For example: the DAML pair type ``(Int, Text)`` is translated to ``daml-prim:DA.
 Data types
 **********
 
-DAML-LF has two kinds of data declarations:
+DAML-LF has three kinds of data declarations:
 
 - **Record** types, which define a collection of data
 - **Variant** or **sum** types, which define a number of alternatives
+- **Enum**, which defines simplified **sum** types without type parameters nor argument.
 
-:ref:`Data type declarations in DAML <daml-ref-data-constructors>` (starting with the ``data`` keyword) are translated to either record or variant types. It’s sometimes not obvious what they will be translated to, so this section lists many examples of data types in DAML and their translations in DAML-LF.
+:ref:`Data type declarations in DAML <daml-ref-data-constructors>` (starting with the ``data`` keyword) are translated to record, variant or enum types. It’s sometimes not obvious what they will be translated to, so this section lists many examples of data types in DAML and their translations in DAML-LF.
 
 .. In the tables below, the left column uses DAML 1.2 syntax and the right column uses the notation from the `DAML-LF specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`_.
 
@@ -102,10 +103,14 @@ Variant declarations
      - DAML-LF translation
    * - ``data Foo = Bar Int | Baz Text``
      - ``variant Foo ↦ Bar Int64 | Baz Text``
-   * - ``data Foo = Bar Int | Baz ()``
-     - ``variant Foo ↦ Bar Int64 | Baz Unit``
-   * - ``data Foo = Bar Int | Baz``
-     - ``variant Foo ↦ Bar Int64 | Baz Unit``
+   * - ``data Foo a = Bar a | Baz Text``
+     - ``variant Foo a ↦ Bar a | Baz Text``
+   * - ``data Foo = Bar Unit | Baz Text``
+     - ``variant Foo ↦ Bar Unit | Baz Text``
+   * - ``data Foo = Bar Unit | Baz``
+     - ``variant Foo ↦ Bar Unit | Baz Unit``
+   * - ``data Foo a = Bar | Baz``
+     - ``variant Foo a ↦ Bar Unit | Baz Unit``
    * - ``data Foo = Foo Int``
      - ``variant Foo ↦ Foo Int64``
    * - ``data Foo = Bar Int``
@@ -122,6 +127,20 @@ Variant declarations
      - ``variant Foo ↦ Bar Foo.Bar | Baz Text``, ``record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }``
    * - ``data Foo = Bar { bar1: Int; bar2: Decimal } | Baz { baz1: Text; baz2: Date }``
      - ``data Foo ↦ Bar Foo.Bar | Baz Foo.Baz``, ``record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }``, ``record Foo.Baz ↦ { baz1: Text; baz2: Date }``
+
+Enum declarations
+=================
+
+.. list-table::
+   :widths: 10 15
+   :header-rows: 1
+
+   * - DAML declaration
+     - DAML-LF declaration
+   * - ``data Foo = Bar | Baz``
+     - ``enum Foo ↦ Bar | Baz``
+   * - ``data Color = Red | Green | Blue``
+     - ``enum Color ↦ Red | Green | Blue``
 
 Banned declarations
 ===================

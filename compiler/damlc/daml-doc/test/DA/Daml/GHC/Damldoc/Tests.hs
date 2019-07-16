@@ -268,7 +268,7 @@ fileTest damlFile = do
                 ref <- T.readFileUtf8 expectation
                 case extension of
                   ".rst"  -> expectEqual extension ref $ renderFinish $ renderSimpleRst docs
-                  ".md"   -> expectEqual extension ref $ renderSimpleMD docs
+                  ".md"   -> expectEqual extension ref $ renderFinish $ renderSimpleMD docs
                   ".json" -> expectEqual extension ref
                              (T.decodeUtf8 . BS.toStrict $
                                AP.encodePretty' jsonConf docs)

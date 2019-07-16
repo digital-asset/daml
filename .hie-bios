@@ -11,6 +11,7 @@ echo \
     -i"${BAZEL_GENFILES}"/daml-lf/archive \
     -icompiler/damlc/daml-compiler/src \
     -icompiler/damlc/daml-doc/src \
+    -icompiler/damlc/daml-doctest/src \
     -icompiler/damlc/daml-ide/src \
     -icompiler/damlc/daml-ide-core/src \
     -icompiler/damlc/daml-lf-conversion/src \
