@@ -43,11 +43,11 @@ def daml_deps():
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:haskell-drop-fake-static.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-extra-libraries.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-darwin-symlink-dylib.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-windows-library-dirs.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",
+                # XXX: Remove once https://github.com/tweag/rules_haskell/pull/1039 was merged.
+                "@com_github_digital_asset_daml//bazel_tools:haskell-cc-wrapper.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,

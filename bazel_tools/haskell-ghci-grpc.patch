@@ -7,7 +7,7 @@ index 7574456..a5241e1 100644
              dynamic_lib = symlink_dynamic_library(hs, dynamic_lib, fixed_lib_dir)
          static_lib = mangle_static_library(hs, dynamic_lib, static_lib, fixed_lib_dir)
  
-+        if fixup_dir == "_ghci_libs" and dynamic_lib and get_lib_name(dynamic_lib) == "fat_cbits":
++        if hs.toolchain.is_darwin and fixup_dir == "_ghci_libs" and dynamic_lib and get_lib_name(dynamic_lib) == "fat_cbits":
 +            dynamic_libs.append(dynamic_lib)
 +            continue
 +
