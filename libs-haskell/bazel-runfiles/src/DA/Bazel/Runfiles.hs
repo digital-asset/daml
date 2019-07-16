@@ -7,15 +7,21 @@
 module DA.Bazel.Runfiles
   ( locateRunfiles
   , mainWorkspace
+  , exe
   ) where
 
 import qualified Bazel.Runfiles
 import System.Directory
 import System.Environment
 import System.FilePath
+import System.Info (os)
 
 mainWorkspace :: String
 mainWorkspace = "com_github_digital_asset_daml"
+
+exe :: FilePath -> FilePath
+exe | os == "mingw32" = (<.> "exe")
+    | otherwise       = id
 
 locateRunfiles :: FilePath -> IO FilePath
 locateRunfiles fp = do
