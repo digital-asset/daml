@@ -391,10 +391,10 @@ isTemplate ClsInstDecl{..}
   | L _ ty <- getLHsInstDeclHead cid_poly_ty
   , HsAppTy _ (L _ t1) t2 <- ty
   , HsTyVar _ _ (L _ tmplClass) <- t1
-  , Just (L _ t2name) <- hsTyGetAppHead_maybe t2
+  , Just (L _ tmplName) <- hsTyGetAppHead_maybe t2
   , toText tmplClass == "DA.Internal.Desugar.Template"
-  || "Template" `T.isSuffixOf` toText tmplClass -- temporary
-  = Just (Typename $ packRdrName t2name)
+  || toText tmplClass == "Template" -- temporary
+  = Just (Typename . packRdrName $ tmplName)
 
   | otherwise = Nothing
 
@@ -404,14 +404,15 @@ isTemplate ClsInstDecl{..}
 isChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
 isChoice (XClsInstDecl _) = Nothing
 isChoice ClsInstDecl{..}
-  | HsIB _ (L _ ty) <-  cid_poly_ty
+  | L _ ty <- getLHsInstDeclHead cid_poly_ty
   , HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
-  , HsAppTy _ (L _ cApp2) (L _ cName) <- cApp1
-  , HsAppTy _ (L _ choice) (L _ cTmpl) <- cApp2
+  , HsAppTy _ (L _ cApp2) cName <- cApp1
+  , HsAppTy _ (L _ choice) cTmpl <- cApp2
   , HsTyVar _ _ (L _ choiceClass) <- choice
-  , HsTyVar _ _ (L _ choiceName) <- cName
-  , HsTyVar _ _ (L _ tmplName) <- cTmpl
+  , Just (L _ choiceName) <- hsTyGetAppHead_maybe cName
+  , Just (L _ tmplName) <- hsTyGetAppHead_maybe cTmpl
   , toText choiceClass == "DA.Internal.Desugar.Choice"
+  || toText choiceClass == "Choice" -- temporary
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing
