@@ -60,12 +60,6 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         env.kindOf(typ) shouldBe expectedKind
       }
     }
-
-    "does not allow type variable shadowing" in {
-      // Here env contains the variable named "alpha"
-      an[EShadowingTypeVar] should be thrownBy env.kindOf(
-        t"forall (a:*). forall (a:*). alpha -> Bool")
-    }
   }
 
   "Checker.typeOf" should {

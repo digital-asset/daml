@@ -538,7 +538,7 @@ One specific library in the `daml-foundations` stack is
 da_haskell_library(
     name = "daml-ghc-compiler",
     srcs = glob([
-        "src/DA/Daml/GHC/Compiler/**/*.hs",
+        "src/**/*.hs",
     ]),
     src_strip_prefix = "src",
     deps = [
@@ -557,11 +557,11 @@ da_haskell_library(
 To build this single target from the root of the DAML repository, the
 command would be:
 ```
-bazel build //daml-foundations/daml-ghc:daml-ghc-compiler
+bazel build //compiler/damlc/daml-compiler
 ```
 since the `BUILD.bazel` that defines the target is in the
-`daml-foundations/daml-ghc` sub-folder of the root of the DA
-repository and the target `name` is `daml-ghc`.
+`compiler/damlc` sub-folder of the root of the DA
+repository and the target `name` is `damlc`.
 
 Let's break this definition down:
 - `name`:
@@ -624,7 +624,7 @@ da_haskell_binary (
   main_function = "DA.Cli.GHC.Run.main",
   hazel_deps = [ "base", "time", ...],
   data = [
-    "//daml-foundations/daml-ghc/package-database:package-db"
+    "//compiler/damlc/pkg-db"
     , ...
   ],
   deps = [
@@ -986,7 +986,7 @@ typescript projects. It works in conjunction with rules_nodejs to provide access
 npm packages.
 
 Please refer to the documentation in the above url for usage.
-For an example, please see `daml-foundations/daml-tools/daml-extension/BUILD.bazel`.
+For an example, please see `compiler/daml-extension/BUILD.bazel`.
 
 ## Protocol buffers in Bazel
 

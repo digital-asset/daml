@@ -5,21 +5,28 @@ package com.digitalasset.platform.semantictest
 
 import java.io._
 
+import akka.stream.scaladsl.Sink
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.types.{Ledger => L}
+import com.digitalasset.grpc.adapter.client.akka.ClientAdapter
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.platform.apitesting.MultiLedgerFixture
+import com.digitalasset.ledger.api.v1.testing.time_service.GetTimeRequest
+import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestIdsGenerator}
 import com.digitalasset.platform.services.time.TimeProviderType
 import org.scalatest.concurrent.ScalaFutures
+import org.scalatest.exceptions.TestCanceledException
 import org.scalatest.{AsyncWordSpec, Matchers}
 
-import scala.util.Random
+import scala.concurrent.Future
+import scala.util.{Failure, Success}
+
+import scalaz.syntax.tag._
 
 class SandboxSemanticTestsLfRunner
     extends AsyncWordSpec
@@ -36,6 +43,7 @@ class SandboxSemanticTestsLfRunner
     Config.default
       .withDarFile(defaultDarFile.toPath)
       .withTimeProvider(TimeProviderType.StaticAllowBackwards)
+  protected val testIdsGenerator = new TestIdsGenerator(config)
 
   lazy val (mainPkgId, packages, darFile) = {
     val df = config.darFiles.head.toFile
@@ -47,19 +55,29 @@ class SandboxSemanticTestsLfRunner
   }
 
   s"a ledger launched with $darFile" should {
-    val runSuffix = "-" + Random.alphanumeric.take(10).mkString
-    val partyNameMangler =
-      (partyText: String) => partyText + runSuffix + Random.alphanumeric.take(10).mkString
-    val commandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
-      (scenario, stepId, nodeId) => {
-        s"ledger-api-test-tool-$scenario-$stepId-$nodeId-$runSuffix"
-      }
+    val scenarioCommandIdMangler: ((QualifiedName, Int, L.ScenarioNodeId) => String) =
+      (scenario, stepId, nodeId) =>
+        testIdsGenerator.testCommandId(s"ledger-api-test-tool-$scenario-$stepId-${nodeId}")
     for {
       (pkgId, names) <- SemanticTester.scenarios(Map(mainPkgId -> packages(mainPkgId))) // we only care about the main pkg
       name <- names
     } {
       s"run scenario: $name" in allFixtures { ledger =>
         for {
+          _ <- ClientAdapter
+            .serverStreaming(GetTimeRequest(ledger.ledgerId.unwrap), ledger.timeService.getTime)
+            .take(1)
+            .map(_.getCurrentTime)
+            .runWith(Sink.head)
+            .transformWith({
+              case Failure(throwable) =>
+                Future.failed(
+                  new TestCanceledException(
+                    "DAML scenario running requires implemented TimeService by the provided Ledger API endpoint.",
+                    throwable,
+                    3))
+              case Success(ts) => Future.successful(ts)
+            })
           _ <- new SemanticTester(
             parties =>
               new SemanticTestAdapter(
@@ -70,8 +88,8 @@ class SandboxSemanticTestsLfRunner
                 commandSubmissionTtlScaleFactor = config.commandSubmissionTtlScaleFactor),
             pkgId,
             packages,
-            partyNameMangler,
-            commandIdMangler
+            testIdsGenerator.testPartyName,
+            scenarioCommandIdMangler
           ).testScenario(name)
         } yield succeed
       }

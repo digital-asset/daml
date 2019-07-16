@@ -28,6 +28,8 @@ module DA.Daml.LF.ScenarioServiceClient.LowLevel
   ) where
 
 import Conduit (runConduit, (.|), MonadUnliftIO(..))
+import Data.Maybe
+import Data.IORef
 import GHC.Generics
 import Text.Read
 import Control.Concurrent.Async
@@ -65,6 +67,7 @@ import qualified ScenarioService as SS
 data Options = Options
   { optServerJar :: FilePath
   , optRequestTimeout :: TimeoutSeconds
+  , optGrpcMaxMessageSize :: Maybe Int
   , optLogInfo :: String -> IO ()
   , optLogError :: String -> IO ()
   }
@@ -171,12 +174,23 @@ withCheckedProcessCleanup' cp f = withRunInIO $ \run -> bracket
             then return res
             else throwIO $ ProcessExitedUnsuccessfully cp ec
 
-handleCrashingScenarioService :: StreamingProcessHandle -> IO a -> IO a
-handleCrashingScenarioService h act = do
-    res <- race (waitForStreamingProcess h) act
-    case res of
-        Left _ -> fail "Scenario service exited unexpectedly"
-        Right r -> pure r
+handleCrashingScenarioService :: IORef Bool -> StreamingProcessHandle -> IO a -> IO a
+handleCrashingScenarioService exitExpected h act =
+    -- `race` doesn’t quite work here since we might end up
+    -- declaring an expected exit at the very end as a failure.
+    -- In particular, once we close stdin of the scenario service
+    -- `waitForStreamingProcess` can return before `act` returns.
+    -- See https://github.com/digital-asset/daml/pull/1974.
+    withAsync (waitForStreamingProcess h) $ \scenarioProcess ->
+    withAsync act $ \act' -> do
+        r <- waitEither scenarioProcess act'
+        case r of
+            Right a -> pure a
+            Left _ -> do
+                expected <- readIORef exitExpected
+                if expected
+                   then wait act'
+                   else fail "Scenario service exited unexpectedly"
 
 withScenarioService :: Options -> (Handle -> IO a) -> IO a
 withScenarioService opts@Options{..} f = do
@@ -185,9 +199,13 @@ withScenarioService opts@Options{..} f = do
   unless serverJarExists $
       throwIO (ScenarioServiceException (optServerJar <> " does not exist."))
   validateJava opts
-  cp <- javaProc ["-jar" , optServerJar]
+  cp <- javaProc (["-jar" , optServerJar] <> maybeToList (show <$> optGrpcMaxMessageSize))
+  exitExpected <- newIORef False
+  let closeStdin hdl = do
+          atomicWriteIORef exitExpected True
+          System.IO.hClose hdl
   withCheckedProcessCleanup' cp $ \processHdl (stdinHdl :: System.IO.Handle) stdoutSrc stderrSrc ->
-          flip finally (System.IO.hClose stdinHdl) $ handleCrashingScenarioService processHdl $ do
+          flip finally (closeStdin stdinHdl) $ handleCrashingScenarioService exitExpected processHdl $ do
     let splitOutput = C.T.decode C.T.utf8 .| C.T.lines
     let printStderr line
             -- The last line should not be treated as an error.
@@ -216,7 +234,7 @@ withScenarioService opts@Options{..} f = do
         -- the callback. Note that on Windows, killThread will not be able to kill the conduits
         -- if they are blocked in hGetNonBlocking so it is crucial that we close stdin in the
         -- callback or withAsync will block forever.
-        flip finally (System.IO.hClose stdinHdl) $ do
+        flip finally (closeStdin stdinHdl) $ do
             System.IO.hFlush System.IO.stdout
             port <- either fail pure =<< takeMVar portMVar
             liftIO $ optLogInfo $ "Scenario service backend running on port " <> show port
@@ -293,7 +311,6 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
         (V.fromList (map (TL.fromStrict . LF.unPackageId) updUnloadPackages))
     encodeName = TL.fromStrict . T.intercalate "." . LF.unModuleName
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.Module
-    -- FixMe(#415): the proper minor version should be passed instead of "0"
     convModule (_, bytes) =
         case updDamlLfVersion of
             LF.V1 minor -> SS.Module (Just (SS.ModuleModuleDamlLf1 bytes)) (TL.pack $ LF.renderMinorVersion minor)

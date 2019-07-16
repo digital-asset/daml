@@ -13,10 +13,13 @@ module Development.IDE.GHC.Util(
     modifyDynFlags,
     fakeDynFlags,
     prettyPrint,
-    runGhcEnv
+    runGhcEnv,
+    textToStringBuffer,
+    moduleImportPaths
     ) where
 
 import Config
+import Data.List.Extra
 import Fingerprint
 import GHC
 import GhcMonad
@@ -25,6 +28,10 @@ import Data.IORef
 import Control.Exception
 import FileCleanup
 import Platform
+import qualified Data.Text as T
+import StringBuffer
+import System.FilePath
+
 
 ----------------------------------------------------------------------
 -- GHC setup
@@ -46,6 +53,10 @@ lookupPackageConfig unitId env =
             -- from PackageState so we have to wrap it in DynFlags first.
             getPackageConfigMap $ hsc_dflags env
 
+
+-- would be nice to do this more efficiently...
+textToStringBuffer :: T.Text -> StringBuffer
+textToStringBuffer = stringToStringBuffer . T.unpack
 
 
 prettyPrint :: Outputable a => a -> String
@@ -82,3 +93,15 @@ fakeDynFlags = defaultDynFlags settings ([], [])
           { pc_DYNAMIC_BY_DEFAULT=False
           , pc_WORD_SIZE=8
           }
+
+moduleImportPaths :: GHC.ParsedModule -> Maybe FilePath
+moduleImportPaths pm
+  | rootModDir == "." = Just rootPathDir
+  | otherwise =
+    dropTrailingPathSeparator <$> stripSuffix (normalise rootModDir) (normalise rootPathDir)
+  where
+    ms   = GHC.pm_mod_summary pm
+    file = GHC.ms_hspp_file ms
+    mod'  = GHC.ms_mod ms
+    rootPathDir  = takeDirectory file
+    rootModDir   = takeDirectory . moduleNameSlashes . GHC.moduleName $ mod'

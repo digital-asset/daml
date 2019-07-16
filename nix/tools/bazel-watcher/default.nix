@@ -1,7 +1,5 @@
 { buildBazelPackage
-, cacert
 , fetchFromGitHub
-, fetchpatch
 , git
 , go
 , python
@@ -10,18 +8,21 @@
 
 buildBazelPackage rec {
   name = "bazel-watcher-${version}";
-  version = "0.9.1";
+  version = "git-18bdb44";
 
   src = fetchFromGitHub {
     owner = "bazelbuild";
     repo = "bazel-watcher";
-    rev = "v${version}";
-    sha256 = "1gjbv67ydyb0mafpp59qr9n8f8vva2mwhgan6lxxl0i9yfx7qc6p";
+    rev = "18bdb44832ccc533e0ab3923ef80060eeb24582d";
+    sha256 = "17z4nqqsdrainbh8fmhf6sgrxwf7aknadmn94z1yqpxa7kb9x33v";
   };
 
   nativeBuildInputs = [ go git python ];
 
   bazelTarget = "//ibazel";
+  bazelFlags = [
+    "--incompatible_string_join_requires_strings=false"
+  ];
 
   fetchAttrs = {
     preBuild = ''
@@ -29,9 +30,6 @@ buildBazelPackage rec {
 
       # tell rules_go to use the Go binary found in the PATH
       sed -e 's:go_register_toolchains():go_register_toolchains(go_version = "host"):g' -i WORKSPACE
-
-      # tell rules_go to invoke GIT with custom CAINFO path
-      export GIT_SSL_CAINFO="${cacert}/etc/ssl/certs/ca-bundle.crt"
     '';
 
     preInstall = ''
@@ -52,13 +50,14 @@ buildBazelPackage rec {
       sed -e '/^FILE:@bazel_gazelle_go_repository_tools.*/d' -i $bazelOut/external/\@*.marker
     '';
 
-    # Same for Darwin and Linux.
-    sha256 = "1dzbacn89igxpgqrfricbbnz2ya0w442n5x9lckpjw5pyq3jl3v1";
+    sha256 = "1b2apdfcpx7v0rjcl9frx02cac1gic0acx7p526q5all6xic6r6k";
   };
 
   buildAttrs = {
     preBuild = ''
       patchShebangs .
+
+      echo build "--incompatible_require_ctx_in_configure_features=false" >> .bazelrc
 
       # tell rules_go to use the Go binary found in the PATH
       sed -e 's:go_register_toolchains():go_register_toolchains(go_version = "host"):g' -i WORKSPACE
@@ -73,6 +72,7 @@ buildBazelPackage rec {
     homepage = https://github.com/bazelbuild/bazel-watcher;
     description = "Tools for building Bazel targets when source files change.";
     license = licenses.asl20;
+    maintainers = with maintainers; [ kalbasit ];
     platforms = platforms.all;
   };
 }

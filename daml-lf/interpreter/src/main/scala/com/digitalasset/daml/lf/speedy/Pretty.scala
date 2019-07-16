@@ -70,6 +70,11 @@ object Pretty {
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
           text("Expected contract of type") & prettyTypeConName(expected) & text("but got") & prettyTypeConName(
           actual)
+
+      case DamlESubmitterNotInMaintainers(templateId, submitter, maintainers) =>
+        text("Expected the submitter") & prettyParty(submitter) &
+          text("to be in maintainers") & intercalate(comma + space, maintainers.map(prettyParty)) &
+          text("when looking up template of maintainer") & prettyTypeConName(templateId)
     }
 
   // A minimal pretty-print of an update transaction node, without recursing into child nodes..

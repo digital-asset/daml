@@ -44,7 +44,9 @@ for i in `seq 10`; do
     nix-build nix -A tools -A cached 2>&1 | tee nix_log || NIX_FAILED=1
     # It should be in the last line but let’s use the last 3 and wildcards
     # to be robust against slight changes.
-    if [[ $NIX_FAILED -ne 0 ]] && [[ $(tail -n 3 nix_log) == *"unexpected end-of-file"* ]]; then
+    if [[ $NIX_FAILED -ne 0 ]] &&
+       ([[ $(tail -n 3 nix_log) == *"unexpected end-of-file"* ]] ||
+        [[ $(tail -n 3 nix_log) == *"decompressing xz file"* ]]); then
         echo "Restarting nix-build due to failed cache download"
         continue
     fi

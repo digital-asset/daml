@@ -139,9 +139,7 @@ class TransactionCoderSpec
           val decodedVersionedTx = assertRight(
             TransactionCoder
               .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, encodedTx))
-          decodedVersionedTx.transaction shouldBe (if (txVer precedes minExerciseResult)
-                                                     withoutExerciseResult(tx)
-                                                   else tx)
+          decodedVersionedTx.transaction shouldBe minimalistTx(txVer, tx)
       }
     }
 
@@ -171,12 +169,9 @@ class TransactionCoderSpec
             inside((encWithMin, encWithMax) umap (TransactionCoder
               .decodeVersionedTransaction(defaultNidDecode, defaultCidDecode, _))) {
               case (Right(decWithMin), Right(decWithMax)) =>
-                decWithMin.transaction shouldBe (if (txvMin precedes minExerciseResult)
-                                                   withoutExerciseResult(tx)
-                                                 else tx)
-                decWithMin.transaction shouldBe (if (txvMin precedes minExerciseResult)
-                                                   withoutExerciseResult(decWithMax.transaction)
-                                                 else decWithMax.transaction)
+                decWithMin.transaction shouldBe minimalistTx(txvMin, tx)
+                decWithMin.transaction shouldBe
+                  minimalistTx(txvMin, decWithMax.transaction)
             }
         }
       }
@@ -295,9 +290,27 @@ class TransactionCoderSpec
       case ne: NodeExercises[Nid, Cid, Val] => ne copy (exerciseResult = None)
       case _ => gn
     }
+  def withoutContractKeyInExercise[Nid, Cid, Val](
+      gn: GenNode[Nid, Cid, Val]): GenNode[Nid, Cid, Val] =
+    gn match {
+      case ne: NodeExercises[Nid, Cid, Val] => ne copy (key = None)
+      case _ => gn
+    }
 
-  def withoutExerciseResult[Nid, Cid, Val](
-      t: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
-    t copy (nodes = t.nodes transform ((_, gn) => withoutExerciseResult(gn)))
+  def transactionWithout[Nid, Cid, Val](
+      t: GenTransaction[Nid, Cid, Val],
+      f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
+    t copy (nodes = t.nodes transform ((_, gn) => f(gn)))
+
+  def minimalistTx[Nid, Cid, Val](
+      txvMin: TransactionVersion,
+      tx: GenTransaction[Nid, Cid, Val]): GenTransaction[Nid, Cid, Val] =
+    if (txvMin precedes minExerciseResult)
+      transactionWithout(
+        tx,
+        (x: GenNode[Nid, Cid, Val]) => withoutExerciseResult(withoutContractKeyInExercise(x)))
+    else if (txvMin precedes minContractKeyInExercise)
+      transactionWithout(tx, (x: GenNode[Nid, Cid, Val]) => withoutContractKeyInExercise(x))
+    else tx
 
 }

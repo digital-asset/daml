@@ -29,7 +29,7 @@ object SResult {
   final case class SResultNeedContract(
       contractId: AbsoluteContractId,
       templateId: TypeConName,
-      committer: Option[Party],
+      committers: Set[Party],
       // Callback to signal that the contract was not present
       // or visible. Returns true if this was recoverable.
       cbMissing: Unit => Boolean,
@@ -51,12 +51,12 @@ object SResult {
   final case class SResultScenarioCommit(
       value: SValue,
       tx: Transaction,
-      committer: Party,
+      committers: Set[Party],
       callback: SValue => Unit
   ) extends SResult
 
   final case class SResultScenarioInsertMustFail(
-      committer: Party,
+      committers: Set[Party],
       optLocation: Option[Location]
   ) extends SResult
 
@@ -65,7 +65,7 @@ object SResult {
     * The callback signals success and clears the partial transaction. */
   final case class SResultScenarioMustFail(
       ptx: Transaction,
-      committer: Party,
+      committers: Set[Party],
       callback: Unit => Unit
   ) extends SResult
 
@@ -83,7 +83,7 @@ object SResult {
 
   final case class SResultNeedKey(
       key: GlobalKey,
-      optCommitter: Option[Party],
+      committers: Set[Party],
       // Callback to signal that the key was not present.
       // returns true if this was recoverable.
       cbMissing: Unit => Boolean,

@@ -9,6 +9,8 @@ module DA.Daml.LF.Ast.World(
     initWorld,
     initWorldSelf,
     extendWorldSelf,
+    ExternalPackage(..),
+    rewriteSelfReferences,
     LookupError,
     lookupTemplate,
     lookupDataType,
@@ -19,9 +21,12 @@ module DA.Daml.LF.Ast.World(
 
 import DA.Pretty
 
-import           Control.Lens
+import Control.DeepSeq
+import Control.Lens
 import qualified Data.HashMap.Strict as HMS
+import Data.List
 import qualified Data.NameMap as NM
+import GHC.Generics
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Optics (moduleModuleRef)
@@ -38,24 +43,35 @@ data World = World
 
 makeLensesFor [("_worldSelf","worldSelf")] ''World
 
+-- | A package where all references to `PRSelf` have been rewritten
+-- to `PRImport`.
+data ExternalPackage = ExternalPackage PackageId Package
+    deriving (Show, Eq, Generic)
+
+instance NFData ExternalPackage
+
+-- | Rewrite all `PRSelf` references to `PRImport` references.
+rewriteSelfReferences :: PackageId -> Package -> ExternalPackage
+rewriteSelfReferences pkgId = ExternalPackage pkgId . rewrite
+    where
+        rewrite = over (_packageModules . NM.traverse . moduleModuleRef . _1) $ \case
+            PRSelf -> PRImport pkgId
+            ref@PRImport{} -> ref
+
 -- | Construct the 'World' from only the imported packages.
-initWorld :: [(PackageId, Package)] -> Version -> World
+initWorld :: [ExternalPackage] -> Version -> World
 initWorld importedPkgs version =
   World
-    (HMS.mapWithKey rewritePRSelf (foldl insertPkg HMS.empty importedPkgs))
+    (foldl' insertPkg HMS.empty importedPkgs)
     (Package version NM.empty)
   where
-    insertPkg hms (pkgId, pkg)
+    insertPkg hms (ExternalPackage pkgId pkg)
       | pkgId `HMS.member` hms =
           error $  "World.initWorld: duplicate package id " ++ show pkgId
       | otherwise = HMS.insert pkgId pkg hms
-    rewritePRSelf :: PackageId -> Package -> Package
-    rewritePRSelf pkgId = over (_packageModules . NM.traverse . moduleModuleRef . _1) $ \case
-      PRSelf -> PRImport pkgId
-      ref@PRImport{} -> ref
 
 -- | Create a World with an initial self package
-initWorldSelf :: [(PackageId, Package)] -> Package -> World
+initWorldSelf :: [ExternalPackage] -> Package -> World
 initWorldSelf importedPkgs pkg = (initWorld importedPkgs $ packageLfVersion pkg){_worldSelf = pkg}
 
 -- | Extend the 'World' by a module in the current package.

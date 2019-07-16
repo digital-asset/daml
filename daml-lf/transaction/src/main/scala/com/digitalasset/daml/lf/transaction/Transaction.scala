@@ -83,7 +83,11 @@ case class GenTransaction[Nid, Cid, +Val](
   def mapContractIdAndValue[Cid2, Val2](
       f: Cid => Cid2,
       g: Val => Val2): GenTransaction[Nid, Cid2, Val2] = {
-    val nodes2: Map[Nid, GenNode[Nid, Cid2, Val2]] = nodes.mapValues(_.mapContractIdAndValue(f, g))
+    val nodes2: Map[Nid, GenNode[Nid, Cid2, Val2]] =
+      // do NOT use `Map#mapValues`! it applies the function lazily on lookup. see #1861
+      nodes.transform { (_, value) =>
+        value.mapContractIdAndValue(f, g)
+      }
     this.copy(nodes = nodes2)
   }
 
@@ -445,7 +449,7 @@ object Transaction {
   case class ExercisesContext(
       targetId: TContractId,
       templateId: TypeConName,
-      contractKey: Option[KeyWithMaintainers[AbsoluteContractId]],
+      contractKey: Option[Value[TContractId]],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,
@@ -505,7 +509,7 @@ object Transaction {
     private def computeRoots: Set[NodeId] = {
       val allChildNodeIds: Set[NodeId] = nodes.values.flatMap {
         case _: LeafOnlyNode[_, _] => Nil
-        case NodeExercises(_, _, _, _, _, _, _, _, _, _, children, _) => children.toSeq
+        case ex: NodeExercises[NodeId, _, _] => ex.children.toSeq
       }(breakOut)
 
       nodes.keySet diff allChildNodeIds
@@ -706,7 +710,7 @@ object Transaction {
                       ExercisesContext(
                         targetId = targetId,
                         templateId = templateId,
-                        contractKey = None,
+                        contractKey = mbKey,
                         choiceId = choiceId,
                         optLocation = optLocation,
                         consuming = consuming,
@@ -744,7 +748,7 @@ object Transaction {
           (None, noteAbort(EndExerciseInRootContext))
         case ContextExercises(ec) =>
           val exercisesChildren = roots.toImmArray
-          val exerciseNode = NodeExercises(
+          val exerciseNode: Transaction.Node = NodeExercises(
             ec.targetId,
             ec.templateId,
             ec.choiceId,
@@ -756,7 +760,8 @@ object Transaction {
             ec.signatories,
             ec.controllers,
             exercisesChildren,
-            Some(value)
+            Some(value),
+            ec.contractKey
           )
           val nodeId = ec.exercisesNodeId
           val ptx =

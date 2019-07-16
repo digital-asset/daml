@@ -13,6 +13,7 @@ import "google/protobuf/timestamp.proto";
 
 option java_outer_classname = "TransactionOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 
 // Complete view of an on-ledger transaction.
 message TransactionTree {

@@ -18,7 +18,6 @@ DAML SDK documentation
    :caption: Getting started
 
    Installing the SDK <getting-started/installation>
-   getting-started/introduction
    getting-started/quickstart
 
 .. toctree::
@@ -29,6 +28,7 @@ DAML SDK documentation
 
    daml/intro/0_Intro.rst
    daml/reference/index
+   daml/reference/base
    daml/daml-studio
    daml/testing-scenarios
    daml/troubleshooting

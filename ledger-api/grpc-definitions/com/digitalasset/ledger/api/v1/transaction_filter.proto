@@ -10,6 +10,7 @@ import "com/digitalasset/ledger/api/v1/value.proto";
 
 option java_outer_classname = "TransactionFilterOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 
 // Used for filtering Transaction and Active Contract Set streams.
 // Determines which on-ledger events will be served to the client.

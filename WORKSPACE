@@ -1,4 +1,11 @@
-workspace(name = "com_github_digital_asset_daml")
+workspace(
+    name = "com_github_digital_asset_daml",
+    managed_directories = {
+        "@npm": ["node_modules"],
+        "@daml_extension_deps": ["compiler/daml-extension/node_modules"],
+        "@navigator_frontend_deps": ["navigator/frontend/node_modules"],
+    },
+)
 
 load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_github_external", "hazel_hackage")
 
@@ -42,8 +49,8 @@ nixpkgs_local_repository(
     name = "nixpkgs",
     nix_file = "//nix:nixpkgs.nix",
     nix_file_deps = [
-        "//nix:nixpkgs/nixos-19.03/default.nix",
-        "//nix:nixpkgs/nixos-19.03/default.src.json",
+        "//nix:nixpkgs/default.nix",
+        "//nix:nixpkgs/default.src.json",
     ],
 )
 
@@ -68,8 +75,8 @@ dev_env_nix_repos = {
 common_nix_file_deps = [
     "//nix:bazel.nix",
     "//nix:nixpkgs.nix",
-    "//nix:nixpkgs/nixos-19.03/default.nix",
-    "//nix:nixpkgs/nixos-19.03/default.src.json",
+    "//nix:nixpkgs/default.nix",
+    "//nix:nixpkgs/default.src.json",
 ]
 
 # Use Nix provisioned cc toolchain
@@ -259,6 +266,11 @@ haskell_register_ghc_nixpkgs(
         "-hide-package=ghc-boot-th",
         "-hide-package=ghc-boot",
     ],
+    compiler_flags_select = {
+        "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
+        "//conditions:default": [],
+    },
+    is_static = True,
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
@@ -452,12 +464,12 @@ HASKELL_LSP_COMMIT = "d73e2ccb518724e6766833ee3d7e73289cbe0018"
 
 HASKELL_LSP_HASH = "36b92431039e6289eb709b8872f5010a57d4a45e637e1c1c945bdb3128586081"
 
-GHC_LIB_VERSION = "8.8.0.20190616"
+GHC_LIB_VERSION = "8.8.0.20190704"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "390d965a5e96f9178fa4867ffbc7e0c8d5d17dea7be1f9e7df644a91588661ca",
+    sha256 = "4a427e093f1711b28b6cf9dd6123e94c9e45589992d67274af626ecfa720308e",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -506,7 +518,15 @@ hazel_repositories(
         extra =
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs(GHC_LIB_VERSION, "390d965a5e96f9178fa4867ffbc7e0c8d5d17dea7be1f9e7df644a91588661ca", "651cc244130c7472e582bb3bf48af837b850a5360477fa52ed3de8095313418b") +
+            hazel_ghclibs(GHC_LIB_VERSION, "4a427e093f1711b28b6cf9dd6123e94c9e45589992d67274af626ecfa720308e", "0e4eda986fd3af0e18a2c89719e584d21dce136bcfdad3d0a9effcc6b654c842") +
+
+            # Support for Hlint:
+            #   - Requires haskell-src-exts 1.21.0 so override hazel/packages.bzl.
+            #   - To build the binary : `bazel build @haskell_hlint//:bin`
+            #   - To build the library : `bazel build @haskell_hlint//:lib`
+            # We'll be using it via the library, not the binary.
+            hazel_hackage("haskell-src-exts", "1.21.0", "95dac187824edfa23b6a2363880b5e113df8ce4a641e8a0f76e6d45aaa699ff3") +
+            hazel_github_external("ndmitchell", "hlint", "efb49fe567b0c45eee1aaa5fab01d1fe59251fe4", "7c4765920741a41dedb7d0e95b9effa2fc56e0cbefa8033bb2714985ba9b9d45") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
@@ -518,10 +538,8 @@ hazel_repositories(
                 "c8905268b7e3b4cf624a40245bf11b35274a6dd836a5d4d531b5760075645303",
                 patches = ["@ai_formation_hazel//third_party/haskell:network.patch"],
             ) +
-            hazel_hackage("zip-archive", "0.3.3", "988adee77c806e0b497929b24d5526ea68bd3297427da0d0b30b99c094efc84d") +
-            hazel_hackage("terminal-progress-bar", "0.4.0.1", "c5a9720fcbcd9d83f9551e431ee3975c61d7da6432aa687aef0c0e04e59ae277") +
+            hazel_hackage("terminal-progress-bar", "0.4.1", "a61ca10c92cacc712dbbe28881dc23f41cc139760b7b2eef66bd0faa60ea5e24") +
             hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
-            hazel_hackage("unix-compat", "0.5.1", "a39d0c79dd906763770b80ba5b6c5cb710e954f894350e9917de0d73f3a19c52") +
             # This corresponds to our normalize-uri branch that enforces a consistent
             # precent-encoding for URIs used as keys.
             hazel_github_external(
@@ -733,16 +751,15 @@ load("@npm//:install_bazel_dependencies.bzl", "install_bazel_dependencies")
 
 install_bazel_dependencies()
 
-# Setup TypeScript toolchain
-load("@build_bazel_rules_typescript//:defs.bzl", "ts_setup_workspace")
+load("@npm_bazel_typescript//:defs.bzl", "ts_setup_workspace")
 
 ts_setup_workspace()
 
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "daml_extension_deps",
-    package_json = "//daml-foundations/daml-tools/daml-extension:package.json",
-    yarn_lock = "//daml-foundations/daml-tools/daml-extension:yarn.lock",
+    package_json = "//compiler/daml-extension:package.json",
+    yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
 
 # TODO use fine-grained managed dependency
@@ -794,6 +811,15 @@ load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_depen
 buildifier_dependencies()
 
 nixpkgs_package(
+    name = "python3_nix",
+    attribute_path = "python3",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+register_toolchains("//:nix_python_toolchain") if not is_windows else None
+
+nixpkgs_package(
     name = "postgresql_nix",
     attribute_path = "postgresql",
     fail_not_supported = False,
@@ -815,7 +841,7 @@ dev_env_tool(
         "bin/initdb",
         "bin/createdb",
         "bin/pg_ctl",
-        "bin/postgresql",
+        "bin/postgres",
     ],
     tools = [
         "createdb",

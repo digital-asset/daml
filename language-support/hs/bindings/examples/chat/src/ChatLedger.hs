@@ -33,7 +33,7 @@ connect :: Logger -> IO Handle
 connect log = do
     lid <- run 5 getLedgerIdentity
     ids <- run 5 $ listPackages lid
-    [pid,_,_] <- return ids -- assume Chat stuff is in the 1st of 3 packages
+    [_,_,pid] <- return ids -- guess which is the Chat package -- TODO: fix this properly!
     return Handle{log,lid,pid}
 
 sendCommand :: Party -> Handle -> ChatContract -> IO (Maybe Rejection)
@@ -46,7 +46,7 @@ sendCommand asParty h@Handle{pid} cc = do
 getTrans :: Party -> Handle -> IO (PastAndFuture ChatContract)
 getTrans party Handle{log,lid} = do
     pf <- run 6000 $ getTransactionsPF lid party
-    mapListPF (fmap maybeToList . extractTransaction log) pf
+    mapListPF (fmap concat . mapM (fmap maybeToList . extractTransaction log)) pf
 
 submitCommand :: Handle -> Party -> Command -> IO (Either String ())
 submitCommand Handle{lid} party com = do

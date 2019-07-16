@@ -43,8 +43,7 @@ class GrpcTransactionService(
     identifierResolver: IdentifierResolver)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer)
-    extends ApiTransactionService
-    with TransactionServiceAkkaGrpc
+    extends TransactionServiceAkkaGrpc
     with GrpcApiService
     with ErrorFactories
     with FieldValidations {
@@ -224,6 +223,8 @@ class GrpcTransactionService(
           .lfValueToApiRecord(verbose, createArguments)
           .fold(_ => throw new RuntimeException("Expected value to be a record."), identity)),
       witnessParties.toSeq,
+      signatories.toSeq,
+      observers.toSeq,
       Some(agreementText)
     )
   }

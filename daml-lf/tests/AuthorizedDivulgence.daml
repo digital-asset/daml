@@ -30,7 +30,7 @@ instance Template RevealYourSecret where
   agreement this@RevealYourSecret{..} = ""
 
 -- This scenario succeeds only if the flag +DontDivulgeContractIdsInCreateArguments is turned on
-test_authorizedFetch = test do
+test_authorizedFetch = scenario do
   me <- getParty "Me"
   spy <- getParty "Spy"
   secretCid <- submit me (create Secret {p = me, mySecret = "Password for my Swiss bank account is 874321"})
@@ -117,7 +117,7 @@ instance Choice Swap2 GoSwap2  () where
 -- We're testing the classic swap example.
 -- This scenario should fail now if the DontDivulgeContractIdsInCreateArguments flag is set because
 -- the cidIouAlice is not divulged to Bob.
-test_noDivulgenceOfCreateArguments = test do
+test_noDivulgenceOfCreateArguments = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
   cidIouAlice <- submit alice $ create $ Iou {owner = alice, obligor = alice}
@@ -128,7 +128,7 @@ test_noDivulgenceOfCreateArguments = test do
 
 -- If we fetch the contract in the GoSwap1 choice, then the contract will be divulged to Bob and the
 -- swap scenario passes.
-test_noDivulgenceForFetch = test do
+test_noDivulgenceForFetch = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
   cidIouAlice <- submit alice $ create $ Iou {owner = alice, obligor = alice}
@@ -180,7 +180,7 @@ template E
 
 -- We test that target contract id's of choices are divulged to parties. This will only pass if the
 -- DontDivulgeContractIdsInCreateArguments flag is turned on.
-test_divulgeChoiceTargetContractId = test do
+test_divulgeChoiceTargetContractId = scenario do
   alice <- getParty "alice"
   bob <- getParty "bob"
   cidC <- submit alice $ create $ C alice bob

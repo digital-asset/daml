@@ -4,6 +4,8 @@
 package com.digitalasset.extractor
 
 import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.iface.{Enum, TypeConName}
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import doobie.util.fragment.Fragment
 
 import scala.util.control.NoStackTrace
@@ -19,14 +21,33 @@ object Types {
   object FullyAppliedType {
     final case class TypePrim(typ: iface.PrimType, typArgs: List[FullyAppliedType])
         extends FullyAppliedType
-    final case class TypeCon(typ: iface.TypeConName, typArgs: List[FullyAppliedType])
+    final case class TypeCon(
+        typ: iface.TypeConName,
+        typArgs: List[FullyAppliedType],
+        isEnum: Boolean)
         extends FullyAppliedType
 
     object ops {
       final implicit class GenTypeOps(val genType: iface.Type) extends AnyVal {
-        def fat: FullyAppliedType = genType match {
-          case iface.TypePrim(typ, typArgs) => TypePrim(typ, typArgs.toList.map(_.fat))
-          case iface.TypeCon(typ, typArgs) => TypeCon(typ, typArgs.toList.map(_.fat))
+        private def isEnum(typeCon: TypeConName, packageStore: PackageStore) = {
+          val dataType = packageStore(typeCon.identifier.packageId)
+            .typeDecls(typeCon.identifier.qualifiedName)
+            .`type`
+            .dataType
+          dataType match {
+            case Enum(_) => true
+            case _ => false
+          }
+        }
+
+        def fat(packageStore: PackageStore): FullyAppliedType = genType match {
+          case iface.TypePrim(typ, typArgs) =>
+            TypePrim(typ, typArgs.toList.map(_.fat(packageStore)))
+          case iface.TypeCon(tyConName, typArgs) =>
+            TypeCon(
+              tyConName,
+              typArgs.toList.map(_.fat(packageStore)),
+              isEnum(tyConName, packageStore))
           case iface.TypeVar(_) =>
             throw new IllegalArgumentException(
               s"A `TypeVar` ($genType) cannot be converted to a `FullyAppliedType`"

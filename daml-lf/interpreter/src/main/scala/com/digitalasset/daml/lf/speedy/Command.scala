@@ -3,14 +3,15 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Identifier}
 import com.digitalasset.daml.lf.speedy.SValue._
 
 // ---------------------
 // Preprocessed commands
 // ---------------------
-sealed abstract class Command extends Product with Serializable
+sealed abstract class Command extends Product with Serializable {
+  val templateId: Identifier
+}
 
 object Command {
 
@@ -23,7 +24,6 @@ object Command {
       templateId: Identifier,
       contractId: SContractId,
       choiceId: ChoiceName,
-      submitter: ImmArray[SParty],
       argument: SValue
   ) extends Command
 
@@ -31,7 +31,6 @@ object Command {
       templateId: Identifier,
       contractKey: SValue,
       choiceId: ChoiceName,
-      submitter: ImmArray[SParty],
       argument: SValue
   ) extends Command
 
@@ -44,8 +43,7 @@ object Command {
       templateId: Identifier,
       createArgument: SValue,
       choiceId: ChoiceName,
-      choiceArgument: SValue,
-      submitter: ImmArray[SParty]
+      choiceArgument: SValue
   ) extends Command
 
 }

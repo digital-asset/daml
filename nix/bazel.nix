@@ -20,9 +20,11 @@ rec {
     patchelf
     postgresql
     protobuf3_5
-    scala
+    python3
     zip
     ;
+
+  scala = pkgs.scala_2_12;
 
   # We need to have a file in GOPATH that we can use as
   # root_file in go_wrap_sdk.
@@ -37,8 +39,8 @@ rec {
   # as possible.
   ghc = import ./ghc.nix { inherit pkgs; };
 
-  # GHC with the package configurations patched for static only linking.
-  ghcStatic = ghc.ghcWithPackages (p: []);
+  # GHC configured for static linking only.
+  ghcStatic = ghc.ghc.override { enableShared = false; };
 
 
   # Java 8 development

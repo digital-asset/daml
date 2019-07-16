@@ -9,9 +9,11 @@ import com.digitalasset.AllGenericTests;
 
 @RunWith(Suite.class)
 @Suite.SuiteClasses({
+        AllGenericTests.class,
+        ListTest.class,
+        OptionalTest.class,
         MapTest.class,
         ContractKeysTest.class,
-        AllGenericTests.class
 })
 public class AllTests {
 }

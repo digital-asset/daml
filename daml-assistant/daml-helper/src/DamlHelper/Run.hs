@@ -44,13 +44,13 @@ import qualified Network.HTTP.Client as HTTP
 import qualified Network.HTTP.Types as HTTP
 import Network.Socket
 import System.FilePath
+import qualified System.Directory as Dir
 import System.Directory.Extra
 import System.Environment
 import System.Exit
 import System.Info.Extra
 import System.Process hiding (runCommand)
 import System.IO
-import System.IO.Error
 import System.IO.Extra
 import Web.Browser
 
@@ -80,57 +80,161 @@ requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . disp
 data ReplaceExtension
     = ReplaceExtNever
     -- ^ Never replace an existing extension.
-    | ReplaceExtNewer
-    -- ^ Replace the extension if the current extension is newer.
     | ReplaceExtAlways
     -- ^ Always replace the extension.
+    | ReplaceExtPublished
+    -- ^ Replace with published extension (the default).
+
+-- | Run VS Code command with arguments, returning the exit code, stdout & stderr.
+runVsCodeCommand :: [String] -> IO (ExitCode, String, String)
+runVsCodeCommand args = do
+    originalEnv <- getEnvironment
+    let strippedEnv = filter ((`notElem` damlEnvVars) . fst) originalEnv
+            -- ^ Strip DAML environment variables before calling VSCode, to
+            -- prevent setting DAML_SDK_VERSION too early. See issue #1666.
+        commandEnv = addVsCodeToPath strippedEnv
+            -- ^ Ensure "code" is in PATH before running command.
+        command = unwords ("code" : args)
+        process = (shell command) { env = Just commandEnv }
+    readCreateProcessWithExitCode process ""
+
+-- | Add VSCode bin path to environment PATH. Only need to add it on Mac, as
+-- VSCode is installed in PATH by default on the other platforms.
+addVsCodeToPath :: [(String, String)] -> [(String,String)]
+addVsCodeToPath env | isMac =
+    let pathM = lookup "PATH" env
+        newSearchPath = maybe "" (<> [searchPathSeparator]) pathM <>
+            "/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
+    in ("PATH", newSearchPath) : filter ((/= "PATH") . fst) env
+addVsCodeToPath env = env
+
+-- | Directory where bundled extension gets installed.
+getVsCodeExtensionsDir :: IO FilePath
+getVsCodeExtensionsDir = fmap (</> ".vscode/extensions") getHomeDirectory
+
+-- | Name of VS Code extension in the marketplace.
+publishedExtensionName :: String
+publishedExtensionName = "DigitalAssetHoldingsLLC.daml"
+
+-- | Name of VS Code extension bundled with older SDKs (up to 0.13.12). Was
+-- implemented as a symlink to extension files stored under ~/.daml.
+oldBundledExtensionDirName :: String
+oldBundledExtensionDirName = "da-vscode-daml-extension"
+
+-- | Name of VS Code extension bundled with the SDK as a vsix.
+bundledExtensionName :: String
+bundledExtensionName = "DigitalAssetHoldingsLLC.daml-bundled"
+
+-- | Status of installed VS Code extensions.
+data InstalledExtensions = InstalledExtensions
+    { oldBundled :: Maybe FilePath
+        -- ^ bundled extension, if installed (0.13.12 and earlier)
+    , bundledInstalled :: Bool
+        -- ^ bundled extension, installed through vsix (0.13.13 and up)
+    , publishedExtensionIsInstalled :: Bool
+        -- ^ true if published extension is installed
+    } deriving (Show, Eq)
+
+-- | Get status of installed VS code extensions.
+getInstalledExtensions :: IO InstalledExtensions
+getInstalledExtensions = do
+    oldBundled <- getOldExt
+    extensions <- getExtensions
+    let oldBundledIsInstalled = isJust oldBundled
+        publishedExtensionIsInstalled = not oldBundledIsInstalled && publishedExtensionName `elem` extensions
+        bundledInstalled = bundledExtensionName `elem` extensions
+    pure InstalledExtensions {..}
+    where getOldExt :: IO (Maybe FilePath)
+          getOldExt = do
+              extensionsDir <- getVsCodeExtensionsDir
+              let oldBundledDir = extensionsDir </> oldBundledExtensionDirName
+              exists <- Dir.doesPathExist oldBundledDir
+              pure $ if exists then Just oldBundledDir else Nothing
+          getExtensions :: IO [String]
+          getExtensions = do
+              (_exitCode, extensionsStr, _err) <- runVsCodeCommand ["--list-extensions"]
+              pure $ lines extensionsStr
 
 runDamlStudio :: ReplaceExtension -> [String] -> IO ()
 runDamlStudio replaceExt remainingArguments = do
     sdkPath <- getSdkPath
-    vscodeExtensionsDir <- fmap (</> ".vscode/extensions") getHomeDirectory
-    let vscodeExtensionName = "da-vscode-daml-extension"
-    let vscodeExtensionSrcDir = sdkPath </> "studio"
-    let vscodeExtensionTargetDir = vscodeExtensionsDir </> vscodeExtensionName
-    whenM (shouldReplaceExtension replaceExt vscodeExtensionTargetDir) $
-        removePathForcibly vscodeExtensionTargetDir
-    installExtension vscodeExtensionSrcDir vscodeExtensionTargetDir
-    -- Note that it is important that we use `shell` rather than `proc` here as
-    -- `proc` will look for `code.exe` in PATH which does not exist.
-    projectPathM <- getProjectPath
-    let codeCommand
-            | isMac = "open -a \"Visual Studio Code\""
-            | otherwise = "code"
-        path = fromMaybe "." projectPathM
-        command = unwords $ codeCommand : path : remainingArguments
+    InstalledExtensions {..} <- getInstalledExtensions
 
-    -- Strip DAML environment variables before calling vscode.
-    originalEnv <- getEnvironment
-    let strippedEnv = filter ((`notElem` damlEnvVars) . fst) originalEnv
-        process = (shell command) { env = Just strippedEnv }
+    let bundledExtensionVsix = sdkPath </> "studio/daml-bundled.vsix"
+        removeOldBundledExtension = whenJust oldBundled removePathForcibly
+        uninstall name = do
+            (exitCode, out, err) <- runVsCodeCommand ["--uninstall-extension", name]
+            when (exitCode /= ExitSuccess) $ do
+                hPutStrLn stderr . unlines $
+                    [ "Failed to uninstall published version of DAML Studio."
+                    , "Messages from VS Code:"
+                    , "--- stdout ---"
+                    , out
+                    , "--- stderr ---"
+                    , err
+                    ]
+                exitWith exitCode
 
-    exitCode <- withCreateProcess process $ \_ _ _ -> waitForProcess
-    when (exitCode /= ExitSuccess) $
-        hPutStrLn stderr $
-          "Failed to launch Visual Studio Code." <>
-          " See https://code.visualstudio.com/Download for installation instructions."
-    exitWith exitCode
+        removeBundledExtension =
+            when bundledInstalled $ uninstall bundledExtensionName
 
-shouldReplaceExtension :: ReplaceExtension -> FilePath -> IO Bool
-shouldReplaceExtension replaceExt dir =
+        removePublishedExtension =
+            when publishedExtensionIsInstalled $ uninstall publishedExtensionName
+
+        installBundledExtension' =
+            installBundledExtension bundledExtensionVsix
+
+        installPublishedExtension =
+            when (not publishedExtensionIsInstalled) $ do
+                (exitCode, _out, err) <- runVsCodeCommand
+                    ["--install-extension", publishedExtensionName]
+                when (exitCode /= ExitSuccess) $ do
+                    hPutStr stderr . unlines $
+                        [ err
+                        , "Failed to install DAML Studio extension from marketplace."
+                        , "Installing bundled DAML Studio extension instead."
+                        ]
+                    installBundledExtension'
+
+    -- First, ensure extension is installed as requested.
     case replaceExt of
-        ReplaceExtNever -> pure False
-        ReplaceExtAlways -> pure True
-        ReplaceExtNewer -> do
-            let installedVersionFile = dir </> "VERSION"
-            ifM (doesFileExist installedVersionFile)
-              (do installedVersion <-
-                      requiredE "Failed to parse version of VSCode extension" . parseVersion . T.strip . T.pack =<<
-                      readFileUTF8 installedVersionFile
-                  sdkVersion <- requiredE "Failed to parse SDK version" . parseVersion . T.pack =<< getSdkVersion
-                  pure (sdkVersion > installedVersion))
-              (pure True)
-              -- ^ If the VERSION file does not exist, we must have installed an older version.
+        ReplaceExtNever ->
+            when (not bundledInstalled && isNothing oldBundled)
+                installPublishedExtension
+
+        ReplaceExtAlways -> do
+            removePublishedExtension
+            removeBundledExtension
+            removeOldBundledExtension
+            installBundledExtension'
+
+        ReplaceExtPublished -> do
+            removeBundledExtension
+            removeOldBundledExtension
+            installPublishedExtension
+
+    -- Then, open visual studio code.
+    projectPathM <- getProjectPath
+    let path = fromMaybe "." projectPathM
+    (exitCode, _out, err) <- runVsCodeCommand (path : remainingArguments)
+    when (exitCode /= ExitSuccess) $ do
+        hPutStrLn stderr . unlines $
+            [ err
+            , "Failed to launch DAML studio. Make sure Visual Studio Code is installed."
+            , "See https://code.visualstudio.com/Download for installation instructions."
+            ]
+        exitWith exitCode
+
+installBundledExtension :: FilePath -> IO ()
+installBundledExtension pathToVsix = do
+    (exitCode, _out, err) <- runVsCodeCommand ["--install-extension", pathToVsix]
+    when (exitCode /= ExitSuccess) $ do
+        hPutStr stderr . unlines $
+           [ err
+           , "Failed to install DAML Studio extension from SDK bundle."
+           , "Please open an issue on GitHub with the above message."
+           , "https://github.com/digital-asset/daml/issues/new?template=bug_report.md"
+           ]
 
 runJar :: FilePath -> [String] -> IO ()
 runJar jarPath remainingArguments = do
@@ -449,7 +553,9 @@ runMigrate targetFolder pkgPath1 pkgPath2
          [ "damlc"
          , "migrate"
          , "--srcdir"
-         , targetFolder </> "daml"
+         , "daml"
+         , "--project-root"
+         , targetFolder
          , "upgrade-pkg"
          , pkgPath1
          , pkgPath2
@@ -546,9 +652,9 @@ runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) o
     mbScenario :: Maybe String <-
         requiredE "Failed to parse scenario" $
         queryProjectConfig ["scenario"] projectConfig
-    let darPath = "dist" </> projectName <> ".dar"
+    let darPath = ".daml" </> "dist" </> projectName <> ".dar"
     assistant <- getDamlAssistant
-    callCommand (unwords $ assistant : ["build", "-o", darPath])
+    callCommand (unwords $ assistant : ["build"])
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
         withNavigator' sandboxPh sandboxPort navigatorPort [] $ \navigatorPh -> do
@@ -572,23 +678,6 @@ getProjectConfig :: IO ProjectConfig
 getProjectConfig = do
     projectPath <- required "Must be called from within a project" =<< getProjectPath
     readProjectConfig (ProjectPath projectPath)
-
-installExtension :: FilePath -> FilePath -> IO ()
-installExtension src target = do
-    -- Create .vscode/extensions if it does not already exist.
-    createDirectoryIfMissing True (takeDirectory target)
-    catchJust
-        (guard . isAlreadyExistsError)
-        install
-        (const $ pure ())
-        -- If we get an exception, we just keep the existing extension.
-     where
-         install
-             | isWindows = do
-                   -- We create the directory to throw an isAlreadyExistsError.
-                   createDirectory target
-                   copyDirectory src target
-             | otherwise = createDirectoryLink src target
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
 -- Between each connection request it calls `sleep`.

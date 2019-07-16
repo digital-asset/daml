@@ -16,11 +16,11 @@ commands:
   desc: "Configure a folder as a DAML project"
   args: ["init"]
 - name: build
-  path: damlc/da-hs-damlc-app
+  path: damlc/damlc
   args: ["build", "--project-check"]
   desc: "Build the current DAML project into a DAR file"
 - name: test
-  path: damlc/da-hs-damlc-app
+  path: damlc/damlc
   args: ["test"]
   desc: "Run the scenarios in the given DAML file and all dependencies"
 - name: start
@@ -28,11 +28,11 @@ commands:
   args: ["start"]
   desc: "Launch Sandbox and Navigator for current DAML project"
 - name: clean
-  path: damlc/da-hs-damlc-app
+  path: damlc/damlc
   args: ["clean", "--project-check"]
   desc: "Delete build artifacts from project folder"
 - name: damlc
-  path: damlc/da-hs-damlc-app
+  path: damlc/damlc
   desc: "Run the DAML compiler"
 - name: sandbox
   path: daml-helper/daml-helper
@@ -47,5 +47,5 @@ commands:
   desc: "Launch the Extractor"
   args: ["run-jar", "extractor/extractor.jar"]
 - name: ide
-  path: damlc/da-hs-damlc-app
+  path: damlc/damlc
   args: ["lax", "ide"]

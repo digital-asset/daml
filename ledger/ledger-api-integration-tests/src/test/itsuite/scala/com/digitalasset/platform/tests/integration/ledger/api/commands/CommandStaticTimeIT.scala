@@ -105,7 +105,7 @@ class CommandStaticTimeIT
     } yield event.event
 
     events.collect {
-      case Created(CreatedEvent(contractId, _, _, _, _, _, _)) => contractId
+      case Created(CreatedEvent(contractId, _, _, _, _, _, _, _, _)) => contractId
     }.head
   }
 

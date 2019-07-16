@@ -5,7 +5,7 @@
 {-# LANGUAGE GADTs             #-}
 
 module DA.Ledger.GrpcWrapUtils (
-    noTrace, emptyMdm, unwrap, sendToStream
+    noTrace, emptyMdm, unwrap, sendToStream,
     ) where
 
 import Prelude hiding (fail)
@@ -15,6 +15,7 @@ import Control.Exception (throwIO)
 import Control.Monad.Fail (fail)
 import Control.Monad.Fix (fix)
 import DA.Ledger.Stream
+import DA.Ledger.Convert(Perhaps)
 import Network.GRPC.HighLevel (clientCallCancel)
 import Network.GRPC.HighLevel.Generated
 import qualified Data.Map as Map
@@ -31,9 +32,9 @@ unwrap = \case
     ClientErrorResponse (ClientIOError e) -> throwIO e
     ClientErrorResponse ce -> fail (show ce)
 
-sendToStream :: Int -> a -> (b -> [Either Closed c]) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
+sendToStream :: Show b => Int -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
 sendToStream timeout request f stream rpc = do
-    ClientReaderResponse _meta _code _details <- rpc $
+    res <- rpc $
         ClientReaderRequestCC request timeout emptyMdm
         (\cc -> onClose stream $ \_cancel -> clientCallCancel cc)
         $ \_mdm recv -> do
@@ -43,10 +44,19 @@ sendToStream timeout request f stream rpc = do
                     writeStream stream (Left (Abnormal (show e)))
                     return ()
                 Right Nothing -> do
-                    writeStream stream (Left EOS)
                     return ()
-                Right (Just x) ->
-                    do
-                        mapM_ (writeStream stream) (f x)
-                        again
-    return ()
+                Right (Just b) ->
+                    case f b of
+                        Left reason -> do
+                            let mes = "convert failed: " <> show reason <> ":\n" <> show b
+                            writeStream stream (Left (Abnormal mes))
+                        Right cs -> do
+                            writeStream stream $ Right cs
+                            again
+    case res of
+        ClientReaderResponse _meta StatusOk _details -> do
+            writeStream stream (Left EOS)
+        ClientReaderResponse _meta code details -> do
+            writeStream stream (Left (Abnormal (show (code,details))))
+        ClientErrorResponse e -> do
+            writeStream stream (Left (Abnormal (show e)))

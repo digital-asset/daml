@@ -78,7 +78,7 @@ abstract class ScenarioLoadingITBase
       present: Boolean = true): Unit = {
     val occurrence = if (present) 1 else 0
     val _ = events.collect {
-      case ce @ CreatedEvent(_, _, Some(`template`), _, _, _, _) =>
+      case ce @ CreatedEvent(_, _, Some(`template`), _, _, _, _, _, _) =>
         // the absolute contract ids are opaque -- they have no specified format. however, for now
         // we like to keep it consistent between the DAML studio and the sandbox. Therefore verify
         // that they have the same format.
@@ -112,7 +112,7 @@ abstract class ScenarioLoadingITBase
     "contracts have been created" should {
       "return them in an ACS snapshot" in {
         whenReady(getSnapshot()) { resp =>
-          resp.size should equal(4)
+          resp.size should equal(5)
 
           val responses = resp.init // last response is just the ledger offset
 
@@ -123,8 +123,9 @@ abstract class ScenarioLoadingITBase
           lookForContract(events, templateIds.dummy)
           lookForContract(events, templateIds.dummyWithParam)
           lookForContract(events, templateIds.dummyFactory)
+          lookForContract(events, templateIds.dummyContractFactory)
 
-          resp.last should equal(GetActiveContractsResponse("4", "", Seq.empty, None))
+          resp.last should equal(GetActiveContractsResponse("7", "", Seq.empty, None))
         }
       }
 
@@ -135,16 +136,17 @@ abstract class ScenarioLoadingITBase
         val resultsF =
           newTransactionClient(ledgerIdOnServer)
             .getTransactions(beginOffset, None, transactionFilter)
-            .take(3)
+            .take(4)
             .runWith(Sink.seq)
 
         whenReady(resultsF) { txs =>
           val events = txs.flatMap(_.events).map(_.getCreated)
-          events.length shouldBe 3
+          events.length shouldBe 4
 
           lookForContract(events, templateIds.dummy)
           lookForContract(events, templateIds.dummyWithParam)
           lookForContract(events, templateIds.dummyFactory)
+          lookForContract(events, templateIds.dummyContractFactory)
         }
       }
 
@@ -154,8 +156,9 @@ abstract class ScenarioLoadingITBase
             val responses = resp.init // last response is just ledger offset
             val events = responses.flatMap(extractEvents)
             val contractIds = events.map(_.contractId).toSet
-            // note how we skip #1 because of the `pass` that is in the scenario.
-            contractIds shouldBe Set("#2:0", "#4:2", "#3:0", "#4:1", "#0:0", "#4:0")
+
+            // note how we skip #0, #2 and #5 because of the `pass`es in the scenario.
+            contractIds shouldBe Set("#4:0", "#7:2", "#3:0", "#7:1", "#1:0", "#7:0", "#6:0")
           }
         }
       }
@@ -178,12 +181,12 @@ abstract class ScenarioLoadingITBase
         val resultsF =
           newTransactionClient(ledgerIdOnServer)
             .getTransactions(beginOffset, None, transactionFilter)
-            .take(3)
+            .take(4)
             .runWith(Sink.seq)
 
         whenReady(resultsF) { txs =>
           val events = txs.flatMap(_.events).map(_.getCreated)
-          events.length shouldBe 3
+          events.length shouldBe 4
           events.foreach { event =>
             event.eventId shouldBe event.contractId
           }

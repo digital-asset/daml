@@ -5,8 +5,7 @@
 
 -- | Display information on hover.
 module Development.IDE.LSP.Hover
-    ( onHover
-    , setHandlersHover
+    ( setHandlersHover
     ) where
 
 import Language.Haskell.LSP.Types
@@ -45,5 +44,5 @@ onHover ide (TextDocumentPositionParams (TextDocumentIdentifier uri) pos) = do
 
 setHandlersHover :: PartialHandlers
 setHandlersHover = PartialHandlers $ \WithMessage{..} x -> return x{
-    LSP.hoverHandler = withResponse RspHover onHover
+    LSP.hoverHandler = withResponse RspHover $ const onHover
     }

@@ -34,10 +34,25 @@ object Speedy {
       var lastLocation: Option[Location],
       /* The current partial transaction */
       var ptx: PartialTransaction,
-      /* Committer, if a scenario commit is in progress. */
-      var committer: Option[Party],
+      /* Committers of the action. */
+      var committers: Set[Party],
       /* Commit location, if a scenario commit is in progress. */
       var commitLocation: Option[Location],
+      /* Whether we check if the submitter is in contract key maintainers
+       * when looking up / fetching keys. This was introduced in #1866.
+       * We derive this from the "submission version", which is the scenario
+       * definition DAML-LF version for scenarios, and the command version for
+       * a Ledger API submission.
+       *
+       * We store a specific flag rather than the DAML-LF version mostly here because
+       * we want to avoid the risk of future implementors misusing the DAML-LF
+       * version to influence the operational semantics of DAML-LF.
+       */
+      var checkSubmitterInMaintainers: Boolean,
+      /* Whether the current submission is validating the transaction, or interpreting
+       * it. If this is false, the committers must be a singleton set.
+       */
+      var validating: Boolean,
       /* The trace log. */
       traceLog: TraceLog,
       /* Compiled packages (DAML-LF ast + compiled speedy expressions). */
@@ -173,33 +188,45 @@ object Speedy {
   }
 
   object Machine {
-    private def initial(compiledPackages: CompiledPackages) = Machine(
-      ctrl = null,
-      env = emptyEnv,
-      kont = new ArrayList[Kont](128),
-      lastLocation = None,
-      ptx = PartialTransaction.initial,
-      committer = None,
-      commitLocation = None,
-      traceLog = TraceLog(100),
-      compiledPackages = compiledPackages
-    )
+    private def initial(checkSubmitterInMaintainers: Boolean, compiledPackages: CompiledPackages) =
+      Machine(
+        ctrl = null,
+        env = emptyEnv,
+        kont = new ArrayList[Kont](128),
+        lastLocation = None,
+        ptx = PartialTransaction.initial,
+        committers = Set.empty,
+        commitLocation = None,
+        traceLog = TraceLog(100),
+        compiledPackages = compiledPackages,
+        checkSubmitterInMaintainers = checkSubmitterInMaintainers,
+        validating = false,
+      )
 
-    def newBuilder(compiledPackages: CompiledPackages): Either[SError, (Expr => Machine)] = {
+    def newBuilder(
+        compiledPackages: CompiledPackages): Either[SError, (Boolean, Expr) => Machine] = {
       val compiler = Compiler(compiledPackages.packages)
-      Right({ (expr: Expr) =>
-        initial(compiledPackages).copy(ctrl = CtrlExpr(compiler.compile(expr)(SEValue(SToken))))
+      Right({ (checkSubmitterInMaintainers: Boolean, expr: Expr) =>
+        initial(checkSubmitterInMaintainers, compiledPackages).copy(
+          ctrl = CtrlExpr(compiler.compile(expr)(SEValue(SToken))))
       })
     }
 
-    def build(sexpr: SExpr, compiledPackages: CompiledPackages): Machine =
-      initial(compiledPackages).copy(
+    def build(
+        checkSubmitterInMaintainers: Boolean,
+        sexpr: SExpr,
+        compiledPackages: CompiledPackages): Machine =
+      initial(checkSubmitterInMaintainers, compiledPackages).copy(
         // apply token
         ctrl = CtrlExpr(sexpr(SEValue(SToken))),
       )
 
     // Used from repl.
-    def fromExpr(expr: Expr, compiledPackages: CompiledPackages, scenario: Boolean): Machine = {
+    def fromExpr(
+        expr: Expr,
+        checkSubmitterInMaintainers: Boolean,
+        compiledPackages: CompiledPackages,
+        scenario: Boolean): Machine = {
       val compiler = Compiler(compiledPackages.packages)
       val sexpr =
         if (scenario)
@@ -207,7 +234,7 @@ object Speedy {
         else
           compiler.compile(expr)
 
-      initial(compiledPackages).copy(
+      initial(checkSubmitterInMaintainers, compiledPackages).copy(
         ctrl = CtrlExpr(sexpr),
       )
     }

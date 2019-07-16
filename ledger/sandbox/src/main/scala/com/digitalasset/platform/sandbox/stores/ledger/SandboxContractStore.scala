@@ -13,7 +13,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveContracts
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class SandboxContractStore(ledger: Ledger) extends ContractStore {
+class SandboxContractStore(ledger: ReadOnlyLedger) extends ContractStore {
   private[this] def canSeeContract(
       submitter: Party,
       ac: ActiveContracts.ActiveContract): Boolean = {

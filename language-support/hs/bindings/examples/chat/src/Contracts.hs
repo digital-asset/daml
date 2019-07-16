@@ -12,7 +12,7 @@ import DA.Ledger (
     Command(..), Event(..), Transaction(..)
     )
 
-import DA.Ledger.Valuable (toRecord,fromRecord)
+import DA.Ledger.IsLedgerValue (toRecord,fromRecord)
 import Domain (Introduce,Message,Broadcast)
 import Logging (Logger)
 

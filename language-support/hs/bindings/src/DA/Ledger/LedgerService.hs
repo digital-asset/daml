@@ -3,42 +3,28 @@
 
 -- Abstraction for LedgerService, which can be composed monadically.
 module DA.Ledger.LedgerService (
-    LedgerService, runLedgerService, makeLedgerService, TimeoutSeconds(..),
+    LedgerService, runLedgerService, makeLedgerService, TimeoutSeconds,
+    askTimeout,
     ) where
 
-import Prelude hiding (fail)
-import Control.Monad (ap,liftM)
-import Control.Monad.Fail (MonadFail,fail)
-import Control.Monad.IO.Class (MonadIO,liftIO)
+import Control.Monad.Fail (MonadFail)
+import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.Trans.Reader (ReaderT(..),runReaderT,ask)
 import DA.Ledger.Retry (ledgerRetry)
-import Network.GRPC.HighLevel.Generated
+import Network.GRPC.HighLevel.Client(TimeoutSeconds)
+import Network.GRPC.HighLevel.Generated(ClientConfig)
+import UnliftIO(MonadUnliftIO)
 
-newtype TimeoutSeconds = TimeoutSeconds { unTimeoutSeconds :: Int } deriving Num
+type Context = (TimeoutSeconds,ClientConfig)
 
-newtype LedgerService a =
-    LedgerService { runLedgerService :: TimeoutSeconds -> ClientConfig -> IO a }
-    --deriving (Monad)
+newtype LedgerService a = LedgerService (ReaderT Context IO a)
+    deriving (Functor,Applicative,Monad,MonadFail,MonadIO,MonadUnliftIO)
 
--- TODO: How do we avoid the boiler plate here?
-
-instance Functor LedgerService where fmap = liftM
-instance Applicative LedgerService where pure = return; (<*>) = ap
-
-instance Monad LedgerService where
-    return a = LedgerService $ \_ _ -> return a
-    (>>=) = bind
-
-instance MonadIO LedgerService where
-    liftIO io = LedgerService $ \_ _ -> io
-
-instance MonadFail LedgerService where
-    fail s = LedgerService $ \_ _ -> fail s
+runLedgerService :: LedgerService a -> TimeoutSeconds -> ClientConfig -> IO a
+runLedgerService (LedgerService r) ts cc = runReaderT r (ts,cc)
 
 makeLedgerService :: (TimeoutSeconds -> ClientConfig -> IO a) -> LedgerService a
-makeLedgerService f = LedgerService $ \t cc -> do ledgerRetry (f t cc)
+makeLedgerService f = LedgerService $ ReaderT $ \(ts,cc) -> ledgerRetry $ f ts cc
 
-bind :: LedgerService a -> (a -> LedgerService b) -> LedgerService b
-bind m f =
-    LedgerService $ \to cc -> do
-        a <- runLedgerService m to cc
-        runLedgerService (f a) to cc
+askTimeout :: LedgerService TimeoutSeconds
+askTimeout = LedgerService $ fmap fst ask

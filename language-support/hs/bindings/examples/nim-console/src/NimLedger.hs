@@ -34,7 +34,7 @@ connect :: Logger -> IO Handle
 connect log = do
     lid <- run 5 getLedgerIdentity
     ids <- run 5 $ listPackages lid
-    [pid,_,_] <- return ids -- assume Nim stuff is in the 1st of 3 packages
+    [_,pid,_] <- return ids -- guess which is the Nim package -- TODO: fix this properly!
     return Handle{log,lid,pid}
 
 sendCommand :: Party -> Handle -> NimCommand -> IO (Maybe Rejection)
@@ -48,7 +48,7 @@ getTrans :: Player -> Handle -> IO (PastAndFuture NimTrans)
 getTrans player Handle{log,lid} = do
     let party = partyOfPlayer player
     pf <- run 6000 $ getTransactionsPF lid party
-    mapListPF (extractTransaction log) pf
+    mapListPF (fmap concat . mapM (extractTransaction log)) pf
 
 submitCommand :: Handle -> Party -> Command -> IO (Either String ())
 submitCommand Handle{lid} party com = do

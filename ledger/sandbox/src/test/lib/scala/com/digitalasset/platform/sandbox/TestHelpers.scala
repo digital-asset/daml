@@ -5,22 +5,22 @@ package com.digitalasset.platform.sandbox
 
 import java.io.File
 import java.time.Instant
-import java.util.zip.ZipFile
 
 import akka.stream.ActorMaterializer
+import com.daml.ledger.participant.state.v2.ParticipantId
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.archive.DarReader
-import com.digitalasset.daml.lf.data.ImmArray
+import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.services.ApiSubmissionService
+import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.sandbox.stores.{
   InMemoryActiveContracts,
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
-import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.services.time.TimeModel
 
@@ -28,13 +28,17 @@ import scala.concurrent.ExecutionContext
 
 object TestDar {
   val darFile: File = new File("ledger/sandbox/Test.dar")
-  lazy val parsedPackageId = DarReader().readArchive(new ZipFile(darFile)).get.main._1
+  lazy val parsedPackageId = DarReader()
+    .readArchiveFromFile(darFile)
+    .get
+    .main
+    ._1
 }
 
 trait TestHelpers {
   protected val packageStore = {
-    val packageStore = InMemoryPackageStore()
-    packageStore.putDarFile(Instant.EPOCH, "", TestDar.darFile) match {
+    val packageStore = InMemoryPackageStore.empty
+    packageStore.withDarFile(Instant.EPOCH, None, TestDar.darFile) match {
       case Right(details @ _) => ()
       case Left(err) => sys.error(s"Could not load package ${TestDar.darFile}: $err")
     }
@@ -49,10 +53,12 @@ trait TestHelpers {
     implicit val mm: MetricsManager = MetricsManager()
 
     val ledgerId = LedgerId("sandbox-ledger")
+    val participantId: ParticipantId = Ref.LedgerString.assertFromString("sandbox-participant")
 
     val indexAndWriteService = SandboxIndexAndWriteService
       .inMemory(
         ledgerId,
+        participantId,
         TimeModel.reasonableDefault,
         TimeProvider.Constant(Instant.EPOCH),
         InMemoryActiveContracts.empty,

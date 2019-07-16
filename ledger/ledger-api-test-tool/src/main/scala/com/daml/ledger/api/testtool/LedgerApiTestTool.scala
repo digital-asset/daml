@@ -16,7 +16,12 @@ import com.digitalasset.platform.tests.integration.ledger.api.commands.{
   CommandTransactionChecksHighLevelIT,
   CommandTransactionChecksLowLevelIT
 }
-import com.digitalasset.platform.tests.integration.ledger.api.{DivulgenceIT, TransactionServiceIT}
+import com.digitalasset.platform.tests.integration.ledger.api.{
+  DivulgenceIT,
+  PackageManagementServiceIT,
+  PartyManagementServiceIT,
+  TransactionServiceIT
+}
 import com.digitalasset.platform.tests.integration.ledger.api.transaction.TransactionBackpressureIT
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{Args, Suite}
@@ -45,6 +50,8 @@ object LedgerApiTestTool {
       .withTimeProvider(TimeProviderType.WallClock)
       .withLedgerIdMode(LedgerIdMode.Dynamic())
       .withCommandSubmissionTtlScaleFactor(toolConfig.commandSubmissionTtlScaleFactor)
+      .withUniquePartyIdentifiers(toolConfig.uniquePartyIdentifiers)
+      .withUniqueCommandIdentifiers(toolConfig.uniqueCommandIdentifiers)
       .withRemoteApiEndpoint(
         RemoteApiEndpoint.default
           .withHost(toolConfig.host)
@@ -127,21 +134,19 @@ object LedgerApiTestTool {
       name =>
         new SandboxSemanticTestsLfRunner {
           override def suiteName: String = name
-
           override def actorSystemName = s"${name}TestToolActorSystem"
-
           override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-
           override implicit lazy val patienceConfig: PatienceConfig =
             PatienceConfig(Span(60L, Seconds))
-
           override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-
           override protected def config: Config =
             commonConfig.withDarFile(resourceAsFile(semanticTestsResource))
       }
     )
-    Map(semanticTestsRunner)
+
+    Map(
+      semanticTestsRunner
+    )
   }
   private def optionalTests(
       commonConfig: PlatformApplications.Config,
@@ -212,12 +217,40 @@ object LedgerApiTestTool {
       }
     )
 
+    val packageManagementServiceIT = lazyInit(
+      "PackageManagementServiceIT",
+      name =>
+        new PackageManagementServiceIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    val partyManagementServiceIT = lazyInit(
+      "PartyManagementServiceIT",
+      name =>
+        new PartyManagementServiceIT {
+          override def suiteName: String = name
+          override def actorSystemName = s"${name}ToolActorSystem"
+          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
     Map(
       transactionServiceIT,
       transactionBackpressureIT,
       divulgenceIT,
       commandTransactionChecksHighLevelIT,
-      commandTransactionChecksLowLevelIT
+      commandTransactionChecksLowLevelIT,
+      packageManagementServiceIT,
+      partyManagementServiceIT
     )
   }
 

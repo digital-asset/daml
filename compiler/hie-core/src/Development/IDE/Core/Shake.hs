@@ -28,17 +28,18 @@ module Development.IDE.Core.Shake(
     shakeRun,
     shakeProfile,
     useStale,
-    use, uses,
-    use_, uses_,
+    use, useNoFile, uses,
+    use_, useNoFile_, uses_,
     define, defineEarlyCutoff,
     getDiagnostics, unsafeClearDiagnostics,
-    reportSeriousError,
     IsIdeGlobal, addIdeGlobal, getIdeGlobalState, getIdeGlobalAction,
     garbageCollect,
     setPriority,
     sendEvent,
     ideLogger,
-    FileVersion(..)
+    actionLogger,
+    FileVersion(..),
+    Priority(..)
     ) where
 
 import           Development.Shake
@@ -50,10 +51,13 @@ import qualified Data.Map as Map
 import qualified Data.ByteString.Char8 as BS
 import           Data.Dynamic
 import           Data.Maybe
+import Data.Map.Strict (Map)
 import           Data.Either.Extra
 import           Data.List.Extra
 import qualified Data.Text as T
-import Development.IDE.Types.Logger
+import Data.Unique
+import Development.IDE.Core.Debouncer
+import Development.IDE.Types.Logger hiding (Priority)
 import Language.Haskell.LSP.Diagnostics
 import qualified Data.SortedList as SL
 import           Development.IDE.Types.Diagnostics
@@ -72,16 +76,20 @@ import           Data.Time
 import           GHC.Generics
 import           System.IO.Unsafe
 import           Numeric.Extra
-
+import Language.Haskell.LSP.Types
 
 
 -- information we stash inside the shakeExtra field
 data ShakeExtras = ShakeExtras
     {eventer :: LSP.FromServerMessage -> IO ()
+    ,debouncer :: Debouncer NormalizedUri
     ,logger :: Logger
     ,globals :: Var (HMap.HashMap TypeRep Dynamic)
     ,state :: Var Values
     ,diagnostics :: Var DiagnosticStore
+    ,publishedDiagnostics :: Var (Map NormalizedUri [Diagnostic])
+    -- ^ This represents the set of diagnostics that we have published.
+    -- Due to debouncing not every change might get published.
     }
 
 getShakeExtras :: Action ShakeExtras
@@ -221,11 +229,49 @@ shakeOpen eventer logger opts rules = do
         globals <- newVar HMap.empty
         state <- newVar HMap.empty
         diagnostics <- newVar mempty
+        publishedDiagnostics <- newVar mempty
+        debouncer <- newDebouncer
         pure ShakeExtras{..}
-    (shakeDb, shakeClose) <- shakeOpenDatabase opts{shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts} rules
+    (shakeDb, shakeClose) <-
+        shakeOpenDatabase
+            opts
+                { shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts
+                , shakeProgress = lspShakeProgress eventer
+                }
+            rules
     shakeAbort <- newVar $ return ()
     shakeDb <- shakeDb
     return IdeState{..}
+
+lspShakeProgress :: (LSP.FromServerMessage -> IO ()) -> IO Progress -> IO ()
+lspShakeProgress sendMsg prog = do
+    u <- T.pack . show . hashUnique <$> newUnique
+    bracket_ (start u) (stop u) (loop u)
+    where
+        start id = sendMsg $ LSP.NotProgressStart $ LSP.fmServerProgressStartNotification
+            ProgressStartParams
+                { _id = id
+                , _title = "Processing"
+                , _cancellable = Nothing
+                , _message = Nothing
+                , _percentage = Nothing
+                }
+        stop id = sendMsg $ LSP.NotProgressDone $ LSP.fmServerProgressDoneNotification
+            ProgressDoneParams
+                { _id = id
+                }
+        sample = 0.1
+        loop id = forever $ do
+            sleep sample
+            p <- prog
+            let done = countSkipped p + countBuilt p
+            let todo = done + countUnknown p + countTodo p
+            sendMsg $ LSP.NotProgressReport $ LSP.fmServerProgressReportNotification
+                ProgressReportParams
+                    { _id = id
+                    , _message = Just $ T.pack $ show done <> "/" <> show todo
+                    , _percentage = Nothing
+                    }
 
 shakeProfile :: IdeState -> FilePath -> IO ()
 shakeProfile IdeState{..} = shakeProfileDatabase shakeDb
@@ -237,25 +283,17 @@ shakeShut IdeState{..} = withVar shakeAbort $ \stop -> do
     stop
     shakeClose
 
--- | Spawn immediately, add an action to collect the results syncronously.
---   If you are already inside a call to shakeRun that will be aborted with an exception.
--- The callback will be fired as soon as the results are available
--- even if there are still other rules running while the IO action that is
--- being returned will wait for all rules to finish.
-shakeRun :: IdeState -> [Action a] -> ([a] -> IO ()) -> IO (IO [a])
+-- | Spawn immediately. If you are already inside a call to shakeRun that will be aborted with an exception.
+shakeRun :: IdeState -> [Action a] -> IO (IO [a])
 -- FIXME: If there is already a shakeRun queued up and waiting to send me a kill, I should probably
 --        not even start, which would make issues with async exceptions less problematic.
-shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts callback = modifyVar shakeAbort $ \stop -> do
+shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $ \stop -> do
     (stopTime,_) <- duration stop
     logDebug logger $ T.pack $ "Starting shakeRun (aborting the previous one took " ++ showDuration stopTime ++ ")"
     bar <- newBarrier
     start <- offsetTime
-    let act = do
-            res <- parallel acts
-            liftIO $ callback res
-            pure res
-    thread <- forkFinally (shakeRunDatabaseProfile shakeDb [act]) $ \res -> do
-        signalBarrier bar (mapRight head res)
+    thread <- forkFinally (shakeRunDatabaseProfile shakeDb acts) $ \res -> do
+        signalBarrier bar res
         runTime <- start
         logDebug logger $ T.pack $
             "Finishing shakeRun (took " ++ showDuration runTime ++ ", " ++ (if isLeft res then "exception" else "completed") ++ ")"
@@ -297,8 +335,14 @@ use :: IdeRule k v
     => k -> NormalizedFilePath -> Action (Maybe v)
 use key file = head <$> uses key [file]
 
+useNoFile :: IdeRule k v => k -> Action (Maybe v)
+useNoFile key = use key ""
+
 use_ :: IdeRule k v => k -> NormalizedFilePath -> Action v
 use_ key file = head <$> uses_ key [file]
+
+useNoFile_ :: IdeRule k v => k -> Action v
+useNoFile_ key = use_ key ""
 
 uses_ :: IdeRule k v => k -> [NormalizedFilePath] -> Action [v]
 uses_ key files = do
@@ -306,11 +350,6 @@ uses_ key files = do
     case sequence res of
         Nothing -> liftIO $ throwIO BadDependency
         Just v -> return v
-
-reportSeriousError :: String -> Action ()
-reportSeriousError t = do
-    ShakeExtras{logger} <- getShakeExtras
-    liftIO $ logSeriousError logger $ T.pack t
 
 
 -- | When we depend on something that reported an error, and we fail as a direct result, throw BadDependency
@@ -391,26 +430,36 @@ updateFileDiagnostics ::
   -> ShakeExtras
   -> [Diagnostic] -- ^ current results
   -> Action ()
-updateFileDiagnostics fp k ShakeExtras{diagnostics, state} current = do
-    (newDiags, oldDiags) <- liftIO $ do
-        modTime <- join <$> getValues state GetModificationTime fp
-        modifyVar diagnostics $ \old -> do
-            let oldDiags = getFileDiagnostics fp old
+updateFileDiagnostics fp k ShakeExtras{diagnostics, publishedDiagnostics, state, debouncer, eventer} current = liftIO $ do
+    modTime <- join <$> getValues state GetModificationTime fp
+    mask_ $ do
+        -- Mask async exceptions to ensure that updated diagnostics are always
+        -- published. Otherwise, we might never publish certain diagnostics if
+        -- an exception strikes between modifyVar but before
+        -- publishDiagnosticsNotification.
+        newDiags <- modifyVar diagnostics $ \old -> do
             let newDiagsStore = setStageDiagnostics fp (vfsVersion =<< modTime) (T.pack $ show k) current old
             let newDiags = getFileDiagnostics fp newDiagsStore
-            pure (newDiagsStore, (newDiags, oldDiags))
-    when (newDiags /= oldDiags) $
-        sendEvent $ publishDiagnosticsNotification (fromNormalizedFilePath fp) newDiags
+            pure (newDiagsStore, newDiags)
+        let uri = filePathToUri' fp
+        let delay = if null newDiags then 0.1 else 0
+        registerEvent debouncer delay uri $ do
+             mask_ $ modifyVar_ publishedDiagnostics $ \published -> do
+                 let lastPublish = Map.findWithDefault [] uri published
+                 when (lastPublish /= newDiags) $
+                     eventer $ publishDiagnosticsNotification (fromNormalizedUri uri) newDiags
+                 pure (Map.insert uri newDiags published)
 
-publishDiagnosticsNotification :: FilePath -> [Diagnostic] -> LSP.FromServerMessage
-publishDiagnosticsNotification fp diags =
+publishDiagnosticsNotification :: Uri -> [Diagnostic] -> LSP.FromServerMessage
+publishDiagnosticsNotification uri diags =
     LSP.NotPublishDiagnostics $
     LSP.NotificationMessage "2.0" LSP.TextDocumentPublishDiagnostics $
-    LSP.PublishDiagnosticsParams (LSP.filePathToUri fp) (List diags)
+    LSP.PublishDiagnosticsParams uri (List diags)
 
-setPriority :: (Enum a) => a -> Action ()
-setPriority p =
-    deprioritize (fromIntegral . negate $ fromEnum p)
+newtype Priority = Priority Double
+
+setPriority :: Priority -> Action ()
+setPriority (Priority p) = deprioritize p
 
 sendEvent :: LSP.FromServerMessage -> Action ()
 sendEvent e = do
@@ -419,6 +468,11 @@ sendEvent e = do
 
 ideLogger :: IdeState -> Logger
 ideLogger IdeState{shakeExtras=ShakeExtras{logger}} = logger
+
+actionLogger :: Action Logger
+actionLogger = do
+    ShakeExtras{logger} <- getShakeExtras
+    return logger
 
 
 data GetModificationTime = GetModificationTime
@@ -446,14 +500,13 @@ getDiagnosticsFromStore (StoreItem _ diags) = concatMap SL.fromSortedList $ Map.
 
 -- | Sets the diagnostics for a file and compilation step
 --   if you want to clear the diagnostics call this with an empty list
-setStageDiagnostics ::
-  NormalizedFilePath ->
-  Maybe Int ->
-  -- ^ the time that the file these diagnostics originate from was last edited
-  T.Text ->
-  [LSP.Diagnostic] ->
-  DiagnosticStore ->
-  DiagnosticStore
+setStageDiagnostics
+    :: NormalizedFilePath
+    -> TextDocumentVersion -- ^ the time that the file these diagnostics originate from was last edited
+    -> T.Text
+    -> [LSP.Diagnostic]
+    -> DiagnosticStore
+    -> DiagnosticStore
 setStageDiagnostics fp timeM stage diags ds  =
     updateDiagnostics ds uri timeM diagsBySource
     where

@@ -9,8 +9,8 @@ import System.Environment
 import System.Exit
 import System.IO
 
+import DA.Signals
 import DamlHelper.Run
-import DamlHelper.Signals
 
 main :: IO ()
 main =
@@ -46,8 +46,8 @@ commandParser =
     where damlStudioCmd = DamlStudio
               <$> option readReplacement
                   (long "replace" <>
-                   help "Whether an existing extension should be overwritten. ('never', 'newer' or 'always', defaults to newer)" <>
-                   value ReplaceExtNewer
+                   help "Whether an existing extension should be overwritten. ('never' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')" <>
+                   value ReplaceExtPublished
                   )
               <*> many (argument str (metavar "ARG"))
           runJarCmd = RunJar
@@ -73,8 +73,8 @@ commandParser =
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
               "never" -> Just ReplaceExtNever
-              "newer" -> Just ReplaceExtNewer
               "always" -> Just ReplaceExtAlways
+              "published" -> Just ReplaceExtPublished
               _ -> Nothing
 
 runCommand :: Command -> IO ()

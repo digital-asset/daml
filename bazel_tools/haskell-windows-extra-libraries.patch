@@ -1,0 +1,19 @@
+Some packages, network in particular, require to link additional libraries to
+avoid missing symbol errors when linking on Windows.
+diff --git a/haskell/private/actions/package.bzl b/haskell/private/actions/package.bzl
+index 2b56388..0c5c37c 100644
+--- a/haskell/private/actions/package.bzl
++++ b/haskell/private/actions/package.bzl
+@@ -107,7 +107,12 @@ def package(
+         "library-dirs": ["${pkgroot}"] + extra_lib_dirs,
+         "dynamic-library-dirs": ["${pkgroot}"] + extra_lib_dirs,
+         "hs-libraries": [pkg_id.library_name(hs, my_pkg_id)],
+-        "extra-libraries": extra_libs,
++        "extra-libraries": extra_libs + ([
++            "stdc++",
++            "crypt32",
++            "shlwapi",
++            "ws2_32",
++        ] if hs.toolchain.is_windows else []),
+         "depends": hs.package_ids,
+     })

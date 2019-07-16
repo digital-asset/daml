@@ -20,29 +20,23 @@ data Version
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | DAML-LF version 1.4.
-version1_4 :: Version
-version1_4 = V1 $ PointStable 4
-
 -- | DAML-LF version 1.5
 version1_5 :: Version
 version1_5 = V1 $ PointStable 5
 
--- TODO(MH): Roll this when freezing DAML-LF 1.6.
 version1_6 :: Version
-version1_6 = versionDev
--- version1_6 = V1 $ PointStable 6
+version1_6 = V1 $ PointStable 6
 
 -- | The DAML-LF version used by default.
 versionDefault :: Version
-versionDefault = version1_5
+versionDefault = version1_6
 
 -- | The DAML-LF development version.
 versionDev :: Version
 versionDev = V1 PointDev
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_4, version1_5, versionDev]
+supportedInputVersions = [version1_5, version1_6, versionDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions
@@ -52,20 +46,6 @@ data Feature = Feature
     { featureName :: !T.Text
     , featureMinVersion :: !Version
     }
-
-featureSerializablePolymorphicContractIds :: Feature
-featureSerializablePolymorphicContractIds = Feature "Serializable polymorphic contract ids" version1_5
-
-featureCoerceContractId :: Feature
-featureCoerceContractId = Feature "Coerce function for contract ids" version1_5
-
-featureExerciseActorsOptional :: Feature
-featureExerciseActorsOptional = Feature "Optional exercise actors" version1_5
-
--- TODO(MH): When we remove this because we drop support for DAML-LF 1.4,
--- we should remove `legacyParse{Int, Decimal}` from `DA.Text` as well.
-featureNumberFromText :: Feature
-featureNumberFromText = Feature "Number parsing functions" version1_5
 
 featureTextCodePoints :: Feature
 featureTextCodePoints = Feature "Conversion between text and code points" version1_6

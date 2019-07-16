@@ -89,7 +89,7 @@ package com.digitalasset.sample {
           };
           new $anon()
         };
-        override protected val ` recordOrVariantId` = _root_.scala.Some(
+        override protected val ` dataTypeId` = _root_.scala.Some(
           ` rpcvalue`.Identifier(
             "e6a98a45832f0d7060c64f41909c181f2c94bb156232fdde869ca4161cac29a8",
             "Main.CallablePayout.Transfer"))

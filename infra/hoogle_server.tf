@@ -86,7 +86,7 @@ cat > /home/hoogle/refresh-db.sh <<CRON
 #!/usr/bin/env bash
 set -euxo pipefail
 log() {
-  echo "[$(date -Is)] $1" >> /home/hoogle/cron_log.txt
+  echo "[\$(date -Is)] \$1" >> /home/hoogle/cron_log.txt
 }
 log "Checking for new DAML version..."
 cd /home/hoogle/hoogle
@@ -109,6 +109,7 @@ else
 fi
 log "Done."
 CRON
+chmod +x /home/hoogle/refresh-db.sh
 chown hoogle:hoogle /home/hoogle/refresh-db.sh
 echo "*/5 * * * * /home/hoogle/refresh-db.sh" | crontab -u hoogle -
 STARTUP
@@ -156,10 +157,17 @@ resource "google_compute_instance_group_manager" "hoogle" {
     port = "8081"
   }
 
+  auto_healing_policies {
+    health_check = "${google_compute_health_check.hoogle-https.self_link}"
+
+    # Compiling hoogle takes some time
+    initial_delay_sec = 2500
+  }
+
   update_policy {
-    type            = "OPPORTUNISTIC"
-    minimal_action  = "REPLACE"
-    max_surge_fixed = 1
+    type                  = "PROACTIVE"
+    minimal_action        = "REPLACE"
+    max_unavailable_fixed = 1
   }
 }
 

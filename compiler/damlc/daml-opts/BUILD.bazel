@@ -1,0 +1,56 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "daml-opts-types",
+    srcs = ["daml-opts-types/DA/Daml/Options/Types.hs"],
+    hazel_deps = [
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "mtl",
+    ],
+    src_strip_prefix = "daml-opts-types",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/hie-core",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# This contains the conversion from the DAML-dependent Options type to
+# hie-core’s IdeOpts. We split this into a separate lib so that daml-opts-types
+# does not need to depend on the preprocessor.
+da_haskell_library(
+    name = "daml-opts",
+    srcs = ["daml-opts/DA/Daml/Options.hs"],
+    hazel_deps = [
+        "base",
+        "directory",
+        "extra",
+        "filepath",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "mtl",
+    ],
+    src_strip_prefix = "daml-opts",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":daml-opts-types",
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-preprocessor",
+        "//compiler/hie-core",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)

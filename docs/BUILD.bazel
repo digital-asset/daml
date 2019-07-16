@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("@build_bazel_rules_nodejs//:defs.bzl", "nodejs_binary")
-load("@os_info//:os_info.bzl", "is_linux")
+load("@os_info//:os_info.bzl", "is_linux", "is_windows")
 load("//rules_daml:daml.bzl", "daml_test")
 load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 
@@ -12,7 +12,7 @@ nodejs_binary(
         "@npm//grunt-cli",
         "@npm//matchdep",
     ],
-    entry_point = "grunt-cli/bin/grunt",
+    entry_point = "@npm//:node_modules/grunt-cli/bin/grunt",
 )
 
 genrule(
@@ -73,12 +73,12 @@ genrule(
         ":grunt",
         "@sass_nix//:bin/sass",
     ],
-)
+) if not is_windows else None
 
 genrule(
     name = "sources",
     srcs = glob(["source/**"]) + [
-        "//daml-foundations/daml-ghc:daml-base-rst-docs",
+        "//compiler/damlc:daml-base-rst-docs",
         "//ledger-api/grpc-definitions:docs",
         "//:LICENSE",
         "//:NOTICES",
@@ -88,7 +88,7 @@ genrule(
         cp -rL docs/source source
 
         # Copy in Stdlib
-        cp -rL $(location //daml-foundations/daml-ghc:daml-base-rst-docs) source/daml/reference/base.rst
+        cp -rL $(location //compiler/damlc:daml-base-rst-docs) source/daml/reference/base.rst
 
         # Copy in Protobufs
         cp -rL $(location //ledger-api/grpc-definitions:docs) source/app-dev/grpc/proto-docs.rst
@@ -146,7 +146,7 @@ genrule(
             "@sphinx_nix//:bin/sphinx-build",
             "@imagemagick_nix//:bin/convert",
         ] + (["@glibc_locales//:locale-archive"] if is_linux else []),
-)
+) if not is_windows else None
 
 genrule(
     name = "docs-no-pdf",
@@ -156,8 +156,8 @@ genrule(
     ]) + [
         ":sources",
         ":theme",
-        "//daml-foundations/daml-ghc:daml-base-rst-docs",
-        "//daml-foundations/daml-ghc:daml-base-hoogle-docs",
+        "//compiler/damlc:daml-base-rst-docs",
+        "//compiler/damlc:daml-base-hoogle-docs",
         "//language-support/java:javadoc",
     ],
     outs = ["html-only.tar.gz"],
@@ -192,14 +192,14 @@ genrule(
 
         # Copy in hoogle DB
         mkdir -p html/hoogle_db
-        cp -rL ../$(location //daml-foundations/daml-ghc:daml-base-hoogle-docs) html/hoogle_db/base.txt
+        cp -rL ../$(location //compiler/damlc:daml-base-hoogle-docs) html/hoogle_db/base.txt
 
         tar -zcf ../$(location html-only.tar.gz) html
         """,
     tools =
         ["@sphinx_nix//:bin/sphinx-build"] +
         (["@glibc_locales//:locale-archive"] if is_linux else []),
-)
+) if not is_windows else None
 
 genrule(
     name = "redirects",
@@ -258,7 +258,7 @@ genrule(
         """<url><loc>%LOC%</loc><lastmod>%DATE%</lastmod><changefreq>daily</changefreq><priority>0.8</priority></url>""",
         """</urlset>""",
     ),
-)
+) if not is_windows else None
 
 filegroup(
     name = "daml-assistant-iou-setup",
@@ -325,52 +325,62 @@ java_binary(
 daml_test(
     name = "ledger-api-daml-test",
     srcs = glob(["source/app-dev/code-snippets/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "bindings-java-daml-test",
     srcs = glob(["source/app-dev/bindings-java/code-snippets/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "patterns-daml-test",
     srcs = glob(["source/daml/patterns/daml/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "daml-studio-daml-test",
     srcs = glob(["source/daml/daml-studio/daml/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "daml-ref-daml-test",
     timeout = "long",
     srcs = glob(["source/daml/code-snippets/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "introduction-daml-test",
     srcs = glob(["source/getting-started/introduction/code/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "quickstart-daml-test",
     srcs = glob(["source/getting-started/quickstart/template-root/daml/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "ledger-model-daml-test",
     srcs = glob(["source/concepts/ledger-model/daml/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "java-bindings-docs-daml-test",
     srcs = glob(["source/app-dev/bindings-java/daml/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 daml_test(
     name = "daml-intro-daml-test",
     srcs = glob(["source/daml/intro/daml/**/*.daml"]),
+    flaky = is_windows,  # https://github.com/digital-asset/daml/issues/1907
 )
 
 filegroup(

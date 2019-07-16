@@ -45,7 +45,7 @@ This may seem awkward, but notice that the ``ensure`` clause is gone from the ``
 
 You'll now learn a couple of common of ways of buildng issuance and transfer workflows for the above ``Iou``, before diving into the authorization model in full.
 
-Use propose-accept workflows for one-off authorizaiton
+Use propose-accept workflows for one-off authorization
 ------------------------------------------------------
 
 If there is no standing relationship between Alice and Bob, Alice can propose the issuance of an Iou to Bob, giving him the choice to accept. You can do so by introducing a proposal contract ``IouProposal``:

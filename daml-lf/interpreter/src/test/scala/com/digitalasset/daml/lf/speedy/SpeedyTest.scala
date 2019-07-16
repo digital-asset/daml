@@ -96,7 +96,11 @@ class SpeedyTest extends WordSpec with Matchers {
 object SpeedyTest {
 
   private def eval(e: Expr, packages: PureCompiledPackages): Either[SError, SValue] = {
-    val machine = Speedy.Machine.fromExpr(e, packages, false)
+    val machine = Speedy.Machine.fromExpr(
+      expr = e,
+      checkSubmitterInMaintainers = true,
+      compiledPackages = packages,
+      scenario = false)
     final case class Goodbye(e: SError) extends RuntimeException("", null, false, false)
     try {
       while (!machine.isFinal) machine.step() match {

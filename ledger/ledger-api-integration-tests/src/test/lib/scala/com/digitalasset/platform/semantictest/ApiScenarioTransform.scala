@@ -92,6 +92,8 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
     def toLfCreated(p: Ast.Package, createdEvent: ApiCreatedEvent)
       : Either[StatusRuntimeException, P.CreateEvent[AbsoluteContractId]] = {
       val witnesses = P.parties(createdEvent.witnessParties)
+      val signatories = P.parties(createdEvent.signatories)
+      val observers = P.parties(createdEvent.observers)
       for {
         coid <- toContractId(createdEvent.contractId)
         value <- toLfVersionedValue(createdEvent.getCreateArguments)
@@ -109,8 +111,8 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
             toLfVersionedValue(key).fold(throw _, KeyWithMaintainers(_, Set.empty))),
           value,
           createdEvent.agreementText.getOrElse(""),
-          // conversion is imperfect as stakeholders are not determinable from events yet
-          witnesses,
+          signatories,
+          observers,
           witnesses
         )
     }

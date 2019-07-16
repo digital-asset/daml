@@ -9,14 +9,14 @@ import com.digitalasset.daml.lf.data.Ref
 /** Offsets into streams with hierarchical addressing.
   *
   * We use these [[Offset]]'s to address changes to the participant state.
-  * We allow for array of [[Int]] to allow for hierarchical addresses.
-  * These [[Int]] values are expected to be positive. Offsets are ordered by
+  * We allow for array of [[Long]] to allow for hierarchical addresses.
+  * These [[Long]] values are expected to be positive. Offsets are ordered by
   * lexicographic ordering of the array elements.
   *
   * A typical use case for [[Offset]]s would be addressing a transaction in a
   * blockchain by `[<blockheight>, <transactionId>]`. Depending on the
   * structure of the underlying ledger these offsets are more or less
-  * nested, which is why we use an array of [[Int]]s. The expectation is
+  * nested, which is why we use an array of [[Long]]s. The expectation is
   * though that there usually are few elements in the array.
   *
   */

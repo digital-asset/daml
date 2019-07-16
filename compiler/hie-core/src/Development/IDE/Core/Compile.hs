@@ -9,24 +9,22 @@
 --   Given a list of paths to find libraries, and a file to compile, produce a list of 'CoreModule' values.
 module Development.IDE.Core.Compile
   ( TcModuleResult(..)
-  , getGhcDynFlags
   , compileModule
-  , getSrcSpanInfos
   , parseModule
-  , parseFileContents
   , typecheckModule
   , computePackageDeps
+  , addRelativeImport
   ) where
 
-import           Development.IDE.GHC.Warnings
-import           Development.IDE.GHC.CPP
-import           Development.IDE.Types.Diagnostics
-import qualified Development.IDE.Import.FindImports as FindImports
-import           Development.IDE.GHC.Error
-import           Development.IDE.Spans.Calculate
+import Development.IDE.Core.RuleTypes
+import Development.IDE.GHC.CPP
+import Development.IDE.GHC.Error
+import Development.IDE.GHC.Warnings
+import Development.IDE.Types.Diagnostics
 import Development.IDE.GHC.Orphans()
 import Development.IDE.GHC.Util
 import Development.IDE.GHC.Compat
+import qualified GHC.LanguageExtensions.Type as GHC
 import Development.IDE.Types.Options
 import Development.IDE.Types.Location
 
@@ -45,8 +43,8 @@ import           StringBuffer                   as SB
 import           TidyPgm
 import qualified GHC.LanguageExtensions as LangExt
 
-import Control.DeepSeq
-import           Control.Monad
+import Control.Monad.Extra
+import Control.Monad.Except
 import Control.Monad.Trans.Except
 import qualified Data.Text as T
 import           Data.IORef
@@ -54,49 +52,22 @@ import           Data.List.Extra
 import           Data.Maybe
 import           Data.Tuple.Extra
 import qualified Data.Map.Strict                          as Map
-import           Development.IDE.Spans.Type
 import           System.FilePath
 import           System.Directory
 import System.IO.Extra
-
-
--- | Contains the typechecked module and the OrigNameCache entry for
--- that module.
-data TcModuleResult = TcModuleResult
-    { tmrModule     :: TypecheckedModule
-    , tmrModInfo    :: HomeModInfo
-    }
-instance Show TcModuleResult where
-    show = show . pm_mod_summary . tm_parsed_module . tmrModule
-
-instance NFData TcModuleResult where
-    rnf = rwhnf
-
-
--- | Get source span info, used for e.g. AtPoint and Goto Definition.
-getSrcSpanInfos
-    :: ParsedModule
-    -> HscEnv
-    -> [(Located ModuleName, Maybe NormalizedFilePath)]
-    -> TcModuleResult
-    -> IO [SpanInfo]
-getSrcSpanInfos mod env imports tc =
-    runGhcSession (Just mod) env
-        . getSpanInfo imports
-        $ tmrModule tc
-
+import Data.Char
 
 -- | Given a string buffer, return a pre-processed @ParsedModule@.
 parseModule
     :: IdeOptions
     -> HscEnv
     -> FilePath
-    -> SB.StringBuffer
+    -> Maybe SB.StringBuffer
     -> IO ([FileDiagnostic], Maybe ParsedModule)
 parseModule IdeOptions{..} env file =
     fmap (either (, Nothing) (second Just)) .
     -- We need packages since imports fail to resolve otherwise.
-    runGhcSession Nothing env . runExceptT . parseFileContents optPreprocessor file
+    runGhcEnv env . runExceptT . parseFileContents optPreprocessor file
 
 
 -- | Given a package identifier, what packages does it depend on
@@ -121,25 +92,24 @@ typecheckModule
     -> IO ([FileDiagnostic], Maybe TcModuleResult)
 typecheckModule opt packageState deps pm =
     fmap (either (, Nothing) (second Just)) $
-    runGhcSession (Just pm) packageState $
+    runGhcEnv packageState $
         catchSrcErrors $ do
             setupEnv deps
             (warnings, tcm) <- withWarnings $ \tweak ->
                 GHC.typecheckModule pm{pm_mod_summary = tweak $ pm_mod_summary pm}
-            tcm2 <- mkTcModuleResult (WriteInterface $ optWriteIface opt) tcm
+            tcm2 <- mkTcModuleResult (optIfaceDir opt) tcm
             return (warnings, tcm2)
 
 -- | Compile a single type-checked module to a 'CoreModule' value, or
 -- provide errors.
 compileModule
-    :: ParsedModule
-    -> HscEnv
+    :: HscEnv
     -> [TcModuleResult]
     -> TcModuleResult
     -> IO ([FileDiagnostic], Maybe CoreModule)
-compileModule mod packageState deps tmr =
+compileModule packageState deps tmr =
     fmap (either (, Nothing) (second Just)) $
-    runGhcSession (Just mod) packageState $
+    runGhcEnv packageState $
         catchSrcErrors $ do
             setupEnv (deps ++ [tmr])
 
@@ -163,51 +133,20 @@ compileModule mod packageState deps tmr =
             return (warnings, core)
 
 
-getGhcDynFlags :: ParsedModule -> HscEnv -> IO DynFlags
-getGhcDynFlags mod pkg = runGhcSession (Just mod) pkg getSessionDynFlags
-
--- | Evaluate a GHC session using a new environment constructed with
--- the supplied options.
-runGhcSession
-    :: Maybe ParsedModule
-    -> HscEnv
-    -> Ghc a
-    -> IO a
-runGhcSession modu env act = runGhcEnv env $ do
-    modifyDynFlags $ \x -> x
-        {importPaths = nubOrd $ maybeToList (moduleImportPaths =<< modu) ++ importPaths x}
-    act
-
-
-moduleImportPaths :: GHC.ParsedModule -> Maybe FilePath
-moduleImportPaths pm
-  | rootModDir == "." = Just rootPathDir
-  | otherwise =
-    -- TODO (MK) stripSuffix (normalise rootModDir) (normalise rootPathDir)
-    -- would be a better choice but at the moment we do not consistently
-    -- normalize file paths in the Shake graph so we can end up with the
-    -- same module being represented twice in the Shake graph.
-    Just $ dropTrailingPathSeparator $ dropEnd (length rootModDir) rootPathDir
-  where
-    ms   = GHC.pm_mod_summary pm
-    file = GHC.ms_hspp_file ms
-    mod'  = GHC.ms_mod ms
-    rootPathDir  = takeDirectory file
-    rootModDir   = takeDirectory . moduleNameSlashes . GHC.moduleName $ mod'
-
-
-newtype WriteInterface = WriteInterface Bool
+addRelativeImport :: ParsedModule -> DynFlags -> DynFlags
+addRelativeImport modu dflags = dflags
+    {importPaths = nubOrd $ maybeToList (moduleImportPaths modu) ++ importPaths dflags}
 
 mkTcModuleResult
     :: GhcMonad m
-    => WriteInterface
+    => InterfaceDirectory
     -> TypecheckedModule
     -> m TcModuleResult
-mkTcModuleResult (WriteInterface writeIface) tcm = do
+mkTcModuleResult (InterfaceDirectory mbIfaceDir) tcm = do
     session   <- getSession
     (iface,_) <- liftIO $ mkIfaceTc session Nothing Sf_None details tcGblEnv
-    liftIO $ when writeIface $ do
-        let path = ".interfaces" </> file tcm
+    liftIO $ whenJust mbIfaceDir $ \ifaceDir -> do
+        let path = ifaceDir </> file tcm
         createDirectoryIfMissing True (takeDirectory path)
         writeIfaceFile (hsc_dflags session) (replaceExtension path ".hi") iface
         -- For now, we write .hie files whenever we write .hi files which roughly corresponds to
@@ -263,6 +202,35 @@ loadModuleHome tmr = modifySession $ \e ->
     mod_info = tmrModInfo tmr
     mod      = ms_mod_name ms
 
+
+
+-- | GhcMonad function to chase imports of a module given as a StringBuffer. Returns given module's
+-- name and its imports.
+getImportsParsed ::  DynFlags ->
+               GHC.ParsedSource ->
+               Either [FileDiagnostic] (GHC.ModuleName, [(Maybe FastString, Located GHC.ModuleName)])
+getImportsParsed dflags (L loc parsed) = do
+  let modName = maybe (GHC.mkModuleName "Main") GHC.unLoc $ GHC.hsmodName parsed
+
+  -- refuse source imports
+  let srcImports = filter (ideclSource . GHC.unLoc) $ GHC.hsmodImports parsed
+  when (not $ null srcImports) $ Left $
+    concat
+      [ diagFromString mloc ("Illegal source import of " <> GHC.moduleNameString (GHC.unLoc $ GHC.ideclName i))
+      | L mloc i <- srcImports ]
+
+  -- most of these corner cases are also present in https://hackage.haskell.org/package/ghc-8.6.1/docs/src/HeaderInfo.html#getImports
+  -- but we want to avoid parsing the module twice
+  let implicit_prelude = xopt GHC.ImplicitPrelude dflags
+      implicit_imports = Hdr.mkPrelImports modName loc implicit_prelude $ GHC.hsmodImports parsed
+
+  -- filter out imports that come from packages
+  return (modName, [(fmap sl_fs $ ideclPkgQual i, ideclName i)
+    | i <- map GHC.unLoc $ implicit_imports ++ GHC.hsmodImports parsed
+    , GHC.moduleNameString (GHC.unLoc $ ideclName i) /= "GHC.Prim"
+    ])
+
+
 -- | Produce a module summary from a StringBuffer.
 getModSummaryFromBuffer
     :: GhcMonad m
@@ -272,7 +240,7 @@ getModSummaryFromBuffer
     -> GHC.ParsedSource
     -> ExceptT [FileDiagnostic] m ModSummary
 getModSummaryFromBuffer fp contents dflags parsed = do
-  (modName, imports) <- FindImports.getImportsParsed dflags parsed
+  (modName, imports) <- liftEither $ getImportsParsed dflags parsed
 
   let modLoc = ModLocation
           { ml_hs_file  = Just fp
@@ -290,10 +258,10 @@ getModSummaryFromBuffer fp contents dflags parsed = do
     { ms_mod          = mkModule (fsToUnitId unitId) modName
     , ms_location     = modLoc
     , ms_hs_date      = error "Rules should not depend on ms_hs_date"
-    -- ^ When we are working with a virtual file we do not have a file date.
-    -- To avoid silent issues where something is not processed because the date
-    -- has not changed, we make sure that things blow up if they depend on the
-    -- date.
+        -- When we are working with a virtual file we do not have a file date.
+        -- To avoid silent issues where something is not processed because the date
+        -- has not changed, we make sure that things blow up if they depend on the
+        -- date.
     , ms_textual_imps = imports
     , ms_hspp_file    = fp
     , ms_hspp_opts    = dflags
@@ -310,15 +278,55 @@ getModSummaryFromBuffer fp contents dflags parsed = do
     , ms_parsed_mod   = Nothing
     }
 
+-- | Run CPP on a file
+runCpp :: DynFlags -> FilePath -> Maybe SB.StringBuffer -> IO SB.StringBuffer
+runCpp dflags filename contents = withTempDir $ \dir -> do
+    let out = dir </> takeFileName filename <.> "out"
+    case contents of
+        Nothing -> do
+            -- Happy case, file is not modified, so run CPP on it in-place
+            -- which also makes things like relative #include files work
+            -- and means location information is correct
+            doCpp dflags True filename out
+            liftIO $ SB.hGetStringBuffer out
+
+        Just contents -> do
+            -- Sad path, we have to create a version of the path in a temp dir
+            -- __FILE__ macro is wrong, ignoring that for now (likely not a real issue)
+
+            -- Relative includes aren't going to work, so we fix that by adding to the include path.
+            let addSelf (IncludeSpecs quote global) = IncludeSpecs (takeDirectory filename : quote) global
+            dflags <- return dflags{includePaths = addSelf $ includePaths dflags}
+
+            -- Location information is wrong, so we fix that by patching it afterwards.
+            let inp = dir </> "___HIE_CORE_MAGIC___"
+            withBinaryFile inp WriteMode $ \h ->
+                hPutStringBuffer h contents
+            doCpp dflags True inp out
+
+            -- Fix up the filename in lines like:
+            -- # 1 "C:/Temp/extra-dir-914611385186/___HIE_CORE_MAGIC___"
+            let tweak x
+                    | Just x <- stripPrefix "# " x
+                    , "___HIE_CORE_MAGIC___" `isInfixOf` x
+                    , let num = takeWhile (not . isSpace) x
+                    -- important to use /, and never \ for paths, even on Windows, since then C escapes them
+                    -- and GHC gets all confused
+                        = "# " <> num <> " \"" <> map (\x -> if isPathSeparator x then '/' else x) filename <> "\""
+                    | otherwise = x
+            stringToStringBuffer . unlines . map tweak . lines <$> readFileUTF8' out
+
+
 -- | Given a buffer, flags, file path and module summary, produce a
 -- parsed module (or errors) and any parse warnings.
 parseFileContents
        :: GhcMonad m
        => (GHC.ParsedSource -> ([(GHC.SrcSpan, String)], GHC.ParsedSource))
        -> FilePath  -- ^ the filename (for source locations)
-       -> SB.StringBuffer -- ^ Haskell module source text (full Unicode is supported)
+       -> Maybe SB.StringBuffer -- ^ Haskell module source text (full Unicode is supported)
        -> ExceptT [FileDiagnostic] m ([FileDiagnostic], ParsedModule)
-parseFileContents preprocessor filename contents = do
+parseFileContents preprocessor filename mbContents = do
+   contents <- liftIO $ maybe (hGetStringBuffer filename) return mbContents
    let loc  = mkRealSrcLoc (mkFastString filename) 1 1
    dflags  <- ExceptT $ parsePragmasIntoDynFlags filename contents
 
@@ -326,13 +334,7 @@ parseFileContents preprocessor filename contents = do
       if not $ xopt LangExt.Cpp dflags then
           return (contents, dflags)
       else do
-          contents <- liftIO $ withTempDir $ \dir -> do
-              let inp = dir </> takeFileName filename
-              let out = dir </> takeFileName filename <.> "out"
-              let f x = if SB.atEnd x then Nothing else Just $ SB.nextChar x
-              liftIO $ writeFileUTF8 inp (unfoldr f contents)
-              doCpp dflags True inp out
-              liftIO $ SB.hGetStringBuffer out
+          contents <- liftIO $ runCpp dflags filename mbContents
           dflags <- ExceptT $ parsePragmasIntoDynFlags filename contents
           return (contents, dflags)
 

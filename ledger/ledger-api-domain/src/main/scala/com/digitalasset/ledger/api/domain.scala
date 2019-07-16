@@ -77,6 +77,8 @@ object domain {
         templateId: Ref.Identifier,
         createArguments: ValueRecord[AbsoluteContractId],
         witnessParties: immutable.Set[Ref.Party],
+        signatories: immutable.Set[Ref.Party],
+        observers: immutable.Set[Ref.Party],
         agreementText: String,
         contractKey: Option[Value])
         extends Event
@@ -259,7 +261,7 @@ object domain {
 
   sealed trait ParticipantIdTag
 
-  type ParticipantId = String @@ ParticipantIdTag
+  type ParticipantId = Ref.LedgerString @@ ParticipantIdTag
   val ParticipantId: Tag.TagOf[ParticipantIdTag] = Tag.of[ParticipantIdTag]
 
   sealed trait ApplicationIdTag

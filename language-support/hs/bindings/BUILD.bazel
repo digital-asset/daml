@@ -1,13 +1,14 @@
 # Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//rules_daml:daml.bzl", "daml_compile")
 
 da_haskell_library(
     name = "hs-ledger",
     srcs = glob(["src/**/*.hs"]),
     hazel_deps = [
+        "async",
         "base",
         "bytestring",
         "containers",
@@ -17,6 +18,8 @@ da_haskell_library(
         "retry",
         "text",
         "time",
+        "transformers",
+        "unliftio",
         "vector",
     ],
     visibility = ["//visibility:public"],
@@ -64,13 +67,21 @@ daml_compile(
     main_src = "test/daml/quickstart/Main.daml",
 )
 
+daml_compile(
+    name = "for-upload",
+    srcs = glob(["test/daml/for-upload/ExtraModule.daml"]),
+    main_src = "test/daml/for-upload/ExtraModule.daml",
+)
+
 da_haskell_test(
     name = "test",
     srcs = glob(["test/**/*.hs"]),
     data = [
+        ":for-upload.dar",
         ":quickstart.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
+    flaky = True,  # FIXME Remove this once #1927 is solved
     hazel_deps = [
         "async",
         "base",
@@ -85,6 +96,7 @@ da_haskell_test(
         "tasty-hunit",
         "text",
         "time",
+        "utf8-string",
         "uuid",
         "zip-archive",
     ],
@@ -97,5 +109,17 @@ da_haskell_test(
         "//compiler/daml-lf-reader",
         "//language-support/hs/bindings:hs-ledger",
         "//libs-haskell/bazel-runfiles",
+    ],
+)
+
+da_haskell_repl(
+    name = "repl",
+    testonly = True,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/hs/bindings:hs-ledger",
+        "//language-support/hs/bindings:test",
+        "//language-support/hs/bindings:nim",
+        #"//language-support/hs/bindings/examples/chat", # TODO: avoid issue of duplicate Main
     ],
 )

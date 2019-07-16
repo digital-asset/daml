@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_library(
     name = "da-hs-base",
@@ -10,6 +11,7 @@ da_haskell_library(
         "aeson-pretty",
         "aeson",
         "ansi-terminal",
+        "async",
         "base",
         "base16-bytestring",
         "base64-bytestring",
@@ -27,7 +29,7 @@ da_haskell_library(
         "http-conduit",
         "http-types",
         "lens",
-        "monad-control",
+        "monad-loops",
         "mtl",
         "optparse-applicative",
         "pretty-show",
@@ -50,7 +52,7 @@ da_haskell_library(
         "utf8-string",
         "uuid",
         "vector",
-    ],
+    ] + ([] if is_windows else ["unix"]),
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
@@ -63,6 +65,7 @@ da_haskell_test(
     srcs = glob(["tests/**/*.hs"]),
     hazel_deps = [
         "aeson",
+        "extra",
         "tasty",
         "base",
         "directory",

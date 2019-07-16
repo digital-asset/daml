@@ -41,6 +41,7 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/scenario-service/protos:scenario_service_haskell_proto",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//nix/third-party/gRPC-haskell:grpc-haskell",

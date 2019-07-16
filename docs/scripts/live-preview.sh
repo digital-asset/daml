@@ -45,9 +45,9 @@ do
     fi
     if [ "$arg" = "--gen" ]; then
         # Hoogle
-        bazel build //daml-foundations/daml-ghc:daml-base-hoogle-docs
+        bazel build //compiler/damlc:daml-base-hoogle-docs
         mkdir -p $BUILD_DIR/gen/hoogle_db
-        cp -L ../../bazel-genfiles/daml-foundations/daml-ghc/daml-base-hoogle.txt $BUILD_DIR/gen/hoogle_db/base.txt
+        cp -L ../../bazel-genfiles/compiler/damlc/daml-base-hoogle.txt $BUILD_DIR/gen/hoogle_db/base.txt
 
         # Javadoc
         bazel build //language-support/java:javadocs
@@ -59,8 +59,8 @@ do
         cp -L ../../bazel-genfiles/ledger-api/grpc-definitions/proto-docs.rst ../source/app-dev/grpc/
 
         #StdLib
-        bazel build //daml-foundations/daml-ghc:daml-base-rst-docs
-        cp -L ../../bazel-genfiles/daml-foundations/daml-ghc/daml-base.rst ../source/daml/reference/base.rst
+        bazel build //compiler/damlc:daml-base-rst-docs
+        cp -L ../../bazel-genfiles/compiler/damlc/daml-base.rst ../source/daml/reference/base.rst
     fi
 done
 

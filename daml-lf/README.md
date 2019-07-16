@@ -77,7 +77,7 @@ Components
 
 - `testing-tools` helps you run scenarios from Scalatest.
 
-[official LF specification]: ../daml-tools/docs/daml-lf-specification/source/index.rst
+[official LF specification]: spec/daml-lf-1.rst
 [DAML-LF Governance process]: governance.rst
 [CEK machine]: https://gist.github.com/ekmett/f081b5e36bac3fed1ea6b21eb25327c6
 
@@ -145,13 +145,10 @@ The REPL can be compiled with `bazel build //:daml-lf-repl` and run with
 `bazel run //:daml-lf-repl -- repl`. The `//:` prefix is not needed when
 at repository root.
 
-Note that the REPL currently only supports loading from .dalf files,
-not from .dar files.
-
 Example use:
 
 $ bazel run //:daml-lf-repl -- repl
-daml> :load project.dalf
+daml> :load project.dar
 daml> Project.double 4
 8
 daml> :scenario Project.tests

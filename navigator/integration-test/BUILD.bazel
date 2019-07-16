@@ -23,7 +23,7 @@ da_scala_binary(
         "//3rdparty/jvm/io/circe:circe_parser",
         "//3rdparty/jvm/org/scalatest",
         "//3rdparty/jvm/org/seleniumhq/selenium:selenium_java",
-        "//daml-foundations/daml-tools/damlc-jar:damlc_library_jar",
+        "//compiler/damlc/jar:damlc_library_jar",
         "//ledger/sandbox",
     ],
 )

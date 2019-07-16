@@ -9,6 +9,7 @@ import "google/protobuf/timestamp.proto";
 
 option java_outer_classname = "PackageManagementServiceOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1.admin";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1.Admin";
 
 // Status: experimental interface, will change before it is deemed production
 // ready
@@ -63,6 +64,8 @@ message PackageDetails {
   string package_id = 1;
 
   // Size of the package in bytes.
+  // The size of the package is given by the size of the ``daml_lf``
+  // ArchivePayload. See further details in ``daml_lf.proto``.
   // Required
   uint64 package_size = 2;
 
@@ -70,7 +73,7 @@ message PackageDetails {
   // Required
   google.protobuf.Timestamp known_since = 3;
 
-  // Descrioption provided by the backing participant descnribing where
+  // Description provided by the backing participant describing where
   // it got the package from.
   // Optional
   string source_description = 4;

@@ -88,33 +88,12 @@ def _wrap_rule(rule, name = "", deps = [], hazel_deps = [], compiler_flags = [],
         repl_ghci_commands = [
             ":m " + main_module,
         ]
-    haskell_repl(
+    da_haskell_repl(
         name = name + "@ghci",
         deps = [name],
-        experimental_from_binary = ["//nix/..."],
-        ghci_repl_wrapper = select({
-            "//:hie_bios_ghci": "//bazel_tools:ghci-template.sh",
-            "//conditions:default": "@io_tweag_rules_haskell//haskell:private/ghci_repl_wrapper.sh",
-        }),
-        repl_ghci_args = [
-            "-fexternal-interpreter",
-            "-j",
-            "+RTS",
-            "-I0",
-            "-n2m",
-            "-A128m",
-            "-qb0",
-            "-RTS",
-        ],
         repl_ghci_commands = repl_ghci_commands,
         testonly = kwargs.get("testonly", False),
         visibility = ["//visibility:public"],
-        # Whether to make runfiles, such as the daml stdlib, available to the
-        # REPL. Pass --define ghci_data=True to enable.
-        collect_data = select({
-            "//:ghci_data": True,
-            "//conditions:default": False,
-        }),
     )
 
 def da_haskell_library(**kwargs):
@@ -262,11 +241,37 @@ def da_haskell_repl(**kwargs):
 
     """
 
+    # Set default arguments
+    with_defaults = dict(
+        # Whether to make runfiles, such as the daml stdlib, available to the
+        # REPL. Pass --define ghci_data=True to enable.
+        collect_data = select({
+            "//:ghci_data": True,
+            "//conditions:default": False,
+        }),
+        experimental_from_binary = ["//nix/..."],
+        ghci_repl_wrapper = select({
+            "//:hie_bios_ghci": "//bazel_tools:ghci-template.sh",
+            "//conditions:default": "@io_tweag_rules_haskell//haskell:private/ghci_repl_wrapper.sh",
+        }),
+        repl_ghci_args = [
+            "-fexternal-interpreter",
+            "-j",
+            "+RTS",
+            "-I0",
+            "-n2m",
+            "-A128m",
+            "-qb0",
+            "-RTS",
+        ],
+    )
+    with_defaults.update(kwargs)
+
     # The common_haskell_exts and common_haskell_flags are already passed on
     # the library/binary/test rule wrappers. haskell_repl will pick these up
     # automatically, if such targets are loaded by source.
     # Right now we don't set any default flags.
-    haskell_repl(**kwargs)
+    haskell_repl(**with_defaults)
 
 def _sanitize_string_for_usage(s):
     res_array = []

@@ -42,7 +42,7 @@ import com.digitalasset.daml_lf.DamlLf
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
-import java.util.concurrent.Executors
+import java.util.concurrent.{ExecutorService, Executors}
 
 object DamlOnXSubmissionService {
 
@@ -87,8 +87,9 @@ class DamlOnXSubmissionService private (
 
   // NOTE(JM): Dummy caching of archive decoding. Leaving this in
   // as this code dies soon.
+  private val packageLoadExecutorService: ExecutorService = Executors.newFixedThreadPool(1)
   private val packageLoadContext: ExecutionContextExecutor =
-    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
+    ExecutionContext.fromExecutor(packageLoadExecutorService)
   private val packageCache: scala.collection.mutable.Map[Ref.PackageId, Ast.Package] =
     scala.collection.mutable.Map.empty
 
@@ -182,6 +183,6 @@ class DamlOnXSubmissionService private (
     resolveStep(result)
   }
 
-  override def close(): Unit = ()
+  override def close(): Unit = packageLoadExecutorService.shutdown()
 
 }

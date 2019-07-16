@@ -96,6 +96,10 @@ class DummyLedgerClient(
         offset: LedgerOffset,
         parties: util.Set[String]): Flowable[CompletionStreamResponse] =
       commandCompletions
+    override def completionStream(
+        applicationId: String,
+        parties: util.Set[String]): Flowable[CompletionStreamResponse] =
+      commandCompletions
 
     override def completionEnd(): Single[CompletionEndResponse] = ???
   }

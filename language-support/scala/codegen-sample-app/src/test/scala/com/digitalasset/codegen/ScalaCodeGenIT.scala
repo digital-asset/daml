@@ -44,15 +44,16 @@ import com.digitalasset.sample.MyMain.{
   MkListExample,
   MyRecord,
   MyVariant,
+  MyEnum,
   NameClashRecord,
   NameClashVariant,
   OptTextMapInt,
   PayOut,
-  RecordWithNestedMyVariant,
+  RecordWithNestedMyVariantMyEnum,
   SimpleListExample,
   TemplateWith23Arguments,
   TemplateWithCustomTypes,
-  TemplateWithNestedRecordsAndVariants,
+  TemplateWithNestedRecordsVariantsAndEnums,
   TemplateWithSelfReference,
   TemplateWithUnitParam,
   TextMapInt,
@@ -215,14 +216,16 @@ class ScalaCodeGenIT
     val myRecord =
       MyRecord(1, BigDecimal("1.2"), alice, "Text", time, (), boolVal, List(10, 20, 30))
     val myVariant = MyVariant.MyVariantA(())
+    val myEnum = MyEnum.MyEnumA
     val recordWithNestedMyVariant =
-      RecordWithNestedMyVariant(MyVariant.MyVariantA(()), MyVariant.MyVariantB(()))
+      RecordWithNestedMyVariantMyEnum(MyVariant.MyVariantB(()), MyEnum.MyEnumB)
     val variantWithRecordWithVariant =
       VariantWithRecordWithVariant.VariantWithRecordWithVariantA(recordWithNestedMyVariant)
-    val contract = TemplateWithNestedRecordsAndVariants(
+    val contract = TemplateWithNestedRecordsVariantsAndEnums(
       alice,
       myRecord,
       myVariant,
+      myEnum,
       recordWithNestedMyVariant,
       variantWithRecordWithVariant)
     testCreateContractAndReceiveEvent(contract, alice)
@@ -529,11 +532,13 @@ class ScalaCodeGenIT
     event.event.isCreated shouldBe true
     decoder(event.getCreated) match {
       case Left(e) => fail(e.toString)
-      case Right(Contract(_, contract, agreementText)) =>
+      case Right(Contract(_, contract, agreementText, signatories, observers, key)) =>
         contract shouldBe expectedContract
         agreementText shouldBe expectedAgreement
         agreementText shouldBe event.getCreated.agreementText
-
+        signatories shouldBe event.getCreated.signatories
+        observers shouldBe event.getCreated.observers
+        key shouldBe event.getCreated.contractKey
     }
   }
 

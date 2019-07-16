@@ -468,6 +468,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   SELet(
                     SBULookupKey(retrieveByKey.templateId)(
                       SEVar(3), // key
+                      SEVar(2), // maintainers
                       SEVar(1) // token
                     ),
                     SBUInsertLookupNode(retrieveByKey.templateId)(
@@ -486,7 +487,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             // let key = <key>
             // let maintainers = keyMaintainers key
             // in \token ->
-            //    let coid = $fetchKey key
+            //    let coid = $fetchKey key maintainers token
             //        contract = $fetch coid token
             //        _ = $insertFetch coid <signatories> <observers>
             //    in { contractId: ContractId Foo, contract: Foo }
@@ -513,6 +514,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   SELet(
                     SBUFetchKey(retrieveByKey.templateId)(
                       SEVar(3), // key
+                      SEVar(2), // maintainers
                       SEVar(1) // token
                     ),
                     SBUFetch(retrieveByKey.templateId)(
@@ -1139,9 +1141,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       tmplId: Identifier,
       contractId: SExpr,
       choiceId: ChoiceName,
-      // actors are either the singleton set of submitter of an exercise command,
-      // or the acting parties of an exercise node (if present)
-      // of a transaction under reconstruction for validation
+      // actors are only present when compiling old LF update expressions;
+      // they are computed from the controllers in newer versions
       optActors: Option[SExpr],
       argument: SExpr): SExpr =
     // Translates 'A does exercise cid Choice with <params>'
@@ -1164,12 +1165,30 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       // of a transaction under reconstruction for validation
       optActors: Option[SExpr],
       argument: SExpr): SExpr = {
+    // Translates 'exerciseByKey Foo <key> <choiceName> <optActors> <argument>' into:
+    // let key = <key>
+    // let maintainers = keyMaintainers key
+    // in \token ->
+    //    let coid = $fetchKey key maintainers token
+    //        exerciseResult = exercise coid coid <optActors> <argument> token
+    //    in exerciseResult
+    val template = lookupTemplate(tmplId)
     withEnv { _ =>
-      SEAbs(1) {
-        SELet(
-          SBUFetchKey(tmplId)(key, SEVar(1)),
-          SEApp(compileExercise(tmplId, SEVar(1), choiceId, optActors, argument), Array(SEVar(2)))
-        ) in SEVar(1)
+      val keyMaintainers = template.key match {
+        case None =>
+          throw CompileError(s"Expecting to find key for template ${tmplId}, but couldn't")
+        case Some(tplKey) => translate(tplKey.maintainers)
+      }
+      SELet(key, SEApp(keyMaintainers, Array(SEVar(1)))) in {
+        currentPosition += 1 // key
+        currentPosition += 1 // keyMaintainers
+        SEAbs(1) {
+          currentPosition += 1 // token
+          SELet(
+            SBUFetchKey(tmplId)(SEVar(3), SEVar(2), SEVar(1)),
+            SEApp(compileExercise(tmplId, SEVar(1), choiceId, optActors, argument), Array(SEVar(2)))
+          ) in SEVar(1)
+        }
       }
     }
   }
@@ -1178,18 +1197,16 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       tmplId: Identifier,
       createArg: SValue,
       choiceId: ChoiceName,
-      choiceArg: SValue,
-      // actors are either the singleton set of submitter of an exercise command,
-      // or the acting parties of an exercise node
-      // of a transaction under reconstruction for validation
-      actors: SExpr): SExpr = {
+      choiceArg: SValue
+  ): SExpr = {
 
     withEnv { _ =>
       SEAbs(1) {
+        currentPosition += 1 // token
         SELet(
           SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
           SEApp(
-            compileExercise(tmplId, SEVar(1), choiceId, Some(actors), SEValue(choiceArg)),
+            compileExercise(tmplId, SEVar(1), choiceId, None, SEValue(choiceArg)),
             Array(SEVar(2)))
         ) in SEVar(1)
       }
@@ -1199,29 +1216,19 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private def translateCommand(cmd: Command): SExpr = cmd match {
     case Command.Create(templateId, argument) =>
       compileCreate(templateId, SEValue(argument))
-    case Command.Exercise(templateId, contractId, choiceId, submitters, argument) =>
-      compileExercise(
-        templateId,
-        SEValue(contractId),
-        choiceId,
-        Some(SEValue(SList(FrontStack(submitters)))),
-        SEValue(argument))
-    case Command.ExerciseByKey(templateId, contractKey, choiceId, submitters, argument) =>
-      compileExerciseByKey(
-        templateId,
-        SEValue(contractKey),
-        choiceId,
-        Some(SEValue(SList(FrontStack(submitters)))),
-        SEValue(argument))
+    case Command.Exercise(templateId, contractId, choiceId, argument) =>
+      compileExercise(templateId, SEValue(contractId), choiceId, None, SEValue(argument))
+    case Command.ExerciseByKey(templateId, contractKey, choiceId, argument) =>
+      compileExerciseByKey(templateId, SEValue(contractKey), choiceId, None, SEValue(argument))
     case Command.Fetch(templateId, coid) =>
       compileFetch(templateId, SEValue(coid))
-    case Command.CreateAndExercise(templateId, createArg, choice, choiceArg, submitters) =>
+    case Command.CreateAndExercise(templateId, createArg, choice, choiceArg) =>
       compileCreateAndExercise(
         templateId,
         createArg,
         choice,
-        choiceArg,
-        SEValue(SList(FrontStack(submitters))))
+        choiceArg
+      )
   }
 
   private def translateCommands(bindings: ImmArray[Command]): SExpr = {

@@ -143,9 +143,6 @@ abstract class ValidationError extends java.lang.RuntimeException with Product w
 final case class EUnknownTypeVar(context: Context, varName: TypeVarName) extends ValidationError {
   protected def prettyInternal: String = s"unknown type variable: $varName"
 }
-final case class EShadowingTypeVar(context: Context, varName: TypeVarName) extends ValidationError {
-  protected def prettyInternal: String = s"shadowing type variable: $varName"
-}
 final case class EIllegalShadowingExprVar(context: Context, varName: ExprVarName)
     extends ValidationError {
   protected def prettyInternal: String = s"illegal shadowing expr variable: $varName"
@@ -160,6 +157,10 @@ final case class EUnknownDefinition(context: Context, lookupError: LookupError)
 final case class ETypeConAppWrongArity(context: Context, expectedArity: Int, conApp: TypeConApp)
     extends ValidationError {
   protected def prettyInternal: String = s"wrong arity in typecon application: ${conApp.pretty}"
+}
+final case class EDuplicateTypeParam(context: Context, typeParam: TypeVarName)
+    extends ValidationError {
+  protected def prettyInternal: String = s"duplicate type parameter: $typeParam"
 }
 final case class EDuplicateField(context: Context, fieldName: FieldName) extends ValidationError {
   protected def prettyInternal: String = s"duplicate field: $fieldName"

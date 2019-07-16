@@ -8,7 +8,7 @@ import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.daml.lf.transaction.Transaction
 import com.digitalasset.daml.lf.types.Ledger
 
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object SandboxEventIdFormatter {
 
@@ -39,14 +39,15 @@ object SandboxEventIdFormatter {
     eventId.split(":") match {
       case Array(transactionId, index) =>
         transactionId.splitAt(1) match {
-          case ("#", transId) =>
+          case ("#", transIdString) =>
             (for {
               ix <- Try(index.toInt)
-              _ <- Try(transId.toLong)
+              transId <- LedgerString
+                .fromString(transIdString)
+                .fold(err => Failure(new IllegalArgumentException(err)), Success(_))
+              _ <- Try(transId)
             } yield
-              TransactionIdWithIndex(
-                LedgerString.assertFromString(transId),
-                Transaction.NodeId.unsafeFromIndex(ix))).toOption
+              TransactionIdWithIndex(transId, Transaction.NodeId.unsafeFromIndex(ix))).toOption
           case _ => None
         }
       case _ => None

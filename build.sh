@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
-set -euxo pipefail
+set -euo pipefail
 
 eval "$($(dirname "$0")/dev-env/bin/dade-assist)"
 
@@ -32,4 +32,7 @@ bazel test -j 200 //... --test_tag_filters "$tag_filter" --experimental_executio
 # Make sure that Bazel query works.
 bazel query 'deps(//...)' > /dev/null
 # Check that we can load damlc in ghci
-da-ghci --data yes damlc -e '()'
+da-ghci --data yes //:repl -e '()'
+# Check that our IDE works on our codebase
+./compiler/hie-core/hie-core-daml.sh compiler/damlc/exe/Main.hs 2>&1 | tee ide-log
+grep -q "Files that failed: 0" ide-log

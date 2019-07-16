@@ -13,4 +13,7 @@ object SubmissionResult {
   /** The system is overloaded, clients should back off exponentially */
   final case object Overloaded extends SubmissionResult
 
+  /** Submission is not supported */
+  final case object NotSupported extends SubmissionResult
+
 }

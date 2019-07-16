@@ -31,13 +31,11 @@ This will take a while.
 
 ## Nixpkgs
 
-To update the nixpkgs revision, go to the `nix/nixpkgs` directory in
-this repository and run `nix-update-src-json ./nixos-*` to update to
-the latest release in the current NixOS channel. To upgrade to a new
-channel move `nixos-18.09` to `nixos-19.03` (adapt to the channels you
-want to move from and to), change the `branch` field in
-`default.src.json` and modify `nix/nixpkgs.nix` to point to the new
-channel.
+To update the nixpkgs revision, find a commit in nixkgs-unstable from
+https://github.com/NixOS/nixpkgs-channels/commits/nixpkgs-unstable and
+use it in the `rev` field in `nix/nixpkgs/default.src.json`.  Set the
+`sha256` to a dummy hash, e.g., 64 zeros and run `nix-build -A tools
+-A cached nix` and nix will tell you the correct hash.
 
 After upgrading the revision, the easiest solution is usually to open
 a PR and see what fails on CI (running the builds locally can take

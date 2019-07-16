@@ -11,6 +11,7 @@ import "google/protobuf/wrappers.proto";
 
 option java_outer_classname = "EventOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 
 // An event in the flat transaction stream can either be the creation
 // or the archiving of a contract.
@@ -63,6 +64,14 @@ message CreatedEvent {
   // the contract.
   // Required
   repeated string witness_parties = 5;
+
+  // The signatories for this contract as specified by the template.
+  // Required
+  repeated string signatories = 8;
+
+  // The observers for this contract as specified explicitly by the template or implicitly as choice controllers.
+  // Required
+  repeated string observers = 9;
 
   // The agreement text of the contract.
   // We use StringValue to properly reflect optionality on the wire for backwards compatibility.

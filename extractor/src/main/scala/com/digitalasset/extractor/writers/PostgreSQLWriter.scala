@@ -5,8 +5,8 @@ package com.digitalasset.extractor.writers
 
 import com.digitalasset.daml.lf.iface.{Interface, InterfaceType}
 import com.digitalasset.extractor.config.ExtractorConfig
-import com.digitalasset.extractor.ledger.LedgerReader
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.ledger.service.LedgerReader
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.extractor.ledger.types._
 import com.digitalasset.extractor.targets.PostgreSQLTarget
 import com.digitalasset.extractor.Types._

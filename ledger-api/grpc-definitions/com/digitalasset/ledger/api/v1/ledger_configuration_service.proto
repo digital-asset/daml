@@ -11,6 +11,7 @@ import "google/protobuf/duration.proto";
 
 option java_outer_classname = "LedgerConfigurationServiceOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 
 // LedgerConfigurationService allows clients to subscribe to changes of the ledger configuration.
 service LedgerConfigurationService {

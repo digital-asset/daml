@@ -15,8 +15,6 @@ load(
 compileDependencies = [
     # this has to come first other as somehow a different instance of grpc-core.jar
     "//3rdparty/jvm/io/grpc:grpc_services",
-    "//daml-lf/archive:daml_lf_java_proto",
-    "//daml-lf/archive:daml_lf_archive_scala",
     "//daml-lf/data",
     "//daml-lf/interface",
     "//daml-lf/transaction",
@@ -25,6 +23,7 @@ compileDependencies = [
     "//language-support/scala/bindings",
     "//ledger/ledger-api-client",
     "//ledger/ledger-api-domain",
+    "//ledger-service/utils",
     "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
     "//3rdparty/jvm/com/chuusai:shapeless",
     "//3rdparty/jvm/org/spire_math:kind_projector",
@@ -69,7 +68,7 @@ genrule(
         main="$${outs[0]}"
         echo 'daml 1.2
 module VeryLargeArchive.Blobs where
-import VeryLargeArchive.Blob1' > "$$main"
+import VeryLargeArchive.Blob1()' > "$$main"
         firstfil="$${outs[1]}"
         echo 'daml 1.2
 module VeryLargeArchive.Blob1 where
@@ -82,7 +81,7 @@ module VeryLargeArchive.Blob1 where
             echo \\"
         done; } >> $$firstfil
         for filen in `seq 2 $$filecount`; do
-            echo "import VeryLargeArchive.Blob$$filen" >> "$$main"
+            echo "import VeryLargeArchive.Blob$$filen()" >> "$$main"
             sed -e '2s/^\\(module .*\\)1/\\1'$$filen/ "$$firstfil" > "$${outs[$$filen]}"
         done
         ''',
@@ -140,6 +139,7 @@ da_scala_test_suite(
     size = "medium",
     srcs = glob(["src/test/suite/**/*.scala"]),
     data = [
+        "//daml-lf/encoder:testing-dar-latest",
         "//extractor:PrimitiveTypes.dar",
         "//extractor:RecordsAndVariants.dar",
         "//extractor:TransactionExample.dar",

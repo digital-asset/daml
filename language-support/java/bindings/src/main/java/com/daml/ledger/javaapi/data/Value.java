@@ -16,6 +16,8 @@ public abstract class Value {
                 return Record.fromProto(value.getRecord());
             case VARIANT:
                 return Variant.fromProto(value.getVariant());
+            case ENUM:
+                return DamlEnum.fromProto(value.getEnum());
             case CONTRACT_ID:
                 return new ContractId(value.getContractId());
             case LIST:
@@ -67,6 +69,10 @@ public abstract class Value {
 
     public final Optional<Variant> asVariant() {
         return (this instanceof Variant) ? Optional.of((Variant) this) : Optional.empty();
+    }
+
+    public final Optional<DamlEnum> asEnum() {
+        return (this instanceof DamlEnum) ? Optional.of((DamlEnum) this): Optional.empty();
     }
 
     public final Optional<ContractId> asContractId() {

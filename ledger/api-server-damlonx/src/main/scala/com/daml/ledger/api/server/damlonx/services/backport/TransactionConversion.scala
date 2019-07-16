@@ -104,6 +104,8 @@ trait TransactionConversion {
           LfEngineToApi.lfValueToApiRecord(verbose, create.argument.value))),
       if (includeParentWitnesses) convert(create.witnesses)
       else convert(create.stakeholders),
+      convert(create.signatories),
+      convert(create.observers),
       Some(create.agreementText)
     )
   }

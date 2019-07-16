@@ -40,7 +40,7 @@ filegroup(
 # a custom node.js binary that has access to all plugins loaded by webpack at runtime.
 nodejs_binary(
     name = "webpack",
-    entry_point = "webpack/bin/webpack.js",
+    entry_point = "@navigator_frontend_deps//:node_modules/webpack/bin/webpack.js",
     node_modules = "@navigator_frontend_deps//:node_modules",
     # The webpack build step requires almost all of the node_modules dependencies
     # data = [

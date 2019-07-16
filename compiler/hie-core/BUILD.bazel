@@ -24,6 +24,7 @@ depends = [
     "prettyprinter",
     "prettyprinter-ansi-terminal",
     "rope-utf16-splay",
+    "safe-exceptions",
     "sorted-list",
     "shake",
     "stm",
@@ -35,6 +36,24 @@ depends = [
     "utf8-string",
 ]
 
+hidden = [
+    "Development.IDE.Core.Compile",
+    "Development.IDE.GHC.Compat",
+    "Development.IDE.GHC.CPP",
+    "Development.IDE.GHC.Error",
+    "Development.IDE.GHC.Orphans",
+    "Development.IDE.GHC.Warnings",
+    "Development.IDE.Import.FindImports",
+    "Development.IDE.LSP.CodeAction",
+    "Development.IDE.LSP.Definition",
+    "Development.IDE.LSP.Hover",
+    "Development.IDE.LSP.Notifications",
+    "Development.IDE.Spans.AtPoint",
+    "Development.IDE.Spans.Calculate",
+    "Development.IDE.Spans.Documentation",
+    "Development.IDE.Spans.Type",
+]
+
 da_haskell_library(
     name = "hie-core",
     srcs = glob(["src/**/*.hs"]),
@@ -42,6 +61,7 @@ da_haskell_library(
         "ghc-lib",
         "ghc-lib-parser",
     ],
+    hidden_modules = hidden,
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
 )
@@ -55,6 +75,7 @@ da_haskell_library(
         "ghc-boot",
         "ghc-boot-th",
     ],
+    hidden_modules = hidden,
     # Override the -hide-package flags defined in WORKSPACE
     #   -hide-package=ghc-boot-th -hide-package=ghc-boot
     repl_ghci_args = [
@@ -66,22 +87,23 @@ da_haskell_library(
 )
 
 da_haskell_binary(
-    name = "hie-core-demo",
-    srcs = glob(["test/**/*.hs"]),
+    name = "hie-core-exe",
+    srcs = glob(["exe/**/*.hs"]),
     hazel_deps = [
         "base",
         "containers",
         "data-default",
         "directory",
         "extra",
+        "filepath",
         "ghc-paths",
         "ghc",
         "haskell-lsp",
         "hie-bios",
+        "optparse-applicative",
         "shake",
         "text",
     ],
-    main_function = "Demo.main",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [

@@ -288,9 +288,10 @@ object Queries {
             "?::jsonb",
             toJsonString(v)
           )
-        case e @ V.ValueEnum(_, _) =>
-          // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-          throw new NotImplementedError("Enum types not supported")
+
+        case e @ V.ValueEnum(_, constructor) =>
+          Fragment("?", constructor: String)
+
         case o @ V.ValueOptional(_) =>
           Fragment(
             "?::jsonb",

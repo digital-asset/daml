@@ -42,6 +42,8 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       id ^^ EVar |
       `(` ~> expr <~ `)`
 
+  lazy val exprs: Parser[List[Expr]] = rep(expr0)
+
   private lazy val literal: Parsers.Parser[PrimLit] =
     acceptMatch[PrimLit]("Number", { case Number(l) => PLInt64(l) }) |
       acceptMatch("Decimal", { case Decimal(d) => PLDecimal(d) }) |

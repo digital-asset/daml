@@ -21,7 +21,7 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
-      parsed <- Try(ApiCodecCompressed.jsValueToApiType(json, typ, C.allTypes.get _))
+      parsed <- Try(ApiCodecCompressed.jsValueToApiValue(json, typ, C.allTypes.get _))
     } yield parsed
   }
 
@@ -66,6 +66,9 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
       }
       "work for Tree" in {
         serializeAndParse(C.treeV, C.treeTC) shouldBe Success(C.treeV)
+      }
+      "work for Enum" in {
+        serializeAndParse(C.redV, C.redTC) shouldBe Success(C.redV)
       }
       "work for Map" in {
         serializeAndParse(C.simpleMapV, C.simpleMapT(C.simpleInt64T)) shouldBe Success(C.simpleMapV)

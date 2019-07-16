@@ -13,7 +13,11 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.{model => Model}
-import com.digitalasset.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
+import com.digitalasset.navigator.model.{
+  ApiValue,
+  IdentifierApiConversions,
+  IdentifierDamlConversions
+}
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code.Code
 import scalaz.Tag
@@ -171,12 +175,21 @@ case object LedgerApiV1 {
       ctx: Context
   ): Result[Model.Event] = {
     val witnessParties = ApiTypes.Party.subst(event.witnessParties.toList)
+    val signatories = ApiTypes.Party.subst(event.signatories.toList)
+    val observers = ApiTypes.Party.subst(event.observers.toList)
     for {
       templateId <- Converter.checkExists("CreatedEvent.templateId", event.templateId)
       templateIdentifier = templateId.asDaml
       template <- getTemplate(templateIdentifier, ctx)
       arguments <- Converter.checkExists("CreatedEvent.arguments", event.createArguments)
       arg <- readRecordArgument(arguments, templateIdentifier, ctx)
+      keyResult = event.contractKey
+        .map(k => readArgument(k, template.key.get, ctx))
+        .fold[Result[Option[ApiValue]]](Right(None)) {
+          case Right(key) => Right(Some(key))
+          case Left(error) => Left(error)
+        }
+      key <- keyResult
     } yield
       Model.ContractCreated(
         id = ApiTypes.EventId(event.eventId),
@@ -187,7 +200,10 @@ case object LedgerApiV1 {
         contractId = ApiTypes.ContractId(event.contractId),
         templateId = templateIdentifier,
         argument = arg,
-        agreementText = event.agreementText
+        agreementText = event.agreementText,
+        signatories = signatories,
+        observers = observers,
+        key = key
       )
   }
 

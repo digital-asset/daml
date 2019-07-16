@@ -160,19 +160,16 @@ sets the default visibility property globally for our targets as `public`. This 
 The `load` statments
 ```
 load("@io_tweag_rules_haskell//haskell:haskell.bzl",
-  "haskell_toolchain", "haskell_toolchain_library", "haskell_cc_import",
+  "haskell_toolchain", "haskell_toolchain_library",
 )
 load("@io_tweag_rules_haskell//haskell:c2hs.bzl",
   "c2hs_toolchain",
 )
 ```
-bring the macros `haskell_toolchain`, `haskell_toolchain_library`, `haskell_cc_import` and `c2hs_toolchain` into scope from `rules_haskell`.
+bring the macros `haskell_toolchain`, `haskell_toolchain_library`, and `c2hs_toolchain` into scope from `rules_haskell`.
 
 `haskell_toolchain_library`:
 - import a package that is prebuilt outside of Bazel
-
-`haskell_cc_import`:
-- import a C library that is prebuilt outside of Bazel
 
 `haskell_toolchain`:
 -  declare a GHC compiler toolchain
@@ -184,25 +181,9 @@ Lastly, there are some aliases defined here. For example,
 ```
 alias(
   name = "damlc",
-  actual = "//daml-foundations/daml-tools/da-hs-damlc-app"
+  actual = "//compiler/damlc"
 )
 ```
-
-## Profiling
-
-To produce a binary with profiling information, you need to pass `-c
-dbg` to Bazel. E.g., `bazel build -c dbg damlc` will build a profiled
-version of `damlc`. Note that by default Bazel won’t automatically add
-cost centres in your code. To get cost centres, you can either add
-[cost centres manually](https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/profiling.html#inserting-cost-centres-by-hand)
-or use one of the
-[options provided by GHC](https://downloads.haskell.org/~ghc/latest/docs/html/users_guide/profiling.html#compiler-options-for-profiling)
-to add them automatically.
-You can either add those options in the `compiler_flags` section of a
-specific target, modify the `da_haskell_library` wrapper in
-`bazel_tools/haskell.bzl` to add a flag to all DAML targets and
-libraries or use it for all targets by modifying the
-`compiler_flags` in the `haskell_toolchain`.
 
 ## Further reading:
 

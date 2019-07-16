@@ -3,19 +3,20 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
-import qualified Codec.Archive.Tar as Tar
 import qualified Codec.Archive.Zip as Zip
 import Conduit hiding (connect)
 import qualified Data.Conduit.Zlib as Zlib
-import qualified Data.Conduit.Tar.Extra as Tar.Conduit
+import qualified Data.Conduit.Tar.Extra as Tar.Conduit.Extra
 import Control.Concurrent
 import Control.Concurrent.Async
 import Control.Exception
 import Control.Monad
+import Control.Monad.Fail (MonadFail)
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import qualified Data.Text as T
 import Data.Typeable
+import Data.Maybe (maybeToList)
 import Network.HTTP.Client
 import Network.HTTP.Types
 import Network.Socket
@@ -43,25 +44,33 @@ main =
     javaPath <- locateRunfiles "local_jdk/bin"
     mvnPath <- locateRunfiles "mvn_dev_env/bin"
     tarPath <- locateRunfiles "tar_dev_env/bin"
+    -- NOTE: `COMSPEC` env. variable on Windows points to cmd.exe, which is required to be present
+    -- on the PATH as mvn.cmd executes cmd.exe
+    mbComSpec <- getEnv "COMSPEC"
+    let mbCmdDir = takeDirectory <$> mbComSpec
     let damlDir = tmpDir </> "daml"
     withEnv
         [ ("DAML_HOME", Just damlDir)
-        , ("PATH", Just $ intercalate [searchPathSeparator] ((damlDir </> "bin") : tarPath : javaPath : mvnPath : oldPath))
+        , ("PATH", Just $ intercalate [searchPathSeparator] $ ((damlDir </> "bin") : tarPath : javaPath : mvnPath : oldPath) ++ maybeToList mbCmdDir)
         ] $ defaultMain (tests damlDir tmpDir)
 
 tests :: FilePath -> FilePath -> TestTree
 tests damlDir tmpDir = testGroup "Integration tests"
     [ testCase "install" $ do
-          releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
-          createDirectory tarballDir
-          runConduitRes
-              $ sourceFileBS releaseTarball
-              .| Zlib.ungzip
-              .| Tar.Conduit.untar (Tar.Conduit.restoreFile throwError tarballDir)
-          callProcessQuiet (tarballDir </> "daml" </> damlInstallerName) ["install", "--activate", "--set-path=no", tarballDir]
-    , testCase "daml version" $ callProcessQuiet damlName ["version"]
-    , testCase "daml --help" $ callProcessQuiet damlName ["--help"]
-    , testCase "daml new --list" $ callProcessQuiet damlName ["new", "--list"]
+        releaseTarball <- locateRunfiles (mainWorkspace </> "release" </> "sdk-release-tarball.tar.gz")
+        createDirectory tarballDir
+        runConduitRes
+            $ sourceFileBS releaseTarball
+            .| Zlib.ungzip
+            .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError tarballDir)
+        if isWindows
+            then callProcessQuiet
+                (tarballDir </> "daml" </> damlInstallerName)
+                ["install", "--install-assistant=yes", "--set-path=no", tarballDir]
+            else callCommandQuiet $ tarballDir </> "install.sh"
+    , testCase "daml version" $ callCommandQuiet "daml version"
+    , testCase "daml --help" $ callCommandQuiet "daml --help"
+    , testCase "daml new --list" $ callCommandQuiet "daml new --list"
     , noassistantTests damlDir
     , packagingTests tmpDir
     , quickstartTests quickstartDir mvnDir
@@ -71,7 +80,9 @@ tests damlDir tmpDir = testGroup "Integration tests"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
-          throwError msg e = fail (T.unpack $ msg <> " " <> e)
+
+throwError :: MonadFail m => T.Text -> T.Text -> m ()
+throwError msg e = fail (T.unpack $ msg <> " " <> e)
 
 -- | These tests check that it is possible to invoke (a subset) of damlc
 -- commands outside of the assistant.
@@ -91,7 +102,7 @@ noassistantTests damlDir = testGroup "no assistant"
               , "a : ()"
               , "a = ()"
               ]
-          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "da-hs-damlc-app"
+          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
           callProcess damlcPath ["build", "--project-root", projDir, "--init-package-db", "no"]
     ]
 
@@ -100,8 +111,8 @@ packagingTests tmpDir = testGroup "packaging"
     [ testCaseSteps "Build package with dependency" $ \step -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
-        let aDar = projectA </> "dist" </> "a.dar"
-        let bDar = projectB </> "dist" </> "b.dar"
+        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "A.daml") $ unlines
@@ -120,7 +131,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectA $ callCommandQuiet "daml build"
         assertBool "a.dar was not created." =<< doesFileExist aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
@@ -142,7 +153,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-stdlib"
             , "  - " <> aDar
             ]
-        withCurrentDirectory projectB $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "b.dar was not created." =<< doesFileExist bDar
     , testCase "Top-level source files" $ do
         -- Test that a source file in the project root will be included in the
@@ -165,8 +176,8 @@ packagingTests tmpDir = testGroup "packaging"
           , "  - daml-prim"
           , "  - daml-stdlib"
           ]
-        withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
-        let dar = projDir </> "dist" </> "proj.dar"
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
+        let dar = projDir </> ".daml" </> "dist" </> "proj.dar"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         -- Note that we really want a forward slash here instead of </> since filepaths in
@@ -186,22 +197,21 @@ packagingTests tmpDir = testGroup "packaging"
             , "source: A.daml"
             , "dependencies: [daml-prim, daml-stdlib]"
             ]
-        withCurrentDirectory projDir $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projDir $ callCommandQuiet "daml build"
     , testCaseSteps "Build migration package" $ \step -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
         let projectMigrate = tmpDir </> "migrateAB"
-        let aDar = projectA </> "dist" </> "a.dar"
-        let bDar = projectB </> "dist" </> "b.dar"
+        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
             [ "{-# LANGUAGE EmptyCase #-}"
             , "daml 1.2"
             , "module Main where"
-            , "import DA.Generics"
             , "data OnlyA"
-            , "data Both deriving Generic"
+            , "data Both"
             , "template Foo"
             , "  with"
             , "    a : Int"
@@ -219,7 +229,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectA $ callCommandQuiet "daml build"
         assertBool "a.dar was not created." =<< doesFileExist aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
@@ -245,34 +255,31 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectB $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "a.dar was not created." =<< doesFileExist bDar
         step "Creating migration project"
-        callProcessQuiet damlName ["migrate", projectMigrate, aDar, bDar]
+        callCommandQuiet $ unwords ["daml", "migrate", projectMigrate, aDar, bDar]
         step "Build migration project"
-        withCurrentDirectory projectMigrate $ callProcessQuiet damlName ["build"]
+        withCurrentDirectory projectMigrate $ callCommandQuiet "daml build"
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
-quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
+quickstartTests quickstartDir mvnDir = testGroup "quickstart"
     [ testCase "daml new" $
-          callProcessQuiet damlName ["new", quickstartDir, "quickstart-java"]
+          callCommandQuiet $ unwords ["daml", "new", quickstartDir, "quickstart-java"]
     , testCase "daml build " $ withCurrentDirectory quickstartDir $
-          callProcessQuiet damlName ["build", "-o", "target/daml/iou.dar"]
-    ] <>
-    (if isWindows then [] else -- We seem to have an issue where grpc_init sometimes locks up and the
-    -- whole test times out. Tracked in https://github.com/digital-asset/daml/issues/1354
-    [ testCase "daml test" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet damlName ["test"]
+          callCommandQuiet "daml build"
+    , testCase "daml test" $ withCurrentDirectory quickstartDir $
+          callCommandQuiet "daml test"
     , testCase "daml damlc test --files" $ withCurrentDirectory quickstartDir $
-          callProcessQuiet damlName ["damlc", "test", "--files", "daml/Main.daml"]
-    ]) <>
-    [ testCase "sandbox startup" $
+          callCommandQuiet "daml damlc test --files daml/Main.daml"
+    , testCase "sandbox startup" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess ((proc damlName ["sandbox", "--port", show p, "target/daml/iou.dar"]) { std_out = UseHandle devNull }) $
-              \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show p, ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull }
+          withCreateProcess sandboxProc  $
+              \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
               addr : _ <- getAddrInfo
                   (Just socketHints)
@@ -282,30 +289,28 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
                   (socket (addrFamily addr) (addrSocketType addr) (addrProtocol addr))
                   close
                   (\s -> connect s (addrAddress addr))
-              -- waitForProcess' will block on Windows so we explicitely kill the process.
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
-    ] <>
-    -- The mvn tests seem to fail on Windows for some reason so for now we disable them.
-    -- mvn itself does seem to work fine outside of this test so it seems to be some
-    -- setup issue.
-    -- See https://github.com/digital-asset/daml/issues/1127
-    if isWindows then [] else
-    [ testCase "mvn compile" $
+    , testCase "mvn compile" $
       withCurrentDirectory quickstartDir $ do
           mvnDbTarball <- locateRunfiles (mainWorkspace </> "daml-assistant" </> "integration-tests" </> "integration-tests-mvn.tar")
-          Tar.extract (takeDirectory mvnDir) mvnDbTarball
-          callProcess "mvn" [mvnRepoFlag, "-q", "compile"]
+          runConduitRes
+            $ sourceFileBS mvnDbTarball
+            .| Tar.Conduit.Extra.untar (Tar.Conduit.Extra.restoreFile throwError mvnDir)
+          callCommand $ unwords ["mvn", mvnRepoFlag, "-q", "compile"]
     , testCase "mvn exec:java@run-quickstart" $
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          withCreateProcess ((proc damlName ["sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", "target/daml/iou.dar"]) { std_out = UseHandle devNull1 }) $
-              \_ _ _ ph -> race_ (waitForProcess' "sandbox" [] ph) $ do
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull1 }
+          withCreateProcess sandboxProc $
+              \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
               restPort :: Int <- fromIntegral <$> getFreePort
-              withCreateProcess ((proc "mvn" [mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }) $
-                  \_ _ _ ph -> race_ (waitForProcess' "mvn" [] ph) $ do
+              let mavenProc = (shell $ unwords ["mvn", mvnRepoFlag, "-Dledgerport=" <> show sandboxPort, "-Drestport=" <> show restPort, "exec:java@run-quickstart"]) { std_out = UseHandle devNull2 }
+              withCreateProcess mavenProc $
+                  \_ _ _ ph -> race_ (waitForProcess' mavenProc ph) $ do
                   let url = "http://localhost:" <> show restPort <> "/iou"
                   waitForHttpServer (threadDelay 1000000) url
                   threadDelay 5000000
@@ -315,9 +320,9 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart" $
                   resp <- httpLbs req manager
                   responseBody resp @?=
                       "{\"0\":{\"issuer\":\"EUR_Bank\",\"owner\":\"Alice\",\"currency\":\"EUR\",\"amount\":100.0,\"observers\":[]}}"
-                  -- waitForProcess' will block on Windows so we explicitely kill the process.
+                  -- waitForProcess' will block on Windows so we explicitly kill the process.
                   terminateProcess ph
-              -- waitForProcess' will block on Windows so we explicitely kill the process.
+              -- waitForProcess' will block on Windows so we explicitly kill the process.
               terminateProcess ph
     ]
     where
@@ -337,11 +342,11 @@ cleanTests baseDir = testGroup "daml clean"
                 createDirectoryIfMissing True baseDir
                 withCurrentDirectory baseDir $ do
                     let projectDir = baseDir </> ("proj-" <> templateName)
-                    callProcessQuiet damlName ["new", projectDir, templateName]
+                    callCommandQuiet $ unwords ["daml", "new", projectDir, templateName]
                     withCurrentDirectory projectDir $ do
                         filesAtStart <- sort <$> listFilesRecursive "."
-                        callProcessQuiet damlName ["build"]
-                        callProcessQuiet damlName ["clean"]
+                        callCommandQuiet "daml build"
+                        callCommandQuiet "daml clean"
                         filesAtEnd <- sort <$> listFilesRecursive "."
                         when (filesAtStart /= filesAtEnd) $
                             fail $ unlines
@@ -353,25 +358,29 @@ cleanTests baseDir = testGroup "daml clean"
                                 , unlines (map ("       "++) filesAtEnd)
                                 ]
 
--- | Since we run in bash and not in cmd.exe "daml" won’t look for "daml.cmd" so we use "daml.cmd" directly.
-damlName :: String
-damlName
-    | isWindows = "daml.cmd"
-    | otherwise = "daml"
-
 damlInstallerName :: String
 damlInstallerName
     | isWindows = "daml.exe"
     | otherwise = "daml"
 
 -- | Like call process but hides stdout.
-callProcessQuiet :: FilePath -> [String] -> IO ()
-callProcessQuiet cmd args = do
-    (exit, _out, err) <- readCreateProcessWithExitCode (proc cmd args) ""
+runCreateProcessQuiet :: CreateProcess -> IO ()
+runCreateProcessQuiet createProcess = do
+    (exit, _out, err) <- readCreateProcessWithExitCode createProcess ""
     hPutStr stderr err
-    unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit cmd args
+    unless (exit == ExitSuccess) $ throwIO $ ProcessExitFailure exit createProcess
 
-data ProcessExitFailure = ProcessExitFailure !ExitCode !FilePath ![String]
+-- | Like callProcess but hides stdout.
+callProcessQuiet :: FilePath -> [String] -> IO ()
+callProcessQuiet cmd args =
+    runCreateProcessQuiet (proc cmd args)
+
+-- | Like callCommand but hides stdout.
+callCommandQuiet :: String -> IO ()
+callCommandQuiet cmd =
+    runCreateProcessQuiet (shell cmd)
+
+data ProcessExitFailure = ProcessExitFailure !ExitCode !CreateProcess
     deriving (Show, Typeable)
 
 instance Exception ProcessExitFailure
@@ -400,10 +409,10 @@ socketHints :: AddrInfo
 socketHints = defaultHints { addrFlags = [AI_NUMERICHOST, AI_NUMERICSERV], addrSocketType = Stream }
 
 -- | Like waitForProcess' but throws ProcessExitFailure if the process fails to start.
-waitForProcess' :: String -> [String] -> ProcessHandle -> IO ()
-waitForProcess' cmd args ph = do
+waitForProcess' :: CreateProcess -> ProcessHandle -> IO ()
+waitForProcess' cp ph = do
     e <- waitForProcess ph
-    unless (e == ExitSuccess) $ throwIO $ ProcessExitFailure e cmd args
+    unless (e == ExitSuccess) $ throwIO $ ProcessExitFailure e cp
 
 -- | Getting a dev-null handle in a cross-platform way seems to be somewhat tricky so we instead
 -- use a temporary file.

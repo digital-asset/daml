@@ -10,6 +10,7 @@ import "google/protobuf/wrappers.proto";
 
 option java_outer_classname = "TraceContextOuterClass";
 option java_package = "com.digitalasset.ledger.api.v1";
+option csharp_namespace = "Com.DigitalAsset.Ledger.Api.V1";
 
 // Data structure to propagate Zipkin trace information.
 // See https://github.com/openzipkin/b3-propagation

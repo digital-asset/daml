@@ -12,13 +12,13 @@ module Domain(Party(..),
              ) where
 
 import DA.Ledger.Types as L (Party(..),Value(VList))
-import DA.Ledger.Valuable (Valuable(..))
+import DA.Ledger.IsLedgerValue (IsLedgerValue(..))
 import Data.Text.Lazy (Text)
 
 data Introduce = Introduce { from :: Party, people :: [Party] }
     deriving Show
 
-instance Valuable Introduce where
+instance IsLedgerValue Introduce where
     toValue Introduce{from,people} = L.VList [toValue from, toValue people]
     fromValue = \case
         L.VList [v1,v2] -> do
@@ -30,7 +30,7 @@ instance Valuable Introduce where
 data Message = Message { from :: Party, to :: Party, body :: Text }
     deriving Show
 
-instance Valuable Message where
+instance IsLedgerValue Message where
     toValue Message{from,to,body} = L.VList [toValue from, toValue to, toValue body]
     fromValue = \case
         L.VList [v1,v2,v3] -> do
@@ -43,7 +43,7 @@ instance Valuable Message where
 data Broadcast = Broadcast { from :: Party, to :: [Party], body :: Text }
     deriving Show
 
-instance Valuable Broadcast where
+instance IsLedgerValue Broadcast where
     toValue Broadcast{from,to,body} = L.VList [toValue from, toValue to, toValue body]
     fromValue = \case
         L.VList [v1,v2,v3] -> do

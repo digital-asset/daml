@@ -28,6 +28,16 @@ resource "google_storage_bucket_iam_member" "nix_cache_writer" {
   member = "serviceAccount:${google_service_account.writer.email}"
 }
 
+// provide a index.html file, so accessing the document root yields something
+// nicer than just a 404.
+resource "google_storage_bucket_object" "index_nix_cache" {
+  name         = "index.html"
+  bucket       = "${module.nix_cache.bucket_name}"
+  content      = "${file("${path.module}/files/index_nix_cache.html")}"
+  content_type = "text/html"
+  depends_on   = ["module.nix_cache"]
+}
+
 // provide a nix-cache-info file setting a higher priority
 // than cache.nixos.org, so we prefer it
 resource "google_storage_bucket_object" "nix-cache-info" {
