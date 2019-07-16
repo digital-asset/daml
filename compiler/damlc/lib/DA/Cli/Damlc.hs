@@ -700,22 +700,15 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 let dar = toArchive $ BSL.fromStrict bytes
                 -- get the main pkg
                 manifest <- getEntry "META-INF/MANIFEST.MF" dar
-                mainDalfPath <-
-                    maybe
-                        (ioError $
-                         userError
-                             "Missing Main-Dalf entry in META-INF/MANIFEST.MF")
-                        pure $
-                    headMay
-                        [ main
-                        | l <-
-                              lines $
-                              BSC.unpack $ BSL.toStrict $ fromEntry manifest
-                        , Just main <- [stripPrefix "Main-Dalf: " l]
-                        ]
+                let mainDalfPath =
+                        headNote
+                            "Missing Main-Dalf entry in META-INF/MANIFEST.MF"
+                            [ main
+                            | l <- lines $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
+                            , Just main <- [stripPrefix "Main-Dalf: " l]
+                            ]
                 mainDalfEntry <- getEntry mainDalfPath dar
-                (mainPkgId, mainLfPkg) <-
-                    decode $ BSL.toStrict $ fromEntry mainDalfEntry
+                (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ fromEntry mainDalfEntry
                 pure (pkgName, mainPkgId, mainLfPkg)
         -- generate upgrade modules and instances modules
         let eqModNames =
