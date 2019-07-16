@@ -31,13 +31,13 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
+import com.digitalasset.platform.server.api.validation.IdentifierResolverLike
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
 
-final class CommandsValidator(ledgerId: LedgerId, identifierResolver: IdentifierResolver) {
+final class CommandsValidator(ledgerId: LedgerId, identifierResolver: IdentifierResolverLike) {
 
   def validateCommands(commands: ProtoCommands): Either[StatusRuntimeException, domain.Commands] =
     for {

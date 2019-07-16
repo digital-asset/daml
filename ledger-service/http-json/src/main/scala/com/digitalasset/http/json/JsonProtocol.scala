@@ -5,13 +5,12 @@ package com.digitalasset.http.json
 
 import java.time.Instant
 
-import spray.json._
 import com.digitalasset.http.domain
+import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
-import com.digitalasset.http.json.TaggedJsonFormat._
-import com.digitalasset.ledger.api.v1.value.{Record, Value}
 import scalaz.{-\/, \/-}
+import spray.json._
 
 object JsonProtocol extends DefaultJsonProtocol {
 
@@ -84,15 +83,19 @@ object JsonProtocol extends DefaultJsonProtocol {
   // TODO (Leo): get rid of this when we have lf value json formats
   implicit val RecordFormat: RootJsonFormat[lav1.value.Record] =
     new RootJsonFormat[lav1.value.Record] {
-      override def write(obj: Record): JsValue = sys.error("not implemented")
-      override def read(json: JsValue): Record = sys.error("not implemented")
+      override def write(obj: lav1.value.Record): JsValue = sys.error("not implemented")
+      override def read(json: JsValue): lav1.value.Record = sys.error("not implemented")
     }
 
   // TODO (Leo): get rid of this when we have lf value json formats
   implicit val ValueFormat: RootJsonFormat[lav1.value.Value] =
     new RootJsonFormat[lav1.value.Value] {
-      override def write(obj: Value): JsValue = sys.error("not implemented")
-      override def read(json: JsValue): Value = sys.error("not implemented")
+      override def write(apiValue: lav1.value.Value): JsValue = {
+//        val lfValue: lf.value.Value[String] = sys.error("not implemented")
+//        ApiCodecCompressed.apiValueToJsValue(lfValue)
+        sys.error("not implemented")
+      }
+      override def read(json: JsValue): lav1.value.Value = sys.error("not implemented")
     }
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat4(

@@ -17,10 +17,14 @@ http_json_deps = [
     "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
     "//3rdparty/jvm/com/typesafe/scala_logging",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//ledger-service/utils",
     "//daml-lf/interface",
+    "//daml-lf/transaction",
     "//language-support/scala/bindings-akka",
     "//ledger-api/rs-grpc-bridge",
+    "//ledger-service/lf-value-json",
+    "//ledger-service/utils",
+    "//ledger/ledger-api-common",
+    "//daml-lf/data:data",
 ]
 
 da_scala_library(
@@ -48,8 +52,6 @@ da_scala_test(
         "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//3rdparty/jvm/org/scalatest",
         "//ledger/sandbox:sandbox",
-        "//daml-lf/data:data",
-        "//ledger/ledger-api-common",
         "//ledger/participant-state",
     ] + http_json_deps,
 )
