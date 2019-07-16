@@ -345,8 +345,8 @@ convertGenericTemplate env x
         let applyThis e = ETmApp e $ unwrapTpl $ EVar this
         tplSignatories <- applyThis <$> convertExpr env (Var signatories)
         tplObservers <- applyThis <$> convertExpr env (Var observers)
-        let tplPrecondition = ETrue
-        let tplAgreement = mkEmptyText
+        tplPrecondition <- applyThis <$> convertExpr env (Var ensure)
+        tplAgreement <- applyThis <$> convertExpr env (Var agreement)
         archive <- convertExpr env (Var archive)
         (tplKey, key, choices) <- case keyAndChoices of
                 hasKey : key : maintainers : _fetchByKey : _lookupByKey : choices
