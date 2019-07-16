@@ -116,7 +116,7 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
     mod <- NM.toList $ LF.packageModules pkg
     let fp =
             toNormalizedFilePath $
-            (T.unpack $ T.intercalate "/" $ LF.unModuleName $ LF.moduleName mod) <.>
+            (joinPath $ map T.unpack $ LF.unModuleName $ LF.moduleName mod) <.>
             ".daml"
     pure ( fp
          , unlines header ++
