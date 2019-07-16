@@ -698,7 +698,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 bytes <- B.readFile inFile
                 let pkgName = takeBaseName inFile
                 let dar = toArchive $ BSL.fromStrict bytes
-              -- get the main pkg
+                -- get the main pkg
                 manifest <- getEntry "META-INF/MANIFEST.MF" dar
                 mainDalfPath <-
                     maybe
