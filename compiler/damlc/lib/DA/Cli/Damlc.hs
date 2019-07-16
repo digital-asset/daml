@@ -59,7 +59,7 @@ import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Shake
 import Development.IDE.Core.Rules
-import Development.IDE.Core.Rules.Daml (getDalf)
+import Development.IDE.Core.Rules.Daml (getDalf, getHlintIdeas)
 import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..))
 import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
 import Development.IDE.Types.Diagnostics
@@ -110,6 +110,16 @@ cmdCompile numProcessors =
     cmd = execCompile
         <$> inputFileOpt
         <*> outputFileOpt
+        <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+
+cmdLint :: Int -> Mod CommandFields Command
+cmdLint numProcessors =
+    command "lint" $ info (helper <*> cmd) $
+        progDesc "Lint the DAML program."
+    <> fullDesc
+  where
+    cmd = execLint
+        <$> inputFileOpt
         <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
 
 cmdTest :: Int -> Mod CommandFields Command
@@ -316,6 +326,28 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
       | otherwise = do
         createDirectoryIfMissing True $ takeDirectory outputFile
         B.writeFile outputFile $ Archive.encodeArchive bs
+
+execLint :: FilePath -> Options -> Command
+execLint inputFile opts =
+  withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize ->
+  do
+    loggerH <- getLogger opts "lint"
+    inputFile <- toNormalizedFilePath <$> relativize inputFile
+    opts <- (setHlintDataDir <=< mkOptions) opts
+    withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
+        setFilesOfInterest ide (Set.singleton inputFile)
+        runAction ide $ getHlintIdeas inputFile
+        diags <- getDiagnostics ide
+        when (null diags) $ hPutStrLn stderr "No hints."
+        unless (null diags) exitFailure
+  where
+     setHlintDataDir :: Options -> IO Options
+     setHlintDataDir opts = do
+       defaultDir <-locateRunfiles $
+         mainWorkspace </> "compiler/damlc/daml-ide-core"
+       return $ case optHlintUsage opts of
+         HlintEnabled _ -> opts
+         HlintDisabled  -> opts{optHlintUsage=HlintEnabled defaultDir}
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
@@ -909,6 +941,7 @@ options numProcessors =
       <> cmdVisual
       <> cmdInspectDar
       <> cmdDocTest numProcessors
+      <> cmdLint numProcessors
       )
     <|> subparser
       (internal -- internal commands
