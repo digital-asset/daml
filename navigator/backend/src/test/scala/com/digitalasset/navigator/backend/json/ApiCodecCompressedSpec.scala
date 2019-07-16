@@ -29,26 +29,6 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
   "API verbose JSON codec" when {
 
     "serializing and parsing a value" should {
-
-      "work for Text" in {
-        serializeAndParse(C.simpleTextV, C.simpleTextT) shouldBe Success(C.simpleTextV)
-      }
-      "work for Int64" in {
-        serializeAndParse(C.simpleInt64V, C.simpleInt64T) shouldBe Success(C.simpleInt64V)
-      }
-      "work for Decimal" in {
-        serializeAndParse(C.simpleDecimalV, C.simpleDecimalT) shouldBe Success(C.simpleDecimalV)
-      }
-      "work for Unit" in {
-        serializeAndParse(C.simpleUnitV, C.simpleUnitT) shouldBe Success(C.simpleUnitV)
-      }
-      "work for Date" in {
-        serializeAndParse(C.simpleDateV, C.simpleDateT) shouldBe Success(C.simpleDateV)
-      }
-      "work for Timestamp" in {
-        serializeAndParse(C.simpleTimestampV, C.simpleTimestampT) shouldBe Success(
-          C.simpleTimestampV)
-      }
       "work for Optional" in {
         serializeAndParse(C.simpleOptionalV, C.simpleOptionalT(C.simpleTextT)) shouldBe Success(
           C.simpleOptionalV)

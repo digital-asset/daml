@@ -1,15 +1,19 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.navigator.json
+package com.digitalasset.daml.lf
+package value.json
 
-import com.digitalasset.navigator.model
+import value.json.{NavigatorModelAliases => model}
+import value.TypedValueGenerators.{genTypeAndValue}
+
 import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalacheck.Gen
 
 import scala.util.{Success, Try}
 
-class ApiCodecCompressedSpec extends WordSpec with Matchers {
-  import com.digitalasset.navigator.{DamlConstants => C}
+class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
 
   /** Serializes the API value to JSON, then parses it back to an API value */
   private def serializeAndParse(
@@ -19,36 +23,27 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
     import ApiCodecCompressed.JsonImplicits._
     import spray.json._
 
+    /** XXX SC replace when TypedValueGenerators supports TypeCons */
+    val typeLookup: NavigatorModelAliases.DamlLfTypeLookup = _ => None
+
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
-      parsed <- Try(ApiCodecCompressed.jsValueToApiValue(json, typ, C.allTypes.get _))
+      parsed <- Try(ApiCodecCompressed.jsValueToApiValue(json, typ, typeLookup))
     } yield parsed
   }
 
-  "API verbose JSON codec" when {
+  private val genCid = Gen.alphaStr.filter(_.nonEmpty)
+
+  "API compressed JSON codec" when {
 
     "serializing and parsing a value" should {
 
-      "work for Text" in {
-        serializeAndParse(C.simpleTextV, C.simpleTextT) shouldBe Success(C.simpleTextV)
+      "work for arbitrary reference-free types" in forAll(genTypeAndValue(genCid)) {
+        case (typ, value) =>
+          serializeAndParse(value, typ) shouldBe Success(value)
       }
-      "work for Int64" in {
-        serializeAndParse(C.simpleInt64V, C.simpleInt64T) shouldBe Success(C.simpleInt64V)
-      }
-      "work for Decimal" in {
-        serializeAndParse(C.simpleDecimalV, C.simpleDecimalT) shouldBe Success(C.simpleDecimalV)
-      }
-      "work for Unit" in {
-        serializeAndParse(C.simpleUnitV, C.simpleUnitT) shouldBe Success(C.simpleUnitV)
-      }
-      "work for Date" in {
-        serializeAndParse(C.simpleDateV, C.simpleDateT) shouldBe Success(C.simpleDateV)
-      }
-      "work for Timestamp" in {
-        serializeAndParse(C.simpleTimestampV, C.simpleTimestampT) shouldBe Success(
-          C.simpleTimestampV)
-      }
+      /*
       "work for Optional" in {
         serializeAndParse(C.simpleOptionalV, C.simpleOptionalT(C.simpleTextT)) shouldBe Success(
           C.simpleOptionalV)
@@ -74,6 +69,7 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
       "work for Map" in {
         serializeAndParse(C.simpleMapV, C.simpleMapT(C.simpleInt64T)) shouldBe Success(C.simpleMapV)
       }
+     */
     }
   }
 }
