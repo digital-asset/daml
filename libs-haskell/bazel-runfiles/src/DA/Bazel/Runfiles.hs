@@ -23,6 +23,12 @@ exe :: FilePath -> FilePath
 exe | os == "mingw32" = (<.> "exe")
     | otherwise       = id
 
+-- | Return the resources directory for the given runfiles dependency.
+--
+-- In packaged application, using @bazel_tools/packaging/packaging.bzl@
+-- this corresponds to the top-level @resources@ directory. In a @bazel run@ or
+-- @bazel test@ target this corresponds to the @runfiles@ path of the given
+-- @data@ dependency.
 locateRunfiles :: FilePath -> IO FilePath
 locateRunfiles fp = do
   -- If the current executable was packaged using @package_app@, then
