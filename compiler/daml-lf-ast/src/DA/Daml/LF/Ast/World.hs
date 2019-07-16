@@ -9,7 +9,7 @@ module DA.Daml.LF.Ast.World(
     initWorld,
     initWorldSelf,
     extendWorldSelf,
-    ExternalPackage,
+    ExternalPackage(..),
     rewriteSelfReferences,
     LookupError,
     lookupTemplate,
