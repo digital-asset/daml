@@ -62,7 +62,7 @@ DAML-LF has three kinds of data declarations:
 
 - **Record** types, which define a collection of data
 - **Variant** or **sum** types, which define a number of alternatives
-- **Enum**, which define simplified **sum** types without type parameters nor argument.
+- **Enum**, which defines simplified **sum** types without type parameters nor argument.
 
 :ref:`Data type declarations in DAML <daml-ref-data-constructors>` (starting with the ``data`` keyword) are translated to record, variant or enum types. It’s sometimes not obvious what they will be translated to, so this section lists many examples of data types in DAML and their translations in DAML-LF.
 
