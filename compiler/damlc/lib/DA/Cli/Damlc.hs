@@ -639,7 +639,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 | (unitId, dalfPkg) <- MS.toList pkgMap
                 , LF.ExternalPackage _ dalf <- [dalfPackagePkg dalfPkg]
                 ]
-      -- order the packages in topological order
+        -- order the packages in topological order
         packageState <-
             generatePackageState (dbPath : optPackageDbs opts) False []
         let (depGraph, vertexToNode, _keyToVertex) =
