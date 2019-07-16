@@ -101,7 +101,7 @@ adt2md :: ADTDoc -> RenderOut
 adt2md TypeSynDoc{..} = mconcat
     [ renderAnchorInfix "**type " ad_anchor $
         escapeMd (T.unwords (unTypename ad_name : ad_args)) <> "**  "
-    , renderLineDep $ \env -> T.concat ["  =  ", type2md env ad_rhs]
+    , renderLineDep $ \env -> T.concat ["&nbsp; = ", type2md env ad_rhs]
     , renderDocText ad_descr
     ]
 
@@ -191,7 +191,7 @@ fct2md FunctionDoc{..} = mconcat
     [ renderAnchorInfix "" fct_anchor $ T.concat
         [ "**", escapeMd $ unFieldname fct_name, "**  " ]
     , renderLinesDep $ \env ->
-        maybe [] (\t -> ["\\ \\ : " <> type2md env t]) fct_type
+        maybe [] (\t -> ["&nbsp; : " <> type2md env t]) fct_type
     , renderDocText fct_descr
     ]
 ------------------------------------------------------------
