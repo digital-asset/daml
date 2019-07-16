@@ -94,7 +94,7 @@ cls2md ClassDoc{..} = mconcat
         , " where**"
         ]
     , renderDocText cl_descr
-    , mconcatMap fct2md cl_functions
+    , renderPrefix "> " $ mconcatMap fct2md cl_functions
     ]
 
 adt2md :: ADTDoc -> RenderOut
@@ -104,15 +104,6 @@ adt2md TypeSynDoc{..} = mconcat
     , renderLineDep $ \env -> T.concat ["  =  ", type2md env ad_rhs]
     , renderDocText ad_descr
     ]
-      -- renderLineDep $ \env -> T.concat
-      --   [ "**type "
-      --   , tag
-      --   , T.unwords (unTypename ad_name : ad_args)
-      --   , " = "
-      --   , type2md env ad_rhs
-      --   , "**"
-      --   ]
-
 
 adt2md ADTDoc{..} = mconcat
     [ renderAnchorInfix "**data " ad_anchor $
@@ -200,7 +191,7 @@ fct2md FunctionDoc{..} = mconcat
     [ renderAnchorInfix "" fct_anchor $ T.concat
         [ "**", escapeMd $ unFieldname fct_name, "**  " ]
     , renderLinesDep $ \env ->
-        maybe [""] (\t -> ["  : " <> type2md env t, ""]) fct_type
+        maybe [] (\t -> ["\\ \\ : " <> type2md env t]) fct_type
     , renderDocText fct_descr
     ]
 ------------------------------------------------------------
@@ -213,4 +204,4 @@ escapeMd = T.pack . concatMap escapeChar . T.unpack
         | shouldEscape c = ['\\', c]
         | otherwise = [c]
 
-    shouldEscape = (`elem` ("[]*_~`<>\\" :: String))
+    shouldEscape = (`elem` ("[]*_~`<>\\&" :: String))

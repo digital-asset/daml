@@ -58,6 +58,11 @@ renderLineDep f = renderLinesDep (pure . f)
 renderLinesDep :: (RenderEnv -> [T.Text]) -> RenderOut
 renderLinesDep f = RenderOut (mempty, [f])
 
+-- | Prefix every output line by a particular text.
+renderPrefix :: T.Text -> RenderOut -> RenderOut
+renderPrefix p (RenderOut (env, fs)) =
+    RenderOut (env, map (map (p <>) .) fs)
+
+-- | Indent every output line by a particular amount.
 renderIndent :: Int -> RenderOut -> RenderOut
-renderIndent n (RenderOut (env, fs)) =
-    RenderOut (env, map (map (T.replicate n " " <>) .) fs)
+renderIndent n = renderPrefix (T.replicate n " ")

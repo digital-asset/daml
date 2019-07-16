@@ -170,6 +170,12 @@ filegroup(
     visibility = ["__pkg__"],
 )
 
+filegroup(
+    name = "daml-base-md-prefix",
+    srcs = ["base-md-prefix.md"],
+    visibility = ["__pkg__"],
+)
+
 genrule(
     name = "daml-prim-json-docs",
     srcs = ["//compiler/damlc/daml-prim-src"],
@@ -234,6 +240,26 @@ genrule(
             --input-format=json \
             --format=Rst \
             --prefix=$(location :daml-base-rst-prefix) \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-base-md-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+        ":daml-base-md-prefix",
+    ],
+    outs = ["daml-base.md"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --input-format=json \
+            --format=Markdown \
+            --prefix=$(location :daml-base-md-prefix) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
     tools = ["//compiler/damlc"],
