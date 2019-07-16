@@ -20,10 +20,7 @@ data Version
 data MinorVersion = PointStable Int | PointDev
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
--- | DAML-LF version 1.5
-version1_5 :: Version
-version1_5 = V1 $ PointStable 5
-
+-- | DAML-LF version 1.6
 version1_6 :: Version
 version1_6 = V1 $ PointStable 6
 
@@ -36,7 +33,7 @@ versionDev :: Version
 versionDev = V1 PointDev
 
 supportedInputVersions :: [Version]
-supportedInputVersions = [version1_5, version1_6, versionDev]
+supportedInputVersions = [version1_6, versionDev]
 
 supportedOutputVersions :: [Version]
 supportedOutputVersions = supportedInputVersions
@@ -47,14 +44,9 @@ data Feature = Feature
     , featureMinVersion :: !Version
     }
 
-featureTextCodePoints :: Feature
-featureTextCodePoints = Feature "Conversion between text and code points" version1_6
-
-featureEnumTypes :: Feature
-featureEnumTypes = Feature "Enum types" version1_6
-
-featureInternedPackageIds :: Feature
-featureInternedPackageIds = Feature "Package ID reference compression" version1_6
+-- NOTE(MH): We comment this out to leave an example how to deal with features.
+-- featureTextCodePoints :: Feature
+-- featureTextCodePoints = Feature "Conversion between text and code points" version1_6
 
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature

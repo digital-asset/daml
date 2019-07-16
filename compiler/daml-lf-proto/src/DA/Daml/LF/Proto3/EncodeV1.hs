@@ -92,12 +92,10 @@ encodePackageRef interned = Just . \case
             $ interned pkgid
 
 internPackageRefIds :: Package -> (PackageRefCtx, [PackageId])
-internPackageRefIds pkg
-  | packageLfVersion pkg `supports` featureInternedPackageIds =
+internPackageRefIds pkg =
       let set = S.fromList $ pkg ^.. packageRefs._PRImport
           lookup pkgid = fromIntegral <$> pkgid `S.lookupIndex` set
       in (lookup, S.toAscList set)
-  | otherwise = (const Nothing, [])
 
 -- invariant: forall pkgid. pkgid `S.lookupIndex ` input = encodePackageId pkgid `V.elemIndex` output
 encodeInternedPackageIds :: [PackageId] -> V.Vector TL.Text

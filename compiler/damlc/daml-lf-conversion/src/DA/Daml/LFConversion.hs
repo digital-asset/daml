@@ -552,7 +552,7 @@ convertCtors env (Ctors name tys [o@(Ctor ctor fldNames fldTys)])
         tconName = mkTypeCon [getOccString name]
         tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
         expr = mkETyLams tys $ mkETmLams (map (first fieldToVar ) flds) $ ERecCon tcon [(l, EVar $ fieldToVar l) | l <- fldNames]
-convertCtors env o@(Ctors name _ cs) | envLfVersion env `supports` featureEnumTypes && isEnumCtors o = do
+convertCtors env o@(Ctors name _ cs) | isEnumCtors o = do
     let (ctorNames, funs) = unzip $ map convertEnumCtor cs
     pure $ (defDataType tconName [] $ DataEnum ctorNames) : funs
   where
@@ -781,7 +781,7 @@ convertExpr env0 e = do
         let mkCasePattern con
                 -- Note that tagToEnum# can also be used on non-enum types, i.e.,
                 -- types where not all constructors are nullary.
-                | envLfVersion env `supports` featureEnumTypes && isEnumCtors ctors = CPEnum t' con
+                | isEnumCtors ctors = CPEnum t' con
                 | otherwise = CPVariant t' con (mkVar "_")
         pure $ ECase x'
             [ CaseAlternative (mkCasePattern (mkVariantCon (getOccString variantName))) (EBuiltin $ BEInt64 i)
@@ -807,7 +807,7 @@ convertExpr env0 e = do
         let mkCtor (Ctor c _ _)
               -- Note that tagToEnum# can also be used on non-enum types, i.e.,
               -- types where not all constructors are nullary.
-              | envLfVersion env `supports` featureEnumTypes && isEnumCtors ctors
+              | isEnumCtors ctors
               = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccString c))
               | otherwise
               = EVariantCon (fromTCon tt') (mkVariantCon (getOccString c)) EUnit
@@ -1066,7 +1066,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
     Ctor (mkVariantCon . getOccString -> variantName) fldNames fldTys <- toCtor env con
     let patVariant = variantName
     if
-      | envLfVersion env `supports` featureEnumTypes && isEnumCtors ctors ->
+      | isEnumCtors ctors ->
         CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
       | null fldNames ->
         case zipExactMay vs fldTys of
