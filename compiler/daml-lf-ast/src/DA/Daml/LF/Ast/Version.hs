@@ -27,6 +27,9 @@ version1_5 = V1 $ PointStable 5
 version1_6 :: Version
 version1_6 = V1 $ PointStable 6
 
+version1_7 :: Version
+version1_7 = versionDev
+
 -- | The DAML-LF version used by default.
 versionDefault :: Version
 versionDefault = version1_6
@@ -57,7 +60,7 @@ featureInternedPackageIds :: Feature
 featureInternedPackageIds = Feature "Package ID reference compression" version1_6
 
 featureInternedModuleNames :: Feature
-featureInternedModuleNames = Feature "Module reference compression" version1_6
+featureInternedModuleNames = Feature "Module reference compression" version1_7
 
 supports :: Version -> Feature -> Bool
 supports version feature = version >= featureMinVersion feature
