@@ -570,7 +570,8 @@ hazel_repositories(
                 "c593ff871f31200e37a3c24c09da314d0ee41a8486defe7af91ac55a26efdc1e",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
-            ),
+            ) +
+            hazel_hackage("typed-process", "0.2.6.0", "31a2a81f33463fedc33cc519ad5b9679787e648fe2ec7efcdebd7d54bdbbc2b1"),
         pkgs = packages,
     ),
 )
