@@ -142,6 +142,8 @@ data DalfDependency = DalfDependency
     -- ^ The absolute path to the dalf file.
   }
 
+getHlintIdeas :: NormalizedFilePath -> Action ()
+getHlintIdeas f = use_ GetHlintDiagnostics f
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow

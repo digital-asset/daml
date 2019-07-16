@@ -64,6 +64,7 @@ When working on the compiler:
 da-ghcid //compiler/damlc/tests:integration-dev --reload=compiler/damlc/tests/daml-test-files --test=":main --pattern="
 bazel run //compiler/damlc/tests:integration-dev -- --pattern=
 bazel run damlc -- compile $PWD/MyDaml12File.daml
+bazel run damlc -- lint $ $PWD/MyDaml12File.daml
 ```
 
 When working on the IDE via the test suite:
