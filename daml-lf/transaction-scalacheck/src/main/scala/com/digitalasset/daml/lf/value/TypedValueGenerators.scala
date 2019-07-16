@@ -22,6 +22,10 @@ import Arbitrary.arbitrary
   * generate the type `[Map Decimal]`, which would be accompanied by a `Gen` that produced
   * [[Value]]s each guaranteed to be a list of maps, whose values are all guaranteed to
   * be Decimals.
+  *
+  * As a user, you will probably be most interested in one of the generators derived
+  * from `genAddend`; if you need a generator in this theme not already supported by
+  * one such generator, you can probably derive a new one from `genAddend` yourself.
   */
 object TypedValueGenerators {
   sealed abstract class ValueAddend {
@@ -120,4 +124,29 @@ object TypedValueGenerators {
     def party: F[Ref.Party]
     def leafInstances: Seq[F[_]] = Seq(text, int64, decimal, unit, date, timestamp, bool, party)
   }
+
+  /** This is the key member of interest, supporting many patterns:
+    *
+    *  1. generating a type and value
+    *  2. generating a type and many values
+    *  3. generating well-typed values of different types
+    *
+    * All of which are derivable from what [[ValueAddend]] is, ''a type, a
+    * prism into [[Value]], a [[Type]] describing that type, and
+    * Scalacheck support surrounding that type.''
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  val genAddend: Gen[ValueAddend] =
+    Gen.frequency(
+      (ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
+      (1, Gen.const(ValueAddend.contractId)),
+      (1, Gen.lzy(genAddend).map(ValueAddend.list(_)))
+    )
+
+  /** Generate a type and value guaranteed to conform to that type. */
+  def genTypeAndValue[Cid](cid: Gen[Cid]): Gen[(Type, Value[Cid])] =
+    for {
+      addend <- genAddend
+      value <- addend.injgen(cid)
+    } yield (addend.t, addend.inj(value))
 }
