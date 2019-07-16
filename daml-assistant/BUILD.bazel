@@ -136,10 +136,12 @@ da_haskell_test(
 # Target for da-ghcid, includes everything except integration tests.
 da_haskell_repl(
     name = "repl",
+    testonly = True,
     collect_data = False,
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant:daml",
+        "//daml-assistant:test",
         "//daml-assistant/daml-helper",
     ],
 )

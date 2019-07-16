@@ -30,6 +30,7 @@ data Command
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
     | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
+    | Deploy
     | ListTemplates
     | Start { openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
 
@@ -41,6 +42,7 @@ commandParser =
          , command "migrate" (info (migrateCmd <**> helper) idm)
          , command "init" (info (initCmd <**> helper) idm)
          , command "start" (info (startCmd <**> helper) idm)
+         , command "deploy" (info (deployCmd <**> helper) idm)
          , command "run-jar" (info runJarCmd forwardOptions)
          ]
     where damlStudioCmd = DamlStudio
@@ -70,6 +72,8 @@ commandParser =
                 <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
                 <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
 
+          deployCmd = pure Deploy
+
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
               "never" -> Just ReplaceExtNever
@@ -85,3 +89,4 @@ runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
 runCommand Start {..} = runStart startNavigator openBrowser onStartM waitForSignal
+runCommand Deploy = runDeploy

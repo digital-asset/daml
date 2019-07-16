@@ -33,6 +33,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant:daml-project-config",
+        "//language-support/hs/bindings:hs-ledger",
     ],
 )
 
