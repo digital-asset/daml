@@ -6,8 +6,7 @@
 -- uses actors as a sanity check.
 
 -- @SINCE-LF 1.5
--- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalExercise"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not
--- @QUERY-LF .modules[] | .values[] | select(.name_with_type.name == ["$$cinternalArchive"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not
+-- @QUERY-LF [.modules[] | .values[] | select(.name_with_type.name == ["$$fFooInstance"]) | .expr | .. | objects | select(has("exercise")) | .exercise | has("actor") | not] | all
 daml 1.2
 module ExerciseWithoutActors where
 
