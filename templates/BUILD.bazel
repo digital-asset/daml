@@ -4,6 +4,7 @@
 genrule(
     name = "templates-tarball",
     srcs = glob([
+        "default-gitignore",
         "skeleton/**",
         "migrate/**",
         "quickstart-java/**",
@@ -18,26 +19,24 @@ genrule(
         SRC=templates
         OUT=templates-tarball
 
-        # skeleton template
-        mkdir -p $$OUT/skeleton
-        cp -rL $$SRC/skeleton/* $$OUT/skeleton/
+        # templates in templates dir
+        for d in skeleton migrate quickstart-scala quickstart-java; do
+            mkdir -p $$OUT/$$d
+            cp -rL $$SRC/$$d/* $$OUT/$$d/
+            cp $$SRC/default-gitignore $$OUT/$$d/.gitignore
+        done
 
-        # migrate template
-        mkdir -p $$OUT/migrate
-        cp -rL $$SRC/migrate/* $$OUT/migrate/
+        ## special cases we should work to remove
 
         # quickstart-java template
-        # right now, uses the preexisting quickstart-java rule and replaces the da.yaml template with a daml.yaml template
-        # in the future, move everything into //templates/quickstart-java and avoid untar, rm here
-        mkdir -p $$OUT/quickstart-java
+        # right now, uses the preexisting quickstart-java rule and replaces the
+        # da.yaml template with a daml.yaml template; in the future, move
+        # everything into //templates/quickstart-java and avoid untar, rm here
         tar xf $(location //docs:quickstart-java.tar.gz) --strip-components=1 -C $$OUT/quickstart-java
         rm $$OUT/quickstart-java/da-skeleton.yaml
-        cp -rL $$SRC/quickstart-java/* $$OUT/quickstart-java/
 
         # quickstart-scala template
-        mkdir -p $$OUT/quickstart-scala
         cp -r $(location //language-support/scala/examples:quickstart-scala-dir)/* $$OUT/quickstart-scala/
-        cp -rL $$SRC/quickstart-scala/* $$OUT/quickstart-scala/
 
         # daml intro templates
         tar xf $(location //docs:daml-intro-templates) -C $$OUT
