@@ -333,17 +333,20 @@ execLint inputFile opts =
   do
     loggerH <- getLogger opts "lint"
     inputFile <- toNormalizedFilePath <$> relativize inputFile
-    opts' <- mkOptions opts
-    defaultHlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    -- If not `--with-hlint path` given on the command line, assume
-    -- the testing default.
-    let opts'' =
-          case optHlintUsage opts' of
-            HlintEnabled _ -> opts'
-            HlintDisabled -> opts'{optHlintUsage=HlintEnabled defaultHlintDataDir}
-    withDamlIdeState opts'' loggerH diagnosticsLogger $ \ide -> do
+    opts <- (setHlintDataDir <=< mkOptions) opts
+    withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
         setFilesOfInterest ide (Set.singleton inputFile)
         runAction ide $ getHlintIdeas inputFile
+        diags <- getDiagnostics ide
+        unless (null diags) exitFailure
+  where
+     setHlintDataDir :: Options -> IO Options
+     setHlintDataDir opts = do
+       defaultDir <-locateRunfiles $
+         mainWorkspace </> "compiler/damlc/daml-ide-core"
+       return $ case optHlintUsage opts of
+         HlintEnabled _ -> opts
+         HlintDisabled  -> opts{optHlintUsage=HlintEnabled defaultDir}
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
@@ -937,6 +940,7 @@ options numProcessors =
       <> cmdVisual
       <> cmdInspectDar
       <> cmdDocTest numProcessors
+      <> cmdLint numProcessors
       )
     <|> subparser
       (internal -- internal commands
@@ -945,7 +949,6 @@ options numProcessors =
         <> cmdMigrate numProcessors
         <> cmdInit
         <> cmdCompile numProcessors
-        <> cmdLint numProcessors
         <> cmdClean
       )
 
