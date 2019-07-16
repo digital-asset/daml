@@ -39,7 +39,7 @@ daml 1.2
 -- associated type 'Rep' as well as conversion functions 'from' and 'to'.
 -- Typically, you will not define 'Generic' instances by hand, but have the compiler
 -- derive them for you.
-
+--
 -- ** Representing datatypes
 --
 -- |
@@ -150,7 +150,7 @@ daml 1.2
 --      can be used to obtain the name of a datatype, the module it has been
 --      defined in, the package it is located under, and whether it has been
 --      defined using @data@ or @newtype@ at the value level.
-
+--
 -- ** Derived and fundamental representation types
 --
 -- |
@@ -161,7 +161,7 @@ daml 1.2
 -- the number of cases to consider in generic functions in such a situation to a minimum,
 -- it turns out that many of the type constructors introduced above are actually synonyms,
 -- defining them to be variants of a smaller set of constructors.
-
+--
 -- *** Individual fields of constructors: 'K1'
 --
 -- |
@@ -176,7 +176,7 @@ daml 1.2
 --
 -- There used to be another variant of 'K1' (namely @Par0@), but it has since
 -- been deprecated.
-
+--
 -- *** Meta information: 'M1'
 --
 -- |
@@ -191,14 +191,14 @@ daml 1.2
 --
 -- The types 'S', 'C' and 'D' are once again type-level proxies, just used to create
 -- several variants of 'M1'.
-
+--
 -- *** Additional generic representation type constructors
 --
 -- |
 --
 -- Next to 'K1', 'M1', ':+:' and ':*:' there are a few more type constructors that occur
 -- in the representations of other datatypes.
-
+--
 -- **** Empty datatypes: 'V1'
 --
 -- |
@@ -216,7 +216,7 @@ daml 1.2
 --   type 'Rep' Empty =
 --     'D1' ('MetaData \"Empty\" \"Main\" \"package-name\" 'False) 'V1'
 -- @
-
+--
 -- **** Constructors without fields: 'U1'
 --
 -- |
@@ -230,7 +230,7 @@ daml 1.2
 --     'D1' ('MetaData \"Bool\" \"Data.Bool\" \"package-name\" 'False)
 --       ('C1' ('MetaCons \"False\" 'PrefixI 'False) 'U1' ':+:' 'C1' ('MetaCons \"True\" 'PrefixI 'False) 'U1')
 -- ```
-
+--
 -- *** Representation of types with many constructors or many fields
 --
 -- |
@@ -244,7 +244,7 @@ daml 1.2
 -- tries to produce a more-or-less balanced nesting, so that the traversal of
 -- the structure of the datatype from the root to a particular component can be
 -- performed in logarithmic rather than linear time.)
-
+--
 -- ** Defining datatype-generic functions
 --
 -- |
@@ -279,7 +279,7 @@ daml 1.2
 --
 -- With the goal in mind to make @encode@ work on @Tree@ and other datatypes, we now define
 -- instances for the representation type constructors 'V1', 'U1', ':+:', ':*:', 'K1', and 'M1'.
-
+--
 -- *** Definition of the generic representation types
 --
 -- |
@@ -299,7 +299,7 @@ daml 1.2
 -- ':*:' is a binary pair like the pair constructor @(,)@, and 'K1' is a value
 -- of a specific type @c@, and 'M1' wraps a value of the generic type argument,
 -- which in the lifted world is an @f p@ (where we do not care about @p@).
-
+--
 -- *** Generic instances
 --
 -- |
@@ -369,7 +369,7 @@ daml 1.2
 -- ```
 --
 -- Unlike in 'K1', the instance for 'M1' refers to @encode'@, not @encode@.
-
+--
 -- *** The wrapper and generic default
 --
 -- |
@@ -412,7 +412,7 @@ daml 1.2
 -- instance Encode Int where
 --   encode = encodeInt
 -- ```
-
+--
 -- *** Omitting generic instances
 --
 -- |
@@ -461,7 +461,7 @@ daml 1.2
 -- What if we want to define generic classes that range over type
 -- constructors (such as 'Data.Functor.Functor',
 -- 'Data.Traversable.Traversable', or 'Data.Foldable.Foldable')?
-
+--
 -- *** The 'Generic1' class
 --
 -- |
@@ -518,7 +518,7 @@ daml 1.2
 -- What's different is that we now use 'Par1' to refer to the parameter
 -- (and that parameter, which used to be @a@), is not mentioned explicitly
 -- by name anywhere; and we use 'Rec1' to refer to a recursive use of @Tree a@.
-
+--
 -- *** Representation of @* -> *@ types
 --
 -- |
@@ -596,7 +596,7 @@ daml 1.2
 -- @
 -- newtype (':.:') f g p = 'Comp1' { 'unComp1' :: f (g p) }
 -- @
-
+--
 -- *** Representation of @k -> *@ types
 --
 -- |
@@ -612,7 +612,7 @@ daml 1.2
 -- yields a slightly different instance depending on whether @PolyKinds@ is
 -- enabled. If compiled without @PolyKinds@, then @'Rep1' Proxy :: * -> *@, but
 -- if compiled with @PolyKinds@, then @'Rep1' Proxy :: k -> *@.
-
+--
 -- *** Representation of unlifted types
 --
 -- |
