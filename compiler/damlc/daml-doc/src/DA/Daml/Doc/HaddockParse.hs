@@ -38,6 +38,7 @@ import qualified Data.Map.Strict as MS
 import qualified Data.Set as Set
 import qualified Data.Text                                 as T
 import           Data.Tuple.Extra                          (second)
+import Data.Either
 
 -- | Parse, and process documentation in, a dependency graph of modules.
 mkDocs
@@ -59,21 +60,25 @@ mkDocs opts fp = do
     mkModuleDocs tmr =
         let ctx@DocCtx{..} = buildDocCtx (Service.tmrModule tmr)
             typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
-            fctDocs = mapMaybe (getFctDocs ctx) dc_decls
-            clsDocs = mapMaybe (getClsDocs ctx) dc_decls
-            tmplDocs = getTemplateDocs ctx typeMap
-            adtDocs
+            classDocs = mapMaybe (getClsDocs ctx) dc_decls
+
+            (md_classes, templateInstanceClasses) =
+                partitionEithers . flip map classDocs $ \classDoc ->
+                    case stripInstanceSuffix (cl_name classDoc) of
+                        Nothing -> Left classDoc
+                        Just templateName -> Right (templateName, classDoc)
+            templateInstanceMap = MS.fromList templateInstanceClasses
+
+            md_name = dc_modname
+            md_anchor = Just (moduleAnchor md_name)
+            md_descr = modDoc dc_tcmod
+            md_templates = getTemplateDocs ctx typeMap templateInstanceMap
+            md_functions = mapMaybe (getFctDocs ctx) dc_decls
+            md_adts
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
                 $ dc_templates : MS.keysSet dc_templateInstances : MS.elems dc_choices
-        in ModuleDoc
-            { md_anchor = Just (moduleAnchor dc_modname)
-            , md_name = dc_modname
-            , md_descr = modDoc dc_tcmod
-            , md_adts = adtDocs
-            , md_templates = tmplDocs
-            , md_functions = fctDocs
-            , md_classes = clsDocs
-            }
+
+        in ModuleDoc {..}
 
 -- | Return the names for a given signature.
 -- Equivalent of Haddock’s Haddock.GhcUtils.sigNameNoLoc.
@@ -318,15 +323,23 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     fieldDoc (_, L _ XConDeclField{}) = Nothing
 getTypeDocs _ _other = Nothing
 
-getTemplateDocs :: DocCtx -> MS.Map Typename ADTDoc -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
+-- | Build template docs up from ADT and class docs.
+getTemplateDocs ::
+    DocCtx
+    -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
+    -> MS.Map Typename ClassDoc -- ^ maps template names to their template instance class docs
+    -> [TemplateDoc]
+getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
+    map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
     -- defined internally, and not expected to fail on consistent arguments.
     mkTemplateDoc :: Typename -> TemplateDoc
     mkTemplateDoc name = TemplateDoc
-      { td_anchor = Just $ templateAnchor dc_modname (ad_name tmplADT)
+      { td_anchor = ad_anchor tmplADT
       , td_name = ad_name tmplADT
+      , td_args = ad_args tmplADT
+      , td_super = cl_super =<< MS.lookup name templateInstanceMap
       , td_descr = ad_descr tmplADT
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
