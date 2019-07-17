@@ -61,3 +61,41 @@ participants, and executes the configured scenarios (to be precise,
 the SemanticTester creates a list of commands and expected responses
 based on the content of the scenarios, and executes these commands on
 the backend).
+
+## Writing integration tests
+
+The integration tests should work with any conformant DAML ledger.
+This includes not only our sandbox, but also other ledger implementations.
+
+The following are important considerations for writing integration tests. 
+
+
+### Exclusive access
+
+Don't assume you have exclusive access to the ledger.
+Other tests or applications may be running concurrently.
+
+* Don't make assumptions on how ledger offsets evolve.
+  Other applications may modify the ledger in between your commands.
+* Make sure command and workflow IDs are globally unique,
+  and not shared between test runs.
+  * See `TestIdsGenerator.testCommandId` and `TestIdsGenerator.testWorkflowId`
+* Make sure party names are globally unique,
+  and not shared between test runs.
+  * If possible, allocate parties at the beginning of the test using the admin API.
+  * See `TestIdsGenerator.testPartyName`
+* Thanks to our privacy model, using unique party names and workflow IDs
+  will essentially create a private sub-ledger and make sure none of your actions interfere with the rest of the ledger.
+
+### Previous ledger content
+
+Don't make assumptions on the previous content of the ledger.
+The ledger may be completely empty, or it may be a long running ledger with millions of ledger entries.
+
+* Don't start streaming from genesis.
+  Instead, at the start of the test, read the ledger begin,
+  and start all streaming from there.
+* Upload all required DAML packages at the beginning of the test.
+  They may or may not have been uploaded previously.
+* Be mindful when using commands that return unfiltered results.
+  For example, `ListKnownPartiesRequest` could return a huge number of entries.
