@@ -31,7 +31,7 @@ main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
-        mainWorkspace </> "compiler" </> "damlc" </> "damlc"
+        mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
     let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps dir s
         runScenarios s
             -- We are currently seeing issues with GRPC FFI calls which make everything

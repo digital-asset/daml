@@ -13,7 +13,7 @@ module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selecte
 
 import Control.Exception (bracket, evaluate, onException)
 import Control.Monad(when)
-import DA.Bazel.Runfiles(locateRunfiles,mainWorkspace)
+import DA.Bazel.Runfiles(exe,locateRunfiles,mainWorkspace)
 import DA.Ledger (Port (..), unPort)
 import Data.List (isInfixOf)
 import Data.List.Extra(splitOn)
@@ -33,7 +33,7 @@ selectedPort = 0 --dynamic port selection
 
 sandboxProcess :: SandboxSpec -> IO CreateProcess
 sandboxProcess SandboxSpec{dar} = do
-    binary <- locateRunfiles (mainWorkspace </> "ledger/sandbox/sandbox-binary")
+    binary <- locateRunfiles (mainWorkspace </> exe "ledger/sandbox/sandbox-binary")
     pure $ proc binary [ dar, "--port", show selectedPort]
 
 startSandboxProcess :: SandboxSpec -> IO (ProcessHandle,Maybe Handle)

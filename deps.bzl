@@ -47,6 +47,7 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-library-dirs.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-runfiles-normalize.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,

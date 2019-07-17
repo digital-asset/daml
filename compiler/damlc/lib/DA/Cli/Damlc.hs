@@ -432,7 +432,7 @@ createProjectPackageDb lfVersion fps = do
     ghcPkgPath <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghc-pkg")
     callCommand $
         unwords
-            [ ghcPkgPath </> "ghc-pkg"
+            [ ghcPkgPath </> exe "ghc-pkg"
             , "recache"
             -- ghc-pkg insists on using a global package db and will trie
             -- to find one automatically if we don’t specify it here.
