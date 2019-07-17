@@ -109,14 +109,14 @@ object domain {
 
   final case class CreateCommand[+LfV](
       templateId: TemplateId.OptionalPkg,
-      arguments: Option[Seq[(String, LfV)]],
+      arguments: Option[Seq[Field[LfV]]],
       meta: Option[CommandMeta])
 
   final case class ExerciseCommand[+LfV](
       templateId: TemplateId.OptionalPkg,
       contractId: lar.ContractId,
       choice: lar.Choice,
-      arguments: Option[Seq[(String, LfV)]],
+      arguments: Option[Seq[Field[LfV]]],
       meta: Option[CommandMeta])
 
   // TODO(Leo): do you still need it?
@@ -124,7 +124,7 @@ object domain {
     def templateId(a: A): TemplateId.OptionalPkg
   }
 
-  type Field[A] = (String, A)
+  type Field[+A] = (String, A)
 
   object Field {
     import scalaz.std.list._
@@ -133,8 +133,8 @@ object domain {
     implicit val traverseField: Traverse[Field] = new Traverse[Field] {
       override def map[A, B](fa: (String, A))(f: A => B): (String, B) = (fa._1, f(fa._2))
 
-      override def traverseImpl[G[_]: Applicative, A, B](fa: (String, A))(
-          f: A => G[B]): G[(String, B)] = {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: Field[A])(
+          f: A => G[B]): G[Field[B]] = {
         import scalaz.syntax.apply._
         val g: Applicative[G] = implicitly
         val gs: G[String] = g.pure[String](fa._1)
@@ -143,11 +143,11 @@ object domain {
       }
     }
 
-    def mapField[A, B](args: List[Field[A]])(f: A => B): List[Field[B]] =
+    def mapFields[A, B](args: List[Field[A]])(f: A => B): List[Field[B]] =
       args.map(a => traverseField.map(a)(f))
 
-    def traverseFields[G[_]: Applicative, A, B](as: Seq[(String, A)])(
-        f: A => G[B]): G[List[(String, B)]] =
+    def traverseFields[G[_]: Applicative, A, B](as: Seq[Field[A]])(
+        f: A => G[B]): G[List[Field[B]]] =
       as.toList.traverse(a => traverseField.traverse(a)(f))
   }
 
@@ -159,14 +159,14 @@ object domain {
       import scalaz.syntax.traverse._
 
       override def map[A, B](fa: CreateCommand[A])(f: A => B): CreateCommand[B] =
-        fa.copy(arguments = fa.arguments.map(as => Field.mapField(as.toList)(f)))
+        fa.copy(arguments = fa.arguments.map(as => Field.mapFields(as.toList)(f)))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: CreateCommand[A])(
           f: A => G[B]): G[CreateCommand[B]] = {
 
         val g: Applicative[G] = implicitly
         val ga: G[CreateCommand[A]] = g.pure(fa)
-        val gb: G[Option[List[(String, B)]]] =
+        val gb: G[Option[List[Field[B]]]] =
           fa.arguments.traverse(as => Field.traverseFields(as)(f))
         ^(ga, gb)((a, b) => a.copy(arguments = b))
       }
@@ -184,14 +184,14 @@ object domain {
       import scalaz.syntax.traverse._
 
       override def map[A, B](fa: ExerciseCommand[A])(f: A => B): ExerciseCommand[B] =
-        fa.copy(arguments = fa.arguments.map(as => Field.mapField(as.toList)(f)))
+        fa.copy(arguments = fa.arguments.map(as => Field.mapFields(as.toList)(f)))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: ExerciseCommand[A])(
           f: A => G[B]): G[ExerciseCommand[B]] = {
 
         val g: Applicative[G] = implicitly
         val ga: G[ExerciseCommand[A]] = g.pure(fa)
-        val gb: G[Option[List[(String, B)]]] =
+        val gb: G[Option[List[Field[B]]]] =
           fa.arguments.traverse(as => Field.traverseFields(as)(f))
         ^(ga, gb)((a, b) => a.copy(arguments = b))
       }
