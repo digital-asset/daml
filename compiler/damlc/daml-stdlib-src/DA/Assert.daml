@@ -12,7 +12,7 @@ module DA.Assert
 
 infix 4 ===
 
--- | Check two values for equivalence. If they're not equivalent,
+-- | Check two values for equality. If they're not equal,
 -- fail with a message.
 (===) : (CanAbort m, Show a, Eq a) => a -> a -> m ()
 -- NOTE(MH): We do not define `(===)` in terms of `assertMsg` to avoid

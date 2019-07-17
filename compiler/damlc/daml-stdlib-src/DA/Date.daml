@@ -93,7 +93,7 @@ data Month
 fromMonth : Month -> Int
 fromMonth m = 1 + fromEnum m
 
--- | Get number of days in month in the given year `Int`, according to Gregorian calendar.
+-- | Get number of days in the given month in the given year, according to Gregorian calendar.
 -- This does not take historical calendar changes into account (for example, the
 -- moves from Julian to Gregorian calendar), but does count leap years.
 monthDayCount : Int -> Month -> Int

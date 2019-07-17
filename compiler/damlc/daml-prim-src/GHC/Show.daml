@@ -100,11 +100,11 @@ showParen b p   =  if b then showString "(" . p . showString ")" else p
 showString      : Text -> ShowS
 showString = (++)
 
--- | Using showString, prepends a space to the front of the string.
+-- | Prepends a single space to the front of the string.
 showSpace : ShowS
 showSpace = showString " "
 
--- | Using showString, prepends a comma and a space to the front of the string.
+-- | Prepends a comma and a single space to the front of the string.
 showCommaSpace : ShowS
 showCommaSpace = showString ", "
 

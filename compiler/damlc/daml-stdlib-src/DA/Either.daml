@@ -39,13 +39,13 @@ isRight (Left  _) = False
 isRight (Right _) = True
 
 -- | Return the contents of a `Left`-value, or a default value
--- of the `Left` type otherwise.
+-- in case of a `Right`-value.
 fromLeft : a -> Either a b -> a
 fromLeft _ (Left a) = a
 fromLeft a _        = a
 
 -- | Return the contents of a `Right`-value, or a default value
--- of the `Left` type otherwise.
+-- in case of a `Left`-value.
 fromRight : b -> Either a b -> b
 fromRight _ (Right b) = b
 fromRight b _         = b
