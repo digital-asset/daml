@@ -110,7 +110,7 @@ cls2rst ::  ClassDoc -> RenderOut
 cls2rst ClassDoc{..} = mconcat
     [ renderAnchor cl_anchor
     , renderLineDep $ \env ->
-        "**class " <> maybe "" (\x -> type2rst env x <> " => ") cl_super <> T.unwords (unTypename cl_name : cl_args) <> " where**"
+        "class " <> maybe "" (\x -> type2rst env x <> " => ") cl_super <> "**" <> T.unwords (unTypename cl_name : cl_args) <> "** where"
     , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cl_descr
     , mconcat $ map (renderIndent 2 . fct2rst) cl_functions
     ]

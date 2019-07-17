@@ -269,6 +269,9 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
     subdocs = memberDocs c
 getClsDocs _ _ = Nothing
 
+unknownType :: DDoc.Type
+unknownType = TypeApp Nothing (Typename "_") []
+
 getTypeDocs :: DocCtx -> DeclData -> Maybe (Typename, ADTDoc)
 getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
   | XTyClDecl{} <- decl =
@@ -282,17 +285,19 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
       let ad_name = Typename . packRdrName $ unLoc tcdLName
           ad_descr = doc
           ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-      tycon <- MS.lookup ad_name dc_tycons
-      ad_rhs <- typeToType ctx <$> synTyConRhs_maybe tycon
-      let ad_anchor = tyConAnchor ctx tycon
+          ad_anchor = Just $ typeAnchor dc_modname ad_name
+          ad_rhs = fromMaybe unknownType $ do
+              tycon <- MS.lookup ad_name dc_tycons
+              rhs <- synTyConRhs_maybe tycon
+              Just (typeToType ctx rhs)
+
       Just (ad_name, TypeSynDoc {..})
 
   | DataDecl{..} <- decl = do
       let ad_name = Typename . packRdrName $ unLoc tcdLName
           ad_descr = doc
           ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-      tycon <- MS.lookup ad_name dc_tycons
-      let ad_anchor = tyConAnchor ctx tycon
+          ad_anchor = Just $ typeAnchor dc_modname ad_name
           ad_constrs = mapMaybe constrDoc . dd_cons $ tcdDataDefn
       Just (ad_name, ADTDoc {..})
   where
@@ -301,9 +306,15 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
         let ac_name = Typename . packRdrName . unLoc $ con_name con
             ac_anchor = Just $ constrAnchor dc_modname ac_name
             ac_descr = fmap (docToText . unLoc) $ con_doc con
-
-        datacon <- MS.lookup ac_name dc_datacons
-        let ac_args = map (typeToType ctx) (dataConOrigArgTys datacon)
+            ac_args =
+                case MS.lookup ac_name dc_datacons of
+                    Nothing ->
+                        -- no type info available for args ... we can display "_" though
+                        replicate
+                            (length . hsConDeclArgTys . con_args $ con)
+                            unknownType
+                    Just datacon ->
+                        map (typeToType ctx) (dataConOrigArgTys datacon)
 
         Just $ case con_args con of
             PrefixCon _ -> PrefixC {..}
@@ -334,7 +345,7 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
     -- defined internally, and not expected to fail on consistent arguments.
     mkTemplateDoc :: Typename -> TemplateDoc
     mkTemplateDoc name = TemplateDoc
-      { td_anchor = Just $ templateAnchor dc_modname name
+      { td_anchor = ad_anchor tmplADT
       , td_name = ad_name tmplADT
       , td_args = ad_args tmplADT
       , td_super = cl_super =<< MS.lookup name templateInstanceMap
@@ -532,9 +543,7 @@ tyConAnchor DocCtx{..} tycon = do
         mod = maybe dc_modname getModulename (nameModule_maybe ghcName)
         anchorFn
             | isClassTyCon tycon = classAnchor
-            | isDataTyCon tycon = dataAnchor
             | otherwise = typeAnchor
-    guard (not (isWiredInName ghcName))
     Just (anchorFn mod name)
 
 ---------------------------------------------------------------------

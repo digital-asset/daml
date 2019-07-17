@@ -2,7 +2,7 @@
 
 ## Templates
 
-### <a name="template-proposaldsl-proposal-62786"></a>template (Template t) => Proposal t
+### <a name="type-proposaldsl-proposal-65892"></a>template (Template t) => Proposal t
 
 | Field     | Type/Description |
 | :-------- | :----------------
