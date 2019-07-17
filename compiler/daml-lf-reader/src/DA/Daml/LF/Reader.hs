@@ -36,7 +36,7 @@ appendToFirstEntry _ _ = error $ "Reading Manifest file from dar failed."
 
 multiLineContent :: [String] -> [String] -> [String]
 multiLineContent [] acc = acc
-multiLineContent (h : t) acc = if isPrefixOf " " h -- if starts with a blank line add it to the last line we collected
+multiLineContent (h : t) acc = if isPrefixOf " " h -- if starts with a space add it to the last line we collected
     then multiLineContent t (appendToFirstEntry acc (trim h) )
     else multiLineContent t (h:acc)
 
