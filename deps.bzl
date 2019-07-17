@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "8092d5f6165a8d9c4797d5f089c1ba4eee3326b1"
-rules_haskell_version = "a090af722e98ca82fcd14ba02f6b6a24ee2ef61b"
-rules_haskell_sha256 = "f01598e8ddd13ccb0f54fe46e79744ea30579720ba16b7a86cdccf6d7a3e64f6"
+rules_haskell_version = "53b899298cfdc9ce12564be6a8b507ef61bcd8d2"
+rules_haskell_sha256 = "3fda8396503ec65daf315f71562429b1ea20c1044122945d7dd2fc2dab31cbc3"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
 def daml_deps():
@@ -47,7 +47,6 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-library-dirs.patch",
-                "@com_github_digital_asset_daml//bazel_tools:haskell-runfiles-normalize.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
