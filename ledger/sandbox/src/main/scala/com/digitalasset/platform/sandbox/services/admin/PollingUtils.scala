@@ -52,6 +52,11 @@ object PollingUtils {
             after(waitTime, scheduler)(
               go(attempt + 1, backoffProgression(waitTime).min(maxWait).max(50.milliseconds)))(DE)
         }(DE)
+        .recoverWith {
+          case _ =>
+            after(waitTime, scheduler)(
+              go(attempt + 1, backoffProgression(waitTime).min(maxWait).max(50.milliseconds)))(DE)
+        }(DE)
     }
 
     go(1, minWait.min(maxWait).max(50.milliseconds))
