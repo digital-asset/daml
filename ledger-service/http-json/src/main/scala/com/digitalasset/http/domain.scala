@@ -109,14 +109,14 @@ object domain {
 
   final case class CreateCommand[+LfV](
       templateId: TemplateId.OptionalPkg,
-      arguments: Option[Seq[Field[LfV]]],
+      arguments: Option[Record[LfV]],
       meta: Option[CommandMeta])
 
   final case class ExerciseCommand[+LfV](
       templateId: TemplateId.OptionalPkg,
       contractId: lar.ContractId,
       choice: lar.Choice,
-      arguments: Option[Seq[Field[LfV]]],
+      arguments: Option[Record[LfV]],
       meta: Option[CommandMeta])
 
   // TODO(Leo): do you still need it?
@@ -126,11 +126,11 @@ object domain {
 
   type Field[+A] = (String, A)
 
-  object Field {
-    import scalaz.std.list._
-    import scalaz.syntax.traverse._
+  type Record[+A] = List[Field[A]]
 
-    implicit val traverseField: Traverse[Field] = new Traverse[Field] {
+  object Field {
+
+    implicit val traverseInstance: Traverse[Field] = new Traverse[Field] {
       override def map[A, B](fa: (String, A))(f: A => B): (String, B) = (fa._1, f(fa._2))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: Field[A])(
@@ -142,32 +142,41 @@ object domain {
         ^(gs, gb)((s, b) => (s, b))
       }
     }
+  }
 
-    def mapFields[A, B](args: List[Field[A]])(f: A => B): List[Field[B]] =
-      args.map(a => traverseField.map(a)(f))
+  object Record {
+    import scalaz.std.list._
+    import scalaz.syntax.traverse._
 
-    def traverseFields[G[_]: Applicative, A, B](as: Seq[Field[A]])(
-        f: A => G[B]): G[List[Field[B]]] =
-      as.toList.traverse(a => traverseField.traverse(a)(f))
+    implicit val traverseInstance: Traverse[Record] = new Traverse[Record] {
+      override def map[A, B](fa: Record[A])(f: A => B): Record[B] =
+        fa.map(a => Field.traverseInstance.map(a)(f))
+
+      override def traverseImpl[G[_]: Applicative, A, B](fa: Record[A])(
+          f: A => G[B]): G[Record[B]] = {
+        val as: List[Field[A]] = fa
+        as.traverse(a => Field.traverseInstance.traverse(a)(f))
+      }
+    }
   }
 
   object CreateCommand {
     // TODO(Leo) Traverse[CreateCommand] and Traverse[ExerciseCommand] are almost the same, HasArguments typeclass?
-    implicit val traverse = new Traverse[CreateCommand] {
+    implicit val traverseInstance = new Traverse[CreateCommand] {
       import scalaz.std.option._
       import scalaz.syntax.apply._
       import scalaz.syntax.traverse._
 
       override def map[A, B](fa: CreateCommand[A])(f: A => B): CreateCommand[B] =
-        fa.copy(arguments = fa.arguments.map(as => Field.mapFields(as.toList)(f)))
+        fa.copy(arguments = fa.arguments.map(as => Record.traverseInstance.map(as)(f)))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: CreateCommand[A])(
           f: A => G[B]): G[CreateCommand[B]] = {
 
         val g: Applicative[G] = implicitly
         val ga: G[CreateCommand[A]] = g.pure(fa)
-        val gb: G[Option[List[Field[B]]]] =
-          fa.arguments.traverse(as => Field.traverseFields(as)(f))
+        val gb: G[Option[Record[B]]] =
+          fa.arguments.traverse(as => Record.traverseInstance.traverse(as)(f))
         ^(ga, gb)((a, b) => a.copy(arguments = b))
       }
     }
@@ -178,13 +187,13 @@ object domain {
 
   object ExerciseCommand {
     // TODO(Leo) Traverse[CreateCommand] and Traverse[ExerciseCommand] are almost the same, HasArguments typeclass?
-    implicit val traverse = new Traverse[ExerciseCommand] {
+    implicit val traverseInstance = new Traverse[ExerciseCommand] {
       import scalaz.std.option._
       import scalaz.syntax.apply._
       import scalaz.syntax.traverse._
 
       override def map[A, B](fa: ExerciseCommand[A])(f: A => B): ExerciseCommand[B] =
-        fa.copy(arguments = fa.arguments.map(as => Field.mapFields(as.toList)(f)))
+        fa.copy(arguments = fa.arguments.map(as => Record.traverseInstance.map(as)(f)))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: ExerciseCommand[A])(
           f: A => G[B]): G[ExerciseCommand[B]] = {
@@ -192,7 +201,7 @@ object domain {
         val g: Applicative[G] = implicitly
         val ga: G[ExerciseCommand[A]] = g.pure(fa)
         val gb: G[Option[List[Field[B]]]] =
-          fa.arguments.traverse(as => Field.traverseFields(as)(f))
+          fa.arguments.traverse(as => Record.traverseInstance.traverse(as)(f))
         ^(ga, gb)((a, b) => a.copy(arguments = b))
       }
     }
