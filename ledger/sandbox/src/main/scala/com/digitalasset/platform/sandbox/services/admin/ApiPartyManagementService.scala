@@ -17,7 +17,7 @@ import io.grpc.ServerServiceDefinition
 import org.slf4j.LoggerFactory
 
 import scala.compat.java8.FutureConverters
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
 
 class ApiPartyManagementService private (
@@ -58,20 +58,18 @@ class ApiPartyManagementService private (
     * @param result The result of the party allocation
     * @return The result of the party allocation received originally, wrapped in a [[Future]]
     */
-  private def pollUntilPersisted(
-      result: AllocatePartyResponse,
-      minWait: FiniteDuration,
-      maxWait: FiniteDuration,
-      iteration: FiniteDuration => FiniteDuration): Future[AllocatePartyResponse] = {
+  private def pollUntilPersisted(result: AllocatePartyResponse): Future[AllocatePartyResponse] = {
     require(result.partyDetails.isDefined, "Party allocation response must have the party details")
     val newParty = result.partyDetails.get.party
+    val description = s"party $newParty"
+
     PollingUtils
       .pollUntilPersisted(partyManagementService.listParties _)(
         _.exists(_.party == newParty),
-        s"party $newParty",
-        minWait,
-        maxWait,
-        iteration,
+        description,
+        50.milliseconds,
+        500.milliseconds,
+        d => d * 2,
         scheduler)
       .map { numberOfAttempts =>
         logger.debug(s"Party $newParty available, read after $numberOfAttempts attempt(s)")
@@ -98,8 +96,7 @@ class ApiPartyManagementService private (
         case r @ PartyAllocationResult.NotSupported =>
           Future.failed(ErrorFactories.unimplemented(r.description))
       }(DE)
-      .flatMap(
-        pollUntilPersisted(_, 50.milliseconds, 500.milliseconds, (d: FiniteDuration) => d * 2))(DE)
+      .flatMap(pollUntilPersisted)(DE)
   }
 
 }

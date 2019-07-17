@@ -23,7 +23,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 import scala.compat.java8.FutureConverters
 import scala.concurrent.Future
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
+import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
 class ApiPackageManagementService(
@@ -80,13 +80,7 @@ class ApiPackageManagementService(
             case r @ UploadPackagesResult.NotSupported =>
               Future.failed(ErrorFactories.unimplemented(r.description))
           }(DE)
-          .flatMap(
-            pollUntilPersisted(
-              res._2,
-              _,
-              50.milliseconds,
-              500.milliseconds,
-              (d: FiniteDuration) => d * 2))(DE)
+          .flatMap(pollUntilPersisted(res._2, _))(DE)
     )
   }
 
@@ -100,19 +94,17 @@ class ApiPackageManagementService(
     */
   private def pollUntilPersisted(
       ids: List[String],
-      result: UploadDarFileResponse,
-      minWait: FiniteDuration,
-      maxWait: FiniteDuration,
-      iteration: FiniteDuration => FiniteDuration): Future[UploadDarFileResponse] = {
+      result: UploadDarFileResponse): Future[UploadDarFileResponse] = {
     val newPackages = ids.toSet
     val description = s"packages ${ids.mkString(", ")}"
+
     PollingUtils
       .pollUntilPersisted(packagesIndex.listLfPackages _)(
         x => newPackages.subsetOf(x.keySet.toSet),
         description,
-        minWait,
-        maxWait,
-        iteration,
+        50.milliseconds,
+        500.milliseconds,
+        d => d * 2,
         scheduler)
       .map { numberOfAttempts =>
         logger.debug(
