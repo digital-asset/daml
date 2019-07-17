@@ -66,7 +66,7 @@ class ApiPartyManagementService private (
     require(result.partyDetails.isDefined, "Party allocation response must have the party details")
     val newParty = result.partyDetails.get.party
     PollingUtils
-      .pollUntilPersisted(() => partyManagementService.listParties())(
+      .pollUntilPersisted(partyManagementService.listParties _)(
         _.exists(_.party == newParty),
         s"party $newParty",
         minWait,
