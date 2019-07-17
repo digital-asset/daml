@@ -646,11 +646,8 @@ newtype StartNavigator = StartNavigator Bool
 -- | Whether `daml start` should wait for Ctrl+C or interrupt after starting servers.
 newtype WaitForSignal = WaitForSignal Bool
 
-sandboxPort :: SandboxPort
-sandboxPort = SandboxPort 6865
-
-runStart :: StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
-runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
+runStart :: SandboxPort -> StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
+runStart sandboxPort (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     projectConfig <- getProjectConfig
     darPath <- getDarPath
     mbScenario :: Maybe String <-
@@ -672,8 +669,8 @@ runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) o
                   then withNavigator
                   else (\_ _ _ f -> f sandboxPh)
 
-runDeploy :: IO ()
-runDeploy = do
+runDeploy :: SandboxPort -> IO ()
+runDeploy sandboxPort = do
     darPath <- getDarPath
     doBuild
     let SandboxPort port = sandboxPort
