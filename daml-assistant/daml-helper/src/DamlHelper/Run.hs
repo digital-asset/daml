@@ -9,6 +9,7 @@ module DamlHelper.Run
     , runJar
     , runListTemplates
     , runStart
+    , runDeploy
 
     , withJar
     , withSandbox
@@ -59,6 +60,8 @@ import DAML.Project.Config
 import DAML.Project.Consts
 import DAML.Project.Types
 import DAML.Project.Util
+
+import qualified DA.Ledger as L
 
 data DamlHelperError = DamlHelperError
     { errMessage :: T.Text
@@ -643,18 +646,14 @@ newtype StartNavigator = StartNavigator Bool
 -- | Whether `daml start` should wait for Ctrl+C or interrupt after starting servers.
 newtype WaitForSignal = WaitForSignal Bool
 
-runStart :: StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
-runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
+runStart :: SandboxPort -> StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
+runStart sandboxPort (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     projectConfig <- getProjectConfig
-    projectName :: String <-
-        requiredE "Project must have a name" $
-        queryProjectConfigRequired ["name"] projectConfig
+    darPath <- getDarPath
     mbScenario :: Maybe String <-
         requiredE "Failed to parse scenario" $
         queryProjectConfig ["scenario"] projectConfig
-    let darPath = ".daml" </> "dist" </> projectName <> ".dar"
-    assistant <- getDamlAssistant
-    runProcess_ (shell $ unwords $ assistant : ["build"])
+    doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
         withNavigator' sandboxPh sandboxPort navigatorPort [] $ \navigatorPh -> do
@@ -664,17 +663,50 @@ runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) o
             when shouldWaitForSignal $
                 void $ race (waitExitCode navigatorPh) (waitExitCode sandboxPh)
 
-    where sandboxPort = SandboxPort 6865
-          navigatorPort = NavigatorPort 7500
+    where navigatorPort = NavigatorPort 7500
           withNavigator' sandboxPh =
               if shouldStartNavigator
                   then withNavigator
                   else (\_ _ _ f -> f sandboxPh)
 
+runDeploy :: SandboxPort -> IO ()
+runDeploy sandboxPort = do
+    darPath <- getDarPath
+    doBuild
+    let SandboxPort port = sandboxPort
+    putStrLn $ "Deploying " <> darPath <> " to ledger on port " <> show port
+    bytes <- BS.readFile darPath
+    let ls = L.uploadDarFile bytes
+    let timeout = 30 :: L.TimeoutSeconds
+    let ledgerClientConfig = L.configOfPort $ L.Port port
+    L.runLedgerService ls timeout ledgerClientConfig >>= \case
+        Right () -> do
+            putStrLn "Deploy succeeded."
+            exitSuccess
+        Left e -> do
+            hPutStrLn stderr $ "Deploy failed: " <> e
+            exitFailure
+
+getDarPath :: IO FilePath
+getDarPath = do
+    projectName <- getProjectName
+    return $ ".daml" </> "dist" </> projectName <> ".dar"
+
+doBuild :: IO ()
+doBuild = do
+    assistant <- getDamlAssistant
+    runProcess_ (shell $ unwords $ assistant : ["build"])
+
 getProjectConfig :: IO ProjectConfig
 getProjectConfig = do
     projectPath <- required "Must be called from within a project" =<< getProjectPath
     readProjectConfig (ProjectPath projectPath)
+
+getProjectName :: IO String
+getProjectName = do
+    projectConfig <- getProjectConfig
+    requiredE "Project must have a name" $
+        queryProjectConfigRequired ["name"] projectConfig
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
 -- Between each connection request it calls `sleep`.
