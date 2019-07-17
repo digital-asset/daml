@@ -11,7 +11,7 @@ import org.slf4j.{Logger, LoggerFactory}
 import scala.concurrent.Future
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 
-case object PollingUtils {
+object PollingUtils {
 
   private val logger: Logger = LoggerFactory.getLogger(PollingUtils.getClass)
 
