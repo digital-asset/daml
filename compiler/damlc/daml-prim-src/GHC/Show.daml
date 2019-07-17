@@ -77,29 +77,34 @@ class  Show a  where
 
 shows x = showsPrec (I# 0#) x
 
+-- hiding because the function signatures aren't even showing up in the docs.
+-- | HIDE
 showList__ : (a -> ShowS) ->  [a] -> ShowS
 showList__ _     []     s = "[]" ++ s
 showList__ showx (x::xs) s = "[" ++ showx x (showl showx xs s)
 
+-- | HIDE
 showl : (a -> ShowS) -> [a] -> ShowS
 showl showx []      s = "]" ++ s
 showl showx (y::ys) s = "," ++ showx y (showl showx ys s)
 
 
--- | utility function that surrounds the inner show function with
+-- | Utility function that surrounds the inner show function with
 -- parentheses when the 'Bool' parameter is 'True'.
 showParen       : Bool -> ShowS -> ShowS
 showParen b p   =  if b then showString "(" . p . showString ")" else p
 
 
--- | utility function converting a 'String' to a show function that
+-- | Utility function converting a 'String' to a show function that
 -- simply prepends the string unchanged.
 showString      : Text -> ShowS
 showString = (++)
 
+-- | Prepends a single space to the front of the string.
 showSpace : ShowS
 showSpace = showString " "
 
+-- | Prepends a comma and a single space to the front of the string.
 showCommaSpace : ShowS
 showCommaSpace = showString ", "
 

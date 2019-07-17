@@ -57,7 +57,7 @@ instance Ord Party where
   (>) = primitive @"BEGreater"
 
 -- | Convert the `Party` to `Text`, giving back what you passed to `getParty`.
---   Most users should stick to `show` of the party instead, which also wraps
+--   In most cases, you should use `show` instead. `show` wraps
 --   the party in `'ticks'` making it clear it was a `Party` originally.
 partyToText : Party -> Text
 partyToText = primitive @"BEToText"
