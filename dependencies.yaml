@@ -27,19 +27,19 @@ dependencies:
   io.grpc:
     grpc-core:
       lang: java
-      version: "1.18.0"
+      version: "1.20.0"
     grpc-stub:
       lang: java
-      version: "1.18.0"
+      version: "1.20.0"
     grpc-protobuf:
       lang: java
-      version: "1.18.0"
+      version: "1.20.0"
     grpc-netty:
       lang: java
-      version: "1.18.0"
+      version: "1.20.0"
     grpc-services:
       lang: java
-      version: "1.18.0"
+      version: "1.20.0"
 
   com.chuusai:
     shapeless:
@@ -432,19 +432,19 @@ dependencies:
   io.netty:
     netty-codec-http2:
       lang: java
-      version: "4.1.33.Final"
+      version: "4.1.37.Final"
     netty-tcnative-boringssl-static:
       lang: java
-      version: "2.0.20.Final"
+      version: "2.0.25.Final"
     netty-handler:
       lang: java
-      version: "4.1.33.Final"
+      version: "4.1.37.Final"
     netty-handler-proxy:
       lang: java
-      version: "4.1.33.Final"
+      version: "4.1.37.Final"
     netty-resolver:
       lang: java
-      version: "4.1.33.Final"
+      version: "4.1.37.Final"
 
   io.protostuff:
     protostuff-core:
@@ -487,19 +487,19 @@ dependencies:
   com.thesamet.scalapb:
     protoc-bridge:
       lang: scala
-      version: "0.7.4"
+      version: "0.7.8"
     compilerplugin:
       lang: scala
-      version: "0.8.4"
+      version: "0.9.0"
     lenses:
       lang: scala
-      version: "0.8.4"
+      version: "0.9.0"
     scalapb-runtime:
       lang: scala
-      version: "0.8.4"
+      version: "0.9.0"
     scalapb-runtime-grpc:
       lang: scala
-      version: "0.8.4"
+      version: "0.9.0"
 
   com.github.blemale:
     scaffeine:
