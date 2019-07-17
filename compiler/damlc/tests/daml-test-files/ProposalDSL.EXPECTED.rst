@@ -8,7 +8,7 @@ Module ProposalDSL
 Templates
 ^^^^^^^^^
 
-.. _template-proposaldsl-proposal-62786:
+.. _type-proposaldsl-proposal-65892:
 
 template (Template t) => **Proposal** t
 

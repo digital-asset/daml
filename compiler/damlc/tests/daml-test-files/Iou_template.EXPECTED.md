@@ -2,7 +2,7 @@
 
 ## Templates
 
-### <a name="template-ioutemplate-iou-32396"></a>template Iou
+### <a name="type-ioutemplate-iou-55222"></a>template Iou
 
 | Field      | Type/Description |
 | :--------- | :----------------
@@ -24,7 +24,7 @@ Choices:
   
   | Field    | Type/Description |
   | :------- | :----------------
-  | otherCid | ContractId Iou |
+  | otherCid | ContractId [Iou](#type-ioutemplate-iou-55222) |
   |          | Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original `Iou`. |
   
 * Split
