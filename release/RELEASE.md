@@ -12,9 +12,11 @@
    there have been no changes that have been added to the release notes so far.
 1. Merge the PR.
 1. Once CI has passed for the corresponding master build, the release should be
-   available on Bintray, Maven Central and GitHub and have a Git tag.
-   Maven central has a slight delay of around 20 minutes until the
-   new version is visible.
+   available on Bintray, Maven Central and GitHub and have a Git tag. The release
+   should be visible on GitHub with _prerelease_ status, meaning it's not yet ready
+   for production. The release notes should not be defined yet and will be adjusted
+   later on. Maven central has a slight delay of around 20 minutes until the new
+   version is visible.
 1. Run through the following test plan on Linux or MacOS:
 
    1. Install the SDK using `curl -sSL https://get.daml.com/ | sh -s X.XX.XX`,
