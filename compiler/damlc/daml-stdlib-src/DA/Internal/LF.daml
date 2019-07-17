@@ -57,7 +57,7 @@ instance Ord Party where
   (>) = primitive @"BEGreater"
 
 -- | Convert the `Party` to `Text`, giving back what you passed to `getParty`.
---   Most users should stick to `show` of the party instead, which also wraps
+--   In most cases, you should use `show` instead. `show` wraps
 --   the party in `'ticks'` making it clear it was a `Party` originally.
 partyToText : Party -> Text
 partyToText = primitive @"BEToText"
@@ -67,8 +67,8 @@ partyToText = primitive @"BEToText"
 -- are allowed in parties. Note that this function accepts text _without_
 -- single quotes.
 --
--- Also note that this function does not perform any check on whether the provided
--- text correspond to a party that "exists" on a given ledger: it merely converts
+-- This function does not check on whether the provided
+-- text corresponds to a party that "exists" on a given ledger: it merely converts
 -- the given `Text` to a `Party`. The only way to guarantee that a given `Party`
 -- exists on a given ledger is to involve it in a contract.
 --
@@ -194,8 +194,8 @@ submit = primitive @"SCommit"
 
 infixr 0 `submitMustFail`
 -- | `submitMustFail` describes the scenario in which party `p` attempts to update the
--- ledger with update action `u`, but is expected to fail. This scenario is considered
--- a failure if the underlying update action succeeds.
+-- ledger with update action `u`, and the update is *expected to fail*. Therefore, this
+-- scenario fails if the underlying update action *succeeds*.
 submitMustFail : Party -> Update a -> Scenario ()
 submitMustFail = primitive @"SMustFailAt"
 

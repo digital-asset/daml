@@ -64,6 +64,8 @@ data ModuleDoc = ModuleDoc
 data TemplateDoc = TemplateDoc
   { td_anchor  :: Maybe Anchor
   , td_name    :: Typename
+  , td_super   :: Maybe Type
+  , td_args    :: [Text]
   , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]

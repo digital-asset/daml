@@ -51,11 +51,13 @@ mkTestTree = do
 unitTests :: [Tasty.TestTree]
 unitTests =
     [ damldocExpect
+           Nothing
            "Empty module is OK"
            [testModHdr]
            (assertBool "Expected empty docs" . (== emptyDocs testModule))
 
          , damldocExpect
+           Nothing
            "Module header doc"
            [ "daml 1.2"
            , "-- | This is a module header"
@@ -65,6 +67,7 @@ unitTests =
                               md_descr == Just "This is a module header" )
 
          , damldocExpect
+           Nothing
            "Type synonym doc"
            [ testModHdr
            , "-- | Foo doc"
@@ -76,6 +79,7 @@ unitTests =
                                 check $ ad_descr adt == Just "Foo doc"))
 
          , damldocExpect
+           Nothing
            "Data type doc"
            [ testModHdr
            , "-- | Foo doc"
@@ -87,6 +91,7 @@ unitTests =
                                 check $ ad_descr adt == Just "Foo doc"))
 
          , damldocExpect
+           Nothing
            "Prefix data constructor doc"
            [ testModHdr
            , "data Foo = Foo {}"
@@ -99,6 +104,7 @@ unitTests =
                                 check $ ac_descr con == Just "Constructor"))
 
          , damldocExpect
+           Nothing
            "Record data docs"
            [ testModHdr
            , "data Foo = Foo with"
@@ -113,6 +119,7 @@ unitTests =
                                 check $ fd_descr f1 == Just "Field1"))
 
          , damldocExpect
+           Nothing
            "Template docs"
            [ testModHdr
            , "-- | Template doc"
@@ -129,6 +136,7 @@ unitTests =
                                 check $ fd_descr f1 == Just "Field1"))
 
          , damldocExpect
+           Nothing
            "Choice field docs"
            [ testModHdr
            , "template Foo with"
@@ -151,6 +159,7 @@ unitTests =
                                 check $ Just "field" == fd_descr f2))
 
          , damldocExpect
+           Nothing
            "Several Choices"
            [ testModHdr
            , "template Foo with"
@@ -174,6 +183,7 @@ unitTests =
                                 check $ ["DoMore", "DoSomething"] == sort (map cd_name cs)))
 
          , damldocExpect
+           Nothing
            "Class doc"
            [ testModHdr
            , "-- | Class description"
@@ -221,8 +231,8 @@ emptyDocs name =
 
 -- | Compiles the given input string (in a tmp file) and checks generated doc.s
 -- using the predicate provided.
-damldocExpect :: String -> [T.Text] -> (ModuleDoc -> Assertion) -> Tasty.TestTree
-damldocExpect testname input check =
+damldocExpect :: Maybe FilePath -> String -> [T.Text] -> (ModuleDoc -> Assertion) -> Tasty.TestTree
+damldocExpect importPathM testname input check =
   testCase testname $
   withTempDir $ \dir -> do
 
@@ -232,8 +242,14 @@ damldocExpect testname input check =
 
     opts <- defaultOptionsIO Nothing
 
+    let opts' = opts
+          { optImportPath =
+              maybe id (:) importPathM $
+                  optImportPath opts
+          }
+
     -- run the doc generator on that file
-    mbResult <- runExceptT $ mkDocs (toCompileOpts opts) [toNormalizedFilePath testfile]
+    mbResult <- runExceptT $ mkDocs (toCompileOpts opts') [toNormalizedFilePath testfile]
 
     case mbResult of
       Left err -> assertFailure $ unlines
@@ -289,4 +305,4 @@ fileTest damlFile = do
                       "Unexpected output has been written to " <> actualFile <> "\n" <>
                       "Differences:\n" <> diff
 
-          in pure $  damldocExpect ("File: " <> expectation) [input] check
+          in pure $  damldocExpect (Just $ takeDirectory damlFile) ("File: " <> expectation) [input] check

@@ -5,16 +5,16 @@ daml 1.2
 -- | The `Either` type represents values with two possibilities.
 --
 -- It is sometimes used to represent a value which is either correct
--- or an error; by convention the `Left` constructor is used to hold
+-- or an error. By convention, the `Left` constructor is used to hold
 -- an error value and the `Right` constructor is used to hold a correct
 -- value (mnemonic: "right" also means correct).
 module DA.Either(Either(..), either, module DA.Either) where
 
--- | Extracts all the `Left` elements.
+-- | Extracts all the `Left` elements from a list.
 lefts : [Either a b] -> [a]
 lefts x = [a | Left a <- x]
 
--- | Extracts all the `Right` elements.
+-- | Extracts all the `Right` elements from a list.
 rights : [Either a b] -> [b]
 rights x = [a | Right a <- x]
 
@@ -38,14 +38,14 @@ isRight : Either a b -> Bool
 isRight (Left  _) = False
 isRight (Right _) = True
 
--- | Return the contents of a `Left`-value or a default value
--- otherwise.
+-- | Return the contents of a `Left`-value, or a default value
+-- in case of a `Right`-value.
 fromLeft : a -> Either a b -> a
 fromLeft _ (Left a) = a
 fromLeft a _        = a
 
--- | Return the contents of a `Right`-value or a default value
--- otherwise.
+-- | Return the contents of a `Right`-value, or a default value
+-- in case of a `Left`-value.
 fromRight : b -> Either a b -> b
 fromRight _ (Right b) = b
 fromRight b _         = b
@@ -61,11 +61,11 @@ optionalToEither _ (Some x) = Right x
 eitherToOptional : Either a b -> Optional b
 eitherToOptional (Left _) = None
 eitherToOptional (Right x) = Some x
-
+-- | Deprecated.
 {-# DEPRECATED maybeToEither "DAML 1.2 compatibility helper, use 'optionalToEither' instead of 'maybeToEither'" #-}
 maybeToEither : a -> Optional b -> Either a b
 maybeToEither = optionalToEither
-
+-- | Deprecated.
 {-# DEPRECATED eitherToMaybe "DAML 1.2 compatibility helper, use 'eitherToOptional' instead of 'eitherToMaybe'" #-}
 eitherToMaybe : Either a b -> Optional b
 eitherToMaybe = eitherToOptional

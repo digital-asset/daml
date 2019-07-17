@@ -4,6 +4,7 @@ module DamlHelper.Main (main) where
 
 import Control.Exception
 import Data.Foldable
+import Maybes (orElse)
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
@@ -24,14 +25,19 @@ main =
          command <- customExecParser parserPrefs (info (commandParser <**> helper) idm)
          runCommand command
 
+
+defaultSandboxPort :: SandboxPort
+defaultSandboxPort = SandboxPort 6865
+
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
     | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
     | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
+    | Deploy { optSandboxPort :: Maybe SandboxPort }
     | ListTemplates
-    | Start { openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
+    | Start { optSandboxPort :: Maybe SandboxPort, openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
 
 commandParser :: Parser Command
 commandParser =
@@ -41,6 +47,7 @@ commandParser =
          , command "migrate" (info (migrateCmd <**> helper) idm)
          , command "init" (info (initCmd <**> helper) idm)
          , command "start" (info (startCmd <**> helper) idm)
+         , command "deploy" (info (deployCmd <**> helper) idm)
          , command "run-jar" (info runJarCmd forwardOptions)
          ]
     where damlStudioCmd = DamlStudio
@@ -65,10 +72,14 @@ commandParser =
                   <*> argument str (metavar "TO_PATH" <> help "Path to the dar-package to which to migrate to")
           initCmd = Init <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
           startCmd = Start
-                <$> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
+                <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
+                <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
                 <*> (StartNavigator <$> flagYesNoAuto "start-navigator" True "Start navigator after sandbox" idm)
                 <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
                 <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
+
+          deployCmd = Deploy
+                <$> optional (SandboxPort <$> option auto (long "port" <> metavar "SANDBOX_PORT_NUM" <> help "Port number for a running sandbox"))
 
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
@@ -84,4 +95,5 @@ runCommand New {..} = runNew targetFolder templateNameM []
 runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
-runCommand Start {..} = runStart startNavigator openBrowser onStartM waitForSignal
+runCommand Start {..} = runStart (optSandboxPort `orElse` defaultSandboxPort) startNavigator openBrowser onStartM waitForSignal
+runCommand Deploy {..} = runDeploy (optSandboxPort `orElse` defaultSandboxPort)

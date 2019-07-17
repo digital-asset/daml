@@ -36,6 +36,7 @@ import "ghc-lib-parser" TysWiredIn
 import "ghc-lib-parser" FastString
 import "ghc-lib-parser" Bag
 import "ghc-lib-parser" TcEvidence (HsWrapper(..))
+import Control.Monad
 
 -- | Generate a module containing generic instances for data types that don't have them already.
 generateGenInstancesModule :: String -> (String, ParsedSource) -> String
@@ -47,7 +48,7 @@ generateGenInstancesModule qual (pkg, L _l src) =
         unLoc $ fromMaybe (error "missing module name") $ hsmodName src
     header =
         [ "{-# LANGUAGE EmptyCase #-}"
-        , "daml 1.2"
+        , "{-# LANGUAGE NoDamlSyntax #-}"
         , "module " <> modName <> "Instances" <> qual <> " where"
         , "import \"" <> pkg <> "\" " <> modName
         , "import DA.Generics"
@@ -135,7 +136,7 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
   where
     pkgMapInv = MS.fromList $ map swap $ MS.toList pkgMap
     getUnitId :: LF.PackageRef -> UnitId
-    getUnitId pkgRef =
+    getUnitId pkgRef = 
         fromMaybe (error $ "Unknown package: " <> show pkgRef) $
         case pkgRef of
             LF.PRSelf -> MS.lookup thisPkgId pkgMapInv
@@ -162,18 +163,33 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
         mkRdrQual (mkModuleName "DA.Internal.Template") $
         mkOccName varName "Template" :: LHsType GhcPs
     sigRdrName = noLoc $ mkRdrUnqual $ mkOccName varName "signatory"
+    errTooManyNameComponents cs =
+        error $
+        "Internal error: Dalf contains type constructors with more than two name components: " <>
+        (T.unpack $ T.intercalate "." cs)
+    sumProdRecords =
+        MS.fromList
+            [ (dataTyCon, fs)
+            | LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
+            , let dataTyCon = LF.unTypeConName dataTypeCon
+            , length dataTyCon == 2
+            , LF.DataRecord fs <- [dataCons]
+            ]
     decls =
         concat $ do
             LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
+            let numberOfNameComponents = length (LF.unTypeConName dataTypeCon)
+            -- we should never encounter more than two name components in dalfs.
+            unless (numberOfNameComponents <= 2) $
+                errTooManyNameComponents $ LF.unTypeConName dataTypeCon
+            -- skip generated data types of sums of products construction in daml-lf
+            [dataTypeCon0] <- [LF.unTypeConName dataTypeCon]
             let templType =
                     LF.mkTApps
                         (LF.TCon
                              (LF.Qualified LF.PRSelf (LF.moduleName m) dataTypeCon))
                         (map (LF.TVar . fst) dataParams)
-            let occName =
-                    mkOccName varName $
-                    T.unpack $
-                    sanitize $ T.intercalate "." $ LF.unTypeConName dataTypeCon
+            let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
             let dataDecl =
                     noLoc $
                     TyClD NoExt $
@@ -196,7 +212,7 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
                                   , dd_ctxt = noLoc []
                                   , dd_cType = Nothing
                                   , dd_kindSig = Nothing
-                                  , dd_cons = convDataCons dataTypeCon dataCons
+                                  , dd_cons = convDataCons dataTypeCon0 dataCons
                                   , dd_derivs = noLoc []
                                   }
                         }
@@ -289,8 +305,8 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
                             }
             let templateDataCons = NM.names $ LF.moduleTemplates m
             pure $ dataDecl : [templInstDecl | dataTypeCon `elem` templateDataCons]
-    convDataCons :: LF.TypeConName -> LF.DataCons -> [LConDecl GhcPs]
-    convDataCons dataTypeCon =
+    convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
+    convDataCons dataTypeCon0 =
         \case
             LF.DataRecord fields ->
                 [ noLoc $
@@ -299,10 +315,7 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
                       , con_name =
                             noLoc $
                             mkRdrUnqual $
-                            mkOccName dataName $
-                            T.unpack $
-                            sanitize $
-                            T.intercalate "." $ LF.unTypeConName dataTypeCon
+                            mkOccName dataName $ T.unpack $ sanitize dataTypeCon0
                       , con_forall = noLoc False
                       , con_ex_tvs = []
                       , con_mb_cxt = Nothing
@@ -346,12 +359,10 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
                           case ty of
                               LF.TBuiltin LF.BTUnit -> PrefixCon []
                               otherTy ->
-                                  PrefixCon
-                                      [ noLoc $
-                                        HsParTy
-                                            NoExt
-                                            (noLoc $ convType otherTy)
-                                      ]
+                                  let t = convType otherTy
+                                   in case (t :: HsType GhcPs) of
+                                          HsRecTy _ext fs -> RecCon $ noLoc fs
+                                          _other -> PrefixCon [noLoc t]
                     }
                 | (conName, ty) <- cons
                 ]
@@ -381,20 +392,49 @@ generateSrcFromLf thisPkgId pkgMap m = noLoc mod
     convType =
         \case
             LF.TVar tyVarName ->
-                HsTyVar NoExt NotPromoted $
-                mkRdrName $ LF.unTypeVarName tyVarName
+                HsTyVar NoExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
             LF.TCon LF.Qualified {..} ->
-                HsTyVar NoExt NotPromoted $
-                noLoc $
-                mkOrig
-                    (mkModule
-                         (getUnitId qualPackage)
-                         (mkModuleName $
-                          T.unpack $ LF.moduleNameString qualModule))
-                    (mkOccName varName $
-                     T.unpack $ T.intercalate "." $ LF.unTypeConName qualObject)
+                case LF.unTypeConName qualObject of
+                    [name] ->
+                        HsTyVar NoExt NotPromoted $
+                        noLoc $
+                        mkOrig
+                            (mkModule
+                                 (getUnitId qualPackage)
+                                 (mkModuleName $
+                                  T.unpack $ LF.moduleNameString qualModule))
+                            (mkOccName varName $ T.unpack name)
+                    n@[_name0, _name1] ->
+                        let fs =
+                                MS.findWithDefault
+                                    (error $
+                                     "Internal error: Could not find generated record type: " <>
+                                     (T.unpack $ T.intercalate "." n))
+                                    n
+                                    sumProdRecords
+                         in HsRecTy
+                                NoExt
+                                [ noLoc $
+                                ConDeclField
+                                    { cd_fld_ext = noExt
+                                    , cd_fld_names =
+                                          [ noLoc $
+                                            FieldOcc
+                                                { extFieldOcc = noExt
+                                                , rdrNameFieldOcc =
+                                                      mkRdrName $
+                                                      LF.unFieldName fieldName
+                                                }
+                                          ]
+                                    , cd_fld_type = noLoc $ convType fieldTy
+                                    , cd_fld_doc = Nothing
+                                    }
+                                | (fieldName, fieldTy) <- fs
+                                ]
+                    cs -> errTooManyNameComponents cs
             LF.TApp ty1 ty2 ->
-                HsAppTy NoExt (noLoc $ convType ty1) (noLoc $ convType ty2)
+                HsParTy noExt $
+                noLoc $ HsAppTy NoExt (noLoc $ convType ty1) (noLoc $ convType ty2)
             LF.TBuiltin builtinTy -> convBuiltInTy builtinTy
             LF.TForall {..} ->
                 HsForAllTy

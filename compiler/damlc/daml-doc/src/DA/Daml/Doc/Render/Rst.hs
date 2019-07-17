@@ -88,7 +88,11 @@ renderSimpleRst ModuleDoc{..} = mconcat $
 tmpl2rst :: TemplateDoc -> RenderOut
 tmpl2rst TemplateDoc{..} = mconcat $
   [ renderAnchor td_anchor
-  , renderLine $ "template " <> enclosedIn "**" (unTypename td_name)
+  , renderLineDep $ \env -> T.concat
+      [ "template "
+      , maybe "" ((<> " => ") . type2rst env) td_super
+      , T.unwords (enclosedIn "**" (unTypename td_name) : td_args)
+      ]
   , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) td_descr
   , renderLine ""
   , renderIndent 2 (fieldTable td_payload)
@@ -106,7 +110,7 @@ cls2rst ::  ClassDoc -> RenderOut
 cls2rst ClassDoc{..} = mconcat
     [ renderAnchor cl_anchor
     , renderLineDep $ \env ->
-        "**class " <> maybe "" (\x -> type2rst env x <> " => ") cl_super <> T.unwords (unTypename cl_name : cl_args) <> " where**"
+        "class " <> maybe "" (\x -> type2rst env x <> " => ") cl_super <> "**" <> T.unwords (unTypename cl_name : cl_args) <> "** where"
     , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cl_descr
     , mconcat $ map (renderIndent 2 . fct2rst) cl_functions
     ]

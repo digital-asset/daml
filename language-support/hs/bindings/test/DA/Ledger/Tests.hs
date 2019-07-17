@@ -7,7 +7,7 @@
 module DA.Ledger.Tests (main) where
 
 import Control.Concurrent (MVar,newMVar,takeMVar,withMVar)
-import Control.Monad(unless)
+import Control.Monad(unless, forM)
 import Control.Monad.IO.Class(liftIO)
 import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchive)
@@ -27,6 +27,7 @@ import qualified Data.ByteString as BS (readFile)
 import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.Text.Lazy as Text(pack,unpack,fromStrict)
+import qualified Data.Set as Set
 import qualified Data.UUID as UUID (toString)
 
 import DA.Ledger.Sandbox as Sandbox
@@ -43,6 +44,7 @@ tests :: TestTree
 tests = testGroupWithSandbox "Ledger Bindings"
     [ tGetLedgerIdentity
     , tReset
+    , tMultipleResets
     , tListPackages
     , tGetPackage
     , tGetPackageBad
@@ -81,6 +83,15 @@ tReset withSandbox = testCase "reset" $ run withSandbox $ \_ -> do
     Ledger.reset lid1
     lid2 <- getLedgerIdentity
     liftIO $ assertBool "lid1 /= lid2" (lid1 /= lid2)
+
+tMultipleResets :: SandboxTest
+tMultipleResets withSandbox = testCase "multipleResets" $ run withSandbox $ \_pid -> do
+    let resetsCount = 20
+    lids <- forM [1 .. resetsCount] $ \_ -> do
+        lid <- getLedgerIdentity
+        Ledger.reset lid
+        pure lid
+    liftIO $ assertEqual "Ledger IDs are unique" resetsCount (Set.size $ Set.fromList lids)
 
 tListPackages :: SandboxTest
 tListPackages withSandbox = testCase "listPackages" $ run withSandbox $ \pid -> do

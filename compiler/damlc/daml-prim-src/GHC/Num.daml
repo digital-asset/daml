@@ -43,7 +43,7 @@ infixl 7 %
 -- * `negate` gives the additive inverse, ie: `x + negate x` = `aunit`
 --
 class Additive a  where
-    -- | Add the two arguments together
+    -- | Add the two arguments together.
     (+)                 : a -> a -> a
     -- | The additive identity for the type. For example, for numbers, this is 0.
     aunit                : a
@@ -73,9 +73,9 @@ class Multiplicative a where
 
 -- | `Number` is a class for numerical types.
 -- As well as the rules for `Additive` and `Multiplicative`, instances
--- also have to respect the following laws:
+-- also have to respect the following law:
 --
--- * `(*)` is distributive with respect to `(+)`, ie:
+-- * `(*)` is distributive with respect to `(+)`. That is:
 --     `a * (b + c)` = `(a * b) + (a * c)` and `(b + c) * a` = `(b * a) + (c * a)`
 class (Additive a, Multiplicative a) => Number a where
   -- no methods

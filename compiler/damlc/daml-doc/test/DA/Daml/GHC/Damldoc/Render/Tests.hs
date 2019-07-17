@@ -92,7 +92,7 @@ expectRst =
         , mkExpectRst "module-onlyclass" "OnlyClass" ""
             []
             [ "\n.. _class-onlyclass-c:"
-            , "**class C a where**\n  \n  .. _function-onlyclass-member:\n  \n  **member**\n    : a"
+            , "class **C a** where\n  \n  .. _function-onlyclass-member:\n  \n  **member**\n    : a"
             ]
             []
             []

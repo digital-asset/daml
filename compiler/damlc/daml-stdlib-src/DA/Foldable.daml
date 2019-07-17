@@ -3,7 +3,7 @@
 
 daml 1.2
 -- | Class of data structures that can be folded to a summary value.
--- You typically would want to import this module qualified to avoid clashes with
+-- It's a good idea to import this module qualified to avoid clashes with
 -- functions defined in `Prelude`. Ie.:
 -- ```
 -- import DA.Foldable qualified as F

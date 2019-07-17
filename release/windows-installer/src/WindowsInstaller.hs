@@ -33,7 +33,7 @@ installer sdkDir logo = do
         -- that nsis will cleanup automatically.
         unsafeInject "InitPluginsDir"
         iff_ (fileExists "$APPDATA/daml") $ do
-            answer <- messageBox [MB_YESNO] "DAML SDK is already installed. Do you want to remove it?"
+            answer <- messageBox [MB_YESNO] "DAML SDK is already installed. Do you want to remove the installed SDKs before installing this one?"
             iff (answer %== "YES")
                 (rmdir [Recursive] "$APPDATA/daml")
                 (abort "Existing installation detected.")

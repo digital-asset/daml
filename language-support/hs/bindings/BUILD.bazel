@@ -86,6 +86,7 @@ da_haskell_test(
         "async",
         "base",
         "bytestring",
+        "containers",
         "filepath",
         "directory",
         "extra",

@@ -38,6 +38,7 @@ import qualified Data.Map.Strict as MS
 import qualified Data.Set as Set
 import qualified Data.Text                                 as T
 import           Data.Tuple.Extra                          (second)
+import Data.Either
 
 -- | Parse, and process documentation in, a dependency graph of modules.
 mkDocs
@@ -59,21 +60,25 @@ mkDocs opts fp = do
     mkModuleDocs tmr =
         let ctx@DocCtx{..} = buildDocCtx (Service.tmrModule tmr)
             typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
-            fctDocs = mapMaybe (getFctDocs ctx) dc_decls
-            clsDocs = mapMaybe (getClsDocs ctx) dc_decls
-            tmplDocs = getTemplateDocs ctx typeMap
-            adtDocs
+            classDocs = mapMaybe (getClsDocs ctx) dc_decls
+
+            (md_classes, templateInstanceClasses) =
+                partitionEithers . flip map classDocs $ \classDoc ->
+                    case stripInstanceSuffix (cl_name classDoc) of
+                        Nothing -> Left classDoc
+                        Just templateName -> Right (templateName, classDoc)
+            templateInstanceMap = MS.fromList templateInstanceClasses
+
+            md_name = dc_modname
+            md_anchor = Just (moduleAnchor md_name)
+            md_descr = modDoc dc_tcmod
+            md_templates = getTemplateDocs ctx typeMap templateInstanceMap
+            md_functions = mapMaybe (getFctDocs ctx) dc_decls
+            md_adts
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
-                $ dc_templates : MS.elems dc_choices
-        in ModuleDoc
-            { md_anchor = Just (moduleAnchor dc_modname)
-            , md_name = dc_modname
-            , md_descr = modDoc dc_tcmod
-            , md_adts = adtDocs
-            , md_templates = tmplDocs
-            , md_functions = fctDocs
-            , md_classes = clsDocs
-            }
+                $ dc_templates : MS.keysSet dc_templateInstances : MS.elems dc_choices
+
+        in ModuleDoc {..}
 
 -- | Return the names for a given signature.
 -- Equivalent of Haddock’s Haddock.GhcUtils.sigNameNoLoc.
@@ -138,6 +143,10 @@ data DocCtx = DocCtx
     , dc_templates :: Set.Set Typename
     , dc_choices :: MS.Map Typename (Set.Set Typename)
         -- ^ choices per template
+    , dc_templateInstances :: MS.Map Typename Typename
+        -- ^ maps template instance name to generic template name
+        -- (note that the generic template may be in a different module,
+        -- so one should not rely on it being in dc_templates)
     }
 
 -- | Parsed declaration with associated docs.
@@ -152,7 +161,7 @@ buildDocCtx dc_tcmod  =
       dc_decls
           = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
           . pm_parsed_source . tm_parsed_module $ dc_tcmod
-      (dc_templates, dc_choices)
+      (dc_templates, dc_choices, dc_templateInstances)
           = getTemplateData . tm_parsed_module $ dc_tcmod
 
       tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
@@ -260,6 +269,9 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
     subdocs = memberDocs c
 getClsDocs _ _ = Nothing
 
+unknownType :: DDoc.Type
+unknownType = TypeApp Nothing (Typename "_") []
+
 getTypeDocs :: DocCtx -> DeclData -> Maybe (Typename, ADTDoc)
 getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
   | XTyClDecl{} <- decl =
@@ -273,17 +285,19 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
       let ad_name = Typename . packRdrName $ unLoc tcdLName
           ad_descr = doc
           ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-      tycon <- MS.lookup ad_name dc_tycons
-      ad_rhs <- typeToType ctx <$> synTyConRhs_maybe tycon
-      let ad_anchor = tyConAnchor ctx tycon
+          ad_anchor = Just $ typeAnchor dc_modname ad_name
+          ad_rhs = fromMaybe unknownType $ do
+              tycon <- MS.lookup ad_name dc_tycons
+              rhs <- synTyConRhs_maybe tycon
+              Just (typeToType ctx rhs)
+
       Just (ad_name, TypeSynDoc {..})
 
   | DataDecl{..} <- decl = do
       let ad_name = Typename . packRdrName $ unLoc tcdLName
           ad_descr = doc
           ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-      tycon <- MS.lookup ad_name dc_tycons
-      let ad_anchor = tyConAnchor ctx tycon
+          ad_anchor = Just $ typeAnchor dc_modname ad_name
           ad_constrs = mapMaybe constrDoc . dd_cons $ tcdDataDefn
       Just (ad_name, ADTDoc {..})
   where
@@ -292,9 +306,15 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
         let ac_name = Typename . packRdrName . unLoc $ con_name con
             ac_anchor = Just $ constrAnchor dc_modname ac_name
             ac_descr = fmap (docToText . unLoc) $ con_doc con
-
-        datacon <- MS.lookup ac_name dc_datacons
-        let ac_args = map (typeToType ctx) (dataConOrigArgTys datacon)
+            ac_args =
+                case MS.lookup ac_name dc_datacons of
+                    Nothing ->
+                        -- no type info available for args ... we can display "_" though
+                        replicate
+                            (length . hsConDeclArgTys . con_args $ con)
+                            unknownType
+                    Just datacon ->
+                        map (typeToType ctx) (dataConOrigArgTys datacon)
 
         Just $ case con_args con of
             PrefixCon _ -> PrefixC {..}
@@ -312,15 +332,23 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
     fieldDoc (_, L _ XConDeclField{}) = Nothing
 getTypeDocs _ _other = Nothing
 
-getTemplateDocs :: DocCtx -> MS.Map Typename ADTDoc -> [TemplateDoc]
-getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
+-- | Build template docs up from ADT and class docs.
+getTemplateDocs ::
+    DocCtx
+    -> MS.Map Typename ADTDoc -- ^ maps template names to their ADT docs
+    -> MS.Map Typename ClassDoc -- ^ maps template names to their template instance class docs
+    -> [TemplateDoc]
+getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
+    map mkTemplateDoc $ Set.toList dc_templates
   where
     -- The following functions use the type map and choice map in scope, so
     -- defined internally, and not expected to fail on consistent arguments.
     mkTemplateDoc :: Typename -> TemplateDoc
     mkTemplateDoc name = TemplateDoc
-      { td_anchor = Just $ templateAnchor dc_modname (ad_name tmplADT)
+      { td_anchor = ad_anchor tmplADT
       , td_name = ad_name tmplADT
+      , td_args = ad_args tmplADT
+      , td_super = cl_super =<< MS.lookup name templateInstanceMap
       , td_descr = ad_descr tmplADT
       , td_payload = getFields tmplADT
       -- assumes exactly one record constructor (syntactic, template syntax)
@@ -365,10 +393,14 @@ getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
 -- recognising Template and Choice instances
 
 
--- | Extracts all names of Template instances defined in a module and a map of
--- template to set of its choices (instances of Choice with a particular
--- template).
-getTemplateData :: ParsedModule -> (Set.Set Typename, MS.Map Typename (Set.Set Typename))
+-- | Extracts all names of templates defined in a module, a map of template names
+-- to its set of choices, and a map of template instance names to generic template
+-- names for all template instances defined in the module (note, the generic template
+-- need not be defined in the same module).
+getTemplateData :: ParsedModule ->
+    ( Set.Set Typename
+    , MS.Map Typename (Set.Set Typename)
+    , MS.Map Typename Typename )
 getTemplateData ParsedModule{..} =
   let
     instDs    = mapMaybe (isInstDecl . unLoc) . hsmodDecls . unLoc $ pm_parsed_source
@@ -376,8 +408,9 @@ getTemplateData ParsedModule{..} =
     choiceMap = MS.fromListWith (<>) $
                 map (second Set.singleton) $
                 mapMaybe isChoice instDs
+    instanceMap = MS.fromList $ mapMaybe isTemplateInstance instDs
   in
-    (Set.fromList templates, choiceMap)
+    (Set.fromList templates, choiceMap, instanceMap)
     where
       isInstDecl (InstD _ (ClsInstD _ i)) = Just i
       isInstDecl _ = Nothing
@@ -388,11 +421,12 @@ getTemplateData ParsedModule{..} =
 isTemplate :: ClsInstDecl GhcPs -> Maybe Typename
 isTemplate (XClsInstDecl _) = Nothing
 isTemplate ClsInstDecl{..}
-  | HsIB _ (L _ ty) <-  cid_poly_ty
-  , HsAppTy _ (L _ t1) (L _ t2) <- ty
+  | L _ ty <- getLHsInstDeclHead cid_poly_ty
+  , HsAppTy _ (L _ t1) t2 <- ty
   , HsTyVar _ _ (L _ tmplClass) <- t1
-  , HsTyVar _ _ (L _ tmplName) <- t2
+  , Just (L _ tmplName) <- hsTyGetAppHead_maybe t2
   , toText tmplClass == "DA.Internal.Desugar.Template"
+  || toText tmplClass == "Template" -- temporary for generic templates
   = Just (Typename . packRdrName $ tmplName)
 
   | otherwise = Nothing
@@ -403,18 +437,40 @@ isTemplate ClsInstDecl{..}
 isChoice :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
 isChoice (XClsInstDecl _) = Nothing
 isChoice ClsInstDecl{..}
-  | HsIB _ (L _ ty) <-  cid_poly_ty
+  | L _ ty <- getLHsInstDeclHead cid_poly_ty
   , HsAppTy _ (L _ cApp1) (L _ _cArgs) <- ty
-  , HsAppTy _ (L _ cApp2) (L _ cName) <- cApp1
-  , HsAppTy _ (L _ choice) (L _ cTmpl) <- cApp2
+  , HsAppTy _ (L _ cApp2) cName <- cApp1
+  , HsAppTy _ (L _ choice) cTmpl <- cApp2
   , HsTyVar _ _ (L _ choiceClass) <- choice
-  , HsTyVar _ _ (L _ choiceName) <- cName
-  , HsTyVar _ _ (L _ tmplName) <- cTmpl
+  , Just (L _ choiceName) <- hsTyGetAppHead_maybe cName
+  , Just (L _ tmplName) <- hsTyGetAppHead_maybe cTmpl
   , toText choiceClass == "DA.Internal.Desugar.Choice"
+  || toText choiceClass == "Choice" -- temporary for generic templates
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
 
   | otherwise = Nothing
 
+-- | Is this a "template instance" instance declaration? If so,
+-- we want to hold on to the typename of the template instance,
+-- so return that, and the corresponding template name.
+--
+-- Returns @(templateInstanceName, genericTemplateName)@ on success.
+isTemplateInstance :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
+isTemplateInstance (XClsInstDecl _) = Nothing
+isTemplateInstance ClsInstDecl{..}
+  | L _ ty <- getLHsInstDeclHead cid_poly_ty
+  , HsAppTy _ (L _ t1) t2 <- ty
+  , HsTyVar _ _ (L _ className) <- t1
+  , Just (L _ instanceName) <- hsTyGetAppHead_maybe t2
+  , Just genericName <- stripInstanceSuffix (Typename . packRdrName $ className)
+  = Just (Typename . packRdrName $ instanceName, genericName)
+
+  | otherwise = Nothing
+
+-- | Strip the @Instance@ suffix off of a typename, if it's there.
+-- Otherwise returns 'Nothing'.
+stripInstanceSuffix :: Typename -> Maybe Typename
+stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
 
 ------------------------------------------------------------
 -- Generating doc.s from parsed modules
@@ -487,9 +543,7 @@ tyConAnchor DocCtx{..} tycon = do
         mod = maybe dc_modname getModulename (nameModule_maybe ghcName)
         anchorFn
             | isClassTyCon tycon = classAnchor
-            | isDataTyCon tycon = dataAnchor
             | otherwise = typeAnchor
-    guard (not (isWiredInName ghcName))
     Just (anchorFn mod name)
 
 ---------------------------------------------------------------------

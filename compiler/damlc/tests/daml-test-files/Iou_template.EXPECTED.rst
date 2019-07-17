@@ -8,7 +8,7 @@ Module Iou_template
 Templates
 ^^^^^^^^^
 
-.. _template-ioutemplate-iou-32396:
+.. _type-ioutemplate-iou-55222:
 
 template **Iou**
 
@@ -46,7 +46,7 @@ template **Iou**
          - Type
          - Description
        * - otherCid
-         - ContractId Iou
+         - ContractId `Iou <type-ioutemplate-iou-55222_>`_
          - Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original ``Iou``.
   + **Choice Split**
   

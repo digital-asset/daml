@@ -33,6 +33,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant:daml-project-config",
+        "//language-support/hs/bindings:hs-ledger",
     ],
 )
 
@@ -41,6 +42,7 @@ da_haskell_binary(
     srcs = ["src/DamlHelper/Main.hs"],
     hazel_deps = [
         "base",
+        "ghc",
     ],
     main_function = "DamlHelper.Main.main",
     visibility = ["//visibility:public"],
