@@ -336,7 +336,7 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
     -- defined internally, and not expected to fail on consistent arguments.
     mkTemplateDoc :: Typename -> TemplateDoc
     mkTemplateDoc name = TemplateDoc
-      { td_anchor = ad_anchor tmplADT
+      { td_anchor = Just $ templateAnchor dc_modname name
       , td_name = ad_name tmplADT
       , td_args = ad_args tmplADT
       , td_super = cl_super =<< MS.lookup name templateInstanceMap
