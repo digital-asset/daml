@@ -258,8 +258,6 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
             let theta = classSCTheta cls
             guard (notNull theta)
             Just (TypeTuple $ map (typeToType ctx) theta)
-    guard (isNothing (stripInstanceSuffix cl_name))
-       -- don't generate docs for template instance classes
     Just ClassDoc {..}
   where
     f :: LSig GhcPs -> [FunctionDoc]
