@@ -47,9 +47,9 @@ Intuitively, the allowed actions are:
    intersection of (1) the signatories of `c1` union the controllers of `ch` with (2) the signatories of `c2`.
 
    A :ref:`fetchbykey` statement also produce a **Fetch** action with the actors determined in the same way.
-   A :ref:`lookupbykey` statement that finds a contract translates also in a **Fetch** action, but all maintainers of the key are the actors.
+   A :ref:`lookupbykey` statement that finds a contract also translates into a **Fetch** action, but all maintainers of the key are the actors.
 
-#. **NoKey** assertions correspond to a :ref:`lookupByKey` update statement for the given key that does not find a contract.
+#. **NoSuchKey** assertions correspond to a :ref:`lookupByKey` update statement for the given key that does not find a contract.
 
 An instance of a DAML template, that is, a **DAML contract** or **contract instance**,
 is a triple of:

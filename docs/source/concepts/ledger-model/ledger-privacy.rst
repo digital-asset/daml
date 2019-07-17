@@ -99,7 +99,7 @@ This motivates the following definition: a party `p` is an **informee** of an ac
 
   * `A` is a **Fetch** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
 
-  * `A` is a **NoKey** `k` assertion and `p` is a maintainer of `k`.
+  * `A` is a **NoSuchKey** `k` assertion and `p` is a maintainer of `k`.
 
 .. _def-tx-projection:
 

@@ -261,7 +261,7 @@ The following ledger violates key uniqueness.
 .. _def-key-assertion-validity:
 
 Definition »key assertion validity«
-  A ledger is said to satisfy **key assertion validity** for a key `k` if and only if at every key assertion **NoKey** `k`, there is no active contract with key `k`.
+  A ledger is said to satisfy **key assertion validity** for a key `k` if and only if at every key assertion **NoSuchKey** `k`, there is no active contract with key `k`.
   
   The ledger satisfies **key assertion validity** if it satisfies key assertion validity for all keys.
 
@@ -273,16 +273,16 @@ this way, customers can be sure that their support requests will incur fees only
 Conversely, the subscription service can be sure that it will charge a fee as soon as a customer cancels his subscription.
 
 We also introduce the notions of internal key consistency and input key map.
-They summarize the inexistence constraints on contracts for a given key such that ensure that **Create** actions do not violate key uniqueness and **NoKey** assertions are satisfied.
+They summarize the inexistence constraints on contracts for a given key such that ensure that **Create** actions do not violate key uniqueness and **NoSuchKey** assertions are satisfied.
 Like for internal consistency and input contracts, internal key consistency takes care of transaction-internal conditions and the input key map summarizes the key inexistence constraints at the start of the transaction.
 
 Definition »internal key consistency«
   A transaction is **internally key consistent** for a key `k` if the following holds:
   
-  - For every **Create** `c` action with key `k`, if there is another **Create** `c'` action with key `k` that precedes the **Create** `c` action,
+  - For every **Create** action of a contract `c` with key `k`, if there is another **Create** action on a contract `c'` with key `k` that precedes the **Create** `c` action,
     then there is a consuming **Exercise** action on `c'` between the two **Create** actions.
 
-  - For every **NoKey** `k` assertion, if there is a **Create** `c` action with key `k` that precedes the key asssertion,
+  - For every **NoSuchKey** `k` assertion, if there is a **Create** `c` action with key `k` that precedes the key asssertion,
     then there is a consuming **Exercise** action on `c` between the **Create** `c` action and the key assertion.
 
   A transaction is **internally key consistent** if it is internally key consistent for all keys.
@@ -292,7 +292,7 @@ The input key map for an internally key consistent transaction encodes a precond
 More precisely, this is the weakest precondition such that the following holds for all subactions of the transaction:
 
  - **Create** actions for a key `k` do not cause a key uniqueness violation for `k`.
- - **NoKey** `k` assertions are satisfied.
+ - **NoSuchKey** `k` assertions are satisfied.
 
 An input key map encodes the following precondition:
 Every active contract with a key `k` in the domain must be in the set associated with `k`.
@@ -305,12 +305,12 @@ Every active contract with a key `k` in the domain must be in the set associated
 Definition »input key map«
   The **input key map** of an internally consistent transaction maps a key `k` to a set of contracts as follows:
 
-  - The domain of the input key map consists of all keys for which the transaction contains a **Create** `c` action with key `k` or a **NoKey** `k` assertion.
+  - The domain of the input key map consists of all keys for which the transaction contains a **Create** `c` action with key `k` or a **NoSuchKey** `k` assertion.
     
   - A contract `c` is in the set that the input key map associates with `k` in its domain if all of the following hold:
     
     - The contract `c` has the key `k`.
-    - The transaction contains a consuming **Exercise** action on `c` before all **Create** actions with key `k` and before all **NoKey** `k` assertions.
+    - The transaction contains a consuming **Exercise** action on `c` before all **Create** actions with key `k` and before all **NoSuchKey** `k` assertions.
     - The transaction does not contain a **Create** `c` action.
 
 The input key map is defined only for transactions that are internally consistent.
@@ -434,7 +434,7 @@ authorized by at least all of the **required authorizers** of `act`, where:
 
 #. the required authorizers of an **Exercise** or a **Fetch** action are its actors.
 
-#. the required authorizers of a **NoKey** assertion are the maintainers of the key.
+#. the required authorizers of a **NoSuchKey** assertion are the maintainers of the key.
 
 We lift this notion to ledgers, whereby a ledger is well-authorized exactly when all of its commits are.
 
@@ -507,22 +507,22 @@ to him. However, the actor of this exercise is Alice, who has not
 authorized the exercise. Thus, this ledger is not
 well-authorized.
 
-Setting the maintainers as required authorizers for a **NoKey** assertion ensures
+Setting the maintainers as required authorizers for a **NoSuchKey** assertion ensures
 that parties cannot learn about the existence of a contract without having a right to know about their existence.
 So we use authorization to impose *access controls* that ensure confidentiality about the existence of contracts.
 For example, suppose now that for a `PaintAgreement` contract, both signatories are key maintainers, not only the painter.
 That is, we consider `PaintAgreement @A @P &P123` instead of `PaintAgreement $A @P &P123`.
 Then, when the painter's competitor `Q` passes by `A`'s house and sees that the house desperately needs painting,
 `Q` would like to know whether there is any point in spending marketing efforts and making a paint offer to `A`.
-Without key authorization, `Q` could test whether a ledger implementation accepts the action **NoKey** `(A, P, refNo)` for different guesses of the reference number `refNo`.
+Without key authorization, `Q` could test whether a ledger implementation accepts the action **NoSuchKey** `(A, P, refNo)` for different guesses of the reference number `refNo`.
 In particular, if the ledger does not accept the transaction for some `refNo`, then `Q` knows that `P` has some business with `A` and his chances of `A` accepting his offer are lower.
 Key authorization prevents this flow of information because the ledger always rejects `Q`\ 's action for violating the authorization rules.
 
-For these access controls, it suffices if one maintainer authorizes a **NoKey** assertion.
+For these access controls, it suffices if one maintainer authorizes a **NoSuchKey** assertion.
 However, we demand that *all* maintainers must authorize it.
 This is to prevent a denial of service attack vector.
 If only one maintainer sufficed to authorize a key assertion,
-then a malicious party `p` could submit a command resulting in a key assertion **NoKey** `k` without a contract as the only action.
+then a malicious party `p` could submit a command resulting in a key assertion **NoSuchKey** `k` as the only action.
 The set `maintainers(k)` includes, in addition to `p` itself, the parties under attack.
 If the parties in `maintainers(k)` want to comply to the Ledger Model, then they must validate that there indeed is no such contract, which may require a non-trivial effort.
 This violates the idea that complying to the Ledger Model only requires validation work due to requests from parties that one has a business relationship with, i.e., parties that are stakeholders on a contract where one is a signatory. (These requests might though arrive indirectly due to other parties delegating rights further.)

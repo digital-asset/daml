@@ -69,14 +69,14 @@ Formally, an **action** is one of the following:
    The action also contains **actors**, the parties who fetch the contract.
    A **Fetch** behaves like a non-consuming exercise with no consequences, and can be repeated.
 
-#. a **Key assertion** records the assertion that the given :ref:`contract key <daml-ref-contract-keys>` is not assigned to any active contract on the ledger.
+#. a **Key assertion**, which records the assertion that the given :ref:`contract key <daml-ref-contract-keys>` is not assigned to any active contract on the ledger.
 
 An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
 Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
 
 The following EBNF-like grammar summarizes the structure of actions
 and transactions. Here, "s | t" represents the choice between `s` and
-`t`, "s t" represents `s` followed by `t` and "s*" represents the
+`t`, "s t" represents `s` followed by `t`, and "s*" represents the
 repetition of `s` zero or more times. The terminal 'contract' denotes
 the underlying type of contracts, and the terminal 'party' the
 underlying type of parties.
@@ -88,7 +88,7 @@ underlying type of parties.
    Action       ::= 'Create' contract
                     | 'Exercise' party* contract Kind Transaction
                     | 'Fetch' party* contract
-                    | 'NoKey' key
+                    | 'NoSuchKey' key
    Transaction  ::= Action*
    Kind         ::= 'Consuming' | 'NonConsuming'
 
@@ -134,7 +134,7 @@ In the paint offer example, the underlying type of contracts consists
 of three sorts of contracts:
 
 PaintOffer houseOwner painter obligor refNo
-  Intuitively an offer with a reference number by
+  Intuitively an offer (with a reference number) by
   which the painter proposes to the house owner to paint her house, in
   exchange for a single IOU token issued by the specified obligor.
 
@@ -189,11 +189,11 @@ below shows all its proper subtransactions on the right (yellow boxes).
    :align: center
    :width: 100%
 
-To illustrate contract keys, suppose that the contract key for a `PaintOffer` consists of the reference number and the painter as the key maintainer.
+To illustrate :ref:`contract keys <daml-ref-contract-keys>`, suppose that the contract key for a `PaintOffer` consists of the reference number and the painter.
 So Alice can refer to the `PaintOffer` by its key `(P, P123)`.
 To make this explicit, we use the notation `PaintOffer @P A &P123` for contracts, where `@` marks the maintainers and `&` the other key parts.
 The ledger integrity constraints in the next section ensure that there is always at most one active `PaintOffer` for a given key.
-So if the painter retracts its `PaintOffer` and later Alice tries to accept it, she can then record the absence with a `NoKey (P, P123)` key assertion.
+So if the painter retracts its `PaintOffer` and later Alice tries to accept it, she can then record the absence with a `NoSuchKey (P, P123)` key assertion.
 
 
 Ledgers
