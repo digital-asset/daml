@@ -6,26 +6,16 @@ package com.digitalasset.http.json
 import java.time.Instant
 
 import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.v1.value.Value
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
-import scalaz.{-\/, Show, \/, \/-}
+import scalaz.{-\/, \/-}
 import spray.json._
 
 object JsonProtocol extends DefaultJsonProtocol {
-
-  final case class Error(message: String)
-
-  object Error {
-    implicit val show = new Show[Error] {
-      override def shows(f: Error): String = s"JsonProtocol.Error: ${f.message}"
-    }
-  }
 
   implicit val LedgerIdFormat: JsonFormat[lar.LedgerId] = taggedJsonFormat[String, lar.LedgerIdTag]
 
@@ -94,32 +84,22 @@ object JsonProtocol extends DefaultJsonProtocol {
     gacr => JsString(gacr.toString) // TODO actual format
 
   def valueWriter(apiToLf: ApiValueToLfValueConverter.ApiValueToLfValue) =
-    new RootJsonWriter[Value] {
+    new RootJsonWriter[lav1.value.Value] {
       override def write(a: lav1.value.Value): JsValue =
-        apiValueToJsValue(apiToLf)(a).fold(e => serializationError(e.shows), identity)
+        ApiValueToJsValueConverter
+          .apiValueToJsValue(apiToLf)(a)
+          .fold(e => serializationError(e.shows), identity)
     }
 
-  def apiValueToJsValue(apiToLf: ApiValueToLfValueConverter.ApiValueToLfValue)(
-      a: lav1.value.Value): Error \/ JsValue =
-    apiToLf(a)
-      .map { b: lf.value.Value[lf.value.Value.AbsoluteContractId] =>
-        ApiCodecCompressed.apiValueToJsValue(lfValueOfString(b))
-      }
-      .leftMap(e => Error(e.shows))
-
-  def valueReader(apiToLf: ApiValueToLfValueConverter.ApiValueToLfValue) =
+  def valueReader(
+      lfId: lf.data.Ref.Identifier,
+      lfTypeLookup: lf.data.Ref.Identifier => Option[lf.iface.DefDataType.FWT]) =
     new RootJsonReader[lav1.value.Value] {
-      override def read(json: JsValue): lav1.value.Value =
-        jsValueToApiValue(json).fold(e => deserializationError(e.shows), identity)
+      override def read(jsValue: JsValue): lav1.value.Value =
+        JsValueToApiValueConverter
+          .jsValueToApiValue(lfId, lfTypeLookup)(jsValue)
+          .fold(e => deserializationError(e.shows), identity)
     }
-
-  def jsValueToApiValue(jsValue: JsValue): Error \/ lav1.value.Value = {
-    sys.error("not implemented")
-  }
-
-  private def lfValueOfString(
-      lfValue: lf.value.Value[lf.value.Value.AbsoluteContractId]): lf.value.Value[String] =
-    lfValue.mapContractId(x => x.coid)
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat4(
     domain.CommandMeta)

@@ -9,13 +9,14 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.digitalasset.http.Endpoints.InvalidUserInput
+import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.json.HttpCodec._
+import com.digitalasset.http.json.JsValueToApiValueConverter
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.parse
 import com.digitalasset.http.util.ApiValueToLfValueConverter
+import com.digitalasset.http.util.DamlLfIdentifiers.damlLfIdentifier
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.v1.value.Value
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
@@ -29,12 +30,15 @@ import scala.language.higherKinds
 class Endpoints(
     commandService: CommandService,
     contractsService: ContractsService,
+    resolveTemplateId: Services.ResolveTemplateId,
     apiValueToLfValue: ApiValueToLfValueConverter.ApiValueToLfValue,
+    lfTypeLookup: JsValueToApiValueConverter.LfTypeLookup,
     parallelism: Int = 8)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
+  import Endpoints._
   import json.JsonProtocol._
-  implicit val apiValueWriter = valueWriter(apiValueToLfValue)
+  private implicit val apiValueWriter = valueWriter(apiValueToLfValue)
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
@@ -90,10 +94,22 @@ class Endpoints(
       .fold(ByteString.empty)(_ ++ _)
       .map(data => parse[A](data).leftMap(e => InvalidUserInput(e.shows)))
 
-  private def parseValue[F[_]: Traverse](
-      fa: F[JsValue]): InvalidUserInput \/ F[lav1.value.Value] = {
-    fa.traverseU(jsValue =>
-      json.JsonProtocol.jsValueToApiValue(jsValue).leftMap(e => InvalidUserInput(e.shows)))
+  private def parseValue[F[_]: Traverse: HasTemplateId](
+      fa: F[JsValue]): Error \/ F[lav1.value.Value] =
+    for {
+      templateId <- lookupTemplateId(fa)
+      damlLfId = damlLfIdentifier(templateId)
+      value <- fa.traverseU(
+        jsValue =>
+          JsValueToApiValueConverter
+            .jsValueToApiValue(damlLfId, lfTypeLookup)(jsValue)
+            .leftMap(e => InvalidUserInput(e.shows)))
+    } yield value
+
+  private def lookupTemplateId[F[_]: HasTemplateId](fa: F[_]): Error \/ lar.TemplateId = {
+    val H: HasTemplateId[F] = implicitly
+    val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
+    resolveTemplateId(templateId).leftMap(e => ServerError(e.shows))
   }
 
   private def toJsValue(
@@ -194,13 +210,13 @@ class Endpoints(
 
   // TODO SC: this is a placeholder because we can't do this accurately
   // without type context
-  private def placeholderLfValueEnc(v: Value): JsValue =
+  private def placeholderLfValueEnc(v: lav1.value.Value): JsValue =
     JsString(v.sum.toString)
 
   // TODO SC: this is a placeholder because we can't do this accurately
   // without type context
-  private def placeholderLfValueDec(v: JsValue): Value =
-    Value(Value.Sum.Text(v.toString))
+  private def placeholderLfValueDec(v: JsValue): lav1.value.Value =
+    lav1.value.Value(lav1.value.Value.Sum.Text(v.toString))
 
   lazy val notFound: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)
@@ -211,5 +227,10 @@ class Endpoints(
 }
 
 object Endpoints {
-  final case class InvalidUserInput(message: String) extends RuntimeException(message)
+
+  sealed abstract class Error(message: String) extends RuntimeException(message)
+
+  final case class InvalidUserInput(message: String) extends Error(message)
+
+  final case class ServerError(message: String) extends Error(message)
 }

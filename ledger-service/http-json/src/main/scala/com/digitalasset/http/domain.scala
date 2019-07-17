@@ -121,9 +121,8 @@ object domain {
       arguments: Option[Record[LfV]],
       meta: Option[CommandMeta])
 
-  // TODO(Leo): do you still need it?
-  trait HasTemplateId[A] {
-    def templateId(a: A): TemplateId.OptionalPkg
+  trait HasTemplateId[F[_]] {
+    def templateId(a: F[_]): TemplateId.OptionalPkg
   }
 
   type Field[+A] = (String, A)
@@ -179,7 +178,7 @@ object domain {
       }
     }
 
-    implicit val hasTemplateId: HasTemplateId[CreateCommand[_]] =
+    implicit val hasTemplateId: HasTemplateId[CreateCommand] =
       (a: CreateCommand[_]) => a.templateId
   }
 
@@ -202,7 +201,7 @@ object domain {
       }
     }
 
-    implicit val hasTemplateId: HasTemplateId[ExerciseCommand[_]] =
+    implicit val hasTemplateId: HasTemplateId[ExerciseCommand] =
       (a: ExerciseCommand[_]) => a.templateId
   }
 }

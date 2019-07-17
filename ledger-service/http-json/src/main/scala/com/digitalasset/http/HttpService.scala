@@ -67,12 +67,22 @@ object HttpService extends StrictLogging {
         PackageService.resolveTemplateIds(templateIdMap),
         client.activeContractSetClient)
 
+      resolveTemplateId = PackageService.resolveTemplateId(templateIdMap) _
+
       apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId, packageStore)
 
-      endpoints = new Endpoints(commandService, contractsService, apiValueToLfValue)
+      lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
+
+      endpoints = new Endpoints(
+        commandService,
+        contractsService,
+        resolveTemplateId,
+        apiValueToLfValue,
+        lfTypeLookup)
 
       binding <- liftET[Error](
         Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))
+
     } yield binding
 
     val bindingF: Future[Error \/ ServerBinding] = bindingS.run
