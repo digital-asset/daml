@@ -40,7 +40,8 @@ data [] a = [] | a :: [a]
 
 
 -- | A type for giving information about ordering:
---  being less than, equal to, or greater than something.
+--  being less than (`LT`), equal to (`EQ`), or greater than
+--  (`GT`) something.
 data Ordering = LT | EQ | GT
 
 -- | A type representing a 64-bit integer.

@@ -23,45 +23,46 @@ import DA.Internal.Prelude
 
 -- NOTE: use internalCreate vs create so that people implementing Template can't override create/fetch/exercise
 
--- | Create a contract based on a template.
+-- | Create a contract based on a template `c`.
 create : Template c => c -> Update (ContractId c)
 create = internalCreate
 
--- | Exercise a contract choice.
+-- | Exercise a choice on the contract with the given contract ID.
 exercise : forall c e r . Choice c e r => ContractId c -> e -> Update r
 exercise = internalExercise
 
 -- | Fetch the contract data associated with the given contract ID.
--- This fails and aborts the entire transaction if the `ContractId c`
--- supplied is not the contract ID of an active contract.
+-- 
+-- If the `ContractId c` supplied is not the contract ID of an active
+-- contract, this fails and aborts the entire transaction.
 fetch : Template c => ContractId c -> Update c
 fetch = internalFetch
 
--- | Archive the contract.
+-- | Archive the contract with the given contract ID.
 archive : Template c => ContractId c -> Update ()
 archive c = exercise c Archive
 
--- | The stakeholders of a contract, i.e. its signatories and observers.
+-- | The stakeholders of a contract: its signatories and observers.
 stakeholder : Template c => c -> [Party]
 stakeholder c = signatory c ++ observer c
 
--- | Look up the contract id associated with a given contract key.
+-- | Look up the contract ID `c` associated with a given contract key `k`.
 --
--- The `c` needs to be passed using an explicit type application. For
+-- You must pass the `c` using an explicit type application. For
 -- instance, if you want to look up a contract of template `Account` by its
 -- key `k`, you must call `lookupByKey @Account k`.
 lookupByKey : forall c k. TemplateKey c k => k -> Update (Optional (ContractId c))
 lookupByKey = internalLookupByKey
 
--- | Fetch the contract id and contract data associated with a given
+-- | Fetch the contract ID and contract data associated with a given
 -- contract key.
 --
--- The `c` needs to be passed using an explicit type application. For
+-- You must pass the `c` using an explicit type application. For
 -- instance, if you want to fetch a contract of template `Account` by its
 -- key `k`, you must call `fetchByKey @Account k`.
 fetchByKey : forall c k. TemplateKey c k => k -> Update (ContractId c, c)
 -- NOTE(FM): the motivation for this function to return both the
--- contract id and the contract instance is that `fetchByKey` results in
+-- contract ID and the contract instance is that `fetchByKey` results in
 -- a fetch node in the transaction structure, and the fetch node
 -- contains the contract data, so we might as well include it here.
 --
@@ -74,9 +75,9 @@ fetchByKey : forall c k. TemplateKey c k => k -> Update (ContractId c, c)
 --    getting the contract instance.
 fetchByKey k = fmap unpackPair (internalFetchByKey k)
 
--- | Exercise a choice on a contract given by its key.
+-- | Exercise a choice on the contract associated with the given key.
 --
--- The `c` needs to be passed using an explicit type application. For
+-- You must pass the `c` using an explicit type application. For
 -- instance, if you want to exercise a choice `Withdraw` on a contract of
 -- template `Account` given by its key `k`, you must call
 -- `exerciseByKey @Account k Withdraw`.
