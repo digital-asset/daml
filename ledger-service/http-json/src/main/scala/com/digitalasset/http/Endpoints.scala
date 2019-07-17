@@ -99,12 +99,12 @@ class Endpoints(
     for {
       templateId <- lookupTemplateId(fa)
       damlLfId = damlLfIdentifier(templateId)
-      value <- fa.traverseU(
+      apiValue <- fa.traverseU(
         jsValue =>
           JsValueToApiValueConverter
             .jsValueToApiValue(damlLfId, lfTypeLookup)(jsValue)
             .leftMap(e => InvalidUserInput(e.shows)))
-    } yield value
+    } yield apiValue
 
   private def lookupTemplateId[F[_]: HasTemplateId](fa: F[_]): Error \/ lar.TemplateId = {
     val H: HasTemplateId[F] = implicitly
