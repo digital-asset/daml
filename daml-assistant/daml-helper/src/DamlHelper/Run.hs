@@ -652,13 +652,11 @@ sandboxPort = SandboxPort 6865
 runStart :: StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
 runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
     projectConfig <- getProjectConfig
-    projectName <- getProjectName
+    darPath <- getDarPath
     mbScenario :: Maybe String <-
         requiredE "Failed to parse scenario" $
         queryProjectConfig ["scenario"] projectConfig
-    let darPath = ".daml" </> "dist" </> projectName <> ".dar"
-    assistant <- getDamlAssistant
-    runProcess_ (shell $ unwords $ assistant : ["build"])
+    doBuild
     let scenarioArgs = maybe [] (\scenario -> ["--scenario", scenario]) mbScenario
     withSandbox sandboxPort (darPath : scenarioArgs) $ \sandboxPh -> do
         withNavigator' sandboxPh sandboxPort navigatorPort [] $ \navigatorPh -> do
@@ -676,10 +674,8 @@ runStart (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) o
 
 runDeploy :: IO ()
 runDeploy = do
-    projectName <- getProjectName
-    let darPath = ".daml" </> "dist" </> projectName <> ".dar"
-    assistant <- getDamlAssistant
-    runProcess_ (shell $ unwords $ assistant : ["build"])
+    darPath <- getDarPath
+    doBuild
     let SandboxPort port = sandboxPort
     putStrLn $ "Deploying " <> darPath <> " to ledger on port " <> show port
     bytes <- BS.readFile darPath
@@ -693,6 +689,16 @@ runDeploy = do
         Left e -> do
             hPutStrLn stderr $ "Deploy failed: " <> e
             exitFailure
+
+getDarPath :: IO FilePath
+getDarPath = do
+    projectName <- getProjectName
+    return $ ".daml" </> "dist" </> projectName <> ".dar"
+
+doBuild :: IO ()
+doBuild = do
+    assistant <- getDamlAssistant
+    runProcess_ (shell $ unwords $ assistant : ["build"])
 
 getProjectConfig :: IO ProjectConfig
 getProjectConfig = do
