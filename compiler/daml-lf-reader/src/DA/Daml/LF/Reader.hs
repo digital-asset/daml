@@ -32,11 +32,11 @@ lineToKeyValue line = case splitOn ":" line of
 
 appendToFirstEntry :: [String] -> String -> [String]
 appendToFirstEntry (h : t) nextLine = (h ++ nextLine) : t
-appendToFirstEntry _ _ = error $ "Reading Manifest file from dar failed."
+appendToFirstEntry _ _ = error "Reading Manifest file from dar failed."
 
 multiLineContent :: [String] -> [String] -> [String]
 multiLineContent [] acc = acc
-multiLineContent (h : t) acc = if isPrefixOf " " h -- if starts with a space add it to the last line we collected
+multiLineContent (h : t) acc = if " " `isPrefixOf` h -- if starts with a space add it to the last line we collected
     then multiLineContent t (appendToFirstEntry acc (trim h) )
     else multiLineContent t (h:acc)
 
@@ -53,7 +53,7 @@ manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyD
         dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && elem (trim (eRelativePath e))  (dalfs manifest)]
 
 manifestFromDar :: Archive -> ManifestData
-manifestFromDar dar =  manifestDataFromDar dar manifest
+manifestFromDar dar = manifestDataFromDar dar manifest
     where
         manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
         linesStr = lines $ UTF8.toString manifestEntry
