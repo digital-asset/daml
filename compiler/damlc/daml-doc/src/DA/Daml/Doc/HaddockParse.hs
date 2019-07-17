@@ -371,9 +371,10 @@ getTemplateDocs DocCtx{..} typeMap = map mkTemplateDoc $ Set.toList dc_templates
 -- recognising Template and Choice instances
 
 
--- | Extracts all names of Template instances defined in a module and a map of
--- template to set of its choices (instances of Choice with a particular
--- template).
+-- | Extracts all names of templates defined in a module, a map of template names
+-- to its set of choices, and a map of template instance names to generic template
+-- names for all template instances defined in the module (note, the generic template
+-- need not be defined in the same module).
 getTemplateData :: ParsedModule ->
     ( Set.Set Typename
     , MS.Map Typename (Set.Set Typename)
