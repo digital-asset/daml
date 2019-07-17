@@ -7,6 +7,8 @@ import java.time.Instant
 
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
+import scalaz.std.list._
+import scalaz.std.option._
 import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._
@@ -145,8 +147,6 @@ object domain {
   }
 
   object Record {
-    import scalaz.std.list._
-    import scalaz.syntax.traverse._
 
     implicit val traverseInstance: Traverse[Record] = new Traverse[Record] {
       override def map[A, B](fa: Record[A])(f: A => B): Record[B] =
@@ -163,9 +163,7 @@ object domain {
   object CreateCommand {
     // TODO(Leo) Traverse[CreateCommand] and Traverse[ExerciseCommand] are almost the same, HasArguments typeclass?
     implicit val traverseInstance = new Traverse[CreateCommand] {
-      import scalaz.std.option._
       import scalaz.syntax.apply._
-      import scalaz.syntax.traverse._
 
       override def map[A, B](fa: CreateCommand[A])(f: A => B): CreateCommand[B] =
         fa.copy(arguments = fa.arguments.map(as => Record.traverseInstance.map(as)(f)))
@@ -188,9 +186,7 @@ object domain {
   object ExerciseCommand {
     // TODO(Leo) Traverse[CreateCommand] and Traverse[ExerciseCommand] are almost the same, HasArguments typeclass?
     implicit val traverseInstance = new Traverse[ExerciseCommand] {
-      import scalaz.std.option._
       import scalaz.syntax.apply._
-      import scalaz.syntax.traverse._
 
       override def map[A, B](fa: ExerciseCommand[A])(f: A => B): ExerciseCommand[B] =
         fa.copy(arguments = fa.arguments.map(as => Record.traverseInstance.map(as)(f)))
