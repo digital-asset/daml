@@ -79,7 +79,7 @@ main :: IO ()
 main = mainWithVersions [versionDev]
 
 mainAll :: IO ()
-mainAll = mainWithVersions (delete versionDev supportedInputVersions)
+mainAll = mainWithVersions (delete versionDev supportedOutputVersions)
 
 mainWithVersions :: [Version] -> IO ()
 mainWithVersions versions = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
