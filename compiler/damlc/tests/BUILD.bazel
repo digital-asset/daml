@@ -38,12 +38,14 @@ da_haskell_test(
         "extra",
         "filepath",
         "tasty-golden",
+        "tasty-hunit",
     ],
     main_function = "VisualTest.main",
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
         "//compiler/damlc:damlc-lib",
+         "//compiler/daml-lf-reader",
         "//libs-haskell/bazel-runfiles",
     ],
 )
