@@ -7,7 +7,7 @@ parties:
   - Bob
   - USD_Bank
   - EUR_Bank
-version: 1.0.0
+version: 0.0.1
 exposed-modules:
   - Main
 dependencies:

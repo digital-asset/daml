@@ -5,7 +5,7 @@ scenario: Main:setup
 parties:
   - Alice
   - Bob
-version: 1.0.0
+version: 0.0.1
 dependencies:
   - daml-prim
   - daml-stdlib
