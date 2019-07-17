@@ -35,9 +35,8 @@ getTag = magic @"getTag"
 (++) = primitive @"BEAppendText"
 infixr 5 ++
 
--- | Takes a function from values of type `a` to values of type `b`, 
--- and a list of values of type `a`. Applies the function to all of the
--- elements in the list, to get a list of type `b`.
+-- | `map f xs` applies the function `f` to all elements of the list `xs`
+--  and returns the list of results (in the same order as `xs`).
 map : (a -> b) -> [a] -> [b]
 map f = foldr (\x xs -> f x :: xs) []
 

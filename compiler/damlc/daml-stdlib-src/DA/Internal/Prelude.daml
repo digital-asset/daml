@@ -393,8 +393,7 @@ infixr 1 =<<
 concatMap : (a -> [b]) -> [a] -> [b]
 concatMap f = concat . map f
 
--- | Create a list with the first argument number of copies of the second argument.
--- For example, `replicate i x` is the list `[x, x, x, ..., x]` with `i` copies of `x`.
+-- | `replicate i x` gives the list `[x, x, x, ..., x]` with `i` copies of `x`.
 replicate : Int -> a -> [a]
 replicate i x | i <= 0 = []
               | otherwise = x :: replicate (i-1) x
@@ -452,7 +451,7 @@ lookup  key ((x,y)::xys)
 enumerate : (Enum a, Bounded a) => [a]
 enumerate = [minBound .. maxBound]
 
--- | `zip` takes two lists and returns a list of corresponding tuples.
+-- | `zip` takes two lists and returns a list of corresponding pairs.
 -- If one list is shorter, the excess elements of the longer list are discarded.
 zip : [a] -> [b] -> [(a, b)]
 zip (a::as) (b::bs) = (a,b) :: zip as bs
@@ -475,7 +474,7 @@ zipWith3 : (a -> b -> c -> d) -> [a] -> [b] -> [c] -> [d]
 zipWith3 f (a::as) (b::bs) (c::cs) = f a b c :: zipWith3 f as bs cs
 zipWith3 _ _ _ _ = []
 
--- | Turn a list of tuples into a tuple of lists.
+-- | Turn a list of pairs into a pair of lists.
 unzip : [(a, b)] -> ([a], [b])
 unzip = foldr (\(a,b) ~(as,bs) -> (a::as,b::bs)) ([],[])
 
