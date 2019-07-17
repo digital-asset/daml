@@ -107,7 +107,7 @@ class ApiPackageManagementService(
     val newPackages = ids.toSet
     val description = s"packages ${ids.mkString(", ")}"
     PollingUtils
-      .pollUntilPersisted(() => packagesIndex.listLfPackages())(
+      .pollUntilPersisted(packagesIndex.listLfPackages _)(
         x => newPackages.subsetOf(x.keySet.toSet),
         description,
         minWait,
