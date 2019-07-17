@@ -49,7 +49,7 @@ object PollingUtils {
           case persisted if check(persisted) => Future.successful(attempt)
           case _ =>
             logger.debug(
-              s"'${description.capitalize}' not yet persisted, backing off for $waitTime...")
+              s"'$description' not yet persisted, backing off for $waitTime...")
             after(waitTime, scheduler)(
               go(attempt + 1, backoffProgression(waitTime).min(maxWait).max(50.milliseconds)))(DE)
         }(DE)
