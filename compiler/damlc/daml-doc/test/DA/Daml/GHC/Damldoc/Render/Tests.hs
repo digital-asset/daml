@@ -156,46 +156,84 @@ mkExpectRst anchor name descr templates classes adts fcts = T.unlines $
 expectMarkdown :: [T.Text]
 expectMarkdown =
         [ T.empty
-        , mkExpectMD "Typedef" "" [] [] ["### `type` `T a`\n    = `TT` `TTT`\n\n  T descr\n"] []
-        , mkExpectMD "TwoTypes" "" [] []
-            ["### `type` `T a`\n    = `TT`\n\n  T descr\n"
-            , "### `data` `D d`\n\n* `D` `a`\n  D descr\n"]
-            []
-        , mkExpectMD "Function1" "" [] [] [] [ "* `f` : `TheType`  \n  the doc\n"]
-        , mkExpectMD "Function2" "" [] [] [] [ "* `f`  \n  the doc\n"]
-        , mkExpectMD "Function3" "" [] [] [] [ "* `f` : `TheType`\n"]
-        , mkExpectMD "OnlyClass" ""
-            []
-            [ "### `class` C a where"
+        , mkExpectMD "module-typedef" "Typedef" "" [] []
+            [ "**type <a name=\"type-typedef-t\"></a>T a**  "
+            , "&nbsp; = TT TTT"
             , ""
-            , "  * `member` : `a`"
+            , "T descr"
+            , ""]
+            []
+        , mkExpectMD "module-twotypes" "TwoTypes" "" [] []
+            [ "**type <a name=\"type-twotypes-t\"></a>T a**  "
+            , "&nbsp; = TT"
+            , ""
+            , "T descr"
+            , ""
+            , "**data <a name=\"data-twotypes-d\"></a>D d**"
+            , ""
+            , "* <a name=\"constr-twotypes-d\"></a>D a"
+            , "  "
+            , "  D descr"
+            , "  "
+            , ""
+            ]
+            []
+        , mkExpectMD "module-function1" "Function1" "" [] [] []
+            [ "<a name=\"function-function1-f\"></a>**f**  "
+            , "&nbsp; : TheType"
+            , ""
+            , "the doc"
+            , ""
+            ]
+        , mkExpectMD "module-function2" "Function2" "" [] [] []
+            [ "<a name=\"function-function2-f\"></a>**f**  "
+            , ""
+            , "the doc"
+            , ""
+            ]
+        , mkExpectMD "module-function3" "Function3" "" [] [] []
+            [ "<a name=\"function-function3-f\"></a>**f**  "
+            , "&nbsp; : TheType"
+            , ""
+            ]
+        , mkExpectMD "module-onlyclass" "OnlyClass" ""
+            []
+            [ "### <a name=\"class-onlyclass-c\"></a>Class C"
+            , ""
+            , "**class C a where**"
+            , ""
+            , "> <a name=\"function-onlyclass-member\"></a>**member**  "
+            , "> &nbsp; : a"
+            , "> "
             ]
             []
             []
-        , mkExpectMD "MultiLineField" ""
+        , mkExpectMD "module-multilinefield" "MultiLineField" ""
             []
             []
-            [ "### `data` `D`"
+            [ "**data <a name=\"data-multilinefield-d\"></a>D**"
             , ""
-            , "* `D`"
-            , ""
+            , "* <a name=\"constr-multilinefield-d\"></a>D"
+            , "  "
             , "  | Field | Type/Description |"
             , "  | :---- | :----------------"
-            , "  | `f`   | `T` |"
-            , "  |       | This is a multiline field description |" ]
+            , "  | f     | T |"
+            , "  |       | This is a multiline field description |"
+            ]
             []
         ]
         <> repeat (error "Missing expectation (Markdown)")
 
-mkExpectMD :: T.Text -> T.Text -> [T.Text] -> [T.Text] -> [T.Text] -> [T.Text] -> T.Text
-mkExpectMD name descr templates classes adts fcts
+mkExpectMD :: T.Text -> T.Text -> T.Text -> [T.Text] -> [T.Text] -> [T.Text] -> [T.Text] -> T.Text
+mkExpectMD anchor name descr templates classes adts fcts
   | null templates && null classes && null adts && null fcts && T.null descr = T.empty
   | otherwise = T.unlines $
-  [ "# Module " <> name
-  , "", descr, ""
-  ]
+  ["# <a name=\"" <> anchor <> "\"></a>Module " <> name]
   <> concat
-  [ if null templates then [] else
+  [ if T.null descr
+        then [""]
+        else ["", descr, ""]
+  , if null templates then [] else
       [ "## Templates"
       , "", T.unlines templates
       , ""]
@@ -220,7 +258,7 @@ renderTest format (name, input) expected =
     renderer = case format of
                  Json -> error "Json encoder testing not done here"
                  Rst -> renderFinish . renderSimpleRst
-                 Markdown -> renderSimpleMD
+                 Markdown -> renderFinish . renderSimpleMD
                  Html -> error "HTML testing not supported (use Markdown)"
                  Hoogle -> error "Hoogle doc testing not yet supported."
     output = T.strip $ renderer input

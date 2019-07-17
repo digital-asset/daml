@@ -27,13 +27,13 @@ import Data.Maybe
 import qualified Data.NameMap as NM
 import Data.Set (Set)
 import qualified Data.Set as Set
-import qualified Data.Text as T
+import qualified Data.Text.Extended as T
 import Data.Tuple.Extra
 import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
-import "ghc-lib-parser" Module (UnitId, stringToUnitId, UnitId(..), DefUnitId(..))
+import "ghc-lib-parser" Module (stringToUnitId, UnitId(..), DefUnitId(..))
 import Safe
-import System.Directory.Extra (listFilesRecursive)
+import System.Directory.Extra
 import System.FilePath
 
 import qualified Network.HTTP.Types as HTTP.Types
@@ -50,6 +50,7 @@ import qualified Language.Haskell.LSP.Types as LSP
 
 import Development.IDE.Core.RuleTypes.Daml
 
+import DA.Daml.DocTest
 import DA.Daml.LFConversion (convertModule, sourceLocToRange)
 import DA.Daml.LFConversion.UtilLF
 import qualified DA.Daml.LF.Ast as LF
@@ -197,6 +198,13 @@ generateDalfRule =
                 Serializability.inferModule world lfVersion rawDalf
             mapLeft liftError $ LF.checkModule world lfVersion dalf
             pure dalf
+
+-- | Generate a doctest module based on the doc tests in the given module.
+generateDocTestModuleRule :: Rules ()
+generateDocTestModuleRule =
+    define $ \GenerateDocTestModule file -> do
+        pm <- use_ GetParsedModule file
+        pure ([], Just $ getDocTestModule pm)
 
 -- | Load all the packages that are available in the package database directories. We expect the
 -- filename to match the package name.
@@ -605,6 +613,7 @@ damlRule :: Options -> Rules ()
 damlRule opts = do
     generateRawDalfRule
     generateDalfRule
+    generateDocTestModuleRule
     generatePackageMapRule opts
     generatePackageRule
     generateRawPackageRule opts

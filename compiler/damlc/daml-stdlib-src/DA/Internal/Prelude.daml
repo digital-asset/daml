@@ -231,24 +231,18 @@ instance ActionFail Optional where
 -- Basic usage:
 --
 -- ```
--- >>> optional False odd (Some 3)
+-- >>> optional False (> 2) (Some 3)
 -- True
 -- ```
 --
 -- ```
--- >>> optional False odd None
+-- >>> optional False (> 2) None
 -- False
 -- ```
 --
--- Read an Int from a string using `readOptional`. If we succeed,
--- return twice the Int; that is, apply `(*2)` to it. If instead
--- we fail to parse an Int, return `0` by default:
---
--- ```
--- >>> import Text.Read ( readOptional )
--- >>> optional 0 (*2) (readOptional "5")
+-- >>> optional 0 (*2) (Some 5)
 -- 10
--- >>> optional 0 (*2) (readOptional "")
+-- >>> optional 0 (*2) None
 -- 0
 -- ```
 --
@@ -259,7 +253,7 @@ instance ActionFail Optional where
 -- ```
 -- >>> optional "" show (Some 5)
 -- "5"
--- >>> optional "" show None
+-- >>> optional "" show (None : Optional Int)
 -- ""
 -- ```
 --
@@ -291,17 +285,15 @@ instance ActionFail (Either Text) where
 --
 -- #### Examples
 --
--- We create two values of type `Either String Int`, one using the
+-- We create two values of type `Either [Int] Int`, one using the
 -- `Left` constructor and another using the `Right` constructor. Then
--- we apply "either" the `length` function (if we have a `String`)
+-- we apply "either" the `length` function (if we have a `[Int]`)
 -- or the "times-two" function (if we have an `Int`):
 --
 -- ```
--- >>> let s = Left "foo" :: Either String Int
--- >>> let n = Right 3 :: Either String Int
--- >>> either length (*2) s
+-- >>> let s = Left [1,2,3] : Either [Int] Int in either length (*2) s
 -- 3
--- >>> either length (*2) n
+-- >>> let n = Right 3 : Either [Int] Int in either length (*2) n
 -- 6
 -- ```
 --

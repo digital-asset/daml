@@ -426,4 +426,11 @@ object ValueGenerators {
     stringVersionGen
       .map(TransactionVersion)
       .filter(x => !TransactionVersions.acceptedVersions.contains(x))
+
+  object Implicits {
+    implicit val vdecimalArb: Arbitrary[Decimal] = Arbitrary(decimalGen map (_.value))
+    implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)
+    implicit val vtimestampArb: Arbitrary[Time.Timestamp] = Arbitrary(timestampGen)
+    implicit val vpartyArb: Arbitrary[Ref.Party] = Arbitrary(party)
+  }
 }
