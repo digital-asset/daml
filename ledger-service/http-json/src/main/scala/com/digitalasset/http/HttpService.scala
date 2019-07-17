@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.client.LedgerClient
@@ -18,9 +19,11 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerClientConfiguration,
   LedgerIdRequirement
 }
+import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 import scalaz._
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.{util => u}
@@ -47,16 +50,27 @@ object HttpService extends StrictLogging {
     val bindingS: EitherT[Future, Error, ServerBinding] = for {
       client <- liftET[Error](
         LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
-      packageService = new PackageService(client.packageClient)
-      templateIdMap <- eitherT(packageService.getTemplateIdMap()).leftMap(httpServiceError)
+
+      ledgerId = convertLedgerId(client.ledgerId): lar.LedgerId
+
+      packageStore <- eitherT(LedgerReader.createPackageStore(client.packageClient))
+        .leftMap(httpServiceError)
+
+      templateIdMap = PackageService.getTemplateIdMap(packageStore)
+
       commandService = new CommandService(
         PackageService.resolveTemplateId(templateIdMap),
         client.commandServiceClient.submitAndWaitForTransaction,
         TimeProvider.UTC)
+
       contractsService = new ContractsService(
         PackageService.resolveTemplateIds(templateIdMap),
         client.activeContractSetClient)
-      endpoints = new Endpoints(commandService, contractsService)
+
+      apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId, packageStore)
+
+      endpoints = new Endpoints(commandService, contractsService, apiValueToLfValue)
+
       binding <- liftET[Error](
         Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))
     } yield binding
@@ -72,7 +86,10 @@ object HttpService extends StrictLogging {
     bindingF
   }
 
-  private def httpServiceError(e: PackageService.Error): Error = Error(e.shows)
+  private def httpServiceError(e: String): Error = Error(e)
+
+  private def convertLedgerId(a: com.digitalasset.ledger.api.domain.LedgerId) =
+    lar.LedgerId(com.digitalasset.ledger.api.domain.LedgerId.unwrap(a))
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")

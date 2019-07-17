@@ -15,8 +15,11 @@ import scalaz.{Show, \/}
 object ApiValueToLfValueConverter {
   final case class Error(cause: StatusRuntimeException)
 
-  implicit val ErrorShow: Show[Error] = new Show[Error] {
-    override def shows(e: Error): String = e.cause.getMessage
+  object Error {
+    implicit val ErrorShow: Show[Error] = new Show[Error] {
+      override def shows(e: Error): String =
+        s"ApiValueToLfValueConverter.Error: ${e.cause.getMessage}"
+    }
   }
 
   type ApiValueToLfValue =

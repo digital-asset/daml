@@ -4,27 +4,12 @@
 package com.digitalasset.http
 
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.ledger.service.{LedgerReader, TemplateIds}
+import com.digitalasset.ledger.service.TemplateIds
 import scalaz.Scalaz._
 import scalaz._
 
 import scala.collection.breakOut
-import scala.concurrent.{ExecutionContext, Future}
-
-class PackageService(packageClient: PackageClient)(implicit ec: ExecutionContext) {
-  import PackageService._
-
-  def getTemplateIdMap(): Future[Error \/ TemplateIdMap] =
-    EitherT(LedgerReader.createPackageStore(packageClient))
-      .leftMap(e => ServerError(e))
-      .map(packageStore => buildTemplateIdMap(collectTemplateIds(packageStore)))
-      .run
-
-  private def collectTemplateIds(packageStore: PackageStore): Set[lar.TemplateId] =
-    lar.TemplateId.subst(TemplateIds.getTemplateIds(packageStore.values.toSet))
-}
 
 object PackageService {
   sealed trait Error
@@ -39,6 +24,12 @@ object PackageService {
       }
     }
   }
+
+  def getTemplateIdMap(packageStore: PackageStore): TemplateIdMap =
+    buildTemplateIdMap(collectTemplateIds(packageStore))
+
+  private def collectTemplateIds(packageStore: PackageStore): Set[lar.TemplateId] =
+    lar.TemplateId.subst(TemplateIds.getTemplateIds(packageStore.values.toSet))
 
   case class TemplateIdMap(
       all: Map[domain.TemplateId.RequiredPkg, lar.TemplateId],

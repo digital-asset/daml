@@ -13,23 +13,28 @@ import com.digitalasset.http.Endpoints.InvalidUserInput
 import com.digitalasset.http.json.HttpCodec._
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.parse
+import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.v1.value.Value
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.syntax.functor._
-import scalaz.{-\/, @@, \/, \/-}
+import scalaz.syntax.show._
+import scalaz.syntax.traverse._
+import scalaz.{-\/, @@, Traverse, \/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.higherKinds
 
 class Endpoints(
     commandService: CommandService,
     contractsService: ContractsService,
+    apiValueToLfValue: ApiValueToLfValueConverter.ApiValueToLfValue,
     parallelism: Int = 8)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
   import json.JsonProtocol._
+  implicit val apiValueWriter = valueWriter(apiValueToLfValue)
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
@@ -51,7 +56,8 @@ class Endpoints(
   lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
       httpResponse(
-        parseInput[domain.CreateCommand](req)
+        parseInput[domain.CreateCommand[JsValue]](req)
+          .map(x => x.flatMap(parseValue[domain.CreateCommand]))
           .mapAsync(parallelism) {
             case -\/(e) =>
               Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
@@ -65,7 +71,8 @@ class Endpoints(
 
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
       httpResponse(
-        parseInput[domain.ExerciseCommand](req)
+        parseInput[domain.ExerciseCommand[JsValue]](req)
+          .map(x => x.flatMap(parseValue[domain.ExerciseCommand]))
           .mapAsync(parallelism) {
             case -\/(e) =>
               Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
@@ -81,13 +88,18 @@ class Endpoints(
   private def parseInput[A: JsonReader](req: HttpRequest): Source[InvalidUserInput \/ A, _] =
     req.entity.dataBytes
       .fold(ByteString.empty)(_ ++ _)
-      .map { data: ByteString =>
-        parse[A](data).leftMap(e => InvalidUserInput(e))
-      }
+      .map(data => parse[A](data).leftMap(e => InvalidUserInput(e.shows)))
+
+  private def parseValue[F[_]: Traverse](
+      fa: F[JsValue]): InvalidUserInput \/ F[lav1.value.Value] = {
+    fa.traverseU(jsValue =>
+      json.JsonProtocol.jsValueToApiValue(jsValue).leftMap(e => InvalidUserInput(e.shows)))
+  }
 
   private def toJsValue(
-      a: domain.ActiveContract[lav1.value.Value]): domain.ActiveContract[JsValue] =
+      a: domain.ActiveContract[lav1.value.Value]): domain.ActiveContract[JsValue] = {
     a.map(_.toJson)
+  }
 
   lazy val command2: Route =
     post {
@@ -119,7 +131,9 @@ class Endpoints(
     case HttpRequest(POST, Uri.Path("/contracts/search"), _, HttpEntity.Strict(_, input), _) =>
       parse[domain.GetActiveContractsRequest](input) match {
         case -\/(e) =>
-          httpResponse(StatusCodes.BadRequest, format(errorsJsObject(StatusCodes.BadRequest)(e)))
+          httpResponse(
+            StatusCodes.BadRequest,
+            format(errorsJsObject(StatusCodes.BadRequest)(e.shows)))
         case \/-(a) =>
           httpResponse(
             contractsService.search(jwtPayload, a).map(x => format(resultJsObject(x.toString)))
