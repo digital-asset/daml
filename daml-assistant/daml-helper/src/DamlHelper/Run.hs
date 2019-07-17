@@ -679,7 +679,7 @@ runDeploy = do
     projectName <- getProjectName
     let darPath = ".daml" </> "dist" </> projectName <> ".dar"
     assistant <- getDamlAssistant
-    callCommand (unwords $ assistant : ["build"])
+    runProcess_ (shell $ unwords $ assistant : ["build"])
     let SandboxPort port = sandboxPort
     putStrLn $ "Deploying " <> darPath <> " to ledger on port " <> show port
     bytes <- BS.readFile darPath
