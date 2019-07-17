@@ -10,8 +10,8 @@ As described in preceeding sections, both the integrity and privacy notions depe
 a contract model, and such a model must specify:
 
 #. a set of allowed actions on the contracts, and
-#. the signatories, observers, and an optional agreement text associated with each
-   contract, and
+#. the signatories, observers, and
+#. an optional agreement text associated with each contract, and
 #. the optional key associated with each contract and its maintainers.
 
 The sets of allowed actions can in general be infinite. For instance,
@@ -49,7 +49,7 @@ Intuitively, the allowed actions are:
    A :ref:`fetchbykey` statement also produce a **Fetch** action with the actors determined in the same way.
    A :ref:`lookupbykey` statement that finds a contract also translates into a **Fetch** action, but all maintainers of the key are the actors.
 
-#. **NoSuchKey** assertions correspond to a :ref:`lookupByKey` update statement for the given key that does not find a contract.
+#. **NoSuchKey** assertions corresponding to a :ref:`lookupByKey` update statement for the given key that does not find a contract.
 
 An instance of a DAML template, that is, a **DAML contract** or **contract instance**,
 is a triple of:

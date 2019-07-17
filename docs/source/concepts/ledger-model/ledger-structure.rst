@@ -69,7 +69,7 @@ Formally, an **action** is one of the following:
    The action also contains **actors**, the parties who fetch the contract.
    A **Fetch** behaves like a non-consuming exercise with no consequences, and can be repeated.
 
-#. a **Key assertion**, which records the assertion that the given :ref:`contract key <daml-ref-contract-keys>` is not assigned to any active contract on the ledger.
+#. a **Key assertion**, which records the assertion that the given :ref:`contract key <daml-ref-contract-keys>` is not assigned to any unconsumed contract on the ledger.
 
 An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
 Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
@@ -191,7 +191,8 @@ below shows all its proper subtransactions on the right (yellow boxes).
 
 To illustrate :ref:`contract keys <daml-ref-contract-keys>`, suppose that the contract key for a `PaintOffer` consists of the reference number and the painter.
 So Alice can refer to the `PaintOffer` by its key `(P, P123)`.
-To make this explicit, we use the notation `PaintOffer @P A &P123` for contracts, where `@` marks the maintainers and `&` the other key parts.
+To make this explicit, we use the notation `PaintOffer @P A &P123` for contracts, where `@` and `&` mark the parts that belong to a key.
+(The difference between `@` and `&` will be explained in the :ref:`integrity section <da-signatories-agreements-maintainers>`.)
 The ledger integrity constraints in the next section ensure that there is always at most one active `PaintOffer` for a given key.
 So if the painter retracts its `PaintOffer` and later Alice tries to accept it, she can then record the absence with a `NoSuchKey (P, P123)` key assertion.
 
@@ -271,13 +272,13 @@ following ledgers are not.
    :align: center
    :name: alice-claiming-retracted-offer
 
-   Alice falsely claiming that the painter has retracted the offer.
+   Painter falsely claiming that there is no offer.
 
 .. figure:: ./images/double-key-creation.svg
    :align: center
    :name: painter-creating-two-offers-with-same-key
 
-   Painter tries to create two different paint offers with the same reference number.
+   Painter trying to create two different paint offers with the same reference number.
 
    
 The next section discusses the criteria that rule out the above examples as
