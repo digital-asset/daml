@@ -2,7 +2,7 @@
 
 ## Templates
 
-### <a name="template-ioutemplate-iou-32396"></a>Template Iou
+### <a name="template-ioutemplate-iou-32396"></a>template Iou
 
 | Field      | Type/Description |
 | :--------- | :----------------

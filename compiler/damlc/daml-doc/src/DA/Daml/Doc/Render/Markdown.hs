@@ -62,8 +62,14 @@ renderSimpleMD ModuleDoc{..} = mconcat
 
 
 tmpl2md :: TemplateDoc -> RenderOut
-tmpl2md TemplateDoc{..} = mconcat
-    [ renderAnchorInfix "### " td_anchor ("Template " <> escapeMd (unTypename td_name))
+tmpl2md TemplateDoc{..} = withAnchorTag td_anchor $ \tag -> mconcat
+    [ renderLineDep $ \env -> T.concat
+        [ "### "
+        , tag
+        , "template "
+        , maybe "" ((<> " => ") . type2md env) td_super
+        , escapeMd . T.unwords $ unTypename td_name : td_args
+        ]
     , renderDocText td_descr
     , fieldTable td_payload
     , if null td_choices

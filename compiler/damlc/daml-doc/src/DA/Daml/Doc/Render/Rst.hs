@@ -88,7 +88,11 @@ renderSimpleRst ModuleDoc{..} = mconcat $
 tmpl2rst :: TemplateDoc -> RenderOut
 tmpl2rst TemplateDoc{..} = mconcat $
   [ renderAnchor td_anchor
-  , renderLine $ "template " <> enclosedIn "**" (unTypename td_name)
+  , renderLineDep $ \env -> T.concat
+      [ "template "
+      , maybe "" ((<> " => ") . type2rst env) td_super
+      , T.unwords (enclosedIn "**" (unTypename td_name) : td_args)
+      ]
   , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) td_descr
   , renderLine ""
   , renderIndent 2 (fieldTable td_payload)
