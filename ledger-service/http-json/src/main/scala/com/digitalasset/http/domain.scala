@@ -17,6 +17,7 @@ import scalaz.{Applicative, Functor, Traverse, \/}
 
 import scala.language.higherKinds
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 object domain {
   type Error = String
 
@@ -83,7 +84,6 @@ object domain {
   }
 
   object GetActiveContractsResponse {
-    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def fromLedgerApi(in: lav1.active_contracts_service.GetActiveContractsResponse)
       : Error \/ GetActiveContractsResponse[lav1.value.Value] =
       for {
@@ -127,6 +127,20 @@ object domain {
     def templateId(a: F[_]): TemplateId.OptionalPkg
   }
 
+  private trait HasArguments[F[_]] {
+    def arguments[LfV](a: F[LfV]): Option[Record[LfV]]
+    def withArguments[LfV](a: F[_], newArguments: Option[Record[LfV]]): F[LfV]
+  }
+
+  private def traverseArgumentsInstance[F[_]](argumentsLens: HasArguments[F]): Traverse[F] =
+    new Traverse[F] {
+      import argumentsLens._
+      override def map[A, B](fa: F[A])(f: A => B): F[B] =
+        withArguments(fa, arguments(fa) map (Record.traversal.map(_)(f)))
+      override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
+        arguments(fa) traverse (Record.traversal.traverse(_)(f)) map (withArguments(fa, _))
+    }
+
   type Field[+A] = (String, A)
 
   type Record[+A] = List[Field[A]]
@@ -137,36 +151,29 @@ object domain {
   }
 
   object CreateCommand {
-    // TODO(Leo) Traverse[CreateCommand] and Traverse[ExerciseCommand] are almost the same, HasArguments typeclass?
-    implicit val traverseInstance: Traverse[CreateCommand] = new Traverse[CreateCommand] {
-      override def map[A, B](fa: CreateCommand[A])(f: A => B): CreateCommand[B] =
-        fa.copy(arguments = fa.arguments.map(as => Record.traversal.map(as)(f)))
-
-      override def traverseImpl[G[_]: Applicative, A, B](fa: CreateCommand[A])(
-          f: A => G[B]): G[CreateCommand[B]] = {
-        val gb: G[Option[Record[B]]] =
-          fa.arguments.traverse(as => Record.traversal.traverse(as)(f))
-        gb map (b => fa.copy(arguments = b))
+    implicit val traverseInstance: Traverse[CreateCommand] =
+      traverseArgumentsInstance {
+        new HasArguments[CreateCommand] {
+          override def arguments[LfV](a: CreateCommand[LfV]) = a.arguments
+          override def withArguments[LfV](a: CreateCommand[_], newArguments: Option[Record[LfV]]) =
+            a.copy(arguments = newArguments)
+        }
       }
-    }
 
     implicit val hasTemplateId: HasTemplateId[CreateCommand] =
       (a: CreateCommand[_]) => a.templateId
   }
 
   object ExerciseCommand {
-    // TODO(Leo) Traverse[CreateCommand] and Traverse[ExerciseCommand] are almost the same, HasArguments typeclass?
-    implicit val traverseInstance: Traverse[ExerciseCommand] = new Traverse[ExerciseCommand] {
-      override def map[A, B](fa: ExerciseCommand[A])(f: A => B): ExerciseCommand[B] =
-        fa.copy(arguments = fa.arguments.map(as => Record.traversal.map(as)(f)))
-
-      override def traverseImpl[G[_]: Applicative, A, B](fa: ExerciseCommand[A])(
-          f: A => G[B]): G[ExerciseCommand[B]] = {
-        val gb: G[Option[List[Field[B]]]] =
-          fa.arguments.traverse(as => Record.traversal.traverse(as)(f))
-        gb map (b => fa.copy(arguments = b))
+    implicit val traverseInstance: Traverse[ExerciseCommand] =
+      traverseArgumentsInstance {
+        new HasArguments[ExerciseCommand] {
+          override def arguments[LfV](a: ExerciseCommand[LfV]) = a.arguments
+          override def withArguments[LfV](
+              a: ExerciseCommand[_],
+              newArguments: Option[Record[LfV]]) = a.copy(arguments = newArguments)
+        }
       }
-    }
 
     implicit val hasTemplateId: HasTemplateId[ExerciseCommand] =
       (a: ExerciseCommand[_]) => a.templateId
