@@ -123,7 +123,7 @@ The figures below visualize the state of different contracts at all points in th
 
 The notion of order can be defined on all the different ledger structures: actions, transactions, lists of transactions,
 and ledgers.
-Thus, the notions of (internal) activeness consistency, inputs and outputs, and contract state can also all be defined on all these
+Thus, the notions of consistency, inputs and outputs, and contract state can also all be defined on all these
 structures.
 The **active contract set** of a ledger is the set of all contracts
 that are active on the ledger. For the example above, it consists
@@ -157,6 +157,8 @@ Definition »key state«
 
   - If there is no such action `act`, then the key state is **unknown**.
 
+A key is **unassigned** if its key state is either **free** or **unknown**.
+    
 Key consistency ensures that there is at most one active contract for each key and that all key assertions are satisfies.
 
 .. _def-key-consistency:
@@ -189,6 +191,8 @@ It grants `P` the choice to perform such an assertion, which is needed for :ref:
 .. figure:: ./images/paint-offer-blacklist.svg
    :align: center
    :name: paint-offer-blacklist
+
+Key consistency extends to actions, transactions and lists of transactions just like the other consistency notions.
 
 
 Ledger consistency
@@ -249,7 +253,7 @@ and inconsistent transactions.
    :align: center
    :width: 100%
 
-   The first two transactions violate the conditions of internal activeness consistency.
+   The first two transactions violate the conditions of internal consistency.
    The first transaction creates the `Iou` after exercising it consumingly, violating both conditions.
    The second transaction contains a (non-consuming) exercise on the `Iou` after a consuming one, violating the second condition.
    The last transaction is internally consistent.
@@ -509,7 +513,7 @@ authorized the exercise. Thus, this ledger is not
 well-authorized.
 
 The rationale for making the maintainers as required authorizers for a **NoSuchKey** assertion
-is discussed in the next section about :ref:`privacy <da-model-privacy>`.
+is discussed in the next section about :ref:`privacy <da-model-privacy-authorization>`.
 
 Valid Ledgers, Obligations, Offers and Rights
 +++++++++++++++++++++++++++++++++++++++++++++

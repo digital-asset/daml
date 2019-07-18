@@ -171,6 +171,11 @@ requesters, we cannot talk about authorization on the level of
 projections.
 
 
+.. _da-model-privacy-authorization:
+
+Privacy through authorization
++++++++++++++++++++++++++++++
+
 Setting the maintainers as required authorizers for a **NoSuchKey** assertion ensures
 that parties cannot learn about the existence of a contract without having a right to know about their existence.
 So we use authorization to impose *access controls* that ensure confidentiality about the existence of contracts.
