@@ -1,19 +1,19 @@
-# Steps for running a demo of nim-console
+# Steps for running a demo of nim
 
 Follow these steps to run a demo of Nim!
 
 Notes on the format of this file:
 
 - For lines that start `$`, type them at the terminal.
-- For lines that start `Alice>` or `Bob>` or `Charlie>`, type them at the relevant `nim-console`. You'll end up with three terminals running simultaneously.
+- For lines that start `Alice>` or `Bob>` or `Charlie>`, type them at the relevant `nim` console. You'll end up with three terminals running simultaneously.
 
 ## 0. Setup: Build application and update the DAML SDK
 
     $ cd daml
-    $ bazel build language-support/hs/bindings/...
+    $ bazel build language-support/hs/bindings/examples/nim/...
     $ daml install latest --activate
 
-## 1. Look at [Nim.daml](https://github.com/digital-asset/daml/blob/master/language-support/hs/bindings/examples/nim-console/daml/Nim.daml)
+## 1. Look at [Nim.daml](https://github.com/digital-asset/daml/blob/master/language-support/hs/bindings/examples/nim/daml/Nim.daml)
 
 `Nim.daml` models the operation of the game room and the rules of Nim:
 
@@ -35,13 +35,13 @@ Notes on the format of this file:
 
 ## 2. Start sandbox running the Nim game server
 
-    $ daml sandbox bazel-out/k8-fastbuild/bin/language-support/hs/bindings/Nim.dar
+    $ daml sandbox bazel-out/k8-fastbuild/bin/language-support/hs/bindings/examples/nim/Nim.dar
 
-## 3. Open a new terminal and start nim-console for Alice
+## 3. Open a new terminal and start nim for Alice
 
 In a new terminal:
 
-    $ clear; bazel-bin/language-support/hs/bindings/nim Alice
+    $ clear; bazel-bin/language-support/hs/bindings/examples/nim/nim Alice
     replaying 0 transactions
     Alice>
 
@@ -63,21 +63,21 @@ This is an empty state: no offers, no games finished, no matches in play.
 
 Alice's local state shows that she has sent Charlie an offer to play a game of Nim.
 
-## 5. Open a new terminal and start nim-console for Bob
+## 5. Open a new terminal and start nim for Bob
 
 In a new terminal:
 
-    $ clear; bazel-bin/language-support/hs/bindings/nim Bob
+    $ clear; bazel-bin/language-support/hs/bindings/examples/nim/nim Bob
     replaying 0 transactions
     Bob> show
 
 Bob's status is empty, because Bob has no right to see that Alice offered a match to Charlie.
 
-## 6. Open a new terminal and start nim-console for Charlie
+## 6. Open a new terminal and start nim for Charlie
 
 In a new terminal:
 
-    $ clear; bazel-bin/language-support/hs/bindings/nim Charlie
+    $ clear; bazel-bin/language-support/hs/bindings/examples/nim/nim Charlie
     replaying 1 transactions
     Charlie> show
     - Match-1: Alice offered a game against you.
@@ -98,17 +98,17 @@ And Bob's console:
 
 Alice and Bob have different local numbers for the same game. Both players are informed by monitoring the transactions sent from the ledger. This asynchronous monitoring in indicated by the darker blue messages. Cyan messages (i.e. when we "show") are synchronous replies to player commands.
 
-## 8. As Alice, quit and restart nim-console
+## 8. As Alice, quit and restart nim
 
     Alice> C-c
-    $ clear; bazel-bin/language-support/hs/bindings/nim Alice
+    $ clear; bazel-bin/language-support/hs/bindings/examples/nim/nim Alice
     replaying 2 transactions
 
     Alice> show
     - Match-1: You offered a game against Charlie.
     - Match-2: You offered a game against Bob.
 
-The nim-console keeps no persistent local state. Alice's state is recovered from the ledger.
+The console keeps no persistent local state. Alice's state is recovered from the ledger.
 
 ## 9. As Charlie, accept Alice's game offer
 
@@ -200,7 +200,7 @@ This event is seen in everyone's console, but not everyone sees all information!
 Nearly at the end of the demo. Quit Bob's console, and start up a robot to play his turns for him!
 
     Bob> C-c
-    $ clear; bazel-bin/language-support/hs/bindings/nim --robot Bob
+    $ clear; bazel-bin/language-support/hs/bindings/examples/nim/nim --robot Bob
     Running robot for: Bob
     replaying 4 transactions
 
@@ -224,12 +224,12 @@ Robot Bob's moves are random, so indicated by `???` above.
 ## 19. Alice also goes on holiday, so replace her with Robot Alice
 
     Alice> C-c
-    $ clear; bazel-bin/language-support/hs/bindings/nim --robot Alice
+    $ clear; bazel-bin/language-support/hs/bindings/examples/nim/nim --robot Alice
 
 The robots complete the game!
 
 ## 20. As Alice, check in to see who won
 
     C-c
-    $ clear; bazel-bin/language-support/hs/bindings/nim Alice
+    $ clear; bazel-bin/language-support/hs/bindings/examples/nim/nim Alice
     Alice> show

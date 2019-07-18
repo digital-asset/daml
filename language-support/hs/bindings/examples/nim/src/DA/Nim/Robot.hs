@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Robot(robotMain) where
+module DA.Nim.Robot(robotMain) where
 
 import Control.Concurrent
 import Control.Monad(forever)
@@ -11,11 +11,11 @@ import System.Console.ANSI(Color(..))
 import System.Random(randomRIO)
 import System.Time.Extra(sleep)
 
-import Domain
-import Logging
-import NimLedger(Handle,connect)
-import Interact(PlayerState(..),makePlayerState,runSubmit)
-import Local(possibleActions)
+import DA.Nim.Domain
+import DA.Nim.Logging
+import DA.Nim.NimLedger(Handle,connect)
+import DA.Nim.Interact(PlayerState(..),makePlayerState,runSubmit)
+import DA.Nim.Local(possibleActions)
 
 robotMain :: Player -> IO ()
 robotMain player = do
@@ -39,7 +39,7 @@ robot h log ps = loop
         sleep 2
         let PlayerState{sv} = ps
         s <- readMVar sv
-        opt <- pick (Local.possibleActions s)
+        opt <- pick (possibleActions s)
         forM_ opt $ \lt -> do
             --log $ "playing: " <> show lt
             runSubmit h log ps lt

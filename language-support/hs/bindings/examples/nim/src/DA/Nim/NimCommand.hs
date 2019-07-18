@@ -4,11 +4,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- Nim commands, to be sent to the external ledger.
-module NimCommand(NimCommand(..), makeLedgerCommands,) where
+module DA.Nim.NimCommand(NimCommand(..), makeLedgerCommands,) where
 
 import DA.Ledger as Ledger
 import DA.Ledger.IsLedgerValue
-import Domain
+import DA.Nim.Domain
 
 type Oid = ContractId
 type Gid = ContractId

@@ -3,17 +3,17 @@
 
 -- Interact with a ChatLedger, submitting commands and tracking extern transitions.
 -- This is basically unchanged from the Nim example
-module Interact(InteractState(..), makeInteractState, runSubmit) where
+module DA.Chat.Interact (InteractState(..), makeInteractState, runSubmit) where
 
-import ChatLedger (Handle,sendCommand,getTrans)
-import Contracts (ChatContract)
 import Control.Concurrent (forkIO)
 import Control.Concurrent.MVar
+import DA.Chat.ChatLedger (Handle,sendCommand,getTrans)
+import DA.Chat.Contracts (ChatContract)
+import DA.Chat.Domain (Party)
+import DA.Chat.Local (State,initState,UserCommand,externalizeCommand,applyTrans,applyTransQuiet,introduceEveryone)
+import DA.Chat.Logging (Logger,colourLog)
 import DA.Ledger.PastAndFuture (PastAndFuture(..))
 import DA.Ledger.Stream (Stream,Closed(EOS,Abnormal,reason),takeStream)
-import Domain (Party)
-import Local (State,initState,UserCommand,externalizeCommand,applyTrans,applyTransQuiet,introduceEveryone)
-import Logging (Logger,colourLog)
 import System.Console.ANSI (Color(..))
 
 data InteractState = InteractState {
@@ -25,7 +25,7 @@ data InteractState = InteractState {
 
 makeInteractState :: Handle -> Logger -> Party -> IO InteractState
 makeInteractState h xlog whoami = do
-    sv <- newMVar Local.initState
+    sv <- newMVar initState
     let partyLog = colourLog Blue xlog
     stream <- manageUpdates h whoami partyLog sv
     return InteractState{whoami,talking=Nothing,sv,stream}
@@ -41,7 +41,7 @@ runSubmit h log is uc = do
     --log $ "uc: " <> show uc
     let InteractState{whoami,talking,sv} = is
     s <- readMVar sv
-    case Local.externalizeCommand whoami talking s uc of
+    case externalizeCommand whoami talking s uc of
         Left reason -> log reason
         Right cc -> sendShowingRejection whoami h log cc
 
@@ -51,7 +51,7 @@ manageUpdates :: Handle -> Party -> Logger -> MVar State -> IO (Stream ChatContr
 manageUpdates h whoami log sv = do
     PastAndFuture{past,future} <- getTrans whoami h
     log $ "replaying " <> show (length past) <> " transactions"
-    modifyMVar_ sv (\s -> return $ foldl (Local.applyTransQuiet whoami) s past)
+    modifyMVar_ sv (\s -> return $ foldl (applyTransQuiet whoami) s past)
     withMVar sv $ \s -> sendShowingRejection whoami h log (introduceEveryone whoami s)
     _ <- forkIO (updateX h whoami log sv future)
     return future
@@ -72,7 +72,7 @@ updateX h whoami log sv stream = loop
 applyX :: Handle -> Party -> Logger -> MVar State -> ChatContract -> IO ()
 applyX h whoami log sv cc = do
     s <- takeMVar sv
-    let (s',ans,replies) = Local.applyTrans whoami s cc
+    let (s',ans,replies) = applyTrans whoami s cc
     mapM_ (sendShowingRejection whoami h log) replies
     mapM_ (log . show) ans
     putMVar sv s'
