@@ -57,7 +57,7 @@ lowerLedgerOffset = \case
 
 lowerCommands :: Commands -> LL.Commands
 lowerCommands = \case
-    Commands{lid,wid,aid,cid,party,leTime,mrTime,coms} ->
+    Commands{..} ->
         LL.Commands {
         commandsLedgerId = unLedgerId lid,
         commandsWorkflowId = unWorkflowId (fromMaybe (WorkflowId "") wid),
@@ -70,19 +70,19 @@ lowerCommands = \case
 
 lowerCommand :: Command -> LL.Command
 lowerCommand = \case
-    CreateCommand{tid,args} ->
+    CreateCommand{..} ->
         LL.Command $ Just $ LL.CommandCommandCreate $ LL.CreateCommand {
         createCommandTemplateId = Just (lowerTemplateId tid),
         createCommandCreateArguments = Just (lowerRecord args)}
 
-    ExerciseCommand{tid,cid,choice,arg} ->
+    ExerciseCommand{..} ->
         LL.Command $ Just $ LL.CommandCommandExercise $ LL.ExerciseCommand {
         exerciseCommandTemplateId = Just (lowerTemplateId tid),
         exerciseCommandContractId = unContractId cid,
         exerciseCommandChoice = unChoice choice,
         exerciseCommandChoiceArgument = Just (lowerValue arg) }
 
-    CreateAndExerciseCommand{tid,createArgs,choice,choiceArg} ->
+    CreateAndExerciseCommand{..} ->
         LL.Command $ Just $ LL.CommandCommandCreateAndExercise $ LL.CreateAndExerciseCommand {
         createAndExerciseCommandTemplateId = Just (lowerTemplateId tid),
         createAndExerciseCommandCreateArguments = Just (lowerRecord createArgs),
@@ -94,7 +94,7 @@ lowerTemplateId (TemplateId x) = lowerIdentifier x
 
 lowerIdentifier :: Identifier -> LL.Identifier
 lowerIdentifier = \case
-    Identifier{pid,mod,ent} ->
+    Identifier{..} ->
         LL.Identifier {
         identifierPackageId = unPackageId pid,
         identifierName = "", -- marked as deprecated in .proto
@@ -103,7 +103,7 @@ lowerIdentifier = \case
 
 lowerTimestamp :: Timestamp -> LL.Timestamp
 lowerTimestamp = \case
-    Timestamp{seconds,nanos} ->
+    Timestamp{..} ->
         LL.Timestamp {
         timestampSeconds = fromIntegral seconds,
         timestampNanos = fromIntegral nanos
@@ -128,14 +128,14 @@ lowerValue = LL.Value . Just . \case -- TODO: more cases here
 
 lowerRecord :: Record -> LL.Record
 lowerRecord = \case
-    Record{rid,fields} ->
+    Record{..} ->
         LL.Record {
         recordRecordId = fmap lowerIdentifier rid,
         recordFields = Vector.fromList $ map lowerRecordField fields }
 
 lowerRecordField :: RecordField -> LL.RecordField
 lowerRecordField = \case
-    RecordField{label,fieldValue} ->
+    RecordField{..} ->
         LL.RecordField {
         recordFieldLabel = label,
         recordFieldValue = Just (lowerValue fieldValue) }
@@ -171,18 +171,14 @@ raiseGetLedgerConfigurationResponse x =
 
 raiseLedgerConfiguration :: LL.LedgerConfiguration -> Perhaps LedgerConfiguration
 raiseLedgerConfiguration = \case
-    LL.LedgerConfiguration{ledgerConfigurationMinTtl,
-                           ledgerConfigurationMaxTtl
-                          } -> do
+    LL.LedgerConfiguration{..} -> do
         minTtl <- perhaps "min_ttl" ledgerConfigurationMinTtl
         maxTtl <- perhaps "max_ttl" ledgerConfigurationMaxTtl
-        return $ LedgerConfiguration {minTtl, maxTtl}
+        return $ LedgerConfiguration {..}
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case
-    LL.GetActiveContractsResponse{getActiveContractsResponseOffset,
-                                  getActiveContractsResponseWorkflowId,
-                                  getActiveContractsResponseActiveContracts} -> do
+    LL.GetActiveContractsResponse{..} -> do
         offset <- raiseAbsOffset getActiveContractsResponseOffset
         let wid = optional (raiseWorkflowId getActiveContractsResponseWorkflowId)
         events <- raiseList (raiseEvent . mkEventFromCreatedEvent) getActiveContractsResponseActiveContracts
@@ -193,8 +189,7 @@ raiseGetActiveContractsResponse = \case
 
 raiseCompletionStreamResponse :: LL.CompletionStreamResponse -> Perhaps (Maybe Checkpoint,[Completion])
 raiseCompletionStreamResponse = \case
-    LL.CompletionStreamResponse{completionStreamResponseCompletions
-                               ,completionStreamResponseCheckpoint} -> do
+    LL.CompletionStreamResponse{..} -> do
         let checkpoint = completionStreamResponseCheckpoint >>= optional . raiseCheckpoint
         completions <- raiseCompletions completionStreamResponseCompletions
         return (checkpoint,completions)
@@ -204,17 +199,17 @@ raiseCompletions = raiseList raiseCompletion
 
 raiseCompletion :: LL.Completion -> Perhaps Completion
 raiseCompletion = \case
-    LL.Completion{completionCommandId} -> do
+    LL.Completion{..} -> do
         cid <- raiseCommandId completionCommandId
         let status = Status --TODO: stop loosing info
-        return Completion{cid,status}
+        return Completion{..}
 
 raiseCheckpoint :: LL.Checkpoint -> Perhaps Checkpoint
 raiseCheckpoint = \case
-    LL.Checkpoint{checkpointRecordTime,checkpointOffset} -> do
+    LL.Checkpoint{..} -> do
         let _ = checkpointRecordTime -- TODO: dont ignore!
         offset <- perhaps "checkpointOffset" checkpointOffset >>= raiseAbsLedgerOffset
-        return Checkpoint{offset}
+        return Checkpoint{..}
 
 raiseAbsLedgerOffset :: LL.LedgerOffset -> Perhaps AbsOffset
 raiseAbsLedgerOffset = \case
@@ -225,13 +220,7 @@ raiseAbsLedgerOffset = \case
 
 raiseTransactionTree :: LL.TransactionTree -> Perhaps TransactionTree
 raiseTransactionTree = \case
-    LL.TransactionTree{transactionTreeTransactionId,
-                       transactionTreeCommandId,
-                       transactionTreeWorkflowId,
-                       transactionTreeEffectiveAt,
-                       transactionTreeEventsById,
-                       transactionTreeRootEventIds,
-                       transactionTreeOffset} -> do
+    LL.TransactionTree{..} -> do
     trid <- raiseTransactionId transactionTreeTransactionId
     let cid = optional (raiseCommandId transactionTreeCommandId)
     let wid = optional (raiseWorkflowId transactionTreeWorkflowId)
@@ -239,25 +228,12 @@ raiseTransactionTree = \case
     offset <- raiseAbsOffset transactionTreeOffset
     events <- raiseMap raiseEventId raiseTreeEvent transactionTreeEventsById
     roots <- raiseList raiseEventId transactionTreeRootEventIds
-    return TransactionTree {trid, cid, wid, leTime, offset, events, roots}
+    return TransactionTree {..}
 
 raiseTreeEvent :: LL.TreeEvent -> Perhaps TreeEvent
 raiseTreeEvent = \case
     LL.TreeEvent{treeEventKind = Nothing} -> missing "TreeEvent"
-    LL.TreeEvent(Just (LL.TreeEventKindExercised
-                       LL.ExercisedEvent{
-                              exercisedEventEventId,
-                              exercisedEventContractId,
-                              exercisedEventTemplateId,
-                              exercisedEventContractCreatingEventId,
-                              exercisedEventChoice,
-                              exercisedEventChoiceArgument,
-                              exercisedEventActingParties,
-                              exercisedEventConsuming,
-                              exercisedEventWitnessParties,
-                              exercisedEventChildEventIds,
-                              exercisedEventExerciseResult
-                              })) -> do
+    LL.TreeEvent(Just (LL.TreeEventKindExercised LL.ExercisedEvent{..})) -> do
         eid <- raiseEventId exercisedEventEventId
         cid <- raiseContractId exercisedEventContractId
         tid <- perhaps "exercisedEventTemplateId" exercisedEventTemplateId >>= raiseTemplateId
@@ -269,18 +245,9 @@ raiseTreeEvent = \case
         witness <- raiseList raiseParty exercisedEventWitnessParties
         childEids <- raiseList raiseEventId exercisedEventChildEventIds
         result <- perhaps "exercisedEventExerciseResult" exercisedEventExerciseResult >>= raiseValue
-        return ExercisedTreeEvent
-            {eid,cid,tid,ccEid,choice,choiceArg,acting,consuming,witness,childEids,result}
+        return ExercisedTreeEvent{..}
 
-    LL.TreeEvent(Just (LL.TreeEventKindCreated
-                       LL.CreatedEvent{createdEventEventId,
-                                       createdEventContractId,
-                                       createdEventTemplateId,
-                                       createdEventContractKey,
-                                       createdEventCreateArguments,
-                                       createdEventWitnessParties,
-                                       createdEventSignatories,
-                                       createdEventObservers})) -> do
+    LL.TreeEvent(Just (LL.TreeEventKindCreated LL.CreatedEvent{..})) -> do
         eid <- raiseEventId createdEventEventId
         cid <- raiseContractId createdEventContractId
         tid <- perhaps "createdEventTemplateId" createdEventTemplateId >>= raiseTemplateId
@@ -289,16 +256,11 @@ raiseTreeEvent = \case
         witness <- raiseList raiseParty createdEventWitnessParties
         signatories <- raiseList raiseParty createdEventSignatories
         observers <- raiseList raiseParty createdEventObservers
-        return CreatedTreeEvent{eid,cid,tid,key,createArgs,witness,signatories,observers}
+        return CreatedTreeEvent{..}
 
 raiseTransaction :: LL.Transaction -> Perhaps Transaction
 raiseTransaction = \case
-    LL.Transaction{transactionTransactionId,
-                   transactionCommandId,
-                   transactionWorkflowId,
-                   transactionEffectiveAt,
-                   transactionEvents,
-                   transactionOffset} -> do
+    LL.Transaction{..} -> do
     -- NOTE: "<-" is used when a field is required, "let" when a field is optional
     trid <- raiseTransactionId transactionTransactionId
     let cid = optional (raiseCommandId transactionCommandId)
@@ -306,30 +268,18 @@ raiseTransaction = \case
     leTime <- perhaps "transactionEffectiveAt" transactionEffectiveAt >>= raiseTimestamp
     events <- raiseList raiseEvent transactionEvents
     offset <- raiseAbsOffset transactionOffset
-    return Transaction {trid, cid, wid, leTime, events, offset}
+    return Transaction {..}
 
 raiseEvent :: LL.Event -> Perhaps Event
 raiseEvent = \case
     LL.Event{eventEvent = Nothing} -> missing "Event"
-    LL.Event(Just (LL.EventEventArchived
-                   LL.ArchivedEvent{archivedEventEventId,
-                                    archivedEventContractId,
-                                    archivedEventTemplateId,
-                                    archivedEventWitnessParties})) -> do
+    LL.Event(Just (LL.EventEventArchived LL.ArchivedEvent{..})) -> do
         eid <- raiseEventId archivedEventEventId
         cid <- raiseContractId archivedEventContractId
         tid <- perhaps "archivedEventTemplateId" archivedEventTemplateId >>= raiseTemplateId
         witness <- raiseList raiseParty archivedEventWitnessParties
-        return ArchivedEvent{eid,cid,tid,witness}
-    LL.Event(Just (LL.EventEventCreated
-                   LL.CreatedEvent{createdEventEventId,
-                                   createdEventContractId,
-                                   createdEventTemplateId,
-                                   createdEventContractKey,
-                                   createdEventCreateArguments,
-                                   createdEventWitnessParties,
-                                   createdEventSignatories,
-                                   createdEventObservers})) -> do
+        return ArchivedEvent{..}
+    LL.Event(Just (LL.EventEventCreated LL.CreatedEvent{..})) -> do
         eid <- raiseEventId createdEventEventId
         cid <- raiseContractId createdEventContractId
         tid <- perhaps "createdEventTemplateId" createdEventTemplateId >>= raiseTemplateId
@@ -338,21 +288,21 @@ raiseEvent = \case
         witness <- raiseList raiseParty createdEventWitnessParties
         signatories <- raiseList raiseParty createdEventSignatories
         observers <- raiseList raiseParty createdEventObservers
-        return CreatedEvent{eid,cid,tid,key,createArgs,witness,signatories,observers}
+        return CreatedEvent{..}
 
 raiseRecord :: LL.Record -> Perhaps Record
 raiseRecord = \case
-    LL.Record{recordRecordId,recordFields} -> do
+    LL.Record{..} -> do
         let rid = recordRecordId >>= optional . raiseIdentifier
         fields <- raiseList raiseRecordField recordFields
-        return Record{rid,fields}
+        return Record{..}
 
 raiseRecordField :: LL.RecordField -> Perhaps RecordField
 raiseRecordField = \case
-    LL.RecordField{recordFieldLabel,recordFieldValue} -> do
+    LL.RecordField{..} -> do
         let label = recordFieldLabel
         fieldValue <- perhaps "recordFieldValue" recordFieldValue >>= raiseValue
-        return RecordField{label,fieldValue}
+        return RecordField{..}
 
 -- TODO: more cases here
 raiseValue :: LL.Value -> Perhaps Value
@@ -384,7 +334,7 @@ raiseTimestamp :: LL.Timestamp -> Perhaps Timestamp
 raiseTimestamp = \case
     LL.Timestamp{timestampSeconds,timestampNanos} ->
         return $ Timestamp {seconds = fromIntegral timestampSeconds,
-                           nanos = fromIntegral timestampNanos}
+                            nanos = fromIntegral timestampNanos}
 
 -- TODO: check that the text matches the spec in ledger_offset.proto
 raiseAbsOffset :: Text -> Perhaps AbsOffset
@@ -395,14 +345,11 @@ raiseTemplateId = fmap TemplateId . raiseIdentifier
 
 raiseIdentifier :: LL.Identifier -> Perhaps Identifier
 raiseIdentifier = \case
-    LL.Identifier{identifierPackageId,
-                  --identifierName, --marked as deprecated in value.proto
-                  identifierModuleName,
-                  identifierEntityName} -> do
+    LL.Identifier{..} -> do
         pid <- raisePackageId identifierPackageId
         mod <- raiseModuleName identifierModuleName
         ent <- raiseEntityName identifierEntityName
-        return Identifier{pid,mod,ent}
+        return Identifier{..}
 
 raiseList :: (a -> Perhaps b) -> Vector a -> Perhaps [b]
 raiseList f v = loop (Vector.toList v)

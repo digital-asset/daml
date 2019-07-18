@@ -168,11 +168,12 @@ xExtensionsUnset :: [Extension]
 xExtensionsUnset = [ ]
 
 -- | Flags set for DAML-1.2 compilation
-xFlagsSet :: [ GeneralFlag ]
-xFlagsSet = [
-   Opt_Haddock
+xFlagsSet :: Options -> [GeneralFlag]
+xFlagsSet options =
+ [ Opt_Haddock
  , Opt_Ticky
- ]
+ ] ++
+ [ Opt_DoCoreLinting | optCoreLinting options ]
 
 -- | Warning options set for DAML compilation. Note that these can be modified
 --   (per file) by the user via file headers '{-# OPTIONS -fwarn-... #-} and
@@ -203,7 +204,7 @@ wOptsUnset =
 
 
 adjustDynFlags :: Options -> DynFlags -> DynFlags
-adjustDynFlags Options{..} dflags
+adjustDynFlags options@Options{..} dflags
   = setImports optImportPath
   $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId optMbPackageName)
   -- once we have package imports working, we want to import the base package and set this to
@@ -213,7 +214,7 @@ adjustDynFlags Options{..} dflags
   $ apply wopt_set_fatal wOptsSetFatal
   $ apply xopt_set xExtensionsSet
   $ apply xopt_unset xExtensionsUnset
-  $ apply gopt_set xFlagsSet
+  $ apply gopt_set (xFlagsSet options)
   dflags{
     mainModIs = mkModule primUnitId (mkModuleName "NotAnExistingName"), -- avoid DEL-6770
     debugLevel = 1,

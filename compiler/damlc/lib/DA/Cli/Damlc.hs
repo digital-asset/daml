@@ -860,6 +860,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
     <*> hlintUsageOpt
     <*> pure False
+    <*> pure False
   where
     optImportPath :: Parser [FilePath]
     optImportPath =

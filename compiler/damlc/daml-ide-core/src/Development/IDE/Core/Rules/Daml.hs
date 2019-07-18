@@ -16,7 +16,7 @@ import Development.IDE.Core.OfInterest
 import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options.Types
 import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
-import Development.IDE.Types.Location as Base
+import Development.IDE.Types.Location
 import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
