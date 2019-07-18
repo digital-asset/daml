@@ -14,6 +14,7 @@ import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.HashMap.Strict as Map
 import Data.List.Extra
 import System.FilePath
+import Data.Char
 
 data Manifest = Manifest
     { mainDalf :: FilePath
@@ -30,12 +31,13 @@ lineToKeyValue line = case splitOn ":" line of
     [l, r] -> (trim l , trim r)
     _ -> error $ "Expected two fields in line " <> line
 
-appendToFirstEntry :: [String] -> String -> [String]
-appendToFirstEntry (h : t) nextLine = (h ++ nextLine) : t
-appendToFirstEntry _ _ = error "Reading Manifest file from dar failed."
-
 multiLineContent :: [String] -> [String]
-multiLineContent = foldl' (\acc h -> if " " `isPrefixOf` h then appendToFirstEntry acc (trim h) else h:acc) []
+multiLineContent [] = []
+multiLineContent (x:xs)
+  | all isSpace x = multiLineContent xs
+  | otherwise = (x ++ concatMap trim ys) : multiLineContent zs
+    where
+      (ys, zs) = span (isPrefixOf " ") xs
 
 manifestMapToManifest :: Map.HashMap String String -> Manifest
 manifestMapToManifest hash = Manifest mainDalf dependDalfs
