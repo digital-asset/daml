@@ -29,8 +29,8 @@ module Development.IDE.Core.Rules(
 import           Control.Monad.Except
 import Control.Monad.Trans.Maybe
 import qualified Development.IDE.Core.Compile             as Compile
-import qualified Development.IDE.Types.Options as Compile
-import qualified Development.IDE.Spans.Calculate as Compile
+import qualified Development.IDE.Types.Options as Options
+import qualified Development.IDE.Spans.Calculate as Spans
 import Development.IDE.Import.DependencyInformation
 import Development.IDE.Import.FindImports
 import           Development.IDE.Core.FileStore
@@ -152,7 +152,7 @@ getLocatedImportsRule =
         let dflags = Compile.addRelativeImport pm $ hsc_dflags env
         opt <- getIdeOptions
         xs <- forM imports $ \(mbPkgName, modName) ->
-            (modName, ) <$> locateModule dflags (Compile.optExtensions opt) getFileExists modName mbPkgName
+            (modName, ) <$> locateModule dflags (Options.optExtensions opt) getFileExists modName mbPkgName
         return (concat $ lefts $ map snd xs, Just $ map (second eitherToMaybe) xs)
 
 
@@ -237,7 +237,7 @@ getSpanInfoRule =
         tc <- use_ TypeCheck file
         imports <- use_ GetLocatedImports file
         packageState <- useNoFile_ GhcSession
-        x <- liftIO $ Compile.getSrcSpanInfos packageState (fileImports imports) tc
+        x <- liftIO $ Spans.getSrcSpanInfos packageState (fileImports imports) tc
         return ([], Just x)
 
 -- Typechecks a module.
@@ -266,7 +266,7 @@ loadGhcSession :: Rules ()
 loadGhcSession =
     defineNoFile $ \GhcSession -> do
         opts <- getIdeOptions
-        Compile.optGhcSession opts
+        Options.optGhcSession opts
 
 
 getHieFileRule :: Rules ()
