@@ -44,8 +44,8 @@ da_haskell_test(
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
+        "//compiler/daml-lf-reader",
         "//compiler/damlc:damlc-lib",
-         "//compiler/daml-lf-reader",
         "//libs-haskell/bazel-runfiles",
     ],
 )
