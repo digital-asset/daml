@@ -182,7 +182,7 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
             }
     templateTy =
         noLoc $
-        HsTyVar NoExt NotPromoted $
+        HsTyVar noExt NotPromoted $
         noLoc $
         mkRdrQual (mkModuleName "DA.Internal.Template") $
         mkOccName varName "Template" :: LHsType GhcPs
@@ -217,13 +217,13 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
             let occName = mkOccName varName $ T.unpack $ sanitize dataTypeCon0
             let dataDecl =
                     noLoc $
-                    TyClD NoExt $
+                    TyClD noExt $
                     DataDecl
-                        { tcdDExt = NoExt
+                        { tcdDExt = noExt
                         , tcdLName = noLoc $ mkRdrUnqual occName
                         , tcdTyVars =
                               HsQTvs
-                                  { hsq_ext = NoExt
+                                  { hsq_ext = noExt
                                   , hsq_explicit =
                                         [ mkUserTyVar $ LF.unTypeVarName tyVarName
                                         | (tyVarName, _kind) <- dataParams
@@ -232,7 +232,7 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
                         , tcdFixity = Prefix
                         , tcdDataDefn =
                               HsDataDefn
-                                  { dd_ext = NoExt
+                                  { dd_ext = noExt
                                   , dd_ND = DataType
                                   , dd_ctxt = noLoc []
                                   , dd_cType = Nothing
@@ -245,9 +245,9 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
             -- file
             let templInstDecl =
                     noLoc $
-                    InstD NoExt $
+                    InstD noExt $
                     ClsInstD
-                        NoExt
+                        noExt
                         ClsInstDecl
                             { cid_ext = noExt
                             , cid_poly_ty =
@@ -305,7 +305,7 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
                                                                                                            error_RDR))
                                                                                                  (noLoc $
                                                                                                   HsLit
-                                                                                                      NoExt $
+                                                                                                      noExt $
                                                                                                   HsString
                                                                                                       NoSourceText $
                                                                                                   mkFastString
@@ -348,7 +348,7 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
             LF.DataRecord fields ->
                 [ noLoc $
                   ConDeclH98
-                      { con_ext = NoExt
+                      { con_ext = noExt
                       , con_name =
                             noLoc $
                             mkRdrUnqual $
@@ -362,12 +362,12 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
                             noLoc
                                 [ noLoc $
                                 ConDeclField
-                                    { cd_fld_ext = NoExt
+                                    { cd_fld_ext = noExt
                                     , cd_fld_doc = Nothing
                                     , cd_fld_names =
                                           [ noLoc $
                                             FieldOcc
-                                                { extFieldOcc = NoExt
+                                                { extFieldOcc = noExt
                                                 , rdrNameFieldOcc =
                                                       mkRdrName $
                                                       LF.unFieldName fieldName
@@ -382,7 +382,7 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
             LF.DataVariant cons ->
                 [ noLoc $
                 ConDeclH98
-                    { con_ext = NoExt
+                    { con_ext = noExt
                     , con_name =
                           noLoc $
                           mkRdrUnqual $
@@ -406,7 +406,7 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
             LF.DataEnum cons ->
                 [ noLoc $
                 ConDeclH98
-                    { con_ext = NoExt
+                    { con_ext = noExt
                     , con_name =
                           noLoc $
                           mkRdrUnqual $
@@ -424,16 +424,16 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
     mkUserTyVar :: T.Text -> LHsTyVarBndr GhcPs
     mkUserTyVar =
         noLoc .
-        UserTyVar NoExt . noLoc . mkRdrUnqual . mkOccName tvName . T.unpack
+        UserTyVar noExt . noLoc . mkRdrUnqual . mkOccName tvName . T.unpack
     convType :: LF.Type -> HsType GhcPs
     convType =
         \case
             LF.TVar tyVarName ->
-                HsTyVar NoExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
+                HsTyVar noExt NotPromoted $ mkRdrName $ LF.unTypeVarName tyVarName
             LF.TCon LF.Qualified {..} ->
                 case LF.unTypeConName qualObject of
                     [name] ->
-                        HsTyVar NoExt NotPromoted $
+                        HsTyVar noExt NotPromoted $
                         noLoc $
                         mkOrig
                             (mkModule
@@ -450,7 +450,7 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
                                     n
                                     sumProdRecords
                          in HsRecTy
-                                NoExt
+                                noExt
                                 [ noLoc $
                                 ConDeclField
                                     { cd_fld_ext = noExt
@@ -471,17 +471,19 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
                     cs -> errTooManyNameComponents cs
             LF.TApp ty1 ty2 ->
                 HsParTy noExt $
-                noLoc $ HsAppTy NoExt (noLoc $ convType ty1) (noLoc $ convType ty2)
+                noLoc $ HsAppTy noExt (noLoc $ convType ty1) (noLoc $ convType ty2)
             LF.TBuiltin builtinTy -> convBuiltInTy builtinTy
             LF.TForall {..} ->
+                HsParTy noExt $
+                noLoc $
                 HsForAllTy
-                    NoExt
+                    noExt
                     [mkUserTyVar $ LF.unTypeVarName $ fst forallBinder]
                     (noLoc $ convType forallBody)
             -- TODO (drsk): Is this the correct tuple type? What about the field names?
             LF.TTuple fls ->
                 HsTupleTy
-                    NoExt
+                    noExt
                     HsBoxedTuple
                     [noLoc $ convType ty | (_fldName, ty) <- fls]
     convBuiltInTy :: LF.BuiltinType -> HsType GhcPs
@@ -503,16 +505,16 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
             LF.BTMap -> mkLfInternalType "TextMap"
             LF.BTArrow -> mkTyConTypeUnqual funTyCon
     mkGhcType =
-        HsTyVar NoExt NotPromoted .
+        HsTyVar noExt NotPromoted .
         noLoc . mkOrig gHC_TYPES . mkOccName varName
     damlStdlibUnitId = stringToUnitId "daml-stdlib"
     mkLfInternalType =
-        HsTyVar NoExt NotPromoted .
+        HsTyVar noExt NotPromoted .
         noLoc .
         mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.LF") .
         mkOccName varName
     mkLfInternalPrelude =
-        HsTyVar NoExt NotPromoted .
+        HsTyVar noExt NotPromoted .
         noLoc .
         mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.Prelude") .
         mkOccName varName
