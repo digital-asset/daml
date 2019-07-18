@@ -1,12 +1,12 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module Main(main) where
+module DA.Nim.Main(main) where
 
 import System.Environment(getArgs)
-import Domain(Player(..))
-import Robot(robotMain)
-import UI(interactiveMain)
+import DA.Nim.Domain(Player(..))
+import DA.Nim.Robot(robotMain)
+import DA.Nim.UI(interactiveMain)
 
 main :: IO ()
 main = do
@@ -38,5 +38,5 @@ defaultMode = Interactive defaultPlayer
 
 modeMain :: Mode -> IO ()
 modeMain = \case
-    Interactive player -> UI.interactiveMain player
-    Robot player -> Robot.robotMain player
+    Interactive player -> interactiveMain player
+    Robot player -> robotMain player

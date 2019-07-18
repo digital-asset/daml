@@ -1,16 +1,16 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module UI(interactiveMain) where
+module DA.Chat.UI (interactiveMain) where
 
-import Interact (InteractState(..),makeInteractState,runSubmit)
-import ChatLedger (Handle,connect)
 import Control.Concurrent.MVar
 import Control.Monad.Trans.Class (lift)
-import Data.Text.Lazy as Text(pack)
-import Domain (Party(..))
-import Local (State,UserCommand(Link,Speak),known,history)
-import Logging (colourLog,plainLog,colourWrap)
+import DA.Chat.ChatLedger (Handle,connect)
+import DA.Chat.Domain (Party(..))
+import DA.Chat.Interact (InteractState(..),makeInteractState,runSubmit)
+import DA.Chat.Local as Local (State,UserCommand(Link,Speak),known,history)
+import DA.Chat.Logging (colourLog,plainLog,colourWrap)
+import Data.Text.Lazy as Text (pack)
 import System.Console.ANSI (Color(..))
 import qualified System.Console.Haskeline as HL
 

@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-module UI(interactiveMain) where
+module DA.Nim.UI(interactiveMain) where
 
 import Control.Concurrent
 import Control.Monad.Trans.Class (lift)
@@ -10,12 +10,11 @@ import Text.Read (readMaybe)
 import qualified System.Console.Haskeline as HL
 
 import DA.Ledger.Stream
-import Domain
-import Local(State,UserCommand,MatchNumber(..))
-import Logging
-import NimLedger(Handle,connect)
-import Interact
-import qualified Local
+import DA.Nim.Domain
+import DA.Nim.Interact
+import DA.Nim.Local(State,UserCommand(..),MatchNumber(..),prettyState)
+import DA.Nim.Logging
+import DA.Nim.NimLedger(Handle,connect)
 
 replyLog :: String -> IO ()
 replyLog = colourLog Cyan plainLog
@@ -76,15 +75,15 @@ parseWords = \case
     ["offer"] -> -- TODO: reinstate when proper management of known players is implemented
         Nothing -- return $ Submit Local.OfferNewGameToAnyone
     "offer":ps -> do
-        return $ Submit $ Local.OfferGameL (map Player ps)
+        return $ Submit $ OfferGameL (map Player ps)
     ["accept",o] -> do
         oid <- parseMatchNumber o
-        return $ Submit $ Local.AcceptOfferL oid
+        return $ Submit $ AcceptOfferL oid
     ["move",g,p,n] -> do
         gid <- parseMatchNumber g
         pileNum <- readMaybe p
         howMany <- readMaybe n
-        return $ Submit $ Local.MakeMoveL gid (Move {pileNum,howMany})
+        return $ Submit $ MakeMoveL gid (Move {pileNum,howMany})
     _ ->
         Nothing
 
@@ -121,5 +120,5 @@ runParsed h xlog ps = \case
 
 runLocalQuery :: State -> Query -> IO ()
 runLocalQuery s = \case
-    ShowOpenState -> replyLog (Local.prettyState s)
+    ShowOpenState -> replyLog (prettyState s)
     ShowHelp -> replyLog helpText
