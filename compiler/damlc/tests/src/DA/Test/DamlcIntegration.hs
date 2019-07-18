@@ -127,6 +127,7 @@ getIntegrationTests registerTODO scenarioService version = do
     opts <- pure $ opts
         { optThreads = 0
         , optScenarioValidation = ScenarioValidationFull
+        , optCoreLinting = True
         }
 
     -- initialise the compiler service

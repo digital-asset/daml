@@ -62,6 +62,8 @@ data Options = Options
   -- ^ Information about hlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
+  , optCoreLinting :: Bool
+    -- ^ Whether to enable linting of the generated GHC Core. (Used in testing.)
   } deriving Show
 
 data HlintUsage
@@ -139,6 +141,7 @@ defaultOptions mbVersion =
         , optScenarioValidation = ScenarioValidationFull
         , optHlintUsage = HlintDisabled
         , optIsGenerated = False
+        , optCoreLinting = False
         }
 
 getBaseDir :: IO FilePath
