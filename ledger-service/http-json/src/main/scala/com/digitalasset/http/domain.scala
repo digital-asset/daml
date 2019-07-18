@@ -131,52 +131,22 @@ object domain {
 
   type Record[+A] = List[Field[A]]
 
-  object Field {
-
-    implicit val traverseInstance: Traverse[Field] = new Traverse[Field] {
-      override def map[A, B](fa: (String, A))(f: A => B): (String, B) = (fa._1, f(fa._2))
-
-      override def traverseImpl[G[_]: Applicative, A, B](fa: Field[A])(
-          f: A => G[B]): G[Field[B]] = {
-        import scalaz.syntax.apply._
-        val g: Applicative[G] = implicitly
-        val gs: G[String] = g.pure[String](fa._1)
-        val gb: G[B] = f(fa._2)
-        ^(gs, gb)((s, b) => (s, b))
-      }
-    }
-  }
-
   object Record {
-
-    implicit val traverseInstance: Traverse[Record] = new Traverse[Record] {
-      override def map[A, B](fa: Record[A])(f: A => B): Record[B] =
-        fa.map(a => Field.traverseInstance.map(a)(f))
-
-      override def traverseImpl[G[_]: Applicative, A, B](fa: Record[A])(
-          f: A => G[B]): G[Record[B]] = {
-        val as: List[Field[A]] = fa
-        as.traverse(a => Field.traverseInstance.traverse(a)(f))
-      }
-    }
+    val traversal: Traverse[Record] =
+      Traverse[List].compose[Field]
   }
 
   object CreateCommand {
     // TODO(Leo) Traverse[CreateCommand] and Traverse[ExerciseCommand] are almost the same, HasArguments typeclass?
-    implicit val traverseInstance = new Traverse[CreateCommand] {
-      import scalaz.syntax.apply._
-
+    implicit val traverseInstance: Traverse[CreateCommand] = new Traverse[CreateCommand] {
       override def map[A, B](fa: CreateCommand[A])(f: A => B): CreateCommand[B] =
-        fa.copy(arguments = fa.arguments.map(as => Record.traverseInstance.map(as)(f)))
+        fa.copy(arguments = fa.arguments.map(as => Record.traversal.map(as)(f)))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: CreateCommand[A])(
           f: A => G[B]): G[CreateCommand[B]] = {
-
-        val g: Applicative[G] = implicitly
-        val ga: G[CreateCommand[A]] = g.pure(fa)
         val gb: G[Option[Record[B]]] =
-          fa.arguments.traverse(as => Record.traverseInstance.traverse(as)(f))
-        ^(ga, gb)((a, b) => a.copy(arguments = b))
+          fa.arguments.traverse(as => Record.traversal.traverse(as)(f))
+        gb map (b => fa.copy(arguments = b))
       }
     }
 
@@ -186,20 +156,15 @@ object domain {
 
   object ExerciseCommand {
     // TODO(Leo) Traverse[CreateCommand] and Traverse[ExerciseCommand] are almost the same, HasArguments typeclass?
-    implicit val traverseInstance = new Traverse[ExerciseCommand] {
-      import scalaz.syntax.apply._
-
+    implicit val traverseInstance: Traverse[ExerciseCommand] = new Traverse[ExerciseCommand] {
       override def map[A, B](fa: ExerciseCommand[A])(f: A => B): ExerciseCommand[B] =
-        fa.copy(arguments = fa.arguments.map(as => Record.traverseInstance.map(as)(f)))
+        fa.copy(arguments = fa.arguments.map(as => Record.traversal.map(as)(f)))
 
       override def traverseImpl[G[_]: Applicative, A, B](fa: ExerciseCommand[A])(
           f: A => G[B]): G[ExerciseCommand[B]] = {
-
-        val g: Applicative[G] = implicitly
-        val ga: G[ExerciseCommand[A]] = g.pure(fa)
         val gb: G[Option[List[Field[B]]]] =
-          fa.arguments.traverse(as => Record.traverseInstance.traverse(as)(f))
-        ^(ga, gb)((a, b) => a.copy(arguments = b))
+          fa.arguments.traverse(as => Record.traversal.traverse(as)(f))
+        gb map (b => fa.copy(arguments = b))
       }
     }
 
