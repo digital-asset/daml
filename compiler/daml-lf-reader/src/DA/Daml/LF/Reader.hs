@@ -34,11 +34,8 @@ appendToFirstEntry :: [String] -> String -> [String]
 appendToFirstEntry (h : t) nextLine = (h ++ nextLine) : t
 appendToFirstEntry _ _ = error "Reading Manifest file from dar failed."
 
-multiLineContent :: [String] -> [String] -> [String]
-multiLineContent [] acc = acc
-multiLineContent (h : t) acc = if " " `isPrefixOf` h -- if starts with a space add it to the last line we collected
-    then multiLineContent t (appendToFirstEntry acc (trim h) )
-    else multiLineContent t (h:acc)
+multiLineContent :: [String] -> [String]
+multiLineContent = foldl' (\acc h -> if " " `isPrefixOf` h then appendToFirstEntry acc (trim h) else h:acc) []
 
 manifestMapToManifest :: Map.HashMap String String -> Manifest
 manifestMapToManifest hash = Manifest mainDalf dependDalfs
@@ -57,6 +54,6 @@ manifestFromDar dar = manifestDataFromDar dar manifest
     where
         manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
         linesStr = lines $ UTF8.toString manifestEntry
-        manifestLines = multiLineContent (filter (not . null ) linesStr) []
+        manifestLines = multiLineContent (filter (not . null) linesStr)
         manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue manifestLines
 

@@ -32,9 +32,9 @@ unitTests = do
             , testCase "multiline manifest file test" $
                 assertEqual "content over multiple lines"
                     ["Dalfs: stdlib.dalf"]
-                    (multiLineContent ["Dalfs: stdlib.da", " lf"] [])
+                    (multiLineContent ["Dalfs: stdlib.da", " lf"])
             , testCase "multiline manifest file test" $
                 assertEqual "all content in the same line"
                     ["Main-Dalf:solution.dalf" ,"Dalfs: stdlib.dalf"]
-                    (multiLineContent ["Dalfs: stdlib.dalf" , "Main-Dalf:solution.dalf"] [])
+                    (multiLineContent ["Dalfs: stdlib.dalf" , "Main-Dalf:solution.dalf"])
             ]
