@@ -141,9 +141,9 @@ def daml_deps():
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.19.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.19.0.tar.gz"],
-            sha256 = "1d54cd95ed276c42c276e0a3df8ab33ee41968b73af14023c03a19db48f82e73",
+            strip_prefix = "grpc-1.22.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.22.0.tar.gz"],
+            sha256 = "11ac793c562143d52fd440f6549588712badc79211cdc8c509b183cb69bddad8",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],
