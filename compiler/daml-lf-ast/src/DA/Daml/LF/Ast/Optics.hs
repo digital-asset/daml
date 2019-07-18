@@ -16,7 +16,8 @@ module DA.Daml.LF.Ast.Optics(
     exprPartyLiteral,
     exprValueRef,
     packageRefs,
-    templateExpr
+    templateExpr,
+    builtinType
     ) where
 
 import Control.Lens
@@ -95,6 +96,16 @@ dataConsType f = \case
   DataRecord  fs -> DataRecord  <$> (traverse . _2) f fs
   DataVariant cs -> DataVariant <$> (traverse . _2) f cs
   DataEnum cs -> pure $ DataEnum cs
+
+builtinType :: Traversal' Type BuiltinType
+builtinType f =
+    \case
+        TVar n -> pure $ TVar n
+        TCon tyCon -> pure $ TCon tyCon
+        TApp s t -> TApp <$> builtinType f s <*> builtinType f t
+        TBuiltin x -> TBuiltin <$> f x
+        TForall b body -> TForall b <$> builtinType f body
+        TTuple fs -> TTuple <$> (traverse . _2) (builtinType f) fs
 
 type ModuleRef = (PackageRef, ModuleName)
 
