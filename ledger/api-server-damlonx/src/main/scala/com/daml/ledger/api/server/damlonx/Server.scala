@@ -10,13 +10,11 @@ import akka.stream.ActorMaterializer
 import com.daml.ledger.api.server.damlonx.services._
 import com.daml.ledger.participant.state.index.v1.IndexService
 import com.daml.ledger.participant.state.v1.WriteService
-import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.engine.{Engine, EngineInfo}
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.command_completion_service.CompletionEndRequest
 import com.digitalasset.ledger.client.services.commands.CommandSubmissionFlow
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import io.grpc.BindableService
@@ -57,19 +55,10 @@ object Server {
     )
   }
 
-  private def createIdentifierResolver(indexService: IndexService)(
-      implicit ec: ExecutionContext): IdentifierResolver = {
-    IdentifierResolver(
-      pkgId =>
-        indexService
-          .getPackage(pkgId)
-          .map(optArchive => optArchive.map(Decode.decodeArchive(_)._2))
-    )
-  }
-
   private def createServices(indexService: IndexService, writeService: WriteService)(
       implicit mat: ActorMaterializer,
-      serverEsf: ExecutionSequencerFactory): List[BindableService] = {
+      serverEsf: ExecutionSequencerFactory
+  ): List[BindableService] = {
     implicit val ec: ExecutionContext = mat.system.dispatcher
 
     // FIXME(JM): Any point in keeping getLedgerId async?
@@ -77,26 +66,20 @@ object Server {
       indexService.getLedgerId(),
       10.seconds
     )
-    val identifierResolver = createIdentifierResolver(indexService)
     val engine = Engine()
     logger.info(EngineInfo.show)
 
     val submissionService =
-      DamlOnXSubmissionService.create(
-        identifierResolver,
-        ledgerId,
-        indexService,
-        writeService,
-        engine)
+      DamlOnXSubmissionService.create(ledgerId, indexService, writeService, engine)
 
     val commandCompletionService =
       DamlOnXCommandCompletionService.create(indexService)
 
     val activeContractsService =
-      DamlOnXActiveContractsService.create(indexService, identifierResolver)
+      DamlOnXActiveContractsService.create(indexService)
 
     val transactionService =
-      DamlOnXTransactionService.create(ledgerId, indexService, identifierResolver)
+      DamlOnXTransactionService.create(ledgerId, indexService)
 
     val identityService =
       ApiLedgerIdentityService.create(() => Future.successful(domain.LedgerId(ledgerId)))
@@ -125,8 +108,7 @@ object Server {
         () => commandCompletionService.completionEnd(CompletionEndRequest(ledgerId)),
         transactionService.getTransactionById,
         transactionService.getFlatTransactionById
-      ),
-      identifierResolver
+      )
     )
 
     val packageService = DamlOnXPackageService(indexService, ledgerId)

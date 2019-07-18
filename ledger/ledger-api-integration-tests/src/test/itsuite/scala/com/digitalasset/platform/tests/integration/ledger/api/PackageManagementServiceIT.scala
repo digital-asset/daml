@@ -142,7 +142,7 @@ class PackageManagementServiceIT
     val createArg = Record(fields = List(RecordField("operator", Alice.asParty)))
 
     def createCmd =
-      CreateCommand(Some(Identifier(testPackageId, "", "Test", "Dummy")), Some(createArg)).wrap
+      CreateCommand(Some(Identifier(testPackageId, "Test", "Dummy")), Some(createArg)).wrap
 
     val filter = TransactionFilters.allForParties(Alice)
     val client = packageManagementService(ctx.packageManagementService)

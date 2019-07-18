@@ -101,7 +101,6 @@ lowerIdentifier = \case
     Identifier{..} ->
         LL.Identifier {
         identifierPackageId = unPackageId pid,
-        identifierName = "", -- marked as deprecated in .proto
         identifierModuleName = unModuleName mod,
         identifierEntityName = unEntityName ent }
 

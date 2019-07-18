@@ -22,8 +22,7 @@ import com.digitalasset.ledger.api.validation.TransactionFilterValidator
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.validation.{
   ActiveContractsServiceValidation,
-  ErrorFactories,
-  IdentifierResolver
+  ErrorFactories
 }
 import io.grpc.BindableService
 import org.slf4j.LoggerFactory
@@ -33,7 +32,6 @@ import scala.concurrent.{Await, ExecutionContext}
 
 class DamlOnXActiveContractsService private (
     indexService: IndexService,
-    identifierResolver: IdentifierResolver,
     parallelism: Int = Runtime.getRuntime.availableProcessors)(
     implicit executionContext: ExecutionContext,
     protected val mat: Materializer,
@@ -42,13 +40,12 @@ class DamlOnXActiveContractsService private (
     with ErrorFactories {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private val txFilterValidator = new TransactionFilterValidator(identifierResolver)
 
   //@SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest): Source[GetActiveContractsResponse, NotUsed] = {
 
-    txFilterValidator
+    TransactionFilterValidator
       .validate(request.getFilter, "filter")
       .fold(
         Source.failed, { filter =>
@@ -114,7 +111,7 @@ import com.digitalasset.ledger.api.domain.LedgerId
 
 object DamlOnXActiveContractsService {
 
-  def create(indexService: IndexService, identifierResolver: IdentifierResolver)(
+  def create(indexService: IndexService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
@@ -123,7 +120,7 @@ object DamlOnXActiveContractsService {
     val ledgerId = Await.result(indexService.getLedgerId(), 5.seconds)
 
     new ActiveContractsServiceValidation(
-      new DamlOnXActiveContractsService(indexService, identifierResolver)(ec, mat, esf),
+      new DamlOnXActiveContractsService(indexService)(ec, mat, esf),
       LedgerId(ledgerId)
     ) with ActiveContractsServiceLogging
   }

@@ -25,24 +25,25 @@ abstract class ShowEncoding extends LfTypeEncoding {
 
   type VariantCases[A] = Show[A]
 
-  override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] = {
-    val P.LegacyIdentifier(_, recName) = recordId
+  private def name(id: Identifier) =
+    s"${id.moduleName}.${id.entityName}"
+
+  override def record[A](recordId: Identifier, fi: RecordFields[A]): Out[A] =
     show { a: A =>
-      Cord(recName, "(", fi.show(a), ")")
+      Cord(name(recordId), "(", fi.show(a), ")")
     }
-  }
 
   override def emptyRecord[A](recordId: Identifier, element: () => A): Out[A] = {
-    val P.LegacyIdentifier(_, recName) = recordId
-    val shown = Cord(recName, "()")
+    val shown = Cord(name(recordId), "()")
     show { _: A =>
       shown
     }
   }
 
-  override def field[A](fieldName: String, o: Out[A]): Field[A] = show { a: A =>
-    Cord(fieldName, " = ", o.show(a))
-  }
+  override def field[A](fieldName: String, o: Out[A]): Field[A] =
+    show { a: A =>
+      Cord(fieldName, " = ", o.show(a))
+    }
 
   override def fields[A](fi: Field[A]): RecordFields[A] = fi
 
