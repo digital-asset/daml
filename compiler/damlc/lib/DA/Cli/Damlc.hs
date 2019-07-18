@@ -707,32 +707,30 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
             let workDir = genDir </> iuidString
             createDirectoryIfMissing True workDir
             -- we change the working dir so that we get correct file paths for the interface files.
-            withCurrentDirectory workDir $ do
-                unless
-                -- TODO (drsk) remove this filter
-                    (iuid `elem` map stringToInstalledUnitId ["daml-prim"]) $
-                  -- typecheck and generate interface files
-                 do
-                    forM_ src $ \(fp, content) -> do
-                        let path = fromNormalizedFilePath fp
-                        createDirectoryIfMissing True $ takeDirectory path
-                        writeFile path content
-                    opts' <-
-                        mkOptions $
-                        opts
-                            { optWriteInterface = True
-                            , optPackageDbs = [projectPkgDb]
-                            , optIfaceDir = Just (dbPath </> installedUnitIdString iuid)
-                            , optIsGenerated = True
-                            , optMbPackageName = Just $ installedUnitIdString iuid
-                            }
-                    withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
-                        forM_ src $ \(fp, _content) -> do
-                            mbCore <- runAction ide $ getGhcCore fp
-                            when (isNothing mbCore) $
-                                fail $
-                                "Compilation of generated source for " <> installedUnitIdString iuid <>
-                                " failed."
+            withCurrentDirectory workDir $
+             -- typecheck and generate interface files
+             do
+                forM_ src $ \(fp, content) -> do
+                    let path = fromNormalizedFilePath fp
+                    createDirectoryIfMissing True $ takeDirectory path
+                    writeFile path content
+                opts' <-
+                    mkOptions $
+                    opts
+                        { optWriteInterface = True
+                        , optPackageDbs = [projectPkgDb]
+                        , optIfaceDir = Just (dbPath </> installedUnitIdString iuid)
+                        , optIsGenerated = True
+                        , optMbPackageName = Just $ installedUnitIdString iuid
+                        }
+                withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+                    forM_ src $ \(fp, _content) -> do
+                        mbCore <- runAction ide $ getGhcCore fp
+                        when (isNothing mbCore) $
+                            fail $
+                            "Compilation of generated source for " <>
+                            installedUnitIdString iuid <>
+                            " failed."
         -- get the package name and the lf-package
         [(pkgName1, pkgId1, lfPkg1), (pkgName2, pkgId2, lfPkg2)] <-
             forM [inFile1, inFile2] $ \inFile -> do

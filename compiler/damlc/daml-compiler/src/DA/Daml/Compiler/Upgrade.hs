@@ -116,22 +116,36 @@ generateSrcPkgFromLf ::
     -> [(NormalizedFilePath, String)]
 generateSrcPkgFromLf thisPkgId pkgMap pkg = do
     mod <- NM.toList $ LF.packageModules pkg
+    guard $ (LF.unModuleName $ LF.moduleName mod) /= ["GHC", "Prim"]
     let fp =
             toNormalizedFilePath $
             (joinPath $ map T.unpack $ LF.unModuleName $ LF.moduleName mod) <.>
             ".daml"
     pure
         ( fp
-        , unlines header ++
+        , unlines (header mod) ++
           (showSDocForUser fakeDynFlags alwaysQualify $
            ppr $ generateSrcFromLf (DontQualify False) thisPkgId pkgMap mod) ++
           unlines (builtins mod))
   where
-    header =
-        [ "{-# LANGUAGE NoDamlSyntax #-}"
-        , "{-# LANGUAGE NoImplicitPrelude #-}"
-        , "{-# LANGUAGE TypeOperators #-}"
-        ]
+    modName = LF.unModuleName . LF.moduleName
+    header m = header0 ++ header1 m
+    header0 =
+        ["{-# LANGUAGE NoDamlSyntax #-}", "{-# LANGUAGE NoImplicitPrelude #-}"]
+    header1 m
+        | modName m == ["DA", "Generics"] =
+            ["", "{-# LANGUAGE TypeOperators #-}"]
+        | modName m == ["GHC", "Types"] = ["", "{-# LANGUAGE MagicHash #-}"]
+        | otherwise = []
+    --
+    -- IMPORTANT
+    -- =========
+    --
+    -- The following are datatypes that are not compiled to daml-lf, they will not show up in any
+    -- daml-lf package and can hence not be recovered. They are however needed to generate interface
+    -- files. If you delete any of the following definitions in GHC.Types, DA.Internal.LF or
+    -- DA.Internal.Template we loose the ability to regenerate interface files from dalfs and we
+    -- can't produce upgrades anymore.
     builtins m
         | LF.unModuleName (LF.moduleName m) == ["DA", "Internal", "LF"] =
             [ ""
@@ -147,6 +161,35 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
             [ ""
             , "class Template c where"
             , "   signatory :: c -> [DA.Internal.LF.Party]"
+            ]
+        | LF.unModuleName (LF.moduleName m) == ["GHC", "Types"] =
+            [ ""
+            , "data [] a = [] | a : [a]"
+            , "data Opaque = Opaque"
+            , "data Int = Int#"
+            , "data Char"
+            , "data Text = Text Opaque"
+            , "type TextLit = [Char]"
+            , "data Word"
+            , "data Decimal = Decimal Opaque"
+            , "data Module = Module TrName TrName"
+            , "data TrName = TrNameS Addr# | TrNameD [Char]"
+            , "data KindBndr = Int"
+            , "data RuntimeRep"
+            , "data KindRep = KindRepTyConApp TyCon [KindRep] \
+                              \ | KindRepVar !KindBndr \
+                              \ | KindRepApp KindRep KindRep \
+                              \ | KindRepFun KindRep KindRep \
+                              \ | KindRepTYPE !RuntimeRep \
+                              \ | KindRepTypeLitS TypeLitSort Addr# \
+                              \ | KindRepTypeLitD TypeLitSort [Char]"
+            , "data TypeLitSort = TypeLitSymbol | TypeLitNat"
+            , "data TyCon = TyCon Word# Word# \
+                                     \ Module \
+                                     \ TrName \
+                                     \ Int# \
+                                     \ KindRep"
+
             ]
         | otherwise = []
 
@@ -532,28 +575,12 @@ generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
       where
         name = getName tyCon
     imports = declImports ++ additionalImports
-    additionalImports =
-        [ noLoc $
+    mkImport :: Bool -> String -> [LImportDecl GhcPs]
+    mkImport pred modName = [ noLoc $
         ImportDecl
             { ideclExt = noExt
             , ideclSourceSrc = NoSourceText
-            , ideclName = noLoc $ mkModuleName "GHC.Err"
-            , ideclPkgQual = Nothing
-            , ideclSource = False
-            , ideclSafe = False
-            , ideclImplicit = False
-            , ideclQualified = True
-            , ideclAs = Nothing
-            , ideclHiding = Nothing
-            } :: LImportDecl GhcPs
-        | LF.unModuleName (LF.moduleName m) /= ["GHC", "Err"]
-        ]
-        ++
-        [ noLoc $
-        ImportDecl
-            { ideclExt = noExt
-            , ideclSourceSrc = NoSourceText
-            , ideclName = noLoc $ mkModuleName "GHC.CString"
+            , ideclName = noLoc $ mkModuleName modName
             , ideclPkgQual = Nothing
             , ideclSource = False
             , ideclSafe = False
@@ -562,8 +589,24 @@ generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
             , ideclAs = Nothing
             , ideclHiding = Nothing
             } :: LImportDecl GhcPs
-        | LF.unModuleName (LF.moduleName m) /= ["GHC", "CString"]
+        | pred
         ]
+    -- additional imports needed for typechecking
+    additionalImports =
+        concat
+            [ mkImport
+                  ((unitIdString $ getUnitId $ LF.PRImport thisPkgId) /= "daml-prim")
+                  "GHC.Err"
+            , mkImport
+                  ((unitIdString $ getUnitId $ LF.PRImport thisPkgId) /= "daml-prim")
+                  "GHC.CString"
+            , mkImport
+                  ((LF.unModuleName $ LF.moduleName m) == ["GHC", "Types"])
+                  "GHC.Prim"
+            , mkImport
+                  ((LF.unModuleName $ LF.moduleName m) /= ["GHC", "Types"])
+                  "GHC.Types"
+            ]
     -- imports needed by the module declarations
     declImports
      =
