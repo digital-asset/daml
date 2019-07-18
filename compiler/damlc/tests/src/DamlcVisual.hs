@@ -30,11 +30,11 @@ unitTests = do
                 path
                 (execVisual darPath (Just path))
             , testCase "multiline manifest file test" $
-                assertEqual "is this even running"
+                assertEqual "content over multiple lines"
                     ["Dalfs: stdlib.dalf"]
                     (multiLineContent ["Dalfs: stdlib.da", " lf"] [])
             , testCase "multiline manifest file test" $
-                assertEqual "is this even running"
+                assertEqual "all content in the same line"
                     ["Main-Dalf:solution.dalf" ,"Dalfs: stdlib.dalf"]
                     (multiLineContent ["Dalfs: stdlib.dalf" , "Main-Dalf:solution.dalf"] [])
             ]
