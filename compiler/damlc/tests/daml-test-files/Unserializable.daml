@@ -27,7 +27,16 @@ class UnserializableInstance where
   fetchUnserializable : ContractId Unserializable -> Update Unserializable
   fetchUnserializable = error "code will be injected by the compiler"
   archiveUnserializable : ContractId Unserializable -> Update ()
-  archiveUnserializable cid = error "no Archive choice for this test template"
+  archiveUnserializable cid = exerciseUnserializableArchive cid Archive
+
+  consumptionUnserializableArchive : PreConsuming Unserializable
+  consumptionUnserializableArchive = PreConsuming
+  controllerUnserializableArchive : Unserializable -> Archive -> [Party]
+  controllerUnserializableArchive this@Unserializable{..} arg@Archive = signatoryUnserializable this
+  actionUnserializableArchive : ContractId Unserializable -> Unserializable -> Archive -> Update ()
+  actionUnserializableArchive self this@Unserializable{..} arg@Archive = pure ()
+  exerciseUnserializableArchive : ContractId Unserializable -> Archive -> Update ()
+  exerciseUnserializableArchive = error "code will be injected by the compiler"
 
 instance UnserializableInstance
 
@@ -39,3 +48,6 @@ instance UnserializableInstance => Template Unserializable where
   create = createUnserializable
   fetch = fetchUnserializable
   archive = archiveUnserializable
+
+instance Choice Unserializable Archive () where
+  exercise = exerciseUnserializableArchive
