@@ -1,13 +1,14 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- The local state maintained non-persistently by the nim-console
-module Local(MatchNumber(..),
-             State(..), initState, prettyState,
-             applyManyTrans,
-             applyTrans, Announce,
-             UserCommand(..), externalizeCommand, possibleActions
-             ) where
+-- The local state maintained non-persistently by the console
+module DA.Nim.Local(
+    MatchNumber(..),
+    State(..), initState, prettyState,
+    applyManyTrans,
+    applyTrans, Announce,
+    UserCommand(..), externalizeCommand, possibleActions
+    ) where
 
 import Control.Monad(when)
 import Data.List ((\\),sortBy,intercalate)
@@ -17,10 +18,10 @@ import qualified Data.List as List(find,concatMap)
 import qualified Data.Map.Strict as Map(toList,lookup,empty,adjust,insert,elems,keys)
 
 import DA.Ledger.Types(ContractId)
-import Domain
-import NimTrans
-import NimCommand
-import Logging
+import DA.Nim.Domain
+import DA.Nim.NimTrans
+import DA.Nim.NimCommand
+import DA.Nim.Logging
 
 -- local state, accumulates external transitions
 

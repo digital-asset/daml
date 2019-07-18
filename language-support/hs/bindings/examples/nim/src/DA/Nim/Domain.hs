@@ -5,13 +5,14 @@
 
 -- Nim domain types. These should be derived automatically from the Daml model.
 
-module Domain(Player(..), partyOfPlayer,
-              Offer(..),
-              Game(..),
-              Move(..),
-              legalMovesOfGame, -- for Robot
-              deduceMoves,
-             ) where
+module DA.Nim.Domain(
+    Player(..), partyOfPlayer,
+    Offer(..),
+    Game(..),
+    Move(..),
+    legalMovesOfGame, -- for Robot
+    deduceMoves,
+    ) where
 
 import Data.List.Extra(zipWithFrom)
 import DA.Ledger.Types

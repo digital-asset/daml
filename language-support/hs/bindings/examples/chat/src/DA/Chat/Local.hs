@@ -2,18 +2,19 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- The local state maintained non-persistently by the chat-console
-module Local(State, initState, known, history,
-             UserCommand(..), externalizeCommand,
-             applyTransQuiet, applyTrans, Announce,
-             introduceEveryone,
-             ) where
+module DA.Chat.Local (
+    State, initState, known, history,
+    UserCommand(..), externalizeCommand,
+    applyTransQuiet, applyTrans, Announce,
+    introduceEveryone,
+    ) where
 
+import DA.Chat.Contracts (ChatContract)
+import DA.Chat.Domain (Party,Introduce(..),Message(..),Broadcast(..))
 import Data.List ((\\))
-import Data.Text.Lazy as Text(unpack)
 import Data.Text.Lazy (Text)
-import Domain (Party,Introduce(..),Message(..),Broadcast(..))
-import Contracts (ChatContract)
-import qualified Contracts as C
+import Data.Text.Lazy as Text (unpack)
+import qualified DA.Chat.Contracts as C
 
 -- user commands, to be interpreted w.r.t the local state
 

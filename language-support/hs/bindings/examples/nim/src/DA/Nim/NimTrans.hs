@@ -4,12 +4,12 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- Nim transitions, coming from the external ledger.
-module NimTrans(NimTrans(..), extractTransaction,) where
+module DA.Nim.NimTrans(NimTrans(..), extractTransaction,) where
 
 import DA.Ledger as Ledger
 import DA.Ledger.IsLedgerValue
-import Domain
-import Logging
+import DA.Nim.Domain
+import DA.Nim.Logging
 
 -- order id & game id
 

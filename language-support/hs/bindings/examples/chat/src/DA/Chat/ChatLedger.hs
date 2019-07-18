@@ -3,18 +3,17 @@
 
 {-# LANGUAGE OverloadedStrings #-}
 
--- Abstraction for a Ledger which is hosting the Nim domain model.
-module NimLedger(Handle, connect, sendCommand, getTrans) where
+-- Abstraction for a Ledger which is hosting the Chat domain model.
+-- This is basically unchanged from the Nim example
+module DA.Chat.ChatLedger (Handle, connect, sendCommand, getTrans) where
 
-import System.Random(randomIO)
+import DA.Chat.Contracts (ChatContract,extractTransaction,makeLedgerCommand)
+import DA.Chat.Logging (Logger)
+import DA.Ledger as Ledger
+import Data.Maybe (maybeToList)
+import System.Random (randomIO)
 import qualified Data.Text.Lazy as Text (pack)
 import qualified Data.UUID as UUID
-
-import DA.Ledger as Ledger
-import Domain
-import Logging
-import NimCommand
-import NimTrans
 
 data Handle = Handle {
     log :: Logger,
@@ -34,31 +33,30 @@ connect :: Logger -> IO Handle
 connect log = do
     lid <- run 5 getLedgerIdentity
     ids <- run 5 $ listPackages lid
-    [_,pid,_] <- return ids -- guess which is the Nim package -- TODO: fix this properly!
+    [_,_,pid] <- return ids -- guess which is the Chat package -- TODO: fix this properly!
     return Handle{log,lid,pid}
 
-sendCommand :: Party -> Handle -> NimCommand -> IO (Maybe Rejection)
-sendCommand asParty h@Handle{pid} xcom = do
-    let com = makeLedgerCommands pid xcom
+sendCommand :: Party -> Handle -> ChatContract -> IO (Maybe Rejection)
+sendCommand asParty h@Handle{pid} cc = do
+    let com = makeLedgerCommand pid cc
     submitCommand h asParty com >>= \case
         Left rejection -> return $ Just rejection
         Right () -> return Nothing
 
-getTrans :: Player -> Handle -> IO (PastAndFuture NimTrans)
-getTrans player Handle{log,lid} = do
-    let party = partyOfPlayer player
+getTrans :: Party -> Handle -> IO (PastAndFuture ChatContract)
+getTrans party Handle{log,lid} = do
     pf <- run 6000 $ getTransactionsPF lid party
-    mapListPF (fmap concat . mapM (extractTransaction log)) pf
+    mapListPF (fmap concat . mapM (fmap maybeToList . extractTransaction log)) pf
 
 submitCommand :: Handle -> Party -> Command -> IO (Either String ())
 submitCommand Handle{lid} party com = do
     cid <- randomCid
-    run 5 (Ledger.submit (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,coms=[com]}))
+    run 5 $ Ledger.submit (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,coms=[com]})
     where
         wid = Nothing
         leTime = Timestamp 0 0
         mrTime = Timestamp 5 0
-        myAid = ApplicationId "nim-console"
+        myAid = ApplicationId "chat-console"
 
 randomCid :: IO CommandId
 randomCid = do fmap (CommandId . Text.pack . UUID.toString) randomIO

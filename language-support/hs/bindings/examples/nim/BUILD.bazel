@@ -5,13 +5,13 @@ load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da
 load("//rules_daml:daml.bzl", "daml_compile")
 
 daml_compile(
-    name = "Chat",
+    name = "Nim",
     srcs = glob(["daml/*.daml"]),
-    main_src = "daml/Chat.daml",
+    main_src = "daml/Nim.daml",
 )
 
 da_haskell_binary(
-    name = "chat",
+    name = "nim",
     srcs = glob(["src/**/*.hs"]),
     compiler_flags = [],
     hazel_deps = [
@@ -27,7 +27,7 @@ da_haskell_binary(
         "transformers",
         "uuid",
     ],
-    main_function = "DA.Chat.Main.main",
+    main_function = "DA.Nim.Main.main",
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/hs/bindings:hs-ledger",

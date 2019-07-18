@@ -3,19 +3,18 @@
 
 -- Interact with a NimLedger, submitting commands and tracking extern transitions.
 -- Used by Robot and UI
-module Interact(PlayerState(..), makePlayerState, runSubmit) where
+module DA.Nim.Interact(PlayerState(..), makePlayerState, runSubmit) where
 
 import Control.Concurrent
 import System.Console.ANSI(Color(..))
 
 import DA.Ledger.PastAndFuture
 import DA.Ledger.Stream
-import Domain
-import Local(State,UserCommand)
-import Logging
-import NimLedger(Handle,sendCommand,getTrans)
-import NimTrans
-import qualified Local
+import DA.Nim.Domain
+import DA.Nim.Local(State,UserCommand,initState,externalizeCommand,applyManyTrans,applyTrans)
+import DA.Nim.Logging
+import DA.Nim.NimLedger(Handle,sendCommand,getTrans)
+import DA.Nim.NimTrans
 
 data PlayerState = PlayerState {
     player :: Player,
@@ -26,7 +25,7 @@ data PlayerState = PlayerState {
 makePlayerState :: Handle -> Logger -> Player -> IO PlayerState
 makePlayerState h xlog player = do
     let knownPlayers = [alice,bob,charles] -- TODO: remove when automated
-    let s = Local.initState player knownPlayers
+    let s = initState player knownPlayers
     sv <- newMVar s
     let playerLog = colourLog Blue xlog
     stream <- manageUpdates h player playerLog sv
@@ -42,7 +41,7 @@ runSubmit h log ps lc = do
     let PlayerState{player,sv} = ps
     let party = partyOfPlayer player
     s <- readMVar sv
-    case Local.externalizeCommand player s lc of
+    case externalizeCommand player s lc of
         Nothing -> do
             log $ "bad local command: " <> show lc
             return ()
@@ -58,7 +57,7 @@ manageUpdates :: Handle -> Player -> Logger -> MVar State -> IO (Stream NimTrans
 manageUpdates h player log sv = do
     PastAndFuture{past,future} <- getTrans player h
     log $ "replaying " <> show (length past) <> " transactions"
-    modifyMVar_ sv (\s -> Local.applyManyTrans log s past)
+    modifyMVar_ sv (\s -> applyManyTrans log s past)
     _ <- forkIO (updateX log sv future)
     return future
 
@@ -79,6 +78,6 @@ applyX :: Logger -> MVar State -> NimTrans -> IO ()
 applyX log sv xt = do
     s <- takeMVar sv
     --log $ "xt: " <> show xt
-    (lts,s') <- either fail return (Local.applyTrans s xt)
+    (lts,s') <- either fail return (applyTrans s xt)
     mapM_ (\lt -> log $ show lt) lts
     putMVar sv s'

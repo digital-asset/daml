@@ -4,17 +4,19 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 -- Chat Contracts, both sent-to, and coming-from the external ledger.
-module Contracts(ChatContract(..),
-                 makeLedgerCommand,extractTransaction,) where
+module DA.Chat.Contracts (
+    ChatContract(..),
+    makeLedgerCommand,extractTransaction,
+    ) where
 
 import DA.Ledger (
     PackageId,Command,ModuleName(..),EntityName(..),TemplateId(..),Identifier(..),
     Command(..), Event(..), Transaction(..)
     )
 
+import DA.Chat.Domain (Introduce,Message,Broadcast)
+import DA.Chat.Logging (Logger)
 import DA.Ledger.IsLedgerValue (toRecord,fromRecord)
-import Domain (Introduce,Message,Broadcast)
-import Logging (Logger)
 
 data ChatContract
     = Introduce Introduce

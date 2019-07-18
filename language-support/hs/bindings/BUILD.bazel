@@ -33,35 +33,6 @@ da_haskell_library(
 )
 
 daml_compile(
-    name = "Nim",
-    srcs = glob(["examples/nim-console/daml/*.daml"]),
-    main_src = "examples/nim-console/daml/Nim.daml",
-)
-
-da_haskell_binary(
-    name = "nim",
-    srcs = glob(["examples/nim-console/src/*.hs"]),
-    compiler_flags = [],
-    hazel_deps = [
-        "ansi-terminal",
-        "base",
-        "containers",
-        "extra",
-        "haskeline",
-        "random",
-        "retry",
-        "text",
-        "time",
-        "transformers",
-        "uuid",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//language-support/hs/bindings:hs-ledger",
-    ],
-)
-
-daml_compile(
     name = "quickstart",
     srcs = glob(["test/daml/quickstart/*.daml"]),
     main_src = "test/daml/quickstart/Main.daml",
@@ -119,7 +90,7 @@ da_haskell_repl(
     deps = [
         "//language-support/hs/bindings:hs-ledger",
         "//language-support/hs/bindings:test",
-        "//language-support/hs/bindings:nim",
-        #"//language-support/hs/bindings/examples/chat", # TODO: avoid issue of duplicate Main
+        "//language-support/hs/bindings/examples/chat",
+        "//language-support/hs/bindings/examples/nim",
     ],
 )

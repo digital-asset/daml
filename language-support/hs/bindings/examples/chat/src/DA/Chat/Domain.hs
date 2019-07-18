@@ -5,13 +5,14 @@
 
 {-# LANGUAGE DuplicateRecordFields #-}
 
-module Domain(Party(..),
-              Introduce(..),
-              Message(..),
-              Broadcast(..),
-             ) where
+module DA.Chat.Domain (
+    Party(..),
+    Introduce(..),
+    Message(..),
+    Broadcast(..),
+    ) where
 
-import DA.Ledger.Types as L (Party(..),Value(VList))
+import DA.Ledger.Types (Party(..),Value(VList))
 import DA.Ledger.IsLedgerValue (IsLedgerValue(..))
 import Data.Text.Lazy (Text)
 
@@ -19,9 +20,9 @@ data Introduce = Introduce { from :: Party, people :: [Party] }
     deriving Show
 
 instance IsLedgerValue Introduce where
-    toValue Introduce{from,people} = L.VList [toValue from, toValue people]
+    toValue Introduce{from,people} = VList [toValue from, toValue people]
     fromValue = \case
-        L.VList [v1,v2] -> do
+        VList [v1,v2] -> do
             from <- fromValue v1
             people <- fromValue v2
             return Introduce{from,people}
@@ -31,9 +32,9 @@ data Message = Message { from :: Party, to :: Party, body :: Text }
     deriving Show
 
 instance IsLedgerValue Message where
-    toValue Message{from,to,body} = L.VList [toValue from, toValue to, toValue body]
+    toValue Message{from,to,body} = VList [toValue from, toValue to, toValue body]
     fromValue = \case
-        L.VList [v1,v2,v3] -> do
+        VList [v1,v2,v3] -> do
             from <- fromValue v1
             to <- fromValue v2
             body <- fromValue v3
@@ -44,9 +45,9 @@ data Broadcast = Broadcast { from :: Party, to :: [Party], body :: Text }
     deriving Show
 
 instance IsLedgerValue Broadcast where
-    toValue Broadcast{from,to,body} = L.VList [toValue from, toValue to, toValue body]
+    toValue Broadcast{from,to,body} = VList [toValue from, toValue to, toValue body]
     fromValue = \case
-        L.VList [v1,v2,v3] -> do
+        VList [v1,v2,v3] -> do
             from <- fromValue v1
             to <- fromValue v2
             body <- fromValue v3
