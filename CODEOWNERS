@@ -3,7 +3,7 @@
 
 # Only files explicitly mentioned are guarded by code owners (no * rule).
 
-CODEOWNERS  @bitonic @hurryabit @cbaatz-da
+CODEOWNERS  @hurryabit @gerolf-da
 
 # Build / CI / environment
 /ci/                @garyverhaegen-da
@@ -28,11 +28,12 @@ azure-cron.yml      @garyverhaegen-da
 /daml-lf/spec/daml-lf-1.rst @remyhaemmerle-da @hurryabit @gerolf-da
 /daml-lf/validation/    @remyhaemmerle-da
 
-/ledger/      @gerolf-da @rautenrieth-da
+/ledger/      @gerolf-da @rautenrieth-da @stefanobaghino-da
 /ledger-api/  @gerolf-da
 
 # Ecosystems
-/language-support/java/     @gerolf-da
+/language-support/hs/       @nickchapman-da
+/language-support/java/     @gerolf-da @stefanobaghino-da
 /language-support/scala/    @leo-da @S11001001
 
 # Tools
