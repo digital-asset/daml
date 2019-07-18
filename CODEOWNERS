@@ -38,6 +38,7 @@ azure-cron.yml      @garyverhaegen-da
 
 # Tools
 /extractor/         @leo-da @S11001001
+/navigator/         @rautenrieth-da
 
 # Misc
 /docs/              @bethaitman
