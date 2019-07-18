@@ -57,6 +57,6 @@ manifestFromDar dar = manifestDataFromDar dar manifest
     where
         manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
         linesStr = lines $ UTF8.toString manifestEntry
-        manifestLines = multiLineContent (filter (\a -> a /= "" ) linesStr) []
+        manifestLines = multiLineContent (filter (not . null ) linesStr) []
         manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue manifestLines
 
