@@ -8,9 +8,12 @@ module VisualTest
 import Test.Tasty
 import System.IO.Extra
 import DA.Cli.Visual
+import DA.Daml.LF.Reader
 import Test.Tasty.Golden
 import DA.Bazel.Runfiles
 import System.FilePath
+import Test.Tasty.HUnit
+
 
 main :: IO ()
 main = defaultMain  =<< unitTests
@@ -26,4 +29,12 @@ unitTests = do
                 dotFile
                 path
                 (execVisual darPath (Just path))
+            , testCase "multiline manifest file test" $
+                assertEqual "content over multiple lines"
+                    ["Dalfs: stdlib.dalf, prim.dalf", "Main-Dalf: testing.dalf"]
+                    (multiLineContent ["Dalfs: stdlib.da", " lf, prim.dalf" , "Main-Dalf: testing.dalf"])
+            , testCase "multiline manifest file test" $
+                assertEqual "all content in the same line"
+                    ["Dalfs: stdlib.dalf", "Main-Dalf:solution.dalf"]
+                    (multiLineContent ["Dalfs: stdlib.dalf" , "Main-Dalf:solution.dalf"])
             ]
