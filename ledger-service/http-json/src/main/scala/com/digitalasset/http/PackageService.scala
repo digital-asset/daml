@@ -56,10 +56,11 @@ object PackageService {
       .groupBy { case (k, _) => key2(k) }
       .collect { case (k, v) if v.size == 1 => (k, v.values.head) }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def resolveTemplateIds(m: TemplateIdMap)(
       as: Set[domain.TemplateId.OptionalPkg]): Error \/ List[lar.TemplateId] =
     for {
-      bs <- as.toList.traverseU(resolveTemplateId(m))
+      bs <- as.toList.traverse(resolveTemplateId(m))
       _ <- validate(as, bs)
     } yield bs
 

@@ -106,6 +106,7 @@ class CommandService(
         activeContracts(tx)
     }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def activeContracts(
       tx: lav1.transaction.Transaction): Error \/ List[domain.ActiveContract[lav1.value.Value]] = {
 
@@ -115,7 +116,7 @@ class CommandService(
     Transactions
       .decodeAllCreatedEvents(tx)
       .toList
-      .traverseU(domain.ActiveContract.fromLedgerApi)
+      .traverse(domain.ActiveContract.fromLedgerApi)
       .leftMap(Error(_))
   }
 

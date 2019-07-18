@@ -94,12 +94,13 @@ class Endpoints(
       .fold(ByteString.empty)(_ ++ _)
       .map(data => parse[A](data).leftMap(e => InvalidUserInput(e.shows)))
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def parseValue[F[_]: Traverse: HasTemplateId](
       fa: F[JsValue]): Error \/ F[lav1.value.Value] =
     for {
       templateId <- lookupTemplateId(fa)
       damlLfId = damlLfIdentifier(templateId)
-      apiValue <- fa.traverseU(
+      apiValue <- fa.traverse(
         jsValue =>
           JsValueToApiValueConverter
             .jsValueToApiValue(damlLfId, lfTypeLookup)(jsValue)

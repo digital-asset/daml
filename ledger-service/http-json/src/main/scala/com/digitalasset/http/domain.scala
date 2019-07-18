@@ -76,16 +76,18 @@ object domain {
 
   object ContractLookupRequest {
     implicit val covariant: Functor[ContractLookupRequest] = new Functor[ContractLookupRequest] {
+      @SuppressWarnings(Array("org.wartremover.warts.Any"))
       override def map[A, B](fa: ContractLookupRequest[A])(f: A => B) =
         fa.copy(id = fa.id leftMap (_ map f))
     }
   }
 
   object GetActiveContractsResponse {
+    @SuppressWarnings(Array("org.wartremover.warts.Any"))
     def fromLedgerApi(in: lav1.active_contracts_service.GetActiveContractsResponse)
       : Error \/ GetActiveContractsResponse[lav1.value.Value] =
       for {
-        activeContracts <- in.activeContracts.toVector traverseU (ActiveContract.fromLedgerApi(_))
+        activeContracts <- in.activeContracts.toVector traverse (ActiveContract.fromLedgerApi(_))
       } yield
         GetActiveContractsResponse(
           offset = in.offset,
