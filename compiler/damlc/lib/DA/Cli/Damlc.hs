@@ -245,6 +245,13 @@ cmdMigrate numProcessors =
         <*> inputDarOpt
         <*> targetSrcDirOpt
 
+cmdMergeDars :: Mod CommandFields Command
+cmdMergeDars =
+    command "merge-dars" $
+    info (helper <*> cmd) $ progDesc "Merge two dar archives into one" <> fullDesc
+  where
+    cmd = execMergeDars <$> inputDarOpt <*> inputDarOpt <*> targetFileNameOpt
+
 cmdDocTest :: Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
     command "doctest" $
@@ -792,15 +799,55 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         errorOnLeft
             "Cannot decode daml-lf archive"
             (Archive.decodeArchive dalf)
-    getEntry fp dar =
-        maybe (fail $ "Package does not contain " <> fp) pure $
-        findEntryByPath fp dar
     getModule modName pkg =
         maybe
             (fail $ T.unpack $ "Can't find module" <> LF.moduleNameString modName)
             pure $
         NM.lookup modName $ LF.packageModules pkg
 
+-- | Get an entry from a dar or fail.
+getEntry :: FilePath -> Archive -> IO Entry
+getEntry fp dar =
+    maybe (fail $ "Package does not contain " <> fp) pure $
+    findEntryByPath fp dar
+
+-- | Merge two dars. The idea is that the second dar is a delta. Hence, we take the main in the
+-- manifest from the first.
+execMergeDars :: FilePath -> FilePath -> Maybe FilePath -> IO ()
+execMergeDars darFp1 darFp2 mbOutFp = do
+    let outFp = fromMaybe darFp1 mbOutFp
+    bytes1 <- B.readFile darFp1
+    bytes2 <- B.readFile darFp2
+    let dar1 = toArchive $ BSL.fromStrict bytes1
+    let dar2 = toArchive $ BSL.fromStrict bytes2
+    mf <- mergeManifests dar1 dar2
+    let merged =
+            Archive
+                (nubSortOn eRelativePath $ mf : zEntries dar1 ++ zEntries dar2)
+                Nothing
+                BSL.empty
+    BSL.writeFile outFp $ fromArchive merged
+  where
+    mergeManifests dar1 dar2 = do
+        let mfPath = "META-INF/MANIFEST.MF"
+        let dalfNames =
+                nubSort
+                    [ takeFileName p
+                    | e <- zEntries dar1 ++ zEntries dar2
+                    , let p = eRelativePath e
+                    , ".dalf" `isExtensionOf` p
+                    ]
+        m1 <- getEntry mfPath dar1
+        let m' = do
+                l <- lines $ BSC.unpack $ BSL.toStrict $ fromEntry m1
+                pure $
+                    maybe
+                        l
+                        (const $
+                         breakAt72Chars $
+                         "Dalfs: " <> intercalate ", " dalfNames)
+                        (stripPrefix "Dalfs:" l)
+        pure $ toEntry mfPath 0 $ BSL.fromStrict $ BSC.pack $ unlines m'
 
 execDocTest :: Options -> [FilePath] -> IO ()
 execDocTest opts files = do
@@ -942,6 +989,7 @@ options numProcessors =
         <> cmdInspect
         <> cmdVisual
         <> cmdMigrate numProcessors
+        <> cmdMergeDars
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean

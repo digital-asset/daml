@@ -6,6 +6,7 @@
 module DA.Daml.Compiler.Dar
   ( buildDar
   , FromDalf(..)
+  , breakAt72Chars
   ) where
 
 import qualified Codec.Archive.Zip as Zip
@@ -179,10 +180,10 @@ createArchive dalf modRoot dalfDependencies fileDependencies dataFiles name sdkV
           , "Encryption: non-encrypted"
           ]
 
-        breakAt72Chars :: String -> String
-        breakAt72Chars s = case splitAt 72 s of
-          (s0, []) -> s0
-          (s0, rest) -> s0 ++ "\n" ++ breakAt72Chars (" " ++ rest)
+breakAt72Chars :: String -> String
+breakAt72Chars s = case splitAt 72 s of
+  (s0, []) -> s0
+  (s0, rest) -> s0 ++ "\n" ++ breakAt72Chars (" " ++ rest)
 
 -- | Like `makeRelative` but also takes care of normalising filepaths so
 --
