@@ -48,12 +48,6 @@ class Template t => TemplateKey t k | t -> k where
   -- | The key of a contract.
   key : t -> k
 
-  -- TODO(RJR): Do we need `maintainer` in this class?
-  -- | The maintainers of the contract key. The maintainers guarantee
-  -- that contract keys are unique: this means that keys are only unique
-  -- to the specified maintainers.
-  -- maintainer : k -> [Party]
-
   -- | Look up the contract ID `t` associated with a given contract key `k`.
   --
   -- You must pass the `t` using an explicit type application. For
