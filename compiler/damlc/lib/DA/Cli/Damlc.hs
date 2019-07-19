@@ -700,44 +700,39 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                         ]
                     pure (src, iuid, depends pkgInfo)
         let unitIdsTopoSorted = reverse $ topSort depGraph
-        createDirectoryIfMissing True genDir
         projectPkgDb <- makeAbsolute projectPackageDatabase
-        forM_ unitIdsTopoSorted $ \vertex -> withCurrentDirectory genDir $ do
+        forM_ unitIdsTopoSorted $ \vertex -> do
             let (src, iuid, _) = vertexToNode vertex
-            unless
+            let iuidString = installedUnitIdString iuid
+            let workDir = genDir </> iuidString
+            createDirectoryIfMissing True workDir
+            -- we change the working dir so that we get correct file paths for the interface files.
+            withCurrentDirectory workDir $ do
+                unless
                 -- TODO (drsk) remove this filter
-                (iuid `elem`
-                 map stringToInstalledUnitId ["daml-prim", "daml-stdlib"]) $ do
+                    (iuid `elem` map stringToInstalledUnitId ["daml-prim"]) $
                   -- typecheck and generate interface files
-                  forM_ src $ \(fp, content) -> do
-                      let path = fromNormalizedFilePath fp
-                      createDirectoryIfMissing True $ takeDirectory path
-                      writeFile path content
-                  opts' <-
-                      mkOptions $
-                      opts
-                          { optWriteInterface = True
-                          , optPackageDbs = [projectPkgDb]
-                          , optIfaceDir =
-                                Just
-                                    (dbPath </> installedUnitIdString iuid)
-                          , optIsGenerated = True
-                          , optMbPackageName =
-                                Just $ installedUnitIdString iuid
-                          }
-                  withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
-                      forM_ src $ \(fp, _content) -> do
-                          mbCore <-
-                              runAction ide $
-                              getGhcCore fp
-                          case mbCore of
-                              Nothing ->
-                                  ioError $
-                                  userError $
-                                  "Compilation of generated source for " <>
-                                  installedUnitIdString iuid <>
-                                  " failed."
-                              Just _core -> pure ()
+                 do
+                    forM_ src $ \(fp, content) -> do
+                        let path = fromNormalizedFilePath fp
+                        createDirectoryIfMissing True $ takeDirectory path
+                        writeFile path content
+                    opts' <-
+                        mkOptions $
+                        opts
+                            { optWriteInterface = True
+                            , optPackageDbs = [projectPkgDb]
+                            , optIfaceDir = Just (dbPath </> installedUnitIdString iuid)
+                            , optIsGenerated = True
+                            , optMbPackageName = Just $ installedUnitIdString iuid
+                            }
+                    withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+                        forM_ src $ \(fp, _content) -> do
+                            mbCore <- runAction ide $ getGhcCore fp
+                            when (isNothing mbCore) $
+                                fail $
+                                "Compilation of generated source for " <> installedUnitIdString iuid <>
+                                " failed."
         -- get the package name and the lf-package
         [(pkgName1, pkgId1, lfPkg1), (pkgName2, pkgId2, lfPkg2)] <-
             forM [inFile1, inFile2] $ \inFile -> do
@@ -763,7 +758,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
-                    generateSrcFromLf pkgId pkgMap0 <$> getModule m pkg
+                    generateSrcFromLf (DontQualify True) pkgId pkgMap0 <$> getModule m pkg
             let upgradeModPath =
                     (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
                     ".daml"
@@ -800,13 +795,11 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
             "Cannot decode daml-lf archive"
             (Archive.decodeArchive dalf)
     getEntry fp dar =
-        maybe (ioError $ userError $ "Package does not contain " <> fp) pure $
+        maybe (fail $ "Package does not contain " <> fp) pure $
         findEntryByPath fp dar
     getModule modName pkg =
         maybe
-            (ioError $
-             userError $
-             T.unpack $ "Can't find module" <> LF.moduleNameString modName)
+            (fail $ T.unpack $ "Can't find module" <> LF.moduleNameString modName)
             pure $
         NM.lookup modName $ LF.packageModules pkg
 
