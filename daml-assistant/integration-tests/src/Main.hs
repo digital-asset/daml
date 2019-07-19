@@ -76,7 +76,7 @@ tests damlDir tmpDir = testGroup "Integration tests"
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     ]
-    where quickstartDir = tmpDir </> "quickstart"
+    where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"

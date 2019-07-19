@@ -1,5 +1,5 @@
 sdk-version: __VERSION__
-name: __PROJECT_NAME__
+name: quickstart
 source: daml/Main.daml
 scenario: Main:setup
 parties:
