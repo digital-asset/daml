@@ -1,10 +1,23 @@
 .. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-DAML Ledgers built or in development
-************************************
+Deploying to DAML ledgers
+*************************
 
-To run a DAML application, you'll need to deploy it to a DAML ledger. The following table lists the ledgers that support DAML, or are implementing
+To run a DAML application, you'll need to deploy it to a DAML ledger.
+
+How to deploy
+-------------
+
+You can deploy to:
+
+- The Sandbox with persistence. For information on how to do this, see the section on persistence in :doc:`/tools/sandbox` docs
+- Further deployment options which are in development. For information on these options and their stage of development, see the table below.
+
+DAML ledgers built or in development
+------------------------------------
+
+The following table lists the ledgers that support DAML, or are implementing
 support for running DAML.
 
 .. note: the table renderer fails *silently* if you don't have the right
