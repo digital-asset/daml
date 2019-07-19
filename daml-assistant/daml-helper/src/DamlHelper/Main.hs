@@ -4,7 +4,7 @@ module DamlHelper.Main (main) where
 
 import Control.Exception
 import Data.Foldable
-import Maybes (orElse)
+import Data.Maybe
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
@@ -96,5 +96,5 @@ runCommand New {..} = runNew targetFolder templateNameM Nothing []
 runCommand Migrate {..} = runMigrate targetFolder mainPath pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
-runCommand Start {..} = runStart (optSandboxPort `orElse` defaultSandboxPort) startNavigator openBrowser onStartM waitForSignal
-runCommand Deploy {..} = runDeploy (optSandboxPort `orElse` defaultSandboxPort)
+runCommand Start {..} = runStart (fromMaybe defaultSandboxPort optSandboxPort) startNavigator openBrowser onStartM waitForSignal
+runCommand Deploy {..} = runDeploy (fromMaybe defaultSandboxPort optSandboxPort)
