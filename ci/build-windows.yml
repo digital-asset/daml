@@ -1,5 +1,6 @@
 steps:
   - checkout: self
+  - bash: git clean -xffd
 
   - bash: ci/configure-bazel.sh
     displayName: 'Configure Bazel'

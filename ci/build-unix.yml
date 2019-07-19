@@ -2,6 +2,9 @@ parameters:
   name: ''
 
 steps:
+  - bash: |
+      git clean -xffd
+
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
 
@@ -25,6 +28,10 @@ steps:
       IS_FORK: $(System.PullRequest.IsFork)
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+
+  - bash: |
+      eval "$(./dev-env/bin/dade-assist)"
+      bazel clean --expunge
 
   - bash: ./build.sh "_$(uname)"
     displayName: 'Build'

@@ -120,6 +120,7 @@ jobs:
     steps:
       - template: ci/report-start.yml
       - checkout: self
+      - bash: git clean -xffd
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
       - bash: ci/configure-bazel.sh
@@ -131,6 +132,7 @@ jobs:
       - bash: |
           set -euo pipefail
           eval "$(./dev-env/bin/dade-assist)"
+          bazel clean --expunge
           bazel run -- //ledger/sandbox-perf -foe true -i1 -f1 -wi 1 -bm avgt -rf csv -rff "$(Build.StagingDirectory)/sandbox-perf.csv"
       - task: PublishBuildArtifacts@1
         condition: succeededOrFailed()
