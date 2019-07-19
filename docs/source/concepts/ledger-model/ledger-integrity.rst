@@ -20,15 +20,17 @@ ledger results in a valid ledger. **Valid ledgers** are
 those that fulfill three conditions:
 
 :ref:`da-model-consistency`
-   Exercises on inactive contracts are not allowed, i.e.
+   Exercises and fetches on inactive contracts are not allowed, i.e.
    contracts that have not yet been created or have already been
    consumed by an exercise.
+   A contract with a contract key can be created only if the key is not associated to another unconsumed contract,
+   and all key assertions hold.
 :ref:`da-model-conformance`
    Only a restricted set of actions is allowed on a given contract.
 :ref:`da-model-authorization`
    The parties who may request a particular change are restricted.
 
-Only the last of these conditions is dependent on the party (or
+Only the last of these conditions depends on the party (or
 parties) requesting the change; the other two are general.
 
 
@@ -37,8 +39,12 @@ parties) requesting the change; the other two are general.
 Consistency
 +++++++++++
 
-Intuitively, consistency requires contracts to be created before
-they are used, and that they cannot be used once they are consumed.
+Consistency consists of two parts:
+
+#. :ref:`Contract consistency <da-model-contract-consistency>`: Contracts must be created before they are used, and they cannot be used once they are consumed.
+
+#. :ref:`Key consistency <da-model-key-consistency>`: Keys are unique and key assertions are satisfied.
+
 To define this precisely, notions of "before" and "after" are needed.
 These are given by putting all actions in a sequence. Technically, the
 sequence is obtained by a pre-order traversal of the ledger's actions,
@@ -55,26 +61,152 @@ below depicts the resulting order on the paint offer example:
 In the image, an action `act` happens before action `act'` if there is
 a (non-empty) path from `act` to `act'`.
 Then, `act'` happens after `act`.
-A ledger is **consistent for a contract c** if all of the following holds for all actions `act` on `c`:
 
-#. either `act` is itself **Create c** or a **Create c** happens before `act`
-#. `act` does not happen before any **Create c** action
-#. `act` does not happen after any exercise consuming `c`.
+.. _da-model-contract-consistency:
 
-A ledger is **consistent** if it is consistent for all contracts.
+Contract consistency
+````````````````````
+
+Contract consistency ensures that contracts are used after they have been created and before they are consumed.
+
+.. _def-contract-consistency:
+
+Definition »contract consistency«
+  A ledger is **consistent for a contract c** if all of the following holds for all actions `act` on `c`:
+
+  #. either `act` is itself **Create c** or a **Create c** happens before `act`
+  #. `act` does not happen before any **Create c** action
+  #. `act` does not happen after any exercise consuming `c`.
+
 
 The consistency condition rules out the double spend example.
 As the red path below indicates, the second exercise in the example happens after a consuming exercise on the same
-contract, violating the consistency criteria.
+contract, violating the contract consistency criteria.
 
 .. https://www.lucidchart.com/documents/edit/c6113536-70f4-42a4-920d-3c9497f8f7c4
 .. image:: ./images/consistency-banning-double-spends.svg
    :align: center
    :width: 100%
 
+
+.. _def-contract-state:
+
+In addition to the consistency notions, the before-after relation on actions can also be used to define the notion of
+**contract state** at any point in a given transaction.
+The contract state is changed by creating the contract and by exercising it consumingly.
+At any point in a transaction, we can then define the latest state change in the obvious way.
+Then, given a point in a transaction, the contract state of `c` is:
+
+#. **active**, if the latest state change of `c` was a create;
+
+#. **archived**, if the latest state change of `c` was a consuming exercise;
+
+#. **inexistent**, if `c` never changed state.
+
+A ledger is consistent for `c` exactly if **Exercise** and **Fetch** actions on `c` happen only when `c` is active,
+and **Create** actions only when `c` is inexistent.
+The figures below visualize the state of different contracts at all points in the example ledger.
+
+.. https://www.lucidchart.com/documents/edit/19226d95-e8ba-423a-8546-e5bae6bd3ab7
+.. figure:: ./images/consistency-paint-offer-activeness.svg
+   :align: center
+   :width: 100%
+
+   Activeness of the `PaintOffer` contract
+
+.. https://www.lucidchart.com/documents/edit/19226d95-e8ba-423a-8546-e5bae6bd3ab7
+.. figure:: ./images/consistency-alice-iou-activeness.svg
+   :align: center
+   :width: 100%
+
+   Activeness of the `Iou Bank A` contract
+
+The notion of order can be defined on all the different ledger structures: actions, transactions, lists of transactions,
+and ledgers.
+Thus, the notions of consistency, inputs and outputs, and contract state can also all be defined on all these
+structures.
+The **active contract set** of a ledger is the set of all contracts
+that are active on the ledger. For the example above, it consists
+of contracts `Iou Bank P` and `PaintAgree P A`.
+
+.. _da-model-key-consistency:
+
+Key consistency
+```````````````
+
+Contract keys introduce a key uniqueness constraint for the ledger.
+To capture this notion, the contract model must specify for every contract in the system whether the contract has a key and, if so, the key.
+Every contract can have at most one key.
+
+Like contracts, every key has a state.
+An action `act` is an **action on a key** `k` if 
+
+- `act` is a **Create**, **Exercise**, or a **Fetch** action on a contract `c` with key `k`, or
+- `act` is the key assertion **NoSuchKey** `k`.
+
+.. _def-key-state:
+  
+Definition »key state«
+  The **key state** of a key on a ledger is determined by the last action `act` on the key:
+
+  - If `act` is a **Create**, non-consuming **Exercise**, or **Fetch** action on a contract `c`,
+    then the key state is **assigned** to `c`.
+
+  - If `act` is a consuming **Exercise** action or a **NoSuchKey** assertion,
+    then the key state is **free**.
+
+  - If there is no such action `act`, then the key state is **unknown**.
+
+A key is **unassigned** if its key state is either **free** or **unknown**.
+    
+Key consistency ensures that there is at most one active contract for each key and that all key assertions are satisfies.
+
+.. _def-key-consistency:
+
+Definition »key consistency«
+  A ledger is **consistent for a key** `k` if for every action `act` on `k`, the key state `s` before `act` satisfies
+
+  - If `act` is a **Create** action or **NoSuchKey** assertion, then `s` is **free** or **unknown**.
+  - If `act` is an **Exercise** or **Fetch** action on some contract `c`, then `s` is **assigned** to `c` or **unknown**.
+
+Key consistency rules out the problematic examples around key consistency.
+For example, suppose that the painter `P` has made a paint offer to `A` with reference number `P123`, but `A` has not yet accepted it.
+When `P` tries to create another paint offer to `David` with the same reference number `P123`,
+then this creation action would violate key uniqueness.
+The following ledger violates key uniqueness for the key `(P, P123)`.
+
+.. figure:: ./images/double-key-creation-highlighted.svg
+   :align: center
+   :name: double-key-creation
+
+Key assertions can be used in workflows to evidence the inexistence of a certain kind of contract.
+For example, suppose that the painter `P` is a member of the union of painters `U`.
+This union maintains a blacklist of potential customers that its members must not do business with.
+A customer `C` is considered to be on the blacklist if there is an active contract `Blacklist @U &A`.
+To make sure that the painter `P` does not make a paint offer if `A` is blacklisted,
+the painter combines its commit with a **NoSuchKey** assertion on the key `(U, A)`.
+The following ledger shows the transaction, where `UnionMember U P` represents `P`'s membership in the union `U`.
+It grants `P` the choice to perform such an assertion, which is needed for :ref:`authorization <da-model-authorization>`.
+
+.. figure:: ./images/paint-offer-blacklist.svg
+   :align: center
+   :name: paint-offer-blacklist
+
+Key consistency extends to actions, transactions and lists of transactions just like the other consistency notions.
+
+
+Ledger consistency
+``````````````````
+
+Definition »ledger consistency«
+  A ledger is **consistent** if it is consistent for all contracts and for all keys.
+
+
+Internal consistency
+````````````````````
 The above consistency requirement is too strong for actions and transactions
 in isolation.
-For example, the acceptance transaction from the paint offer example is not consistent, because `PaintOffer A P Bank`
+For example, the acceptance transaction from the paint offer example is not consistent as a ledger, because `PaintOffer A P Bank`
 and the `Iou Bank A` contracts are used without being created before:
 
 .. image:: ./images/action-structure-paint-offer.svg
@@ -84,20 +216,19 @@ and the `Iou Bank A` contracts are used without being created before:
 However, the transaction can still be appended to a ledger
 that creates these contracts and yield a consistent ledger. Such
 transactions are said to be internally consistent,
-and contracts such as the `PaintOffer A P Bank` and `Iou Bank A` are called
+and contracts such as the `PaintOffer A P Bank P123` and `Iou Bank A` are called
 input contracts of the transaction.
 Dually, output contracts of a transactions are the contracts that a transactions creates and does not archive.
 
 .. _def-internal-consistency:
 
-Definition »internal consistency«
+Definition »internal consistency for a contract«
   A transaction is **internally consistent for a contract c** if the following holds for all of its subactions `act` on the contract `c`
 
   #. `act` does not happen before any **Create c** action
   #. `act` does not happen after any exercise consuming `c`.
 
-  A transaction is **internally consistent** if it is internally
-  consistent for all contracts `c`.
+  A transaction is **internally consistent** if it is internally consistent for all contracts and consistent for all keys.
 
 .. _def-input-contract:
 
@@ -122,51 +253,18 @@ and inconsistent transactions.
    :align: center
    :width: 100%
 
-   The first two transactions violate the conditions of internally consistency.
+   The first two transactions violate the conditions of internal consistency.
    The first transaction creates the `Iou` after exercising it consumingly, violating both conditions.
    The second transaction contains a (non-consuming) exercise on the `Iou` after a consuming one, violating the second condition.
    The last transaction is internally consistent.
 
-.. _def-contract-state:
+Similar to input contracts, we define the input keys as the set that must be unassigned at the beginning of a transaction.
 
-In addition to the consistency notions, the before-after relation on actions can also be used to define the notion of
-**contract state** at any point in a given transaction.
-The contract state is changed by creating the contract and by exercising it consumingly.
-At any point in a transaction, we can then define the latest state change in the obvious way.
-Then, given a point in a transaction, the contract state of `c` is:
+Definition »input key«
+  A key `k` is an **input key** to an internally consistent transaction
+  if the first action `act` on `k` is either a **Create** action or a **NoSuchKey** assertion.
 
-#. **active**, if the latest state change of `c` was a create;
-
-#. **archived**, if the latest state change of `c` was a consuming exercise was;
-
-#. **inexistent**, if `c` never changed state.
-
-A ledger is consistent for `c` exactly if **Exercise** and **Fetch** actions on `c` happen only when `c` is active, and **Create**
-actions only when `c` is inexistent.
-The figures below visualize the state of different contracts at all points in the example ledger.
-
-.. https://www.lucidchart.com/documents/edit/19226d95-e8ba-423a-8546-e5bae6bd3ab7
-.. figure:: ./images/consistency-paint-offer-activeness.svg
-   :align: center
-   :width: 100%
-
-   Activeness of the `PaintOffer` contract
-
-.. https://www.lucidchart.com/documents/edit/19226d95-e8ba-423a-8546-e5bae6bd3ab7
-.. figure:: ./images/consistency-alice-iou-activeness.svg
-   :align: center
-   :width: 100%
-
-   Activeness of the `Iou Bank A` contract
-
-The notion of order can be defined on all the different ledger structures: actions, transactions, lists of transactions,
-and ledgers.
-Thus, the notions of (internal) consistency, inputs and outputs, and contract state can also all be defined on all these
-structures.
-The **active contract set** of a ledger is the set of all contracts
-that are active on the ledger. For the example above, it consists
-of contracts `Iou Bank P` and `PaintAgree P A`.
-
+In the :ref:`blacklisting example <paint-offer-blacklist>`, `P`\ 's transaction has two input keys: `(U, A)` due to the **NoSuchKey** action and `(P, P123)` as it creates a `PaintOffer` contract.
 
 
 .. _`da-model-conformance`:
@@ -214,7 +312,7 @@ and `MustPaint` contracts.
 .. https://www.lucidchart.com/documents/edit/1ea6f551-c212-4620-9417-27784adccbcc
 .. image:: ./images/models-paint-offer.svg
    :align: center
-   :width: 80%
+   :width: 90%
 
 The problem with example where Alice changes the
 offer's outcome to avoid transferring the money now
@@ -226,7 +324,7 @@ becomes apparent.
 `A`'s commit is not conformant to the contract model, as the model does
 not contain the top-level action she is trying to commit.
 
-.. _`da-model-authorization`:
+.. _da-model-authorization:
 
 Authorization
 +++++++++++++
@@ -246,44 +344,60 @@ obligation to paint Alice's house, but he never agreed to that obligation.
 On paper contracts, obligations are expressed in the body of the contract,
 and imposed on the contract's *signatories*.
 
-Signatories and Agreements
-``````````````````````````
+.. _da-signatories-agreements-maintainers:
+
+Signatories, Agreements, and Maintainers
+````````````````````````````````````````
 
 To capture these elements of real-world contracts, the **contract model**
 additionally specifies, for each contract in the system:
 
-#. a non-empty set of **signatories**, the parties bound by the
-   contract, and
+#. A non-empty set of **signatories**, the parties bound by the
+   contract.
 
-#. an optional **agreement text** associated with the contract,
+#. An optional **agreement text** associated with the contract,
    specifying the off-ledger, real-world obligations of the
    signatories.
 
+#. If the contract is associated with a key, a non-empty set of **maintainers**,
+   the parties that make sure that at most one unconsumed contract exists for the key.
+   The maintainers must be a subset of the signatories and depend only on the key.
+   This dependence is captured the function `maintainers` that takes a key and returns the key's maintainers.
+
+
 In the example, the contract model specifies that
 
-#. a `Iou obligor owner` contract has only the `obligor` as a signatory,
+#. an `Iou obligor owner` contract has only the `obligor` as a signatory,
    and no agreement text.
 
 #. a `MustPay obligor owner` contract has both the `obligor`
    and the `owner` as signatories, with an agreement text requiring
    the obligor to pay the owner a certain amount, off the ledger.
 
-#. a `PaintOffer houseOwner painter obligor` contract has only the
+#. a `PaintOffer houseOwner painter obligor refNo` contract has only the
    painter as the signatory, with no agreement text.
+   Its associated key consists of the painter and the reference number.
+   The painter is the maintainer.
 
-#. a `PaintAgree houseOwner painter` contract has both the
+#. a `PaintAgree houseOwner painter refNo` contract has both the
    house owner and the painter as signatories, with an agreement
    text requiring the painter to paint the house.
+   The key consists of the painter and the reference number.
+   The painter is the only maintainer.
 
 In the graphical representation below, signatories of a contract are indicated
 with a dollar sign (as a mnemonic for an obligation) and use a bold
-font. For example, annotating the paint offer acceptance action with
+font. 
+Maintainers are marked with `@` (as a mnemonic who enforces uniqueness).
+Since they are always signatories, parties marked with `@` are implicitly signatories.
+For example, annotating the paint offer acceptance action with
 signatories yields the image below.
 
 .. https://www.lucidchart.com/documents/edit/4a3fdcbc-e521-4fd8-a636-1035b4d65126/0
 .. image:: ./images/signatories-paint-offer.svg
    :align: center
    :width: 60%
+
 
 .. _da-ledgers-authorization-rules:
 
@@ -324,6 +438,8 @@ authorized by at least all of the **required authorizers** of `act`, where:
    signatories of `c`.
 
 #. the required authorizers of an **Exercise** or a **Fetch** action are its actors.
+
+#. the required authorizers of a **NoSuchKey** assertion are the maintainers of the key.
 
 We lift this notion to ledgers, whereby a ledger is well-authorized exactly when all of its commits are.
 
@@ -395,6 +511,9 @@ Similarly, the painter authorizes the exercise that transfers the IOU
 to him. However, the actor of this exercise is Alice, who has not
 authorized the exercise. Thus, this ledger is not
 well-authorized.
+
+The rationale for making the maintainers as required authorizers for a **NoSuchKey** assertion
+is discussed in the next section about :ref:`privacy <da-model-privacy-authorization>`.
 
 Valid Ledgers, Obligations, Offers and Rights
 +++++++++++++++++++++++++++++++++++++++++++++
