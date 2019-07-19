@@ -184,7 +184,7 @@ class StandaloneIndexServer(
       BuildInfo.Version,
       actualLedgerId,
       newState.port.toString,
-      packageStore
+      config.archiveFiles
     )
 
     writePortFile(newState.port)
