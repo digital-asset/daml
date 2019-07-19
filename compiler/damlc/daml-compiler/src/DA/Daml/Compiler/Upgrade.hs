@@ -8,6 +8,7 @@ module DA.Daml.Compiler.Upgrade
     , generateGenInstancesModule
     , generateSrcFromLf
     , generateSrcPkgFromLf
+    , DontQualify(..)
     ) where
 
 import "ghc-lib-parser" BasicTypes
@@ -123,7 +124,7 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
         ( fp
         , unlines header ++
           (showSDocForUser fakeDynFlags alwaysQualify $
-           ppr $ generateSrcFromLf False thisPkgId pkgMap mod) ++
+           ppr $ generateSrcFromLf (DontQualify False) thisPkgId pkgMap mod) ++
           unlines (builtins mod))
   where
     header =
@@ -149,14 +150,16 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
             ]
         | otherwise = []
 
+newtype DontQualify = DontQualify Bool
+
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
-       Bool
+       DontQualify
     -> LF.PackageId
     -> MS.Map GHC.UnitId LF.PackageId
     -> LF.Module
     -> ParsedSource
-generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
+generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
   where
     pkgMapInv = MS.fromList $ map swap $ MS.toList pkgMap
     getUnitId :: LF.PackageRef -> UnitId
@@ -595,23 +598,22 @@ generateSrcFromLf dontQualify thisPkgId pkgMap m = noLoc mod
                  LF.DataVariant vs -> map (toListOf builtinType . snd) vs
                  LF.DataEnum _es -> pure [])
     builtinToModuleRef = \case
-            LF.BTInt64 -> (damlPrimUnitId, translateModName intTyCon)
-            LF.BTDecimal -> (damlPrimUnitId, LF.ModuleName ["GHC", "Types"])
-            LF.BTText -> (damlPrimUnitId, LF.ModuleName ["GHC", "Types"])
+            LF.BTInt64 -> (primUnitId, translateModName intTyCon)
+            LF.BTDecimal -> (primUnitId, LF.ModuleName ["GHC", "Types"])
+            LF.BTText -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             LF.BTTimestamp -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTDate -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTParty -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTUnit -> (damlPrimUnitId, translateModName unitTyCon)
-            LF.BTBool -> (damlPrimUnitId, translateModName boolTyCon)
-            LF.BTList -> (damlPrimUnitId, translateModName listTyCon)
+            LF.BTUnit -> (primUnitId, translateModName unitTyCon)
+            LF.BTBool -> (primUnitId, translateModName boolTyCon)
+            LF.BTList -> (primUnitId, translateModName listTyCon)
             LF.BTUpdate -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTScenario -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTContractId -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTOptional -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
             LF.BTMap -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTArrow -> (damlPrimUnitId, translateModName funTyCon)
+            LF.BTArrow -> (primUnitId, translateModName funTyCon)
 
-    damlPrimUnitId = stringToUnitId "daml-prim"
     stdlibUnitId = stringToUnitId "daml-stdlib"
 
     translateModName ::
