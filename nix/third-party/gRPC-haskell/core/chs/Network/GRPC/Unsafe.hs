@@ -320,6 +320,11 @@ grpcShutdown =
   grpcShutdown'_ >>
   return ()
 
+grpcShutdownBlocking :: IO ()
+grpcShutdownBlocking =
+  grpcShutdownBlocking'_ >>
+  return ()
+
 {-# LINE 143 "nix/third-party/gRPC-haskell/core/src/Network/GRPC/Unsafe.chs" #-}
 
 
@@ -788,6 +793,9 @@ foreign import ccall safe "bazel-out/k8-fastbuild/bin/nix/third-party/gRPC-haske
 
 foreign import ccall safe "bazel-out/k8-fastbuild/bin/nix/third-party/gRPC-haskell/core/chs-src_Network_GRPC_Unsafe.chs/Network/GRPC/Unsafe.chs.h grpc_shutdown"
   grpcShutdown'_ :: (IO ())
+
+foreign import ccall safe "bazel-out/k8-fastbuild/bin/nix/third-party/gRPC-haskell/core/chs-src_Network_GRPC_Unsafe.chs/Network/GRPC/Unsafe.chs.h grpc_shutdown_blocking"
+  grpcShutdownBlocking'_ :: (IO ())
 
 foreign import ccall safe "bazel-out/k8-fastbuild/bin/nix/third-party/gRPC-haskell/core/chs-src_Network_GRPC_Unsafe.chs/Network/GRPC/Unsafe.chs.h grpc_version_string"
   grpcVersionString'_ :: (IO (C2HSImp.Ptr C2HSImp.CChar))

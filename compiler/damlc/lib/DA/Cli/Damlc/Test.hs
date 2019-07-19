@@ -48,10 +48,6 @@ execTest inFiles color mbJUnitOutput cliOptions = do
     withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
         let lfVersion = optDamlLfVersion cliOptions
         testRun h inFiles lfVersion color mbJUnitOutput
-        -- Run synchronously at the end to make sure that all gRPC requests
-        -- finish properly. We have seen segfaults on CI sometimes
-        -- which are probably caused by not doing this.
-        runActionSync h (pure ())
         diags <- getDiagnostics h
         when (any ((Just DsError ==) . _severity . snd) diags) exitFailure
 
