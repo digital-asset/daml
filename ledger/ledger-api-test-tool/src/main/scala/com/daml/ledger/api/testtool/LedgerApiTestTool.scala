@@ -22,7 +22,8 @@ import com.digitalasset.platform.tests.integration.ledger.api.{
   DivulgenceIT,
   PackageManagementServiceIT,
   PartyManagementServiceIT,
-  TransactionServiceIT
+  TransactionServiceIT,
+  WitnessesIT
 }
 import com.digitalasset.platform.tests.integration.ledger.api.transaction.TransactionBackpressureIT
 import org.scalatest.time.{Seconds, Span}
@@ -273,6 +274,20 @@ object LedgerApiTestTool {
       }
     )
 
+    val witnessesIT = lazyInit(
+      "WitnessesIT",
+      name =>
+        new WitnessesIT {
+          override def suiteName: String = name
+          override protected def actorSystemName: String = s"${name}ToolActorSystem"
+          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
+            Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
     Map(
       transactionServiceIT,
       transactionBackpressureIT,
@@ -282,7 +297,8 @@ object LedgerApiTestTool {
       packageManagementServiceIT,
       partyManagementServiceIT,
       commandSubmissionTtlIT,
-      activeContractsServiceIT
+      activeContractsServiceIT,
+      witnessesIT
     )
   }
 
