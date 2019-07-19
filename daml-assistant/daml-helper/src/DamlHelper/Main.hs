@@ -33,7 +33,7 @@ data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
     | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
-    | Migrate { targetFolder :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
+    | Migrate { targetFolder :: FilePath, mainPath :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
     | Deploy { optSandboxPort :: Maybe SandboxPort }
     | ListTemplates
@@ -68,6 +68,7 @@ commandParser =
               ]
           migrateCmd =  Migrate
                   <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
+                  <*> argument str (metavar "MAIN" <> help "Path to the main daml file within the project")
                   <*> argument str (metavar "FROM_PATH" <> help "Path to the dar-package from which to migrate from")
                   <*> argument str (metavar "TO_PATH" <> help "Path to the dar-package to which to migrate to")
           initCmd = Init <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
@@ -91,8 +92,8 @@ commandParser =
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
 runCommand RunJar {..} = runJar jarPath remainingArguments
-runCommand New {..} = runNew targetFolder templateNameM []
-runCommand Migrate {..} = runMigrate targetFolder pkgPathFrom pkgPathTo
+runCommand New {..} = runNew targetFolder templateNameM Nothing []
+runCommand Migrate {..} = runMigrate targetFolder mainPath pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
 runCommand Start {..} = runStart (optSandboxPort `orElse` defaultSandboxPort) startNavigator openBrowser onStartM waitForSignal
