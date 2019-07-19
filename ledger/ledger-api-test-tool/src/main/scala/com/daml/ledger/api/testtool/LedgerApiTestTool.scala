@@ -18,6 +18,7 @@ import com.digitalasset.platform.tests.integration.ledger.api.commands.{
   CommandTransactionChecksLowLevelIT
 }
 import com.digitalasset.platform.tests.integration.ledger.api.{
+  ActiveContractsServiceIT,
   DivulgenceIT,
   PackageManagementServiceIT,
   PartyManagementServiceIT,
@@ -258,6 +259,20 @@ object LedgerApiTestTool {
       }
     )
 
+    val activeContractsServiceIT = lazyInit(
+      "ActiveContractsServiceIT",
+      name =>
+        new ActiveContractsServiceIT {
+          override def suiteName: String = name
+          override protected def actorSystemName: String = s"${name}ToolActorSystem"
+          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
+            Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
     Map(
       transactionServiceIT,
       transactionBackpressureIT,
@@ -266,7 +281,8 @@ object LedgerApiTestTool {
       commandTransactionChecksLowLevelIT,
       packageManagementServiceIT,
       partyManagementServiceIT,
-      commandSubmissionTtlIT
+      commandSubmissionTtlIT,
+      activeContractsServiceIT
     )
   }
 
