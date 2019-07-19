@@ -27,8 +27,8 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SSC
 import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Development.Shake as Shake
-import qualified Development.IDE.Core.API as CompilerService
-import qualified Development.IDE.Core.Rules.Daml as CompilerService
+import Development.IDE.Core.API
+import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import qualified ScenarioService as SS
@@ -51,8 +51,8 @@ execTest inFiles color mbJUnitOutput cliOptions = do
         -- Run synchronously at the end to make sure that all gRPC requests
         -- finish properly. We have seen segfaults on CI sometimes
         -- which are probably caused by not doing this.
-        CompilerService.runActionSync h (pure ())
-        diags <- CompilerService.getDiagnostics h
+        runActionSync h (pure ())
+        diags <- getDiagnostics h
         when (any ((Just DsError ==) . _severity . snd) diags) exitFailure
 
 
@@ -63,12 +63,12 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
 
     -- take the transitive closure of all imports and run on all of them
     -- If some dependencies can't be resolved we'll get a Diagnostic out anyway, so don't worry
-    deps <- CompilerService.runAction h $ mapM CompilerService.getDependencies inFiles
+    deps <- runAction h $ mapM getDependencies inFiles
     let files = nubOrd $ concat $ inFiles : catMaybes deps
 
-    results <- CompilerService.runAction h $
+    results <- runAction h $
         Shake.forP files $ \file -> do
-            mbScenarioResults <- CompilerService.runScenarios file
+            mbScenarioResults <- runScenarios file
             results <- case mbScenarioResults of
                 Nothing -> failedTestOutput h file
                 Just scenarioResults -> do
@@ -84,10 +84,10 @@ testRun h inFiles lfVersion color mbJUnitOutput  = do
 
 
 -- We didn't get scenario results, so we use the diagnostics as the error message for each scenario.
-failedTestOutput :: IdeState -> NormalizedFilePath -> CompilerService.Action [(VirtualResource, Maybe T.Text)]
+failedTestOutput :: IdeState -> NormalizedFilePath -> Action [(VirtualResource, Maybe T.Text)]
 failedTestOutput h file = do
-    mbScenarioNames <- CompilerService.getScenarioNames file
-    diagnostics <- liftIO $ CompilerService.getDiagnostics h
+    mbScenarioNames <- getScenarioNames file
+    diagnostics <- liftIO $ getDiagnostics h
     let errMsg = showDiagnostics diagnostics
     pure $ map (, Just errMsg) $ fromMaybe [VRScenario file "Unknown"] mbScenarioNames
 
