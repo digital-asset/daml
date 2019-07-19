@@ -10,7 +10,7 @@ module DA.Internal.Desugar (
     module DA.Internal.Template,
     Eq(..), Show(..),
     Bool(..), Text, Optional,
-    concat, undefined,
+    concat, magic,
     Party, ContractId, Update
 ) where
 
