@@ -40,7 +40,6 @@ The project contains the following files:
 .. code-block:: none
 
   .
-  ├── daml.yaml
   ├── daml
   │   ├── Iou.daml
   │   ├── IouTrade.daml
@@ -48,17 +47,19 @@ The project contains the following files:
   │   └── Tests
   │       ├── IouTest.daml
   │       └── TradeTest.daml
+  ├── daml.yaml
   ├── frontend-config.js
   ├── pom.xml
-  ├── src
-  │   └── main
-  │       └── java
-  │           └── com
-  │               └── digitalasset
-  │                   └── quickstart
-  │                       └── iou
-  │                           └── IouMain.java
-  └── ui-backend.conf
+  └── src
+      └── main
+          ├── java
+          │   └── com
+          │       └── digitalasset
+          │           └── quickstart
+          │               └── iou
+          │                   └── IouMain.java
+          └── resources
+              └── logback.xml
 
 - ``daml.yaml`` is a DAML project config file used by the SDK to find out how to build the DAML project and how to run it.
 - ``daml`` contains the :ref:`DAML code <quickstart-daml>` specifying the contract model for the ledger.
@@ -168,14 +169,14 @@ Now everything is running, you can try out the quickstart application:
 
    .. figure:: quickstart/images/contracts.png
 
-   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#2:1``, created from a *template* called ``Iou.Iou@28b...``.
+   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#2:1``, created from a *template* called ``Iou:Iou@28b...``.
 
 #. On the left-hand side, you can see what the pages the Navigator contains:
 
    - Contracts
    - Templates
-   - Owned Ious
    - Issued Ious
+   - Owned Ious
    - Iou Transfers
    - Trades
 
@@ -189,7 +190,7 @@ Now everything is running, you can try out the quickstart application:
 
    On the far right, you see the number of *contract instances* that you can see for each template.
 
-#. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou.Iou`` row, filling it out as shown below and clicking **Submit**.
+#. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou:Iou`` row, filling it out as shown below and clicking **Submit**.
 
    .. figure:: quickstart/images/createIou.png
 
@@ -208,7 +209,7 @@ Now everything is running, you can try out the quickstart application:
    Go back to *Owned Ious*, open the Iou for €100 and click on the button *Iou_AddObserver*. Submit *Bob* as the *newObserver*.
 
    Contracts in DAML are immutable, meaning they can not be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#6:1`.
-#. To propose the trade, go to the **Templates** screen. Click on the *IouTrade.IouTrade* template, fill in the form as shown below and submit the transaction.
+#. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
 
@@ -579,6 +580,7 @@ Great - you've completed the quickstart guide!
 Some steps you could take next include:
 
 - Explore :doc:`examples </examples/examples>` for guidance and inspiration.
-- :doc:`Learn DAML </daml/reference/index>`.
+- :doc:`Learn DAML </daml/intro/0_Intro>`.
+- :doc:`Language reference </daml/reference/index>`.
 - Learn more about :doc:`application development </app-dev/app-arch>`.
 - Learn about the :doc:`conceptual models </concepts/ledger-model/index>` behind DAML and platform.
