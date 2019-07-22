@@ -18,6 +18,7 @@ import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import           Data.Char
 import           Data.Maybe
 import qualified Data.Text as T
+import Data.List.Extra
 
 import CMarkGFM
 
@@ -41,57 +42,33 @@ renderSimpleRst ModuleDoc{..}
     null md_adts && null md_functions &&
     isNothing md_descr = mempty
 renderSimpleRst ModuleDoc{..} = mconcat $
-  [ renderAnchor md_anchor
-  , renderLines
-      [ title
-      , T.replicate (T.length title) "-"
-      , maybe "" docTextToRst md_descr
-      ]
-  ]
-  <> concat
-  [ if null md_templates
-    then []
-    else [ renderLines
-              [ ""
-              , "Templates"
-              , "^^^^^^^^^" ]
-         , mconcat $ map tmpl2rst md_templates
-         ]
-  , if null md_templateInstances
-    then []
-    else [ renderLines
-              [ ""
-              , "Template Instances"
-              , "^^^^^^^^^^^^^^^^^^" ]
-         , mconcat $ map renderTemplateInstanceDocAsRst md_templateInstances
-         ]
-  , if null md_classes
-    then []
-    else [ renderLines
-              [ ""
-              , "Typeclasses"
-              , "^^^^^^^^^^^" ]
-         , mconcat $ map cls2rst md_classes
-         ]
-  , if null md_adts
-    then []
-    else [ renderLines
-              [ ""
-              , "Data types"
-              , "^^^^^^^^^^"]
-         , mconcat $ map adt2rst md_adts
-         ]
-  , if null md_functions
-    then []
-    else [ renderLines
-              [ ""
-              , "Functions"
-              , "^^^^^^^^^" ]
-         , mconcat $ map fct2rst md_functions
-         ]
-  ]
+    [ renderAnchor md_anchor
+    , renderLines
+        [ title
+        , T.replicate (T.length title) "-"
+        , maybe "" docTextToRst md_descr
+        ]
+    , section "Templates" tmpl2rst md_templates
+    , section "Template Instances" renderTemplateInstanceDocAsRst md_templateInstances
+    , section "Typeclasses" cls2rst md_classes
+    , section "Data types" adt2rst md_adts
+    , section "Functions" fct2rst md_functions
+    , renderLine ""
+    ]
 
-  where title = "Module " <> unModulename md_name
+  where
+    title = "Module " <> unModulename md_name
+
+    section :: T.Text -> (a -> RenderOut) -> [a] -> RenderOut
+    section _ _ [] = mempty
+    section sectionTitle f xs = mconcat
+        [ renderLines
+            [ ""
+            , sectionTitle
+            , T.replicate (T.length sectionTitle) "^"
+            ]
+        , mconcatMap f xs
+        ]
 
 tmpl2rst :: TemplateDoc -> RenderOut
 tmpl2rst TemplateDoc{..} = mconcat $
