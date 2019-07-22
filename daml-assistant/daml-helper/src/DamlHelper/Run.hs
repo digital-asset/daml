@@ -393,8 +393,10 @@ runInit targetFolderM = do
     currentSdkVersion <- getSdkVersion
 
     projectFiles <- listFilesRecursive targetFolder
+    let targetFolderSep = addTrailingPathSeparator targetFolder
+    let projectFilesRel = mapMaybe (stripPrefix targetFolderSep) projectFiles
     let isMainDotDaml = (== "Main.daml") . takeFileName
-        sourceM = listToMaybe (filter isMainDotDaml projectFiles)
+        sourceM = find isMainDotDaml projectFilesRel
         source = fromMaybe "daml/Main.daml" sourceM
         name = takeFileName (dropTrailingPathSeparator targetFolderAbs)
 
