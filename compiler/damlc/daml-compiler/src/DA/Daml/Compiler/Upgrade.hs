@@ -141,11 +141,11 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
     -- IMPORTANT
     -- =========
     --
-    -- The following are datatypes that are not compiled to daml-lf, they will not show up in any
-    -- daml-lf package and can hence not be recovered. They are however needed to generate interface
-    -- files. If you delete any of the following definitions in GHC.Types, DA.Internal.LF or
-    -- DA.Internal.Template we loose the ability to regenerate interface files from dalfs and we
-    -- can't produce upgrades anymore.
+    -- The following are datatypes that are not compiled to daml-lf because they are builtin into
+    -- the compiler. They will not show up in any daml-lf package and can hence not be recovered.
+    -- They are however needed to generate interface files. Be very careful if you need to delete or
+    -- change any of the following data types and make sure that upgrades still work. Generally,
+    -- this should be unproblematic as long as the exported API of these files doesn't change.
     builtins m
         | LF.unModuleName (LF.moduleName m) == ["DA", "Internal", "LF"] =
             [ ""
