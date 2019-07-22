@@ -5,13 +5,12 @@
 
 module Main (main) where
 
-import Control.Monad (void, when)
-import Data.Maybe (isNothing)
+import Control.Monad (void)
 import qualified Data.Text as T
 import Development.IDE.Test
 import Language.Haskell.LSP.Test
 import Language.Haskell.LSP.Types
-import System.Environment (lookupEnv, setEnv)
+import System.Environment.Blank (setEnv)
 import System.FilePath
 import System.IO.Extra
 import Test.Tasty
@@ -65,10 +64,9 @@ run s = withTempDir $ \dir -> do
   let hieCoreExePath = mainWorkspace </> exe "compiler/hie-core/hie-core-exe"
   hieCoreExe <- locateRunfiles hieCoreExePath
   let cmd = unwords [hieCoreExe, "--lsp", "--cwd", dir]
-  home <- lookupEnv "HOME"
-  when (isNothing home) $
-    -- HIE calls getXgdDirectory which assumes that HOME is set.
-    setEnv "HOME" "/homeless-shelter"
+  -- HIE calls getXgdDirectory which assumes that HOME is set.
+  -- Only sets HOME if it wasn't already set.
+  setEnv "HOME" "/homeless-shelter" False
   runSessionWithConfig conf cmd fullCaps dir s
   where
     conf = defaultConfig
