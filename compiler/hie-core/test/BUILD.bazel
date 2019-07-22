@@ -10,7 +10,6 @@ load(
 da_haskell_library(
     name = "hie-core-testing",
     srcs = glob(["src/**/*.hs"]),
-    src_strip_prefix = "src",
     hazel_deps = [
         "base",
         "containers",
@@ -21,16 +20,16 @@ da_haskell_library(
         "tasty-hunit",
         "text",
     ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
     deps = [
         "//compiler/hie-core",
     ],
-    visibility = ["//visibility:public"],
 )
 
 da_haskell_test(
     name = "hie-core-tests",
     srcs = glob(["exe/**/*.hs"]),
-    src_strip_prefix = "exe",
     data = ["//compiler/hie-core:hie-core-exe"],
     hazel_deps = [
         "base",
@@ -42,10 +41,10 @@ da_haskell_test(
         "tasty-hunit",
         "text",
     ],
+    src_strip_prefix = "exe",
     deps = [
         "//compiler/hie-core",
         "//compiler/hie-core/test:hie-core-testing",
         "//libs-haskell/bazel-runfiles",
     ],
 )
-
