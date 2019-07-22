@@ -756,7 +756,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
-                    generateSrcFromLf (DontQualify True) pkgId pkgMap0 <$> getModule m pkg
+                    generateSrcFromLf (Qualify False) pkgId pkgMap0 <$> getModule m pkg
             let upgradeModPath =
                     (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
                     ".daml"

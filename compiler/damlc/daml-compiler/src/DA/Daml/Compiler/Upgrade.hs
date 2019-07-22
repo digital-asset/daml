@@ -8,7 +8,7 @@ module DA.Daml.Compiler.Upgrade
     , generateGenInstancesModule
     , generateSrcFromLf
     , generateSrcPkgFromLf
-    , DontQualify(..)
+    , Qualify(..)
     ) where
 
 import "ghc-lib-parser" BasicTypes
@@ -125,7 +125,7 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
         ( fp
         , unlines (header mod) ++
           (showSDocForUser fakeDynFlags alwaysQualify $
-           ppr $ generateSrcFromLf (DontQualify False) thisPkgId pkgMap mod) ++
+           ppr $ generateSrcFromLf (Qualify True) thisPkgId pkgMap mod) ++
           unlines (builtins mod))
   where
     modName = LF.unModuleName . LF.moduleName
@@ -193,16 +193,16 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
             ]
         | otherwise = []
 
-newtype DontQualify = DontQualify Bool
+newtype Qualify = Qualify Bool
 
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
-       DontQualify
+       Qualify
     -> LF.PackageId
     -> MS.Map GHC.UnitId LF.PackageId
     -> LF.Module
     -> ParsedSource
-generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
+generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
   where
     pkgMapInv = MS.fromList $ map swap $ MS.toList pkgMap
     getUnitId :: LF.PackageRef -> UnitId
@@ -564,14 +564,14 @@ generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
         noLoc .
         mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.Prelude") .
         mkOccName varName
-    mkTyConType = mkTyConType' dontQualify
-    mkTyConTypeUnqual = mkTyConType' True
+    mkTyConType = mkTyConType' qualify
+    mkTyConTypeUnqual = mkTyConType' False
     mkTyConType' :: Bool -> TyCon -> HsType GhcPs
-    mkTyConType' dontQualify tyCon
-        | dontQualify = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
-        | otherwise =
+    mkTyConType' qualify tyCon
+        | qualify =
             HsTyVar noExt NotPromoted . noLoc $
             mkRdrQual (moduleName $ nameModule name) (occName name)
+        | otherwise = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
       where
         name = getName tyCon
     imports = declImports ++ additionalImports
