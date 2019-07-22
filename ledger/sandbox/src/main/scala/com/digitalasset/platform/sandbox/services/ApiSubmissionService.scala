@@ -5,18 +5,18 @@ package com.digitalasset.platform.sandbox.services
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.daml.ledger.participant.state.v2.SubmissionResult.{
+import com.daml.ledger.participant.state.v1.SubmissionResult.{
   Acknowledged,
   NotSupported,
   Overloaded
 }
-import com.daml.ledger.participant.state.v2.{
+import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
   SubmitterInfo,
   TransactionMeta,
   WriteService
 }
-import com.daml.ledger.participant.state.v2._
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}

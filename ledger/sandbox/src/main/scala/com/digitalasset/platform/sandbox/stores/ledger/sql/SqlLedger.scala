@@ -11,7 +11,7 @@ import akka.stream.scaladsl.{GraphDSL, Keep, MergePreferred, Sink, Source, Sourc
 import akka.stream.{Materializer, OverflowStrategy, QueueOfferResult, SourceShape}
 import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v2._
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
@@ -261,7 +261,7 @@ private class SqlLedger(
       }
 
       val recordTime = timeProvider.getCurrentTime
-      if (recordTime.isAfter(submitterInfo.maxRecordTime)) {
+      if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
         // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
         // than the time window between LET and MRT allows for.
         // See https://github.com/digital-asset/daml/issues/987
@@ -283,7 +283,7 @@ private class SqlLedger(
             Some(submitterInfo.applicationId),
             Some(submitterInfo.submitter),
             transactionMeta.workflowId,
-            transactionMeta.ledgerEffectiveTime,
+            transactionMeta.ledgerEffectiveTime.toInstant,
             recordTime,
             mappedTx,
             mappedDisclosure

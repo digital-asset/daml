@@ -34,7 +34,6 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/participant-state",
-        "//ledger/participant-state:participant-state-v1",
     ],
 )
 
@@ -55,7 +54,7 @@ da_scala_test_suite(
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//ledger/participant-state:participant-state-v1",
+        "//ledger/participant-state",
     ],
 )
 

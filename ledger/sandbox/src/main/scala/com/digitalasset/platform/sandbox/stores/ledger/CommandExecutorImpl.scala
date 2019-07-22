@@ -3,7 +3,7 @@
 
 package com.digitalasset.platform.sandbox.stores.ledger
 
-import com.daml.ledger.participant.state.v2.{SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v1.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
@@ -16,6 +16,7 @@ import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
 import com.digitalasset.platform.sandbox.damle.SandboxDamle
 import scalaz.syntax.tag._
 import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.language.Ast.Package
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -45,10 +46,10 @@ class CommandExecutorImpl(engine: Engine, getPackage: PackageId => Future[Option
               submitted.submitter,
               submitted.applicationId.unwrap,
               submitted.commandId.unwrap,
-              submitted.maximumRecordTime
+              Time.Timestamp.assertFromInstant(submitted.maximumRecordTime)
             ),
             TransactionMeta(
-              submitted.ledgerEffectiveTime,
+              Time.Timestamp.assertFromInstant(submitted.ledgerEffectiveTime),
               submitted.workflowId.map(_.unwrap)
             ),
             updateTx

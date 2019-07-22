@@ -6,9 +6,9 @@ package com.digitalasset.platform.sandbox.stores.ledger
 import java.time.Instant
 
 import akka.stream.scaladsl.Sink
-import com.daml.ledger.participant.state.v2.{SubmissionResult, SubmitterInfo, TransactionMeta}
+import com.daml.ledger.participant.state.v1.{SubmissionResult, SubmitterInfo, TransactionMeta}
 import com.digitalasset.api.util.TimeProvider
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.Transaction.{NodeId, TContractId, Value}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
@@ -80,10 +80,10 @@ class TransactionMRTComplianceIT
         Ref.Party.assertFromString("submitter"),
         Ref.LedgerString.assertFromString("appId"),
         Ref.LedgerString.assertFromString("cmdId"),
-        MRT
+        Time.Timestamp.assertFromInstant(MRT)
       )
       val transactionMeta = TransactionMeta(
-        LET,
+        Time.Timestamp.assertFromInstant(LET),
         Some(Ref.LedgerString.assertFromString("wfid"))
       )
 
