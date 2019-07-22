@@ -41,7 +41,7 @@ renderSimpleRst ModuleDoc{..}
   | null md_templates && null md_classes &&
     null md_adts && null md_functions &&
     isNothing md_descr = mempty
-renderSimpleRst ModuleDoc{..} = mconcat $
+renderSimpleRst ModuleDoc{..} = mconcat
     [ renderAnchor md_anchor
     , renderLines
         [ title
@@ -84,7 +84,7 @@ tmpl2rst TemplateDoc{..} = mconcat $
   ] ++ map (renderIndent 2 . choiceBullet) td_choices
 
 renderTemplateInstanceDocAsRst :: TemplateInstanceDoc -> RenderOut
-renderTemplateInstanceDocAsRst TemplateInstanceDoc{..} = mconcat $
+renderTemplateInstanceDocAsRst TemplateInstanceDoc{..} = mconcat
     [ renderAnchor ti_anchor
     , renderLinesDep $ \env ->
         [ "template instance " <> enclosedIn "**" (unTypename ti_name)
