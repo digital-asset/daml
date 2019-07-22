@@ -81,14 +81,12 @@ class TransactionServiceHelpers(config: PlatformApplications.Config) extends Mat
 
   private lazy val defaultTtl = Duration.ofMillis(config.commandConfiguration.commandTtl.toMillis)
 
-  def applyTimeAndSubmit(
-      req: SubmitAndWaitRequest,
-      context: LedgerContext,
-      ttl: Duration = defaultTtl)(implicit mat: Materializer, ec: ExecutionContext) = {
-    context.commandClient().flatMap { client =>
-      val updater = new CommandUpdater(client.timeProviderO, ttl, true)
-      val reqToSend = req.copy(commands = req.commands.map(updater.applyOverrides))
-      context.commandService.submitAndWaitForTransactionId(reqToSend)
+  def applyTime(req: SubmitAndWaitRequest, context: LedgerContext, ttl: Duration = defaultTtl)(
+      implicit mat: Materializer,
+      ec: ExecutionContext): Future[SubmitAndWaitRequest] = {
+    context.timeProvider().map { tp =>
+      val updater = new CommandUpdater(Some(tp), ttl, true)
+      req.copy(commands = req.commands.map(updater.applyOverrides))
     }
   }
 }

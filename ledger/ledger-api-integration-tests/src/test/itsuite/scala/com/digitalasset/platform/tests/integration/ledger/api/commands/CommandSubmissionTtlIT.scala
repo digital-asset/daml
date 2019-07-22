@@ -65,6 +65,9 @@ class CommandSubmissionTtlIT
       .withCommandId(testIds.testCommandId(s"TTL_of_$ttl-${UUID.randomUUID()}"))
       .withLedgerId(ctx.ledgerId.unwrap)
 
-    helpers.applyTimeAndSubmit(SubmitAndWaitRequest(Some(commands)), ctx, ttl)
+    for {
+      req <- helpers.applyTime(SubmitAndWaitRequest(Some(commands)), ctx, ttl)
+      resp <- ctx.commandService.submitAndWaitForTransactionId(req)
+    } yield resp
   }
 }

@@ -1593,7 +1593,10 @@ class TransactionServiceIT
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
     helpers.insertCommands(
-      request => helpers.applyTimeAndSubmit(request, context),
+      request =>
+        helpers
+          .applyTime(request, context)
+          .flatMap(context.commandService.submitAndWaitForTransactionId),
       prefix,
       commandsPerSection,
       context.ledgerId)
