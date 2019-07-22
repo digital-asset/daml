@@ -65,7 +65,7 @@ setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
     }
     -- | According to the LSP spec methods starting with $/ are optional
     -- and can be ignored. In particular, VSCode sometimes seems to send
-    -- $/setTraceNotification which we wan tto ignore.
+    -- $/setTraceNotification which we want to ignore.
     where optionalPrefix = "$/"
 
 setHandlersVirtualResource :: PartialHandlers
