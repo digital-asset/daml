@@ -164,6 +164,23 @@ da_haskell_test(
     ],
 )
 
+da_haskell_test(
+    name = "position-mapping",
+    srcs = ["src/DA/Test/PositionMapping.hs"],
+    hazel_deps = [
+        "base",
+        "haskell-lsp-types",
+        "tasty",
+        "tasty-hunit",
+        "text",
+        "QuickCheck",
+    ],
+    main_function = "DA.Test.PositionMapping.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = ["//compiler/hie-core"],
+)
+
 # Memory tests
 
 da_haskell_binary(
