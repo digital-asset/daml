@@ -14,7 +14,8 @@ object JsValueToApiValueConverter {
 
   type LfTypeLookup = lf.data.Ref.Identifier => Option[lf.iface.DefDataType.FWT]
 
-  def jsValueToApiValue(lfId: lf.data.Ref.Identifier, lfTypeLookup: LfTypeLookup)(
+  def jsValueToApiValue(lfTypeLookup: LfTypeLookup)(
+      lfId: lf.data.Ref.Identifier,
       jsValue: JsValue): JsonError \/ lav1.value.Value = {
 
     for {

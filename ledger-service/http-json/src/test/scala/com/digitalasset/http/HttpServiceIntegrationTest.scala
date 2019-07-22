@@ -10,10 +10,14 @@ import akka.stream.ActorMaterializer
 import akka.util.ByteString
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.{withHttpService, withLedger}
-import com.digitalasset.http.json.SprayJson
+import com.digitalasset.http.json.{
+  ApiValueToJsValueConverter,
+  JsValueToApiValueConverter,
+  SprayJson
+}
 import com.digitalasset.http.util.FutureUtil.{stripLeft, toFuture}
 import com.digitalasset.http.util.TestUtil.requiredFile
-import com.digitalasset.http.util.{ApiValueToLfValueConverter, DamlLfIdentifiers, LedgerIds}
+import com.digitalasset.http.util.{ApiValueToLfValueConverter, LedgerIds}
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
@@ -23,7 +27,6 @@ import com.typesafe.scalalogging.StrictLogging
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import org.scalatest._
 import scalaz.std.string._
-import scalaz.syntax.traverse._
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -91,16 +94,18 @@ class HttpServiceIntegrationTest
 
           templateIdMap = PackageService.getTemplateIdMap(packageStore)
 
-          templateId <- toFuture(
-            PackageService.resolveTemplateId(templateIdMap)(command0.templateId))
+          resolveTemplateId = PackageService.resolveTemplateId(templateIdMap) _
 
-          damlLfId = DamlLfIdentifiers.damlLfIdentifier(templateId)
+          lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
 
-          valueWriter = json.JsonProtocol.valueWriter(
-            ApiValueToLfValueConverter
-              .apiValueToLfValue(ledgerId, packageStore)): RootJsonWriter[v.Value]
+          jsValueToApiValue = JsValueToApiValueConverter.jsValueToApiValue(lfTypeLookup) _
 
-          command1 = command0.map(_.toJson(valueWriter)): domain.CreateCommand[JsValue]
+          apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId, packageStore)
+
+          apiValueToJsValue = ApiValueToJsValueConverter.apiValueToJsValue(apiValueToLfValue) _
+
+          command1 <- toFuture(Endpoints.encodeValue(apiValueToJsValue)(command0)): Future[
+            domain.CreateCommand[JsValue]]
 
           _ = println(s"------------------ command1: $command1")
 
@@ -115,10 +120,8 @@ class HttpServiceIntegrationTest
 
           _ <- Future(command1 shouldBe command2)
 
-          command3 <- toFuture(
-            Endpoints.parseValue(
-              PackageService.resolveTemplateId(templateIdMap),
-              LedgerReader.damlLfTypeLookup(packageStore))(command2))
+          command3 <- toFuture(Endpoints.decodeValue(resolveTemplateId, jsValueToApiValue)(
+            command2)): Future[domain.CreateCommand[v.Value]]
 
           _ = println(s"------------------ command3: $command3")
 

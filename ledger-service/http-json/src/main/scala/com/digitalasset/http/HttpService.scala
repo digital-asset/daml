@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.http.json.{ApiValueToJsValueConverter, JsValueToApiValueConverter}
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.http.util.LedgerIds.convertLedgerId
@@ -70,16 +71,20 @@ object HttpService extends StrictLogging {
 
       resolveTemplateId = PackageService.resolveTemplateId(templateIdMap) _
 
+      lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
+
+      jsValueToApiValue = JsValueToApiValueConverter.jsValueToApiValue(lfTypeLookup) _
+
       apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId, packageStore)
 
-      lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
+      apiValueToJsValue = ApiValueToJsValueConverter.apiValueToJsValue(apiValueToLfValue) _
 
       endpoints = new Endpoints(
         commandService,
         contractsService,
         resolveTemplateId,
-        apiValueToLfValue,
-        lfTypeLookup)
+        jsValueToApiValue,
+        apiValueToJsValue)
 
       binding <- liftET[Error](
         Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))

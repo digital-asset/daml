@@ -69,9 +69,18 @@ object domain {
           agreementText = in.agreementText getOrElse ""
         )
 
-    implicit val covariant: Functor[ActiveContract] = new Functor[ActiveContract] {
-      override def map[A, B](fa: ActiveContract[A])(f: A => B) =
+    implicit val covariant: Traverse[ActiveContract] = new Traverse[ActiveContract] {
+
+      override def map[A, B](fa: ActiveContract[A])(f: A => B): ActiveContract[B] =
         fa.copy(key = fa.key map f, argument = f(fa.argument))
+
+      override def traverseImpl[G[_]: Applicative, A, B](fa: ActiveContract[A])(
+          f: A => G[B]): G[ActiveContract[B]] = {
+        import scalaz.syntax.apply._
+        val gk: G[Option[B]] = fa.key traverse f
+        val ga: G[B] = f(fa.argument)
+        ^(gk, ga)((k, a) => fa.copy(key = k, argument = a))
+      }
     }
   }
 

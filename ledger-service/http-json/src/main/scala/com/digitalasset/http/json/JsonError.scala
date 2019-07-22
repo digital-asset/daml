@@ -15,7 +15,7 @@ object JsonError {
 
   def toJsonError(e: Throwable) = JsonError(e.getMessage)
 
-  implicit val show = new Show[JsonError] {
+  implicit val ShowInstance = new Show[JsonError] {
     override def shows(f: JsonError): String = s"JsonError: ${f.message}"
   }
 }

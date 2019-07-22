@@ -5,13 +5,9 @@ package com.digitalasset.http.json
 
 import java.time.Instant
 
-import com.digitalasset.daml.lf
 import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
-import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.{v1 => lav1}
-import scalaz.syntax.show._
 import scalaz.{-\/, \/-}
 import spray.json._
 
@@ -82,24 +78,6 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val GetActiveContractsResponseFormat
     : JsonWriter[domain.GetActiveContractsResponse[JsValue]] =
     gacr => JsString(gacr.toString) // TODO actual format
-
-  def valueWriter(apiToLf: ApiValueToLfValueConverter.ApiValueToLfValue) =
-    new RootJsonWriter[lav1.value.Value] {
-      override def write(a: lav1.value.Value): JsValue =
-        ApiValueToJsValueConverter
-          .apiValueToJsValue(apiToLf)(a)
-          .fold(e => serializationError(e.shows), identity)
-    }
-
-  def valueReader(
-      lfId: lf.data.Ref.Identifier,
-      lfTypeLookup: lf.data.Ref.Identifier => Option[lf.iface.DefDataType.FWT]) =
-    new RootJsonReader[lav1.value.Value] {
-      override def read(jsValue: JsValue): lav1.value.Value =
-        JsValueToApiValueConverter
-          .jsValueToApiValue(lfId, lfTypeLookup)(jsValue)
-          .fold(e => deserializationError(e.shows), identity)
-    }
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat4(
     domain.CommandMeta)

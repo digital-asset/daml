@@ -9,35 +9,37 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.digitalasset.daml.lf
 import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.json.HttpCodec._
-import com.digitalasset.http.json.JsValueToApiValueConverter
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.parse
-import com.digitalasset.http.util.{ApiValueToLfValueConverter, DamlLfIdentifiers}
+import com.digitalasset.http.util.DamlLfIdentifiers
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
+import scalaz.std.list._
 import scalaz.{-\/, @@, Show, Traverse, \/, \/-}
 import spray.json._
+import com.digitalasset.http.json.JsonError
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     commandService: CommandService,
     contractsService: ContractsService,
     resolveTemplateId: Services.ResolveTemplateId,
-    apiValueToLfValue: ApiValueToLfValueConverter.ApiValueToLfValue,
-    lfTypeLookup: JsValueToApiValueConverter.LfTypeLookup,
+    jsValueToApiValue: (lf.data.Ref.Identifier, JsValue) => JsonError \/ lav1.value.Value,
+    apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue,
     parallelism: Int = 8)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
   import Endpoints._
   import json.JsonProtocol._
-  private implicit val apiValueWriter = valueWriter(apiValueToLfValue)
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
@@ -60,7 +62,7 @@ class Endpoints(
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
       httpResponse(
         parseInput[domain.CreateCommand[JsValue]](req)
-          .map(x => x.flatMap(parseValue[domain.CreateCommand](resolveTemplateId, lfTypeLookup)))
+          .map(x => x.flatMap(decodeValue(resolveTemplateId, jsValueToApiValue)))
           .mapAsync(parallelism) {
             case -\/(e) =>
               Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
@@ -68,14 +70,17 @@ class Endpoints(
               commandService.create(jwtPayload, c)
           }
           .map { a: domain.ActiveContract[lav1.value.Value] =>
-            format(resultJsObject(toJsValue(a): domain.ActiveContract[JsValue]))
+            encodeValue(apiValueToJsValue)(a) match {
+              case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
+              case \/-(b) => format(resultJsObject(b: domain.ActiveContract[JsValue]))
+            }
           }
       )
 
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
       httpResponse(
         parseInput[domain.ExerciseCommand[JsValue]](req)
-          .map(x => x.flatMap(parseValue[domain.ExerciseCommand](resolveTemplateId, lfTypeLookup)))
+          .map(x => x.flatMap(decodeValue(resolveTemplateId, jsValueToApiValue)))
           .mapAsync(parallelism) {
             case -\/(e) =>
               Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
@@ -83,14 +88,12 @@ class Endpoints(
               commandService.exercise(jwtPayload, c)
           }
           .map { as: List[domain.ActiveContract[lav1.value.Value]] =>
-            format(resultJsObject(as.map(toJsValue): List[domain.ActiveContract[JsValue]]))
+            as.traverse(encodeValue(apiValueToJsValue)) match {
+              case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
+              case \/-(bs) => format(resultJsObject(bs: List[domain.ActiveContract[JsValue]]))
+            }
           }
       )
-  }
-
-  private def toJsValue(
-      a: domain.ActiveContract[lav1.value.Value]): domain.ActiveContract[JsValue] = {
-    a.map(_.toJson)
   }
 
   lazy val command2: Route =
@@ -228,19 +231,24 @@ object Endpoints {
     * Parse underlying value
     */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private[http] def parseValue[F[_]: Traverse: domain.HasTemplateId](
+  private[http] def decodeValue[F[_]: Traverse: domain.HasTemplateId](
       resolveTemplateId: Services.ResolveTemplateId,
-      lfTypeLookup: JsValueToApiValueConverter.LfTypeLookup)(
+      jsValueToApiValue: (lf.data.Ref.Identifier, JsValue) => JsonError \/ lav1.value.Value)(
       fa: F[JsValue]): Error \/ F[lav1.value.Value] =
     for {
       templateId <- lookupTemplateId(resolveTemplateId)(fa)
       damlLfId = DamlLfIdentifiers.damlLfIdentifier(templateId)
-      apiValue <- fa.traverse(
-        jsValue =>
-          JsValueToApiValueConverter
-            .jsValueToApiValue(damlLfId, lfTypeLookup)(jsValue)
-            .leftMap(e => InvalidUserInput(e.shows)))
+      apiValue <- fa
+        .traverse(jsValue => jsValueToApiValue(damlLfId, jsValue))
+        .leftMap(e => InvalidUserInput(e.shows))
+
     } yield apiValue
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private[http] def encodeValue[F[_]: Traverse](
+      apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue)(
+      fa: F[lav1.value.Value]): Error \/ F[JsValue] =
+    fa.traverse(a => apiValueToJsValue(a)).leftMap(e => ServerError(e.shows))
 
   private[http] def lookupTemplateId[F[_]: domain.HasTemplateId](
       resolveTemplateId: Services.ResolveTemplateId)(fa: F[_]): Error \/ lar.TemplateId = {
