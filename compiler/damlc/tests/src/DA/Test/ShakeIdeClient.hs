@@ -655,6 +655,113 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
         setBufferModified f $ T.unlines goodScenario
         expectNoErrors
         expectVirtualResource vr1 "Return value: {}"
+    , testCase' "Virtual resource gets updated with a note when file compiles, but scenario is no longer present" $ do
+        let scenario1F =
+                [ "daml 1.2"
+                , "module F where"
+                , "scenario1 = scenario $ pure \"f1\""
+                ]
+            scenario1G =
+                [ "daml 1.2"
+                , "module G where"
+                , "scenario1 = scenario $ pure \"g1\""
+                ]
+            scenario12F =
+                [ "daml 1.2"
+                , "module F where"
+                , "scenario1 = scenario $ pure \"f1\""
+                , "scenario2 = scenario $ pure \"f2\""
+                ]
+        f <- makeFile "F.daml" $ T.unlines scenario1F
+        g <- makeFile "G.daml" $ T.unlines scenario1G
+        setFilesOfInterest [f, g]
+        let vr1F = VRScenario f "scenario1"
+        let vr2F = VRScenario f "scenario2"
+        let vr1G = VRScenario g "scenario1"
+
+        setOpenVirtualResources [vr1F]
+        expectNoErrors
+        expectVirtualResource vr1F "Return value: &quot;f1&quot;"
+        expectNoVirtualResourceNote vr1F
+
+        setOpenVirtualResources [vr1F, vr1G]
+        expectNoErrors
+        expectVirtualResource vr1G "Return value: &quot;g1&quot;"
+        expectNoVirtualResourceNote vr1G
+
+        setBufferModified f $ T.unlines scenario12F
+        setOpenVirtualResources [vr1F, vr2F, vr1G]
+        expectNoErrors
+        expectVirtualResource vr1F "Return value: &quot;f1&quot;"
+        expectNoVirtualResourceNote vr1F
+        expectVirtualResource vr2F "Return value: &quot;f2&quot;"
+        expectNoVirtualResourceNote vr2F
+
+        setBufferModified f $ T.unlines scenario1F
+        setOpenVirtualResources [vr1F, vr2F, vr1G]
+        expectNoErrors
+        expectVirtualResource vr1F "Return value: &quot;f1&quot;"
+        expectVirtualResource vr2F "Return value: &quot;f2&quot;"
+        expectVirtualResourceNote vr2F "This scenario no longer exists in the source file"
+        expectVirtualResourceNote vr2F "F.daml"
+
+        setBufferModified f $ T.unlines scenario12F
+        setOpenVirtualResources [vr1F, vr2F, vr1G]
+        expectNoErrors
+        expectVirtualResource vr1F "Return value: &quot;f1&quot;"
+        expectNoVirtualResourceNote vr1F
+        expectVirtualResource vr2F "Return value: &quot;f2&quot;"
+        expectNoVirtualResourceNote vr2F
+        expectVirtualResource vr1G "Return value: &quot;g1&quot;"
+        expectNoVirtualResourceNote vr1G
+    , testCase' "Virtual resource gets updated with a note when file does not compile anymore" $ do
+          let scenario1F =
+                  [ "daml 1.2"
+                  , "module F where"
+                  , "scenario1 = scenario $ pure \"f1\""
+                  ]
+              scenario1G =
+                  [ "daml 1.2"
+                  , "module G where"
+                  , "scenario1 = scenario $ pure \"g1\""
+                  ]
+              scenario1FInvalid =
+                  [ "daml 1.2"
+                  , "module F where"
+                  , "this is bad syntax"
+                  ]
+          f <- makeFile "F.daml" $ T.unlines scenario1F
+          g <- makeFile "G.daml" $ T.unlines scenario1G
+          setFilesOfInterest [f, g]
+          let vr1F = VRScenario f "scenario1"
+          let vr1G = VRScenario g "scenario1"
+
+          setOpenVirtualResources [vr1F]
+          expectNoErrors
+          expectVirtualResource vr1F "Return value: &quot;f1&quot;"
+          expectNoVirtualResourceNote vr1F
+
+          setOpenVirtualResources [vr1F, vr1G]
+          expectNoErrors
+          expectVirtualResource vr1G "Return value: &quot;g1&quot;"
+          expectNoVirtualResourceNote vr1G
+
+          setBufferModified f $ T.unlines scenario1FInvalid
+          setOpenVirtualResources [vr1F, vr1G]
+          expectOneError (f,2,0) "Parse error"
+
+          expectVirtualResource vr1F "Return value: &quot;f1&quot;"
+          expectVirtualResourceNote vr1F "The source file containing this scenario no longer compiles"
+          expectVirtualResourceNote vr1F "F.daml"
+
+          expectVirtualResource vr1G "Return value: &quot;g1&quot;"
+          expectNoVirtualResourceNote vr1G
+
+          setBufferModified f $ T.unlines scenario1F
+          setOpenVirtualResources [vr1F, vr1G]
+          expectNoErrors
+          expectVirtualResource vr1F "Return value: &quot;f1&quot;"
+          expectVirtualResource vr1G "Return value: &quot;g1&quot;"
     , testCase' "Scenario in file of interest but not opened" $ do
           let fooContent = T.unlines
                   [ "daml 1.2"

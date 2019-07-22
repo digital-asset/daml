@@ -40,6 +40,10 @@ export async function activate(context: vscode.ExtensionContext) {
             DamlVirtualResourceDidChangeNotification.type,
             (params) => virtualResourceManager.setContent(params.uri, params.contents)
         );
+        damlLanguageClient.onNotification(
+            DamlVirtualResourceNoteNotification.type,
+            (params) => virtualResourceManager.setNote(params.uri, params.note)
+        );
     });
 
     damlLanguageClient.start();
@@ -238,6 +242,21 @@ namespace DamlVirtualResourceDidChangeNotification {
       );
 }
 
+interface VirtualResourceNoteParams {
+    /** The virtual resource uri */
+    uri: string;
+
+    /** The note to set on the virtual resource */
+    note: string;
+}
+
+namespace DamlVirtualResourceNoteNotification {
+    export let type =
+      new NotificationType<VirtualResourceNoteParams, void>(
+        'daml/virtualResource/note'
+      );
+}
+
 type UriString = string;
 type ScenarioResult = string;
 type SelectedView = string;
@@ -319,11 +338,19 @@ class VirtualResourceManager {
         this._panelContents.set(uri, contents);
         const panel = this._panels.get(uri);
         if (panel) {
-            panel.webview.html = contents;
+            // append timestamp to force page reload (prevent using cache) as otherwise notes are not getting cleared
+            panel.webview.html = contents + "<!-- " + new Date() + " -->";
             const panelState = this._panelStates.get(uri);
             if (panelState) {
                 panel.webview.postMessage({command: 'select_view', value: panelState});
             };
+        }
+    }
+
+    public setNote(uri: UriString, note: string) {
+        const panel = this._panels.get(uri);
+        if (panel) {
+            panel.webview.postMessage({command: 'add_note', value: note});
         }
     }
 

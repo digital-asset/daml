@@ -15,8 +15,8 @@ import Control.Monad.Trans.Maybe
 import Development.IDE.Core.OfInterest
 import Development.IDE.Types.Logger hiding (Priority)
 import DA.Daml.Options.Types
-import qualified Text.PrettyPrint.Annotated.HughesPJClass as Pretty
-import Development.IDE.Types.Location
+import qualified Text.PrettyPrint.Annotated.HughesPJClass as HughesPJPretty
+import Development.IDE.Types.Location as Base
 import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
@@ -146,7 +146,7 @@ getHlintIdeas :: NormalizedFilePath -> Action ()
 getHlintIdeas f = use_ GetHlintDiagnostics f
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
-ideErrorPretty fp = ideErrorText fp . T.pack . Pretty.prettyShow
+ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
 
 
 getDalfDependencies :: NormalizedFilePath -> MaybeT Action (Map.Map UnitId DalfPackage)
@@ -419,6 +419,34 @@ vrChangedNotification vr doc =
     LSP.NotificationMessage "2.0" (LSP.CustomServerMethod virtualResourceChangedNotification) $
     toJSON $ VirtualResourceChangedParams (virtualResourceToUri vr) doc
 
+-- | Virtual resource note set notification
+-- This notification is sent by the server to the client when
+-- an open virtual resource note is set.
+virtualResourceNoteSetNotification :: T.Text
+virtualResourceNoteSetNotification = "daml/virtualResource/note"
+
+-- | Parameters for the virtual resource changed notification
+data VirtualResourceNoteSetParams = VirtualResourceNoteSetParams
+    { _vrcpNoteUri      :: !T.Text
+      -- ^ The uri of the virtual resource.
+    , _vrcpNoteContent :: !T.Text
+      -- ^ The new contents of the virtual resource.
+    } deriving Show
+
+instance ToJSON VirtualResourceNoteSetParams where
+    toJSON VirtualResourceNoteSetParams{..} =
+        object ["uri" .= _vrcpNoteUri, "note" .= _vrcpNoteContent ]
+
+instance FromJSON VirtualResourceNoteSetParams where
+    parseJSON = withObject "VirtualResourceNoteSetParams" $ \o ->
+        VirtualResourceNoteSetParams <$> o .: "uri" <*> o .: "note"
+
+vrNoteSetNotification :: VirtualResource -> T.Text -> LSP.FromServerMessage
+vrNoteSetNotification vr note =
+    LSP.NotCustomServer $
+    LSP.NotificationMessage "2.0" (LSP.CustomServerMethod virtualResourceNoteSetNotification) $
+    toJSON $ VirtualResourceNoteSetParams (virtualResourceToUri vr) note
+
 -- A rule that builds the files-of-interest and notifies via the
 -- callback of any errors. NOTE: results may contain errors for any
 -- dependent module.
@@ -439,6 +467,7 @@ ofInterestRule opts = do
         -- updated.
         let scenarioFiles = files `Set.union` vrFiles
         gc scenarioFiles
+        let openVRsByFile = Map.fromList (map (\vr -> (vrScenarioFile vr, vr)) $ Set.toList openVRs)
         -- compile and notify any errors
         let runScenarios file = do
                 world <- worldForFile file
@@ -447,15 +476,28 @@ ofInterestRule opts = do
                     let doc = formatScenarioResult world res
                     when (vr `Set.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
+                let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) (concat $ maybeToList mbVrs)
+                forM_ (Map.lookup file openVRsByFile) $ \ovr -> do
+                    when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
+                        sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
+                        T.pack $ fromNormalizedFilePath file
 
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.
         let shouldRunScenarios = isJust envScenarioService
+
+        let notifyOpenVrsOnGetDalfError file = do
+            mbDalf <- getDalf file
+            when (isNothing mbDalf) $ do
+                forM_ (Map.lookup file openVRsByFile) $ \ovr ->
+                    sendEvent $ vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
+                        fromNormalizedFilePath file
+
         let hlintEnabled = case optHlintUsage opts of
               HlintEnabled _ -> True
               HlintDisabled -> False
         let files = Set.toList scenarioFiles
-        let dalfActions = [(void . getDalf) f | f <- files]
+        let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
         let hlintActions = [use_ GetHlintDiagnostics f | hlintEnabled, f <- files]
         let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
         _ <- parallel $ dalfActions <> hlintActions <> runScenarioActions
@@ -494,7 +536,6 @@ getOpenVirtualResourcesRule = do
         DamlEnv{..} <- getDamlServiceEnv
         openVRs <- liftIO $ readVar envOpenVirtualResources
         pure (Just $ BS.fromString $ show openVRs, ([], Just openVRs))
-
 
 formatScenarioError :: LF.World -> SS.Error -> Pretty.Doc Pretty.SyntaxClass
 formatScenarioError world  err = case err of
