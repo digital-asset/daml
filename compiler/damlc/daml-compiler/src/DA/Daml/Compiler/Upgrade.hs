@@ -248,7 +248,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
     decls =
         concat $ do
             LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
-            guard $ not $ isTypeClass dataCons
+            guard $ LF.getIsSerializable dataSerializable
             let numberOfNameComponents = length (LF.unTypeConName dataTypeCon)
             -- we should never encounter more than two name components in dalfs.
             unless (numberOfNameComponents <= 2) $
@@ -376,18 +376,6 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                             }
             let templateDataCons = NM.names $ LF.moduleTemplates m
             pure $ dataDecl : [templInstDecl | dataTypeCon `elem` templateDataCons]
-    isTypeClass :: LF.DataCons -> Bool
-    isTypeClass =
-        \case
-            LF.DataRecord fields ->
-                not $
-                null $
-                catMaybes
-                    [ T.stripPrefix "_" $ LF.unFieldName fieldName
-                    | (fieldName, _ty) <- fields
-                    ]
-            LF.DataVariant _cons -> False
-            LF.DataEnum _cons -> False
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 =
         \case
@@ -625,8 +613,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             , ideclHiding = Nothing
             } :: LImportDecl GhcPs
         | (_unitId, modRef) <- modRefs
-        , modRef /= LF.moduleName m
-        , LF.unModuleName modRef /= ["GHC", "Prim"]
+        , modRef `notElem` [LF.moduleName m, LF.ModuleName ["GHC", "Prim"]]
         ]
     modRefs =
         nubSort $
@@ -636,10 +623,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
         (map builtinToModuleRef $
          concat $ do
              dataTy <- NM.toList $ LF.moduleDataTypes m
-             case LF.dataCons dataTy of
-                 LF.DataRecord fs -> map (toListOf builtinType . snd) fs
-                 LF.DataVariant vs -> map (toListOf builtinType . snd) vs
-                 LF.DataEnum _es -> pure [])
+             pure $ toListOf (dataConsType . builtinType) $ LF.dataCons dataTy)
     builtinToModuleRef = \case
             LF.BTInt64 -> (primUnitId, translateModName intTyCon)
             LF.BTDecimal -> (primUnitId, LF.ModuleName ["GHC", "Types"])
