@@ -10,6 +10,8 @@ module DA.Daml.LF.PrettyScenario
   , prettyBriefScenarioError
   , renderScenarioResult
   , lookupDefLocation
+  , scenarioNotInFileNote
+  , fileWScenarioNoLongerCompilesNote
   , ModuleRef
   ) where
 
@@ -911,9 +913,12 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
             H.script "" H.! A.src "$webviewSrc"
         let tableView = renderTableView world res
         let transView = renderTransactionView world res
+        let noteView = H.div H.! A.class_ "note" H.! A.id "note" $ H.toHtml $ T.pack " "
         case tableView of
-            Nothing -> H.body transView
-            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction" $ do
+            Nothing -> H.body H.! A.class_ "hide_note" $ do
+                noteView
+                transView
+            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction hide_note" $ do
                 H.div $ do
                     H.button H.! A.onclick "toggle_view();" $ do
                         H.span H.! A.class_ "table" $ H.text "Show transaction view"
@@ -922,6 +927,7 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
                     H.span H.! A.class_ "table" $ do
                         H.input H.! A.type_ "checkbox" H.! A.id "show_archived" H.! A.onchange "show_archived_changed();"
                         H.label H.! A.for "show_archived" $ "Show archived"
+                noteView
                 tbl
                 transView
 
@@ -944,6 +950,9 @@ stylesheet = T.unlines
   , "body.hide_transaction .transaction {"
   , "  display: none;"
   , "}"
+  , "body.hide_note .note {"
+  , "  display: none;"
+  , "}"
   , "tr.archived td {"
   , "  text-decoration: line-through;"
   , "}"
@@ -963,3 +972,14 @@ stylesheet = T.unlines
   , "  transform: rotate(180deg);"
   , "}"
   ]
+
+scenarioNotInFileNote :: T.Text -> T.Text
+scenarioNotInFileNote file = htmlNote $ T.pack $
+    "This scenario no longer exists in the source file: " ++ T.unpack file
+
+fileWScenarioNoLongerCompilesNote :: T.Text -> T.Text
+fileWScenarioNoLongerCompilesNote file = htmlNote $ T.pack $
+    "The source file containing this scenario no longer compiles: " ++ T.unpack file
+
+htmlNote :: T.Text -> T.Text
+htmlNote t = TL.toStrict $ Blaze.renderHtml $ H.docTypeHtml $ H.span H.! A.class_ "da-hl-warning" $ H.toHtml t

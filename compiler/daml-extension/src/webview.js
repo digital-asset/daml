@@ -16,6 +16,10 @@ function toggle_view() {
 window.addEventListener('message', event => {
   const message = event.data;
   switch (message.command) {
+    case 'add_note':
+        document.body.classList.remove('hide_note');
+        document.getElementById('note').innerHTML = message.value;
+        break;
     case 'select_view':
       switch (message.value) {
         case 'transaction':
