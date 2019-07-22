@@ -1,6 +1,6 @@
 sdk-version: __VERSION__
 name: __PROJECT_NAME__
-source: daml/Main.daml
+source: __MAIN__
 parties:
   - Alice
   - Bob

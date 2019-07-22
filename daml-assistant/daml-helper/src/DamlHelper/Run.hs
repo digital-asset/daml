@@ -393,8 +393,10 @@ runInit targetFolderM = do
     currentSdkVersion <- getSdkVersion
 
     projectFiles <- listFilesRecursive targetFolder
+    let targetFolderSep = addTrailingPathSeparator targetFolder
+    let projectFilesRel = mapMaybe (stripPrefix targetFolderSep) projectFiles
     let isMainDotDaml = (== "Main.daml") . takeFileName
-        sourceM = listToMaybe (filter isMainDotDaml projectFiles)
+        sourceM = find isMainDotDaml projectFilesRel
         source = fromMaybe "daml/Main.daml" sourceM
         name = takeFileName (dropTrailingPathSeparator targetFolderAbs)
 
@@ -449,8 +451,8 @@ runInit targetFolderM = do
 -- * Creation of a project in existing folder (suggest daml init instead).
 -- * Creation of a project inside another project.
 --
-runNew :: FilePath -> Maybe String -> [String] -> IO ()
-runNew targetFolder templateNameM pkgDeps = do
+runNew :: FilePath -> Maybe String -> Maybe FilePath -> [String] -> IO ()
+runNew targetFolder templateNameM mbMain pkgDeps = do
     templatesFolder <- getTemplatesFolder
     let templateName = fromMaybe defaultProjectTemplate templateNameM
         templateFolder = templatesFolder </> templateName
@@ -530,6 +532,7 @@ runNew targetFolder templateNameM pkgDeps = do
         let config = replace "__VERSION__"  sdkVersion
                    . replace "__PROJECT_NAME__" projectName
                    . replace "__DEPENDENCIES__" (unlines ["  - " <> dep | dep <- pkgDeps])
+                   . maybe id (replace "__MAIN__") mbMain
                    $ configTemplate
         writeFileUTF8 configPath config
         removeFile configTemplatePath
@@ -540,13 +543,13 @@ runNew targetFolder templateNameM pkgDeps = do
         "\" based on the template \"" <> templateName <> "\"."
 
 -- | Create a project containing code to migrate a running system between two given packages.
-runMigrate :: FilePath -> FilePath -> FilePath -> IO ()
-runMigrate targetFolder pkgPath1 pkgPath2
+runMigrate :: FilePath -> FilePath -> FilePath -> FilePath -> IO ()
+runMigrate targetFolder main pkgPath1 pkgPath2
  = do
     pkgPath1Abs <- makeAbsolute pkgPath1
     pkgPath2Abs <- makeAbsolute pkgPath2
     -- Create a new project
-    runNew targetFolder (Just "migrate") [pkgPath1Abs, pkgPath2Abs]
+    runNew targetFolder (Just "migrate") (Just main) [pkgPath1Abs, pkgPath2Abs]
 
     -- Call damlc to create the upgrade source files.
     assistant <- getDamlAssistant

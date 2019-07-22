@@ -44,6 +44,7 @@ renderSimpleMD ModuleDoc{..} = mconcat
     [ renderAnchorInfix "# " md_anchor ("Module " <> escapeMd (unModulename md_name))
     , renderDocText md_descr
     , section "Templates" tmpl2md md_templates
+    , section "Template Instances" renderTemplateInstanceDocAsMarkdown md_templateInstances
     , section "Typeclasses" cls2md md_classes
     , section "Data types" adt2md md_adts
     , section "Functions" fct2md md_functions
@@ -88,6 +89,14 @@ tmpl2md TemplateDoc{..} = withAnchorTag td_anchor $ \tag -> mconcat
             , fieldTable cd_fields
             ]
         ]
+
+renderTemplateInstanceDocAsMarkdown :: TemplateInstanceDoc -> RenderOut
+renderTemplateInstanceDocAsMarkdown TemplateInstanceDoc{..} = mconcat
+    [ renderAnchorInfix "**template instance " ti_anchor $
+        escapeMd (unTypename ti_name) <> "**  "
+    , renderLineDep $ \env -> T.concat ["&nbsp; = ", type2md env ti_rhs]
+    , renderDocText ti_descr
+    ]
 
 cls2md :: ClassDoc -> RenderOut
 cls2md ClassDoc{..} = mconcat

@@ -142,6 +142,8 @@ castPeek p = do
 
 {#fun grpc_shutdown as ^ {} -> `()'#}
 
+{#fun grpc_shutdown_blocking as ^ {} -> `()'#}
+
 {#fun grpc_version_string as ^ {} -> `String' #}
 
 -- | Create a new 'CompletionQueue' for GRPC_CQ_NEXT. See the docs for

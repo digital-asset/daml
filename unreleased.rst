@@ -8,5 +8,3 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
-
-- [DAML Compiler] Support reading of DAML-LF 1.5 again.

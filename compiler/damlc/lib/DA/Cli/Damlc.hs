@@ -245,6 +245,13 @@ cmdMigrate numProcessors =
         <*> inputDarOpt
         <*> targetSrcDirOpt
 
+cmdMergeDars :: Mod CommandFields Command
+cmdMergeDars =
+    command "merge-dars" $
+    info (helper <*> cmd) $ progDesc "Merge two dar archives into one" <> fullDesc
+  where
+    cmd = execMergeDars <$> inputDarOpt <*> inputDarOpt <*> targetFileNameOpt
+
 cmdDocTest :: Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
     command "doctest" $
@@ -700,44 +707,37 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                         ]
                     pure (src, iuid, depends pkgInfo)
         let unitIdsTopoSorted = reverse $ topSort depGraph
-        createDirectoryIfMissing True genDir
         projectPkgDb <- makeAbsolute projectPackageDatabase
-        forM_ unitIdsTopoSorted $ \vertex -> withCurrentDirectory genDir $ do
+        forM_ unitIdsTopoSorted $ \vertex -> do
             let (src, iuid, _) = vertexToNode vertex
-            unless
-                -- TODO (drsk) remove this filter
-                (iuid `elem`
-                 map stringToInstalledUnitId ["daml-prim", "daml-stdlib"]) $ do
-                  -- typecheck and generate interface files
-                  forM_ src $ \(fp, content) -> do
-                      let path = fromNormalizedFilePath fp
-                      createDirectoryIfMissing True $ takeDirectory path
-                      writeFile path content
-                  opts' <-
-                      mkOptions $
-                      opts
-                          { optWriteInterface = True
-                          , optPackageDbs = [projectPkgDb]
-                          , optIfaceDir =
-                                Just
-                                    (dbPath </> installedUnitIdString iuid)
-                          , optIsGenerated = True
-                          , optMbPackageName =
-                                Just $ installedUnitIdString iuid
-                          }
-                  withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
-                      forM_ src $ \(fp, _content) -> do
-                          mbCore <-
-                              runAction ide $
-                              getGhcCore fp
-                          case mbCore of
-                              Nothing ->
-                                  ioError $
-                                  userError $
-                                  "Compilation of generated source for " <>
-                                  installedUnitIdString iuid <>
-                                  " failed."
-                              Just _core -> pure ()
+            let iuidString = installedUnitIdString iuid
+            let workDir = genDir </> iuidString
+            createDirectoryIfMissing True workDir
+            -- we change the working dir so that we get correct file paths for the interface files.
+            withCurrentDirectory workDir $
+             -- typecheck and generate interface files
+             do
+                forM_ src $ \(fp, content) -> do
+                    let path = fromNormalizedFilePath fp
+                    createDirectoryIfMissing True $ takeDirectory path
+                    writeFile path content
+                opts' <-
+                    mkOptions $
+                    opts
+                        { optWriteInterface = True
+                        , optPackageDbs = [projectPkgDb]
+                        , optIfaceDir = Just (dbPath </> installedUnitIdString iuid)
+                        , optIsGenerated = True
+                        , optMbPackageName = Just $ installedUnitIdString iuid
+                        }
+                withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+                    forM_ src $ \(fp, _content) -> do
+                        mbCore <- runAction ide $ getGhcCore fp
+                        when (isNothing mbCore) $
+                            fail $
+                            "Compilation of generated source for " <>
+                            installedUnitIdString iuid <>
+                            " failed."
         -- get the package name and the lf-package
         [(pkgName1, pkgId1, lfPkg1), (pkgName2, pkgId2, lfPkg2)] <-
             forM [inFile1, inFile2] $ \inFile -> do
@@ -763,7 +763,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
-                    generateSrcFromLf pkgId pkgMap0 <$> getModule m pkg
+                    generateSrcFromLf (Qualify False) pkgId pkgMap0 <$> getModule m pkg
             let upgradeModPath =
                     (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
                     ".daml"
@@ -799,17 +799,56 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         errorOnLeft
             "Cannot decode daml-lf archive"
             (Archive.decodeArchive dalf)
-    getEntry fp dar =
-        maybe (ioError $ userError $ "Package does not contain " <> fp) pure $
-        findEntryByPath fp dar
     getModule modName pkg =
         maybe
-            (ioError $
-             userError $
-             T.unpack $ "Can't find module" <> LF.moduleNameString modName)
+            (fail $ T.unpack $ "Can't find module" <> LF.moduleNameString modName)
             pure $
         NM.lookup modName $ LF.packageModules pkg
 
+-- | Get an entry from a dar or fail.
+getEntry :: FilePath -> Archive -> IO Entry
+getEntry fp dar =
+    maybe (fail $ "Package does not contain " <> fp) pure $
+    findEntryByPath fp dar
+
+-- | Merge two dars. The idea is that the second dar is a delta. Hence, we take the main in the
+-- manifest from the first.
+execMergeDars :: FilePath -> FilePath -> Maybe FilePath -> IO ()
+execMergeDars darFp1 darFp2 mbOutFp = do
+    let outFp = fromMaybe darFp1 mbOutFp
+    bytes1 <- B.readFile darFp1
+    bytes2 <- B.readFile darFp2
+    let dar1 = toArchive $ BSL.fromStrict bytes1
+    let dar2 = toArchive $ BSL.fromStrict bytes2
+    mf <- mergeManifests dar1 dar2
+    let merged =
+            Archive
+                (nubSortOn eRelativePath $ mf : zEntries dar1 ++ zEntries dar2)
+                -- nubSortOn keeps the first occurence
+                Nothing
+                BSL.empty
+    BSL.writeFile outFp $ fromArchive merged
+  where
+    mergeManifests dar1 dar2 = do
+        let mfPath = "META-INF/MANIFEST.MF"
+        let dalfNames =
+                nubSort
+                    [ takeFileName p
+                    | e <- zEntries dar1 ++ zEntries dar2
+                    , let p = eRelativePath e
+                    , ".dalf" `isExtensionOf` p
+                    ]
+        m1 <- getEntry mfPath dar1
+        let m' = do
+                l <- lines $ BSC.unpack $ BSL.toStrict $ fromEntry m1
+                pure $
+                    maybe
+                        l
+                        (const $
+                         breakAt72Chars $
+                         "Dalfs: " <> intercalate ", " dalfNames)
+                        (stripPrefix "Dalfs:" l)
+        pure $ toEntry mfPath 0 $ BSL.fromStrict $ BSC.pack $ unlines m'
 
 execDocTest :: Options -> [FilePath] -> IO ()
 execDocTest opts files = do
@@ -951,6 +990,7 @@ options numProcessors =
         <> cmdInspect
         <> cmdVisual
         <> cmdMigrate numProcessors
+        <> cmdMergeDars
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean

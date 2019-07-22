@@ -607,6 +607,18 @@ convertBind2 env (NonRec name x)
     | Just internals <- MS.lookup (envGHCModuleName env) (internalFunctions $ envLfVersion env)
     , is name `elem` internals
     = pure []
+    -- NOTE(MH): Desugaring `template X` will result in a type class
+    -- `XInstance` which has methods `_createX`, `_fetchX`, `_exerciseXY`,
+    -- `_fetchByKeyX` and `_lookupByKeyX`
+    -- (among others). The implementations of these methods are replaced
+    -- with DAML-LF primitives in `convertGenericChoice` below. As part of
+    -- this rewriting we also need to erase the default implementations of
+    -- these methods.
+    --
+    -- TODO(MH): The check is an approximation which will fail when users
+    -- start the name of their own methods with, say, `_exercise`.
+    | any (`isPrefixOf` is name) [ "$"++prefix++"_"++method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "fetchByKey", "lookupByKey"] ]
+    = pure []
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
     -- However, we can work around this issue by rewriting

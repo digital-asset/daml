@@ -15,6 +15,7 @@ The privacy model of the DA platform is based on a **need-to-know
 basis**, and provides privacy **on the level of subtransactions**. Namely, a party learns only those
 parts of ledger changes that affect contracts in which the party has a stake,
 and the consequences of those changes.
+And maintainers see all changes to the contract keys they maintain.
 
 To make this more precise, a stakeholder concept is needed.
 
@@ -34,7 +35,7 @@ Note that in DAML, as detailed :ref:`later <da-model-daml>`, controllers specifi
 
 In the graphical representation of the paint offer acceptance below, observers who are not signatories are indicated by an underline.
 
-.. https://www.lucidchart.com/documents/edit/33f1c8fc-001b-48e9-a9fc-d0d499dac943
+.. https://www.lucidchart.com/documents/edit/ea40a651-a2e0-4365-ae7d-4cee8cd07071/0
 .. image:: ./images/stakeholders-paint-offer.svg
    :align: center
    :width: 60%
@@ -99,6 +100,8 @@ This motivates the following definition: a party `p` is an **informee** of an ac
 
   * `A` is a **Fetch** on a contract `c`, and `p` is a signatory of `c` or an actor on `A`.
 
+  * `A` is a **NoSuchKey** `k` assertion and `p` is a maintainer of `k`.
+
 .. _def-tx-projection:
 
 Then, we can formally define the **projection** of a
@@ -151,8 +154,13 @@ Ledger projections do not always satisfy the definition of
 consistency, even if the ledger does. For example, in P's view, `Iou Bank A` is
 exercised without ever being created, and thus without being made
 active. Furthermore, projections can in general be
-non-conformant. However, the projection for a party `p` is always internally consistent, and is consistent
-for all contracts on which `p` is a stakeholder. In other words,
+non-conformant. However, the projection for a party `p` is always
+
+- internally consistent for all contracts,
+- consistent for all contracts on which `p` is a stakeholder, and
+- consistent for the keys that `p` is a maintainer of.
+
+In other words,
 `p` is never a stakeholder on any input contracts of its projection. Furthermore, if the
 contract model is **subaction-closed**, which
 means that for every action `act` in the model, all subactions of
@@ -161,6 +169,33 @@ conformant. As we will see shortly, DAML-based contract models are
 conformant. Lastly, as projections carry no information about the
 requesters, we cannot talk about authorization on the level of
 projections.
+
+
+.. _da-model-privacy-authorization:
+
+Privacy through authorization
++++++++++++++++++++++++++++++
+
+Setting the maintainers as required authorizers for a **NoSuchKey** assertion ensures
+that parties cannot learn about the existence of a contract without having a right to know about their existence.
+So we use authorization to impose *access controls* that ensure confidentiality about the existence of contracts.
+For example, suppose now that for a `PaintAgreement` contract, both signatories are key maintainers, not only the painter.
+That is, we consider `PaintAgreement @A @P &P123` instead of `PaintAgreement $A @P &P123`.
+Then, when the painter's competitor `Q` passes by `A`'s house and sees that the house desperately needs painting,
+`Q` would like to know whether there is any point in spending marketing efforts and making a paint offer to `A`.
+Without key authorization, `Q` could test whether a ledger implementation accepts the action **NoSuchKey** `(A, P, refNo)` for different guesses of the reference number `refNo`.
+In particular, if the ledger does not accept the transaction for some `refNo`, then `Q` knows that `P` has some business with `A` and his chances of `A` accepting his offer are lower.
+Key authorization prevents this flow of information because the ledger always rejects `Q`\ 's action for violating the authorization rules.
+
+For these access controls, it suffices if one maintainer authorizes a **NoSuchKey** assertion.
+However, we demand that *all* maintainers must authorize it.
+This is to prevent spam in the projection of the maintainers.
+If only one maintainer sufficed to authorize a key assertion,
+then a valid ledger could contain **NoSuchKey** `k` assertions where the maintainers of `k` include, apart from the requester arbitrary, arbitrary other parties.
+Unlike **Create** actions to observers, such assertions are of no value to the other parties.
+Since processing such assertions may be expensive, they can be considered spam.
+Requiring all maintainers to authorize a **NoSuchKey** assertion avoids the problem.
+
 
 .. _da-model-divulgence:
 

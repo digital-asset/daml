@@ -76,7 +76,7 @@ tests damlDir tmpDir = testGroup "Integration tests"
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
     ]
-    where quickstartDir = tmpDir </> "quickstart"
+    where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
@@ -258,7 +258,7 @@ packagingTests tmpDir = testGroup "packaging"
         withCurrentDirectory projectB $ callCommandQuiet "daml build"
         assertBool "a.dar was not created." =<< doesFileExist bDar
         step "Creating migration project"
-        callCommandQuiet $ unwords ["daml", "migrate", projectMigrate, aDar, bDar]
+        callCommandQuiet $ unwords ["daml", "migrate", projectMigrate, "daml/Main.daml", aDar, bDar]
         step "Build migration project"
         withCurrentDirectory projectMigrate $ callCommandQuiet "daml build"
     ]
