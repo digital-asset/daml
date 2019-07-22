@@ -6,6 +6,24 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-14:
+
+0.13.14 - 2019-07-22
+--------------------
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Support reading of DAML-LF 1.5 again.
+
+DAML Studio
+~~~~~~~~~~~
+
+VSCode scenario view improvements. Add a note in the IDE if:
+
+- there is an open scenario view for a scenario that does no longer exist,
+- there is an open scenario view for a scenario in a file that does no longer compile.
+
 .. _release-0-13-13:
 
 0.13.13 - 2019-07-16
@@ -229,7 +247,7 @@ DAML-LF
 Sandbox
 ~~~~~~~
 
-- Added `--log-level` command line flag.   
+- Added `--log-level` command line flag.
 - **BREAKING CHANGE**: The Sandbox no longer supports loading from DALF files. You can now only use DAR files. See `#1610 <https://github.com/digital-asset/daml/issues/1610>`__.
 
 
