@@ -260,136 +260,103 @@ prettyScenarioErrorError (Just err) =  do
                 scenarioError_ContractNotVisibleContractRef
         , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractNotVisibleCommitter
         , label_ "Disclosed to:"
-            $ fcommasep
-            $ mapV prettyParty scenarioError_ContractNotVisibleObservers
+            $ prettyParties scenarioError_ContractNotVisibleObservers
         ]
     ScenarioErrorErrorSubmitterNotInMaintainers (ScenarioError_SubmitterNotInMaintainers templateId submitter maintainers) ->
       pure $ vcat
         [ "When looking up or fetching a contract of type" <->
             prettyMay "<missing template id>" (prettyDefName world) templateId <-> "by key, submitter:" <->
             prettyMay "<missing submitter>" prettyParty submitter
-        , "is not in maintainers:" <-> fcommasep (mapV prettyParty maintainers)
+        , "is not in maintainers:" <-> prettyParties maintainers
         ]
+
+partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
+partyDifference with without =
+  fcommasep $ map prettyParty $ S.toList $
+  S.fromList (V.toList with) `S.difference`
+  S.fromList (V.toList without)
+
+prettyParties :: V.Vector Party -> Doc SyntaxClass
+prettyParties = fcommasep . mapV prettyParty
 
 prettyFailedAuthorization :: LF.World -> FailedAuthorization -> Doc SyntaxClass
 prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
   hcat
     [ prettyMay "<missing node id>" prettyNodeIdLink mbNodeId
     , text ": "
-    , case mbFa of
+    , vcat $ case mbFa of
         Just (FailedAuthorizationSumCreateMissingAuthorization
           (FailedAuthorization_CreateMissingAuthorization templateId mbLoc authParties reqParties)) ->
-          "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to a missing authorization from"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty reqParties)
-               `S.difference`
-               S.fromList (mapV partyParty authParties)
-             )
-            )
+              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to a missing authorization from"
+                <-> reqParties `partyDifference` authParties
+              ]
 
         Just (FailedAuthorizationSumMaintainersNotSubsetOfSignatories
           (FailedAuthorization_MaintainersNotSubsetOfSignatories templateId mbLoc signatories maintainers)) ->
-          "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to that some parties are maintainers but not signatories: "
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty maintainers)
-               `S.difference`
-               S.fromList (mapV partyParty signatories)
-             )
-            )
+              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to that some parties are maintainers but not signatories: "
+                <-> maintainers `partyDifference` signatories
+              ]
 
         Just (FailedAuthorizationSumFetchMissingAuthorization
           (FailedAuthorization_FetchMissingAuthorization templateId mbLoc authParties stakeholders)) ->
-          "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed since none of the stakeholders"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ mapV partyParty stakeholders
-            ))
-          $$
-            ("is in the authorizing set"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ mapV partyParty authParties
-            ))
+              [ "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed since none of the stakeholders"
+                <-> prettyParties stakeholders
+              , "is in the authorizing set"
+                <-> prettyParties authParties
+              ]
 
         Just (FailedAuthorizationSumExerciseMissingAuthorization
           (FailedAuthorization_ExerciseMissingAuthorization templateId choiceId mbLoc authParties reqParties)) ->
-          "exercise of" <-> prettyChoiceId world templateId choiceId
-          <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to a missing authorization from"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty reqParties)
-               `S.difference`
-               S.fromList (mapV partyParty authParties)
-             )
-            )
+              [ "exercise of" <-> prettyChoiceId world templateId choiceId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to a missing authorization from"
+                <-> reqParties `partyDifference` authParties
+              ]
 
         Just (FailedAuthorizationSumActorMismatch
           (FailedAuthorization_ActorMismatch templateId choiceId mbLoc ctrls givenActors)) ->
-          "exercise of" <-> prettyChoiceId world templateId choiceId
-          <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to authorization error:"
-            $$ "the choice's controlling parties"
-            <-> brackets (fcommasep (mapV prettyParty ctrls))
-            $$ "is not a subset of the authorizing parties"
-            <-> brackets (fcommasep (mapV prettyParty givenActors))
-            )
+              [ "exercise of" <-> prettyChoiceId world templateId choiceId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to authorization error:"
+              , "the choice's controlling parties"
+                <-> brackets (prettyParties ctrls)
+              , "is not a subset of the authorizing parties"
+                <-> brackets (prettyParties givenActors)
+              ]
 
         Just (FailedAuthorizationSumNoControllers
           (FailedAuthorization_NoControllers templateId choiceId mbLoc)) ->
-          "exercise of" <-> prettyChoiceId world templateId choiceId
-          <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$ "failed due missing controllers"
+              [ "exercise of" <-> prettyChoiceId world templateId choiceId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due missing controllers"
+              ]
 
         Just (FailedAuthorizationSumNoSignatories
           (FailedAuthorization_NoSignatories templateId mbLoc)) ->
-          "create of"
-          <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$ "failed due missing signatories"
+              [ "create of"
+                <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due missing signatories"
+              ]
 
         Just (FailedAuthorizationSumLookupByKeyMissingAuthorization
           (FailedAuthorization_LookupByKeyMissingAuthorization templateId mbLoc authParties maintainers)) ->
-         "lookup by key of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-         <-> "at" <-> prettyMayLocation world mbLoc
-         $$
-            ("failed due to a missing authorization from"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty maintainers)
-               `S.difference`
-               S.fromList (mapV partyParty authParties)
-             )
-            )
+              [ "lookup by key of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to a missing authorization from"
+                <-> maintainers `partyDifference` authParties
+              ]
 
-        Nothing ->
-          text "<missing failed_authorization>"
+        Nothing -> [text "<missing failed_authorization>"]
     ]
 
 
