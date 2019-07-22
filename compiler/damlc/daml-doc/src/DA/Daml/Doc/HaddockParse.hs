@@ -402,6 +402,9 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
 --
 -- So the goal of this function is to extract the template instance doc
 -- from the newtype doc if it exists.
+--
+-- The TEMPLATE_INSTANCE doc marker used here does not exist yet.
+-- (See issue #2239 in the daml repo for an up to date status.)
 getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
 getTemplateInstanceDoc adt
     | ADTDoc{..} <- adt
