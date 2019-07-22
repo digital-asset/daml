@@ -15,11 +15,9 @@ module DA.Daml.LF.PrettyScenario
   , ModuleRef
   ) where
 
-import           Control.Lens               (preview, review)
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
-import           DA.Daml.LF.Decimal  (stringToDecimal)
 import qualified DA.Daml.LF.Ast             as LF
 import Control.Applicative
 import Text.Read hiding (parens)
@@ -663,10 +661,7 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
     brackets (fcommasep (mapV (prettyValue' True prec world) elems))
   ValueSumContractId coid -> prettyContractId coid
   ValueSumInt64 i -> string (show i)
-  ValueSumDecimal ds ->
-    case preview stringToDecimal (TL.unpack ds) of
-      Nothing -> ltext ds
-      Just d  -> string $ review stringToDecimal d
+  ValueSumDecimal ds -> ltext ds
   ValueSumText t -> char '"' <> ltext t <> char '"'
   ValueSumTimestamp ts -> prettyTimestamp ts
   ValueSumParty p -> char '\'' <> ltext p <> char '\''
