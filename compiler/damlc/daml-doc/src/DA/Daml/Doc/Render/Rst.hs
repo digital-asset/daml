@@ -18,6 +18,7 @@ import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 import           Data.Char
 import           Data.Maybe
 import qualified Data.Text as T
+import Data.List.Extra
 
 import CMarkGFM
 
@@ -40,50 +41,33 @@ renderSimpleRst ModuleDoc{..}
   | null md_templates && null md_classes &&
     null md_adts && null md_functions &&
     isNothing md_descr = mempty
-renderSimpleRst ModuleDoc{..} = mconcat $
-  [ renderAnchor md_anchor
-  , renderLines
-      [ title
-      , T.replicate (T.length title) "-"
-      , maybe "" docTextToRst md_descr
-      ]
-  ]
-  <> concat
-  [ if null md_templates
-    then []
-    else [ renderLines
-              [ ""
-              , "Templates"
-              , "^^^^^^^^^" ]
-         , mconcat $ map tmpl2rst md_templates
-         ]
-  , if null md_classes
-    then []
-    else [ renderLines
-              [ ""
-              , "Typeclasses"
-              , "^^^^^^^^^^^" ]
-         , mconcat $ map cls2rst md_classes
-         ]
-  , if null md_adts
-    then []
-    else [ renderLines
-              [ ""
-              , "Data types"
-              , "^^^^^^^^^^"]
-         , mconcat $ map adt2rst md_adts
-         ]
-  , if null md_functions
-    then []
-    else [ renderLines
-              [ ""
-              , "Functions"
-              , "^^^^^^^^^" ]
-         , mconcat $ map fct2rst md_functions
-         ]
-  ]
+renderSimpleRst ModuleDoc{..} = mconcat
+    [ renderAnchor md_anchor
+    , renderLines
+        [ title
+        , T.replicate (T.length title) "-"
+        , maybe "" docTextToRst md_descr
+        ]
+    , section "Templates" tmpl2rst md_templates
+    , section "Template Instances" renderTemplateInstanceDocAsRst md_templateInstances
+    , section "Typeclasses" cls2rst md_classes
+    , section "Data types" adt2rst md_adts
+    , section "Functions" fct2rst md_functions
+    ]
 
-  where title = "Module " <> unModulename md_name
+  where
+    title = "Module " <> unModulename md_name
+
+    section :: T.Text -> (a -> RenderOut) -> [a] -> RenderOut
+    section _ _ [] = mempty
+    section sectionTitle f xs = mconcat
+        [ renderLines
+            [ ""
+            , sectionTitle
+            , T.replicate (T.length sectionTitle) "^"
+            ]
+        , mconcatMap f xs
+        ]
 
 tmpl2rst :: TemplateDoc -> RenderOut
 tmpl2rst TemplateDoc{..} = mconcat $
@@ -91,7 +75,7 @@ tmpl2rst TemplateDoc{..} = mconcat $
   , renderLineDep $ \env -> T.concat
       [ "template "
       , maybe "" ((<> " => ") . type2rst env) td_super
-      , T.unwords (enclosedIn "**" (unTypename td_name) : td_args)
+      , T.unwords (bold (unTypename td_name) : td_args)
       ]
   , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) td_descr
   , renderLine ""
@@ -99,9 +83,20 @@ tmpl2rst TemplateDoc{..} = mconcat $
   , renderLine ""
   ] ++ map (renderIndent 2 . choiceBullet) td_choices
 
+renderTemplateInstanceDocAsRst :: TemplateInstanceDoc -> RenderOut
+renderTemplateInstanceDocAsRst TemplateInstanceDoc{..} = mconcat
+    [ renderAnchor ti_anchor
+    , renderLinesDep $ \env ->
+        [ "template instance " <> bold (unTypename ti_name)
+        , "    = " <> type2rst env ti_rhs
+        , ""
+        ]
+    , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ti_descr
+    ]
+
 choiceBullet :: ChoiceDoc -> RenderOut
 choiceBullet ChoiceDoc{..} = mconcat
-  [ renderLine $ prefix "+ " $ enclosedIn "**" $ "Choice " <> unTypename cd_name
+  [ renderLine $ prefix "+ " $ bold $ "Choice " <> unTypename cd_name
   , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cd_descr
   , renderIndent 2 (fieldTable cd_fields)
   ]
@@ -110,7 +105,8 @@ cls2rst ::  ClassDoc -> RenderOut
 cls2rst ClassDoc{..} = mconcat
     [ renderAnchor cl_anchor
     , renderLineDep $ \env ->
-        "class " <> maybe "" (\x -> type2rst env x <> " => ") cl_super <> "**" <> T.unwords (unTypename cl_name : cl_args) <> "** where"
+        "class " <> maybe "" (\x -> type2rst env x <> " => ") cl_super <>
+        bold (T.unwords (unTypename cl_name : cl_args)) <> " where"
     , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cl_descr
     , mconcat $ map (renderIndent 2 . fct2rst) cl_functions
     ]
@@ -119,7 +115,7 @@ adt2rst :: ADTDoc -> RenderOut
 adt2rst TypeSynDoc{..} = mconcat
     [ renderAnchor ad_anchor
     , renderLinesDep $ \env ->
-        [ "type " <> enclosedIn "**"
+        [ "type " <> bold
             (T.unwords (unTypename ad_name : ad_args))
         , "    = " <> type2rst env ad_rhs
         , ""
@@ -129,7 +125,7 @@ adt2rst TypeSynDoc{..} = mconcat
 adt2rst ADTDoc{..} = mconcat $
     [ renderAnchor ad_anchor
     , renderLines
-        [ "data " <> enclosedIn "**" (T.unwords (unTypename ad_name : ad_args))
+        [ "data " <> bold (T.unwords (unTypename ad_name : ad_args))
         , "" ]
     , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
     ] ++ map (renderIndent 2 . (renderLine "" <>) . constr2rst) ad_constrs
@@ -139,7 +135,7 @@ constr2rst ::  ADTConstr -> RenderOut
 constr2rst PrefixC{..} = mconcat
     [ renderAnchor ac_anchor
     , renderLineDep $ \env ->
-        T.unwords (enclosedIn "**" (unTypename ac_name) : map (type2rst env) ac_args)
+        T.unwords (bold (unTypename ac_name) : map (type2rst env) ac_args)
             -- FIXME: Parentheses around args seems necessary here
             -- if they are type application or function (see type2rst).
     , maybe mempty ((renderLine "" <>) . renderDocText) ac_descr
@@ -147,7 +143,7 @@ constr2rst PrefixC{..} = mconcat
 
 constr2rst RecordC{..} = mconcat
     [ renderAnchor ac_anchor
-    , renderLine $ enclosedIn "**" (unTypename ac_name)
+    , renderLine $ bold (unTypename ac_name)
     , renderLine ""
     , maybe mempty renderDocText ac_descr
     , renderLine ""
@@ -221,7 +217,7 @@ fct2rst :: FunctionDoc -> RenderOut
 fct2rst FunctionDoc{..} = mconcat
     [ renderAnchor fct_anchor
     , renderLinesDep $ \ env ->
-        [ enclosedIn "**" (wrapOp (unFieldname fct_name))
+        [ bold (wrapOp (unFieldname fct_name))
         , T.concat
             [ "  : "
             , maybe "" ((<> " => ") . type2rst env) fct_context

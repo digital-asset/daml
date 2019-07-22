@@ -67,16 +67,23 @@ mkDocs opts fp = do
                     case stripInstanceSuffix (cl_name classDoc) of
                         Nothing -> Left classDoc
                         Just templateName -> Right (templateName, classDoc)
-            templateInstanceMap = MS.fromList templateInstanceClasses
+            templateInstanceClassMap = MS.fromList templateInstanceClasses
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc dc_tcmod
-            md_templates = getTemplateDocs ctx typeMap templateInstanceMap
+            md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
-            md_adts
+
+            filteredAdts -- all ADT docs without templates or choices
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
-                $ dc_templates : MS.keysSet dc_templateInstances : MS.elems dc_choices
+                $ dc_templates : MS.elems dc_choices
+
+            (md_adts, md_templateInstances) =
+                partitionEithers . flip map filteredAdts $ \adt ->
+                    case getTemplateInstanceDoc adt of
+                        Nothing -> Left adt
+                        Just ti -> Right ti
 
         in ModuleDoc {..}
 
@@ -143,10 +150,6 @@ data DocCtx = DocCtx
     , dc_templates :: Set.Set Typename
     , dc_choices :: MS.Map Typename (Set.Set Typename)
         -- ^ choices per template
-    , dc_templateInstances :: MS.Map Typename Typename
-        -- ^ maps template instance name to generic template name
-        -- (note that the generic template may be in a different module,
-        -- so one should not rely on it being in dc_templates)
     }
 
 -- | Parsed declaration with associated docs.
@@ -161,7 +164,7 @@ buildDocCtx dc_tcmod  =
       dc_decls
           = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
           . pm_parsed_source . tm_parsed_module $ dc_tcmod
-      (dc_templates, dc_choices, dc_templateInstances)
+      (dc_templates, dc_choices)
           = getTemplateData . tm_parsed_module $ dc_tcmod
 
       tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
@@ -388,19 +391,45 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                       [] -> [] -- catching the dummy case here, see above
                       _other -> error "getFields: found multiple constructors"
 
+-- | As per issue #2239, a template instance is desugared into a
+-- newtype with a docs marker. For example,
+--
+-- @template instance ProposalIou = Proposal Iou@
+--
+-- becomes
+--
+-- @newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou -- ^ TEMPLATE_INSTANCE@
+--
+-- So the goal of this function is to extract the template instance doc
+-- from the newtype doc if it exists.
+--
+-- The TEMPLATE_INSTANCE doc marker used here does not exist yet.
+-- (See issue #2239 in the daml repo for an up to date status.)
+getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
+getTemplateInstanceDoc adt
+    | ADTDoc{..} <- adt
+    , [RecordC{..}] <- ad_constrs
+    , [FieldDoc{..}] <- ac_fields
+    , Just (DocText "TEMPLATE_INSTANCE") <- fd_descr
+    = Just TemplateInstanceDoc
+        { ti_name = ad_name
+        , ti_anchor = ad_anchor
+        , ti_descr = ad_descr
+        , ti_rhs = fd_type
+        }
+
+    | otherwise
+    = Nothing
 
 
 -- recognising Template and Choice instances
 
 
--- | Extracts all names of templates defined in a module, a map of template names
--- to its set of choices, and a map of template instance names to generic template
--- names for all template instances defined in the module (note, the generic template
--- need not be defined in the same module).
+-- | Extracts all names of templates defined in a module,
+-- and a map of template names to its set of choices
 getTemplateData :: ParsedModule ->
     ( Set.Set Typename
-    , MS.Map Typename (Set.Set Typename)
-    , MS.Map Typename Typename )
+    , MS.Map Typename (Set.Set Typename) )
 getTemplateData ParsedModule{..} =
   let
     instDs    = mapMaybe (isInstDecl . unLoc) . hsmodDecls . unLoc $ pm_parsed_source
@@ -408,9 +437,8 @@ getTemplateData ParsedModule{..} =
     choiceMap = MS.fromListWith (<>) $
                 map (second Set.singleton) $
                 mapMaybe isChoice instDs
-    instanceMap = MS.fromList $ mapMaybe isTemplateInstance instDs
   in
-    (Set.fromList templates, choiceMap, instanceMap)
+    (Set.fromList templates, choiceMap)
     where
       isInstDecl (InstD _ (ClsInstD _ i)) = Just i
       isInstDecl _ = Nothing
@@ -447,23 +475,6 @@ isChoice ClsInstDecl{..}
   , toText choiceClass == "DA.Internal.Desugar.Choice"
   || toText choiceClass == "Choice" -- temporary for generic templates
   = Just (Typename . packRdrName $ tmplName, Typename . packRdrName $ choiceName)
-
-  | otherwise = Nothing
-
--- | Is this a "template instance" instance declaration? If so,
--- we want to hold on to the typename of the template instance,
--- so return that, and the corresponding template name.
---
--- Returns @(templateInstanceName, genericTemplateName)@ on success.
-isTemplateInstance :: ClsInstDecl GhcPs -> Maybe (Typename, Typename)
-isTemplateInstance (XClsInstDecl _) = Nothing
-isTemplateInstance ClsInstDecl{..}
-  | L _ ty <- getLHsInstDeclHead cid_poly_ty
-  , HsAppTy _ (L _ t1) t2 <- ty
-  , HsTyVar _ _ (L _ className) <- t1
-  , Just (L _ instanceName) <- hsTyGetAppHead_maybe t2
-  , Just genericName <- stripInstanceSuffix (Typename . packRdrName $ className)
-  = Just (Typename . packRdrName $ instanceName, genericName)
 
   | otherwise = Nothing
 

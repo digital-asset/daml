@@ -77,7 +77,7 @@ instance IouInstance where
 
 
 -- The instantiation of the generic proposal workflow for `Iou`.
-newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou
+newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou -- ^ TEMPLATE_INSTANCE
 
 instance ProposalInstance Iou where
 
