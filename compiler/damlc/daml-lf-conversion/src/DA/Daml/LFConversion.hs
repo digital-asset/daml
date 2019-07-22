@@ -609,7 +609,7 @@ convertBind2 env (NonRec name x)
     = pure []
     -- NOTE(MH): Desugaring `template X` will result in a type class
     -- `XInstance` which has methods `_createX`, `_fetchX`, `_exerciseXY`,
-    -- `fetchByKeyX` and `lokkupByKeyX`
+    -- `_fetchByKeyX` and `_lookupByKeyX`
     -- (among others). The implementations of these methods are replaced
     -- with DAML-LF primitives in `convertGenericChoice` below. As part of
     -- this rewriting we also need to erase the default implementations of
