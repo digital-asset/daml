@@ -129,6 +129,7 @@ lfVersionOpt = option (str >>= select) $
     <> help ("DAML-LF version to output: " ++ versionsStr)
     <> long "target"
     <> value LF.versionDefault
+    <> internal
   where
     renderVersion v =
       let def = if v == LF.versionDefault then " (default)" else ""
