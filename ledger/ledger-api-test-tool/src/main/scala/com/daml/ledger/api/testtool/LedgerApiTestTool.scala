@@ -13,6 +13,7 @@ import com.digitalasset.platform.semantictest.SandboxSemanticTestsLfRunner
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.platform.testing.LedgerBackend
 import com.digitalasset.platform.tests.integration.ledger.api.commands.{
+  CommandServiceIT,
   CommandSubmissionTtlIT,
   CommandTransactionChecksHighLevelIT,
   CommandTransactionChecksLowLevelIT
@@ -260,6 +261,20 @@ object LedgerApiTestTool {
       }
     )
 
+    val commandServiceIT = lazyInit(
+      "CommandServiceIT",
+      name =>
+        new CommandServiceIT {
+          override def suiteName: String = name
+          override protected def actorSystemName: String = s"${name}ToolActorSystem"
+          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
+            Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
     val activeContractsServiceIT = lazyInit(
       "ActiveContractsServiceIT",
       name =>
@@ -297,6 +312,7 @@ object LedgerApiTestTool {
       packageManagementServiceIT,
       partyManagementServiceIT,
       commandSubmissionTtlIT,
+      commandServiceIT,
       activeContractsServiceIT,
       witnessesIT
     )
