@@ -73,6 +73,7 @@ mkDocs opts fp = do
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc dc_tcmod
             md_templates = getTemplateDocs ctx typeMap templateInstanceMap
+            md_templateInstances = []
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_adts
                 = MS.elems . MS.withoutKeys typeMap . Set.unions

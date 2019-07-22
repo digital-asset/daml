@@ -30,40 +30,41 @@ mkTestTree = do
 
 cases :: [(String, ModuleDoc)]
 cases = [ ("Empty module",
-           ModuleDoc Nothing "Empty" Nothing [] [] [] [])
+           ModuleDoc Nothing "Empty" Nothing [] [] [] [] [])
         , ("Type def with argument",
-           ModuleDoc (Just "module-typedef") "Typedef" Nothing []
+           ModuleDoc (Just "module-typedef") "Typedef" Nothing [] []
             [TypeSynDoc (Just "type-typedef-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [TypeApp Nothing "TTT" []])]
             [] []
           )
         , ("Two types",
-           ModuleDoc (Just "module-twotypes") "TwoTypes" Nothing []
+           ModuleDoc (Just "module-twotypes") "TwoTypes" Nothing [] []
             [ TypeSynDoc (Just "type-twotypes-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [])
             , ADTDoc (Just "data-twotypes-d") "D" Nothing ["d"] [PrefixC (Just "constr-twotypes-d") "D" (Just "D descr") [TypeApp Nothing "a" []]]
             ]
             [] []
           )
         , ("Documented function with type",
-           ModuleDoc (Just "module-function1") "Function1" Nothing [] []
+           ModuleDoc (Just "module-function1") "Function1" Nothing [] [] []
             [FunctionDoc (Just "function-function1-f") "f" Nothing (Just $ TypeApp Nothing "TheType" []) (Just "the doc")] []
           )
         , ("Documented function without type",
-           ModuleDoc (Just "module-function2") "Function2" Nothing [] []
+           ModuleDoc (Just "module-function2") "Function2" Nothing [] [] []
             [FunctionDoc (Just "function-function2-f") "f" Nothing Nothing (Just "the doc")] []
           )
         , ("Undocumented function with type",
-           ModuleDoc (Just "module-function3") "Function3" Nothing [] []
+           ModuleDoc (Just "module-function3") "Function3" Nothing [] [] []
             [FunctionDoc (Just "function-function3-f") "f" Nothing (Just $ TypeApp Nothing "TheType" []) Nothing] []
           )
         -- The doc extraction won't generate functions without type nor description
         , ("Module with only a type class",
-           ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] []
+           ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] [] []
             [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (Just (TypeApp Nothing "a" [])) Nothing]])
         , ("Multiline field description",
            ModuleDoc
              (Just "module-multilinefield")
              "MultiLineField"
              Nothing
+             []
              []
              [ADTDoc
                 (Just "data-multilinefield-d")
