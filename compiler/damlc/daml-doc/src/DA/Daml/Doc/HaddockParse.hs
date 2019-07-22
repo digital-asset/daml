@@ -67,13 +67,13 @@ mkDocs opts fp = do
                     case stripInstanceSuffix (cl_name classDoc) of
                         Nothing -> Left classDoc
                         Just templateName -> Right (templateName, classDoc)
-            templateInstanceMap = MS.fromList templateInstanceClasses
+            templateInstanceClassMap = MS.fromList templateInstanceClasses
 
             md_name = dc_modname
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc dc_tcmod
-            md_templates = getTemplateDocs ctx typeMap templateInstanceMap
-            md_templateInstances = []
+            md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
+            md_templateInstances = getTemplateInstanceDocs ctx typeMap
             md_functions = mapMaybe (getFctDocs ctx) dc_decls
             md_adts
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
@@ -389,6 +389,26 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                       [] -> [] -- catching the dummy case here, see above
                       _other -> error "getFields: found multiple constructors"
 
+-- | Compile template instances docs.
+getTemplateInstanceDocs ::
+    DocCtx
+    -> MS.Map Typename ADTDoc -- ^ map of types defined in this module
+    -> [TemplateInstanceDoc]
+getTemplateInstanceDocs DocCtx{..} typeMap =
+    mapMaybe mkTemplateInstanceDoc (MS.keys dc_templateInstances)
+  where
+    mkTemplateInstanceDoc :: Typename -> Maybe TemplateInstanceDoc
+    mkTemplateInstanceDoc ti_name = do
+        ADTDoc{..} <- MS.lookup ti_name typeMap
+        case ad_constrs of
+            [RecordC{ac_fields=[FieldDoc{..}], ..}] -> do
+                let ti_anchor = ad_anchor
+                    ti_descr = ad_descr
+                    ti_rhs = fd_type
+                Just TemplateInstanceDoc {..}
+
+            _ ->
+                Nothing
 
 
 -- recognising Template and Choice instances

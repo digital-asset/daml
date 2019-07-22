@@ -76,6 +76,7 @@ data TemplateDoc = TemplateDoc
 data TemplateInstanceDoc = TemplateInstanceDoc
     { ti_anchor :: Maybe Anchor
     , ti_name :: Typename
+    , ti_descr :: Maybe DocText
     , ti_rhs :: Type
     } deriving (Eq, Show, Generic)
 
