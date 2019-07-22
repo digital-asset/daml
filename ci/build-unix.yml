@@ -3,6 +3,28 @@ parameters:
 
 steps:
   - checkout: self
+  - bash: |
+       set -euo pipefail
+       if [[ ! -e /nix ]]; then
+         echo "Installing Nix"
+         sudo mkdir -m 0755 /nix
+         sudo chown "$(id -u):$(id -g)" /nix
+         # 2.2.2 seems to segfault on MacOS in CI so for now we use 2.2.1.
+         curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
+       fi
+       source dev-env/lib/ensure-nix
+
+       export NIX_CONF_DIR=$PWD/dev-env/etc
+       CACHE_KEY="$(nix-instantiate --quiet nix -A tools -A cached)"
+       # Strip newlines and spaces to avoid Azure interpreting it as files.
+       CACHE_KEY="$(echo $CACHE_KEY | sed 's/\s//g')"
+       echo "##vso[task.setvariable variable=CACHE_KEY]$CACHE_KEY"
+
+  - task: CacheBeta@0
+    inputs:
+      key: $(CACHE_KEY)
+      path: /nix/store
+    displayName: Cache nix store
 
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
