@@ -57,6 +57,14 @@ renderSimpleRst ModuleDoc{..} = mconcat $
               , "^^^^^^^^^" ]
          , mconcat $ map tmpl2rst md_templates
          ]
+  , if null md_templateInstances
+    then []
+    else [ renderLines
+              [ ""
+              , "Template Instances"
+              , "^^^^^^^^^^^^^^^^^^" ]
+         , mconcat $ map renderTemplateInstanceDocAsRst md_templateInstances
+         ]
   , if null md_classes
     then []
     else [ renderLines
@@ -98,6 +106,17 @@ tmpl2rst TemplateDoc{..} = mconcat $
   , renderIndent 2 (fieldTable td_payload)
   , renderLine ""
   ] ++ map (renderIndent 2 . choiceBullet) td_choices
+
+renderTemplateInstanceDocAsRst :: TemplateInstanceDoc -> RenderOut
+renderTemplateInstanceDocAsRst TemplateInstanceDoc{..} = mconcat $
+    [ renderAnchor ti_anchor
+    , renderLinesDep $ \env ->
+        [ "template instance " <> enclosedIn "**" (unTypename ti_name)
+        , "    = " <> type2rst env ti_rhs
+        , ""
+        ]
+    , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ti_descr
+    ]
 
 choiceBullet :: ChoiceDoc -> RenderOut
 choiceBullet ChoiceDoc{..} = mconcat
