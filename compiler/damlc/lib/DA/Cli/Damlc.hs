@@ -824,6 +824,7 @@ execMergeDars darFp1 darFp2 mbOutFp = do
     let merged =
             Archive
                 (nubSortOn eRelativePath $ mf : zEntries dar1 ++ zEntries dar2)
+                -- nubSortOn keeps the first occurence
                 Nothing
                 BSL.empty
     BSL.writeFile outFp $ fromArchive merged
