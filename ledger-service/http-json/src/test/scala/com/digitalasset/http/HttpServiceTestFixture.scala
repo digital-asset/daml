@@ -14,6 +14,12 @@ import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.TestUtil.findOpenPort
 import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+import com.digitalasset.ledger.client.LedgerClient
+import com.digitalasset.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+  LedgerIdRequirement
+}
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.SandboxServer
 import com.digitalasset.platform.sandbox.config.SandboxConfig
@@ -58,12 +64,49 @@ object HttpServiceTestFixture {
     fa
   }
 
+  def withLedger[A](dar: File, testName: String)(testFn: LedgerClient => Future[A])(
+      implicit aesf: ExecutionSequencerFactory,
+      ec: ExecutionContext): Future[A] = {
+
+    val ledgerId = LedgerId(testName)
+    val applicationId = ApplicationId(testName)
+
+    val ledgerF: Future[(SandboxServer, Int)] = for {
+      port <- toFuture(findOpenPort())
+      ledger <- Future(SandboxServer(ledgerConfig(port, dar, ledgerId)))
+    } yield (ledger, port)
+
+    val clientF: Future[LedgerClient] = for {
+      (_, ledgerPort) <- ledgerF
+      client <- LedgerClient.singleHost("localhost", ledgerPort, clientConfig(applicationId))
+    } yield client
+
+    val fa: Future[A] = for {
+      client <- clientF
+      a <- testFn(client)
+    } yield a
+
+    fa.onComplete { _ =>
+      ledgerF.foreach(_._1.close())
+    }
+
+    fa
+  }
+
   private def ledgerConfig(ledgerPort: Int, dar: File, ledgerId: LedgerId): SandboxConfig =
     SandboxConfig.default.copy(
       port = ledgerPort,
       damlPackages = List(dar),
       timeProviderType = TimeProviderType.WallClock,
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
+    )
+
+  private def clientConfig[A](applicationId: ApplicationId): LedgerClientConfiguration =
+    LedgerClientConfiguration(
+      applicationId = ApplicationId.unwrap(applicationId),
+      ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
+      commandClient = CommandClientConfiguration.default,
+      sslContext = None
     )
 
   private def stripLeft(fa: Future[HttpService.Error \/ ServerBinding])(

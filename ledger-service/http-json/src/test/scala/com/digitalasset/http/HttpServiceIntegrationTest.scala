@@ -5,14 +5,25 @@ package com.digitalasset.http
 
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{HttpRequest, HttpResponse, StatusCodes, Uri}
+import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.util.ByteString
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.http.HttpServiceTestFixture.withHttpService
+import com.digitalasset.http.HttpServiceTestFixture.{withHttpService, withLedger}
+import com.digitalasset.http.json.SprayJson
+import com.digitalasset.http.util.FutureUtil.{stripLeft, toFuture}
 import com.digitalasset.http.util.TestUtil.requiredFile
+import com.digitalasset.http.util.{ApiValueToLfValueConverter, DamlLfIdentifiers, LedgerIds}
+import com.digitalasset.ledger.api.v1.{value => v}
+import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
+//import com.digitalasset.ledger.service.LedgerReader.PackageStore
+//import scalaz.{\/, \/-}
+//import com.digitalasset.ledger.api.{v1 => lav1}
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import org.scalatest._
+import scalaz.std.string._
+import scalaz.syntax.traverse._
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -52,6 +63,101 @@ class HttpServiceIntegrationTest
           }
         }
     }: Future[Assertion]
+  }
+
+  "Should be able to serialize and deserialize domain.CreateCommand" in withLedger(dar, testId) {
+    client =>
+      {
+        import json.JsonProtocol._
+
+        val templateId: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+
+        val args: domain.Record[v.Value] = List(
+          ("issuer", v.Value(v.Value.Sum.Party("Alice"))),
+          ("owner", v.Value(v.Value.Sum.Party("Alice"))),
+          ("currency", v.Value(v.Value.Sum.Text("USD"))),
+          ("amount", v.Value(v.Value.Sum.Decimal("999.99"))),
+          ("observers", v.Value(v.Value.Sum.List(v.List())))
+        )
+
+        val ledgerId: lar.LedgerId = LedgerIds.convertLedgerId(client.ledgerId)
+        val command0: domain.CreateCommand[v.Value] =
+          domain.CreateCommand(templateId, Some(args), None)
+
+        println(s"------------------ command0: $command0")
+
+        for {
+          packageStore <- stripLeft(LedgerReader.createPackageStore(client.packageClient))
+
+          templateIdMap = PackageService.getTemplateIdMap(packageStore)
+
+          templateId <- toFuture(
+            PackageService.resolveTemplateId(templateIdMap)(command0.templateId))
+
+          damlLfId = DamlLfIdentifiers.damlLfIdentifier(templateId)
+
+          valueWriter = json.JsonProtocol.valueWriter(
+            ApiValueToLfValueConverter
+              .apiValueToLfValue(ledgerId, packageStore)): RootJsonWriter[v.Value]
+
+          command1 = command0.map(_.toJson(valueWriter)): domain.CreateCommand[JsValue]
+
+          _ = println(s"------------------ command1: $command1")
+
+          jsValue = command1.toJson: JsValue
+
+          _ = println(s"------------------ jsValue: ${jsValue.prettyPrint}")
+
+          command2 <- toFuture(SprayJson.parse[domain.CreateCommand[JsValue]](jsValue)): Future[
+            domain.CreateCommand[JsValue]]
+
+          _ = println(s"------------------ command2: $command2")
+
+          _ <- Future(command1 shouldBe command2)
+
+          command3 <- toFuture(
+            Endpoints.parseValue(
+              PackageService.resolveTemplateId(templateIdMap),
+              LedgerReader.damlLfTypeLookup(packageStore))(command2))
+
+          _ = println(s"------------------ command3: $command3")
+
+        } yield command3 shouldBe command0
+      }: Future[Assertion]
+  }
+
+  "command/create IOU" ignore withHttpService(dar, testId) { uri: Uri =>
+    val templateId: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+
+    val args: domain.Record[v.Value] = List(
+      ("issuer", v.Value(v.Value.Sum.Party("Alice"))),
+      ("owner", v.Value(v.Value.Sum.Party("Alice"))),
+      ("currency", v.Value(v.Value.Sum.Text("USD"))),
+      ("amount", v.Value(v.Value.Sum.Decimal("999.99"))),
+      ("observers", v.Value(v.Value.Sum.List(v.List())))
+    )
+
+    val command: domain.CreateCommand[v.Value] = domain.CreateCommand(templateId, Some(args), None)
+
+    Http()
+      .singleRequest(
+        HttpRequest(method = HttpMethods.POST, uri = uri.withPath(Uri.Path("/command/create"))))
+      .flatMap { resp =>
+        resp.status shouldBe StatusCodes.OK
+        val bodyF: Future[ByteString] = getResponseDataBytes(resp)
+        bodyF.flatMap { body =>
+          val jsonAst: JsValue = body.utf8String.parseJson
+          inside(jsonAst) {
+            case JsObject(fields) =>
+              inside(fields.get("status")) {
+                case Some(JsNumber(status)) => status shouldBe BigDecimal("200")
+              }
+              inside(fields.get("result")) {
+                case Some(JsString(result)) => result.length should be > 0
+              }
+          }
+        }
+      }: Future[Assertion]
   }
 
   "request non-existent endpoint should return 404 with no data" in withHttpService(dar, testId) {

@@ -14,14 +14,13 @@ import com.digitalasset.http.json.HttpCodec._
 import com.digitalasset.http.json.JsValueToApiValueConverter
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.parse
-import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.http.util.DamlLfIdentifiers.damlLfIdentifier
+import com.digitalasset.http.util.{ApiValueToLfValueConverter, DamlLfIdentifiers}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, @@, Traverse, \/, \/-}
+import scalaz.{-\/, @@, Show, Traverse, \/, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -61,7 +60,7 @@ class Endpoints(
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
       httpResponse(
         parseInput[domain.CreateCommand[JsValue]](req)
-          .map(x => x.flatMap(parseValue[domain.CreateCommand]))
+          .map(x => x.flatMap(parseValue[domain.CreateCommand](resolveTemplateId, lfTypeLookup)))
           .mapAsync(parallelism) {
             case -\/(e) =>
               Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
@@ -76,7 +75,7 @@ class Endpoints(
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
       httpResponse(
         parseInput[domain.ExerciseCommand[JsValue]](req)
-          .map(x => x.flatMap(parseValue[domain.ExerciseCommand]))
+          .map(x => x.flatMap(parseValue[domain.ExerciseCommand](resolveTemplateId, lfTypeLookup)))
           .mapAsync(parallelism) {
             case -\/(e) =>
               Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
@@ -87,30 +86,6 @@ class Endpoints(
             format(resultJsObject(as.map(toJsValue): List[domain.ActiveContract[JsValue]]))
           }
       )
-  }
-
-  private def parseInput[A: JsonReader](req: HttpRequest): Source[InvalidUserInput \/ A, _] =
-    req.entity.dataBytes
-      .fold(ByteString.empty)(_ ++ _)
-      .map(data => parse[A](data).leftMap(e => InvalidUserInput(e.shows)))
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def parseValue[F[_]: Traverse: HasTemplateId](
-      fa: F[JsValue]): Error \/ F[lav1.value.Value] =
-    for {
-      templateId <- lookupTemplateId(fa)
-      damlLfId = damlLfIdentifier(templateId)
-      apiValue <- fa.traverse(
-        jsValue =>
-          JsValueToApiValueConverter
-            .jsValueToApiValue(damlLfId, lfTypeLookup)(jsValue)
-            .leftMap(e => InvalidUserInput(e.shows)))
-    } yield apiValue
-
-  private def lookupTemplateId[F[_]: HasTemplateId](fa: F[_]): Error \/ lar.TemplateId = {
-    val H: HasTemplateId[F] = implicitly
-    val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
-    resolveTemplateId(templateId).leftMap(e => ServerError(e.shows))
   }
 
   private def toJsValue(
@@ -234,4 +209,43 @@ object Endpoints {
   final case class InvalidUserInput(message: String) extends Error(message)
 
   final case class ServerError(message: String) extends Error(message)
+
+  object Error {
+    implicit val ShowInstance: Show[Error] = new Show[Error] {
+      override def shows(f: Error): String = f match {
+        case InvalidUserInput(message) => s"InvalidUserInput: ${message: String}"
+        case ServerError(message) => s"ServerError: ${message: String}"
+      }
+    }
+  }
+
+  private[http] def parseInput[A: JsonReader](req: HttpRequest): Source[InvalidUserInput \/ A, _] =
+    req.entity.dataBytes
+      .fold(ByteString.empty)(_ ++ _)
+      .map(data => parse[A](data).leftMap(e => InvalidUserInput(e.shows)))
+
+  /**
+    * Parse underlying value
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private[http] def parseValue[F[_]: Traverse: domain.HasTemplateId](
+      resolveTemplateId: Services.ResolveTemplateId,
+      lfTypeLookup: JsValueToApiValueConverter.LfTypeLookup)(
+      fa: F[JsValue]): Error \/ F[lav1.value.Value] =
+    for {
+      templateId <- lookupTemplateId(resolveTemplateId)(fa)
+      damlLfId = DamlLfIdentifiers.damlLfIdentifier(templateId)
+      apiValue <- fa.traverse(
+        jsValue =>
+          JsValueToApiValueConverter
+            .jsValueToApiValue(damlLfId, lfTypeLookup)(jsValue)
+            .leftMap(e => InvalidUserInput(e.shows)))
+    } yield apiValue
+
+  private[http] def lookupTemplateId[F[_]: domain.HasTemplateId](
+      resolveTemplateId: Services.ResolveTemplateId)(fa: F[_]): Error \/ lar.TemplateId = {
+    val H: HasTemplateId[F] = implicitly
+    val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
+    resolveTemplateId(templateId).leftMap(e => ServerError(e.shows))
+  }
 }

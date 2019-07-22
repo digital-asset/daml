@@ -12,7 +12,9 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil._
+import com.digitalasset.http.util.LedgerIds.convertLedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -23,7 +25,6 @@ import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 import scalaz._
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.{util => u}
@@ -97,9 +98,6 @@ object HttpService extends StrictLogging {
   }
 
   private def httpServiceError(e: String): Error = Error(e)
-
-  private def convertLedgerId(a: com.digitalasset.ledger.api.domain.LedgerId) =
-    lar.LedgerId(com.digitalasset.ledger.api.domain.LedgerId.unwrap(a))
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")
