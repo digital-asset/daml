@@ -8,7 +8,7 @@ module DA.Daml.Compiler.Upgrade
     , generateGenInstancesModule
     , generateSrcFromLf
     , generateSrcPkgFromLf
-    , DontQualify(..)
+    , Qualify(..)
     ) where
 
 import "ghc-lib-parser" BasicTypes
@@ -125,7 +125,7 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
         ( fp
         , unlines (header mod) ++
           (showSDocForUser fakeDynFlags alwaysQualify $
-           ppr $ generateSrcFromLf (DontQualify False) thisPkgId pkgMap mod) ++
+           ppr $ generateSrcFromLf (Qualify True) thisPkgId pkgMap mod) ++
           unlines (builtins mod))
   where
     modName = LF.unModuleName . LF.moduleName
@@ -141,11 +141,11 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
     -- IMPORTANT
     -- =========
     --
-    -- The following are datatypes that are not compiled to daml-lf, they will not show up in any
-    -- daml-lf package and can hence not be recovered. They are however needed to generate interface
-    -- files. If you delete any of the following definitions in GHC.Types, DA.Internal.LF or
-    -- DA.Internal.Template we loose the ability to regenerate interface files from dalfs and we
-    -- can't produce upgrades anymore.
+    -- The following are datatypes that are not compiled to daml-lf because they are builtin into
+    -- the compiler. They will not show up in any daml-lf package and can hence not be recovered.
+    -- They are however needed to generate interface files. Be very careful if you need to delete or
+    -- change any of the following data types and make sure that upgrades still work. Generally,
+    -- this should be unproblematic as long as the exported API of these files doesn't change.
     builtins m
         | LF.unModuleName (LF.moduleName m) == ["DA", "Internal", "LF"] =
             [ ""
@@ -193,16 +193,16 @@ generateSrcPkgFromLf thisPkgId pkgMap pkg = do
             ]
         | otherwise = []
 
-newtype DontQualify = DontQualify Bool
+newtype Qualify = Qualify Bool
 
 -- | Extract all data defintions from a daml-lf module and generate a haskell source file from it.
 generateSrcFromLf ::
-       DontQualify
+       Qualify
     -> LF.PackageId
     -> MS.Map GHC.UnitId LF.PackageId
     -> LF.Module
     -> ParsedSource
-generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
+generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
   where
     pkgMapInv = MS.fromList $ map swap $ MS.toList pkgMap
     getUnitId :: LF.PackageRef -> UnitId
@@ -248,7 +248,7 @@ generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
     decls =
         concat $ do
             LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
-            guard $ not $ isTypeClass dataCons
+            guard $ LF.getIsSerializable dataSerializable
             let numberOfNameComponents = length (LF.unTypeConName dataTypeCon)
             -- we should never encounter more than two name components in dalfs.
             unless (numberOfNameComponents <= 2) $
@@ -376,18 +376,6 @@ generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
                             }
             let templateDataCons = NM.names $ LF.moduleTemplates m
             pure $ dataDecl : [templInstDecl | dataTypeCon `elem` templateDataCons]
-    isTypeClass :: LF.DataCons -> Bool
-    isTypeClass =
-        \case
-            LF.DataRecord fields ->
-                not $
-                null $
-                catMaybes
-                    [ T.stripPrefix "_" $ LF.unFieldName fieldName
-                    | (fieldName, _ty) <- fields
-                    ]
-            LF.DataVariant _cons -> False
-            LF.DataEnum _cons -> False
     convDataCons :: T.Text -> LF.DataCons -> [LConDecl GhcPs]
     convDataCons dataTypeCon0 =
         \case
@@ -564,14 +552,14 @@ generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
         noLoc .
         mkOrig (mkModule damlStdlibUnitId $ mkModuleName "DA.Internal.Prelude") .
         mkOccName varName
-    mkTyConType = mkTyConType' dontQualify
-    mkTyConTypeUnqual = mkTyConType' True
+    mkTyConType = mkTyConType' qualify
+    mkTyConTypeUnqual = mkTyConType' False
     mkTyConType' :: Bool -> TyCon -> HsType GhcPs
-    mkTyConType' dontQualify tyCon
-        | dontQualify = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
-        | otherwise =
+    mkTyConType' qualify tyCon
+        | qualify =
             HsTyVar noExt NotPromoted . noLoc $
             mkRdrQual (moduleName $ nameModule name) (occName name)
+        | otherwise = HsTyVar noExt NotPromoted . noLoc $ mkRdrUnqual (occName name)
       where
         name = getName tyCon
     imports = declImports ++ additionalImports
@@ -625,8 +613,7 @@ generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
             , ideclHiding = Nothing
             } :: LImportDecl GhcPs
         | (_unitId, modRef) <- modRefs
-        , modRef /= LF.moduleName m
-        , LF.unModuleName modRef /= ["GHC", "Prim"]
+        , modRef `notElem` [LF.moduleName m, LF.ModuleName ["GHC", "Prim"]]
         ]
     modRefs =
         nubSort $
@@ -636,10 +623,7 @@ generateSrcFromLf (DontQualify dontQualify) thisPkgId pkgMap m = noLoc mod
         (map builtinToModuleRef $
          concat $ do
              dataTy <- NM.toList $ LF.moduleDataTypes m
-             case LF.dataCons dataTy of
-                 LF.DataRecord fs -> map (toListOf builtinType . snd) fs
-                 LF.DataVariant vs -> map (toListOf builtinType . snd) vs
-                 LF.DataEnum _es -> pure [])
+             pure $ toListOf (dataConsType . builtinType) $ LF.dataCons dataTy)
     builtinToModuleRef = \case
             LF.BTInt64 -> (primUnitId, translateModName intTyCon)
             LF.BTDecimal -> (primUnitId, LF.ModuleName ["GHC", "Types"])

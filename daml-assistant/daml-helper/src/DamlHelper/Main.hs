@@ -68,7 +68,7 @@ commandParser =
               ]
           migrateCmd =  Migrate
                   <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-                  <*> argument str (metavar "MAIN" <> help "Path to the main daml file within the project")
+                  <*> argument str (metavar "SOURCE" <> help "Path to the main source file ('source' entry of the project configuration files of the input projects).")
                   <*> argument str (metavar "FROM_PATH" <> help "Path to the dar-package from which to migrate from")
                   <*> argument str (metavar "TO_PATH" <> help "Path to the dar-package to which to migrate to")
           initCmd = Init <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
