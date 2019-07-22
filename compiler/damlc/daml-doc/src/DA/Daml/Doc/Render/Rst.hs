@@ -53,7 +53,6 @@ renderSimpleRst ModuleDoc{..} = mconcat $
     , section "Typeclasses" cls2rst md_classes
     , section "Data types" adt2rst md_adts
     , section "Functions" fct2rst md_functions
-    , renderLine ""
     ]
 
   where
