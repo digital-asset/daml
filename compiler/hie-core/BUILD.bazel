@@ -114,4 +114,4 @@ da_haskell_binary(
     deps = [
         "hie-core-public",
     ],
-) if not is_windows else None  # Disable on Windows until ghc-paths is fixed upstream
+)
