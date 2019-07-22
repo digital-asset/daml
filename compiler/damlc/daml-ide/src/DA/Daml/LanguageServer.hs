@@ -50,6 +50,24 @@ setHandlersKeepAlive = PartialHandlers $ \WithMessage{..} x -> return x
             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
     }
 
+setIgnoreOptionalHandlers :: PartialHandlers
+setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
+    {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
+         case _method of
+             CustomClientMethod s
+               | optionalPrefix `T.isPrefixOf` s -> pure ()
+             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
+    ,LSP.customNotificationHandler = Just $ \msg@NotificationMessage{_method} ->
+         case _method of
+             CustomClientMethod s
+               | optionalPrefix `T.isPrefixOf` s -> pure ()
+             _ -> whenJust (LSP.customNotificationHandler x) ($ msg)
+    }
+    -- | According to the LSP spec methods starting with $/ are optional
+    -- and can be ignored. In particular, VSCode sometimes seems to send
+    -- $/setTraceNotification which we wan tto ignore.
+    where optionalPrefix = "$/"
+
 setHandlersVirtualResource :: PartialHandlers
 setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
     {LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler x) $
@@ -83,7 +101,7 @@ runLanguageServer
     :: ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
     -> IO ()
 runLanguageServer getIdeState = do
-    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens
+    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers
     LS.runLanguageServer options handlers getIdeState
 
 
