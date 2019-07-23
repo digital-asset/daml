@@ -11,8 +11,8 @@ import akka.stream._
 import akka.stream.scaladsl.{Keep, Sink}
 import akka.{Done, NotUsed}
 import com.daml.ledger.participant.state.index.v2
-import com.daml.ledger.participant.state.v2.Update._
-import com.daml.ledger.participant.state.v2._
+import com.daml.ledger.participant.state.v1.Update._
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.LedgerString
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
@@ -167,7 +167,7 @@ class PostgresIndexer private (
             headRef,
             headRef + 1,
             Some(offset.toLedgerString),
-            PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime)))
+            PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(recordTime.toInstant)))
           .map(_ => headRef = headRef + 1)(DEC)
 
       case PartyAddedToParticipant(party, displayName, _, _) =>
@@ -214,8 +214,8 @@ class PostgresIndexer private (
             optSubmitterInfo.map(_.applicationId),
             optSubmitterInfo.map(_.submitter),
             transactionMeta.workflowId,
-            transactionMeta.ledgerEffectiveTime,
-            recordTime,
+            transactionMeta.ledgerEffectiveTime.toInstant,
+            recordTime.toInstant,
             transaction
               .mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
               .mapNodeId(SandboxEventIdFormatter.fromTransactionId(transactionId, _)),

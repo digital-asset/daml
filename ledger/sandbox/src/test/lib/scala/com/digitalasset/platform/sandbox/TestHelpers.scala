@@ -7,7 +7,7 @@ import java.io.File
 import java.time.Instant
 
 import akka.stream.ActorMaterializer
-import com.daml.ledger.participant.state.v2.ParticipantId
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.api.util.{TimeProvider, ToleranceWindow}
 import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}

@@ -4,7 +4,7 @@
 package com.digitalasset.platform.index
 
 import akka.Done
-import com.daml.ledger.participant.state.v2.ReadService
+import com.daml.ledger.participant.state.v1.ReadService
 
 import scala.concurrent.Future
 

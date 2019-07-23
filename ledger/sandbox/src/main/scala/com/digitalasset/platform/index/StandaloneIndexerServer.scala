@@ -5,7 +5,7 @@ package com.digitalasset.platform.index
 
 import java.util.concurrent.atomic.AtomicBoolean
 
-import com.daml.ledger.participant.state.v2.ReadService
+import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import org.slf4j.LoggerFactory
 
