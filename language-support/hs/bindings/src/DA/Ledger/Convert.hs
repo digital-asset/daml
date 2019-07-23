@@ -5,8 +5,8 @@
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (
-    lowerCommands, lowerLedgerOffset,
-    Perhaps,
+    lowerCommands, lowerLedgerOffset, lowerTimestamp,
+    Perhaps, perhaps,
     raiseList,
     raiseTransaction,
     raiseTransactionTree,
@@ -14,6 +14,9 @@ module DA.Ledger.Convert (
     raiseGetActiveContractsResponse,
     raiseAbsLedgerOffset,
     raiseGetLedgerConfigurationResponse,
+    raiseGetTimeResponse,
+    raiseTimestamp,
+    raisePackageId,
     RaiseFailureReason,
     ) where
 
@@ -27,6 +30,7 @@ import qualified Google.Protobuf.Timestamp as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.ActiveContractsService as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.CommandCompletionService as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.LedgerConfigurationService as LL
+import qualified Com.Digitalasset.Ledger.Api.V1.Testing.TimeService as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Commands as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Completion as LL
 import qualified Com.Digitalasset.Ledger.Api.V1.Event as LL
@@ -162,6 +166,11 @@ optional :: Perhaps a -> Maybe a
 optional = \case
     Left _ -> Nothing
     Right a -> Just a
+
+raiseGetTimeResponse :: LL.GetTimeResponse -> Perhaps Timestamp
+raiseGetTimeResponse = \case
+    LL.GetTimeResponse{..} -> do
+        perhaps "current_time" getTimeResponseCurrentTime >>= raiseTimestamp
 
 raiseGetLedgerConfigurationResponse :: LL.GetLedgerConfigurationResponse -> Perhaps LedgerConfiguration
 raiseGetLedgerConfigurationResponse x =

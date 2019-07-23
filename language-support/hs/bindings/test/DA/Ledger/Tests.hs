@@ -13,7 +13,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchive)
 import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
-import Data.List (elem,isPrefixOf,isInfixOf,(\\))
+import Data.List (elem,isPrefixOf,isInfixOf,(\\),sort)
 import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
 import System.Random (randomIO)
@@ -67,6 +67,9 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetLedgerConfiguration
     , tUploadDarFileBad
     , tUploadDarFile
+    , tListKnownPackages
+    , tGetTime
+    , tSetTime
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -327,10 +330,7 @@ tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $
 tUploadDarFile :: SandboxTest
 tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_pid -> do
     lid <- getLedgerIdentity
-    bytes <- liftIO $ do
-        let extraDarFilename = "language-support/hs/bindings/for-upload.dar"
-        file <- locateRunfiles (mainWorkspace </> extraDarFilename)
-        BS.readFile file
+    bytes <- liftIO getBytesForUpload
     pid <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
     cidA <- submitCommand lid alice (createExtra pid alice) >>= either (liftIO . assertFailure) return
     withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
@@ -348,6 +348,27 @@ tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \
                     RecordField "message" (VString "Hello extra module")
                     ]
 
+tListKnownPackages :: SandboxTest
+tListKnownPackages withSandbox = testCase "tListKnownPackages" $ run withSandbox $ \_pid -> do
+    _ <- getLedgerIdentity -- without this, the first call to listKnownPackages times-out
+    known0 <- listKnownPackages
+    let pids0 = map (\PackageDetails{pid} -> pid) known0
+    liftIO $ do assertEqual "#known0" 3 (length known0)
+    bytes <- liftIO getBytesForUpload
+    lid <- getLedgerIdentity
+    pidx <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
+    known1 <- listKnownPackages
+    let pids1 = map (\PackageDetails{pid} -> pid) known1
+    liftIO $ do
+        assertEqual "#known1" 4 (length known1)
+        assertEqual "known1-pids" (sort (pidx:pids0)) (sort pids1)
+
+
+getBytesForUpload :: IO BS.ByteString
+getBytesForUpload = do
+        let extraDarFilename = "language-support/hs/bindings/for-upload.dar"
+        file <- locateRunfiles (mainWorkspace </> extraDarFilename)
+        BS.readFile file
 
 -- Would be nice if the underlying service returned the pid on successful upload.
 uploadDarFileGetPid :: LedgerId -> BS.ByteString -> LedgerService (Either String PackageId)
@@ -359,6 +380,41 @@ uploadDarFileGetPid lid bytes = do
             after <- listPackages lid
             [newPid] <- return (after \\ before) -- see what new pid appears
             return $ Right newPid
+
+
+tGetTime :: SandboxTest
+tGetTime withSandbox = testCase "tGetTime" $ run withSandbox $ \_ -> do
+    lid <- getLedgerIdentity
+    xs <- Ledger.getTime lid
+    Just (Right time1) <- liftIO $ timeout 1 (takeStream xs)
+    let expect1 = Timestamp {seconds = 0, nanos = 0}
+    liftIO $  assertEqual "time1" expect1 time1
+
+
+tSetTime :: SandboxTest
+tSetTime withSandbox = testCase "tSetTime" $ run withSandbox $ \_ -> do
+    lid <- getLedgerIdentity
+    xs <- Ledger.getTime lid
+
+    let t00 = Timestamp {seconds = 0, nanos = 0}
+    let t11 = Timestamp {seconds = 1, nanos = 1}
+    let t22 = Timestamp {seconds = 2, nanos = 2}
+    let t33 = Timestamp {seconds = 3, nanos = 3}
+
+    Just (Right time) <- liftIO $ timeout 1 (takeStream xs)
+    liftIO $ assertEqual "time1" t00 time -- initially the time is 0,0
+
+    Right () <- Ledger.setTime lid t00 t11
+    Just (Right time) <- liftIO $ timeout 1 (takeStream xs)
+    liftIO $ assertEqual "time2" t11 time -- time is 1,1 as we set it
+
+    _bad <- Ledger.setTime lid t00 t22 -- the wrong current_time was passed, so the time was not set
+    -- Left _ <- return _bad -- Bug in the sandbox cause this to fail
+
+    Right () <- Ledger.setTime lid t11 t33
+    Just (Right time) <- liftIO $ timeout 1 (takeStream xs)
+    liftIO $ assertEqual "time3" t33 time  -- time is 3,3 as we set it
+
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands

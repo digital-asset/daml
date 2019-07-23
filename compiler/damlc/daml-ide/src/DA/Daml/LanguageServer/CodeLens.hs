@@ -14,12 +14,14 @@ import Language.Haskell.LSP.Types
 import qualified Data.Aeson as Aeson
 import Development.IDE.Core.Service.Daml
 import Data.Foldable
-import Data.Maybe
 import qualified Data.Text as T
 import Development.IDE.LSP.Server
 import qualified Language.Haskell.LSP.Core as LSP
 import Language.Haskell.LSP.Messages
+import Development.IDE.Core.PositionMapping
 import Development.IDE.Core.Rules.Daml
+import Development.IDE.Core.RuleTypes.Daml
+import Development.IDE.Core.Shake
 import Development.IDE.Types.Logger
 import Development.IDE.Types.Location
 
@@ -32,23 +34,27 @@ handle ide (CodeLensParams (TextDocumentIdentifier uri)) = do
     mbResult <- case uriToFilePath' uri of
         Just (toNormalizedFilePath -> filePath) -> do
           logInfo (ideLogger ide) $ "CodeLens request for file: " <> T.pack (fromNormalizedFilePath filePath)
-          mbMod <- runAction ide (getDalfModule filePath)
-          pure $ mapMaybe virtualResourceToCodeLens
-              [ (sourceLocToRange loc, "Scenario: " <> name, vr)
-              | (valRef, Just loc) <- maybe [] scenariosInModule mbMod
-              , let name = LF.unExprValName (LF.qualObject valRef)
-              , let vr = VRScenario filePath name
-              ]
-        Nothing       -> pure []
+          mbModMapping <- runAction ide (useWithStale GenerateDalf filePath)
+          case mbModMapping of
+              Nothing -> pure []
+              Just (mod, mapping) ->
+                  pure
+                      [ virtualResourceToCodeLens (range, "Scenario: " <> name, vr)
+                      | (valRef, Just loc) <- scenariosInModule mod
+                      , let name = LF.unExprValName (LF.qualObject valRef)
+                      , let vr = VRScenario filePath name
+                      , Just range <- [toCurrentRange mapping $ sourceLocToRange loc]
+                      ]
+        Nothing -> pure []
 
     pure $ List $ toList mbResult
 
 -- | Convert a compiler virtual resource into a code lens.
 virtualResourceToCodeLens
     :: (Range, T.Text, VirtualResource)
-    -> Maybe CodeLens
+    -> CodeLens
 virtualResourceToCodeLens (range, title, vr) =
- Just CodeLens
+ CodeLens
     { _range = range
     , _command = Just $ Command
         "Scenario results"

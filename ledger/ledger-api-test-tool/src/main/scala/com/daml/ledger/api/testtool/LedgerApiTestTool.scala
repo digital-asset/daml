@@ -13,14 +13,18 @@ import com.digitalasset.platform.semantictest.SandboxSemanticTestsLfRunner
 import com.digitalasset.platform.services.time.TimeProviderType
 import com.digitalasset.platform.testing.LedgerBackend
 import com.digitalasset.platform.tests.integration.ledger.api.commands.{
+  CommandServiceIT,
+  CommandSubmissionTtlIT,
   CommandTransactionChecksHighLevelIT,
   CommandTransactionChecksLowLevelIT
 }
 import com.digitalasset.platform.tests.integration.ledger.api.{
+  ActiveContractsServiceIT,
   DivulgenceIT,
   PackageManagementServiceIT,
   PartyManagementServiceIT,
-  TransactionServiceIT
+  TransactionServiceIT,
+  WitnessesIT
 }
 import com.digitalasset.platform.tests.integration.ledger.api.transaction.TransactionBackpressureIT
 import org.scalatest.time.{Seconds, Span}
@@ -243,6 +247,62 @@ object LedgerApiTestTool {
       }
     )
 
+    val commandSubmissionTtlIT = lazyInit(
+      "CommandSubmissionTtlIT",
+      name =>
+        new CommandSubmissionTtlIT {
+          override def suiteName: String = name
+          override protected def actorSystemName: String = s"${name}ToolActorSystem"
+          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
+            Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    val commandServiceIT = lazyInit(
+      "CommandServiceIT",
+      name =>
+        new CommandServiceIT {
+          override def suiteName: String = name
+          override protected def actorSystemName: String = s"${name}ToolActorSystem"
+          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
+            Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    val activeContractsServiceIT = lazyInit(
+      "ActiveContractsServiceIT",
+      name =>
+        new ActiveContractsServiceIT {
+          override def suiteName: String = name
+          override protected def actorSystemName: String = s"${name}ToolActorSystem"
+          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
+            Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
+    val witnessesIT = lazyInit(
+      "WitnessesIT",
+      name =>
+        new WitnessesIT {
+          override def suiteName: String = name
+          override protected def actorSystemName: String = s"${name}ToolActorSystem"
+          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
+            Set(LedgerBackend.RemoteApiProxy)
+          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
+          override protected def config: Config =
+            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
+      }
+    )
+
     Map(
       transactionServiceIT,
       transactionBackpressureIT,
@@ -250,7 +310,11 @@ object LedgerApiTestTool {
       commandTransactionChecksHighLevelIT,
       commandTransactionChecksLowLevelIT,
       packageManagementServiceIT,
-      partyManagementServiceIT
+      partyManagementServiceIT,
+      commandSubmissionTtlIT,
+      commandServiceIT,
+      activeContractsServiceIT,
+      witnessesIT
     )
   }
 

@@ -12,10 +12,10 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
+import com.digitalasset.platform.tests.integration.ledger.api.TransactionServiceHelpers
 import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Matchers}
-
 import scalaz.syntax.tag._
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -26,86 +26,112 @@ class CommandServiceIT
     with MultiLedgerFixture
     with SuiteResourceManagementAroundAll {
 
+  val helpers = new TransactionServiceHelpers(config)
+
   private def request(
       ctx: LedgerContext,
       id: String = UUID.randomUUID().toString,
       ledgerId: Option[String] = None) =
-    MockMessages.submitAndWaitRequest
-      .update(
-        _.commands.ledgerId := ledgerId.getOrElse(ctx.ledgerId.unwrap),
-        _.commands.commandId := id)
-      .copy(traceContext = None)
+    helpers.applyTime(
+      MockMessages.submitAndWaitRequest
+        .update(
+          _.commands.ledgerId := ledgerId.getOrElse(ctx.ledgerId.unwrap),
+          _.commands.commandId := id)
+        .copy(traceContext = None),
+      ctx
+    )
 
   "Commands Service" when {
     "submitting commands" should {
       "complete with an empty response if successful" in allFixtures { ctx =>
-        ctx.commandService.submitAndWait(request(ctx)) map {
-          _ shouldEqual Empty()
+        for {
+          req <- request(ctx)
+          resp <- ctx.commandService.submitAndWait(req)
+        } yield {
+          resp shouldEqual Empty()
         }
       }
 
       "return the transaction id if successful" in allFixtures { ctx =>
-        ctx.commandService.submitAndWaitForTransactionId(request(ctx)) map {
-          _.transactionId should not be empty
+        for {
+          req <- request(ctx)
+          resp <- ctx.commandService.submitAndWaitForTransactionId(req)
+        } yield {
+          resp.transactionId should not be empty
+
         }
       }
 
       "return the flat transaction if successful" in allFixtures { ctx =>
-        ctx.commandService.submitAndWaitForTransaction(request(ctx)) map {
-          _.transaction should not be empty
+        for {
+          req <- request(ctx)
+          resp <- ctx.commandService.submitAndWaitForTransaction(req)
+        } yield {
+          resp.transaction should not be empty
+
         }
       }
 
       "return the transaction tree if successful" in allFixtures { ctx =>
-        ctx.commandService.submitAndWaitForTransactionTree(request(ctx)) map {
-          _.transaction should not be empty
+        for {
+          req <- request(ctx)
+          resp <- ctx.commandService.submitAndWaitForTransactionTree(req)
+        } yield {
+          resp.transaction should not be empty
+
         }
       }
 
       "complete with an empty response if resending a successful command" in allFixtures { ctx =>
         val commandId = UUID.randomUUID().toString
-        ctx.commandService.submitAndWait(request(ctx, id = commandId)) map {
-          _ shouldEqual Empty()
-        }
-        ctx.commandService.submitAndWait(request(ctx, id = commandId)) map {
-          _ shouldEqual Empty()
+        for {
+          resp1 <- request(ctx, id = commandId) flatMap (ctx.commandService.submitAndWait)
+          resp2 <- request(ctx, id = commandId) flatMap (ctx.commandService.submitAndWait)
+        } yield {
+          resp1 shouldEqual Empty()
+          resp2 shouldEqual Empty()
         }
       }
 
       "return the transaction id if resending a successful command" in allFixtures { ctx =>
         val commandId = UUID.randomUUID().toString
-        ctx.commandService.submitAndWaitForTransactionId(request(ctx, id = commandId)) map {
-          _.transactionId should not be empty
-        }
-        ctx.commandService.submitAndWaitForTransactionId(request(ctx, id = commandId)) map {
-          _.transactionId should not be empty
+        for {
+          resp1 <- request(ctx, id = commandId) flatMap (ctx.commandService.submitAndWaitForTransactionId)
+          resp2 <- request(ctx, id = commandId) flatMap (ctx.commandService.submitAndWaitForTransactionId)
+        } yield {
+          resp1.transactionId should not be empty
+          resp2.transactionId should not be empty
+          resp1.transactionId shouldEqual resp2.transactionId
         }
       }
 
       "return the flat transaction if resending a successful command" in allFixtures { ctx =>
         val commandId = UUID.randomUUID().toString
-        ctx.commandService.submitAndWaitForTransaction(request(ctx, id = commandId)) map {
-          _.transaction should not be empty
-        }
-        ctx.commandService.submitAndWaitForTransaction(request(ctx, id = commandId)) map {
-          _.transaction should not be empty
+        for {
+          resp1 <- request(ctx, id = commandId) flatMap (ctx.commandService.submitAndWaitForTransaction)
+          resp2 <- request(ctx, id = commandId) flatMap (ctx.commandService.submitAndWaitForTransaction)
+        } yield {
+          resp1.transaction should not be empty
+          resp2.transaction should not be empty
+          resp1.transaction shouldEqual resp2.transaction
         }
       }
 
       "return the transaction tree if resending a successful command" in allFixtures { ctx =>
         val commandId = UUID.randomUUID().toString
-        val req = request(ctx, id = commandId)
-        ctx.commandService.submitAndWaitForTransactionTree(req) map {
-          _.transaction should not be empty
-        }
-        ctx.commandService.submitAndWaitForTransactionTree(request(ctx, id = commandId)) map {
-          _.transaction should not be empty
+        for {
+          resp1 <- request(ctx, id = commandId) flatMap (ctx.commandService.submitAndWaitForTransactionTree)
+          resp2 <- request(ctx, id = commandId) flatMap (ctx.commandService.submitAndWaitForTransactionTree)
+        } yield {
+          resp1.transaction should not be empty
+          resp2.transaction should not be empty
+          resp1.transaction shouldEqual resp2.transaction
         }
       }
 
       "fail with not found if ledger id is invalid" in allFixtures { ctx =>
-        ctx.commandService
-          .submitAndWait(request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
+        request(ctx, ledgerId = Some(UUID.randomUUID().toString))
+          .flatMap(ctx.commandService.submitAndWait)
           .failed map {
           IsStatusException(Status.NOT_FOUND)(_)
         }
@@ -113,9 +139,8 @@ class CommandServiceIT
 
       "fail SubmitAndWaitForTransactionId with not found if ledger id is invalid" in allFixtures {
         ctx =>
-          ctx.commandService
-            .submitAndWaitForTransactionId(
-              request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
+          request(ctx, ledgerId = Some(UUID.randomUUID().toString))
+            .flatMap(ctx.commandService.submitAndWaitForTransactionId)
             .failed map {
             IsStatusException(Status.NOT_FOUND)(_)
           }
@@ -123,21 +148,22 @@ class CommandServiceIT
 
       "fail SubmitAndWaitForTransaction with not found if ledger id is invalid" in allFixtures {
         ctx =>
-          ctx.commandService
-            .submitAndWaitForTransaction(request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
+          request(ctx, ledgerId = Some(UUID.randomUUID().toString))
+            .flatMap(ctx.commandService.submitAndWaitForTransaction)
             .failed map {
             IsStatusException(Status.NOT_FOUND)(_)
           }
+
       }
 
       "fail SubmitAndWaitForTransactionTree with not found if ledger id is invalid" in allFixtures {
         ctx =>
-          ctx.commandService
-            .submitAndWaitForTransactionTree(
-              request(ctx, ledgerId = Some(UUID.randomUUID().toString)))
+          request(ctx, ledgerId = Some(UUID.randomUUID().toString))
+            .flatMap(ctx.commandService.submitAndWaitForTransaction)
             .failed map {
             IsStatusException(Status.NOT_FOUND)(_)
           }
+
       }
 
     }
