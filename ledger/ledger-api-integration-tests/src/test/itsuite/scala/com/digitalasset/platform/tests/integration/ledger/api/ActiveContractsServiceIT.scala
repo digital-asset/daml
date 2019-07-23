@@ -242,12 +242,15 @@ class ActiveContractsServiceIT
 
         val wfid1 = testIds.testWorkflowId("workflow1")
         val wfid2 = testIds.testWorkflowId("workflow2")
+        val cmdId1 = uniqueCmdId
+        val cmdId2 = uniqueCmdId
+
         val resultsF = for {
           _ <- submitRequest(
             ctx,
             testCommands.buildRequest(
               ctx.ledgerId,
-              commandId = uniqueCmdId,
+              commandId = cmdId1,
               Seq(testCommands.createWithOperator(templateIds.dummy, "Alice")),
               "Alice",
               workflowId = wfid1)
@@ -263,7 +266,7 @@ class ActiveContractsServiceIT
             ctx,
             testCommands.buildRequest(
               ctx.ledgerId,
-              commandId = uniqueCmdId,
+              commandId = cmdId2,
               Seq(testCommands.createWithOperator(templateIds.dummyWithParam, "Alice")),
               "Alice",
               workflowId = wfid2)
@@ -279,7 +282,7 @@ class ActiveContractsServiceIT
         } yield responses2
 
         resultsF map { responses =>
-          responses.head.workflowId shouldEqual wfid2
+          responses.head.commandId shouldEqual cmdId2
 
           val events = responses.head.events.flatMap(extractEvents)
 
