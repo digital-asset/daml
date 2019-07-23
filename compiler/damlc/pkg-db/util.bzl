@@ -32,14 +32,14 @@ PACKAGE_CONF_TEMPLATE = """
 name: {name}
 version: 1.0.0
 id: {name}
-key: {name}
+key: {name}-1.0.0-__PKGID__
 copyright: 2015-2018 Digital Asset Holdings
 maintainer: Digital Asset
 exposed: True
 exposed-modules: {modules}
-import-dirs: $topdir/{name}
-library-dirs: $topdir/{name}
-data-dir: $topdir/{name}
+import-dirs: \$topdir/{name}
+library-dirs: \$topdir/{name}
+data-dir: \$topdir/{name}
 depends: {depends}
 """
 
@@ -50,6 +50,7 @@ DamlPackage = provider(fields = ["daml_lf_version", "pkg_name", "pkg_conf", "ifa
 def _daml_package_rule_impl(ctx):
     name = ctx.attr.name
     dalf = ctx.actions.declare_file("{}.dalf".format(name))
+    pkg_id = ctx.actions.declare_file("{}.pkgid".format(name))
     iface_dir = ctx.actions.declare_directory("{}_iface".format(name))
     package_config = ctx.actions.declare_file("{}.conf".format(name))
 
@@ -61,20 +62,11 @@ def _daml_package_rule_impl(ctx):
         # base path...
         modules[".".join(file.path[:-5].split("/")[3:])] = file.path
 
-    # Create the package conf file
-    ctx.actions.write(
-        output = package_config,
-        content = PACKAGE_CONF_TEMPLATE.format(
-            name = ctx.attr.pkg_name,
-            modules = " ".join(modules.keys()),
-            depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
-        ),
-    )
 
     package_db_dir = ctx.attr.package_db[PackageDb].db_dir
 
     ctx.actions.run_shell(
-        outputs = [dalf, iface_dir],
+        outputs = [dalf, iface_dir, pkg_id],
         inputs = ctx.files.srcs + [package_db_dir],
         tools = [ctx.executable.damlc_bootstrap],
         progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
@@ -88,7 +80,7 @@ def _daml_package_rule_impl(ctx):
         --write-iface \
         --target {daml_lf_version} \
         -o {dalf_file} \
-        {main}
+        {main} | tail -1 | awk '{{print $3}}' > {pkg_id_file}
 
       cp -a {pkg_root}/* {iface_dir}
       cp -a .daml/interfaces/{pkg_root}/* {iface_dir}
@@ -98,11 +90,31 @@ def _daml_package_rule_impl(ctx):
             package_db_dir = package_db_dir.path,
             damlc_bootstrap = ctx.executable.damlc_bootstrap.path,
             dalf_file = dalf.path,
+            pkg_id_file = pkg_id.path,
             daml_lf_version = ctx.attr.daml_lf_version,
             iface_dir = iface_dir.path,
             pkg_root = ctx.attr.pkg_root,
             pkg_name = ctx.attr.pkg_name,
         ),
+    )
+
+    # Create the package conf file
+    ctx.actions.run_shell(
+        outputs = [package_config],
+        inputs = [pkg_id],
+        command = """
+      echo "{content}" > {package_config_file}
+      PKGID=`cat {pkg_id}`
+      sed -i s/__PKGID__/$PKGID/ {package_config_file}
+        """.format(
+                pkg_id = pkg_id.path,
+                content = PACKAGE_CONF_TEMPLATE.format(
+                                      name = ctx.attr.pkg_name,
+                                      modules = " ".join(modules.keys()),
+                                      depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
+                                      ),
+                package_config_file = package_config.path
+                )
     )
 
     return [
