@@ -231,8 +231,8 @@ fct2rst FunctionDoc{..} = mconcat
             , maybe "_" (type2rst env) fct_type
             ]
         , ""
-        , maybe "" (indent 2 . docTextToRst) fct_descr
         ]
+    , maybe (renderLine "") (renderIndent 2 . renderDocText) fct_descr
     ]
 
 ------------------------------------------------------------
