@@ -160,10 +160,11 @@ private[client] object OnlyPrimitive extends Primitive {
   object TemplateId extends TemplateIdApi {
     // the ledger api still uses names with only dots in them, while QualifiedName.toString
     // separates the module and the name in the module with colon.
-    def apply[Tpl <: Template[Tpl]](
+    override def apply[Tpl <: Template[Tpl]](
         packageId: String,
         moduleName: String,
-        entityName: String): TemplateId[Tpl] =
+        entityName: String
+    ): TemplateId[Tpl] =
       ApiTypes.TemplateId(
         rpcvalue
           .Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName))
@@ -171,16 +172,10 @@ private[client] object OnlyPrimitive extends Primitive {
     private[binding] override def substEx[F[_]](fa: F[rpcvalue.Identifier]) =
       ApiTypes.TemplateId subst fa
 
-    def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String, String)] =
-      // TODO SC DEL-6727 use this instead with daml-lf value interface
-      // rpcvalue.Identifier unapply t.unwrap
-      t.unwrap match {
-        case rpcvalue.Identifier(packageId, moduleName, entityName)
-            if moduleName.nonEmpty && entityName.nonEmpty =>
-          Some((packageId, moduleName, entityName))
-        case _ => None
-      }
-
+    override def unapply[Tpl](t: TemplateId[Tpl]): Some[(String, String, String)] = {
+      val rpcvalue.Identifier(packageId, moduleName, entityName) = t.unwrap
+      Some((packageId, moduleName, entityName))
+    }
   }
 
   object ContractId extends ContractIdApi {
