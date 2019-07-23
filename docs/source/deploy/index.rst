@@ -7,7 +7,7 @@ Deploying to DAML ledgers
 To run a DAML application, you'll need to deploy it to a DAML ledger.
 
 How to deploy
--------------
+=============
 
 You can deploy to:
 
@@ -15,7 +15,7 @@ You can deploy to:
 - Further deployment options which are in development. For information on these options and their stage of development, see the table below.
 
 DAML ledgers built or in development
-------------------------------------
+====================================
 
 The following table lists the ledgers that support DAML, or are implementing
 support for running DAML.
