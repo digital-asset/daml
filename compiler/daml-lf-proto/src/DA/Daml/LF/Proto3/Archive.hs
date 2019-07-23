@@ -8,6 +8,8 @@ module DA.Daml.LF.Proto3.Archive
   ( decodeArchive
   , encodeArchive
   , encodeArchiveLazy
+  , encodePackageHash
+  , encodeHash
   , ArchiveError(..)
   ) where
 
@@ -68,6 +70,11 @@ encodeArchiveLazy package =
           , ProtoLF.archiveHashFunction = Proto.Enumerated (Right ProtoLF.HashFunctionSHA256)
           }
     in Proto.toLazyByteString archive
+
+encodePackageHash :: LF.Package -> T.Text
+encodePackageHash pkg = encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payload) :: BS.ByteString)
+  where
+    payload = BSL.toStrict $ Proto.toLazyByteString $ Encode.encodePayload pkg
 
 encodeArchive :: LF.Package -> BS.ByteString
 encodeArchive = BSL.toStrict . encodeArchiveLazy
