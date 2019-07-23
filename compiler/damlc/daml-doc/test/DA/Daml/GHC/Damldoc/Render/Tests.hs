@@ -102,7 +102,7 @@ expectRst =
             , "\n.. _data-twotypes-d:\n\ndata **D d**\n\n  \n  \n  .. _constr-twotypes-d:\n  \n  **D** a\n  \n  D descr"]
             []
         , mkExpectRst "module-function1" "Function1" "" [] [] [] [ ".. _function-function1-f:\n\n**f**\n  : TheType\n\n  the doc\n"]
-        , mkExpectRst "module-function2" "Function2" "" [] [] [] [ ".. _function-function2-f:\n\n**f**\n  the doc\n"]
+        , mkExpectRst "module-function2" "Function2" "" [] [] [] [ ".. _function-function2-f:\n\n**f**\n  : _\n\n  the doc\n"]
         , mkExpectRst "module-function3" "Function3" "" [] [] [] [ ".. _function-function3-f:\n\n**f**\n  : TheType\n\n"]
         , mkExpectRst "module-onlyclass" "OnlyClass" ""
             []
@@ -216,6 +216,7 @@ expectMarkdown =
             ]
         , mkExpectMD "module-function2" "Function2" "" [] [] []
             [ "<a name=\"function-function2-f\"></a>**f**  "
+            , "&nbsp; : \\_"
             , ""
             , "the doc"
             , ""
