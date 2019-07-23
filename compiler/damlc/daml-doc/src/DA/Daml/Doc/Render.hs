@@ -34,9 +34,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as Map
-import qualified Data.Text.Lazy as TL
-import qualified Text.Blaze.Html5 as H
-import qualified Text.Blaze.Html.Renderer.Text as H
 
 
 -- | centralised JSON configuration for pretty-printing
