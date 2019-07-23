@@ -433,19 +433,21 @@ createProjectPackageDb lfVersion fps = do
         let srcs =
                 [ e
                 | e <- zEntries archive
-                , takeExtension (eRelativePath e) `elem` [".daml", ".hie", ".hi"]
+                , takeExtension (eRelativePath e) `elem`
+                      [".daml", ".hie", ".hi"]
                 ]
-        forM_ dalfs $ \dalf ->
-            BSL.writeFile (dbPath </> eRelativePath dalf) (fromEntry dalf)
-        forM_ confFiles $ \conf ->
-            BSL.writeFile
-                (dbPath </> "package.conf.d" </> (takeFileName $ eRelativePath conf))
+        forM_ dalfs $ \dalf -> do
+            write (dbPath </> eRelativePath dalf) (fromEntry dalf)
+        forM_ confFiles $ \conf -> do
+            write
+                (dbPath </> "package.conf.d" </>
+                 (takeFileName $ eRelativePath conf))
                 (fromEntry conf)
         forM_ srcs $ \src -> do
             let path = dbPath </> eRelativePath src
-            createDirectoryIfMissing True $ takeDirectory path
-            BSL.writeFile path (fromEntry src)
-    ghcPkgPath <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghc-pkg")
+            write path (fromEntry src)
+    ghcPkgPath <-
+        locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghc-pkg")
     callCommand $
         unwords
             [ ghcPkgPath </> exe "ghc-pkg"
@@ -455,6 +457,8 @@ createProjectPackageDb lfVersion fps = do
             , "--global-package-db=" ++ (dbPath </> "package.conf.d")
             , "--expand-pkgroot"
             ]
+  where
+    write fp bs = createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
 
 -- | Write interface files and hie files to the location specified by the given options.
 writeIfacesAndHie :: Options -> NormalizedFilePath -> IdeState -> IO ()
@@ -536,9 +540,9 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
             -> String
             -> Maybe [String]
             -> [FilePath]
-            -> LF.Package
+            -> (String, LF.Package)
             -> (String, B.ByteString)
-        mkConfFile name version exposedMods deps pkg = (confName, bs)
+        mkConfFile name version exposedMods deps (pkgId, pkg) = (confName, bs)
           where
             confName = name ++ ".conf"
             bs =
@@ -550,9 +554,9 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     , "version: " ++ version
                     , "exposed: True"
                     , "exposed-modules: " ++ unwords (fromMaybe (map T.unpack $ LF.packageModuleNames pkg) exposedMods)
-                    , "import-dirs: ${pkgroot}" </> name
-                    , "library-dirs: ${pkgroot}" </> name
-                    , "data-dir: ${pkgroot}" </> name
+                    , "import-dirs: ${pkgroot}" </> intercalate "-" [name, pkgId]
+                    , "library-dirs: ${pkgroot}" </> intercalate "-" [name, pkgId]
+                    , "data-dir: ${pkgroot}" </> intercalate "-" [name, pkgId]
                     , "depends: " ++
                       unwords [dropExtension $ takeFileName dep | dep <- deps]
                     ]
