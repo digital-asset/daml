@@ -35,6 +35,7 @@ Templates
        - [Party]
        - ``regulators`` may observe any use of the ``Iou``
 
+  + **Choice External:Archive**
   + **Choice Merge**
   
     merges two "compatible" ``Iou``s
