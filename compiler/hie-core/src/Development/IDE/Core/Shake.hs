@@ -276,7 +276,7 @@ shakeOpen eventer logger opts rules = do
         diagnostics <- newVar mempty
         publishedDiagnostics <- newVar mempty
         debouncer <- newDebouncer
-        positionMapping <- newVar mempty
+        positionMapping <- newVar Map.empty
         pure ShakeExtras{..}
     (shakeDb, shakeClose) <-
         shakeOpenDatabase
