@@ -86,6 +86,8 @@ class SubmitRequestValidatorTest
 
   val commandsValidator =
     new CommandsValidator(ledgerId, new IdentifierResolver(_ => Future.successful(None)))
+  val valueValidator = new ValueValidator(new IdentifierResolver(_ => Future.successful(None)))
+  import valueValidator.validateValue
 
   def recordFieldWithValue(value: Value) = RecordField("label", Some(value))
 
@@ -157,19 +159,19 @@ class SubmitRequestValidatorTest
         val input = Value(Sum.ContractId(coid))
         val expected = Lf.ValueContractId(Lf.AbsoluteContractId(coid))
 
-        commandsValidator.validateValue(input) shouldEqual Right(expected)
+        validateValue(input) shouldEqual Right(expected)
       }
     }
 
     "validating party values" should {
       "convert valid party" in {
-        commandsValidator.validateValue(DomainMocks.values.validApiParty) shouldEqual Right(
+        validateValue(DomainMocks.values.validApiParty) shouldEqual Right(
           DomainMocks.values.validLfParty)
       }
 
       "reject non valid party" in {
         requestMustFailWith(
-          commandsValidator.validateValue(DomainMocks.values.invalidApiParty),
+          validateValue(DomainMocks.values.invalidApiParty),
           INVALID_ARGUMENT,
           DomainMocks.values.invalidPartyMsg
         )
@@ -195,7 +197,7 @@ class SubmitRequestValidatorTest
             val s = sign + absoluteValue
             val input = Value(Sum.Decimal(s))
             val expected = Lf.ValueDecimal(Decimal.fromString(s).getOrElse(unexpectedError))
-            commandsValidator.validateValue(input) shouldEqual Right(expected)
+            validateValue(input) shouldEqual Right(expected)
           }
         }
       }
@@ -217,7 +219,7 @@ class SubmitRequestValidatorTest
             val s = sign + absoluteValue
             val input = Value(Sum.Decimal(s))
             requestMustFailWith(
-              commandsValidator.validateValue(input),
+              validateValue(input),
               INVALID_ARGUMENT,
               s"""Invalid argument: Could not read Decimal string "$s""""
             )
@@ -246,7 +248,7 @@ class SubmitRequestValidatorTest
             val s = sign + absoluteValue
             val input = Value(Sum.Decimal(s))
             requestMustFailWith(
-              commandsValidator.validateValue(input),
+              validateValue(input),
               INVALID_ARGUMENT,
               s"""Invalid argument: Could not read Decimal string "$s""""
             )
@@ -264,7 +266,7 @@ class SubmitRequestValidatorTest
         forEvery(strings) { s =>
           val input = Value(Sum.Text(s))
           val expected = Lf.ValueText(s)
-          commandsValidator.validateValue(input) shouldEqual Right(expected)
+          validateValue(input) shouldEqual Right(expected)
         }
       }
     }
@@ -282,7 +284,7 @@ class SubmitRequestValidatorTest
           case (long, timestamp) =>
             val input = Value(Sum.Timestamp(long))
             val expected = Lf.ValueTimestamp(timestamp)
-            commandsValidator.validateValue(input) shouldEqual Right(expected)
+            validateValue(input) shouldEqual Right(expected)
         }
       }
 
@@ -297,7 +299,7 @@ class SubmitRequestValidatorTest
         forEvery(testCases) { long =>
           val input = Value(Sum.Timestamp(long))
           requestMustFailWith(
-            commandsValidator.validateValue(input),
+            validateValue(input),
             INVALID_ARGUMENT,
             s"Invalid argument: out of bound Timestamp $long"
           )
@@ -318,7 +320,7 @@ class SubmitRequestValidatorTest
           case (int, date) =>
             val input = Value(Sum.Date(int))
             val expected = Lf.ValueDate(date)
-            commandsValidator.validateValue(input) shouldEqual Right(expected)
+            validateValue(input) shouldEqual Right(expected)
         }
       }
 
@@ -333,7 +335,7 @@ class SubmitRequestValidatorTest
         forEvery(testCases) { int =>
           val input = Value(Sum.Date(int))
           requestMustFailWith(
-            commandsValidator.validateValue(input),
+            validateValue(input),
             INVALID_ARGUMENT,
             s"Invalid argument: out of bound Date $int"
           )
@@ -343,15 +345,14 @@ class SubmitRequestValidatorTest
 
     "validating boolean values" should {
       "accept any of them" in {
-        commandsValidator.validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueBool(true))
-        commandsValidator.validateValue(Value(Sum.Bool(false))) shouldEqual Right(
-          Lf.ValueBool(false))
+        validateValue(Value(Sum.Bool(true))) shouldEqual Right(Lf.ValueBool(true))
+        validateValue(Value(Sum.Bool(false))) shouldEqual Right(Lf.ValueBool(false))
       }
     }
 
     "validating unit values" should {
       "succeed" in {
-        commandsValidator.validateValue(Value(Sum.Unit(Empty()))) shouldEqual Right(Lf.ValueUnit)
+        validateValue(Value(Sum.Unit(Empty()))) shouldEqual Right(Lf.ValueUnit)
       }
     }
 
@@ -365,7 +366,7 @@ class SubmitRequestValidatorTest
           Lf.ValueRecord(
             Some(DomainMocks.identifier),
             ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64))
-        commandsValidator.validateValue(record) shouldEqual Right(expected)
+        validateValue(record) shouldEqual Right(expected)
       }
 
       "tolerate missing identifiers in records" in {
@@ -373,7 +374,7 @@ class SubmitRequestValidatorTest
           Value(Sum.Record(Record(None, Seq(RecordField(api.label, Some(Value(api.int64)))))))
         val expected =
           Lf.ValueRecord(None, ImmArray(Some(DomainMocks.label) -> DomainMocks.values.int64))
-        commandsValidator.validateValue(record) shouldEqual Right(expected)
+        validateValue(record) shouldEqual Right(expected)
       }
 
       "tolerate missing labels in record fields" in {
@@ -381,16 +382,13 @@ class SubmitRequestValidatorTest
           Value(Sum.Record(Record(None, Seq(RecordField("", Some(Value(api.int64)))))))
         val expected =
           ValueRecord(None, ImmArray(None -> DomainMocks.values.int64))
-        commandsValidator.validateValue(record) shouldEqual Right(expected)
+        validateValue(record) shouldEqual Right(expected)
       }
 
       "not allow missing record values" in {
         val record =
           Value(Sum.Record(Record(Some(api.identifier), Seq(RecordField(api.label, None)))))
-        requestMustFailWith(
-          commandsValidator.validateValue(record),
-          INVALID_ARGUMENT,
-          "Missing field: value")
+        requestMustFailWith(validateValue(record), INVALID_ARGUMENT, "Missing field: value")
       }
 
     }
@@ -404,7 +402,7 @@ class SubmitRequestValidatorTest
           Some(DomainMocks.identifier),
           DomainMocks.values.constructor,
           DomainMocks.values.int64)
-        commandsValidator.validateValue(variant) shouldEqual Right(expected)
+        validateValue(variant) shouldEqual Right(expected)
       }
 
       "tolerate missing identifiers" in {
@@ -412,23 +410,17 @@ class SubmitRequestValidatorTest
         val expected =
           Lf.ValueVariant(None, DomainMocks.values.constructor, DomainMocks.values.int64)
 
-        commandsValidator.validateValue(variant) shouldEqual Right(expected)
+        validateValue(variant) shouldEqual Right(expected)
       }
 
       "not allow missing constructor" in {
         val variant = Value(Sum.Variant(Variant(None, "", Some(Value(api.int64)))))
-        requestMustFailWith(
-          commandsValidator.validateValue(variant),
-          INVALID_ARGUMENT,
-          "Missing field: constructor")
+        requestMustFailWith(validateValue(variant), INVALID_ARGUMENT, "Missing field: constructor")
       }
 
       "not allow missing values" in {
         val variant = Value(Sum.Variant(Variant(None, api.constructor, None)))
-        requestMustFailWith(
-          commandsValidator.validateValue(variant),
-          INVALID_ARGUMENT,
-          "Missing field: value")
+        requestMustFailWith(validateValue(variant), INVALID_ARGUMENT, "Missing field: value")
       }
 
     }
@@ -439,14 +431,14 @@ class SubmitRequestValidatorTest
         val expected =
           Lf.ValueList(FrontStack.empty)
 
-        commandsValidator.validateValue(input) shouldEqual Right(expected)
+        validateValue(input) shouldEqual Right(expected)
       }
 
       "convert valid lists" in {
         val list = Value(Sum.List(ApiList(Seq(Value(api.int64), Value(api.int64)))))
         val expected =
           Lf.ValueList(FrontStack(ImmArray(DomainMocks.values.int64, DomainMocks.values.int64)))
-        commandsValidator.validateValue(list) shouldEqual Right(expected)
+        validateValue(list) shouldEqual Right(expected)
       }
 
       "reject lists containing invalid values" in {
@@ -454,7 +446,7 @@ class SubmitRequestValidatorTest
           Sum.List(
             ApiList(Seq(DomainMocks.values.validApiParty, DomainMocks.values.invalidApiParty))))
         requestMustFailWith(
-          commandsValidator.validateValue(input),
+          validateValue(input),
           INVALID_ARGUMENT,
           DomainMocks.values.invalidPartyMsg)
       }
@@ -465,19 +457,19 @@ class SubmitRequestValidatorTest
         val input = Value(Sum.Optional(ApiOptional(None)))
         val expected = Lf.ValueOptional(None)
 
-        commandsValidator.validateValue(input) shouldEqual Right(expected)
+        validateValue(input) shouldEqual Right(expected)
       }
 
       "convert valid non-empty optionals" in {
         val list = Value(Sum.Optional(ApiOptional(Some(DomainMocks.values.validApiParty))))
         val expected = Lf.ValueOptional(Some(DomainMocks.values.validLfParty))
-        commandsValidator.validateValue(list) shouldEqual Right(expected)
+        validateValue(list) shouldEqual Right(expected)
       }
 
       "reject optional containing invalid values" in {
         val input = Value(Sum.Optional(ApiOptional(Some(DomainMocks.values.invalidApiParty))))
         requestMustFailWith(
-          commandsValidator.validateValue(input),
+          validateValue(input),
           INVALID_ARGUMENT,
           DomainMocks.values.invalidPartyMsg)
       }
@@ -487,7 +479,7 @@ class SubmitRequestValidatorTest
       "convert empty maps" in {
         val input = Value(Sum.Map(ApiMap(List.empty)))
         val expected = Lf.ValueMap(SortedLookupList.empty)
-        commandsValidator.validateValue(input) shouldEqual Right(expected)
+        validateValue(input) shouldEqual Right(expected)
       }
 
       "convert valid maps" in {
@@ -502,7 +494,7 @@ class SubmitRequestValidatorTest
         val expected =
           Lf.ValueMap(SortedLookupList.fromImmArray(lfEntries).getOrElse(unexpectedError))
 
-        commandsValidator.validateValue(input) shouldEqual Right(expected)
+        validateValue(input) shouldEqual Right(expected)
       }
 
       "reject maps with repeated keys" in {
@@ -514,7 +506,7 @@ class SubmitRequestValidatorTest
         }
         val input = Value(Sum.Map(ApiMap(apiEntries.toSeq)))
         requestMustFailWith(
-          commandsValidator.validateValue(input),
+          validateValue(input),
           INVALID_ARGUMENT,
           s"Invalid argument: key ${Utf8.sha256("1")} duplicated when trying to build map")
       }
@@ -526,7 +518,7 @@ class SubmitRequestValidatorTest
             ApiMap.Entry("2", Some(DomainMocks.values.invalidApiParty)))
         val input = Value(Sum.Map(ApiMap(apiEntries)))
         requestMustFailWith(
-          commandsValidator.validateValue(input),
+          validateValue(input),
           INVALID_ARGUMENT,
           DomainMocks.values.invalidPartyMsg)
       }
