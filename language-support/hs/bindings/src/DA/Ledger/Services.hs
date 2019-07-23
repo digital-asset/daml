@@ -4,6 +4,7 @@
 module DA.Ledger.Services (module X) where
 
 import DA.Ledger.Services.ActiveContractsService as X
+import DA.Ledger.Services.CommandService as X
 import DA.Ledger.Services.CommandCompletionService as X
 import DA.Ledger.Services.CommandSubmissionService as X
 import DA.Ledger.Services.LedgerConfigurationService as X
