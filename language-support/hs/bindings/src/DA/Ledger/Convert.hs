@@ -6,7 +6,7 @@
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (
     lowerCommands, lowerLedgerOffset, lowerTimestamp,
-    Perhaps,
+    Perhaps, perhaps,
     raiseList,
     raiseTransaction,
     raiseTransactionTree,
@@ -15,6 +15,8 @@ module DA.Ledger.Convert (
     raiseAbsLedgerOffset,
     raiseGetLedgerConfigurationResponse,
     raiseGetTimeResponse,
+    raiseTimestamp,
+    raisePackageId,
     RaiseFailureReason,
     ) where
 
