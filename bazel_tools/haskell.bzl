@@ -41,6 +41,7 @@ common_haskell_exts = [
     "LambdaCase",
     "NamedFieldPuns",
     "NumericUnderscores",
+    "OverloadedStrings",
     "PackageImports",
     "RecordWildCards",
     "ScopedTypeVariables",

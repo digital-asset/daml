@@ -69,6 +69,7 @@
   - {name: GeneralizedNewtypeDeriving, within: []}
   - {name: LambdaCase, within: []}
   - {name: NamedFieldPuns, within: []}
+  - {name: OverloadedStrings, within: []}
   - {name: PackageImports, within: []}
   - {name: RecordWildCards, within: []}
   - {name: ScopedTypeVariables, within: []}
