@@ -258,8 +258,8 @@ renderTest format (name, input) expected =
   let
     renderer = case format of
                  Json -> error "Json encoder testing not done here"
-                 Rst -> renderFinish . renderSimpleRst
-                 Markdown -> renderFinish . renderSimpleMD
+                 Rst -> renderPage . renderSimpleRst
+                 Markdown -> renderPage . renderSimpleMD
                  Html -> error "HTML testing not supported (use Markdown)"
                  Hoogle -> error "Hoogle doc testing not yet supported."
     output = T.strip $ renderer input

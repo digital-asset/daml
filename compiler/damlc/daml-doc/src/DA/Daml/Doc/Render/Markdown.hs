@@ -197,9 +197,15 @@ type2md env = f 0
     link :: Maybe Anchor -> Typename -> T.Text
     link Nothing n = escapeMd $ unTypename n
     link (Just anchor) n =
-        if renderAnchorAvailable env anchor
-            then T.concat ["[", escapeMd $ unTypename n, "](#", unAnchor anchor, ")"]
-            else escapeMd $ unTypename n
+        case lookupAnchor env anchor of
+            Nothing -> escapeMd $ unTypename n
+            Just anchorLoc -> T.concat
+                [ "["
+                , escapeMd $ unTypename n
+                , "]("
+                , anchorRelativeHyperlink anchorLoc anchor
+                , ")"
+                ]
 
 fct2md :: FunctionDoc -> RenderOut
 fct2md FunctionDoc{..} = mconcat
