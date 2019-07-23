@@ -42,17 +42,13 @@ jsonConf = AP.Config (AP.Spaces 2) (AP.keyOrder ["id"]) AP.Generic True
 
 renderDocs :: RenderOptions -> [ModuleDoc] -> IO ()
 renderDocs RenderOptions{..} mods = do
-    let renderModule =
+    let (renderModule, postProcessing) =
             case ro_format of
-                Json -> const (renderLine "") -- not implemented (yet?)
-                Hoogle -> const (renderLine "") -- not implemented (yet?)
-                Rst -> renderSimpleRst
-                Markdown -> renderSimpleMD
-                Html -> renderSimpleMD
-        postProcessing =
-            case ro_format of
-                Html -> GFM.commonmarkToHtml [GFM.optUnsafe] [GFM.extTable]
-                _ -> id
+                Json -> (const (renderLine ""), id) -- not implemented (yet?)
+                Hoogle -> (const (renderLine ""), id) -- not implemented (yet?)
+                Rst -> (renderSimpleRst, id)
+                Markdown -> (renderSimpleMD, id)
+                Html -> (renderSimpleMD, GFM.commonmarkToHtml [GFM.optUnsafe] [GFM.extTable])
         template = fromMaybe (defaultTemplate ro_format) ro_template
 
     case ro_mode of

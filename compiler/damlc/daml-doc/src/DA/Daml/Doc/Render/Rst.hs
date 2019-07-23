@@ -211,7 +211,7 @@ type2rst env = f 0
     link (Just anchor) n =
         case lookupAnchor env anchor of
             Nothing -> unTypename n
-            Just SamePage ->
+            Just SameFile ->
                 T.concat ["`", unTypename n, " <", unAnchor anchor, "_>`_"]
                 -- local indirect link
             Just (SameFolder _) ->

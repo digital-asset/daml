@@ -5,13 +5,12 @@
 
 -- | Monoid with which to render documentation.
 module DA.Daml.Doc.Render.Monoid
-  ( module DA.Daml.Doc.Render.Monoid
-  ) where
+    ( module DA.Daml.Doc.Render.Monoid
+    ) where
 
 import DA.Daml.Doc.Types
 import Control.Monad
 import Data.Foldable
-import Data.Maybe
 import System.FilePath
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
@@ -29,7 +28,7 @@ data RenderEnv = RenderEnv
 -- rendered differently from an anchor that is external. Thus we can
 -- handle every case correctly.
 data AnchorLocation
-    = SamePage  -- ^ anchor is in same file
+    = SameFile -- ^ anchor is in same file
     | SameFolder FilePath -- ^ anchor is in a file within same folder
     -- TODO: | External URL -- ^ anchor is in on a page at the given URL
 
@@ -37,17 +36,8 @@ data AnchorLocation
 anchorRelativeHyperlink :: AnchorLocation -> Anchor -> T.Text
 anchorRelativeHyperlink anchorLoc (Anchor anchor) =
     case anchorLoc of
-        SamePage -> "#" <> anchor
+        SameFile -> "#" <> anchor
         SameFolder fileName -> T.concat [T.pack fileName, "#", anchor]
-
--- | Is the anchor available in the rendering environment? Renderers should avoid
--- generating links to anchors that don't actually exist.
---
--- One reason an anchor may be unavailable is because of a @-- | HIDE@ directive.
--- Another possibly reason is that the anchor refers to a definition in another
--- package (and at the moment it's not possible to link accross packages).
-renderAnchorAvailable :: RenderEnv -> Anchor -> Bool
-renderAnchorAvailable RenderEnv{..} anchor = isJust (lookupAnchor anchor)
 
 -- | Renderer output. This is the set of anchors that were generated, and a
 -- list of output functions that depend on RenderEnv. The goal is to prevent
@@ -67,7 +57,7 @@ renderPage (RenderOut (localAnchors, renderFns)) =
   where
     lookupAnchor :: Anchor -> Maybe AnchorLocation
     lookupAnchor anchor
-        | Set.member anchor localAnchors = Just SamePage
+        | Set.member anchor localAnchors = Just SameFile
         | otherwise = Nothing
     renderEnv = RenderEnv {..}
 
@@ -81,7 +71,7 @@ renderFolder fileMap =
             ]
     in flip Map.map fileMap $ \(RenderOut (localAnchors, renderFns)) ->
         let lookupAnchor anchor = asum
-                [ SamePage <$ guard (Set.member anchor localAnchors)
+                [ SameFile <$ guard (Set.member anchor localAnchors)
                 , SameFolder <$> Map.lookup anchor globalAnchors
                 ]
             renderEnv = RenderEnv {..}
