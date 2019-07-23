@@ -19,10 +19,10 @@ import com.digitalasset.ledger.api.v1.value.{
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
+import com.digitalasset.platform.server.api.validation.IdentifierResolverLike
 import io.grpc.StatusRuntimeException
 
-final class ValueValidator(identifierResolver: IdentifierResolver) {
+final class ValueValidator(identifierResolver: IdentifierResolverLike) {
 
   private[validation] def validateRecordFields(recordFields: Seq[RecordField])
     : Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
