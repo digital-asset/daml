@@ -36,7 +36,7 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
         CreatedEvent(
           "createdEventId",
           contractId,
-          Some(Identifier("pkdId", "moduleNamee", "createdTemplateId")),
+          Some(Identifier("pkgId", "modName", "createdTemplateId")),
           None,
           Some(Record()))))
 
@@ -63,7 +63,8 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
       EventId("archivedEventId"),
       ContractId(contractId),
       TemplateId(Identifier("pkgId", "modName", "archivedTemplateId")),
-      List.empty)
+      List.empty
+    )
 
   case class MockTemplate() extends Template[MockTemplate] {
     override protected[this] def templateCompanion(
@@ -71,7 +72,7 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
       new TemplateCompanion.Empty[MockTemplate] {
         override val onlyInstance = MockTemplate()
         override val id: Primitive.TemplateId[MockTemplate] =
-          ` templateId`("packageId", "moduleId", "templateId")
+          ` templateId`("packageId", "modName", "templateId")
         override val consumingChoices: Set[Choice] = Set.empty
       }
   }
