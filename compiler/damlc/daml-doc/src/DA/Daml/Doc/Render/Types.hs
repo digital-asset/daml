@@ -23,5 +23,6 @@ data RenderMode
 data RenderOptions = RenderOptions
     { ro_mode :: RenderMode -- ^ control single file / multi file rendering
     , ro_format :: DocFormat -- ^ renderer output format
-    , ro_baseUrl :: Maybe T.Text -- ^ base URL in which to render output
+    , ro_title :: Maybe T.Text -- ^ title of rendered documentation
+    , ro_template :: Maybe T.Text -- ^ renderer template
     }
