@@ -77,17 +77,17 @@ class HttpServiceIntegrationTest
 
         val templateId: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
 
-        val args: domain.Record[v.Value] = List(
-          ("issuer", v.Value(v.Value.Sum.Party("Alice"))),
-          ("owner", v.Value(v.Value.Sum.Party("Alice"))),
-          ("currency", v.Value(v.Value.Sum.Text("USD"))),
-          ("amount", v.Value(v.Value.Sum.Decimal("999.99"))),
-          ("observers", v.Value(v.Value.Sum.List(v.List())))
-        )
+        val arg: v.Record = v.Record(
+          fields = List(
+            v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
+            v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
+            v.RecordField("currency", Some(v.Value(v.Value.Sum.Text("USD")))),
+            v.RecordField("amount", Some(v.Value(v.Value.Sum.Decimal("999.99")))),
+            v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
+          ))
 
         val ledgerId: lar.LedgerId = LedgerIds.convertLedgerId(client.ledgerId)
-        val command0: domain.CreateCommand[v.Value] =
-          domain.CreateCommand(templateId, Some(args), None)
+        val command0: domain.CreateCommand[v.Record] = domain.CreateCommand(templateId, arg, None)
 
         println(s"------------------ command0: $command0")
 
@@ -100,17 +100,23 @@ class HttpServiceIntegrationTest
 
           lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
 
-          jsValueToApiValue = JsValueToApiValueConverter.jsValueToApiValue(lfTypeLookup) _
+          jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
+
+          jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
 
           apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId, packageStore)
 
-          apiValueToJsValue = ApiValueToJsValueConverter.apiValueToJsValue(apiValueToLfValue) _
+          apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
 
-          decoder = new DomainJsonDecoder(resolveTemplateId, jsValueToApiValue)
-          encoder = new DomainJsonEncoder(apiValueToJsValue)
+          apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
 
-          command1 <- toFuture(encoder.encodeValues(command0)): Future[
-            domain.CreateCommand[JsValue]]
+          apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
+
+          decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord)
+          encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
+
+          command1 <- toFuture(encoder.encodeUnderlyingRecord(command0)): Future[
+            domain.CreateCommand[JsObject]]
 
           _ = println(s"------------------ command1: $command1")
 
@@ -118,15 +124,15 @@ class HttpServiceIntegrationTest
 
           _ = println(s"------------------ jsValue: ${jsValue.prettyPrint}")
 
-          command2 <- toFuture(SprayJson.parse[domain.CreateCommand[JsValue]](jsValue)): Future[
-            domain.CreateCommand[JsValue]]
+          command2 <- toFuture(SprayJson.parse[domain.CreateCommand[JsObject]](jsValue)): Future[
+            domain.CreateCommand[JsObject]]
 
           _ = println(s"------------------ command2: $command2")
 
           _ <- Future(command1 shouldBe command2)
 
-          command3 <- toFuture(decoder.decodeValues(command2)): Future[
-            domain.CreateCommand[v.Value]]
+          command3 <- toFuture(decoder.decodeUnderlyingValues(command2)): Future[
+            domain.CreateCommand[v.Record]]
 
           _ = println(s"------------------ command3: $command3")
 
@@ -135,18 +141,6 @@ class HttpServiceIntegrationTest
   }
 
   "command/create IOU" ignore withHttpService(dar, testId) { uri: Uri =>
-    val templateId: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
-
-    val args: domain.Record[v.Value] = List(
-      ("issuer", v.Value(v.Value.Sum.Party("Alice"))),
-      ("owner", v.Value(v.Value.Sum.Party("Alice"))),
-      ("currency", v.Value(v.Value.Sum.Text("USD"))),
-      ("amount", v.Value(v.Value.Sum.Decimal("999.99"))),
-      ("observers", v.Value(v.Value.Sum.List(v.List())))
-    )
-
-    val command: domain.CreateCommand[v.Value] = domain.CreateCommand(templateId, Some(args), None)
-
     Http()
       .singleRequest(
         HttpRequest(method = HttpMethods.POST, uri = uri.withPath(Uri.Path("/command/create"))))

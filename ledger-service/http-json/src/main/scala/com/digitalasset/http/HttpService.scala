@@ -10,7 +10,12 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
-import com.digitalasset.http.json.{ApiValueToJsValueConverter, JsValueToApiValueConverter}
+import com.digitalasset.http.json.{
+  ApiValueToJsValueConverter,
+  DomainJsonDecoder,
+  DomainJsonEncoder,
+  JsValueToApiValueConverter
+}
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil._
 import com.digitalasset.http.util.LedgerIds.convertLedgerId
@@ -73,18 +78,27 @@ object HttpService extends StrictLogging {
 
       lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
 
-      jsValueToApiValue = JsValueToApiValueConverter.jsValueToApiValue(lfTypeLookup) _
+      jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
+
+      jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
 
       apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId, packageStore)
 
-      apiValueToJsValue = ApiValueToJsValueConverter.apiValueToJsValue(apiValueToLfValue) _
+      apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
+
+      apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
+
+      apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
+
+      decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord)
+      encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
 
       endpoints = new Endpoints(
         commandService,
         contractsService,
-        resolveTemplateId,
-        jsValueToApiValue,
-        apiValueToJsValue)
+        decoder,
+        encoder
+      )
 
       binding <- liftET[Error](
         Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))

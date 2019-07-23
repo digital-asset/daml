@@ -24,7 +24,7 @@ class CommandService(
     timeProvider: TimeProvider,
     defaultTimeToLive: Duration = 30.seconds)(implicit ec: ExecutionContext) {
 
-  def create(jwtPayload: domain.JwtPayload, input: domain.CreateCommand[lav1.value.Value])
+  def create(jwtPayload: domain.JwtPayload, input: domain.CreateCommand[lav1.value.Record])
     : Future[domain.ActiveContract[lav1.value.Value]] =
     for {
       command <- toFuture(createCommand(input))
@@ -33,7 +33,7 @@ class CommandService(
       contract <- toFuture(exactlyOneActiveContract(response))
     } yield contract
 
-  def exercise(jwtPayload: domain.JwtPayload, input: domain.ExerciseCommand[lav1.value.Value])
+  def exercise(jwtPayload: domain.JwtPayload, input: domain.ExerciseCommand[lav1.value.Record])
     : Future[List[domain.ActiveContract[lav1.value.Value]]] =
     for {
       command <- toFuture(exerciseCommand(input))
@@ -42,26 +42,19 @@ class CommandService(
       contracts <- toFuture(activeContracts(response))
     } yield contracts
 
-  private def createCommand(input: domain.CreateCommand[lav1.value.Value])
+  private def createCommand(input: domain.CreateCommand[lav1.value.Record])
     : Error \/ lav1.commands.Command.Command.Create = {
-    val arguments: lav1.value.Record = input.arguments.map(toRecord).getOrElse(emptyRecord)
     resolveTemplateId(input.templateId)
       .leftMap(e => Error(e.shows))
-      .map(x => Commands.create(x, arguments))
+      .map(x => Commands.create(x, input.argument))
   }
 
-  private def exerciseCommand(input: domain.ExerciseCommand[lav1.value.Value])
+  private def exerciseCommand(input: domain.ExerciseCommand[lav1.value.Record])
     : Error \/ lav1.commands.Command.Command.Exercise = {
-    val arguments: lav1.value.Record = input.arguments.map(toRecord).getOrElse(emptyRecord)
     resolveTemplateId(input.templateId)
       .leftMap(e => Error(e.shows))
-      .map(x => Commands.exercise(x, input.contractId, input.choice, arguments))
+      .map(x => Commands.exercise(x, input.contractId, input.choice, input.argument))
   }
-
-  private def toRecord(as: Seq[(String, lav1.value.Value)]) =
-    lav1.value.Record(fields = as.map(a => lav1.value.RecordField(a._1, Some(a._2))))
-
-  private val emptyRecord = lav1.value.Record()
 
   private def submitAndWaitRequest(
       jwtPayload: domain.JwtPayload,

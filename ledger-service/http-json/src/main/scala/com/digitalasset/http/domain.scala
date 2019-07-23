@@ -122,33 +122,21 @@ object domain {
 
   final case class CreateCommand[+LfV](
       templateId: TemplateId.OptionalPkg,
-      arguments: Option[Record[LfV]],
+      argument: LfV,
       meta: Option[CommandMeta])
 
   final case class ExerciseCommand[+LfV](
       templateId: TemplateId.OptionalPkg,
       contractId: lar.ContractId,
       choice: lar.Choice,
-      arguments: Option[Record[LfV]],
+      argument: LfV,
       meta: Option[CommandMeta])
 
   trait HasTemplateId[F[_]] {
     def templateId(a: F[_]): TemplateId.OptionalPkg
   }
 
-  private trait HasArguments[F[_]] {
-    def arguments[LfV](a: F[LfV]): Option[Record[LfV]]
-    def withArguments[LfV](a: F[_], newArguments: Option[Record[LfV]]): F[LfV]
-  }
-
-  private def traverseArgumentsInstance[F[_]](argumentsLens: HasArguments[F]): Traverse[F] =
-    new Traverse[F] {
-      import argumentsLens._
-      override def map[A, B](fa: F[A])(f: A => B): F[B] =
-        withArguments(fa, arguments(fa) map (Record.traversal.map(_)(f)))
-      override def traverseImpl[G[_]: Applicative, A, B](fa: F[A])(f: A => G[B]): G[F[B]] =
-        arguments(fa) traverse (Record.traversal.traverse(_)(f)) map (withArguments(fa, _))
-    }
+  // TODO(Leo): get rid of Field and Record
 
   type Field[+A] = (String, A)
 
@@ -160,29 +148,21 @@ object domain {
   }
 
   object CreateCommand {
-    implicit val traverseInstance: Traverse[CreateCommand] =
-      traverseArgumentsInstance {
-        new HasArguments[CreateCommand] {
-          override def arguments[LfV](a: CreateCommand[LfV]) = a.arguments
-          override def withArguments[LfV](a: CreateCommand[_], newArguments: Option[Record[LfV]]) =
-            a.copy(arguments = newArguments)
-        }
-      }
+    implicit val traverseInstance: Traverse[CreateCommand] = new Traverse[CreateCommand] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: CreateCommand[A])(
+          f: A => G[B]): G[CreateCommand[B]] =
+        f(fa.argument).map(a => fa.copy(argument = a))
+    }
 
     implicit val hasTemplateId: HasTemplateId[CreateCommand] =
       (a: CreateCommand[_]) => a.templateId
   }
 
   object ExerciseCommand {
-    implicit val traverseInstance: Traverse[ExerciseCommand] =
-      traverseArgumentsInstance {
-        new HasArguments[ExerciseCommand] {
-          override def arguments[LfV](a: ExerciseCommand[LfV]) = a.arguments
-          override def withArguments[LfV](
-              a: ExerciseCommand[_],
-              newArguments: Option[Record[LfV]]) = a.copy(arguments = newArguments)
-        }
-      }
+    implicit val traverseInstance: Traverse[ExerciseCommand] = new Traverse[ExerciseCommand] {
+      override def traverseImpl[G[_]: Applicative, A, B](fa: ExerciseCommand[A])(
+          f: A => G[B]): G[ExerciseCommand[B]] = f(fa.argument).map(a => fa.copy(argument = a))
+    }
 
     implicit val hasTemplateId: HasTemplateId[ExerciseCommand] =
       (a: ExerciseCommand[_]) => a.templateId

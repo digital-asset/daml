@@ -7,7 +7,7 @@ import com.digitalasset.daml.lf
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 
-object DamlLfIdentifiers {
+object IdentifierConverters {
 
   def damlLfIdentifier(a: lar.TemplateId): lf.data.Ref.Identifier =
     damlLfIdentifier(lar.TemplateId.unwrap(a))
@@ -21,4 +21,10 @@ object DamlLfIdentifiers {
         Ref.DottedName.assertFromString(a.entityName))
     )
   }
+
+  def apiIdentifier(a: lf.data.Ref.Identifier): lav1.value.Identifier =
+    lav1.value.Identifier(
+      packageId = a.packageId,
+      moduleName = a.qualifiedName.module.dottedName,
+      entityName = a.qualifiedName.name.dottedName)
 }

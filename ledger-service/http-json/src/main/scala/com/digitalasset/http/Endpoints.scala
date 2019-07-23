@@ -9,18 +9,17 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.digitalasset.daml.lf
 import com.digitalasset.http.json.HttpCodec._
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.parse
-import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonError}
+import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.list._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, @@, Show, \/, \/-}
+import scalaz.{-\/, @@, Show, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -29,17 +28,13 @@ import scala.concurrent.{ExecutionContext, Future}
 class Endpoints(
     commandService: CommandService,
     contractsService: ContractsService,
-    resolveTemplateId: Services.ResolveTemplateId,
-    jsValueToApiValue: (lf.data.Ref.Identifier, JsValue) => JsonError \/ lav1.value.Value,
-    apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue,
+    decoder: DomainJsonDecoder,
+    encoder: DomainJsonEncoder,
     parallelism: Int = 8)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
   import Endpoints._
   import json.JsonProtocol._
-
-  val decoder = new DomainJsonDecoder(resolveTemplateId, jsValueToApiValue)
-  val encoder = new DomainJsonEncoder(apiValueToJsValue)
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
@@ -71,7 +66,7 @@ class Endpoints(
               commandService.create(jwtPayload, c)
           }
           .map { a: domain.ActiveContract[lav1.value.Value] =>
-            encoder.encode(a) match {
+            encoder.encodeV(a) match {
               case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
               case \/-(b) => format(resultJsObject(b: JsValue))
             }
@@ -90,7 +85,7 @@ class Endpoints(
               commandService.exercise(jwtPayload, c)
           }
           .map { as: List[domain.ActiveContract[lav1.value.Value]] =>
-            as.traverse(a => encoder.encode(a)) match {
+            as.traverse(a => encoder.encodeV(a)) match {
               case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
               case \/-(bs) => format(resultJsObject(bs: List[JsValue]))
             }

@@ -6,22 +6,44 @@ package com.digitalasset.http.json
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{Traverse, \/}
-import spray.json.{JsValue, JsonWriter}
+import scalaz.{-\/, Traverse, \/, \/-}
+import spray.json.{JsObject, JsValue, JsonWriter}
 
 import scala.language.higherKinds
 
-class DomainJsonEncoder(apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue) {
-  def encode[F[_]](fa: F[lav1.value.Value])(
+class DomainJsonEncoder(
+    apiRecordToJsObject: lav1.value.Record => JsonError \/ JsObject,
+    apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue) {
+
+  def encodeR[F[_]](fa: F[lav1.value.Record])(
+      implicit ev1: Traverse[F],
+      ev2: JsonWriter[F[JsObject]]): JsonError \/ JsObject =
+    for {
+      a <- encodeUnderlyingRecord(fa)
+      b <- SprayJson.toJson[F[JsObject]](a)(ev2).leftMap(e => JsonError(e.shows))
+      c <- mustBeJsObject(b)
+    } yield c
+
+  private def mustBeJsObject(a: JsValue): JsonError \/ JsObject = a match {
+    case b: JsObject => \/-(b)
+    case _ => -\/(JsonError(s"Expected JsObject, got: ${a: JsValue}"))
+  }
+
+  // encode underlying values
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def encodeUnderlyingRecord[F[_]: Traverse](fa: F[lav1.value.Record]): JsonError \/ F[JsObject] =
+    fa.traverse(a => apiRecordToJsObject(a))
+
+  def encodeV[F[_]](fa: F[lav1.value.Value])(
       implicit ev1: Traverse[F],
       ev2: JsonWriter[F[JsValue]]): JsonError \/ JsValue =
     for {
-      a <- encodeValues(fa)
+      a <- encodeUnderlyingValue(fa)
       b <- SprayJson.toJson[F[JsValue]](a)(ev2).leftMap(e => JsonError(e.shows))
     } yield b
 
   // encode underlying values
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def encodeValues[F[_]: Traverse](fa: F[lav1.value.Value]): JsonError \/ F[JsValue] =
+  def encodeUnderlyingValue[F[_]: Traverse](fa: F[lav1.value.Value]): JsonError \/ F[JsValue] =
     fa.traverse(a => apiValueToJsValue(a))
 }

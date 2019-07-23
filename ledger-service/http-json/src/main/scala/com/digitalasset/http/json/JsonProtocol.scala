@@ -82,9 +82,9 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat4(
     domain.CommandMeta)
 
-  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsValue]] = jsonFormat3(
-    domain.CreateCommand[JsValue])
+  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsObject]] = jsonFormat3(
+    domain.CreateCommand[JsObject])
 
-  implicit val ExerciseCommandFormat: RootJsonFormat[domain.ExerciseCommand[JsValue]] = jsonFormat5(
-    domain.ExerciseCommand[JsValue])
+  implicit val ExerciseCommandFormat: RootJsonFormat[domain.ExerciseCommand[JsObject]] =
+    jsonFormat5(domain.ExerciseCommand[JsObject])
 }
