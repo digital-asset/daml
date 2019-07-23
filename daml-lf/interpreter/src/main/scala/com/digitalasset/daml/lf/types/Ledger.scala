@@ -976,14 +976,7 @@ object Ledger {
           vs.foreach(collect)
         case ValueContractId(coid) =>
           coids += coid
-        case _: ValueInt64 => ()
-        case _: ValueDecimal => ()
-        case _: ValueText => ()
-        case _: ValueTimestamp => ()
-        case _: ValueParty => ()
-        case _: ValueBool => ()
-        case _: ValueDate => ()
-        case ValueUnit => ()
+        case _: ValueCidlessLeaf => ()
         case ValueOptional(mbV) => mbV.foreach(collect)
         case ValueMap(map) => map.values.foreach(collect)
       }
@@ -1021,15 +1014,7 @@ object Ledger {
         case ValueContractId(coid) =>
           val acoid = contractIdToAbsoluteContractId(commitPrefix, coid)
           ValueContractId(acoid)
-        case vEnum: ValueEnum => vEnum
-        case vlit: ValueInt64 => vlit
-        case vlit: ValueDecimal => vlit
-        case vlit: ValueText => vlit
-        case vlit: ValueTimestamp => vlit
-        case vlit: ValueParty => vlit
-        case vlit: ValueBool => vlit
-        case vlit: ValueDate => vlit
-        case ValueUnit => ValueUnit
+        case vlit: ValueCidlessLeaf => vlit
         case ValueOptional(mbV) => ValueOptional(mbV.map(rewrite))
         case ValueMap(map) => ValueMap(map.mapValue(rewrite))
       }
