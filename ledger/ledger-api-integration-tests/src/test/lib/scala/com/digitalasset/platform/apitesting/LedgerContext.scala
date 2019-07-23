@@ -48,6 +48,7 @@ import com.digitalasset.ledger.client.services.pkg.PackageClient
 import com.digitalasset.ledger.client.services.testing.time.StaticTime
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.common.LedgerIdMode
+import com.digitalasset.platform.common.util.DirectExecutionContext
 import io.grpc.reflection.v1alpha.ServerReflectionGrpc
 import io.grpc.{Channel, StatusRuntimeException}
 import org.slf4j.LoggerFactory
@@ -55,7 +56,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Success
+import scala.util.control.NonFatal
 
 trait LedgerContext {
   import LedgerContext._
@@ -126,14 +127,18 @@ trait LedgerContext {
       applicationId: String = MockMessages.applicationId,
       configuration: CommandClientConfiguration = defaultCommandClientConfiguration)(
       implicit mat: Materializer): Future[CommandClient] =
+    timeProvider(ledgerId)
+      .map(
+        tp =>
+          commandClientWithoutTime(ledgerId, applicationId, configuration)
+            .withTimeProvider(Some(tp)))(DirectExecutionContext)
+
+  final def timeProvider(ledgerId: domain.LedgerId = this.ledgerId)(
+      implicit mat: Materializer): Future[TimeProvider] = {
     StaticTime
       .updatedVia(timeService, ledgerId.unwrap)
-      .transform { t =>
-        // FIXME: we shouldn't silently default to local UTC on any exception. That is bad practice in several ways.
-        Success(
-          commandClientWithoutTime(ledgerId, applicationId, configuration)
-            .withTimeProvider(Some(t.fold(_ => TimeProvider.UTC, identity))))
-      }(mat.executionContext)
+      .recover { case NonFatal(_) => TimeProvider.UTC }(DirectExecutionContext)
+  }
 }
 
 object LedgerContext {

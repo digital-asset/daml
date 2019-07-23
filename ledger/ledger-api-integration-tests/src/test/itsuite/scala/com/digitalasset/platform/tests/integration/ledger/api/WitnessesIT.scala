@@ -3,6 +3,8 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
+import java.util.UUID
+
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundEach
@@ -14,7 +16,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFi
 import com.digitalasset.ledger.api.v1.value.{Record, RecordField, Value}
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.TestParties._
-import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestTemplateIds}
+import com.digitalasset.platform.apitesting.{MultiLedgerFixture, TestIdsGenerator, TestTemplateIds}
 import com.digitalasset.platform.participant.util.ValueConversions._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.{AsyncFreeSpec, Matchers}
@@ -34,6 +36,7 @@ class WitnessesIT
 
   protected val testTemplateIds = new TestTemplateIds(config)
   protected val templateIds = testTemplateIds.templateIds
+  private val testIds = new TestIdsGenerator(config)
 
   private val filter = TransactionFilter(
     Map(
@@ -55,7 +58,9 @@ class WitnessesIT
       ctx.testingHelpers
         .submitAndListenForSingleTreeResultOfCommand(
           ctx.testingHelpers
-            .submitRequestWithId(s"$choice-exercise", Charlie)
+            .submitRequestWithId(
+              testIds.testCommandId(s"witnesses-$choice-exercise-${UUID.randomUUID()}"),
+              Charlie)
             .update(
               _.commands.commands :=
                 List(
@@ -75,7 +80,7 @@ class WitnessesIT
       // Create Witnesses contract
       createTx <- ctx.testingHelpers.submitAndListenForSingleResultOfCommand(
         ctx.testingHelpers
-          .submitRequestWithId("create", Alice)
+          .submitRequestWithId(testIds.testCommandId("witnesses-create"), Alice)
           .update(
             _.commands.commands :=
               List(CreateCommand(Some(templateIds.witnesses), Some(createArg)).wrap)
@@ -86,14 +91,14 @@ class WitnessesIT
       // Divulge Witnesses contract to charlie, who's just an actor and thus cannot
       // see it by default.
       divulgeCreatedEv <- ctx.testingHelpers.simpleCreate(
-        "create-divulge",
+        testIds.testCommandId("witnesses-create-divulge"),
         Charlie,
         templateIds.divulgeWitnesses,
         Record(
           fields = List(RecordField(value = Alice.asParty), RecordField(value = Charlie.asParty)))
       )
       _ <- ctx.testingHelpers.simpleExercise(
-        "exercise-divulge",
+        testIds.testCommandId("witnesses-exercise-divulge"),
         Alice,
         templateIds.divulgeWitnesses,
         divulgeCreatedEv.contractId,

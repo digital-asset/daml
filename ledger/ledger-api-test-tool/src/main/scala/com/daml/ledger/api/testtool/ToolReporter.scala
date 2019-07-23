@@ -201,14 +201,15 @@ class ToolReporter(verbose: Boolean) extends Reporter {
       case Statistics(a, s, 0, 0) =>
         println(ansiGreen + s"All ${s}/${a} tests were successful!" + ansiReset)
       case Statistics(a, 0, c, 0) =>
-        println(ansiYellow + s"All ${a}/${a} tests were cancelled." + ansiReset)
+        println(ansiYellow + s"All ${c}/${a} tests were cancelled." + ansiReset)
       case Statistics(a, s, c, 0) =>
         println(
           ansiYellow + s"${s}/${a} tests were successful, but ${c} were cancelled." + ansiReset)
       case Statistics(a, s, 0, f) =>
         println(ansiRed + s"${s} were successful and ${f} failed out of ${a} tests." + ansiReset)
-      case _ =>
-        println("BUG")
+      case Statistics(a, s, c, f) =>
+        println(
+          ansiRed + s"${s} were successful, $c were cancelled, and ${f} failed out of ${a} tests." + ansiReset)
     }
 
   }
