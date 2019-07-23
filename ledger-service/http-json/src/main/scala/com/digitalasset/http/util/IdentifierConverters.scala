@@ -27,4 +27,6 @@ object IdentifierConverters {
       packageId = a.packageId,
       moduleName = a.qualifiedName.module.dottedName,
       entityName = a.qualifiedName.name.dottedName)
+
+  def apiIdentifier(a: lar.TemplateId): lav1.value.Identifier = lar.TemplateId.unwrap(a)
 }

@@ -10,20 +10,14 @@ import akka.stream.ActorMaterializer
 import akka.util.ByteString
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.{withHttpService, withLedger}
-import com.digitalasset.http.json.{
-  ApiValueToJsValueConverter,
-  DomainJsonDecoder,
-  DomainJsonEncoder,
-  JsValueToApiValueConverter,
-  SprayJson
-}
+import com.digitalasset.http.json._
 import com.digitalasset.http.util.FutureUtil.{stripLeft, toFuture}
 import com.digitalasset.http.util.TestUtil.requiredFile
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, LedgerIds}
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import org.scalatest._
 import scalaz.std.string._
 import scalaz.syntax.functor._
@@ -116,9 +110,8 @@ class HttpServiceIntegrationTest
           command3 <- toFuture(decoder.decodeUnderlyingValues(command2)): Future[
             domain.CreateCommand[v.Record]]
 
-          command4 = command3.map(removeRecordId)
+        } yield command3.map(removeRecordId) shouldBe command0
 
-        } yield command4 shouldBe command0
       }: Future[Assertion]
   }
 
