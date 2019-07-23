@@ -13,7 +13,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchive)
 import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
-import Data.List (elem,isPrefixOf,isInfixOf,(\\))
+import Data.List (elem,isPrefixOf,isInfixOf,(\\),sort)
 import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
 import System.Random (randomIO)
@@ -67,6 +67,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetLedgerConfiguration
     , tUploadDarFileBad
     , tUploadDarFile
+    , tListKnownPackages
     , tGetTime
     , tSetTime
     ]
@@ -329,10 +330,7 @@ tUploadDarFileBad withSandbox = testCase "tUploadDarFileBad" $ run withSandbox $
 tUploadDarFile :: SandboxTest
 tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_pid -> do
     lid <- getLedgerIdentity
-    bytes <- liftIO $ do
-        let extraDarFilename = "language-support/hs/bindings/for-upload.dar"
-        file <- locateRunfiles (mainWorkspace </> extraDarFilename)
-        BS.readFile file
+    bytes <- liftIO getBytesForUpload
     pid <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
     cidA <- submitCommand lid alice (createExtra pid alice) >>= either (liftIO . assertFailure) return
     withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
@@ -350,6 +348,27 @@ tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \
                     RecordField "message" (VString "Hello extra module")
                     ]
 
+tListKnownPackages :: SandboxTest
+tListKnownPackages withSandbox = testCase "tListKnownPackages" $ run withSandbox $ \_pid -> do
+    _ <- getLedgerIdentity -- without this, the first call to listKnownPackages times-out
+    known0 <- listKnownPackages
+    let pids0 = map (\PackageDetails{pid} -> pid) known0
+    liftIO $ do assertEqual "#known0" 3 (length known0)
+    bytes <- liftIO getBytesForUpload
+    lid <- getLedgerIdentity
+    pidx <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
+    known1 <- listKnownPackages
+    let pids1 = map (\PackageDetails{pid} -> pid) known1
+    liftIO $ do
+        assertEqual "#known1" 4 (length known1)
+        assertEqual "known1-pids" (sort (pidx:pids0)) (sort pids1)
+
+
+getBytesForUpload :: IO BS.ByteString
+getBytesForUpload = do
+        let extraDarFilename = "language-support/hs/bindings/for-upload.dar"
+        file <- locateRunfiles (mainWorkspace </> extraDarFilename)
+        BS.readFile file
 
 -- Would be nice if the underlying service returned the pid on successful upload.
 uploadDarFileGetPid :: LedgerId -> BS.ByteString -> LedgerService (Either String PackageId)
