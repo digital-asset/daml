@@ -56,7 +56,7 @@ toCurrent (Range (Position startLine startColumn) (Position endLine endColumn)) 
         linesOld = endLine - startLine
         newEndColumn
           | linesNew == 0 = startColumn + T.length t
-          | otherwise = T.length $ last $ T.lines t
+          | otherwise = T.length $ T.takeWhileEnd (/= '\n') t
         newColumn
           | line == endLine = column + newEndColumn - endColumn
           | otherwise = column
@@ -79,7 +79,7 @@ fromCurrent (Range (Position startLine startColumn) (Position endLine endColumn)
         newEndLine = endLine + lineDiff
         newEndColumn
           | linesNew == 0 = startColumn + T.length t
-          | otherwise = T.length $ last $ T.lines t
+          | otherwise = T.length $ T.takeWhileEnd (/= '\n') t
         newColumn
           | line == newEndLine = column - (newEndColumn - endColumn)
           | otherwise = column

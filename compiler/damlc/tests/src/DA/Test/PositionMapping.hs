@@ -50,6 +50,11 @@ main = defaultMain $
                     (Range (Position 0 1) (Position 0 3))
                     "abc\nd"
                     (Position 0 4) @?= Just (Position 1 2)
+              , testCase "after, same line, newline + newline at end" $
+                toCurrent
+                    (Range (Position 0 1) (Position 0 3))
+                    "abc\nd\n"
+                    (Position 0 4) @?= Just (Position 2 1)
               ]
         , testGroup "fromCurrent"
               [ testCase "before" $
@@ -87,6 +92,11 @@ main = defaultMain $
                     (Range (Position 0 1) (Position 0 3))
                     "abc\nd"
                     (Position 1 2) @?= Just (Position 0 4)
+              , testCase "after, same line, newline + newline at end" $
+                fromCurrent
+                    (Range (Position 0 1) (Position 0 3))
+                    "abc\nd\n"
+                    (Position 2 1) @?= Just (Position 0 4)
               ]
         ]
 
