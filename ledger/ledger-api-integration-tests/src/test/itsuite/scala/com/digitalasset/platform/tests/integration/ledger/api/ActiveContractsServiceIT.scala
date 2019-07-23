@@ -104,15 +104,13 @@ class ActiveContractsServiceIT
 
   private def uniqueCmdId = testIds.testCommandId(UUID.randomUUID().toString)
 
-  private def filter = TransactionFilter(Map(config.parties.head -> Filters()))
-
   "Active Contract Set Service" when {
     "asked for active contracts" should {
       "fail with the expected status on a ledger Id mismatch" in allFixtures { context =>
         new ActiveContractSetClient(
           domain.LedgerId(s"not-${context.ledgerId.unwrap}"),
           context.acsService)
-          .getActiveContracts(filter)
+          .getActiveContracts(TransactionFilter(Map("not-relevant" -> Filters())))
           .runWith(Sink.head)(materializer)
           .failed map { ex =>
           IsStatusException(Status.NOT_FOUND.getCode)(ex)
@@ -120,7 +118,13 @@ class ActiveContractsServiceIT
       }
 
       "succeed with empty response" in allFixtures { context =>
-        context.acsClient.getActiveContracts(filter).runWith(Sink.seq)(materializer) map {
+        // using a UUID as party name to make it very likely that the this party doesn't see any
+        // contracts yet. in the future we need to allocate a new party before each run to make this
+        // test useful
+        val filter = TransactionFilter(Map(UUID.randomUUID().toString -> Filters()))
+        context.acsClient
+          .getActiveContracts(filter)
+          .runWith(Sink.seq)(materializer) map {
           // The sandbox sends an empty response, but the ACS app sends a response containing genesis predecessor.
           _.flatMap(_.activeContracts) should be(empty)
         }
