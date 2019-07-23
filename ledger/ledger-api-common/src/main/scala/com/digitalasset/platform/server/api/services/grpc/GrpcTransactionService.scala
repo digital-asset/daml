@@ -232,7 +232,6 @@ class GrpcTransactionService(
       eventId.unwrap,
       contractId.unwrap,
       Some(LfEngineToApi.toApiIdentifier(templateId)),
-      contractCreatingEventId.unwrap,
       choice,
       Some(
         LfEngineToApi

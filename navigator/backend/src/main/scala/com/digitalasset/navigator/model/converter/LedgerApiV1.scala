@@ -250,7 +250,6 @@ case object LedgerApiV1 {
         witnessParties = witnessParties,
         workflowId = workflowId,
         contractId = ApiTypes.ContractId(event.contractId),
-        contractCreateEvent = ApiTypes.EventId(event.contractCreatingEventId),
         templateId = templateIdentifier,
         choice = ApiTypes.Choice(event.choice),
         argument = modelArgument,
