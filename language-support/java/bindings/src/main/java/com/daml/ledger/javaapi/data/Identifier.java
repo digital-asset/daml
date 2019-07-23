@@ -41,8 +41,6 @@ public final class Identifier {
     public static Identifier fromProto(ValueOuterClass.Identifier identifier) {
         if (!identifier.getModuleName().isEmpty() && !identifier.getEntityName().isEmpty()) {
             return new Identifier(identifier.getPackageId(), identifier.getModuleName(), identifier.getEntityName());
-        } else if (!identifier.getName().isEmpty()) {
-            return new Identifier(identifier.getPackageId(), identifier.getName());
         } else {
             throw new IllegalArgumentException(String.format("Invalid identifier [%s]: both module_name and entity_name must be set.", identifier));
         }

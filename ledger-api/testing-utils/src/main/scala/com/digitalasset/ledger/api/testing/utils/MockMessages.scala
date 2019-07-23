@@ -51,6 +51,7 @@ object MockMessages {
   val submitAndWaitRequest =
     SubmitAndWaitRequest(Some(commands), Some(TraceContext(1L, 2L, 3L, Some(4L))))
 
+  val moduleName = "moduleName"
   val transactionId = "transactionId"
   val eventIdCreated = "eventIdCreate"
   val eventIdExercised = "eventIdExercise"
@@ -60,7 +61,7 @@ object MockMessages {
   val packageId = "packageId"
   val templateName = "templateName"
   val choice = "choice"
-  val templateId = Identifier(packageId, templateName)
+  val templateId = Identifier(packageId, moduleName, templateName)
   val offset = "offset"
 
   val transactionFilter =
@@ -112,7 +113,7 @@ object MockMessages {
   private def generateEvent() = ExercisedEvent(
     randomId("event-id"),
     randomId("contract-id"),
-    Some(Identifier(randomId("package-id"), randomId("template-id"))),
+    Some(Identifier(randomId("package-id"), randomId("moduleName"), randomId("template-id"))),
     randomId("event-id"),
     randomId("choice-id"),
     None,

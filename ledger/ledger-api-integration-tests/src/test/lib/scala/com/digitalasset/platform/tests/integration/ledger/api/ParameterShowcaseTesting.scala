@@ -22,13 +22,9 @@ trait ParameterShowcaseTesting {
   protected def paramShowcaseArgs(packageId: String): Vector[RecordField] = {
     val variant = Value(
       Value.Sum.Variant(
-        Variant(
-          Some(Identifier(packageId, "Test.OptionalInteger", "Test", "OptionalInteger")),
-          "SomeInteger",
-          1.asInt64)))
+        Variant(Some(Identifier(packageId, "Test", "OptionalInteger")), "SomeInteger", 1.asInt64)))
     val nestedVariant = Vector("value" -> variant)
-      .asRecordValueOf(
-        Identifier(packageId, "Test.NestedOptionalInteger", "Test", "NestedOptionalInteger"))
+      .asRecordValueOf(Identifier(packageId, "Test", "NestedOptionalInteger"))
     val integerList = Vector(1, 2).map(_.toLong.asInt64).asList
     val optionalText = Optional(Value(Text("foo")))
     Vector(

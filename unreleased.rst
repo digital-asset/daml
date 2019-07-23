@@ -15,3 +15,8 @@ HEAD — ongoing
 
 - [releases] Releases should now be announced on `the releases blog
   <https://blog.daml.com/release-notes>`_.
+- [DAML Compiler] Support reading of DAML-LF 1.5 again.
+
+- [Ledger API] **BREAKING CHANGE** Drop support for legacy identifier. The
+  previously deprecated field ``name`` in ``Identifier`` message is not
+  supported anymore. Use ``module_name`` and ``entity_name`` instead.

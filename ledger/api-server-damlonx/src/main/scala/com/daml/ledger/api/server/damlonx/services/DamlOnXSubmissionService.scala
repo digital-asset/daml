@@ -29,7 +29,7 @@ import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   CommandSubmissionServiceLogging
@@ -47,7 +47,6 @@ import java.util.concurrent.{ExecutorService, Executors}
 object DamlOnXSubmissionService {
 
   def create(
-      identifierResolver: IdentifierResolver,
       ledgerId: String,
       indexService: IndexService,
       writeService: WriteService,
@@ -58,8 +57,7 @@ object DamlOnXSubmissionService {
     with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
-      ApiLedgerId(ledgerId),
-      identifierResolver
+      ApiLedgerId(ledgerId)
     ) with CommandSubmissionServiceLogging
 
 }
