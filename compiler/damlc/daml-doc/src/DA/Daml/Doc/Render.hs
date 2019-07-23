@@ -5,7 +5,7 @@
 
 module DA.Daml.Doc.Render
   ( DocFormat(..)
-  , renderFinish
+  , renderPage
   , renderSimpleRst
   , renderSimpleMD
   , renderSimpleHtml
@@ -13,6 +13,7 @@ module DA.Daml.Doc.Render
   , jsonConf
   ) where
 
+import DA.Daml.Doc.Render.Types
 import DA.Daml.Doc.Render.Monoid
 import DA.Daml.Doc.Render.Rst
 import DA.Daml.Doc.Render.Markdown
@@ -31,18 +32,10 @@ import qualified Text.Blaze.Html.Renderer.Text as H
 jsonConf :: AP.Config
 jsonConf = AP.Config (AP.Spaces 2) (AP.keyOrder ["id"]) AP.Generic True
 
-
--- TODO rendering structures closely resembles each other. Could share code and
--- use a common typeclass if need be (unsure about ROI so far).
-
-data DocFormat = Json | Rst | Markdown | Html | Hoogle
-  deriving (Eq, Show, Read, Enum, Bounded)
-
-
 -- | Html renderer, using cmark-gfm
 renderSimpleHtml :: ModuleDoc -> T.Text
 renderSimpleHtml m@ModuleDoc{..} =
-  wrapHtml t $ GFM.commonmarkToHtml [] [GFM.extTable] $ renderFinish $ renderSimpleMD m
+  wrapHtml t $ GFM.commonmarkToHtml [] [GFM.extTable] $ renderPage $ renderSimpleMD m
   where t = "Module " <> unModulename md_name
 
 wrapHtml :: T.Text -> T.Text -> T.Text
