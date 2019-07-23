@@ -75,19 +75,12 @@ object HttpService extends StrictLogging {
         client.activeContractSetClient)
 
       resolveTemplateId = PackageService.resolveTemplateId(templateIdMap) _
-
       lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
-
       jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
-
       jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
-
       apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId, packageStore)
-
       apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
-
       apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
-
       apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
 
       decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord)

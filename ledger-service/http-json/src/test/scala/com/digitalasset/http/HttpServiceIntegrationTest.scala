@@ -23,12 +23,10 @@ import com.digitalasset.http.util.{ApiValueToLfValueConverter, LedgerIds}
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
-//import com.digitalasset.ledger.service.LedgerReader.PackageStore
-//import scalaz.{\/, \/-}
-//import com.digitalasset.ledger.api.{v1 => lav1}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import org.scalatest._
 import scalaz.std.string._
+import scalaz.syntax.functor._
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -70,7 +68,7 @@ class HttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
-  "Should be able to serialize and deserialize domain.CreateCommand" in withLedger(dar, testId) {
+  "should be able to serialize and deserialize domain.CreateCommand" in withLedger(dar, testId) {
     client =>
       {
         import json.JsonProtocol._
@@ -89,27 +87,17 @@ class HttpServiceIntegrationTest
         val ledgerId: lar.LedgerId = LedgerIds.convertLedgerId(client.ledgerId)
         val command0: domain.CreateCommand[v.Record] = domain.CreateCommand(templateId, arg, None)
 
-        println(s"------------------ command0: $command0")
-
         for {
           packageStore <- stripLeft(LedgerReader.createPackageStore(client.packageClient))
 
           templateIdMap = PackageService.getTemplateIdMap(packageStore)
-
           resolveTemplateId = PackageService.resolveTemplateId(templateIdMap) _
-
           lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
-
           jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
-
           jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
-
           apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId, packageStore)
-
           apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
-
           apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
-
           apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
 
           decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord)
@@ -118,27 +106,23 @@ class HttpServiceIntegrationTest
           command1 <- toFuture(encoder.encodeUnderlyingRecord(command0)): Future[
             domain.CreateCommand[JsObject]]
 
-          _ = println(s"------------------ command1: $command1")
-
           jsValue = command1.toJson: JsValue
-
-          _ = println(s"------------------ jsValue: ${jsValue.prettyPrint}")
 
           command2 <- toFuture(SprayJson.parse[domain.CreateCommand[JsObject]](jsValue)): Future[
             domain.CreateCommand[JsObject]]
-
-          _ = println(s"------------------ command2: $command2")
 
           _ <- Future(command1 shouldBe command2)
 
           command3 <- toFuture(decoder.decodeUnderlyingValues(command2)): Future[
             domain.CreateCommand[v.Record]]
 
-          _ = println(s"------------------ command3: $command3")
+          command4 = command3.map(removeRecordId)
 
-        } yield command3 shouldBe command0
+        } yield command4 shouldBe command0
       }: Future[Assertion]
   }
+
+  private def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
 
   "command/create IOU" ignore withHttpService(dar, testId) { uri: Uri =>
     Http()
