@@ -10,23 +10,20 @@ import akka.http.scaladsl.server.{Directive, Directive1, Route}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.digitalasset.daml.lf
-import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.json.HttpCodec._
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.parse
-import com.digitalasset.http.util.DamlLfIdentifiers
+import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, JsonError}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.std.list._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.std.list._
-import scalaz.{-\/, @@, Show, Traverse, \/, \/-}
+import scalaz.{-\/, @@, Show, \/, \/-}
 import spray.json._
-import com.digitalasset.http.json.JsonError
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.higherKinds
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
@@ -40,6 +37,9 @@ class Endpoints(
 
   import Endpoints._
   import json.JsonProtocol._
+
+  val decoder = new DomainJsonDecoder(resolveTemplateId, jsValueToApiValue)
+  val encoder = new DomainJsonEncoder(apiValueToJsValue)
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
@@ -61,36 +61,38 @@ class Endpoints(
   lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
       httpResponse(
-        parseInput[domain.CreateCommand[JsValue]](req)
-          .map(x => x.flatMap(decodeValue(resolveTemplateId, jsValueToApiValue)))
+        input(req)
+          .map(decoder.decode[domain.CreateCommand])
           .mapAsync(parallelism) {
             case -\/(e) =>
-              Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
+              // TODO(Leo): we need to set status code in the result JSON
+              Future.failed(InvalidUserInput(e.message))
             case \/-(c) =>
               commandService.create(jwtPayload, c)
           }
           .map { a: domain.ActiveContract[lav1.value.Value] =>
-            encodeValue(apiValueToJsValue)(a) match {
+            encoder.encode(a) match {
               case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
-              case \/-(b) => format(resultJsObject(b: domain.ActiveContract[JsValue]))
+              case \/-(b) => format(resultJsObject(b: JsValue))
             }
           }
       )
 
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
       httpResponse(
-        parseInput[domain.ExerciseCommand[JsValue]](req)
-          .map(x => x.flatMap(decodeValue(resolveTemplateId, jsValueToApiValue)))
+        input(req)
+          .map(decoder.decode[domain.ExerciseCommand])
           .mapAsync(parallelism) {
             case -\/(e) =>
-              Future.failed(e) // TODO(Leo): we need to set status code in the result JSON
+              // TODO(Leo): we need to set status code in the result JSON
+              Future.failed(InvalidUserInput(e.message))
             case \/-(c) =>
               commandService.exercise(jwtPayload, c)
           }
           .map { as: List[domain.ActiveContract[lav1.value.Value]] =>
-            as.traverse(encodeValue(apiValueToJsValue)) match {
+            as.traverse(a => encoder.encode(a)) match {
               case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
-              case \/-(bs) => format(resultJsObject(bs: List[domain.ActiveContract[JsValue]]))
+              case \/-(bs) => format(resultJsObject(bs: List[JsValue]))
             }
           }
       )
@@ -222,38 +224,6 @@ object Endpoints {
     }
   }
 
-  private[http] def parseInput[A: JsonReader](req: HttpRequest): Source[InvalidUserInput \/ A, _] =
-    req.entity.dataBytes
-      .fold(ByteString.empty)(_ ++ _)
-      .map(data => parse[A](data).leftMap(e => InvalidUserInput(e.shows)))
-
-  /**
-    * Parse underlying value
-    */
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private[http] def decodeValue[F[_]: Traverse: domain.HasTemplateId](
-      resolveTemplateId: Services.ResolveTemplateId,
-      jsValueToApiValue: (lf.data.Ref.Identifier, JsValue) => JsonError \/ lav1.value.Value)(
-      fa: F[JsValue]): Error \/ F[lav1.value.Value] =
-    for {
-      templateId <- lookupTemplateId(resolveTemplateId)(fa)
-      damlLfId = DamlLfIdentifiers.damlLfIdentifier(templateId)
-      apiValue <- fa
-        .traverse(jsValue => jsValueToApiValue(damlLfId, jsValue))
-        .leftMap(e => InvalidUserInput(e.shows))
-
-    } yield apiValue
-
-  @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private[http] def encodeValue[F[_]: Traverse](
-      apiValueToJsValue: lav1.value.Value => JsonError \/ JsValue)(
-      fa: F[lav1.value.Value]): Error \/ F[JsValue] =
-    fa.traverse(a => apiValueToJsValue(a)).leftMap(e => ServerError(e.shows))
-
-  private[http] def lookupTemplateId[F[_]: domain.HasTemplateId](
-      resolveTemplateId: Services.ResolveTemplateId)(fa: F[_]): Error \/ lar.TemplateId = {
-    val H: HasTemplateId[F] = implicitly
-    val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
-    resolveTemplateId(templateId).leftMap(e => ServerError(e.shows))
-  }
+  private[http] def input(req: HttpRequest): Source[ByteString, _] =
+    req.entity.dataBytes.fold(ByteString.empty)(_ ++ _)
 }

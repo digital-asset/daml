@@ -12,6 +12,8 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.http.HttpServiceTestFixture.{withHttpService, withLedger}
 import com.digitalasset.http.json.{
   ApiValueToJsValueConverter,
+  DomainJsonDecoder,
+  DomainJsonEncoder,
   JsValueToApiValueConverter,
   SprayJson
 }
@@ -104,7 +106,10 @@ class HttpServiceIntegrationTest
 
           apiValueToJsValue = ApiValueToJsValueConverter.apiValueToJsValue(apiValueToLfValue) _
 
-          command1 <- toFuture(Endpoints.encodeValue(apiValueToJsValue)(command0)): Future[
+          decoder = new DomainJsonDecoder(resolveTemplateId, jsValueToApiValue)
+          encoder = new DomainJsonEncoder(apiValueToJsValue)
+
+          command1 <- toFuture(encoder.encodeValues(command0)): Future[
             domain.CreateCommand[JsValue]]
 
           _ = println(s"------------------ command1: $command1")
@@ -120,8 +125,8 @@ class HttpServiceIntegrationTest
 
           _ <- Future(command1 shouldBe command2)
 
-          command3 <- toFuture(Endpoints.decodeValue(resolveTemplateId, jsValueToApiValue)(
-            command2)): Future[domain.CreateCommand[v.Value]]
+          command3 <- toFuture(decoder.decodeValues(command2)): Future[
+            domain.CreateCommand[v.Value]]
 
           _ = println(s"------------------ command3: $command3")
 
