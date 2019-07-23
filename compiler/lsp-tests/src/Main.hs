@@ -50,6 +50,7 @@ main = do
         conf = defaultConfig
             -- If you uncomment this you can see all messages
             -- which can be quite useful for debugging.
+            { logStdErr = True }
             -- { logMessages = True, logColor = False, logStdErr = True }
 
 diagnosticTests
@@ -248,6 +249,38 @@ requestTests run _runScenarios = testGroup "requests"
                     }
               ]
 
+          closeDoc main'
+    , testCase "stale code-lenses" $ run $ do
+          main' <- openDoc' "Main.daml" damlId $ T.unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "single = scenario do"
+              , "  assert (True == True)"
+              ]
+          lenses <- getCodeLenses main'
+          Just escapedFp <- pure $ escapeURIString isUnescapedInURIComponent <$> uriToFilePath (main' ^. uri)
+          let codeLens range =
+                  CodeLens
+                    { _range = range
+                    , _command = Just $ Command
+                          { _title = "Scenario results"
+                          , _command = "daml.showResource"
+                          , _arguments = Just $ List
+                              [ "Scenario: single"
+                              ,  toJSON $ "daml://compiler?file=" <> escapedFp <> "&top-level-decl=single"
+                              ]
+                          }
+                    , _xdata = Nothing
+                    }
+          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 3 23) (Position 3 23))) Nothing "+"]
+          expectDiagnostics [("Main.daml", [(DsError, (4, 0), "Parse error")])]
+          lenses <- getCodeLenses main'
+          liftIO $ lenses @?= [codeLens (Range (Position 2 0) (Position 2 6))]
+          -- Shift code lenses down
+          changeDoc main' [TextDocumentContentChangeEvent (Just (Range (Position 1 0) (Position 1 0))) Nothing "\n\n"]
+          lenses <- getCodeLenses main'
+          liftIO $ lenses @?= [codeLens (Range (Position 4 0) (Position 4 6))]
           closeDoc main'
     , testCase "type on hover: name" $ run $ do
           main' <- openDoc' "Main.daml" damlId $ T.unlines
