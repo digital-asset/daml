@@ -212,7 +212,15 @@ fct2md FunctionDoc{..} = mconcat
     [ renderAnchorInfix "" fct_anchor $ T.concat
         [ "**", escapeMd $ unFieldname fct_name, "**  " ]
     , renderLinesDep $ \env ->
-        maybe [] (\t -> ["&nbsp; : " <> type2md env t]) fct_type
+        case (fct_context, fct_type) of
+            (Nothing, Nothing) -> []
+            (_, _) ->
+                [ T.concat
+                    [ "&nbsp; : "
+                    , maybe "" ((<> " => ") . type2md env) fct_context
+                    , maybe "\\_"  (type2md env) fct_type
+                    ]
+                ]
     , renderDocText fct_descr
     ]
 ------------------------------------------------------------

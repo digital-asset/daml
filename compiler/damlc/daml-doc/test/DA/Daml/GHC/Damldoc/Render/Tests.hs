@@ -75,24 +75,39 @@ cases = [ ("Empty module",
              []
              []
           )
+        , ("Functions with context",
+           ModuleDoc
+            (Just "module-functionctx") "FunctionCtx"
+            Nothing [] [] []
+            [ FunctionDoc (Just "function-f") "f"
+                (Just $ TypeTuple [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
+                Nothing
+                (Just "function with context but no type")
+            , FunctionDoc (Just "function-g") "g"
+                (Just $ TypeTuple [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
+                (Just $ TypeFun [TypeApp Nothing "t" [], TypeApp Nothing "Bool" []])
+                (Just "function with context and type")
+            ] []
+          )
         ]
 
 expectRst :: [T.Text]
 expectRst =
         [ T.empty
         , mkExpectRst "module-typedef" "Typedef" "" [] []
-            ["\n.. _type-typedef-t:\n\ntype **T a**\n    = TT TTT\n\n  T descr"] []
+            [".. _type-typedef-t:\n\ntype **T a**\n    = TT TTT\n\n  T descr"] []
         , mkExpectRst "module-twotypes" "TwoTypes" "" []
             []
-            ["\n.. _type-twotypes-t:\n\ntype **T a**\n    = TT\n\n  T descr"
+            [".. _type-twotypes-t:\n\ntype **T a**\n    = TT\n\n  T descr\n"
             , "\n.. _data-twotypes-d:\n\ndata **D d**\n\n  \n  \n  .. _constr-twotypes-d:\n  \n  **D** a\n  \n  D descr"]
             []
-        , mkExpectRst "module-function1" "Function1" "" [] [] [] [ "\n.. _function-function1-f:\n\n**f**\n  : TheType\n\n  the doc\n"]
-        , mkExpectRst "module-function2" "Function2" "" [] [] [] [ "\n.. _function-function2-f:\n\n**f**\n  :   the doc\n"]
-        , mkExpectRst "module-function3" "Function3" "" [] [] [] [ "\n.. _function-function3-f:\n\n**f**\n  : TheType\n\n"]
+        , mkExpectRst "module-function1" "Function1" "" [] [] [] [ ".. _function-function1-f:\n\n**f**\n  : TheType\n\n  the doc\n"]
+        , mkExpectRst "module-function2" "Function2" "" [] [] [] [ ".. _function-function2-f:\n\n**f**\n  the doc\n"]
+        , mkExpectRst "module-function3" "Function3" "" [] [] [] [ ".. _function-function3-f:\n\n**f**\n  : TheType\n\n"]
         , mkExpectRst "module-onlyclass" "OnlyClass" ""
             []
-            [ "\n.. _class-onlyclass-c:"
+            [ ".. _class-onlyclass-c:"
+            , ""
             , "class **C a** where\n  \n  .. _function-onlyclass-member:\n  \n  **member**\n    : a"
             ]
             []
@@ -100,8 +115,10 @@ expectRst =
         , mkExpectRst "module-multilinefield" "MultiLineField" ""
             []
             []
-            [ "\n.. _data-multilinefield-d:"
+            [ ".. _data-multilinefield-d:"
+            , ""
             , "data **D**"
+            , ""
             , T.concat
                   [ "  \n  \n"
                   , "  .. _constr-multilinefield-d:\n  \n"
@@ -118,39 +135,50 @@ expectRst =
                   ]
             ]
             []
+        , mkExpectRst "module-functionctx" "FunctionCtx" "" [] [] []
+            [ ".. _function-f:"
+            , ""
+            , "**f**"
+            , "  : (Eq t) => _"
+            , ""
+            , "  function with context but no type"
+            , ""
+            , ".. _function-g:"
+            , ""
+            , "**g**"
+            , "  : (Eq t) => t -> Bool"
+            , ""
+            , "  function with context and type"
+            ]
         ]
         <> repeat (error "Missing expectation (Rst)")
 
 mkExpectRst :: T.Text -> T.Text -> T.Text -> [T.Text] -> [T.Text] -> [T.Text] -> [T.Text] -> T.Text
-mkExpectRst anchor name descr templates classes adts fcts = T.unlines $
-  [ ".. _" <> anchor <> ":"
-  , ""
-  , "Module " <> name
-  , "-------" <> T.replicate (T.length name) "-"
-  , descr, ""
-  ]
-  <> concat
-     [ if null templates then [] else
-         [ "Templates"
-         , "^^^^^^^^^"
-         , T.unlines templates
-         , ""]
-     , if null classes then [] else
-         [ "Typeclasses"
-         , "^^^^^^^^^^^"
-         , T.unlines (map (<> "\n") classes)
-         ]
-     , if null adts then [] else
-         [ "Data types"
-         , "^^^^^^^^^^"
-         , T.unlines (map (<> "\n") adts)
-         ]
-     , if null fcts then [] else
-         [ "Functions"
-         , "^^^^^^^^^"
-         , T.unlines (map (<> "\n") fcts)
-         ]
-     ]
+mkExpectRst anchor name descr templates classes adts fcts = T.unlines . concat $
+    [ [ ".. _" <> anchor <> ":"
+      , ""
+      , "Module " <> name
+      , "-------" <> T.replicate (T.length name) "-"
+      , descr
+      , ""
+      ]
+    , section "Templates" templates
+    , section "Typeclasses" classes
+    , section "Data types" adts
+    , section "Functions" fcts
+    ]
+  where
+    section title docs =
+        if null docs
+            then []
+            else
+                [ title
+                , T.replicate (T.length title) "^"
+                , ""
+                , T.unlines docs
+                , ""
+                ]
+
   -- NB T.unlines adds a trailing '\n'
 
 
@@ -222,6 +250,17 @@ expectMarkdown =
             , "  |       | This is a multiline field description |"
             ]
             []
+        , mkExpectMD "module-functionctx" "FunctionCtx" "" [] [] []
+            [ "<a name=\"function-f\"></a>**f**  "
+            , "&nbsp; : (Eq t) => \\_"
+            , ""
+            , "function with context but no type"
+            , ""
+            , "<a name=\"function-g\"></a>**g**  "
+            , "&nbsp; : (Eq t) => t -> Bool"
+            , ""
+            , "function with context and type"
+            ]
         ]
         <> repeat (error "Missing expectation (Markdown)")
 

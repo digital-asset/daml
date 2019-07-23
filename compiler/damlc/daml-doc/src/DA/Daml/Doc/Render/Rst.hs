@@ -223,16 +223,19 @@ type2rst env = f 0
 fct2rst :: FunctionDoc -> RenderOut
 fct2rst FunctionDoc{..} = mconcat
     [ renderAnchor fct_anchor
+    , renderLine $ bold (wrapOp (unFieldname fct_name))
     , renderLinesDep $ \ env ->
-        [ bold (wrapOp (unFieldname fct_name))
-        , T.concat
-            [ "  : "
-            , maybe "" ((<> " => ") . type2rst env) fct_context
-            , maybe "" ((<> "\n\n") . type2rst env) fct_type
-                -- FIXME: when would a function not have a type?
-            , maybe "" (indent 2 . docTextToRst) fct_descr
-            ]
-        ]
+        case (fct_context, fct_type) of
+            (Nothing, Nothing) -> []
+            (_, _) ->
+                [ T.concat
+                    [ "  : "
+                    , maybe "" ((<> " => ") . type2rst env) fct_context
+                    , maybe "_" (type2rst env) fct_type
+                    ]
+                , ""
+                ]
+    , renderLine $ maybe "" (indent 2 . docTextToRst) fct_descr
     ]
 
 ------------------------------------------------------------
