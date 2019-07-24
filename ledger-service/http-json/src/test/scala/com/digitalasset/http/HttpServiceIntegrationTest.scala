@@ -9,19 +9,18 @@ import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.util.ByteString
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
-import com.digitalasset.http.HttpServiceTestFixture.{withHttpService, withLedger}
+import com.digitalasset.http.HttpServiceTestFixture.{jsonCodecs, withHttpService, withLedger}
+import com.digitalasset.http.domain.TemplateId.OptionalPkg
 import com.digitalasset.http.json._
-import com.digitalasset.http.util.FutureUtil.{stripLeft, toFuture}
-import com.digitalasset.http.util.LedgerIds
+import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.TestUtil.requiredFile
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.ledger.api.v1.{value => v}
-import com.digitalasset.ledger.service.LedgerReader
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
-import scalaz.std.string._
 import scalaz.syntax.functor._
 import spray.json._
+import scalaz.syntax.show._
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -42,13 +41,13 @@ class HttpServiceIntegrationTest
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 
-  "contracts/search test" in withHttpService(dar, testId) { uri: Uri =>
+  "contracts/search test" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
     Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/contracts/search")))).flatMap {
       resp =>
         resp.status shouldBe StatusCodes.OK
-        val bodyF: Future[ByteString] = getResponseDataBytes(resp)
+        val bodyF: Future[String] = getResponseDataBytes(resp)
         bodyF.flatMap { body =>
-          val jsonAst: JsValue = body.utf8String.parseJson
+          val jsonAst: JsValue = body.parseJson
           inside(jsonAst) {
             case JsObject(fields) =>
               inside(fields.get("status")) {
@@ -67,25 +66,10 @@ class HttpServiceIntegrationTest
       {
         import json.JsonProtocol._
 
-        val templateId: domain.TemplateId.OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
-
-        val arg: v.Record = v.Record(
-          fields = List(
-            v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
-            v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
-            v.RecordField("currency", Some(v.Value(v.Value.Sum.Text("USD")))),
-            v.RecordField("amount", Some(v.Value(v.Value.Sum.Decimal("999.99")))),
-            v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
-          ))
-
-        val ledgerId: lar.LedgerId = LedgerIds.convertLedgerId(client.ledgerId)
-        val command0: domain.CreateCommand[v.Record] = domain.CreateCommand(templateId, arg, None)
+        val command0: domain.CreateCommand[v.Record] = iouCreateCommand
 
         for {
-          packageStore <- stripLeft(LedgerReader.createPackageStore(client.packageClient))
-          templateIdMap = PackageService.getTemplateIdMap(packageStore)
-
-          (encoder, decoder) = HttpService.buildJsonCodecs(ledgerId, packageStore, templateIdMap)
+          (encoder, decoder) <- jsonCodecs(client)
 
           command1 <- toFuture(encoder.encodeUnderlyingRecord(command0)): Future[
             domain.CreateCommand[JsObject]]
@@ -98,14 +82,14 @@ class HttpServiceIntegrationTest
           _ <- Future(command1 shouldBe command2)
 
           command3 <- toFuture(decoder.decodeUnderlyingRecords(command2)): Future[
-            domain.CreateCommand[v.Record]]
+            domain.CreateCommand[Record]]
 
           _ <- Future(command3.map(removeRecordId) shouldBe command0)
 
           jsObject <- toFuture(encoder.encodeR(command0))
 
           command4 <- toFuture(decoder.decodeR[domain.CreateCommand](jsObject)): Future[
-            domain.CreateCommand[v.Record]]
+            domain.CreateCommand[Record]]
 
           x <- Future(command4 shouldBe command3)
 
@@ -114,17 +98,26 @@ class HttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  private def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
+  "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, _) =>
+    import json.JsonProtocol._
 
-  "command/create IOU" ignore withHttpService(dar, testId) { uri: Uri =>
+    val command: domain.CreateCommand[v.Record] = iouCreateCommand
+    val input: String = encoder.encodeR(command).map(x => x.prettyPrint).valueOr(e => fail(e.shows))
+    println(s"----- input: $input")
+
     Http()
       .singleRequest(
-        HttpRequest(method = HttpMethods.POST, uri = uri.withPath(Uri.Path("/command/create"))))
+        HttpRequest(
+          method = HttpMethods.POST,
+          uri = uri.withPath(Uri.Path("/command/create")),
+          entity = HttpEntity(ContentTypes.`application/json`, input)))
       .flatMap { resp =>
         resp.status shouldBe StatusCodes.OK
-        val bodyF: Future[ByteString] = getResponseDataBytes(resp)
+        val bodyF: Future[String] = getResponseDataBytes(resp, true)
         bodyF.flatMap { body =>
-          val jsonAst: JsValue = body.utf8String.parseJson
+          println(s"----- body: $body")
+          val jsonAst: JsValue = body.parseJson
+          println(s"----- jsonAst: $jsonAst")
           inside(jsonAst) {
             case JsObject(fields) =>
               inside(fields.get("status")) {
@@ -139,23 +132,37 @@ class HttpServiceIntegrationTest
   }
 
   "request non-existent endpoint should return 404 with no data" in withHttpService(dar, testId) {
-    uri: Uri =>
+    (uri: Uri, _, _) =>
       Http()
         .singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/contracts/does-not-exist"))))
         .flatMap { resp =>
           resp.status shouldBe StatusCodes.NotFound
-          val bodyF: Future[ByteString] = getResponseDataBytes(resp)
+          val bodyF: Future[String] = getResponseDataBytes(resp)
           bodyF.flatMap { body =>
-            body.utf8String should have length 0
+            body should have length 0
           }
         }: Future[Assertion]
   }
 
-  private def getResponseDataBytes(
-      resp: HttpResponse,
-      debug: Boolean = false): Future[ByteString] = {
-    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a)
-    if (debug) fb.foreach(x => logger.info(s"---- response data: ${x.utf8String}"))
+  private def getResponseDataBytes(resp: HttpResponse, debug: Boolean = false): Future[String] = {
+    val fb = resp.entity.dataBytes.runFold(ByteString.empty)((b, a) => b ++ a).map(_.utf8String)
+    if (debug) fb.foreach(x => logger.info(s"---- response data: $x"))
     fb
+  }
+
+  private def removeRecordId(a: v.Record): v.Record = a.copy(recordId = None)
+
+  private def iouCreateCommand: domain.CreateCommand[v.Record] = {
+    val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
+    val arg: Record = v.Record(
+      fields = List(
+        v.RecordField("issuer", Some(v.Value(v.Value.Sum.Party("Alice")))),
+        v.RecordField("owner", Some(v.Value(v.Value.Sum.Party("Alice")))),
+        v.RecordField("currency", Some(v.Value(v.Value.Sum.Text("USD")))),
+        v.RecordField("amount", Some(v.Value(v.Value.Sum.Decimal("999.99")))),
+        v.RecordField("observers", Some(v.Value(v.Value.Sum.List(v.List()))))
+      ))
+
+    domain.CreateCommand(templateId, arg, None)
   }
 }

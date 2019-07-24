@@ -19,7 +19,7 @@ import com.digitalasset.http.json.{
 }
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.http.util.FutureUtil._
-import com.digitalasset.http.util.LedgerIds.convertLedgerId
+import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
@@ -60,7 +60,7 @@ object HttpService extends StrictLogging {
       client <- liftET[Error](
         LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
 
-      ledgerId = convertLedgerId(client.ledgerId): lar.LedgerId
+      ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
       packageStore <- eitherT(LedgerReader.createPackageStore(client.packageClient))
         .leftMap(httpServiceError)

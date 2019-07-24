@@ -29,4 +29,7 @@ object IdentifierConverters {
       entityName = a.qualifiedName.name.dottedName)
 
   def apiIdentifier(a: lar.TemplateId): lav1.value.Identifier = lar.TemplateId.unwrap(a)
+
+  def apiLedgerId(a: com.digitalasset.ledger.api.domain.LedgerId): lar.LedgerId =
+    lar.LedgerId(com.digitalasset.ledger.api.domain.LedgerId.unwrap(a))
 }
