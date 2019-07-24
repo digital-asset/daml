@@ -225,26 +225,27 @@ toDocText docs =
 --   function.
 getFctDocs :: DocCtx -> DeclData -> Maybe FunctionDoc
 getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
-  (name, keepContext) <- case unLoc decl of
-    SigD _ (TypeSig _ (L _ n :_) _) ->
-      Just (n, True)
-    SigD _ (ClassOpSig _ _ (L _ n :_) _) ->
-      Just (n, False)
-    ValD _ FunBind{..} | not (null docs) ->
-      Just (unLoc fun_id, True)
-      -- NB assuming we do _not_ have a type signature for the function in the
-      -- pairs (otherwise we'll get a duplicate)
-    _ ->
-      Nothing
+    (name, keepContext) <- case unLoc decl of
+        SigD _ (TypeSig _ (L _ n :_) _) ->
+            Just (n, True)
+        SigD _ (ClassOpSig _ _ (L _ n :_) _) ->
+            Just (n, False)
+        ValD _ FunBind{..} | not (null docs) ->
+            Just (unLoc fun_id, True)
+            -- NB assuming we do _not_ have a type signature for the function in the
+            -- pairs (otherwise we'll get a duplicate)
+        _ ->
+            Nothing
 
-  let fct_name = Fieldname (packRdrName name)
-      mbId = MS.lookup fct_name dc_ids
-      mbType = idType <$> mbId
-      fct_context = guard keepContext >> mbType >>= typeToContext ctx
-      fct_type = typeToType ctx <$> mbType
-      fct_anchor = Just $ functionAnchor dc_modname fct_name
-      fct_descr = docs
-  Just FunctionDoc {..}
+    let fct_name = Fieldname (packRdrName name)
+    id <- MS.lookup fct_name dc_ids
+    guard (isExportedId id)
+    let ty = idType id
+        fct_context = guard keepContext >> typeToContext ctx ty
+        fct_type = typeToType ctx ty
+        fct_anchor = Just $ functionAnchor dc_modname fct_name
+        fct_descr = docs
+    Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
 getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
