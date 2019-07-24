@@ -20,3 +20,5 @@ HEAD — ongoing
 - [Ledger API] **BREAKING CHANGE** Drop support for legacy identifier. The
   previously deprecated field ``name`` in ``Identifier`` message is not
   supported anymore. Use ``module_name`` and ``entity_name`` instead.
+- [Documentation] Improved the Maven pom.xml file for ``quickstart-java`` to better integrate with VS Code.
+  See `#887 <https://github.com/digital-asset/daml/issues/887>`__.
