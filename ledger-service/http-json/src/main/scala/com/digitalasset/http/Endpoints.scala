@@ -26,6 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
+    ledgerId: lar.LedgerId,
     commandService: CommandService,
     contractsService: ContractsService,
     encoder: DomainJsonEncoder,
@@ -38,10 +39,7 @@ class Endpoints(
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
-    domain.JwtPayload(
-      lar.LedgerId("ledgerId"),
-      lar.ApplicationId("applicationId"),
-      lar.Party("Alice"))
+    domain.JwtPayload(ledgerId, lar.ApplicationId("applicationId"), lar.Party("Alice"))
 
   private val extractJwtPayload: Directive1[domain.JwtPayload] =
     Directive(_(Tuple1(jwtPayload))) // TODO from header

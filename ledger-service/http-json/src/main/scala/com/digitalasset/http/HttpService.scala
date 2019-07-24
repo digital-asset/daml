@@ -79,6 +79,7 @@ object HttpService extends StrictLogging {
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 
       endpoints = new Endpoints(
+        ledgerId,
         commandService,
         contractsService,
         encoder,
@@ -117,13 +118,14 @@ object HttpService extends StrictLogging {
     val lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
     val jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
+    val jsValueToApiValue = jsValueToApiValueConverter.jsValueToApiValue _
     val apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId)
     val apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
     val apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
     val apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
 
     val encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
-    val decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord)
+    val decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord, jsValueToApiValue)
 
     (encoder, decoder)
   }

@@ -12,24 +12,27 @@ import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.{Commands, Transactions}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
+import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.show._
 import scalaz.{-\/, Show, \/, \/-}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.{Failure, Success}
 
 class CommandService(
     resolveTemplateId: Services.ResolveTemplateId,
     submitAndWaitForTransaction: Services.SubmitAndWaitForTransaction,
     timeProvider: TimeProvider,
-    defaultTimeToLive: Duration = 30.seconds)(implicit ec: ExecutionContext) {
+    defaultTimeToLive: Duration = 30.seconds)(implicit ec: ExecutionContext)
+    extends StrictLogging {
 
   def create(jwtPayload: domain.JwtPayload, input: domain.CreateCommand[lav1.value.Record])
     : Future[domain.ActiveContract[lav1.value.Value]] =
     for {
       command <- toFuture(createCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- submitAndWaitForTransaction(request)
+      response <- logResult('create, submitAndWaitForTransaction(request))
       contract <- toFuture(exactlyOneActiveContract(response))
     } yield contract
 
@@ -38,9 +41,17 @@ class CommandService(
     for {
       command <- toFuture(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- submitAndWaitForTransaction(request)
+      response <- logResult('exercise, submitAndWaitForTransaction(request))
       contracts <- toFuture(activeContracts(response))
     } yield contracts
+
+  private def logResult[A](op: Symbol, fa: Future[A]): Future[A] = {
+    fa.onComplete {
+      case Success(a) => logger.debug(s"$op success: $a")
+      case Failure(e) => logger.error(s"$op failure", e)
+    }
+    fa
+  }
 
   private def createCommand(input: domain.CreateCommand[lav1.value.Record])
     : Error \/ lav1.commands.Command.Command.Create = {
@@ -112,7 +123,6 @@ class CommandService(
       .traverse(domain.ActiveContract.fromLedgerApi)
       .leftMap(Error(_))
   }
-
 }
 
 object CommandService {

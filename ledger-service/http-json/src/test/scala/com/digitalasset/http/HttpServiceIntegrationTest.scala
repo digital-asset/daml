@@ -98,7 +98,7 @@ class HttpServiceIntegrationTest
       }: Future[Assertion]
   }
 
-  "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, _) =>
+  "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
     import json.JsonProtocol._
 
     val command: domain.CreateCommand[v.Record] = iouCreateCommand
@@ -115,20 +115,35 @@ class HttpServiceIntegrationTest
         resp.status shouldBe StatusCodes.OK
         val bodyF: Future[String] = getResponseDataBytes(resp, true)
         bodyF.flatMap { body =>
-          println(s"----- body: $body")
           val jsonAst: JsValue = body.parseJson
           println(s"----- jsonAst: $jsonAst")
           inside(jsonAst) {
-            case JsObject(fields) =>
+            case JsObject(fields) => {
               inside(fields.get("status")) {
                 case Some(JsNumber(status)) => status shouldBe BigDecimal("200")
               }
               inside(fields.get("result")) {
-                case Some(JsString(result)) => result.length should be > 0
+                case Some(activeContract: JsObject) =>
+                  assertActiveContract(decoder, activeContract, command)
               }
+            }
           }
         }
       }: Future[Assertion]
+  }
+
+  private def assertActiveContract(
+      decoder: DomainJsonDecoder,
+      jsObject: JsObject,
+      createCommand: domain.CreateCommand[v.Record]): Assertion = {
+
+    // TODO(Leo): check the jsObject.argument is the same as createCommand.argument
+    println(s"------- jsObject: $jsObject")
+    println(s"------- createCommand: $createCommand")
+
+    inside(jsObject.fields.get("argument")) {
+      case Some(JsObject(fields)) => fields.size shouldBe 5
+    }
   }
 
   "request non-existent endpoint should return 404 with no data" in withHttpService(dar, testId) {

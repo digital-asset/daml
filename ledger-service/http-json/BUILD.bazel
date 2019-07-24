@@ -52,8 +52,8 @@ da_scala_test(
     name = "tests",
     size = "medium",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    resources = glob(["src/test/resources/**/*"]),
     data = ["//docs:quickstart-model.dar"],
+    resources = glob(["src/test/resources/**/*"]),
     scalacopts = hj_scalacopts,
     deps = [
         ":http-json",
