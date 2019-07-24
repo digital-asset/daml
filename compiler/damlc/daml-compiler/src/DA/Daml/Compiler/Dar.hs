@@ -33,7 +33,7 @@ import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as IdeLogger
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Proto3.Archive (encodeArchiveLazy, encodeHash, encodePackageHash)
+import DA.Daml.LF.Proto3.Archive (encodeHash, encodeArchiveAndHash)
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -71,7 +71,7 @@ buildDar
   -> Maybe [String] -- ^ exposed modules
   -> String -- ^ package name
   -> String -- ^ sdk version
-  -> ((String, LF.Package) -> [(String, BS.ByteString)])
+  -> ((String, LF.Package) -> [(FilePath, BS.ByteString)])
   -- We allow datafiles to depend on the package being produces to
   -- allow inference of things like exposedModules.
   -- Once we kill the old "package" command we could instead just
@@ -105,8 +105,8 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
           error $
               "The following modules are declared in exposed-modules but are not part of the DALF: " <>
               show (S.toList missingExposed)
-      let dalf = encodeArchiveLazy pkg
-      let hash = T.unpack $ encodePackageHash pkg
+      let (dalf, hash0) = encodeArchiveAndHash pkg
+      let hash = T.unpack hash0
       -- get all dalf dependencies.
       dalfDependencies0 <- getDalfDependencies file
       let dalfDependencies =
