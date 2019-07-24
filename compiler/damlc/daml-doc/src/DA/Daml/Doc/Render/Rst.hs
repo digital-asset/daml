@@ -228,11 +228,11 @@ fct2rst FunctionDoc{..} = mconcat
         , T.concat
             [ "  : "
             , maybe "" ((<> " => ") . type2rst env) fct_context
-            , maybe "" ((<> "\n\n") . type2rst env) fct_type
-                -- FIXME: when would a function not have a type?
-            , maybe "" (indent 2 . docTextToRst) fct_descr
+            , maybe "_" (type2rst env) fct_type
             ]
+        , ""
         ]
+    , maybe (renderLine "") (renderIndent 2 . renderDocText) fct_descr
     ]
 
 ------------------------------------------------------------
