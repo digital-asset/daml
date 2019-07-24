@@ -55,7 +55,7 @@ startFromUpdate seen world update = case update of
     LF.UBind (LF.Binding _ e1) e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
     LF.UGetTime -> Set.empty
     LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
-    -- NOTE(MH): The above cases are impossible because they only appear
+    -- NOTE(MH): The cases below are impossible because they only appear
     -- in dictionaries for the `Template` and `Choice` classes, which we
     -- ignore below.
     LF.UCreate{}-> error "IMPOSSIBLE"
