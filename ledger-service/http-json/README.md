@@ -13,5 +13,5 @@ This will build the service first, can take up to 5-10 minutes when running firs
 $ bazel run //ledger-service/http-json:http-json-bin -- localhost 6865 7575
 ```
 Where:
- - localhost 6865 -- sandbox host name and port
+ - localhost 6865 -- sandbox host and port
  - 7575 -- HTTP service port
