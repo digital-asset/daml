@@ -16,9 +16,9 @@ import DA.Bazel.Runfiles(exe,locateRunfiles,mainWorkspace)
 import DA.Ledger (Port (..))
 import GHC.IO.Handle (Handle)
 import Safe (readMay)
-import System.IO.Extra (withTempFile)
+import System.IO.Extra (withTempFile, withFile, IOMode( WriteMode ))
 import System.FilePath((</>))
-import System.Process (CreateProcess (..), ProcessHandle, createProcess, getPid, interruptProcessGroupOf, proc, waitForProcess)
+import System.Process
 
 import DA.Ledger.Trace
 
@@ -33,10 +33,11 @@ sandboxProcess SandboxSpec{dar} portFile = do
     pure $ proc binary [ dar, "--port-file", portFile]
 
 startSandboxProcess :: SandboxSpec -> FilePath -> IO (ProcessHandle,Maybe Handle)
-startSandboxProcess spec portFile = do
+startSandboxProcess spec portFile = withDevNull $ \devNull -> do
     processRecord <- sandboxProcess spec portFile
     (_,hOutOpt,_,proh) <-
         createProcess processRecord {
+            std_out = UseHandle devNull,
             create_group = True  -- To avoid sending INT to ourself
         }
     pid <- getPid proh
@@ -86,3 +87,8 @@ readPortFile n file =
       threadDelay (1000 * retryDelayMillis)
       readPortFile (n-1) file
     Just p -> pure p
+
+-- | Getting a dev-null handle in a cross-platform way seems to be somewhat tricky so we instead
+-- use a temporary file.
+withDevNull :: (Handle -> IO a) -> IO a
+withDevNull a = withTempFile $ \f -> withFile f WriteMode a
