@@ -98,43 +98,50 @@ renderTemplateInstanceDocAsMarkdown TemplateInstanceDoc{..} = mconcat
     ]
 
 cls2md :: ClassDoc -> RenderOut
-cls2md ClassDoc{..} = mconcat
-    [ renderAnchorInfix "### " cl_anchor ("Class " <> escapeMd (unTypename cl_name))
-    , renderLine ""
-    , renderLineDep $ \env -> T.concat
-        [ "**class "
+cls2md ClassDoc{..} = withAnchorTag cl_anchor $ \tag -> mconcat
+    [ renderLineDep $ \env -> T.concat
+        [ tag
+        , "**class "
         , maybe "" (\x -> type2md env x <> " => ") cl_super
         , escapeMd $ T.unwords (unTypename cl_name : cl_args)
         , " where**"
         ]
-    , renderDocText cl_descr
-    , renderPrefix "> " $ mconcatMap fct2md cl_functions
+    , blockQuote $ mconcat
+        [ renderDocText cl_descr
+        , mconcatMap fct2md cl_functions
+        ]
     ]
 
 adt2md :: ADTDoc -> RenderOut
 adt2md TypeSynDoc{..} = mconcat
     [ renderAnchorInfix "**type " ad_anchor $
         escapeMd (T.unwords (unTypename ad_name : ad_args)) <> "**  "
-    , renderLineDep $ \env -> T.concat ["&nbsp; = ", type2md env ad_rhs]
-    , renderDocText ad_descr
+    , blockQuote $ mconcat
+        [ renderLineDep $ \env -> T.concat ["= ", type2md env ad_rhs]
+        , renderDocText ad_descr
+        ]
     ]
 
 adt2md ADTDoc{..} = mconcat
     [ renderAnchorInfix "**data " ad_anchor $
         escapeMd (T.unwords (unTypename ad_name : ad_args)) <> "**"
-    , renderDocText ad_descr
-    , mconcatMap constrMdItem ad_constrs
+    , blockQuote $ mconcat
+        [ renderDocText ad_descr
+        , mconcatMap constrMdItem ad_constrs
+        ]
     ]
 
 constrMdItem :: ADTConstr -> RenderOut
 constrMdItem PrefixC{..} = withAnchorTag ac_anchor $ \tag -> mconcat
     [ renderLineDep $ \env -> T.unwords
-        ("*" : (tag <> escapeMd (unTypename ac_name)) : map (type2md env) ac_args)
+        $ "*"
+        : (tag <> bold (escapeMd (unTypename ac_name)))
+        : map (type2md env) ac_args
     , renderIndent 2 $ renderDocText ac_descr
     , renderLine ""
     ]
 constrMdItem RecordC{..} = mconcat
-    [ renderAnchorInfix "* " ac_anchor . escapeMd $ unTypename ac_name
+    [ renderAnchorInfix "* " ac_anchor . bold . escapeMd $ unTypename ac_name
     , renderIndent 2 $ mconcat
         [ renderDocText ac_descr
         , fieldTable ac_fields
@@ -210,13 +217,19 @@ fct2md :: FunctionDoc -> RenderOut
 fct2md FunctionDoc{..} = mconcat
     [ renderAnchorInfix "" fct_anchor $ T.concat
         [ "**", escapeMd $ unFieldname fct_name, "**  " ]
-    , renderLineDep $ \env -> T.concat
-        [ "&nbsp; : "
-        , maybe "" ((<> " => ") . type2md env) fct_context
-        , maybe "\\_"  (type2md env) fct_type
+    , blockQuote $ mconcat
+        [ renderLineDep $ \env -> T.concat
+            [ ": "
+            , maybe "" ((<> " => ") . type2md env) fct_context
+            , maybe "\\_"  (type2md env) fct_type
+            ]
+        , renderDocText fct_descr
         ]
-    , renderDocText fct_descr
     ]
+
+blockQuote :: RenderOut -> RenderOut
+blockQuote = renderPrefix "> "
+
 ------------------------------------------------------------
 
 -- | Escape characters to prevent markdown interpretation.
