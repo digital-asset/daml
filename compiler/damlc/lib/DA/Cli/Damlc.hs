@@ -754,7 +754,9 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                         headNote
                             "Missing Main-Dalf entry in META-INF/MANIFEST.MF"
                             [ main
-                            | l <- lines $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
+                            | l <-
+                                  lines $
+                                  replace "\n " "" $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
                             , Just main <- [stripPrefix "Main-Dalf: " l]
                             ]
                 mainDalfEntry <- getEntry mainDalfPath dar
