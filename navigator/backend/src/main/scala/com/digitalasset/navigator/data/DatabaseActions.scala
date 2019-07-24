@@ -15,6 +15,7 @@ import doobie.implicits._
 import scalaz.syntax.tag._
 
 import scala.concurrent.ExecutionContext
+import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 /**
@@ -97,12 +98,13 @@ class DatabaseActions extends LazyLogging {
   }
 
   /** Returns the given value, logging failures */
-  private def logErrors[T](result: Try[T]): Try[T] =
-    result.recoverWith {
-      case e: Throwable =>
-        logger.error("Error executing database action, Navigator may be in a corrupted state", e)
-        Failure(e)
+  private def logErrors[T](result: Try[T]): Try[T] = {
+    result.failed.foreach {
+      case NonFatal(t) =>
+        logger.error("Error executing database action, Navigator may be in a corrupted state", t)
     }
+    result
+  }
 
   def runQuery(query: String): Try[SqlQueryResult] = logErrors {
     Try(Queries.query(query).execWith(exec).transact(xa).unsafeRunSync())
