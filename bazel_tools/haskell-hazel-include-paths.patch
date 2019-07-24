@@ -1,0 +1,69 @@
+diff --git a/hazel/hazel_base_repository/hazel_base_repository.bzl b/hazel/hazel_base_repository/hazel_base_repository.bzl
+index 71ebeea..0dd2e26 100644
+--- a/hazel/hazel_base_repository/hazel_base_repository.bzl
++++ b/hazel/hazel_base_repository/hazel_base_repository.bzl
+@@ -1,5 +1,6 @@
+ load("@bazel_tools//tools/cpp:lib_cc_configure.bzl", "get_cpu_value")
+ load("@ai_formation_hazel//tools:ghc.bzl", "get_executable_name", "get_ghc_workspace")
++load("@ai_formation_hazel//tools:mangling.bzl", "hazel_workspace")
+ 
+ def _hazel_base_repository_impl(ctx):
+     ghc_workspace = get_ghc_workspace(ctx.attr.ghc_workspaces, ctx)
+@@ -124,10 +125,12 @@ hazel_symlink(
+ )
+ cabal_haskell_package(
+   package,
++  "external/{package_name}",
+   "{ghc_version}",
+   extra_libs,
+ )
+ """.format(
+         workspace_name = ctx.name,
++        package_name = hazel_workspace(ctx.attr.package_name),
+         ghc_version = ghc_version,
+     ))
+diff --git a/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl b/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
+index 0e8238d..e3f9b4a 100644
+--- a/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
++++ b/hazel/third_party/cabal2bazel/bzl/cabal_package.bzl
+@@ -230,6 +230,7 @@ def _find_module(module, sourceDirs):
+ 
+ def _get_build_attrs(
+         name,
++        package_name,
+         build_info,
+         desc,
+         generated_srcs_dir,
+@@ -453,7 +454,7 @@ def _get_build_attrs(
+         ] +
+         install_includes,
+     )
+-    ghcopts += ["-I" + native.package_name() + "/" + d for d in build_info.includeDirs]
++    ghcopts += ["-I" + package_name + "/" + d for d in build_info.includeDirs]
+     for xs in deps.values():
+         xs.append(cbits_name)
+ 
+@@ -513,6 +514,7 @@ def _collect_data_files(description):
+ 
+ def cabal_haskell_package(
+         description,
++        package_name,
+         ghc_version,
+         extra_libs):
+     """Create rules for building a Cabal package.
+@@ -540,6 +542,7 @@ def cabal_haskell_package(
+     if lib and lib.libBuildInfo.buildable and lib.exposedModules:
+         lib_attrs = _get_build_attrs(
+             _lib_name,
++            package_name,
+             lib.libBuildInfo,
+             description,
+             "dist/build",
+@@ -597,6 +600,7 @@ def cabal_haskell_package(
+         paths_mod = _paths_module(description)
+         attrs = _get_build_attrs(
+             exe_name,
++            package_name,
+             exe.buildInfo,
+             description,
+             "dist/build/%s/%s-tmp" % (name, name),
