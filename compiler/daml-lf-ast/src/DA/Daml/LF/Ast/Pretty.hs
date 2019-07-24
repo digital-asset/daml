@@ -3,7 +3,6 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE PatternSynonyms #-}
 module DA.Daml.LF.Ast.Pretty(
     (<:>)

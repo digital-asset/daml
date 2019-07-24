@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE OverloadedStrings #-}
 -- | This module contains the DAML-LF type checker.
 --
 -- Some notes:

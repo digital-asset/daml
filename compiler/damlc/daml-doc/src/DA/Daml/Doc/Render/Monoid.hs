@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings, DerivingStrategies #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 -- | Monoid with which to render documentation.
 module DA.Daml.Doc.Render.Monoid

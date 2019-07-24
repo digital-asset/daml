@@ -3,7 +3,6 @@
 
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
 import Data.Maybe
