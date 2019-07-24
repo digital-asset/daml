@@ -83,6 +83,9 @@ startFromExpr seen world e = case e of
         -> Set.singleton (ACreate tpl)
     EInternalTemplateVal "exercise" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
         Set.singleton (AExercise tpl (LF.ChoiceName chc))
+    -- TODO(MH): We need to add a special case for `archive` because it
+    -- currently defined as `archive c = exercise c Archive` and we can't
+    -- handle polymorphic calls to `exercise` like this one.
     EInternalTemplateVal "archive" `LF.ETyApp` LF.TCon tpl `LF.ETmApp` _dict ->
         Set.singleton (AExercise tpl (LF.ChoiceName "Archive"))
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
