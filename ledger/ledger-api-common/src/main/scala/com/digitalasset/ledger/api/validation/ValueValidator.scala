@@ -4,17 +4,18 @@
 package com.digitalasset.ledger.api.validation
 
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.value.Value.ValueUnit
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ValueUnit}
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
   Identifier,
   RecordField,
   Value,
+  Enum => ApiEnum,
   List => ApiList,
   Map => ApiMap,
-  Variant => ApiVariant,
-  Enum => ApiEnum
+  Record => ApiRecord,
+  Variant => ApiVariant
 }
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
@@ -38,6 +39,13 @@ final class ValueValidator(identifierResolver: IdentifierResolverLike) {
       })
       .map(_.toImmArray)
 
+  def validateRecord(
+      rec: ApiRecord): Either[StatusRuntimeException, Lf.ValueRecord[AbsoluteContractId]] =
+    for {
+      recId <- validateOptionalIdentifier(rec.recordId)
+      fields <- validateRecordFields(rec.fields)
+    } yield Lf.ValueRecord(recId, fields)
+
   def validateValue(value: Value): Either[StatusRuntimeException, domain.Value] = value.sum match {
     case Sum.ContractId(cId) =>
       Ref.ContractIdString
@@ -58,10 +66,7 @@ final class ValueValidator(identifierResolver: IdentifierResolverLike) {
     case Sum.Text(text) => Right(Lf.ValueText(text))
     case Sum.Int64(value) => Right(Lf.ValueInt64(value))
     case Sum.Record(rec) =>
-      for {
-        recId <- validateOptionalIdentifier(rec.recordId)
-        fields <- validateRecordFields(rec.fields)
-      } yield Lf.ValueRecord(recId, fields)
+      validateRecord(rec)
     case Sum.Variant(ApiVariant(variantId, constructor, value)) =>
       for {
         validatedVariantId <- validateOptionalIdentifier(variantId)
