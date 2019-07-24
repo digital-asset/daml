@@ -61,6 +61,11 @@ template Membership
                 assert (sender `elem` members)
                 create Message with sender, recipients = members, gid, body
 
+        nonconsuming choice Membership_Shutdown_Indirect : ()
+            controller owner
+            do
+                exercise self Membership_Shutdown
+
         choice Membership_Shutdown : ()
             controller owner
             do

@@ -42,8 +42,8 @@ class PackageServiceTest
       }
 
     "pass one specific test case that was failing" in {
-      val id0 = Identifier("a", "", "f4", "x")
-      val id1 = Identifier("b", "", "f4", "x")
+      val id0 = Identifier("a", "f4", "x")
+      val id1 = Identifier("b", "f4", "x")
       val map = PackageService.buildTemplateIdMap(Set(id0, id1))
       map.all shouldBe expectedAll(List(id0, id1))
       map.unique shouldBe Map.empty

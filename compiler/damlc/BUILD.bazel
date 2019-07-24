@@ -266,6 +266,26 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
+genrule(
+    name = "daml-base-html-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+        ":daml-base-md-prefix",
+    ],
+    outs = ["daml-base-html.tar.gz"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=daml-base-html \
+            --input-format=json \
+            --format=Html \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+        tar czf $(OUTS) daml-base-html
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
 daml_doc_test(
     name = "daml-stdlib-doctest",
     srcs = ["//compiler/damlc/daml-stdlib-src"],

@@ -1,8 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
-
 -- Nim commands, to be sent to the external ledger.
 module DA.Nim.NimCommand(NimCommand(..), makeLedgerCommands,) where
 

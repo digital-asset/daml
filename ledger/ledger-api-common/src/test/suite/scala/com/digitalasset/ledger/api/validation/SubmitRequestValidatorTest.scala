@@ -21,14 +21,11 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.INVALID_ARGUMENT
 import org.scalatest.WordSpec
 import org.scalatest.prop.TableDrivenPropertyChecks
 import scalaz.syntax.tag._
-
-import scala.concurrent.Future
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class SubmitRequestValidatorTest
@@ -84,8 +81,7 @@ class SubmitRequestValidatorTest
     )
   }
 
-  val commandsValidator =
-    new CommandsValidator(ledgerId, new IdentifierResolver(_ => Future.successful(None)))
+  val commandsValidator = new CommandsValidator(ledgerId)
 
   def recordFieldWithValue(value: Value) = RecordField("label", Some(value))
 

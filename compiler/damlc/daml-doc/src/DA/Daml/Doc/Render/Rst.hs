@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings, DerivingStrategies #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 module DA.Daml.Doc.Render.Rst
   ( renderSimpleRst
@@ -209,9 +209,16 @@ type2rst env = f 0
     link :: Maybe Anchor -> Typename -> T.Text
     link Nothing n = unTypename n
     link (Just anchor) n =
-        if renderAnchorAvailable env anchor
-            then T.concat ["`", unTypename n, " <", unAnchor anchor, "_>`_"]
-            else unTypename n
+        case lookupAnchor env anchor of
+            Nothing -> unTypename n
+            Just SameFile ->
+                T.concat ["`", unTypename n, " <", unAnchor anchor, "_>`_"]
+                -- local indirect link
+            Just (SameFolder _) ->
+                T.concat ["`", unTypename n, " <", unAnchor anchor, "_>`_"]
+                -- surprisingly this still works in Rst, and has the advantage of
+                -- letting Sphinx be a second line of defense against spurious
+                -- links, over generating an external link here.
 
 fct2rst :: FunctionDoc -> RenderOut
 fct2rst FunctionDoc{..} = mconcat
@@ -221,11 +228,11 @@ fct2rst FunctionDoc{..} = mconcat
         , T.concat
             [ "  : "
             , maybe "" ((<> " => ") . type2rst env) fct_context
-            , maybe "" ((<> "\n\n") . type2rst env) fct_type
-                -- FIXME: when would a function not have a type?
-            , maybe "" (indent 2 . docTextToRst) fct_descr
+            , type2rst env fct_type
             ]
+        , ""
         ]
+    , maybe (renderLine "") (renderIndent 2 . renderDocText) fct_descr
     ]
 
 ------------------------------------------------------------

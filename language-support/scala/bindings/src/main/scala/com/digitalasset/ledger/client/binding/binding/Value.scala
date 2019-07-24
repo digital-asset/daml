@@ -58,8 +58,7 @@ object Value {
       baseVariantId: rpcvalue.Identifier,
       caseName: String
   ): rpcvalue.Identifier =
-    baseVariantId copy (name = s"${baseVariantId.name}.$caseName", entityName =
-      s"${baseVariantId.entityName}.$caseName")
+    baseVariantId copy (entityName = s"${baseVariantId.entityName}.$caseName")
 }
 
 object DamlCodecs extends encoding.ValuePrimitiveEncoding[Value] {
@@ -173,11 +172,7 @@ abstract class ValueRefCompanion {
       packageId: String,
       moduleName: String,
       entityName: String): rpcvalue.Identifier =
-    rpcvalue.Identifier(
-      packageId = packageId,
-      name = s"$moduleName.$entityName",
-      moduleName = moduleName,
-      entityName = entityName)
+    rpcvalue.Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName)
 
   protected final def ` record`(elements: (String, rpcvalue.Value)*): VSum.Record =
     VSum.Record(Primitive.arguments(` dataTypeId`, elements))

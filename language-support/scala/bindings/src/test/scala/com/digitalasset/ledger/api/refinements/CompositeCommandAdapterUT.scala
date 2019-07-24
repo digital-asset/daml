@@ -20,7 +20,9 @@ class CompositeCommandAdapterUT extends WordSpec with Matchers {
 
     "translate CompositeCommand to SubmitRequest" in {
       val commands =
-        Seq(Command(Create(CreateCommand(Some(Identifier("packageId", "templateId")), None))))
+        Seq(
+          Command(
+            Create(CreateCommand(Some(Identifier("packageId", "moduleName", "templateId")), None))))
 
       val submittedTraceContext = Some(TraceContext(1, 2, 3, Some(4L), true))
       val compositeCommand = CompositeCommand(

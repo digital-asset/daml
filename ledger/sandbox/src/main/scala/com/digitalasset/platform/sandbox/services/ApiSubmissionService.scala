@@ -27,7 +27,7 @@ import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import io.grpc.{BindableService, Status}
 import org.slf4j.LoggerFactory
@@ -43,7 +43,6 @@ object ApiSubmissionService {
 
   def create(
       ledgerId: LedgerId,
-      identifierResolver: IdentifierResolver,
       contractStore: ContractStore,
       writeService: WriteService,
       timeModel: TimeModel,
@@ -57,8 +56,7 @@ object ApiSubmissionService {
         timeModel,
         timeProvider,
         commandExecutor),
-      ledgerId,
-      identifierResolver
+      ledgerId
     ) with CommandSubmissionServiceLogging
 
   object RecordUpdate {

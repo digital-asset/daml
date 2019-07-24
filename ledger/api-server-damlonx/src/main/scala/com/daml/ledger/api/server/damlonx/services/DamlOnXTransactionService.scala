@@ -33,7 +33,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 }
 import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.platform.server.api._
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.services.transaction.{_}
 import io.grpc._
 import org.slf4j.LoggerFactory
@@ -46,7 +46,7 @@ import scala.util.{Failure, Success, Try}
 
 object DamlOnXTransactionService {
 
-  def create(ledgerId: String, indexService: IndexService, identifierResolver: IdentifierResolver)(
+  def create(ledgerId: String, indexService: IndexService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory): TransactionServiceGrpc.TransactionService
@@ -55,8 +55,7 @@ object DamlOnXTransactionService {
     new GrpcTransactionService(
       new DamlOnXTransactionService(indexService),
       LedgerId(ledgerId),
-      PartyNameChecker.AllowAllParties,
-      identifierResolver
+      PartyNameChecker.AllowAllParties
     ) with TransactionServiceLogging
 }
 

@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Doc.Driver(
     damlDocDriver,
@@ -72,11 +71,14 @@ damlDocDriver cInputFormat ideOpts output cFormat prefixFile options files = do
 
     case cFormat of
             Json -> write output $ T.decodeUtf8 . BS.toStrict $ AP.encodePretty' jsonConf docData
-            Rst  -> write output . renderFinish . mconcat $ map renderSimpleRst docData
+            Rst  -> write output . renderPage . mconcat $ map renderSimpleRst docData
             Hoogle   -> write output . T.concat $ map renderSimpleHoogle docData
-            Markdown -> write output . renderFinish . mconcat $ map renderSimpleMD docData
-            Html -> sequence_
-                [ write (output </> hyphenated (unModulename md_name) <> ".html") $ renderSimpleHtml m
-                | m@ModuleDoc{..} <- docData ]
-                    where hyphenated = T.unpack . T.replace "." "-"
-    putStrLn "Done"
+            Markdown -> write output . renderPage . mconcat $ map renderSimpleMD docData
+            Html -> do
+                let renderOptions = RenderOptions
+                        { ro_mode = RenderToFolder output
+                        , ro_format = Html
+                        , ro_title = Nothing
+                        , ro_template = Nothing
+                        }
+                renderDocs renderOptions docData

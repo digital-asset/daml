@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.Ast.Version(module DA.Daml.LF.Ast.Version) where
 
 import           Data.Data

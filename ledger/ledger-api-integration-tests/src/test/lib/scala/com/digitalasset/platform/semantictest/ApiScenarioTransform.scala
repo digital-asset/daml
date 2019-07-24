@@ -18,13 +18,11 @@ import com.digitalasset.ledger.api.v1.transaction.{TransactionTree, TreeEvent}
 import com.digitalasset.ledger.api.v1.value.{Record, Value => ApiValue}
 import com.digitalasset.ledger.api.validation.CommandsValidator
 import com.digitalasset.platform.common.{PlatformTypes => P}
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc.StatusRuntimeException
 import scalaz.Traverse
 import scalaz.std.either._
 import scalaz.std.list._
-
-import scala.concurrent.Future
 
 @SuppressWarnings(
   Array(
@@ -54,11 +52,7 @@ class ApiScenarioTransform(ledgerId: String, packages: Map[Ref.PackageId, Ast.Pa
         s => Left(invalidArgument(s"Cannot parse '$value' as versioned value: $s")),
         Right.apply)
 
-  private val commandsValidator =
-    new CommandsValidator(
-      LedgerId(ledgerId),
-      IdentifierResolver(_ => Future.successful(None))
-    )
+  private val commandsValidator = new CommandsValidator(LedgerId(ledgerId))
 
   private def recordToLfValue[Cid](record: Record) =
     toLfValue(ApiValue(ApiValue.Sum.Record(record)))
