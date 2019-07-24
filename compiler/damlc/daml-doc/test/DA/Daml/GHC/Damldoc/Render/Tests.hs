@@ -186,54 +186,52 @@ expectMarkdown =
         [ T.empty
         , mkExpectMD "module-typedef" "Typedef" "" [] []
             [ "**type <a name=\"type-typedef-t\"></a>T a**  "
-            , "&nbsp; = TT TTT"
-            , ""
-            , "T descr"
-            , ""]
+            , "> = TT TTT"
+            , "> "
+            , "> T descr"
+            , "> "]
             []
         , mkExpectMD "module-twotypes" "TwoTypes" "" [] []
             [ "**type <a name=\"type-twotypes-t\"></a>T a**  "
-            , "&nbsp; = TT"
-            , ""
-            , "T descr"
-            , ""
+            , "> = TT"
+            , "> "
+            , "> T descr"
+            , "> "
             , "**data <a name=\"data-twotypes-d\"></a>D d**"
-            , ""
-            , "* <a name=\"constr-twotypes-d\"></a>D a"
-            , "  "
-            , "  D descr"
-            , "  "
-            , ""
+            , "> "
+            , "> * <a name=\"constr-twotypes-d\"></a>**D** a"
+            , ">   "
+            , ">   D descr"
+            , ">   "
+            , "> "
             ]
             []
         , mkExpectMD "module-function1" "Function1" "" [] [] []
             [ "<a name=\"function-function1-f\"></a>**f**  "
-            , "&nbsp; : TheType"
-            , ""
-            , "the doc"
-            , ""
+            , "> : TheType"
+            , "> "
+            , "> the doc"
+            , "> "
             ]
         , mkExpectMD "module-function2" "Function2" "" [] [] []
             [ "<a name=\"function-function2-f\"></a>**f**  "
-            , "&nbsp; : \\_"
-            , ""
-            , "the doc"
-            , ""
+            , "> : \\_"
+            , "> "
+            , "> the doc"
+            , "> "
             ]
         , mkExpectMD "module-function3" "Function3" "" [] [] []
             [ "<a name=\"function-function3-f\"></a>**f**  "
-            , "&nbsp; : TheType"
-            , ""
+            , "> : TheType"
+            , "> "
             ]
         , mkExpectMD "module-onlyclass" "OnlyClass" ""
             []
-            [ "### <a name=\"class-onlyclass-c\"></a>Class C"
-            , ""
-            , "**class C a where**"
-            , ""
-            , "> <a name=\"function-onlyclass-member\"></a>**member**  "
-            , "> &nbsp; : a"
+            [ "<a name=\"class-onlyclass-c\"></a>**class C a where**"
             , "> "
+            , "> <a name=\"function-onlyclass-member\"></a>**member**  "
+            , "> > : a"
+            , "> > "
             ]
             []
             []
@@ -241,25 +239,28 @@ expectMarkdown =
             []
             []
             [ "**data <a name=\"data-multilinefield-d\"></a>D**"
-            , ""
-            , "* <a name=\"constr-multilinefield-d\"></a>D"
-            , "  "
-            , "  | Field | Type/Description |"
-            , "  | :---- | :----------------"
-            , "  | f     | T |"
-            , "  |       | This is a multiline field description |"
+            , "> "
+            , "> * <a name=\"constr-multilinefield-d\"></a>**D**"
+            , ">   "
+            , ">   | Field | Type/Description |"
+            , ">   | :---- | :----------------"
+            , ">   | f     | T |"
+            , ">   |       | This is a multiline field description |"
+            , ">   "
+            , "> "
             ]
             []
         , mkExpectMD "module-functionctx" "FunctionCtx" "" [] [] []
             [ "<a name=\"function-f\"></a>**f**  "
-            , "&nbsp; : (Eq t) => \\_"
-            , ""
-            , "function with context but no type"
-            , ""
+            , "> : (Eq t) => \\_"
+            , "> "
+            , "> function with context but no type"
+            , "> "
             , "<a name=\"function-g\"></a>**g**  "
-            , "&nbsp; : (Eq t) => t -> Bool"
-            , ""
-            , "function with context and type"
+            , "> : (Eq t) => t -> Bool"
+            , "> "
+            , "> function with context and type"
+            , "> "
             ]
         ]
         <> repeat (error "Missing expectation (Markdown)")
