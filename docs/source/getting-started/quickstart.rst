@@ -169,7 +169,7 @@ Now everything is running, you can try out the quickstart application:
 
    .. figure:: quickstart/images/contracts.png
 
-   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#2:1``, created from a *template* called ``Iou:Iou@28b...``.
+   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#2:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
 #. On the left-hand side, you can see what the pages the Navigator contains:
 
