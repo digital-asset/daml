@@ -89,7 +89,7 @@ class HttpServiceIntegrationTest
           lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
           jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
           jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
-          apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId, packageStore)
+          apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId)
           apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
           apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
           apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
