@@ -12,8 +12,8 @@ import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSeque
 import com.digitalasset.http.HttpServiceTestFixture.{withHttpService, withLedger}
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.FutureUtil.{stripLeft, toFuture}
+import com.digitalasset.http.util.LedgerIds
 import com.digitalasset.http.util.TestUtil.requiredFile
-import com.digitalasset.http.util.{ApiValueToLfValueConverter, LedgerIds}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.digitalasset.ledger.service.LedgerReader
@@ -83,34 +83,33 @@ class HttpServiceIntegrationTest
 
         for {
           packageStore <- stripLeft(LedgerReader.createPackageStore(client.packageClient))
-
           templateIdMap = PackageService.getTemplateIdMap(packageStore)
-          resolveTemplateId = PackageService.resolveTemplateId(templateIdMap) _
-          lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
-          jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
-          jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
-          apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId)
-          apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
-          apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
-          apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
 
-          decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord)
-          encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
+          (encoder, decoder) = HttpService.buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 
           command1 <- toFuture(encoder.encodeUnderlyingRecord(command0)): Future[
             domain.CreateCommand[JsObject]]
 
           jsValue = command1.toJson: JsValue
 
-          command2 <- toFuture(SprayJson.parse[domain.CreateCommand[JsObject]](jsValue)): Future[
+          command2 <- toFuture(SprayJson.decode[domain.CreateCommand[JsObject]](jsValue)): Future[
             domain.CreateCommand[JsObject]]
 
           _ <- Future(command1 shouldBe command2)
 
-          command3 <- toFuture(decoder.decodeUnderlyingValues(command2)): Future[
+          command3 <- toFuture(decoder.decodeUnderlyingRecords(command2)): Future[
             domain.CreateCommand[v.Record]]
 
-        } yield command3.map(removeRecordId) shouldBe command0
+          _ <- Future(command3.map(removeRecordId) shouldBe command0)
+
+          jsObject <- toFuture(encoder.encodeR(command0))
+
+          command4 <- toFuture(decoder.decodeR[domain.CreateCommand](jsObject)): Future[
+            domain.CreateCommand[v.Record]]
+
+          x <- Future(command4 shouldBe command3)
+
+        } yield x
 
       }: Future[Assertion]
   }

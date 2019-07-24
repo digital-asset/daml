@@ -3,8 +3,7 @@
 
 package com.digitalasset.http.json
 
-import akka.util.ByteString
-import scalaz.{Show, \/}
+import scalaz.{-\/, Show, \/, \/-}
 import spray.json.{JsValue, JsonReader, _}
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -36,21 +35,25 @@ object SprayJson {
     }
   }
 
-  def parse[A: JsonReader](str: ByteString): JsonReaderError \/ A =
-    parse(str.utf8String)
+  def parse(str: String): JsonReaderError \/ JsValue =
+    \/.fromTryCatchNonFatal(JsonParser(str)).leftMap(e => JsonReaderError(str, e.getMessage))
 
-  def parse[A: JsonReader](str: String): JsonReaderError \/ A =
+  def decode[A: JsonReader](str: String): JsonReaderError \/ A =
     for {
-      jsValue <- \/.fromTryCatchNonFatal(str.parseJson).leftMap(e =>
-        JsonReaderError(str, e.getMessage))
-      a <- parse(jsValue)
+      jsValue <- parse(str)
+      a <- decode(jsValue)
     } yield a
 
-  def parse[A: JsonReader](a: JsValue): JsonReaderError \/ A =
+  def decode[A: JsonReader](a: JsValue): JsonReaderError \/ A =
     \/.fromTryCatchNonFatal(a.convertTo[A]).leftMap(e => JsonReaderError(a.toString, e.getMessage))
 
-  def toJson[A: JsonWriter](a: A): JsonWriterError \/ JsValue = {
+  def encode[A: JsonWriter](a: A): JsonWriterError \/ JsValue = {
     import spray.json._
     \/.fromTryCatchNonFatal(a.toJson).leftMap(e => JsonWriterError(a, e.getMessage))
+  }
+
+  def mustBeJsObject(a: JsValue): JsonError \/ JsObject = a match {
+    case b: JsObject => \/-(b)
+    case _ => -\/(JsonError(s"Expected JsObject, got: ${a: JsValue}"))
   }
 }

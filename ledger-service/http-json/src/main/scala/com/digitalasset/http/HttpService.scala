@@ -10,6 +10,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
+import com.digitalasset.http.PackageService.TemplateIdMap
 import com.digitalasset.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
@@ -28,6 +29,7 @@ import com.digitalasset.ledger.client.configuration.{
   LedgerIdRequirement
 }
 import com.digitalasset.ledger.service.LedgerReader
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.Scalaz._
 import scalaz._
@@ -74,23 +76,13 @@ object HttpService extends StrictLogging {
         PackageService.resolveTemplateIds(templateIdMap),
         client.activeContractSetClient)
 
-      resolveTemplateId = PackageService.resolveTemplateId(templateIdMap) _
-      lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
-      jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
-      jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
-      apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId)
-      apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
-      apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
-      apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
-
-      decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord)
-      encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
+      (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 
       endpoints = new Endpoints(
         commandService,
         contractsService,
+        encoder,
         decoder,
-        encoder
       )
 
       binding <- liftET[Error](
@@ -114,5 +106,25 @@ object HttpService extends StrictLogging {
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")
     f.collect { case \/-(a) => a.unbind() }.join
+  }
+
+  private[http] def buildJsonCodecs(
+      ledgerId: lar.LedgerId,
+      packageStore: PackageStore,
+      templateIdMap: TemplateIdMap): (DomainJsonEncoder, DomainJsonDecoder) = {
+
+    val resolveTemplateId = PackageService.resolveTemplateId(templateIdMap) _
+    val lfTypeLookup = LedgerReader.damlLfTypeLookup(packageStore) _
+    val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
+    val jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
+    val apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId)
+    val apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
+    val apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
+    val apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
+
+    val encoder = new DomainJsonEncoder(apiRecordToJsObject, apiValueToJsValue)
+    val decoder = new DomainJsonDecoder(resolveTemplateId, jsObjectToApiRecord)
+
+    (encoder, decoder)
   }
 }

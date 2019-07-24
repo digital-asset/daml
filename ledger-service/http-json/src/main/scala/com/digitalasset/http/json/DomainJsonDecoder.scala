@@ -3,7 +3,6 @@
 
 package com.digitalasset.http.json
 
-import akka.util.ByteString
 import com.digitalasset.daml.lf
 import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.util.IdentifierConverters
@@ -21,17 +20,27 @@ class DomainJsonDecoder(
     resolveTemplateId: Services.ResolveTemplateId,
     jsObjectToApiRecord: (lf.data.Ref.Identifier, JsObject) => JsonError \/ lav1.value.Record) {
 
-  def decode[F[_]](a: ByteString)(
+  def decodeR[F[_]](a: String)(
       implicit ev1: JsonReader[F[JsObject]],
       ev2: Traverse[F],
       ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Record] =
     for {
-      b <- SprayJson.parse[F[JsObject]](a)(ev1).leftMap(e => JsonError(e.shows))
-      c <- decodeUnderlyingValues(b)
+      b <- SprayJson.parse(a).leftMap(e => JsonError(e.shows))
+      c <- SprayJson.mustBeJsObject(b)
+      d <- decodeR(c)
+    } yield d
+
+  def decodeR[F[_]](a: JsObject)(
+      implicit ev1: JsonReader[F[JsObject]],
+      ev2: Traverse[F],
+      ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Record] =
+    for {
+      b <- SprayJson.decode[F[JsObject]](a)(ev1).leftMap(e => JsonError(e.shows))
+      c <- decodeUnderlyingRecords(b)
     } yield c
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
+  def decodeUnderlyingRecords[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsObject]): JsonError \/ F[lav1.value.Record] = {
     for {
       templateId <- lookupTemplateId(fa)

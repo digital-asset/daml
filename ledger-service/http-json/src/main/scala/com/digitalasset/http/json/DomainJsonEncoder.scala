@@ -6,7 +6,7 @@ package com.digitalasset.http.json
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Traverse, \/, \/-}
+import scalaz.{Traverse, \/}
 import spray.json.{JsObject, JsValue, JsonWriter}
 
 import scala.language.higherKinds
@@ -20,14 +20,9 @@ class DomainJsonEncoder(
       ev2: JsonWriter[F[JsObject]]): JsonError \/ JsObject =
     for {
       a <- encodeUnderlyingRecord(fa)
-      b <- SprayJson.toJson[F[JsObject]](a)(ev2).leftMap(e => JsonError(e.shows))
-      c <- mustBeJsObject(b)
+      b <- SprayJson.encode[F[JsObject]](a)(ev2).leftMap(e => JsonError(e.shows))
+      c <- SprayJson.mustBeJsObject(b)
     } yield c
-
-  private def mustBeJsObject(a: JsValue): JsonError \/ JsObject = a match {
-    case b: JsObject => \/-(b)
-    case _ => -\/(JsonError(s"Expected JsObject, got: ${a: JsValue}"))
-  }
 
   // encode underlying values
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -39,7 +34,7 @@ class DomainJsonEncoder(
       ev2: JsonWriter[F[JsValue]]): JsonError \/ JsValue =
     for {
       a <- encodeUnderlyingValue(fa)
-      b <- SprayJson.toJson[F[JsValue]](a)(ev2).leftMap(e => JsonError(e.shows))
+      b <- SprayJson.encode[F[JsValue]](a)(ev2).leftMap(e => JsonError(e.shows))
     } yield b
 
   // encode underlying values

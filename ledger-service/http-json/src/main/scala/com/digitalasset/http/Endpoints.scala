@@ -11,7 +11,7 @@ import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.digitalasset.http.json.HttpCodec._
 import com.digitalasset.http.json.ResponseFormats._
-import com.digitalasset.http.json.SprayJson.parse
+import com.digitalasset.http.json.SprayJson.decode
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -28,8 +28,8 @@ import scala.concurrent.{ExecutionContext, Future}
 class Endpoints(
     commandService: CommandService,
     contractsService: ContractsService,
-    decoder: DomainJsonDecoder,
     encoder: DomainJsonEncoder,
+    decoder: DomainJsonDecoder,
     parallelism: Int = 8)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
@@ -57,7 +57,7 @@ class Endpoints(
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
       httpResponse(
         input(req)
-          .map(decoder.decode[domain.CreateCommand])
+          .map(decoder.decodeR[domain.CreateCommand])
           .mapAsync(parallelism) {
             case -\/(e) =>
               // TODO(Leo): we need to set status code in the result JSON
@@ -76,7 +76,7 @@ class Endpoints(
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
       httpResponse(
         input(req)
-          .map(decoder.decode[domain.ExerciseCommand])
+          .map(decoder.decodeR[domain.ExerciseCommand])
           .mapAsync(parallelism) {
             case -\/(e) =>
               // TODO(Leo): we need to set status code in the result JSON
@@ -121,7 +121,7 @@ class Endpoints(
       )
 
     case HttpRequest(POST, Uri.Path("/contracts/search"), _, HttpEntity.Strict(_, input), _) =>
-      parse[domain.GetActiveContractsRequest](input) match {
+      decode[domain.GetActiveContractsRequest](input.utf8String) match {
         case -\/(e) =>
           httpResponse(
             StatusCodes.BadRequest,
@@ -219,6 +219,6 @@ object Endpoints {
     }
   }
 
-  private[http] def input(req: HttpRequest): Source[ByteString, _] =
-    req.entity.dataBytes.fold(ByteString.empty)(_ ++ _)
+  private[http] def input(req: HttpRequest): Source[String, _] =
+    req.entity.dataBytes.fold(ByteString.empty)(_ ++ _).map(_.utf8String)
 }
