@@ -1,6 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE PatternSynonyms #-}
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Visual
   ( execVisual
@@ -53,25 +54,43 @@ startFromUpdate :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Updat
 startFromUpdate seen world update = case update of
     LF.UPure _ e -> startFromExpr seen world e
     LF.UBind (LF.Binding _ e1) e2 -> startFromExpr seen world e1 `Set.union` startFromExpr seen world e2
-    LF.UCreate tpl e -> Set.singleton (ACreate tpl) `Set.union` startFromExpr seen world e
-    LF.UExercise tpl chc e1 e2 e3 -> Set.singleton (AExercise tpl chc) `Set.union` startFromExpr seen world e1 `Set.union` maybe Set.empty (startFromExpr seen world) e2 `Set.union` startFromExpr seen world e3
-    LF.UFetch _ ctIdEx -> startFromExpr seen world ctIdEx
     LF.UGetTime -> Set.empty
     LF.UEmbedExpr _ upEx -> startFromExpr seen world upEx
-    LF.ULookupByKey _ -> Set.empty
-    LF.UFetchByKey _ -> Set.empty
+    -- NOTE(MH): The above cases are impossible because they only appear
+    -- in dictionaries for the `Template` and `Choice` classes, which we
+    -- ignore below.
+    LF.UCreate{}-> error "IMPOSSIBLE"
+    LF.UExercise{} -> error "IMPOSSIBLE"
+    LF.UFetch{} -> error "IMPOSSIBLE"
+    LF.ULookupByKey{} -> error "IMPOSSIBLE"
+    LF.UFetchByKey{} -> error "IMPOSSIBLE"
 
 startFromExpr :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World  -> LF.Expr -> Set.Set Action
 startFromExpr seen world e = case e of
     LF.EVar _ -> Set.empty
+    -- NOTE(MH): We ignore the dictionaries for the `Template` and `Choice`
+    -- classes because they contain too many ledger actions. We detect the
+    -- `create`, `archive` and `exercise` functions which take these
+    -- dictionaries as arguments instead.
+    LF.EVal (LF.Qualified _ _ (LF.ExprValName ref))
+        | "$fTemplate" `T.isPrefixOf` ref || "$fChoice" `T.isPrefixOf` ref -> Set.empty
     LF.EVal ref ->  case LF.lookupValue ref world of
         Right LF.DefValue{..}
             | ref `Set.member` seen  -> Set.empty
             | otherwise -> startFromExpr (Set.insert ref seen)  world dvalBody
         Left _ -> error "This should not happen"
     LF.EUpdate upd -> startFromUpdate seen world upd
-    LF.ETmApp (LF.ETyApp (LF.EVal (LF.Qualified _ (LF.ModuleName ["DA","Internal","Template"]) (LF.ExprValName "fetch"))) _) _ -> Set.empty
+    EInternalTemplateVal "create" `LF.ETyApp` LF.TCon tpl `LF.ETmApp` _dict
+        -> Set.singleton (ACreate tpl)
+    EInternalTemplateVal "exercise" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
+        Set.singleton (AExercise tpl (LF.ChoiceName chc))
+    EInternalTemplateVal "archive" `LF.ETyApp` LF.TCon tpl `LF.ETmApp` _dict ->
+        Set.singleton (AExercise tpl (LF.ChoiceName "Archive"))
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
+
+pattern EInternalTemplateVal :: T.Text -> LF.Expr
+pattern EInternalTemplateVal val <-
+    LF.EVal (LF.Qualified _pkg (LF.ModuleName ["DA", "Internal", "Template"]) (LF.ExprValName val))
 
 startFromChoice :: LF.World -> LF.TemplateChoice -> Set.Set Action
 startFromChoice world chc = startFromExpr Set.empty world (LF.chcUpdate chc)
