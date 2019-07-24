@@ -1,8 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
-
 -- Nim domain types. These should be derived automatically from the Daml model.
 
 module DA.Nim.Domain(

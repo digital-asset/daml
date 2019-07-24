@@ -21,7 +21,6 @@ import com.digitalasset.platform.sandbox.stores.{
   InMemoryPackageStore,
   SandboxIndexAndWriteService
 }
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.services.time.TimeModel
 
 import scala.concurrent.ExecutionContext
@@ -68,7 +67,6 @@ trait TestHelpers {
 
     ApiSubmissionService.create(
       ledgerId,
-      IdentifierResolver(packageStore.getLfPackage),
       indexAndWriteService.indexService,
       indexAndWriteService.writeService,
       TimeModel.reasonableDefault,

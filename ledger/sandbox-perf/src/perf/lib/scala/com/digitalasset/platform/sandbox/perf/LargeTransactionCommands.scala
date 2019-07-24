@@ -62,7 +62,6 @@ object LargeTransactionCommands {
     val choice = "Size"
     val choiceId = Identifier(
       packageId = templateId.packageId,
-      name = s"${templateId.moduleName}.$choice",
       moduleName = templateId.moduleName,
       entityName = choice)
 

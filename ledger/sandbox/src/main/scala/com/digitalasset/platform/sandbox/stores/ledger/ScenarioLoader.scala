@@ -7,7 +7,6 @@ import java.time.Instant
 
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.{DDataType, DValue, Definition}
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
@@ -201,27 +200,9 @@ object ScenarioLoader {
       scenario: String
   ): Ref.QualifiedName = {
     Ref.QualifiedName.fromString(scenario) match {
-      case Left(err) =>
-        logger.warn(
-          "Dot-separated scenario specification is deprecated. Names are Module.Name:Inner.Name, with a colon between module name and the name of the definition. Falling back to deprecated name resolution.")
-        packages
-          .listLfPackagesSync()
-          .iterator
-          .map {
-            case (pkgId, _) =>
-              DeprecatedIdentifier.lookup(
-                packages
-                  .getLfPackageSync(pkgId)
-                  .getOrElse(sys.error(s"Listed package $pkgId not found")),
-                scenario)
-          }
-          .collectFirst {
-            case Right(qualifiedName) => qualifiedName
-          }
-          .getOrElse {
-            throw new RuntimeException(
-              s"Cannot find scenario $scenario in packages ${packages.listLfPackagesSync().keys.mkString("[", ", ", "]")}. Try using Module.Name:Inner.Name style scenario name specification.")
-          }
+      case Left(_) =>
+        throw new RuntimeException(
+          s"Cannot find scenario $scenario in packages ${packages.listLfPackagesSync().keys.mkString("[", ", ", "]")}.")
       case Right(x) => x
     }
   }

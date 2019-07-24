@@ -7,7 +7,6 @@ import java.io.File
 
 import com.digitalasset.codegen.Util
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.iface.reader.InterfaceType
 
 import scala.reflect.runtime.universe._
 
@@ -24,7 +23,7 @@ import scala.reflect.runtime.universe._
 object EventDecoderGen {
   import LFUtil._
 
-  def generate(util: LFUtil, supportedTemplateIds: Set[Identifier]): (File, Iterable[Tree]) = {
+  def generate(util: LFUtil, templateIds: Set[Identifier]): (File, Iterable[Tree]) = {
 
     val imports: Seq[Tree] = Seq(
       LFUtil.domainApiImport
@@ -33,13 +32,6 @@ object EventDecoderGen {
     def contractDamlName(alias: QualifiedName) = util.mkDamlScalaName(Util.Contract, alias)
     def contractName(alias: Identifier): RefTree = contractDamlName(alias.qualifiedName).toRefTree
 
-    val (supportedTemplates, unsupportedTemplates) =
-      util.iface.typeDecls
-        .collect {
-          case (qualName, InterfaceType.Template(_, _)) => qualName
-        }
-        .partition(supportedTemplateIds)
-
     // the ledger api still uses names with only dots in them, while QualifiedName.toString
     // separates the module and the name in the module with colon.
     def legacyDottedName(identifier: Identifier) = {
@@ -47,19 +39,13 @@ object EventDecoderGen {
       s"${module.dottedName: String}.${name.dottedName: String}@${packageId: String}"
     }
 
-    val rawUnsupportedTemplates = unsupportedTemplates.map {
-      case tIdent @ Identifier(packageId, qualName) =>
-        q"(${qualName.qualifiedName}, ($packageId, ${legacyDottedName(tIdent)}))"
-    }
-
     val decoder: Tree =
       q"""
         package ${Util.packageNameToRefTree(util.packageName)} {
 
           object EventDecoder extends $domainApiAlias.EventDecoderApi(
-            rawUnsupportedTemplates = $stdMapCompanion(..$rawUnsupportedTemplates),
             templateTypes = $stdSeqCompanion[$domainApiAlias.TemplateCompanion[_]](
-                ..${supportedTemplates map contractName})
+                ..${templateIds map contractName})
           )
         }
        """

@@ -8,8 +8,7 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.domain.InclusiveFilters
 import com.digitalasset.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.digitalasset.ledger.api.v1.value.Identifier
-import com.digitalasset.platform.server.api.validation.FieldValidations._
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.api.validation.FieldValidations._
 import io.grpc.StatusRuntimeException
 import scalaz.Traverse
@@ -17,7 +16,7 @@ import scalaz.std.either._
 import scalaz.std.list._
 import scalaz.syntax.traverse._
 
-class TransactionFilterValidator(identifierResolver: IdentifierResolver) {
+object TransactionFilterValidator {
 
   def validate(
       txFilter: TransactionFilter,
@@ -43,8 +42,7 @@ class TransactionFilterValidator(identifierResolver: IdentifierResolver) {
         inclusive =>
           val validatedIdents =
             Traverse[List].traverseU[Identifier, Either[StatusRuntimeException, Ref.Identifier]](
-              inclusive.templateIds.toList)((id: Identifier) =>
-              identifierResolver.resolveIdentifier(id))
+              inclusive.templateIds.toList)((id: Identifier) => validateIdentifier(id))
           validatedIdents.map(ids => domain.Filters(Some(InclusiveFilters(ids.toSet))))
       }
   }

@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Doc.Tests(mkTestTree)
   where
@@ -284,8 +283,8 @@ fileTest damlFile = do
                 let extension = takeExtension expectation
                 ref <- T.readFileUtf8 expectation
                 case extension of
-                  ".rst"  -> expectEqual extension ref $ renderFinish $ renderSimpleRst docs
-                  ".md"   -> expectEqual extension ref $ renderFinish $ renderSimpleMD docs
+                  ".rst"  -> expectEqual extension ref $ renderPage $ renderSimpleRst docs
+                  ".md"   -> expectEqual extension ref $ renderPage $ renderSimpleMD docs
                   ".json" -> expectEqual extension ref
                              (T.decodeUtf8 . BS.toStrict $
                                AP.encodePretty' jsonConf docs)

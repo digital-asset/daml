@@ -19,7 +19,6 @@ object TemplateIds {
       case (qn: QualifiedName, _: Template) =>
         Identifier(
           packageId = interface.packageId,
-          name = qn.qualifiedName,
           moduleName = qn.module.dottedName,
           entityName = qn.name.dottedName)
     }(breakOut)

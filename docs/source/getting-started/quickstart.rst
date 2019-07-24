@@ -519,21 +519,21 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 50-54
+      :lines: 46-50
       :dedent: 8
 
 #. An in-memory contract-store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 62-64
+      :lines: 58-60
       :dedent: 8
 
 #. The Active Contracts Service (ACS) is used to quickly build up the contract-store to a recent state.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 67-78
+      :lines: 63-74
       :dedent: 8
 
    Note the use of ``blockingForEach`` to ensure that the contract store is fully built and the ledger-offset up to which the ACS provides data is known before moving on.
@@ -543,14 +543,14 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 80-96
+      :lines: 76-92
       :dedent: 8
 
 #. Commands are submitted via the Command Submission Service.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 131-141
+      :lines: 127-137
       :dedent: 4
 
    You can find examples of ``ExerciseCommand`` and ``CreateCommand`` instantiation in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
@@ -558,13 +558,13 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :caption: ExerciseCommand
       :language: java
-      :lines: 112-113
+      :lines: 108-109
       :dedent: 12
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :caption: CreateCommand
       :language: java
-      :lines: 105-106
+      :lines: 101-102
       :dedent: 12
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.
