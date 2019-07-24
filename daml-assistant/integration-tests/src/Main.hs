@@ -181,9 +181,7 @@ packagingTests tmpDir = testGroup "packaging"
         let dar = projDir </> ".daml" </> "dist" </> "proj.dar"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
-        -- Note that we really want a forward slash here instead of </> since filepaths in
-        -- zip files use forward slashes.
-        assertBool "A.daml is missing" ("proj/A.daml" `elem` darFiles)
+        assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
     , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
