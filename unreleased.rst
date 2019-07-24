@@ -22,3 +22,5 @@ HEAD — ongoing
   supported anymore. Use ``module_name`` and ``entity_name`` instead.
 - [Documentation] Improved the Maven pom.xml file for ``quickstart-java`` to better integrate with VS Code.
   See `#887 <https://github.com/digital-asset/daml/issues/887>`__.
+- [Sandbox] Fixed an issue when Navigator console did not see any contracts.
+  See `#2271 <https://github.com/digital-asset/daml/issues/2271 >`__.
