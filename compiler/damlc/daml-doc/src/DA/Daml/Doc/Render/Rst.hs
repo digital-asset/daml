@@ -228,7 +228,7 @@ fct2rst FunctionDoc{..} = mconcat
         , T.concat
             [ "  : "
             , maybe "" ((<> " => ") . type2rst env) fct_context
-            , maybe "_" (type2rst env) fct_type
+            , type2rst env fct_type
             ]
         , ""
         ]

@@ -221,7 +221,7 @@ fct2md FunctionDoc{..} = mconcat
         [ renderLineDep $ \env -> T.concat
             [ ": "
             , maybe "" ((<> " => ") . type2md env) fct_context
-            , maybe "\\_"  (type2md env) fct_type
+            , type2md env fct_type
             ]
         , renderDocText fct_descr
         ]

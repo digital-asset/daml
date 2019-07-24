@@ -120,9 +120,11 @@ fct2hoogle :: FunctionDoc -> [T.Text]
 fct2hoogle FunctionDoc{..} = concat
     [ hooglify fct_descr
     , [ urlTag fct_anchor
-      , T.unwords $ [wrapOp (unFieldname fct_name), "::"]
-                 ++ maybe [] ((:["=>"]) . type2hoogle) fct_context
-                 ++ maybe ["_"] ((:[]) . type2hoogle) fct_type -- FIXME(FM): what to do when missing type?
+      , T.unwords . concat $
+          [ [wrapOp (unFieldname fct_name), "::"]
+          , maybe [] ((:["=>"]) . type2hoogle) fct_context
+          , [type2hoogle fct_type]
+          ]
       , "" ]
     ]
 

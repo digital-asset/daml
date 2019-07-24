@@ -44,20 +44,16 @@ cases = [ ("Empty module",
           )
         , ("Documented function with type",
            ModuleDoc (Just "module-function1") "Function1" Nothing [] [] []
-            [FunctionDoc (Just "function-function1-f") "f" Nothing (Just $ TypeApp Nothing "TheType" []) (Just "the doc")] []
-          )
-        , ("Documented function without type",
-           ModuleDoc (Just "module-function2") "Function2" Nothing [] [] []
-            [FunctionDoc (Just "function-function2-f") "f" Nothing Nothing (Just "the doc")] []
+            [FunctionDoc (Just "function-function1-f") "f" Nothing (TypeApp Nothing "TheType" []) (Just "the doc")] []
           )
         , ("Undocumented function with type",
            ModuleDoc (Just "module-function3") "Function3" Nothing [] [] []
-            [FunctionDoc (Just "function-function3-f") "f" Nothing (Just $ TypeApp Nothing "TheType" []) Nothing] []
+            [FunctionDoc (Just "function-function3-f") "f" Nothing (TypeApp Nothing "TheType" []) Nothing] []
           )
         -- The doc extraction won't generate functions without type nor description
         , ("Module with only a type class",
            ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] [] []
-            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (Just (TypeApp Nothing "a" [])) Nothing]])
+            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (TypeApp Nothing "a" []) Nothing]])
         , ("Multiline field description",
            ModuleDoc
              (Just "module-multilinefield")
@@ -78,14 +74,10 @@ cases = [ ("Empty module",
            ModuleDoc
             (Just "module-functionctx") "FunctionCtx"
             Nothing [] [] []
-            [ FunctionDoc (Just "function-f") "f"
+            [ FunctionDoc (Just "function-g") "g"
                 (Just $ TypeTuple [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
-                Nothing
-                (Just "function with context but no type")
-            , FunctionDoc (Just "function-g") "g"
-                (Just $ TypeTuple [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
-                (Just $ TypeFun [TypeApp Nothing "t" [], TypeApp Nothing "Bool" []])
-                (Just "function with context and type")
+                (TypeFun [TypeApp Nothing "t" [], TypeApp Nothing "Bool" []])
+                (Just "function with context")
             ] []
           )
         ]
@@ -101,7 +93,6 @@ expectRst =
             , "\n.. _data-twotypes-d:\n\ndata **D d**\n\n  \n  \n  .. _constr-twotypes-d:\n  \n  **D** a\n  \n  D descr"]
             []
         , mkExpectRst "module-function1" "Function1" "" [] [] [] [ ".. _function-function1-f:\n\n**f**\n  : TheType\n\n  the doc\n"]
-        , mkExpectRst "module-function2" "Function2" "" [] [] [] [ ".. _function-function2-f:\n\n**f**\n  : _\n\n  the doc\n"]
         , mkExpectRst "module-function3" "Function3" "" [] [] [] [ ".. _function-function3-f:\n\n**f**\n  : TheType\n\n"]
         , mkExpectRst "module-onlyclass" "OnlyClass" ""
             []
@@ -135,19 +126,12 @@ expectRst =
             ]
             []
         , mkExpectRst "module-functionctx" "FunctionCtx" "" [] [] []
-            [ ".. _function-f:"
-            , ""
-            , "**f**"
-            , "  : (Eq t) => _"
-            , ""
-            , "  function with context but no type"
-            , ""
-            , ".. _function-g:"
+            [ ".. _function-g:"
             , ""
             , "**g**"
             , "  : (Eq t) => t -> Bool"
             , ""
-            , "  function with context and type"
+            , "  function with context"
             ]
         ]
         <> repeat (error "Missing expectation (Rst)")
@@ -213,13 +197,6 @@ expectMarkdown =
             , "> the doc"
             , "> "
             ]
-        , mkExpectMD "module-function2" "Function2" "" [] [] []
-            [ "<a name=\"function-function2-f\"></a>**f**  "
-            , "> : \\_"
-            , "> "
-            , "> the doc"
-            , "> "
-            ]
         , mkExpectMD "module-function3" "Function3" "" [] [] []
             [ "<a name=\"function-function3-f\"></a>**f**  "
             , "> : TheType"
@@ -251,15 +228,10 @@ expectMarkdown =
             ]
             []
         , mkExpectMD "module-functionctx" "FunctionCtx" "" [] [] []
-            [ "<a name=\"function-f\"></a>**f**  "
-            , "> : (Eq t) => \\_"
-            , "> "
-            , "> function with context but no type"
-            , "> "
-            , "<a name=\"function-g\"></a>**g**  "
+            [ "<a name=\"function-g\"></a>**g**  "
             , "> : (Eq t) => t -> Bool"
             , "> "
-            , "> function with context and type"
+            , "> function with context"
             , "> "
             ]
         ]

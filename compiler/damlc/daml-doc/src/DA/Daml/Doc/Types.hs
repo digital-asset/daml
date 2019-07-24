@@ -151,7 +151,7 @@ data FunctionDoc = FunctionDoc
   { fct_anchor :: Maybe Anchor
   , fct_name  :: Fieldname
   , fct_context :: Maybe Type
-  , fct_type  :: Maybe Type
+  , fct_type  :: Type
   , fct_descr :: Maybe DocText
   }
   deriving (Eq, Show, Generic)
