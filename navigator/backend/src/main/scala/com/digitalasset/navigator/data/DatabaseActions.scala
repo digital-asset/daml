@@ -99,9 +99,8 @@ class DatabaseActions extends LazyLogging {
 
   /** Returns the given value, logging failures */
   private def logErrors[T](result: Try[T]): Try[T] = {
-    result.failed.foreach {
-      case NonFatal(t) =>
-        logger.error("Error executing database action, Navigator may be in a corrupted state", t)
+    result.failed.foreach { t =>
+      logger.error("Error executing database action, Navigator may be in a corrupted state", t)
     }
     result
   }
