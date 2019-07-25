@@ -76,7 +76,7 @@ What this display means:
 - The third column shows the status of the contract, either ``active`` or ``archived``.
 - The remaining columns show the contract arguments, with one column per field. As expected, field ``owner`` is ``'Alice'``. The single quotation marks indicate that ``Alice`` is a party.
 
-To run the same test from the command line, save your module in a file ``Token_Test.daml`` and run ``daml damlc -- test Token_Test.daml``. If your file contains more than one scenario, all of them will be run.
+To run the same test from the command line, save your module in a file ``Token_Test.daml`` and run ``daml damlc -- test --files Token_Test.daml``. If your file contains more than one scenario, all of them will be run.
 
 .. _intro_2_failure:
 
@@ -142,8 +142,8 @@ Transaction ``#0`` has one *sub-transaction* ``#0:0``, which the arrow indicates
 
 The lines above and below ``create Token_Test:Token`` give additional information:
 
-- ``consumed by: #2:1`` tells you that the contract is archived in sub-transaction ``1`` of commit ``2``.
-- ``referenced by #2:0, #2:1`` tells you that the contract was used in other transactions, and lists their IDs.
+- ``consumed by: #2:0`` tells you that the contract is archived in sub-transaction ``0`` of commit ``2``.
+- ``referenced by #2:0`` tells you that the contract was used in other transactions, and lists their IDs.
 - ``known to (since): 'Alice' (#0)`` tells you who knows about the contract. The fact that ``'Alice'`` appears in the list is equivalent to a ``x`` in the tabular view. The ``(#0)`` gives you the additional information that ``Alice`` learned about the contract in commit ``#0``.
 - Everything following ``with`` shows the create arguments.
 
