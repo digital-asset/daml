@@ -195,11 +195,7 @@ case object LedgerApiV1 {
       arguments <- Converter.checkExists("CreatedEvent.arguments", event.createArguments)
       arg <- readRecordArgument(arguments, templateIdentifier, ctx)
       keyResult = event.contractKey
-        .map(k => readArgument(k, template.key.get, ctx))
-        .fold[Result[Option[ApiValue]]](Right(None)) {
-          case Right(key) => Right(Some(key))
-          case Left(error) => Left(error)
-        }
+        .traverseU(k => readArgument(k, template.key.get, ctx))
       key <- keyResult
     } yield
       Model.ContractCreated(
