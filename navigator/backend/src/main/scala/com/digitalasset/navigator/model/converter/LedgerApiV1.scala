@@ -386,13 +386,11 @@ case object LedgerApiV1 {
       }
       constructor = variant.variant
       choice <- dt.fields
-        .find(f => (f._1: Ref.Name) == (constructor: Ref.Name))
+        .collectFirst { case (`constructor`, cargTyp) => cargTyp }
         .toRight(GenericConversionError(s"Unknown enum constructor $constructor"))
       value = variant.value
-      argument <- fillInTypeInfo(value, choice._2, ctx)
-    } yield {
-      Model.ApiVariant(Some(typeCon.name.identifier), constructor, argument)
-    }
+      argument <- fillInTypeInfo(value, choice, ctx)
+    } yield variant.copy(tycon = Some(typeCon.name.identifier), value = argument)
 
   private def fillInEnumTI(
       enum: Model.ApiEnum,
@@ -412,6 +410,7 @@ case object LedgerApiV1 {
       .leftMap(sre => GenericConversionError(sre.getMessage))
       .flatMap(vv => fillInTypeInfo(vv.mapContractId(_.coid), typ, ctx))
 
+  /** Add `tycon`s and record field names where absent. */
   private def fillInTypeInfo(
       value: Model.ApiValue,
       typ: Model.DamlLfType,
@@ -425,7 +424,7 @@ case object LedgerApiV1 {
       case v: Model.ApiList => fillInListTI(v, typ, ctx)
       case v: Model.ApiRecord => fillInRecordTI(v, typ, ctx)
       case v: Model.ApiVariant => fillInVariantTI(v, typ, ctx)
-      case v: Model.ApiImpossible =>
+      case _: Model.ApiImpossible =>
         Left(GenericConversionError("unserializable Tuple appeared of serializable type"))
     }
 
