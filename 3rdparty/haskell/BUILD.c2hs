@@ -22,7 +22,6 @@ ghc_workspace = "@io_tweag_rules_haskell_ghc_windows_amd64" if is_windows else "
 
 cabal_haskell_package(
   package,
-  "c2hs",
   "8.6.5",
   extra_libs,
 )
