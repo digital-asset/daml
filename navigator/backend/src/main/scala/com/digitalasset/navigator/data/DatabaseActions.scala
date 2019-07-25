@@ -15,7 +15,6 @@ import doobie.implicits._
 import scalaz.syntax.tag._
 
 import scala.concurrent.ExecutionContext
-import scala.util.control.NonFatal
 import scala.util.{Failure, Success, Try}
 
 /**
