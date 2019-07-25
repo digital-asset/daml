@@ -228,7 +228,7 @@ object Queries {
     sql"""
       INSERT INTO 
         contract 
-        (id, template_id, archive_transaction_id, argument, agreement_text, signatories, observers)
+        (id, template_id, archive_transaction_id, argument, agreement_text, signatories, observers, contract_key)
       VALUES
         (${row.id}, ${row.templateId}, ${row.archiveTransactionId}, ${row.argument}, ${row.agreementText}, ${row.signatories}, ${row.observers}, ${row.key})
     """
