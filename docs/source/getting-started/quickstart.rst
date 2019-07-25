@@ -40,7 +40,6 @@ The project contains the following files:
 .. code-block:: none
 
   .
-  ├── daml.yaml
   ├── daml
   │   ├── Iou.daml
   │   ├── IouTrade.daml
@@ -48,17 +47,19 @@ The project contains the following files:
   │   └── Tests
   │       ├── IouTest.daml
   │       └── TradeTest.daml
+  ├── daml.yaml
   ├── frontend-config.js
   ├── pom.xml
-  ├── src
-  │   └── main
-  │       └── java
-  │           └── com
-  │               └── digitalasset
-  │                   └── quickstart
-  │                       └── iou
-  │                           └── IouMain.java
-  └── ui-backend.conf
+  └── src
+      └── main
+          ├── java
+          │   └── com
+          │       └── digitalasset
+          │           └── quickstart
+          │               └── iou
+          │                   └── IouMain.java
+          └── resources
+              └── logback.xml
 
 - ``daml.yaml`` is a DAML project config file used by the SDK to find out how to build the DAML project and how to run it.
 - ``daml`` contains the :ref:`DAML code <quickstart-daml>` specifying the contract model for the ledger.
@@ -168,14 +169,14 @@ Now everything is running, you can try out the quickstart application:
 
    .. figure:: quickstart/images/contracts.png
 
-   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#2:1``, created from a *template* called ``Iou.Iou@28b...``.
+   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#2:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
 #. On the left-hand side, you can see what the pages the Navigator contains:
 
    - Contracts
    - Templates
-   - Owned Ious
    - Issued Ious
+   - Owned Ious
    - Iou Transfers
    - Trades
 
@@ -189,7 +190,7 @@ Now everything is running, you can try out the quickstart application:
 
    On the far right, you see the number of *contract instances* that you can see for each template.
 
-#. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou.Iou`` row, filling it out as shown below and clicking **Submit**.
+#. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou:Iou`` row, filling it out as shown below and clicking **Submit**.
 
    .. figure:: quickstart/images/createIou.png
 
@@ -208,7 +209,7 @@ Now everything is running, you can try out the quickstart application:
    Go back to *Owned Ious*, open the Iou for €100 and click on the button *Iou_AddObserver*. Submit *Bob* as the *newObserver*.
 
    Contracts in DAML are immutable, meaning they can not be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#6:1`.
-#. To propose the trade, go to the **Templates** screen. Click on the *IouTrade.IouTrade* template, fill in the form as shown below and submit the transaction.
+#. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
 
@@ -519,21 +520,21 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 50-54
+      :lines: 46-50
       :dedent: 8
 
 #. An in-memory contract-store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 62-64
+      :lines: 58-60
       :dedent: 8
 
 #. The Active Contracts Service (ACS) is used to quickly build up the contract-store to a recent state.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 67-78
+      :lines: 63-74
       :dedent: 8
 
    Note the use of ``blockingForEach`` to ensure that the contract store is fully built and the ledger-offset up to which the ACS provides data is known before moving on.
@@ -543,14 +544,14 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 80-96
+      :lines: 76-92
       :dedent: 8
 
 #. Commands are submitted via the Command Submission Service.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 131-141
+      :lines: 127-137
       :dedent: 4
 
    You can find examples of ``ExerciseCommand`` and ``CreateCommand`` instantiation in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
@@ -558,13 +559,13 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :caption: ExerciseCommand
       :language: java
-      :lines: 112-113
+      :lines: 108-109
       :dedent: 12
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :caption: CreateCommand
       :language: java
-      :lines: 105-106
+      :lines: 101-102
       :dedent: 12
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.
@@ -579,6 +580,7 @@ Great - you've completed the quickstart guide!
 Some steps you could take next include:
 
 - Explore :doc:`examples </examples/examples>` for guidance and inspiration.
-- :doc:`Learn DAML </daml/reference/index>`.
+- :doc:`Learn DAML </daml/intro/0_Intro>`.
+- :doc:`Language reference </daml/reference/index>`.
 - Learn more about :doc:`application development </app-dev/app-arch>`.
 - Learn about the :doc:`conceptual models </concepts/ledger-model/index>` behind DAML and platform.

@@ -20,10 +20,9 @@ import com.digitalasset.ledger.api.v1.value.{
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
-import com.digitalasset.platform.server.api.validation.IdentifierResolverLike
 import io.grpc.StatusRuntimeException
 
-final class ValueValidator(identifierResolver: IdentifierResolverLike) {
+object ValueValidator {
 
   private[validation] def validateRecordFields(recordFields: Seq[RecordField])
     : Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], domain.Value)]] =
@@ -113,12 +112,7 @@ final class ValueValidator(identifierResolver: IdentifierResolverLike) {
   }
 
   private[validation] def validateOptionalIdentifier(
-      variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[Ref.Identifier]] = {
-    variantIdO
-      .map { variantId =>
-        identifierResolver.resolveIdentifier(variantId).map(Some.apply)
-      }
-      .getOrElse(Right(None))
-  }
+      variantIdO: Option[Identifier]): Either[StatusRuntimeException, Option[Ref.Identifier]] =
+    variantIdO.map(validateIdentifier(_).map(Some.apply)).getOrElse(Right(None))
 
 }

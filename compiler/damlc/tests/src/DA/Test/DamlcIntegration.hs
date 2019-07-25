@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 -- | Test driver for DAML-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,

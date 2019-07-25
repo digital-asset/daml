@@ -24,11 +24,7 @@ import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.server.api.services.domain.TransactionService
-import com.digitalasset.platform.server.api.validation.{
-  ErrorFactories,
-  FieldValidations,
-  IdentifierResolver
-}
+import com.digitalasset.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 import scalaz.Tag
@@ -39,8 +35,7 @@ import scala.concurrent.Future
 class GrpcTransactionService(
     protected val service: TransactionService,
     val ledgerId: LedgerId,
-    partyNameChecker: PartyNameChecker,
-    identifierResolver: IdentifierResolver)(
+    partyNameChecker: PartyNameChecker)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer)
     extends TransactionServiceAkkaGrpc
@@ -53,7 +48,7 @@ class GrpcTransactionService(
   private type MapStringSet[T] = Map[String, Set[T]]
 
   private val validator =
-    new TransactionServiceRequestValidator(ledgerId, partyNameChecker, identifierResolver)
+    new TransactionServiceRequestValidator(ledgerId, partyNameChecker)
 
   override protected def getTransactionsSource(
       request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] = {

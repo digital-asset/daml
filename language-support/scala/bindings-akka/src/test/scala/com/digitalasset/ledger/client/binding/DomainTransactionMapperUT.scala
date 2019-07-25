@@ -36,20 +36,23 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
         CreatedEvent(
           "createdEventId",
           contractId,
-          Some(Identifier("createdTemplateId")),
+          Some(Identifier("pkgId", "modName", "createdTemplateId")),
           None,
           Some(Record()))))
 
   def archivedEvent(contractId: String) =
     Event(
       Archived(
-        ArchivedEvent("archivedEventId", contractId, Some(Identifier("archivedTemplateId")))))
+        ArchivedEvent(
+          "archivedEventId",
+          contractId,
+          Some(Identifier("pkgId", "modName", "archivedTemplateId")))))
 
   def domainCreatedEvent(contractId: String) =
     DomainCreatedEvent(
       EventId("createdEventId"),
       ContractId(contractId),
-      TemplateId(Identifier("createdTemplateId")),
+      TemplateId(Identifier("pkgId", "modName", "createdTemplateId")),
       List.empty,
       CreateArguments(Record()),
       mockContract
@@ -59,8 +62,9 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
     DomainArchivedEvent(
       EventId("archivedEventId"),
       ContractId(contractId),
-      TemplateId(Identifier("archivedTemplateId")),
-      List.empty)
+      TemplateId(Identifier("pkgId", "modName", "archivedTemplateId")),
+      List.empty
+    )
 
   case class MockTemplate() extends Template[MockTemplate] {
     override protected[this] def templateCompanion(
@@ -68,7 +72,7 @@ class DomainTransactionMapperUT extends WordSpec with Matchers with AkkaTest {
       new TemplateCompanion.Empty[MockTemplate] {
         override val onlyInstance = MockTemplate()
         override val id: Primitive.TemplateId[MockTemplate] =
-          ` templateId`("packageId", "moduleId", "templateId")
+          ` templateId`("packageId", "modName", "templateId")
         override val consumingChoices: Set[Choice] = Set.empty
       }
   }

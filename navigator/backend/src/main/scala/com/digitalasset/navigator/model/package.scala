@@ -74,7 +74,6 @@ package object model extends NavigatorModelAliases[String] {
     def asApi: ApiV1.value.Identifier =
       ApiV1.value.Identifier(
         id.packageId,
-        "",
         id.qualifiedName.module.toString(),
         id.qualifiedName.name.toString())
 

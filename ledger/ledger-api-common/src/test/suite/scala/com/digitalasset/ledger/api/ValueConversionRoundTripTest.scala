@@ -14,12 +14,9 @@ import com.digitalasset.ledger.api.v1.value.{
 }
 import com.digitalasset.ledger.api.validation.{ValueValidator, ValidatorTestUtils}
 import com.digitalasset.platform.participant.util.LfEngineToApi
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
 import org.scalatest.WordSpec
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1}
-
-import scala.concurrent.Future
 
 class ValueConversionRoundTripTest
     extends WordSpec
@@ -27,11 +24,11 @@ class ValueConversionRoundTripTest
     with TableDrivenPropertyChecks {
 
   private val recordId =
-    Identifier(packageId, name = "Mod.Record", moduleName = "Mod", entityName = "Record")
+    Identifier(packageId, moduleName = "Mod", entityName = "Record")
   private val emptyRecordId =
-    Identifier(packageId, name = "Mod.EmptyRecord", moduleName = "Mod", entityName = "EmptyRecord")
+    Identifier(packageId, moduleName = "Mod", entityName = "EmptyRecord")
   private val variantId =
-    Identifier(packageId, name = "Mod.Variant", moduleName = "Mod", entityName = "Variant")
+    Identifier(packageId, moduleName = "Mod", entityName = "Variant")
 
   private val label: String = "label"
 
@@ -53,9 +50,7 @@ class ValueConversionRoundTripTest
          }
          """
 
-  private val commandValidator = new ValueValidator(
-    new IdentifierResolver(_ => Future.successful(Some(pkg)))
-  )
+  private val commandValidator = ValueValidator
 
   private def roundTrip(v: Value): Either[String, Value] =
     for {
@@ -169,17 +164,6 @@ class ValueConversionRoundTripTest
           roundTrip(Value(Sum.Decimal(input))) shouldEqual Right(Value(Sum.Decimal(expected)))
       }
     }
-  }
-
-  "should return identifier in old and new style " in {
-    val newStyleId = emptyRecordId.copy(name = "")
-    val oldStyleId = emptyRecordId.copy(moduleName = "", entityName = "")
-
-    roundTrip(Value(Sum.Record(Record(Some(newStyleId), List.empty)))) should equal(
-      Right(Value(Sum.Record(Record(Some(emptyRecordId), List.empty)))))
-
-    roundTrip(Value(Sum.Record(Record(Some(oldStyleId), List.empty)))) should equal(
-      Right(Value(Sum.Record(Record(Some(emptyRecordId), List.empty)))))
   }
 
 }

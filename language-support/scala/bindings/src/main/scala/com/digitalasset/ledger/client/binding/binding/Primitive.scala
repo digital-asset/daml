@@ -13,7 +13,6 @@ import scala.collection.{immutable => imm}
 import scala.language.higherKinds
 import java.time.{Instant, LocalDate, LocalDateTime}
 import java.util.TimeZone
-import com.github.ghik.silencer.silent
 
 sealed abstract class Primitive {
   type Int64 = Long
@@ -101,32 +100,9 @@ sealed abstract class Primitive {
 
     private[binding] def substEx[F[_]](fa: F[rpcvalue.Identifier]): F[TemplateId[_]]
 
-    /** Package ID, module name, and entity name, unless the underlying
-      * gRPC Identifier was built with the very old and ambiguous two-argument
-      * form.  Use [[LegacyTemplateId]] instead if you want to extract
-      * the two-argument form.
+    /** Package ID, module name, and entity name.
       */
     def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String, String)]
-  }
-
-  private[digitalasset] object LegacyIdentifier {
-    // suppress deprecation warnings because we _need_ to use the deprecated .name here -- the entire
-    // point of this method is to process it.
-    @silent
-    def unapply(t: rpcvalue.Identifier): Some[(String, String)] =
-      // TODO SC DEL-6727 use this instead with daml-lf value interface
-      // rpcvalue.Identifier unapply t.unwrap
-      t match {
-        case rpcvalue.Identifier(packageId, "", moduleName, entityName) =>
-          Some((packageId, s"$moduleName.$entityName"))
-        case rpcvalue.Identifier(packageId, entityName, _, _) =>
-          Some((packageId, entityName))
-      }
-  }
-
-  object LegacyTemplateId {
-    def unapply[Tpl](t: TemplateId[Tpl]): Some[(String, String)] =
-      LegacyIdentifier unapply t.unwrap
   }
 
   private[binding] def substContractId[F[_], Tpl](tc: F[ApiTypes.ContractId]): F[ContractId[Tpl]]
@@ -187,26 +163,19 @@ private[client] object OnlyPrimitive extends Primitive {
     override def apply[Tpl <: Template[Tpl]](
         packageId: String,
         moduleName: String,
-        entityName: String): TemplateId[Tpl] =
+        entityName: String
+    ): TemplateId[Tpl] =
       ApiTypes.TemplateId(
-        rpcvalue.Identifier(
-          packageId = packageId,
-          name = s"$moduleName.$entityName",
-          moduleName = moduleName,
-          entityName = entityName))
+        rpcvalue
+          .Identifier(packageId = packageId, moduleName = moduleName, entityName = entityName))
 
     private[binding] override def substEx[F[_]](fa: F[rpcvalue.Identifier]) =
       ApiTypes.TemplateId subst fa
 
-    override def unapply[Tpl](t: TemplateId[Tpl]): Option[(String, String, String)] =
-      // TODO SC DEL-6727 use this instead with daml-lf value interface
-      // rpcvalue.Identifier unapply t.unwrap
-      t.unwrap match {
-        case rpcvalue.Identifier(packageId, _, moduleName, entityName)
-            if moduleName.nonEmpty && entityName.nonEmpty =>
-          Some((packageId, moduleName, entityName))
-        case _ => None
-      }
+    override def unapply[Tpl](t: TemplateId[Tpl]): Some[(String, String, String)] = {
+      val rpcvalue.Identifier(packageId, moduleName, entityName) = t.unwrap
+      Some((packageId, moduleName, entityName))
+    }
   }
 
   object ContractId extends ContractIdApi {

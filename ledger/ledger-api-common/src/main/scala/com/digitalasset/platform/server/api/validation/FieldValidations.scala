@@ -5,6 +5,7 @@ package com.digitalasset.platform.server.api.validation
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import io.grpc.StatusRuntimeException
 
@@ -78,6 +79,13 @@ trait FieldValidations {
 
   def requirePresence[T](option: Option[T], fieldName: String): Either[StatusRuntimeException, T] =
     option.fold[Either[StatusRuntimeException, T]](Left(missingField(fieldName)))(Right(_))
+
+  def validateIdentifier(identifier: Identifier): Either[StatusRuntimeException, Ref.Identifier] =
+    for {
+      packageId <- requirePackageId(identifier.packageId, "package_id")
+      mn <- requireDottedName(identifier.moduleName, "module_name")
+      en <- requireDottedName(identifier.entityName, "entity_name")
+    } yield Ref.Identifier(packageId, Ref.QualifiedName(mn, en))
 
 }
 

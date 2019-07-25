@@ -17,7 +17,6 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.common.util.DirectExecutionContext.implicitEC
 import com.digitalasset.platform.server.api.ProxyCloseable
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
@@ -26,16 +25,15 @@ import scala.concurrent.Future
 
 class GrpcCommandSubmissionService(
     protected val service: CommandSubmissionService with AutoCloseable,
-    val ledgerId: LedgerId,
-    identifierResolver: IdentifierResolver)
-    extends ApiCommandSubmissionService
+    val ledgerId: LedgerId
+) extends ApiCommandSubmissionService
     with ProxyCloseable
     with GrpcApiService {
 
   protected val logger: Logger = LoggerFactory.getLogger(ApiCommandSubmissionService.getClass)
 
-  private val validator = new SubmitRequestValidator(
-    new CommandsValidator(ledgerId, identifierResolver))
+  private val validator =
+    new SubmitRequestValidator(new CommandsValidator(ledgerId))
 
   override def submit(request: ApiSubmitRequest): Future[Empty] =
     validator

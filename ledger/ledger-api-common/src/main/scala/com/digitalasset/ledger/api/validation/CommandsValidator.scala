@@ -20,16 +20,14 @@ import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.platform.common.PlatformTypes.asVersionedValueOrThrow
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations.{requirePresence, _}
-import com.digitalasset.platform.server.api.validation.IdentifierResolverLike
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag._
 
 import scala.collection.immutable
 
-final class CommandsValidator(ledgerId: LedgerId, identifierResolver: IdentifierResolverLike) {
+final class CommandsValidator(ledgerId: LedgerId) {
 
-  private[this] val valueValidator = new ValueValidator(identifierResolver)
-  import valueValidator._
+  import ValueValidator._
 
   def validateCommands(commands: ProtoCommands): Either[StatusRuntimeException, domain.Commands] =
     for {
@@ -83,7 +81,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
       case c: ProtoCreate =>
         for {
           templateId <- requirePresence(c.value.templateId, "template_id")
-          validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
+          validatedTemplateId <- validateIdentifier(templateId)
           createArguments <- requirePresence(c.value.createArguments, "create_arguments")
           recordId <- validateOptionalIdentifier(createArguments.recordId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
@@ -95,7 +93,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
       case e: ProtoExercise =>
         for {
           templateId <- requirePresence(e.value.templateId, "template_id")
-          validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
+          validatedTemplateId <- validateIdentifier(templateId)
           contractId <- requireLedgerString(e.value.contractId, "contract_id")
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
@@ -110,7 +108,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
       case ek: ProtoExerciseByKey =>
         for {
           templateId <- requirePresence(ek.value.templateId, "template_id")
-          validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
+          validatedTemplateId <- validateIdentifier(templateId)
           contractKey <- requirePresence(ek.value.contractKey, "contract_key")
           validatedContractKey <- validateValue(contractKey)
           choice <- requireName(ek.value.choice, "choice")
@@ -127,7 +125,7 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
       case ce: ProtoCreateAndExercise =>
         for {
           templateId <- requirePresence(ce.value.templateId, "template_id")
-          validatedTemplateId <- identifierResolver.resolveIdentifier(templateId)
+          validatedTemplateId <- validateIdentifier(templateId)
           createArguments <- requirePresence(ce.value.createArguments, "create_arguments")
           recordId <- validateOptionalIdentifier(createArguments.recordId)
           validatedRecordField <- validateRecordFields(createArguments.fields)
@@ -144,5 +142,4 @@ final class CommandsValidator(ledgerId: LedgerId, identifierResolver: Identifier
       case ProtoEmpty =>
         Left(missingField("command"))
     }
-
 }

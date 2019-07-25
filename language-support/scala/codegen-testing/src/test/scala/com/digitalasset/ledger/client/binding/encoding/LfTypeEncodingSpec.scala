@@ -81,7 +81,7 @@ object LfTypeEncodingSpec {
     final case class TLeft[A, B](body: A) extends TrialVariant[A, B]
     final case class TRight[A, B](one: B, two: B) extends TrialVariant[A, B]
 
-    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "TrialVariant")
+    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "Trial", "Variant")
 
     implicit def `TrialVariant arb`[A: Arbitrary, B: Arbitrary]: Arbitrary[TrialVariant[A, B]] =
       Arbitrary(
@@ -160,7 +160,7 @@ object LfTypeEncodingSpec {
   final case class TrialSubRec[A](num: P.Int64, a: A) extends ValueRef
 
   object TrialSubRec extends ValueRefCompanion {
-    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "TrialSubRec")
+    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "Trial", "SubRec")
 
     implicit def `TrialSubRec arb`[A: Arbitrary]: Arbitrary[TrialSubRec[A]] =
       Arbitrary(arbitrary[(P.Int64, A)] map (TrialSubRec[A] _).tupled)
@@ -207,7 +207,7 @@ object LfTypeEncodingSpec {
   final case class TrialEmptyRec() extends ValueRef
 
   object TrialEmptyRec extends ValueRefCompanion {
-    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "TrialSubRec")
+    override protected val ` dataTypeId` = rpcvalue.Identifier("hello", "Trial", "SubRec")
 
     implicit val `TrialEmptyRec arb`: Arbitrary[TrialEmptyRec] =
       Arbitrary(Gen const TrialEmptyRec())

@@ -1,7 +1,7 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings, DerivingStrategies #-}
+{-# LANGUAGE DerivingStrategies #-}
 
 module DA.Daml.Doc.Render.Rst
   ( renderSimpleRst
@@ -228,11 +228,11 @@ fct2rst FunctionDoc{..} = mconcat
         , T.concat
             [ "  : "
             , maybe "" ((<> " => ") . type2rst env) fct_context
-            , maybe "" ((<> "\n\n") . type2rst env) fct_type
-                -- FIXME: when would a function not have a type?
-            , maybe "" (indent 2 . docTextToRst) fct_descr
+            , type2rst env fct_type
             ]
+        , ""
         ]
+    , maybe (renderLine "") (renderIndent 2 . renderDocText) fct_descr
     ]
 
 ------------------------------------------------------------

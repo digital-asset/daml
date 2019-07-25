@@ -24,7 +24,6 @@ import com.digitalasset.platform.sandbox.services.admin.ApiPackageManagementServ
 import com.digitalasset.platform.sandbox.services.transaction.ApiTransactionService
 import com.digitalasset.platform.sandbox.services.admin.ApiPartyManagementService
 import com.digitalasset.platform.sandbox.stores.ledger.CommandExecutorImpl
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ApiCommandService
 import com.digitalasset.platform.server.services.identity.ApiLedgerIdentityService
 import com.digitalasset.platform.server.services.testing.{ApiTimeService, TimeServiceBackend}
@@ -82,13 +81,9 @@ object ApiServices {
     val partyManagementService: IndexPartyManagementService = indexService
 
     identityService.getLedgerId().map { ledgerId =>
-      val identifierResolver: IdentifierResolver =
-        new IdentifierResolver(packagesService.getLfPackage)
-
       val apiSubmissionService =
         ApiSubmissionService.create(
           ledgerId,
-          identifierResolver,
           contractStore,
           writeService,
           timeModel,
@@ -99,7 +94,7 @@ object ApiServices {
       logger.info(EngineInfo.show)
 
       val apiTransactionService =
-        ApiTransactionService.create(ledgerId, transactionsService, identifierResolver)
+        ApiTransactionService.create(ledgerId, transactionsService)
 
       val apiLedgerIdentityService =
         ApiLedgerIdentityService.create(() => identityService.getLedgerId())
@@ -131,12 +126,11 @@ object ApiServices {
           () => apiCompletionService.completionEnd(CompletionEndRequest(ledgerId.unwrap)),
           apiTransactionService.getTransactionById,
           apiTransactionService.getFlatTransactionById
-        ),
-        identifierResolver
+        )
       )
 
       val apiActiveContractsService =
-        ApiActiveContractsService.create(ledgerId, activeContractsService, identifierResolver)
+        ApiActiveContractsService.create(ledgerId, activeContractsService)
 
       val apiReflectionService = ProtoReflectionService.newInstance()
 

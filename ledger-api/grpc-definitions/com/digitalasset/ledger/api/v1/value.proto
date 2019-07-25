@@ -117,10 +117,8 @@ message Identifier {
   // Required
   string package_id = 1;
 
-  // The identifier of the entity (unique within the package)
-  // DEPRECATED: use ``module_name`` and ``entity_name`` instead
-  // Optional
-  string name = 2 [deprecated=true];
+  reserved 2; // was `name` old compact representation of identifier.
+              // removed in favor of  ``module_name`` and ``entity_name``.
 
   // The dot-separated module name of the identifier.
   // Required

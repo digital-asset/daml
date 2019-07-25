@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Doc.Render.Tests(mkTestTree)
   where
@@ -45,20 +44,16 @@ cases = [ ("Empty module",
           )
         , ("Documented function with type",
            ModuleDoc (Just "module-function1") "Function1" Nothing [] [] []
-            [FunctionDoc (Just "function-function1-f") "f" Nothing (Just $ TypeApp Nothing "TheType" []) (Just "the doc")] []
-          )
-        , ("Documented function without type",
-           ModuleDoc (Just "module-function2") "Function2" Nothing [] [] []
-            [FunctionDoc (Just "function-function2-f") "f" Nothing Nothing (Just "the doc")] []
+            [FunctionDoc (Just "function-function1-f") "f" Nothing (TypeApp Nothing "TheType" []) (Just "the doc")] []
           )
         , ("Undocumented function with type",
            ModuleDoc (Just "module-function3") "Function3" Nothing [] [] []
-            [FunctionDoc (Just "function-function3-f") "f" Nothing (Just $ TypeApp Nothing "TheType" []) Nothing] []
+            [FunctionDoc (Just "function-function3-f") "f" Nothing (TypeApp Nothing "TheType" []) Nothing] []
           )
         -- The doc extraction won't generate functions without type nor description
         , ("Module with only a type class",
            ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] [] []
-            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (Just (TypeApp Nothing "a" [])) Nothing]])
+            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (TypeApp Nothing "a" []) Nothing]])
         , ("Multiline field description",
            ModuleDoc
              (Just "module-multilinefield")
@@ -75,24 +70,34 @@ cases = [ ("Empty module",
              []
              []
           )
+        , ("Functions with context",
+           ModuleDoc
+            (Just "module-functionctx") "FunctionCtx"
+            Nothing [] [] []
+            [ FunctionDoc (Just "function-g") "g"
+                (Just $ TypeTuple [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
+                (TypeFun [TypeApp Nothing "t" [], TypeApp Nothing "Bool" []])
+                (Just "function with context")
+            ] []
+          )
         ]
 
 expectRst :: [T.Text]
 expectRst =
         [ T.empty
         , mkExpectRst "module-typedef" "Typedef" "" [] []
-            ["\n.. _type-typedef-t:\n\ntype **T a**\n    = TT TTT\n\n  T descr"] []
+            [".. _type-typedef-t:\n\ntype **T a**\n    = TT TTT\n\n  T descr"] []
         , mkExpectRst "module-twotypes" "TwoTypes" "" []
             []
-            ["\n.. _type-twotypes-t:\n\ntype **T a**\n    = TT\n\n  T descr"
+            [".. _type-twotypes-t:\n\ntype **T a**\n    = TT\n\n  T descr\n"
             , "\n.. _data-twotypes-d:\n\ndata **D d**\n\n  \n  \n  .. _constr-twotypes-d:\n  \n  **D** a\n  \n  D descr"]
             []
-        , mkExpectRst "module-function1" "Function1" "" [] [] [] [ "\n.. _function-function1-f:\n\n**f**\n  : TheType\n\n  the doc\n"]
-        , mkExpectRst "module-function2" "Function2" "" [] [] [] [ "\n.. _function-function2-f:\n\n**f**\n  :   the doc\n"]
-        , mkExpectRst "module-function3" "Function3" "" [] [] [] [ "\n.. _function-function3-f:\n\n**f**\n  : TheType\n\n"]
+        , mkExpectRst "module-function1" "Function1" "" [] [] [] [ ".. _function-function1-f:\n\n**f**\n  : TheType\n\n  the doc\n"]
+        , mkExpectRst "module-function3" "Function3" "" [] [] [] [ ".. _function-function3-f:\n\n**f**\n  : TheType\n\n"]
         , mkExpectRst "module-onlyclass" "OnlyClass" ""
             []
-            [ "\n.. _class-onlyclass-c:"
+            [ ".. _class-onlyclass-c:"
+            , ""
             , "class **C a** where\n  \n  .. _function-onlyclass-member:\n  \n  **member**\n    : a"
             ]
             []
@@ -100,8 +105,10 @@ expectRst =
         , mkExpectRst "module-multilinefield" "MultiLineField" ""
             []
             []
-            [ "\n.. _data-multilinefield-d:"
+            [ ".. _data-multilinefield-d:"
+            , ""
             , "data **D**"
+            , ""
             , T.concat
                   [ "  \n  \n"
                   , "  .. _constr-multilinefield-d:\n  \n"
@@ -118,39 +125,43 @@ expectRst =
                   ]
             ]
             []
+        , mkExpectRst "module-functionctx" "FunctionCtx" "" [] [] []
+            [ ".. _function-g:"
+            , ""
+            , "**g**"
+            , "  : (Eq t) => t -> Bool"
+            , ""
+            , "  function with context"
+            ]
         ]
         <> repeat (error "Missing expectation (Rst)")
 
 mkExpectRst :: T.Text -> T.Text -> T.Text -> [T.Text] -> [T.Text] -> [T.Text] -> [T.Text] -> T.Text
-mkExpectRst anchor name descr templates classes adts fcts = T.unlines $
-  [ ".. _" <> anchor <> ":"
-  , ""
-  , "Module " <> name
-  , "-------" <> T.replicate (T.length name) "-"
-  , descr, ""
-  ]
-  <> concat
-     [ if null templates then [] else
-         [ "Templates"
-         , "^^^^^^^^^"
-         , T.unlines templates
-         , ""]
-     , if null classes then [] else
-         [ "Typeclasses"
-         , "^^^^^^^^^^^"
-         , T.unlines (map (<> "\n") classes)
-         ]
-     , if null adts then [] else
-         [ "Data types"
-         , "^^^^^^^^^^"
-         , T.unlines (map (<> "\n") adts)
-         ]
-     , if null fcts then [] else
-         [ "Functions"
-         , "^^^^^^^^^"
-         , T.unlines (map (<> "\n") fcts)
-         ]
-     ]
+mkExpectRst anchor name descr templates classes adts fcts = T.unlines . concat $
+    [ [ ".. _" <> anchor <> ":"
+      , ""
+      , "Module " <> name
+      , "-------" <> T.replicate (T.length name) "-"
+      , descr
+      , ""
+      ]
+    , section "Templates" templates
+    , section "Typeclasses" classes
+    , section "Data types" adts
+    , section "Functions" fcts
+    ]
+  where
+    section title docs =
+        if null docs
+            then []
+            else
+                [ title
+                , T.replicate (T.length title) "^"
+                , ""
+                , T.unlines docs
+                , ""
+                ]
+
   -- NB T.unlines adds a trailing '\n'
 
 
@@ -159,53 +170,45 @@ expectMarkdown =
         [ T.empty
         , mkExpectMD "module-typedef" "Typedef" "" [] []
             [ "**type <a name=\"type-typedef-t\"></a>T a**  "
-            , "&nbsp; = TT TTT"
-            , ""
-            , "T descr"
-            , ""]
+            , "> = TT TTT"
+            , "> "
+            , "> T descr"
+            , "> "]
             []
         , mkExpectMD "module-twotypes" "TwoTypes" "" [] []
             [ "**type <a name=\"type-twotypes-t\"></a>T a**  "
-            , "&nbsp; = TT"
-            , ""
-            , "T descr"
-            , ""
+            , "> = TT"
+            , "> "
+            , "> T descr"
+            , "> "
             , "**data <a name=\"data-twotypes-d\"></a>D d**"
-            , ""
-            , "* <a name=\"constr-twotypes-d\"></a>D a"
-            , "  "
-            , "  D descr"
-            , "  "
-            , ""
+            , "> "
+            , "> * <a name=\"constr-twotypes-d\"></a>**D** a"
+            , ">   "
+            , ">   D descr"
+            , ">   "
+            , "> "
             ]
             []
         , mkExpectMD "module-function1" "Function1" "" [] [] []
             [ "<a name=\"function-function1-f\"></a>**f**  "
-            , "&nbsp; : TheType"
-            , ""
-            , "the doc"
-            , ""
-            ]
-        , mkExpectMD "module-function2" "Function2" "" [] [] []
-            [ "<a name=\"function-function2-f\"></a>**f**  "
-            , ""
-            , "the doc"
-            , ""
+            , "> : TheType"
+            , "> "
+            , "> the doc"
+            , "> "
             ]
         , mkExpectMD "module-function3" "Function3" "" [] [] []
             [ "<a name=\"function-function3-f\"></a>**f**  "
-            , "&nbsp; : TheType"
-            , ""
+            , "> : TheType"
+            , "> "
             ]
         , mkExpectMD "module-onlyclass" "OnlyClass" ""
             []
-            [ "### <a name=\"class-onlyclass-c\"></a>Class C"
-            , ""
-            , "**class C a where**"
-            , ""
-            , "> <a name=\"function-onlyclass-member\"></a>**member**  "
-            , "> &nbsp; : a"
+            [ "<a name=\"class-onlyclass-c\"></a>**class C a where**"
             , "> "
+            , "> <a name=\"function-onlyclass-member\"></a>**member**  "
+            , "> > : a"
+            , "> > "
             ]
             []
             []
@@ -213,15 +216,24 @@ expectMarkdown =
             []
             []
             [ "**data <a name=\"data-multilinefield-d\"></a>D**"
-            , ""
-            , "* <a name=\"constr-multilinefield-d\"></a>D"
-            , "  "
-            , "  | Field | Type/Description |"
-            , "  | :---- | :----------------"
-            , "  | f     | T |"
-            , "  |       | This is a multiline field description |"
+            , "> "
+            , "> * <a name=\"constr-multilinefield-d\"></a>**D**"
+            , ">   "
+            , ">   | Field | Type/Description |"
+            , ">   | :---- | :----------------"
+            , ">   | f     | T |"
+            , ">   |       | This is a multiline field description |"
+            , ">   "
+            , "> "
             ]
             []
+        , mkExpectMD "module-functionctx" "FunctionCtx" "" [] [] []
+            [ "<a name=\"function-g\"></a>**g**  "
+            , "> : (Eq t) => t -> Bool"
+            , "> "
+            , "> function with context"
+            , "> "
+            ]
         ]
         <> repeat (error "Missing expectation (Markdown)")
 
