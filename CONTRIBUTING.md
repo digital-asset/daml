@@ -6,7 +6,7 @@ There are many ways you can contribute beyond coding. For example, you can repor
 
 ## Working on the codebase
 
-For information on how to build, test, and work on the codebase, see ["To start contributing to DAML" in the README](./README.md#to-start-contributing-to-daml).
+For information on how to build, test, and work on the codebase, see ["Contributing to DAML" in the README](./README.md#contributing-to-daml).
 
 ## Code of conduct
 

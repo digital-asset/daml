@@ -111,7 +111,7 @@ template TransferApproval
   where
     signatory asset.issuer
 
-    controller newOwner can
+    controller asset.owner can
       TransferApproval_Cancel
         : ()
         do

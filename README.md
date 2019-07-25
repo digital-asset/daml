@@ -20,7 +20,7 @@ Once installed, to try it out, follow the [quickstart guide](https://docs.daml.c
 If you have questions about how to use DAML or how to build DAML-based solutions, please ask
 them on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
-## Contribuing to DAML
+## Contributing to DAML
 
 We warmly welcome [contributions](./CONTRIBUTING.md). If you are looking for ideas on how to contribute, please browse our
 [issues](https://github.com/digital-asset/daml/issues). To build and test DAML:

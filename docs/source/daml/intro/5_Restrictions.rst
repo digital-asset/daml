@@ -147,7 +147,7 @@ Expressions like ``getTime``, ``getParty party``, ``pass time``, ``submit party 
 - ``create iou : Update (ContractId Iou)``, where ``iou : Iou`` is a recipe for a transaction consisting of a single ``create`` action, and returns the contract id of the created contract if successful.
 - ``submit alice (create iou) : Scenario (ContractId Iou)`` is a recipe for a scenario in which Alice evaluates the result of ``create iou`` to get a transaction and a return value of type ``ContractId Iou``, and then submits that transaction to the ledger.
 
-Any DAML ledger knows how to perform actions of type ``Update a``. Only some know how to run scenarions, meaning they can perform actions of type ``Scenario a``.
+Any DAML ledger knows how to perform actions of type ``Update a``. Only some know how to run scenarios, meaning they can perform actions of type ``Scenario a``.
 
 Chaining up actions with do blocks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
