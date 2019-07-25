@@ -34,7 +34,7 @@ Navigator
 ~~~~~~~~~
 
 - Fixed an issue when Navigator console did not see any contracts.
-  See `#2271 <https://github.com/digital-asset/daml/issues/2271 >`__.
+  See `#2271 <https://github.com/digital-asset/daml/issues/2271>`__.
 
 Documentation
 ~~~~~~~~~~~~~~
