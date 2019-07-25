@@ -65,46 +65,81 @@ class HttpServiceIntegrationTest
     import json.JsonProtocol._
 
     val command: domain.CreateCommand[v.Record] = iouCreateCommand
-    val input: String = encoder.encodeR(command).map(x => x.prettyPrint).valueOr(e => fail(e.shows))
-    println(s"----- input: $input")
+    val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
-    Http()
-      .singleRequest(
-        HttpRequest(
-          method = HttpMethods.POST,
-          uri = uri.withPath(Uri.Path("/command/create")),
-          entity = HttpEntity(ContentTypes.`application/json`, input)))
-      .flatMap { resp =>
-        resp.status shouldBe StatusCodes.OK
-        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.flatMap { body =>
-          val jsonAst: JsValue = body.parseJson
-          println(s"----- jsonAst: $jsonAst")
-          inside(jsonAst) {
-            case JsObject(fields) =>
-              inside(fields.get("status")) {
-                case Some(JsNumber(status)) => status shouldBe BigDecimal("200")
-              }
-              inside(fields.get("result")) {
-                case Some(activeContract: JsObject) =>
-                  assertActiveContract(decoder, activeContract, command)
-              }
-          }
+    postJson(uri.withPath(Uri.Path("/command/create")), input).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.OK)
+        inside(output) {
+          case JsObject(fields) =>
+            inside(fields.get("result")) {
+              case Some(activeContract: JsObject) =>
+                assertActiveContract(decoder, activeContract, command)
+            }
         }
-      }: Future[Assertion]
+    }: Future[Assertion]
+  }
+
+  "command/exercise IOU_Transfer" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
+    import json.JsonProtocol._
+
+    val create: domain.CreateCommand[v.Record] = iouCreateCommand
+    val createJson: JsObject = encoder.encodeR(create).valueOr(e => fail(e.shows))
+
+    postJson(uri.withPath(Uri.Path("/command/create")), createJson).flatMap {
+      case (createStatus, createOutput) =>
+        createStatus shouldBe StatusCodes.OK
+        assertStatus(createOutput, StatusCodes.OK)
+
+        val contractId = getContractId(createOutput)
+        val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
+        val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
+
+        postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson).flatMap {
+          case (exerciseStatus, exerciseOutput) =>
+            exerciseStatus shouldBe StatusCodes.OK
+            assertStatus(exerciseOutput, StatusCodes.OK)
+            println(s"----- exerciseOutput: $exerciseOutput")
+            inside(exerciseOutput) {
+              case JsObject(fields) =>
+                inside(fields.get("result")) {
+                  case Some(JsArray(Vector(activeContract: JsObject))) =>
+                    assertActiveContract(decoder, activeContract, create, exercise)
+                }
+            }
+        }
+    }: Future[Assertion]
   }
 
   private def assertActiveContract(
       decoder: DomainJsonDecoder,
       jsObject: JsObject,
-      createCommand: domain.CreateCommand[v.Record]): Assertion = {
+      create: domain.CreateCommand[v.Record],
+      exercise: domain.ExerciseCommand[v.Record]): Assertion = {
 
     // TODO(Leo): check the jsObject.argument is the same as createCommand.argument
     println(s"------- jsObject: $jsObject")
-    println(s"------- createCommand: $createCommand")
+    println(s"------- create: $create")
+    println(s"------- exercise: $exercise")
 
     inside(jsObject.fields.get("argument")) {
-      case Some(JsObject(fields)) => fields.size shouldBe 5
+      case Some(JsObject(fields)) =>
+        fields.size shouldBe (exercise.argument.fields.size + 1) // +1 for the original "iou" from create
+    }
+  }
+
+  private def assertActiveContract(
+      decoder: DomainJsonDecoder,
+      jsObject: JsObject,
+      command: domain.CreateCommand[v.Record]): Assertion = {
+
+    // TODO(Leo): check the jsObject.argument is the same as createCommand.argument
+    println(s"------- jsObject: $jsObject")
+    println(s"------- command: $command")
+
+    inside(jsObject.fields.get("argument")) {
+      case Some(JsObject(fields)) => fields.size shouldBe command.argument.fields.size
     }
   }
 
@@ -137,7 +172,8 @@ class HttpServiceIntegrationTest
       decoder: DomainJsonDecoder): Assertion = {
     import json.JsonProtocol._
 
-    val command0: domain.ExerciseCommand[v.Record] = iouExerciseCommand
+    val command0: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(
+      lar.ContractId("a-contract-ID"))
 
     val x = for {
       jsonObj <- encoder.encodeR(command0)
@@ -182,9 +218,9 @@ class HttpServiceIntegrationTest
     domain.CreateCommand(templateId, arg, None)
   }
 
-  private def iouExerciseCommand: domain.ExerciseCommand[v.Record] = {
+  private def iouExerciseTransferCommand(
+      contractId: lar.ContractId): domain.ExerciseCommand[v.Record] = {
     val templateId: OptionalPkg = domain.TemplateId(None, "Iou", "Iou")
-    val contractId = lar.ContractId("a-contract-ID")
     val arg: Record = v.Record(
       fields = List(v.RecordField("newOwner", Some(v.Value(v.Value.Sum.Party("Alice")))))
     )
@@ -192,4 +228,37 @@ class HttpServiceIntegrationTest
 
     domain.ExerciseCommand(templateId, contractId, choice, arg, None)
   }
+
+  private def postJson(uri: Uri, json: JsValue): Future[(StatusCode, JsValue)] =
+    Http()
+      .singleRequest(
+        HttpRequest(
+          method = HttpMethods.POST,
+          uri = uri,
+          entity = HttpEntity(ContentTypes.`application/json`, json.prettyPrint))
+      )
+      .flatMap { resp =>
+        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
+        bodyF.map(body => (resp.status, body.parseJson))
+      }
+
+  private def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
+    inside(jsObj) {
+      case JsObject(fields) =>
+        inside(fields.get("status")) {
+          case Some(JsNumber(status)) => status shouldBe BigDecimal("200")
+        }
+    }
+  }
+
+  private def getContractId(output: JsValue): lar.ContractId =
+    inside(output) {
+      case JsObject(topFields) =>
+        inside(topFields.get("result")) {
+          case Some(JsObject(fields)) =>
+            inside(fields.get("contractId")) {
+              case Some(JsString(contractId)) => lar.ContractId(contractId)
+            }
+        }
+    }
 }
