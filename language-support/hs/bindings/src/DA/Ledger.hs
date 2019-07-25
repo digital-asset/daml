@@ -12,6 +12,7 @@ module DA.Ledger ( -- High level interface to the Ledger API
     module DA.Ledger.Types,
 
     configOfPort,
+    configOfHostAndPort,
 
     getTransactionsPF,
 
@@ -34,8 +35,11 @@ import DA.Ledger.Types
 import UnliftIO (liftIO,timeout,bracket)
 
 configOfPort :: Port -> ClientConfig
-configOfPort port =
-    ClientConfig { clientServerHost = Host "localhost"
+configOfPort = configOfHostAndPort "localhost"
+
+configOfHostAndPort :: Host -> Port -> ClientConfig
+configOfHostAndPort host port =
+    ClientConfig { clientServerHost = host
                  , clientServerPort = port
                  , clientArgs = []
                  , clientSSLConfig = Nothing
