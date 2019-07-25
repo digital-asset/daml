@@ -77,7 +77,7 @@ private[acceptance] sealed abstract case class LedgerSession(
     new TransactionFilter(Map(party -> filter(templateIds)))
 
   private[infrastructure] def filter(templateIds: Seq[Identifier]): Filters =
-    new Filters(Some(new InclusiveFilters(templateIds)))
+    new Filters(if (templateIds.isEmpty) None else Some(new InclusiveFilters(templateIds)))
 
   private[infrastructure] def allocateParty()(implicit context: ExecutionContext): Future[String] =
     partyManagementService.allocateParty(new AllocatePartyRequest()).map(_.partyDetails.get.party)
