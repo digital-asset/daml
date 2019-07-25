@@ -5,6 +5,9 @@ package com.digitalasset.http
 
 import java.time.Instant
 
+import com.digitalasset.daml.lf
+import com.digitalasset.http.domain.TemplateId.OptionalPkg
+import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.std.list._
@@ -138,7 +141,8 @@ object domain {
       meta: Option[CommandMeta])
 
   trait HasTemplateId[F[_]] {
-    def templateId(a: F[_]): TemplateId.OptionalPkg
+    def templateId(fa: F[_]): TemplateId.OptionalPkg
+    def lfIdentifier(fa: F[_], templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier
   }
 
   // TODO(Leo): get rid of Field and Record
@@ -159,8 +163,14 @@ object domain {
         f(fa.argument).map(a => fa.copy(argument = a))
     }
 
-    implicit val hasTemplateId: HasTemplateId[CreateCommand] =
-      (a: CreateCommand[_]) => a.templateId
+    implicit val hasTemplateId: HasTemplateId[CreateCommand] = new HasTemplateId[CreateCommand] {
+      override def templateId(fa: CreateCommand[_]): OptionalPkg = fa.templateId
+
+      override def lfIdentifier(
+          fa: CreateCommand[_],
+          templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier =
+        IdentifierConverters.lfIdentifier(templateId)
+    }
   }
 
   object ExerciseCommand {
@@ -169,10 +179,14 @@ object domain {
           f: A => G[B]): G[ExerciseCommand[B]] = f(fa.argument).map(a => fa.copy(argument = a))
     }
 
-    // TODO(Leo): this will not work for ExerciseCommand
-    // it has to be argument Record ID, not Template ID, where entityName = choiceId
-    // the only reason it works for CreateCommand is because argument Record ID == Template ID
     implicit val hasTemplateId: HasTemplateId[ExerciseCommand] =
-      (a: ExerciseCommand[_]) => a.templateId
+      new HasTemplateId[ExerciseCommand] {
+        override def templateId(fa: ExerciseCommand[_]): OptionalPkg = fa.templateId
+
+        override def lfIdentifier(
+            fa: ExerciseCommand[_],
+            templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier =
+          IdentifierConverters.lfIdentifier(templateId, fa.choice)
+      }
   }
 }

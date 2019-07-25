@@ -45,7 +45,7 @@ class DomainJsonDecoder(
       fa: F[JsObject]): JsonError \/ F[lav1.value.Record] = {
     for {
       templateId <- lookupTemplateId(fa)
-      damlLfId = IdentifierConverters.damlLfIdentifier(templateId)
+      damlLfId = IdentifierConverters.lfIdentifier(templateId)
       apiValue <- fa.traverse(jsObject => jsObjectToApiRecord(damlLfId, jsObject))
     } yield apiValue
   }
@@ -64,7 +64,7 @@ class DomainJsonDecoder(
       fa: F[JsValue]): JsonError \/ F[lav1.value.Value] = {
     for {
       templateId <- lookupTemplateId(fa)
-      damlLfId = IdentifierConverters.damlLfIdentifier(templateId)
+      damlLfId = IdentifierConverters.lfIdentifier(templateId)
       apiValue <- fa.traverse(jsValue => jsValueToApiValue(damlLfId, jsValue))
     } yield apiValue
   }
