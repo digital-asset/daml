@@ -45,8 +45,7 @@ Documentation
 Releases
 ~~~~~~~~
 
-- Releases should now be announced on `the releases blog
-  <https://blog.daml.com/release-notes>`_.
+- Releases should now be announced on `the releases blog <https://blog.daml.com/release-notes>`__.
 
 .. _release-0-13-14:
 
