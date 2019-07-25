@@ -10,14 +10,13 @@ import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.ledger.api.validation.ValueValidator
+import com.digitalasset.ledger.api.validation.ValueValidator.{validateRecord, validateValue}
 import com.digitalasset.navigator.{model => Model}
 import com.digitalasset.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
 import com.digitalasset.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue
 }
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code.Code
@@ -258,11 +257,6 @@ case object LedgerApiV1 {
         actingParties = event.actingParties.map(ApiTypes.Party(_)).toList
       ) :: children
   }
-
-  private val valueValidator = new ValueValidator(
-    IdentifierResolver(_ => scala.concurrent.Future successful None)
-  )
-  import valueValidator.{validateValue, validateRecord}
 
   private def readRecordArgument(
       value: V1.value.Record,
