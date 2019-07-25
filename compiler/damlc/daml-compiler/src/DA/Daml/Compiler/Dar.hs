@@ -6,6 +6,7 @@ module DA.Daml.Compiler.Dar
   ( buildDar
   , FromDalf(..)
   , breakAt72Chars
+  , PackageConfigFields(..)
   ) where
 
 import qualified Codec.Archive.Zip as Zip
@@ -20,7 +21,6 @@ import Data.Maybe
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as S
 import qualified Data.Text as T
-import System.Directory
 import System.FilePath
 
 import Module (unitIdString)
@@ -32,7 +32,7 @@ import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as IdeLogger
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Proto3.Archive (encodeHash, encodeArchiveAndHash)
+import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -64,89 +64,110 @@ gernerated separately.
 -- | If true, we create the DAR from an existing .dalf file instead of compiling a *.daml file.
 newtype FromDalf = FromDalf{unFromDalf :: Bool}
 
+-- | daml.yaml config fields specific to packaging.
+data PackageConfigFields = PackageConfigFields
+    { pName :: String
+    , pMain :: String
+    , pExposedModules :: Maybe [String]
+    , pVersion :: String
+    , pDependencies :: [String]
+    , pSdkVersion :: String
+    }
+
 buildDar
   :: IdeState
+  -> PackageConfigFields
   -> NormalizedFilePath
-  -> Maybe [String] -- ^ exposed modules
-  -> String -- ^ package name
-  -> String -- ^ sdk version
-  -> ((String, LF.Package) -> [(FilePath, BS.ByteString)])
-  -- We allow datafiles to depend on the package being produces to
-  -- allow inference of things like exposedModules.
-  -- Once we kill the old "package" command we could instead just
-  -- pass "PackageConfigFields" to this function and construct the data
-  -- files in here.
   -> FromDalf
   -> IO (Maybe BS.ByteString)
-buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInput = do
-  let file' = fromNormalizedFilePath file
+buildDar service pkgConf@PackageConfigFields{..} ifDir dalfInput = do
   liftIO $
     IdeLogger.logDebug (ideLogger service) $
-    "Creating dar: " <> T.pack file'
+    "Creating dar: " <> T.pack pMain
   if unFromDalf dalfInput
     then liftIO $ Just <$> do
-      bytes <- BSL.readFile file'
+      bytes <- BSL.readFile pMain
       createArchive
+        pkgConf
+        ""
         bytes
-        (T.unpack $ encodeHash $ BSL.toStrict bytes)
-        (toNormalizedFilePath $ takeDirectory file')
         []
         []
         []
-        pkgName
-        sdkVersion
+        []
     else runAction service $ runMaybeT $ do
       WhnfPackage pkg <- useE GeneratePackage file
-      let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
-      let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
+      let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
+      let missingExposed = S.fromList (fromMaybe [] pExposedModules) S.\\ S.fromList pkgModuleNames
       unless (S.null missingExposed) $
           -- FIXME: Should be producing a proper diagnostic
           error $
               "The following modules are declared in exposed-modules but are not part of the DALF: " <>
               show (S.toList missingExposed)
-      let (dalf, hash0) = encodeArchiveAndHash pkg
-      let hash = T.unpack hash0
+      let (dalf, pkgId) = encodeArchiveAndHash pkg
+      -- create the interface files
+      ifaces <- MaybeT $ writeIfacesAndHie ifDir file
       -- get all dalf dependencies.
       dalfDependencies0 <- getDalfDependencies file
       let dalfDependencies =
               [ (T.pack $ unitIdString unitId, dalfPackageBytes pkg) | (unitId, pkg) <- Map.toList dalfDependencies0 ]
       -- get all file dependencies
       fileDependencies <- MaybeT $ getDependencies file
-      let dataFiles = buildDataFiles (hash, pkg)
+      let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
       liftIO $
         createArchive
+          pkgConf
+          (T.unpack pkgId)
           dalf
-          hash
-          (toNormalizedFilePath $ takeDirectory file')
           dalfDependencies
           (file:fileDependencies)
           dataFiles
-          pkgName
-          sdkVersion
+          ifaces
+  where
+    file = toNormalizedFilePath pMain
+
+fullPkgName :: String -> String -> String -> String
+fullPkgName n v h = intercalate "-" [n, v, h]
+
+mkConfFile ::
+       PackageConfigFields -> [String] -> String -> (String, BS.ByteString)
+mkConfFile PackageConfigFields{..} pkgModuleNames pkgId = (confName, bs)
+  where
+    confName = pName ++ ".conf"
+    key = fullPkgName pName pVersion pkgId
+    bs =
+        BSC.toStrict $
+        BSC.pack $
+        unlines
+            [ "name: " ++ pName
+            , "id: " ++ pName -- will change to key
+            , "key: " ++ pName -- will change to key
+            , "version: " ++ pVersion
+            , "exposed: True"
+            , "exposed-modules: " ++
+              unwords
+                  (fromMaybe
+                       pkgModuleNames
+                       pExposedModules)
+            , "import-dirs: ${pkgroot}" </> key
+            , "library-dirs: ${pkgroot}" </> key
+            , "data-dir: ${pkgroot}" </> key
+            , "depends: " ++
+              unwords [dropExtension $ takeFileName dep | dep <- pDependencies]
+            ]
 
 -- | Helper to bundle up all files into a DAR.
 createArchive ::
-       BSL.ByteString -- ^ DALF
-    -> String -- ^ Package id
-    -> NormalizedFilePath -- ^ Module root used to locate interface and source files
+       PackageConfigFields
+    -> String
+    -> BSL.ByteString -- ^ DALF
     -> [(T.Text, BS.ByteString)] -- ^ DALF dependencies
     -> [NormalizedFilePath] -- ^ Module dependencies
     -> [(String, BS.ByteString)] -- ^ Data files
-    -> String -- ^ Name of the main DALF
-    -> String -- ^ SDK version
+    -> [NormalizedFilePath] -- ^ Interface files
     -> IO BS.ByteString
-createArchive dalf hash modRoot dalfDependencies fileDependencies dataFiles name sdkVersion
-    -- Take all source file dependencies and produced interface files. Only the new package command
-    -- produces interface files per default, hence we filter for existent files.
+createArchive PackageConfigFields{..} pkgId dalf dalfDependencies fileDependencies dataFiles ifaces
  = do
-    let nameWithHash = name ++ "-" ++ hash
-    ifaces <-
-        fmap (map toNormalizedFilePath) $
-        filterM doesFileExist $
-        concat
-            [ [ifaceDir </> dep -<.> "hi", ifaceDir </> dep -<.> "hie"]
-            | dep <- map fromNormalizedFilePath fileDependencies
-            ]
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
     -- is modified to have prefix <name-hash> instead of the original root path.
@@ -154,9 +175,10 @@ createArchive dalf hash modRoot dalfDependencies fileDependencies dataFiles name
         forM fileDependencies $ \mPath -> do
             contents <- BSL.readFile $ fromNormalizedFilePath mPath
             return
-                ( nameWithHash </>
+                ( pkgName </>
                   fromNormalizedFilePath (makeRelative' modRoot mPath)
                 , contents)
+
     ifaceFaceFiles <-
         forM ifaces $ \mPath -> do
             contents <- BSL.readFile $ fromNormalizedFilePath mPath
@@ -164,16 +186,16 @@ createArchive dalf hash modRoot dalfDependencies fileDependencies dataFiles name
                     toNormalizedFilePath
                         (ifaceDir </> fromNormalizedFilePath modRoot)
             return
-                ( nameWithHash </>
+                ( pkgName </>
                   fromNormalizedFilePath (makeRelative' ifaceRoot mPath)
                 , contents)
-    let dalfName = nameWithHash </> name <> ".dalf"
+    let dalfName = pkgName </> pName <> ".dalf"
     let dependencies =
-            [ (nameWithHash </> T.unpack pkgName <> ".dalf", BSC.fromStrict bs)
-            | (pkgName, bs) <- dalfDependencies
+            [ (pkgName </> T.unpack depName <> ".dalf", BSC.fromStrict bs)
+            | (depName, bs) <- dalfDependencies
             ]
     let dataFiles' =
-            [ (nameWithHash </> "data" </> n, BSC.fromStrict bs)
+            [ (pkgName </> "data" </> n, BSC.fromStrict bs)
             | (n, bs) <- dataFiles
             ]
     -- construct a zip file from all required files
@@ -187,13 +209,15 @@ createArchive dalf hash modRoot dalfDependencies fileDependencies dataFiles name
             foldr (Zip.addEntryToArchive . mkEntry) Zip.emptyArchive allFiles
     pure $ BSL.toStrict $ Zip.fromArchive zipArchive
   where
+    pkgName = fullPkgName pName pVersion pkgId
+    modRoot = toNormalizedFilePath $ takeDirectory pMain
     manifestHeader :: FilePath -> [String] -> BSL.ByteString
     manifestHeader location dalfs =
         BSC.pack $
         unlines
             [ "Manifest-Version: 1.0"
             , "Created-By: Digital Asset packager (DAML-GHC)"
-            , "Sdk-Version: " <> sdkVersion
+            , "Sdk-Version: " <> pSdkVersion
             , breakAt72Chars $ "Main-Dalf: " <> toPosixFilePath location
             , breakAt72Chars $ "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
             , "Format: daml-lf"
@@ -204,6 +228,8 @@ createArchive dalf hash modRoot dalfDependencies fileDependencies dataFiles name
     toPosixFilePath :: FilePath -> FilePath
     toPosixFilePath = replace "\\" "/"
 
+-- | Break lines at 72 characters and indent following lines by one space. As of MANIFEST.md
+-- specification.
 breakAt72Chars :: String -> String
 breakAt72Chars s = case splitAt 72 s of
   (s0, []) -> s0
