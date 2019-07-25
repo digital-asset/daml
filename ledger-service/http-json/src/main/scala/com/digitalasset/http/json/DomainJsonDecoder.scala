@@ -5,9 +5,7 @@ package com.digitalasset.http.json
 
 import com.digitalasset.daml.lf
 import com.digitalasset.http.domain.HasTemplateId
-import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.http.{PackageService, domain}
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
@@ -44,8 +42,7 @@ class DomainJsonDecoder(
   def decodeUnderlyingRecords[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsObject]): JsonError \/ F[lav1.value.Record] = {
     for {
-      templateId <- lookupTemplateId(fa)
-      damlLfId = IdentifierConverters.lfIdentifier(templateId)
+      damlLfId <- lookupLfIdentifier(fa)
       apiValue <- fa.traverse(jsObject => jsObjectToApiRecord(damlLfId, jsObject))
     } yield apiValue
   }
@@ -63,18 +60,17 @@ class DomainJsonDecoder(
   def decodeUnderlyingValues[F[_]: Traverse: domain.HasTemplateId](
       fa: F[JsValue]): JsonError \/ F[lav1.value.Value] = {
     for {
-      templateId <- lookupTemplateId(fa)
-      damlLfId = IdentifierConverters.lfIdentifier(templateId)
+      damlLfId <- lookupLfIdentifier(fa)
       apiValue <- fa.traverse(jsValue => jsValueToApiValue(damlLfId, jsValue))
     } yield apiValue
   }
 
-  private def lookupTemplateId[F[_]: domain.HasTemplateId](
-      fa: F[_]): JsonError \/ lar.TemplateId = {
+  private def lookupLfIdentifier[F[_]: domain.HasTemplateId](
+      fa: F[_]): JsonError \/ lf.data.Ref.Identifier = {
     val H: HasTemplateId[F] = implicitly
     val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
     resolveTemplateId(templateId)
-      .leftMap(e => JsonError(e.shows))
-      .map(IdentifierConverters.refApiIdentifier)
+      .map(x => H.lfIdentifier(fa, x))
+      .leftMap(e => JsonError("lookupLfIdentifier: " + e.shows))
   }
 }
