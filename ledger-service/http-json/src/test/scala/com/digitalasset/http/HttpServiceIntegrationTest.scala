@@ -45,7 +45,7 @@ class HttpServiceIntegrationTest
     Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/contracts/search")))).flatMap {
       resp =>
         resp.status shouldBe StatusCodes.OK
-        val bodyF: Future[String] = getResponseDataBytes(resp)
+        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
         bodyF.flatMap { body =>
           val jsonAst: JsValue = body.parseJson
           inside(jsonAst) {
@@ -54,7 +54,7 @@ class HttpServiceIntegrationTest
                 case Some(JsNumber(status)) => status shouldBe BigDecimal("200")
               }
               inside(fields.get("result")) {
-                case Some(JsString(result)) => result.length should be > 0
+                case Some(JsArray(result)) => result.length should be > 0
               }
           }
         }

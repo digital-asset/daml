@@ -103,10 +103,15 @@ object domain {
           workflowId = Some(in.workflowId) filter (_.nonEmpty),
           activeContracts = activeContracts)
 
-    implicit val covariant: Functor[GetActiveContractsResponse] =
-      new Functor[GetActiveContractsResponse] {
-        override def map[A, B](fa: GetActiveContractsResponse[A])(f: A => B) =
-          fa copy (activeContracts = fa.activeContracts map (_ map f))
+    implicit val covariant: Traverse[GetActiveContractsResponse] =
+      new Traverse[GetActiveContractsResponse] {
+        override def traverseImpl[G[_]: Applicative, A, B](fa: GetActiveContractsResponse[A])(
+            f: A => G[B]): G[GetActiveContractsResponse[B]] = {
+
+          val gas: G[List[ActiveContract[B]]] =
+            fa.activeContracts.toList.traverse(a => a.traverse(f))
+          gas.map(as => fa.copy(activeContracts = as))
+        }
       }
   }
 

@@ -76,8 +76,8 @@ object JsonProtocol extends DefaultJsonProtocol {
     as => JsArray(as.iterator.map(_.toJson).toVector)
 
   implicit val GetActiveContractsResponseFormat
-    : JsonWriter[domain.GetActiveContractsResponse[JsValue]] =
-    gacr => JsString(gacr.toString) // TODO actual format
+    : RootJsonFormat[domain.GetActiveContractsResponse[JsValue]] =
+    jsonFormat3(domain.GetActiveContractsResponse[JsValue])
 
   implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat4(
     domain.CommandMeta)

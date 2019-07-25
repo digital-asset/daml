@@ -19,7 +19,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.list._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, @@, Show, \/-}
+import scalaz.{-\/, Show, \/-}
 import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -49,7 +49,7 @@ class Endpoints(
   lazy val all: PartialFunction[HttpRequest, HttpResponse] =
     command orElse contracts orElse notFound
 
-  lazy val all2: Route = command2 ~ contracts2
+//  lazy val all2: Route = command2 ~ contracts2
 
   lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
@@ -82,13 +82,16 @@ class Endpoints(
             case \/-(c) =>
               commandService.exercise(jwtPayload, c)
           }
-          .map { as: List[domain.ActiveContract[lav1.value.Value]] =>
-            as.traverse(a => encoder.encodeV(a)) match {
-              case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
-              case \/-(bs) => format(resultJsObject(bs: List[JsValue]))
-            }
-          }
+          .map(encodeResultJsObject)
       )
+  }
+
+  private def encodeResultJsObject(
+      as: List[domain.ActiveContract[lav1.value.Value]]): ByteString = {
+    as.traverse(a => encoder.encodeV(a)) match {
+      case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
+      case \/-(bs) => format(resultJsObject(bs: List[JsValue]))
+    }
   }
 
   lazy val command2: Route =
@@ -109,28 +112,34 @@ class Endpoints(
 
   lazy val contracts: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
-      HttpResponse(entity = ok)
+      HttpResponse(entity = ok) // TODO(Leo): hookup contracts lookup service
 
     case HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
       httpResponse(
         contractsService
           .search(jwtPayload, emptyGetActiveContractsRequest)
-          .map(x => format(resultJsObject(x.toString)))
+          .map(encodeResultJsObject)
       )
 
-    case HttpRequest(POST, Uri.Path("/contracts/search"), _, HttpEntity.Strict(_, input), _) =>
+    case HttpRequest(POST, Uri.Path("/contracts/search"), _, HttpEntity.Strict(_, input), _) => // TODO(Leo): get rid of Strict
       decode[domain.GetActiveContractsRequest](input.utf8String) match {
         case -\/(e) =>
           httpResponse(
             StatusCodes.BadRequest,
             format(errorsJsObject(StatusCodes.BadRequest)(e.shows)))
         case \/-(a) =>
-          httpResponse(
-            contractsService.search(jwtPayload, a).map(x => format(resultJsObject(x.toString)))
-          )
+          httpResponse(contractsService.search(jwtPayload, a).map(encodeResultJsObject))
       }
   }
 
+  private def encodeResultJsObject(
+      as: Seq[domain.GetActiveContractsResponse[lav1.value.Value]]): ByteString = {
+    as.toList.traverse(a => encoder.encodeV(a)) match {
+      case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
+      case \/-(bs) => format(resultJsObject(bs: List[JsValue]))
+    }
+  }
+  /*
   lazy val contracts2: Route =
     path("/contracts/lookup") {
       post {
@@ -169,7 +178,7 @@ class Endpoints(
             }
           }
       }
-
+   */
   private def httpResponse(status: StatusCode, output: ByteString): HttpResponse =
     HttpResponse(
       status = status,
