@@ -3,9 +3,7 @@
 
 package com.digitalasset.navigator.model.converter
 
-import java.time.{Instant, LocalDate}
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.iface
@@ -19,6 +17,10 @@ import com.digitalasset.navigator.model.{
   IdentifierApiConversions,
   IdentifierDamlConversions
 }
+import com.digitalasset.platform.participant.util.LfEngineToApi.{
+  lfValueToApiRecord,
+  lfValueToApiValue
+}
 import com.digitalasset.platform.server.api.validation.IdentifierResolver
 
 import com.google.protobuf.timestamp.Timestamp
@@ -30,7 +32,7 @@ import scalaz.syntax.std.option._
 import scalaz.std.either._
 import scalaz.std.option._
 
-import scala.util.Try
+import scala.util.control.NoStackTrace
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 case object LedgerApiV1 {
@@ -330,9 +332,6 @@ case object LedgerApiV1 {
       values <- list.values traverseU (fillInTypeInfo(_, elementType, ctx))
     } yield Model.ApiList(values)
 
-  private def duplicateKey[X, Y](list: List[(X, Y)]): Option[X] =
-    list.groupBy(_._1).collectFirst { case (k, l) if l.size > 1 => k }
-
   private def fillInMapTI(
       map: Model.ApiMap,
       typ: Model.DamlLfType,
@@ -447,70 +446,24 @@ case object LedgerApiV1 {
   // Write methods (Model -> V1)
   // ------------------------------------------------------------------------------------------------------------------
 
-  def writeArgument(value: Model.ApiValue): Result[V1.value.Value] = {
-    import V1.value.Value
-    value match {
-      case arg: Model.ApiRecord => writeRecordArgument(arg).map(a => Value(Value.Sum.Record(a)))
-      case arg: Model.ApiVariant => writeVariantArgument(arg).map(a => Value(Value.Sum.Variant(a)))
-      case Model.ApiEnum(id, cons) =>
-        Right(Value(Value.Sum.Enum(V1.value.Enum(id.map(_.asApi), cons))))
-      case arg: Model.ApiList => writeListArgument(arg).map(a => Value(Value.Sum.List(a)))
-      case Model.ApiBool(v) => Right(Value(Value.Sum.Bool(v)))
-      case Model.ApiInt64(v) => Right(Value(Value.Sum.Int64(v)))
-      case Model.ApiDecimal(v) => Right(Value(Value.Sum.Decimal(v.decimalToString)))
-      case Model.ApiParty(v) => Right(Value(Value.Sum.Party(v)))
-      case Model.ApiText(v) => Right(Value(Value.Sum.Text(v)))
-      case Model.ApiTimestamp(v) => Right(Value(Value.Sum.Timestamp(v.micros)))
-      case Model.ApiDate(v) => Right(Value(Value.Sum.Date(v.days)))
-      case Model.ApiContractId(v) => Right(Value(Value.Sum.ContractId(v)))
-      case Model.ApiUnit => Right(Value(Value.Sum.Unit(com.google.protobuf.empty.Empty())))
-      case Model.ApiOptional(None) => Right(Value(Value.Sum.Optional(V1.value.Optional(None))))
-      case Model.ApiOptional(Some(v)) =>
-        writeArgument(v).map(a => Value(Value.Sum.Optional(V1.value.Optional(Some(a)))))
-      case arg: Model.ApiMap =>
-        writeMapArgument(arg).map(a => Value(Value.Sum.Map(a)))
-      case _: Model.ApiImpossible => sys.error("impossible! tuples are not serializable")
-    }
-  }
+  def writeArgument(value: Model.ApiValue): Result[V1.value.Value] =
+    wrapAbsContractId(value) flatMap (vac =>
+      lfValueToApiValue(verbose = true, vac) leftMap GenericConversionError)
 
-  def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] = {
-    for {
-      fields <- Converter
-        .sequence(value.fields.toSeq.map {
-          case (flabel, fvalue) =>
-            writeArgument(fvalue).map(v => V1.value.RecordField(flabel getOrElse "", Some(v)))
-        })
-    } yield {
-      V1.value.Record(value.tycon.map(_.asApi), fields)
-    }
-  }
+  def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] =
+    wrapAbsContractId(value) flatMap (vac =>
+      lfValueToApiRecord(verbose = true, vac) leftMap GenericConversionError)
 
-  def writeVariantArgument(value: Model.ApiVariant): Result[V1.value.Variant] = {
-    for {
-      arg <- writeArgument(value.value)
-    } yield {
-      V1.value.Variant(value.tycon.map(_.asApi), value.variant, Some(arg))
-    }
-  }
-
-  def writeListArgument(value: Model.ApiList): Result[V1.value.List] = {
-    for {
-      values <- Converter.sequence(value.values.toImmArray.map(e => writeArgument(e)).toSeq)
-    } yield {
-      V1.value.List(values)
-    }
-  }
-
-  def writeMapArgument(value: Model.ApiMap): Result[V1.value.Map] = {
-    for {
-      values <- Converter.sequence(
-        value.value.toImmArray.toList.map { case (k, v) => writeArgument(v).map(k -> _) }
+  private[this] def wrapAbsContractId(value: Model.ApiValue): Result[V[V.AbsoluteContractId]] = {
+    final class NotACoid(message: String) extends RuntimeException(message) with NoStackTrace
+    // this is 100% cheating as Value should have Traverse instead
+    try Right(value mapContractId { coid =>
+      Ref.ContractIdString fromString coid fold (
+        e => throw new NotACoid(e),
+        V.AbsoluteContractId
       )
-    } yield {
-      V1.value.Map(values.map {
-        case (k, v) => V1.value.Map.Entry(k, Some(v))
-      })
-    }
+    })
+    catch { case e: NotACoid => Left(GenericConversionError(e.getMessage)) }
   }
 
   /** Write a composite command consisting of just the given command */
@@ -602,50 +555,4 @@ case object LedgerApiV1 {
       )
     }
   }
-
-  // ------------------------------------------------------------------------------------------------------------------
-  // Helpers
-  // ------------------------------------------------------------------------------------------------------------------
-
-  private def epochMicrosToString(time: Long): Result[String] = {
-    val micro: Long = 1000000
-    val seconds: Long = time / micro
-    val nanos: Long = (time % micro) * 1000
-    (for {
-      instant <- Try(Instant.ofEpochSecond(seconds, nanos)).toEither
-      result <- Try(DateTimeFormatter.ISO_INSTANT.format(instant)).toEither
-    } yield {
-      result
-    }).left.map(e => GenericConversionError(s"Could not convert timestamp '$time' to a string"))
-  }
-
-  private def stringToEpochMicros(time: String): Result[Long] = {
-    (for {
-      ta <- Try(DateTimeFormatter.ISO_INSTANT.parse(time)).toEither
-      instant <- Try(Instant.from(ta)).toEither
-    } yield {
-      val micro: Long = 1000000
-      instant.getEpochSecond * micro + instant.getNano / 1000
-    }).left.map(e => GenericConversionError(s"Could not convert string '$time' to a TimeStamp: $e"))
-  }
-
-  private def epochDaysToString(time: Int): Result[String] = {
-    (for {
-      ta <- Try(LocalDate.ofEpochDay(time.toLong)).toEither
-      result <- Try(DateTimeFormatter.ISO_LOCAL_DATE.format(ta)).toEither
-    } yield {
-      result
-    }).left.map(e => GenericConversionError(s"Could not convert date '$time' to a Date: $e"))
-  }
-
-  private def stringToEpochDays(time: String): Result[Int] = {
-    (for {
-      ta <- Try(DateTimeFormatter.ISO_INSTANT.parse(time)).toEither
-      instant <- Try(Instant.from(ta)).toEither
-    } yield {
-      val epoch = Instant.EPOCH
-      epoch.until(instant, ChronoUnit.DAYS).toInt
-    }).left.map(e => GenericConversionError(s"Could not convert string '$time' to a Date: $e"))
-  }
-
 }
