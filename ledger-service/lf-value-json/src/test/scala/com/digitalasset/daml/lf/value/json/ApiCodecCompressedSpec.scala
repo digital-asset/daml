@@ -39,15 +39,17 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDriven
 
     "serializing and parsing a value" should {
 
-      "work for arbitrary reference-free types" in forAll(genTypeAndValue(genCid)) {
+      "work for arbitrary reference-free types" in forAll(
+        genTypeAndValue(genCid),
+        minSuccessful(100)) {
         case (typ, value) =>
           serializeAndParse(value, typ) shouldBe Success(value)
       }
 
-      "work for many, many values in raw format" in forAll(genAddend) { va =>
+      "work for many, many values in raw format" in forAll(genAddend, minSuccessful(100)) { va =>
         import va.injshrink
         implicit val arbInj: Arbitrary[va.Inj[Cid]] = Arbitrary(va.injgen(genCid))
-        forAll { v: va.Inj[Cid] =>
+        forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
           va.prj(
             ApiCodecCompressed.jsValueToApiValue(
               ApiCodecCompressed.apiValueToJsValue(va.inj(v)),
