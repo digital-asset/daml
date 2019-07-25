@@ -65,6 +65,8 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
+import MkIface
+import HieBin
 import "ghc-lib-parser" Module
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
@@ -326,6 +328,8 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
                 hPutStrLn stderr "ERROR: Compilation failed."
                 exitFailure
             Just dalf -> write dalf
+
+        writeIfacesAndHie opts' inputFile ide
   where
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs
@@ -448,6 +452,26 @@ createProjectPackageDb lfVersion fps = do
             , "--expand-pkgroot"
             ]
 
+-- | Write interface files and hie files to the location specified by the given options.
+writeIfacesAndHie :: Options -> NormalizedFilePath -> IdeState -> IO ()
+writeIfacesAndHie options main compilerH =
+    when (optWriteInterface options) $ do
+        mbModIfaces <- runAction compilerH $ getModIfaces main
+        modIfaces <-
+            mbErr "ERROR: Creation of interface files failed." mbModIfaces
+        mapM_ writeIface modIfaces
+  where
+    ifDir = fromMaybe ifaceDir (optIfaceDir options)
+    writeIface (path, iface, hie) = do
+        let fp = ifDir </> path
+        createDirectoryIfMissing True (takeDirectory fp)
+        writeIfaceFile fakeDynFlags (replaceExtension fp ".hi") iface
+        writeHieFile (replaceExtension fp ".hie") hie
+
+-- | Fail with an exit failure and errror message when Nothing is returned.
+mbErr :: String -> Maybe a -> IO a
+mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
+
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> InitPkgDb -> IO ()
 execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts $ \_relativize -> do
     execInit (optDamlLfVersion options) projectOpts initPkgDb
@@ -466,6 +490,7 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pExposedModules
                     pDependencies
         withDamlIdeState opts loggerH diagnosticsLogger $ \compilerH -> do
+            writeIfacesAndHie opts (toNormalizedFilePath pMain) compilerH
             mbDar <-
                 buildDar
                     compilerH
@@ -475,15 +500,12 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pSdkVersion
                     (\pkg -> [confFile pkg])
                     (FromDalf False)
-            case mbDar of
-                Nothing -> do
-                    hPutStrLn stderr "ERROR: Creation of DAR file failed."
-                    exitFailure
-                Just dar -> do
-                    let fp = targetFilePath pName
-                    createDirectoryIfMissing True $ takeDirectory fp
-                    B.writeFile fp dar
-                    putStrLn $ "Created " <> fp <> "."
+            dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
+            let fp = targetFilePath pName
+            createDirectoryIfMissing True $ takeDirectory fp
+            B.writeFile fp dar
+            putStrLn $ "Created " <> fp <> "."
+
     where
         -- The default output filename is based on Maven coordinates if
         -- the package name is specified via them, otherwise we use the

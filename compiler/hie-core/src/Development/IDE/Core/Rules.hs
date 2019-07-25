@@ -22,6 +22,7 @@ module Development.IDE.Core.Rules(
     getDefinition,
     getDependencies,
     getParsedModule,
+    getModIfaces,
     fileFromParsedModule
     ) where
 
@@ -118,6 +119,20 @@ getDefinition file pos = fmap join $ runMaybeT $ do
 -- | Parse the contents of a daml file.
 getParsedModule :: NormalizedFilePath -> Action (Maybe ParsedModule)
 getParsedModule file = use GetParsedModule file
+
+-- | Get module interfaces.
+getModIfaces ::
+       NormalizedFilePath -> Action (Maybe [(FilePath, ModIface, HieFile)])
+getModIfaces file =
+    runMaybeT $ do
+        files <- transitiveModuleDeps <$> useE GetDependencies file
+        tms <- usesE TypeCheck (file : files)
+        pure
+            [ ( ms_hspp_file $ pm_mod_summary $ tm_parsed_module $ tmrModule tmr
+              , hm_iface $ tmrModInfo tmr
+              , tmrHieFile tmr)
+            | tmr <- tms
+            ]
 
 
 ------------------------------------------------------------
@@ -248,8 +263,7 @@ typeCheckRule =
         tms <- uses_ TypeCheck (transitiveModuleDeps deps)
         setPriority priorityTypeCheck
         packageState <- useNoFile_ GhcSession
-        opt <- getIdeOptions
-        liftIO $ typecheckModule opt packageState tms pm
+        liftIO $ typecheckModule packageState tms pm
 
 
 generateCoreRule :: Rules ()
