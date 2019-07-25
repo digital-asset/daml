@@ -11,11 +11,6 @@ case object Converter {
       for (xs <- acc.right; x <- e.right) yield x :: xs
     }
 
-  def sequenceMap[K, E, T](xs: Map[K, Either[E, T]]): Either[E, Map[K, T]] =
-    xs.foldRight(Right(Map.empty): Either[E, Map[K, T]]) { (e, acc) =>
-      for (xs <- acc.right; x <- e._2.right) yield xs + (e._1 -> x)
-    }
-
   /** Returns the value of a required protobuf3 field, or RequiredFieldDoesNotExistError if it doesn't exist. */
   def checkExists[T](
       fieldName: String,

@@ -12,11 +12,7 @@ import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.navigator.{model => Model}
-import com.digitalasset.navigator.model.{
-  ApiValue,
-  IdentifierApiConversions,
-  IdentifierDamlConversions
-}
+import com.digitalasset.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
 import com.digitalasset.platform.participant.util.LfEngineToApi.{
   lfValueToApiRecord,
   lfValueToApiValue
