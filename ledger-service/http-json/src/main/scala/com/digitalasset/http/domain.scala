@@ -164,6 +164,9 @@ object domain {
           f: A => G[B]): G[ExerciseCommand[B]] = f(fa.argument).map(a => fa.copy(argument = a))
     }
 
+    // TODO(Leo): this will not work for ExerciseCommand
+    // it has to be argument Record ID, not Template ID, where entityName = choiceId
+    // the only reason it works for CreateCommand is because argument Record ID == Template ID
     implicit val hasTemplateId: HasTemplateId[ExerciseCommand] =
       (a: ExerciseCommand[_]) => a.templateId
   }
