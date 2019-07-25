@@ -145,17 +145,6 @@ object domain {
     def lfIdentifier(fa: F[_], templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier
   }
 
-  // TODO(Leo): get rid of Field and Record
-
-  type Field[+A] = (String, A)
-
-  type Record[+A] = List[Field[A]]
-
-  object Record {
-    val traversal: Traverse[Record] =
-      Traverse[List].compose[Field]
-  }
-
   object CreateCommand {
     implicit val traverseInstance: Traverse[CreateCommand] = new Traverse[CreateCommand] {
       override def traverseImpl[G[_]: Applicative, A, B](fa: CreateCommand[A])(
