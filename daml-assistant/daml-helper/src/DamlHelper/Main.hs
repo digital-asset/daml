@@ -35,7 +35,7 @@ data Command
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
     | Migrate { targetFolder :: FilePath, mainPath :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
-    | Deploy { optSandboxPort :: Maybe SandboxPort }
+    | Deploy { optHostname :: Maybe String, optSandboxPort :: Maybe SandboxPort }
     | ListTemplates
     | Start { optSandboxPort :: Maybe SandboxPort, openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
 
@@ -80,7 +80,8 @@ commandParser =
                 <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
 
           deployCmd = Deploy
-                <$> optional (SandboxPort <$> option auto (long "port" <> metavar "SANDBOX_PORT_NUM" <> help "Port number for a running sandbox"))
+                <$> optional (option str (long "host" <> metavar "HOST_NAME" <> help "Hostname for a running ledger"))
+                <*> optional (SandboxPort <$> option auto (long "port" <> metavar "PORT_NUM" <> help "Port number for a running ledger"))
 
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
@@ -97,4 +98,4 @@ runCommand Migrate {..} = runMigrate targetFolder mainPath pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
 runCommand Start {..} = runStart (fromMaybe defaultSandboxPort optSandboxPort) startNavigator openBrowser onStartM waitForSignal
-runCommand Deploy {..} = runDeploy (fromMaybe defaultSandboxPort optSandboxPort)
+runCommand Deploy {..} = runDeploy (fromMaybe "localhost" optHostname) (fromMaybe defaultSandboxPort optSandboxPort)
