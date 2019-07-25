@@ -86,7 +86,7 @@ final case class LFUtil(
       refType match {
         case PT.Bool => q"$primitiveObject.Bool"
         case PT.Int64 => q"$primitiveObject.Int64"
-        case PT.Decimal => q"$primitiveObject.Decimal"
+        case PT.Numeric => q"$primitiveObject.Decimal"
         case PT.Party => q"$primitiveObject.Party"
         case PT.Text => q"$primitiveObject.Text"
         case PT.Date => q"$primitiveObject.Date"

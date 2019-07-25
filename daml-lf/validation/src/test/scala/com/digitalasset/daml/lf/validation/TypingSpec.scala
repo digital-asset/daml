@@ -20,7 +20,7 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
       val testCases = Table(
         "builtin type" -> "expected kind",
         BTInt64 -> k"*",
-        BTDecimal -> k"*",
+        BTNumeric -> k"nat -> *",
         BTText -> k"*",
         BTTimestamp -> k"*",
         BTParty -> k"*",
@@ -106,7 +106,9 @@ class TypingSpec extends WordSpec with TableDrivenPropertyChecks with Matchers {
         // ExpLitInt64
         E"(( 42 ))" -> T"Int64",
         // ExpLitDecimal
-        E"(( 3.1415926536 ))" -> T"(( Decimal ))",
+        E"(( 0. ))" -> T"(( Numeric 0 ))",
+        E"(( 1.0000000000 ))" -> T"(( Numeric 10 ))",
+        E"(( 3.1415926535897932384626433832795028841 ))" -> T"(( Numeric 37 ))",
         //ExpLitText
         E"""(( "text" ))""" -> T"(( Text ))",
         //ExpLitDate

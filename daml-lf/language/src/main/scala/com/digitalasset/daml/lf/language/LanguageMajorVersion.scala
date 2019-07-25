@@ -22,7 +22,7 @@ sealed abstract class LanguageMajorVersion(
 
   // do *not* use implicitly unless type `LanguageMinorVersion` becomes
   // indexed by the enclosing major version's singleton type --SC
-  final def minorVersionOrdering: Ordering[LanguageMinorVersion] =
+  final val minorVersionOrdering: Ordering[LanguageMinorVersion] =
     Ordering.by(acceptedVersions.zipWithIndex.toMap)
 
   val supportedMinorVersions: List[LanguageMinorVersion] =

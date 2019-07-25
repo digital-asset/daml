@@ -13,7 +13,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
 
   private def builtinTypes = Map[String, BuiltinType](
     "Int64" -> BTInt64,
-    "Decimal" -> BTDecimal,
+    "Numeric" -> BTNumeric,
     "Text" -> BTText,
     "Timestamp" -> BTTimestamp,
     "Party" -> BTParty,
@@ -28,6 +28,9 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
     "Arrow" -> BTArrow,
     "Map" -> BTMap,
   )
+
+  private[parser] def tNat: Parser[TNat] =
+    accept("Number", { case Number(l) if l.toInt == l => TNat(l.toInt) })
 
   private[parser] def fullIdentifier: Parser[Ref.Identifier] =
     opt(pkgId <~ `:`) ~ dottedName ~ `:` ~ dottedName ^^ {
@@ -52,6 +55,7 @@ private[parser] class TypeParser[P](parameters: ParserParameters[P]) {
 
   lazy val typ0: Parser[Type] =
     `(` ~> typ <~ `)` |
+      tNat |
       tForall |
       tTuple |
       (id ^? builtinTypes) ^^ TBuiltin |

@@ -70,7 +70,8 @@ da_haskell_test(
 damlc_integration_test("integration-stable", "DA.Test.DamlcIntegration.mainAll")
 
 # Integration tests for DAML-LF 1.dev
-damlc_integration_test("integration-dev", "DA.Test.DamlcIntegration.main")
+# FixMe: Enable when numerics are implemented in damlc #2289
+# damlc_integration_test("integration-dev", "DA.Test.DamlcIntegration.main")
 
 # Tests for daml-doc
 da_haskell_test(

@@ -51,7 +51,7 @@ private[digitalasset] class AstRewriter(
     if (typeRule.isDefinedAt(x)) typeRule(x)
     else
       x match {
-        case TVar(_) | TBuiltin(_) => x
+        case TVar(_) | TBuiltin(_) | TNat(_) => x
         case TTyCon(typeCon) =>
           TTyCon(apply(typeCon))
         case TApp(tyfun, arg) =>

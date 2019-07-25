@@ -1,15 +1,15 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-module Decimal {
+module Numeric {
 
-  record @serializable Box = { x: Decimal, party: Party  } ;
+  record @serializable Box = { x: Numeric 10, party: Party  } ;
 
   template (this : Box) =  {
     precondition True,
-    signatories (Party:one (Decimal:Box {party} this)),
+    signatories (Party:one (Numeric:Box {party} this)),
     observers (Nil @Party),
-    agreement "Agreement for Decimal:Box",
+    agreement "Agreement for Numeric:Box",
     choices {
     }
   };

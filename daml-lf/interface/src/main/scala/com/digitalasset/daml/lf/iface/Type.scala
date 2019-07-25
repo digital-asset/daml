@@ -125,7 +125,7 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
     this match {
       case Bool => bool
       case Int64 => int64
-      case Decimal => decimal
+      case Numeric => decimal
       case Text => text
       case Date => date
       case Timestamp => timestamp
@@ -142,7 +142,7 @@ sealed abstract class PrimType extends TypeConNameOrPrimType {
 object PrimType {
   final val Bool = PrimTypeBool
   final val Int64 = PrimTypeInt64
-  final val Decimal = PrimTypeDecimal
+  final val Numeric = PrimTypeNumeric
   final val Text = PrimTypeText
   final val Date = PrimTypeDate
   final val Timestamp = PrimTypeTimestamp
@@ -156,7 +156,7 @@ object PrimType {
 
 case object PrimTypeBool extends PrimType
 case object PrimTypeInt64 extends PrimType
-case object PrimTypeDecimal extends PrimType
+case object PrimTypeNumeric extends PrimType
 case object PrimTypeText extends PrimType
 case object PrimTypeDate extends PrimType
 case object PrimTypeTimestamp extends PrimType

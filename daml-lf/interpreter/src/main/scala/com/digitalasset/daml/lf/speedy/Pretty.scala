@@ -356,7 +356,7 @@ object Pretty {
   def prettyValue(verbose: Boolean)(v: Value[ContractId]): Doc =
     v match {
       case ValueInt64(i) => str(i)
-      case ValueDecimal(d) => str(d)
+      case ValueNumeric(d) => str(d)
       case ValueRecord(mbId, fs) =>
         (mbId match {
           case None => text("")

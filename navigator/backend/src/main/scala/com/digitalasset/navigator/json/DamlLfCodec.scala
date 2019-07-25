@@ -82,7 +82,7 @@ object DamlLfCodec {
     case Model.DamlLfPrimType.List => JsString(tagTypeList)
     case Model.DamlLfPrimType.ContractId => JsString(tagTypeContractId)
     case Model.DamlLfPrimType.Bool => JsString(tagTypeBool)
-    case Model.DamlLfPrimType.Decimal => JsString(tagTypeDecimal)
+    case Model.DamlLfPrimType.Numeric => JsString(tagTypeDecimal)
     case Model.DamlLfPrimType.Int64 => JsString(tagTypeInt64)
     case Model.DamlLfPrimType.Date => JsString(tagTypeDate)
     case Model.DamlLfPrimType.Party => JsString(tagTypeParty)
@@ -154,7 +154,7 @@ object DamlLfCodec {
     case `tagTypeList` => Model.DamlLfPrimType.List
     case `tagTypeContractId` => Model.DamlLfPrimType.ContractId
     case `tagTypeBool` => Model.DamlLfPrimType.Bool
-    case `tagTypeDecimal` => Model.DamlLfPrimType.Decimal
+    case `tagTypeDecimal` => Model.DamlLfPrimType.Numeric
     case `tagTypeInt64` => Model.DamlLfPrimType.Int64
     case `tagTypeDate` => Model.DamlLfPrimType.Date
     case `tagTypeParty` => Model.DamlLfPrimType.Party

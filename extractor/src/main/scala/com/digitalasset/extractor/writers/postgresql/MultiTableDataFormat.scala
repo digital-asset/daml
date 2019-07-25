@@ -249,7 +249,7 @@ class MultiTableDataFormat(
         case iface.PrimTypeList => "JSONB"
         case iface.PrimTypeContractId => "TEXT"
         case iface.PrimTypeTimestamp => "TIMESTAMP"
-        case iface.PrimTypeDecimal => "NUMERIC(38, 10)"
+        case iface.PrimTypeNumeric => "NUMERIC(38, 10)"
         case iface.PrimTypeBool => "BOOLEAN"
         case iface.PrimTypeUnit => "SMALLINT"
         case iface.PrimTypeInt64 => "BIGINT"

@@ -49,7 +49,7 @@ object KeyHasher extends KeyHasher {
     value match {
       case ValueContractId(v) => op(z, HashTokenText(v.coid))
       case ValueInt64(v) => op(z, HashTokenLong(v))
-      case ValueDecimal(v) => op(z, HashTokenText(Decimal.toString(v)))
+      case ValueNumeric(v) => op(z, HashTokenText(Decimal.toString(v)))
       case ValueText(v) => op(z, HashTokenText(v))
       case ValueTimestamp(v) => op(z, HashTokenLong(v.micros))
       case ValueParty(v) => op(z, HashTokenText(v))

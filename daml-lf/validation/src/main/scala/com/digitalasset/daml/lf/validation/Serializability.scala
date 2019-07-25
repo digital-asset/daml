@@ -64,6 +64,7 @@ private[validation] object Serializability {
           case _ =>
             unserializable(URDataType(tycon))
         }
+      case TNumeric(TNat(_)) =>
       case TList(tArg) =>
         checkType(tArg)
       case TOptional(tArg) =>
@@ -75,7 +76,9 @@ private[validation] object Serializability {
         checkType(targ)
       case TBuiltin(builtinType) =>
         builtinType match {
-          case BTInt64 | BTDecimal | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit =>
+          case BTInt64 | BTText | BTTimestamp | BTDate | BTParty | BTBool | BTUnit =>
+          case BTNumeric =>
+            unserializable(URNumeric)
           case BTList =>
             unserializable(URList)
           case BTOptional =>
@@ -95,6 +98,8 @@ private[validation] object Serializability {
         unserializable(URForall)
       case TTuple(_) =>
         unserializable(URTuple)
+      case TNat(_) =>
+        unserializable(URNat)
     }
   }
 

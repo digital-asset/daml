@@ -29,15 +29,19 @@ class TypeSpec extends WordSpec with Matchers {
       case Pkg.TVar(v) =>
         assertZeroArgs(args)
         TypeVar(v)
-      case Pkg.TApp(fun, arg) => go(fun, args :+ fromLfPackageType(arg))
+      case Pkg.TNat(_) =>
+        sys.error("cannot use nat in interface type")
+      case Pkg.TApp(Pkg.TBuiltin(Pkg.BTNumeric), Pkg.TNat(_)) =>
+        TypePrim(PrimTypeNumeric, ImmArraySeq.empty)
+      case Pkg.TApp(fun, arg) =>
+        go(fun, args :+ fromLfPackageType(arg))
       case Pkg.TBuiltin(bltin) =>
         bltin match {
           case Pkg.BTInt64 =>
             assertZeroArgs(args)
             TypePrim(PrimTypeInt64, ImmArraySeq.empty)
-          case Pkg.BTDecimal =>
-            assertZeroArgs(args)
-            TypePrim(PrimTypeDecimal, ImmArraySeq.empty)
+          case Pkg.BTNumeric =>
+            sys.error("cannot use unapplied Numeric in interface type")
           case Pkg.BTText =>
             assertZeroArgs(args)
             TypePrim(PrimTypeText, ImmArraySeq.empty)

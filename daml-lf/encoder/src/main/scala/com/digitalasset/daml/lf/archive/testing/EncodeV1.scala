@@ -20,7 +20,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
   import Encode._
   import Name.ordering
 
-  private val version = LV(LV.Major.V1, minor)
+  private val languageVersion = LV(LV.Major.V1, minor)
 
   def encodePackage(pkgId: PackageId, pkg: Package): PLF.Package = {
     val moduleEncoder = new ModuleEncoder(pkgId)
@@ -106,6 +106,9 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
     private val star =
       PLF.Kind.newBuilder().setStar(PLF.Unit.newBuilder()).build()
 
+    private val nat =
+      PLF.Kind.newBuilder().setNat(PLF.Unit.newBuilder()).build()
+
     private val KArrows = RightRecMatcher[Kind, Kind]({
       case KArrow(param, result) => (param, result)
     })
@@ -125,18 +128,19 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
             .build()
         case KStar =>
           star
+        case KNat =>
+          assertSince(LV.Features.numerics, "nat kind not supported by LF <= 1.6")
+          nat
       }
 
     /** * Encoding of types ***/
     private val builtinTypeMap =
-      DecodeV1.primTypeTable.map {
-        case (proto, (scala, sinceVersion)) => scala -> (proto -> sinceVersion)
-      }
+      DecodeV1.builtinTypeInfos.map(info => info.lfName -> info).toSeq.toMap
 
     private implicit def encodeBuiltinType(bType: BuiltinType): PLF.PrimType = {
-      val (builtin, minVersion) = builtinTypeMap(bType)
-      assertSince(minVersion, bType.toString)
-      builtin
+      val info = builtinTypeMap(bType)
+      assertSince(info.minVersion, bType.toString)
+      info.protoName
     }
 
     @inline
@@ -158,6 +162,14 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       case TApp(fun, arg) => fun -> arg
     })
 
+    private def ignoreFirstTNatForDecimalLegacy(typs: ImmArray[Type]): ImmArray[Type] =
+      // BTNumeric must be applied to a TNat that we should ignore
+      typs match {
+        case ImmArrayCons(TNat(_), tail) => tail
+        case _ =>
+          sys.error("cannot encode the archive in LF <= 1.6")
+      }
+
     private implicit def encodeType(typ: Type): PLF.Type =
       encodeTypeBuilder(typ).build()
 
@@ -172,22 +184,28 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case TVar(varName) =>
           builder.setVar(
             PLF.Type.Var.newBuilder().setVar(varName).accumulateLeft(args)(_ addArgs _))
+        case TNat(n) =>
+          assertSince(LV.Features.numerics, "TNat not supported by version <= 1.6")
+          builder.setNat(n.toLong)
         case TTyCon(tycon) =>
           builder.setCon(
             PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _))
-        case TBuiltin(bType) =>
-          if (bType == BTArrow && LV.ordering.lt(version, LV.Features.arrowType)) {
-            args match {
-              case ImmArraySnoc(firsts, last) =>
-                builder.setFun(
-                  PLF.Type.Fun.newBuilder().accumulateLeft(firsts)(_ addParams _).setResult(last))
-              case _ =>
-                sys.error("unexpected errors")
-            }
-          } else {
-            builder.setPrim(
-              PLF.Type.Prim.newBuilder().setPrim(bType).accumulateLeft(args)(_ addArgs _))
+        case TBuiltin(BTArrow) if isOlderThan(LV.Features.arrowType) =>
+          args match {
+            case ImmArraySnoc(firsts, last) =>
+              builder.setFun(
+                PLF.Type.Fun.newBuilder().accumulateLeft(firsts)(_ addParams _).setResult(last))
+            case _ =>
+              sys.error("unexpected errors")
           }
+        case TBuiltin(bType) =>
+          val typs =
+            if (bType == BTNumeric && isOlderThan(LV.Features.numerics))
+              ignoreFirstTNatForDecimalLegacy(args)
+            else
+              args
+          builder.setPrim(
+            PLF.Type.Prim.newBuilder().setPrim(bType).accumulateLeft(typs)(_ addArgs _))
         case TApp(_, _) =>
           sys.error("unexpected error")
         case TForalls(binders, body) =>
@@ -202,13 +220,12 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
 
     /** * Encoding Expression ***/
     private val builtinFunctionMap =
-      DecodeV1.builtinFunctionMap.map {
-        case (proto, (scala, sinceVersion)) => scala -> (proto -> sinceVersion)
-      }
+      DecodeV1.builtinInfos.map(info => info.lfName -> info).toSeq.toMap
 
     @inline
-    private implicit def encodeBuiltins(builtinFunction: BuiltinFunction): PLF.BuiltinFunction =
-      builtinFunctionMap(builtinFunction)._1
+    private implicit def encodeBuiltinFunction(
+        builtinFunction: BuiltinFunction): PLF.BuiltinFunction =
+      builtinFunctionMap(builtinFunction).protoName
 
     private implicit def encodeTyConApp(tyCon: TypeConApp): PLF.Type.Con =
       PLF.Type.Con
@@ -333,7 +350,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
       val builder = PLF.PrimLit.newBuilder()
       primLit match {
         case PLInt64(value) => builder.setInt64(value)
-        case PLDecimal(value) => builder.setNumeric(Decimal.toString(value))
+        case PLNumeric(value) => builder.setNumeric(Decimal.toString(value))
         case PLText(value) => builder.setText(value)
         case PLTimestamp(value) => builder.setTimestamp(value.micros)
         case PLParty(party) => builder.setParty(party)
@@ -381,6 +398,12 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
     private val ETyAbss = RightRecMatcher[(TypeVarName, Kind), Expr]({
       case ETyAbs(binder, body) => binder -> body
     })
+
+    private def isLegacyDecimalBuiltin(expr: Expr) =
+      expr match {
+        case EBuiltin(f) => builtinFunctionMap(f).decimalLegacy
+        case _ => false
+      }
 
     private def encodeExprBuilder(expr0: Expr): PLF.Expr.Builder = {
       def newBuilder = PLF.Expr.newBuilder()
@@ -430,6 +453,14 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
             PLF.Expr.TupleUpd.newBuilder().setField(field).setTuple(tuple).setUpdate(update))
         case EApps(fun, args) =>
           newBuilder.setApp(PLF.Expr.App.newBuilder().setFun(fun).accumulateLeft(args)(_ addArgs _))
+        case ETyApps(expr, typs1) =>
+          val typs: ImmArray[Type] =
+            if (isLegacyDecimalBuiltin(expr) && isOlderThan(LV.Features.numerics))
+              ignoreFirstTNatForDecimalLegacy(typs1)
+            else
+              typs1
+          newBuilder.setTyApp(
+            PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _))
         case ETyApps(expr, typs) =>
           newBuilder.setTyApp(
             PLF.Expr.TyApp.newBuilder().setExpr(expr).accumulateLeft(typs)(_ addTypes _))
@@ -554,8 +585,11 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
 
   }
 
+  private def isOlderThan(minVersion: LV): Boolean =
+    LV.ordering.lt(languageVersion, minVersion)
+
   private def assertSince(minVersion: LV, description: String): Unit =
-    if (LV.ordering.lt(version, minVersion))
+    if (isOlderThan(minVersion))
       throw EncodeError(s"$description is not supported by DAML-LF 1.$minor")
 
 }

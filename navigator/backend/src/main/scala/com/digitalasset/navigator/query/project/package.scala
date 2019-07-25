@@ -3,6 +3,7 @@
 
 package com.digitalasset.navigator.query
 
+import com.digitalasset.daml.lf.data.{Numeric => LfNumeric}
 import com.digitalasset.navigator.dotnot._
 import com.digitalasset.navigator.model._
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -21,26 +22,24 @@ object project {
   final case class NumberValue(value: BigDecimal) extends ProjectValue
   final case class BooleanValue(value: Boolean) extends ProjectValue
 
-  implicit val projectValueOrdering: Ordering[ProjectValue] = new Ordering[ProjectValue] {
-    override def compare(x: ProjectValue, y: ProjectValue): Int =
-      x match {
-        case StringValue(s) =>
-          y match {
-            case StringValue(s2) => s compareTo s2
-            case _ => 1
-          }
-        case NumberValue(n) =>
-          y match {
-            case NumberValue(n2) => n compare n2
-            case _: StringValue => -1
-            case _: BooleanValue => 1
-          }
-        case BooleanValue(b) =>
-          y match {
-            case BooleanValue(b2) => b compareTo b2
-            case _ => -1
-          }
-      }
+  implicit val projectValueOrdering: Ordering[ProjectValue] = (x: ProjectValue, y: ProjectValue) =>
+    x match {
+      case StringValue(s) =>
+        y match {
+          case StringValue(s2) => s compareTo s2
+          case _ => 1
+        }
+      case NumberValue(n) =>
+        y match {
+          case NumberValue(n2) => n compare n2
+          case _: StringValue => -1
+          case _ => 1
+        }
+      case BooleanValue(b) =>
+        y match {
+          case BooleanValue(b2) => b compareTo b2
+          case _ => -1
+        }
   }
 
   def checkParameter(
@@ -84,7 +83,7 @@ object project {
 
         case DamlLfTypeVar(name) => Right(StringValue(name))
         case DamlLfTypePrim(DamlLfPrimType.Bool, _) => Right(StringValue("bool"))
-        case DamlLfTypePrim(DamlLfPrimType.Decimal, _) => Right(StringValue("decimal"))
+        case DamlLfTypePrim(DamlLfPrimType.Numeric, _) => Right(StringValue("decimal"))
         case DamlLfTypePrim(DamlLfPrimType.Int64, _) => Right(StringValue("int64"))
         case DamlLfTypePrim(DamlLfPrimType.Date, _) => Right(StringValue("date"))
         case DamlLfTypePrim(DamlLfPrimType.Text, _) => Right(StringValue("text"))
@@ -159,7 +158,7 @@ object project {
           }
         case V.ValueContractId(value) if cursor.isLast => Right(StringValue(value))
         case V.ValueInt64(value) if cursor.isLast => Right(NumberValue(value))
-        case V.ValueDecimal(value) if cursor.isLast => Right(StringValue(value.decimalToString))
+        case V.ValueNumeric(value) if cursor.isLast => Right(StringValue(LfNumeric.toString(value)))
         case V.ValueText(value) if cursor.isLast => Right(StringValue(value))
         case V.ValueParty(value) if cursor.isLast => Right(StringValue(value))
         case V.ValueBool(value) if cursor.isLast => Right(BooleanValue(value))

@@ -50,7 +50,7 @@ object JsonConverters {
     case V.ValueBool(value) => value.asJson
     case V.ValueContractId(value) => value.asJson
     case V.ValueInt64(value) => value.asJson
-    case V.ValueDecimal(value) => LfDecimal.toString(value).asJson
+    case V.ValueNumeric(value) => LfDecimal.toString(value).asJson
     case V.ValueText(value) => value.asJson
     case V.ValueTimestamp(value) => value.asJson
     case V.ValueParty(value) => value.asJson

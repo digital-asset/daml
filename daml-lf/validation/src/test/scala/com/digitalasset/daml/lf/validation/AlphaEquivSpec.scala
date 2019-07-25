@@ -25,6 +25,8 @@ class AlphaEquivSpec extends WordSpec with TableDrivenPropertyChecks with Matche
         t"alpha -> beta",
         t"forall beta1 . beta1 alpha",
         t"M:C (t1 t2) (t2 -> t1) t2",
+        t"10",
+        t"Numeric 10"
       )
 
       forEvery(types) { typ: Type =>

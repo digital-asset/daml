@@ -45,6 +45,8 @@ object SBuiltin {
   // Arithmetic
   //
 
+  import Numeric.{toString => str}
+
   private def add(x: Long, y: Long): Long =
     try {
       Math.addExact(x, y)
@@ -109,31 +111,33 @@ object SBuiltin {
             s"Int64 overflow when raising $base to the exponent $exponent.")
       }
 
-  private def add(x: Decimal, y: Decimal): Decimal =
+  import Numeric.{legacyDecimalScale => decimalScale}
+
+  private def add(scale: Int, x: BigDecimal, y: BigDecimal): BigDecimal =
     rightOrArithmeticError(
-      s"Decimal overflow when adding ${Decimal.toString(y)} to ${Decimal.toString(x)}.",
-      Decimal.add(x, y)
+      s"(Numeric $scale) overflow when adding ${str(y)} to ${str(x)}.",
+      Numeric.add(scale, x, y)
     )
 
-  private def div(x: Decimal, y: Decimal): Decimal =
+  private def divide(scale: Int, x: BigDecimal, y: BigDecimal): BigDecimal =
     if (y == 0)
-      throw DamlEArithmeticError(s"Attempt to divide ${Decimal.toString(x)} by 0.0.")
+      throw DamlEArithmeticError(s"Attempt to divide ${str(x)} by 0.0.")
     else
       rightOrArithmeticError(
-        s"Decimal overflow when dividing ${Decimal.toString(x)} by ${Decimal.toString(y)}.",
-        Decimal.div(x, y)
+        s"(Numeric $scale) overflow when dividing ${str(x)} by ${str(y)}.",
+        Numeric.divide(scale, x, y)
       )
 
-  private def mult(x: Decimal, y: Decimal): Decimal =
+  private def multiply(scale: Int, x: BigDecimal, y: BigDecimal): BigDecimal =
     rightOrArithmeticError(
-      s"Decimal overflow when multiplying ${Decimal.toString(x)} by ${Decimal.toString(y)}.",
-      Decimal.mult(x, y)
+      s"(Numeric $scale) overflow when multiplying ${str(x)} by ${str(y)}.",
+      Numeric.multiply(scale, x, y)
     )
 
-  private def sub(x: Decimal, y: Decimal): Decimal =
+  private def subtract(scale: Int, x: BigDecimal, y: BigDecimal): BigDecimal =
     rightOrArithmeticError(
-      s"Decimal overflow when subtracting ${Decimal.toString(y)} from ${Decimal.toString(x)}.",
-      Decimal.sub(x, y)
+      s"(Numeric $scale) overflow when subtracting ${str(y)} from ${str(x)}.",
+      Numeric.subtract(scale, x, y)
     )
 
   final case object SBAdd extends SBuiltin(2) {
@@ -141,7 +145,7 @@ object SBuiltin {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
           case (SInt64(a), SInt64(b)) => SInt64(add(a, b))
-          case (SDecimal(a), SDecimal(b)) => SDecimal(add(a, b))
+          case (SNumeric(a), SNumeric(b)) => SNumeric(add(decimalScale, a, b))
           case _ =>
             crash(s"type mismatch add: $args")
         }
@@ -154,7 +158,7 @@ object SBuiltin {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
           case (SInt64(a), SInt64(b)) => SInt64(sub(a, b))
-          case (SDecimal(a), SDecimal(b)) => SDecimal(sub(a, b))
+          case (SNumeric(a), SNumeric(b)) => SNumeric(subtract(decimalScale, a, b))
           case _ =>
             crash(s"type mismatch sub: $args")
         }
@@ -167,7 +171,7 @@ object SBuiltin {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
           case (SInt64(a), SInt64(b)) => SInt64(mult(a, b))
-          case (SDecimal(a), SDecimal(b)) => SDecimal(mult(a, b))
+          case (SNumeric(a), SNumeric(b)) => SNumeric(multiply(decimalScale, a, b))
           case _ =>
             crash(s"type mismatch sub: $args")
         }
@@ -180,7 +184,7 @@ object SBuiltin {
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1)) match {
           case (SInt64(a), SInt64(b)) => SInt64(div(a, b))
-          case (SDecimal(a), SDecimal(b)) => SDecimal(div(a, b))
+          case (SNumeric(a), SNumeric(b)) => SNumeric(divide(decimalScale, a, b))
           case _ =>
             crash(s"type mismatch sub: $args")
         }
@@ -269,7 +273,7 @@ object SBuiltin {
       SText(v match {
         case SBool(b) => b.toString
         case SInt64(i) => i.toString
-        case SDecimal(d) => Decimal.toString(d)
+        case SNumeric(d) => Numeric.toString(d)
         case STimestamp(t) => t.toString
         case SText(t) => t
         case SParty(p) => p
@@ -330,7 +334,9 @@ object SBuiltin {
       val s = args.get(0).asInstanceOf[SText].value
       val decimal =
         if (pattern.matcher(s).matches())
-          Decimal.fromBigDecimal(BigDecimal(s)).fold(_ => None, x => Some(SDecimal(x)))
+          Numeric
+            .fromBigDecimal(decimalScale, new java.math.BigDecimal(s).stripTrailingZeros())
+            .fold(_ => None, x => Some(SNumeric(x)))
         else
           None
       machine.ctrl = CtrlValue(SOptional(decimal))
@@ -447,26 +453,31 @@ object SBuiltin {
   // Conversions
   //
 
-  final case object SBInt64ToDecimal extends SBuiltin(1) {
+  final case object SBInt64ToNumeric extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(
         args.get(0) match {
-          case SInt64(x) => SDecimal(Decimal.fromLong(x))
-          case _ => throw SErrorCrash(s"type mismatch int64ToDecimal: $args")
+          case SInt64(x) =>
+            SNumeric(
+              rightOrArithmeticError(
+                s"(Numeric $decimalScale) overflow when converting Int64 $x",
+                Numeric.fromBigDecimal(decimalScale, x)
+              ))
+          case _ => throw SErrorCrash(s"type mismatch int64ToNumeric: $args")
         }
       )
     }
   }
 
-  final case object SBDecimalToInt64 extends SBuiltin(1) {
+  final case object SBNumericToInt64 extends SBuiltin(1) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(
         args.get(0) match {
-          case SDecimal(x) =>
+          case SNumeric(x) =>
             SInt64(
               rightOrArithmeticError(
-                s"Int64 overflow when converting ${Decimal.toString(x)} to Int64",
-                Decimal.toLong(x)))
+                s"Int64 overflow when converting (Numeric $decimalScale) $x",
+                Numeric.toLong(decimalScale, x)))
           case _ => throw SErrorCrash(s"type mismatch decimalToInt64: $args")
         }
       )
@@ -541,7 +552,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(SBool((args.get(0), args.get(1)) match {
         case (SInt64(a), SInt64(b)) => a < b
-        case (SDecimal(a), SDecimal(b)) => a < b
+        case (SNumeric(a), SNumeric(b)) => a < b
         case (STimestamp(a), STimestamp(b)) => a < b
         case (SText(a), SText(b)) => Utf8.Ordering.lt(a, b)
         case (SDate(a), SDate(b)) => a < b
@@ -556,7 +567,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(SBool((args.get(0), args.get(1)) match {
         case (SInt64(a), SInt64(b)) => a <= b
-        case (SDecimal(a), SDecimal(b)) => a <= b
+        case (SNumeric(a), SNumeric(b)) => a <= b
         case (STimestamp(a), STimestamp(b)) => a <= b
         case (SText(a), SText(b)) => Utf8.Ordering.lteq(a, b)
         case (SDate(a), SDate(b)) => a <= b
@@ -571,7 +582,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(SBool((args.get(0), args.get(1)) match {
         case (SInt64(a), SInt64(b)) => a > b
-        case (SDecimal(a), SDecimal(b)) => a > b
+        case (SNumeric(a), SNumeric(b)) => a > b
         case (STimestamp(a), STimestamp(b)) => a > b
         case (SText(a), SText(b)) => Utf8.Ordering.gt(a, b)
         case (SDate(a), SDate(b)) => a > b
@@ -586,7 +597,7 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(SBool((args.get(0), args.get(1)) match {
         case (SInt64(a), SInt64(b)) => a >= b
-        case (SDecimal(a), SDecimal(b)) => a >= b
+        case (SNumeric(a), SNumeric(b)) => a >= b
         case (STimestamp(a), STimestamp(b)) => a >= b
         case (SText(a), SText(b)) => Utf8.Ordering.gteq(a, b)
         case (SDate(a), SDate(b)) => a >= b
@@ -600,8 +611,11 @@ object SBuiltin {
   final case object SBRoundDecimal extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue((args.get(0), args.get(1)) match {
-        case (SInt64(prec), SDecimal(x)) =>
-          SDecimal(rightOrArithmeticError("Error while rounding decimal", Decimal.round(prec, x)))
+        case (SInt64(prec), SNumeric(x)) =>
+          SNumeric(
+            rightOrArithmeticError(
+              "Error while rounding decimal",
+              Numeric.round(decimalScale, prec, x)))
         case _ => throw SErrorCrash(s"type mismatch roundD: $args")
       })
     }

@@ -212,7 +212,7 @@ object InterfaceReader {
         primitiveType(ctx, bt, args.toImmArray.toSeq)
       case Ast.TApp(tyfun, arg) =>
         type_(ctx, arg, FrontStack.empty) flatMap (tArg => type_(ctx, tyfun, tArg +: args))
-      case Ast.TForall(_, _) | Ast.TTuple(_) =>
+      case Ast.TForall(_, _) | Ast.TTuple(_) | Ast.TNat(_) =>
         unserializableDataType(ctx, s"unserializable data type: ${a.pretty}")
     }
 
@@ -226,7 +226,7 @@ object InterfaceReader {
         case Ast.BTUnit => \/-((0, PrimType.Unit))
         case Ast.BTBool => \/-((0, PrimType.Bool))
         case Ast.BTInt64 => \/-((0, PrimType.Int64))
-        case Ast.BTDecimal => \/-((0, PrimType.Decimal))
+        case Ast.BTNumeric => \/-((1, PrimType.Numeric))
         case Ast.BTText => \/-((0, PrimType.Text))
         case Ast.BTDate => \/-((0, PrimType.Date))
         case Ast.BTTimestamp => \/-((0, PrimType.Timestamp))

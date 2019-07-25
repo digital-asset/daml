@@ -6,6 +6,7 @@ package com.digitalasset.navigator.console
 import java.time.Instant
 import java.time.format.DateTimeFormatter
 
+import com.digitalasset.daml.lf.data.{Numeric => LfNumeric}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.model
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -165,7 +166,7 @@ object Pretty {
         PrettyField(listType._1.fold("List")(n => s"List [$n]"), listType._2)
       )
     case model.DamlLfPrimType.Bool => PrettyPrimitive("Bool")
-    case model.DamlLfPrimType.Decimal => PrettyPrimitive("Decimal")
+    case model.DamlLfPrimType.Numeric => PrettyPrimitive("Decimal")
     case model.DamlLfPrimType.Int64 => PrettyPrimitive("Int64")
     case model.DamlLfPrimType.ContractId => PrettyPrimitive("ContractId")
     case model.DamlLfPrimType.Date => PrettyPrimitive("Date")
@@ -234,7 +235,7 @@ object Pretty {
       )
     case V.ValueText(value) => PrettyPrimitive(value)
     case V.ValueInt64(value) => PrettyPrimitive(value.toString)
-    case V.ValueDecimal(value) => PrettyPrimitive(value.decimalToString)
+    case V.ValueNumeric(value) => PrettyPrimitive(LfNumeric.toString(value))
     case V.ValueBool(value) => PrettyPrimitive(value.toString)
     case V.ValueContractId(value) => PrettyPrimitive(value.toString)
     case V.ValueTimestamp(value) => PrettyPrimitive(value.toString)

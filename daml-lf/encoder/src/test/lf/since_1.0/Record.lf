@@ -5,7 +5,7 @@ module Record {
 
   record @serializable Pair (a:*) (b: *) = { fst: a, snd: b };
 
-  record @serializable Box = { x: Record:Pair Int64 Decimal, party: Party } ;
+  record @serializable Box = { x: Record:Pair Int64 (Numeric 10), party: Party } ;
 
   template (this : Box) =  {
     precondition True,

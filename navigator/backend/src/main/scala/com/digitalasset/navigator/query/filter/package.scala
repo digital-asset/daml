@@ -5,6 +5,7 @@ package com.digitalasset.navigator.query
 
 import com.digitalasset.navigator.dotnot._
 import com.digitalasset.navigator.model._
+import com.digitalasset.daml.lf.data.{Numeric => LfNumeric}
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
 import scalaz.Tag
@@ -69,7 +70,7 @@ package object filter {
 
         case DamlLfTypeVar(name) => Right(checkContained(name, expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Bool, _) => Right(checkContained("bool", expectedValue))
-        case DamlLfTypePrim(DamlLfPrimType.Decimal, _) =>
+        case DamlLfTypePrim(DamlLfPrimType.Numeric, _) =>
           Right(checkContained("decimal", expectedValue))
         case DamlLfTypePrim(DamlLfPrimType.Int64, _) =>
           Right(checkContained("int64", expectedValue))
@@ -153,8 +154,8 @@ package object filter {
           Right(checkContained(value, expectedValue))
         case V.ValueInt64(value) if cursor.isLast =>
           Right(checkContained(value.toString, expectedValue))
-        case V.ValueDecimal(value) if cursor.isLast =>
-          Right(checkContained(value.decimalToString, expectedValue))
+        case V.ValueNumeric(value) if cursor.isLast =>
+          Right(checkContained(LfNumeric.toString(value), expectedValue))
         case V.ValueText(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case V.ValueParty(value) if cursor.isLast => Right(checkContained(value, expectedValue))
         case V.ValueBool(value) if cursor.isLast =>

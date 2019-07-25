@@ -4,7 +4,7 @@
 package com.digitalasset.navigator
 
 import com.digitalasset.daml.lf.data.{
-  Decimal => LfDecimal,
+  Numeric => LfNumeric,
   FrontStack,
   ImmArray,
   SortedLookupList,
@@ -44,7 +44,7 @@ case object DamlConstants {
   // ------------------------------------------------------------------------------------------------------------------
   val simpleTextT = DamlLfTypePrim(DamlLfPrimType.Text, DamlLfImmArraySeq())
   val simpleInt64T = DamlLfTypePrim(DamlLfPrimType.Int64, DamlLfImmArraySeq())
-  val simpleDecimalT = DamlLfTypePrim(DamlLfPrimType.Decimal, DamlLfImmArraySeq())
+  val simpleDecimalT = DamlLfTypePrim(DamlLfPrimType.Numeric, DamlLfImmArraySeq())
   val simpleUnitT = DamlLfTypePrim(DamlLfPrimType.Unit, DamlLfImmArraySeq())
   val simpleDateT = DamlLfTypePrim(DamlLfPrimType.Date, DamlLfImmArraySeq())
   val simpleTimestampT = DamlLfTypePrim(DamlLfPrimType.Timestamp, DamlLfImmArraySeq())
@@ -59,7 +59,7 @@ case object DamlConstants {
 
   val simpleTextV = V.ValueText("foo")
   val simpleInt64V = V.ValueInt64(100)
-  val simpleDecimalV = V.ValueDecimal(LfDecimal assertFromString "100")
+  val simpleDecimalV = V.ValueNumeric(LfNumeric assertUnscaledFromString "100")
   val simpleUnitV = V.ValueUnit
   val simpleDateV = V.ValueDate.fromIso8601("2019-01-28")
   val simpleTimestampV = V.ValueTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")

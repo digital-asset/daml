@@ -70,8 +70,8 @@ private[parser] object Lexer extends RegexParsers {
       """\"([^\\\"]|\\n|\\r|\\\"|\\\'|\\\\)*\"""".r >> toText |
       """\d+-\d+-\d+T\d+:\d+:\d+(\.\d+)?Z""".r >> toTimestamp |
       """\d{4}-\d{2}-\d{2}""".r >> toDate |
-      """-?\d+\.\d*""".r >> toDecimal |
-      """-?\d+""".r >> toNumber
+      """[-+]?\d+\.\d*""".r >> toDecimal |
+      """[-+]?\d+""".r >> toNumber
 
   private def toTimestamp(s: String): Parser[Timestamp] =
     (in: Input) =>
@@ -89,11 +89,11 @@ private[parser] object Lexer extends RegexParsers {
           Error(s"cannot interpret $s as a Timestamp", in)
     }
 
-  private def toDecimal(s: String): Parser[Decimal] =
+  private def toDecimal(s: String): Parser[Numeric] =
     (in: Input) =>
-      data.Decimal.fromString(s) match {
-        case Right(x) => Success(Decimal(x), in)
-        case Left(_) => Error(s"cannot interpret $s as a Decimal", in)
+      data.Numeric.unscaledFromString(s) match {
+        case Right(x) => Success(Numeric(x), in)
+        case Left(_) => Error(s"cannot interpret $s as a Numeric", in)
     }
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))

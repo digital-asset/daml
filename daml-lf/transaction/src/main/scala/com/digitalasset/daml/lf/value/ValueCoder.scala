@@ -290,8 +290,9 @@ object ValueCoder {
           case proto.Value.SumCase.UNIT =>
             ValueUnit
           case proto.Value.SumCase.DECIMAL =>
+            // FixMe: https://github.com/digital-asset/daml/issues/2289 support only legacy Decimal
             val d = Decimal.fromString(protoValue.getDecimal)
-            d.fold(e => throw Err("error decoding decimal: " + e), ValueDecimal)
+            d.fold(e => throw Err("error decoding numeric: " + e), ValueNumeric)
           case proto.Value.SumCase.INT64 =>
             ValueInt64(protoValue.getInt64)
           case proto.Value.SumCase.TEXT =>
@@ -426,8 +427,11 @@ object ValueCoder {
             builder.setBool(b).build()
           case ValueInt64(i) =>
             builder.setInt64(i).build()
-          case ValueDecimal(d) =>
-            builder.setDecimal(Decimal.toString(d)).build()
+          case ValueNumeric(d) =>
+            // FixMe: https://github.com/digital-asset/daml/issues/2289 support only legacy Decimal
+            // double check d fits (Numeric 10)
+            val x = Numeric.assertFromBigDecimal(10, d)
+            builder.setDecimal(Decimal.toString(x)).build()
           case ValueText(t) =>
             builder.setText(t).build()
           case ValueParty(p) =>

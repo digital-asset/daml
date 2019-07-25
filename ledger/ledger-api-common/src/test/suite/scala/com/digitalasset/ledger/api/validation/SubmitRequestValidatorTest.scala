@@ -191,13 +191,13 @@ class SubmitRequestValidatorTest
           forEvery(absoluteValues) { absoluteValue =>
             val s = sign + absoluteValue
             val input = Value(Sum.Decimal(s))
-            val expected = Lf.ValueDecimal(Decimal.fromString(s).getOrElse(unexpectedError))
+            val expected = Lf.ValueNumeric(BigDecimal(s))
             validateValue(input) shouldEqual Right(expected)
           }
         }
       }
 
-      "reject out-of-bound decimals" in {
+      "reject out-of-bound numerics" in {
         val signs = Table("signs", "", "+", "-")
         val absoluteValues =
           Table(

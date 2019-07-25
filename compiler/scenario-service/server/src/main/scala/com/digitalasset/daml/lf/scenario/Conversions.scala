@@ -626,7 +626,10 @@ case class Conversions(homePackageId: Ref.PackageId) {
             .build
         )
       case V.ValueInt64(v) => builder.setInt64(v)
-      case V.ValueDecimal(d) => builder.setDecimal(Decimal.toString(d))
+      case V.ValueNumeric(d) =>
+        // FixMe: https://github.com/digital-asset/daml/issues/2289
+        // Support only legacy decimal
+        builder.setDecimal(Decimal.toString(d))
       case V.ValueText(t) => builder.setText(t)
       case V.ValueTimestamp(ts) => builder.setTimestamp(ts.micros)
       case V.ValueDate(d) => builder.setDate(d.days)

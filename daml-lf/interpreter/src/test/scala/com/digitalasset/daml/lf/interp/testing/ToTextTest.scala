@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf.interp.testing
 
-import com.digitalasset.daml.lf.data.Decimal
 import com.digitalasset.daml.lf.speedy.{SBuiltin, SValue}
 import com.digitalasset.daml.lf.speedy.SValue._
 import org.scalatest.{Matchers, WordSpec}
@@ -18,8 +17,8 @@ class ToTextTest extends WordSpec with Matchers {
 
   "toString" should {
     "Decimal" in {
-      litToText(SDecimal(Decimal.fromString("123.4560000").toOption.get)) shouldBe ("123.456")
-      litToText(SDecimal(Decimal.fromString("123.0000000").toOption.get)) shouldBe ("123.0")
+      litToText(SNumeric(BigDecimal("123.4560000"))) shouldBe ("123.456")
+      litToText(SNumeric(BigDecimal("123.0000000"))) shouldBe ("123.0")
     }
 
     "Text" in {

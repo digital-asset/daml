@@ -32,10 +32,11 @@ object Util {
   }
 
   class ParametricType1(bType: BuiltinType) {
+    val cons = TBuiltin(bType)
     def apply(typ: Type): Type =
-      TApp(TBuiltin(bType), typ)
+      TApp(cons, typ)
     def unapply(typ: TApp): Option[Type] = typ match {
-      case TApp(TBuiltin(`bType`), elemType) => Some(elemType)
+      case TApp(`cons`, elemType) => Some(elemType)
       case _ => None
     }
   }
@@ -45,6 +46,8 @@ object Util {
   val TBool = TBuiltin(BTBool)
 
   val TText = TBuiltin(BTText)
+
+  val TNumeric = new ParametricType1(BTNumeric)
 
   val TList = new ParametricType1(BTList)
 

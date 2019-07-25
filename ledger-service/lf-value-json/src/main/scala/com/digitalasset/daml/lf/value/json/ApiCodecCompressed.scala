@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.value.json
 
-import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList}
+import com.digitalasset.daml.lf.data.{Numeric => LfNumeric, FrontStack, Ref, SortedLookupList}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
@@ -39,7 +39,7 @@ abstract class ApiCodecCompressed[Cid](
     case v: V.ValueList[Cid] => apiListToJsValue(v)
     case V.ValueText(v) => JsString(v)
     case V.ValueInt64(v) => JsString((v: Long).toString)
-    case V.ValueDecimal(v) => JsString(v.decimalToString)
+    case V.ValueNumeric(v) => JsString(LfNumeric.toString(v))
     case V.ValueBool(v) => JsBoolean(v)
     case V.ValueContractId(v) => apiContractIdToJsValue(v)
     case t: V.ValueTimestamp => JsString(t.toIso8601)
@@ -98,8 +98,8 @@ abstract class ApiCodecCompressed[Cid](
       prim: Model.DamlLfTypePrim,
       defs: Model.DamlLfTypeLookup): V[Cid] = {
     (value, prim.typ) match {
-      case (JsString(v), Model.DamlLfPrimType.Decimal) =>
-        V.ValueDecimal(assertDE(LfDecimal fromString v))
+      case (JsString(v), Model.DamlLfPrimType.Numeric) =>
+        V.ValueNumeric(assertDE(LfNumeric unscaledFromString v))
       case (JsString(v), Model.DamlLfPrimType.Int64) => V.ValueInt64(v.toLong)
       case (JsString(v), Model.DamlLfPrimType.Text) => V.ValueText(v)
       case (JsString(v), Model.DamlLfPrimType.Party) =>

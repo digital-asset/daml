@@ -11,8 +11,6 @@ import com.digitalasset.daml.lf.value.{Value, ValueVersion}
 import org.scalatest.{Matchers, WordSpec}
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.KeyHasher
 
-import scala.language.implicitConversions
-
 class KeyHasherSpec extends WordSpec with Matchers {
   private[this] def templateId(module: String, name: String) = Identifier(
     PackageId.assertFromString("package"),
@@ -27,8 +25,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     builder += None -> ValueInt64(0)
     builder += None -> ValueInt64(123456)
     builder += None -> ValueInt64(-1)
-    builder += None -> ValueDecimal(decimal(0))
-    builder += None -> ValueDecimal(decimal(BigDecimal("0.3333333333")))
+    builder += None -> ValueNumeric(0)
+    builder += None -> ValueNumeric(BigDecimal("0.3333333333"))
     builder += None -> ValueBool(true)
     builder += None -> ValueBool(false)
     builder += None -> ValueDate(Time.Date.assertFromDaysSinceEpoch(0))
@@ -127,13 +125,9 @@ class KeyHasherSpec extends WordSpec with Matchers {
     "not produce collision in list of decimals" in {
       // Testing whether decimals are delimited: [10, 10] vs [101, 0]
       val value1 =
-        VersionedValue(
-          ValueVersion("4"),
-          ValueList(FrontStack(ValueDecimal(decimal(10)), ValueDecimal(decimal(10)))))
+        VersionedValue(ValueVersion("4"), ValueList(FrontStack(ValueNumeric(10), ValueNumeric(10))))
       val value2 =
-        VersionedValue(
-          ValueVersion("4"),
-          ValueList(FrontStack(ValueDecimal(decimal(101)), ValueDecimal(decimal(0)))))
+        VersionedValue(ValueVersion("4"), ValueList(FrontStack(ValueNumeric(101), ValueNumeric(0))))
 
       val tid = templateId("module", "name")
 
@@ -275,8 +269,8 @@ class KeyHasherSpec extends WordSpec with Matchers {
     }
 
     "not produce collision in Decimal" in {
-      val value1 = VersionedValue(ValueVersion("4"), ValueDecimal(decimal(0)))
-      val value2 = VersionedValue(ValueVersion("4"), ValueDecimal(decimal(1)))
+      val value1 = VersionedValue(ValueVersion("4"), ValueNumeric(0))
+      val value2 = VersionedValue(ValueVersion("4"), ValueNumeric(1))
 
       val tid = templateId("module", "name")
 
@@ -352,7 +346,5 @@ class KeyHasherSpec extends WordSpec with Matchers {
       hash1.equals(hash2) shouldBe false
     }
   }
-
-  private implicit def decimal(x: BigDecimal): Decimal = Decimal.assertFromBigDecimal(x)
 
 }
