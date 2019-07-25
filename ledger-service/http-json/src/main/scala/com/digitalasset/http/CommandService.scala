@@ -9,6 +9,7 @@ import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.http.CommandService.Error
 import com.digitalasset.http.util.ClientUtil.{uniqueCommandId, workflowIdFromParty}
 import com.digitalasset.http.util.FutureUtil.toFuture
+import com.digitalasset.http.util.IdentifierConverters.refApiIdentifier
 import com.digitalasset.http.util.{Commands, Transactions}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -21,7 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class CommandService(
-    resolveTemplateId: Services.ResolveTemplateId,
+    resolveTemplateId: PackageService.ResolveTemplateId,
     submitAndWaitForTransaction: Services.SubmitAndWaitForTransaction,
     timeProvider: TimeProvider,
     defaultTimeToLive: Duration = 30.seconds)(implicit ec: ExecutionContext)
@@ -57,14 +58,15 @@ class CommandService(
     : Error \/ lav1.commands.Command.Command.Create = {
     resolveTemplateId(input.templateId)
       .leftMap(e => Error(e.shows))
-      .map(x => Commands.create(x, input.argument))
+      .map(x => Commands.create(refApiIdentifier(x), input.argument))
   }
 
   private def exerciseCommand(input: domain.ExerciseCommand[lav1.value.Record])
     : Error \/ lav1.commands.Command.Command.Exercise = {
     resolveTemplateId(input.templateId)
       .leftMap(e => Error(e.shows))
-      .map(x => Commands.exercise(x, input.contractId, input.choice, input.argument))
+      .map(x =>
+        Commands.exercise(refApiIdentifier(x), input.contractId, input.choice, input.argument))
   }
 
   private def submitAndWaitRequest(

@@ -6,7 +6,7 @@ package com.digitalasset.http.json
 import com.digitalasset.daml.lf
 import com.digitalasset.http.domain.HasTemplateId
 import com.digitalasset.http.util.IdentifierConverters
-import com.digitalasset.http.{Services, domain}
+import com.digitalasset.http.{PackageService, domain}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.syntax.show._
@@ -17,7 +17,7 @@ import spray.json.{JsObject, JsValue, JsonReader}
 import scala.language.higherKinds
 
 class DomainJsonDecoder(
-    resolveTemplateId: Services.ResolveTemplateId,
+    resolveTemplateId: PackageService.ResolveTemplateId,
     jsObjectToApiRecord: (lf.data.Ref.Identifier, JsObject) => JsonError \/ lav1.value.Record,
     jsValueToApiValue: (lf.data.Ref.Identifier, JsValue) => JsonError \/ lav1.value.Value) {
 
@@ -73,6 +73,8 @@ class DomainJsonDecoder(
       fa: F[_]): JsonError \/ lar.TemplateId = {
     val H: HasTemplateId[F] = implicitly
     val templateId: domain.TemplateId.OptionalPkg = H.templateId(fa)
-    resolveTemplateId(templateId).leftMap(e => JsonError(e.shows))
+    resolveTemplateId(templateId)
+      .leftMap(e => JsonError(e.shows))
+      .map(IdentifierConverters.refApiIdentifier)
   }
 }

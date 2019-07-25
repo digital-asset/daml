@@ -7,6 +7,7 @@ import akka.stream.Materializer
 import akka.stream.scaladsl.Sink
 import com.digitalasset.http.domain.TemplateId
 import com.digitalasset.http.util.FutureUtil.toFuture
+import com.digitalasset.http.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
@@ -16,7 +17,7 @@ import scalaz.{-\/, \/-}
 import scala.concurrent.{ExecutionContext, Future}
 
 class ContractsService(
-    resolveTemplateIds: Services.ResolveTemplateIds,
+    resolveTemplateIds: PackageService.ResolveTemplateIds,
     activeContractSetClient: ActiveContractSetClient,
     parallelism: Int = 8)(implicit ec: ExecutionContext, mat: Materializer) {
 
@@ -85,13 +86,12 @@ class ContractsService(
 
   private def transactionFilter(
       party: lar.Party,
-      templateIds: List[lar.TemplateId]): lav1.transaction_filter.TransactionFilter = {
+      templateIds: List[TemplateId.RequiredPkg]): lav1.transaction_filter.TransactionFilter = {
     import lav1.transaction_filter._
 
     val filters =
       if (templateIds.isEmpty) Filters.defaultInstance
-      else
-        Filters(Some(lav1.transaction_filter.InclusiveFilters(lar.TemplateId.unsubst(templateIds))))
+      else Filters(Some(lav1.transaction_filter.InclusiveFilters(templateIds.map(apiIdentifier))))
 
     TransactionFilter(Map(lar.Party.unwrap(party) -> filters))
   }

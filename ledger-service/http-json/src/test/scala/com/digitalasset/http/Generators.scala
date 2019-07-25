@@ -4,7 +4,6 @@
 package com.digitalasset.http
 
 import com.digitalasset.ledger.api.{v1 => lav1}
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import org.scalacheck.Gen
 
 object Generators {
@@ -15,9 +14,10 @@ object Generators {
       e <- Gen.identifier
     } yield lav1.value.Identifier(packageId = p, moduleName = m, entityName = e)
 
-  def genApiTemplateId: Gen[lar.TemplateId] = genApiIdentifier.map(lar.TemplateId.apply)
+  def genDomainTemplateId: Gen[domain.TemplateId.RequiredPkg] =
+    genApiIdentifier.map(domain.TemplateId.fromLedgerApi)
 
-  def genTemplateId[A](implicit ev: PackageIdGen[A]): Gen[domain.TemplateId[A]] =
+  def genDomainTemplateIdO[A](implicit ev: PackageIdGen[A]): Gen[domain.TemplateId[A]] =
     for {
       p <- ev.gen
       m <- Gen.identifier
@@ -33,8 +33,8 @@ object Generators {
       otherPackageIds <- nonEmptySet(Gen.identifier.filter(x => x != id0.packageId))
     } yield id0 :: otherPackageIds.map(a => id0.copy(packageId = a)).toList
 
-  def genDuplicateApiTemplateId: Gen[List[lar.TemplateId]] =
-    genDuplicateApiIdentifiers.map(lar.TemplateId.subst)
+  def genDuplicateDomainTemplateIdR: Gen[List[domain.TemplateId.RequiredPkg]] =
+    genDuplicateApiIdentifiers.map(xs => xs.map(domain.TemplateId.fromLedgerApi))
 
   trait PackageIdGen[A] {
     def gen: Gen[A]

@@ -53,6 +53,15 @@ object IdentifierConverters {
 
   def apiIdentifier(a: lar.TemplateId): lav1.value.Identifier = lar.TemplateId.unwrap(a)
 
+  def apiIdentifier(a: http.domain.TemplateId.RequiredPkg): lav1.value.Identifier =
+    lav1.value.Identifier(
+      packageId = a.packageId,
+      moduleName = a.moduleName,
+      entityName = a.entityName)
+
+  def refApiIdentifier(a: http.domain.TemplateId.RequiredPkg): lar.TemplateId =
+    lar.TemplateId(apiIdentifier(a))
+
   def apiLedgerId(a: com.digitalasset.ledger.api.domain.LedgerId): lar.LedgerId =
     lar.LedgerId(com.digitalasset.ledger.api.domain.LedgerId.unwrap(a))
 }

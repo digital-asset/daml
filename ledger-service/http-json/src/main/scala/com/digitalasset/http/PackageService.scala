@@ -3,13 +3,11 @@
 
 package com.digitalasset.http
 
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
+import com.digitalasset.http.domain.TemplateId
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.ledger.service.TemplateIds
 import scalaz.Scalaz._
 import scalaz._
-
-import scala.collection.breakOut
 
 object PackageService {
   sealed trait Error
@@ -25,63 +23,66 @@ object PackageService {
     }
   }
 
+  type ResolveTemplateIds =
+    Set[domain.TemplateId.OptionalPkg] => Error \/ List[TemplateId.RequiredPkg]
+
+  type ResolveTemplateId =
+    domain.TemplateId.OptionalPkg => Error \/ TemplateId.RequiredPkg
+
   def getTemplateIdMap(packageStore: PackageStore): TemplateIdMap =
     buildTemplateIdMap(collectTemplateIds(packageStore))
 
-  private def collectTemplateIds(packageStore: PackageStore): Set[lar.TemplateId] =
-    lar.TemplateId.subst(TemplateIds.getTemplateIds(packageStore.values.toSet))
+  private def collectTemplateIds(packageStore: PackageStore): Set[TemplateId.RequiredPkg] =
+    TemplateIds
+      .getTemplateIds(packageStore.values.toSet)
+      .map(x => TemplateId(x.packageId, x.moduleName, x.entityName))
 
   case class TemplateIdMap(
-      all: Map[domain.TemplateId.RequiredPkg, lar.TemplateId],
-      unique: Map[domain.TemplateId.NoPkg, lar.TemplateId])
+      all: Set[TemplateId.RequiredPkg],
+      unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg])
 
-  def buildTemplateIdMap(ids: Set[lar.TemplateId]): TemplateIdMap = {
-    val all: Map[domain.TemplateId.RequiredPkg, lar.TemplateId] =
-      ids.map(a => key3(a) -> a)(breakOut)
-    val unique: Map[domain.TemplateId.NoPkg, lar.TemplateId] = filterUniqueTemplateIs(all)
+  def buildTemplateIdMap(ids: Set[TemplateId.RequiredPkg]): TemplateIdMap = {
+    val all: Set[TemplateId.RequiredPkg] = ids
+    val unique: Map[TemplateId.NoPkg, TemplateId.RequiredPkg] = filterUniqueTemplateIs(all)
     TemplateIdMap(all, unique)
   }
 
-  private[http] def key3(a: lar.TemplateId): domain.TemplateId.RequiredPkg = {
-    val b = lar.TemplateId.unwrap(a)
-    domain.TemplateId[String](b.packageId, b.moduleName, b.entityName)
-  }
+  private[http] def key2(k: TemplateId.RequiredPkg): TemplateId.NoPkg =
+    TemplateId[Unit]((), k.moduleName, k.entityName)
 
-  private[http] def key2(k: domain.TemplateId.RequiredPkg): domain.TemplateId.NoPkg =
-    domain.TemplateId[Unit]((), k.moduleName, k.entityName)
-
-  private def filterUniqueTemplateIs(all: Map[domain.TemplateId.RequiredPkg, lar.TemplateId])
-    : Map[domain.TemplateId.NoPkg, lar.TemplateId] =
+  private def filterUniqueTemplateIs(
+      all: Set[TemplateId.RequiredPkg]): Map[TemplateId.NoPkg, TemplateId.RequiredPkg] =
     all
-      .groupBy { case (k, _) => key2(k) }
-      .collect { case (k, v) if v.size == 1 => (k, v.values.head) }
+      .groupBy(k => key2(k))
+      .collect { case (k, v) if v.size == 1 => (k, v.head) }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def resolveTemplateIds(m: TemplateIdMap)(
-      as: Set[domain.TemplateId.OptionalPkg]): Error \/ List[lar.TemplateId] =
+      as: Set[TemplateId.OptionalPkg]): Error \/ List[TemplateId.RequiredPkg] =
     for {
       bs <- as.toList.traverse(resolveTemplateId(m))
       _ <- validate(as, bs)
     } yield bs
 
   def resolveTemplateId(m: TemplateIdMap)(
-      a: domain.TemplateId.OptionalPkg): Error \/ lar.TemplateId =
+      a: TemplateId.OptionalPkg): Error \/ TemplateId.RequiredPkg =
     a.packageId match {
-      case Some(p) => findTemplateIdByK3(m.all)(domain.TemplateId(p, a.moduleName, a.entityName))
-      case None => findTemplateIdByK2(m.unique)(domain.TemplateId((), a.moduleName, a.entityName))
+      case Some(p) => findTemplateIdByK3(m.all)(TemplateId(p, a.moduleName, a.entityName))
+      case None => findTemplateIdByK2(m.unique)(TemplateId((), a.moduleName, a.entityName))
     }
 
-  private def findTemplateIdByK3(m: Map[domain.TemplateId.RequiredPkg, lar.TemplateId])(
-      k: domain.TemplateId.RequiredPkg): Error \/ lar.TemplateId =
-    m.get(k).toRightDisjunction(InputError(s"Cannot resolve ${k.toString}"))
+  private def findTemplateIdByK3(m: Set[TemplateId.RequiredPkg])(
+      k: TemplateId.RequiredPkg): Error \/ TemplateId.RequiredPkg =
+    if (m.contains(k)) \/-(k)
+    else -\/(InputError(s"Cannot resolve ${k.toString}"))
 
-  private def findTemplateIdByK2(m: Map[domain.TemplateId.NoPkg, lar.TemplateId])(
-      k: domain.TemplateId.NoPkg): Error \/ lar.TemplateId =
+  private def findTemplateIdByK2(m: Map[TemplateId.NoPkg, TemplateId.RequiredPkg])(
+      k: TemplateId.NoPkg): Error \/ TemplateId.RequiredPkg =
     m.get(k).toRightDisjunction(InputError(s"Cannot resolve ${k.toString}"))
 
   private def validate(
-      requested: Set[domain.TemplateId.OptionalPkg],
-      resolved: List[lar.TemplateId]): Error \/ Unit =
+      requested: Set[TemplateId.OptionalPkg],
+      resolved: List[TemplateId.RequiredPkg]): Error \/ Unit =
     if (requested.size == resolved.size) \/.right(())
     else
       \/.left(
