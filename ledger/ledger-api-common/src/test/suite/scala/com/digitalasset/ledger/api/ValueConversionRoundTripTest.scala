@@ -50,11 +50,9 @@ class ValueConversionRoundTripTest
          }
          """
 
-  private val commandValidator = ValueValidator
-
   private def roundTrip(v: Value): Either[String, Value] =
     for {
-      lfValue <- commandValidator.validateValue(v).left.map(_.getMessage)
+      lfValue <- ValueValidator.validateValue(v).left.map(_.getMessage)
       apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
     } yield apiValue
 
