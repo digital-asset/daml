@@ -340,7 +340,7 @@ shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $
         signalBarrier bar res
         runTime <- start
         let res' = case res of
-                Left e -> "exception: " <> show e
+                Left e -> "exception: " <> displayException e
                 Right _ -> "completed"
         logDebug logger $ T.pack $
             "Finishing shakeRun (took " ++ showDuration runTime ++ ", " ++ res' ++ ")"
