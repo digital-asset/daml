@@ -30,12 +30,12 @@ da_haskell_library(
 da_haskell_library(
     name = "hie-core-test-runfiles",
     srcs = glob(["bazel/**/*.hs"]),
-    src_strip_prefix = "bazel",
-    visibility = ["//visibility:public"],
     hazel_deps = [
         "base",
         "filepath",
     ],
+    src_strip_prefix = "bazel",
+    visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/bazel-runfiles",
     ],
@@ -57,8 +57,8 @@ da_haskell_test(
     ],
     src_strip_prefix = "exe",
     deps = [
-        ":hie-core-testing",
         ":hie-core-test-runfiles",
+        ":hie-core-testing",
         "//compiler/hie-core",
     ],
 )
