@@ -6,6 +6,48 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-15:
+
+0.13.15 - 2019-07-25
+--------------------
+
+DAML Studio
+~~~~~~~~~~~~
+
+- Scenario links no longer disappear if the
+  current file does not compile. The location is adjusted but this is done
+  one a best effort basis and can fail if the scenario itself is modified.
+
+DAML Compiler
+~~~~~~~~~~~~~~
+
+- Support reading of DAML-LF 1.5 again.
+
+Ledger API
+~~~~~~~~~~~
+
+- **BREAKING**: Drop support for legacy identifier. The
+  previously deprecated field ``name`` in ``Identifier`` message is not
+  supported anymore. Use ``module_name`` and ``entity_name`` instead.
+
+Navigator
+~~~~~~~~~
+
+- Fixed an issue when Navigator console did not see any contracts.
+  See `#2271 <https://github.com/digital-asset/daml/issues/2271 >`__.
+
+Documentation
+~~~~~~~~~~~~~~
+
+- Improved the Maven pom.xml file for ``quickstart-java`` to better integrate with VS Code.
+  See `#887 <https://github.com/digital-asset/daml/issues/887>`__.
+
+Releases
+~~~~~~~~
+
+- Releases should now be announced on `the releases blog
+  <https://blog.daml.com/release-notes>`_.
+
 .. _release-0-13-14:
 
 0.13.14 - 2019-07-22
