@@ -6,6 +6,7 @@ package com.digitalasset.navigator.model.converter
 import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.LawlessTraversals._
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.ledger.api.{v1 => V1}
@@ -289,7 +290,7 @@ case object LedgerApiV1 {
         case r @ iface.Record(_) => Right(r)
         case iface.Variant(_) | iface.Enum(_) => Left(GenericConversionError(s"Record expected"))
       }
-      fields <- value.fields.toSeq zip dt.fields traverseU {
+      fields <- value.fields.toSeq zip dt.fields traverseEitherStrictly {
         case ((von, vv), (tn, fieldType)) =>
           for {
             _ <- von.cata(
