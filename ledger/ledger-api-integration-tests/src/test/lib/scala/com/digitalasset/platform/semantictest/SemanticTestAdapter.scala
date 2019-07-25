@@ -44,7 +44,7 @@ class SemanticTestAdapter(
 
   private def ledgerId = lc.ledgerId
 
-  private def ttlSeconds = 10 * commandSubmissionTtlScaleFactor
+  private def ttlSeconds = 30 * commandSubmissionTtlScaleFactor
 
   private val tr = new ApiScenarioTransform(ledgerId.unwrap, packages)
 
