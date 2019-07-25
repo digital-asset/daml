@@ -11,6 +11,7 @@ module DA.Bazel.Runfiles
   ) where
 
 import qualified Bazel.Runfiles
+import GHC.Stack
 import System.Directory
 import System.Environment
 import System.FilePath
@@ -29,7 +30,7 @@ exe | os == "mingw32" = (<.> "exe")
 -- this corresponds to the top-level @resources@ directory. In a @bazel run@ or
 -- @bazel test@ target this corresponds to the @runfiles@ path of the given
 -- @data@ dependency.
-locateRunfiles :: FilePath -> IO FilePath
+locateRunfiles :: HasCallStack => FilePath -> IO FilePath
 locateRunfiles fp = do
   -- If the current executable was packaged using @package_app@, then
   -- data files are stored underneath the resources directory.

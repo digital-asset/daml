@@ -36,6 +36,7 @@ import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
 import Data.Maybe
 import Data.List.Extra
+import Data.String(fromString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.Text as T
@@ -609,7 +610,7 @@ runListTemplates = do
           "The following templates are available:" :
           (map ("  " <>) . sort . map takeFileName) templates
 
-newtype SandboxPort = SandboxPort Int
+newtype SandboxPort = SandboxPort Int -- TODO: rename: LedgerPort?
 newtype NavigatorPort = NavigatorPort Int
 
 navigatorPortNavigatorArgs :: NavigatorPort -> [String]
@@ -671,16 +672,16 @@ runStart sandboxPort (StartNavigator shouldStartNavigator) (OpenBrowser shouldOp
                   then withNavigator
                   else (\_ _ _ f -> f sandboxPh)
 
-runDeploy :: SandboxPort -> IO ()
-runDeploy sandboxPort = do
+runDeploy :: String -> SandboxPort -> IO ()
+runDeploy host sandboxPort = do
     darPath <- getDarPath
     doBuild
     let SandboxPort port = sandboxPort
-    putStrLn $ "Deploying " <> darPath <> " to ledger on port " <> show port
+    putStrLn $ "Deploying " <> darPath <> " to ledger on " <> host <> ":" <> show port
     bytes <- BS.readFile darPath
     let ls = L.uploadDarFile bytes
     let timeout = 30 :: L.TimeoutSeconds
-    let ledgerClientConfig = L.configOfPort $ L.Port port
+    let ledgerClientConfig = L.configOfHostAndPort (L.Host $ fromString host) (L.Port port)
     L.runLedgerService ls timeout ledgerClientConfig >>= \case
         Right () -> do
             putStrLn "Deploy succeeded."
