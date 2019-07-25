@@ -33,7 +33,7 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDriven
   }
 
   type Cid = String
-  private val genCid = Gen.alphaStr.filter(_.nonEmpty)
+  private val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map { case (h, t) => h +: t }
 
   "API compressed JSON codec" when {
 
