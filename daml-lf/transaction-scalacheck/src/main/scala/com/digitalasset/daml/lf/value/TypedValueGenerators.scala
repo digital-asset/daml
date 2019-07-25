@@ -34,6 +34,7 @@ object TypedValueGenerators {
     def prj[Cid]: Value[Cid] => Option[Inj[Cid]]
     def injgen[Cid](cid: Gen[Cid]): Gen[Inj[Cid]]
     implicit def injshrink[Cid: Shrink]: Shrink[Inj[Cid]]
+    final override def toString = s"${classOf[ValueAddend].getSimpleName}{t = ${t.toString}}"
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
