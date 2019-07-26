@@ -41,7 +41,7 @@ private[kvutils] object InputsAndEffects {
         * contracts should be created. The key should be a combination of the transaction
         * id and the relative contract id (that is, the node index).
         */
-      createdContracts: List[DamlStateKey],
+      createdContracts: List[(DamlStateKey, NodeCreate[ContractId, VersionedValue[ContractId]])],
       /** The contract keys created or updated as part of the transaction. */
       updatedContractKeys: List[(DamlStateKey, DamlContractKeyState)]
   )
@@ -80,17 +80,27 @@ private[kvutils] object InputsAndEffects {
               addLogEntryInput(logEntryInputs, fetch.coid),
               addStateInput(stateInputs, fetch.coid)
             )
-          case create: NodeCreate[_, _] =>
-            (logEntryInputs, stateInputs)
+          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
+            (
+              logEntryInputs,
+              create.key.fold(stateInputs) { keyWithM =>
+                contractKeyToStateKey(GlobalKey(
+                  create.coinst.template,
+                  forceAbsoluteContractIds(keyWithM.key))) :: stateInputs
+              }
+            )
           case exe: NodeExercises[_, ContractId, _] =>
             (
               addLogEntryInput(logEntryInputs, exe.targetCoid),
               addStateInput(stateInputs, exe.targetCoid)
             )
-          case l: NodeLookupByKey[_, Transaction.Value[ContractId]] =>
+          case l: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
             (
               logEntryInputs,
-              contractKeyToStateKey(GlobalKey(l.templateId, forceAbsoluteContractIds(l.key.key))) :: stateInputs
+              // We need both the contract key state and the contract state. The latter is used to verify
+              // that the submitter can access the contract.
+              contractKeyToStateKey(GlobalKey(l.templateId, forceAbsoluteContractIds(l.key.key))) ::
+                l.result.fold(stateInputs)(addStateInput(stateInputs, _))
             )
         }
     }
@@ -106,7 +116,7 @@ private[kvutils] object InputsAndEffects {
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
             effects.copy(
               createdContracts =
-                relativeContractIdToStateKey(entryId, create.coid.asInstanceOf[RelativeContractId])
+                relativeContractIdToStateKey(entryId, create.coid.asInstanceOf[RelativeContractId]) -> create
                   :: effects.createdContracts,
               updatedContractKeys = create.key
                 .fold(effects.updatedContractKeys)(
@@ -146,13 +156,4 @@ private[kvutils] object InputsAndEffects {
         }
     }
   }
-
-  private def forceAbsoluteContractIds(
-      v: VersionedValue[ContractId]): VersionedValue[AbsoluteContractId] =
-    v.mapContractId {
-      case _: RelativeContractId =>
-        sys.error("Relative contract identifier encountered in contract key!")
-      case acoid: AbsoluteContractId => acoid
-    }
-
 }

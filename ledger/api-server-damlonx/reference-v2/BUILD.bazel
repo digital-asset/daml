@@ -67,6 +67,7 @@ conformance_tests_to_run = [
     "DivulgenceIT",
     "TransactionBackpressureIT",
     "PartyManagementServiceIT",
+    "ContractKeysIT",
 ]
 
 client_server_test(
