@@ -5,6 +5,7 @@
 
 module DA.Ledger.Services.CommandSubmissionService (submit) where
 
+import Data.Functor
 import Com.Digitalasset.Ledger.Api.V1.CommandSubmissionService
 import DA.Ledger.Convert (lowerCommands)
 import DA.Ledger.GrpcWrapUtils
@@ -22,8 +23,4 @@ submit commands =
         let request = SubmitRequest (Just (lowerCommands commands)) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
             >>= unwrapWithInvalidArgument
-            >>= \case
-            Right Empty{} ->
-                return $ Right ()
-            Left details ->
-                return $ Left $ show $ unStatusDetails details
+            <&> fmap (\Empty{} -> ())

@@ -41,10 +41,10 @@ unwrapWithNotFound = \case
     ClientErrorResponse (ClientIOError e) -> throwIO e
     ClientErrorResponse ce -> fail (show ce)
 
-unwrapWithInvalidArgument :: ClientResult 'Normal a -> IO (Either StatusDetails a)
+unwrapWithInvalidArgument :: ClientResult 'Normal a -> IO (Either String a)
 unwrapWithInvalidArgument = \case
     ClientNormalResponse x _m1 _m2 _status _details -> return $ Right x
-    ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) -> return $ Left details
+    ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) -> return $ Left $ show $ unStatusDetails details
     ClientErrorResponse (ClientIOError e) -> throwIO e
     ClientErrorResponse ce -> fail (show ce)
 

@@ -10,6 +10,7 @@ module DA.Ledger.Services.CommandService (
     submitAndWaitForTransactionTree,
     ) where
 
+import Data.Functor
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
@@ -26,9 +27,7 @@ submitAndWait commands =
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
             >>= unwrapWithInvalidArgument
-            >>= \case
-            Right LL.SubmitAndWaitForTransactionIdResponse{} -> return $ Right ()
-            Left details -> return $ Left $ show $ unStatusDetails details
+            <&> fmap (\LL.SubmitAndWaitForTransactionIdResponse{} -> ())
 
 submitAndWaitForTransactionId :: Commands -> LedgerService (Either String TransactionId)
 submitAndWaitForTransactionId commands =
@@ -39,12 +38,7 @@ submitAndWaitForTransactionId commands =
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
             >>= unwrapWithInvalidArgument
-            >>= \case
-            Right response -> do
-                let LL.SubmitAndWaitForTransactionIdResponse{..} = response
-                return $ Right $ TransactionId submitAndWaitForTransactionIdResponseTransactionId
-            Left details ->
-                return $ Left $ show $ unStatusDetails details
+            <&> fmap (TransactionId . LL.submitAndWaitForTransactionIdResponseTransactionId)
 
 submitAndWaitForTransaction :: Commands -> LedgerService (Either String Transaction)
 submitAndWaitForTransaction commands =
@@ -59,7 +53,7 @@ submitAndWaitForTransaction commands =
             Right response ->
                 either (fail . show) (return . Right) $ raiseResponse response
             Left details ->
-                return $ Left $ show $ unStatusDetails details
+                return $ Left details
   where
       raiseResponse = \case
           LL.SubmitAndWaitForTransactionResponse{..} -> do
@@ -79,7 +73,7 @@ submitAndWaitForTransactionTree commands =
             Right response ->
                 either (fail . show) (return . Right) $ raiseResponse response
             Left details ->
-                return $ Left $ show $ unStatusDetails details
+                return $ Left details
   where
       raiseResponse = \case
           LL.SubmitAndWaitForTransactionTreeResponse{..} -> do
