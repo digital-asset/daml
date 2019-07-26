@@ -82,9 +82,11 @@ class PackageManagementServiceIT
     // The test DAR file contains 3 packages: the test package, stdlib, and daml-prim.
     val testPackageId = testPackages
       .collectFirst {
-        case archive if archive.pkg.modules.keySet.contains(
-          Ref.ModuleName.assertFromSegments(Seq("Test"))
-        ) => archive.archive.getHash
+        case archive
+            if archive.pkg.modules.keySet.contains(
+              Ref.ModuleName.assertFromSegments(Seq("Test"))
+            ) =>
+          archive.archive.getHash
       }
       .getOrElse(fail("Could not find test package"))
       .archive
