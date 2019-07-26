@@ -13,25 +13,21 @@ object SprayJson {
   final case class JsonWriterError(value: Any, message: String) extends Error
 
   object Error {
-    implicit val show: Show[Error] = new Show[Error] {
-      override def shows(f: Error): String = f match {
-        case a: JsonReaderError => JsonReaderError.ShowInstance.shows(a)
-        case a: JsonWriterError => JsonWriterError.ShowInstance.shows(a)
-      }
+    implicit val show: Show[Error] = Show shows {
+      case a: JsonReaderError => JsonReaderError.ShowInstance.shows(a)
+      case a: JsonWriterError => JsonWriterError.ShowInstance.shows(a)
     }
   }
 
   object JsonReaderError {
-    implicit val ShowInstance: Show[JsonReaderError] = new Show[JsonReaderError] {
-      override def shows(f: JsonReaderError): String =
-        s"JsonReaderError. Cannot read JSON: <${f.value}>. Cause: ${f.message}"
+    implicit val ShowInstance: Show[JsonReaderError] = Show shows { f =>
+      s"JsonReaderError. Cannot read JSON: <${f.value}>. Cause: ${f.message}"
     }
   }
 
   object JsonWriterError {
-    implicit val ShowInstance: Show[JsonWriterError] = new Show[JsonWriterError] {
-      override def shows(f: JsonWriterError): String =
-        s"JsonWriterError. Cannot write value as JSON: <${f.value}>. Cause: ${f.message}"
+    implicit val ShowInstance: Show[JsonWriterError] = Show shows { f =>
+      s"JsonWriterError. Cannot write value as JSON: <${f.value}>. Cause: ${f.message}"
     }
   }
 

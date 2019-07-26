@@ -13,9 +13,8 @@ object ApiValueToLfValueConverter {
   final case class Error(cause: StatusRuntimeException)
 
   object Error {
-    implicit val ErrorShow: Show[Error] = new Show[Error] {
-      override def shows(e: Error): String =
-        s"ApiValueToLfValueConverter.Error: ${e.cause.getMessage}"
+    implicit val ErrorShow: Show[Error] = Show shows { e =>
+      s"ApiValueToLfValueConverter.Error: ${e.cause.getMessage}"
     }
   }
 

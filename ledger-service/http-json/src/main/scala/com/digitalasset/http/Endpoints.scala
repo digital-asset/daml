@@ -191,11 +191,9 @@ object Endpoints {
   final case class ServerError(message: String) extends Error(message)
 
   object Error {
-    implicit val ShowInstance: Show[Error] = new Show[Error] {
-      override def shows(f: Error): String = f match {
-        case InvalidUserInput(message) => s"InvalidUserInput: ${message: String}"
-        case ServerError(message) => s"ServerError: ${message: String}"
-      }
+    implicit val ShowInstance: Show[Error] = Show shows {
+      case InvalidUserInput(message) => s"InvalidUserInput: ${message: String}"
+      case ServerError(message) => s"ServerError: ${message: String}"
     }
   }
 

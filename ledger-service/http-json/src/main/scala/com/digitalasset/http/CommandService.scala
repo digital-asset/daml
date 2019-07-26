@@ -146,9 +146,8 @@ object CommandService {
   case class Error(id: Symbol, message: String)
 
   object Error {
-    implicit val errorShow: Show[Error] = new Show[Error] {
-      override def shows(e: Error): String =
-        s"CommandService Error, ${e.id: Symbol}: ${e.message: String}"
+    implicit val errorShow: Show[Error] = Show shows { e =>
+      s"CommandService Error, ${e.id: Symbol}: ${e.message: String}"
     }
   }
 }
