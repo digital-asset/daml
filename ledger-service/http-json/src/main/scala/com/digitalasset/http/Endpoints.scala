@@ -6,7 +6,7 @@ package com.digitalasset.http
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{Directive, Directive1, Route}
+import akka.http.scaladsl.server.{ExceptionHandler, Route}
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.digitalasset.http.json.HttpCodec._
@@ -19,10 +19,12 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.list._
 import scalaz.syntax.show._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Show, \/-}
+import scalaz.{-\/, Show, \/, \/-}
 import spray.json._
+import com.digitalasset.http.json.SprayJson
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
@@ -37,12 +39,24 @@ class Endpoints(
   import Endpoints._
   import json.JsonProtocol._
 
+  implicit def exceptionHandler: ExceptionHandler =
+    ExceptionHandler {
+      case NonFatal(e) =>
+        extractUri { uri =>
+          logger.error(s"Request to $uri could not be handled normally", e)
+          complete(
+            HttpResponse(
+              StatusCodes.InternalServerError,
+              entity = format(errorsJsObject(StatusCodes.InternalServerError)(e.getMessage))))
+        }
+    }
+
   // TODO(Leo) read it from the header
   private val jwtPayload =
     domain.JwtPayload(ledgerId, lar.ApplicationId("applicationId"), lar.Party("Alice"))
 
-  private val extractJwtPayload: Directive1[domain.JwtPayload] =
-    Directive(_(Tuple1(jwtPayload))) // TODO from header
+//  private val extractJwtPayload: Directive1[domain.JwtPayload] =
+//    Directive(_(Tuple1(jwtPayload))) // TODO from header
 
   private val ok = HttpEntity(ContentTypes.`application/json`, """{"status": "OK"}""")
 
@@ -56,42 +70,54 @@ class Endpoints(
       httpResponse(
         input(req)
           .map(decoder.decodeR[domain.CreateCommand])
-          .mapAsync(parallelism) {
-            case -\/(e) =>
-              // TODO(Leo): we need to set status code in the result JSON
-              Future.failed(InvalidUserInput(e.message))
-            case \/-(c) =>
-              commandService.create(jwtPayload, c)
+          .mapAsync(1) {
+            case -\/(e) => invalidUserInput(e)
+            case \/-(c) => handleFutureFailure(commandService.create(jwtPayload, c))
           }
-          .map { a: domain.ActiveContract[lav1.value.Value] =>
-            encoder.encodeV(a) match {
-              case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
-              case \/-(b) => format(resultJsObject(b: JsValue))
+          .map { fa =>
+            fa.flatMap { a: domain.ActiveContract[lav1.value.Value] =>
+              encoder.encodeV(a).leftMap(e => ServerError(e.shows))
             }
           }
+          .map(encodeResult)
       )
 
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
       httpResponse(
         input(req)
           .map(decoder.decodeR[domain.ExerciseCommand])
-          .mapAsync(parallelism) {
-            case -\/(e) =>
-              // TODO(Leo): we need to set status code in the result JSON
-              Future.failed(InvalidUserInput(e.message))
-            case \/-(c) =>
-              commandService.exercise(jwtPayload, c)
+          .mapAsync(1) {
+            case -\/(e) => invalidUserInput(e)
+            case \/-(c) => handleFutureFailure(commandService.exercise(jwtPayload, c))
           }
-          .map(encodeResultJsObject)
+          .map { fa =>
+            fa.flatMap { as: List[domain.ActiveContract[lav1.value.Value]] =>
+              as.traverse(a => encoder.encodeV(a))
+                .leftMap(e => ServerError(e.shows))
+                .flatMap(as => encodeList(as))
+            }
+          }
+          .map(encodeResult)
       )
   }
 
-  private def encodeResultJsObject(
-      as: List[domain.ActiveContract[lav1.value.Value]]): ByteString = {
-    as.traverse(a => encoder.encodeV(a)) match {
-      case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
-      case \/-(bs) => format(resultJsObject(bs: List[JsValue]))
+  private def invalidUserInput[A: Show, B](a: A): Future[InvalidUserInput \/ B] =
+    Future.successful(-\/(InvalidUserInput(a.shows)))
+
+  private def handleFutureFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
+    fa.map(a => a.leftMap(e => ServerError(e.shows))).recover {
+      case NonFatal(e) =>
+        logger.error("Future failed", e)
+        -\/(ServerError(e.getMessage))
     }
+
+  private def encodeList(as: List[JsValue]): ServerError \/ JsValue =
+    SprayJson.encode(as).leftMap(e => ServerError(e.shows))
+
+  private def encodeResult(a: Error \/ JsValue): ByteString = a match {
+    case \/-(a) => format(resultJsObject(a: JsValue))
+    case -\/(InvalidUserInput(e)) => format(errorsJsObject(StatusCodes.BadRequest)(e))
+    case -\/(ServerError(e)) => format(errorsJsObject(StatusCodes.InternalServerError)(e))
   }
 
   lazy val command2: Route =
@@ -211,7 +237,7 @@ class Endpoints(
 
 object Endpoints {
 
-  sealed abstract class Error(message: String) extends RuntimeException(message)
+  sealed abstract class Error(message: String) extends Product with Serializable
 
   final case class InvalidUserInput(message: String) extends Error(message)
 

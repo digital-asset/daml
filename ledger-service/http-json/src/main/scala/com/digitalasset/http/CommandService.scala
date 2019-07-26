@@ -8,14 +8,14 @@ import java.time.Instant
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.http.CommandService.Error
 import com.digitalasset.http.util.ClientUtil.{uniqueCommandId, workflowIdFromParty}
-import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.http.util.IdentifierConverters.refApiIdentifier
 import com.digitalasset.http.util.{Commands, Transactions}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
-import scalaz.{-\/, Show, \/, \/-}
+import scalaz.{-\/, EitherT, Show, \/, \/-}
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,28 +28,42 @@ class CommandService(
     defaultTimeToLive: Duration = 30.seconds)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def create(jwtPayload: domain.JwtPayload, input: domain.CreateCommand[lav1.value.Record])
-    : Future[domain.ActiveContract[lav1.value.Value]] =
-    for {
-      command <- toFuture(createCommand(input))
+    : Future[Error \/ domain.ActiveContract[lav1.value.Value]] = {
+
+    val et: EitherT[Future, Error, domain.ActiveContract[lav1.value.Value]] = for {
+      command <- EitherT.either(createCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- logResult('create, submitAndWaitForTransaction(request))
-      contract <- toFuture(exactlyOneActiveContract(response))
+      response <- liftET(logResult('create, submitAndWaitForTransaction(request)))
+      contract <- EitherT.either(exactlyOneActiveContract(response))
     } yield contract
 
+    et.run
+  }
+
+  private def liftET[A](fa: Future[A]): EitherT[Future, Error, A] = EitherT.rightT(fa)
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def exercise(jwtPayload: domain.JwtPayload, input: domain.ExerciseCommand[lav1.value.Record])
-    : Future[List[domain.ActiveContract[lav1.value.Value]]] =
-    for {
-      command <- toFuture(exerciseCommand(input))
+    : Future[Error \/ List[domain.ActiveContract[lav1.value.Value]]] = {
+
+    val et: EitherT[Future, Error, List[domain.ActiveContract[lav1.value.Value]]] = for {
+      command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
-      response <- logResult('exercise, submitAndWaitForTransaction(request))
-      contracts <- toFuture(activeContracts(response))
+      response <- liftET(logResult('exercise, submitAndWaitForTransaction(request)))
+      contracts <- EitherT.either(activeContracts(response))
     } yield contracts
+
+    et.run
+  }
+
+  def eitherT[A](fa: Future[A]): Future[Error \/ A] = fa.map(a => \/-(a))
 
   private def logResult[A](op: Symbol, fa: Future[A]): Future[A] = {
     fa.onComplete {
-      case Success(a) => logger.debug(s"$op success: $a")
       case Failure(e) => logger.error(s"$op failure", e)
+      case Success(a) => logger.debug(s"$op success: $a")
     }
     fa
   }
@@ -57,14 +71,14 @@ class CommandService(
   private def createCommand(input: domain.CreateCommand[lav1.value.Record])
     : Error \/ lav1.commands.Command.Command.Create = {
     resolveTemplateId(input.templateId)
-      .leftMap(e => Error(e.shows))
+      .leftMap(e => Error('createCommand, e.shows))
       .map(x => Commands.create(refApiIdentifier(x), input.argument))
   }
 
   private def exerciseCommand(input: domain.ExerciseCommand[lav1.value.Record])
     : Error \/ lav1.commands.Command.Command.Exercise = {
     resolveTemplateId(input.templateId)
-      .leftMap(e => Error(e.shows))
+      .leftMap(e => Error('exerciseCommand, e.shows))
       .map(x =>
         Commands.exercise(refApiIdentifier(x), input.contractId, input.choice, input.argument))
   }
@@ -100,14 +114,15 @@ class CommandService(
     : Error \/ domain.ActiveContract[lav1.value.Value] =
     activeContracts(response).flatMap {
       case List(x) => \/-(x)
-      case xs @ _ => -\/(Error(s"Expected exactly one active contract, got: $xs"))
+      case xs @ _ =>
+        -\/(Error('exactlyOneActiveContract, s"Expected exactly one active contract, got: $xs"))
     }
 
   private def activeContracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
     : Error \/ List[domain.ActiveContract[lav1.value.Value]] =
     response.transaction match {
       case None =>
-        -\/(Error(s"Received response without transaction: $response"))
+        -\/(Error('activeContracts, s"Received response without transaction: $response"))
       case Some(tx) =>
         activeContracts(tx)
     }
@@ -123,16 +138,17 @@ class CommandService(
       .decodeAllCreatedEvents(tx)
       .toList
       .traverse(domain.ActiveContract.fromLedgerApi)
-      .leftMap(Error(_))
+      .leftMap(e => Error('activeContracts, e))
   }
 }
 
 object CommandService {
-  case class Error(message: String)
+  case class Error(id: Symbol, message: String)
 
   object Error {
     implicit val errorShow: Show[Error] = new Show[Error] {
-      override def shows(e: Error): String = s"CommandService Error: ${e.message: String}"
+      override def shows(e: Error): String =
+        s"CommandService Error, ${e.id: Symbol}: ${e.message: String}"
     }
   }
 }
