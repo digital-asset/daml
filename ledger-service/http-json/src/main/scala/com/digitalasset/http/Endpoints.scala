@@ -6,13 +6,12 @@ package com.digitalasset.http
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.{ExceptionHandler, Route}
+import akka.http.scaladsl.server.ExceptionHandler
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
-import com.digitalasset.http.json.HttpCodec._
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.decode
-import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder}
+import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
@@ -21,7 +20,6 @@ import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, Show, \/, \/-}
 import spray.json._
-import com.digitalasset.http.json.SprayJson
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
@@ -55,15 +53,10 @@ class Endpoints(
   private val jwtPayload =
     domain.JwtPayload(ledgerId, lar.ApplicationId("applicationId"), lar.Party("Alice"))
 
-//  private val extractJwtPayload: Directive1[domain.JwtPayload] =
-//    Directive(_(Tuple1(jwtPayload))) // TODO from header
-
   private val ok = HttpEntity(ContentTypes.`application/json`, """{"status": "OK"}""")
 
   lazy val all: PartialFunction[HttpRequest, HttpResponse] =
     command orElse contracts orElse notFound
-
-//  lazy val all2: Route = command2 ~ contracts2
 
   lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
@@ -79,7 +72,7 @@ class Endpoints(
               encoder.encodeV(a).leftMap(e => ServerError(e.shows))
             }
           }
-          .map(encodeResult)
+          .map(formatResult)
       )
 
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
@@ -97,7 +90,7 @@ class Endpoints(
                 .flatMap(as => encodeList(as))
             }
           }
-          .map(encodeResult)
+          .map(formatResult)
       )
   }
 
@@ -114,25 +107,11 @@ class Endpoints(
   private def encodeList(as: List[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
-  private def encodeResult(a: Error \/ JsValue): ByteString = a match {
+  private def formatResult(a: Error \/ JsValue): ByteString = a match {
     case \/-(a) => format(resultJsObject(a: JsValue))
     case -\/(InvalidUserInput(e)) => format(errorsJsObject(StatusCodes.BadRequest)(e))
     case -\/(ServerError(e)) => format(errorsJsObject(StatusCodes.InternalServerError)(e))
   }
-
-  lazy val command2: Route =
-    post {
-      path("/command/create") {
-        entity(as[JsValue]) { data =>
-          complete(data)
-        }
-      } ~
-        path("/command/exercise") {
-          entity(as[JsValue]) { data =>
-            complete(data)
-          }
-        }
-    }
 
   private val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty)
 
@@ -165,46 +144,7 @@ class Endpoints(
       case \/-(bs) => format(resultJsObject(bs: List[JsValue]))
     }
   }
-  /*
-  lazy val contracts2: Route =
-    path("/contracts/lookup") {
-      post {
-        extractJwtPayload { jwt =>
-          entity(as[domain.ContractLookupRequest[JsValue] @@ JsonApi]) {
-            case JsonApi(clr) =>
-              // TODO SC: the result gets labelled "result" not "contract"; does this matter?
-              complete(
-                JsonApi.subst(
-                  contractsService
-                    .lookup(jwt, clr map placeholderLfValueDec)
-                    .map(oac => resultJsObject(oac.map(_.map(placeholderLfValueEnc))))))
-          }
-        }
-      }
-    } ~
-      path("contracts/search") {
-        get {
-          extractJwtPayload { jwt =>
-            complete(
-              JsonApi.subst(
-                contractsService
-                  .search(jwt, emptyGetActiveContractsRequest)
-                  .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
-          }
-        } ~
-          post {
-            extractJwtPayload { jwt =>
-              entity(as[domain.GetActiveContractsRequest @@ JsonApi]) {
-                case JsonApi(gacr) =>
-                  complete(
-                    JsonApi.subst(contractsService
-                      .search(jwt, gacr)
-                      .map(sgacr => resultJsObject(sgacr.map(_.map(placeholderLfValueEnc))))))
-              }
-            }
-          }
-      }
-   */
+
   private def httpResponse(status: StatusCode, output: ByteString): HttpResponse =
     HttpResponse(
       status = status,
@@ -216,16 +156,6 @@ class Endpoints(
 
   private def httpResponse(output: Source[ByteString, _]): HttpResponse =
     HttpResponse(entity = HttpEntity.CloseDelimited(ContentTypes.`application/json`, output))
-
-  // TODO SC: this is a placeholder because we can't do this accurately
-  // without type context
-  private def placeholderLfValueEnc(v: lav1.value.Value): JsValue =
-    JsString(v.sum.toString)
-
-  // TODO SC: this is a placeholder because we can't do this accurately
-  // without type context
-  private def placeholderLfValueDec(v: JsValue): lav1.value.Value =
-    lav1.value.Value(lav1.value.Value.Sum.Text(v.toString))
 
   lazy val notFound: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)
