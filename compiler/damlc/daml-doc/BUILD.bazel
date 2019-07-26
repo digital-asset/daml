@@ -69,7 +69,7 @@ da_haskell_library(
 
 da_haskell_repl(
     name = "repl",
-    test_only = True,
+    testonly = True,
     visibility = ["//visibility:public"],
     deps = [
         ":daml-doc",
