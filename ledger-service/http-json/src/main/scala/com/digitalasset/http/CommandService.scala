@@ -113,7 +113,7 @@ class CommandService(
       response: lav1.command_service.SubmitAndWaitForTransactionResponse)
     : Error \/ domain.ActiveContract[lav1.value.Value] =
     activeContracts(response).flatMap {
-      case List(x) => \/-(x)
+      case Seq(x) => \/-(x)
       case xs @ _ =>
         -\/(Error('exactlyOneActiveContract, s"Expected exactly one active contract, got: $xs"))
     }
