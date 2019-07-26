@@ -21,6 +21,7 @@ import io.grpc.BindableService
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.socket.nio.NioServerSocketChannel
 import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
@@ -148,18 +149,33 @@ final class Server private (
     extends AutoCloseable {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
-  private val serverEventLoopGroup: NioEventLoopGroup = {
-    val threadFactory =
-      new DefaultThreadFactory(s"api-server-damlonx-grpc-eventloop-${UUID.randomUUID}", true)
+  private val workerEventLoopGroup: NioEventLoopGroup = {
     val parallelism = Runtime.getRuntime.availableProcessors
-    new NioEventLoopGroup(parallelism, threadFactory)
+    new NioEventLoopGroup(
+      parallelism,
+      new DefaultThreadFactory(
+        s"api-server-damlonx-grpc-nio-worker-eventloop-${UUID.randomUUID}",
+        true)
+    )
+  }
+
+  private val bossEventLoopGroup: NioEventLoopGroup = {
+    val parallelism = 1
+    new NioEventLoopGroup(
+      parallelism,
+      new DefaultThreadFactory(
+        s"api-server-damlonx-grpc-nio-boss-eventloop-${UUID.randomUUID}",
+        true)
+    )
   }
 
   private val server: io.grpc.Server = {
     val builder = NettyServerBuilder
       .forPort(serverPort)
       .directExecutor()
-      .workerEventLoopGroup(serverEventLoopGroup)
+      .channelType(classOf[NioServerSocketChannel])
+      .bossEventLoopGroup(bossEventLoopGroup)
+      .workerEventLoopGroup(workerEventLoopGroup)
       .permitKeepAliveTime(10, TimeUnit.SECONDS)
       .permitKeepAliveWithoutCalls(true)
 
@@ -191,9 +207,15 @@ final class Server private (
     }
     server.shutdownNow()
     assume(server.awaitTermination(10, TimeUnit.SECONDS))
-    serverEventLoopGroup
-      .shutdownGracefully(0, 0, TimeUnit.SECONDS)
-      .await(10, TimeUnit.SECONDS)
+
+    val workerEventLoopGroupShutdown =
+      workerEventLoopGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS)
+    val bossEventLoopGroupShutdown =
+      bossEventLoopGroup.shutdownGracefully(0, 0, TimeUnit.MILLISECONDS)
+
+    val workerShutdownComplete = workerEventLoopGroupShutdown.await(10, TimeUnit.SECONDS)
+    val bossShutdownComplete = bossEventLoopGroupShutdown.await(10, TimeUnit.SECONDS)
+
     serverEsf.close()
   }
 }
