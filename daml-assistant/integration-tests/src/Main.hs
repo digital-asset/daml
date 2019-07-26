@@ -364,7 +364,7 @@ deployTest deployDir = testCase "daml deploy" $ do
     createDirectoryIfMissing True deployDir
     withCurrentDirectory deployDir $ do
         callCommandQuiet $ unwords ["daml new", deployDir </> "proj1"]
-        callCommandQuiet $ unwords ["daml new", deployDir </> "proj2"]
+        callCommandQuiet $ unwords ["daml new", deployDir </> "proj2", "quickstart-java"]
         withCurrentDirectory (deployDir </> "proj1") $ do
             callCommandQuiet "daml build"
             withDevNull $ \devNull -> do
