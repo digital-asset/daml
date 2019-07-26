@@ -18,10 +18,4 @@ class ConverterSpec extends WordSpec with Matchers with GeneratorDrivenPropertyC
       sequence(Seq(Left(1), Right(2), Left(3))) shouldBe Left(3)
     }
   }
-
-  "sequenceMap" should {
-    "satisfy identity, modulo Map conversion" in forAll { xs: Map[Int, Int] =>
-      sequenceMap(xs transform ((_, v) => Right(v))) shouldBe Right(xs)
-    }
-  }
 }

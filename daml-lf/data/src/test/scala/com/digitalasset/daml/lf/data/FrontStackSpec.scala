@@ -3,14 +3,19 @@
 
 package com.digitalasset.daml.lf.data
 
-import org.scalatest.{WordSpec, Matchers}
-import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
+import org.scalacheck.Properties
+import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
+
+import scalaz.scalacheck.ScalazProperties
+import scalaz.std.anyVal._
 
 class FrontStackSpec
     extends WordSpec
     with Matchers
     with GeneratorDrivenPropertyChecks
-    with TableDrivenPropertyChecks {
+    with TableDrivenPropertyChecks
+    with Checkers {
   import ImmArrayTest._, FrontStackSpec._
 
   "++:" should {
@@ -47,6 +52,24 @@ class FrontStackSpec
       }
     }
   }
+
+  "toBackStack" should {
+    "be retracted by toFrontStack" in forAll { fs: FrontStack[Int] =>
+      fs.toBackStack.toFrontStack should ===(fs)
+    }
+  }
+
+  "Traverse instance" should {
+    checkLaws(ScalazProperties.traverse.laws[FrontStack])
+  }
+
+  "Equal instance" should {
+    import ImmArrayTest._
+    checkLaws(ScalazProperties.equal.laws[FrontStack[IntInt]])
+  }
+
+  private def checkLaws(props: Properties) =
+    props.properties foreach { case (s, p) => s in check(p) }
 }
 
 object FrontStackSpec {

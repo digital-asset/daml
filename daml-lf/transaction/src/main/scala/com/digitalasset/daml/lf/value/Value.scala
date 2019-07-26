@@ -37,17 +37,9 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
         })
       case ValueVariant(id, variant, value) =>
         ValueVariant(id, variant, value.mapContractId(f))
-      case x @ ValueEnum(_, _) => x
+      case x: ValueCidlessLeaf => x
       case ValueList(vs) =>
         ValueList(vs.map(_.mapContractId(f)))
-      case x @ ValueInt64(_) => x
-      case x @ ValueDecimal(_) => x
-      case t @ ValueText(_) => t
-      case t @ ValueTimestamp(_) => t
-      case p @ ValueParty(_) => p
-      case b @ ValueBool(_) => b
-      case x @ ValueDate(_) => x
-      case ValueUnit => ValueUnit
       case ValueOptional(x) => ValueOptional(x.map(_.mapContractId(f)))
       case ValueMap(x) => ValueMap(x.mapValue(_.mapContractId(f)))
     }
@@ -109,9 +101,7 @@ sealed abstract class Value[+Cid] extends Product with Serializable {
               go(exceededNesting, errs, (value, nesting + 1) +: vs)
             }
 
-          case _: ValueEnum | _: ValueContractId[Cid] | _: ValueInt64 | _: ValueDecimal |
-              _: ValueText | _: ValueTimestamp | _: ValueParty | _: ValueBool | _: ValueDate |
-              ValueUnit =>
+          case _: ValueCidlessLeaf | _: ValueContractId[Cid] =>
             go(exceededNesting, errs, vs)
           case ValueOptional(x) =>
             if (nesting + 1 > MAXIMUM_NESTING) {
@@ -175,13 +165,19 @@ object Value {
       }
   }
 
+  /** The parent of all [[Value]] cases that cannot possibly have a Cid.
+    * NB: use only in pattern-matching [[Value]]; the ''type'' of a cid-less
+    * Value is `Value[Nothing]`.
+    */
+  sealed abstract class ValueCidlessLeaf extends Value[Nothing]
+
   final case class ValueRecord[+Cid](
       tycon: Option[Identifier],
       fields: ImmArray[(Option[Name], Value[Cid])])
       extends Value[Cid]
   final case class ValueVariant[+Cid](tycon: Option[Identifier], variant: Name, value: Value[Cid])
       extends Value[Cid]
-  final case class ValueEnum(tycon: Option[Identifier], value: Name) extends Value[Nothing]
+  final case class ValueEnum(tycon: Option[Identifier], value: Name) extends ValueCidlessLeaf
 
   final case class ValueContractId[+Cid](value: Cid) extends Value[Cid]
 
@@ -190,15 +186,15 @@ object Value {
     * packages and FrontQueue lets prepend chunks rather than only one element.
     */
   final case class ValueList[+Cid](values: FrontStack[Value[Cid]]) extends Value[Cid]
-  final case class ValueInt64(value: Long) extends Value[Nothing]
-  final case class ValueDecimal(value: Decimal) extends Value[Nothing]
+  final case class ValueInt64(value: Long) extends ValueCidlessLeaf
+  final case class ValueDecimal(value: Decimal) extends ValueCidlessLeaf
   // Note that Text are assume to be UTF8
-  final case class ValueText(value: String) extends Value[Nothing]
-  final case class ValueTimestamp(value: Time.Timestamp) extends Value[Nothing]
-  final case class ValueDate(value: Time.Date) extends Value[Nothing]
-  final case class ValueParty(value: Ref.Party) extends Value[Nothing]
-  final case class ValueBool(value: Boolean) extends Value[Nothing]
-  case object ValueUnit extends Value[Nothing]
+  final case class ValueText(value: String) extends ValueCidlessLeaf
+  final case class ValueTimestamp(value: Time.Timestamp) extends ValueCidlessLeaf
+  final case class ValueDate(value: Time.Date) extends ValueCidlessLeaf
+  final case class ValueParty(value: Ref.Party) extends ValueCidlessLeaf
+  final case class ValueBool(value: Boolean) extends ValueCidlessLeaf
+  case object ValueUnit extends ValueCidlessLeaf
   final case class ValueOptional[+Cid](value: Option[Value[Cid]]) extends Value[Cid]
   final case class ValueMap[+Cid](value: SortedLookupList[Value[Cid]]) extends Value[Cid]
   // this is present here just because we need it in some internal code --

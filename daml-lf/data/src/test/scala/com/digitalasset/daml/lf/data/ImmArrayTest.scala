@@ -174,9 +174,10 @@ class ImmArrayTest extends FlatSpec with Matchers with Checkers {
 }
 
 object ImmArrayTest {
-  private final case class IntInt(i: Int)
-  private implicit val arbII: Arbitrary[IntInt] = Arbitrary(Arbitrary.arbitrary[Int] map IntInt)
-  private implicit val eqII: Equal[IntInt] = Equal.equal(_ == _)
+  private[data] final case class IntInt(i: Int)
+  private[data] implicit val arbII: Arbitrary[IntInt] = Arbitrary(
+    Arbitrary.arbitrary[Int] map IntInt)
+  private[data] implicit val eqII: Equal[IntInt] = Equal.equal(_ == _)
 
   implicit def arbImmArray[A: Arbitrary]: Arbitrary[ImmArray[A]] =
     Arbitrary {

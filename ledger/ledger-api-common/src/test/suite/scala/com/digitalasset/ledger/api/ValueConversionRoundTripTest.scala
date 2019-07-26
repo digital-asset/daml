@@ -5,7 +5,6 @@ package com.digitalasset.ledger.api
 
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
   List => ApiList,
@@ -13,7 +12,7 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
-import com.digitalasset.ledger.api.validation.{CommandsValidator, ValidatorTestUtils}
+import com.digitalasset.ledger.api.validation.{ValueValidator, ValidatorTestUtils}
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.google.protobuf.empty.Empty
 import org.scalatest.WordSpec
@@ -51,13 +50,9 @@ class ValueConversionRoundTripTest
          }
          """
 
-  private val commandValidator = new CommandsValidator(
-    LedgerId("ledger-id")
-  )
-
   private def roundTrip(v: Value): Either[String, Value] =
     for {
-      lfValue <- commandValidator.validateValue(v).left.map(_.getMessage)
+      lfValue <- ValueValidator.validateValue(v).left.map(_.getMessage)
       apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
     } yield apiValue
 
