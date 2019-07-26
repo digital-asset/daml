@@ -120,6 +120,7 @@ This creates `~tmp/ghc-lib/ghc-lib-parser-xxx.tar.gz` where `xxx` is the version
 
 3. Generate `ghc-lib.cabal` by running:
 ```bash
+git checkout stack.yaml
 (cd ghc && git clean -xf && git checkout .)
 stack exec -- ghc-lib-gen ghc --ghc-lib
 ```
