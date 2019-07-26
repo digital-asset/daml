@@ -4,9 +4,7 @@
 package com.digitalasset.http.util
 
 import com.digitalasset.daml.lf
-import com.digitalasset.ledger.api
-import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
-import com.digitalasset.ledger.api.validation.CommandsValidator
+import com.digitalasset.ledger.api.validation.ValueValidator
 import com.digitalasset.ledger.api.{v1 => lav1}
 import io.grpc.StatusRuntimeException
 import scalaz.{Show, \/}
@@ -24,13 +22,7 @@ object ApiValueToLfValueConverter {
   type ApiValueToLfValue =
     lav1.value.Value => Error \/ lf.value.Value[lf.value.Value.AbsoluteContractId]
 
-  def apiValueToLfValue(ledgerId: lar.LedgerId): ApiValueToLfValue = {
-    val commandsValidator = new CommandsValidator(domainLedgerId(ledgerId))
-
-    a: lav1.value.Value =>
-      \/.fromEither(commandsValidator.validateValue(a)).leftMap(e => Error(e))
+  def apiValueToLfValue: ApiValueToLfValue = { a: lav1.value.Value =>
+    \/.fromEither(ValueValidator.validateValue(a)).leftMap(e => Error(e))
   }
-
-  private def domainLedgerId(a: lar.LedgerId): api.domain.LedgerId =
-    api.domain.LedgerId(lar.LedgerId.unwrap(a))
 }

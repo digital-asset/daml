@@ -119,8 +119,8 @@ object HttpService extends StrictLogging {
     val jsValueToApiValueConverter = new JsValueToApiValueConverter(lfTypeLookup)
     val jsObjectToApiRecord = jsValueToApiValueConverter.jsObjectToApiRecord _
     val jsValueToApiValue = jsValueToApiValueConverter.jsValueToApiValue _
-    val apiValueToLfValue = ApiValueToLfValueConverter.apiValueToLfValue(ledgerId)
-    val apiValueToJsValueConverter = new ApiValueToJsValueConverter(apiValueToLfValue)
+    val apiValueToJsValueConverter = new ApiValueToJsValueConverter(
+      ApiValueToLfValueConverter.apiValueToLfValue)
     val apiValueToJsValue = apiValueToJsValueConverter.apiValueToJsValue _
     val apiRecordToJsObject = apiValueToJsValueConverter.apiRecordToJsObject _
 
