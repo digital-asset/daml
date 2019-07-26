@@ -72,9 +72,9 @@ da_haskell_repl(
     test_only = True,
     visibility = ["//visibility:public"],
     deps = [
+        ":daml-doc",
+        ":daml-doc-testing",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/tests:daml-doc",
-        ":daml-doc-testing",
-        ":daml-doc",
     ],
 )
