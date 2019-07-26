@@ -2,10 +2,13 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 
-module DA.Daml.Doc.Driver(
-    damlDocDriver,
-    InputFormat(..), DocFormat(..)
+module DA.Daml.Doc.Driver
+    ( DamldocOptions(..)
+    , InputFormat(..)
+    , OutputFormat(..)
+    , RenderFormat(..)
     , DocOption(..)
+    , damlDocDriver
     ) where
 
 import DA.Daml.Doc.Types
@@ -18,67 +21,99 @@ import Development.IDE.Types.Location
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Options
 
-import           Control.Monad.Extra
-import           Control.Monad.Except
+import Control.Monad.Extra
+import Control.Monad.Except
+import Data.Maybe
+import System.IO
+import System.Exit
+import System.Directory
+import System.FilePath
+
 import qualified Data.Aeson                        as AE
 import qualified Data.Aeson.Encode.Pretty          as AP
-import qualified Data.ByteString.Lazy              as BS
+import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
 import qualified Data.Text                         as T
 import qualified Data.Text.Encoding                as T
-import           System.Directory
-import           System.FilePath
 
+data DamldocOptions = DamldocOptions
+    { do_inputFormat :: InputFormat
+    , do_ideOptions :: IdeOptions
+    , do_outputPath :: FilePath
+    , do_outputFormat :: OutputFormat
+    , do_docTemplate :: Maybe FilePath
+    , do_docOptions :: [DocOption]
+    , do_inputFiles :: [NormalizedFilePath]
+    , do_docTitle :: Maybe T.Text
+    , do_combine :: Bool
+    }
 
 data InputFormat = InputJson | InputDaml
     deriving (Eq, Show, Read)
 
-damlDocDriver :: InputFormat
-              -> IdeOptions
-              -> FilePath
-              -> DocFormat
-              -> Maybe FilePath
-              -> [DocOption]
-              -> [NormalizedFilePath]
-              -> IO ()
-damlDocDriver cInputFormat ideOpts output cFormat prefixFile options files = do
+data OutputFormat = OutputJson | OutputHoogle | OutputDocs RenderFormat
+    deriving (Eq, Show, Read)
+
+-- | Run damldocs!
+damlDocDriver :: DamldocOptions -> IO ()
+damlDocDriver options = do
+    docData <- inputDocData options
+    renderDocData options (transformDocData options docData)
+
+-- | Load doc data, either via the DAML typechecker or via JSON files.
+inputDocData :: DamldocOptions -> IO [ModuleDoc]
+inputDocData DamldocOptions{..} = do
 
     let printAndExit errMsg = do
-            putStrLn $ "Error processing input from " <> unwords (map fromNormalizedFilePath files) <> "\n"
-                     <> errMsg
-            fail "Aborted."
+            hPutStr stderr . unlines $
+                [ unwords
+                    $ "Error processing input from"
+                    : map fromNormalizedFilePath do_inputFiles
+                , errMsg
+                ]
+            exitFailure
 
-    let onErrorExit act =
-            act >>= either (printAndExit . renderDiags) pure
         renderDiags = T.unpack . showDiagnosticsColored
+        onErrorExit act = act >>= either (printAndExit . renderDiags) pure
 
-    docData <- case cInputFormat of
-            InputJson -> do
-                input <- mapM (BS.readFile . fromNormalizedFilePath) files
-                let mbData = map AE.eitherDecode input :: [Either String [ModuleDoc]]
-                applyAnnotations <$> concatMapM (either printAndExit pure) mbData
+    case do_inputFormat of
+        InputJson -> do
+            input <- mapM (BS.readFile . fromNormalizedFilePath) do_inputFiles
+            let mbData = map (AE.eitherDecode . LBS.fromStrict) input
+            applyAnnotations <$> concatMapM (either printAndExit pure) mbData
 
-            InputDaml ->
-                onErrorExit $ runExceptT
-                            $ fmap (applyTransform options)
-                            $ mkDocs ideOpts files
+        InputDaml -> onErrorExit . runExceptT $
+            fmap (applyTransform do_docOptions)
+                (mkDocs do_ideOptions do_inputFiles)
 
-    prefix <- maybe (pure "") BS.readFile prefixFile
+-- | Transform doc data, applying annotations and
+transformDocData :: DamldocOptions -> [ModuleDoc] -> [ModuleDoc]
+transformDocData DamldocOptions {..} = applyTransform do_docOptions
 
-    let write file contents = do
+-- | Output doc data.
+renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()
+renderDocData DamldocOptions{..} docData = do
+    templateM <- mapM (fmap T.decodeUtf8 . BS.readFile) do_docTemplate
+
+    let prefix = fromMaybe "" templateM
+        write file contents = do
             createDirectoryIfMissing True $ takeDirectory file
             putStrLn $ "Writing " ++ file ++ "..."
-            BS.writeFile file $ prefix <> BS.fromStrict (T.encodeUtf8 contents)
+            BS.writeFile file . T.encodeUtf8 $ prefix <> contents
 
-    case cFormat of
-            Json -> write output $ T.decodeUtf8 . BS.toStrict $ AP.encodePretty' jsonConf docData
-            Rst  -> write output . renderPage . mconcat $ map renderSimpleRst docData
-            Hoogle   -> write output . T.concat $ map renderSimpleHoogle docData
-            Markdown -> write output . renderPage . mconcat $ map renderSimpleMD docData
-            Html -> do
+    case do_outputFormat of
+            OutputJson ->
+                write do_outputPath $ T.decodeUtf8 . LBS.toStrict $ AP.encodePretty' jsonConf docData
+            OutputHoogle ->
+                write do_outputPath . T.concat $ map renderSimpleHoogle docData
+            OutputDocs format -> do
                 let renderOptions = RenderOptions
-                        { ro_mode = RenderToFolder output
-                        , ro_format = Html
-                        , ro_title = Nothing
-                        , ro_template = Nothing
+                        { ro_mode =
+                            if do_combine
+                                then RenderToFile do_outputPath
+                                else RenderToFolder do_outputPath
+                        , ro_format = format
+                        , ro_title = do_docTitle
+                        , ro_template = templateM
                         }
                 renderDocs renderOptions docData
