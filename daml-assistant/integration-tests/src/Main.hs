@@ -382,6 +382,7 @@ deployTest deployDir = testCase "daml deploy" $ do
                             callCommandQuiet $ unwords
                                 [ "daml deploy"
                                 , "--port", show port
+                                , "--host localhost"
                                 ]
                         -- waitForProcess' will block on Windows so we explicitly kill the process.
                         terminateProcess ph
