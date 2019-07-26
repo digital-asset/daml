@@ -113,7 +113,7 @@ class Endpoints(
   private def encodeList(as: List[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
-  private def formatResult(a: Error \/ JsValue): ByteString = a match {
+  private def formatResult(fa: Error \/ JsValue): ByteString = fa match {
     case \/-(a) => format(resultJsObject(a: JsValue))
     case -\/(InvalidUserInput(e)) => format(errorsJsObject(StatusCodes.BadRequest)(e))
     case -\/(ServerError(e)) => format(errorsJsObject(StatusCodes.InternalServerError)(e))
@@ -157,14 +157,6 @@ class Endpoints(
           }
           .map(formatResult)
       )
-  }
-
-  private def encodeResultJsObject(
-      as: Seq[domain.GetActiveContractsResponse[lav1.value.Value]]): ByteString = {
-    as.toList.traverse(a => encoder.encodeV(a)) match {
-      case -\/(e) => format(errorsJsObject(StatusCodes.InternalServerError)(e.shows))
-      case \/-(bs) => format(resultJsObject(bs: List[JsValue]))
-    }
   }
 
   private def httpResponse(output: Future[ByteString]): HttpResponse =
