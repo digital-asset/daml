@@ -22,7 +22,7 @@ module Development.IDE.Core.Rules(
     getDefinition,
     getDependencies,
     getParsedModule,
-    getModIfaces,
+    getTcModuleResults,
     fileFromParsedModule
     ) where
 
@@ -120,19 +120,14 @@ getDefinition file pos = fmap join $ runMaybeT $ do
 getParsedModule :: NormalizedFilePath -> Action (Maybe ParsedModule)
 getParsedModule file = use GetParsedModule file
 
--- | Get module interfaces.
-getModIfaces ::
-       NormalizedFilePath -> Action (Maybe [(FilePath, ModIface, HieFile)])
-getModIfaces file =
+-- | Get typechecked module results of a file and all it's transitive dependencies.
+getTcModuleResults :: NormalizedFilePath -> Action (Maybe ([TcModuleResult], HscEnv))
+getTcModuleResults file =
     runMaybeT $ do
         files <- transitiveModuleDeps <$> useE GetDependencies file
         tms <- usesE TypeCheck (file : files)
-        pure
-            [ ( ms_hspp_file $ pm_mod_summary $ tm_parsed_module $ tmrModule tmr
-              , hm_iface $ tmrModInfo tmr
-              , tmrHieFile tmr)
-            | tmr <- tms
-            ]
+        session <- lift $ useNoFile_ GhcSession
+        pure (tms, session)
 
 
 ------------------------------------------------------------

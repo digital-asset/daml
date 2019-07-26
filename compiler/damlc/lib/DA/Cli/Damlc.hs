@@ -66,7 +66,6 @@ import Development.IDE.Types.Location
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
 import MkIface
-import HieBin
 import "ghc-lib-parser" Module
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
@@ -81,6 +80,11 @@ import System.FilePath
 import System.IO.Extra
 import System.Process(callCommand)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
+import HscTypes
+import GHC
+import Development.IDE.Core.RuleTypes
+import HieAst
+import HieBin
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -456,17 +460,29 @@ createProjectPackageDb lfVersion fps = do
 writeIfacesAndHie :: Options -> NormalizedFilePath -> IdeState -> IO ()
 writeIfacesAndHie options main compilerH =
     when (optWriteInterface options) $ do
-        mbModIfaces <- runAction compilerH $ getModIfaces main
-        modIfaces <-
-            mbErr "ERROR: Creation of interface files failed." mbModIfaces
-        mapM_ writeIface modIfaces
+        mbTcModRes <- runAction compilerH $ getTcModuleResults main
+        (tcms, session) <- mbErr "ERROR: Creation of interface files failed." mbTcModRes
+        mapM_ (writeTcm session) tcms
   where
     ifDir = fromMaybe ifaceDir (optIfaceDir options)
-    writeIface (path, iface, hie) = do
-        let fp = ifDir </> path
+    writeTcm session tcm = do
+        let fp =
+                ifDir </>
+                (ms_hspp_file $
+                 pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
         createDirectoryIfMissing True (takeDirectory fp)
-        writeIfaceFile fakeDynFlags (replaceExtension fp ".hi") iface
-        writeHieFile (replaceExtension fp ".hie") hie
+        writeIfaceFile
+            (hsc_dflags session)
+            (replaceExtension fp ".hi")
+            (hm_iface $ tmrModInfo tcm)
+        hieFile <-
+            liftIO $
+            runHsc session $
+            mkHieFile
+                (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+                (fst $ tm_internals_ $ tmrModule tcm)
+                (fromJust $ tm_renamed_source $ tmrModule tcm)
+        writeHieFile (replaceExtension fp ".hie") hieFile
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a

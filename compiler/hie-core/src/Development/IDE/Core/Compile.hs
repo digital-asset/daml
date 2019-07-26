@@ -141,17 +141,10 @@ mkTcModuleResult
 mkTcModuleResult tcm = do
     session <- getSession
     (iface, _) <- liftIO $ mkIfaceTc session Nothing Sf_None details tcGblEnv
-    hieFile <-
-        liftIO $
-        runHsc session $
-        mkHieFile (tcModSummary tcm) tcGblEnv (fromJust $ renamedSource tcm)
     let mod_info = HomeModInfo iface details Nothing
-    return $ TcModuleResult tcm mod_info hieFile
+    return $ TcModuleResult tcm mod_info
   where
     (tcGblEnv, details) = tm_internals_ tcm
-
-tcModSummary :: TypecheckedModule -> ModSummary
-tcModSummary = pm_mod_summary . tm_parsed_module
 
 -- | Setup the environment that GHC needs according to our
 -- best understanding (!)
