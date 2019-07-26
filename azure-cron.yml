@@ -5,9 +5,17 @@ pr: none
 # Do not run on merge to master
 trigger: none
 # Do run on a schedule (hourly)
+# Azure limits each cron entry to 100 runs, so we have to split this into 2.
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/build/triggers?view=azure-devops&tabs=yaml#supported-cron-syntax
 schedules:
-- cron: "0 * * * *"
-  displayName: hourly cron
+- cron: "0 * * * 0-3"
+  displayName: hourly cron (Sun-Wed)
+  branches:
+    include:
+    - master
+  always: true
+- cron: "0 * * * 4-6"
+  displayName: hourly cron (Thu-Sat)
   branches:
     include:
     - master
