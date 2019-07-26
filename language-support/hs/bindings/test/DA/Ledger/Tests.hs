@@ -353,7 +353,6 @@ tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \
 
 tListKnownPackages :: SandboxTest
 tListKnownPackages withSandbox = testCase "tListKnownPackages" $ run withSandbox $ \_pid -> do
-    _ <- getLedgerIdentity -- without this, the first call to listKnownPackages times-out
     known0 <- listKnownPackages
     let pids0 = map (\PackageDetails{pid} -> pid) known0
     liftIO $ do assertEqual "#known0" 3 (length known0)

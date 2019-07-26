@@ -33,10 +33,9 @@ setTime lid currentTime newTime  =
         let LL.TimeService {timeServiceSetTime=rpc} = service
         let request = LL.SetTimeRequest (unLedgerId lid) (Just (lowerTimestamp currentTime)) (Just (lowerTimestamp newTime))
         rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrapWithInvalidArgument
             >>= \case
-            ClientNormalResponse Empty{} _m1 _m2 _status _details -> do
+            Right Empty{} ->
                 return $ Right ()
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) ->
+            Left details ->
                 return $ Left $ show $ unStatusDetails details
-            ClientErrorResponse e ->
-                fail (show e)
