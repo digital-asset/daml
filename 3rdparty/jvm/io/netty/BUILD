@@ -37,6 +37,7 @@ java_library(
         ":netty_buffer",
         ":netty_codec",
         ":netty_common",
+        ":netty_handler",
         ":netty_transport"
     ],
     visibility = [

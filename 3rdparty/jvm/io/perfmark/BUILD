@@ -3,24 +3,11 @@
 load("@io_bazel_rules_scala//scala:scala.bzl", "scala_library")
 load("@io_bazel_rules_scala//scala:scala_import.bzl", "scala_import")
 java_library(
-    name = "protobuf_java",
+    name = "perfmark_api",
     exports = [
-        "//external:jar/com/google/protobuf/protobuf_java"
-    ],
-    visibility = [
-        "//visibility:public"
-    ]
-)
-
-
-
-java_library(
-    name = "protobuf_java_util",
-    exports = [
-        "//3rdparty/jvm/com/google/code/gson:gson",
+        "//3rdparty/jvm/com/google/code/findbugs:jsr305",
         "//3rdparty/jvm/com/google/errorprone:error_prone_annotations",
-        "//external:jar/com/google/protobuf/protobuf_java_util",
-        ":protobuf_java"
+        "//external:jar/io/perfmark/perfmark_api"
     ],
     visibility = [
         "//3rdparty/jvm:__subpackages__"

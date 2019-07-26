@@ -8,7 +8,7 @@ module DA.Daml.Doc.Render.Types
 
 import qualified Data.Text as T
 
-data DocFormat = Json | Rst | Markdown | Html | Hoogle
+data RenderFormat = Rst | Markdown | Html
     deriving (Eq, Show, Read, Enum, Bounded)
 
 -- | Control whether to render docs as a single file, or as
@@ -20,7 +20,7 @@ data RenderMode
 -- | Options that affect rendering.
 data RenderOptions = RenderOptions
     { ro_mode :: RenderMode -- ^ control single file / multi file rendering
-    , ro_format :: DocFormat -- ^ renderer output format
+    , ro_format :: RenderFormat -- ^ renderer output format
     , ro_title :: Maybe T.Text -- ^ title of rendered documentation
     , ro_template :: Maybe T.Text -- ^ renderer template
     }

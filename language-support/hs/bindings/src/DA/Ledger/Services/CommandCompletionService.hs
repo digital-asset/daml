@@ -51,8 +51,9 @@ completionEnd lid =
         service <- commandCompletionServiceClient client
         let CommandCompletionService {commandCompletionServiceCompletionEnd=rpc} = service
         let request = CompletionEndRequest (unLedgerId lid) noTrace
-        response <- rpc (ClientNormalRequest request timeout emptyMdm)
-        unwrap response >>= \case
+        rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrap
+            >>= \case
             CompletionEndResponse (Just offset) ->
                 case raiseAbsLedgerOffset offset of
                     Left reason -> fail (show reason)

@@ -10,6 +10,7 @@ module DA.Ledger.Services.CommandService (
     submitAndWaitForTransactionTree,
     ) where
 
+import Data.Functor
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
@@ -25,13 +26,8 @@ submitAndWait commands =
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionId=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
-            >>= \case
-            ClientNormalResponse LL.SubmitAndWaitForTransactionIdResponse{} _m1 _m2 _status _details -> do
-                return $ Right ()
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) ->
-                return $ Left $ show $ unStatusDetails details
-            ClientErrorResponse e ->
-                fail (show e)
+            >>= unwrapWithInvalidArgument
+            <&> fmap (\LL.SubmitAndWaitForTransactionIdResponse{} -> ())
 
 submitAndWaitForTransactionId :: Commands -> LedgerService (Either String TransactionId)
 submitAndWaitForTransactionId commands =
@@ -41,14 +37,8 @@ submitAndWaitForTransactionId commands =
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionId=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
-            >>= \case
-            ClientNormalResponse response _m1 _m2 _status _details -> do
-                let LL.SubmitAndWaitForTransactionIdResponse{..} = response
-                return $ Right $ TransactionId submitAndWaitForTransactionIdResponseTransactionId
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) ->
-                return $ Left $ show $ unStatusDetails details
-            ClientErrorResponse e ->
-                fail (show e)
+            >>= unwrapWithInvalidArgument
+            <&> fmap (TransactionId . LL.submitAndWaitForTransactionIdResponseTransactionId)
 
 submitAndWaitForTransaction :: Commands -> LedgerService (Either String Transaction)
 submitAndWaitForTransaction commands =
@@ -58,13 +48,12 @@ submitAndWaitForTransaction commands =
         let LL.CommandService{commandServiceSubmitAndWaitForTransaction=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrapWithInvalidArgument
             >>= \case
-            ClientNormalResponse response _m1 _m2 _status _details -> do
+            Right response ->
                 either (fail . show) (return . Right) $ raiseResponse response
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) ->
-                return $ Left $ show $ unStatusDetails details
-            ClientErrorResponse e ->
-                fail (show e)
+            Left details ->
+                return $ Left details
   where
       raiseResponse = \case
           LL.SubmitAndWaitForTransactionResponse{..} -> do
@@ -79,13 +68,12 @@ submitAndWaitForTransactionTree commands =
         let LL.CommandService{commandServiceSubmitAndWaitForTransactionTree=rpc} = service
         let request = LL.SubmitAndWaitRequest (Just (lowerCommands commands)) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrapWithInvalidArgument
             >>= \case
-            ClientNormalResponse response _m1 _m2 _status _details -> do
+            Right response ->
                 either (fail . show) (return . Right) $ raiseResponse response
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) ->
-                return $ Left $ show $ unStatusDetails details
-            ClientErrorResponse e ->
-                fail (show e)
+            Left details ->
+                return $ Left details
   where
       raiseResponse = \case
           LL.SubmitAndWaitForTransactionTreeResponse{..} -> do

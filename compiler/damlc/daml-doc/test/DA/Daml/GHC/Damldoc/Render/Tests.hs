@@ -264,16 +264,14 @@ mkExpectMD anchor name descr templates classes adts fcts
       , ""]
   ]
 
-renderTest :: DocFormat -> (String, ModuleDoc) -> T.Text -> Tasty.TestTree
+renderTest :: RenderFormat -> (String, ModuleDoc) -> T.Text -> Tasty.TestTree
 renderTest format (name, input) expected =
   testCase name $ do
   let
     renderer = case format of
-                 Json -> error "Json encoder testing not done here"
                  Rst -> renderPage . renderSimpleRst
                  Markdown -> renderPage . renderSimpleMD
                  Html -> error "HTML testing not supported (use Markdown)"
-                 Hoogle -> error "Hoogle doc testing not yet supported."
     output = T.strip $ renderer input
     expect = T.strip expected
 

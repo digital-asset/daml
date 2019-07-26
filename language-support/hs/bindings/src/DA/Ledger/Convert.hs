@@ -7,6 +7,7 @@ module DA.Ledger.Convert (
     lowerCommands, lowerLedgerOffset, lowerTimestamp,
     Perhaps, perhaps,
     raiseList,
+    raiseParty,
     raiseTransaction,
     raiseTransactionTree,
     raiseCompletionStreamResponse,

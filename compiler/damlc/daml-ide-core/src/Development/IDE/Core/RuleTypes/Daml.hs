@@ -36,9 +36,22 @@ import Language.Haskell.HLint4
 
 type instance RuleResult GenerateDalf = LF.Module
 type instance RuleResult GenerateRawDalf = LF.Module
-type instance RuleResult GeneratePackage = LF.Package
-type instance RuleResult GenerateRawPackage = LF.Package
-type instance RuleResult GeneratePackageDeps = LF.Package
+
+-- | A newtype wrapper for LF.Package that does not force the modules
+-- in the package to be evaluated to NF. This is useful since we
+-- already force the evaluation when we build the modules
+-- and avoids having to traverse all dependencies of a module
+-- if only that module changed.
+newtype WhnfPackage = WhnfPackage { getWhnfPackage :: LF.Package }
+    deriving Show
+
+instance NFData WhnfPackage where
+    rnf (WhnfPackage (LF.Package ver modules)) =
+        modules `seq` rnf ver
+
+type instance RuleResult GeneratePackage = WhnfPackage
+type instance RuleResult GenerateRawPackage = WhnfPackage
+type instance RuleResult GeneratePackageDeps = WhnfPackage
 
 data DalfPackage = DalfPackage
     { dalfPackageId :: LF.PackageId

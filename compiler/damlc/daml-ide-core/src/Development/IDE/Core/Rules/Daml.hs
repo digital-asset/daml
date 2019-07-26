@@ -124,11 +124,11 @@ uriToVirtualResource uri = do
 -- | Get an unvalidated DALF package.
 -- This must only be used for debugging/testing.
 getRawDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
-getRawDalf absFile = use GenerateRawPackage absFile
+getRawDalf absFile = fmap getWhnfPackage <$> use GenerateRawPackage absFile
 
 -- | Get a validated DALF package.
 getDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
-getDalf file = use GeneratePackage file
+getDalf file = fmap getWhnfPackage <$> use GeneratePackage file
 
 getDalfModule :: NormalizedFilePath -> Action (Maybe LF.Module)
 getDalfModule file = use GenerateDalf file
@@ -186,7 +186,7 @@ generateDalfRule :: Rules ()
 generateDalfRule =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
-        pkg <- use_ GeneratePackageDeps file
+        WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgMap <- useNoFile_ GeneratePackageMap
         let pkgs = map dalfPackagePkg $ Map.elems pkgMap
         let world = LF.initWorldSelf pkgs pkg
@@ -243,9 +243,9 @@ generatePackageMapRule opts =
 generatePackageRule :: Rules ()
 generatePackageRule =
     define $ \GeneratePackage file -> do
-        deps <- use_ GeneratePackageDeps file
+        WhnfPackage deps <- use_ GeneratePackageDeps file
         dalf <- use_ GenerateDalf file
-        return ([], Just deps{LF.packageModules = NM.insert dalf (LF.packageModules deps)})
+        return ([], Just $ WhnfPackage $ deps{LF.packageModules = NM.insert dalf (LF.packageModules deps)})
 
 -- Generates a DAML-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
@@ -259,7 +259,7 @@ generateRawPackageRule options =
 
         -- build package
         let pkg = buildPackage (optMbPackageName options) lfVersion dalfs
-        return ([], Just pkg)
+        return ([], Just $ WhnfPackage pkg)
 
 generatePackageDepsRule :: Options -> Rules ()
 generatePackageDepsRule options =
@@ -270,12 +270,12 @@ generatePackageDepsRule options =
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ buildPackage (optMbPackageName options) lfVersion dalfs)
+        return ([], Just $ WhnfPackage $ buildPackage (optMbPackageName options) lfVersion dalfs)
 
 contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
     lfVersion <- getDamlLfVersion
-    pkg <- use_ GeneratePackage file
+    WhnfPackage pkg <- use_ GeneratePackage file
     pkgMap <- useNoFile_ GeneratePackageMap
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
@@ -292,7 +292,7 @@ contextForFile file = do
 
 worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
-    pkg <- use_ GeneratePackage file
+    WhnfPackage pkg <- use_ GeneratePackage file
     pkgMap <- useNoFile_ GeneratePackageMap
     let pkgs = map dalfPackagePkg $ Map.elems pkgMap
     pure $ LF.initWorldSelf pkgs pkg

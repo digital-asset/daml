@@ -5,6 +5,7 @@
 
 module DA.Ledger.Services.CommandSubmissionService (submit) where
 
+import Data.Functor
 import Com.Digitalasset.Ledger.Api.V1.CommandSubmissionService
 import DA.Ledger.Convert (lowerCommands)
 import DA.Ledger.GrpcWrapUtils
@@ -21,10 +22,5 @@ submit commands =
         let CommandSubmissionService rpc = service
         let request = SubmitRequest (Just (lowerCommands commands)) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
-            >>= \case
-            ClientNormalResponse Empty{} _m1 _m2 _status _details ->
-                return $ Right ()
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) ->
-                return $ Left $ show $ unStatusDetails details
-            ClientErrorResponse e ->
-                fail (show e)
+            >>= unwrapWithInvalidArgument
+            <&> fmap (\Empty{} -> ())
