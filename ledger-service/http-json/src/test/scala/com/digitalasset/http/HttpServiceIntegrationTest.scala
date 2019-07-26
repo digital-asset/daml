@@ -18,6 +18,7 @@ import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.ledger.api.v1.{value => v}
 import com.typesafe.scalalogging.StrictLogging
 import org.scalatest._
+import scalaz.\/-
 import scalaz.syntax.functor._
 import scalaz.syntax.show._
 import spray.json._
@@ -30,6 +31,8 @@ class HttpServiceIntegrationTest
     with Inside
     with BeforeAndAfterAll
     with StrictLogging {
+
+  import json.JsonProtocol._
 
   private val dar = requiredFile("./docs/quickstart-model.dar")
     .fold(e => throw new IllegalStateException(e), identity)
@@ -62,8 +65,6 @@ class HttpServiceIntegrationTest
   }
 
   "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
-    import json.JsonProtocol._
-
     val command: domain.CreateCommand[v.Record] = iouCreateCommand
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
@@ -82,8 +83,6 @@ class HttpServiceIntegrationTest
   }
 
   "command/exercise IOU_Transfer" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
-    import json.JsonProtocol._
-
     val create: domain.CreateCommand[v.Record] = iouCreateCommand
     val createJson: JsObject = encoder.encodeR(create).valueOr(e => fail(e.shows))
 
@@ -134,12 +133,11 @@ class HttpServiceIntegrationTest
       jsObject: JsObject,
       command: domain.CreateCommand[v.Record]): Assertion = {
 
-    // TODO(Leo): check the jsObject.argument is the same as createCommand.argument
-    println(s"------- jsObject: $jsObject")
-    println(s"------- command: $command")
-
-    inside(jsObject.fields.get("argument")) {
-      case Some(JsObject(fields)) => fields.size shouldBe command.argument.fields.size
+    inside(decoder.decodeV[domain.ActiveContract](jsObject)) {
+      case \/-(activeContract) =>
+        inside(activeContract.argument.sum.record) {
+          case Some(argument) => removeRecordId(argument) shouldBe command.argument
+        }
     }
   }
 

@@ -85,6 +85,19 @@ object domain {
         ^(gk, ga)((k, a) => fa.copy(key = k, argument = a))
       }
     }
+
+    implicit val hasTemplateId: HasTemplateId[ActiveContract] = new HasTemplateId[ActiveContract] {
+      override def templateId(fa: ActiveContract[_]): TemplateId.OptionalPkg =
+        TemplateId(
+          Some(fa.templateId.packageId),
+          fa.templateId.moduleName,
+          fa.templateId.entityName)
+
+      override def lfIdentifier(
+          fa: ActiveContract[_],
+          templateId: TemplateId.RequiredPkg): lf.data.Ref.Identifier =
+        IdentifierConverters.lfIdentifier(templateId)
+    }
   }
 
   object ContractLookupRequest {
