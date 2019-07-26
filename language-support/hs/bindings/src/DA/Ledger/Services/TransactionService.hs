@@ -52,17 +52,16 @@ getTransactionByEventId lid eid parties =
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetTransactionByEventId=rpc} = service
         rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout emptyMdm)
-        >>= \case
-            ClientNormalResponse (LL.GetTransactionResponse Nothing) _m1 _m2 _status _details ->
+            >>= unwrapWithNotFound
+            >>= \case
+            Just (LL.GetTransactionResponse Nothing) ->
                 fail "GetTransactionResponse, transaction field is missing"
-            ClientNormalResponse (LL.GetTransactionResponse (Just tx)) _m1 _m2 _status _details ->
+            Just (LL.GetTransactionResponse (Just tx)) ->
                 case raiseTransactionTree tx of
                     Left reason -> fail (show reason)
                     Right x -> return $ Just x
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _details)) ->
+            Nothing ->
                 return Nothing
-            ClientErrorResponse e ->
-                fail (show e)
 
 getTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe TransactionTree)
 getTransactionById lid trid parties =
@@ -71,17 +70,16 @@ getTransactionById lid trid parties =
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetTransactionById=rpc} = service
         rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout emptyMdm)
-        >>= \case
-            ClientNormalResponse (LL.GetTransactionResponse Nothing) _m1 _m2 _status _details ->
+            >>= unwrapWithNotFound
+            >>= \case
+            Just (LL.GetTransactionResponse Nothing) ->
                 fail "GetTransactionResponse, transaction field is missing"
-            ClientNormalResponse (LL.GetTransactionResponse (Just tx)) _m1 _m2 _status _details ->
+            Just (LL.GetTransactionResponse (Just tx)) ->
                 case raiseTransactionTree tx of
                     Left reason -> fail (show reason)
                     Right x -> return $ Just x
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _details)) ->
+            Nothing ->
                 return Nothing
-            ClientErrorResponse e ->
-                fail (show e)
 
 getFlatTransactionByEventId :: LedgerId -> EventId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionByEventId lid eid parties =
@@ -90,17 +88,16 @@ getFlatTransactionByEventId lid eid parties =
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetFlatTransactionByEventId=rpc} = service
         rpc (ClientNormalRequest (mkByEventIdRequest lid eid parties) timeout emptyMdm)
-        >>= \case
-            ClientNormalResponse (LL.GetFlatTransactionResponse Nothing) _m1 _m2 _status _details ->
+            >>= unwrapWithNotFound
+            >>= \case
+            Just (LL.GetFlatTransactionResponse Nothing) ->
                 fail "GetFlatTransactionResponse, transaction field is missing"
-            ClientNormalResponse (LL.GetFlatTransactionResponse (Just tx)) _m1 _m2 _status _details ->
+            Just (LL.GetFlatTransactionResponse (Just tx)) ->
                 case raiseTransaction tx of
                     Left reason -> fail (show reason)
                     Right x -> return $ Just x
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _details)) ->
+            Nothing ->
                 return Nothing
-            ClientErrorResponse e ->
-                fail (show e)
 
 getFlatTransactionById :: LedgerId -> TransactionId -> [Party] -> LedgerService (Maybe Transaction)
 getFlatTransactionById lid trid parties =
@@ -109,17 +106,16 @@ getFlatTransactionById lid trid parties =
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetFlatTransactionById=rpc} = service
         rpc (ClientNormalRequest (mkByIdRequest lid trid parties) timeout emptyMdm)
-        >>= \case
-            ClientNormalResponse (LL.GetFlatTransactionResponse Nothing) _m1 _m2 _status _details ->
+            >>= unwrapWithNotFound
+            >>= \case
+            Just (LL.GetFlatTransactionResponse Nothing) ->
                 fail "GetFlatTransactionResponse, transaction field is missing"
-            ClientNormalResponse (LL.GetFlatTransactionResponse (Just tx)) _m1 _m2 _status _details ->
+            Just (LL.GetFlatTransactionResponse (Just tx)) ->
                 case raiseTransaction tx of
                     Left reason -> fail (show reason)
                     Right x -> return $ Just x
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _details)) ->
+            Nothing ->
                 return Nothing
-            ClientErrorResponse e ->
-                fail (show e)
 
 ledgerEnd :: LedgerId -> LedgerService AbsOffset
 ledgerEnd lid =
@@ -128,8 +124,9 @@ ledgerEnd lid =
         service <- LL.transactionServiceClient client
         let LL.TransactionService{transactionServiceGetLedgerEnd=rpc} = service
         let request = LL.GetLedgerEndRequest (unLedgerId lid) noTrace
-        response <- rpc (ClientNormalRequest request timeout emptyMdm)
-        unwrap response >>= \case
+        rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrap
+            >>= \case
             LL.GetLedgerEndResponse (Just offset) ->
                 case raiseAbsLedgerOffset offset of
                     Left reason -> fail (show reason)

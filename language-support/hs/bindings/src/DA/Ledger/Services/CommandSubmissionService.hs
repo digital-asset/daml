@@ -21,10 +21,9 @@ submit commands =
         let CommandSubmissionService rpc = service
         let request = SubmitRequest (Just (lowerCommands commands)) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrapWithInvalidArgument
             >>= \case
-            ClientNormalResponse Empty{} _m1 _m2 _status _details ->
+            Right Empty{} ->
                 return $ Right ()
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) ->
+            Left details ->
                 return $ Left $ show $ unStatusDetails details
-            ClientErrorResponse e ->
-                fail (show e)

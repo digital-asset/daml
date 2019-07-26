@@ -32,11 +32,8 @@ listKnownPackages =
         let LL.PackageManagementService {packageManagementServiceListKnownPackages=rpc} = service
         let request = LL.ListKnownPackagesRequest
         rpc (ClientNormalRequest request timeout emptyMdm)
-            >>= \case
-            ClientNormalResponse response _m1 _m2 _status _details -> do
-                either (fail . show) return $ raiseResponse response
-            ClientErrorResponse e -> do
-                fail (show e)
+            >>= unwrap
+            >>= either (fail . show) return . raiseResponse
 
 raiseResponse ::  LL.ListKnownPackagesResponse -> Perhaps [PackageDetails]
 raiseResponse = \case
@@ -61,10 +58,9 @@ uploadDarFile bytes =
         let LL.PackageManagementService {packageManagementServiceUploadDarFile=rpc} = service
         let request = LL.UploadDarFileRequest bytes
         rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrapWithInvalidArgument
             >>= \case
-            ClientNormalResponse LL.UploadDarFileResponse{} _m1 _m2 _status _details ->
+            Right LL.UploadDarFileResponse{} ->
                 return $ Right ()
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) ->
+            Left details ->
                 return $ Left $ show $ unStatusDetails details
-            ClientErrorResponse e ->
-                fail (show e)
