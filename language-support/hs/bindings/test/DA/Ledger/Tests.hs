@@ -584,7 +584,6 @@ resetSandbox sandbox = runWithSandbox sandbox $ do
     Ledger.reset lid
     lid2 <- getLedgerIdentity
     unless (lid /= lid2) $ fail "resetSandbox: reset did not change the ledger-id"
-    return ()
 
 ----------------------------------------------------------------------
 -- misc expectation combinators
