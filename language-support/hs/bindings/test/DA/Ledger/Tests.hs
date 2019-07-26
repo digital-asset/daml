@@ -73,6 +73,9 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tSubmitAndWaitForTransactionId
     , tSubmitAndWaitForTransaction
     , tSubmitAndWaitForTransactionTree
+    , tGetParticipantId
+    , tListKnownParties
+    , tAllocateParty
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -353,7 +356,6 @@ tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \
 
 tListKnownPackages :: SandboxTest
 tListKnownPackages withSandbox = testCase "tListKnownPackages" $ run withSandbox $ \_pid -> do
-    _ <- getLedgerIdentity -- without this, the first call to listKnownPackages times-out
     known0 <- listKnownPackages
     let pids0 = map (\PackageDetails{pid} -> pid) known0
     liftIO $ do assertEqual "#known0" 3 (length known0)
@@ -478,6 +480,27 @@ tSubmitAndWaitForTransactionTree withSandbox =
     Just (Right [treeExpected]) <- liftIO $ timeout 1 $ takeStream txs
     liftIO $ assertEqual "tree" treeExpected tree
 
+
+tGetParticipantId :: SandboxTest
+tGetParticipantId withSandbox = testCase "tGetParticipantId" $ run withSandbox $ \_pid -> do
+    id <- getParticipantId
+    liftIO $ assertEqual "participant" (ParticipantId "sandbox-participant") id
+
+tListKnownParties :: SandboxTest
+tListKnownParties withSandbox = testCase "tListKnownParties" $ run withSandbox $ \_pid -> do
+    xs <- listKnownParties
+    liftIO $ assertEqual "details" [] xs
+
+tAllocateParty :: SandboxTest
+tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_pid -> do
+    let party = Party "me"
+    let displayName = "Only Me"
+    let request = AllocatePartyRequest { partyIdHint = unParty party, displayName }
+    deats <- allocateParty request
+    let expected = PartyDetails { party, displayName, isLocal = True }
+    liftIO $ assertEqual "deats" expected deats
+    list <- listKnownParties
+    liftIO $ assertEqual "list" [expected] list
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands

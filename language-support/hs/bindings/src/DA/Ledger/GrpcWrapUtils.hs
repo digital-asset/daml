@@ -5,7 +5,9 @@
 {-# LANGUAGE GADTs             #-}
 
 module DA.Ledger.GrpcWrapUtils (
-    noTrace, emptyMdm, unwrap, sendToStream,
+    noTrace, emptyMdm,
+    unwrap, unwrapWithNotFound, unwrapWithInvalidArgument,
+    sendToStream,
     ) where
 
 import Prelude hiding (fail)
@@ -29,6 +31,20 @@ emptyMdm = MetadataMap Map.empty
 unwrap :: ClientResult 'Normal a -> IO a
 unwrap = \case
     ClientNormalResponse x _m1 _m2 _status _details -> return x
+    ClientErrorResponse (ClientIOError e) -> throwIO e
+    ClientErrorResponse ce -> fail (show ce)
+
+unwrapWithNotFound :: ClientResult 'Normal a -> IO (Maybe a)
+unwrapWithNotFound = \case
+    ClientNormalResponse x _m1 _m2 _status _details -> return $ Just x
+    ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _)) -> return Nothing
+    ClientErrorResponse (ClientIOError e) -> throwIO e
+    ClientErrorResponse ce -> fail (show ce)
+
+unwrapWithInvalidArgument :: ClientResult 'Normal a -> IO (Either String a)
+unwrapWithInvalidArgument = \case
+    ClientNormalResponse x _m1 _m2 _status _details -> return $ Right x
+    ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) -> return $ Left $ show $ unStatusDetails details
     ClientErrorResponse (ClientIOError e) -> throwIO e
     ClientErrorResponse ce -> fail (show ce)
 

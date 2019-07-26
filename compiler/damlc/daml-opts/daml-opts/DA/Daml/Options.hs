@@ -16,7 +16,6 @@ module DA.Daml.Options
 import Control.Monad
 import qualified CmdLineParser as Cmd (warnMsg)
 import Data.Bifunctor
-import Data.Maybe
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
@@ -50,7 +49,6 @@ toCompileOpts options@Options{..} =
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
           }
-      , optIfaceDir = HieCore.InterfaceDirectory (fromMaybe ifaceDir optIfaceDir <$ guard optWriteInterface)
       , optExtensions = ["daml"]
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling

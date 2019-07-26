@@ -95,7 +95,7 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
         pkgName
         sdkVersion
     else runAction service $ runMaybeT $ do
-      pkg <- useE GeneratePackage file
+      WhnfPackage pkg <- useE GeneratePackage file
       let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
       let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
       unless (S.null missingExposed) $

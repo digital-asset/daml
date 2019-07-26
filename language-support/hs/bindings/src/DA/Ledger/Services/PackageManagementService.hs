@@ -13,6 +13,7 @@ import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
 import Data.ByteString(ByteString)
+import Data.Functor
 import Data.Text.Lazy (Text)
 import Network.GRPC.HighLevel.Generated
 import qualified Com.Digitalasset.Ledger.Api.V1.Admin.PackageManagementService as LL
@@ -32,11 +33,8 @@ listKnownPackages =
         let LL.PackageManagementService {packageManagementServiceListKnownPackages=rpc} = service
         let request = LL.ListKnownPackagesRequest
         rpc (ClientNormalRequest request timeout emptyMdm)
-            >>= \case
-            ClientNormalResponse response _m1 _m2 _status _details -> do
-                either (fail . show) return $ raiseResponse response
-            ClientErrorResponse e -> do
-                fail (show e)
+            >>= unwrap
+            >>= either (fail . show) return . raiseResponse
 
 raiseResponse ::  LL.ListKnownPackagesResponse -> Perhaps [PackageDetails]
 raiseResponse = \case
@@ -61,10 +59,5 @@ uploadDarFile bytes =
         let LL.PackageManagementService {packageManagementServiceUploadDarFile=rpc} = service
         let request = LL.UploadDarFileRequest bytes
         rpc (ClientNormalRequest request timeout emptyMdm)
-            >>= \case
-            ClientNormalResponse LL.UploadDarFileResponse{} _m1 _m2 _status _details ->
-                return $ Right ()
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusInvalidArgument details)) ->
-                return $ Left $ show $ unStatusDetails details
-            ClientErrorResponse e ->
-                fail (show e)
+            >>= unwrapWithInvalidArgument
+            <&> fmap (\LL.UploadDarFileResponse{} -> ())
