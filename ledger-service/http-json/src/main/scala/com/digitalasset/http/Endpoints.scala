@@ -30,8 +30,7 @@ class Endpoints(
     commandService: CommandService,
     contractsService: ContractsService,
     encoder: DomainJsonEncoder,
-    decoder: DomainJsonDecoder,
-    parallelism: Int = 8)(implicit ec: ExecutionContext)
+    decoder: DomainJsonDecoder)(implicit ec: ExecutionContext)
     extends StrictLogging {
 
   import Endpoints._
@@ -104,6 +103,13 @@ class Endpoints(
         -\/(ServerError(e.getMessage))
     }
 
+  private def handleFutureFailure[A](fa: Future[A]): Future[ServerError \/ A] =
+    fa.map(a => \/-(a)).recover {
+      case NonFatal(e) =>
+        logger.error("Future failed", e)
+        -\/(ServerError(e.getMessage))
+    }
+
   private def encodeList(as: List[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
@@ -121,20 +127,36 @@ class Endpoints(
 
     case HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
       httpResponse(
-        contractsService
-          .search(jwtPayload, emptyGetActiveContractsRequest)
-          .map(encodeResultJsObject)
+        handleFutureFailure(contractsService.search(jwtPayload, emptyGetActiveContractsRequest))
+          .map { fas: Error \/ Seq[domain.GetActiveContractsResponse[lav1.value.Value]] =>
+            fas.flatMap { as =>
+              as.toList
+                .traverse(a => encoder.encodeV(a))
+                .leftMap(e => ServerError(e.shows))
+                .flatMap(js => encodeList(js))
+            }
+          }
+          .map(formatResult)
       )
 
-    case HttpRequest(POST, Uri.Path("/contracts/search"), _, HttpEntity.Strict(_, input), _) => // TODO(Leo): get rid of Strict
-      decode[domain.GetActiveContractsRequest](input.utf8String) match {
-        case -\/(e) =>
-          httpResponse(
-            StatusCodes.BadRequest,
-            format(errorsJsObject(StatusCodes.BadRequest)(e.shows)))
-        case \/-(a) =>
-          httpResponse(contractsService.search(jwtPayload, a).map(encodeResultJsObject))
-      }
+    case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
+      httpResponse(
+        input(req)
+          .map(decode[domain.GetActiveContractsRequest])
+          .mapAsync(1) {
+            case -\/(e) => invalidUserInput(e)
+            case \/-(c) => handleFutureFailure(contractsService.search(jwtPayload, c))
+          }
+          .map { fas: Error \/ Seq[domain.GetActiveContractsResponse[lav1.value.Value]] =>
+            fas.flatMap { as =>
+              as.toList
+                .traverse(a => encoder.encodeV(a))
+                .leftMap(e => ServerError(e.shows))
+                .flatMap(js => encodeList(js))
+            }
+          }
+          .map(formatResult)
+      )
   }
 
   private def encodeResultJsObject(
@@ -144,11 +166,6 @@ class Endpoints(
       case \/-(bs) => format(resultJsObject(bs: List[JsValue]))
     }
   }
-
-  private def httpResponse(status: StatusCode, output: ByteString): HttpResponse =
-    HttpResponse(
-      status = status,
-      entity = HttpEntity.Strict(ContentTypes.`application/json`, output))
 
   private def httpResponse(output: Future[ByteString]): HttpResponse =
     HttpResponse(entity =
