@@ -227,5 +227,5 @@ object Endpoints {
   }
 
   private[http] def input(req: HttpRequest): Source[String, _] =
-    req.entity.dataBytes.fold(ByteString.empty)(_ ++ _).map(_.utf8String)
+    req.entity.dataBytes.fold(ByteString.empty)(_ ++ _).map(_.utf8String).take(1L)
 }

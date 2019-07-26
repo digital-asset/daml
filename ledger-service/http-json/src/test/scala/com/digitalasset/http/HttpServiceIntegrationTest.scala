@@ -229,7 +229,8 @@ class HttpServiceIntegrationTest
     domain.ExerciseCommand(templateId, contractId, choice, arg, None)
   }
 
-  private def postJson(uri: Uri, json: JsValue): Future[(StatusCode, JsValue)] =
+  private def postJson(uri: Uri, json: JsValue): Future[(StatusCode, JsValue)] = {
+    logger.info(s"postJson: $uri json: $json")
     Http()
       .singleRequest(
         HttpRequest(
@@ -241,6 +242,7 @@ class HttpServiceIntegrationTest
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
         bodyF.map(body => (resp.status, body.parseJson))
       }
+  }
 
   private def assertStatus(jsObj: JsValue, expectedStatus: StatusCode): Assertion = {
     inside(jsObj) {
