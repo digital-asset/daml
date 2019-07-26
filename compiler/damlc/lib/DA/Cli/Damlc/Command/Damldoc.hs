@@ -56,7 +56,7 @@ documentation = Damldoc
     optOutputPath =
         option str
             $ metavar "OUTPUT"
-            <> help "Path to output folder. If --combined is set, this is the path to the output file instead. (required)"
+            <> help "Path to output folder. If the --combine flag is passed, this is the path to the output file instead. (required)"
             <> long "output"
             <> short 'o'
 
