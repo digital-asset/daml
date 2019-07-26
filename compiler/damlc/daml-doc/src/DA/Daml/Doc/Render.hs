@@ -3,7 +3,7 @@
 
 
 module DA.Daml.Doc.Render
-  ( DocFormat(..)
+  ( RenderFormat(..)
   , RenderOptions(..)
   , RenderMode(..)
   , renderDocs
@@ -43,8 +43,6 @@ renderDocs :: RenderOptions -> [ModuleDoc] -> IO ()
 renderDocs RenderOptions{..} mods = do
     let (renderModule, postProcessing) =
             case ro_format of
-                Json -> (const (renderLine ""), id) -- not implemented (yet?)
-                Hoogle -> (const (renderLine ""), id) -- not implemented (yet?)
                 Rst -> (renderSimpleRst, id)
                 Markdown -> (renderSimpleMD, id)
                 Html -> (renderSimpleMD, GFM.commonmarkToHtml [GFM.optUnsafe] [GFM.extTable])
@@ -66,8 +64,6 @@ renderDocs RenderOptions{..} mods = do
                 outputMap = renderFolder renderMap
                 extension =
                     case ro_format of
-                        Json -> "json"
-                        Hoogle -> "txt"
                         Markdown -> "md"
                         Rst -> "rst"
                         Html -> "html"
@@ -97,7 +93,7 @@ renderTemplate template pageTitle pageBody
     . T.replace "__TITLE__" pageTitle
     $ template
 
-defaultTemplate :: DocFormat -> T.Text
+defaultTemplate :: RenderFormat -> T.Text
 defaultTemplate = \case
     Html -> defaultTemplateHtml
     _ -> "__BODY__"
