@@ -37,6 +37,10 @@ $ bazel run //ledger-service/http-json:http-json-bin -- localhost 6865 7575
 ### GET http://localhost:7575/contracts/search
 
 ### POST http://localhost:7575/contracts/search
+application/json body:
+```
+{"templateIds": [{"moduleName": "Iou", "entityName": "Iou"}]}
+```
 
 ### POST http://localhost:7575/command/create
 application/json body:
