@@ -5,6 +5,7 @@
 
 module DA.Ledger.Services.TimeService (getTime,setTime) where
 
+import Data.Functor
 import DA.Ledger.LedgerService
 import DA.Ledger.Stream
 import DA.Ledger.Types
@@ -34,8 +35,4 @@ setTime lid currentTime newTime  =
         let request = LL.SetTimeRequest (unLedgerId lid) (Just (lowerTimestamp currentTime)) (Just (lowerTimestamp newTime))
         rpc (ClientNormalRequest request timeout emptyMdm)
             >>= unwrapWithInvalidArgument
-            >>= \case
-            Right Empty{} ->
-                return $ Right ()
-            Left details ->
-                return $ Left $ show $ unStatusDetails details
+            <&> fmap (\Empty{} -> ())

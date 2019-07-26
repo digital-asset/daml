@@ -13,6 +13,7 @@ import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
 import DA.Ledger.Types
 import Data.ByteString(ByteString)
+import Data.Functor
 import Data.Text.Lazy (Text)
 import Network.GRPC.HighLevel.Generated
 import qualified Com.Digitalasset.Ledger.Api.V1.Admin.PackageManagementService as LL
@@ -59,8 +60,4 @@ uploadDarFile bytes =
         let request = LL.UploadDarFileRequest bytes
         rpc (ClientNormalRequest request timeout emptyMdm)
             >>= unwrapWithInvalidArgument
-            >>= \case
-            Right LL.UploadDarFileResponse{} ->
-                return $ Right ()
-            Left details ->
-                return $ Left $ show $ unStatusDetails details
+            <&> fmap (\LL.UploadDarFileResponse{} -> ())
