@@ -42,15 +42,16 @@ documentation = Damldoc
     optInputFormat =
         option readInputFormat
             $ metavar "FORMAT"
-            <> help "Input format, either 'daml' or 'json' (default is daml)."
+            <> help "Input format, either daml or json (default is daml)."
             <> long "input-format"
             <> value InputDaml
 
     readInputFormat =
-        eitherReader $ \case
-            "daml" -> Right InputDaml
-            "json" -> Right InputJson
-            _ -> Left "Unknown input format. Expected 'daml' or 'json'."
+        eitherReader $ \arg ->
+            case lower arg of
+                "daml" -> Right InputDaml
+                "json" -> Right InputJson
+                _ -> Left "Unknown input format. Expected daml or json."
 
     optOutputPath :: Parser FilePath
     optOutputPath =
@@ -165,14 +166,14 @@ data CmdArgs = Damldoc { cInputFormat :: InputFormat
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
     opts <- defaultOptionsIO Nothing
-    damlDocDriver DamldocOptions
+    runDamlDoc DamldocOptions
         { do_ideOptions = toCompileOpts opts { optMbPackageName = cPkgName }
         , do_outputPath = cOutputPath
         , do_outputFormat = cOutputFormat
         , do_inputFormat = cInputFormat
         , do_inputFiles = map toNormalizedFilePath cMainFiles
         , do_docTemplate = cTemplate
-        , do_docOptions = transformOptions
+        , do_transformOptions = transformOptions
         , do_docTitle = T.pack <$> cPkgName
         , do_combine = cCombine
         }

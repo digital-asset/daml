@@ -8,14 +8,13 @@ module DA.Daml.Doc.Driver
     , OutputFormat(..)
     , RenderFormat(..)
     , DocOption(..)
-    , damlDocDriver
+    , runDamlDoc
     ) where
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render
 import DA.Daml.Doc.HaddockParse
 import DA.Daml.Doc.Transform
-import DA.Daml.Doc.Annotate
 
 import Development.IDE.Types.Location
 import Development.IDE.Types.Diagnostics
@@ -29,12 +28,12 @@ import System.Exit
 import System.Directory
 import System.FilePath
 
-import qualified Data.Aeson                        as AE
-import qualified Data.Aeson.Encode.Pretty          as AP
+import qualified Data.Aeson as AE
+import qualified Data.Aeson.Encode.Pretty as AP
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.Text                         as T
-import qualified Data.Text.Encoding                as T
+import qualified Data.Text.Extended as T
+import qualified Data.Text.Encoding as T
 
 data DamldocOptions = DamldocOptions
     { do_inputFormat :: InputFormat
@@ -42,7 +41,7 @@ data DamldocOptions = DamldocOptions
     , do_outputPath :: FilePath
     , do_outputFormat :: OutputFormat
     , do_docTemplate :: Maybe FilePath
-    , do_docOptions :: [DocOption]
+    , do_transformOptions :: [DocOption]
     , do_inputFiles :: [NormalizedFilePath]
     , do_docTitle :: Maybe T.Text
     , do_combine :: Bool
@@ -55,10 +54,10 @@ data OutputFormat = OutputJson | OutputHoogle | OutputDocs RenderFormat
     deriving (Eq, Show, Read)
 
 -- | Run damldocs!
-damlDocDriver :: DamldocOptions -> IO ()
-damlDocDriver options = do
+runDamlDoc :: DamldocOptions -> IO ()
+runDamlDoc options@DamldocOptions{..} = do
     docData <- inputDocData options
-    renderDocData options (transformDocData options docData)
+    renderDocData options (applyTransform do_transformOptions docData)
 
 -- | Load doc data, either via the DAML typechecker or via JSON files.
 inputDocData :: DamldocOptions -> IO [ModuleDoc]
@@ -80,26 +79,21 @@ inputDocData DamldocOptions{..} = do
         InputJson -> do
             input <- mapM (BS.readFile . fromNormalizedFilePath) do_inputFiles
             let mbData = map (AE.eitherDecode . LBS.fromStrict) input
-            applyAnnotations <$> concatMapM (either printAndExit pure) mbData
+            concatMapM (either printAndExit pure) mbData
 
         InputDaml -> onErrorExit . runExceptT $
-            fmap (applyTransform do_docOptions)
-                (mkDocs do_ideOptions do_inputFiles)
-
--- | Transform doc data, applying annotations and
-transformDocData :: DamldocOptions -> [ModuleDoc] -> [ModuleDoc]
-transformDocData DamldocOptions {..} = applyTransform do_docOptions
+            mkDocs do_ideOptions do_inputFiles
 
 -- | Output doc data.
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()
 renderDocData DamldocOptions{..} docData = do
-    templateM <- mapM (fmap T.decodeUtf8 . BS.readFile) do_docTemplate
+    templateM <- mapM T.readFileUtf8 do_docTemplate
 
     let prefix = fromMaybe "" templateM
         write file contents = do
             createDirectoryIfMissing True $ takeDirectory file
             putStrLn $ "Writing " ++ file ++ "..."
-            BS.writeFile file . T.encodeUtf8 $ prefix <> contents
+            T.writeFileUtf8 file $ prefix <> contents
 
     case do_outputFormat of
             OutputJson ->
