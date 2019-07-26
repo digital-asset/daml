@@ -78,14 +78,15 @@ class PackageManagementServiceIT
       }
       .fold[List[LoadedPackage]](err => fail(err), scala.Predef.identity)
 
-    // Guesses the package ID of the test package.
-    // Note: the test DAR file contains 3 packages: the test package, stdlib, and daml-prim.
-    // The test package should be by far the smallest one, so we just sort the packages by size
-    // to avoid having to parse and inspect package details.
+    // Get the ID of the test package.
+    // The test DAR file contains 3 packages: the test package, stdlib, and daml-prim.
     val testPackageId = testPackages
-      .sortBy(_.size)
-      .headOption
-      .getOrElse(fail("List of packages is empty"))
+      .collectFirst {
+        case archive if archive.pkg.modules.keySet.contains(
+          Ref.ModuleName.assertFromSegments(Seq("Test"))
+        ) => archive.archive.getHash
+      }
+      .getOrElse(fail("Could not find test package"))
       .archive
       .getHash
 
