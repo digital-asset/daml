@@ -376,7 +376,7 @@ We can now define all the literals that a program can handle::
         LitInt64  ∈ (-?)\d+                         -- LitInt64:
 
   Numeric literals:
-      LitNumeric  ∈  ([+-]?)\d+.\d*                 -- LitNumeric
+      LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
 
   Date literals:
          LitDate  ∈  \d{4}-\d{4}-\d{4}               -- LitDate
@@ -392,15 +392,16 @@ We can now define all the literals that a program can handle::
 
 The literals represent actual DAML-LF values:
 
-* A ``LitNatType`` represents a natural number between ``0`` and ``38`` inclusive.
+* A ``LitNatType`` represents a natural number between ``0`` and
+  ``38``, bounds inclusive.
 * A ``LitInt64`` represents a standard signed 64-bit integer (integer
   between ``−2⁶³`` to ``2⁶³−1``).
-* A ``LitNumeric`` represents a decimal number that can be represented
-  without loss of precision with at most 38 digits (ignoring possible
-  leading 0 and with a scale (the number of significant digits on the
-  right of the decimal point) between ``0`` and ``38`` (bounds
-  inclusive). In the following, we will use ``scale(LitNumeric)`` to
-  denote the scale of the decimal number.
+* A ``LitNumeric`` represents a signed number that can be represented
+  in base-10 without loss of precision with at most 38 digits
+  (ignoring possible leading 0 and with a scale (the number of
+  significant digits on the right of the decimal point) between ``0``
+  and ``38`` (bounds inclusive). In the following, we will use
+  ``scale(LitNumeric)`` to denote the scale of the decimal number.
 * A ``LitDate`` represents the number of day since
   ``1970-01-01`` with allowed range from ``0001-01-01`` to
   ``9999-12-31`` and using a year-month-day format.
@@ -533,7 +534,7 @@ Then we can define our kinds, types, and expressions::
   Types (mnemonic: tau for type)
     τ, σ
       ::= α                                         -- TyVar: Type variable
-       |  n                                         -- TNat: Type natural
+       |  n                                         -- TNat: Nat Type
        |  τ σ                                       -- TyApp: Type application
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
@@ -730,6 +731,9 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyVar
       Γ  ⊢  α  :  k
 
+    ————————————————————————————————————————————— TyVar
+      Γ  ⊢  n  :  'nat'
+      
       Γ  ⊢  τ  :  k₁ → k₂      Γ  ⊢  σ  :  k₂
     ————————————————————————————————————————————— TyApp
       Γ  ⊢  τ σ  :  k₁
@@ -2864,9 +2868,10 @@ Starting from DAML-LF 1.dev those messages are deserialized to ``nat``
 kind and ``nat`` type respectively. The field ``nat`` of ``Type``
 message must be a positive integer.
 
-Note that despite, their is no concrete way to build Nat types in
-DAML-LF 1.6 (or earlier) program, those can be implicitly generated as
-described in the next section.
+Note that despite their is no concrete way to build Nat types in a
+DAML-LF 1.6 (or earlier) program, those are implicitly generated when
+reading as Numeric type and Numeric builtin as described in the next
+section.
 
 Parametric scaled Decimals
 ..........................
@@ -2875,15 +2880,15 @@ Parametric scaled Decimals
 
 DAML-LF 1.dev is the first version that supports parametric scaled
 decimals. Prior versions have decimal number with a fix scale of 10
-called `Decimal`. Backward compatibility with the current
-specification is achieved by
+called Decimal. Backward compatibility with the current specification
+is achieved by
 
 1. Renaming the fields and the emum values containing "``decimal``" in
    the Protocol buffer definition with "``numeric``" instead,
 2. Unconditionally fixing the scale of Numeric literals to ``10`` when
    reading DAML-LF 1.6 (or earlier),
-3. Automatically applying the ``Numeric`` types and the numeric
-   builtin functions to the ``nat`` type ``10`` when reading DAML-LF
+3. Automatically applying the Numeric types and the numeric
+   builtin functions to the Nat type ``10`` when reading DAML-LF
    1.6 (or earlier).
 
    
