@@ -41,7 +41,7 @@ object KeyValueSubmission {
     */
   def transactionOutputs(entryId: DamlLogEntryId, tx: SubmittedTransaction): List[DamlStateKey] = {
     val effects = InputsAndEffects.computeEffects(entryId, tx)
-    effects.createdContracts ++ effects.consumedContracts
+    effects.createdContracts.map(_._1) ++ effects.consumedContracts
   }
 
   /** Convert a transaction into a submission. */

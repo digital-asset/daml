@@ -8,10 +8,6 @@
 // These messages must only be produced and consumed by the methods in
 // `KeyValueCommitting`, `KeyValueConsumption` and `KeyValueSubmission` objects.
 // You must not embed these messages in other protocol buffer messages.
-//
-// TODO(JM): We're consistently using the 'Daml' prefix to allow unqualified import
-// of the generated classes and to distinguish these from the scala types in participant-state.
-// Might want to use a more telling prefix.
 
 syntax = "proto3";
 package com.daml.ledger.participant.state.kvutils;
@@ -22,6 +18,7 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
 import "da/daml_lf.proto";
 import "daml-lf/transaction/src/main/protobuf/transaction.proto";
+import "daml-lf/transaction/src/main/protobuf/com/digitalasset/daml/lf/value.proto";
 
 
 // A submission to the ledger: a payload and its inputs if any.
@@ -281,6 +278,7 @@ message DamlStateKey {
     DamlContractId contract_id = 2;
     DamlCommandDedupKey command_dedup = 3;
     string party = 4;
+    DamlContractKey contract_key = 5;
   }
 }
 
@@ -292,6 +290,7 @@ message DamlStateValue {
     DamlContractState contract_state = 2;
     DamlCommandDedupValue command_dedup = 3;
     DamlPartyAllocation party = 4;
+    DamlContractKeyState contract_key_state = 5;
   }
 }
 
@@ -308,6 +307,7 @@ message DamlCommandDedupKey {
 message DamlCommandDedupValue {
   // NOTE(JM): Currently no content. Could store pointer to log entry.
 }
+
 
 // DAML contract state, recording the activeness state of a contract.
 // The contract instance itself is stored within the transaction in a log entry.
@@ -332,6 +332,16 @@ message DamlContractState {
   // https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#divulgence-when-non-stakeholders-see-contracts
   repeated string divulged_to = 5;
 
+  // The contract key set by the contract. Optional.
+  DamlContractKey contract_key = 6;
+}
+
+message DamlContractKey {
+  // The DAML template identifier of the contract that created this key.
+  com.digitalasset.daml.lf.value.Identifier template_id = 1;
+
+  // The contract key itself.
+  com.digitalasset.daml.lf.value.VersionedValue key = 2;
 }
 
 // Stored information about a given party.
@@ -344,4 +354,11 @@ message DamlPartyAllocation {
   string participant_id = 1;
   // A display name associated with the given party.
   string display_name = 2;
+}
+
+// The state of a contract key.
+message DamlContractKeyState {
+  // The contract to which the key points to.
+  // If unset the key is inactive.
+  DamlContractId contract_id = 1;
 }

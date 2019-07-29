@@ -47,6 +47,10 @@ client_server_test(
     name = "conformance-test",
     timeout = "short",
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client_args = [
+        "--exclude=*",
+        "--include=SemanticTests,ContractKeysIT",
+    ],
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
         "//ledger/sandbox:Test.dar",
@@ -54,6 +58,7 @@ client_server_test(
     server = ":reference",
     server_args = [
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
     ],
     tags = [
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
