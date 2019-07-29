@@ -99,10 +99,9 @@ encodePackageRef ctx = Just . \case
 
 internPackageRefIds :: Package -> (PackageRefCtx, [PackageId], [ModuleName])
 internPackageRefIds pkg =
-  let (internPackageRef, packageIds) =
-        let set = S.fromList $ pkg ^.. packageModuleRef._1._PRImport
-            lookup pkgid = fromIntegral <$> pkgid `S.lookupIndex` set
-        in (lookup, S.toAscList set)
+  let pkgIdSet = S.fromList $ pkg ^.. packageModuleRef._1._PRImport
+      packageIds = S.toAscList pkgIdSet
+      internPackageRef pkgid = fromIntegral <$> pkgid `S.lookupIndex` pkgIdSet
       (internModuleRef, moduleNames) =
         if packageLfVersion pkg `supports` featureInternedModuleNames
         then let freq = M.unionsWith (\_ _ -> True) $ pkg ^.. packageModuleRef._2.to (`M.singleton` False)
