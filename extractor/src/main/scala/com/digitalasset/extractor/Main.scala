@@ -4,6 +4,7 @@
 package com.digitalasset.extractor
 
 import com.digitalasset.extractor.config.ConfigParser
+import com.digitalasset.extractor.writers.Writer
 import com.typesafe.scalalogging.StrictLogging
 
 object Main extends App with StrictLogging {
@@ -18,7 +19,7 @@ object Main extends App with StrictLogging {
 
   logger.trace(s"Parsed config: ${config}")
 
-  val runner = new Extractor(config, target)
+  val runner = new Extractor(config, target, (config, target, ledgerId) => Writer(config, target, ledgerId))
 
   runner.run()
 }

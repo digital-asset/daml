@@ -35,7 +35,7 @@ import Scalaz._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.tag._
 
-class Extractor[T <: Target](config: ExtractorConfig, target: T) extends StrictLogging {
+class Extractor[T <: Target](config: ExtractorConfig, target:T, writerSupplier: (ExtractorConfig, Target, String) => Writer) extends StrictLogging {
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
@@ -56,7 +56,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) extends StrictL
     val result = for {
       client <- createClient
 
-      writer = Writer(config, target, client.ledgerId.unwrap)
+      writer = writerSupplier(config, target, client.ledgerId.unwrap)
 
       _ = logger.info(s"Connected to ledger ${client.ledgerId}\n\n")
 

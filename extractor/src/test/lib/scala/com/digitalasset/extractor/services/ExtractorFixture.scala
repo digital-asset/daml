@@ -13,6 +13,7 @@ import com.digitalasset.platform.sandbox.persistence.PostgresAround
 import com.digitalasset.platform.sandbox.services.SandboxFixture
 import scalaz.OneAnd
 import cats.effect.{ContextShift, IO}
+import com.digitalasset.extractor.writers.Writer
 import doobie._
 import doobie.implicits._
 import org.scalatest._
@@ -93,7 +94,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected def run(): Unit = {
     val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = getSandboxPort))
 
-    extractor = new Extractor(config, target)
+    extractor = new Extractor(config, target, (config, target, ledgerId) => Writer(config, target, ledgerId))
 
     val res = extractor.run()
 
