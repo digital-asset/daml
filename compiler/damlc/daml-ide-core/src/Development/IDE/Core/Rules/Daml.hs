@@ -575,19 +575,24 @@ hlintSettings :: FilePath -> IO ([Classify], Hint)
 hlintSettings hlintDataDir = do
   curdir <- getCurrentDirectory
   home <- catchIOError ((:[]) <$> getHomeDirectory) (const $ return [])
-  implicit <-
+  dlintYaml <-
     findM System.Directory.Extra.doesFileExist $
       map (</> ".dlint.yaml") (ancestors curdir ++ home)
-  let settingsFiles = map (, Nothing) $
-        (hlintDataDir </> "hlint.yaml") : maybeToList implicit
-  -- `readFilesConfig` calls `readFileConfigYaml` which in turn calls
-  -- `decodeFileEither` from the `yaml` library.  Annoyingly that
-  -- function catches async exceptions and in particular, it ends up
-  -- catching `ThreadKilled`. So, we have to mask to stop it from
-  -- doing that.
-  (_, classify, hints) <- splitSettings <$>
-    (mask $ \unmask -> (unmask . readFilesConfig) settingsFiles)
-  return (classify, hints)
+  -- `findSettings` calls `readFilesConfig` which in turn calls
+  -- `readFileConfigYaml` which finally calls `decodeFileEither` from
+  -- the `yaml` library.  Annoyingly that function catches async
+  -- exceptions and in particular, it ends up catching
+  -- `ThreadKilled`. So, we have to mask to stop it from doing that.
+  let hlintYaml = hlintDataDir </> "hlint.yaml"
+  (_, cs, hs) <-
+    mask $ \unmask ->
+      findSettings (unmask . const (return (hlintYaml, Nothing))) (Just hlintYaml)
+  (_, cs', hs') <- case dlintYaml of
+    Just dlintYaml' ->
+      mask $ \unmask ->
+        findSettings (unmask . const (return (dlintYaml', Nothing))) (Just dlintYaml')
+    Nothing -> return (mempty, mempty, mempty)
+  return (cs <> cs', hs <> hs')
   where
     ancestors = init . map joinPath . reverse . inits . splitPath
 
