@@ -338,8 +338,8 @@ object KeyValueCommitting {
     )
 
     def contractVisibleToSubmitter(contractState: DamlContractState): Boolean = {
-      val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala.toSet
-      val divulgedTo = contractState.getDivulgedToList.asScala.toSet
+      val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala
+      val divulgedTo = contractState.getDivulgedToList.asScala
       locallyDisclosedTo.contains(submitter) || divulgedTo.contains(submitter)
     }
 
@@ -380,8 +380,7 @@ object KeyValueCommitting {
         inputState
           .get(stateKey)
           .flatten
-          .map(!_.getContractKeyState.hasContractId)
-          .getOrElse(true)
+          .forall(!_.getContractKeyState.hasContractId)
 
       case (allUnique, _) => allUnique
     }
@@ -407,8 +406,7 @@ object KeyValueCommitting {
         buildRejectionLogEntry(
           recordTime,
           txEntry,
-          // FIXME(JM): Need specific RejectionReason? Tests look for 'DuplicateKey'.
-          RejectionReason.Disputed("DuplicateKey: Contract Key uniqueness violation")
+          RejectionReason.Disputed("DuplicateKey: Contract Key not unique")
         )
 
       case (true, true, Right(()), true) =>
@@ -498,6 +496,21 @@ object KeyValueCommitting {
       submitter: String,
       txLet: Timestamp,
       coid: AbsoluteContractId) = {
+    def isVisibleToSubmitter(cs: DamlContractState): Boolean =
+      cs.getLocallyDisclosedToList.asScala.contains(submitter) || cs.getDivulgedToList.asScala
+        .contains(submitter) || {
+        logger.trace(s"lookupContract($coid): Contract state not found!")
+        false
+      }
+    def isActive(cs: DamlContractState): Boolean = {
+      val activeAt = Option(cs.getActiveAt).map(parseTimestamp)
+      activeAt.exists(txLet >= _) || {
+        val activeAtStr = activeAt.fold("<activeAt missing>")(_.toString)
+        logger.trace(
+          s"lookupContract($coid): Contract not active (let=$txLet, activeAt=$activeAtStr).")
+        false
+      }
+    }
     val (eid, nid) = absoluteContractIdToLogEntryId(coid)
     val stateKey = absoluteContractIdToStateKey(coid)
     for {
@@ -506,35 +519,11 @@ object KeyValueCommitting {
         logger.trace(s"lookupContract($coid): Contract state not found!")
         throw Err.MissingInputState(stateKey)
       }
-      locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala.toSet
-      divulgedTo = contractState.getDivulgedToList.asScala.toSet
-
-      // 1. Verify that the submitter can view the contract.
-      _ <- if (locallyDisclosedTo.contains(submitter) || divulgedTo.contains(submitter))
-        Some(())
-      else {
-        logger.trace(s"lookupContract($coid): Contract not visible to submitter $submitter")
-        None
-      }
-
-      // 2. Verify that the contract is active
-      _ <- if (contractState.hasActiveAt && txLet >= parseTimestamp(contractState.getActiveAt))
-        Some(())
-      else {
-        val activeAtStr =
-          if (contractState.hasActiveAt)
-            parseTimestamp(contractState.getActiveAt).toString
-          else "<activeAt missing>"
-        logger.trace(
-          s"lookupContract($coid): Contract not active (let=$txLet, activeAt=$activeAtStr).")
-        None
-      }
-
+      if isVisibleToSubmitter(contractState) && isActive(contractState)
       // Finally lookup the log entry containing the create node and the contract instance.
-      entry = inputLogEntries
-        .getOrElse(eid, throw Err.MissingInputLogEntry(eid))
-      coinst <- lookupContractInstanceFromLogEntry(eid, entry, nid)
-    } yield (coinst)
+      entry = inputLogEntries.getOrElse(eid, throw Err.MissingInputLogEntry(eid))
+      contract <- lookupContractInstanceFromLogEntry(eid, entry, nid)
+    } yield contract
   }
 
   // Helper to lookup package from the state. The package contents
@@ -566,39 +555,29 @@ object KeyValueCommitting {
       knownKeys: Map[GlobalKey, AbsoluteContractId],
       submitter: String,
       key: GlobalKey): Option[AbsoluteContractId] = {
-    val stateKey = Conversions.contractKeyToStateKey(key)
-
+    def isVisibleToSubmitter(cs: DamlContractState, coid: AbsoluteContractId): Boolean = {
+      cs.getLocallyDisclosedToList.asScala.contains(submitter) || cs.getDivulgedToList.asScala
+        .contains(submitter) || {
+        logger.trace(s"lookupKey($key): Contract $coid not visible to submitter $submitter.")
+        false
+      }
+    }
     inputState
-      .get(stateKey)
+      .get(Conversions.contractKeyToStateKey(key))
+      .flatMap {
+        _.flatMap { value =>
+          for {
+            contractId <- Option(value.getContractKeyState.getContractId).map(decodeContractId)
+            contractStateKey = absoluteContractIdToStateKey(contractId)
+            contractState <- inputState.get(contractStateKey).flatMap(_.map(_.getContractState))
+            if isVisibleToSubmitter(contractState, contractId)
+          } yield contractId
+        }
+      }
       // If the key was not in state inputs, then we look whether any of the accessed contracts
       // has the key we're looking for. This happens with "fetchByKey" where the key lookup
       // is not evidenced in the transaction.
-      .fold(knownKeys.get(key)) {
-        _.flatMap { value =>
-          val s = value.getContractKeyState
-          if (s.hasContractId) {
-            val coid = decodeContractId(s.getContractId)
-            // Verify that the contract can be accessed by the submitter.
-            val contractStateKey = absoluteContractIdToStateKey(coid)
-            inputState
-              .get(contractStateKey)
-              .flatMap(_.map(_.getContractState))
-              .flatMap { cs =>
-                val locallyDisclosedTo = cs.getLocallyDisclosedToList.asScala.toSet
-                val divulgedTo = cs.getDivulgedToList.asScala.toSet
-                if (locallyDisclosedTo.contains(submitter) || divulgedTo.contains(submitter))
-                  Some(coid)
-                else {
-                  logger.trace(
-                    s"lookupKey($key): Contract $coid not visible to submitter $submitter.")
-                  None
-                }
-              }
-          } else {
-            None
-          }
-        }
-      }
+      .orElse(knownKeys.get(key))
   }
 
   private def buildRejectionLogEntry(

@@ -34,6 +34,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   CommandSubmissionServiceLogging
 }
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -43,8 +44,6 @@ import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
 import java.util.concurrent.{ExecutorService, Executors}
-
-import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 
 object DamlOnXSubmissionService {
 
