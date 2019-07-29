@@ -67,7 +67,7 @@ class ContractsService(
     : Option[domain.ActiveContract[lav1.value.Value]] =
     (as.view: Seq[domain.GetActiveContractsResponse[lav1.value.Value]])
       .flatMap(a => a.activeContracts)
-      .find(x => x.contractId == k)
+      .find(x => (x.contractId: String) == k)
 
   def search(jwtPayload: domain.JwtPayload, request: domain.GetActiveContractsRequest)
     : Future[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]] =
