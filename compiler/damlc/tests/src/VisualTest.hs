@@ -51,7 +51,7 @@ worldForFile' damlFilePath = do
 
 visualDamlTests :: Tasty.TestTree
 visualDamlTests = Tasty.testGroup "Visual Tests"
-    [   testCase' "Set files of interest" $ do
+    [   testCase "Set files of interest" $ do
             foo <- makeModule "F"
                 [ "template Coin"
                 , "  with"
@@ -68,7 +68,6 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             setFilesOfInterest [foo]
             worldForFile' foo
     ]
-    where testCase' = testCase
 
 
 
