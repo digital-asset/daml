@@ -109,16 +109,15 @@ private[acceptance] sealed abstract case class LedgerSession(
   private[infrastructure] def clock()(implicit context: ExecutionContext): Future[Clock] =
     for (id <- ledgerId()) yield new LedgerClock(id, timeService)
 
-  private[infrastructure] def create(
+  private def submitAndWaitCommand[A](service: SubmitAndWaitRequest => Future[A])(
       party: String,
-      templateId: Identifier,
-      args: (String, Value.Sum)*)(implicit context: ExecutionContext): Future[String] =
+      command: Command.Command)(implicit context: ExecutionContext): Future[A] =
     for {
       id <- ledgerId()
       clock <- clock()
       now = clock.instant()
       inFiveSeconds = now.plusSeconds(5)
-      tx <- commandService.submitAndWaitForTransaction(
+      a <- service(
         new SubmitAndWaitRequest(
           Some(new Commands(
             ledgerId = id,
@@ -128,68 +127,70 @@ private[acceptance] sealed abstract case class LedgerSession(
             ledgerEffectiveTime = Some(new Timestamp(now.getEpochSecond, now.getNano)),
             maximumRecordTime =
               Some(new Timestamp(inFiveSeconds.getEpochSecond, inFiveSeconds.getNano)),
-            commands = Seq(
-              new Command(
-                Create(
-                  new CreateCommand(
-                    Some(templateId),
-                    Some(new Record(
-                      fields = args.map {
-                        case (label, value) =>
-                          new RecordField(label, Some(new Value(value)))
-                      }
-                    ))
-                  )
-                )
-              )
-            )
+            commands = Seq(new Command(command))
           ))))
-    } yield tx.transaction.get.events.collect { case Event(Created(e)) => e.contractId }.head
+    } yield a
+
+  private def submitAndWait(party: String, command: Command.Command)(
+      implicit ec: ExecutionContext): Future[Unit] =
+    submitAndWaitCommand(commandService.submitAndWait)(party, command).map(_ => ())
+
+  private def submitAndWaitForTransaction[A](party: String, command: Command.Command)(
+      f: Transaction => A)(implicit ec: ExecutionContext): Future[A] =
+    submitAndWaitCommand(commandService.submitAndWaitForTransaction)(party, command).map(r =>
+      f(r.transaction.get))
+
+  private def createCommand(templateId: Identifier, args: Map[String, Value.Sum]): Command.Command =
+    Create(
+      new CreateCommand(
+        Some(templateId),
+        Some(
+          new Record(
+            fields = args.map {
+              case (label, value) =>
+                new RecordField(label, Some(new Value(value)))
+            }(collection.breakOut)
+          ))
+      )
+    )
+
+  private[infrastructure] def create(
+      party: String,
+      templateId: Identifier,
+      args: Map[String, Value.Sum])(implicit context: ExecutionContext): Future[String] =
+    submitAndWaitForTransaction(party, createCommand(templateId, args)) {
+      _.events.collect { case Event(Created(e)) => e.contractId }.head
+    }
+
+  private def exerciseCommand(
+      templateId: Identifier,
+      contractId: String,
+      choice: String,
+      args: Map[String, Value.Sum]): Command.Command =
+    Exercise(
+      new ExerciseCommand(
+        templateId = Some(templateId),
+        contractId = contractId,
+        choice = choice,
+        choiceArgument = Some(
+          new Value(
+            Value.Sum.Record(new Record(
+              fields = args.map {
+                case (label, value) =>
+                  new RecordField(label, Some(new Value(value)))
+              }(collection.breakOut)
+            ))))
+      )
+    )
 
   private[infrastructure] def exercise(
       party: String,
       templateId: Identifier,
       contractId: String,
       choice: String,
-      args: (String, Value.Sum)*
+      args: Map[String, Value.Sum]
   )(implicit context: ExecutionContext): Future[Unit] =
-    for {
-      id <- ledgerId()
-      clock <- clock()
-      now = clock.instant()
-      inFiveSeconds = now.plusSeconds(5)
-      _ <- commandService.submitAndWait(
-        new SubmitAndWaitRequest(
-          Some(
-            new Commands(
-              ledgerId = id,
-              applicationId = UUID.randomUUID().toString,
-              commandId = UUID.randomUUID().toString,
-              party = party,
-              ledgerEffectiveTime = Some(new Timestamp(now.getEpochSecond, now.getNano)),
-              maximumRecordTime =
-                Some(new Timestamp(inFiveSeconds.getEpochSecond, inFiveSeconds.getNano)),
-              commands = Seq(
-                new Command(
-                  Exercise(
-                    new ExerciseCommand(
-                      templateId = Some(templateId),
-                      contractId = contractId,
-                      choice = choice,
-                      choiceArgument = Some(new Value(Value.Sum.Record(new Record(
-                        fields = args.map {
-                          case (label, value) =>
-                            new RecordField(label, Some(new Value(value)))
-                        }
-                      ))))
-                    )
-                  )
-                )
-              )
-            ))
-        )
-      )
-    } yield ()
+    submitAndWait(party, exerciseCommand(templateId, contractId, choice, args))
 
 }
 
