@@ -72,13 +72,11 @@ renderSimpleRst ModuleDoc{..} = mconcat
 tmpl2rst :: TemplateDoc -> RenderOut
 tmpl2rst TemplateDoc{..} = mconcat $
     [ renderAnchor td_anchor
-    , renderLineDep $ \env -> T.concat
-        [ bold "template"
-        , " "
-        , maybe "" ((<> " **=>** ") . type2rst env) td_super
-        , T.unwords
-            $ makeAnchorLink env td_anchor (unTypename td_name)
-            : td_args
+    , renderLineDep $ \env -> T.unwords . concat
+        [ [bold "template"]
+        , maybe [] (\x -> [type2rst env x, bold "=>"]) td_super
+        , [makeAnchorLink env td_anchor (unTypename td_name)]
+        , td_args
         ]
     , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) td_descr
     , renderLine ""
@@ -90,8 +88,8 @@ renderTemplateInstanceDocAsRst :: TemplateInstanceDoc -> RenderOut
 renderTemplateInstanceDocAsRst TemplateInstanceDoc{..} = mconcat
     [ renderAnchor ti_anchor
     , renderLinesDep $ \env ->
-        [ "template instance "
-        <> makeAnchorLink env ti_anchor (unTypename ti_name)
+        [ "template instance " <>
+            makeAnchorLink env ti_anchor (unTypename ti_name)
         , "    = " <> type2rst env ti_rhs
         , ""
         ]
@@ -108,15 +106,12 @@ choiceBullet ChoiceDoc{..} = mconcat
 cls2rst ::  ClassDoc -> RenderOut
 cls2rst ClassDoc{..} = mconcat
     [ renderAnchor cl_anchor
-    , renderLineDep $ \env -> T.concat
-        [ bold "class"
-        , " "
-        , maybe "" (\x -> type2rst env x <> " **=>** ") cl_super
-        , T.unwords
-            $ makeAnchorLink env cl_anchor (unTypename cl_name)
-            : cl_args
-        , " "
-        , bold "where"
+    , renderLineDep $ \env -> T.unwords . concat
+        [ [bold "class"]
+        , maybe [] (\x -> [type2rst env x, bold "=>"]) cl_super
+        , [makeAnchorLink env cl_anchor (unTypename cl_name)]
+        , cl_args
+        , [bold "where"]
         ]
     , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cl_descr
     , mconcat $ map (renderIndent 2 . fct2rst) cl_functions
