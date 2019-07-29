@@ -63,11 +63,17 @@ da_scala_binary(
 )
 
 conformance_tests_to_run = [
-    "TransactionServiceTests",
-    "DivulgenceIT",
-    "TransactionBackpressureIT",
-    "PartyManagementServiceIT",
+    "ActiveContractsServiceIT",
+    "CommandServiceIT",
+    "CommandSubmissionTtlIT",
+    "CommandTransactionChecksLowLevelIT",
     "ContractKeysIT",
+    "DivulgenceIT",
+    "PackageManagementServiceIT",
+    "PartyManagementServiceIT",
+    "TransactionBackpressureIT",
+    "TransactionServiceTests",
+    "WitnessesIT",
 ]
 
 client_server_test(
@@ -77,8 +83,8 @@ client_server_test(
     client_args = [
         # disabling all tests for now, so that at least we have the infrastructure
         # to slowly add and fix tests one after the other.
-        # "--all-tests",
-        "--include {}".format(",".join(conformance_tests_to_run)),
+        "--all-tests",
+        # "--include {}".format(",".join(conformance_tests_to_run)),
         "--exclude SemanticTests",
     ],
     data = [
