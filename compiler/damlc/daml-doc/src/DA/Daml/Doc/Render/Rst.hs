@@ -48,11 +48,11 @@ renderSimpleRst ModuleDoc{..} = mconcat
         , T.replicate (T.length title) "-"
         , maybe "" docTextToRst md_descr
         ]
-    , section "Templates" tmpl2rst md_templates
-    , section "Template Instances" renderTemplateInstanceDocAsRst md_templateInstances
-    , section "Typeclasses" cls2rst md_classes
-    , section "Data types" adt2rst md_adts
-    , section "Functions" fct2rst md_functions
+    , section "Templates" renderTemplateDoc md_templates
+    , section "Template Instances" renderTemplateInstanceDoc md_templateInstances
+    , section "Typeclasses" renderClassDoc md_classes
+    , section "Data types" renderADTDoc md_adts
+    , section "Functions" renderFunctionDoc md_functions
     ]
 
   where
@@ -69,8 +69,8 @@ renderSimpleRst ModuleDoc{..} = mconcat
         , mconcatMap f xs
         ]
 
-tmpl2rst :: TemplateDoc -> RenderOut
-tmpl2rst TemplateDoc{..} = mconcat $
+renderTemplateDoc :: TemplateDoc -> RenderOut
+renderTemplateDoc TemplateDoc{..} = mconcat $
     [ renderAnchor td_anchor
     , renderLineDep $ \env -> T.unwords . concat $
         [ [bold "template"]
@@ -82,10 +82,10 @@ tmpl2rst TemplateDoc{..} = mconcat $
     , renderLine ""
     , renderIndent 2 (fieldTable td_payload)
     , renderLine ""
-    ] ++ map (renderIndent 2 . choiceBullet) td_choices
+    ] ++ map (renderIndent 2 . renderChoiceDoc) td_choices
 
-renderTemplateInstanceDocAsRst :: TemplateInstanceDoc -> RenderOut
-renderTemplateInstanceDocAsRst TemplateInstanceDoc{..} = mconcat
+renderTemplateInstanceDoc :: TemplateInstanceDoc -> RenderOut
+renderTemplateInstanceDoc TemplateInstanceDoc{..} = mconcat
     [ renderAnchor ti_anchor
     , renderLinesDep $ \env ->
         [ "template instance " <>
@@ -96,15 +96,15 @@ renderTemplateInstanceDocAsRst TemplateInstanceDoc{..} = mconcat
     , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ti_descr
     ]
 
-choiceBullet :: ChoiceDoc -> RenderOut
-choiceBullet ChoiceDoc{..} = mconcat
+renderChoiceDoc :: ChoiceDoc -> RenderOut
+renderChoiceDoc ChoiceDoc{..} = mconcat
     [ renderLine $ prefix "+ " $ bold $ "Choice " <> unTypename cd_name
     , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cd_descr
     , renderIndent 2 (fieldTable cd_fields)
     ]
 
-cls2rst ::  ClassDoc -> RenderOut
-cls2rst ClassDoc{..} = mconcat
+renderClassDoc :: ClassDoc -> RenderOut
+renderClassDoc ClassDoc{..} = mconcat
     [ renderAnchor cl_anchor
     , renderLineDep $ \env -> T.unwords . concat $
         [ [bold "class"]
@@ -114,11 +114,11 @@ cls2rst ClassDoc{..} = mconcat
         , [bold "where"]
         ]
     , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cl_descr
-    , mconcat $ map (renderIndent 2 . fct2rst) cl_functions
+    , mconcat $ map (renderIndent 2 . renderFunctionDoc) cl_functions
     ]
 
-adt2rst :: ADTDoc -> RenderOut
-adt2rst TypeSynDoc{..} = mconcat
+renderADTDoc :: ADTDoc -> RenderOut
+renderADTDoc TypeSynDoc{..} = mconcat
     [ renderAnchor ad_anchor
     , renderLinesDep $ \env ->
         [ T.unwords
@@ -130,7 +130,7 @@ adt2rst TypeSynDoc{..} = mconcat
         ]
     , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
     ]
-adt2rst ADTDoc{..} = mconcat $
+renderADTDoc ADTDoc{..} = mconcat $
     [ renderAnchor ad_anchor
     , renderLinesDep $ \env ->
         [ T.unwords
@@ -140,11 +140,11 @@ adt2rst ADTDoc{..} = mconcat $
         , ""
         ]
     , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
-    ] ++ map (renderIndent 2 . (renderLine "" <>) . constr2rst) ad_constrs
+    , mconcatMap (renderIndent 2 . (renderLine "" <>) . renderADTConstr) ad_constrs
+    ]
 
-
-constr2rst ::  ADTConstr -> RenderOut
-constr2rst PrefixC{..} = mconcat
+renderADTConstr :: ADTConstr -> RenderOut
+renderADTConstr PrefixC{..} = mconcat
     [ renderAnchor ac_anchor
     , renderLineDep $ \env ->
         T.unwords
@@ -153,7 +153,7 @@ constr2rst PrefixC{..} = mconcat
     , maybe mempty ((renderLine "" <>) . renderDocText) ac_descr
     ]
 
-constr2rst RecordC{..} = mconcat
+renderADTConstr RecordC{..} = mconcat
     [ renderAnchor ac_anchor
     , renderLineDep $ \env ->
         makeAnchorLink env ac_anchor (unTypename ac_name)
@@ -200,12 +200,12 @@ fieldTable fds = mconcat -- NB final empty line is essential and intended
     fieldRows = renderLinesDep $ \env -> concat
        [ [ prefix "   * - " $ escapeTr_ (unFieldname fd_name)
          , prefix "     - " $ renderType env fd_type
-         , prefix "     - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ] -- FIXME: indent properly instead of this
+         , prefix "     - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ]-- FIXME: indent properly instead of this
        | FieldDoc{..} <- fds ]
 
 
-fct2rst :: FunctionDoc -> RenderOut
-fct2rst FunctionDoc{..} = mconcat
+renderFunctionDoc :: FunctionDoc -> RenderOut
+renderFunctionDoc FunctionDoc{..} = mconcat
     [ renderAnchor fct_anchor
     , renderLinesDep $ \ env ->
         [ makeAnchorLink env fct_anchor (wrapOp (unFieldname fct_name))
