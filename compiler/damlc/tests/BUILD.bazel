@@ -31,6 +31,8 @@ da_haskell_test(
     data = [
         ":visual-test-daml.dar",
         ":visual/Basic.dot",
+        "//compiler/damlc/pkg-db",
+        "//compiler/scenario-service/server:scenario_service_jar",
     ],
     hazel_deps = [
         "tasty",
@@ -46,6 +48,10 @@ da_haskell_test(
     deps = [
         "//compiler/daml-lf-reader",
         "//compiler/damlc:damlc-lib",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/hie-core",
+        "//compiler/damlc/daml-ide-core:ide-testing",
+        "//libs-haskell/da-hs-base",
         "//libs-haskell/bazel-runfiles",
     ],
 )
