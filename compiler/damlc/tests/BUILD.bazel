@@ -32,7 +32,6 @@ da_haskell_test(
         ":visual-test-daml.dar",
         ":visual/Basic.dot",
         "//compiler/damlc/pkg-db",
-        "//compiler/scenario-service/server:scenario_service_jar",
     ],
     hazel_deps = [
         "tasty",
