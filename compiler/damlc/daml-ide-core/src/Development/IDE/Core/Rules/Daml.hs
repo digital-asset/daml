@@ -20,6 +20,7 @@ import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
+import Data.Foldable
 import Data.List
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -573,28 +574,24 @@ encodeModuleRule =
 
 hlintSettings :: FilePath -> IO ([Classify], Hint)
 hlintSettings hlintDataDir = do
-  curdir <- getCurrentDirectory
-  home <- catchIOError ((:[]) <$> getHomeDirectory) (const $ return [])
-  dlintYaml <-
-    findM System.Directory.Extra.doesFileExist $
-      map (</> ".dlint.yaml") (ancestors curdir ++ home)
-  -- `findSettings` calls `readFilesConfig` which in turn calls
-  -- `readFileConfigYaml` which finally calls `decodeFileEither` from
-  -- the `yaml` library.  Annoyingly that function catches async
-  -- exceptions and in particular, it ends up catching
-  -- `ThreadKilled`. So, we have to mask to stop it from doing that.
-  let hlintYaml = hlintDataDir </> "hlint.yaml"
-  (_, cs, hs) <-
-    mask $ \unmask ->
-      findSettings (unmask . const (return (hlintYaml, Nothing))) (Just hlintYaml)
-  (_, cs', hs') <- case dlintYaml of
-    Just dlintYaml' ->
-      mask $ \unmask ->
-        findSettings (unmask . const (return (dlintYaml', Nothing))) (Just dlintYaml')
-    Nothing -> return (mempty, mempty, mempty)
-  return (cs <> cs', hs <> hs')
-  where
-    ancestors = init . map joinPath . reverse . inits . splitPath
+    curdir <- getCurrentDirectory
+    home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
+    dlintYaml <-
+      findM System.Directory.Extra.doesFileExist $
+        map (</> ".dlint.yaml") (ancestors curdir ++ home)
+    (_, cs, hs) <- foldMapM parseSettings $
+      (hlintDataDir </> "hlint.yaml") : maybeToList dlintYaml
+    return (cs, hs)
+    where
+      ancestors = init . map joinPath . reverse . inits . splitPath
+      -- `findSettings` calls `readFilesConfig` which in turn calls
+      -- `readFileConfigYaml` which finally calls `decodeFileEither` from
+      -- the `yaml` library.  Annoyingly that function catches async
+      -- exceptions and in particular, it ends up catching
+      -- `ThreadKilled`. So, we have to mask to stop it from doing that.
+      parseSettings f = mask $ \unmask ->
+           findSettings (unmask . const (return (f, Nothing))) (Just f)
+      foldMapM f = foldlM (\acc a -> do w <- f a; return $! mappend acc w) mempty
 
 getHlintSettingsRule :: HlintUsage -> Rules ()
 getHlintSettingsRule usage =
