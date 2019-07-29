@@ -4,14 +4,13 @@
 
 module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc) where
 
-import           DA.Cli.Options
-import           DA.Daml.Doc.Driver
+import DA.Cli.Options
+import DA.Daml.Doc.Driver
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Types.Location
 
-import           Options.Applicative
-import Data.Maybe
+import Options.Applicative
 import Data.List.Extra
 import qualified Data.Text as T
 
