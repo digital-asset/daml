@@ -73,16 +73,17 @@ class CommandService(
   private def createCommand(input: domain.CreateCommand[lav1.value.Record])
     : Error \/ lav1.commands.Command.Command.Create = {
     resolveTemplateId(input.templateId)
-      .leftMap(e => Error('createCommand, e.shows))
-      .map(x => Commands.create(refApiIdentifier(x), input.argument))
+      .bimap(
+        e => Error('createCommand, e.shows),
+        x => Commands.create(refApiIdentifier(x), input.argument))
   }
 
   private def exerciseCommand(input: domain.ExerciseCommand[lav1.value.Record])
     : Error \/ lav1.commands.Command.Command.Exercise = {
     resolveTemplateId(input.templateId)
-      .leftMap(e => Error('exerciseCommand, e.shows))
-      .map(x =>
-        Commands.exercise(refApiIdentifier(x), input.contractId, input.choice, input.argument))
+      .bimap(
+        e => Error('exerciseCommand, e.shows),
+        x => Commands.exercise(refApiIdentifier(x), input.contractId, input.choice, input.argument))
   }
 
   private def submitAndWaitRequest(
