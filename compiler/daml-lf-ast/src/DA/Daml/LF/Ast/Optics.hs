@@ -127,8 +127,10 @@ instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraver
 instance MonoTraversable ModuleRef Kind where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinType where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
--- SourceLoc *does* include a ModuleRef, but...we skip it
-instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure
+
+instance MonoTraversable ModuleRef SourceLoc where
+  monoTraverse f sl@SourceLoc{slocModuleRef} =
+    (\mr -> sl {slocModuleRef = mr}) <$> traverse f slocModuleRef
 
 instance MonoTraversable ModuleRef TypeConApp
 instance MonoTraversable ModuleRef Type
