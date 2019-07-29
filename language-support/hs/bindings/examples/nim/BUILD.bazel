@@ -27,7 +27,7 @@ da_haskell_binary(
         "transformers",
         "uuid",
     ],
-    main_function = "DA.Nim.Main.main",
+    main_function = "DA.Ledger.App.Nim.Main.main",
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/hs/bindings:hs-ledger",

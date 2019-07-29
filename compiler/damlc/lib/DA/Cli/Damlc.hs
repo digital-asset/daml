@@ -35,9 +35,9 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals
-import DAML.Project.Config
-import DAML.Project.Consts
-import DAML.Project.Types (ConfigError, ProjectPath(..))
+import DA.Daml.Project.Config
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
 import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import Data.ByteArray.Encoding (Base(Base16), convertToBase)
