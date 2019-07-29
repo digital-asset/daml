@@ -60,7 +60,7 @@ class ContractsService(
     } yield a
 
   private def templateIds(a: Option[TemplateId.OptionalPkg]): Set[TemplateId.OptionalPkg] =
-    a.fold(Set.empty[TemplateId.OptionalPkg])(x => Set(x))
+    a.toList.toSet
 
   private def findByContractId(k: String)(
       as: Seq[domain.GetActiveContractsResponse[lav1.value.Value]])
