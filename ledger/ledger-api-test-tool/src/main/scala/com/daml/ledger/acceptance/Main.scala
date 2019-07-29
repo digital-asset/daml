@@ -11,7 +11,7 @@ import com.daml.ledger.acceptance.infrastructure.{
   LedgerSessionConfiguration,
   LedgerTestSuiteRunner
 }
-import com.daml.ledger.acceptance.tests.{Divulgence, Identity, TimeService}
+import com.daml.ledger.acceptance.tests.{Divulgence, Identity}
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.digitalasset.platform.services.time.TimeProviderType.WallClock
@@ -46,7 +46,7 @@ object Main {
           }
       }
 
-    val suiteConstructors = Vector(new Divulgence(_), new Identity(_), new TimeService(_))
+    val suiteConstructors = Vector(new Divulgence(_), new Identity(_))
 
     val testSuites =
       for (session <- sessions; suiteConstructor <- suiteConstructors)
