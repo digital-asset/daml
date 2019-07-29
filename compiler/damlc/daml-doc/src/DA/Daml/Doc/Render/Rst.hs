@@ -72,7 +72,7 @@ renderSimpleRst ModuleDoc{..} = mconcat
 tmpl2rst :: TemplateDoc -> RenderOut
 tmpl2rst TemplateDoc{..} = mconcat $
     [ renderAnchor td_anchor
-    , renderLineDep $ \env -> T.unwords . concat
+    , renderLineDep $ \env -> T.unwords . concat $
         [ [bold "template"]
         , maybe [] (\x -> [type2rst env x, bold "=>"]) td_super
         , [makeAnchorLink env td_anchor (unTypename td_name)]
@@ -106,7 +106,7 @@ choiceBullet ChoiceDoc{..} = mconcat
 cls2rst ::  ClassDoc -> RenderOut
 cls2rst ClassDoc{..} = mconcat
     [ renderAnchor cl_anchor
-    , renderLineDep $ \env -> T.unwords . concat
+    , renderLineDep $ \env -> T.unwords . concat $
         [ [bold "class"]
         , maybe [] (\x -> [type2rst env x, bold "=>"]) cl_super
         , [makeAnchorLink env cl_anchor (unTypename cl_name)]
