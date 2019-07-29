@@ -81,6 +81,7 @@
   # Shady extensions
   - name: CPP
     within:
+    - Development.IDE.Core.FileStore
     - DA.Sdk.Cli.System
     - DA.Sdk.Cli.Version
     - DAML.Assistant.Install.Path
