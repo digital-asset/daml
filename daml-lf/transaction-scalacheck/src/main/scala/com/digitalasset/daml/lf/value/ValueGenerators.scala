@@ -203,7 +203,9 @@ object ValueGenerators {
     val genRel: Gen[ContractId] =
       Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Transaction.NodeId.unsafeFromIndex(i)))
     val genAbs: Gen[ContractId] =
-      Gen.alphaStr.filter(_.nonEmpty).map(s => AbsoluteContractId(toContractId(s)))
+      Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
+        case (h, t) => AbsoluteContractId(toContractId(h +: t))
+      }
     Gen.frequency((1, genRel), (3, genAbs))
   }
 
