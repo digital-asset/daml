@@ -231,7 +231,6 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
         noLoc $
         mkRdrQual (mkModuleName "DA.Internal.Template") $
         mkOccName varName "Template" :: LHsType GhcPs
-    sigRdrName = noLoc $ mkRdrUnqual $ mkOccName varName "signatory"
     errTooManyNameComponents cs =
         error $
         "Internal error: Dalf contains type constructors with more than two name components: " <>
@@ -244,6 +243,71 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             , length dataTyCon == 2
             , LF.DataRecord fs <- [dataCons]
             ]
+    templateMethodNames =
+        map mkRdrName
+            [ "signatory"
+            , "observer"
+            , "agreement"
+            , "fetch"
+            , "ensure"
+            , "create"
+            , "archive"
+            ]
+    classMethodStub :: Located RdrName -> LHsBindLR GhcPs GhcPs
+    classMethodStub funName =
+        noLoc $
+        FunBind
+            { fun_ext = noExt
+            , fun_id = funName
+            , fun_matches =
+                  MG
+                      { mg_ext = noExt
+                      , mg_alts =
+                            noLoc
+                                [ noLoc $
+                                  Match
+                                      { m_ext = noExt
+                                      , m_ctxt =
+                                            FunRhs
+                                                { mc_fun = funName
+                                                , mc_fixity = Prefix
+                                                , mc_strictness = NoSrcStrict
+                                                }
+                                      , m_pats = []
+                                      , m_rhs_sig = Nothing
+                                      , m_grhss =
+                                            GRHSs
+                                                { grhssExt = noExt
+                                                , grhssGRHSs =
+                                                      [ noLoc $
+                                                        GRHS
+                                                            noExt
+                                                            []
+                                                            (noLoc $
+                                                             HsApp
+                                                                 noExt
+                                                                 (noLoc $
+                                                                  HsVar
+                                                                      noExt
+                                                                      (noLoc
+                                                                           error_RDR))
+                                                                 (noLoc $
+                                                                  HsLit noExt $
+                                                                  HsString
+                                                                      NoSourceText $
+                                                                  mkFastString
+                                                                      "undefined template class method in generated code"))
+                                                      ]
+                                                , grhssLocalBinds =
+                                                      noLoc emptyLocalBinds
+                                                }
+                                      }
+                                ]
+                      , mg_origin = Generated
+                      }
+            , fun_co_fn = WpHole
+            , fun_tick = []
+            }
     decls =
         concat $ do
             LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
@@ -303,71 +367,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                                             HsAppTy noExt templateTy $
                                             noLoc $ convType templType
                                       }
-                            , cid_binds =
-                                  listToBag
-                                      [ noLoc $
-                                        FunBind
-                                            { fun_ext = noExt
-                                            , fun_id = sigRdrName
-                                            , fun_matches =
-                                                  MG
-                                                      { mg_ext = noExt
-                                                      , mg_alts =
-                                                            noLoc
-                                                                [ noLoc $
-                                                                  Match
-                                                                      { m_ext =
-                                                                            noExt
-                                                                      , m_ctxt =
-                                                                            FunRhs
-                                                                                { mc_fun =
-                                                                                      sigRdrName
-                                                                                , mc_fixity =
-                                                                                      Prefix
-                                                                                , mc_strictness =
-                                                                                      NoSrcStrict
-                                                                                }
-                                                                      , m_pats = []
-                                                                      , m_rhs_sig =
-                                                                            Nothing
-                                                                      , m_grhss =
-                                                                            GRHSs
-                                                                                { grhssExt =
-                                                                                      noExt
-                                                                                , grhssGRHSs =
-                                                                                      [ noLoc $
-                                                                                        GRHS
-                                                                                            noExt
-                                                                                            [
-                                                                                            ]
-                                                                                            (noLoc $
-                                                                                             HsApp
-                                                                                                 noExt
-                                                                                                 (noLoc $
-                                                                                                  HsVar
-                                                                                                      noExt
-                                                                                                      (noLoc
-                                                                                                           error_RDR))
-                                                                                                 (noLoc $
-                                                                                                  HsLit
-                                                                                                      noExt $
-                                                                                                  HsString
-                                                                                                      NoSourceText $
-                                                                                                  mkFastString
-                                                                                                      "undefined template class method in generated code"))
-                                                                                      ]
-                                                                                , grhssLocalBinds =
-                                                                                      noLoc
-                                                                                      emptyLocalBinds
-                                                                                }
-                                                                      }
-                                                                ]
-                                                      , mg_origin = Generated
-                                                      }
-                                            , fun_co_fn = WpHole
-                                            , fun_tick = []
-                                            }
-                                      ]
+                            , cid_binds = listToBag $ map classMethodStub templateMethodNames
                             , cid_sigs = []
                             , cid_tyfam_insts = []
                             , cid_datafam_insts = []
