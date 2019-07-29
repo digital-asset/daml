@@ -4,14 +4,13 @@
 
 module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc) where
 
-import           DA.Cli.Options
-import           DA.Daml.Doc.Driver
+import DA.Cli.Options
+import DA.Daml.Doc.Driver
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Types.Location
 
-import           Options.Applicative
-import Data.Maybe
+import Options.Applicative
 import Data.List.Extra
 import qualified Data.Text as T
 
@@ -27,7 +26,7 @@ documentation :: Parser CmdArgs
 documentation = Damldoc
                 <$> optInputFormat
                 <*> optOutputPath
-                <*> optOutputFormatOrJson
+                <*> optOutputFormat
                 <*> optMbPackageName
                 <*> optTemplate
                 <*> optOmitEmpty
@@ -79,13 +78,6 @@ documentation = Damldoc
     argMainFiles :: Parser [FilePath]
     argMainFiles = some $ argument str $ metavar "FILE..."
                   <> help "Main file(s) (*.daml) whose contents are read"
-
-    optOutputFormatOrJson :: Parser OutputFormat
-    optOutputFormatOrJson = fromMaybe
-        <$> optOutputFormat
-        <*> (flag Nothing (Just OutputJson) $
-            long "json"
-            <> help "alias for `--format json'")
 
     optOutputFormat :: Parser OutputFormat
     optOutputFormat =

@@ -47,7 +47,6 @@ trait Types {
       contract_id: String,
       package_id: String,
       template: String,
-      contract_creating_event_id: String,
       choice: String,
       choice_argument: Json,
       acting_parties: Json,

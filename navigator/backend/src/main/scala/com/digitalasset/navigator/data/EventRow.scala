@@ -24,7 +24,6 @@ final case class EventRow(
     subclassType: String,
     templateId: Option[String],
     recordArgument: Option[String],
-    contractCreateEventId: Option[String],
     choice: Option[String],
     argumentValue: Option[String],
     actingParties: Option[String],
@@ -79,7 +78,6 @@ final case class EventRow(
       case "ChoiceExercised" =>
         (for {
           wp <- Try(witnessParties.parseJson.convertTo[List[ApiTypes.Party]])
-          createId <- Try(contractCreateEventId.get)
           chc <- Try(choice.get)
           argJson <- Try(argumentValue.get)
           tp <- Try(templateId.get)
@@ -101,7 +99,6 @@ final case class EventRow(
             wp,
             ApiTypes.WorkflowId(workflowId),
             ApiTypes.ContractId(contractId),
-            ApiTypes.EventId(createId),
             tid,
             ApiTypes.Choice(chc),
             arg,
@@ -138,7 +135,6 @@ object EventRow {
           None,
           None,
           None,
-          None,
           c.agreementText,
           c.signatories.toJson.compactPrint,
           c.observers.toJson.compactPrint,
@@ -155,7 +151,6 @@ object EventRow {
           "ChoiceExercised",
           Some(e.templateId.asOpaqueString),
           None,
-          Some(e.contractCreateEvent.unwrap),
           Some(e.choice.unwrap),
           Some(e.argument.toJson.compactPrint),
           Some(e.actingParties.toJson.compactPrint),

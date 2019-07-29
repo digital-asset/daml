@@ -245,7 +245,6 @@ raiseTreeEvent = \case
         eid <- raiseEventId exercisedEventEventId
         cid <- raiseContractId exercisedEventContractId
         tid <- perhaps "exercisedEventTemplateId" exercisedEventTemplateId >>= raiseTemplateId
-        ccEid <- raiseEventId exercisedEventContractCreatingEventId
         choice <- raiseChoice exercisedEventChoice
         choiceArg <- perhaps "exercisedEventChoiceArgument" exercisedEventChoiceArgument >>= raiseValue
         acting <- raiseList raiseParty exercisedEventActingParties

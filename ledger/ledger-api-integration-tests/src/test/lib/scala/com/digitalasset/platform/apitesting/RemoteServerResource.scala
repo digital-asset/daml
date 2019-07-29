@@ -11,6 +11,7 @@ import io.grpc.ManagedChannel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.util.concurrent.DefaultThreadFactory
 
 object RemoteServerResource {
@@ -35,6 +36,7 @@ class RemoteServerResource(host: String, port: Int, tlsConfig: Option[TlsConfigu
     val channelBuilder: NettyChannelBuilder = NettyChannelBuilder
       .forAddress(host, port)
       .eventLoopGroup(eventLoopGroup)
+      .channelType(classOf[NioSocketChannel])
       .directExecutor()
 
     tlsConfig

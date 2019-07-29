@@ -160,7 +160,6 @@ final case class ChoiceExercised(
     witnessParties: List[ApiTypes.Party],
     workflowId: ApiTypes.WorkflowId,
     contractId: ApiTypes.ContractId,
-    contractCreateEvent: ApiTypes.EventId,
     templateId: DamlLfIdentifier,
     choice: ApiTypes.Choice,
     argument: ApiValue,

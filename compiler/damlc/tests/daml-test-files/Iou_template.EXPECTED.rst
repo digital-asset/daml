@@ -10,7 +10,7 @@ Templates
 
 .. _type-ioutemplate-iou-55222:
 
-template **Iou**
+**template** `Iou <type-ioutemplate-iou-55222_>`_
 
   .. list-table::
      :widths: 15 10 30
@@ -81,7 +81,7 @@ Functions
 
 .. _function-ioutemplate-main-13221:
 
-**main**
+`main <function-ioutemplate-main-13221_>`_
   : Scenario ()
 
   A single test scenario covering all functionality that ``Iou`` implements.

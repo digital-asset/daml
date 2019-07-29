@@ -356,7 +356,7 @@ After a short time, the text *Scenario results* should appear above the test. Cl
 
 Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the **Show archived** box at the top. Click the adjacent **Show transaction view** button to switch to a view of the entire transaction tree.
 
-In the transaction view, transaction ``#6`` is of particular intest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
+In the transaction view, transaction ``#6`` is of particular interest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
 
 .. code-block:: none
 

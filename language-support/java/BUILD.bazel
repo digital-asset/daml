@@ -14,7 +14,10 @@ javadoc_library(
     root_packages = [
         "com.daml.ledger.javaapi.data",
         "com.daml.ledger.rxjava",
-        "com.digitalasset.ledger.api.v1",
+        "com.daml.ledger.rxjava.components",
+        "com.daml.ledger.rxjava.components.helpers",
+        "com.daml.ledger.rxjava.grpc",
+        "com.daml.ledger.rxjava.util",
     ],
     visibility = [
         "//visibility:public",
