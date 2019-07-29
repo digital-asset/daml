@@ -353,7 +353,7 @@ private class SqlLedger(
         result.get(PersistenceResponse.Ok).fold(logger.info(s"No package uploaded")) { uploaded =>
           logger.info(s"Successfully uploaded $uploaded packages")
         }
-        for (duplicates <- result.get(PersistenceResponse.Ok)) {
+        for (duplicates <- result.get(PersistenceResponse.Duplicate)) {
           logger.info(s"$duplicates packages discarded as duplicates")
         }
         // Unlike the data access layer, the API has no concept of duplicates, so we
