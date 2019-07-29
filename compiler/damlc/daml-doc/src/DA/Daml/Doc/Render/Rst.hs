@@ -130,7 +130,7 @@ renderADTDoc TypeSynDoc{..} = mconcat
         ]
     , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
     ]
-renderADTDoc ADTDoc{..} = mconcat $
+renderADTDoc ADTDoc{..} = mconcat
     [ renderAnchor ad_anchor
     , renderLinesDep $ \env ->
         [ T.unwords
