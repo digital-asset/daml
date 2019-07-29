@@ -165,103 +165,97 @@ decodeChoice LF1.TemplateChoice{..} =
     <*> mayDecode "templateChoiceUpdate" templateChoiceUpdate decodeExpr
 
 decodeBuiltinFunction :: MonadDecode m => LF1.BuiltinFunction -> m BuiltinExpr
-decodeBuiltinFunction x = case x of
-  LF1.BuiltinFunctionEQUAL_INT64 -> pure $ BEEqual BTInt64
-  LF1.BuiltinFunctionEQUAL_NUMERIC -> pure $ BEEqual BTDecimal
-  LF1.BuiltinFunctionEQUAL_TEXT -> pure $ BEEqual BTText
-  LF1.BuiltinFunctionEQUAL_TIMESTAMP -> pure $ BEEqual BTTimestamp
-  LF1.BuiltinFunctionEQUAL_DATE -> pure $ BEEqual BTDate
-  LF1.BuiltinFunctionEQUAL_PARTY -> pure $ BEEqual BTParty
-  LF1.BuiltinFunctionEQUAL_BOOL -> pure $ BEEqual BTBool
+decodeBuiltinFunction = pure . \case
+  LF1.BuiltinFunctionEQUAL_INT64 -> BEEqual BTInt64
+  LF1.BuiltinFunctionEQUAL_NUMERIC -> BEEqual BTDecimal
+  LF1.BuiltinFunctionEQUAL_TEXT -> BEEqual BTText
+  LF1.BuiltinFunctionEQUAL_TIMESTAMP -> BEEqual BTTimestamp
+  LF1.BuiltinFunctionEQUAL_DATE -> BEEqual BTDate
+  LF1.BuiltinFunctionEQUAL_PARTY -> BEEqual BTParty
+  LF1.BuiltinFunctionEQUAL_BOOL -> BEEqual BTBool
 
-  LF1.BuiltinFunctionLEQ_INT64 -> pure $ BELessEq BTInt64
-  LF1.BuiltinFunctionLEQ_NUMERIC -> pure $ BELessEq BTDecimal
-  LF1.BuiltinFunctionLEQ_TEXT    -> pure $ BELessEq BTText
-  LF1.BuiltinFunctionLEQ_TIMESTAMP    -> pure $ BELessEq BTTimestamp
-  LF1.BuiltinFunctionLEQ_DATE -> pure $ BELessEq BTDate
-  LF1.BuiltinFunctionLEQ_PARTY -> pure $ BELessEq BTParty
+  LF1.BuiltinFunctionLEQ_INT64 -> BELessEq BTInt64
+  LF1.BuiltinFunctionLEQ_NUMERIC -> BELessEq BTDecimal
+  LF1.BuiltinFunctionLEQ_TEXT    -> BELessEq BTText
+  LF1.BuiltinFunctionLEQ_TIMESTAMP    -> BELessEq BTTimestamp
+  LF1.BuiltinFunctionLEQ_DATE -> BELessEq BTDate
+  LF1.BuiltinFunctionLEQ_PARTY -> BELessEq BTParty
 
-  LF1.BuiltinFunctionLESS_INT64 -> pure $ BELess BTInt64
-  LF1.BuiltinFunctionLESS_NUMERIC -> pure $ BELess BTDecimal
-  LF1.BuiltinFunctionLESS_TEXT    -> pure $ BELess BTText
-  LF1.BuiltinFunctionLESS_TIMESTAMP    -> pure $ BELess BTTimestamp
-  LF1.BuiltinFunctionLESS_DATE -> pure $ BELess BTDate
-  LF1.BuiltinFunctionLESS_PARTY -> pure $ BELess BTParty
+  LF1.BuiltinFunctionLESS_INT64 -> BELess BTInt64
+  LF1.BuiltinFunctionLESS_NUMERIC -> BELess BTDecimal
+  LF1.BuiltinFunctionLESS_TEXT    -> BELess BTText
+  LF1.BuiltinFunctionLESS_TIMESTAMP    -> BELess BTTimestamp
+  LF1.BuiltinFunctionLESS_DATE -> BELess BTDate
+  LF1.BuiltinFunctionLESS_PARTY -> BELess BTParty
 
-  LF1.BuiltinFunctionGEQ_INT64 -> pure $ BEGreaterEq BTInt64
-  LF1.BuiltinFunctionGEQ_NUMERIC -> pure $ BEGreaterEq BTDecimal
-  LF1.BuiltinFunctionGEQ_TEXT    -> pure $ BEGreaterEq BTText
-  LF1.BuiltinFunctionGEQ_TIMESTAMP    -> pure $ BEGreaterEq BTTimestamp
-  LF1.BuiltinFunctionGEQ_DATE -> pure $ BEGreaterEq BTDate
-  LF1.BuiltinFunctionGEQ_PARTY -> pure $ BEGreaterEq BTParty
+  LF1.BuiltinFunctionGEQ_INT64 -> BEGreaterEq BTInt64
+  LF1.BuiltinFunctionGEQ_NUMERIC -> BEGreaterEq BTDecimal
+  LF1.BuiltinFunctionGEQ_TEXT    -> BEGreaterEq BTText
+  LF1.BuiltinFunctionGEQ_TIMESTAMP    -> BEGreaterEq BTTimestamp
+  LF1.BuiltinFunctionGEQ_DATE -> BEGreaterEq BTDate
+  LF1.BuiltinFunctionGEQ_PARTY -> BEGreaterEq BTParty
 
-  LF1.BuiltinFunctionGREATER_INT64 -> pure $ BEGreater BTInt64
-  LF1.BuiltinFunctionGREATER_NUMERIC -> pure $ BEGreater BTDecimal
-  LF1.BuiltinFunctionGREATER_TEXT    -> pure $ BEGreater BTText
-  LF1.BuiltinFunctionGREATER_TIMESTAMP    -> pure $ BEGreater BTTimestamp
-  LF1.BuiltinFunctionGREATER_DATE -> pure $ BEGreater BTDate
-  LF1.BuiltinFunctionGREATER_PARTY -> pure $ BEGreater BTParty
+  LF1.BuiltinFunctionGREATER_INT64 -> BEGreater BTInt64
+  LF1.BuiltinFunctionGREATER_NUMERIC -> BEGreater BTDecimal
+  LF1.BuiltinFunctionGREATER_TEXT    -> BEGreater BTText
+  LF1.BuiltinFunctionGREATER_TIMESTAMP    -> BEGreater BTTimestamp
+  LF1.BuiltinFunctionGREATER_DATE -> BEGreater BTDate
+  LF1.BuiltinFunctionGREATER_PARTY -> BEGreater BTParty
 
-  LF1.BuiltinFunctionTO_TEXT_INT64 -> pure $ BEToText BTInt64
-  LF1.BuiltinFunctionTO_TEXT_NUMERIC -> pure $ BEToText BTDecimal
-  LF1.BuiltinFunctionTO_TEXT_TEXT    -> pure $ BEToText BTText
-  LF1.BuiltinFunctionTO_TEXT_TIMESTAMP    -> pure $ BEToText BTTimestamp
-  LF1.BuiltinFunctionTO_TEXT_PARTY   -> pure $ BEToText BTParty
-  LF1.BuiltinFunctionTO_TEXT_DATE -> pure $ BEToText BTDate
-  LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> pure BETextFromCodePoints
-  LF1.BuiltinFunctionFROM_TEXT_PARTY -> pure BEPartyFromText
-  LF1.BuiltinFunctionFROM_TEXT_INT64 -> pure BEInt64FromText
-  LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> pure BEDecimalFromText
-  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> pure BETextToCodePoints
-  LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> pure BEPartyToQuotedText
+  LF1.BuiltinFunctionTO_TEXT_INT64 -> BEToText BTInt64
+  LF1.BuiltinFunctionTO_TEXT_NUMERIC -> BEToText BTDecimal
+  LF1.BuiltinFunctionTO_TEXT_TEXT    -> BEToText BTText
+  LF1.BuiltinFunctionTO_TEXT_TIMESTAMP    -> BEToText BTTimestamp
+  LF1.BuiltinFunctionTO_TEXT_PARTY   -> BEToText BTParty
+  LF1.BuiltinFunctionTO_TEXT_DATE -> BEToText BTDate
+  LF1.BuiltinFunctionTEXT_FROM_CODE_POINTS -> BETextFromCodePoints
+  LF1.BuiltinFunctionFROM_TEXT_PARTY -> BEPartyFromText
+  LF1.BuiltinFunctionFROM_TEXT_INT64 -> BEInt64FromText
+  LF1.BuiltinFunctionFROM_TEXT_NUMERIC -> BEDecimalFromText
+  LF1.BuiltinFunctionTEXT_TO_CODE_POINTS -> BETextToCodePoints
+  LF1.BuiltinFunctionTO_QUOTED_TEXT_PARTY -> BEPartyToQuotedText
 
-  LF1.BuiltinFunctionADD_NUMERIC   -> pure BEAddDecimal
-  LF1.BuiltinFunctionSUB_NUMERIC   -> pure BESubDecimal
-  LF1.BuiltinFunctionMUL_NUMERIC   -> pure BEMulDecimal
-  LF1.BuiltinFunctionDIV_NUMERIC   -> pure BEDivDecimal
-  LF1.BuiltinFunctionROUND_NUMERIC -> pure BERoundDecimal
-  LF1.BuiltinFunctionCAST_NUMERIC  ->
-    -- FixMe https://github.com/digital-asset/daml/issues/2289
-    throwError $ ParseError "builtin CAST_NUMERIC not supported"
-  LF1.BuiltinFunctionSHIFT_NUMERIC ->
-    -- FixMe https://github.com/digital-asset/daml/issues/2289
-    throwError $ ParseError "builtin SHIFT_NUMERIC not supported"
+  LF1.BuiltinFunctionADD_NUMERIC   -> BEAddDecimal
+  LF1.BuiltinFunctionSUB_NUMERIC   -> BESubDecimal
+  LF1.BuiltinFunctionMUL_NUMERIC   -> BEMulDecimal
+  LF1.BuiltinFunctionDIV_NUMERIC   -> BEDivDecimal
+  LF1.BuiltinFunctionROUND_NUMERIC -> BERoundDecimal
 
-  LF1.BuiltinFunctionADD_INT64 -> pure BEAddInt64
-  LF1.BuiltinFunctionSUB_INT64 -> pure BESubInt64
-  LF1.BuiltinFunctionMUL_INT64 -> pure BEMulInt64
-  LF1.BuiltinFunctionDIV_INT64 -> pure BEDivInt64
-  LF1.BuiltinFunctionMOD_INT64 -> pure BEModInt64
-  LF1.BuiltinFunctionEXP_INT64 -> pure BEExpInt64
+  LF1.BuiltinFunctionADD_INT64 -> BEAddInt64
+  LF1.BuiltinFunctionSUB_INT64 -> BESubInt64
+  LF1.BuiltinFunctionMUL_INT64 -> BEMulInt64
+  LF1.BuiltinFunctionDIV_INT64 -> BEDivInt64
+  LF1.BuiltinFunctionMOD_INT64 -> BEModInt64
+  LF1.BuiltinFunctionEXP_INT64 -> BEExpInt64
 
-  LF1.BuiltinFunctionFOLDL          -> pure BEFoldl
-  LF1.BuiltinFunctionFOLDR          -> pure BEFoldr
-  LF1.BuiltinFunctionEQUAL_LIST     -> pure BEEqualList
-  LF1.BuiltinFunctionAPPEND_TEXT    -> pure BEAppendText
-  LF1.BuiltinFunctionERROR          -> pure BEError
+  LF1.BuiltinFunctionFOLDL          -> BEFoldl
+  LF1.BuiltinFunctionFOLDR          -> BEFoldr
+  LF1.BuiltinFunctionEQUAL_LIST     -> BEEqualList
+  LF1.BuiltinFunctionAPPEND_TEXT    -> BEAppendText
+  LF1.BuiltinFunctionERROR          -> BEError
 
-  LF1.BuiltinFunctionMAP_EMPTY      -> pure BEMapEmpty
-  LF1.BuiltinFunctionMAP_INSERT     -> pure BEMapInsert
-  LF1.BuiltinFunctionMAP_LOOKUP     -> pure BEMapLookup
-  LF1.BuiltinFunctionMAP_DELETE     -> pure BEMapDelete
-  LF1.BuiltinFunctionMAP_TO_LIST    -> pure BEMapToList
-  LF1.BuiltinFunctionMAP_SIZE       -> pure BEMapSize
+  LF1.BuiltinFunctionMAP_EMPTY      -> BEMapEmpty
+  LF1.BuiltinFunctionMAP_INSERT     -> BEMapInsert
+  LF1.BuiltinFunctionMAP_LOOKUP     -> BEMapLookup
+  LF1.BuiltinFunctionMAP_DELETE     -> BEMapDelete
+  LF1.BuiltinFunctionMAP_TO_LIST    -> BEMapToList
+  LF1.BuiltinFunctionMAP_SIZE       -> BEMapSize
 
-  LF1.BuiltinFunctionEXPLODE_TEXT -> pure BEExplodeText
-  LF1.BuiltinFunctionIMPLODE_TEXT -> pure BEImplodeText
-  LF1.BuiltinFunctionSHA256_TEXT  -> pure BESha256Text
+  LF1.BuiltinFunctionEXPLODE_TEXT -> BEExplodeText
+  LF1.BuiltinFunctionIMPLODE_TEXT -> BEImplodeText
+  LF1.BuiltinFunctionSHA256_TEXT  -> BESha256Text
 
-  LF1.BuiltinFunctionDATE_TO_UNIX_DAYS -> pure BEDateToUnixDays
-  LF1.BuiltinFunctionUNIX_DAYS_TO_DATE -> pure BEUnixDaysToDate
-  LF1.BuiltinFunctionTIMESTAMP_TO_UNIX_MICROSECONDS -> pure BETimestampToUnixMicroseconds
-  LF1.BuiltinFunctionUNIX_MICROSECONDS_TO_TIMESTAMP -> pure BEUnixMicrosecondsToTimestamp
+  LF1.BuiltinFunctionDATE_TO_UNIX_DAYS -> BEDateToUnixDays
+  LF1.BuiltinFunctionUNIX_DAYS_TO_DATE -> BEUnixDaysToDate
+  LF1.BuiltinFunctionTIMESTAMP_TO_UNIX_MICROSECONDS -> BETimestampToUnixMicroseconds
+  LF1.BuiltinFunctionUNIX_MICROSECONDS_TO_TIMESTAMP -> BEUnixMicrosecondsToTimestamp
 
-  LF1.BuiltinFunctionINT64_TO_NUMERIC -> pure BEInt64ToDecimal
-  LF1.BuiltinFunctionNUMERIC_TO_INT64 -> pure BEDecimalToInt64
+  LF1.BuiltinFunctionINT64_TO_NUMERIC -> BEInt64ToDecimal
+  LF1.BuiltinFunctionNUMERIC_TO_INT64 -> BEDecimalToInt64
 
-  LF1.BuiltinFunctionTRACE -> pure BETrace
-  LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> pure BEEqualContractId
-  LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> pure BECoerceContractId
+  LF1.BuiltinFunctionTRACE -> BETrace
+  LF1.BuiltinFunctionEQUAL_CONTRACT_ID -> BEEqualContractId
+  LF1.BuiltinFunctionCOERCE_CONTRACT_ID -> BECoerceContractId
 
 decodeLocation :: LF1.Location -> DecodeImpl SourceLoc
 decodeLocation (LF1.Location mbModRef mbRange) = do
