@@ -654,7 +654,6 @@ abstract class CommandTransactionChecks
           exercisedEvent.choice shouldBe "DummyChoice1"
           exercisedEvent.contractId shouldBe createdEvent.contractId
           exercisedEvent.consuming shouldBe true
-          exercisedEvent.contractCreatingEventId shouldBe createdEvent.eventId
         }
       }
 

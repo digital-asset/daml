@@ -14,6 +14,9 @@ HEAD — ongoing
 - [DAML Docs] The ``damlc docs`` flag ``--json`` has been dropped in favor of ``--format=json``.
 - [Java Bindings]: Add all packages of java bindings to the javadocs.
   See `#2280 <https://github.com/digital-asset/daml/issues/2280>`__.
-- [Sandbox] Fix a bug preventing more than one package to Sandbox with a Postgres backend
+- [Sandbox] Makes package uploads idempotent and tolerate partial duplicates
   See `#2130 <https://github.com/digital-asset/daml/issues/2130>`__.
-
+- [Ledger API, Java Bindings] **BREAKING CHANGE** Removed field ``ExercisedEvent#contract_creating_event_id``.
+  See `#2068 <https://github.com/digital-asset/daml/issues/2068>`__.
+- [Extractor] **BREAKING CHANGE** Changed schema to accomodate removed field ``ExercisedEvent#contract_creating_event_id``.
+  Existing database schemas are not compatible anymore with the newer version. The extractor needs to be run on an empty schema from Ledger Begin.

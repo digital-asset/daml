@@ -149,7 +149,6 @@ data TreeEvent
         eid       :: EventId,
         cid       :: ContractId,
         tid       :: TemplateId,
-        ccEid     :: EventId,
         choice    :: Choice,
         choiceArg :: Value,
         acting    :: [Party],

@@ -232,7 +232,6 @@ object TransactionGenerator {
     eventId <- nonEmptyId
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
-    creatingEventId <- nonEmptyId
     choice <- nonEmptyId
     (scalaChoiceArgument, javaChoiceArgument) <- Gen.sized(valueGen)
     actingParties <- Gen.listOf(nonEmptyId)
@@ -247,7 +246,6 @@ object TransactionGenerator {
           eventId,
           contractId,
           Some(scalaTemplateId),
-          creatingEventId,
           choice,
           Some(scalaChoiceArgument),
           actingParties,
@@ -261,7 +259,6 @@ object TransactionGenerator {
         eventId,
         javaTemplateId,
         contractId,
-        creatingEventId,
         choice,
         javaChoiceArgument,
         actingParties.asJava,
