@@ -19,22 +19,22 @@ object Divulgence2 {
       )
       .map(new Divulgence2(_, party, div2Signatory, div2Fetcher) {})
 
-  sealed abstract case class Divulgence2(
-      contractId: String,
-      party: String,
-      div2Signatory: String,
-      div2Fetcher: String) {
-    def archive(party: String, div1ToArchive: Divulgence1)(
-        implicit context: LedgerTestContext): Future[Unit] =
-      context.exercise(
-        party,
-        ids.divulgence2,
-        contractId,
-        "Divulgence2Archive",
-        Map(
-          "div1ToArchive" -> new ContractId(div1ToArchive.contractId)
-        )
-      )
-  }
+}
 
+sealed abstract case class Divulgence2(
+    contractId: String,
+    party: String,
+    div2Signatory: String,
+    div2Fetcher: String) {
+  def archive(party: String, div1ToArchive: Divulgence1)(
+      implicit context: LedgerTestContext): Future[Unit] =
+    context.exercise(
+      party,
+      ids.divulgence2,
+      contractId,
+      "Divulgence2Archive",
+      Map(
+        "div1ToArchive" -> new ContractId(div1ToArchive.contractId)
+      )
+    )
 }
