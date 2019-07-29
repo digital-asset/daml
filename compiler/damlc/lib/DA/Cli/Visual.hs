@@ -21,7 +21,6 @@ import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
-import Debug.Trace
 
 type IsConsuming = Bool
 type InternalChcName = LF.ChoiceName

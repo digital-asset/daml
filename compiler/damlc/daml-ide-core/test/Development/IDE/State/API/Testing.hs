@@ -11,6 +11,7 @@
 module Development.IDE.Core.API.Testing
     ( ShakeTest (..)
     , ShakeTestEnv (..)
+    , ShakeTestError (..)
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
     , D.DiagnosticSeverity(..)
