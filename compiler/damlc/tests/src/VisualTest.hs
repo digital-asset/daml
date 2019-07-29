@@ -34,7 +34,7 @@ main = do
 
 visualTests :: Tasty.TestTree
 visualTests =
-    Tasty.testGroup "IDE Shake API tests" [ visualDamlTests ]
+    Tasty.testGroup "Visual tests using Shake API" [ visualDamlTests ]
 
 testCase :: Tasty.TestName -> ShakeTest () -> Tasty.TestTree
 testCase testName test =
