@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Doc.Render.Markdown
   ( renderSimpleMD
@@ -44,6 +43,7 @@ renderSimpleMD ModuleDoc{..} = mconcat
     [ renderAnchorInfix "# " md_anchor ("Module " <> escapeMd (unModulename md_name))
     , renderDocText md_descr
     , section "Templates" tmpl2md md_templates
+    , section "Template Instances" renderTemplateInstanceDocAsMarkdown md_templateInstances
     , section "Typeclasses" cls2md md_classes
     , section "Data types" adt2md md_adts
     , section "Functions" fct2md md_functions
@@ -62,8 +62,14 @@ renderSimpleMD ModuleDoc{..} = mconcat
 
 
 tmpl2md :: TemplateDoc -> RenderOut
-tmpl2md TemplateDoc{..} = mconcat
-    [ renderAnchorInfix "### " td_anchor ("Template " <> escapeMd (unTypename td_name))
+tmpl2md TemplateDoc{..} = withAnchorTag td_anchor $ \tag -> mconcat
+    [ renderLineDep $ \env -> T.concat
+        [ "### "
+        , tag
+        , "template "
+        , maybe "" ((<> " => ") . type2md env) td_super
+        , escapeMd . T.unwords $ unTypename td_name : td_args
+        ]
     , renderDocText td_descr
     , fieldTable td_payload
     , if null td_choices
@@ -83,44 +89,59 @@ tmpl2md TemplateDoc{..} = mconcat
             ]
         ]
 
+renderTemplateInstanceDocAsMarkdown :: TemplateInstanceDoc -> RenderOut
+renderTemplateInstanceDocAsMarkdown TemplateInstanceDoc{..} = mconcat
+    [ renderAnchorInfix "**template instance " ti_anchor $
+        escapeMd (unTypename ti_name) <> "**  "
+    , renderLineDep $ \env -> T.concat ["&nbsp; = ", type2md env ti_rhs]
+    , renderDocText ti_descr
+    ]
+
 cls2md :: ClassDoc -> RenderOut
-cls2md ClassDoc{..} = mconcat
-    [ renderAnchorInfix "### " cl_anchor ("Class " <> escapeMd (unTypename cl_name))
-    , renderLine ""
-    , renderLineDep $ \env -> T.concat
-        [ "**class "
+cls2md ClassDoc{..} = withAnchorTag cl_anchor $ \tag -> mconcat
+    [ renderLineDep $ \env -> T.concat
+        [ tag
+        , "**class "
         , maybe "" (\x -> type2md env x <> " => ") cl_super
         , escapeMd $ T.unwords (unTypename cl_name : cl_args)
         , " where**"
         ]
-    , renderDocText cl_descr
-    , renderPrefix "> " $ mconcatMap fct2md cl_functions
+    , blockQuote $ mconcat
+        [ renderDocText cl_descr
+        , mconcatMap fct2md cl_functions
+        ]
     ]
 
 adt2md :: ADTDoc -> RenderOut
 adt2md TypeSynDoc{..} = mconcat
     [ renderAnchorInfix "**type " ad_anchor $
         escapeMd (T.unwords (unTypename ad_name : ad_args)) <> "**  "
-    , renderLineDep $ \env -> T.concat ["&nbsp; = ", type2md env ad_rhs]
-    , renderDocText ad_descr
+    , blockQuote $ mconcat
+        [ renderLineDep $ \env -> T.concat ["= ", type2md env ad_rhs]
+        , renderDocText ad_descr
+        ]
     ]
 
 adt2md ADTDoc{..} = mconcat
     [ renderAnchorInfix "**data " ad_anchor $
         escapeMd (T.unwords (unTypename ad_name : ad_args)) <> "**"
-    , renderDocText ad_descr
-    , mconcatMap constrMdItem ad_constrs
+    , blockQuote $ mconcat
+        [ renderDocText ad_descr
+        , mconcatMap constrMdItem ad_constrs
+        ]
     ]
 
 constrMdItem :: ADTConstr -> RenderOut
 constrMdItem PrefixC{..} = withAnchorTag ac_anchor $ \tag -> mconcat
     [ renderLineDep $ \env -> T.unwords
-        ("*" : (tag <> escapeMd (unTypename ac_name)) : map (type2md env) ac_args)
+        $ "*"
+        : (tag <> bold (escapeMd (unTypename ac_name)))
+        : map (type2md env) ac_args
     , renderIndent 2 $ renderDocText ac_descr
     , renderLine ""
     ]
 constrMdItem RecordC{..} = mconcat
-    [ renderAnchorInfix "* " ac_anchor . escapeMd $ unTypename ac_name
+    [ renderAnchorInfix "* " ac_anchor . bold . escapeMd $ unTypename ac_name
     , renderIndent 2 $ mconcat
         [ renderDocText ac_descr
         , fieldTable ac_fields
@@ -182,18 +203,33 @@ type2md env = f 0
     link :: Maybe Anchor -> Typename -> T.Text
     link Nothing n = escapeMd $ unTypename n
     link (Just anchor) n =
-        if renderAnchorAvailable env anchor
-            then T.concat ["[", escapeMd $ unTypename n, "](#", unAnchor anchor, ")"]
-            else escapeMd $ unTypename n
+        case lookupAnchor env anchor of
+            Nothing -> escapeMd $ unTypename n
+            Just anchorLoc -> T.concat
+                [ "["
+                , escapeMd $ unTypename n
+                , "]("
+                , anchorRelativeHyperlink anchorLoc anchor
+                , ")"
+                ]
 
 fct2md :: FunctionDoc -> RenderOut
 fct2md FunctionDoc{..} = mconcat
     [ renderAnchorInfix "" fct_anchor $ T.concat
         [ "**", escapeMd $ unFieldname fct_name, "**  " ]
-    , renderLinesDep $ \env ->
-        maybe [] (\t -> ["&nbsp; : " <> type2md env t]) fct_type
-    , renderDocText fct_descr
+    , blockQuote $ mconcat
+        [ renderLineDep $ \env -> T.concat
+            [ ": "
+            , maybe "" ((<> " => ") . type2md env) fct_context
+            , type2md env fct_type
+            ]
+        , renderDocText fct_descr
+        ]
     ]
+
+blockQuote :: RenderOut -> RenderOut
+blockQuote = renderPrefix "> "
+
 ------------------------------------------------------------
 
 -- | Escape characters to prevent markdown interpretation.

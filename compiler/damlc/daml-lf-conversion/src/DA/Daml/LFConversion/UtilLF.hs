@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 -- | DAML-LF utility functions, may move to the LF utility if they are generally useful
 module DA.Daml.LFConversion.UtilLF(
@@ -76,17 +75,17 @@ buildPackage :: HasCallStack => Maybe String -> Version -> [Module] -> Package
 buildPackage mbPkgName version mods = Package version $ NM.fromList $ extraMods ++ mods
   where
     extraMods = case mbPkgName of
-      Just "daml-prim" -> wiredInModules version
+      Just "daml-prim" -> wiredInModules
       _ -> []
 
-wiredInModules :: Version -> [Module]
-wiredInModules version =
-  [ ghcPrim version
-  , ghcTypes version
+wiredInModules :: [Module]
+wiredInModules =
+  [ ghcPrim
+  , ghcTypes
   ]
 
-ghcPrim :: Version -> Module
-ghcPrim version = Module
+ghcPrim :: Module
+ghcPrim = Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -103,18 +102,18 @@ ghcPrim version = Module
       , dataTypeCon = mkTypeCon ["Void#"]
       , dataSerializable = IsSerializable False
       , dataParams = []
-      , dataCons = mkDataEnum version [conName]
+      , dataCons = DataEnum [conName]
       }
     valVoid = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal "void#", TCon (qual (dataTypeCon dataVoid)))
       , dvalNoPartyLiterals= HasNoPartyLiterals True
       , dvalIsTest = IsTest False
-      , dvalBody = mkEEnumCon version (qual (dataTypeCon dataVoid)) conName
+      , dvalBody = EEnumCon (qual (dataTypeCon dataVoid)) conName
       }
 
-ghcTypes :: Version -> Module
-ghcTypes version = Module
+ghcTypes :: Module
+ghcTypes = Module
   { moduleName = modName
   , moduleSource = Nothing
   , moduleFeatureFlags = daml12FeatureFlags
@@ -131,14 +130,14 @@ ghcTypes version = Module
       , dataTypeCon = mkTypeCon ["Ordering"]
       , dataSerializable = IsSerializable True
       , dataParams = []
-      , dataCons = mkDataEnum version $ map mkVariantCon cons
+      , dataCons = DataEnum $ map mkVariantCon cons
       }
     valCtor con = DefValue
       { dvalLocation = Nothing
       , dvalBinder = (mkVal ("$ctor:" ++ con), TCon (qual (dataTypeCon dataOrdering)))
       , dvalNoPartyLiterals= HasNoPartyLiterals True
       , dvalIsTest = IsTest False
-      , dvalBody = mkEEnumCon version (qual (dataTypeCon dataOrdering)) (mkVariantCon con)
+      , dvalBody = EEnumCon (qual (dataTypeCon dataOrdering)) (mkVariantCon con)
       }
     dataProxy = DefDataType
       { dataLocation= Nothing
@@ -159,23 +158,6 @@ ghcTypes version = Module
           (mkTypeVar "a", KStar)
           (ERecCon (TypeConApp (qual (dataTypeCon dataProxy)) [TVar (mkTypeVar "a")]) [])
       }
-
-mkDataEnum :: Version -> [VariantConName] -> DataCons
-mkDataEnum version cons
-    | version `supports` featureEnumTypes = DataEnum cons
-    | otherwise = DataVariant $ map (, TUnit) cons
-
-mkEEnumCon :: Version -> Qualified TypeConName -> VariantConName -> Expr
-mkEEnumCon version tcon con
-    | version `supports` featureEnumTypes = EEnumCon
-        { enumTypeCon = tcon
-        , enumDataCon = con
-        }
-    | otherwise = EVariantCon
-        { varTypeCon = TypeConApp tcon []
-        , varVariant = con
-        , varArg = EBuiltin BEUnit
-        }
 
 instance Outputable Expr where
     ppr = text . renderPretty

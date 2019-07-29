@@ -3,27 +3,34 @@
 
 package com.digitalasset.navigator.model.converter
 
-import java.time.{Instant, LocalDate}
-import java.time.format.DateTimeFormatter
-import java.time.temporal.ChronoUnit
+import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.{ImmArray, SortedLookupList}
+import com.digitalasset.daml.lf.data.LawlessTraversals._
 import com.digitalasset.daml.lf.iface
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.ledger.api.{v1 => V1}
 import com.digitalasset.ledger.api.refinements.ApiTypes
+import com.digitalasset.ledger.api.validation.ValueValidator.{validateRecord, validateValue}
 import com.digitalasset.navigator.{model => Model}
-import com.digitalasset.navigator.model.{
-  ApiValue,
-  IdentifierApiConversions,
-  IdentifierDamlConversions
+import com.digitalasset.navigator.model.{IdentifierApiConversions, IdentifierDamlConversions}
+import com.digitalasset.platform.participant.util.LfEngineToApi.{
+  lfValueToApiRecord,
+  lfValueToApiValue
 }
+
 import com.google.protobuf.timestamp.Timestamp
 import com.google.rpc.code.Code
 import scalaz.Tag
+import scalaz.syntax.bifunctor._
+import scalaz.syntax.traverse._
+import scalaz.syntax.std.option._
+import scalaz.std.either._
+import scalaz.std.option._
 
-import scala.util.Try
+import scala.util.control.NoStackTrace
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 case object LedgerApiV1 {
   // ------------------------------------------------------------------------------------------------------------------
   // Types
@@ -184,11 +191,7 @@ case object LedgerApiV1 {
       arguments <- Converter.checkExists("CreatedEvent.arguments", event.createArguments)
       arg <- readRecordArgument(arguments, templateIdentifier, ctx)
       keyResult = event.contractKey
-        .map(k => readArgument(k, template.key.get, ctx))
-        .fold[Result[Option[ApiValue]]](Right(None)) {
-          case Right(key) => Right(Some(key))
-          case Left(error) => Left(error)
-        }
+        .traverseU(k => readArgument(k, template.key.get, ctx))
       key <- keyResult
     } yield
       Model.ContractCreated(
@@ -247,7 +250,6 @@ case object LedgerApiV1 {
         witnessParties = witnessParties,
         workflowId = workflowId,
         contractId = ApiTypes.ContractId(event.contractId),
-        contractCreateEvent = ApiTypes.EventId(event.contractCreatingEventId),
         templateId = templateIdentifier,
         choice = ApiTypes.Choice(event.choice),
         argument = modelArgument,
@@ -261,21 +263,25 @@ case object LedgerApiV1 {
       typId: Model.DamlLfIdentifier,
       ctx: Context
   ): Result[Model.ApiRecord] =
-    readRecordArgument(
-      value,
-      Model.DamlLfTypeCon(Model.DamlLfTypeConName(typId), Model.DamlLfImmArraySeq()),
-      ctx)
+    for {
+      lfr <- validateRecord(value).leftMap(sre => GenericConversionError(sre.getMessage))
+      cidMapped <- lfr mapContractId (_.coid) match {
+        case r: Model.ApiRecord => Right(r)
+        case v => Left(GenericConversionError(s"validating record produced non-record $v"))
+      }
+      filled <- fillInRecordTI(
+        cidMapped,
+        Model.DamlLfTypeCon(Model.DamlLfTypeConName(typId), Model.DamlLfImmArraySeq()),
+        ctx)
+    } yield filled
 
-  private def readRecordArgument(
-      value: V1.value.Record,
+  private def fillInRecordTI(
+      value: Model.ApiRecord,
       typ: Model.DamlLfType,
       ctx: Context
-  ): Result[Model.ApiRecord] = {
+  ): Result[Model.ApiRecord] =
     for {
-      typeCon <- typ match {
-        case t @ Model.DamlLfTypeCon(_, _) => Right(t)
-        case _ => Left(GenericConversionError(s"Cannot read $value as $typ"))
-      }
+      typeCon <- asTypeCon(typ, value)
       ddt <- ctx.templates
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
@@ -283,94 +289,78 @@ case object LedgerApiV1 {
         case r @ iface.Record(_) => Right(r)
         case iface.Variant(_) | iface.Enum(_) => Left(GenericConversionError(s"Record expected"))
       }
-      fields <- Converter.sequence(
-        value.fields.toList
-          .zip(dt.fields.toList)
-          .map(
-            p =>
-              Converter
-                .checkExists("RecordField.value", p._1.value)
-                .flatMap(value => readArgument(value, p._2._2, ctx))
-                .map(a => Model.ApiRecordField(p._2._1, a))))
-    } yield Model.ApiRecord(Some(typeCon.name.identifier), fields)
-  }
-
-  private def readListArgument(
-      list: V1.value.List,
-      typ: Model.DamlLfType,
-      ctx: Context
-  ): Result[Model.ApiList] = {
-    for {
-      elementType <- typ match {
-        case Model.DamlLfTypePrim(Model.DamlLfPrimType.List, t) =>
-          t.headOption.toRight(GenericConversionError("List type parameter missing"))
-        case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
-      }
-      values <- Converter.sequence(
-        list.elements.map(value => readArgument(value, elementType, ctx)))
-    } yield {
-      Model.ApiList(values)
-    }
-  }
-
-  private def duplicateKey[X, Y](list: List[(X, Y)]): Option[X] =
-    list.groupBy(_._1).collectFirst { case (k, l) if l.size > 1 => k }
-
-  private def readMapArgument(
-      list: V1.value.Map,
-      typ: Model.DamlLfType,
-      ctx: Context
-  ): Result[Model.ApiMap] = {
-    for {
-      elementType <- typ match {
-        case Model.DamlLfTypePrim(Model.DamlLfPrimType.Map, t) =>
-          t.headOption.toRight(GenericConversionError("Map type parameter missing"))
-        case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
-      }
-      values <- Converter.sequence(list.entries.map {
-        case entry @ V1.value.Map.Entry(key, optValue) =>
+      fields <- value.fields.toSeq zip dt.fields traverseEitherStrictly {
+        case ((von, vv), (tn, fieldType)) =>
           for {
-            valueValue <- optValue.toRight(
-              GenericConversionError(s"Field 'value' required in $entry"))
-            value <- readArgument(valueValue, elementType, ctx)
-          } yield key -> value
-      })
-      map <- SortedLookupList.fromSortedImmArray(ImmArray(values)).left.map(GenericConversionError)
-    } yield Model.ApiMap(map)
+            _ <- von.cata(
+              vn =>
+                Either.cond(
+                  (vn: String) == (tn: String),
+                  (),
+                  GenericConversionError(s"field order mismatch: expected $tn, got $vn")),
+              Right(()))
+            newVv <- fillInTypeInfo(vv, fieldType, ctx)
+          } yield (Some(tn), newVv)
+      }
+    } yield Model.ApiRecord(Some(typeCon.name.identifier), fields.toImmArray)
 
-  }
-
-  private def readOptionalArgument(
-      opt: V1.value.Optional,
+  private def fillInListTI(
+      list: Model.ApiList,
       typ: Model.DamlLfType,
       ctx: Context
-  ): Result[Model.ApiOptional] = {
+  ): Result[Model.ApiList] =
+    for {
+      elementType <- typ match {
+        case Model.DamlLfTypePrim(Model.DamlLfPrimType.List, Seq(t)) =>
+          Right(t)
+        case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
+      }
+      values <- list.values traverseU (fillInTypeInfo(_, elementType, ctx))
+    } yield Model.ApiList(values)
+
+  private def fillInMapTI(
+      map: Model.ApiMap,
+      typ: Model.DamlLfType,
+      ctx: Context
+  ): Result[Model.ApiMap] =
+    for {
+      elementType <- typ match {
+        case Model.DamlLfTypePrim(Model.DamlLfPrimType.Map, Seq(t)) =>
+          Right(t)
+        case _ => Left(GenericConversionError(s"Cannot read $map as $typ"))
+      }
+      values <- map.value traverseU (fillInTypeInfo(_, elementType, ctx))
+    } yield Model.ApiMap(values)
+
+  private def fillInOptionalTI(
+      opt: Model.ApiOptional,
+      typ: Model.DamlLfType,
+      ctx: Context
+  ): Result[Model.ApiOptional] =
     for {
       optType <- typ match {
-        case Model.DamlLfTypePrim(Model.DamlLfPrimType.Optional, t) =>
-          t.headOption.toRight(GenericConversionError("Optional type parameter missing"))
+        case Model.DamlLfTypePrim(Model.DamlLfPrimType.Optional, Seq(t)) =>
+          Right(t)
         case _ => Left(GenericConversionError(s"Cannot read $opt as $typ"))
       }
-      value <- opt.value match {
-        case None => Right(None)
-        case Some(o) => readArgument(o, optType, ctx).map(Some(_))
-      }
-    } yield {
-      Model.ApiOptional(value)
-    }
-  }
+      value <- opt.value traverseU (fillInTypeInfo(_, optType, ctx))
+    } yield Model.ApiOptional(value)
 
-  private def readVariantArgument(
-      variant: V1.value.Variant,
+  private def asTypeCon(
+      typ: Model.DamlLfType,
+      selector: Model.ApiValue): Result[Model.DamlLfTypeCon] =
+    typ match {
+      case t @ Model.DamlLfTypeCon(_, _) => Right(t)
+      case _ => Left(GenericConversionError(s"Cannot read $selector as $typ"))
+    }
+
+  private def fillInVariantTI(
+      variant: Model.ApiVariant,
       typ: Model.DamlLfType,
       ctx: Context
-  ): Result[Model.ApiVariant] = {
+  ): Result[Model.ApiVariant] =
     for {
-      value <- Converter.checkExists("Variant.value", variant.value)
-      typeCon <- typ match {
-        case t @ Model.DamlLfTypeCon(_, _) => Right(t)
-        case _ => Left(GenericConversionError(s"Cannot read $variant as $typ"))
-      }
+      typeCon <- asTypeCon(typ, variant)
       ddt <- ctx.templates
         .damlLfDefDataType(typeCon.name.identifier)
         .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
@@ -379,65 +369,49 @@ case object LedgerApiV1 {
         case iface.Record(_) | iface.Enum(_) =>
           Left(GenericConversionError(s"Variant expected"))
       }
+      constructor = variant.variant
       choice <- dt.fields
-        .find(f => f._1 == variant.constructor)
-        .toRight(GenericConversionError(s"Unknown enum constructor ${variant.constructor}"))
-      argument <- readArgument(value, choice._2, ctx)
-    } yield {
-      Model.ApiVariant(Some(typeCon.name.identifier), variant.constructor, argument)
-    }
-  }
+        .collectFirst { case (`constructor`, cargTyp) => cargTyp }
+        .toRight(GenericConversionError(s"Unknown enum constructor $constructor"))
+      value = variant.value
+      argument <- fillInTypeInfo(value, choice, ctx)
+    } yield variant.copy(tycon = Some(typeCon.name.identifier), value = argument)
 
-  private def readEnumArgument(
-      enum: V1.value.Enum,
+  private def fillInEnumTI(
+      enum: Model.ApiEnum,
       typ: Model.DamlLfType,
       ctx: Context
   ): Result[Model.ApiEnum] =
     for {
-      typeCon <- typ match {
-        case t @ Model.DamlLfTypeCon(_, _) => Right(t)
-        case _ => Left(GenericConversionError(s"Cannot read $enum as $typ"))
-      }
-      ddt <- ctx.templates
-        .damlLfDefDataType(typeCon.name.identifier)
-        .toRight(GenericConversionError(s"Unknown type ${typeCon.name.identifier}"))
-      dt <- typeCon.instantiate(ddt) match {
-        case v @ iface.Enum(_) => Right(v)
-        case iface.Record(_) | iface.Variant(_) =>
-          Left(GenericConversionError(s"Enum expected"))
-      }
-      _ <- Either.cond(
-        dt.constructors.contains(enum.constructor),
-        (),
-        GenericConversionError(s"Unknown choice ${enum.constructor}"))
-    } yield Model.ApiEnum(Some(typeCon.name.identifier), enum.constructor)
+      typeCon <- asTypeCon(typ, enum)
+    } yield enum.copy(tycon = Some(typeCon.name.identifier))
 
   private def readArgument(
       value: V1.value.Value,
       typ: Model.DamlLfType,
       ctx: Context
-  ): Result[Model.ApiValue] = {
-    import V1.value.Value.{Sum => VS}
-    (value.sum, typ) match {
-      case (VS.Int64(v), _) => Right(Model.ApiInt64(v))
-      case (VS.Decimal(v), _) => Right(Model.ApiDecimal(v))
-      case (VS.Text(v), _) => Right(Model.ApiText(v))
-      case (VS.Unit(v), _) => Right(Model.ApiUnit())
-      case (VS.Bool(v), _) => Right(Model.ApiBool(v))
-      case (VS.Party(v), _) => Right(Model.ApiParty(v))
-      case (VS.Timestamp(v), _) => Right(Model.ApiTimestamp(v))
-      case (VS.Date(v), _) => Right(Model.ApiDate(v))
-      case (VS.ContractId(v), _) => Right(Model.ApiContractId(v))
-      case (VS.Optional(v), t) => readOptionalArgument(v, t, ctx)
-      case (VS.List(v), t) => readListArgument(v, t, ctx)
-      case (VS.Map(v), t) => readMapArgument(v, t, ctx)
-      case (VS.Record(v), t) => readRecordArgument(v, t, ctx)
-      case (VS.Variant(v), t) => readVariantArgument(v, t, ctx)
-      case (VS.Enum(v), t) => readEnumArgument(v, t, ctx)
-      case (VS.Empty, _) => Left(GenericConversionError("Argument value is empty"))
-      case (_, _) => Left(GenericConversionError(s"Cannot read argument $value as $typ"))
+  ): Result[Model.ApiValue] =
+    validateValue(value)
+      .leftMap(sre => GenericConversionError(sre.getMessage))
+      .flatMap(vv => fillInTypeInfo(vv.mapContractId(_.coid), typ, ctx))
+
+  /** Add `tycon`s and record field names where absent. */
+  private def fillInTypeInfo(
+      value: Model.ApiValue,
+      typ: Model.DamlLfType,
+      ctx: Context
+  ): Result[Model.ApiValue] =
+    value match {
+      case v: Model.ApiEnum => fillInEnumTI(v, typ, ctx)
+      case _: V.ValueCidlessLeaf | _: V.ValueContractId[_] => Right(value)
+      case v: Model.ApiOptional => fillInOptionalTI(v, typ, ctx)
+      case v: Model.ApiMap => fillInMapTI(v, typ, ctx)
+      case v: Model.ApiList => fillInListTI(v, typ, ctx)
+      case v: Model.ApiRecord => fillInRecordTI(v, typ, ctx)
+      case v: Model.ApiVariant => fillInVariantTI(v, typ, ctx)
+      case _: Model.ApiImpossible =>
+        Left(GenericConversionError("unserializable Tuple appeared of serializable type"))
     }
-  }
 
   def readCompletion(completion: V1.completion.Completion): Result[Option[Model.CommandStatus]] = {
     for {
@@ -458,67 +432,24 @@ case object LedgerApiV1 {
   // Write methods (Model -> V1)
   // ------------------------------------------------------------------------------------------------------------------
 
-  def writeArgument(value: Model.ApiValue): Result[V1.value.Value] = {
-    import V1.value.Value
-    value match {
-      case arg: Model.ApiRecord => writeRecordArgument(arg).map(a => Value(Value.Sum.Record(a)))
-      case arg: Model.ApiVariant => writeVariantArgument(arg).map(a => Value(Value.Sum.Variant(a)))
-      case Model.ApiEnum(id, cons) =>
-        Right(Value(Value.Sum.Enum(V1.value.Enum(id.map(_.asApi), cons))))
-      case arg: Model.ApiList => writeListArgument(arg).map(a => Value(Value.Sum.List(a)))
-      case Model.ApiBool(v) => Right(Value(Value.Sum.Bool(v)))
-      case Model.ApiInt64(v) => Right(Value(Value.Sum.Int64(v)))
-      case Model.ApiDecimal(v) => Right(Value(Value.Sum.Decimal(v)))
-      case Model.ApiParty(v) => Right(Value(Value.Sum.Party(v)))
-      case Model.ApiText(v) => Right(Value(Value.Sum.Text(v)))
-      case Model.ApiTimestamp(v) => Right(Value(Value.Sum.Timestamp(v)))
-      case Model.ApiDate(v) => Right(Value(Value.Sum.Date(v)))
-      case Model.ApiContractId(v) => Right(Value(Value.Sum.ContractId(v)))
-      case Model.ApiUnit() => Right(Value(Value.Sum.Unit(com.google.protobuf.empty.Empty())))
-      case Model.ApiOptional(None) => Right(Value(Value.Sum.Optional(V1.value.Optional(None))))
-      case Model.ApiOptional(Some(v)) =>
-        writeArgument(v).map(a => Value(Value.Sum.Optional(V1.value.Optional(Some(a)))))
-      case arg: Model.ApiMap =>
-        writeMapArgument(arg).map(a => Value(Value.Sum.Map(a)))
-    }
-  }
+  def writeArgument(value: Model.ApiValue): Result[V1.value.Value] =
+    wrapAbsContractId(value) flatMap (vac =>
+      lfValueToApiValue(verbose = true, vac) leftMap GenericConversionError)
 
-  def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] = {
-    for {
-      fields <- Converter
-        .sequence(value.fields.map(f =>
-          writeArgument(f.value).map(v => V1.value.RecordField(f.label, Some(v)))))
-    } yield {
-      V1.value.Record(value.recordId.map(_.asApi), fields)
-    }
-  }
+  def writeRecordArgument(value: Model.ApiRecord): Result[V1.value.Record] =
+    wrapAbsContractId(value) flatMap (vac =>
+      lfValueToApiRecord(verbose = true, vac) leftMap GenericConversionError)
 
-  def writeVariantArgument(value: Model.ApiVariant): Result[V1.value.Variant] = {
-    for {
-      arg <- writeArgument(value.value)
-    } yield {
-      V1.value.Variant(value.variantId.map(_.asApi), value.constructor, Some(arg))
-    }
-  }
-
-  def writeListArgument(value: Model.ApiList): Result[V1.value.List] = {
-    for {
-      values <- Converter.sequence(value.elements.map(e => writeArgument(e)))
-    } yield {
-      V1.value.List(values)
-    }
-  }
-
-  def writeMapArgument(value: Model.ApiMap): Result[V1.value.Map] = {
-    for {
-      values <- Converter.sequence(
-        value.value.toImmArray.toList.map { case (k, v) => writeArgument(v).map(k -> _) }
+  private[this] def wrapAbsContractId(value: Model.ApiValue): Result[V[V.AbsoluteContractId]] = {
+    final class NotACoid(message: String) extends RuntimeException(message) with NoStackTrace
+    // this is 100% cheating as Value should have Traverse instead
+    try Right(value mapContractId { coid =>
+      Ref.ContractIdString fromString coid fold (
+        e => throw new NotACoid(e),
+        V.AbsoluteContractId
       )
-    } yield {
-      V1.value.Map(values.map {
-        case (k, v) => V1.value.Map.Entry(k, Some(v))
-      })
-    }
+    })
+    catch { case e: NotACoid => Left(GenericConversionError(e.getMessage)) }
   }
 
   /** Write a composite command consisting of just the given command */
@@ -610,50 +541,4 @@ case object LedgerApiV1 {
       )
     }
   }
-
-  // ------------------------------------------------------------------------------------------------------------------
-  // Helpers
-  // ------------------------------------------------------------------------------------------------------------------
-
-  private def epochMicrosToString(time: Long): Result[String] = {
-    val micro: Long = 1000000
-    val seconds: Long = time / micro
-    val nanos: Long = (time % micro) * 1000
-    (for {
-      instant <- Try(Instant.ofEpochSecond(seconds, nanos)).toEither
-      result <- Try(DateTimeFormatter.ISO_INSTANT.format(instant)).toEither
-    } yield {
-      result
-    }).left.map(e => GenericConversionError(s"Could not convert timestamp '$time' to a string"))
-  }
-
-  private def stringToEpochMicros(time: String): Result[Long] = {
-    (for {
-      ta <- Try(DateTimeFormatter.ISO_INSTANT.parse(time)).toEither
-      instant <- Try(Instant.from(ta)).toEither
-    } yield {
-      val micro: Long = 1000000
-      instant.getEpochSecond * micro + instant.getNano / 1000
-    }).left.map(e => GenericConversionError(s"Could not convert string '$time' to a TimeStamp: $e"))
-  }
-
-  private def epochDaysToString(time: Int): Result[String] = {
-    (for {
-      ta <- Try(LocalDate.ofEpochDay(time.toLong)).toEither
-      result <- Try(DateTimeFormatter.ISO_LOCAL_DATE.format(ta)).toEither
-    } yield {
-      result
-    }).left.map(e => GenericConversionError(s"Could not convert date '$time' to a Date: $e"))
-  }
-
-  private def stringToEpochDays(time: String): Result[Int] = {
-    (for {
-      ta <- Try(DateTimeFormatter.ISO_INSTANT.parse(time)).toEither
-      instant <- Try(Instant.from(ta)).toEither
-    } yield {
-      val epoch = Instant.EPOCH
-      epoch.until(instant, ChronoUnit.DAYS).toInt
-    }).left.map(e => GenericConversionError(s"Could not convert string '$time' to a Date: $e"))
-  }
-
 }

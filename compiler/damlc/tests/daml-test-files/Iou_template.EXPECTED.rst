@@ -8,9 +8,9 @@ Module Iou_template
 Templates
 ^^^^^^^^^
 
-.. _template-ioutemplate-iou-32396:
+.. _type-ioutemplate-iou-55222:
 
-template **Iou**
+**template** `Iou <type-ioutemplate-iou-55222_>`_
 
   .. list-table::
      :widths: 15 10 30
@@ -46,7 +46,7 @@ template **Iou**
          - Type
          - Description
        * - otherCid
-         - ContractId Iou
+         - ContractId `Iou <type-ioutemplate-iou-55222_>`_
          - Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original ``Iou``.
   + **Choice Split**
   
@@ -81,7 +81,7 @@ Functions
 
 .. _function-ioutemplate-main-13221:
 
-**main**
+`main <function-ioutemplate-main-13221_>`_
   : Scenario ()
 
   A single test scenario covering all functionality that ``Iou`` implements.

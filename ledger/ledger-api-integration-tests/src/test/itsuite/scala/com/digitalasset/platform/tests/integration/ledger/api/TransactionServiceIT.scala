@@ -16,7 +16,6 @@ import com.digitalasset.ledger.api.testing.utils.{
   MockMessages,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
 import com.digitalasset.ledger.api.v1.event.Event.Event.{Archived, Created}
@@ -29,7 +28,6 @@ import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Bool, ContractId}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Optional, Record, RecordField, Value}
-import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
 import com.digitalasset.platform.api.v1.event.EventOps._
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
@@ -512,8 +510,7 @@ class TransactionServiceIT
             .value // This is the actual field access.
             .value
             .getVariant
-            .variantId should contain(
-            template.copy(name = "Test.OptionalInteger", entityName = "OptionalInteger"))
+            .variantId should contain(template.copy(entityName = "OptionalInteger"))
         }
       }
 
@@ -1595,19 +1592,13 @@ class TransactionServiceIT
       commandsPerSection: Int,
       context: LedgerContext): Future[Done] = {
     helpers.insertCommands(
-      request => applyTimeAndSubmit(request, context),
+      request =>
+        helpers
+          .applyTime(request, context)
+          .flatMap(context.commandService.submitAndWaitForTransactionId),
       prefix,
       commandsPerSection,
       context.ledgerId)
-  }
-
-  private def applyTimeAndSubmit(req: SubmitAndWaitRequest, context: LedgerContext) = {
-    context.commandClient().flatMap { client =>
-      val ttl = Duration.ofMillis(config.commandConfiguration.commandTtl.toMillis)
-      val updater = new CommandUpdater(client.timeProviderO, ttl, true)
-      val reqToSend = req.copy(commands = req.commands.map(updater.applyOverrides))
-      context.commandService.submitAndWaitForTransactionId(reqToSend)
-    }
   }
 
   private def insertCommandsUnique(

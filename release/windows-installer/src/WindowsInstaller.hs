@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
 import Data.String
@@ -33,7 +32,7 @@ installer sdkDir logo = do
         -- that nsis will cleanup automatically.
         unsafeInject "InitPluginsDir"
         iff_ (fileExists "$APPDATA/daml") $ do
-            answer <- messageBox [MB_YESNO] "DAML SDK is already installed. Do you want to remove it?"
+            answer <- messageBox [MB_YESNO] "DAML SDK is already installed. Do you want to remove the installed SDKs before installing this one?"
             iff (answer %== "YES")
                 (rmdir [Recursive] "$APPDATA/daml")
                 (abort "Existing installation detected.")

@@ -4,22 +4,19 @@
 package com.digitalasset.platform.tests.integration.ledger.api.commands
 
 import java.time.Duration
+import java.util.UUID
 
-import com.digitalasset.api.util.TimestampConversion.{fromInstant, toInstant}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
   SuiteResourceManagementAroundAll
 }
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.commands.Commands
-import com.digitalasset.platform.apitesting.LedgerContext
-import com.google.protobuf.empty.Empty
+import com.digitalasset.platform.apitesting.{LedgerContext, TestIdsGenerator}
 import io.grpc.Status
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.{AsyncWordSpec, Matchers, TryValues}
-
-import scala.concurrent.Future
+import scalaz.syntax.tag._
 
 class CommandSubmissionTtlIT
     extends AsyncWordSpec
@@ -31,6 +28,8 @@ class CommandSubmissionTtlIT
     with ScalaFutures {
   private val timeModel = config.timeModel
   private val epsilonDuration = Duration.ofMillis(10L)
+  private val testIds = new TestIdsGenerator(config)
+
   "Command Service" when {
 
     "commands arrive with extreme TTLs" should {
@@ -62,17 +61,13 @@ class CommandSubmissionTtlIT
   }
 
   private def submitRequestWithTtl(ctx: LedgerContext, ttl: Duration) = {
-    val commands = requestWithTtl(ttl)
-    submitSingleCommand(ctx, commands)
+    val commands = submitRequest.getCommands
+      .withCommandId(testIds.testCommandId(s"TTL_of_$ttl-${UUID.randomUUID()}"))
+      .withLedgerId(ctx.ledgerId.unwrap)
+
+    for {
+      req <- helpers.applyTime(SubmitAndWaitRequest(Some(commands)), ctx, ttl)
+      resp <- ctx.commandService.submitAndWaitForTransactionId(req)
+    } yield resp
   }
-
-  private def requestWithTtl(ttl: Duration) =
-    submitRequest.getCommands
-      .withMaximumRecordTime(
-        fromInstant(toInstant(submitRequest.getCommands.getLedgerEffectiveTime).plus(ttl)))
-      .withCommandId(s"TTL_of_$ttl")
-
-  private def submitSingleCommand(ctx: LedgerContext, commands: Commands): Future[Empty] =
-    ctx.commandService.submitAndWait(SubmitAndWaitRequest(Some(commands)))
-
 }

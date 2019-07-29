@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 -- | Test driver for DAML-GHC CompilerService.
 -- For each file, compile it with GHC, convert it,
@@ -57,8 +56,8 @@ import           Text.Read
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import           System.Time.Extra
-import qualified Development.IDE.Core.API as Compile
-import qualified Development.IDE.Core.Rules.Daml as Compile
+import Development.IDE.Core.API
+import Development.IDE.Core.Rules.Daml
 import qualified Development.IDE.Types.Diagnostics as D
 import Development.IDE.GHC.Util
 import           Data.Tagged                  (Tagged (..))
@@ -79,7 +78,7 @@ main :: IO ()
 main = mainWithVersions [versionDev]
 
 mainAll :: IO ()
-mainAll = mainWithVersions (delete versionDev supportedInputVersions)
+mainAll = mainWithVersions (delete versionDev supportedOutputVersions)
 
 mainWithVersions :: [Version] -> IO ()
 mainWithVersions versions = SS.withScenarioService Logger.makeNopHandle SS.defaultScenarioServiceConfig $ \scenarioService -> do
@@ -127,15 +126,16 @@ getIntegrationTests registerTODO scenarioService version = do
     opts <- pure $ opts
         { optThreads = 0
         , optScenarioValidation = ScenarioValidationFull
+        , optCoreLinting = True
         }
 
     -- initialise the compiler service
-    vfs <- Compile.makeVFSHandle
-    damlEnv <- Compile.mkDamlEnv opts (Just scenarioService)
+    vfs <- makeVFSHandle
+    damlEnv <- mkDamlEnv opts (Just scenarioService)
     pure $
       withResource
-      (Compile.initialise (Compile.mainRule opts) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts) vfs)
-      Compile.shutdown $ \service ->
+      (initialise (mainRule opts) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts) vfs)
+      shutdown $ \service ->
       withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
         map (testCase args version service outdir registerTODO) allTestFiles
 
@@ -153,7 +153,7 @@ instance IsTest TestCase where
     pure $ res { resultDescription = desc }
   testOptions = Tagged []
 
-testCase :: TestArguments -> LF.Version -> IO Compile.IdeState -> FilePath -> (TODO -> IO ()) -> FilePath -> TestTree
+testCase :: TestArguments -> LF.Version -> IO IdeState -> FilePath -> (TODO -> IO ()) -> FilePath -> TestTree
 testCase args version getService outdir registerTODO file = singleTest file . TestCase $ \log -> do
   service <- getService
   anns <- readFileAnns file
@@ -166,9 +166,9 @@ testCase args version getService outdir registerTODO file = singleTest file . Te
       }
     else do
       -- FIXME: Use of unsafeClearDiagnostics is only because we don't naturally lose them when we change setFilesOfInterest
-      Compile.unsafeClearDiagnostics service
+      unsafeClearDiagnostics service
       ex <- try $ mainProj args service outdir log (toNormalizedFilePath file) :: IO (Either SomeException Package)
-      diags <- Compile.getDiagnostics service
+      diags <- getDiagnostics service
       for_ [file ++ ", " ++ x | Todo x <- anns] (registerTODO . TODO)
       resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] $
         [ideErrorText "" $ T.pack $ show e | Left e <- [ex], not $ "_IGNORE_" `isInfixOf` show e] ++ diags
@@ -306,7 +306,7 @@ parseRange s =
             (Position (rowEnd - 1) (colEnd - 1))
     _ -> error $ "Failed to parse range, got " ++ s
 
-mainProj :: TestArguments -> Compile.IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
+mainProj :: TestArguments -> IdeState -> FilePath -> (String -> IO ()) -> NormalizedFilePath -> IO LF.Package
 mainProj TestArguments{..} service outdir log file = do
     writeFile <- return $ \a b -> length b `seq` writeFile a b
     let proj = takeBaseName (fromNormalizedFilePath file)
@@ -315,8 +315,8 @@ mainProj TestArguments{..} service outdir log file = do
     let lfSave = timed log "LF saving" . liftIO . writeFileLf (outdir </> proj <.> "dalf")
     let lfPrettyPrint = timed log "LF pretty-printing" . liftIO . writeFile (outdir </> proj <.> "pdalf") . renderPretty
 
-    Compile.setFilesOfInterest service (Set.singleton file)
-    Compile.runActionSync service $ do
+    setFilesOfInterest service (Set.singleton file)
+    runActionSync service $ do
             cores <- ghcCompile log file
             corePrettyPrint cores
             lf <- lfConvert log file
@@ -334,16 +334,16 @@ unjust act = do
       Just v -> return v
 
 ghcCompile :: (String -> IO ()) -> NormalizedFilePath -> Action [GHC.CoreModule]
-ghcCompile log file = timed log "GHC compile" $ unjust $ Compile.getGhcCore file
+ghcCompile log file = timed log "GHC compile" $ unjust $ getGhcCore file
 
 lfConvert :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
-lfConvert log file = timed log "LF convert" $ unjust $ Compile.getRawDalf file
+lfConvert log file = timed log "LF convert" $ unjust $ getRawDalf file
 
 lfTypeCheck :: (String -> IO ()) -> NormalizedFilePath -> Action LF.Package
-lfTypeCheck log file = timed log "LF type check" $ unjust $ Compile.getDalf file
+lfTypeCheck log file = timed log "LF type check" $ unjust $ getDalf file
 
 lfRunScenarios :: (String -> IO ()) -> NormalizedFilePath -> Action ()
-lfRunScenarios log file = timed log "LF execution" $ void $ unjust $ Compile.runScenarios file
+lfRunScenarios log file = timed log "LF execution" $ void $ unjust $ runScenarios file
 
 timed :: MonadIO m => (String -> IO ()) -> String -> m a -> m a
 timed log msg act = do

@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "8092d5f6165a8d9c4797d5f089c1ba4eee3326b1"
-rules_haskell_version = "a090af722e98ca82fcd14ba02f6b6a24ee2ef61b"
-rules_haskell_sha256 = "f01598e8ddd13ccb0f54fe46e79744ea30579720ba16b7a86cdccf6d7a3e64f6"
+rules_haskell_version = "53b899298cfdc9ce12564be6a8b507ef61bcd8d2"
+rules_haskell_sha256 = "3fda8396503ec65daf315f71562429b1ea20c1044122945d7dd2fc2dab31cbc3"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
 def daml_deps():
@@ -47,6 +47,7 @@ def daml_deps():
                 "@com_github_digital_asset_daml//bazel_tools:haskell-ghci-grpc.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell_public_ghci_repl_wrapper.patch",
                 "@com_github_digital_asset_daml//bazel_tools:haskell-windows-library-dirs.patch",
+                "@com_github_digital_asset_daml//bazel_tools:haskell-no-isystem.patch",
             ],
             patch_args = ["-p1"],
             sha256 = rules_haskell_sha256,
@@ -66,6 +67,10 @@ def daml_deps():
             strip_prefix = "rules_haskell-{}/hazel".format(rules_haskell_version),
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             sha256 = rules_haskell_sha256,
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:haskell-hazel-include-paths.patch",
+            ],
+            patch_args = ["-p2"],
         )
 
     if "com_github_madler_zlib" not in native.existing_rules():
@@ -141,9 +146,9 @@ def daml_deps():
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.19.0",
-            urls = ["https://github.com/grpc/grpc/archive/v1.19.0.tar.gz"],
-            sha256 = "1d54cd95ed276c42c276e0a3df8ab33ee41968b73af14023c03a19db48f82e73",
+            strip_prefix = "grpc-1.22.0",
+            urls = ["https://github.com/grpc/grpc/archive/v1.22.0.tar.gz"],
+            sha256 = "11ac793c562143d52fd440f6549588712badc79211cdc8c509b183cb69bddad8",
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:grpc-bazel-mingw.patch",
             ],

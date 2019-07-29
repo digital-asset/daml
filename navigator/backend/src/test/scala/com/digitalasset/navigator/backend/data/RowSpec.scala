@@ -149,7 +149,6 @@ class RowSpec extends WordSpec with Matchers {
         List(ApiTypes.Party("p01")),
         ApiTypes.WorkflowId("w01"),
         ApiTypes.ContractId("c01"),
-        ApiTypes.EventId("e02"),
         C.complexRecordId,
         ApiTypes.Choice("text"),
         C.simpleTextV,

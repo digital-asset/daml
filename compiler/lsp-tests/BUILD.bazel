@@ -36,6 +36,7 @@ da_haskell_test(
     deps = [
         "//compiler/damlc/daml-ide-core",
         "//compiler/hie-core",
+        "//compiler/hie-core/test:hie-core-testing",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/test-utils",
     ],

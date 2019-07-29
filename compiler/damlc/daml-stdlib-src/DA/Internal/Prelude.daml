@@ -26,6 +26,10 @@ import GHC.Tuple()
 import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive)
 
 infixr 0 $
+-- | Take a function from `a` to `b` and a value of type `a`, and apply the
+-- function to the value of type `a`, returning a value of type `b`. 
+-- This function has a very low precedence, which is why you might want to use
+-- it instead of regular function application.
 ($) : (a -> b) -> a -> b
 f $ x =  f x
 
@@ -45,7 +49,7 @@ class Functor f => Applicative f where
     -- | Lift a value.
     pure : a -> f a
 
-    -- | Sequential application.
+    -- | Sequentially apply the function.
     --
     -- A few functors support an implementation of `<*>` that is more
     -- efficient than the default one.
@@ -70,7 +74,7 @@ class Functor f => Applicative f where
     (<*) = liftA2 const
 
 -- | Sequentially compose two actions, discarding any value produced
--- by the first, like sequencing operators (such as the semicolon)
+-- by the first. This is like sequencing operators (such as the semicolon)
 -- in imperative languages.
 (>>) : Applicative m => m a -> m b -> m b
 (>>) = (*>)
@@ -80,7 +84,9 @@ infixl 1 >>
 ap : Applicative f => f (a -> b) -> f a -> f b
 ap = (<*>)
 
--- | Inject a value into the monadic type.
+-- This is a poor doc string but I don't know what the correct improvement would be.
+-- | Inject a value into the monadic type. For example, for `Update` and a 
+-- value of type `a`, `return` would give you an `Update a`.
 return      : Applicative m => a -> m a
 return      = pure
 
@@ -130,50 +136,62 @@ guard : ActionFail m => Bool -> m ()
 guard False = fail "guard is false"
 guard True = pure ()
 
--- | `foldl f i xs` performs a left fold over `xs` using `f` with the starting value `i`.
+-- | This function is a left fold, which you can use to inspect/analyse/consume lists. 
+-- `foldl f i xs` performs a left fold over the list `xs` using
+-- the function `f`, using the starting value `i`.
 --
--- #### Examples
+-- Examples:
 --
 -- ```
 -- >>> foldl (+) 0 [1,2,3]
 -- 6
+-- 
 -- >>> foldl (^) 10 [2,3]
 -- 1000000
 -- ```
 --
+-- Note that foldl works from left-to-right over the list arguments.
 foldl : (b -> a -> b) -> b -> [a] -> b
 foldl = primitive @"BEFoldl"
 
--- | `find p xs` finds the first element of `xs` where the predicate `p` holds.
+-- | `find p xs` finds the first element of the list `xs` where the 
+-- predicate `p` is true. There might not be such an element, which 
+-- is why this function returns an `Optional a`.
 find : (a -> Bool) -> [a] -> Optional a
 find p [] = None
 find p (x::xs) = if p x then Some x else find p xs
 
--- | Calculate the length of a list.
+-- | Gives the length of the list.
 length : [a] -> Int
 length = foldl (\l _ -> l + 1) 0
 
--- | `any p xs` is `True` if `p` holds for at least one element of `xs`.
+-- | Are there any elements in the list where the predicate is true?
+-- `any p xs` is `True` if `p` holds for at least one element of `xs`.
 any : (a -> Bool) -> [a] -> Bool
 any f = foldl (\b x -> b || f x) False
 
--- | `all p xs` is `True` if `p` holds for every element of `xs`.
+-- | Is the predicate true for all of the elements in the list?
+-- `all p xs` is `True` if `p` holds for every element of `xs`.
 all : (a -> Bool) -> [a] -> Bool
 all f = foldl (\b x -> b && f x) True
 
--- | `or bs` is `True` if at least one element of `bs` is `True`.
+-- | Is at least one of elements in a list of `Bool` true?
+-- `or bs` is `True` if at least one element of `bs` is `True`.
 or : [Bool] -> Bool
 or = any identity
 
--- | `and bs` is `True` if every element of `bs` is `True`.
+-- | Is every element in a list of Bool true?
+-- `and bs` is `True` if every element of `bs` is `True`.
 and : [Bool] -> Bool
 and = all identity
 
--- | `elem x xs` is `True` if `x` is an element of the list `xs`.
+-- | Does this value exist in this list?
+-- `elem x xs` is `True` if `x` is an element of the list `xs`.
 elem : Eq a => a -> [a] -> Bool
 elem x = any (== x)
 
--- | Negation of `elem`.
+-- | Negation of `elem`:
+-- `elem x xs` is `True` if `x` is _not_ an element of the list `xs`.
 notElem : Eq a => a ->  [a] -> Bool
 notElem x = not . elem x
 
@@ -188,9 +206,9 @@ infixl 4 <$>
 -- deal with errors or exceptional cases without resorting to drastic
 -- measures such as `error`.
 --
--- The `Optional` type is also a monad.  It is a simple kind of error
--- monad, where all errors are represented by `None`.  A richer
--- error monad can be built using the `Data.Either.Either` type.
+-- The `Optional` type is also an `Action`.  It is a simple kind of error
+-- `Action`, where all errors are represented by `None`.  A richer
+-- error `Action` could be built using the `Data.Either.Either` type.
 --
 data Optional a  =  None | Some a
     deriving (Eq, Ord, Show)
@@ -226,9 +244,7 @@ instance ActionFail Optional where
 -- default value.  Otherwise, it applies the function to the value inside
 -- the `Some` and returns the result.
 --
--- #### Examples
---
--- Basic usage:
+-- Basic usage examples:
 --
 -- ```
 -- >>> optional False (> 2) (Some 3)
@@ -240,15 +256,16 @@ instance ActionFail Optional where
 -- False
 -- ```
 --
+-- ```
 -- >>> optional 0 (*2) (Some 5)
 -- 10
 -- >>> optional 0 (*2) None
 -- 0
 -- ```
 --
--- Apply `show` to a `Optional Int`. If we have `Some n`, we want to show
--- the underlying `Int`, `n`. But if we have `None`, we return the
--- empty string instead of (for example) `None`:
+-- This example applies `show` to a `Optional Int`. If you have `Some n`,
+-- this shows the underlying `Int`, `n`. But if you have `None`, this
+-- returns the empty string instead of (for example) `None`:
 --
 -- ```
 -- >>> optional "" show (Some 5)
@@ -279,16 +296,16 @@ instance Action (Either e) where
 instance ActionFail (Either Text) where
   fail = Left
 
--- | Case analysis for the `Either` type.
--- If the value is `Left a`, apply the first function to `a`;
--- if it is `Right b`, apply the second function to `b`.
+-- | The `either` function provides case analysis for the `Either` type.
+-- If the value is `Left a`, it applies the first function to `a`;
+-- if it is `Right b`, it applies the second function to `b`.
 --
--- #### Examples
+-- Examples:
 --
--- We create two values of type `Either [Int] Int`, one using the
+-- This example has two values of type `Either [Int] Int`, one using the
 -- `Left` constructor and another using the `Right` constructor. Then
--- we apply "either" the `length` function (if we have a `[Int]`)
--- or the "times-two" function (if we have an `Int`):
+-- it applies `either` the `length` function (if it has a `[Int]`)
+-- or the "times-two" function (if it has an `Int`):
 --
 -- ```
 -- >>> let s = Left [1,2,3] : Either [Int] Int in either length (*2) s
@@ -338,6 +355,7 @@ instance Monoid Text where
 instance Monoid Ordering where
   mempty = EQ
 
+-- | Take a list of lists and concatenate those lists into one list.
 concat : [[a]] -> [a]
 concat = mconcat
 
@@ -375,7 +393,7 @@ infixr 1 =<<
 concatMap : (a -> [b]) -> [a] -> [b]
 concatMap f = concat . map f
 
--- | `replicate i x` is the list `[x, x, x, ..., x]` with `i` copies of `x`.
+-- | `replicate i x` gives the list `[x, x, x, ..., x]` with `i` copies of `x`.
 replicate : Int -> a -> [a]
 replicate i x | i <= 0 = []
               | otherwise = x :: replicate (i-1) x
@@ -444,13 +462,14 @@ zip3 : [a] -> [b] -> [c] -> [(a, b, c)]
 zip3 (a::as) (b::bs) (c::cs) = (a,b,c) :: zip3 as bs cs
 zip3 _ _ _ = []
 
--- | `zipWith` generalises `zip` by combining elements using the function, instead of making pairs.
+-- | `zipWith` takes a function and two lists.
+-- It generalises `zip` by combining elements using the function, instead of forming pairs.
 -- If one list is shorter, the excess elements of the longer list are discarded.
 zipWith : (a -> b -> c) -> [a] -> [b] -> [c]
 zipWith f (a::as) (b::bs) = f a b :: zipWith f as bs
 zipWith _ _ _ = []
 
--- | `zipWith3` generalises `zip3` by combining elements using the function, instead of making pairs.
+-- | `zipWith3` generalises `zip3` by combining elements using the function, instead of forming triples.
 zipWith3 : (a -> b -> c -> d) -> [a] -> [b] -> [c] -> [d]
 zipWith3 f (a::as) (b::bs) (c::cs) = f a b c :: zipWith3 f as bs cs
 zipWith3 _ _ _ _ = []
@@ -480,11 +499,11 @@ traceId x = trace x x
 debug : (Show b, Applicative m) => b -> m ()
 debug x = trace x (pure ())
 
--- | Return the first element of a pair.
+-- | Return the first element of a tuple.
 fst : (a, b) -> a
 fst (x, _) = x
 
--- | Return the second element of a pair.
+-- | Return the second element of a tuple.
 snd : (a, b) -> b
 snd (_, x) = x
 
@@ -508,30 +527,30 @@ roundCommercial d x =
       w = intToDecimal v
   in w / t
 
--- | Round to nearest integer, where a `.5` is rounded away from zero.
+-- | Round a `Decimal` to the nearest integer, where a `.5` is rounded away from zero.
 round : Decimal -> Int
 round x = if x > 0.0
     then truncate (x + 0.5)
     else truncate (x - 0.5)
 
--- | Round down to nearest integer.
+-- | Round a `Decimal` down to the nearest integer.
 floor : Decimal -> Int
 floor x =
   let i = truncate x
   in if intToDecimal i <= x then i else i - 1
 
--- | Round up to nearest integer.
+-- | Round a `Decimal` up to the nearest integer.
 ceiling : Decimal -> Int
 ceiling x =
   let i = truncate x
   in if intToDecimal i < x then i + 1 else i
 
--- | `null xs` is true if `xs` is the empty list.
+-- | Is the list empty? `null xs` is true if `xs` is the empty list.
 null : [a] -> Bool
 null [] = True
 null _ = False
 
--- | Keep only the elements where the predicate holds.
+-- | Filter the list using the function: keep only the elements where the predicate holds.
 filter : (a -> Bool) -> [a] -> [a]
 filter p = foldr (\x xs -> if p x then x :: xs else xs) []
 
@@ -554,10 +573,10 @@ instance Applicative Down where
 instance Action Down where
     Down a >>= k = k a
 
--- | Calculate the sum over all elements
+-- | Add together all the elements in the list.
 sum : Additive a => [a] -> a
 sum = foldl (+) aunit
 
--- | Calculate the product over all elements
+-- | Multiply all the elements in the list together.
 product : Multiplicative a => [a] -> a
 product = foldl (*) munit

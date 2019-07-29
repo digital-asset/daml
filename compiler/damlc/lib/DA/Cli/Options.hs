@@ -15,8 +15,8 @@ import Text.Read
 import qualified DA.Pretty           as Pretty
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast.Version as LF
-import DAML.Project.Consts
-import DAML.Project.Types
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types
 
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
@@ -129,6 +129,7 @@ lfVersionOpt = option (str >>= select) $
     <> help ("DAML-LF version to output: " ++ versionsStr)
     <> long "target"
     <> value LF.versionDefault
+    <> internal
   where
     renderVersion v =
       let def = if v == LF.versionDefault then " (default)" else ""

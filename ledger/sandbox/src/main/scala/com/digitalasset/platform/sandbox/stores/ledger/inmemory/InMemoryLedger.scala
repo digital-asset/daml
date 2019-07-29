@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicReference
 import akka.NotUsed
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v2.{
+import com.daml.ledger.participant.state.v1.{
   PartyAllocationResult,
   SubmissionResult,
   SubmittedTransaction,
@@ -136,7 +136,7 @@ class InMemoryLedger(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
     val recordTime = timeProvider.getCurrentTime
-    if (recordTime.isAfter(submitterInfo.maxRecordTime)) {
+    if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
       // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
       // than the time window between LET and MRT allows for.
       // See https://github.com/digital-asset/daml/issues/987
@@ -154,7 +154,7 @@ class InMemoryLedger(
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(
-        transactionMeta.ledgerEffectiveTime,
+        transactionMeta.ledgerEffectiveTime.toInstant,
         trId,
         transactionMeta.workflowId,
         mappedTx,
@@ -183,7 +183,7 @@ class InMemoryLedger(
               Some(submitterInfo.applicationId),
               Some(submitterInfo.submitter),
               transactionMeta.workflowId,
-              transactionMeta.ledgerEffectiveTime,
+              transactionMeta.ledgerEffectiveTime.toInstant,
               recordTime,
               recordTx,
               recordBlinding

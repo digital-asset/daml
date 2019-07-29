@@ -203,7 +203,9 @@ object ValueGenerators {
     val genRel: Gen[ContractId] =
       Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Transaction.NodeId.unsafeFromIndex(i)))
     val genAbs: Gen[ContractId] =
-      Gen.alphaStr.filter(_.nonEmpty).map(s => AbsoluteContractId(toContractId(s)))
+      Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
+        case (h, t) => AbsoluteContractId(toContractId(h +: t))
+      }
     Gen.frequency((1, genRel), (3, genAbs))
   }
 
@@ -426,4 +428,11 @@ object ValueGenerators {
     stringVersionGen
       .map(TransactionVersion)
       .filter(x => !TransactionVersions.acceptedVersions.contains(x))
+
+  object Implicits {
+    implicit val vdecimalArb: Arbitrary[Decimal] = Arbitrary(decimalGen map (_.value))
+    implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)
+    implicit val vtimestampArb: Arbitrary[Time.Timestamp] = Arbitrary(timestampGen)
+    implicit val vpartyArb: Arbitrary[Ref.Party] = Arbitrary(party)
+  }
 }

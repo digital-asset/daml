@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 -- | Pretty-printing of scenario results
 module DA.Daml.LF.PrettyScenario
@@ -10,14 +9,14 @@ module DA.Daml.LF.PrettyScenario
   , prettyBriefScenarioError
   , renderScenarioResult
   , lookupDefLocation
+  , scenarioNotInFileNote
+  , fileWScenarioNoLongerCompilesNote
   , ModuleRef
   ) where
 
-import           Control.Lens               (preview, review)
 import           Control.Monad
 import           Control.Monad.Reader
 import           Control.Monad.Trans.Except
-import           DA.Daml.LF.Decimal  (stringToDecimal)
 import qualified DA.Daml.LF.Ast             as LF
 import Control.Applicative
 import Text.Read hiding (parens)
@@ -260,136 +259,103 @@ prettyScenarioErrorError (Just err) =  do
                 scenarioError_ContractNotVisibleContractRef
         , label_ "Committer:" $ prettyMay "<missing party>" prettyParty scenarioError_ContractNotVisibleCommitter
         , label_ "Disclosed to:"
-            $ fcommasep
-            $ mapV prettyParty scenarioError_ContractNotVisibleObservers
+            $ prettyParties scenarioError_ContractNotVisibleObservers
         ]
     ScenarioErrorErrorSubmitterNotInMaintainers (ScenarioError_SubmitterNotInMaintainers templateId submitter maintainers) ->
       pure $ vcat
         [ "When looking up or fetching a contract of type" <->
             prettyMay "<missing template id>" (prettyDefName world) templateId <-> "by key, submitter:" <->
             prettyMay "<missing submitter>" prettyParty submitter
-        , "is not in maintainers:" <-> fcommasep (mapV prettyParty maintainers)
+        , "is not in maintainers:" <-> prettyParties maintainers
         ]
+
+partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
+partyDifference with without =
+  fcommasep $ map prettyParty $ S.toList $
+  S.fromList (V.toList with) `S.difference`
+  S.fromList (V.toList without)
+
+prettyParties :: V.Vector Party -> Doc SyntaxClass
+prettyParties = fcommasep . mapV prettyParty
 
 prettyFailedAuthorization :: LF.World -> FailedAuthorization -> Doc SyntaxClass
 prettyFailedAuthorization world (FailedAuthorization mbNodeId mbFa) =
   hcat
     [ prettyMay "<missing node id>" prettyNodeIdLink mbNodeId
     , text ": "
-    , case mbFa of
+    , vcat $ case mbFa of
         Just (FailedAuthorizationSumCreateMissingAuthorization
           (FailedAuthorization_CreateMissingAuthorization templateId mbLoc authParties reqParties)) ->
-          "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to a missing authorization from"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty reqParties)
-               `S.difference`
-               S.fromList (mapV partyParty authParties)
-             )
-            )
+              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to a missing authorization from"
+                <-> reqParties `partyDifference` authParties
+              ]
 
         Just (FailedAuthorizationSumMaintainersNotSubsetOfSignatories
           (FailedAuthorization_MaintainersNotSubsetOfSignatories templateId mbLoc signatories maintainers)) ->
-          "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to that some parties are maintainers but not signatories: "
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty maintainers)
-               `S.difference`
-               S.fromList (mapV partyParty signatories)
-             )
-            )
+              [ "create of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to that some parties are maintainers but not signatories: "
+                <-> maintainers `partyDifference` signatories
+              ]
 
         Just (FailedAuthorizationSumFetchMissingAuthorization
           (FailedAuthorization_FetchMissingAuthorization templateId mbLoc authParties stakeholders)) ->
-          "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed since none of the stakeholders"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ mapV partyParty stakeholders
-            ))
-          $$
-            ("is in the authorizing set"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ mapV partyParty authParties
-            ))
+              [ "fetch of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed since none of the stakeholders"
+                <-> prettyParties stakeholders
+              , "is in the authorizing set"
+                <-> prettyParties authParties
+              ]
 
         Just (FailedAuthorizationSumExerciseMissingAuthorization
           (FailedAuthorization_ExerciseMissingAuthorization templateId choiceId mbLoc authParties reqParties)) ->
-          "exercise of" <-> prettyChoiceId world templateId choiceId
-          <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to a missing authorization from"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty reqParties)
-               `S.difference`
-               S.fromList (mapV partyParty authParties)
-             )
-            )
+              [ "exercise of" <-> prettyChoiceId world templateId choiceId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to a missing authorization from"
+                <-> reqParties `partyDifference` authParties
+              ]
 
         Just (FailedAuthorizationSumActorMismatch
           (FailedAuthorization_ActorMismatch templateId choiceId mbLoc ctrls givenActors)) ->
-          "exercise of" <-> prettyChoiceId world templateId choiceId
-          <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$
-            ("failed due to authorization error:"
-            $$ "the choice's controlling parties"
-            <-> brackets (fcommasep (mapV prettyParty ctrls))
-            $$ "is not a subset of the authorizing parties"
-            <-> brackets (fcommasep (mapV prettyParty givenActors))
-            )
+              [ "exercise of" <-> prettyChoiceId world templateId choiceId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to authorization error:"
+              , "the choice's controlling parties"
+                <-> brackets (prettyParties ctrls)
+              , "is not a subset of the authorizing parties"
+                <-> brackets (prettyParties givenActors)
+              ]
 
         Just (FailedAuthorizationSumNoControllers
           (FailedAuthorization_NoControllers templateId choiceId mbLoc)) ->
-          "exercise of" <-> prettyChoiceId world templateId choiceId
-          <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$ "failed due missing controllers"
+              [ "exercise of" <-> prettyChoiceId world templateId choiceId
+                <-> "in" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due missing controllers"
+              ]
 
         Just (FailedAuthorizationSumNoSignatories
           (FailedAuthorization_NoSignatories templateId mbLoc)) ->
-          "create of"
-          <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-          <-> "at" <-> prettyMayLocation world mbLoc
-          $$ "failed due missing signatories"
+              [ "create of"
+                <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due missing signatories"
+              ]
 
         Just (FailedAuthorizationSumLookupByKeyMissingAuthorization
           (FailedAuthorization_LookupByKeyMissingAuthorization templateId mbLoc authParties maintainers)) ->
-         "lookup by key of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
-         <-> "at" <-> prettyMayLocation world mbLoc
-         $$
-            ("failed due to a missing authorization from"
-             <->
-             ( fcommasep
-             $ map (prettyParty . Party)
-             $ S.toList
-             $ S.fromList (mapV partyParty maintainers)
-               `S.difference`
-               S.fromList (mapV partyParty authParties)
-             )
-            )
+              [ "lookup by key of" <-> prettyMay "<missing template id>" (prettyDefName world) templateId
+                <-> "at" <-> prettyMayLocation world mbLoc
+              , "failed due to a missing authorization from"
+                <-> maintainers `partyDifference` authParties
+              ]
 
-        Nothing ->
-          text "<missing failed_authorization>"
+        Nothing -> [text "<missing failed_authorization>"]
     ]
 
 
@@ -694,10 +660,7 @@ prettyValue' showRecordType prec world (Value (Just vsum)) = case vsum of
     brackets (fcommasep (mapV (prettyValue' True prec world) elems))
   ValueSumContractId coid -> prettyContractId coid
   ValueSumInt64 i -> string (show i)
-  ValueSumDecimal ds ->
-    case preview stringToDecimal (TL.unpack ds) of
-      Nothing -> ltext ds
-      Just d  -> string $ review stringToDecimal d
+  ValueSumDecimal ds -> ltext ds
   ValueSumText t -> char '"' <> ltext t <> char '"'
   ValueSumTimestamp ts -> prettyTimestamp ts
   ValueSumParty p -> char '\'' <> ltext p <> char '\''
@@ -911,9 +874,12 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
             H.script "" H.! A.src "$webviewSrc"
         let tableView = renderTableView world res
         let transView = renderTransactionView world res
+        let noteView = H.div H.! A.class_ "note" H.! A.id "note" $ H.toHtml $ T.pack " "
         case tableView of
-            Nothing -> H.body transView
-            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction" $ do
+            Nothing -> H.body H.! A.class_ "hide_note" $ do
+                noteView
+                transView
+            Just tbl -> H.body H.! A.class_ "hide_archived hide_transaction hide_note" $ do
                 H.div $ do
                     H.button H.! A.onclick "toggle_view();" $ do
                         H.span H.! A.class_ "table" $ H.text "Show transaction view"
@@ -922,6 +888,7 @@ renderScenarioResult world res = TL.toStrict $ Blaze.renderHtml $ do
                     H.span H.! A.class_ "table" $ do
                         H.input H.! A.type_ "checkbox" H.! A.id "show_archived" H.! A.onchange "show_archived_changed();"
                         H.label H.! A.for "show_archived" $ "Show archived"
+                noteView
                 tbl
                 transView
 
@@ -944,6 +911,9 @@ stylesheet = T.unlines
   , "body.hide_transaction .transaction {"
   , "  display: none;"
   , "}"
+  , "body.hide_note .note {"
+  , "  display: none;"
+  , "}"
   , "tr.archived td {"
   , "  text-decoration: line-through;"
   , "}"
@@ -963,3 +933,14 @@ stylesheet = T.unlines
   , "  transform: rotate(180deg);"
   , "}"
   ]
+
+scenarioNotInFileNote :: T.Text -> T.Text
+scenarioNotInFileNote file = htmlNote $ T.pack $
+    "This scenario no longer exists in the source file: " ++ T.unpack file
+
+fileWScenarioNoLongerCompilesNote :: T.Text -> T.Text
+fileWScenarioNoLongerCompilesNote file = htmlNote $ T.pack $
+    "The source file containing this scenario no longer compiles: " ++ T.unpack file
+
+htmlNote :: T.Text -> T.Text
+htmlNote t = TL.toStrict $ Blaze.renderHtml $ H.docTypeHtml $ H.span H.! A.class_ "da-hl-warning" $ H.toHtml t

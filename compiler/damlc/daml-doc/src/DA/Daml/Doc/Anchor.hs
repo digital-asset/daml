@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 -- | Generate anchor names to link between Hoogle and Rst docs. These need to be
 -- unique, and conform to the Rst's restrictions on anchor names (AFAICT they have to
@@ -12,9 +11,7 @@ module DA.Daml.Doc.Anchor
     ( Anchor
     , moduleAnchor
     , classAnchor
-    , templateAnchor
     , typeAnchor
-    , dataAnchor
     , constrAnchor
     , functionAnchor
     ) where
@@ -32,16 +29,12 @@ convertModulename :: Modulename -> T.Text
 convertModulename = T.toLower . T.replace "." "-" . T.replace "_" "" . unModulename
 
 classAnchor    :: Modulename -> Typename  -> Anchor
-templateAnchor :: Modulename -> Typename  -> Anchor
 typeAnchor     :: Modulename -> Typename  -> Anchor
-dataAnchor     :: Modulename -> Typename  -> Anchor
 constrAnchor   :: Modulename -> Typename  -> Anchor
 functionAnchor :: Modulename -> Fieldname -> Anchor
 
 classAnchor    m n = anchor "class"    m (unTypename n) ()
-templateAnchor m n = anchor "template" m (unTypename n) ()
 typeAnchor     m n = anchor "type"     m (unTypename n) ()
-dataAnchor     m n = anchor "data"     m (unTypename n) ()
 constrAnchor   m n = anchor "constr"   m (unTypename n) ()
 functionAnchor m n = anchor "function" m (unFieldname n) ()
 

@@ -14,7 +14,7 @@ import com.daml.ledger.participant.state.index.v1._
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate, NodeExercises}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.ledger.api.domain.{LedgerOffset, PartyDetails, TransactionFilter}
@@ -343,6 +343,27 @@ final case class ReferenceIndexService(
           .flatMap {
             case ac if canSeeContract(submitter, ac) => Some(ac.contract)
             case _ => None
+          }
+      }
+    }
+
+  override def lookupKey(
+      submitter: Party,
+      key: GlobalKey): Future[Option[Value.AbsoluteContractId]] =
+    futureWithState { state =>
+      Future {
+
+        state.activeContracts.keys
+          .get(key)
+          .flatMap { cid =>
+            logger.debug(s"lookupKey: $submitter, $key: $cid")
+
+            // note that we need to check visibility for keys, too, otherwise we leak the existence of a non-divulged
+            // contract if we return `Some`.
+            state.activeContracts.lookupContract(cid).flatMap {
+              case ac if canSeeContract(submitter, ac) => Some(cid)
+              case _ => None
+            }
           }
       }
     }

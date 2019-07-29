@@ -246,9 +246,17 @@ jobs:
           REPORT_GZ=$(mktemp)
           cat $REPORT | gzip -9 > $REPORT_GZ
           GCS_KEY=$(mktemp)
-          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
-          gcloud auth activate-service-account --key-file=$GCS_KEY
-          BOTO_CONFIG=/dev/null gsutil cp $REPORT_GZ gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz
+          # Application credentials will not be set for forks. We give up on
+          # tracking those for now. "Not set" in Azure world means set to the
+          # expression Azure would otherwise substitute, i.e. the literal value
+          # of the string in the `env:` block below.
+          if [[ "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" != '$(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)' ]]; then
+              echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+              gcloud auth activate-service-account --key-file=$GCS_KEY
+              BOTO_CONFIG=/dev/null gsutil cp $REPORT_GZ gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz
+          else
+              cat $REPORT
+          fi
 
           if [[ "$(Linux.status)" == "Canceled"
               || "$(macOS.status)" == "Canceled"

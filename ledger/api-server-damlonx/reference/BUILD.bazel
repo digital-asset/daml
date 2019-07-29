@@ -36,7 +36,7 @@ da_scala_binary(
         "//ledger/api-server-damlonx",
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
-        "//ledger/participant-state:participant-state-v1",
+        "//ledger/participant-state",
         "//ledger/participant-state-index:participant-state-index-v1",
         "//ledger/participant-state-index/reference",
         "//ledger/participant-state/kvutils",
@@ -47,6 +47,10 @@ client_server_test(
     name = "conformance-test",
     timeout = "short",
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client_args = [
+        "--exclude=*",
+        "--include=SemanticTests,ContractKeysIT",
+    ],
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
         "//ledger/sandbox:Test.dar",
@@ -54,6 +58,7 @@ client_server_test(
     server = ":reference",
     server_args = [
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
     ],
     tags = [
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.

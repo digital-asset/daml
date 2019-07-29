@@ -38,11 +38,13 @@ da_haskell_test(
         "extra",
         "filepath",
         "tasty-golden",
+        "tasty-hunit",
     ],
     main_function = "VisualTest.main",
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
+        "//compiler/daml-lf-reader",
         "//compiler/damlc:damlc-lib",
         "//libs-haskell/bazel-runfiles",
     ],
@@ -160,6 +162,27 @@ da_haskell_test(
         "//compiler/hie-core",
         "//libs-haskell/da-hs-base",
     ],
+)
+
+da_haskell_test(
+    name = "position-mapping",
+    srcs = ["src/DA/Test/PositionMapping.hs"],
+    hazel_deps = [
+        "base",
+        "haskell-lsp",
+        "haskell-lsp-types",
+        "QuickCheck",
+        "quickcheck-instances",
+        "rope-utf16-splay",
+        "tasty",
+        "tasty-hunit",
+        "tasty-quickcheck",
+        "text",
+    ],
+    main_function = "DA.Test.PositionMapping.main",
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = ["//compiler/hie-core"],
 )
 
 # Memory tests

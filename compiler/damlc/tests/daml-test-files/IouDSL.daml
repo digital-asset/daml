@@ -19,65 +19,65 @@ data Iou = Iou with
   deriving (Eq, Show)
 
 instance IouInstance => Template Iou where
-  signatory = signatoryIou
-  observer = observerIou
-  ensure = ensureIou
-  agreement = agreementIou
-  create = createIou
-  fetch = fetchIou
-  archive = archiveIou
+  signatory = _signatoryIou
+  observer = _observerIou
+  ensure = _ensureIou
+  agreement = _agreementIou
+  create = _createIou
+  fetch = _fetchIou
+  archive = _archiveIou
 
 data Burn = Burn{}
   deriving (Eq, Show)
 
 instance IouInstance => Choice Iou Burn () where
-  exercise = exerciseIouBurn
+  exercise = _exerciseIouBurn
 
 instance IouInstance => Choice Iou Archive () where
-  exercise = exerciseIouArchive
+  exercise = _exerciseIouArchive
 
 class IouInstance where
-  signatoryIou : Iou -> [Party]
-  signatoryIou this@Iou{..} = [issuer, owner]
-  observerIou : Iou -> [Party]
-  observerIou this@Iou{..} = []
-  ensureIou : Iou -> Bool
-  ensureIou this@Iou{..} = amount > 0.0
-  agreementIou : Iou -> Text
-  agreementIou this@Iou{..} =
+  _signatoryIou : Iou -> [Party]
+  _signatoryIou this@Iou{..} = [issuer, owner]
+  _observerIou : Iou -> [Party]
+  _observerIou this@Iou{..} = []
+  _ensureIou : Iou -> Bool
+  _ensureIou this@Iou{..} = amount > 0.0
+  _agreementIou : Iou -> Text
+  _agreementIou this@Iou{..} =
       show issuer <> " owns " <> show owner <> " CHF " <> show amount
-  createIou : Iou -> Update (ContractId Iou)
-  createIou = error "code will be injected by the compiler"
-  fetchIou : ContractId Iou -> Update Iou
-  fetchIou = error "code will be injected by the compiler"
-  archiveIou : ContractId Iou -> Update ()
-  archiveIou cid = exerciseIouArchive cid Archive
+  _createIou : Iou -> Update (ContractId Iou)
+  _createIou = error "code will be injected by the compiler"
+  _fetchIou : ContractId Iou -> Update Iou
+  _fetchIou = error "code will be injected by the compiler"
+  _archiveIou : ContractId Iou -> Update ()
+  _archiveIou cid = _exerciseIouArchive cid Archive
 
-  consumptionIouArchive : PreConsuming Iou
-  consumptionIouArchive = PreConsuming
-  controllerIouArchive : Iou -> Archive -> [Party]
-  controllerIouArchive this@Iou{..} arg@Archive = signatoryIou this
-  actionIouArchive : ContractId Iou -> Iou -> Archive -> Update ()
-  actionIouArchive self this@Iou{..} arg@Archive = do
+  _consumptionIouArchive : PreConsuming Iou
+  _consumptionIouArchive = PreConsuming
+  _controllerIouArchive : Iou -> Archive -> [Party]
+  _controllerIouArchive this@Iou{..} arg@Archive = _signatoryIou this
+  _actionIouArchive : ContractId Iou -> Iou -> Archive -> Update ()
+  _actionIouArchive self this@Iou{..} arg@Archive = do
     pure ()
-  exerciseIouArchive : ContractId Iou -> Archive -> Update ()
-  exerciseIouArchive = error "code will be injected by the compiler"
+  _exerciseIouArchive : ContractId Iou -> Archive -> Update ()
+  _exerciseIouArchive = error "code will be injected by the compiler"
 
-  consumptionIouBurn : PreConsuming Iou
-  consumptionIouBurn = PreConsuming
-  controllerIouBurn : Iou -> Burn -> [Party]
-  controllerIouBurn this@Iou{..} arg@Burn = [owner]
-  actionIouBurn : ContractId Iou -> Iou -> Burn -> Update ()
-  actionIouBurn self this@Iou{..} arg@Burn = do
+  _consumptionIouBurn : PreConsuming Iou
+  _consumptionIouBurn = PreConsuming
+  _controllerIouBurn : Iou -> Burn -> [Party]
+  _controllerIouBurn this@Iou{..} arg@Burn = [owner]
+  _actionIouBurn : ContractId Iou -> Iou -> Burn -> Update ()
+  _actionIouBurn self this@Iou{..} arg@Burn = do
     pure ()
-  exerciseIouBurn : ContractId Iou -> Burn -> Update ()
-  exerciseIouBurn = error "code will be injected by the compiler"
+  _exerciseIouBurn : ContractId Iou -> Burn -> Update ()
+  _exerciseIouBurn = error "code will be injected by the compiler"
 
 instance IouInstance where
 
 
 -- The instantiation of the generic proposal workflow for `Iou`.
-newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou
+newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou -- ^ TEMPLATE_INSTANCE
 
 instance ProposalInstance Iou where
 

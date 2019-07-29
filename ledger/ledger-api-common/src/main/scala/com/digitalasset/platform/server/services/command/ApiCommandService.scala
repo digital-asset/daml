@@ -33,7 +33,6 @@ import com.digitalasset.ledger.client.services.commands.{
 }
 import com.digitalasset.platform.server.api.ApiException
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandService
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.services.command.ApiCommandService.LowLevelCommandServiceAccess
 import com.digitalasset.util.Ctx
 import com.digitalasset.util.akkastreams.MaxInFlight
@@ -207,18 +206,14 @@ class ApiCommandService private (
 
 object ApiCommandService {
 
-  def create(
-      configuration: Configuration,
-      svcAccess: LowLevelCommandServiceAccess,
-      identifierResolver: IdentifierResolver)(
+  def create(configuration: Configuration, svcAccess: LowLevelCommandServiceAccess)(
       implicit grpcExecutionContext: ExecutionContext,
       actorMaterializer: ActorMaterializer,
       esf: ExecutionSequencerFactory
   ): CommandServiceGrpc.CommandService with BindableService with CommandServiceLogging =
     new GrpcCommandService(
       new ApiCommandService(svcAccess, configuration),
-      configuration.ledgerId,
-      identifierResolver
+      configuration.ledgerId
     ) with CommandServiceLogging
 
   final case class Configuration(

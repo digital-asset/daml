@@ -16,7 +16,6 @@ module DA.Daml.Options
 import Control.Monad
 import qualified CmdLineParser as Cmd (warnMsg)
 import Data.Bifunctor
-import Data.Maybe
 import Data.IORef
 import Data.List
 import DynFlags (parseDynamicFilePragma)
@@ -37,12 +36,12 @@ import qualified Development.IDE.Types.Options as HieCore
 
 -- | Convert to hie-core’s IdeOptions type.
 toCompileOpts :: Options -> HieCore.IdeOptions
-toCompileOpts Options{..} =
+toCompileOpts options@Options{..} =
     HieCore.IdeOptions
       { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
       , optGhcSession = do
             env <- liftIO $ runGhcFast $ do
-                setupDamlGHC optImportPath optMbPackageName optGhcCustomOpts
+                setupDamlGHC options
                 GHC.getSession
             pkg <- liftIO $ generatePackageState optPackageDbs optHideAllPkgs $ map (second toRenaming) optPackageImports
             return env{hsc_dflags = setPackageDynFlags pkg $ hsc_dflags env}
@@ -50,7 +49,6 @@ toCompileOpts Options{..} =
           { optLocateHieFile = locateInPkgDb "hie"
           , optLocateSrcFile = locateInPkgDb "daml"
           }
-      , optIfaceDir = HieCore.InterfaceDirectory (fromMaybe ifaceDir optIfaceDir <$ guard optWriteInterface)
       , optExtensions = ["daml"]
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
@@ -168,11 +166,12 @@ xExtensionsUnset :: [Extension]
 xExtensionsUnset = [ ]
 
 -- | Flags set for DAML-1.2 compilation
-xFlagsSet :: [ GeneralFlag ]
-xFlagsSet = [
-   Opt_Haddock
+xFlagsSet :: Options -> [GeneralFlag]
+xFlagsSet options =
+ [ Opt_Haddock
  , Opt_Ticky
- ]
+ ] ++
+ [ Opt_DoCoreLinting | optCoreLinting options ]
 
 -- | Warning options set for DAML compilation. Note that these can be modified
 --   (per file) by the user via file headers '{-# OPTIONS -fwarn-... #-} and
@@ -202,10 +201,10 @@ wOptsUnset =
   ]
 
 
-adjustDynFlags :: [FilePath] -> Maybe String -> DynFlags -> DynFlags
-adjustDynFlags paths mbPackageName dflags
-  = setImports paths
-  $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId mbPackageName)
+adjustDynFlags :: Options -> DynFlags -> DynFlags
+adjustDynFlags options@Options{..} dflags
+  = setImports optImportPath
+  $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId optMbPackageName)
   -- once we have package imports working, we want to import the base package and set this to
   -- the default instead of always compiling in the context of ghc-prim.
   $ apply wopt_set wOptsSet
@@ -213,7 +212,7 @@ adjustDynFlags paths mbPackageName dflags
   $ apply wopt_set_fatal wOptsSetFatal
   $ apply xopt_set xExtensionsSet
   $ apply xopt_unset xExtensionsUnset
-  $ apply gopt_set xFlagsSet
+  $ apply gopt_set (xFlagsSet options)
   dflags{
     mainModIs = mkModule primUnitId (mkModuleName "NotAnExistingName"), -- avoid DEL-6770
     debugLevel = 1,
@@ -239,21 +238,20 @@ setImports paths dflags = dflags { importPaths = paths }
 --     * Sets the import paths to the given list of 'FilePath'.
 --     * if present, parses and applies custom options for GHC
 --       (may fail if the custom options are inconsistent with std DAML ones)
-setupDamlGHC :: GhcMonad m => [FilePath] -> Maybe String -> [String] -> m ()
-setupDamlGHC importPaths mbPackageName [] =
-  modifyDynFlags $ adjustDynFlags importPaths mbPackageName
--- if custom options are given, add them after the standard DAML flag setup
-setupDamlGHC importPaths mbPackageName customOpts = do
-  setupDamlGHC importPaths mbPackageName []
-  damlDFlags <- getSessionDynFlags
-  (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc customOpts
+setupDamlGHC :: GhcMonad m => Options -> m ()
+setupDamlGHC options@Options{..} = do
+  modifyDynFlags $ adjustDynFlags options
 
-  let leftoverError = CmdLineError $
-        (unlines . ("Unable to parse custom flags:":) . map unLoc) leftover
-  unless (null leftover) $ liftIO $ throwGhcExceptionIO leftoverError
+  unless (null optGhcCustomOpts) $ do
+    damlDFlags <- getSessionDynFlags
+    (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc optGhcCustomOpts
 
-  unless (null warns) $
-    liftIO $ putStrLn $ unlines $ "Warnings:" : map (unLoc . Cmd.warnMsg) warns
+    let leftoverError = CmdLineError $
+          (unlines . ("Unable to parse custom flags:":) . map unLoc) leftover
+    unless (null leftover) $ liftIO $ throwGhcExceptionIO leftoverError
 
-  modifySession $ \h ->
-    h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }
+    unless (null warns) $
+      liftIO $ putStrLn $ unlines $ "Warnings:" : map (unLoc . Cmd.warnMsg) warns
+
+    modifySession $ \h ->
+      h { hsc_dflags = dflags', hsc_IC = (hsc_IC h) {ic_dflags = dflags' } }

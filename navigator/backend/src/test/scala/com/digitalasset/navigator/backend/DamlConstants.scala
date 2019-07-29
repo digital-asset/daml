@@ -3,9 +3,16 @@
 
 package com.digitalasset.navigator
 
-import com.digitalasset.daml.lf.data.{SortedLookupList, Ref => DamlLfRef}
+import com.digitalasset.daml.lf.data.{
+  Decimal => LfDecimal,
+  FrontStack,
+  ImmArray,
+  SortedLookupList,
+  Ref => DamlLfRef
+}
 import com.digitalasset.navigator.model._
 import com.digitalasset.daml.lf.{iface => DamlLfIface}
+import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
 
 import scala.language.implicitConversions
 
@@ -51,8 +58,8 @@ case object DamlConstants {
 
   val simpleTextV = ApiText("foo")
   val simpleInt64V = ApiInt64(100)
-  val simpleDecimalV = ApiDecimal("100")
-  val simpleUnitV = ApiUnit()
+  val simpleDecimalV = ApiDecimal(LfDecimal assertFromString "100")
+  val simpleUnitV = ApiUnit
   val simpleDateV = ApiDate.fromIso8601("2019-01-28")
   val simpleTimestampV = ApiTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")
   val simpleOptionalV = ApiOptional(Some(ApiText("foo")))
@@ -67,7 +74,7 @@ case object DamlConstants {
   val emptyRecordGC = DamlLfDefDataType(DamlLfImmArraySeq(), emptyRecordGD)
   val emptyRecordTC = DamlLfTypeCon(DamlLfTypeConName(emptyRecordId), DamlLfImmArraySeq())
   val emptyRecordT = emptyRecordTC.instantiate(emptyRecordGC).asInstanceOf[DamlLfRecord]
-  val emptyRecordV = ApiRecord(Some(emptyRecordId), List())
+  val emptyRecordV = ApiRecord(Some(emptyRecordId), ImmArray.empty)
 
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: simple record (data SimpleRecord a b = {fA: a, fB: b})
@@ -87,9 +94,9 @@ case object DamlConstants {
   def simpleRecordV =
     ApiRecord(
       Some(simpleRecordId),
-      List(
-        ApiRecordField("fA", ApiText("foo")),
-        ApiRecordField("fB", ApiInt64(100))
+      ImmArray(
+        ApiRecordField(Some(name("fA")), ApiText("foo")),
+        ApiRecordField(Some(name("fB")), ApiInt64(100))
       ))
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -149,36 +156,34 @@ case object DamlConstants {
     "Node",
     ApiRecord(
       Some(treeNodeId),
-      List(
-        ApiRecordField(
+      ImmArray(
+        (
           "left",
           ApiVariant(
             Some(treeId),
             "Node",
             ApiRecord(
               Some(treeNodeId),
-              List(
-                ApiRecordField("left", ApiVariant(Some(treeId), "Leaf", ApiText("LL"))),
-                ApiRecordField("right", ApiVariant(Some(treeId), "Leaf", ApiText("LR")))
+              ImmArray(
+                ApiRecordField(Some(name("left")), ApiVariant(Some(treeId), "Leaf", ApiText("LL"))),
+                ApiRecordField(Some(name("right")), ApiVariant(Some(treeId), "Leaf", ApiText("LR")))
               )
             )
-          )
-        ),
-        ApiRecordField(
+          )),
+        (
           "right",
           ApiVariant(
             Some(treeId),
             "Node",
             ApiRecord(
               Some(treeNodeId),
-              List(
-                ApiRecordField("left", ApiVariant(Some(treeId), "Leaf", ApiText("RL"))),
-                ApiRecordField("right", ApiVariant(Some(treeId), "Leaf", ApiText("RR")))
+              ImmArray(
+                ApiRecordField(Some(name("left")), ApiVariant(Some(treeId), "Leaf", ApiText("RL"))),
+                ApiRecordField(Some(name("right")), ApiVariant(Some(treeId), "Leaf", ApiText("RR")))
               )
             )
-          )
-        )
-      )
+          ))
+      ).map { case (k, v) => (Some(name(k)), v) }
     )
   )
 
@@ -220,27 +225,27 @@ case object DamlConstants {
   val complexRecordT = complexRecordTC.instantiate(complexRecordGC).asInstanceOf[DamlLfRecord]
   val complexRecordV = ApiRecord(
     Some(complexRecordId),
-    List(
-      ApiRecordField("fText", simpleTextV),
-      ApiRecordField("fBool", ApiBool(true)),
-      ApiRecordField("fDecimal", simpleDecimalV),
-      ApiRecordField("fUnit", ApiUnit()),
-      ApiRecordField("fInt64", simpleInt64V),
-      ApiRecordField("fParty", ApiParty("BANK1")),
-      ApiRecordField("fContractId", ApiContractId("C0")),
-      ApiRecordField("fListOfText", ApiList(List(ApiText("foo"), ApiText("bar")))),
-      ApiRecordField("fListOfUnit", ApiList(List(ApiUnit(), ApiUnit()))),
-      ApiRecordField("fDate", simpleDateV),
-      ApiRecordField("fTimestamp", simpleTimestampV),
-      ApiRecordField("fOptionalText", ApiOptional(None)),
-      ApiRecordField("fOptionalUnit", ApiOptional(Some(ApiUnit()))),
-      ApiRecordField("fOptOptText", ApiOptional(Some(ApiOptional(Some(ApiText("foo")))))),
-      ApiRecordField(
+    ImmArray(
+      ("fText", simpleTextV),
+      ("fBool", ApiBool(true)),
+      ("fDecimal", simpleDecimalV),
+      ("fUnit", ApiUnit),
+      ("fInt64", simpleInt64V),
+      ("fParty", ApiParty(DamlLfRef.Party assertFromString "BANK1")),
+      ("fContractId", ApiContractId("C0")),
+      ("fListOfText", ApiList(FrontStack(ApiText("foo"), ApiText("bar")))),
+      ("fListOfUnit", ApiList(FrontStack(ApiUnit, ApiUnit))),
+      ("fDate", simpleDateV),
+      ("fTimestamp", simpleTimestampV),
+      ("fOptionalText", ApiOptional(None)),
+      ("fOptionalUnit", ApiOptional(Some(ApiUnit))),
+      ("fOptOptText", ApiOptional(Some(ApiOptional(Some(ApiText("foo")))))),
+      (
         "fMap",
         ApiMap(SortedLookupList(Map("1" -> ApiInt64(1), "2" -> ApiInt64(2), "3" -> ApiInt64(3))))),
-      ApiRecordField("fVariant", simpleVariantV),
-      ApiRecordField("fRecord", simpleRecordV)
-    )
+      ("fVariant", simpleVariantV),
+      ("fRecord", simpleRecordV)
+    ).map { case (k, v) => (Some(name(k)), v) }
   )
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -317,4 +322,7 @@ case object DamlConstants {
   private implicit def name(s: String): DamlLfRef.Name =
     DamlLfRef.Name.assertFromString(s)
 
+  @throws[IllegalArgumentException]
+  private[navigator] def singletonRecord(label: String, value: ApiValue): ApiRecord =
+    ApiRecord(None, ImmArray((Some(name(label)), value)))
 }

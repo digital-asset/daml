@@ -9,7 +9,7 @@ import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.PackageDetails
-import com.daml.ledger.participant.state.v2.TransactionId
+import com.daml.ledger.participant.state.v1.TransactionId
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -227,12 +227,12 @@ trait LedgerWriteDao extends AutoCloseable {
     *
     * @param packages The DAML-LF archives to upload, including their meta-data.
     *
-    * @return
+    * @return Values from the PersistenceResponse enum to the number of archives that led to that result
     */
   def uploadLfPackages(
       uploadId: String,
       packages: List[(Archive, PackageDetails)]
-  ): Future[PersistenceResponse]
+  ): Future[Map[PersistenceResponse, Int]]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

@@ -69,6 +69,7 @@
   - {name: GeneralizedNewtypeDeriving, within: []}
   - {name: LambdaCase, within: []}
   - {name: NamedFieldPuns, within: []}
+  - {name: OverloadedStrings, within: []}
   - {name: PackageImports, within: []}
   - {name: RecordWildCards, within: []}
   - {name: ScopedTypeVariables, within: []}
@@ -80,9 +81,10 @@
   # Shady extensions
   - name: CPP
     within:
+    - Development.IDE.Core.FileStore
     - DA.Sdk.Cli.System
     - DA.Sdk.Cli.Version
-    - DAML.Assistant.Install.Path
+    - DA.Daml.Assistant.Install.Path
     - DA.Signals
     - Development.IDE.Core.Compile
     - Development.IDE.GHC.Compat
@@ -100,7 +102,7 @@
   - {name: unsafePerformIO, within: [DA.Daml.LFConversion.UtilGHC]}
   - {name: unsafeInterleaveIO, within: []}
   - {name: unsafeDupablePerformIO, within: []}
-  - {name: setCurrentDirectory, within: [DAML.Assistant.Tests, Main]}
+  - {name: setCurrentDirectory, within: [DA.Daml.Assistant.Tests, Main]}
   - {name: unsafeCoerce, within: []}
 
 # Add custom hints for this project

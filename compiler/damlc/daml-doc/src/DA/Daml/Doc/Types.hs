@@ -50,6 +50,7 @@ data ModuleDoc = ModuleDoc
   , md_name      :: Modulename
   , md_descr     :: Maybe DocText
   , md_templates :: [TemplateDoc]
+  , md_templateInstances :: [TemplateInstanceDoc]
   , md_adts      :: [ADTDoc]
   , md_functions :: [FunctionDoc]
   , md_classes   :: [ClassDoc]
@@ -64,11 +65,20 @@ data ModuleDoc = ModuleDoc
 data TemplateDoc = TemplateDoc
   { td_anchor  :: Maybe Anchor
   , td_name    :: Typename
+  , td_super   :: Maybe Type
+  , td_args    :: [Text]
   , td_descr   :: Maybe DocText
   , td_payload :: [FieldDoc]
   , td_choices :: [ChoiceDoc]
   }
   deriving (Eq, Show, Generic)
+
+data TemplateInstanceDoc = TemplateInstanceDoc
+    { ti_anchor :: Maybe Anchor
+    , ti_name :: Typename
+    , ti_descr :: Maybe DocText
+    , ti_rhs :: Type
+    } deriving (Eq, Show, Generic)
 
 data ClassDoc = ClassDoc
   { cl_anchor :: Maybe Anchor
@@ -141,7 +151,7 @@ data FunctionDoc = FunctionDoc
   { fct_anchor :: Maybe Anchor
   , fct_name  :: Fieldname
   , fct_context :: Maybe Type
-  , fct_type  :: Maybe Type
+  , fct_type  :: Type
   , fct_descr :: Maybe DocText
   }
   deriving (Eq, Show, Generic)
@@ -195,6 +205,12 @@ instance ToJSON TemplateDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON TemplateDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON TemplateInstanceDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON TemplateInstanceDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON ModuleDoc where

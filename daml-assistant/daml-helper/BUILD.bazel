@@ -8,7 +8,7 @@ da_haskell_library(
     name = "daml-helper-lib",
     srcs = glob(
         ["src/**/*.hs"],
-        exclude = ["src/DamlHelper/Main.hs"],
+        exclude = ["src/DA/Daml/Helper/Main.hs"],
     ),
     hazel_deps = [
         "aeson",
@@ -24,24 +24,26 @@ da_haskell_library(
         "network",
         "open-browser",
         "optparse-applicative",
-        "process",
         "safe-exceptions",
         "text",
+        "typed-process",
+        "utf8-string",
         "yaml",
     ],
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant:daml-project-config",
+        "//language-support/hs/bindings:hs-ledger",
     ],
 )
 
 da_haskell_binary(
     name = "daml-helper",
-    srcs = ["src/DamlHelper/Main.hs"],
+    srcs = ["src/DA/Daml/Helper/Main.hs"],
     hazel_deps = [
         "base",
     ],
-    main_function = "DamlHelper.Main.main",
+    main_function = "DA.Daml.Helper.Main.main",
     visibility = ["//visibility:public"],
     deps = [
         ":daml-helper-lib",

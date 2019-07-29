@@ -44,6 +44,18 @@ final class BackStack[+A] private (fq: BQ[A], len: Int) {
     ImmArray.unsafeFromArraySeq(array)
   }
 
+  /** O(n) */
+  def toFrontStack: FrontStack[A] = {
+    @tailrec
+    def go(self: BQ[A], acc: FrontStack[A]): FrontStack[A] =
+      self match {
+        case BQSnoc(init, last) => go(init, last +: acc)
+        case BQAppend(init, last) => go(init, last ++: acc)
+        case BQEmpty => acc
+      }
+    go(fq, FrontStack.empty)
+  }
+
   /** O(1) */
   def pop: Option[(BackStack[A], A)] = {
     if (len > 0) {
@@ -92,6 +104,16 @@ final class BackStack[+A] private (fq: BQ[A], len: Int) {
 
       override def hasNext: Boolean = queue.nonEmpty
     }
+  }
+
+  /** Fold over the steps in the BQ structure. Subject to change on a whim. */
+  private[data] def bqFoldRight[Z](z: Z)(snoc: (A, Z) => Z, append: (ImmArray[A], Z) => Z): Z = {
+    @tailrec def go(self: BQ[A], z: Z): Z = self match {
+      case BQSnoc(init, last) => go(init, snoc(last, z))
+      case BQAppend(init, last) => go(init, append(last, z))
+      case BQEmpty => z
+    }
+    go(fq, z)
   }
 
   /** O(n) */

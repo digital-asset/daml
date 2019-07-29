@@ -3,7 +3,7 @@
 
 package com.daml.ledger.participant.state.index.v2
 
-import com.daml.ledger.participant.state.v2.ParticipantId
+import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.ledger.api.domain.PartyDetails
 
 import scala.concurrent.Future

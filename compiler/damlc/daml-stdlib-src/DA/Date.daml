@@ -9,13 +9,13 @@ module DA.Date where
 import DA.Internal.Date
 import DA.Internal.Time
 
--- | Adjusts a date with given number of days.
+-- | Add the given number of days to a date.
 addDays : Date -> Int -> Date
 addDays d r =
     let dt = dateToDaysSinceEpoch d
     in daysSinceEpochToDate (dt + r)
 
--- | Returns number of days between two given dates.
+-- | Returns the number of days between the two given dates.
 subDate : Date -> Date -> Int
 subDate d1 d2 =
     let t1 = dateToDaysSinceEpoch d1
@@ -33,7 +33,7 @@ data DayOfWeek
     | Sunday
   deriving (Eq, Ord, Show, Enum, Bounded)
 
--- | Returns the day of week for given date
+-- | Returns the day of week for the given date.
 dayOfWeek : Date -> DayOfWeek
 dayOfWeek d = toEnum ((3 + dateToDaysSinceEpoch d) % 7)
 
@@ -41,7 +41,8 @@ dayOfWeek d = toEnum ((3 + dateToDaysSinceEpoch d) % 7)
 fromGregorian : (Int, Month, Int) -> Date
 fromGregorian (year, month, day) = date year month day
 
--- | Turn `Date` value into (year, month, day) triple, according to Gregorian calendar.
+-- | Turn `Date` value into a `(year, month, day)` triple, according 
+-- to the Gregorian calendar.
 toGregorian : Date -> (Int, Month, Int)
 toGregorian date =
   let a = dateToDaysSinceEpoch date + 2472632
@@ -55,7 +56,8 @@ toGregorian date =
       day = e - (153 * m + 2) / 5 + 1
    in (year, toEnum $ mth - 1, day)
 
--- | `date (y, m, d)` turns given year `y`, month `m`, and day `d` into a `Date` value.
+-- | Given the three values (year, month, day), constructs a `Date` value.
+-- `date (y, m, d)` turns the year `y`, month `m`, and day `d` into a `Date` value.
 date : Int -> Month -> Int -> Date
 date year month day =
   let a = (14 - (fromMonth month)) / 12
@@ -66,7 +68,7 @@ date year month day =
   in daysSinceEpochToDate date
   -- assert day >= 1 && ml >= day
 
--- | Calculate whethe the given year is a leap year.
+-- | Returns `True` if the given year is a leap year.
 isLeapYear : Int -> Bool
 isLeapYear year = (year % 4 == 0) && ((year % 400 == 0) || not (year % 100 == 0))
 
@@ -91,7 +93,7 @@ data Month
 fromMonth : Month -> Int
 fromMonth m = 1 + fromEnum m
 
--- | Get number of days in month on given year, according to Gregorian calendar.
+-- | Get number of days in the given month in the given year, according to Gregorian calendar.
 -- This does not take historical calendar changes into account (for example, the
 -- moves from Julian to Gregorian calendar), but does count leap years.
 monthDayCount : Int -> Month -> Int
@@ -113,7 +115,8 @@ monthDayCount year month = case month of
 datetime : Int -> Month -> Int -> Int -> Int -> Int -> Time
 datetime year month day h m s = time (date year month day) h m s
 
--- | Extracts UTC Date from UTC Time
+-- | Extracts UTC date from UTC time.
+-- 
 -- This function will truncate Time to Date, but in many cases it will not return the date you really want.
 -- The reason for this is that usually the source of Time would be getTime, and getTime returns UTC, and most likely
 -- the date you want is something local to a location or an exchange. Consequently the date retrieved this way would be
@@ -122,7 +125,7 @@ toDateUTC : Time -> Date
 toDateUTC t =
   daysSinceEpochToDate $ (/ microsecondsPerDay) $ timeToMicrosecondsSinceEpoch t
 
--- | Pass simulated scenario to given date.
+-- | Within a `scenario`, pass the simulated scenario to given date.
 passToDate : Date -> Scenario Time
 passToDate d = do
   now <- timeToMicrosecondsSinceEpoch <$> getTime

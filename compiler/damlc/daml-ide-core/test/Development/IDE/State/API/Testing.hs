@@ -3,7 +3,6 @@
 
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE FlexibleInstances  #-}
-{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -33,6 +32,8 @@ module Development.IDE.Core.API.Testing
     , expectTextOnHover
     , expectVirtualResource
     , expectNoVirtualResource
+    , expectVirtualResourceNote
+    , expectNoVirtualResourceNote
     , timedSection
     , example
     ) where
@@ -85,6 +86,8 @@ data ShakeTestError
     | ExpectedDiagnostics [(D.DiagnosticSeverity, Cursor, T.Text)] [D.FileDiagnostic]
     | ExpectedVirtualResource VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResource VirtualResource (Map VirtualResource T.Text)
+    | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
+    | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.FileDiagnostic]
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
@@ -101,6 +104,7 @@ data ShakeTestEnv = ShakeTestEnv
     { steTestDirPath :: FilePath -- canonical absolute path of temporary test directory
     , steService :: API.IdeState
     , steVirtualResources :: TVar (Map VirtualResource T.Text)
+    , steVirtualResourcesNotes :: TVar (Map VirtualResource T.Text)
     }
 
 -- | Monad for specifying Shake API tests. This type is abstract.
@@ -115,6 +119,14 @@ pattern EventVirtualResourceChanged vr doc <-
              (Aeson.parseMaybe Aeson.parseJSON ->
               Just (VirtualResourceChangedParams (parseURI . T.unpack >=> uriToVirtualResource -> Just vr) doc)))
 
+pattern EventVirtualResourceNoteSet :: VirtualResource -> T.Text -> FromServerMessage
+pattern EventVirtualResourceNoteSet vr note <-
+    NotCustomServer
+        (NotificationMessage _
+             (CustomServerMethod ((== virtualResourceNoteSetNotification) -> True))
+             (Aeson.parseMaybe Aeson.parseJSON ->
+              Just (VirtualResourceNoteSetParams (parseURI . T.unpack >=> uriToVirtualResource -> Just vr) note)))
+
 
 -- | Run shake test on freshly initialised shake service.
 runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
@@ -122,7 +134,11 @@ runShakeTest mbScenarioService (ShakeTest m) = do
     hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
     options <- mkOptions $ (defaultOptions Nothing){optHlintUsage=HlintEnabled hlintDataDir}
     virtualResources <- newTVarIO Map.empty
-    let eventLogger (EventVirtualResourceChanged vr doc) = modifyTVar' virtualResources(Map.insert vr doc)
+    virtualResourcesNotes <- newTVarIO Map.empty
+    let eventLogger (EventVirtualResourceChanged vr doc) = do
+            modifyTVar' virtualResources (Map.insert vr doc)
+            modifyTVar' virtualResourcesNotes (Map.delete vr)
+        eventLogger (EventVirtualResourceNoteSet vr note) = modifyTVar' virtualResourcesNotes (Map.insert vr note)
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
     damlEnv <- mkDamlEnv options mbScenarioService
@@ -132,6 +148,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
                 { steService = service
                 , steTestDirPath = testDirPath
                 , steVirtualResources = virtualResources
+                , steVirtualResourcesNotes = virtualResourcesNotes
                 }
         runReaderT (runExceptT m) ste
 
@@ -270,6 +287,14 @@ getVirtualResources = ShakeTest $ do
       void $ API.runActionSync service $ return ()
       readTVarIO virtualResources
 
+getVirtualResourcesNotes :: ShakeTest (Map VirtualResource T.Text)
+getVirtualResourcesNotes = ShakeTest $ do
+    service <- Reader.asks steService
+    virtualResourcesNotes <- Reader.asks steVirtualResourcesNotes
+    liftIO $ do
+      void $ API.runActionSync service $ return ()
+      readTVarIO virtualResourcesNotes
+
 -- | Convenient grouping of file path, 0-based line number, 0-based column number.
 -- This isn't a record or anything because it's simple enough and generally
 -- easier to read as a tuple.
@@ -350,6 +375,24 @@ expectNoVirtualResource vr = do
   vrs <- getVirtualResources
   when (vr `Map.member` vrs) $
     throwError (ExpectedNoVirtualResource vr vrs)
+
+
+-- | Check that the given virtual resource contains a note and that the given text is
+-- an infix of the content.
+expectVirtualResourceNote :: VirtualResource -> T.Text -> ShakeTest ()
+expectVirtualResourceNote vr note = do
+    vrsNotes <- getVirtualResourcesNotes
+    case Map.lookup vr vrsNotes of
+      Just res
+        | note `T.isInfixOf` res -> pure ()
+      _ -> throwError (ExpectedVirtualResourceNote vr note vrsNotes)
+
+-- | Check that the given virtual resource does not contain a note.
+expectNoVirtualResourceNote :: VirtualResource -> ShakeTest ()
+expectNoVirtualResourceNote vr = do
+  vrsNotes <- getVirtualResourcesNotes
+  when (vr `Map.member` vrsNotes) $
+    throwError (ExpectedNoVirtualResourceNote vr vrsNotes)
 
 -- | Expect error in given file and (0-based) line number. Require
 -- the error message contains a certain substring (case-insensitive).

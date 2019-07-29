@@ -121,7 +121,6 @@ trait TransactionConversion {
       // or remove this field here altogether.
       exercise.contractId.coid,
       Some(LfEngineToApi.toApiIdentifier(exercise.templateId)),
-      exercise.contractId.coid,
       exercise.choice,
       Some(
         LfEngineToApi

@@ -3,7 +3,6 @@
 
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE PatternSynonyms     #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# OPTIONS_GHC -Wno-unused-matches #-}
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 {-# OPTIONS_GHC -Wno-overlapping-patterns #-} -- Because the pattern match checker is garbage
@@ -552,7 +551,7 @@ convertCtors env (Ctors name tys [o@(Ctor ctor fldNames fldTys)])
         tconName = mkTypeCon [getOccString name]
         tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
         expr = mkETyLams tys $ mkETmLams (map (first fieldToVar ) flds) $ ERecCon tcon [(l, EVar $ fieldToVar l) | l <- fldNames]
-convertCtors env o@(Ctors name _ cs) | envLfVersion env `supports` featureEnumTypes && isEnumCtors o = do
+convertCtors env o@(Ctors name _ cs) | isEnumCtors o = do
     let (ctorNames, funs) = unzip $ map convertEnumCtor cs
     pure $ (defDataType tconName [] $ DataEnum ctorNames) : funs
   where
@@ -606,6 +605,18 @@ convertBind2 :: Env -> CoreBind -> ConvertM [Definition]
 convertBind2 env (NonRec name x)
     | Just internals <- MS.lookup (envGHCModuleName env) (internalFunctions $ envLfVersion env)
     , is name `elem` internals
+    = pure []
+    -- NOTE(MH): Desugaring `template X` will result in a type class
+    -- `XInstance` which has methods `_createX`, `_fetchX`, `_exerciseXY`,
+    -- `_fetchByKeyX` and `_lookupByKeyX`
+    -- (among others). The implementations of these methods are replaced
+    -- with DAML-LF primitives in `convertGenericChoice` below. As part of
+    -- this rewriting we also need to erase the default implementations of
+    -- these methods.
+    --
+    -- TODO(MH): The check is an approximation which will fail when users
+    -- start the name of their own methods with, say, `_exercise`.
+    | any (`isPrefixOf` is name) [ "$"++prefix++"_"++method | prefix <- ["dm", "c"], method <- ["create", "fetch", "exercise", "fetchByKey", "lookupByKey"] ]
     = pure []
     -- NOTE(MH): Our inline return type syntax produces a local letrec for
     -- recursive functions. We currently don't support local letrecs.
@@ -781,7 +792,7 @@ convertExpr env0 e = do
         let mkCasePattern con
                 -- Note that tagToEnum# can also be used on non-enum types, i.e.,
                 -- types where not all constructors are nullary.
-                | envLfVersion env `supports` featureEnumTypes && isEnumCtors ctors = CPEnum t' con
+                | isEnumCtors ctors = CPEnum t' con
                 | otherwise = CPVariant t' con (mkVar "_")
         pure $ ECase x'
             [ CaseAlternative (mkCasePattern (mkVariantCon (getOccString variantName))) (EBuiltin $ BEInt64 i)
@@ -807,7 +818,7 @@ convertExpr env0 e = do
         let mkCtor (Ctor c _ _)
               -- Note that tagToEnum# can also be used on non-enum types, i.e.,
               -- types where not all constructors are nullary.
-              | envLfVersion env `supports` featureEnumTypes && isEnumCtors ctors
+              | isEnumCtors ctors
               = EEnumCon (tcaTypeCon (fromTCon tt')) (mkVariantCon (getOccString c))
               | otherwise
               = EVariantCon (fromTCon tt') (mkVariantCon (getOccString c)) EUnit
@@ -1066,7 +1077,7 @@ convertAlt env (TConApp tcon targs) alt@(DataAlt con, vs, x) = do
     Ctor (mkVariantCon . getOccString -> variantName) fldNames fldTys <- toCtor env con
     let patVariant = variantName
     if
-      | envLfVersion env `supports` featureEnumTypes && isEnumCtors ctors ->
+      | isEnumCtors ctors ->
         CaseAlternative (CPEnum patTypeCon patVariant) <$> convertExpr env x
       | null fldNames ->
         case zipExactMay vs fldTys of

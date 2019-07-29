@@ -8,6 +8,7 @@ import com.digitalasset.navigator.graphql.GraphQLSchema
 import com.digitalasset.navigator.model.{Contract, Template}
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import org.scalatest.{FlatSpec, Matchers}
+import com.digitalasset.navigator.DamlConstants.singletonRecord
 import com.digitalasset.navigator.model._
 import scalaz.syntax.tag._
 
@@ -75,7 +76,7 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   val contract1 = Contract(
     ApiTypes.ContractId("id1"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
+    singletonRecord("foo", ApiText("bar")),
     None,
     List(alice),
     List(bob, charlie),
@@ -83,16 +84,16 @@ class ContractFilterSpec extends FlatSpec with Matchers {
   val contract2 = Contract(
     ApiTypes.ContractId("id2"),
     template2,
-    ApiRecord(None, List(ApiRecordField("int", ApiInt64(12)))),
+    singletonRecord("int", ApiInt64(12)),
     Some(""),
     List(alice),
     List(bob, charlie),
-    Some(ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))))
+    Some(singletonRecord("foo", ApiText("bar")))
   )
   val contract3 = Contract(
     ApiTypes.ContractId("id3"),
     template1,
-    ApiRecord(None, List(ApiRecordField("foo", ApiText("bar")))),
+    singletonRecord("foo", ApiText("bar")),
     Some("agreement"),
     List(alice),
     List(bob, charlie),

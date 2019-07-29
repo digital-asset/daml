@@ -169,7 +169,7 @@ object CodeGen {
     val orderedDependencies
       : OrderedDependencies[Identifier, TypeDeclOrTemplateWrapper[util.TemplateInterface]] =
       util.orderedDependencies(interface)
-    val (supportedTemplateIds, typeDeclsToGenerate): (
+    val (templateIds, typeDeclsToGenerate): (
         Map[Identifier, util.TemplateInterface],
         List[ScopedDataType.FWT]) = {
 
@@ -189,13 +189,13 @@ object CodeGen {
     }
 
     // Each record/variant has Scala code generated for it individually, unless their names are related
-    writeTemplatesAndTypes(util)(WriteParams(supportedTemplateIds, typeDeclsToGenerate))
+    writeTemplatesAndTypes(util)(WriteParams(templateIds, typeDeclsToGenerate))
 
     logger.info(
       s"""Scala Codegen result:
-          |Number of generated templates: ${supportedTemplateIds.size}
+          |Number of generated templates: ${templateIds.size}
           |Number of not generated templates: ${util
-           .templateCount(interface) - supportedTemplateIds.size}
+           .templateCount(interface) - templateIds.size}
           |Details: ${orderedDependencies.errors.map(_.msg).mkString("\n")}""".stripMargin
     )
   }
@@ -216,7 +216,7 @@ object CodeGen {
         val ntdRights =
           (widenDDT(unassociatedRecords ++ enums) ++ splattedVariants)
             .map(sdt => (sdt.name, \/-(sdt)))
-        val tmplLefts = supportedTemplateIds.transform((_, v) => -\/(v))
+        val tmplLefts = templateIds.transform((_, v) => -\/(v))
 
         (ntdRights ++ tmplLefts) map {
           case (ddtIdent @ Identifier(_, qualName), body) =>
@@ -231,9 +231,7 @@ object CodeGen {
 
     // Finally we generate the "event decoder" and "package ID source"
     val specials =
-      Seq(
-        lf.EventDecoderGen.generate(util, supportedTemplateIds.keySet),
-        lf.PackageIDsGen.generate(util))
+      Seq(lf.EventDecoderGen.generate(util, templateIds.keySet), lf.PackageIDsGen.generate(util))
 
     val specialPlans = specials map { case (fp, t) => \/-((None, fp, t)) }
 

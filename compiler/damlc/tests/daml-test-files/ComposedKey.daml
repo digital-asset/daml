@@ -24,81 +24,81 @@ data Proposal t k = Proposal with
   deriving (Eq, Show)
 
 instance ProposalInstance t k => Template (Proposal t k) where
-    signatory = signatoryProposal
-    observer = observerProposal
-    ensure = ensureProposal
-    agreement = agreementProposal
-    create = createProposal
-    fetch = fetchProposal
-    archive = archiveProposal
+    signatory = _signatoryProposal
+    observer = _observerProposal
+    ensure = _ensureProposal
+    agreement = _agreementProposal
+    create = _createProposal
+    fetch = _fetchProposal
+    archive = _archiveProposal
 
 instance ProposalInstance t k => TemplateKey (Proposal t k) ([Party], k) where
-    key = keyProposal
-    fetchByKey = fetchByKeyProposal
-    lookupByKey = lookupByKeyProposal
+    key = _keyProposal
+    fetchByKey = _fetchByKeyProposal
+    lookupByKey = _lookupByKeyProposal
 
 data Accept = Accept{}
   deriving (Eq, Show)
 
 instance ProposalInstance t k => Choice (Proposal t k) Accept (ContractId t) where
-    exercise = exerciseProposalAccept
+    exercise = _exerciseProposalAccept
 
 instance ProposalInstance t k => Choice (Proposal t k) Archive () where
-    exercise = exerciseProposalArchive
+    exercise = _exerciseProposalArchive
 
 class (Template t, TemplateKey t k) => ProposalInstance t k where
-    signatoryProposal : Proposal t k -> [Party]
-    signatoryProposal this@Proposal{..} = proposers
-    observerProposal : Proposal t k -> [Party]
-    observerProposal this@Proposal{..} = receivers
-    ensureProposal : Proposal t k -> Bool
-    ensureProposal this@Proposal{..} =
+    _signatoryProposal : Proposal t k -> [Party]
+    _signatoryProposal this@Proposal{..} = proposers
+    _observerProposal : Proposal t k -> [Party]
+    _observerProposal this@Proposal{..} = receivers
+    _ensureProposal : Proposal t k -> Bool
+    _ensureProposal this@Proposal{..} =
         let authorizers = proposers ++ receivers
         in all (`elem` authorizers) (signatory asset)
-    agreementProposal : Proposal t k -> Text
-    agreementProposal this@Proposal{..} = unlines
+    _agreementProposal : Proposal t k -> Text
+    _agreementProposal this@Proposal{..} = unlines
         [ "Proposal:"
         , "* proposers: " <> show proposers
         , "* receivers: " <> show receivers
         , "* agreement: " <> agreement asset
         ]
-    createProposal : Proposal t k -> Update (ContractId (Proposal t k))
-    createProposal = error "code will be injected by the compiler"
-    fetchProposal : ContractId (Proposal t k) -> Update (Proposal t k)
-    fetchProposal = error "code will be injected by the compiler"
-    archiveProposal : ContractId (Proposal t k) -> Update ()
-    archiveProposal cid = exerciseProposalArchive cid Archive
+    _createProposal : Proposal t k -> Update (ContractId (Proposal t k))
+    _createProposal = error "code will be injected by the compiler"
+    _fetchProposal : ContractId (Proposal t k) -> Update (Proposal t k)
+    _fetchProposal = error "code will be injected by the compiler"
+    _archiveProposal : ContractId (Proposal t k) -> Update ()
+    _archiveProposal cid = _exerciseProposalArchive cid Archive
 
-    hasKeyProposal : HasKey (Proposal t k)
-    hasKeyProposal = HasKey
-    keyProposal : Proposal t k -> ([Party], k)
-    keyProposal this@Proposal{..} = (proposers, key asset)
-    maintainerProposal : HasKey (Proposal t k) -> ([Party], k) -> [Party]
-    maintainerProposal HasKey key = fst key
-    fetchByKeyProposal : ([Party], k) -> Update (ContractId (Proposal t k), Proposal t k)
-    fetchByKeyProposal = error "code will be injected by the compiler"
-    lookupByKeyProposal : ([Party], k) -> Update (Optional (ContractId (Proposal t k)))
-    lookupByKeyProposal = error "code will be injected by the compiler"
+    _hasKeyProposal : HasKey (Proposal t k)
+    _hasKeyProposal = HasKey
+    _keyProposal : Proposal t k -> ([Party], k)
+    _keyProposal this@Proposal{..} = (proposers, key asset)
+    _maintainerProposal : HasKey (Proposal t k) -> ([Party], k) -> [Party]
+    _maintainerProposal HasKey key = fst key
+    _fetchByKeyProposal : ([Party], k) -> Update (ContractId (Proposal t k), Proposal t k)
+    _fetchByKeyProposal = error "code will be injected by the compiler"
+    _lookupByKeyProposal : ([Party], k) -> Update (Optional (ContractId (Proposal t k)))
+    _lookupByKeyProposal = error "code will be injected by the compiler"
 
-    consumptionProposalArchive : PreConsuming (Proposal t k)
-    consumptionProposalArchive = PreConsuming
-    controllerProposalArchive : Proposal t k -> Archive -> [Party]
-    controllerProposalArchive this@Proposal{..} arg@Archive = signatoryProposal this
-    actionProposalArchive : ContractId (Proposal t k) -> Proposal t k -> Archive -> Update ()
-    actionProposalArchive self this@Proposal{..} arg@Archive = do
+    _consumptionProposalArchive : PreConsuming (Proposal t k)
+    _consumptionProposalArchive = PreConsuming
+    _controllerProposalArchive : Proposal t k -> Archive -> [Party]
+    _controllerProposalArchive this@Proposal{..} arg@Archive = _signatoryProposal this
+    _actionProposalArchive : ContractId (Proposal t k) -> Proposal t k -> Archive -> Update ()
+    _actionProposalArchive self this@Proposal{..} arg@Archive = do
         pure ()
-    exerciseProposalArchive : ContractId (Proposal t k) -> Archive -> Update ()
-    exerciseProposalArchive = error "code will be injected by the compiler"
+    _exerciseProposalArchive : ContractId (Proposal t k) -> Archive -> Update ()
+    _exerciseProposalArchive = error "code will be injected by the compiler"
 
-    consumptionProposalAccept : PreConsuming (Proposal t k)
-    consumptionProposalAccept = PreConsuming
-    controllerProposalAccept : Proposal t k -> Accept -> [Party]
-    controllerProposalAccept this@Proposal{..} arg@Accept = receivers
-    actionProposalAccept : ContractId (Proposal t k) -> Proposal t k -> Accept -> Update (ContractId t)
-    actionProposalAccept self this@Proposal{..} arg@Accept = do
+    _consumptionProposalAccept : PreConsuming (Proposal t k)
+    _consumptionProposalAccept = PreConsuming
+    _controllerProposalAccept : Proposal t k -> Accept -> [Party]
+    _controllerProposalAccept this@Proposal{..} arg@Accept = receivers
+    _actionProposalAccept : ContractId (Proposal t k) -> Proposal t k -> Accept -> Update (ContractId t)
+    _actionProposalAccept self this@Proposal{..} arg@Accept = do
         create asset
-    exerciseProposalAccept : ContractId (Proposal t k) -> Accept -> Update (ContractId t)
-    exerciseProposalAccept = error "code will be injected by the compiler"
+    _exerciseProposalAccept : ContractId (Proposal t k) -> Accept -> Update (ContractId t)
+    _exerciseProposalAccept = error "code will be injected by the compiler"
 
 
 -- The instantiation of the generic proposal workflow for `Iou`.

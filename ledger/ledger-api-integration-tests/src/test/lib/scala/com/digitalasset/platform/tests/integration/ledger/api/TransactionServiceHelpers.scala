@@ -4,6 +4,7 @@
 package com.digitalasset.platform.tests.integration.ledger.api
 
 import java.io.File
+import java.time.Duration
 
 import akka.Done
 import akka.stream.Materializer
@@ -19,12 +20,13 @@ import com.digitalasset.ledger.api.v1.commands.Command.Command.Create
 import com.digitalasset.ledger.api.v1.commands.{Command, CreateCommand}
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.digitalasset.ledger.client.services.commands.CommandUpdater
 import com.digitalasset.platform.PlatformApplications
-import com.digitalasset.platform.apitesting.TestParties
+import com.digitalasset.platform.apitesting.{LedgerContext, TestParties}
 import org.scalatest.Matchers
 import scalaz.syntax.tag._
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 //TODO: move all the necessary logic from here into TestUtils
 class TransactionServiceHelpers(config: PlatformApplications.Config) extends Matchers {
@@ -75,5 +77,16 @@ class TransactionServiceHelpers(config: PlatformApplications.Config) extends Mat
           transactionId should not be empty
           ()
       })
+  }
+
+  private lazy val defaultTtl = Duration.ofMillis(config.commandConfiguration.commandTtl.toMillis)
+
+  def applyTime(req: SubmitAndWaitRequest, context: LedgerContext, ttl: Duration = defaultTtl)(
+      implicit mat: Materializer,
+      ec: ExecutionContext): Future[SubmitAndWaitRequest] = {
+    context.timeProvider().map { tp =>
+      val updater = new CommandUpdater(Some(tp), ttl, true)
+      req.copy(commands = req.commands.map(updater.applyOverrides))
+    }
   }
 }

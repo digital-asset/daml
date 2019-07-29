@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.ScenarioServiceClient
   ( Options(..)
   , ScenarioServiceConfig
@@ -37,9 +36,9 @@ import Data.Maybe
 import qualified Data.Set as S
 import System.Directory
 
-import DAML.Project.Config
-import DAML.Project.Consts
-import DAML.Project.Types
+import DA.Daml.Project.Config
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient.LowLevel as LowLevel

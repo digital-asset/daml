@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ApplicativeDo       #-}
 
@@ -36,9 +35,9 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals
-import DAML.Project.Config
-import DAML.Project.Consts
-import DAML.Project.Types (ConfigError, ProjectPath(..))
+import DA.Daml.Project.Config
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
 import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import Data.ByteArray.Encoding (Base(Base16), convertToBase)
@@ -59,13 +58,14 @@ import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Shake
 import Development.IDE.Core.Rules
-import Development.IDE.Core.Rules.Daml (getDalf)
+import Development.IDE.Core.Rules.Daml (getDalf, getHlintIdeas)
 import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..))
 import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
+import MkIface
 import "ghc-lib-parser" Module
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
@@ -80,6 +80,11 @@ import System.FilePath
 import System.IO.Extra
 import System.Process(callCommand)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
+import HscTypes
+import GHC
+import Development.IDE.Core.RuleTypes
+import HieAst
+import HieBin
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -110,6 +115,16 @@ cmdCompile numProcessors =
     cmd = execCompile
         <$> inputFileOpt
         <*> outputFileOpt
+        <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
+
+cmdLint :: Int -> Mod CommandFields Command
+cmdLint numProcessors =
+    command "lint" $ info (helper <*> cmd) $
+        progDesc "Lint the DAML program."
+    <> fullDesc
+  where
+    cmd = execLint
+        <$> inputFileOpt
         <*> optionsParser numProcessors (EnableScenarioService False) optPackageName
 
 cmdTest :: Int -> Mod CommandFields Command
@@ -235,6 +250,13 @@ cmdMigrate numProcessors =
         <*> inputDarOpt
         <*> targetSrcDirOpt
 
+cmdMergeDars :: Mod CommandFields Command
+cmdMergeDars =
+    command "merge-dars" $
+    info (helper <*> cmd) $ progDesc "Merge two dar archives into one" <> fullDesc
+  where
+    cmd = execMergeDars <$> inputDarOpt <*> inputDarOpt <*> targetFileNameOpt
+
 cmdDocTest :: Int -> Mod CommandFields Command
 cmdDocTest numProcessors =
     command "doctest" $
@@ -310,12 +332,38 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
                 hPutStrLn stderr "ERROR: Compilation failed."
                 exitFailure
             Just dalf -> write dalf
+
+        writeIfacesAndHie opts' inputFile ide
   where
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs
       | otherwise = do
         createDirectoryIfMissing True $ takeDirectory outputFile
         B.writeFile outputFile $ Archive.encodeArchive bs
+
+execLint :: FilePath -> Options -> Command
+execLint inputFile opts =
+  withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize ->
+  do
+    loggerH <- getLogger opts "lint"
+    inputFile <- toNormalizedFilePath <$> relativize inputFile
+    opts <- (setHlintDataDir <=< mkOptions) opts
+    withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
+        setFilesOfInterest ide (Set.singleton inputFile)
+        runAction ide $ getHlintIdeas inputFile
+        diags <- getDiagnostics ide
+        if null diags then
+          hPutStrLn stderr "No hints."
+        else
+          exitFailure
+  where
+     setHlintDataDir :: Options -> IO Options
+     setHlintDataDir opts = do
+       defaultDir <-locateRunfiles $
+         mainWorkspace </> "compiler/damlc/daml-ide-core"
+       return $ case optHlintUsage opts of
+         HlintEnabled _ -> opts
+         HlintDisabled  -> opts{optHlintUsage=HlintEnabled defaultDir}
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
@@ -400,13 +448,45 @@ createProjectPackageDb lfVersion fps = do
     ghcPkgPath <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghc-pkg")
     callCommand $
         unwords
-            [ ghcPkgPath </> "ghc-pkg"
+            [ ghcPkgPath </> exe "ghc-pkg"
             , "recache"
             -- ghc-pkg insists on using a global package db and will trie
             -- to find one automatically if we don’t specify it here.
             , "--global-package-db=" ++ (dbPath </> "package.conf.d")
             , "--expand-pkgroot"
             ]
+
+-- | Write interface files and hie files to the location specified by the given options.
+writeIfacesAndHie :: Options -> NormalizedFilePath -> IdeState -> IO ()
+writeIfacesAndHie options main compilerH =
+    when (optWriteInterface options) $ do
+        mbTcModRes <- runAction compilerH $ getTcModuleResults main
+        (tcms, session) <- mbErr "ERROR: Creation of interface files failed." mbTcModRes
+        mapM_ (writeTcm session) tcms
+  where
+    ifDir = fromMaybe ifaceDir (optIfaceDir options)
+    writeTcm session tcm = do
+        let fp =
+                ifDir </>
+                (ms_hspp_file $
+                 pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+        createDirectoryIfMissing True (takeDirectory fp)
+        writeIfaceFile
+            (hsc_dflags session)
+            (replaceExtension fp ".hi")
+            (hm_iface $ tmrModInfo tcm)
+        hieFile <-
+            liftIO $
+            runHsc session $
+            mkHieFile
+                (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+                (fst $ tm_internals_ $ tmrModule tcm)
+                (fromJust $ tm_renamed_source $ tmrModule tcm)
+        writeHieFile (replaceExtension fp ".hie") hieFile
+
+-- | Fail with an exit failure and errror message when Nothing is returned.
+mbErr :: String -> Maybe a -> IO a
+mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> InitPkgDb -> IO ()
 execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts $ \_relativize -> do
@@ -426,6 +506,7 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pExposedModules
                     pDependencies
         withDamlIdeState opts loggerH diagnosticsLogger $ \compilerH -> do
+            writeIfacesAndHie opts (toNormalizedFilePath pMain) compilerH
             mbDar <-
                 buildDar
                     compilerH
@@ -435,15 +516,12 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pSdkVersion
                     (\pkg -> [confFile pkg])
                     (FromDalf False)
-            case mbDar of
-                Nothing -> do
-                    hPutStrLn stderr "ERROR: Creation of DAR file failed."
-                    exitFailure
-                Just dar -> do
-                    let fp = targetFilePath pName
-                    createDirectoryIfMissing True $ takeDirectory fp
-                    B.writeFile fp dar
-                    putStrLn $ "Created " <> fp <> "."
+            dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
+            let fp = targetFilePath pName
+            createDirectoryIfMissing True $ takeDirectory fp
+            B.writeFile fp dar
+            putStrLn $ "Created " <> fp <> "."
+
     where
         -- The default output filename is based on Maven coordinates if
         -- the package name is specified via them, otherwise we use the
@@ -666,44 +744,37 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                         ]
                     pure (src, iuid, depends pkgInfo)
         let unitIdsTopoSorted = reverse $ topSort depGraph
-        createDirectoryIfMissing True genDir
         projectPkgDb <- makeAbsolute projectPackageDatabase
-        forM_ unitIdsTopoSorted $ \vertex -> withCurrentDirectory genDir $ do
+        forM_ unitIdsTopoSorted $ \vertex -> do
             let (src, iuid, _) = vertexToNode vertex
-            unless
-                -- TODO (drsk) remove this filter
-                (iuid `elem`
-                 map stringToInstalledUnitId ["daml-prim", "daml-stdlib"]) $ do
-                  -- typecheck and generate interface files
-                  forM_ src $ \(fp, content) -> do
-                      let path = fromNormalizedFilePath fp
-                      createDirectoryIfMissing True $ takeDirectory path
-                      writeFile path content
-                  opts' <-
-                      mkOptions $
-                      opts
-                          { optWriteInterface = True
-                          , optPackageDbs = [projectPkgDb]
-                          , optIfaceDir =
-                                Just
-                                    (dbPath </> installedUnitIdString iuid)
-                          , optIsGenerated = True
-                          , optMbPackageName =
-                                Just $ installedUnitIdString iuid
-                          }
-                  withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
-                      forM_ src $ \(fp, _content) -> do
-                          mbCore <-
-                              runAction ide $
-                              getGhcCore fp
-                          case mbCore of
-                              Nothing ->
-                                  ioError $
-                                  userError $
-                                  "Compilation of generated source for " <>
-                                  installedUnitIdString iuid <>
-                                  " failed."
-                              Just _core -> pure ()
+            let iuidString = installedUnitIdString iuid
+            let workDir = genDir </> iuidString
+            createDirectoryIfMissing True workDir
+            -- we change the working dir so that we get correct file paths for the interface files.
+            withCurrentDirectory workDir $
+             -- typecheck and generate interface files
+             do
+                forM_ src $ \(fp, content) -> do
+                    let path = fromNormalizedFilePath fp
+                    createDirectoryIfMissing True $ takeDirectory path
+                    writeFile path content
+                opts' <-
+                    mkOptions $
+                    opts
+                        { optWriteInterface = True
+                        , optPackageDbs = [projectPkgDb]
+                        , optIfaceDir = Just (dbPath </> installedUnitIdString iuid)
+                        , optIsGenerated = True
+                        , optMbPackageName = Just $ installedUnitIdString iuid
+                        }
+                withDamlIdeState opts' loggerH diagnosticsLogger $ \ide ->
+                    forM_ src $ \(fp, _content) -> do
+                        mbCore <- runAction ide $ getGhcCore fp
+                        when (isNothing mbCore) $
+                            fail $
+                            "Compilation of generated source for " <>
+                            installedUnitIdString iuid <>
+                            " failed."
         -- get the package name and the lf-package
         [(pkgName1, pkgId1, lfPkg1), (pkgName2, pkgId2, lfPkg2)] <-
             forM [inFile1, inFile2] $ \inFile -> do
@@ -729,7 +800,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
-                    generateSrcFromLf pkgId pkgMap0 <$> getModule m pkg
+                    generateSrcFromLf (Qualify False) pkgId pkgMap0 <$> getModule m pkg
             let upgradeModPath =
                     (joinPath $ fromMaybe "" mbDir : map T.unpack modName) <>
                     ".daml"
@@ -765,17 +836,56 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         errorOnLeft
             "Cannot decode daml-lf archive"
             (Archive.decodeArchive dalf)
-    getEntry fp dar =
-        maybe (ioError $ userError $ "Package does not contain " <> fp) pure $
-        findEntryByPath fp dar
     getModule modName pkg =
         maybe
-            (ioError $
-             userError $
-             T.unpack $ "Can't find module" <> LF.moduleNameString modName)
+            (fail $ T.unpack $ "Can't find module" <> LF.moduleNameString modName)
             pure $
         NM.lookup modName $ LF.packageModules pkg
 
+-- | Get an entry from a dar or fail.
+getEntry :: FilePath -> Archive -> IO Entry
+getEntry fp dar =
+    maybe (fail $ "Package does not contain " <> fp) pure $
+    findEntryByPath fp dar
+
+-- | Merge two dars. The idea is that the second dar is a delta. Hence, we take the main in the
+-- manifest from the first.
+execMergeDars :: FilePath -> FilePath -> Maybe FilePath -> IO ()
+execMergeDars darFp1 darFp2 mbOutFp = do
+    let outFp = fromMaybe darFp1 mbOutFp
+    bytes1 <- B.readFile darFp1
+    bytes2 <- B.readFile darFp2
+    let dar1 = toArchive $ BSL.fromStrict bytes1
+    let dar2 = toArchive $ BSL.fromStrict bytes2
+    mf <- mergeManifests dar1 dar2
+    let merged =
+            Archive
+                (nubSortOn eRelativePath $ mf : zEntries dar1 ++ zEntries dar2)
+                -- nubSortOn keeps the first occurence
+                Nothing
+                BSL.empty
+    BSL.writeFile outFp $ fromArchive merged
+  where
+    mergeManifests dar1 dar2 = do
+        let mfPath = "META-INF/MANIFEST.MF"
+        let dalfNames =
+                nubSort
+                    [ takeFileName p
+                    | e <- zEntries dar1 ++ zEntries dar2
+                    , let p = eRelativePath e
+                    , ".dalf" `isExtensionOf` p
+                    ]
+        m1 <- getEntry mfPath dar1
+        let m' = do
+                l <- lines $ BSC.unpack $ BSL.toStrict $ fromEntry m1
+                pure $
+                    maybe
+                        l
+                        (const $
+                         breakAt72Chars $
+                         "Dalfs: " <> intercalate ", " dalfNames)
+                        (stripPrefix "Dalfs:" l)
+        pure $ toEntry mfPath 0 $ BSL.fromStrict $ BSC.pack $ unlines m'
 
 execDocTest :: Options -> [FilePath] -> IO ()
 execDocTest opts files = do
@@ -825,6 +935,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure enableScenarioService
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
     <*> hlintUsageOpt
+    <*> pure False
     <*> pure False
   where
     optImportPath :: Parser [FilePath]
@@ -909,12 +1020,14 @@ options numProcessors =
       <> cmdVisual
       <> cmdInspectDar
       <> cmdDocTest numProcessors
+      <> cmdLint numProcessors
       )
     <|> subparser
       (internal -- internal commands
         <> cmdInspect
         <> cmdVisual
         <> cmdMigrate numProcessors
+        <> cmdMergeDars
         <> cmdInit
         <> cmdCompile numProcessors
         <> cmdClean

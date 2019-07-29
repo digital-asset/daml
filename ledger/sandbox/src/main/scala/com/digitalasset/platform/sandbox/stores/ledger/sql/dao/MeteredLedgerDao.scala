@@ -6,7 +6,7 @@ package com.digitalasset.platform.sandbox.stores.ledger.sql.dao
 import akka.NotUsed
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v2.TransactionId
+import com.daml.ledger.participant.state.v1.TransactionId
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.digitalasset.daml.lf.transaction.Node
@@ -102,7 +102,7 @@ private class MeteredLedgerDao(ledgerDao: LedgerDao, mm: MetricsManager)
 
   override def uploadLfPackages(
       uploadId: String,
-      packages: List[(Archive, PackageDetails)]): Future[PersistenceResponse] =
+      packages: List[(Archive, PackageDetails)]): Future[Map[PersistenceResponse, Int]] =
     mm.timedFuture("uploadLfPackages", ledgerDao.uploadLfPackages(uploadId, packages))
 
   override def close(): Unit = {

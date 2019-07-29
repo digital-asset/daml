@@ -1,13 +1,13 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 module DA.Daml.Doc.Render.Util
   ( adjust
   , prefix
   , indent
   , enclosedIn
+  , bold
   , inParens
   , wrapOp
   ) where
@@ -21,6 +21,10 @@ inParens t = "(" <> t <> ")"
 -- | Surrounds text in 2nd argument by text in the 1st
 enclosedIn :: T.Text -> T.Text -> T.Text
 enclosedIn c t = T.concat [c, t, c]
+
+-- | A bold function that works for both Rst and Markdown.
+bold :: T.Text -> T.Text
+bold = enclosedIn "**"
 
 -- | Indents all lines in Text by n spaces
 indent :: Int -> T.Text -> T.Text

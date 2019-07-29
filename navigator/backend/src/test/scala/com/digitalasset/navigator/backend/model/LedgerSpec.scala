@@ -10,7 +10,11 @@ import org.scalatest.{Matchers, WordSpec}
 
 import scala.util.Success
 
-@SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
+@SuppressWarnings(
+  Array(
+    "org.wartremover.warts.Any",
+    "org.wartremover.warts.Product",
+    "org.wartremover.warts.Serializable"))
 class LedgerSpec extends WordSpec with Matchers {
   import com.digitalasset.navigator.{DamlConstants => C}
 
@@ -147,7 +151,6 @@ class LedgerSpec extends WordSpec with Matchers {
         workflowId = ApiTypes.WorkflowId("workflow"),
         contractId = ApiTypes.ContractId("C0"),
         templateId = templateId,
-        contractCreateEvent = ApiTypes.EventId("E0"),
         choice = ApiTypes.Choice("choice"),
         argument = C.simpleUnitV,
         actingParties = List(party),
@@ -213,7 +216,6 @@ class LedgerSpec extends WordSpec with Matchers {
         workflowId = ApiTypes.WorkflowId("workflow"),
         contractId = ApiTypes.ContractId("C0"),
         templateId = templateId,
-        contractCreateEvent = ApiTypes.EventId("E0"),
         choice = ApiTypes.Choice("choice"),
         argument = C.simpleUnitV,
         actingParties = List(party),

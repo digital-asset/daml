@@ -176,7 +176,7 @@ class MultiTableDataFormat(
         if (event.consuming)
           setContractArchived(
             table.withSchema,
-            event.contractCreatingEventId,
+            event.contractId,
             transaction.transactionId,
             event.eventId).update.run.void
         else

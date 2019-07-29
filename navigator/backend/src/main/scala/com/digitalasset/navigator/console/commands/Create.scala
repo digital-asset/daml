@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.console._
-import com.digitalasset.navigator.json.ApiCodecCompressed
+import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.navigator.model
 import com.digitalasset.navigator.store.Store.CreateContract
 import akka.pattern.ask

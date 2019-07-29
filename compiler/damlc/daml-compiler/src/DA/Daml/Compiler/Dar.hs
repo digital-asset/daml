@@ -1,11 +1,11 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings   #-}
 
 module DA.Daml.Compiler.Dar
   ( buildDar
   , FromDalf(..)
+  , breakAt72Chars
   ) where
 
 import qualified Codec.Archive.Zip as Zip
@@ -95,7 +95,7 @@ buildDar service file mbExposedModules pkgName sdkVersion buildDataFiles dalfInp
         pkgName
         sdkVersion
     else runAction service $ runMaybeT $ do
-      pkg <- useE GeneratePackage file
+      WhnfPackage pkg <- useE GeneratePackage file
       let pkgModuleNames = S.fromList $ map T.unpack $ LF.packageModuleNames pkg
       let missingExposed = S.fromList (fromMaybe [] mbExposedModules) S.\\ pkgModuleNames
       unless (S.null missingExposed) $
@@ -179,10 +179,10 @@ createArchive dalf modRoot dalfDependencies fileDependencies dataFiles name sdkV
           , "Encryption: non-encrypted"
           ]
 
-        breakAt72Chars :: String -> String
-        breakAt72Chars s = case splitAt 72 s of
-          (s0, []) -> s0
-          (s0, rest) -> s0 ++ "\n" ++ breakAt72Chars (" " ++ rest)
+breakAt72Chars :: String -> String
+breakAt72Chars s = case splitAt 72 s of
+  (s0, []) -> s0
+  (s0, rest) -> s0 ++ "\n" ++ breakAt72Chars (" " ++ rest)
 
 -- | Like `makeRelative` but also takes care of normalising filepaths so
 --

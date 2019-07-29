@@ -5,6 +5,7 @@ module DA.Daml.LF.Reader
     ( Manifest(..)
     , ManifestData(..)
     , manifestFromDar
+    , multiLineContent
     ) where
 
 import Codec.Archive.Zip
@@ -13,6 +14,7 @@ import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.HashMap.Strict as Map
 import Data.List.Extra
 import System.FilePath
+import Data.Char
 
 data Manifest = Manifest
     { mainDalf :: FilePath
@@ -29,6 +31,14 @@ lineToKeyValue line = case splitOn ":" line of
     [l, r] -> (trim l , trim r)
     _ -> error $ "Expected two fields in line " <> line
 
+multiLineContent :: [String] -> [String]
+multiLineContent [] = []
+multiLineContent (x:xs)
+  | all isSpace x = multiLineContent xs
+  | otherwise = (x ++ concatMap trim ys) : multiLineContent zs
+    where
+      (ys, zs) = span (isPrefixOf " ") xs
+
 manifestMapToManifest :: Map.HashMap String String -> Manifest
 manifestMapToManifest hash = Manifest mainDalf dependDalfs
     where
@@ -42,9 +52,10 @@ manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyD
         dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && elem (trim (eRelativePath e))  (dalfs manifest)]
 
 manifestFromDar :: Archive -> ManifestData
-manifestFromDar dar =  manifestDataFromDar dar manifest
+manifestFromDar dar = manifestDataFromDar dar manifest
     where
         manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
         linesStr = lines $ UTF8.toString manifestEntry
-        manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue (filter (\a -> a /= "" ) linesStr)
+        manifestLines = multiLineContent (filter (not . null) linesStr)
+        manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue manifestLines
 

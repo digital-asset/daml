@@ -6,9 +6,9 @@ package com.digitalasset.ledger.service
 import java.io.File
 import java.nio.file.Files
 
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Identifier}
 import com.digitalasset.daml.lf.iface.reader.InterfaceReader
-import com.digitalasset.daml.lf.iface.Interface
+import com.digitalasset.daml.lf.iface.{Interface, DefDataType}
 import com.digitalasset.daml.lf.archive.Reader
 import com.digitalasset.daml_lf.DamlLf
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -64,4 +64,10 @@ object LedgerReader {
       else \/.right(out)
     }.leftMap(_.getLocalizedMessage).join
   }
+
+  def damlLfTypeLookup(packageStore: PackageStore)(id: Identifier): Option[DefDataType.FWT] =
+    for {
+      iface <- packageStore.get(id.packageId.toString)
+      ifaceType <- iface.typeDecls.get(id.qualifiedName)
+    } yield ifaceType.`type`
 }

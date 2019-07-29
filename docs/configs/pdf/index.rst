@@ -64,6 +64,15 @@ Background concepts
    concepts/glossary
    concepts/ledger-model/index
 
+Deploying
+---------
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+
+   deploy/index
+
 Examples
 --------
 

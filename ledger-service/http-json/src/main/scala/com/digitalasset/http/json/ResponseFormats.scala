@@ -14,8 +14,11 @@ private[http] object ResponseFormats {
   }
 
   def resultJsObject[A: JsonWriter](a: A): JsObject = {
-    val result: JsValue = a.toJson
-    JsObject(statusField(StatusCodes.OK), ("result", result))
+    resultJsObject(a.toJson)
+  }
+
+  def resultJsObject(a: JsValue): JsObject = {
+    JsObject(statusField(StatusCodes.OK), ("result", a))
   }
 
   def statusField(status: StatusCode): (String, JsNumber) =

@@ -197,7 +197,7 @@ assertCqEventComplete e = do
   eventSuccess e HU.@?= True
 
 grpc :: IO a -> IO ()
-grpc = bracket_ grpcInit grpcShutdown . void
+grpc = bracket_ grpcInit grpcShutdownBlocking . void
 
 _nowarnUnused :: a
 _nowarnUnused = assertCqEventComplete `undefined` threadDelaySecs

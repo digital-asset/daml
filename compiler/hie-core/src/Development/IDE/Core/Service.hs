@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 -- | A Shake implementation of the compiler service, built
@@ -15,7 +14,8 @@ module Development.IDE.Core.Service(
     runActionSync,
     writeProfile,
     getDiagnostics, unsafeClearDiagnostics,
-    ideLogger
+    ideLogger,
+    updatePositionMapping,
     ) where
 
 import           Control.Concurrent.Extra

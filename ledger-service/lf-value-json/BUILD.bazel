@@ -1,0 +1,41 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "da_scala_test",
+)
+
+lf_value_json_deps = [
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/io/spray:spray_json",
+    "//daml-lf/data",
+    "//daml-lf/interface",
+    "//daml-lf/transaction",
+]
+
+da_scala_library(
+    name = "lf-value-json",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = ["-Xsource:2.13"],
+    tags = ["maven_coordinates=com.digitalasset.ledger-service:lf-value-json:__VERSION__"],
+    visibility = [
+        "//visibility:public",
+    ],
+    deps = lf_value_json_deps,
+)
+
+da_scala_test(
+    name = "tests",
+    size = "medium",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    # data = ["//docs:quickstart-model.dar"],
+    deps = [
+        ":lf-value-json",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
+        "//3rdparty/jvm/org/scalatest",
+        "//daml-lf/transaction-scalacheck",
+    ] + lf_value_json_deps,
+)

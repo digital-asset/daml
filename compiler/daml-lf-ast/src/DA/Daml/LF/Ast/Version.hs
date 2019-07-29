@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE OverloadedStrings #-}
 module DA.Daml.LF.Ast.Version(module DA.Daml.LF.Ast.Version) where
 
 import           Data.Data
@@ -24,6 +23,7 @@ data MinorVersion = PointStable Int | PointDev
 version1_5 :: Version
 version1_5 = V1 $ PointStable 5
 
+-- | DAML-LF version 1.6
 version1_6 :: Version
 version1_6 = V1 $ PointStable 6
 
@@ -38,11 +38,11 @@ versionDefault = version1_6
 versionDev :: Version
 versionDev = V1 PointDev
 
-supportedInputVersions :: [Version]
-supportedInputVersions = [version1_5, version1_6, versionDev]
-
 supportedOutputVersions :: [Version]
-supportedOutputVersions = supportedInputVersions
+supportedOutputVersions = [version1_6, versionDev]
+
+supportedInputVersions :: [Version]
+supportedInputVersions = version1_5 : supportedOutputVersions
 
 
 data Feature = Feature
@@ -50,14 +50,9 @@ data Feature = Feature
     , featureMinVersion :: !Version
     }
 
-featureTextCodePoints :: Feature
-featureTextCodePoints = Feature "Conversion between text and code points" version1_6
-
-featureEnumTypes :: Feature
-featureEnumTypes = Feature "Enum types" version1_6
-
-featureInternedPackageIds :: Feature
-featureInternedPackageIds = Feature "Package ID reference compression" version1_6
+-- NOTE(MH): We comment this out to leave an example how to deal with features.
+-- featureTextCodePoints :: Feature
+-- featureTextCodePoints = Feature "Conversion between text and code points" version1_6
 
 featureInternedModuleNames :: Feature
 featureInternedModuleNames = Feature "Module reference compression" version1_7
