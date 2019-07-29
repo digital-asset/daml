@@ -62,7 +62,9 @@ jobs:
           eval "$(dev-env/bin/dade-assist)"
 
           echo "Checking for new version..."
-          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
+          GH_RESP=$(mktemp)
+          curl https://api.github.com/repos/digital-asset/daml/releases -s > $GH_RESP
+          RELEASES=$(cat $GH_RESP | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
           GH_VERSIONS=$(mktemp)
           DOCS_VERSIONS=$(mktemp)
           curl -s https://docs.daml.com/versions.json | jq -r 'keys | .[]' | sort > $DOCS_VERSIONS
@@ -107,10 +109,33 @@ jobs:
           aws cloudfront create-invalidation \
                          --distribution-id E1U753I56ERH55 \
                          --paths '/*'
+          echo "Publishing $LATEST to Hubspot..."
+          DESCRIPTION_MD="$(cat $GH_RESP | jq -r '. | map(select(.tag_name="'$LATEST'"))[0].body')"
+          DESCRIPTION=$(curl -s -XPOST 'https://api.github.com/markdown/raw' -H 'Content-Type: text/plain' -d"$DESCRIPTION_MD" | jq -sR .)
+          DATE="$(date -d $(cat $GH_RESP | jq -r '. | map(select(.tag_name="'$LATEST'"))[0].published_at') +%s)000"
+          SUMMARY="Release notes for version ${LATEST#v}."
+          # content_group_id and blog_author_id reference existing items in HubSpot
+          ID=$(curl -s \
+                    -XPOST 'https://api.hubapi.com/content/api/v2/blog-posts?hapikey='$HUBSPOT_TOKEN \
+                    -d'{"name": "Release of DAML SDK '$LATEST'",
+                        "post_body": '"$DESCRIPTION"',
+                        "content_group_id": 11411412838,
+                        "publish_date": '$DATE',
+                        "post_summary": "'"$SUMMARY"'",
+                        "slug": "'${LATEST#v}'",
+                        "blog_author_id": 11513309969,
+                        "meta_description": "'"$SUMMARY"'"}}' \
+                    -H "Content-Type: application/json" \
+               | jq '.id')
+          curl -s \
+               -XPOST 'https://api.hubapi.com/content/api/v2/blog-posts/'$ID'/publish-action?hapikey='$HUBSPOT_TOKEN \
+               -d'{"action": "schedule-publish"}' \
+               -H "Content-Type: application/json"
           echo "Done."
         env:
           AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
           AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+          HUBSPOT_TOKEN: $(HUBSPOT_TOKEN)
       - task: PublishPipelineArtifact@0
         condition: always()
         inputs:
@@ -125,56 +150,6 @@ jobs:
                --data "{\"text\":\"<!here> *FAILED* Daily Docs: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
                $(Slack.URL)
         condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
-
-  - job: hubspot
-    timeoutInMinutes: 50
-    pool:
-      name: linux-pool
-    steps:
-      - checkout: self
-      - bash: |
-          set -euo pipefail
-          eval "$(dev-env/bin/dade-assist)"
-          # Manually created items in HubSpot
-          BLOG_ID=11411412838
-          AUTHOR_ID=11513309969
-          GH_RESP=$(mktemp)
-          curl -s "https://api.github.com/repos/digital-asset/daml/releases" > $GH_RESP
-          HS_RESP=$(mktemp)
-          curl -s "https://api.hubapi.com/content/api/v2/blog-posts?hapikey=${HUBSPOT_TOKEN}&content_group_id=${BLOG_ID}" > $HS_RESP
-          RELEASES=$(cat $GH_RESP | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
-          for version in $(echo $RELEASES | sed -e 's/ /\n/g'); do
-              NAME="Release of DAML SDK $version"
-              if [[ -n "$(cat $HS_RESP | jq '.objects[].name | select(. == "'"$NAME"'")')" ]]; then
-                  echo "$version already present in HubSpot"
-              else
-                  echo "Publishing $version to Hubspot..."
-                  DESCRIPTION_MD="$(cat $GH_RESP | jq -r '. | map(select(.tag_name="'$version'"))[0].body')"
-                  DESCRIPTION=$(curl -s -XPOST 'https://api.github.com/markdown/raw' -H 'Content-Type: text/plain' -d"$DESCRIPTION_MD" | jq -sR .)
-                  # HubSpot wants the date in milliseconds since epoch
-                  DATE="$(date -d $(cat $GH_RESP | jq -r '. | map(select(.tag_name="'$version'"))[0].published_at') +%s)000"
-                  SUMMARY="Release notes for version ${version#v}."
-                  ID=$(curl -s \
-                            -XPOST 'https://api.hubapi.com/content/api/v2/blog-posts?hapikey='$HUBSPOT_TOKEN \
-                            -d'{"name": "Release of DAML SDK '$version'",
-                                "post_body": '"$DESCRIPTION"',
-                                "content_group_id": '$BLOG_ID',
-                                "publish_date": '$DATE',
-                                "post_summary": "'"$SUMMARY"'",
-                                "slug": "'${version#v}'",
-                                "blog_author_id": '$AUTHOR_ID',
-                                "meta_description": "'"$SUMMARY"'"}}' \
-                            -H "Content-Type: application/json" \
-                       | jq '.id')
-                  curl -s \
-                       -XPOST 'https://api.hubapi.com/content/api/v2/blog-posts/'$ID'/publish-action?hapikey='$HUBSPOT_TOKEN \
-                       -d'{"action": "schedule-publish"}' \
-                       -H "Content-Type: application/json"
-              fi
-          done
-          echo "Done."
-        env:
-          HUBSPOT_TOKEN: $(HUBSPOT_TOKEN)
 
   - job: docker_image
     timeoutInMinutes: 60
