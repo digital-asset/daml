@@ -127,10 +127,7 @@ message ExercisedEvent {
   // Required
   Identifier template_id = 3;
 
-  // The ID of the event in which the target contract has been created.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Required
-  string contract_creating_event_id = 4;
+  reserved 4; // removed field
 
   // The choice that's been exercised on the target contract.
   // Must be a valid NameString (as described in ``value.proto``).
