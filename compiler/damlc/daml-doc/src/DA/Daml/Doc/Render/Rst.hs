@@ -74,7 +74,7 @@ tmpl2rst TemplateDoc{..} = mconcat $
     [ renderAnchor td_anchor
     , renderLineDep $ \env -> T.unwords . concat $
         [ [bold "template"]
-        , maybe [] (\x -> [type2rst env x, bold "=>"]) td_super
+        , renderContext env td_super
         , [makeAnchorLink env td_anchor (unTypename td_name)]
         , td_args
         ]
@@ -90,7 +90,7 @@ renderTemplateInstanceDocAsRst TemplateInstanceDoc{..} = mconcat
     , renderLinesDep $ \env ->
         [ "template instance " <>
             makeAnchorLink env ti_anchor (unTypename ti_name)
-        , "    = " <> type2rst env ti_rhs
+        , "  = " <> renderType env ti_rhs
         , ""
         ]
     , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ti_descr
@@ -108,7 +108,7 @@ cls2rst ClassDoc{..} = mconcat
     [ renderAnchor cl_anchor
     , renderLineDep $ \env -> T.unwords . concat $
         [ [bold "class"]
-        , maybe [] (\x -> [type2rst env x, bold "=>"]) cl_super
+        , renderContext env cl_super
         , [makeAnchorLink env cl_anchor (unTypename cl_name)]
         , cl_args
         , [bold "where"]
@@ -125,7 +125,7 @@ adt2rst TypeSynDoc{..} = mconcat
             $ bold "type"
             : makeAnchorLink env ad_anchor (unTypename ad_name)
             : ad_args
-        , "    = " <> type2rst env ad_rhs
+        , "  = " <> renderType env ad_rhs
         , ""
         ]
     , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
@@ -149,9 +149,7 @@ constr2rst PrefixC{..} = mconcat
     , renderLineDep $ \env ->
         T.unwords
             $ makeAnchorLink env ac_anchor (unTypename ac_name)
-            : map (type2rst env) ac_args
-            -- FIXME: Parentheses around args seems necessary here
-            -- if they are type application or function (see type2rst).
+            : map (renderTypePrec env 2) ac_args
     , maybe mempty ((renderLine "" <>) . renderDocText) ac_descr
     ]
 
@@ -201,39 +199,20 @@ fieldTable fds = mconcat -- NB final empty line is essential and intended
   where
     fieldRows = renderLinesDep $ \env -> concat
        [ [ prefix "   * - " $ escapeTr_ (unFieldname fd_name)
-         , prefix "     - " $ type2rst env fd_type
+         , prefix "     - " $ renderType env fd_type
          , prefix "     - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ] -- FIXME: indent properly instead of this
        | FieldDoc{..} <- fds ]
 
--- | Render a type. Nested type applications are put in parentheses.
-type2rst :: RenderEnv -> Type -> T.Text
-type2rst env = f 0
-  where
-    -- 0 = no brackets
-    -- 1 = brackets around function
-    -- 2 = brackets around function AND application
-    f :: Int -> Type -> T.Text
-    f _ (TypeApp a n []) = link a n
-    f i (TypeApp a n as) = (if i >= 2 then inParens else id) $
-        T.unwords (link a n : map (f 2) as)
-    f i (TypeFun ts) = (if i >= 1 then inParens else id) $
-        T.intercalate " -> " $ map (f 1) ts
-    f _ (TypeList t1) = "[" <> f 0 t1 <> "]"
-    f _ (TypeTuple ts) = "(" <> T.intercalate ", " (map (f 0) ts) <>  ")"
-
-    link :: Maybe Anchor -> Typename -> T.Text
-    link anchorM (Typename linkText) =
-        makeAnchorLink env anchorM linkText
 
 fct2rst :: FunctionDoc -> RenderOut
 fct2rst FunctionDoc{..} = mconcat
     [ renderAnchor fct_anchor
     , renderLinesDep $ \ env ->
         [ makeAnchorLink env fct_anchor (wrapOp (unFieldname fct_name))
-        , T.concat
-            [ "  : "
-            , maybe "" ((<> " => ") . type2rst env) fct_context
-            , type2rst env fct_type
+        , T.unwords . concat $
+            [ ["  :"]
+            , renderContext env fct_context
+            , [renderType env fct_type]
             ]
         , ""
         ]
@@ -242,6 +221,40 @@ fct2rst FunctionDoc{..} = mconcat
 
 ------------------------------------------------------------
 -- helpers
+
+-- | Render a type.
+renderType :: RenderEnv -> Type -> T.Text
+renderType env = renderTypePrec env 0
+
+-- | Render a type at a given precedence level. The precedence
+-- level controls whether parentheses will be placed around the
+-- type or not. Thus:
+--
+-- * precedence 0: no brackets
+-- * precedence 1: brackets around function types
+-- * precedence 2: brackets around function types and type application
+renderTypePrec :: RenderEnv -> Int -> Type -> T.Text
+renderTypePrec env prec = \case
+    TypeApp anchorM (Typename typename) args ->
+        (if prec >= 2 && notNull args then inParens else id)
+            . T.unwords
+            $ makeAnchorLink env anchorM typename
+            : map (renderTypePrec env 2) args
+    TypeFun ts ->
+        (if prec >= 1 then inParens else id)
+            . T.intercalate " -> "
+            $ map (renderTypePrec env 1) ts
+    TypeList t ->
+        "[" <> renderTypePrec env 0 t <> "]"
+    TypeTuple [t] ->
+        renderTypePrec env prec t
+    TypeTuple ts ->
+        "(" <> T.intercalate ", " (map (renderTypePrec env 0) ts) <> ")"
+
+-- | Render type context as a list of words. Nothing is rendered as [],
+-- and Just t is rendered as [render t, "=>"].
+renderContext :: RenderEnv -> Maybe Type -> [T.Text]
+renderContext env = maybe [] (\x -> [renderTypePrec env 1 x, "=>"])
 
 makeAnchorLink :: RenderEnv -> Maybe Anchor -> T.Text -> T.Text
 makeAnchorLink env anchorM linkText = fromMaybe linkText $ do
