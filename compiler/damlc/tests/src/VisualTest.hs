@@ -20,7 +20,7 @@ import Control.Monad.Except
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
-    Tasty.deterministicMain $ visualTests
+    Tasty.deterministicMain visualTests
 
 visualTests :: Tasty.TestTree
 visualTests =
@@ -33,7 +33,7 @@ testCase testName test =
         Tasty.assertBool ("Shake test resulted in an error: " ++ show res) $ isRight res
 
 graphTest :: LF.World -> LF.Package -> Either String ()
-graphTest wrld lfPkg = case (concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)) of
+graphTest wrld lfPkg = case concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg) of
     [] -> Left "no template and Choices"
     _xs -> Right ()
 
