@@ -8,7 +8,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.util.ByteString
-import com.digitalasset.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.bazeltools.BazelRunfiles._
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.{jsonCodecs, withHttpService, withLedger}
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
@@ -31,7 +31,6 @@ class HttpServiceIntegrationTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
-    with BazelRunfiles
     with StrictLogging {
 
   import json.JsonProtocol._
