@@ -128,7 +128,6 @@
     - warn: {lhs: "cycle [x]", rhs: repeat x}
     - warn: {lhs: head (reverse x), rhs: last x}
     - warn: {lhs: head (drop n x), rhs: x !! n, side: isNat n}
-    - warn: {lhs: head (drop n x), rhs: x !! max 0 n, side: not (isNat n) && not (isNeg n)}
     - warn: {lhs: reverse (tail (reverse x)), rhs: init x, note: IncreasesLaziness}
     - warn: {lhs: reverse (reverse x), rhs: x, note: IncreasesLaziness, name: Avoid reverse}
     - warn: {lhs: isPrefixOf (reverse x) (reverse y), rhs: isSuffixOf x y}
@@ -156,15 +155,8 @@
     - warn: {lhs: "zipWith (,)", rhs: zip}
     - warn: {lhs: "zipWith3 (,,)", rhs: zip3}
     - hint: {lhs: length x == 0, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: 0 == length x, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: length x < 1, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: 1 > length x, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: length x <= 0, rhs: null x, note: IncreasesLaziness}
-    - hint: {lhs: 0 >= length x, rhs: null x, note: IncreasesLaziness}
     - hint: {lhs: "x == []", rhs: null x}
-    - hint: {lhs: "[] == x", rhs: null x}
     - hint: {lhs: length x /= 0, rhs: not (null x), note: IncreasesLaziness, name: Use null}
-    - hint: {lhs: 0 /= length x, rhs: not (null x), note: IncreasesLaziness, name: Use null}
     - hint: {lhs: "\\x -> [x]", rhs: "(:[])", name: "Use :"}
     - warn: {lhs: map (uncurry f) (zip x y), rhs: zipWith f x y}
     - hint: {lhs: map f (zip x y), rhs: zipWith (curry f) x y, side: isVar f}
@@ -197,11 +189,8 @@
     - hint: {lhs: "elem x [y]", rhs: x == y, note: ValidInstance Eq a}
     - hint: {lhs: "notElem x [y]", rhs: x /= y, note: ValidInstance Eq a}
     - hint: {lhs: length x >= 0, rhs: "True", name: Length always non-negative}
-    - hint: {lhs: 0 <= length x, rhs: "True", name: Length always non-negative}
     - hint: {lhs: length x > 0, rhs: not (null x), note: IncreasesLaziness, name: Use null}
-    - hint: {lhs: 0 < length x, rhs: not (null x), note: IncreasesLaziness, name: Use null}
     - hint: {lhs: length x >= 1, rhs: not (null x), note: IncreasesLaziness, name: Use null}
-    - hint: {lhs: 1 <= length x, rhs: not (null x), note: IncreasesLaziness, name: Use null}
     - warn: {lhs: take i x, rhs: "[]", side: isNegZero i, name: Take on a non-positive}
     - warn: {lhs: drop i x, rhs: x, side: isNegZero i, name: Drop on a non-positive}
     - warn: {lhs: last (scanl f z x), rhs: foldl f z x}
@@ -209,15 +198,6 @@
     - warn: {lhs: iterate id, rhs: repeat}
     - warn: {lhs: zipWith f (repeat x), rhs: map (f x)}
     - warn: {lhs: zipWith f y (repeat z), rhs: map (\x -> f x z) y}
-
-    # MONOIDS
-
-    - warn: {lhs: mempty <> x, rhs: x, name: "Monoid law, left identity"}
-    - warn: {lhs: mempty `mappend` x, rhs: x, name: "Monoid law, left identity"}
-    - warn: {lhs: x <> mempty, rhs: x, name: "Monoid law, right identity"}
-    - warn: {lhs: x `mappend` mempty, rhs: x, name: "Monoid law, right identity"}
-    - warn: {lhs: foldr (<>) mempty, rhs: mconcat}
-    - warn: {lhs: foldr mappend mempty, rhs: mconcat}
 
     # TRAVERSABLES
 
@@ -271,22 +251,19 @@
     - warn: {lhs: \x y -> x, rhs: const}
     - warn: {lhs: "\\(x,y) -> y", rhs: snd}
     - warn: {lhs: "\\(x,y) -> x", rhs: fst}
-    - hint: {lhs: "\\x y -> f (x,y)", rhs: curry f}
-    - hint: {lhs: "\\(x,y) -> f x y", rhs: uncurry f, note: IncreasesLaziness}
-    - warn: {lhs: f (fst p) (snd p), rhs: uncurry f p}
+    - hint: {lhs: "\\x y -> f (x,y)", rhs: curry f, name: Use curry}
+    - hint: {lhs: "\\(x,y) -> f x y", rhs: uncurry f, note: IncreasesLaziness, name: Use uncurry}
     - warn: {lhs: ($) . f, rhs: f, name: Redundant $}
     - warn: {lhs: (f $), rhs: f, name: Redundant $}
     - warn: {lhs: (Data.Function.& f), rhs: f, name: Redundant Data.Function.&}
     - hint: {lhs: \x -> y, rhs: const y, side: isAtom y && not (isWildcard y)}
         # If any isWildcard recursively then x may be used but not mentioned explicitly
-    - warn: {lhs: flip f x y, rhs: f y x, side: isApp original}
-    - warn: {lhs: id x, rhs: x, side: not (isTypeApp x)}
+    - warn: {lhs: flip f x y, rhs: f y x, side: isApp original, name: Redundant flip}
+    - warn: {lhs: id x, rhs: x, side: not (isTypeApp x), name: Redundant id}
     - warn: {lhs: id . x, rhs: x, name: Redundant id}
     - warn: {lhs: x . id, rhs: x, name: Redundant id}
     - warn: {lhs: "((,) x)", rhs: "(_noParen_ x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
     - warn: {lhs: "flip (,) x", rhs: "(,_noParen_ x)", name: Use tuple-section, note: RequiresExtension TupleSections}
-    - warn: {lhs: "\\y -> (x,y)", rhs: "(x,)", name: Use tuple-section, note: RequiresExtension TupleSections}
-    - warn: {lhs: "\\y -> (y,x)", rhs: "(,x)", name: Use tuple-section, note: RequiresExtension TupleSections}
 
     # CHAR
 
@@ -365,8 +342,6 @@
 
     - hint: {lhs: return x <*> y, rhs: x <$> y}
     - hint: {lhs: pure x <*> y, rhs: x <$> y}
-    - warn: {lhs: x <* pure y, rhs: x}
-    - warn: {lhs: pure x *> y, rhs: "y"}
 
     # MONAD
 
@@ -412,10 +387,6 @@
     - warn: {lhs: mapM_ (void . f), rhs: mapM_ f}
     - warn: {lhs: forM_ x (void . f), rhs: forM_ x f}
     - warn: {lhs: a >>= \_ -> b, rhs: a >> b}
-    - warn: {lhs: m <* return x, rhs: m}
-    - warn: {lhs: return x *> m, rhs: m}
-    - warn: {lhs: pure x >> m, rhs: m}
-    - warn: {lhs: return x >> m, rhs: m}
 
     # STATE MONAD
 
@@ -450,14 +421,11 @@
     - warn: {lhs: Just <$> a <|> pure Nothing, rhs: optional a}
     - hint: {lhs: m >>= pure . f, rhs: f <$> m}
     - hint: {lhs: pure . f =<< m, rhs: f <$> m}
-    - warn: {lhs: empty <|> x, rhs: x, name: "Alternative law, left identity"}
-    - warn: {lhs: x <|> empty, rhs: x, name: "Alternative law, right identity"}
 
 
     # LIST COMP
 
     - hint: {lhs: "if b then [x] else []", rhs: "[x | b]", name: Use list comprehension}
-    - hint: {lhs: "if b then [] else [x]", rhs: "[x | not b]", name: Use list comprehension}
     - hint: {lhs: "[x | x <- y]", rhs: "y", side: isVar x, name: Redundant list comprehension}
 
     # SEQ
@@ -487,8 +455,7 @@
     - warn: {lhs: "maybe [] (:[])", rhs: maybeToList}
     - warn: {lhs: catMaybes (map f x), rhs: mapMaybe f x}
     - warn: {lhs: catMaybes (fmap f x), rhs: mapMaybe f x}
-    - hint: {lhs: case x of Nothing -> y; Just a -> a , rhs: Data.Maybe.fromMaybe y x, name: Replace case with fromMaybe}
-    - hint: {lhs: case x of Just a -> a; Nothing -> y, rhs: Data.Maybe.fromMaybe y x, name: Replace case with fromMaybe}
+    - hint: {lhs: case x of Nothing -> y; Just a -> a , rhs: fromMaybe y x}
     - warn: {lhs: if isNothing x then y else f (fromJust x), rhs: maybe y f x}
     - warn: {lhs: if isJust x then f (fromJust x) else y, rhs: maybe y f x}
     - warn: {lhs: maybe Nothing (Just . f), rhs: fmap f}
@@ -500,6 +467,7 @@
     - warn: {lhs: concatMap (maybeToList . f), rhs: Data.Maybe.mapMaybe f}
     - warn: {lhs: concatMap maybeToList, rhs: catMaybes}
     - warn: {lhs: maybe n Just x, rhs: x Control.Applicative.<|> n}
+    - hint: {lhs: case x of Just a -> a; Nothing -> y, rhs: fromMaybe y x}
     - warn: {lhs: if isNothing x then y else fromJust x, rhs: fromMaybe y x}
     - warn: {lhs: if isJust x then fromJust x else y, rhs: fromMaybe y x}
     - warn: {lhs: isJust x && (fromJust x == y), rhs: x == Just y}
@@ -512,22 +480,12 @@
     - hint: {lhs: maybe Nothing id, rhs: join}
     - hint: {lhs: maybe Nothing f x, rhs: f =<< x}
     - hint: {lhs: maybe (f x) (f . g), rhs: f . maybe x g, note: IncreasesLaziness, name: Too strict maybe}
-    - warn: {lhs: maybe x f (fmap g y), rhs: maybe x (f . g) y, name: Redundant fmap}
-    - warn: {lhs: isJust (fmap f x), rhs: isJust x}
-    - warn: {lhs: isNothing (fmap f x), rhs: isNothing x}
-    - warn: {lhs: fromJust (fmap f x), rhs: f (fromJust x), note: IncreasesLaziness}
-    - warn: {lhs: mapMaybe f (fmap g x), rhs: mapMaybe (f . g) x, name: Redundant fmap}
 
     # EITHER
 
     - warn: {lhs: "[a | Left a <- a]", rhs: lefts a}
     - warn: {lhs: "[a | Right a <- a]", rhs: rights a}
     - warn: {lhs: either Left (Right . f), rhs: fmap f}
-    - warn: {lhs: either f g (fmap h x), rhs: either f (g . h) x, name: Redundant fmap}
-    - warn: {lhs: isLeft (fmap f x), rhs: isLeft x}
-    - warn: {lhs: isRight (fmap f x), rhs: isRight x}
-    - warn: {lhs: fromLeft x (fmap f y), rhs: fromLeft x y}
-    - warn: {lhs: fromRight x (fmap f y), rhs: either (const x) f y}
 
     # INFIX
 
@@ -549,9 +507,7 @@
     - hint: {lhs: log y / log x, rhs: logBase x y}
     - hint: {lhs: sin x / cos x, rhs: tan x}
     - hint: {lhs: rem n 2 == 0, rhs: even n}
-    - hint: {lhs: 0 == rem n 2, rhs: even n}
     - hint: {lhs: rem n 2 /= 0, rhs: odd n}
-    - hint: {lhs: 0 /= rem n 2, rhs: odd n}
     - hint: {lhs: not (even x), rhs: odd x}
     - hint: {lhs: not (odd x), rhs: even x}
     - hint: {lhs: x ** 0.5, rhs: sqrt x}
@@ -562,10 +518,6 @@
 
     - hint: {lhs: mapM_ (writeChan a), rhs: writeList2Chan a}
     - error: {lhs: atomically (readTVar x), rhs: readTVarIO x}
-
-    # TYPEABLE
-
-    - hint: {lhs: "typeOf (a :: b)", rhs: "typeRep (Proxy :: Proxy b)"}
 
     # EXCEPTION
 
@@ -579,11 +531,6 @@
     - hint: {lhs: throw (ErrorCall a), rhs: error a}
     - warn: {lhs: toException NonTermination, rhs: nonTermination}
     - warn: {lhs: toException NestedAtomically, rhs: nestedAtomically}
-
-    # IOREF
-
-    - hint: {lhs: modifyIORef r (const x), rhs: writeIORef r x}
-    - hint: {lhs: modifyIORef r (\v -> x), rhs: writeIORef r x}
 
     # STOREABLE/PTR
 
@@ -630,6 +577,7 @@
     - warn: {lhs: either f g (Right y), rhs: g y, name: Evaluate}
     - warn: {lhs: "fst (x,y)", rhs: x, name: Evaluate}
     - warn: {lhs: "snd (x,y)", rhs: "y", name: Evaluate}
+    - warn: {lhs: f (fst p) (snd p), rhs: uncurry f p, name: Evaluate}
     - warn: {lhs: "init [x]", rhs: "[]", name: Evaluate}
     - warn: {lhs: "null []", rhs: "True", name: Evaluate}
     - warn: {lhs: "length []", rhs: "0", name: Evaluate}
@@ -764,9 +712,6 @@
     - warn: {lhs: Data.Maybe.fromMaybe mempty, rhs: Data.Foldable.fold}
     - warn: {lhs: Data.Either.fromRight mempty, rhs: Data.Foldable.fold}
     - warn: {lhs: if f x then Just x else Nothing, rhs: mfilter f (Just x)}
-    - hint: {lhs: maybe (pure ()), rhs: traverse_, note: IncreasesLaziness}
-    - hint: {lhs: fromMaybe (pure ()), rhs: sequenceA_, note: IncreasesLaziness}
-    - hint: {lhs: fromRight (pure ()), rhs: sequenceA_, note: IncreasesLaziness}
 
 - group:
     name: dollar
@@ -775,17 +720,6 @@
     - package base
     rules:
     - warn: {lhs: a $ b $ c, rhs: a . b $ c}
-
-- group:
-    name: teaching
-    enabled: false
-    imports:
-    - package base
-    rules:
-    - hint: {lhs: "x /= []", rhs: not (null x), name: Use null}
-    - hint: {lhs: "[] /= x", rhs: not (null x), name: Use null}
-    - hint: {lhs: "not (x || y)", rhs: "not x && not y", name: Apply De Morgan law}
-    - hint: {lhs: "not (x && y)", rhs: "not x || not y", name: Apply De Morgan law}
 
 
 # <TEST>
@@ -860,7 +794,7 @@
 # yes x = case x of {True -> a ; False -> b} -- if x then a else b
 # yes x = case x of {False -> a ; _ -> b} -- if x then b else a
 # no = const . ok . toResponse $ "saved"
-# yes = case x z of Nothing -> y z; Just pat -> pat -- Data.Maybe.fromMaybe (y z) (x z)
+# yes = case x z of Nothing -> y z; Just pat -> pat -- fromMaybe (y z) (x z)
 # yes = if p then s else return () -- Control.Monad.when p s
 # warn = a $$$$ b $$$$ c ==> a . b $$$$$ c
 # yes = when (not . null $ asdf) -- unless (null asdf)
@@ -884,7 +818,7 @@
 # fooer input = catMaybes . map Just $ input -- mapMaybe Just
 # yes = mapMaybe id -- catMaybes
 # main = print $ map (\_->5) [2,3,5] -- const 5
-# main = head $ drop n x -- x !! max 0 n
+# main = head $ drop n x
 # main = head $ drop (-3) x -- x
 # main = head $ drop 2 x -- x !! 2
 # main = drop 0 x -- x
@@ -894,7 +828,7 @@
 # main = take 4 x
 # main = let (first, rest) = (takeWhile p l, dropWhile p l) in rest -- span p l
 # main = map $ \ d -> ([| $d |], [| $d |])
-# pairs (x:xs) = map (x,) xs ++ pairs xs
+# pairs (x:xs) = map (\y -> (x,y)) xs ++ pairs xs
 # {-# ANN foo "HLint: ignore" #-};foo = map f (map g x) -- @Ignore ???
 # {-# HLINT ignore foo #-};foo = map f (map g x) -- @Ignore ???
 # yes = fmap lines $ abc 123 -- lines Control.Applicative.<$> abc 123
@@ -938,8 +872,7 @@
 # no = sequence (return x)
 # no = sequenceA (pure a)
 # {-# LANGUAGE QuasiQuotes #-}; no = f (\url -> [hamlet|foo @{url}|])
-# yes = f ((,) x) -- (x,)
-
+#
 # import Prelude \
 # yes = flip mapM -- Control.Monad.forM
 # import Control.Monad \
@@ -972,7 +905,4 @@
 # no = sort <$> f input `shouldBe` sort <$> x
 # sortBy (comparing snd) -- sortOn snd
 # myJoin = on $ child ^. ChildParentId ==. parent ^. ParentId
-# foo = typeOf (undefined :: Foo Int) -- typeRep (Proxy :: Proxy (Foo Int))
-# foo = typeOf (undefined :: a) -- typeRep (Proxy :: Proxy a)
-# {-# RULES "Id-fmap-id" forall (x :: Id a). fmap id x = x #-}
 # </TEST>
