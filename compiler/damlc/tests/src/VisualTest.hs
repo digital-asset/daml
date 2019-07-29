@@ -54,8 +54,8 @@ graphTest wrld lfPkg tplProps =
         else Left (show tplProps, show $ map templateChoicesToProps tplPropsActual)
     where tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
 
-worldForFile' :: D.NormalizedFilePath -> [TemplateProp] -> ShakeTest ()
-worldForFile' damlFilePath tplProps = do
+expectedPoperties :: D.NormalizedFilePath -> [TemplateProp] -> ShakeTest ()
+expectedPoperties damlFilePath tplProps = do
     ideState <- ShakeTest $ Reader.asks steService
     mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
     case mbDalf of
@@ -80,7 +80,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "        do return ()"
                 ]
             setFilesOfInterest [foo]
-            worldForFile' foo [TemplateProp [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True] 0]
+            expectedPoperties foo [TemplateProp [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True] 0]
     ]
 
 
