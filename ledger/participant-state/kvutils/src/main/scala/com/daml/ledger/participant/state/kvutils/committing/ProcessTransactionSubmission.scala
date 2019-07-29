@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.value.Value.{
 import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 
-case class ProcessTransactionSubmission(
+private[kvutils] case class ProcessTransactionSubmission(
     engine: Engine,
     config: Configuration,
     entryId: DamlLogEntryId,
@@ -32,8 +32,10 @@ case class ProcessTransactionSubmission(
     inputLogEntries: Map[DamlLogEntryId, DamlLogEntry],
     inputState: Map[DamlStateKey, Option[DamlStateValue]]) {
 
+  import Common._
+
   // The result of the transaction submission.
-  def result: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     (for {
       dedupState <- deduplicateCommand()
       _ <- verifyLetAndTtl()
@@ -135,12 +137,6 @@ case class ProcessTransactionSubmission(
         Conversions.decodeContractKey(value.getContractState.getContractKey) ->
           Conversions.stateKeyToContractId(key)
     }
-
-  type DamlStateMap = Map[DamlStateKey, DamlStateValue]
-
-  // A check result, which is either a rejection or passing check with associated new state.
-  type CheckResult = Either[DamlLogEntry, DamlStateMap]
-  private def pass(state: (DamlStateKey, DamlStateValue)*): CheckResult = Right(state.toMap)
 
   private def deduplicateCommand(): CheckResult = {
     val dedupKey = commandDedupKey(submitterInfo)
