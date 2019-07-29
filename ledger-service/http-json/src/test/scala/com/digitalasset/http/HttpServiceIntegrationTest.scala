@@ -25,6 +25,7 @@ import spray.json._
 
 import scala.concurrent.{ExecutionContext, Future}
 
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
 class HttpServiceIntegrationTest
     extends AsyncFreeSpec
     with Matchers
@@ -82,6 +83,32 @@ class HttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
+  "command/create IOU with unsupported templateId should return proper error" in withHttpService(
+    dar,
+    testId) { (uri, encoder, _) =>
+    val command: domain.CreateCommand[v.Record] =
+      iouCreateCommand.copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
+    val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
+
+    postJson(uri.withPath(Uri.Path("/command/create")), input).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.BadRequest)
+        inside(output) {
+          case JsObject(fields) =>
+            inside(fields.get("errors")) {
+              case Some(JsArray(Vector(JsString(errorMsg)))) =>
+                val unknownTemplateId: domain.TemplateId.NoPkg = domain.TemplateId(
+                  (),
+                  command.templateId.moduleName,
+                  command.templateId.entityName)
+                errorMsg should include(
+                  s"Cannot resolve ${unknownTemplateId: domain.TemplateId.NoPkg}")
+            }
+        }
+    }: Future[Assertion]
+  }
+
   "command/exercise IOU_Transfer" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
     val create: domain.CreateCommand[v.Record] = iouCreateCommand
     val createJson: JsObject = encoder.encodeR(create).valueOr(e => fail(e.shows))
@@ -106,6 +133,28 @@ class HttpServiceIntegrationTest
                   case Some(JsArray(Vector(activeContract: JsObject))) =>
                     assertActiveContract(decoder, activeContract, create, exercise)
                 }
+            }
+        }
+    }: Future[Assertion]
+  }
+
+  "command/exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService(
+    dar,
+    testId) { (uri, encoder, _) =>
+    val contractId = lar.ContractId("NonExistentContractId")
+    val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
+    val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
+
+    postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.InternalServerError)
+        inside(output) {
+          case JsObject(fields) =>
+            inside(fields.get("errors")) {
+              case Some(JsArray(Vector(JsString(errorMsg)))) =>
+                errorMsg should include(
+                  "couldn't find contract AbsoluteContractId(NonExistentContractId)")
             }
         }
     }: Future[Assertion]
@@ -246,7 +295,7 @@ class HttpServiceIntegrationTest
     inside(jsObj) {
       case JsObject(fields) =>
         inside(fields.get("status")) {
-          case Some(JsNumber(status)) => status shouldBe BigDecimal("200")
+          case Some(JsNumber(status)) => status shouldBe BigDecimal(expectedStatus.intValue)
         }
     }
   }
