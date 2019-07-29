@@ -6,6 +6,7 @@ package com.digitalasset.http
 import java.time.Instant
 
 import com.digitalasset.api.util.TimeProvider
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.CommandService.Error
 import com.digitalasset.http.util.ClientUtil.{uniqueCommandId, workflowIdFromParty}
 import com.digitalasset.http.util.IdentifierConverters.refApiIdentifier
@@ -15,6 +16,7 @@ import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
+import scalaz.syntax.std.option._
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 
 import scala.concurrent.duration._
@@ -46,9 +48,9 @@ class CommandService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   def exercise(jwtPayload: domain.JwtPayload, input: domain.ExerciseCommand[lav1.value.Record])
-    : Future[Error \/ List[domain.ActiveContract[lav1.value.Value]]] = {
+    : Future[Error \/ ImmArraySeq[domain.ActiveContract[lav1.value.Value]]] = {
 
-    val et: EitherT[Future, Error, List[domain.ActiveContract[lav1.value.Value]]] = for {
+    val et: EitherT[Future, Error, ImmArraySeq[domain.ActiveContract[lav1.value.Value]]] = for {
       command <- EitherT.either(exerciseCommand(input))
       request = submitAndWaitRequest(jwtPayload, input.meta, command)
       response <- liftET(logResult('exercise, submitAndWaitForTransaction(request)))
@@ -119,24 +121,20 @@ class CommandService(
     }
 
   private def activeContracts(response: lav1.command_service.SubmitAndWaitForTransactionResponse)
-    : Error \/ List[domain.ActiveContract[lav1.value.Value]] =
-    response.transaction match {
-      case None =>
-        -\/(Error('activeContracts, s"Received response without transaction: $response"))
-      case Some(tx) =>
-        activeContracts(tx)
-    }
+    : Error \/ ImmArraySeq[domain.ActiveContract[lav1.value.Value]] =
+    response.transaction
+      .toRightDisjunction(
+        Error('activeContracts, s"Received response without transaction: $response"))
+      .flatMap(activeContracts)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  private def activeContracts(
-      tx: lav1.transaction.Transaction): Error \/ List[domain.ActiveContract[lav1.value.Value]] = {
+  private def activeContracts(tx: lav1.transaction.Transaction)
+    : Error \/ ImmArraySeq[domain.ActiveContract[lav1.value.Value]] = {
 
-    import scalaz.std.list._
     import scalaz.syntax.traverse._
 
     Transactions
       .decodeAllCreatedEvents(tx)
-      .toList
       .traverse(domain.ActiveContract.fromLedgerApi)
       .leftMap(e => Error('activeContracts, e))
   }

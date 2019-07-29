@@ -71,10 +71,6 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val GetActiveContractsRequestFormat: RootJsonFormat[domain.GetActiveContractsRequest] =
     jsonFormat1(domain.GetActiveContractsRequest)
 
-  // sigh @ induction
-  implicit def SeqJsonWriter[A: JsonWriter]: JsonWriter[Seq[A]] =
-    as => JsArray(as.iterator.map(_.toJson).toVector)
-
   implicit val GetActiveContractsResponseFormat
     : RootJsonFormat[domain.GetActiveContractsResponse[JsValue]] =
     jsonFormat3(domain.GetActiveContractsResponse[JsValue])

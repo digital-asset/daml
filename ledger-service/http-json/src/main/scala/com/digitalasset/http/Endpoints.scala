@@ -81,7 +81,7 @@ class Endpoints(
             case \/-(c) => handleFutureFailure(commandService.exercise(jwtPayload, c))
           }
           .map { fa =>
-            fa.flatMap { as: List[domain.ActiveContract[lav1.value.Value]] =>
+            fa.flatMap { as =>
               as.traverse(a => encoder.encodeV(a))
                 .leftMap(e => ServerError(e.shows))
                 .flatMap(as => encodeList(as))
@@ -108,7 +108,7 @@ class Endpoints(
         -\/(ServerError(e.getMessage))
     }
 
-  private def encodeList(as: List[JsValue]): ServerError \/ JsValue =
+  private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
   private def formatResult(fa: Error \/ JsValue): ByteString = fa match {
