@@ -10,7 +10,7 @@ Templates
 
 .. _type-proposaldsl-proposal-65892:
 
-template (Template t) => **Proposal** t
+**template** Template t => `Proposal <type-proposaldsl-proposal-65892_>`_ t
 
   .. list-table::
      :widths: 15 10 30

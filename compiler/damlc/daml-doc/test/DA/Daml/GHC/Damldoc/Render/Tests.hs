@@ -86,19 +86,19 @@ expectRst :: [T.Text]
 expectRst =
         [ T.empty
         , mkExpectRst "module-typedef" "Typedef" "" [] []
-            [".. _type-typedef-t:\n\ntype **T a**\n    = TT TTT\n\n  T descr"] []
+            [".. _type-typedef-t:\n\n**type** `T <type-typedef-t_>`_ a\n  = TT TTT\n\n  T descr"] []
         , mkExpectRst "module-twotypes" "TwoTypes" "" []
             []
-            [".. _type-twotypes-t:\n\ntype **T a**\n    = TT\n\n  T descr\n"
-            , "\n.. _data-twotypes-d:\n\ndata **D d**\n\n  \n  \n  .. _constr-twotypes-d:\n  \n  **D** a\n  \n  D descr"]
+            [".. _type-twotypes-t:\n\n**type** `T <type-twotypes-t_>`_ a\n  = TT\n\n  T descr\n"
+            , "\n.. _data-twotypes-d:\n\n**data** `D <data-twotypes-d_>`_ d\n\n  \n  \n  .. _constr-twotypes-d:\n  \n  `D <constr-twotypes-d_>`_ a\n  \n  D descr"]
             []
-        , mkExpectRst "module-function1" "Function1" "" [] [] [] [ ".. _function-function1-f:\n\n**f**\n  : TheType\n\n  the doc\n"]
-        , mkExpectRst "module-function3" "Function3" "" [] [] [] [ ".. _function-function3-f:\n\n**f**\n  : TheType\n\n"]
+        , mkExpectRst "module-function1" "Function1" "" [] [] [] [ ".. _function-function1-f:\n\n`f <function-function1-f_>`_\n  : TheType\n\n  the doc\n"]
+        , mkExpectRst "module-function3" "Function3" "" [] [] [] [ ".. _function-function3-f:\n\n`f <function-function3-f_>`_\n  : TheType\n\n"]
         , mkExpectRst "module-onlyclass" "OnlyClass" ""
             []
             [ ".. _class-onlyclass-c:"
             , ""
-            , "class **C a** where\n  \n  .. _function-onlyclass-member:\n  \n  **member**\n    : a"
+            , "**class** `C <class-onlyclass-c_>`_ a **where**\n  \n  .. _function-onlyclass-member:\n  \n  `member <function-onlyclass-member_>`_\n    : a"
             ]
             []
             []
@@ -107,12 +107,12 @@ expectRst =
             []
             [ ".. _data-multilinefield-d:"
             , ""
-            , "data **D**"
+            , "**data** `D <data-multilinefield-d_>`_"
             , ""
             , T.concat
                   [ "  \n  \n"
                   , "  .. _constr-multilinefield-d:\n  \n"
-                  , "  **D**\n  \n  \n"
+                  , "  `D <constr-multilinefield-d_>`_\n  \n  \n"
                   , "  .. list-table::\n"
                   , "     :widths: 15 10 30\n"
                   , "     :header-rows: 1\n  \n"
@@ -128,8 +128,8 @@ expectRst =
         , mkExpectRst "module-functionctx" "FunctionCtx" "" [] [] []
             [ ".. _function-g:"
             , ""
-            , "**g**"
-            , "  : (Eq t) => t -> Bool"
+            , "`g <function-g_>`_"
+            , "  : Eq t => t -> Bool"
             , ""
             , "  function with context"
             ]

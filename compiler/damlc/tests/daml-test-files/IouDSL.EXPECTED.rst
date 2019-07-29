@@ -10,7 +10,7 @@ Templates
 
 .. _type-ioudsl-iou-73876:
 
-template **Iou**
+**template** `Iou <type-ioudsl-iou-73876_>`_
 
   .. list-table::
      :widths: 15 10 30
@@ -37,6 +37,6 @@ Template Instances
 
 .. _type-ioudsl-proposaliou-92778:
 
-template instance **ProposalIou**
-    = Proposal `Iou <type-ioudsl-iou-73876_>`_
+template instance `ProposalIou <type-ioudsl-proposaliou-92778_>`_
+  = Proposal `Iou <type-ioudsl-iou-73876_>`_
 
