@@ -6,7 +6,7 @@ package com.digitalasset.http
 import java.time.Instant
 
 import com.digitalasset.daml.lf
-import com.digitalasset.http.domain.TemplateId.OptionalPkg
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.http.util.IdentifierConverters
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -16,7 +16,7 @@ import scalaz.std.tuple._
 import scalaz.std.vector._
 import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{Applicative, Functor, Traverse, \/}
+import scalaz.{-\/, Applicative, Traverse, \/, \/-}
 
 import scala.language.higherKinds
 
@@ -101,11 +101,37 @@ object domain {
   }
 
   object ContractLookupRequest {
-    implicit val covariant: Functor[ContractLookupRequest] = new Functor[ContractLookupRequest] {
-      @SuppressWarnings(Array("org.wartremover.warts.Any"))
+    implicit val covariant: Traverse[ContractLookupRequest] = new Traverse[ContractLookupRequest] {
       override def map[A, B](fa: ContractLookupRequest[A])(f: A => B) =
         fa.copy(id = fa.id leftMap (_ map f))
+
+      override def traverseImpl[G[_]: Applicative, A, B](fa: ContractLookupRequest[A])(
+          f: A => G[B]): G[ContractLookupRequest[B]] = {
+        val G: Applicative[G] = implicitly
+        fa.id match {
+          case -\/(a) =>
+            a.traverse(f).map(b => fa.copy(id = -\/(b)))
+          case \/-(a) =>
+            // TODO: we don't actually need to copy it, just need to adjust the type for the left side
+            G.point(fa.copy(id = \/-(a)))
+        }
+      }
     }
+
+    implicit val hasTemplateId: HasTemplateId[ContractLookupRequest] =
+      new HasTemplateId[ContractLookupRequest] {
+        override def templateId(fa: ContractLookupRequest[_]): TemplateId.OptionalPkg =
+          fa.id match {
+            case -\/((a, _)) => a
+            case \/-((Some(a), _)) => a
+            case \/-((None, _)) => TemplateId(None, "", "")
+          }
+
+        override def lfIdentifier(
+            fa: ContractLookupRequest[_],
+            templateId: TemplateId.RequiredPkg): Ref.Identifier =
+          IdentifierConverters.lfIdentifier(templateId)
+      }
   }
 
   object GetActiveContractsResponse {
@@ -166,7 +192,7 @@ object domain {
     }
 
     implicit val hasTemplateId: HasTemplateId[CreateCommand] = new HasTemplateId[CreateCommand] {
-      override def templateId(fa: CreateCommand[_]): OptionalPkg = fa.templateId
+      override def templateId(fa: CreateCommand[_]): TemplateId.OptionalPkg = fa.templateId
 
       override def lfIdentifier(
           fa: CreateCommand[_],
@@ -183,7 +209,7 @@ object domain {
 
     implicit val hasTemplateId: HasTemplateId[ExerciseCommand] =
       new HasTemplateId[ExerciseCommand] {
-        override def templateId(fa: ExerciseCommand[_]): OptionalPkg = fa.templateId
+        override def templateId(fa: ExerciseCommand[_]): TemplateId.OptionalPkg = fa.templateId
 
         override def lfIdentifier(
             fa: ExerciseCommand[_],

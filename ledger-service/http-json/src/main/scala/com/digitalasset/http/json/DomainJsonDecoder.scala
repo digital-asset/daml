@@ -47,6 +47,15 @@ class DomainJsonDecoder(
     } yield apiValue
   }
 
+  def decodeV[F[_]](a: String)(
+      implicit ev1: JsonReader[F[JsValue]],
+      ev2: Traverse[F],
+      ev3: domain.HasTemplateId[F]): JsonError \/ F[lav1.value.Value] =
+    for {
+      b <- SprayJson.parse(a).leftMap(e => JsonError(e.shows))
+      d <- decodeV(b)
+    } yield d
+
   def decodeV[F[_]](a: JsValue)(
       implicit ev1: JsonReader[F[JsValue]],
       ev2: Traverse[F],

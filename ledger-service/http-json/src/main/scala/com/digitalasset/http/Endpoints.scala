@@ -52,8 +52,6 @@ class Endpoints(
   private val jwtPayload =
     domain.JwtPayload(ledgerId, lar.ApplicationId("applicationId"), lar.Party("Alice"))
 
-  private val ok = HttpEntity(ContentTypes.`application/json`, """{"status": "OK"}""")
-
   lazy val all: PartialFunction[HttpRequest, HttpResponse] =
     command orElse contracts orElse notFound
 
@@ -122,8 +120,22 @@ class Endpoints(
   private val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty)
 
   lazy val contracts: PartialFunction[HttpRequest, HttpResponse] = {
-    case HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
-      HttpResponse(entity = ok) // TODO(Leo): hookup contracts lookup service
+    case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
+      httpResponse(
+        input(req)
+          .map(decoder.decodeV[domain.ContractLookupRequest])
+          .mapAsync(1) {
+            case -\/(e) => invalidUserInput(e)
+            case \/-(c) => handleFutureFailure(contractsService.lookup(jwtPayload, c))
+          }
+          .map { fa =>
+            fa.flatMap {
+              case None => \/-(JsObject())
+              case Some(x) => encoder.encodeV(x).leftMap(e => ServerError(e.shows))
+            }
+          }
+          .map(formatResult)
+      )
 
     case HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
       httpResponse(
