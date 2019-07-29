@@ -43,9 +43,9 @@ testCase testName test =
         Tasty.assertBool ("Shake test resulted in an error: " ++ show res) $ isRight res
 
 templateChoicesToProps :: TemplateChoices -> TemplateProp
-templateChoicesToProps tca  = TemplateProp choicesInTpl (sum actl)
+templateChoicesToProps tca  = TemplateProp choicesInTpl actl
     where choicesInTpl = map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
-          actl = map (length . actions ) (choiceAndActions tca)
+          actl = sum $ map (length . actions ) (choiceAndActions tca)
 
 graphTest :: LF.World -> LF.Package -> [TemplateProp] -> Either (String, String) ()
 graphTest wrld lfPkg tplProps =
