@@ -15,8 +15,8 @@ import Text.Read
 import qualified DA.Pretty           as Pretty
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast.Version as LF
-import DAML.Project.Consts
-import DAML.Project.Types
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types
 
 
 -- | Pretty-printing documents with syntax-highlighting annotations.

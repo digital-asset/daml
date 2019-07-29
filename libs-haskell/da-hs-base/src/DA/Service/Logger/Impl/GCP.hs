@@ -44,7 +44,7 @@ import System.Timeout
 import System.Random
 import qualified DA.Service.Logger as Lgr
 import qualified DA.Service.Logger.Impl.Pure as Lgr.Pure
-import DAML.Project.Consts
+import DA.Daml.Project.Consts
 import qualified Data.HashMap.Strict as HM
 import qualified Data.Text.Extended as T
 import qualified Data.ByteString.Lazy as LBS

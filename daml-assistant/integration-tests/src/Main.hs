@@ -30,7 +30,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
-import DamlHelper.Run
+import DA.Daml.Helper.Run
 import SdkVersion
 
 main :: IO ()
