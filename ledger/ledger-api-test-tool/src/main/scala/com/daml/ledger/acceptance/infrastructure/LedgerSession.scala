@@ -92,14 +92,13 @@ private[acceptance] sealed abstract case class LedgerSession(
       templateIds: Identifier*)(implicit context: ExecutionContext): Future[Vector[Transaction]] =
     for {
       id <- ledgerId()
-      end <- ledgerEnd()
       responses <- FiniteStreamObserver[GetTransactionsResponse](
         transactionService
           .getTransactions(
             new GetTransactionsRequest(
               ledgerId = id,
               begin = Some(begin),
-              end = Some(end),
+              end = Some(LedgerSession.ledgerEnd),
               filter = Some(transactionFilter(party, templateIds)),
               verbose = true
             ),
@@ -205,6 +204,9 @@ private[acceptance] object LedgerSession {
   }
 
   private[this] val channels = TrieMap.empty[LedgerSessionConfiguration, LedgerSession]
+
+  private val ledgerEnd = LedgerOffset(
+    LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
 
   private def create(configuration: LedgerSessionConfiguration): Try[LedgerSession] =
     configuration match {
