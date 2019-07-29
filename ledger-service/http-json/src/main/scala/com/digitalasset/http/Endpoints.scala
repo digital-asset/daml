@@ -5,8 +5,6 @@ package com.digitalasset.http
 
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.ExceptionHandler
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.digitalasset.http.json.ResponseFormats._
@@ -35,18 +33,6 @@ class Endpoints(
 
   import Endpoints._
   import json.JsonProtocol._
-
-  implicit def exceptionHandler: ExceptionHandler =
-    ExceptionHandler {
-      case NonFatal(e) =>
-        extractUri { uri =>
-          logger.error(s"Request to $uri could not be handled normally", e)
-          complete(
-            HttpResponse(
-              StatusCodes.InternalServerError,
-              entity = format(errorsJsObject(StatusCodes.InternalServerError)(e.getMessage))))
-        }
-    }
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
