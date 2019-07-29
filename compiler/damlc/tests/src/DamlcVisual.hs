@@ -13,7 +13,6 @@ module VisualTest
 import Data.Either
 import qualified Test.Tasty.Extended as Tasty
 import qualified Test.Tasty.HUnit    as Tasty
-import qualified Data.Text.Extended  as T
 import Development.IDE.Core.API.Testing
 import System.Environment.Blank (setEnv)
 
@@ -39,13 +38,21 @@ visualDamlTests = Tasty.testGroup "Basic tests"
     [    testCase' "Set files of interest and expect no errors" example
 
      ,   testCase' "Set files of interest and expect parse error" $ do
-            foo <- makeFile "Foo.daml" $ T.unlines
-                [ "daml 1.2"
-                , "module Foo where"
-                , "this is bad syntax"
+            foo <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Delete : ()"
+                , "        do return ()"
+                , "      Transfer : ContractId Coin"
+                , "        with newOwner : Party"
+                , "        do create this with owner = newOwner"
                 ]
             setFilesOfInterest [foo]
-            expectOneError (foo,2,0) "Parse error"
+            expectNoErrors
     ]
     where testCase' = testCase
 
