@@ -32,6 +32,7 @@ import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module (stringToUnitId, UnitId(..), DefUnitId(..))
 import Safe
+import System.IO.Error
 import System.Directory.Extra
 import System.FilePath
 
@@ -572,14 +573,23 @@ encodeModuleRule =
 
 hlintSettings :: FilePath -> IO ([Classify], Hint)
 hlintSettings hlintDataDir = do
-  -- `findSettings` ends up calling `readFilesConfig` which in turn
-  -- calls `readFileConfigYaml` which finally calls `decodeFileEither`
-  -- from the `yaml` library.  Annoyingly that function catches async
-  -- exceptions and in particular, it ends up catching `ThreadKilled`.
-  -- So, we have to mask to stop it from doing that.
-  (_, classify, hints) <- mask $ \unmask ->
-    findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
+  curdir <- getCurrentDirectory
+  home <- catchIOError ((:[]) <$> getHomeDirectory) (const $ return [])
+  implicit <-
+    findM System.Directory.Extra.doesFileExist $
+      map (</> ".dlint.yaml") (ancestors curdir ++ home)
+  let settingsFiles = map (, Nothing) $
+        (hlintDataDir </> "hlint.yaml") : maybeToList implicit
+  -- `readFilesConfig` calls `readFileConfigYaml` which in turn calls
+  -- `decodeFileEither` from the `yaml` library.  Annoyingly that
+  -- function catches async exceptions and in particular, it ends up
+  -- catching `ThreadKilled`. So, we have to mask to stop it from
+  -- doing that.
+  (_, classify, hints) <- splitSettings <$>
+    (mask $ \unmask -> (unmask . readFilesConfig) settingsFiles)
   return (classify, hints)
+  where
+    ancestors = init . map joinPath . reverse . inits . splitPath
 
 getHlintSettingsRule :: HlintUsage -> Rules ()
 getHlintSettingsRule usage =
