@@ -28,6 +28,7 @@ import com.digitalasset.daml.lf.value.ValueOuterClass
 import com.digitalasset.daml.lf.transaction.TransactionCoder
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.daml.ledger.participant.state.backport.TimeModel
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.Err
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 
@@ -56,7 +57,7 @@ private[kvutils] object Conversions {
         DamlLogEntryId.newBuilder
           .setEntryId(ByteString.copyFrom(BaseEncoding.base16.decode(hexTxId)))
           .build -> nodeId.toInt
-      case _ => sys.error(s"decodeAbsoluteContractId: Cannot decode '$acoid'")
+      case _ => throw Err.InvalidPayload(s"decodeAbsoluteContractId: Cannot decode '$acoid'")
     }
 
   def absoluteContractIdToStateKey(acoid: AbsoluteContractId): DamlStateKey =
@@ -73,7 +74,7 @@ private[kvutils] object Conversions {
               .build
           )
           .build
-      case _ => sys.error(s"decodeAbsoluteContractId: Cannot decode '$acoid'")
+      case _ => throw Err.InvalidPayload(s"decodeAbsoluteContractId: Cannot decode '$acoid'")
     }
 
   def relativeContractIdToStateKey(
@@ -96,20 +97,18 @@ private[kvutils] object Conversions {
   }
 
   def stateKeyToContractId(key: DamlStateKey): AbsoluteContractId = {
-    // FIXME(JM): Graceful error handling
     decodeContractId(key.getContractId)
   }
 
   def encodeContractKey(key: GlobalKey): DamlContractKey = {
     val encodedValue = valEncoder(key.key)
-      .getOrElse(sys.error(s"contractKeyToStateKey: Cannot encode ${key.key}!"))
+      .getOrElse(throw Err.InternalError(s"contractKeyToStateKey: Cannot encode ${key.key}!"))
       ._2
 
     DamlContractKey.newBuilder
       .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
       .setKey(encodedValue)
       .build
-
   }
 
   def decodeContractKey(key: DamlContractKey): GlobalKey = {
@@ -117,10 +116,16 @@ private[kvutils] object Conversions {
       ValueCoder
         .decodeIdentifier(key.getTemplateId)
         .getOrElse(
-          sys.error(s"decodeContractKey: Cannot decode template id!")
+          throw Err.InvalidPayload(s"decodeContractKey($key): Cannot decode template id!")
         ),
       forceAbsoluteContractIds(
-        valDecoder(key.getKey).getOrElse(sys.error("decodeContractKey: Cannot decode key!")))
+        valDecoder(key.getKey)
+          .fold(
+            err =>
+              throw Err
+                .InvalidPayload(s"decodeContractKey($key): Cannot decode key: $err"),
+            identity)
+      )
     )
   }
 
@@ -197,7 +202,7 @@ private[kvutils] object Conversions {
         nidEncoder,
         cidEncoder,
         VersionedTransaction(TransactionVersions.assignVersion(tx), tx))
-      .fold(err => sys.error(s"encodeTransaction error: $err"), identity)
+      .fold(err => throw Err.InternalError(s"encodeTransaction failed: $err"), identity)
   }
 
   def decodeTransaction(tx: TransactionOuterClass.Transaction): SubmittedTransaction = {
@@ -207,13 +212,13 @@ private[kvutils] object Conversions {
         cidDecoder,
         tx
       )
-      .fold(err => sys.error(s"decodeTransaction error: $err"), _.transaction)
+      .fold(err => throw Err.InvalidPayload(s"decodeTransaction failed: $err"), _.transaction)
   }
 
   def forceAbsoluteContractIds(v: VersionedValue[ContractId]): VersionedValue[AbsoluteContractId] =
     v.mapContractId {
       case _: RelativeContractId =>
-        sys.error("Relative contract identifier encountered in contract key!")
+        throw Err.InternalError("Relative contract identifier encountered in contract key!")
       case acoid: AbsoluteContractId => acoid
     }
 
