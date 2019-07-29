@@ -9,7 +9,7 @@
 -- Some tests cover open issues, these are run with 'testCaseFails'.
 -- Once the issue is resolved, switch it to 'testCase'.
 -- Otherwise this test suite will complain that the test is not failing.
-module DA.Test.ShakeIdeClient (main, ideTests) where
+module DA.Test.ShakeIdeClient (main, ideTests, testCase) where
 
 import qualified Test.Tasty.Extended as Tasty
 import qualified Test.Tasty.HUnit    as Tasty

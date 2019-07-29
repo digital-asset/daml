@@ -5,6 +5,8 @@
 module DA.Cli.Visual
   ( execVisual
   , moduleAndTemplates
+  , TemplateChoices(..)
+  , ChoiceAndAction(..)
   ) where
 
 

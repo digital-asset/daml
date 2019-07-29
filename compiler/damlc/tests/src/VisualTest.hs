@@ -7,6 +7,7 @@ import DA.Cli.Visual
 import Data.Either
 import qualified Test.Tasty.Extended as Tasty
 import qualified Test.Tasty.HUnit    as Tasty
+import qualified DA.Pretty as DAP
 import qualified Development.IDE.Types.Location as D
 import qualified DA.Daml.LF.Ast as LF
 import qualified Development.IDE.Core.API as API
@@ -16,6 +17,15 @@ import qualified Control.Monad.Reader   as Reader
 import Development.IDE.Core.API.Testing
 import System.Environment.Blank (setEnv)
 import Control.Monad.Except
+
+data ExpectedChoices = ExpectedChoices
+    { _cName :: String
+    , _consuming :: Bool
+    } deriving (Eq, Show )
+data TemplateProp = TemplateProp
+    { _choices :: [ExpectedChoices]
+    , _action :: Int
+    } deriving (Eq, Show)
 
 main :: IO ()
 main = do
@@ -32,21 +42,28 @@ testCase testName test =
         res <- runShakeTest Nothing test
         Tasty.assertBool ("Shake test resulted in an error: " ++ show res) $ isRight res
 
-graphTest :: LF.World -> LF.Package -> Either String ()
-graphTest wrld lfPkg = case concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg) of
-    [] -> Left "no template and Choices"
-    _xs -> Right ()
+templateChoicesToProps :: TemplateChoices -> TemplateProp
+templateChoicesToProps tca  = TemplateProp choicesInTpl (sum actl)
+    where choicesInTpl = map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
+          actl = map (length . actions ) (choiceAndActions tca)
 
-worldForFile' :: D.NormalizedFilePath -> ShakeTest ()
-worldForFile' damlFilePath = do
+graphTest :: LF.World -> LF.Package -> [TemplateProp] -> Either (String, String) ()
+graphTest wrld lfPkg tplProps =
+    if tplProps == map templateChoicesToProps tplPropsActual
+        then Right ()
+        else Left (show tplProps, show $ map templateChoicesToProps tplPropsActual)
+    where tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
+
+worldForFile' :: D.NormalizedFilePath -> [TemplateProp] -> ShakeTest ()
+worldForFile' damlFilePath tplProps = do
     ideState <- ShakeTest $ Reader.asks steService
     mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
     case mbDalf of
         Just lfPkg -> do
             wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
-            case graphTest wrld lfPkg of
+            case graphTest wrld lfPkg tplProps of
                 Right _ -> pure ()
-                Left _ -> throwError (ExpectedNoErrors [])
+                Left (expected , actual) -> throwError (ExpectedNoMisMatch expected actual)
         Nothing -> throwError (ExpectedNoErrors [])
 
 visualDamlTests :: Tasty.TestTree
@@ -61,12 +78,9 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "    controller owner can"
                 , "      Delete : ()"
                 , "        do return ()"
-                , "      Transfer : ContractId Coin"
-                , "        with newOwner : Party"
-                , "        do create this with owner = newOwner"
                 ]
             setFilesOfInterest [foo]
-            worldForFile' foo
+            worldForFile' foo [TemplateProp [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True] 0]
     ]
 
 

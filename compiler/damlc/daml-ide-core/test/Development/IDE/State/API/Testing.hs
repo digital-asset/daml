@@ -91,6 +91,7 @@ data ShakeTestError
     | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.FileDiagnostic]
+    | ExpectedNoMisMatch String String
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
