@@ -9,6 +9,7 @@ import java.nio.file.Files
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -89,8 +90,6 @@ class PackageManagementServiceIT
           archive.archive.getHash
       }
       .getOrElse(fail("Could not find test package"))
-      .archive
-      .getHash
 
     (testDarBytes, testPackages, testPackageId)
   }
