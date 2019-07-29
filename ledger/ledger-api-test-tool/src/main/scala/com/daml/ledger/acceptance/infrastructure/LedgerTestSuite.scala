@@ -47,16 +47,16 @@ private[acceptance] abstract class LedgerTestSuite(val session: LedgerSession) {
   final def allocateParties(n: Int)(implicit ec: ExecutionContext): Future[Vector[String]] =
     session.allocateParties(n)
 
-  final def create(party: String, templateId: Identifier, args: (String, Value.Sum)*)(
+  final def create(party: String, templateId: Identifier, args: Map[String, Value.Sum])(
       implicit ec: ExecutionContext): Future[String] =
-    session.create(party, templateId, args: _*)
+    session.create(party, templateId, args)
 
   final def exercise(
       party: String,
       templateId: Identifier,
       contractId: String,
       choice: String,
-      args: (String, Value.Sum)*)(implicit ec: ExecutionContext): Future[Unit] =
-    session.exercise(party, templateId, contractId, choice, args: _*)
+      args: Map[String, Value.Sum])(implicit ec: ExecutionContext): Future[Unit] =
+    session.exercise(party, templateId, contractId, choice, args)
 
 }
