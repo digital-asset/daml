@@ -209,7 +209,7 @@ raiseCompletion :: LL.Completion -> Perhaps Completion
 raiseCompletion = \case
     LL.Completion{..} -> do
         cid <- raiseCommandId completionCommandId
-        let status = Status --TODO: stop loosing info
+        let status = completionStatus
         return Completion{..}
 
 raiseCheckpoint :: LL.Checkpoint -> Perhaps Checkpoint
