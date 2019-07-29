@@ -27,7 +27,7 @@ da_haskell_test(
 # Tests for damlc visual
 da_haskell_test(
     name = "damlc-visual",
-    srcs = ["src/DamlcVisual.hs"],
+    srcs = ["src/VisualTest.hs"],
     data = [
         ":visual-test-daml.dar",
         ":visual/Basic.dot",
@@ -37,6 +37,7 @@ da_haskell_test(
         "tasty",
         "base",
         "extra",
+        "mtl",
         "filepath",
         "tasty-golden",
         "tasty-hunit",
@@ -49,8 +50,10 @@ da_haskell_test(
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
         "//compiler/hie-core",
+        "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-ide-core:ide-testing",
         "//libs-haskell/da-hs-base",
+        "//compiler/daml-lf-ast",
         "//libs-haskell/bazel-runfiles",
     ],
 )

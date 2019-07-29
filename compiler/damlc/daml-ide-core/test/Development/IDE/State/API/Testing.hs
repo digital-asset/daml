@@ -9,7 +9,8 @@
 
 -- | Testing framework for Shake API.
 module Development.IDE.Core.API.Testing
-    ( ShakeTest
+    ( ShakeTest (..)
+    , ShakeTestEnv (..)
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
     , D.DiagnosticSeverity(..)
