@@ -8,6 +8,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
 import akka.util.ByteString
+import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.grpc.adapter.{AkkaExecutionSequencerPool, ExecutionSequencerFactory}
 import com.digitalasset.http.HttpServiceTestFixture.{jsonCodecs, withHttpService, withLedger}
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
@@ -30,12 +31,12 @@ class HttpServiceIntegrationTest
     extends AsyncFreeSpec
     with Matchers
     with Inside
-    with BeforeAndAfterAll
+    with BazelRunfiles
     with StrictLogging {
 
   import json.JsonProtocol._
 
-  private val dar = requiredFile("./docs/quickstart-model.dar")
+  private val dar = requiredFile(rlocation("docs/quickstart-model.dar"))
     .fold(e => throw new IllegalStateException(e), identity)
 
   private val testId: String = this.getClass.getSimpleName

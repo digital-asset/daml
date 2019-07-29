@@ -62,5 +62,6 @@ da_scala_test(
         "//3rdparty/jvm/org/scalatest",
         "//ledger/sandbox:sandbox",
         "//ledger/participant-state",
+        "//bazel_tools/runfiles:scala_runfiles",
     ] + http_json_deps,
 )
