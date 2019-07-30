@@ -91,19 +91,12 @@ trait NavigatorModelAliases[Cid] {
   type ApiValue = OfCid[V]
   type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)
   type ApiRecord = OfCid[V.ValueRecord]
-  val ApiRecord = V.ValueRecord
   type ApiVariant = OfCid[V.ValueVariant]
-  val ApiVariant = V.ValueVariant
   type ApiList = OfCid[V.ValueList]
-  val ApiList = V.ValueList
   type ApiOptional = OfCid[V.ValueOptional]
-  val ApiOptional = V.ValueOptional
   type ApiMap = OfCid[V.ValueMap]
-  val ApiMap = V.ValueMap
   type ApiContractId = OfCid[V.ValueContractId]
-  val ApiContractId = V.ValueContractId
   type ApiImpossible = OfCid[V.ValueTuple]
-  val ApiImpossible = V.ValueTuple
 }
 
 object NavigatorModelAliases extends NavigatorModelAliases[String]
