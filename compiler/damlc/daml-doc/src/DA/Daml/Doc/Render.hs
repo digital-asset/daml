@@ -8,6 +8,10 @@ module DA.Daml.Doc.Render
   , RenderMode(..)
   , renderDocs
   , renderPage
+  , renderRst
+  , renderMd
+  , renderModule
+  , renderSimpleHoogle
   , jsonConf
   ) where
 

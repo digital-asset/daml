@@ -11,14 +11,9 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util (wrapOp)
 import DA.Daml.Doc.Render.Monoid
 
-import qualified Data.Text.Prettyprint.Doc as Pretty
-import           Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
-import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
-
-import           Data.Char
-import           Data.Maybe
-import qualified Data.Text as T
 import Data.List.Extra
+import Data.Maybe
+import qualified Data.Text as T
 
 renderModule :: ModuleDoc -> RenderOut
 renderModule = renderDoc

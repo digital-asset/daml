@@ -269,8 +269,8 @@ renderTest format (name, input) expected =
   testCase name $ do
   let
     renderer = case format of
-                 Rst -> renderPage . renderSimpleRst
-                 Markdown -> renderPage . renderSimpleMD
+                 Rst -> renderPage renderRst . renderModule
+                 Markdown -> renderPage renderMd . renderModule
                  Html -> error "HTML testing not supported (use Markdown)"
     output = T.strip $ renderer input
     expect = T.strip expected

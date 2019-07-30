@@ -10,9 +10,8 @@ import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render.Util (adjust)
 import DA.Daml.Doc.Render.Monoid
 
-import           Data.Maybe
-import qualified Data.Text as T
 import Data.List.Extra
+import qualified Data.Text as T
 
 renderMd :: RenderEnv -> RenderOut -> [T.Text]
 renderMd env = \case
@@ -21,7 +20,7 @@ renderMd env = \case
     RenderSectionHeader title -> ["## " <> title]
     RenderBlock block -> blockquote (renderMd env block)
     RenderList items -> spaced (map (bullet . renderMd env) items)
-    RenderFields _ -> [] -- table not yet implemented
+    RenderFields fields -> renderMdFields env fields
     RenderPara text -> [renderMdText env text]
     RenderDocs docText -> T.lines . unDocText $ docText
     RenderAnchor anchor -> ["<a name=\"" <> unAnchor anchor <> "\"></a>"]
@@ -29,6 +28,8 @@ renderMd env = \case
 renderMdText :: RenderEnv -> RenderText -> T.Text
 renderMdText env = \case
     RenderConcat ts -> mconcatMap (renderMdText env) ts
+    RenderUnwords ts -> T.unwords $ map (renderMdText env) ts
+    RenderIntercalate x ts -> T.intercalate x $ map (renderMdText env) ts
     RenderPlain text -> escapeMd text
     RenderStrong text -> T.concat ["**", escapeMd text, "**"]
     RenderLink anchor text ->
