@@ -16,6 +16,7 @@ import qualified Test.Tasty.HUnit    as Tasty
 import qualified Data.Text.Extended  as T
 
 import Data.Either
+import qualified Data.Set as Set
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
@@ -842,7 +843,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "        do return ()"
                 ]
             setFilesOfInterest [foo]
-            expectedPoperties foo [TemplateProp [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True] 0]
+            expectedPoperties foo $ Set.fromList [TemplateProp (Set.fromList [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True]) 0]
     ]
     where
         testCase' = testCase Nothing

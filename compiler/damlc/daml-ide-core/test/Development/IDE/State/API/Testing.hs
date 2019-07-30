@@ -97,7 +97,7 @@ data ShakeTestError
     | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.FileDiagnostic]
-    | ExpectedTemplateProps [TemplateProp] [TemplateProp]
+    | ExpectedTemplateProps (Set.Set TemplateProp) (Set.Set TemplateProp)
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
@@ -119,11 +119,11 @@ data ShakeTestEnv = ShakeTestEnv
 data ExpectedChoices = ExpectedChoices
     { _cName :: String
     , _consuming :: Bool
-    } deriving (Eq, Show )
+    } deriving (Eq, Ord, Show )
 data TemplateProp = TemplateProp
-    { _choices :: [ExpectedChoices]
+    { _choices :: Set.Set ExpectedChoices
     , _action :: Int
-    } deriving (Eq, Show)
+    } deriving (Eq, Ord, Show)
 
 -- | Monad for specifying Shake API tests. This type is abstract.
 newtype ShakeTest t = ShakeTest (ExceptT ShakeTestError (ReaderT ShakeTestEnv IO) t)
@@ -512,16 +512,16 @@ timedSection targetDiffTime block = do
 
 templateChoicesToProps :: TemplateChoices -> TemplateProp
 templateChoicesToProps tca = TemplateProp choicesInTpl (sum $ map (length . actions ) (choiceAndActions tca))
-    where choicesInTpl = map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
+    where choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
 
-graphTest :: LF.World -> LF.Package -> [TemplateProp] -> Either [TemplateProp] ()
+graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> Either [TemplateProp] ()
 graphTest wrld lfPkg expectedProps =
-    if expectedProps == map templateChoicesToProps tplPropsActual
+    if expectedProps == (Set.fromList $ map templateChoicesToProps tplPropsActual)
         then Right ()
         else Left $ map templateChoicesToProps tplPropsActual
     where tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
 
-expectedPoperties :: D.NormalizedFilePath -> [TemplateProp] -> ShakeTest ()
+expectedPoperties :: D.NormalizedFilePath -> Set.Set TemplateProp -> ShakeTest ()
 expectedPoperties damlFilePath expectedProps = do
     ideState <- ShakeTest $ Reader.asks steService
     mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
@@ -530,8 +530,8 @@ expectedPoperties damlFilePath expectedProps = do
             wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
             case graphTest wrld lfPkg expectedProps of
                 Right _ -> pure ()
-                Left actual -> throwError (ExpectedTemplateProps expectedProps actual)
-        Nothing -> throwError (ExpectedTemplateProps expectedProps [])
+                Left actual -> throwError (ExpectedTemplateProps expectedProps (Set.fromList actual))
+        Nothing -> throwError (ExpectedTemplateProps expectedProps Set.empty)
 -- | Example testing scenario.
 example :: ShakeTest ()
 example = do
