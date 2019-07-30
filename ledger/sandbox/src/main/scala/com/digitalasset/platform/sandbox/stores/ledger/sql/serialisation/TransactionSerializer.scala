@@ -11,7 +11,7 @@ import com.digitalasset.ledger.EventId
 
 trait TransactionSerializer {
 
-  def serialiseTransaction(
+  def serializeTransaction(
       transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
     : Either[EncodeError, Array[Byte]]
 
@@ -32,7 +32,7 @@ object TransactionSerializer extends TransactionSerializer {
         e => DecodeError(s"cannot decode noid: $e")
       )
 
-  override def serialiseTransaction(
+  override def serializeTransaction(
       transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
     : Either[EncodeError, Array[Byte]] =
     TransactionCoder

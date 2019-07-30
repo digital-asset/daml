@@ -153,6 +153,9 @@ class ActiveContractsServiceIT
           lookForContract(events, templateIds.dummy)
           lookForContract(events, templateIds.dummyWithParam)
           lookForContract(events, templateIds.dummyFactory)
+
+          every(events.map(_.signatories)) should contain only ("Alice")
+          every(events.map(_.observers)) shouldBe empty
         }
       }
     }
