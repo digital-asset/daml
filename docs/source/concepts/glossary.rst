@@ -400,6 +400,8 @@ A **command** is an instruction to add a transaction to the `ledger <#ledger-dam
 
 .. TODO.
 
+.. _daml-lf:
+
 DAML-LF
 =======
 
