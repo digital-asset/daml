@@ -103,7 +103,7 @@ data LedgerOffset = LedgerBegin | LedgerEnd | LedgerAbsOffset AbsOffset
 data Completion
     = Completion {
         cid    :: CommandId,
-        status :: Maybe Status }
+        status :: Maybe LL.Status }
     deriving (Eq,Ord,Show)
 
 data Checkpoint
@@ -227,8 +227,6 @@ data Timestamp
     = Timestamp {
         seconds :: Integer, -- TODO: Int64?
         nanos   :: Integer }  deriving (Eq,Ord,Show)
-
-type Status = LL.Status
 
 newtype TemplateId = TemplateId Identifier -- TODO: remove this wrapping
     deriving (Eq,Ord,Show)
