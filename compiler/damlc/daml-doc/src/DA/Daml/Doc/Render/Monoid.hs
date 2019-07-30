@@ -11,10 +11,54 @@ module DA.Daml.Doc.Render.Monoid
 import DA.Daml.Doc.Types
 import Control.Monad
 import Data.Foldable
+import Data.Maybe
+import Data.List.Extra
 import System.FilePath
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
+
+data RenderOut
+    = RenderSpaced [RenderOut]
+    | RenderModuleHeader T.Text
+    | RenderSectionHeader T.Text
+    | RenderAnchor Anchor
+    | RenderBlock RenderOut
+    | RenderList [RenderOut]
+    | RenderFields [(RenderText, RenderText, RenderText)]
+    | RenderPara RenderText
+    | RenderDocs DocText
+
+data RenderText
+    = RenderConcat [RenderText]
+    | RenderUnwords [RenderText]
+    | RenderPlain T.Text
+    | RenderStrong T.Text
+    | RenderLink Anchor T.Text
+    | RenderDocsInline DocText
+    | RenderIntercalate T.Text [RenderText]
+
+chunks :: RenderOut -> [RenderOut]
+chunks (RenderSpaced xs) = concatMap chunks xs
+chunks x = [x]
+
+unchunks :: [RenderOut] -> RenderOut
+unchunks [x] = x
+unchunks xs = RenderSpaced xs
+
+instance Semigroup RenderOut where
+    a <> b = unchunks (chunks a ++ chunks b)
+
+instance Monoid RenderOut where
+    mempty = RenderSpaced []
+    mconcat = unchunks . concatMap chunks
+
+instance Semigroup RenderText where
+    a <> b = RenderConcat [a, b]
+
+instance Monoid RenderText where
+    mempty = RenderConcat []
+    mconcat = RenderConcat
 
 -- | Environment in which to generate final documentation.
 data RenderEnv = RenderEnv
@@ -32,6 +76,7 @@ data AnchorLocation
     | SameFolder FilePath -- ^ anchor is in a file within same folder
     -- TODO: | External URL -- ^ anchor is in on a page at the given URL
 
+
 -- | Build relative hyperlink from anchor and anchor location.
 anchorRelativeHyperlink :: AnchorLocation -> Anchor -> T.Text
 anchorRelativeHyperlink anchorLoc (Anchor anchor) =
@@ -39,46 +84,62 @@ anchorRelativeHyperlink anchorLoc (Anchor anchor) =
         SameFile -> "#" <> anchor
         SameFolder fileName -> T.concat [T.pack fileName, "#", anchor]
 
--- | Renderer output. This is the set of anchors that were generated, and a
--- list of output functions that depend on RenderEnv. The goal is to prevent
--- the creation of spurious anchors links (i.e. links to anchors that don't
--- exist), and link correctly any anchors that do appear.
---
--- Using a newtype here so we can derive the semigroup / monoid instances we
--- want automatically. :-)
-newtype RenderOut = RenderOut (Set.Set Anchor, [RenderEnv -> [T.Text]])
-    deriving newtype (Semigroup, Monoid)
 
--- | Render a single page doc. Any links to anchors not appearing on the
--- single page will be dropped.
-renderPage :: RenderOut -> T.Text
-renderPage (RenderOut (localAnchors, renderFns)) =
-    T.unlines (concatMap ($ renderEnv) renderFns)
+
+type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]
+
+getRenderAnchors :: RenderOut -> Set.Set Anchor
+getRenderAnchors = \case
+    RenderSpaced xs -> mconcatMap getRenderAnchors xs
+    RenderModuleHeader _ -> Set.empty
+    RenderSectionHeader _ -> Set.empty
+    RenderAnchor anchor -> Set.singleton anchor
+    RenderBlock x -> getRenderAnchors x
+    RenderList xs -> mconcatMap getRenderAnchors xs
+    RenderFields _ -> Set.empty
+    RenderPara _ -> Set.empty
+    RenderDocs _ -> Set.empty
+
+renderPage :: RenderFormatter -> RenderOut -> T.Text
+renderPage formatter output =
+    T.unlines (formatter renderEnv output)
   where
+    localAnchors = getRenderAnchors output
+
     lookupAnchor :: Anchor -> Maybe AnchorLocation
     lookupAnchor anchor
         | Set.member anchor localAnchors = Just SameFile
         | otherwise = Nothing
+
     renderEnv = RenderEnv {..}
 
 -- | Render a folder of modules.
-renderFolder :: Map.Map Modulename RenderOut -> Map.Map Modulename T.Text
-renderFolder fileMap =
-    let globalAnchors = Map.fromList
+renderFolder ::
+    RenderFormatter
+    -> Map.Map Modulename RenderOut
+    -> Map.Map Modulename T.Text
+renderFolder formatter fileMap =
+    let moduleAnchors = Map.map getRenderAnchors fileMap
+        globalAnchors = Map.fromList
             [ (anchor, moduleNameToFileName moduleName <.> "html")
-            | (moduleName, RenderOut (anchors, _)) <- Map.toList fileMap
+            | (moduleName, anchors) <- Map.toList moduleAnchors
             , anchor <- Set.toList anchors
             ]
-    in flip Map.map fileMap $ \(RenderOut (localAnchors, renderFns)) ->
-        let lookupAnchor anchor = asum
+    in flip Map.mapWithKey fileMap $ \moduleName output ->
+        let localAnchors = fromMaybe Set.empty $
+                Map.lookup moduleName moduleAnchors
+            lookupAnchor anchor = asum
                 [ SameFile <$ guard (Set.member anchor localAnchors)
                 , SameFolder <$> Map.lookup anchor globalAnchors
                 ]
             renderEnv = RenderEnv {..}
-        in T.unlines (concatMap ($ renderEnv) renderFns)
+        in T.unlines (formatter renderEnv output)
 
 moduleNameToFileName :: Modulename -> FilePath
-moduleNameToFileName = T.unpack . T.replace "." "-" . unModulename
+moduleNameToFileName =
+    T.unpack . T.replace "." "-" . unModulename
+
+{-
 
 -- | Declare an anchor for the purposes of rendering output.
 renderDeclareAnchor :: Anchor -> RenderOut
@@ -113,3 +174,4 @@ renderPrefix p (RenderOut (env, fs)) =
 -- | Indent every output line by a particular amount.
 renderIndent :: Int -> RenderOut -> RenderOut
 renderIndent n = renderPrefix (T.replicate n " ")
+-}

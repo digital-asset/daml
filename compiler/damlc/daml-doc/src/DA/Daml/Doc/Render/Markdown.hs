@@ -3,17 +3,123 @@
 
 
 module DA.Daml.Doc.Render.Markdown
-  ( renderSimpleMD
+  ( renderMd
   ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Util
+import DA.Daml.Doc.Render.Util (adjust)
 import DA.Daml.Doc.Render.Monoid
 
 import           Data.Maybe
 import qualified Data.Text as T
 import Data.List.Extra
 
+renderMd :: RenderEnv -> RenderOut -> [T.Text]
+renderMd env = \case
+    RenderSpaced chunks -> spaced (map (renderMd env) chunks)
+    RenderModuleHeader title -> ["# " <> title]
+    RenderSectionHeader title -> ["## " <> title]
+    RenderBlock block -> blockquote (renderMd env block)
+    RenderList items -> spaced (map (bullet . renderMd env) items)
+    RenderFields _ -> [] -- table not yet implemented
+    RenderPara text -> [renderMdText env text]
+    RenderDocs docText -> T.lines . unDocText $ docText
+    RenderAnchor anchor -> ["<a name=\"" <> unAnchor anchor <> "\"></a>"]
+
+renderMdText :: RenderEnv -> RenderText -> T.Text
+renderMdText env = \case
+    RenderConcat ts -> mconcatMap (renderMdText env) ts
+    RenderPlain text -> escapeMd text
+    RenderStrong text -> T.concat ["**", escapeMd text, "**"]
+    RenderLink anchor text ->
+        case lookupAnchor env anchor of
+            Nothing -> escapeMd text
+            Just anchorLoc -> T.concat
+                ["["
+                , escapeMd text
+                , "]("
+                , anchorRelativeHyperlink anchorLoc anchor
+                , ")"]
+    RenderDocsInline docText ->
+        T.unwords . T.lines . unDocText $ docText
+
+-- Utilities
+
+spaced :: [[T.Text]] -> [T.Text]
+spaced = intercalate [""]
+
+blockquote :: [T.Text] -> [T.Text]
+blockquote = map ("> " <>)
+
+indent :: [T.Text] -> [T.Text]
+indent = map ("  " <>)
+
+bullet :: [T.Text] -> [T.Text]
+bullet [] = []
+bullet (x : xs) = ("* " <> x) : indent xs
+
+escapeMd :: T.Text -> T.Text
+escapeMd = T.pack . concatMap escapeChar . T.unpack
+  where
+    escapeChar c
+        | shouldEscape c = ['\\', c]
+        | otherwise = [c]
+
+    shouldEscape = (`elem` ("[]*_~`<>\\&" :: String))
+
+
+-- | Render fields as a pipe-table, like this:
+-- >  | Field    | Type     | Description
+-- >  | :------- | :------- | :----------
+-- >  | anA      | a        |
+-- >  | another  | a        | another a
+-- >  | andText  | Text     | and text
+renderMdFields :: RenderEnv -> [(RenderText, RenderText, RenderText)] -> [T.Text]
+renderMdFields _ []  = ["(no fields)"]
+renderMdFields env fields = header <> fieldRows
+  where
+    textFields =
+        [ ( renderMdText env name
+          , renderMdText env ty
+          , renderMdText env doc
+          )
+        | (name, ty, doc) <- fields
+        ]
+
+    fLen = maximum $ 5 :
+        [ max (T.length name) (T.length ty)
+        | (name, ty, _) <- textFields ]
+
+    header =
+        [ T.concat
+            [ "| "
+            , adjust fLen "Field"
+            , " | "
+            , adjust fLen "Type"
+            , " | Description "
+            ]
+        , T.concat
+            [ "| :"
+            , T.replicate (fLen - 1) "-"
+            , " | :"
+            , T.replicate (fLen - 1) "-"
+            , " | :----------------"
+            ]
+        ]
+
+    fieldRows =
+        [ T.concat
+            [ "| "
+            , adjust fLen name
+            , " | "
+            , adjust fLen ty
+            , " | "
+            , doc
+            ]
+        | (name, ty, doc) <- textFields
+        ]
+
+{-
 
 -- | Declare anchor and generate HTML tag to insert in renderer output.
 withAnchorTag :: Maybe Anchor -> (T.Text -> RenderOut) -> RenderOut
@@ -241,3 +347,4 @@ escapeMd = T.pack . concatMap escapeChar . T.unpack
         | otherwise = [c]
 
     shouldEscape = (`elem` ("[]*_~`<>\\&" :: String))
+-}

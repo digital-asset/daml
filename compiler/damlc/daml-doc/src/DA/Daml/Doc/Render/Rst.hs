@@ -4,24 +4,86 @@
 {-# LANGUAGE DerivingStrategies #-}
 
 module DA.Daml.Doc.Render.Rst
-  ( renderSimpleRst
+  ( renderRst
   ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Util
 import DA.Daml.Doc.Render.Monoid
 
 import qualified Data.Text.Prettyprint.Doc as Pretty
-import           Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
-import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
+import Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
+import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 
-import           Data.Char
-import           Data.Maybe
+import Data.Char
 import qualified Data.Text as T
 import Data.List.Extra
 
 import CMarkGFM
 
+renderRst :: RenderEnv -> RenderOut -> [T.Text]
+renderRst env = \case
+    RenderSpaced chunks -> spaced (map (renderRst env) chunks)
+    RenderModuleHeader title -> header "-" title
+    RenderSectionHeader title -> header "^" title
+    RenderBlock block -> indent (renderRst env block)
+    RenderList items -> spaced (map (bullet . renderRst env) items)
+    RenderFields fields -> renderRstFields env fields
+    RenderPara text -> [renderRstText env text]
+    RenderDocs docText -> docTextToRst docText
+    RenderAnchor anchor -> [".. _" <> unAnchor anchor <> ":"]
+
+renderRstText :: RenderEnv -> RenderText -> T.Text
+renderRstText env = \case
+    RenderConcat ts -> mconcatMap (renderRstText env) ts
+    RenderPlain text -> text
+    RenderStrong text -> T.concat ["**", text, "**"]
+    RenderLink anchor text ->
+        case lookupAnchor env anchor of
+            Nothing -> text
+            Just _ -> T.concat ["`", text, " <", unAnchor anchor, "_>`_"]
+    RenderDocsInline docText ->
+        T.unwords (docTextToRst docText)
+
+-- Utilities
+
+spaced :: [[T.Text]] -> [T.Text]
+spaced = intercalate [""]
+
+indent :: [T.Text] -> [T.Text]
+indent = map ("  " <>)
+
+bullet :: [T.Text] -> [T.Text]
+bullet [] = []
+bullet (x : xs) = ("+ " <> x) : indent xs
+
+header :: T.Text -> T.Text -> [T.Text]
+header headerChar title =
+    [ title
+    , T.replicate (T.length title) headerChar
+    ]
+
+renderRstFields :: RenderEnv -> [(RenderText, RenderText, RenderText)] -> [T.Text]
+renderRstFields _ []  = mempty
+renderRstFields env fields = concat
+    [ [ ".. list-table::"
+      , "   :widths: 15 10 30"
+      , "   :header-rows: 1"
+      , ""
+      , "   * - Field"
+      , "     - Type"
+      , "     - Description" ]
+    , fieldRows
+    ]
+  where
+    fieldRows = concat
+        [ [ "   * - " <> renderRstText env name
+          , "     - " <> renderRstText env ty
+          , "     - " <> renderRstText env doc ]
+        | (name, ty, doc) <- fields
+        ]
+
+
+{-
 renderAnchor :: Maybe Anchor -> RenderOut
 renderAnchor Nothing = mempty
 renderAnchor (Just anchor) = mconcat
@@ -265,10 +327,11 @@ makeAnchorLink env anchorM linkText = fromMaybe linkText $ do
         -- At the moment all this line does is ensure the link has
         -- been defined in the environment.
     Just $ T.concat ["`", linkText, " <", unAnchor anchor, "_>`_"]
+-}
 
 -- TODO (MK) Handle doctest blocks. Currently the parse as nested blockquotes.
-docTextToRst :: DocText -> T.Text
-docTextToRst = renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts . unDocText
+docTextToRst :: DocText -> [T.Text]
+docTextToRst = T.lines . renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts . unDocText
   where
     opts = []
     exts = []
