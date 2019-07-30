@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiWayIf #-}
 module DA.Daml.LF.Mangling (mangleIdentifier, unmangleIdentifier) where
 
+import Data.Char
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import Text.Printf (printf)
@@ -36,33 +37,30 @@ import Text.Printf (printf)
 -- IMPORTANT: keep in sync with
 -- `com.digitalasset.daml.lf.data.Ref.DottedName.fromSegments`
 
-asciiLetter :: Set.Set Char
-asciiLetter = Set.fromList ['a'..'z'] <> Set.fromList ['A'..'Z']
+isAsciiLetter :: Char -> Bool
+isAsciiLetter c = isAsciiLower c || isAsciiUpper c
 
-asciiDigit :: Set.Set Char
-asciiDigit = Set.fromList ['0'..'9']
+isAllowedStart :: Char -> Bool
+isAllowedStart c = c == '_' || isAsciiLetter c
 
-allowedStart :: Set.Set Char
-allowedStart = Set.insert '_' asciiLetter
+isAllowedPart :: Char -> Bool
+isAllowedPart c = c == '_' || isAsciiLetter c || isDigit c
 
-allowedPart :: Set.Set Char
-allowedPart = Set.insert '_' (asciiLetter <> asciiDigit)
-
-mangleIdentifier :: T.Text -> Either String T.Text
+mangleIdentifier :: T.Text -> Either String String
 mangleIdentifier txt = case T.unpack txt of
-  [] -> Left "Empty identifier"
-  ch : chs -> Right (T.pack (escapeStart ch ++ concatMap escapePart chs))
+    [] -> Left "Empty identifier"
+    ch : chs -> Right $ escapeStart ch ++ concatMap escapePart chs
 
 escapeStart :: Char -> String
 escapeStart ch = if
   | ch == '$' -> "$$"
-  | Set.member ch allowedStart -> [ch]
+  | isAllowedStart ch -> [ch]
   | otherwise -> escapeChar ch
 
 escapePart :: Char -> String
 escapePart ch = if
   | ch == '$' -> "$$"
-  | Set.member ch allowedPart -> [ch]
+  | isAllowedPart ch -> [ch]
   | otherwise -> escapeChar ch
 
 escapeChar :: Char -> String
@@ -79,8 +77,8 @@ unmangleIdentifier txt = do
     then Left "Empty identifier"
     else Right (T.pack chs)
   where
-    go :: Set.Set Char -> (String -> Either String String) -> String -> Either String String
-    go allowedChars followUp = \case
+    go :: (Char -> Bool) -> (String -> Either String String) -> String -> Either String String
+    go isAllowed followUp = \case
       [] -> Right []
       ['$'] -> Left "Got control character $ with nothing after it. It should be followed by $, u, or U"
       '$' : ctrlCh : chs0 -> case ctrlCh of
@@ -92,12 +90,12 @@ unmangleIdentifier txt = do
           (ch, chs1) <- readEscaped "$U" 8 chs0
           (ch :) <$> followUp chs1
         ch -> Left ("Control character $ should be followed by $, u, or U, but got " ++ show ch)
-      ch : chs -> if Set.member ch allowedChars
+      ch : chs -> if isAllowed ch
         then (ch :) <$> followUp chs
         else Left ("Unexpected unescaped character " ++ show ch)
     
-    goStart = go allowedStart goPart
-    goPart = go allowedPart goPart
+    goStart = go isAllowedStart goPart
+    goPart = go isAllowedPart goPart
 
     readEscaped what n chs0 = let
       (escaped, chs) = splitAt n chs0

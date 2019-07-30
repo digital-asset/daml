@@ -116,7 +116,9 @@ class PostgresDaoSpec
         Set(alice, bob),
         Map(alice -> "trId1", bob -> "trId1"),
         contractInstance,
-        Some(keyWithMaintainers)
+        Some(keyWithMaintainers),
+        Set(alice, bob),
+        Set.empty
       )
 
       val transaction = LedgerEntry.Transaction(

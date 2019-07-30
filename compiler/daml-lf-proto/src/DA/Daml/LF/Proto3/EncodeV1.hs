@@ -55,7 +55,7 @@ encodePackageId = TL.fromStrict . unPackageId
 encodeName :: (a -> T.Text) -> a -> TL.Text
 encodeName unwrapName (unwrapName -> unmangled) = case mangleIdentifier unmangled of
    Left err -> error $ "IMPOSSIBLE: could not mangle name " ++ show unmangled ++ ": " ++ err
-   Right x -> TL.fromStrict x
+   Right x -> TL.pack x
 
 -- | For now, value names are always encoded version using a single segment.
 --

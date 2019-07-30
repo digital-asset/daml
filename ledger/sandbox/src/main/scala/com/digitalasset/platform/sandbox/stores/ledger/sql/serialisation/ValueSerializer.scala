@@ -10,10 +10,10 @@ import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
 
 trait ValueSerializer {
-  def serialiseValue(
+  def serializeValue(
       value: VersionedValue[AbsoluteContractId]): Either[ValueCoder.EncodeError, Array[Byte]]
 
-  def deserialiseValue(blob: Array[Byte]): Either[DecodeError, VersionedValue[AbsoluteContractId]]
+  def deserializeValue(blob: Array[Byte]): Either[DecodeError, VersionedValue[AbsoluteContractId]]
 }
 
 /**
@@ -21,13 +21,13 @@ trait ValueSerializer {
   */
 object ValueSerializer extends ValueSerializer {
 
-  override def serialiseValue(
+  override def serializeValue(
       value: VersionedValue[AbsoluteContractId]): Either[ValueCoder.EncodeError, Array[Byte]] =
     ValueCoder
       .encodeVersionedValueWithCustomVersion(defaultCidEncode, value)
       .map(_.toByteArray())
 
-  override def deserialiseValue(
+  override def deserializeValue(
       blob: Array[Byte]): Either[DecodeError, VersionedValue[AbsoluteContractId]] =
     ValueCoder
       .decodeVersionedValue(

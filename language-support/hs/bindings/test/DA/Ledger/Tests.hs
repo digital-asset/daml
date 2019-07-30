@@ -311,10 +311,7 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
         assertEqual "off1" (AbsOffset "0") off1
         assertEqual "off2" (AbsOffset "" ) off2 -- strange
         assertEqual "off3" (AbsOffset "1") off3
-        -- for some reason the active contracts event has no signatory information...
-        let ev' :: Event = ev { signatories = [] }
-        assertEqual "active" ev' active
-        -- assertEqual "active" ev active -- TODO: enable if this should be true & we get a fix
+        assertEqual "active" ev active
 
 tGetLedgerConfiguration :: SandboxTest
 tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run withSandbox $ \_pid -> do
