@@ -74,7 +74,6 @@
                                 <argument>com.digitalasset.quickstart.iou.TemplateDecoder</argument>
                                 <argument>${project.basedir}/.daml/dist/quickstart.dar=com.digitalasset.quickstart.model</argument>
                             </arguments>
-                            <sourceRoot>${daml-codegen-java.output}</sourceRoot>
                         </configuration>
                     </execution>
                     <execution>
@@ -90,6 +89,25 @@
                                 <argument>${party}</argument>
                                 <argument>${restport}</argument>
                             </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <version>3.0.0</version>
+                <executions>
+                    <execution>
+                        <id>add-source</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>${daml-codegen-java.output}</source>
+                            </sources>
                         </configuration>
                     </execution>
                 </executions>

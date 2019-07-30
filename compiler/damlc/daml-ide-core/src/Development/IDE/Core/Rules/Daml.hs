@@ -1,6 +1,5 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE OverloadedStrings #-}
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
     , module Development.IDE.Core.Rules.Daml
@@ -21,6 +20,7 @@ import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
+import Data.Foldable
 import Data.List
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -33,6 +33,7 @@ import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module (stringToUnitId, UnitId(..), DefUnitId(..))
 import Safe
+import System.IO.Error
 import System.Directory.Extra
 import System.FilePath
 
@@ -125,11 +126,11 @@ uriToVirtualResource uri = do
 -- | Get an unvalidated DALF package.
 -- This must only be used for debugging/testing.
 getRawDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
-getRawDalf absFile = use GenerateRawPackage absFile
+getRawDalf absFile = fmap getWhnfPackage <$> use GenerateRawPackage absFile
 
 -- | Get a validated DALF package.
 getDalf :: NormalizedFilePath -> Action (Maybe LF.Package)
-getDalf file = use GeneratePackage file
+getDalf file = fmap getWhnfPackage <$> use GeneratePackage file
 
 getDalfModule :: NormalizedFilePath -> Action (Maybe LF.Module)
 getDalfModule file = use GenerateDalf file
@@ -187,7 +188,7 @@ generateDalfRule :: Rules ()
 generateDalfRule =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
-        pkg <- use_ GeneratePackageDeps file
+        WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgMap <- useNoFile_ GeneratePackageMap
         let pkgs = map dalfPackagePkg $ Map.elems pkgMap
         let world = LF.initWorldSelf pkgs pkg
@@ -244,9 +245,9 @@ generatePackageMapRule opts =
 generatePackageRule :: Rules ()
 generatePackageRule =
     define $ \GeneratePackage file -> do
-        deps <- use_ GeneratePackageDeps file
+        WhnfPackage deps <- use_ GeneratePackageDeps file
         dalf <- use_ GenerateDalf file
-        return ([], Just deps{LF.packageModules = NM.insert dalf (LF.packageModules deps)})
+        return ([], Just $ WhnfPackage $ deps{LF.packageModules = NM.insert dalf (LF.packageModules deps)})
 
 -- Generates a DAML-LF archive without adding serializability information
 -- or type checking it. This must only be used for debugging/testing.
@@ -260,7 +261,7 @@ generateRawPackageRule options =
 
         -- build package
         let pkg = buildPackage (optMbPackageName options) lfVersion dalfs
-        return ([], Just pkg)
+        return ([], Just $ WhnfPackage pkg)
 
 generatePackageDepsRule :: Options -> Rules ()
 generatePackageDepsRule options =
@@ -271,12 +272,12 @@ generatePackageDepsRule options =
         dalfs <- uses_ GenerateDalf files
 
         -- build package
-        return ([], Just $ buildPackage (optMbPackageName options) lfVersion dalfs)
+        return ([], Just $ WhnfPackage $ buildPackage (optMbPackageName options) lfVersion dalfs)
 
 contextForFile :: NormalizedFilePath -> Action SS.Context
 contextForFile file = do
     lfVersion <- getDamlLfVersion
-    pkg <- use_ GeneratePackage file
+    WhnfPackage pkg <- use_ GeneratePackage file
     pkgMap <- useNoFile_ GeneratePackageMap
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
@@ -293,7 +294,7 @@ contextForFile file = do
 
 worldForFile :: NormalizedFilePath -> Action LF.World
 worldForFile file = do
-    pkg <- use_ GeneratePackage file
+    WhnfPackage pkg <- use_ GeneratePackage file
     pkgMap <- useNoFile_ GeneratePackageMap
     let pkgs = map dalfPackagePkg $ Map.elems pkgMap
     pure $ LF.initWorldSelf pkgs pkg
@@ -494,7 +495,7 @@ ofInterestRule opts = do
                         fromNormalizedFilePath file
 
         let hlintEnabled = case optHlintUsage opts of
-              HlintEnabled _ -> True
+              HlintEnabled _ _ -> True
               HlintDisabled -> False
         let files = Set.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
@@ -571,22 +572,37 @@ encodeModuleRule =
 
 -- hlint
 
-hlintSettings :: FilePath -> IO ([Classify], Hint)
-hlintSettings hlintDataDir = do
-  -- `findSettings` ends up calling `readFilesConfig` which in turn
-  -- calls `readFileConfigYaml` which finally calls `decodeFileEither`
-  -- from the `yaml` library.  Annoyingly that function catches async
-  -- exceptions and in particular, it ends up catching `ThreadKilled`.
-  -- So, we have to mask to stop it from doing that.
-  (_, classify, hints) <- mask $ \unmask ->
-    findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
-  return (classify, hints)
+hlintSettings :: FilePath -> Bool -> IO ([Classify], Hint)
+hlintSettings hlintDataDir enableOverrides = do
+    curdir <- getCurrentDirectory
+    home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
+    dlintYaml <- if enableOverrides
+        then
+          findM System.Directory.Extra.doesFileExist $
+          map (</> ".dlint.yaml") (ancestors curdir ++ home)
+      else
+        return Nothing
+    (_, cs, hs) <- foldMapM parseSettings $
+      (hlintDataDir </> "dlint.yaml") : maybeToList dlintYaml
+    return (cs, hs)
+    where
+      ancestors = init . map joinPath . reverse . inits . splitPath
+      -- `findSettings` calls `readFilesConfig` which in turn calls
+      -- `readFileConfigYaml` which finally calls `decodeFileEither` from
+      -- the `yaml` library.  Annoyingly that function catches async
+      -- exceptions and in particular, it ends up catching
+      -- `ThreadKilled`. So, we have to mask to stop it from doing that.
+      parseSettings f = mask $ \unmask ->
+           findSettings (unmask . const (return (f, Nothing))) (Just f)
+      foldMapM f = foldlM (\acc a -> do w <- f a; return $! mappend acc w) mempty
+
+
 
 getHlintSettingsRule :: HlintUsage -> Rules ()
 getHlintSettingsRule usage =
     defineNoFile $ \GetHlintSettings ->
       liftIO $ case usage of
-          HlintEnabled dir -> hlintSettings dir
+          HlintEnabled dir enableOverrides -> hlintSettings dir enableOverrides
           HlintDisabled -> fail "linter configuration unspecified"
 
 getHlintDiagnosticsRule :: Rules ()

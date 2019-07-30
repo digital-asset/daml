@@ -1,13 +1,13 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (
     lowerCommands, lowerLedgerOffset, lowerTimestamp,
     Perhaps, perhaps,
     raiseList,
+    raiseParty,
     raiseTransaction,
     raiseTransactionTree,
     raiseCompletionStreamResponse,
@@ -101,7 +101,6 @@ lowerIdentifier = \case
     Identifier{..} ->
         LL.Identifier {
         identifierPackageId = unPackageId pid,
-        identifierName = "", -- marked as deprecated in .proto
         identifierModuleName = unModuleName mod,
         identifierEntityName = unEntityName ent }
 
@@ -183,7 +182,7 @@ raiseLedgerConfiguration = \case
     LL.LedgerConfiguration{..} -> do
         minTtl <- perhaps "min_ttl" ledgerConfigurationMinTtl
         maxTtl <- perhaps "max_ttl" ledgerConfigurationMaxTtl
-        return $ LedgerConfiguration {..}
+        return $ LedgerConfiguration {minTtl,maxTtl}
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case
@@ -210,15 +209,15 @@ raiseCompletion :: LL.Completion -> Perhaps Completion
 raiseCompletion = \case
     LL.Completion{..} -> do
         cid <- raiseCommandId completionCommandId
-        let status = Status --TODO: stop loosing info
-        return Completion{..}
+        let status = completionStatus
+        return Completion{cid,status}
 
 raiseCheckpoint :: LL.Checkpoint -> Perhaps Checkpoint
 raiseCheckpoint = \case
     LL.Checkpoint{..} -> do
         let _ = checkpointRecordTime -- TODO: dont ignore!
         offset <- perhaps "checkpointOffset" checkpointOffset >>= raiseAbsLedgerOffset
-        return Checkpoint{..}
+        return Checkpoint{offset}
 
 raiseAbsLedgerOffset :: LL.LedgerOffset -> Perhaps AbsOffset
 raiseAbsLedgerOffset = \case
@@ -237,7 +236,7 @@ raiseTransactionTree = \case
     offset <- raiseAbsOffset transactionTreeOffset
     events <- raiseMap raiseEventId raiseTreeEvent transactionTreeEventsById
     roots <- raiseList raiseEventId transactionTreeRootEventIds
-    return TransactionTree {..}
+    return TransactionTree {trid,cid,wid,leTime,offset,events,roots}
 
 raiseTreeEvent :: LL.TreeEvent -> Perhaps TreeEvent
 raiseTreeEvent = \case
@@ -246,7 +245,6 @@ raiseTreeEvent = \case
         eid <- raiseEventId exercisedEventEventId
         cid <- raiseContractId exercisedEventContractId
         tid <- perhaps "exercisedEventTemplateId" exercisedEventTemplateId >>= raiseTemplateId
-        ccEid <- raiseEventId exercisedEventContractCreatingEventId
         choice <- raiseChoice exercisedEventChoice
         choiceArg <- perhaps "exercisedEventChoiceArgument" exercisedEventChoiceArgument >>= raiseValue
         acting <- raiseList raiseParty exercisedEventActingParties
@@ -254,7 +252,7 @@ raiseTreeEvent = \case
         witness <- raiseList raiseParty exercisedEventWitnessParties
         childEids <- raiseList raiseEventId exercisedEventChildEventIds
         result <- perhaps "exercisedEventExerciseResult" exercisedEventExerciseResult >>= raiseValue
-        return ExercisedTreeEvent{..}
+        return ExercisedTreeEvent{eid,cid,tid,choice,choiceArg,acting,consuming,witness,childEids,result}
 
     LL.TreeEvent(Just (LL.TreeEventKindCreated LL.CreatedEvent{..})) -> do
         eid <- raiseEventId createdEventEventId
@@ -265,7 +263,7 @@ raiseTreeEvent = \case
         witness <- raiseList raiseParty createdEventWitnessParties
         signatories <- raiseList raiseParty createdEventSignatories
         observers <- raiseList raiseParty createdEventObservers
-        return CreatedTreeEvent{..}
+        return CreatedTreeEvent{eid,cid,tid,key,createArgs,witness,signatories,observers}
 
 raiseTransaction :: LL.Transaction -> Perhaps Transaction
 raiseTransaction = \case
@@ -277,7 +275,7 @@ raiseTransaction = \case
     leTime <- perhaps "transactionEffectiveAt" transactionEffectiveAt >>= raiseTimestamp
     events <- raiseList raiseEvent transactionEvents
     offset <- raiseAbsOffset transactionOffset
-    return Transaction {..}
+    return Transaction {trid,cid,wid,leTime,events,offset}
 
 raiseEvent :: LL.Event -> Perhaps Event
 raiseEvent = \case
@@ -287,7 +285,7 @@ raiseEvent = \case
         cid <- raiseContractId archivedEventContractId
         tid <- perhaps "archivedEventTemplateId" archivedEventTemplateId >>= raiseTemplateId
         witness <- raiseList raiseParty archivedEventWitnessParties
-        return ArchivedEvent{..}
+        return ArchivedEvent{eid,cid,tid,witness}
     LL.Event(Just (LL.EventEventCreated LL.CreatedEvent{..})) -> do
         eid <- raiseEventId createdEventEventId
         cid <- raiseContractId createdEventContractId
@@ -297,21 +295,21 @@ raiseEvent = \case
         witness <- raiseList raiseParty createdEventWitnessParties
         signatories <- raiseList raiseParty createdEventSignatories
         observers <- raiseList raiseParty createdEventObservers
-        return CreatedEvent{..}
+        return CreatedEvent{eid,cid,tid,key,createArgs,witness,signatories,observers}
 
 raiseRecord :: LL.Record -> Perhaps Record
 raiseRecord = \case
     LL.Record{..} -> do
         let rid = recordRecordId >>= optional . raiseIdentifier
         fields <- raiseList raiseRecordField recordFields
-        return Record{..}
+        return Record{rid,fields}
 
 raiseRecordField :: LL.RecordField -> Perhaps RecordField
 raiseRecordField = \case
     LL.RecordField{..} -> do
         let label = recordFieldLabel
         fieldValue <- perhaps "recordFieldValue" recordFieldValue >>= raiseValue
-        return RecordField{..}
+        return RecordField{label,fieldValue}
 
 -- TODO: more cases here
 raiseValue :: LL.Value -> Perhaps Value
@@ -358,7 +356,7 @@ raiseIdentifier = \case
         pid <- raisePackageId identifierPackageId
         mod <- raiseModuleName identifierModuleName
         ent <- raiseEntityName identifierEntityName
-        return Identifier{..}
+        return Identifier{pid,mod,ent}
 
 raiseList :: (a -> Perhaps b) -> Vector a -> Perhaps [b]
 raiseList f v = loop (Vector.toList v)

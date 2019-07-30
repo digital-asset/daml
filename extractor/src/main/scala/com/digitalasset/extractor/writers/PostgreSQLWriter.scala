@@ -174,7 +174,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
     }(scala.collection.breakOut)
 
     val exercisedEvents: List[ExercisedEvent] = transaction.events.values.collect {
-      case e @ ExercisedEvent(_, _, _, _, _, _, _, _, _, _) => e
+      case e @ ExercisedEvent(_, _, _, _, _, _, _, _, _) => e
     }(scala.collection.breakOut)
 
     logger.trace(s"Create events: ${com.digitalasset.extractor.pformat(createdEvents)}")

@@ -196,7 +196,8 @@ class SemanticTester(
                   val scenarioCreateEvent = CreateEvent(
                     nextScenarioCoidToLedgerCoid(scenarioCreateNode.coid),
                     scenarioCreateNode.coinst.template,
-                    scenarioCreateNode.key,
+                    // Unset maintainers as those are not made available over the ledger-api create event
+                    scenarioCreateNode.key.map(k => k.copy(maintainers = Set.empty)),
                     scenarioCreateNode.coinst.arg.mapContractId(nextScenarioCoidToLedgerCoid),
                     scenarioCreateNode.coinst.agreementText,
                     scenarioCreateNode.signatories,

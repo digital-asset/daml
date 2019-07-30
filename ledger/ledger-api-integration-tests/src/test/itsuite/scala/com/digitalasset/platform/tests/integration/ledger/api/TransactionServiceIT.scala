@@ -510,8 +510,7 @@ class TransactionServiceIT
             .value // This is the actual field access.
             .value
             .getVariant
-            .variantId should contain(
-            template.copy(name = "Test.OptionalInteger", entityName = "OptionalInteger"))
+            .variantId should contain(template.copy(entityName = "OptionalInteger"))
         }
       }
 

@@ -13,9 +13,10 @@ sealed abstract class RejectionReason extends Product with Serializable {
 
 object RejectionReason {
 
-  /** The transaction relied on contracts being active that were no longer
-    * active at the point where it was sequenced.  See
-    * https://docs.daml.com/concepts/ledger-model/ledger-integrity.html
+  /** The transaction relied on contracts or keys being active that were no longer
+    * active at the point where it was sequenced or a contract key was being created
+    * that already exists.
+    * See https://docs.daml.com/concepts/ledger-model/ledger-integrity.html
     * for the definition of ledger consistency.
     */
   final case object Inconsistent extends RejectionReason {

@@ -286,6 +286,9 @@ object InterfaceReader {
       case TSC.STAR => name(a.getVar)
       case TSC.ARROW =>
         -\/(UnserializableDataType(s"non-star-kinded type variable: ${showKind(a.getKind)}"))
+      case TSC.NAT =>
+        // FixMe: https://github.com/digital-asset/daml/issues/2289
+        -\/(InvalidDataTypeDefinition("DamlLf1.Kind.SumCase.NAT"))
       case TSC.SUM_NOT_SET =>
         -\/(InvalidDataTypeDefinition("DamlLf1.Kind.SumCase.SUM_NOT_SET"))
     }
@@ -320,6 +323,9 @@ object InterfaceReader {
       case TSC.PRIM => primitiveType(a.getPrim, ctx)
       case sc @ (TSC.FUN | TSC.FORALL | TSC.TUPLE) =>
         -\/(unserializableDataType(a, s"Unserializable data type: DamlLf1.Type.SumCase.${sc.name}"))
+      case TSC.NAT =>
+        // FixMe: https://github.com/digital-asset/daml/issues/2289
+        -\/(invalidDataTypeDefinition(a, "DamlLf1.Type.SumCase.NAT"))
       case TSC.SUM_NOT_SET =>
         -\/(invalidDataTypeDefinition(a, "DamlLf1.Type.SumCase.SUM_NOT_SET"))
     }
@@ -375,7 +381,7 @@ object InterfaceReader {
       case PT.UNIT => \/-((0, PrimType.Unit))
       case PT.BOOL => \/-((0, PrimType.Bool))
       case PT.INT64 => \/-((0, PrimType.Int64))
-      case PT.DECIMAL => \/-((0, PrimType.Decimal))
+      case PT.NUMERIC => \/-((0, PrimType.Decimal))
       case PT.TEXT => \/-((0, PrimType.Text))
       case PT.DATE => \/-((0, PrimType.Date))
       case PT.TIMESTAMP => \/-((0, PrimType.Timestamp))

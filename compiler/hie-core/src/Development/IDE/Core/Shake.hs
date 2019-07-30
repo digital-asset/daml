@@ -4,7 +4,6 @@
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE TypeFamilies               #-}
 {-# LANGUAGE ConstraintKinds            #-}
-{-# LANGUAGE OverloadedStrings          #-}
 
 -- | A Shake implementation of the compiler service.
 --
@@ -51,7 +50,6 @@ import qualified Data.ByteString.Char8 as BS
 import           Data.Dynamic
 import           Data.Maybe
 import Data.Map.Strict (Map)
-import           Data.Either.Extra
 import           Data.List.Extra
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -341,8 +339,11 @@ shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $
     thread <- forkFinally (shakeRunDatabaseProfile shakeDb acts) $ \res -> do
         signalBarrier bar res
         runTime <- start
+        let res' = case res of
+                Left e -> "exception: " <> displayException e
+                Right _ -> "completed"
         logDebug logger $ T.pack $
-            "Finishing shakeRun (took " ++ showDuration runTime ++ ", " ++ (if isLeft res then "exception" else "completed") ++ ")"
+            "Finishing shakeRun (took " ++ showDuration runTime ++ ", " ++ res' ++ ")"
     -- important: we send an async exception to the thread, then wait for it to die, before continuing
     return (do killThread thread; void $ waitBarrier bar, either throwIO return =<< waitBarrier bar)
 
@@ -581,7 +582,10 @@ instance NFData   GetModificationTime
 -- | Get the modification time of a file.
 type instance RuleResult GetModificationTime = FileVersion
 
-data FileVersion = VFSVersion Int | ModificationTime UTCTime
+-- | We store the modification time as a ByteString since we need
+-- a ByteString anyway for Shake and we do not care about how times
+-- are represented.
+data FileVersion = VFSVersion Int | ModificationTime BS.ByteString
     deriving (Show, Generic)
 
 instance NFData FileVersion

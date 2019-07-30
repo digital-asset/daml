@@ -39,12 +39,11 @@ getPackage lid pid =
         let PackageService {packageServiceGetPackage=rpc} = service
         let request = GetPackageRequest (unLedgerId lid) (unPackageId pid) noTrace
         rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrapWithNotFound
             >>= \case
-            ClientErrorResponse (ClientIOError (GRPCIOBadStatusCode StatusNotFound _)) ->
+            Nothing ->
                 return Nothing
-            ClientErrorResponse e ->
-                fail (show e)
-            ClientNormalResponse (GetPackageResponse _ bs _)  _m1 _m2 _status _details -> do
+            Just (GetPackageResponse _ bs _) -> do
                 let ap = either (error . show) id (Proto3.Suite.fromByteString bs)
                 case Decode.decodePayload ap of
                     Left e -> fail (show e)
@@ -57,10 +56,10 @@ getPackageStatus lid pid =
         service <- packageServiceClient client
         let PackageService {packageServiceGetPackageStatus=rpc} = service
         let request = GetPackageStatusRequest (unLedgerId lid) (unPackageId pid) noTrace
-        response <- rpc (ClientNormalRequest request timeout emptyMdm)
-        unwrap response >>=
-            \case
-                GetPackageStatusResponse (Enumerated (Left n)) ->
-                    fail $ "unexpected PackageStatus enum = " <> show n
-                GetPackageStatusResponse (Enumerated (Right status)) ->
-                    return status
+        rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrap
+            >>= \case
+            GetPackageStatusResponse (Enumerated (Left n)) ->
+                fail $ "unexpected PackageStatus enum = " <> show n
+            GetPackageStatusResponse (Enumerated (Right status)) ->
+                return status

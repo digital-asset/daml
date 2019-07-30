@@ -464,12 +464,12 @@ HASKELL_LSP_COMMIT = "d73e2ccb518724e6766833ee3d7e73289cbe0018"
 
 HASKELL_LSP_HASH = "36b92431039e6289eb709b8872f5010a57d4a45e637e1c1c945bdb3128586081"
 
-GHC_LIB_VERSION = "8.8.0.20190704"
+GHC_LIB_VERSION = "8.8.0.20190723"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "4a427e093f1711b28b6cf9dd6123e94c9e45589992d67274af626ecfa720308e",
+    sha256 = "139c5b58d179a806640f8b56bc3fe8c70a893191dbfd111a593544e7ac71086b",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -520,7 +520,7 @@ hazel_repositories(
             # Read [Working on ghc-lib] for ghc-lib update
             # instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "4a427e093f1711b28b6cf9dd6123e94c9e45589992d67274af626ecfa720308e", "0e4eda986fd3af0e18a2c89719e584d21dce136bcfdad3d0a9effcc6b654c842") +
+            hazel_ghclibs(GHC_LIB_VERSION, "139c5b58d179a806640f8b56bc3fe8c70a893191dbfd111a593544e7ac71086b", "7cfbe3bd12fb38685b86096ad666790326020308138eaf49198631b8792f5b2a") +
 
             # Support for Hlint:
             #   - Requires haskell-src-exts 1.21.0 so override hazel/packages.bzl.
@@ -528,7 +528,7 @@ hazel_repositories(
             #   - To build the library : `bazel build @haskell_hlint//:lib`
             # We'll be using it via the library, not the binary.
             hazel_hackage("haskell-src-exts", "1.21.0", "95dac187824edfa23b6a2363880b5e113df8ce4a641e8a0f76e6d45aaa699ff3") +
-            hazel_github_external("digital-asset", "hlint", "af5633e777d870819a58a1b1b53be678c0d9fa1a", "b8d91b9770ca6307705bb8449fd980579bb57d8abe84a9472c1431a2a277b87d") +
+            hazel_github_external("digital-asset", "hlint", "b007fb1f9acfb1342af57d07c96149235e105b50", "61fdbd214a101653ac21cfdfd7da34e4ad4dacfe74dc841dbd782622213bff57") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +

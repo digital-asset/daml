@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
@@ -23,6 +22,7 @@ module Development.IDE.Core.Rules(
     getDefinition,
     getDependencies,
     getParsedModule,
+    getTcModuleResults,
     fileFromParsedModule
     ) where
 
@@ -119,6 +119,15 @@ getDefinition file pos = fmap join $ runMaybeT $ do
 -- | Parse the contents of a daml file.
 getParsedModule :: NormalizedFilePath -> Action (Maybe ParsedModule)
 getParsedModule file = use GetParsedModule file
+
+-- | Get typechecked module results of a file and all it's transitive dependencies.
+getTcModuleResults :: NormalizedFilePath -> Action (Maybe ([TcModuleResult], HscEnv))
+getTcModuleResults file =
+    runMaybeT $ do
+        files <- transitiveModuleDeps <$> useE GetDependencies file
+        tms <- usesE TypeCheck (file : files)
+        session <- lift $ useNoFile_ GhcSession
+        pure (tms, session)
 
 
 ------------------------------------------------------------
@@ -249,8 +258,7 @@ typeCheckRule =
         tms <- uses_ TypeCheck (transitiveModuleDeps deps)
         setPriority priorityTypeCheck
         packageState <- useNoFile_ GhcSession
-        opt <- getIdeOptions
-        liftIO $ typecheckModule opt packageState tms pm
+        liftIO $ typecheckModule packageState tms pm
 
 
 generateCoreRule :: Rules ()

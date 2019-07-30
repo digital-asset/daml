@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Decimal
 import com.digitalasset.daml.lf.data.LawlessTraversals._
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.transaction.Node.KeyWithMaintainers
 import com.digitalasset.daml.lf.value.{Value => Lf}
 import com.digitalasset.ledger.api.v1.commands.{
@@ -42,7 +41,6 @@ object LfEngineToApi {
   def toApiIdentifier(identifier: Identifier) = {
     ApiIdentifier(
       identifier.packageId,
-      DeprecatedIdentifier.toString(identifier.qualifiedName),
       identifier.qualifiedName.module.toString(),
       identifier.qualifiedName.name.toString()
     )

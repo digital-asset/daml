@@ -58,7 +58,7 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
           qualifiedName = Ref.QualifiedName.assertFromString(rows.getString("template_name"))
         )
         val key = ValueSerializer
-          .deserialiseValue(rows.getBytes("contract_key"))
+          .deserializeValue(rows.getBytes("contract_key"))
           .fold(err => throw new IllegalArgumentException(err.errorMessage), identity)
 
         hasNext = rows.next()

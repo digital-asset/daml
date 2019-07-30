@@ -4,7 +4,6 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE StrictData #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE UndecidableInstances #-}

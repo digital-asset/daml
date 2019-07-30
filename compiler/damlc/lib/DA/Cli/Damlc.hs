@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE TemplateHaskell     #-}
 {-# LANGUAGE ApplicativeDo       #-}
 
@@ -36,9 +35,9 @@ import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.GCP as Logger.GCP
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
 import DA.Signals
-import DAML.Project.Config
-import DAML.Project.Consts
-import DAML.Project.Types (ConfigError, ProjectPath(..))
+import DA.Daml.Project.Config
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
 import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
 import Data.ByteArray.Encoding (Base(Base16), convertToBase)
@@ -66,6 +65,7 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
+import MkIface
 import "ghc-lib-parser" Module
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
@@ -80,6 +80,11 @@ import System.FilePath
 import System.IO.Extra
 import System.Process(callCommand)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
+import HscTypes
+import GHC
+import Development.IDE.Core.RuleTypes
+import HieAst
+import HieBin
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -298,11 +303,13 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
                 Logger.GCP.logOptOut gcpState
                 f loggerH
             Undecided -> f loggerH
+    hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
     opts <- defaultOptionsIO Nothing
     opts <- pure $ opts
         { optScenarioService = enableScenarioService
         , optScenarioValidation = ScenarioValidationLight
         , optThreads = 0
+        , optHlintUsage = HlintEnabled hlintDataDir True
         }
     scenarioServiceConfig <- readScenarioServiceConfig
     withLogger $ \loggerH ->
@@ -327,6 +334,8 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
                 hPutStrLn stderr "ERROR: Compilation failed."
                 exitFailure
             Just dalf -> write dalf
+
+        writeIfacesAndHie opts' inputFile ide
   where
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs
@@ -346,7 +355,7 @@ execLint inputFile opts =
         runAction ide $ getHlintIdeas inputFile
         diags <- getDiagnostics ide
         if null diags then
-          hPutStrLn stderr "No hints."
+          hPutStrLn stderr "No hints"
         else
           exitFailure
   where
@@ -355,8 +364,8 @@ execLint inputFile opts =
        defaultDir <-locateRunfiles $
          mainWorkspace </> "compiler/damlc/daml-ide-core"
        return $ case optHlintUsage opts of
-         HlintEnabled _ -> opts
-         HlintDisabled  -> opts{optHlintUsage=HlintEnabled defaultDir}
+         HlintEnabled _ _ -> opts
+         HlintDisabled  -> opts{optHlintUsage=HlintEnabled defaultDir True}
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
@@ -449,6 +458,38 @@ createProjectPackageDb lfVersion fps = do
             , "--expand-pkgroot"
             ]
 
+-- | Write interface files and hie files to the location specified by the given options.
+writeIfacesAndHie :: Options -> NormalizedFilePath -> IdeState -> IO ()
+writeIfacesAndHie options main compilerH =
+    when (optWriteInterface options) $ do
+        mbTcModRes <- runAction compilerH $ getTcModuleResults main
+        (tcms, session) <- mbErr "ERROR: Creation of interface files failed." mbTcModRes
+        mapM_ (writeTcm session) tcms
+  where
+    ifDir = fromMaybe ifaceDir (optIfaceDir options)
+    writeTcm session tcm = do
+        let fp =
+                ifDir </>
+                (ms_hspp_file $
+                 pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+        createDirectoryIfMissing True (takeDirectory fp)
+        writeIfaceFile
+            (hsc_dflags session)
+            (replaceExtension fp ".hi")
+            (hm_iface $ tmrModInfo tcm)
+        hieFile <-
+            liftIO $
+            runHsc session $
+            mkHieFile
+                (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+                (fst $ tm_internals_ $ tmrModule tcm)
+                (fromJust $ tm_renamed_source $ tmrModule tcm)
+        writeHieFile (replaceExtension fp ".hie") hieFile
+
+-- | Fail with an exit failure and errror message when Nothing is returned.
+mbErr :: String -> Maybe a -> IO a
+mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
+
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> InitPkgDb -> IO ()
 execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts $ \_relativize -> do
     execInit (optDamlLfVersion options) projectOpts initPkgDb
@@ -467,6 +508,7 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pExposedModules
                     pDependencies
         withDamlIdeState opts loggerH diagnosticsLogger $ \compilerH -> do
+            writeIfacesAndHie opts (toNormalizedFilePath pMain) compilerH
             mbDar <-
                 buildDar
                     compilerH
@@ -476,15 +518,12 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     pSdkVersion
                     (\pkg -> [confFile pkg])
                     (FromDalf False)
-            case mbDar of
-                Nothing -> do
-                    hPutStrLn stderr "ERROR: Creation of DAR file failed."
-                    exitFailure
-                Just dar -> do
-                    let fp = targetFilePath pName
-                    createDirectoryIfMissing True $ takeDirectory fp
-                    B.writeFile fp dar
-                    putStrLn $ "Created " <> fp <> "."
+            dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
+            let fp = targetFilePath pName
+            createDirectoryIfMissing True $ takeDirectory fp
+            B.writeFile fp dar
+            putStrLn $ "Created " <> fp <> "."
+
     where
         -- The default output filename is based on Maven coordinates if
         -- the package name is specified via them, otherwise we use the

@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
 module DA.Ledger.Tests (main) where
@@ -70,6 +69,13 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tListKnownPackages
     , tGetTime
     , tSetTime
+    , tSubmitAndWait
+    , tSubmitAndWaitForTransactionId
+    , tSubmitAndWaitForTransaction
+    , tSubmitAndWaitForTransactionTree
+    , tGetParticipantId
+    , tListKnownParties
+    , tAllocateParty
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -305,10 +311,7 @@ tGetActiveContracts withSandbox = testCase "tGetActiveContracts" $ run withSandb
         assertEqual "off1" (AbsOffset "0") off1
         assertEqual "off2" (AbsOffset "" ) off2 -- strange
         assertEqual "off3" (AbsOffset "1") off3
-        -- for some reason the active contracts event has no signatory information...
-        let ev' :: Event = ev { signatories = [] }
-        assertEqual "active" ev' active
-        -- assertEqual "active" ev active -- TODO: enable if this should be true & we get a fix
+        assertEqual "active" ev active
 
 tGetLedgerConfiguration :: SandboxTest
 tGetLedgerConfiguration withSandbox = testCase "tGetLedgerConfiguration" $ run withSandbox $ \_pid -> do
@@ -350,7 +353,6 @@ tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \
 
 tListKnownPackages :: SandboxTest
 tListKnownPackages withSandbox = testCase "tListKnownPackages" $ run withSandbox $ \_pid -> do
-    _ <- getLedgerIdentity -- without this, the first call to listKnownPackages times-out
     known0 <- listKnownPackages
     let pids0 = map (\PackageDetails{pid} -> pid) known0
     liftIO $ do assertEqual "#known0" 3 (length known0)
@@ -415,12 +417,94 @@ tSetTime withSandbox = testCase "tSetTime" $ run withSandbox $ \_ -> do
     Just (Right time) <- liftIO $ timeout 1 (takeStream xs)
     liftIO $ assertEqual "time3" t33 time  -- time is 3,3 as we set it
 
+tSubmitAndWait :: SandboxTest
+tSubmitAndWait withSandbox =
+    testCase "tSubmitAndWait" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    withGetAllTransactions lid alice (Verbosity False) $ \txs -> do
+    -- bad
+    (_cid,commands) <- liftIO $ makeCommands lid alice $ createIOU pid bob "B-coin" 100
+    Left err <- submitAndWait commands
+    liftIO $ assertTextContains err "requires authorizers Bob, but only Alice were given"
+    -- good
+    (_cid,commands) <- liftIO $ makeCommands lid alice $ createIOU pid alice "A-coin" 100
+    Right () <- submitAndWait commands
+    Just (Right [_]) <- liftIO $ timeout 1 $ takeStream txs
+    return ()
+
+tSubmitAndWaitForTransactionId :: SandboxTest
+tSubmitAndWaitForTransactionId withSandbox =
+    testCase "tSubmitAndWaitForTransactionId" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    withGetAllTransactions lid alice (Verbosity False) $ \txs -> do
+    -- bad
+    (_cid,commands) <- liftIO $ makeCommands lid alice $ createIOU pid bob "B-coin" 100
+    Left err <- submitAndWaitForTransactionId commands
+    liftIO $ assertTextContains err "requires authorizers Bob, but only Alice were given"
+    -- good
+    (_cid,commands) <- liftIO $ makeCommands lid alice $ createIOU pid alice "A-coin" 100
+    Right trid <- submitAndWaitForTransactionId commands
+    Just (Right [Transaction{trid=tridExpected}]) <- liftIO $ timeout 1 $ takeStream txs
+    liftIO $ assertEqual "trid" tridExpected trid
+
+tSubmitAndWaitForTransaction :: SandboxTest
+tSubmitAndWaitForTransaction withSandbox =
+    testCase "tSubmitAndWaitForTransaction" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
+    -- bad
+    (_cid,commands) <- liftIO $ makeCommands lid alice $ createIOU pid bob "B-coin" 100
+    Left err <- submitAndWaitForTransaction commands
+    liftIO $ assertTextContains err "requires authorizers Bob, but only Alice were given"
+    -- good
+    (_cid,commands) <- liftIO $ makeCommands lid alice $ createIOU pid alice "A-coin" 100
+    Right trans <- submitAndWaitForTransaction commands
+    Just (Right [transExpected]) <- liftIO $ timeout 1 $ takeStream txs
+    liftIO $ assertEqual "trans" transExpected trans
+
+tSubmitAndWaitForTransactionTree :: SandboxTest
+tSubmitAndWaitForTransactionTree withSandbox =
+    testCase "tSubmitAndWaitForTransactionTree" $ run withSandbox $ \pid -> do
+    lid <- getLedgerIdentity
+    withGetAllTransactionTrees lid alice (Verbosity True) $ \txs -> do
+    -- bad
+    (_cid,commands) <- liftIO $ makeCommands lid alice $ createIOU pid bob "B-coin" 100
+    Left err <- submitAndWaitForTransactionTree commands
+    liftIO $ assertTextContains err "requires authorizers Bob, but only Alice were given"
+    -- good
+    (_cid,commands) <- liftIO $ makeCommands lid alice $ createIOU pid alice "A-coin" 100
+    Right tree <- submitAndWaitForTransactionTree commands
+    Just (Right [treeExpected]) <- liftIO $ timeout 1 $ takeStream txs
+    liftIO $ assertEqual "tree" treeExpected tree
+
+
+tGetParticipantId :: SandboxTest
+tGetParticipantId withSandbox = testCase "tGetParticipantId" $ run withSandbox $ \_pid -> do
+    id <- getParticipantId
+    liftIO $ assertEqual "participant" (ParticipantId "sandbox-participant") id
+
+tListKnownParties :: SandboxTest
+tListKnownParties withSandbox = testCase "tListKnownParties" $ run withSandbox $ \_pid -> do
+    xs <- listKnownParties
+    liftIO $ assertEqual "details" [] xs
+
+tAllocateParty :: SandboxTest
+tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_pid -> do
+    let party = Party "me"
+    let displayName = "Only Me"
+    let request = AllocatePartyRequest { partyIdHint = unParty party, displayName }
+    deats <- allocateParty request
+    let expected = PartyDetails { party, displayName, isLocal = True }
+    liftIO $ assertEqual "deats" expected deats
+    list <- listKnownParties
+    liftIO $ assertEqual "list" [expected] list
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands
 
-alice :: Party
+alice,bob :: Party
 alice = Party "Alice"
+bob = Party "Bob"
 
 createIOU :: PackageId -> Party -> Text -> Int -> Command
 createIOU quickstart party currency quantity = CreateCommand {tid,args}
@@ -460,14 +544,19 @@ createWithoutKey quickstart owner n = CreateCommand {tid,args}
 
 submitCommand :: LedgerId -> Party -> Command -> LedgerService (Either String CommandId)
 submitCommand lid party com = do
-    cid <- liftIO randomCid
-    Ledger.submit (Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,coms=[com]}) >>= \case
+    (cid,commands) <- liftIO $ makeCommands lid party com
+    Ledger.submit commands >>= \case
         Left s -> return $ Left s
         Right () -> return $ Right cid
-    where
-        wid = Nothing
-        leTime = Timestamp 0 0
-        mrTime = Timestamp 5 0
+
+makeCommands :: LedgerId -> Party -> Command -> IO (CommandId,Commands)
+makeCommands lid party com = do
+    cid <- liftIO randomCid
+    let wid = Nothing
+    let leTime = Timestamp 0 0
+    let mrTime = Timestamp 5 0
+    return $ (cid,) $ Commands {lid,wid,aid=myAid,cid,party,leTime,mrTime,coms=[com]}
+
 
 myAid :: ApplicationId
 myAid = ApplicationId ":my-application:"
@@ -490,6 +579,8 @@ resetSandbox :: Sandbox-> IO ()
 resetSandbox sandbox = runWithSandbox sandbox $ do
     lid <- getLedgerIdentity
     Ledger.reset lid
+    lid2 <- getLedgerIdentity
+    unless (lid /= lid2) $ fail "resetSandbox: reset did not change the ledger-id"
 
 ----------------------------------------------------------------------
 -- misc expectation combinators

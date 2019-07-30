@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 module Main (main) where
 
@@ -24,7 +23,7 @@ import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 
-import Daml.Lsp.Test.Util
+import DA.Daml.Lsp.Test.Util
 import qualified Language.Haskell.LSP.Test as LSP
 
 main :: IO ()

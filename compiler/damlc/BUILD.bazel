@@ -17,7 +17,7 @@ da_haskell_binary(
         "-optl-pthread",
     ] if is_windows else [],
     data = [
-        "//compiler/damlc/daml-ide-core:hlint.yaml",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
@@ -58,7 +58,7 @@ package_app(
     binary = ":damlc",
     resources = [
         ":ghc-pkg-dist",
-        "//compiler/damlc/daml-ide-core:hlint.yaml",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
@@ -159,20 +159,20 @@ filegroup(
 )
 
 filegroup(
-    name = "daml-base-hoogle-prefix",
-    srcs = ["base-hoogle-prefix.txt"],
+    name = "daml-base-hoogle-template",
+    srcs = ["base-hoogle-template.txt"],
     visibility = ["__pkg__"],
 )
 
 filegroup(
-    name = "daml-base-rst-prefix",
-    srcs = ["base-rst-prefix.rst"],
+    name = "daml-base-rst-template",
+    srcs = ["base-rst-template.rst"],
     visibility = ["__pkg__"],
 )
 
 filegroup(
-    name = "daml-base-md-prefix",
-    srcs = ["base-md-prefix.md"],
+    name = "daml-base-md-template",
+    srcs = ["base-md-template.md"],
     visibility = ["__pkg__"],
 )
 
@@ -211,7 +211,7 @@ genrule(
     srcs = [
         ":daml-prim.json",
         ":daml-stdlib.json",
-        ":daml-base-hoogle-prefix",
+        ":daml-base-hoogle-template",
     ],
     outs = ["daml-base-hoogle.txt"],
     cmd = """
@@ -219,7 +219,7 @@ genrule(
             --output=$(OUTS) \
             --input-format=json \
             --format=Hoogle \
-            --prefix=$(location :daml-base-hoogle-prefix) \
+            --template=$(location :daml-base-hoogle-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
     tools = ["//compiler/damlc"],
@@ -231,15 +231,16 @@ genrule(
     srcs = [
         ":daml-prim.json",
         ":daml-stdlib.json",
-        ":daml-base-rst-prefix",
+        ":daml-base-rst-template",
     ],
     outs = ["daml-base.rst"],
     cmd = """
         $(location //compiler/damlc) -- docs \
+            --combine \
             --output=$(OUTS) \
             --input-format=json \
             --format=Rst \
-            --prefix=$(location :daml-base-rst-prefix) \
+            --template=$(location :daml-base-rst-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
     """,
     tools = ["//compiler/damlc"],
@@ -251,16 +252,36 @@ genrule(
     srcs = [
         ":daml-prim.json",
         ":daml-stdlib.json",
-        ":daml-base-md-prefix",
+        ":daml-base-md-template",
     ],
     outs = ["daml-base.md"],
     cmd = """
         $(location //compiler/damlc) -- docs \
+            --combine \
             --output=$(OUTS) \
             --input-format=json \
             --format=Markdown \
-            --prefix=$(location :daml-base-md-prefix) \
+            --template=$(location :daml-base-md-template) \
             $(location :daml-stdlib.json) $(location :daml-prim.json)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-base-html-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+    ],
+    outs = ["daml-base-html.tar.gz"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=daml-base-html \
+            --input-format=json \
+            --format=Html \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+        tar czf $(OUTS) daml-base-html
     """,
     tools = ["//compiler/damlc"],
     visibility = ["//visibility:public"],

@@ -1,26 +1,24 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 
 module DA.Ledger.Sandbox ( -- Run a sandbox for testing on a dynamically selected port
     SandboxSpec(..),
     Sandbox(..),
     startSandbox,
     shutdownSandbox,
-    withSandbox,
+    withSandbox
     ) where
 
-import Control.Exception (bracket, evaluate, onException)
-import Control.Monad(when)
+import Control.Concurrent (threadDelay)
+import Control.Exception (bracket)
 import DA.Bazel.Runfiles(exe,locateRunfiles,mainWorkspace)
-import DA.Ledger (Port (..), unPort)
-import Data.List (isInfixOf)
-import Data.List.Extra(splitOn)
-import GHC.IO.Handle (Handle, hGetLine)
+import DA.Ledger (Port (..))
+import GHC.IO.Handle (Handle)
+import Safe (readMay)
+import System.IO.Extra (withTempFile, withFile, IOMode( WriteMode ))
 import System.FilePath((</>))
-import System.Process (CreateProcess (..), ProcessHandle, StdStream (CreatePipe), createProcess, getPid, interruptProcessGroupOf, proc, waitForProcess)
-import System.Time.Extra (Seconds, timeout)
+import System.Process
 
 import DA.Ledger.Trace
 
@@ -28,22 +26,19 @@ data SandboxSpec = SandboxSpec {dar :: String}
 
 data Sandbox = Sandbox { port :: Port, proh :: ProcessHandle }
 
-selectedPort :: Int
-selectedPort = 0 --dynamic port selection
 
-sandboxProcess :: SandboxSpec -> IO CreateProcess
-sandboxProcess SandboxSpec{dar} = do
+sandboxProcess :: SandboxSpec -> FilePath -> IO CreateProcess
+sandboxProcess SandboxSpec{dar} portFile = do
     binary <- locateRunfiles (mainWorkspace </> exe "ledger/sandbox/sandbox-binary")
-    pure $ proc binary [ dar, "--port", show selectedPort]
+    pure $ proc binary [ dar, "--port-file", portFile]
 
-startSandboxProcess :: SandboxSpec -> IO (ProcessHandle,Maybe Handle)
-startSandboxProcess spec = do
-    processRecord <- sandboxProcess spec
+startSandboxProcess :: SandboxSpec -> FilePath -> IO (ProcessHandle,Maybe Handle)
+startSandboxProcess spec portFile = withDevNull $ \devNull -> do
+    processRecord <- sandboxProcess spec portFile
     (_,hOutOpt,_,proh) <-
         createProcess processRecord {
-        std_out = CreatePipe,
-        std_err = CreatePipe, -- Question: ought the pipe to be drained?
-        create_group = True  -- To avoid sending INT to ourself
+            std_out = UseHandle devNull,
+            create_group = True  -- To avoid sending INT to ourself
         }
     pid <- getPid proh
     trace $ "Sandbox process started, pid = " <> show pid
@@ -60,45 +55,11 @@ shutdownSandboxProcess proh = do
     --trace $ "Sandbox process exited with: " <> show x
     return ()
 
-parsePortFromListeningLine :: String -> IO Port
-parsePortFromListeningLine line = do
-    [_,portNumStr] <- return (splitOn ":" line)
-    num <- evaluate (read portNumStr)
-    return (Port num)
-
-interestingLineFromSandbox :: String -> Bool
-interestingLineFromSandbox line =
-    any (`isInfixOf` line)
-    [--"listening",
-     "failed", "error", "Address already in use", "java.net.BindException"]
-
-getListeningLine :: Handle -> IO String
-getListeningLine h = loop where
-    loop = do
-        line <- hGetLine h
-        when (interestingLineFromSandbox line) $ trace $ "SANDBOX: " <> line
-        if "listening" `isInfixOf` line
-            then return line
-            else if "initialization error" `isInfixOf` line
-                 then error line
-                 else loop
-
-discoverListeningPort :: Maybe Handle -> IO Port
-discoverListeningPort hOpt = do
-    Just h <- return hOpt
-    trace "Looking for sandbox listening port..."
-    line <- getListeningLine h
-    port <- parsePortFromListeningLine line
-        `onException` trace ("Failed to parse listening port from: " <> show line)
-    trace $ "Sandbox listening on port: " <> show (unPort port)
-    return port
-
-startSandbox :: SandboxSpec-> IO Sandbox
-startSandbox spec = do
-    (proh,hOpt) <- startSandboxProcess spec
-    port <-
-        timeoutError 30 "Didn't discover sandbox port" (discoverListeningPort hOpt)
-        `onException` shutdownSandboxProcess proh
+startSandbox :: SandboxSpec -> IO Sandbox
+startSandbox spec = withTempFile $ \portFile -> do
+    (proh,_hOpt) <- startSandboxProcess spec portFile
+    portNum <- readPortFile maxRetries portFile
+    let port = Port portNum
     return Sandbox { port, proh }
 
 shutdownSandbox :: Sandbox -> IO ()
@@ -110,9 +71,24 @@ withSandbox spec f =
     shutdownSandbox
     f
 
-timeoutError :: Seconds -> String -> IO a -> IO a
-timeoutError n tag io =
-    timeout n io >>= \case
-        Just x -> return x
-        Nothing -> do
-            fail $ "Timeout: " <> tag <> ", after " <> show n <> " seconds."
+retryDelayMillis :: Int
+retryDelayMillis = 100
+
+-- Wait up to 60s for the port file to be written to.
+maxRetries :: Int
+maxRetries = 60 * (1000 `div` retryDelayMillis)
+
+readPortFile :: Int -> FilePath -> IO Int
+readPortFile 0 _file = fail "Sandbox port file was not written to in time."
+
+readPortFile n file =
+  readMay <$> readFile file >>= \case
+    Nothing -> do
+      threadDelay (1000 * retryDelayMillis)
+      readPortFile (n-1) file
+    Just p -> pure p
+
+-- | Getting a dev-null handle in a cross-platform way seems to be somewhat tricky so we instead
+-- use a temporary file.
+withDevNull :: (Handle -> IO a) -> IO a
+withDevNull a = withTempFile $ \f -> withFile f WriteMode a

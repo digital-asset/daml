@@ -58,10 +58,12 @@ library
     cpp-options: -DGHC_STABLE
     default-extensions:
         BangPatterns
+        DeriveFunctor
         DeriveGeneric
         GeneralizedNewtypeDeriving
         LambdaCase
         NamedFieldPuns
+        OverloadedStrings
         RecordWildCards
         ScopedTypeVariables
         StandaloneDeriving
@@ -74,6 +76,7 @@ library
     exposed-modules:
         Development.IDE.Core.FileStore
         Development.IDE.Core.OfInterest
+        Development.IDE.Core.PositionMapping
         Development.IDE.Core.Rules
         Development.IDE.Core.RuleTypes
         Development.IDE.Core.Service
@@ -108,6 +111,7 @@ library
 executable hie-core
     default-language:   Haskell2010
     hs-source-dirs:     exe
+    ghc-options: -threaded
     main-is: Main.hs
     build-depends:
         base == 4.*,
@@ -131,3 +135,29 @@ executable hie-core
         RecordWildCards
         TupleSections
         ViewPatterns
+
+test-suite hie-core-tests
+    type: exitcode-stdio-1.0
+    default-language: Haskell2010
+    build-tool-depends:
+        hie-core:hie-core
+    build-depends:
+        base,
+        containers,
+        extra,
+        filepath,
+        haskell-lsp-types,
+        lens,
+        lsp-test,
+        parser-combinators,
+        tasty,
+        tasty-hunit,
+        text
+    hs-source-dirs: test/cabal test/exe test/src
+    ghc-options: -threaded
+    main-is: Main.hs
+    other-modules:
+        Development.IDE.Test
+        Development.IDE.Test.Runfiles
+    default-extensions:
+        OverloadedStrings

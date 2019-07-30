@@ -4,6 +4,7 @@
 package com.daml.ledger.participant.state.index.v1
 
 import com.daml.ledger.participant.state.v1.Party
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractInst}
 
@@ -18,4 +19,5 @@ trait ContractStore {
       contractId: AbsoluteContractId
   ): Future[Option[ContractInst[Value.VersionedValue[AbsoluteContractId]]]]
 
+  def lookupKey(submitter: Party, key: GlobalKey): Future[Option[AbsoluteContractId]]
 }

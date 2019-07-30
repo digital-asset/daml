@@ -97,7 +97,6 @@ object domain {
         eventId: EventId,
         contractId: ContractId,
         templateId: Ref.Identifier,
-        contractCreatingEventId: EventId,
         choice: Ref.ChoiceName,
         choiceArgument: Value,
         actingParties: immutable.Set[Ref.Party],
@@ -213,6 +212,7 @@ object domain {
     final case class PartyNotKnownOnLedger(description: String) extends RejectionReason
 
     final case class SubmitterCannotActViaParticipant(description: String) extends RejectionReason
+
   }
 
   type Value = Lf[Lf.AbsoluteContractId]

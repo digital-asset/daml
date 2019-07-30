@@ -25,7 +25,7 @@
 
 {-# OPTIONS_HADDOCK hide #-}
 daml 1.2
--- | HIDE
+-- | MOVE Prelude
 
 --------------------------------------------------------------------------------
 --
@@ -66,7 +66,7 @@ infixr 2  ||
 
 default ()              -- Double isn't available yet
 
--- | The syntax `?x :: a` is desugared into `IP "x" a`
+-- | HIDE The syntax `?x :: a` is desugared into `IP "x" a`
 -- IP is declared very early, so that libraries can take
 -- advantage of the implicit-call-stack feature
 class IP (x : Symbol) a | x -> a where

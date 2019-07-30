@@ -18,7 +18,6 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 }
 import com.digitalasset.platform.server.api.validation.ErrorFactories._
 import com.digitalasset.platform.server.api.validation.FieldValidations._
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.digitalasset.platform.server.util.context.TraceContextConversions._
 import io.grpc.StatusRuntimeException
 
@@ -28,12 +27,10 @@ object TransactionServiceRequestValidator {
 }
 class TransactionServiceRequestValidator(
     ledgerId: LedgerId,
-    partyNameChecker: PartyNameChecker,
-    identifierResolver: IdentifierResolver) {
+    partyNameChecker: PartyNameChecker
+) {
 
   import TransactionServiceRequestValidator.Result
-
-  private val filterValidator = new TransactionFilterValidator(identifierResolver)
 
   private val partyValidator = new PartyValidator(partyNameChecker)
 
@@ -92,7 +89,7 @@ class TransactionServiceRequestValidator(
       _ <- offsetIsBeforeEndIfAbsolute("Begin", partial.begin, ledgerEnd, offsetOrdering)
       _ <- partial.end.fold[Result[Unit]](Right(()))(
         offsetIsBeforeEndIfAbsolute("End", _, ledgerEnd, offsetOrdering))
-      convertedFilter <- filterValidator.validate(
+      convertedFilter <- TransactionFilterValidator.validate(
         partial.transactionFilter,
         "filter.filters_by_party")
     } yield {

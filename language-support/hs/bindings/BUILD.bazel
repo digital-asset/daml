@@ -64,6 +64,7 @@ da_haskell_test(
         "process",
         "random",
         "retry",
+        "safe",
         "tasty",
         "tasty-hunit",
         "text",

@@ -35,9 +35,20 @@ final case class Contract(
     witnesses: Set[Party],
     divulgences: Map[Party, TransactionId],
     coinst: ContractInst[VersionedValue[AbsoluteContractId]],
-    key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]]) {
+    key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]],
+    signatories: Set[Party],
+    observers: Set[Party]) {
   def toActiveContract: ActiveContract =
-    ActiveContract(let, transactionId, workflowId, coinst, witnesses, divulgences, key)
+    ActiveContract(
+      let,
+      transactionId,
+      workflowId,
+      coinst,
+      witnesses,
+      divulgences,
+      key,
+      signatories,
+      observers)
 }
 
 object Contract {
@@ -50,7 +61,9 @@ object Contract {
       ac.witnesses,
       ac.divulgences,
       ac.contract,
-      ac.key)
+      ac.key,
+      ac.signatories,
+      ac.observers)
 }
 
 /**
@@ -227,12 +240,12 @@ trait LedgerWriteDao extends AutoCloseable {
     *
     * @param packages The DAML-LF archives to upload, including their meta-data.
     *
-    * @return
+    * @return Values from the PersistenceResponse enum to the number of archives that led to that result
     */
   def uploadLfPackages(
       uploadId: String,
       packages: List[(Archive, PackageDetails)]
-  ): Future[PersistenceResponse]
+  ): Future[Map[PersistenceResponse, Int]]
 
   /** Resets the platform into a state as it was never used before. Meant to be used solely for testing. */
   def reset(): Future[Unit]

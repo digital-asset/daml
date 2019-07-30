@@ -28,7 +28,6 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     Variant(..),
     Identifier(..),
     Timestamp(..),
-    Status(..), -- TODO
 
     MicroSecondsSinceEpoch(..),
     DaysSinceEpoch(..),
@@ -53,6 +52,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     LedgerConfiguration(..),
 
     LL.Duration(..),
+    LL.Status(..),
 
     ) where
 
@@ -61,6 +61,7 @@ import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as Text(unpack)
 
 import qualified Google.Protobuf.Duration as LL
+import qualified Google.Rpc.Status as LL
 
 -- commands.proto
 
@@ -102,7 +103,7 @@ data LedgerOffset = LedgerBegin | LedgerEnd | LedgerAbsOffset AbsOffset
 data Completion
     = Completion {
         cid    :: CommandId,
-        status :: Status }
+        status :: Maybe LL.Status }
     deriving (Eq,Ord,Show)
 
 data Checkpoint
@@ -149,7 +150,6 @@ data TreeEvent
         eid       :: EventId,
         cid       :: ContractId,
         tid       :: TemplateId,
-        ccEid     :: EventId,
         choice    :: Choice,
         choiceArg :: Value,
         acting    :: [Party],
@@ -227,9 +227,6 @@ data Timestamp
     = Timestamp {
         seconds :: Integer, -- TODO: Int64?
         nanos   :: Integer }  deriving (Eq,Ord,Show)
-
-data Status = Status-- TODO: from standard google proto, determining success/failure
- deriving (Eq,Ord,Show)
 
 newtype TemplateId = TemplateId Identifier -- TODO: remove this wrapping
     deriving (Eq,Ord,Show)

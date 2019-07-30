@@ -1,6 +1,5 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE OverloadedStrings #-}
 module Main (main) where
 
 import qualified Codec.Archive.Zip as Zip
@@ -31,7 +30,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
-import DamlHelper.Run
+import DA.Daml.Helper.Run
 import SdkVersion
 
 main :: IO ()
@@ -75,11 +74,13 @@ tests damlDir tmpDir = testGroup "Integration tests"
     , packagingTests tmpDir
     , quickstartTests quickstartDir mvnDir
     , cleanTests cleanDir
+    , deployTest deployDir
     ]
     where quickstartDir = tmpDir </> "q-u-i-c-k-s-t-a-r-t"
           cleanDir = tmpDir </> "clean"
           mvnDir = tmpDir </> "m2"
           tarballDir = tmpDir </> "tarball"
+          deployDir = tmpDir </> "deploy"
 
 throwError :: MonadFail m => T.Text -> T.Text -> m ()
 throwError msg e = fail (T.unpack $ msg <> " " <> e)
@@ -357,6 +358,35 @@ cleanTests baseDir = testGroup "daml clean"
                                 , "    files at end:"
                                 , unlines (map ("       "++) filesAtEnd)
                                 ]
+
+deployTest :: FilePath -> TestTree
+deployTest deployDir = testCase "daml deploy" $ do
+    createDirectoryIfMissing True deployDir
+    withCurrentDirectory deployDir $ do
+        callCommandQuiet $ unwords ["daml new", deployDir </> "proj1"]
+        callCommandQuiet $ unwords ["daml new", deployDir </> "proj2", "quickstart-java"]
+        withCurrentDirectory (deployDir </> "proj1") $ do
+            callCommandQuiet "daml build"
+            withDevNull $ \devNull -> do
+                port :: Int <- fromIntegral <$> getFreePort
+                let sandboxProc =
+                        (shell $ unwords
+                            ["daml sandbox"
+                            , "--port", show port
+                            , ".daml/dist/proj1.dar"
+                            ]) { std_out = UseHandle devNull }
+                withCreateProcess sandboxProc  $ \_ _ _ ph ->
+                    race_ (waitForProcess' sandboxProc ph) $ do
+                        waitForConnectionOnPort (threadDelay 100000) port
+                        withCurrentDirectory (deployDir </> "proj2") $ do
+                            callCommandQuiet $ unwords
+                                [ "daml deploy"
+                                , "--port", show port
+                                , "--host localhost"
+                                ]
+                        -- waitForProcess' will block on Windows so we explicitly kill the process.
+                        terminateProcess ph
+
 
 damlInstallerName :: String
 damlInstallerName

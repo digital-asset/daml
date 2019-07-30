@@ -50,7 +50,7 @@ class SingleTableDataFormat extends DataFormat[SingleTableState.type] {
       event: ExercisedEvent
   ): Writer.RefreshPackages \/ ConnectionIO[Unit] = {
     val query =
-      setContractArchived(event.contractCreatingEventId, transaction.transactionId, event.eventId)
+      setContractArchived(event.contractId, transaction.transactionId, event.eventId)
 
     query.update.run.void.right
   }

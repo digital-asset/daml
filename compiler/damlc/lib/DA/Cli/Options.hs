@@ -15,8 +15,8 @@ import Text.Read
 import qualified DA.Pretty           as Pretty
 import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast.Version as LF
-import DAML.Project.Consts
-import DAML.Project.Types
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types
 
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
@@ -338,10 +338,15 @@ enableScenarioOpt = EnableScenarioService <$>
     flagYesNoAuto "scenarios" True "Enable/disable support for running scenarios" idm
 
 hlintEnabledOpt :: Parser HlintUsage
-hlintEnabledOpt = HlintEnabled <$> strOption
+hlintEnabledOpt = HlintEnabled
+  <$> strOption
   ( long "with-hlint"
     <> metavar "DIR"
-    <> help "Enable hlint with hlint.yaml directory"
+    <> help "Enable linting with 'dlint.yaml' directory"
+  )
+  <*> switch
+  ( long "allow-overrides"
+    <> help "Allow '.dlint.yaml' configuration overrides"
   )
 
 hlintDisabledOpt :: Parser HlintUsage

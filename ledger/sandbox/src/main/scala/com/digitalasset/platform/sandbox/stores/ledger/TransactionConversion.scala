@@ -159,12 +159,8 @@ trait TransactionConversion {
   ): domain.Event.ExercisedEvent = {
     domain.Event.ExercisedEvent(
       eventId,
-      // TODO right now we assume throughout the codebase that the event id _is_ the contract id.
-      // this is pretty nasty, we should either not assume that and just look the event id up somewhere,
-      // or remove this field here altogether.
       domain.ContractId(exercise.contractId.coid),
       exercise.templateId,
-      domain.EventId(exercise.contractId.coid),
       exercise.choice,
       exercise.choiceArgument.value,
       exercise.actingParties,

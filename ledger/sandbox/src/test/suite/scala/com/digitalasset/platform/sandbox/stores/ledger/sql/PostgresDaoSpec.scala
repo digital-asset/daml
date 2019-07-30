@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicLong
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.index.v2
 import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.daml.lf.archive.{Dar, DarReader}
+import com.digitalasset.daml.lf.archive.DarReader
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.GenTransaction
@@ -116,7 +116,9 @@ class PostgresDaoSpec
         Set(alice, bob),
         Map(alice -> "trId1", bob -> "trId1"),
         contractInstance,
-        Some(keyWithMaintainers)
+        Some(keyWithMaintainers),
+        Set(alice, bob),
+        Set.empty
       )
 
       val transaction = LedgerEntry.Transaction(
@@ -214,30 +216,35 @@ class PostgresDaoSpec
 
     "refuse to persist an upload with an empty id" in {
       recoverToSucceededIf[IllegalArgumentException] {
-        ledgerDao.uploadLfPackages("", PostgresDaoSpec.Fixtures.uploadOnePackage("description"))
+        ledgerDao.uploadLfPackages("", PostgresDaoSpec.Fixtures.packages)
       }
     }
 
-    "be able to persist a valid upload and refuse to upload a duplicate" in {
-      val expectedDescription = "expected description"
+    "upload packages in an idempotent fashion, maintaining existing descriptions" in {
+      val firstDescription = "first description"
+      val secondDescription = "second description"
       for {
         firstUploadResult <- ledgerDao
           .uploadLfPackages(
             UUID.randomUUID().toString,
-            PostgresDaoSpec.Fixtures.uploadOnePackage(expectedDescription))
+            PostgresDaoSpec.Fixtures.packages
+              .map(a => a._1 -> a._2.copy(sourceDescription = Some(firstDescription)))
+              .take(1))
         secondUploadResult <- ledgerDao
           .uploadLfPackages(
             UUID.randomUUID().toString,
-            PostgresDaoSpec.Fixtures.uploadOnePackage("this description should not be persisted"))
+            PostgresDaoSpec.Fixtures.packages.map(a =>
+              a._1 -> a._2.copy(sourceDescription = Some(secondDescription))))
         loadedPackages <- ledgerDao.listLfPackages
       } yield {
-        firstUploadResult shouldBe PersistenceResponse.Ok
-        secondUploadResult shouldBe PersistenceResponse.Duplicate
-        loadedPackages
-          .get(PostgresDaoSpec.Fixtures.testPackageId)
-          .value
-          .sourceDescription
-          .value shouldBe expectedDescription
+        firstUploadResult shouldBe Map(PersistenceResponse.Ok -> 1)
+        secondUploadResult shouldBe Map(
+          PersistenceResponse.Ok -> 2,
+          PersistenceResponse.Duplicate -> 1)
+        loadedPackages.values.flatMap(_.sourceDescription.toList) should contain theSameElementsAs Seq(
+          firstDescription,
+          secondDescription,
+          secondDescription)
       }
     }
 
@@ -526,18 +533,12 @@ object PostgresDaoSpec {
     private val reader = DarReader { (_, stream) =>
       Try(DamlLf.Archive.parseFrom(stream))
     }
-    private val Success(Dar(testPackage, _)) =
+    private val Success(dar) =
       reader.readArchiveFromFile(new File(rlocation("ledger/sandbox/Test.dar")))
-    private val archiveSize = testPackage.getSerializedSize.toLong
     private val now = Instant.now()
 
-    val testPackageId = Ref.PackageId.assertFromString(testPackage.getHash)
-
-    def testDetails(description: String) = v2.PackageDetails(archiveSize, now, Some(description))
-
-    def uploadOnePackage(description: String): List[(DamlLf.Archive, v2.PackageDetails)] = List(
-      testPackage -> testDetails(description)
-    )
+    val packages =
+      dar.all.map(dar => dar -> v2.PackageDetails(dar.getSerializedSize.toLong, now, None))
 
   }
 

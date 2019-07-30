@@ -232,7 +232,6 @@ object Generators {
       choice <- Arbitrary.arbString.arbitrary
       choiceArgument <- valueGen
       isConsuming <- Arbitrary.arbBool.arbitrary
-      contractCreatingEventId <- Arbitrary.arbString.arbitrary
       witnessParties <- Gen.listOf(Arbitrary.arbString.arbitrary)
       exerciseResult <- valueGen
     } yield
@@ -244,7 +243,6 @@ object Generators {
         .setChoice(choice)
         .setChoiceArgument(choiceArgument)
         .setConsuming(isConsuming)
-        .setContractCreatingEventId(contractCreatingEventId)
         .setEventId(eventId)
         .addAllWitnessParties(witnessParties.asJava)
         .setExerciseResult(exerciseResult)

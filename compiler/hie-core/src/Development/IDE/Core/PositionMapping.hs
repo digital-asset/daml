@@ -1,6 +1,5 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-{-# LANGUAGE OverloadedStrings #-}
 module Development.IDE.Core.PositionMapping
   ( PositionMapping(..)
   , toCurrentRange
@@ -41,8 +40,8 @@ applyChange posMapping _ = posMapping
 
 toCurrent :: Range -> T.Text -> Position -> Maybe Position
 toCurrent (Range (Position startLine startColumn) (Position endLine endColumn)) t (Position line column)
-    | line < startLine || line == startLine && column <= startColumn =
-      -- Position is before the change and thereby unchanged
+    | line < startLine || line == startLine && column < startColumn =
+      -- Position is before the change and thereby unchanged.
       Just $ Position line column
     | line > endLine || line == endLine && column >= endColumn =
       -- Position is after the change so increase line and column number
@@ -63,7 +62,7 @@ toCurrent (Range (Position startLine startColumn) (Position endLine endColumn)) 
 
 fromCurrent :: Range -> T.Text -> Position -> Maybe Position
 fromCurrent (Range (Position startLine startColumn) (Position endLine endColumn)) t (Position line column)
-    | line < startLine || line == startLine && column <= startColumn =
+    | line < startLine || line == startLine && column < startColumn =
       -- Position is before the change and thereby unchanged
       Just $ Position line column
     | line > newEndLine || line == newEndLine && column >= newEndColumn =

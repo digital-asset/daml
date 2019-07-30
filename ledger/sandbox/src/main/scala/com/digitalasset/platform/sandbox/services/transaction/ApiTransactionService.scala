@@ -17,7 +17,7 @@ import com.digitalasset.ledger.api.validation.PartyNameChecker
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter.TransactionIdWithIndex
 import com.digitalasset.platform.server.api.services.domain.TransactionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcTransactionService
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import io.grpc._
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -27,10 +27,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 object ApiTransactionService {
 
-  def create(
-      ledgerId: LedgerId,
-      transactionsService: IndexTransactionsService,
-      identifierResolver: IdentifierResolver)(
+  def create(ledgerId: LedgerId, transactionsService: IndexTransactionsService)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
@@ -38,8 +35,8 @@ object ApiTransactionService {
     new GrpcTransactionService(
       new ApiTransactionService(transactionsService),
       ledgerId,
-      PartyNameChecker.AllowAllParties,
-      identifierResolver) with TransactionServiceLogging
+      PartyNameChecker.AllowAllParties
+    ) with TransactionServiceLogging
 }
 
 class ApiTransactionService private (

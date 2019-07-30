@@ -10,7 +10,6 @@ import com.digitalasset.ledger.api.validation.{CommandsValidator, SubmitAndWaitR
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.server.api.ProxyCloseable
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
@@ -20,15 +19,14 @@ import scala.concurrent.Future
 class GrpcCommandService(
     protected val service: CommandService with AutoCloseable,
     val ledgerId: LedgerId,
-    identifierResolver: IdentifierResolver)
-    extends CommandService
+) extends CommandService
     with GrpcApiService
     with ProxyCloseable {
 
   protected val logger: Logger = LoggerFactory.getLogger(CommandService.getClass)
 
-  private[this] val validator = new SubmitAndWaitRequestValidator(
-    new CommandsValidator(ledgerId, identifierResolver))
+  private[this] val validator =
+    new SubmitAndWaitRequestValidator(new CommandsValidator(ledgerId))
 
   override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] =
     validator.validate(request).fold(Future.failed, _ => service.submitAndWait(request))

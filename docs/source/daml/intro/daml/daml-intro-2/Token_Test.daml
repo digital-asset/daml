@@ -48,7 +48,7 @@ token_test = scenario do
     archive bobToken
 
 -- TOKEN_TEST_1_BEGIN
-token_test_1 = do
+token_test_1 = scenario do
   alice <- getParty "Alice"
   submit alice do
     create Token with owner = alice
@@ -56,7 +56,7 @@ token_test_1 = do
 
 {-
 -- FAILURE_TEST_1_BEGIN
-failing_test_1 = do
+failing_test_1 = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
   submit alice do
@@ -67,7 +67,7 @@ failing_test_1 = do
 -}
 
 -- TOKEN_TEST_2_BEGIN
-token_test_2 = do
+token_test_2 = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
 
@@ -83,7 +83,7 @@ token_test_2 = do
 -- TOKEN_TEST_2_END
 
 -- TOKEN_TEST_3_BEGIN
-token_test_3 = do
+token_test_3 = scenario do
   alice <- getParty "Alice"
   bob <- getParty "Bob"
 

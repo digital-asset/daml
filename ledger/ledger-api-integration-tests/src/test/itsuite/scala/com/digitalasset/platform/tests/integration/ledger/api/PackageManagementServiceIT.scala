@@ -9,6 +9,7 @@ import java.nio.file.Files
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
@@ -78,16 +79,17 @@ class PackageManagementServiceIT
       }
       .fold[List[LoadedPackage]](err => fail(err), scala.Predef.identity)
 
-    // Guesses the package ID of the test package.
-    // Note: the test DAR file contains 3 packages: the test package, stdlib, and daml-prim.
-    // The test package should be by far the smallest one, so we just sort the packages by size
-    // to avoid having to parse and inspect package details.
+    // Get the ID of the test package.
+    // The test DAR file contains 3 packages: the test package, stdlib, and daml-prim.
     val testPackageId = testPackages
-      .sortBy(_.size)
-      .headOption
-      .getOrElse(fail("List of packages is empty"))
-      .archive
-      .getHash
+      .collectFirst {
+        case archive
+            if archive.pkg.modules.keySet.contains(
+              Ref.ModuleName.assertFromSegments(Seq("Test"))
+            ) =>
+          archive.archive.getHash
+      }
+      .getOrElse(fail("Could not find test package"))
 
     (testDarBytes, testPackages, testPackageId)
   }
@@ -142,7 +144,7 @@ class PackageManagementServiceIT
     val createArg = Record(fields = List(RecordField("operator", Alice.asParty)))
 
     def createCmd =
-      CreateCommand(Some(Identifier(testPackageId, "", "Test", "Dummy")), Some(createArg)).wrap
+      CreateCommand(Some(Identifier(testPackageId, "Test", "Dummy")), Some(createArg)).wrap
 
     val filter = TransactionFilters.allForParties(Alice)
     val client = packageManagementService(ctx.packageManagementService)

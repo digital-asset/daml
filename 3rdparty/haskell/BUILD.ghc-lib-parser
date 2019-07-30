@@ -52,7 +52,7 @@ haskell_library(
     "-I/compiler", "-I/compiler/utils"
   ],
   package_name = "ghc-lib-parser",
-  version = "8.8.0.20190704-selective-optimizations-off",
+  version = "8.8.0.20190723",
 )
 
 cc_library(

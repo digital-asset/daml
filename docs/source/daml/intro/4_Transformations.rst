@@ -26,7 +26,7 @@ The above defines a *choice* called ``UpdateTelephone``. Choices are part of a c
 
 Let's unpack the code snippet above:
 
-- The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the only party that is allowed *exercise* them. The line starts a new block in which multiple choices can be defined.
+- The first line, ``controller owner can`` says that the following choices are *controlled* by ``owner``, meaning ``owner`` is the only party that is allowed to *exercise* them. The line starts a new block in which multiple choices can be defined.
 - ``UpdateTelephone`` is the name of a choice. It starts a new block in which that choice is defined.
 - ``: ContractId Contact`` is the return type of the choice.
 
@@ -145,7 +145,7 @@ The consequences of exercise nodes turn each transaction into an ordered tree of
 
 There are four commits corresponding to the four ``submit`` statements in the scenario. Within each commit, we see that it's actually actions that have IDs of the form ``#commit_number:action_number``. Contract IDs are just the ID of their ``create`` action.
 
-So commits ``#2`` and ``#4`` contain ``exercise`` actions with ids ``#2:1`` and ``#4:1``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:2`` and ``#4:2``, are indented and found below a line reading ``children:``, making the tree structure apparent.
+So commits ``#2`` and ``#4`` contain ``exercise`` actions with ids ``#2:0`` and ``#4:0``. The ``create`` actions of the updated, ``Contact`` contracts,  ``#2:1`` and ``#4:1``, are indented and found below a line reading ``children:``, making the tree structure apparent.
 
 The Archive choice
 ~~~~~~~~~~~~~~~~~~

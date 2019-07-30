@@ -23,7 +23,9 @@ package object v2 {
         argument: Value.VersionedValue[Value.AbsoluteContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Ref.Party],
-        contractKey: Option[Value.VersionedValue[Value.AbsoluteContractId]]
+        contractKey: Option[Value.VersionedValue[Value.AbsoluteContractId]],
+        signatories: Set[Ref.Party],
+        observers: Set[Ref.Party]
     )
   }
 

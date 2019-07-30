@@ -3,14 +3,45 @@
 
 package com.digitalasset.http.json
 
-import spray.json._
-import com.digitalasset.http.domain
+import java.time.Instant
 
+import com.digitalasset.http.domain
+import com.digitalasset.http.json.TaggedJsonFormat._
+import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import scalaz.{-\/, \/-}
+import spray.json._
 
 object JsonProtocol extends DefaultJsonProtocol {
 
+  implicit val LedgerIdFormat: JsonFormat[lar.LedgerId] = taggedJsonFormat[String, lar.LedgerIdTag]
+
+  implicit val ApplicationIdFormat: JsonFormat[lar.ApplicationId] =
+    taggedJsonFormat[String, lar.ApplicationIdTag]
+
+  implicit val WorkflowIdFormat: JsonFormat[lar.WorkflowId] =
+    taggedJsonFormat[String, lar.WorkflowIdTag]
+
+  implicit val PartyFormat: JsonFormat[lar.Party] =
+    taggedJsonFormat[String, lar.PartyTag]
+
+  implicit val CommandIdFormat: JsonFormat[lar.CommandId] =
+    taggedJsonFormat[String, lar.CommandIdTag]
+
+  implicit val ChoiceFormat: JsonFormat[lar.Choice] = taggedJsonFormat[String, lar.ChoiceTag]
+
+  implicit val ContractIdFormat: JsonFormat[lar.ContractId] =
+    taggedJsonFormat[String, lar.ContractIdTag]
+
   implicit val JwtPayloadFormat: RootJsonFormat[domain.JwtPayload] = jsonFormat3(domain.JwtPayload)
+
+  implicit val InstantFormat: JsonFormat[java.time.Instant] = new JsonFormat[Instant] {
+    override def write(obj: Instant): JsValue = JsNumber(obj.toEpochMilli)
+
+    override def read(json: JsValue): Instant = json match {
+      case JsNumber(a) => java.time.Instant.ofEpochMilli(a.toLongExact)
+      case _ => deserializationError("java.time.Instant must be epoch millis")
+    }
+  }
 
   implicit def TemplateIdFormat[A: JsonFormat]: RootJsonFormat[domain.TemplateId[A]] =
     jsonFormat3(domain.TemplateId.apply[A])
@@ -40,11 +71,16 @@ object JsonProtocol extends DefaultJsonProtocol {
   implicit val GetActiveContractsRequestFormat: RootJsonFormat[domain.GetActiveContractsRequest] =
     jsonFormat1(domain.GetActiveContractsRequest)
 
-  // sigh @ induction
-  implicit def SeqJsonWriter[A: JsonWriter]: JsonWriter[Seq[A]] =
-    as => JsArray(as.iterator.map(_.toJson).toVector)
-
   implicit val GetActiveContractsResponseFormat
-    : JsonWriter[domain.GetActiveContractsResponse[JsValue]] =
-    gacr => JsString(gacr.toString) // TODO actual format
+    : RootJsonFormat[domain.GetActiveContractsResponse[JsValue]] =
+    jsonFormat3(domain.GetActiveContractsResponse[JsValue])
+
+  implicit val CommandMetaFormat: RootJsonFormat[domain.CommandMeta] = jsonFormat4(
+    domain.CommandMeta)
+
+  implicit val CreateCommandFormat: RootJsonFormat[domain.CreateCommand[JsObject]] = jsonFormat3(
+    domain.CreateCommand[JsObject])
+
+  implicit val ExerciseCommandFormat: RootJsonFormat[domain.ExerciseCommand[JsObject]] =
+    jsonFormat5(domain.ExerciseCommand[JsObject])
 }
