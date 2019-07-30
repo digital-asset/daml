@@ -78,6 +78,44 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
+  - job: hie_core_stack_86
+    timeoutInMinutes: 60
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - task: CacheBeta@0
+        inputs:
+          key: |
+            "stack-cache-v1"
+            $(Agent.OS)
+            $(Build.SourcesDirectory)/compiler/hie-core/stack.yaml
+            $(Build.SourcesDirectory)/compiler/hie-core/hie-core.cabal
+          path: .azure-cache
+          cacheHitVar: CACHE_RESTORED
+        displayName: "Cache stack artifacts"
+      - bash: |
+          mkdir -p ~/.stack
+          tar xzf .azure-cache/stack-root.tar.gz -C $HOME
+        displayName: "Unpack cache"
+        condition: eq(variables.CACHE_RESTORED, 'true')
+      - bash: |
+          sudo apt-get install -y g++ gcc libc6-dev libffi-dev libgmp-dev make zlib1g-dev
+          curl -sSL https://get.haskellstack.org/ | sh
+        displayName: 'Install Stack'
+      - bash: (cd compiler/hie-core; stack setup)
+        displayName: 'stack setup'
+      - bash: (cd compiler/hie-core; stack build --only-dependencies)
+        displayName: 'stack build --only-dependencies --test'
+      - bash: (cd compiler/hie-core; stack test)
+        displayName: 'stack test'
+      - bash: |
+          mkdir -p .azure-cache
+          tar czf .azure-cache/stack-root.tar.gz -C $HOME .stack
+        displayName: "Pack cache"
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
   - job: Windows_signing
     # Signing is a separate job so that we can make sure that we only sign on releases.
     # Since the release check is run on Linux, we do not have access to that information
