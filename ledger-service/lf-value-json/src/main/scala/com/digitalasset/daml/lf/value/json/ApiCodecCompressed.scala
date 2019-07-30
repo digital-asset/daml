@@ -135,7 +135,7 @@ object ApiCodecCompressed {
                 f._1,
                 deserializationError(
                   s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '${f._1}'"))
-            Model.ApiRecordField(Some(f._1), jsValueToApiValue(jsField, f._2, defs))
+            (Some(f._1), jsValueToApiValue(jsField, f._2, defs))
           }.toImmArray
         )
       case (JsArray(fValues), Model.DamlLfRecord(fields)) =>

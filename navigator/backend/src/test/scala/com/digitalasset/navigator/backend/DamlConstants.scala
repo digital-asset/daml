@@ -96,8 +96,8 @@ case object DamlConstants {
     ApiRecord(
       Some(simpleRecordId),
       ImmArray(
-        ApiRecordField(Some(name("fA")), V.ValueText("foo")),
-        ApiRecordField(Some(name("fB")), V.ValueInt64(100))
+        (Some(name("fA")), V.ValueText("foo")),
+        (Some(name("fB")), V.ValueInt64(100))
       ))
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -166,12 +166,8 @@ case object DamlConstants {
             ApiRecord(
               Some(treeNodeId),
               ImmArray(
-                ApiRecordField(
-                  Some(name("left")),
-                  ApiVariant(Some(treeId), "Leaf", V.ValueText("LL"))),
-                ApiRecordField(
-                  Some(name("right")),
-                  ApiVariant(Some(treeId), "Leaf", V.ValueText("LR")))
+                (Some(name("left")), ApiVariant(Some(treeId), "Leaf", V.ValueText("LL"))),
+                (Some(name("right")), ApiVariant(Some(treeId), "Leaf", V.ValueText("LR")))
               )
             )
           )),
@@ -183,12 +179,8 @@ case object DamlConstants {
             ApiRecord(
               Some(treeNodeId),
               ImmArray(
-                ApiRecordField(
-                  Some(name("left")),
-                  ApiVariant(Some(treeId), "Leaf", V.ValueText("RL"))),
-                ApiRecordField(
-                  Some(name("right")),
-                  ApiVariant(Some(treeId), "Leaf", V.ValueText("RR")))
+                (Some(name("left")), ApiVariant(Some(treeId), "Leaf", V.ValueText("RL"))),
+                (Some(name("right")), ApiVariant(Some(treeId), "Leaf", V.ValueText("RR")))
               )
             )
           ))

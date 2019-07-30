@@ -90,7 +90,6 @@ trait NavigatorModelAliases[Cid] {
   type OfCid[V[_]] = V[Cid]
   type ApiValue = OfCid[V]
   type ApiRecordField = (Option[DamlLfRef.Name], ApiValue)
-  val ApiRecordField = Tuple2
   type ApiRecord = OfCid[V.ValueRecord]
   val ApiRecord = V.ValueRecord
   type ApiVariant = OfCid[V.ValueVariant]

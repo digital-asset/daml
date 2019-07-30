@@ -133,7 +133,7 @@ object ApiCodecVerbose {
   private[this] def jsValueToApiRecordField(value: JsValue): Model.ApiRecordField = {
     val label = strField(value, propLabel, "ApiRecordField")
     val avalue = jsValueToApiValue(anyField(value, propValue, "ApiRecordField"))
-    Model.ApiRecordField(Some(assertDE(Ref.Name fromString label)), avalue)
+    (Some(assertDE(Ref.Name fromString label)), avalue)
   }
 
   def jsValueToApiValue(value: JsValue): Model.ApiValue =
