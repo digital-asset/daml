@@ -95,7 +95,6 @@ trait NavigatorModelAliases[Cid] {
   type ApiList = OfCid[V.ValueList]
   type ApiOptional = OfCid[V.ValueOptional]
   type ApiMap = OfCid[V.ValueMap]
-  type ApiContractId = OfCid[V.ValueContractId]
   type ApiImpossible = OfCid[V.ValueTuple]
 }
 
