@@ -17,7 +17,7 @@ da_haskell_binary(
         "-optl-pthread",
     ] if is_windows else [],
     data = [
-        "//compiler/damlc/daml-ide-core:hlint.yaml",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
@@ -58,7 +58,7 @@ package_app(
     binary = ":damlc",
     resources = [
         ":ghc-pkg-dist",
-        "//compiler/damlc/daml-ide-core:hlint.yaml",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
