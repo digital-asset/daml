@@ -18,6 +18,9 @@
 
 Choices:
 
+* External:Archive
+  
+  (no fields)
 * Merge
   
   merges two "compatible" `Iou`s
