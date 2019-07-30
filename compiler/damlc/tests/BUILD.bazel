@@ -26,42 +26,19 @@ da_haskell_test(
 
 # Tests for damlc visual
 da_haskell_test(
-    name = "damlc-visual",
-    srcs = ["src/VisualTest.hs"],
-    data = [
-        ":visual-test-daml.dar",
-        ":visual/Basic.dot",
-        "//compiler/damlc/pkg-db",
-    ],
+    name = "daml-lf-reader",
+    srcs = ["src/DarReaderTest.hs"],
     hazel_deps = [
         "tasty",
         "base",
-        "extra",
-        "mtl",
-        "filepath",
-        "tasty-golden",
         "tasty-hunit",
     ],
-    main_function = "VisualTest.main",
+    main_function = "DarReaderTest.main",
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
-        "//compiler/daml-lf-ast",
         "//compiler/daml-lf-reader",
-        "//compiler/damlc:damlc-lib",
-        "//compiler/damlc/daml-compiler",
-        "//compiler/damlc/daml-ide-core",
-        "//compiler/damlc/daml-ide-core:ide-testing",
-        "//compiler/hie-core",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
     ],
-)
-
-# Test file used in damlc-visual-test
-daml_compile(
-    name = "visual-test-daml",
-    main_src = "visual/Basic.daml",
 )
 
 # Tests for damlc test
