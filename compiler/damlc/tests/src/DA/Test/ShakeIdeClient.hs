@@ -44,6 +44,7 @@ ideTests mbScenarioService =
         , goToDefinitionTests mbScenarioService
         , onHoverTests mbScenarioService
         , scenarioTests mbScenarioService
+        , visualDamlTests
         ]
 
 -- | Tasty test case from a ShakeTest.
@@ -826,6 +827,25 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
     where
         testCase' = testCase mbScenarioService
 
+
+visualDamlTests :: Tasty.TestTree
+visualDamlTests = Tasty.testGroup "Visual Tests"
+    [   testCase' "Set files of interest" $ do
+            foo <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Delete : ()"
+                , "        do return ()"
+                ]
+            setFilesOfInterest [foo]
+            expectedPoperties foo [TemplateProp [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True] 0]
+    ]
+    where
+        testCase' = testCase Nothing
 -- | Suppress unused binding warning in case we run out of tests for open issues.
 _suppressUnusedWarning :: ()
 _suppressUnusedWarning = testCaseFails `seq` ()
