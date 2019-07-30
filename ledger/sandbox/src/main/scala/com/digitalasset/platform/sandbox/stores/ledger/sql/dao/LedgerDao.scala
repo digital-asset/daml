@@ -23,6 +23,7 @@ import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
+import com.digitalasset.platform.sandbox.stores.ledger.sql.LedgerEntryKind
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -72,7 +73,9 @@ object Contract {
   * Updating the ACS requires knowledge of blinding info, which is not included in LedgerEntry.Transaction.
   * The SqlLedger persistence queue Transaction elements are therefore enriched with blinding info.
   */
-sealed abstract class PersistenceEntry extends Product with Serializable
+sealed abstract class PersistenceEntry extends Product with Serializable {
+  def entry: LedgerEntry
+}
 
 object PersistenceEntry {
   final case class Rejection(entry: LedgerEntry.Rejection) extends PersistenceEntry
@@ -158,7 +161,8 @@ trait LedgerReadDao extends AutoCloseable {
     */
   def getLedgerEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed]
+      endExclusive: LedgerOffset,
+      entryStream: LedgerEntryKind): Source[(LedgerOffset, LedgerEntry), NotUsed]
 
   /**
     * Returns a snapshot of the ledger.

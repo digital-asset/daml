@@ -37,7 +37,7 @@ import com.digitalasset.platform.participant.util.EventFilter
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger._
-import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlStartMode
+import com.digitalasset.platform.sandbox.stores.ledger.sql.{LedgerEntryKind, SqlStartMode}
 import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.services.time.TimeModel
 import org.slf4j.LoggerFactory
@@ -248,7 +248,8 @@ abstract class LedgerBackedIndexService(
           .map(converter.toAbsolute(_).map(Some(_)))
           .getOrElse(Source.single(None))
           .flatMapConcat { endOpt =>
-            lazy val stream = ledger.ledgerEntries(Some(absBegin.toLong))
+            lazy val stream =
+              ledger.ledgerEntries(Some(absBegin.toLong), LedgerEntryKind.TransactionOnly)
 
             val finalStream = endOpt match {
               case None => stream
@@ -326,7 +327,7 @@ abstract class LedgerBackedIndexService(
     converter.toAbsolute(begin).flatMapConcat {
       case LedgerOffset.Absolute(absBegin) =>
         ledger
-          .ledgerEntries(Some(absBegin.toLong))
+          .ledgerEntries(Some(absBegin.toLong), LedgerEntryKind.All)
           .map {
             case (offset, entry) =>
               (offset + 1, entry) //doing the same as above with transactions. The ledger api has to return a non-inclusive offset

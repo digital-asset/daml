@@ -30,6 +30,7 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}
 import com.digitalasset.ledger.api.domain.LedgerId
+import com.digitalasset.platform.sandbox.stores.ledger.sql.LedgerEntryKind
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
@@ -170,7 +171,7 @@ class ImplicitPartyAdditionIT
         )
         // Wait until both transactions have been processed
         _ <- ledger
-          .ledgerEntries(None)
+          .ledgerEntries(None, LedgerEntryKind.All)
           .take(2)
           .runWith(Sink.seq)
         parties <- ledger.parties

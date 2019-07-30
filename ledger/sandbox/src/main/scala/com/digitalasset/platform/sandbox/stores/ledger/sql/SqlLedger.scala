@@ -58,6 +58,13 @@ object SqlStartMode {
 
 }
 
+trait LedgerEntryKind
+
+object LedgerEntryKind {
+  case object All extends LedgerEntryKind
+  case object TransactionOnly extends LedgerEntryKind
+}
+
 object SqlLedger {
 
   val noOfShortLivedConnections = 16

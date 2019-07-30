@@ -28,6 +28,7 @@ import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.sandbox.stores._
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry._
+import com.digitalasset.platform.sandbox.stores.ledger.sql.LedgerEntryKind
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
   KeyHasher,
@@ -879,7 +880,9 @@ private class JdbcLedgerDao(
       .toSet
 
   private val SQL_GET_LEDGER_ENTRIES = SQL(
-    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc")
+    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} order by ledger_offset asc limit {limit}")
+  private val SQL_GET_TRANSACTION_LEDGER_ENTRIES = SQL(
+    "select * from ledger_entries where ledger_offset>={startInclusive} and ledger_offset<{endExclusive} and typ='transaction' order by ledger_offset asc limit {limit}")
 
   // Note that here we are reading, non transactionally, the stream in chunks. The reason why this is
   // safe is that
@@ -889,14 +892,17 @@ private class JdbcLedgerDao(
       startInclusive: Long,
       endExclusive: Long,
       pageSize: Int,
-      queryPage: (Long, Long) => Source[T, NotUsed]): Source[T, NotUsed] =
+      queryPage: (Long, Long, Int) => Source[(Long, List[T]), NotUsed]): Source[T, NotUsed] =
     Source
       .lazily[T, NotUsed] { () =>
         if (endExclusive - startInclusive <= pageSize)
-          queryPage(startInclusive, endExclusive)
+          queryPage(startInclusive, endExclusive, pageSize).mapConcat(_._2)
         else
-          queryPage(startInclusive, startInclusive + pageSize)
-            .concat(paginatingStream(startInclusive + pageSize, endExclusive, pageSize, queryPage))
+          queryPage(startInclusive, endExclusive, pageSize).flatMapConcat {
+            case (lastOffset, items) =>
+              Source(items)
+                .concat(paginatingStream(lastOffset + 1, endExclusive, pageSize, queryPage))
+          }
       }
       .mapMaterializedValue(_ => NotUsed)
 
@@ -904,21 +910,27 @@ private class JdbcLedgerDao(
 
   override def getLedgerEntries(
       startInclusive: Long,
-      endExclusive: Long): Source[(Long, LedgerEntry), NotUsed] =
+      endExclusive: Long,
+      entryKind: LedgerEntryKind): Source[(Long, LedgerEntry), NotUsed] =
     paginatingStream(
       startInclusive,
       endExclusive,
       PageSize,
-      (startI, endE) => {
+      (startI, endE, page) => {
+        val query = entryKind match {
+          case LedgerEntryKind.All => SQL_GET_LEDGER_ENTRIES
+          case LedgerEntryKind.TransactionOnly => SQL_GET_TRANSACTION_LEDGER_ENTRIES
+        }
         Source
-          .fromFuture(dbDispatcher.executeSql(s"load ledger entries [$startI, $endE[") {
+          .fromFuture(dbDispatcher.executeSql(s"load $entryKind ledger entries [$startI, $endE[") {
             implicit conn =>
-              SQL_GET_LEDGER_ENTRIES
-                .on("startInclusive" -> startI, "endExclusive" -> endE)
+              val result = query
+                .on("startInclusive" -> startI, "endExclusive" -> endE, "limit" -> page)
                 .as(EntryParser.*)
                 .map(toLedgerEntry)
+                .toVector
+              result.lastOption.map(_._1).getOrElse(endExclusive) -> result.toList
           })
-          .flatMapConcat(Source(_))
       }
     )
 

@@ -34,8 +34,14 @@ import com.digitalasset.ledger.api.domain.{
 }
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
-import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
+import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{
+  Checkpoint,
+  Rejection,
+  Transaction
+}
 import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
+import com.digitalasset.platform.sandbox.stores.ledger.sql.LedgerEntryKind
+import com.digitalasset.platform.sandbox.stores.ledger.sql.LedgerEntryKind.TransactionOnly
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
 import com.digitalasset.platform.sandbox.stores.{
   ActiveContracts,
@@ -75,8 +81,16 @@ class InMemoryLedger(
 
   private val packageStoreRef = new AtomicReference[InMemoryPackageStore](packageStoreInit)
 
-  override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
-    entries.getSource(offset)
+  override def ledgerEntries(
+      offset: Option[Long],
+      entryKind: LedgerEntryKind): Source[(Long, LedgerEntry), NotUsed] = {
+    val transactionOnly = entryKind == TransactionOnly
+    entries.getSource(offset).collect {
+      case data @ (_, _: Checkpoint) if !transactionOnly => data
+      case data @ (_, _: Rejection) if !transactionOnly => data
+      case data @ (_, _: Transaction) => data
+    }
+  }
 
   // mutable state
   private var acs = acs0

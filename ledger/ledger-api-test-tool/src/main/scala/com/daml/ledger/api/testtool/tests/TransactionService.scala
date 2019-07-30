@@ -18,6 +18,7 @@ import com.digitalasset.ledger.test_stable.Test.TriProposal._
 import com.digitalasset.ledger.test_stable.Test._
 import io.grpc.Status
 import scalaz.Tag
+import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 
@@ -670,6 +671,20 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
       }
     }
 
+  private[this] val transactionStreamingOfManyTransactions = LedgerTest("TXStreamingOfManyTransactions", "Loading many transactions properly works.") { ledger =>
+    // this tests the paging mechanism in the SQL backends. The page size hardcoded as 100.
+    for {
+      party <- ledger.allocateParty()
+      expectedContractIds <- Future.sequence(Vector.fill(200)(ledger.create(party, Dummy(party))))
+      createdEvents <- ledger.flatTransactions(party)
+    } yield {
+
+      val actual = createdEvents.flatMap(_.events).map(_.getCreated.contractId).sorted
+      val expected = expectedContractIds.map(_.unwrap).sorted
+      assertEquals("ManyTransactions", actual, expected)
+    }
+  }
+
   override val tests: Vector[LedgerTest] = Vector(
     beginToBeginShouldBeEmpty,
     endToEndShouldBeEmpty,
@@ -704,6 +719,7 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     multiActorChoiceOkCoincidingControllers,
     rejectMultiActorMissingAuth,
     rejectMultiActorExcessiveAuth,
-    noReorder
+    noReorder,
+    transactionStreamingOfManyTransactions
   )
 }

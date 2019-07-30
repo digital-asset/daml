@@ -19,3 +19,4 @@ HEAD — ongoing
 + [Sandbox] Fixed a bug that could lead to an inconsistent snapshot of active contracts being served
   by the ActiveContractsService under high load.
 + [Sandbox] Commands are now deduplicated based on ``(submitter, application_id, command_id)``.
++ [Sandbox] Reading transactions is now more efficient. See issue `#1774 <https://github.com/digital-asset/daml/issues/1774>`__.

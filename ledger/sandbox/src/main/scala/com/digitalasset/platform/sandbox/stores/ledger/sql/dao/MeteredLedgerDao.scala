@@ -15,6 +15,7 @@ import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{LedgerId, PartyDetails}
 import com.digitalasset.platform.sandbox.metrics.MetricsManager
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry
+import com.digitalasset.platform.sandbox.stores.ledger.sql.LedgerEntryKind
 
 import scala.collection.immutable
 import scala.concurrent.Future
@@ -51,8 +52,9 @@ private class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, mm: MetricsManager)
 
   override def getLedgerEntries(
       startInclusive: LedgerOffset,
-      endExclusive: LedgerOffset): Source[(LedgerOffset, LedgerEntry), NotUsed] =
-    ledgerDao.getLedgerEntries(startInclusive, endExclusive)
+      endExclusive: LedgerOffset,
+      entryKind: LedgerEntryKind): Source[(LedgerOffset, LedgerEntry), NotUsed] =
+    ledgerDao.getLedgerEntries(startInclusive, endExclusive, entryKind)
 
   override def getParties: Future[List[PartyDetails]] =
     mm.timedFuture("getParties", ledgerDao.getParties)

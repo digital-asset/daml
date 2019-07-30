@@ -569,6 +569,61 @@ class JdbcLedgerDaoSpec
       }
     }
 
+    "be able to efficiently load transactions" in {
+      def newTransaction(i: Int) = {
+        val txId = s"efficient-txId-$i"
+        PersistenceEntry.Transaction(
+          LedgerEntry.Transaction(
+            Some(s"efficient-commandId-$i"),
+            txId,
+            Some(s"efficient-appID-$i"),
+            Some("Alice"),
+            Some(s"efficient-workflowId-$i"),
+            Instant.now(),
+            Instant.now,
+            GenTransaction(
+              Map.empty,
+              ImmArray.empty,
+              Set.empty
+            ),
+            Map.empty
+          ),
+          Map.empty,
+          Map()
+        )
+      }
+
+      val entryCount = 300
+      val persistenceEntries = Vector.tabulate(entryCount)(
+        i =>
+          if (i % 2 == 0) newTransaction(i)
+          else PersistenceEntry.Checkpoint(LedgerEntry.Checkpoint(Instant.now)))
+      for {
+        start <- ledgerDao.lookupLedgerEnd()
+        _ <- Future.sequence(persistenceEntries.map { entry =>
+          val offset = nextOffset()
+          ledgerDao.storeLedgerEntry(
+            offset,
+            offset + 1,
+            None,
+            entry
+          )
+        })
+        end <- ledgerDao.lookupLedgerEnd()
+        allEntries <- ledgerDao.getLedgerEntries(start, end, LedgerEntryKind.All).runWith(Sink.seq)
+        onlyTransactions <- ledgerDao
+          .getLedgerEntries(start, end, LedgerEntryKind.TransactionOnly)
+          .runWith(Sink.seq)
+
+      } yield {
+        val expectedLedgerEntries = persistenceEntries.map(_.entry)
+        allEntries.map(_._2) shouldEqual expectedLedgerEntries
+
+        onlyTransactions.size shouldBe entryCount / 2
+        onlyTransactions.forall { case (_, entry) => entry.isInstanceOf[LedgerEntry.Transaction] } shouldBe true
+      }
+    }
+
   }
 
   private implicit def toParty(s: String): Ref.Party = Ref.Party.assertFromString(s)
