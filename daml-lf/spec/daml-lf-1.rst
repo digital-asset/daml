@@ -2117,7 +2117,7 @@ Numeric functions
 * ``SUB_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
 
   Subtracts the second decimal from the first one.  The
-  scale of the inputs and the ouput is given by the type parameter
+  scale of the inputs and the output is given by the type parameter
   `α`.  Throws an error if overflow.
 
 * ``MUL_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
@@ -2125,7 +2125,7 @@ Numeric functions
   Multiplies the two decimals and rounds the result to the closest
   multiple of ``10⁻ᵅ`` using `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the ouput is given by the type parameter
+  scale of the inputs and the output is given by the type parameter
   `α`. Throws an error in case of overflow.
 
 * ``DIV_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α → 'Numeric' α``
@@ -2134,7 +2134,7 @@ Numeric functions
   the closest multiple of ``10⁻ᵅ`` using `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_ (where
   `n` is given as the type parameter).  The scale of the inputs and
-  the ouput is given by the type parameter `α`.  Throws an error in
+  the output is given by the type parameter `α`.  Throws an error in
   case of overflow.
 
 * ``ROUND_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α → 'Numeric' α``
@@ -2144,7 +2144,7 @@ Numeric functions
   half-way between two multiples, rounds toward the even one,
   following the `banker's rounding convention
   <https://en.wikipedia.org/wiki/Rounding#Round_half_to_even>`_.  The
-  scale of the inputs and the ouput is given by the type parameter
+  scale of the inputs and the output is given by the type parameter
   `α`.  Throws an exception if the integer is not between `α-37` and
   `α` inclusive.
 
@@ -2512,13 +2512,13 @@ Conversions functions
 * ``INT64_TO_NUMERIC : ∀ (α : nat) . 'Int64' → 'Numeric' α``
 
   Returns a decimal representation of the integer.  The scale of the
-  output and the ouput is given by the type parameter `α`. Throws an
+  output and the output is given by the type parameter `α`. Throws an
   error in case of overflow.
 
 * ``NUMERIC_TO_INT64 : ∀ (α : nat) . 'Numeric' α → 'Int64'``
 
   Returns the integral part of the given decimal -- in other words,
-  rounds towards 0. The scale of the input and the ouput is given by
+  rounds towards 0. The scale of the input and the output is given by
   the type parameter `α`.  Throws an error in case of overflow.
 
 * ``TIMESTAMP_TO_UNIX_MICROSECONDS : 'Timestamp' → 'Int64'``
