@@ -9,14 +9,13 @@
 
 -- | Testing framework for Shake API.
 module Development.IDE.Core.API.Testing
-    ( ShakeTest (..)
+    ( ShakeTest
     , TemplateProp(..)
     , ExpectedChoices(..)
-    , ShakeTestEnv (..)
-    , ShakeTestError (..)
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
     , D.DiagnosticSeverity(..)
+    , expectedPoperties
     , runShakeTest
     , makeFile
     , makeModule
@@ -45,6 +44,7 @@ module Development.IDE.Core.API.Testing
 -- * internal dependencies
 import DA.Bazel.Runfiles
 import qualified Development.IDE.Core.API         as API
+import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
 import DA.Daml.Compiler.Scenario as SS
@@ -56,6 +56,9 @@ import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))
 import Language.Haskell.LSP.Types
+import DA.Cli.Visual
+import qualified DA.Pretty as DAP
+import qualified DA.Daml.LF.Ast as LF
 
 -- * external dependencies
 import Control.Concurrent.STM
@@ -66,6 +69,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.Vector as V
+import qualified Data.NameMap as NM
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T.IO
 import qualified Data.Set               as Set
@@ -505,6 +509,29 @@ timedSection targetDiffTime block = do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
 
+
+templateChoicesToProps :: TemplateChoices -> TemplateProp
+templateChoicesToProps tca = TemplateProp choicesInTpl (sum $ map (length . actions ) (choiceAndActions tca))
+    where choicesInTpl = map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
+
+graphTest :: LF.World -> LF.Package -> [TemplateProp] -> Either [TemplateProp] ()
+graphTest wrld lfPkg expectedProps =
+    if expectedProps == map templateChoicesToProps tplPropsActual
+        then Right ()
+        else Left $ map templateChoicesToProps tplPropsActual
+    where tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
+
+expectedPoperties :: D.NormalizedFilePath -> [TemplateProp] -> ShakeTest ()
+expectedPoperties damlFilePath expectedProps = do
+    ideState <- ShakeTest $ Reader.asks steService
+    mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
+    case mbDalf of
+        Just lfPkg -> do
+            wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
+            case graphTest wrld lfPkg expectedProps of
+                Right _ -> pure ()
+                Left actual -> throwError (ExpectedTemplateProps expectedProps actual)
+        Nothing -> throwError (ExpectedTemplateProps expectedProps [])
 -- | Example testing scenario.
 example :: ShakeTest ()
 example = do

@@ -3,20 +3,12 @@
 module VisualTest
    ( main
    ) where
-import DA.Cli.Visual
+
 import Data.Either
 import qualified Test.Tasty.Extended as Tasty
 import qualified Test.Tasty.HUnit    as Tasty
-import qualified DA.Pretty as DAP
-import qualified Development.IDE.Types.Location as D
-import qualified DA.Daml.LF.Ast as LF
-import qualified Development.IDE.Core.API as API
-import qualified Development.IDE.Core.Rules.Daml as API
-import qualified Data.NameMap as NM
-import qualified Control.Monad.Reader   as Reader
 import Development.IDE.Core.API.Testing
 import System.Environment.Blank (setEnv)
-import Control.Monad.Except
 
 main :: IO ()
 main = do
@@ -32,30 +24,6 @@ testCase testName test =
     Tasty.testCase testName $ do
         res <- runShakeTest Nothing test
         Tasty.assertBool ("Shake test resulted in an error: " ++ show res) $ isRight res
-
-templateChoicesToProps :: TemplateChoices -> TemplateProp
-templateChoicesToProps tca  = TemplateProp choicesInTpl actl
-    where choicesInTpl = map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
-          actl = sum $ map (length . actions ) (choiceAndActions tca)
-
-graphTest :: LF.World -> LF.Package -> [TemplateProp] -> Either [TemplateProp] ()
-graphTest wrld lfPkg expectedProps =
-    if expectedProps == map templateChoicesToProps tplPropsActual
-        then Right ()
-        else Left $ map templateChoicesToProps tplPropsActual
-    where tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
-
-expectedPoperties :: D.NormalizedFilePath -> [TemplateProp] -> ShakeTest ()
-expectedPoperties damlFilePath expectedProps = do
-    ideState <- ShakeTest $ Reader.asks steService
-    mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
-    case mbDalf of
-        Just lfPkg -> do
-            wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
-            case graphTest wrld lfPkg expectedProps of
-                Right _ -> pure ()
-                Left actual -> throwError (ExpectedTemplateProps expectedProps actual)
-        Nothing -> throwError (ExpectedTemplateProps expectedProps [])
 
 visualDamlTests :: Tasty.TestTree
 visualDamlTests = Tasty.testGroup "Visual Tests"
