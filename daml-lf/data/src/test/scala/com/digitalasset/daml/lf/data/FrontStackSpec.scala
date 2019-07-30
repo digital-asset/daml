@@ -3,9 +3,8 @@
 
 package com.digitalasset.daml.lf.data
 
-import org.scalacheck.Properties
 import org.scalatest.{Matchers, WordSpec}
-import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
+import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
@@ -15,7 +14,7 @@ class FrontStackSpec
     with Matchers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks
-    with Checkers {
+    with WordSpecCheckLaws {
   import DataArbitrary._
 
   "++:" should {
@@ -66,7 +65,4 @@ class FrontStackSpec
   "Equal instance" should {
     checkLaws(ScalazProperties.equal.laws[FrontStack[Unnatural[Int]]])
   }
-
-  private def checkLaws(props: Properties) =
-    props.properties foreach { case (s, p) => s in check(p) }
 }

@@ -4,13 +4,11 @@
 package com.digitalasset.daml.lf.data
 
 import org.scalatest.{FlatSpec, Matchers}
-import org.scalatest.prop.Checkers
-import org.scalacheck.Properties
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
 import ImmArray.ImmArraySeq
 
-class ImmArrayTest extends FlatSpec with Matchers with Checkers {
+class ImmArrayTest extends FlatSpec with Matchers with FlatSpecCheckLaws {
   import DataArbitrary._
 
   behavior of "toString"
@@ -167,7 +165,4 @@ class ImmArrayTest extends FlatSpec with Matchers with Checkers {
   behavior of "Traverse instance"
 
   checkLaws(ScalazProperties.traverse.laws[ImmArraySeq])
-
-  private def checkLaws(props: Properties) =
-    props.properties foreach { case (s, p) => it should s in check(p) }
 }
