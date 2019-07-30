@@ -289,6 +289,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   override def close(): Unit = sandboxState.close()
 
   private def writePortFile(port: Int): Unit = {
+    Thread.sleep(1000)
     config.portFile.foreach { f =>
       val w = new FileWriter(f)
       w.write(s"$port\n")
