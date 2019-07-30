@@ -1,6 +1,27 @@
 # Usage
 
-Using the ledger bindings outside of this repository can be a bit
+There is currently no separate documentation for the haskell ledger bindings,
+over and above the existing ledger API doc.
+
+The [.proto files](/ledger-api/grpc-definitions/com/digitalasset/ledger/api/v1)
+are the best primary source of truth for the API. The [Haskell
+bindings](/language-support/hs/bindings/src/DA/Ledger/Services) match closely
+the names of the services and RPCs, but of course you get much better
+[types](/language-support/hs/bindings/src/DA/Ledger/Types.hs).
+
+The entry point is at [DA.Ledger](/language-support/hs/bindings/src/DA/Ledger.hs).
+
+To use the bindings **in this repo**, you need the following `BUILD` dep:
+```
+"//language-support/hs/bindings:hs-ledger",
+```
+And then you can import the `DA.Ledger` module in your Haskell code.
+
+You can find some usage examples
+[here](/language-support/hs/bindings/test/DA/Ledger/Tests.hs) and
+[here](/language-support/hs/bindings/examples/chat/src/DA/Chat/ChatLedger.hs).
+
+Using these bindings **outside of this repository** can be a bit
 tricky since there are quite a few packages required that are not
 published to Hackage at the moment.
 
