@@ -5,6 +5,7 @@ module DA.Daml.LF.Reader
     ( Manifest(..)
     , ManifestData(..)
     , manifestFromDar
+    , multiLineContent
     ) where
 
 import Codec.Archive.Zip
@@ -29,6 +30,9 @@ lineToKeyValue line = case splitOn ":" line of
     [l, r] -> (trim l , trim r)
     _ -> error $ "Expected two fields in line " <> line
 
+multiLineContent :: String -> [String]
+multiLineContent = filter (not . null) . lines . replace "\n " ""
+
 manifestMapToManifest :: Map.HashMap String String -> Manifest
 manifestMapToManifest hash = Manifest mainDalf dependDalfs
     where
@@ -45,6 +49,6 @@ manifestFromDar :: Archive -> ManifestData
 manifestFromDar dar = manifestDataFromDar dar manifest
     where
         manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
-        manifestLines = filter (not . null) $ lines $ replace "\n " "" $ UTF8.toString manifestEntry
+        manifestLines = multiLineContent $ UTF8.toString manifestEntry
         manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue manifestLines
 

@@ -99,10 +99,18 @@ object DarReader {
 
   private val ManifestName = "META-INF/MANIFEST.MF"
 
+  private def normalize(entryName: String): String =
+    entryName.replace('\\', '/')
+
+  private[archive] object ZipEntries {
+    def apply(name: String, entries: Map[String, (Long, InputStream)]): ZipEntries =
+      new ZipEntries(name, entries.map { case (k, v) => normalize(k) -> v })
+  }
+
   private[archive] case class ZipEntries(name: String, entries: Map[String, (Long, InputStream)]) {
 
     def getInputStreamFor(entryName: String): Try[(Long, InputStream)] = {
-      entries.get(entryName) match {
+      entries.get(normalize(entryName)) match {
         case Some((size, is)) => Success(size -> is)
         case None => Failure(InvalidZipEntry(entryName, this))
       }
