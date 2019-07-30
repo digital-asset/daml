@@ -378,10 +378,10 @@ case object LedgerApiV1 {
     } yield variant.copy(tycon = Some(typeCon.name.identifier), value = argument)
 
   private def fillInEnumTI(
-      enum: Model.ApiEnum,
+      enum: V.ValueEnum,
       typ: Model.DamlLfType,
       ctx: Context
-  ): Result[Model.ApiEnum] =
+  ): Result[V.ValueEnum] =
     for {
       typeCon <- asTypeCon(typ, enum)
     } yield enum.copy(tycon = Some(typeCon.name.identifier))
@@ -402,7 +402,7 @@ case object LedgerApiV1 {
       ctx: Context
   ): Result[Model.ApiValue] =
     value match {
-      case v: Model.ApiEnum => fillInEnumTI(v, typ, ctx)
+      case v: V.ValueEnum => fillInEnumTI(v, typ, ctx)
       case _: V.ValueCidlessLeaf | _: V.ValueContractId[_] => Right(value)
       case v: Model.ApiOptional => fillInOptionalTI(v, typ, ctx)
       case v: Model.ApiMap => fillInMapTI(v, typ, ctx)

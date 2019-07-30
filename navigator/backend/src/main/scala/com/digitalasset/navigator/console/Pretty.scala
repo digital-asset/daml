@@ -8,6 +8,7 @@ import java.time.format.DateTimeFormatter
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.model
+import com.digitalasset.daml.lf.value.{Value => V}
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -225,21 +226,21 @@ object Pretty {
       PrettyObject(
         PrettyField(constructor, argument(value))
       )
-    case model.ApiEnum(id, constructor) =>
+    case V.ValueEnum(id, constructor) =>
       PrettyPrimitive(constructor)
     case model.ApiList(elements) =>
       PrettyArray(
         elements.toImmArray.map(e => argument(e)).toSeq: _*
       )
-    case model.ApiText(value) => PrettyPrimitive(value)
-    case model.ApiInt64(value) => PrettyPrimitive(value.toString)
-    case model.ApiDecimal(value) => PrettyPrimitive(value.decimalToString)
-    case model.ApiBool(value) => PrettyPrimitive(value.toString)
+    case V.ValueText(value) => PrettyPrimitive(value)
+    case V.ValueInt64(value) => PrettyPrimitive(value.toString)
+    case V.ValueDecimal(value) => PrettyPrimitive(value.decimalToString)
+    case V.ValueBool(value) => PrettyPrimitive(value.toString)
     case model.ApiContractId(value) => PrettyPrimitive(value.toString)
-    case model.ApiTimestamp(value) => PrettyPrimitive(value.toString)
-    case model.ApiDate(value) => PrettyPrimitive(value.toString)
-    case model.ApiParty(value) => PrettyPrimitive(value.toString)
-    case model.ApiUnit => PrettyPrimitive("<unit>")
+    case V.ValueTimestamp(value) => PrettyPrimitive(value.toString)
+    case V.ValueDate(value) => PrettyPrimitive(value.toString)
+    case V.ValueParty(value) => PrettyPrimitive(value.toString)
+    case V.ValueUnit => PrettyPrimitive("<unit>")
     case model.ApiOptional(None) => PrettyPrimitive("<none>")
     case model.ApiOptional(Some(v)) => PrettyObject(PrettyField("value", argument(v)))
     case model.ApiMap(map) =>
