@@ -29,9 +29,9 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":data",
-        "//daml-lf/data-scalacheck",
         "//3rdparty/jvm/org/scalacheck",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
+        "//daml-lf/data-scalacheck",
     ],
 )
