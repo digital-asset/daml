@@ -66,6 +66,7 @@ DAML SDK documentation
    :caption: Background concepts
 
    concepts/glossary
+   concepts/ledger-topologies
    concepts/ledger-model/index
 
 .. toctree::
