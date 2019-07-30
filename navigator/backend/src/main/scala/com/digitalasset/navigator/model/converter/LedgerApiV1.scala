@@ -302,7 +302,7 @@ case object LedgerApiV1 {
             newVv <- fillInTypeInfo(vv, fieldType, ctx)
           } yield (Some(tn), newVv)
       }
-    } yield Model.ApiRecord(Some(typeCon.name.identifier), fields.toImmArray)
+    } yield V.ValueRecord(Some(typeCon.name.identifier), fields.toImmArray)
 
   private def fillInListTI(
       list: Model.ApiList,
@@ -316,7 +316,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
       }
       values <- list.values traverseU (fillInTypeInfo(_, elementType, ctx))
-    } yield Model.ApiList(values)
+    } yield V.ValueList(values)
 
   private def fillInMapTI(
       map: Model.ApiMap,
@@ -330,7 +330,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $map as $typ"))
       }
       values <- map.value traverseU (fillInTypeInfo(_, elementType, ctx))
-    } yield Model.ApiMap(values)
+    } yield V.ValueMap(values)
 
   private def fillInOptionalTI(
       opt: Model.ApiOptional,
@@ -344,7 +344,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $opt as $typ"))
       }
       value <- opt.value traverseU (fillInTypeInfo(_, optType, ctx))
-    } yield Model.ApiOptional(value)
+    } yield V.ValueOptional(value)
 
   private def asTypeCon(
       typ: Model.DamlLfType,

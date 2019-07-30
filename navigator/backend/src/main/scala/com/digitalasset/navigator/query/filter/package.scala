@@ -109,7 +109,7 @@ package object filter {
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, Boolean] =
       argument match {
-        case ApiRecord(_, fields) =>
+        case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
@@ -119,7 +119,7 @@ package object filter {
                 case None => Right(false)
               }
           }
-        case ApiVariant(_, constructor, value) =>
+        case V.ValueVariant(_, constructor, value) =>
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
@@ -139,7 +139,7 @@ package object filter {
                 case _ => Right(false)
               }
           }
-        case ApiList(elements) =>
+        case V.ValueList(elements) =>
           cursor.next match {
             case None => Right(false)
             case Some(nextCursor) =>
@@ -149,7 +149,8 @@ package object filter {
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }
           }
-        case ApiContractId(value) if cursor.isLast => Right(checkContained(value, expectedValue))
+        case V.ValueContractId(value) if cursor.isLast =>
+          Right(checkContained(value, expectedValue))
         case V.ValueInt64(value) if cursor.isLast =>
           Right(checkContained(value.toString, expectedValue))
         case V.ValueDecimal(value) if cursor.isLast =>
@@ -159,7 +160,7 @@ package object filter {
         case V.ValueBool(value) if cursor.isLast =>
           Right(checkContained(value.toString, expectedValue))
         case V.ValueUnit if cursor.isLast => Right(expectedValue == "")
-        case ApiOptional(optValue) =>
+        case V.ValueOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(expectedValue == "None")
             case (None, Some(_)) => Right(expectedValue == "Some")

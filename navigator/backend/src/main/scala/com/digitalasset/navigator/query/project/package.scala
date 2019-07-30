@@ -117,7 +117,7 @@ object project {
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, ProjectValue] =
       argument match {
-        case ApiRecord(_, fields) =>
+        case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("record", cursor, expectedValue))
             case Some(nextCursor) =>
@@ -127,7 +127,7 @@ object project {
                 case None => Left(UnknownProperty("record", nextCursor, expectedValue))
               }
           }
-        case ApiVariant(_, constructor, value) =>
+        case V.ValueVariant(_, constructor, value) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("variant", cursor, expectedValue))
             case Some(nextCursor) =>
@@ -147,7 +147,7 @@ object project {
                 case _ => Left(UnknownProperty("enum", nextCursor, expectedValue))
               }
           }
-        case ApiList(elements) =>
+        case V.ValueList(elements) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("list", cursor, expectedValue))
             case Some(nextCursor) =>
@@ -157,14 +157,14 @@ object project {
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }
           }
-        case ApiContractId(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueContractId(value) if cursor.isLast => Right(StringValue(value))
         case V.ValueInt64(value) if cursor.isLast => Right(NumberValue(value))
         case V.ValueDecimal(value) if cursor.isLast => Right(StringValue(value.decimalToString))
         case V.ValueText(value) if cursor.isLast => Right(StringValue(value))
         case V.ValueParty(value) if cursor.isLast => Right(StringValue(value))
         case V.ValueBool(value) if cursor.isLast => Right(BooleanValue(value))
         case V.ValueUnit if cursor.isLast => Right(StringValue(""))
-        case ApiOptional(optValue) =>
+        case V.ValueOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(StringValue("None"))
             case (None, Some(_)) => Right(StringValue("Some"))

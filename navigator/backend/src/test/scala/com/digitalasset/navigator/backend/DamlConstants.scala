@@ -63,8 +63,8 @@ case object DamlConstants {
   val simpleUnitV = V.ValueUnit
   val simpleDateV = V.ValueDate.fromIso8601("2019-01-28")
   val simpleTimestampV = V.ValueTimestamp.fromIso8601("2019-01-28T12:44:33.22Z")
-  val simpleOptionalV = ApiOptional(Some(V.ValueText("foo")))
-  val simpleMapV = ApiMap(
+  val simpleOptionalV = V.ValueOptional(Some(V.ValueText("foo")))
+  val simpleMapV = V.ValueMap(
     SortedLookupList(Map("1" -> V.ValueInt64(1), "2" -> V.ValueInt64(2), "3" -> V.ValueInt64(3))))
 
   // ------------------------------------------------------------------------------------------------------------------
@@ -75,7 +75,7 @@ case object DamlConstants {
   val emptyRecordGC = DamlLfDefDataType(DamlLfImmArraySeq(), emptyRecordGD)
   val emptyRecordTC = DamlLfTypeCon(DamlLfTypeConName(emptyRecordId), DamlLfImmArraySeq())
   val emptyRecordT = emptyRecordTC.instantiate(emptyRecordGC).asInstanceOf[DamlLfRecord]
-  val emptyRecordV = ApiRecord(Some(emptyRecordId), ImmArray.empty)
+  val emptyRecordV = V.ValueRecord(Some(emptyRecordId), ImmArray.empty)
 
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: simple record (data SimpleRecord a b = {fA: a, fB: b})
@@ -93,7 +93,7 @@ case object DamlConstants {
   )
   val simpleRecordT = simpleRecordTC.instantiate(simpleRecordGC).asInstanceOf[DamlLfRecord]
   def simpleRecordV =
-    ApiRecord(
+    V.ValueRecord(
       Some(simpleRecordId),
       ImmArray(
         (Some(name("fA")), V.ValueText("foo")),
@@ -115,7 +115,7 @@ case object DamlConstants {
     DamlLfImmArraySeq(simpleTextT, simpleInt64T)
   )
   val simpleVariantT = simpleVariantTC.instantiate(simpleVariantGC).asInstanceOf[DamlLfVariant]
-  def simpleVariantV = ApiVariant(Some(simpleVariantId), "fA", V.ValueText("foo"))
+  def simpleVariantV = V.ValueVariant(Some(simpleVariantId), "fA", V.ValueText("foo"))
 
   // ------------------------------------------------------------------------------------------------------------------
   // DAML-LF: recursive type (data Tree = Leaf a | Node {left: Tree a, right: Tree a})
@@ -152,35 +152,35 @@ case object DamlConstants {
     DamlLfImmArraySeq(simpleTextT)
   )
 
-  val treeV = ApiVariant(
+  val treeV = V.ValueVariant(
     Some(treeId),
     "Node",
-    ApiRecord(
+    V.ValueRecord(
       Some(treeNodeId),
       ImmArray(
         (
           "left",
-          ApiVariant(
+          V.ValueVariant(
             Some(treeId),
             "Node",
-            ApiRecord(
+            V.ValueRecord(
               Some(treeNodeId),
               ImmArray(
-                (Some(name("left")), ApiVariant(Some(treeId), "Leaf", V.ValueText("LL"))),
-                (Some(name("right")), ApiVariant(Some(treeId), "Leaf", V.ValueText("LR")))
+                (Some(name("left")), V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LL"))),
+                (Some(name("right")), V.ValueVariant(Some(treeId), "Leaf", V.ValueText("LR")))
               )
             )
           )),
         (
           "right",
-          ApiVariant(
+          V.ValueVariant(
             Some(treeId),
             "Node",
-            ApiRecord(
+            V.ValueRecord(
               Some(treeNodeId),
               ImmArray(
-                (Some(name("left")), ApiVariant(Some(treeId), "Leaf", V.ValueText("RL"))),
-                (Some(name("right")), ApiVariant(Some(treeId), "Leaf", V.ValueText("RR")))
+                (Some(name("left")), V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RL"))),
+                (Some(name("right")), V.ValueVariant(Some(treeId), "Leaf", V.ValueText("RR")))
               )
             )
           ))
@@ -224,7 +224,7 @@ case object DamlConstants {
   val complexRecordGC = DamlLfDefDataType(DamlLfImmArraySeq(), complexRecordGD)
   val complexRecordTC = DamlLfTypeCon(DamlLfTypeConName(complexRecordId), DamlLfImmArraySeq())
   val complexRecordT = complexRecordTC.instantiate(complexRecordGC).asInstanceOf[DamlLfRecord]
-  val complexRecordV = ApiRecord(
+  val complexRecordV = V.ValueRecord(
     Some(complexRecordId),
     ImmArray(
       ("fText", simpleTextV),
@@ -233,17 +233,17 @@ case object DamlConstants {
       ("fUnit", V.ValueUnit),
       ("fInt64", simpleInt64V),
       ("fParty", V.ValueParty(DamlLfRef.Party assertFromString "BANK1")),
-      ("fContractId", ApiContractId("C0")),
-      ("fListOfText", ApiList(FrontStack(V.ValueText("foo"), V.ValueText("bar")))),
-      ("fListOfUnit", ApiList(FrontStack(V.ValueUnit, V.ValueUnit))),
+      ("fContractId", V.ValueContractId("C0")),
+      ("fListOfText", V.ValueList(FrontStack(V.ValueText("foo"), V.ValueText("bar")))),
+      ("fListOfUnit", V.ValueList(FrontStack(V.ValueUnit, V.ValueUnit))),
       ("fDate", simpleDateV),
       ("fTimestamp", simpleTimestampV),
-      ("fOptionalText", ApiOptional(None)),
-      ("fOptionalUnit", ApiOptional(Some(V.ValueUnit))),
-      ("fOptOptText", ApiOptional(Some(ApiOptional(Some(V.ValueText("foo")))))),
+      ("fOptionalText", V.ValueOptional(None)),
+      ("fOptionalUnit", V.ValueOptional(Some(V.ValueUnit))),
+      ("fOptOptText", V.ValueOptional(Some(V.ValueOptional(Some(V.ValueText("foo")))))),
       (
         "fMap",
-        ApiMap(
+        V.ValueMap(
           SortedLookupList(
             Map("1" -> V.ValueInt64(1), "2" -> V.ValueInt64(2), "3" -> V.ValueInt64(3))))),
       ("fVariant", simpleVariantV),
@@ -327,5 +327,5 @@ case object DamlConstants {
 
   @throws[IllegalArgumentException]
   private[navigator] def singletonRecord(label: String, value: ApiValue): ApiRecord =
-    ApiRecord(None, ImmArray((Some(name(label)), value)))
+    V.ValueRecord(None, ImmArray((Some(name(label)), value)))
 }
