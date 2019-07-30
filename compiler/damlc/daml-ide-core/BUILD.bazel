@@ -6,12 +6,12 @@ load(
     "da_haskell_library",
 )
 
-exports_files(["hlint.yaml"])
+exports_files(["dlint.yaml"])
 
 da_haskell_library(
     name = "daml-ide-core",
     srcs = glob(["src/**/*.hs"]),
-    data = [":hlint.yaml"],
+    data = [":dlint.yaml"],
     hazel_deps = [
         "aeson",
         "base",

@@ -583,7 +583,7 @@ hlintSettings hlintDataDir enableOverrides = do
       else
         return Nothing
     (_, cs, hs) <- foldMapM parseSettings $
-      (hlintDataDir </> "hlint.yaml") : maybeToList dlintYaml
+      (hlintDataDir </> "dlint.yaml") : maybeToList dlintYaml
     return (cs, hs)
     where
       ancestors = init . map joinPath . reverse . inits . splitPath
