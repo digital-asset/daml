@@ -495,7 +495,7 @@ ofInterestRule opts = do
                         fromNormalizedFilePath file
 
         let hlintEnabled = case optHlintUsage opts of
-              HlintEnabled _ -> True
+              HlintEnabled _ _ -> True
               HlintDisabled -> False
         let files = Set.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
@@ -572,13 +572,16 @@ encodeModuleRule =
 
 -- hlint
 
-hlintSettings :: FilePath -> IO ([Classify], Hint)
-hlintSettings hlintDataDir = do
+hlintSettings :: FilePath -> Bool -> IO ([Classify], Hint)
+hlintSettings hlintDataDir enableOverrides = do
     curdir <- getCurrentDirectory
     home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
-    dlintYaml <-
-      findM System.Directory.Extra.doesFileExist $
-        map (</> ".dlint.yaml") (ancestors curdir ++ home)
+    dlintYaml <- if enableOverrides
+        then
+          findM System.Directory.Extra.doesFileExist $
+          map (</> ".dlint.yaml") (ancestors curdir ++ home)
+      else
+        return Nothing
     (_, cs, hs) <- foldMapM parseSettings $
       (hlintDataDir </> "hlint.yaml") : maybeToList dlintYaml
     return (cs, hs)
@@ -593,11 +596,13 @@ hlintSettings hlintDataDir = do
            findSettings (unmask . const (return (f, Nothing))) (Just f)
       foldMapM f = foldlM (\acc a -> do w <- f a; return $! mappend acc w) mempty
 
+
+
 getHlintSettingsRule :: HlintUsage -> Rules ()
 getHlintSettingsRule usage =
     defineNoFile $ \GetHlintSettings ->
       liftIO $ case usage of
-          HlintEnabled dir -> hlintSettings dir
+          HlintEnabled dir enableOverrides -> hlintSettings dir enableOverrides
           HlintDisabled -> fail "linter configuration unspecified"
 
 getHlintDiagnosticsRule :: Rules ()

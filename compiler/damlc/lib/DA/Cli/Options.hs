@@ -338,10 +338,15 @@ enableScenarioOpt = EnableScenarioService <$>
     flagYesNoAuto "scenarios" True "Enable/disable support for running scenarios" idm
 
 hlintEnabledOpt :: Parser HlintUsage
-hlintEnabledOpt = HlintEnabled <$> strOption
+hlintEnabledOpt = HlintEnabled
+  <$> strOption
   ( long "with-hlint"
     <> metavar "DIR"
-    <> help "Enable hlint with hlint.yaml directory"
+    <> help "Enable hlint with 'hlint.yaml' directory"
+  )
+  <*> switch
+  ( long "allow-overrides"
+    <> help "Allow 'dlint.yaml' configuration overrides"
   )
 
 hlintDisabledOpt :: Parser HlintUsage

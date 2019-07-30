@@ -67,7 +67,7 @@ data Options = Options
   } deriving Show
 
 data HlintUsage
-  = HlintEnabled { hlintUseDataDir::FilePath }
+  = HlintEnabled { hlintUseDataDir::FilePath, hlintAllowOverrides::Bool }
   | HlintDisabled
   deriving Show
 
@@ -108,7 +108,7 @@ mkOptions opts@Options {..} = do
     let defaultPkgDbDir = defaultPkgDb </> "pkg-db_dir"
     pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDbDir, projectPackageDatabase]
     case optHlintUsage of
-      HlintEnabled dir -> checkDirExists dir
+      HlintEnabled dir _ -> checkDirExists dir
       HlintDisabled -> return ()
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
