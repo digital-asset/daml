@@ -136,6 +136,7 @@ da_haskell_test(
         "directory",
         "tasty-hunit",
         "text",
+        "containers",
     ],
     main_function = "DA.Test.ShakeIdeClient.main",
     src_strip_prefix = "src",
