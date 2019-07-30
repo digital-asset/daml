@@ -114,6 +114,7 @@ private class LedgerApiServer(
     builder.workerEventLoopGroup(workerEventLoopGroup)
     builder.permitKeepAliveTime(10, TimeUnit.SECONDS)
     builder.permitKeepAliveWithoutCalls(true)
+    builder.maxInboundMessageSize(16777216) //4x of default one of 4194304
     val grpcServer = apiServices.services.foldLeft(builder)(_ addService _).build
     try {
       grpcServer.start()
