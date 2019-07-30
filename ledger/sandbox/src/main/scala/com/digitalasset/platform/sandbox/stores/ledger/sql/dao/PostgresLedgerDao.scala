@@ -15,7 +15,6 @@ import anorm.{AkkaStream, BatchSql, Macro, NamedParameter, RowParser, SQL, SqlPa
 import com.daml.ledger.participant.state.index.v2.PackageDetails
 import com.daml.ledger.participant.state.v1.TransactionId
 import com.digitalasset.daml.lf.archive.Decode
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.transaction.Node
@@ -845,10 +844,7 @@ private class PostgresLedgerDao(
               case (_, NodeCreate(coid, _, _, signatories, stakeholders, _))
                   if coid == absoluteCoid =>
                 (signatories, stakeholders diff signatories)
-            } getOrElse {
-            logger.warn(s"Unable to read stakeholders for contract $coid, returning empty result")
-            (Set.empty[Ref.Party], Set.empty[Ref.Party])
-          }
+            } getOrElse sys.error(s"no create node in contract creating transaction! cid:$coid")
 
         Contract(
           absoluteCoid,
