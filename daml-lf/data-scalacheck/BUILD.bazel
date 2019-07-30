@@ -4,34 +4,22 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test",
     "lf_scalacopts",
 )
 
 da_scala_library(
-    name = "data",
+    name = "data-scalacheck",
     srcs = glob(["src/main/**/*.scala"]),
-    scalacopts = lf_scalacopts,
-    tags = ["maven_coordinates=com.digitalasset:daml-lf-data:__VERSION__"],
-    visibility = [
-        "//visibility:public",
+    plugins = [
+        "//external:jar/org/spire_math/kind_projector_2_12",
     ],
-    deps = [
-        "//3rdparty/jvm/com/google/protobuf:protobuf_java",
-        "//3rdparty/jvm/org/scalaz:scalaz_core",
-    ],
-)
-
-da_scala_test(
-    name = "data-test",
-    size = "small",
-    srcs = glob(["src/test/**/*.scala"]),
     scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-data-scalacheck:__VERSION__"],
+    visibility = ["//visibility:public"],
     deps = [
-        ":data",
-        "//daml-lf/data-scalacheck",
         "//3rdparty/jvm/org/scalacheck",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
+        "//daml-lf/data",
     ],
 )

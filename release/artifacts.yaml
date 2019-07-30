@@ -28,6 +28,8 @@
   type: jar-proto
 - target: //daml-lf/transaction:transaction
   type: jar-scala
+- target: //daml-lf/data-scalacheck:data-scalacheck
+  type: jar
 - target: //daml-lf/transaction-scalacheck:transaction-scalacheck
   type: jar
 - target: //daml-lf/language:language

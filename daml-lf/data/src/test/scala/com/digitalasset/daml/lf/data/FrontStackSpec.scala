@@ -16,7 +16,7 @@ class FrontStackSpec
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks
     with Checkers {
-  import ImmArrayTest._, FrontStackSpec._
+  import DataArbitrary._
 
   "++:" should {
     "yield equal results to +:" in forAll { (ia: ImmArray[Int], fs: FrontStack[Int]) =>
@@ -64,23 +64,9 @@ class FrontStackSpec
   }
 
   "Equal instance" should {
-    import ImmArrayTest._
-    checkLaws(ScalazProperties.equal.laws[FrontStack[IntInt]])
+    checkLaws(ScalazProperties.equal.laws[FrontStack[Unnatural[Int]]])
   }
 
   private def checkLaws(props: Properties) =
     props.properties foreach { case (s, p) => s in check(p) }
-}
-
-object FrontStackSpec {
-  import org.scalacheck.Arbitrary
-  import ImmArrayTest._
-
-  implicit def arbFrontStack[A: Arbitrary]: Arbitrary[FrontStack[A]] =
-    Arbitrary(
-      Arbitrary
-        .arbitrary[Vector[(A, Option[ImmArray[A]])]]
-        .map(_.foldRight(FrontStack.empty[A]) {
-          case ((a, oia), acc) => oia.fold(a +: acc)(ia => (ia slowCons a) ++: acc)
-        }))
 }
