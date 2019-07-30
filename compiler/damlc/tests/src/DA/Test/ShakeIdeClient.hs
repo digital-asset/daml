@@ -844,6 +844,30 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [foo]
             expectedPoperties foo $ Set.fromList [TemplateProp (Set.fromList [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True]) 0]
+        , testCase' "Fetch shoud not be an action" $ do
+            fetchTest <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "    amount : Int"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      nonconsuming ReducedCoin : ContractId Coin"
+                , "        with otherCoin : ContractId Coin"
+                , "        do "
+                , "        cn <- fetch otherCoin "
+                , "        create this with amount = cn.amount - 10"
+                ]
+            setFilesOfInterest [fetchTest]
+            expectNoErrors
+            expectedPoperties fetchTest $ Set.fromList
+                [TemplateProp (Set.fromList
+                    [   ExpectedChoices "Archive" True,
+                        ExpectedChoices "ReducedCoin" False
+                    ])
+                    1
+                ]
     ]
     where
         testCase' = testCase Nothing
