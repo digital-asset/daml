@@ -14,7 +14,7 @@ import org.slf4j.LoggerFactory
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class SandboxResetService(
-    getLedgerId: () => LedgerId,
+    ledgerId: LedgerId,
     getEc: () => ExecutionContext,
     resetAndRestartServer: () => Future[Unit])
     extends ResetServiceGrpc.ResetService
@@ -33,7 +33,6 @@ class SandboxResetService(
     // * serve the response to the reset request;
     // * then, close all the services so hopefully the graceful shutdown will terminate quickly...
     // * ...but not before serving the request to the reset request itself, which we've already done.
-    val ledgerId = getLedgerId()
     Either
       .cond(
         ledgerId == LedgerId(request.ledgerId),

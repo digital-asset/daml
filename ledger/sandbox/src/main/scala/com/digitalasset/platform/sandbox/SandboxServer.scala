@@ -148,8 +148,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   def port: Int = sandboxState.apiServerState.port
 
   /** the reset service is special, since it triggers a server shutdown */
-  private val resetService: SandboxResetService = new SandboxResetService(
-    () => sandboxState.apiServerState.ledgerId,
+  private def resetService(ledgerId: LedgerId): SandboxResetService = new SandboxResetService(
+    ledgerId,
     () => sandboxState.infra.executionContext,
     () => sandboxState.resetAndRestartServer()
   )
@@ -235,7 +235,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
                     indexAndWriteService.publishHeartbeat
                   ))
             )(am, esf)
-            .map(_.withServices(List(resetService))),
+            .map(_.withServices(List(resetService(ledgerId)))),
         // NOTE(JM): Re-use the same port after reset.
         Option(sandboxState).fold(config.port)(_.apiServerState.port),
         config.maxInboundMessageSize,
