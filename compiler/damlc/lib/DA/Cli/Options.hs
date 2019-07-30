@@ -342,11 +342,11 @@ hlintEnabledOpt = HlintEnabled
   <$> strOption
   ( long "with-hlint"
     <> metavar "DIR"
-    <> help "Enable hlint with 'hlint.yaml' directory"
+    <> help "Enable linting with 'dlint.yaml' directory"
   )
   <*> switch
   ( long "allow-overrides"
-    <> help "Allow 'dlint.yaml' configuration overrides"
+    <> help "Allow '.dlint.yaml' configuration overrides"
   )
 
 hlintDisabledOpt :: Parser HlintUsage

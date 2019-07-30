@@ -26,6 +26,7 @@ module Development.IDE.Core.API.Testing
     , expectOneError
     , expectOnlyErrors
     , expectNoErrors
+    , expectDiagnostic
     , expectOnlyDiagnostics
     , expectNoDiagnostics
     , expectGoToDefinition
