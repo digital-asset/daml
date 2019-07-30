@@ -303,11 +303,13 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
                 Logger.GCP.logOptOut gcpState
                 f loggerH
             Undecided -> f loggerH
+    hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
     opts <- defaultOptionsIO Nothing
     opts <- pure $ opts
         { optScenarioService = enableScenarioService
         , optScenarioValidation = ScenarioValidationLight
         , optThreads = 0
+        , optHlintUsage = HlintEnabled hlintDataDir True
         }
     scenarioServiceConfig <- readScenarioServiceConfig
     withLogger $ \loggerH ->
@@ -353,7 +355,7 @@ execLint inputFile opts =
         runAction ide $ getHlintIdeas inputFile
         diags <- getDiagnostics ide
         if null diags then
-          hPutStrLn stderr "No hints."
+          hPutStrLn stderr "No hints"
         else
           exitFailure
   where
@@ -362,8 +364,8 @@ execLint inputFile opts =
        defaultDir <-locateRunfiles $
          mainWorkspace </> "compiler/damlc/daml-ide-core"
        return $ case optHlintUsage opts of
-         HlintEnabled _ -> opts
-         HlintDisabled  -> opts{optHlintUsage=HlintEnabled defaultDir}
+         HlintEnabled _ _ -> opts
+         HlintDisabled  -> opts{optHlintUsage=HlintEnabled defaultDir True}
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
