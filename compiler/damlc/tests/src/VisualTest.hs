@@ -18,15 +18,6 @@ import Development.IDE.Core.API.Testing
 import System.Environment.Blank (setEnv)
 import Control.Monad.Except
 
-data ExpectedChoices = ExpectedChoices
-    { _cName :: String
-    , _consuming :: Bool
-    } deriving (Eq, Show )
-data TemplateProp = TemplateProp
-    { _choices :: [ExpectedChoices]
-    , _action :: Int
-    } deriving (Eq, Show)
-
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
@@ -47,24 +38,24 @@ templateChoicesToProps tca  = TemplateProp choicesInTpl actl
     where choicesInTpl = map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
           actl = sum $ map (length . actions ) (choiceAndActions tca)
 
-graphTest :: LF.World -> LF.Package -> [TemplateProp] -> Either (String, String) ()
-graphTest wrld lfPkg tplProps =
-    if tplProps == map templateChoicesToProps tplPropsActual
+graphTest :: LF.World -> LF.Package -> [TemplateProp] -> Either [TemplateProp] ()
+graphTest wrld lfPkg expectedProps =
+    if expectedProps == map templateChoicesToProps tplPropsActual
         then Right ()
-        else Left (show tplProps, show $ map templateChoicesToProps tplPropsActual)
+        else Left $ map templateChoicesToProps tplPropsActual
     where tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
 
 expectedPoperties :: D.NormalizedFilePath -> [TemplateProp] -> ShakeTest ()
-expectedPoperties damlFilePath tplProps = do
+expectedPoperties damlFilePath expectedProps = do
     ideState <- ShakeTest $ Reader.asks steService
     mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
     case mbDalf of
         Just lfPkg -> do
             wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
-            case graphTest wrld lfPkg tplProps of
+            case graphTest wrld lfPkg expectedProps of
                 Right _ -> pure ()
-                Left (expected , actual) -> throwError (ExpectedNoMisMatch expected actual)
-        Nothing -> throwError (ExpectedNoErrors [])
+                Left actual -> throwError (ExpectedTemplateProps expectedProps actual)
+        Nothing -> throwError (ExpectedTemplateProps expectedProps [])
 
 visualDamlTests :: Tasty.TestTree
 visualDamlTests = Tasty.testGroup "Visual Tests"

@@ -10,6 +10,8 @@
 -- | Testing framework for Shake API.
 module Development.IDE.Core.API.Testing
     ( ShakeTest (..)
+    , TemplateProp(..)
+    , ExpectedChoices(..)
     , ShakeTestEnv (..)
     , ShakeTestError (..)
     , GoToDefinitionPattern (..)
@@ -91,7 +93,7 @@ data ShakeTestError
     | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.FileDiagnostic]
-    | ExpectedNoMisMatch String String
+    | ExpectedTemplateProps [TemplateProp] [TemplateProp]
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
@@ -109,6 +111,15 @@ data ShakeTestEnv = ShakeTestEnv
     , steVirtualResources :: TVar (Map VirtualResource T.Text)
     , steVirtualResourcesNotes :: TVar (Map VirtualResource T.Text)
     }
+
+data ExpectedChoices = ExpectedChoices
+    { _cName :: String
+    , _consuming :: Bool
+    } deriving (Eq, Show )
+data TemplateProp = TemplateProp
+    { _choices :: [ExpectedChoices]
+    , _action :: Int
+    } deriving (Eq, Show)
 
 -- | Monad for specifying Shake API tests. This type is abstract.
 newtype ShakeTest t = ShakeTest (ExceptT ShakeTestError (ReaderT ShakeTestEnv IO) t)
