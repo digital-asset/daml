@@ -128,9 +128,15 @@ instance MonoTraversable ModuleRef Kind where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinType where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
 
-instance MonoTraversable ModuleRef SourceLoc where
-  monoTraverse f sl@SourceLoc{slocModuleRef} =
-    (\mr -> sl {slocModuleRef = mr}) <$> traverse f slocModuleRef
+-- NOTE(SC): SourceLoc *does* have a ModuleRef in it; however, its main use is
+-- to collect all ModuleRefs in a module or package in order to figure out its
+-- dependencies. Inlining can cause location information to reference the
+-- original source file although there's not a proper dependency; in other
+-- words, with a visible SourceLoc ModuleRef, the dep graph would be somewhere
+-- between the actual dep graph and its transitive closure. See
+-- https://github.com/digital-asset/daml/pull/2327#discussion_r308445649 for
+-- discussion
+instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure
 
 instance MonoTraversable ModuleRef TypeConApp
 instance MonoTraversable ModuleRef Type
