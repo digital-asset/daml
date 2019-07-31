@@ -1,24 +1,24 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.acceptance
+package com.daml.ledger.api.rewrite.testtool
 
 import java.util.concurrent.Executors
 
-import com.daml.ledger.acceptance.infrastructure.Reporter.ColorizedPrintStreamReporter
-import com.daml.ledger.acceptance.infrastructure.{
+import com.daml.ledger.api.rewrite.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
+import com.daml.ledger.api.rewrite.testtool.infrastructure.{
   LedgerSession,
   LedgerSessionConfiguration,
   LedgerTestSuiteRunner
 }
-import com.daml.ledger.acceptance.tests.{Divulgence, Identity}
+import com.daml.ledger.api.rewrite.testtool.tests.{Divulgence, Identity}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
-object Main {
+object LedgerApiTestTool {
 
   private val logger = LoggerFactory.getLogger(getClass.getName.stripSuffix("$"))
 

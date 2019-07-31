@@ -87,17 +87,15 @@ da_scala_binary(
 )
 
 da_scala_binary(
-    name = "ledger-acceptance",
+    name = "ledger-api-test-tool-rewrite",
     srcs = glob([
-        "src/main/scala/com/daml/ledger/acceptance/**/*.scala",
+        "src/main/scala/com/daml/ledger/api/rewrite/testtool/**/*.scala",
     ]),
-    data = [
-        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-        "//ledger/sandbox:Test.dar",
-    ],
-    main_class = "com.daml.ledger.acceptance.Main",
+    main_class = "com.daml.ledger.api.rewrite.testtool.LedgerApiTestTool",
     resources = [
         "src/main/resources/logback.xml",
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
     ],
     tags = [
         "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
@@ -186,7 +184,7 @@ client_server_test(
 
 client_server_test(
     name = "test-probe-x-ref",
-    client = ":ledger-acceptance",
+    client = ":ledger-api-test-tool-rewrite",
     data = [
         "//ledger/sandbox:Test.dar",
     ],
@@ -198,24 +196,26 @@ client_server_test(
 
 client_server_test(
     name = "test-probe-sandbox-static-time",
-    client = ":ledger-acceptance",
+    client = ":ledger-api-test-tool-rewrite",
     data = [
         "//ledger/sandbox:Test.dar",
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
+        "--port=0",
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
     ],
 )
 
 client_server_test(
     name = "test-probe-sandbox",
-    client = ":ledger-acceptance",
+    client = ":ledger-api-test-tool-rewrite",
     data = [
         "//ledger/sandbox:Test.dar",
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
+        "--port=0",
         "--wall-clock-time",
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
     ],

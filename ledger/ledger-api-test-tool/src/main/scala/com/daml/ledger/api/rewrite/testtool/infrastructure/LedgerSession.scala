@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.acceptance.infrastructure
+package com.daml.ledger.api.rewrite.testtool.infrastructure
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -16,7 +16,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 import scala.util.Try
 
-private[acceptance] final class LedgerSession private (
+private[testtool] final class LedgerSession private (
     val config: LedgerSessionConfiguration,
     channel: ManagedChannel,
     eventLoopGroup: NioEventLoopGroup)(implicit ec: ExecutionContext) {
@@ -25,10 +25,10 @@ private[acceptance] final class LedgerSession private (
 
   private[this] val bindings: LedgerBindings = new LedgerBindings(channel)
 
-  private[acceptance] def createTestContext(): LedgerTestContext =
+  private[testtool] def createTestContext(): LedgerTestContext =
     new LedgerTestContext(UUID.randomUUID.toString, bindings)
 
-  private[acceptance] def close(): Unit = {
+  private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from ledger at ${config.address}:${config.port}...")
     channel.shutdownNow()
     if (!channel.awaitTermination(10L, TimeUnit.SECONDS)) {
@@ -45,7 +45,7 @@ private[acceptance] final class LedgerSession private (
 
 }
 
-private[acceptance] object LedgerSession {
+private[testtool] object LedgerSession {
 
   private val logger = LoggerFactory.getLogger(classOf[LedgerSession])
 

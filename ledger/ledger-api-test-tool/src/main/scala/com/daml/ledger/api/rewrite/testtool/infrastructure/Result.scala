@@ -1,13 +1,13 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.acceptance.infrastructure
+package com.daml.ledger.api.rewrite.testtool.infrastructure
 
-private[acceptance] sealed trait Result {
+private[testtool] sealed trait Result {
   def failure: Boolean
 }
 
-private[acceptance] object Result {
+private[testtool] object Result {
 
   case object Succeeded extends Result {
     val failure: Boolean = false

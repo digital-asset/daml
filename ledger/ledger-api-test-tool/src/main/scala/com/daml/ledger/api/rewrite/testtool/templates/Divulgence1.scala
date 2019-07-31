@@ -1,9 +1,9 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.acceptance.templates
+package com.daml.ledger.api.rewrite.testtool.templates
 
-import com.daml.ledger.acceptance.infrastructure.LedgerTestContext
+import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestContext
 import com.digitalasset.ledger.api.v1.value.Value.Sum.Party
 
 import scala.concurrent.Future
