@@ -18,6 +18,7 @@ object Main {
   final case class Config(
       generateKeys: Option[GenerateKeys] = None,
       generateJwt: Option[GenerateJwt] = None)
+
   final case class GenerateKeys(secret: Option[String] = None)
   final case class GenerateJwt(publicKey: Option[File] = None, privateKey: Option[File] = None)
 
