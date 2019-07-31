@@ -194,11 +194,15 @@ createArchive dalf hash modRoot dalfDependencies fileDependencies dataFiles name
             [ "Manifest-Version: 1.0"
             , "Created-By: Digital Asset packager (DAML-GHC)"
             , "Sdk-Version: " <> sdkVersion
-            , breakAt72Chars $ "Main-Dalf: " <> location
-            , breakAt72Chars $ "Dalfs: " <> intercalate ", " dalfs
+            , breakAt72Chars $ "Main-Dalf: " <> toPosixFilePath location
+            , breakAt72Chars $ "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
             , "Format: daml-lf"
             , "Encryption: non-encrypted"
             ]
+    -- zip entries do have posix filepaths. hence the entries in the manifest also need to be posix
+    -- files paths regardless of the operatin system.
+    toPosixFilePath :: FilePath -> FilePath
+    toPosixFilePath = replace "\\" "/"
 
 breakAt72Chars :: String -> String
 breakAt72Chars s = case splitAt 72 s of
