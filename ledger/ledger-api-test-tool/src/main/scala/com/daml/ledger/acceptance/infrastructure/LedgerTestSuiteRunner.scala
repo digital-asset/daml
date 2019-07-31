@@ -35,7 +35,7 @@ final class LedgerTestSuiteRunner(executionContext: ExecutionContext) {
     val timeout = new Timeout(execution)
     timer.schedule(timeout, timeoutMillis)
     logger.info(s"Started $timeoutMillis ms timeout for '${test.description}'...")
-    val startedTest = test(new LedgerTestContext(executionContext, session))
+    val startedTest = test(session.createTestContext())
     logger.info(s"Started '${test.description}'!")
     startedTest.onComplete { _ =>
       logger.info(s"Finished '${test.description}")
@@ -69,8 +69,7 @@ final class LedgerTestSuiteRunner(executionContext: ExecutionContext) {
       suite: LedgerTestSuite,
       test: LedgerTest,
       result: Future[Result]): Future[LedgerTestSummary] =
-    result.map(LedgerTestSummary(suite.name, test.description, suite.session.configuration, _))(
-      parasitic)
+    result.map(LedgerTestSummary(suite.name, test.description, suite.session.config, _))(parasitic)
 
   private def run(test: LedgerTest, session: LedgerSession): Future[Result] =
     result(start(test, session))

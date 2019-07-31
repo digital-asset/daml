@@ -5,8 +5,6 @@ package com.daml.ledger.acceptance.infrastructure
 
 import java.io.PrintStream
 
-import com.digitalasset.platform.services.time.TimeProviderType
-
 trait Reporter[A] extends ((Vector[LedgerTestSummary]) => A)
 
 object Reporter {
@@ -22,22 +20,7 @@ object Reporter {
     private def cyan(s: String): String = s"\u001b[36m$s$reset"
 
     private def render(configuration: LedgerSessionConfiguration): String =
-      configuration match {
-        case LedgerSessionConfiguration.Managed(config) =>
-          List(
-            "type" -> "managed",
-            "port" -> config.port.toString,
-            "tls" -> config.tlsConfig.isDefined.toString,
-            "jdbc" -> config.jdbcUrl.getOrElse("none (in-memory)"),
-            "dars" -> config.damlPackages.map(_.getName).mkString("[", ", ", "]"),
-            "time" -> (config.timeProviderType match {
-              case TimeProviderType.Static => "static"
-              case TimeProviderType.StaticAllowBackwards => "static (allow backwards)"
-              case TimeProviderType.WallClock => "wall clock"
-            })
-          ).map { case (key, value) => s"$key = $value" }
-            .mkString("Ledger session configuration: { ", ", ", " }")
-      }
+      configuration.toString
   }
 
   final class ColorizedPrintStreamReporter(s: PrintStream) extends Reporter[Unit] {

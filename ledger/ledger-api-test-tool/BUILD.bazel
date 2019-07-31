@@ -183,3 +183,49 @@ client_server_test(
         "exclusive",
     ],
 )
+
+client_server_test(
+    name = "test-probe-x-ref",
+    client = ":ledger-acceptance",
+    data = [
+        "//ledger/sandbox:Test.dar",
+    ],
+    server = "//ledger/api-server-damlonx/reference:reference",
+    server_args = [
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
+    ],
+)
+
+client_server_test(
+    name = "test-probe-sandbox-static-time",
+    client = ":ledger-acceptance",
+    data = [
+        "//ledger/sandbox:Test.dar",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
+    ],
+)
+
+client_server_test(
+    name = "test-probe-sandbox",
+    client = ":ledger-acceptance",
+    data = [
+        "//ledger/sandbox:Test.dar",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--wall-clock-time",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
+    ],
+)
+
+test_suite(
+    name = "test",
+    tests = [
+        ":test-probe-sandbox",
+        ":test-probe-sandbox-static-time",
+        ":test-probe-x-ref",
+    ],
+)

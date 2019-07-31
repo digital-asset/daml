@@ -3,7 +3,7 @@
 
 package com.daml.ledger.acceptance
 
-import java.io.File
+import java.util.concurrent.Executors
 
 import com.daml.ledger.acceptance.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.acceptance.infrastructure.{
@@ -12,9 +12,6 @@ import com.daml.ledger.acceptance.infrastructure.{
   LedgerTestSuiteRunner
 }
 import com.daml.ledger.acceptance.tests.{Divulgence, Identity}
-import com.digitalasset.daml.bazeltools.BazelRunfiles
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-import com.digitalasset.platform.services.time.TimeProviderType.WallClock
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -27,12 +24,16 @@ object Main {
 
   def main(args: Array[String]): Unit = {
 
-    val testDar = new File(BazelRunfiles.rlocation("ledger/sandbox/Test.dar"))
+    val config = Cli.parse(args).getOrElse(sys.exit(1))
+
+    implicit val ec: ExecutionContext = {
+      val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+      val _ = sys.addShutdownHook { val _ = ec.shutdownNow() }
+      ec
+    }
 
     val configurations = Vector(
-      LedgerSessionConfiguration.Managed(
-        SandboxConfig.default
-          .copy(port = 0, damlPackages = List(testDar), timeProviderType = WallClock))
+      LedgerSessionConfiguration(config.host, config.port)
     )
 
     val sessions =
@@ -40,7 +41,7 @@ object Main {
         (sessions, attempt) =>
           attempt match {
             case Failure(NonFatal(cause)) =>
-              logger.error(s"A managed ledger session could not be started, quitting...", cause)
+              logger.error(s"A ledger session could not be started, quitting...", cause)
               sys.exit(1)
             case Success(session) => sessions :+ session
           }
@@ -51,19 +52,20 @@ object Main {
     val testSuites =
       for (session <- sessions; suiteConstructor <- suiteConstructors)
         yield suiteConstructor(session)
-
-    implicit val ec: ExecutionContext = ExecutionContext.global
     val runner = new LedgerTestSuiteRunner(ec)
+    val startedTests = Future.sequence(testSuites.flatMap(runner.run))
 
-    Future.sequence(testSuites.flatMap(runner.run)).onComplete {
-      case Success(results) =>
-        LedgerSession.closeAll()
-        new ColorizedPrintStreamReporter(System.out)(results)
-      case Failure(e) =>
-        LedgerSession.closeAll()
-        logger.error("Unexpected uncaught exception, terminating!", e)
-        sys.exit(1)
-    }
+    startedTests.onComplete(result => {
+      LedgerSession.closeAll()
+      result match {
+        case Success(results) =>
+          new ColorizedPrintStreamReporter(System.out)(results)
+          sys.exit(if (results.exists(_.result.failure)) 1 else 0)
+        case Failure(e) =>
+          logger.error("Unexpected uncaught exception, terminating!", e)
+          sys.exit(1)
+      }
+    })
 
   }
 
