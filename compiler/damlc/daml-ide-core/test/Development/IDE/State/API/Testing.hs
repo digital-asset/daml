@@ -84,6 +84,7 @@ import           Control.Monad.IO.Class (MonadIO (liftIO))
 import           System.IO.Temp         (withSystemTempDirectory)
 import           System.IO.Extra
 import           Control.Monad
+import           Control.Monad.Fail
 import           Data.Maybe
 import           Data.List.Extra
 
@@ -101,6 +102,7 @@ data ShakeTestError
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
+    | PatternMatchFailure String
     deriving (Eq, Show)
 
 -- | Results of a successful test.
@@ -128,6 +130,9 @@ data TemplateProp = TemplateProp
 -- | Monad for specifying Shake API tests. This type is abstract.
 newtype ShakeTest t = ShakeTest (ExceptT ShakeTestError (ReaderT ShakeTestEnv IO) t)
     deriving (Functor, Applicative, Monad, MonadIO, MonadError ShakeTestError)
+
+instance MonadFail ShakeTest where
+    fail =  throwError . PatternMatchFailure
 
 pattern EventVirtualResourceChanged :: VirtualResource -> T.Text -> FromServerMessage
 pattern EventVirtualResourceChanged vr doc <-
@@ -525,11 +530,11 @@ expectedTemplatePoperties :: D.NormalizedFilePath -> Set.Set TemplateProp -> Sha
 expectedTemplatePoperties damlFilePath expectedProps = do
     ideState <- ShakeTest $ Reader.asks steService
     mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
-    case mbDalf of
-        Just lfPkg -> do
-            wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
-            graphTest wrld lfPkg expectedProps
-        Nothing -> throwError (ExpectedTemplateProps expectedProps Set.empty)
+    expectNoErrors
+    Just lfPkg <- pure mbDalf
+    wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
+    graphTest wrld lfPkg expectedProps
+
 
 -- | Example testing scenario.
 example :: ShakeTest ()
