@@ -43,13 +43,13 @@ manifestMapToManifest hash = Manifest mainDalf dependDalfs
 manifestDataFromDar :: Archive -> Manifest -> ManifestData
 manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyDalfBytes
     where
-        manifestDalfByte = headNote ("manifestDalfByte: " ++ "main-dalf:" ++ mainDalf manifest ++ show [eRelativePath e | e <- zEntries archive]) [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest]
+        manifestDalfByte = headNote "manifestDalfByte" [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest]
         dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && elem (trim (eRelativePath e))  (dalfs manifest)]
 
 manifestFromDar :: Archive -> ManifestData
 manifestFromDar dar = manifestDataFromDar dar manifest
     where
-        manifestEntry = headNote "manifestEntry" $ [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
+        manifestEntry = headNote "manifestEntry" [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
         manifestLines = multiLineContent $ UTF8.toString manifestEntry
         manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue manifestLines
 

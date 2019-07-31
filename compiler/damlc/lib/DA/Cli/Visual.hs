@@ -121,7 +121,7 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
 tplNameUnqual :: LF.Template -> T.Text
-tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" $ (LF.unTypeConName tplTypeCon)
+tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" (LF.unTypeConName tplTypeCon)
 
 choiceNameWithId :: [TemplateChoices] -> Map.Map InternalChcName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
