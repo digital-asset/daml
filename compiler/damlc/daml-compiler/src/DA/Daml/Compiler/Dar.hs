@@ -1,13 +1,11 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
-
 module DA.Daml.Compiler.Dar
-  ( buildDar
-  , FromDalf(..)
-  , breakAt72Chars
-  , PackageConfigFields(..)
-  ) where
+    ( buildDar
+    , FromDalf(..)
+    , breakAt72Chars
+    , PackageConfigFields(..)
+    ) where
 
 import qualified Codec.Archive.Zip as Zip
 import Control.Monad.Extra
@@ -17,22 +15,22 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
 import Data.List.Extra
-import Data.Maybe
 import qualified Data.Map.Strict as Map
+import Data.Maybe
 import qualified Data.Set as S
 import qualified Data.Text as T
 import System.FilePath
 
 import Module (unitIdString)
 
-import Development.IDE.Core.Rules.Daml
-import Development.IDE.Core.RuleTypes.Daml
-import Development.IDE.Core.API
-import Development.IDE.Types.Location
-import qualified Development.IDE.Types.Logger as IdeLogger
-import DA.Daml.Options.Types
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.Options.Types
+import Development.IDE.Core.API
+import Development.IDE.Core.RuleTypes.Daml
+import Development.IDE.Core.Rules.Daml
+import Development.IDE.Types.Location
+import qualified Development.IDE.Types.Logger as IdeLogger
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -59,10 +57,10 @@ The dar archive should stay independent of the dependency resolution tool. There
 gernerated separately.
 
 -}
-
-
 -- | If true, we create the DAR from an existing .dalf file instead of compiling a *.daml file.
-newtype FromDalf = FromDalf{unFromDalf :: Bool}
+newtype FromDalf = FromDalf
+    { unFromDalf :: Bool
+    }
 
 -- | daml.yaml config fields specific to packaging.
 data PackageConfigFields = PackageConfigFields
@@ -74,55 +72,55 @@ data PackageConfigFields = PackageConfigFields
     , pSdkVersion :: String
     }
 
-buildDar
-  :: IdeState
-  -> PackageConfigFields
-  -> NormalizedFilePath
-  -> FromDalf
-  -> IO (Maybe BS.ByteString)
-buildDar service pkgConf@PackageConfigFields{..} ifDir dalfInput = do
-  liftIO $
-    IdeLogger.logDebug (ideLogger service) $
-    "Creating dar: " <> T.pack pMain
-  if unFromDalf dalfInput
-    then liftIO $ Just <$> do
-      bytes <- BSL.readFile pMain
-      createArchive
-        pkgConf
-        ""
-        bytes
-        []
-        []
-        []
-        []
-    else runAction service $ runMaybeT $ do
-      WhnfPackage pkg <- useE GeneratePackage file
-      let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
-      let missingExposed = S.fromList (fromMaybe [] pExposedModules) S.\\ S.fromList pkgModuleNames
-      unless (S.null missingExposed) $
-          -- FIXME: Should be producing a proper diagnostic
-          error $
-              "The following modules are declared in exposed-modules but are not part of the DALF: " <>
-              show (S.toList missingExposed)
-      let (dalf, pkgId) = encodeArchiveAndHash pkg
-      -- create the interface files
-      ifaces <- MaybeT $ writeIfacesAndHie ifDir file
-      -- get all dalf dependencies.
-      dalfDependencies0 <- getDalfDependencies file
-      let dalfDependencies =
-              [ (T.pack $ unitIdString unitId, dalfPackageBytes pkg) | (unitId, pkg) <- Map.toList dalfDependencies0 ]
-      -- get all file dependencies
-      fileDependencies <- MaybeT $ getDependencies file
-      let dataFiles = [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
-      liftIO $
-        createArchive
-          pkgConf
-          (T.unpack pkgId)
-          dalf
-          dalfDependencies
-          (file:fileDependencies)
-          dataFiles
-          ifaces
+buildDar ::
+       IdeState
+    -> PackageConfigFields
+    -> NormalizedFilePath
+    -> FromDalf
+    -> IO (Maybe BS.ByteString)
+buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
+    liftIO $
+        IdeLogger.logDebug (ideLogger service) $
+        "Creating dar: " <> T.pack pMain
+    if unFromDalf dalfInput
+        then liftIO $
+             Just <$> do
+                 bytes <- BSL.readFile pMain
+                 createArchive pkgConf "" bytes [] [] [] []
+        else runAction service $
+             runMaybeT $ do
+                 WhnfPackage pkg <- useE GeneratePackage file
+                 let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
+                 let missingExposed =
+                         S.fromList (fromMaybe [] pExposedModules) S.\\
+                         S.fromList pkgModuleNames
+                 unless (S.null missingExposed) $
+                     -- FIXME: Should be producing a proper diagnostic
+                     error $
+                     "The following modules are declared in exposed-modules but are not part of the DALF: " <>
+                     show (S.toList missingExposed)
+                 let (dalf, pkgId) = encodeArchiveAndHash pkg
+                 -- create the interface files
+                 ifaces <- MaybeT $ writeIfacesAndHie ifDir file
+                 -- get all dalf dependencies.
+                 dalfDependencies0 <- getDalfDependencies file
+                 let dalfDependencies =
+                         [ (T.pack $ unitIdString unitId, dalfPackageBytes pkg)
+                         | (unitId, pkg) <- Map.toList dalfDependencies0
+                         ]
+                 -- get all file dependencies
+                 fileDependencies <- MaybeT $ getDependencies file
+                 let dataFiles =
+                         [mkConfFile pkgConf pkgModuleNames (T.unpack pkgId)]
+                 liftIO $
+                     createArchive
+                         pkgConf
+                         (T.unpack pkgId)
+                         dalf
+                         dalfDependencies
+                         (file : fileDependencies)
+                         dataFiles
+                         ifaces
   where
     file = toNormalizedFilePath pMain
 
@@ -131,7 +129,7 @@ fullPkgName n v h = intercalate "-" [n, v, h]
 
 mkConfFile ::
        PackageConfigFields -> [String] -> String -> (String, BS.ByteString)
-mkConfFile PackageConfigFields{..} pkgModuleNames pkgId = (confName, bs)
+mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
   where
     confName = pName ++ ".conf"
     key = fullPkgName pName pVersion pkgId
@@ -145,10 +143,7 @@ mkConfFile PackageConfigFields{..} pkgModuleNames pkgId = (confName, bs)
             , "version: " ++ pVersion
             , "exposed: True"
             , "exposed-modules: " ++
-              unwords
-                  (fromMaybe
-                       pkgModuleNames
-                       pExposedModules)
+              unwords (fromMaybe pkgModuleNames pExposedModules)
             , "import-dirs: ${pkgroot}" </> key
             , "library-dirs: ${pkgroot}" </> key
             , "data-dir: ${pkgroot}" </> key
@@ -166,7 +161,7 @@ createArchive ::
     -> [(String, BS.ByteString)] -- ^ Data files
     -> [NormalizedFilePath] -- ^ Interface files
     -> IO BS.ByteString
-createArchive PackageConfigFields{..} pkgId dalf dalfDependencies fileDependencies dataFiles ifaces
+createArchive PackageConfigFields {..} pkgId dalf dalfDependencies fileDependencies dataFiles ifaces
  = do
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
@@ -178,7 +173,6 @@ createArchive PackageConfigFields{..} pkgId dalf dalfDependencies fileDependenci
                 ( pkgName </>
                   fromNormalizedFilePath (makeRelative' modRoot mPath)
                 , contents)
-
     ifaceFaceFiles <-
         forM ifaces $ \mPath -> do
             contents <- BSL.readFile $ fromNormalizedFilePath mPath
@@ -219,7 +213,8 @@ createArchive PackageConfigFields{..} pkgId dalf dalfDependencies fileDependenci
             , "Created-By: Digital Asset packager (DAML-GHC)"
             , "Sdk-Version: " <> pSdkVersion
             , breakAt72Chars $ "Main-Dalf: " <> toPosixFilePath location
-            , breakAt72Chars $ "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
+            , breakAt72Chars $
+              "Dalfs: " <> intercalate ", " (map toPosixFilePath dalfs)
             , "Format: daml-lf"
             , "Encryption: non-encrypted"
             ]
@@ -231,9 +226,10 @@ createArchive PackageConfigFields{..} pkgId dalf dalfDependencies fileDependenci
 -- | Break lines at 72 characters and indent following lines by one space. As of MANIFEST.md
 -- specification.
 breakAt72Chars :: String -> String
-breakAt72Chars s = case splitAt 72 s of
-  (s0, []) -> s0
-  (s0, rest) -> s0 ++ "\n" ++ breakAt72Chars (" " ++ rest)
+breakAt72Chars s =
+    case splitAt 72 s of
+        (s0, []) -> s0
+        (s0, rest) -> s0 ++ "\n" ++ breakAt72Chars (" " ++ rest)
 
 -- | Like `makeRelative` but also takes care of normalising filepaths so
 --
@@ -243,4 +239,6 @@ breakAt72Chars s = case splitAt 72 s of
 --
 -- > makeRelative "./a" "a/b" == "a/b"
 makeRelative' :: NormalizedFilePath -> NormalizedFilePath -> NormalizedFilePath
-makeRelative' a b = toNormalizedFilePath $ makeRelative (fromNormalizedFilePath a) (fromNormalizedFilePath b)
+makeRelative' a b =
+    toNormalizedFilePath $
+    makeRelative (fromNormalizedFilePath a) (fromNormalizedFilePath b)
