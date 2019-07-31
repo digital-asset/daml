@@ -116,11 +116,14 @@ mkOptions opts@Options {..} = do
           unless ok $ fail $ "Required directory does not exist: " <> f
         versionSuffix = renderPretty optDamlLfVersion
 
--- | Default configuration for the compiler with package database set according to daml-lf version
--- and located runfiles. If the version argument is Nothing it is set to the default daml-lf
--- version.
+-- | Default configuration for the compiler with package database set
+-- according to daml-lf version and located runfiles. If the version
+-- argument is Nothing it is set to the default daml-lf
+-- version. Linting is enabled but not '.dlint.yaml' overrides.
 defaultOptionsIO :: Maybe LF.Version -> IO Options
-defaultOptionsIO mbVersion = mkOptions $ defaultOptions mbVersion
+defaultOptionsIO mbVersion = do
+  hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+  mkOptions $ (defaultOptions mbVersion){optHlintUsage=HlintEnabled hlintDataDir False}
 
 defaultOptions :: Maybe LF.Version -> Options
 defaultOptions mbVersion =
