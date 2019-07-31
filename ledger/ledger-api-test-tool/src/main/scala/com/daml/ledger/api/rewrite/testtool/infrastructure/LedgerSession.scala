@@ -29,18 +29,18 @@ private[testtool] final class LedgerSession private (
     new LedgerTestContext(UUID.randomUUID.toString, bindings)
 
   private[testtool] def close(): Unit = {
-    logger.info(s"Disconnecting from ledger at ${config.address}:${config.port}...")
+    logger.info(s"Disconnecting from ledger at ${config.host}:${config.port}...")
     channel.shutdownNow()
     if (!channel.awaitTermination(10L, TimeUnit.SECONDS)) {
       sys.error("Channel shutdown stuck. Unable to recover. Terminating.")
     }
-    logger.info(s"Connection to ledger under test at ${config.address}:${config.port} shut down.")
+    logger.info(s"Connection to ledger under test at ${config.host}:${config.port} shut down.")
     if (!eventLoopGroup
         .shutdownGracefully(0, 0, TimeUnit.SECONDS)
         .await(10L, TimeUnit.SECONDS)) {
       sys.error("Unable to shutdown event loop. Unable to recover. Terminating.")
     }
-    logger.info(s"Ledger connection to ${config.address}:${config.port} closed.")
+    logger.info(s"Ledger connection to ${config.host}:${config.port} closed.")
   }
 
 }
@@ -53,8 +53,8 @@ private[testtool] object LedgerSession {
 
   private def create(config: LedgerSessionConfiguration)(
       implicit ec: ExecutionContext): Try[LedgerSession] = Try {
-    logger.info(s"Connecting to ledger at ${config.address}:${config.port}...")
-    val threadFactoryPoolName = s"grpc-event-loop-${config.address}-${config.port}"
+    logger.info(s"Connecting to ledger at ${config.host}:${config.port}...")
+    val threadFactoryPoolName = s"grpc-event-loop-${config.host}-${config.port}"
     val daemonThreads = true
     val threadFactory: DefaultThreadFactory =
       new DefaultThreadFactory(threadFactoryPoolName, daemonThreads)
@@ -66,12 +66,12 @@ private[testtool] object LedgerSession {
     logger.info(
       s"gRPC event loop thread group instantiated with $threadCount threads using pool '$threadFactoryPoolName'")
     val managedChannel = NettyChannelBuilder
-      .forAddress(config.address, config.port)
+      .forAddress(config.host, config.port)
       .eventLoopGroup(eventLoopGroup)
       .usePlaintext()
       .directExecutor()
       .build()
-    logger.info(s"Connection to ledger under test open on ${config.address}:${config.port}")
+    logger.info(s"Connection to ledger under test open on ${config.host}:${config.port}")
     new LedgerSession(config, managedChannel, eventLoopGroup)
   }
 
