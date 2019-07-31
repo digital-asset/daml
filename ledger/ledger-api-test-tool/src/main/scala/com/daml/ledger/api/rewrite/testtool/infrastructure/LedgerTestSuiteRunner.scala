@@ -32,7 +32,7 @@ object LedgerTestSuiteRunner {
 
 final class LedgerTestSuiteRunner(executionContext: ExecutionContext) {
 
-  private[this] val timeoutMillis: Long = 5000L
+  private[this] val timeoutMillis: Long = 30000L
 
   private def start(test: LedgerTest, session: LedgerSession): Future[Unit] = {
     val execution = Promise[Unit]()
