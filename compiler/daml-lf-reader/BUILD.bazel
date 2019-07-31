@@ -11,6 +11,7 @@ da_haskell_library(
         "bytestring",
         "extra",
         "filepath",
+        "safe",
         "unordered-containers",
         "utf8-string",
         "zip-archive",

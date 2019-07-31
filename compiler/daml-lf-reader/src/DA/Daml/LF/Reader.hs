@@ -14,7 +14,7 @@ import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.HashMap.Strict as Map
 import Data.List.Extra
 import System.FilePath
-import Data.Char
+import Safe
 
 data Manifest = Manifest
     { mainDalf :: FilePath
@@ -31,31 +31,25 @@ lineToKeyValue line = case splitOn ":" line of
     [l, r] -> (trim l , trim r)
     _ -> error $ "Expected two fields in line " <> line
 
-multiLineContent :: [String] -> [String]
-multiLineContent [] = []
-multiLineContent (x:xs)
-  | all isSpace x = multiLineContent xs
-  | otherwise = (x ++ concatMap trim ys) : multiLineContent zs
-    where
-      (ys, zs) = span (isPrefixOf " ") xs
+multiLineContent :: String -> [String]
+multiLineContent = filter (not . null) . lines . replace "\n " ""
 
 manifestMapToManifest :: Map.HashMap String String -> Manifest
 manifestMapToManifest hash = Manifest mainDalf dependDalfs
     where
-        mainDalf = Map.lookupDefault "unknown" "Main-Dalf" hash
-        dependDalfs = map trim $ delete mainDalf (splitOn "," (Map.lookupDefault "unknown" "Dalfs" hash))
+        mainDalf = Map.lookupDefault (error "no Main-Dalf entry in manifest") "Main-Dalf" hash
+        dependDalfs = map trim $ delete mainDalf (splitOn "," (Map.lookupDefault (error "no Dalfs entry in manifest") "Dalfs" hash))
 
 manifestDataFromDar :: Archive -> Manifest -> ManifestData
 manifestDataFromDar archive manifest = ManifestData manifestDalfByte dependencyDalfBytes
     where
-        manifestDalfByte = head [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest]
+        manifestDalfByte = headNote "manifestDalfByte" [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && eRelativePath e  == mainDalf manifest]
         dependencyDalfBytes = [fromEntry e | e <- zEntries archive, ".dalf" `isExtensionOf` eRelativePath e  && elem (trim (eRelativePath e))  (dalfs manifest)]
 
 manifestFromDar :: Archive -> ManifestData
 manifestFromDar dar = manifestDataFromDar dar manifest
     where
-        manifestEntry = head [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
-        linesStr = lines $ UTF8.toString manifestEntry
-        manifestLines = multiLineContent (filter (not . null) linesStr)
+        manifestEntry = headNote "manifestEntry" [fromEntry e | e <- zEntries dar, ".MF" `isExtensionOf` eRelativePath e]
+        manifestLines = multiLineContent $ UTF8.toString manifestEntry
         manifest = manifestMapToManifest $ Map.fromList $ map lineToKeyValue manifestLines
 
