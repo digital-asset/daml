@@ -1,9 +1,7 @@
-
 .. _module-proposaldsl-55246:
 
 Module ProposalDSL
 ------------------
-
 
 Templates
 ^^^^^^^^^
@@ -21,13 +19,16 @@ Templates
        - Description
      * - asset
        - t
-       -
+       - 
      * - receivers
        - [Party]
-       -
+       - 
      * - name
        - Text
-       -
-
+       - 
+  
   + **Choice Accept**
+    
+  
   + **Choice External:Archive**
+    

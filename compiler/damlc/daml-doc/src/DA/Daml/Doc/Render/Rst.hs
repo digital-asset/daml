@@ -4,271 +4,99 @@
 {-# LANGUAGE DerivingStrategies #-}
 
 module DA.Daml.Doc.Render.Rst
-  ( renderSimpleRst
+  ( renderRst
   ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Render.Util
 import DA.Daml.Doc.Render.Monoid
 
 import qualified Data.Text.Prettyprint.Doc as Pretty
-import           Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
-import           Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
+import Data.Text.Prettyprint.Doc (Doc, defaultLayoutOptions, layoutPretty, pretty, (<+>))
+import Data.Text.Prettyprint.Doc.Render.Text (renderStrict)
 
-import           Data.Char
-import           Data.Maybe
+import Data.Char
 import qualified Data.Text as T
 import Data.List.Extra
 
 import CMarkGFM
 
-renderAnchor :: Maybe Anchor -> RenderOut
-renderAnchor Nothing = mempty
-renderAnchor (Just anchor) = mconcat
-    [ renderDeclareAnchor anchor
-    , renderLines
-        [ ""
-        , ".. _" <> unAnchor anchor <> ":"
-        , ""
-        ]
-    ]
+renderRst :: RenderEnv -> RenderOut -> [T.Text]
+renderRst env = \case
+    RenderSpaced chunks -> spaced (map (renderRst env) chunks)
+    RenderModuleHeader title -> header "-" title
+    RenderSectionHeader title -> header "^" title
+    RenderBlock block -> indent (renderRst env block)
+    RenderList items -> spaced (map (bullet . renderRst env) items)
+    RenderRecordFields fields -> renderRstFields env fields
+    RenderParagraph text -> [renderRstText env text]
+    RenderDocs docText -> docTextToRst docText
+    RenderAnchor anchor -> [".. _" <> unAnchor anchor <> ":"]
 
-renderDocText :: DocText -> RenderOut
-renderDocText = renderLines . T.lines . docTextToRst
+renderRstText :: RenderEnv -> RenderText -> T.Text
+renderRstText env = \case
+    RenderConcat ts -> mconcatMap (renderRstText env) ts
+    RenderPlain text -> text
+    RenderStrong text -> T.concat ["**", text, "**"]
+    RenderLink anchor text ->
+        case lookupAnchor env anchor of
+            Nothing -> text
+            Just _ -> T.concat ["`", text, " <", unAnchor anchor, "_>`_"]
+    RenderDocsInline docText ->
+        T.unwords (docTextToRst docText)
 
-renderSimpleRst :: ModuleDoc -> RenderOut
-renderSimpleRst ModuleDoc{..}
-  | null md_templates && null md_classes &&
-    null md_adts && null md_functions &&
-    isNothing md_descr = mempty
-renderSimpleRst ModuleDoc{..} = mconcat
-    [ renderAnchor md_anchor
-    , renderLines -- h1 heading -- anchor link is added by Rst here.
-        [ title
-        , T.replicate (T.length title) "-"
-        , maybe "" docTextToRst md_descr
-        ]
-    , section "Templates" renderTemplateDoc md_templates
-    , section "Template Instances" renderTemplateInstanceDoc md_templateInstances
-    , section "Typeclasses" renderClassDoc md_classes
-    , section "Data types" renderADTDoc md_adts
-    , section "Functions" renderFunctionDoc md_functions
-    ]
+-- Utilities
 
+-- | Put an extra newline in between chunks. Because Rst has support for definition
+-- lists, we *sometimes* don't put a newline in between, in particular when the
+-- next line is indented and looks like a type signature or definition. This
+-- should affect the output very little either way (it's only spacing).
+spaced :: [[T.Text]] -> [T.Text]
+spaced = intercalate [""] . respace
   where
-    title = "Module " <> unModulename md_name
+    respace = \case
+        [line1] : (line2 : block) : xs
+            | any (`T.isPrefixOf` line1) ["`", "**type**", "**template instance**"]
+            , any (`T.isPrefixOf` line2) ["  :", "  ="] ->
+                (line1 : line2 : block) : respace xs
+        x : xs -> x : respace xs
+        [] -> []
 
-    section :: T.Text -> (a -> RenderOut) -> [a] -> RenderOut
-    section _ _ [] = mempty
-    section sectionTitle f xs = mconcat
-        [ renderLines
-            [ ""
-            , sectionTitle
-            , T.replicate (T.length sectionTitle) "^"
-            ]
-        , mconcatMap f xs
-        ]
+indent :: [T.Text] -> [T.Text]
+indent = map ("  " <>)
 
-renderTemplateDoc :: TemplateDoc -> RenderOut
-renderTemplateDoc TemplateDoc{..} = mconcat $
-    [ renderAnchor td_anchor
-    , renderLineDep $ \env -> T.unwords . concat $
-        [ [bold "template"]
-        , renderContext env td_super
-        , [makeAnchorLink env td_anchor (unTypename td_name)]
-        , td_args
-        ]
-    , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) td_descr
-    , renderLine ""
-    , renderIndent 2 (fieldTable td_payload)
-    , renderLine ""
-    ] ++ map (renderIndent 2 . renderChoiceDoc) td_choices
+bullet :: [T.Text] -> [T.Text]
+bullet [] = []
+bullet (x : xs) = ("+ " <> x) : indent xs
 
-renderTemplateInstanceDoc :: TemplateInstanceDoc -> RenderOut
-renderTemplateInstanceDoc TemplateInstanceDoc{..} = mconcat
-    [ renderAnchor ti_anchor
-    , renderLinesDep $ \env ->
-        [ "template instance " <>
-            makeAnchorLink env ti_anchor (unTypename ti_name)
-        , "  = " <> renderType env ti_rhs
-        , ""
-        ]
-    , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ti_descr
+header :: T.Text -> T.Text -> [T.Text]
+header headerChar title =
+    [ title
+    , T.replicate (T.length title) headerChar
     ]
 
-renderChoiceDoc :: ChoiceDoc -> RenderOut
-renderChoiceDoc ChoiceDoc{..} = mconcat
-    [ renderLine $ prefix "+ " $ bold $ "Choice " <> unTypename cd_name
-    , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cd_descr
-    , renderIndent 2 (fieldTable cd_fields)
-    ]
-
-renderClassDoc :: ClassDoc -> RenderOut
-renderClassDoc ClassDoc{..} = mconcat
-    [ renderAnchor cl_anchor
-    , renderLineDep $ \env -> T.unwords . concat $
-        [ [bold "class"]
-        , renderContext env cl_super
-        , [makeAnchorLink env cl_anchor (unTypename cl_name)]
-        , cl_args
-        , [bold "where"]
-        ]
-    , maybe mempty ((renderLine "" <>) . renderIndent 2 . renderDocText) cl_descr
-    , mconcat $ map (renderIndent 2 . renderFunctionDoc) cl_functions
-    ]
-
-renderADTDoc :: ADTDoc -> RenderOut
-renderADTDoc TypeSynDoc{..} = mconcat
-    [ renderAnchor ad_anchor
-    , renderLinesDep $ \env ->
-        [ T.unwords
-            $ bold "type"
-            : makeAnchorLink env ad_anchor (unTypename ad_name)
-            : ad_args
-        , "  = " <> renderType env ad_rhs
-        , ""
-        ]
-    , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
-    ]
-renderADTDoc ADTDoc{..} = mconcat
-    [ renderAnchor ad_anchor
-    , renderLinesDep $ \env ->
-        [ T.unwords
-            $ bold "data"
-            : makeAnchorLink env ad_anchor (unTypename ad_name)
-            : ad_args
-        , ""
-        ]
-    , maybe mempty ((<> renderLine "") . renderIndent 2 . renderDocText) ad_descr
-    , mconcatMap (renderIndent 2 . (renderLine "" <>) . renderADTConstr) ad_constrs
-    ]
-
-renderADTConstr :: ADTConstr -> RenderOut
-renderADTConstr PrefixC{..} = mconcat
-    [ renderAnchor ac_anchor
-    , renderLineDep $ \env ->
-        T.unwords
-            $ makeAnchorLink env ac_anchor (unTypename ac_name)
-            : map (renderTypePrec env 2) ac_args
-    , maybe mempty ((renderLine "" <>) . renderDocText) ac_descr
-    ]
-
-renderADTConstr RecordC{..} = mconcat
-    [ renderAnchor ac_anchor
-    , renderLineDep $ \env ->
-        makeAnchorLink env ac_anchor (unTypename ac_name)
-    , renderLine ""
-    , maybe mempty renderDocText ac_descr
-    , renderLine ""
-    , fieldTable ac_fields
-    ]
-
-
-{- | Render fields as an rst list-table (editing-friendly), like this:
-
-> .. list-table:: Contract Template Parameters>
->     :widths: 15 10 30
->    :header-rows: 1
->
->    * - Field
->      - Type
->      - Description
->    * - anA
->      - `a`
->      -
->    * - another
->      - `a`
->      - another a
->    * - andText
->      - `Text`
->      - and text
--}
-fieldTable :: [FieldDoc] -> RenderOut
-fieldTable []  = mempty
-fieldTable fds = mconcat -- NB final empty line is essential and intended
-    [ renderLines
-        [ ".. list-table::"
-        , "   :widths: 15 10 30"
-        , "   :header-rows: 1"
-        , ""
-        , "   * - Field"
-        , "     - Type"
-        , "     - Description" ]
+renderRstFields :: RenderEnv -> [(RenderText, RenderText, RenderText)] -> [T.Text]
+renderRstFields _ []  = mempty
+renderRstFields env fields = concat
+    [ [ ".. list-table::"
+      , "   :widths: 15 10 30"
+      , "   :header-rows: 1"
+      , ""
+      , "   * - Field"
+      , "     - Type"
+      , "     - Description" ]
     , fieldRows
     ]
   where
-    fieldRows = renderLinesDep $ \env -> concat
-       [ [ prefix "   * - " $ escapeTr_ (unFieldname fd_name)
-         , prefix "     - " $ renderType env fd_type
-         , prefix "     - " $ maybe " " (docTextToRst . DocText . T.unwords . T.lines . unDocText) fd_descr ]-- FIXME: indent properly instead of this
-       | FieldDoc{..} <- fds ]
-
-
-renderFunctionDoc :: FunctionDoc -> RenderOut
-renderFunctionDoc FunctionDoc{..} = mconcat
-    [ renderAnchor fct_anchor
-    , renderLinesDep $ \ env ->
-        [ makeAnchorLink env fct_anchor (wrapOp (unFieldname fct_name))
-        , T.unwords . concat $
-            [ ["  :"]
-            , renderContext env fct_context
-            , [renderType env fct_type]
-            ]
-        , ""
+    fieldRows = concat
+        [ [ "   * - " <> escapeTr_ (renderRstText env name)
+          , "     - " <> renderRstText env ty
+          , "     - " <> renderRstText env doc ]
+        | (name, ty, doc) <- fields
         ]
-    , maybe (renderLine "") (renderIndent 2 . renderDocText) fct_descr
-    ]
-
-------------------------------------------------------------
--- helpers
-
--- | Render a type.
-renderType :: RenderEnv -> Type -> T.Text
-renderType env = renderTypePrec env 0
-
--- | Render a type at a given precedence level. The precedence
--- level controls whether parentheses will be placed around the
--- type or not. Thus:
---
--- * precedence 0: no brackets
--- * precedence 1: brackets around function types
--- * precedence 2: brackets around function types and type application
-renderTypePrec :: RenderEnv -> Int -> Type -> T.Text
-renderTypePrec env prec = \case
-    TypeApp anchorM (Typename typename) args ->
-        (if prec >= 2 && notNull args then inParens else id)
-            . T.unwords
-            $ makeAnchorLink env anchorM typename
-            : map (renderTypePrec env 2) args
-    TypeFun ts ->
-        (if prec >= 1 then inParens else id)
-            . T.intercalate " -> "
-            $ map (renderTypePrec env 1) ts
-    TypeList t ->
-        "[" <> renderTypePrec env 0 t <> "]"
-    TypeTuple [t] ->
-        renderTypePrec env prec t
-    TypeTuple ts ->
-        "(" <> T.intercalate ", " (map (renderTypePrec env 0) ts) <> ")"
-
--- | Render type context as a list of words. Nothing is rendered as [],
--- and Just t is rendered as [render t, "=>"].
-renderContext :: RenderEnv -> Maybe Type -> [T.Text]
-renderContext env = maybe [] (\x -> [renderTypePrec env 1 x, "=>"])
-
-makeAnchorLink :: RenderEnv -> Maybe Anchor -> T.Text -> T.Text
-makeAnchorLink env anchorM linkText = fromMaybe linkText $ do
-    anchor <- anchorM
-    _anchorLoc <- lookupAnchor env anchor
-        -- note: AnchorLoc doesn't affect the link format at the moment,
-        -- but this will change once we add external links.
-        -- At the moment all this line does is ensure the link has
-        -- been defined in the environment.
-    Just $ T.concat ["`", linkText, " <", unAnchor anchor, "_>`_"]
 
 -- TODO (MK) Handle doctest blocks. Currently the parse as nested blockquotes.
-docTextToRst :: DocText -> T.Text
-docTextToRst = renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts . unDocText
+docTextToRst :: DocText -> [T.Text]
+docTextToRst = T.lines . renderStrict . layoutPretty defaultLayoutOptions . render . commonmarkToNode opts exts . unDocText
   where
     opts = []
     exts = []

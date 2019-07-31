@@ -8,8 +8,9 @@ module DA.Daml.Doc.Render
   , RenderMode(..)
   , renderDocs
   , renderPage
-  , renderSimpleRst
-  , renderSimpleMD
+  , renderRst
+  , renderMd
+  , renderModule
   , renderSimpleHoogle
   , jsonConf
   ) where
@@ -19,6 +20,7 @@ import DA.Daml.Doc.Render.Monoid
 import DA.Daml.Doc.Render.Rst
 import DA.Daml.Doc.Render.Markdown
 import DA.Daml.Doc.Render.Hoogle
+import DA.Daml.Doc.Render.Output
 import DA.Daml.Doc.Types
 
 import Data.Maybe
@@ -41,11 +43,11 @@ jsonConf = AP.Config (AP.Spaces 2) (AP.keyOrder ["id"]) AP.Generic True
 
 renderDocs :: RenderOptions -> [ModuleDoc] -> IO ()
 renderDocs RenderOptions{..} mods = do
-    let (renderModule, postProcessing) =
+    let (formatter, postProcessing) =
             case ro_format of
-                Rst -> (renderSimpleRst, id)
-                Markdown -> (renderSimpleMD, id)
-                Html -> (renderSimpleMD, GFM.commonmarkToHtml [GFM.optUnsafe] [GFM.extTable])
+                Rst -> (renderRst, id)
+                Markdown -> (renderMd, id)
+                Html -> (renderMd, GFM.commonmarkToHtml [GFM.optUnsafe] [GFM.extTable])
         template = fromMaybe (defaultTemplate ro_format) ro_template
 
     case ro_mode of
@@ -55,13 +57,13 @@ renderDocs RenderOptions{..} mods = do
                 . renderTemplate template
                     (fromMaybe "Package Docs" ro_title)
                 . postProcessing
-                . renderPage
+                . renderPage formatter
                 $ mconcatMap renderModule mods
 
         RenderToFolder path -> do
             let renderMap = Map.fromList
                     [(md_name mod, renderModule mod) | mod <- mods]
-                outputMap = renderFolder renderMap
+                outputMap = renderFolder formatter renderMap
                 extension =
                     case ro_format of
                         Markdown -> "md"
