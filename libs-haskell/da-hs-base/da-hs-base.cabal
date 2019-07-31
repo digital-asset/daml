@@ -1,0 +1,86 @@
+cabal-version: 2.4
+name: da-hs-base
+build-type: Simple
+version: 0.1.0
+synopsis: Kitchen sink package for common functionality shared between packages
+license: Apache-2.0
+author: Digital Asset
+maintainer: Digital Asset
+copyright: Digital Asset 2019
+homepage: https://github.com/digital-asset/daml#readme
+bug-reports: https://github.com/digital-asset/daml/issues
+
+source-repository head
+    type: git
+    location: https://github.com/digital-asset/daml.git
+
+library
+    default-language: Haskell2010
+    hs-source-dirs: src
+    build-depends:
+      aeson,
+      aeson-pretty,
+      ansi-terminal,
+      async,
+      base,
+      binary,
+      blaze-html,
+      bytestring,
+      conduit,
+      containers,
+      daml-project-config,
+      deepseq,
+      directory,
+      extra,
+      filepath,
+      hashable,
+      http-conduit,
+      lens,
+      monad-loops,
+      optparse-applicative,
+      pretty,
+      random,
+      safe-exceptions,
+      stm,
+      tar-conduit,
+      tasty,
+      tasty-quickcheck,
+      text,
+      time,
+      transformers,
+      unix,
+      unix-compat,
+      unordered-containers,
+      uuid,
+      vector,
+    exposed-modules:
+      Control.Lens.Ast
+      Control.Lens.MonoTraversal
+      DA.Pretty
+      DA.Service.Logger
+      DA.Service.Logger.Impl.GCP
+      DA.Service.Logger.Impl.IO
+      DA.Service.Logger.Impl.Pure
+      DA.Signals
+      Data.Conduit.Tar.Extra
+      Data.NameMap
+      Data.Semigroup.FixedPoint
+      Data.Text.Extended
+      Options.Applicative.Extended
+      Orphans.Lib_pretty
+      Test.Tasty.Extended
+      Text.PrettyPrint.Annotated.Extended
+    default-extensions:
+      DeriveDataTypeable
+      DeriveGeneric
+      FlexibleContexts
+      GeneralizedNewtypeDeriving
+      LambdaCase
+      NamedFieldPuns
+      NondecreasingIndentation
+      NumericUnderscores
+      OverloadedStrings
+      RecordWildCards
+      ScopedTypeVariables
+      StandaloneDeriving
+      ViewPatterns

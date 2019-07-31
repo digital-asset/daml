@@ -451,6 +451,17 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             -- Bool is from GHC.Types which is wired into the compiler
             expectGoToDefinition (foo,2,[20]) Missing
 
+    ,   testCase' "Suggest imports can be simplified" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "import DA.Optional"
+                , "import DA.Optional(fromSome)"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 0) "Warning: Use fewer imports"
+
     ,   testCase' "Go to definition takes export list to definition" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "daml 1.2"
@@ -461,13 +472,13 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors
-            expectOnlyDiagnostics [(DsInfo, (foo, 4, 0), "Suggestion: Use newtype")] -- hlint!
             -- foo
             expectGoToDefinition (foo,1,[13..14]) (At (foo,3,0))
             -- A
             expectGoToDefinition (foo,1,[17..17]) (At (foo,4,0))
             -- B
             expectGoToDefinition (foo,1,[19..19]) (At (foo,4,9))
+
     ,    testCase' "Cross-package goto definition" $ do
             foo <- makeModule "Foo"
                 [ "test = scenario do"

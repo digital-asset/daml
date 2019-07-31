@@ -64,7 +64,7 @@ class ToolReporter(verbose: Boolean) extends Reporter {
           threadName,
           timeStamp) =>
         testsStarted += 1
-        print(indented(ansiBlue + testText + "... "))
+        print(indented(ansiBlue + "should " + testText + "... "))
 
       case e.TestSucceeded(
           ordinal,

@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
@@ -10,8 +11,8 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
-import com.digitalasset.daml.lf.transaction.Node.NodeCreate
-import com.digitalasset.daml.lf.transaction.Transaction
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
+import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
@@ -19,13 +20,12 @@ import com.digitalasset.daml.lf.value.Value.{
   NodeId,
   VersionedValue
 }
-import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
-import scala.collection.breakOut
 import scala.collection.JavaConverters._
+import scala.collection.breakOut
 
 object KeyValueCommitting {
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -320,6 +320,7 @@ object KeyValueCommitting {
 
     val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
     val submitterInfo = txEntry.getSubmitterInfo
+    val submitter = submitterInfo.getSubmitter
 
     // 1. Verify that this is not a duplicate command submission.
     val dedupKey = commandDedupKey(submitterInfo)
@@ -336,97 +337,79 @@ object KeyValueCommitting {
         parseTimestamp(txEntry.getSubmitterInfo.getMaximumRecordTime).toInstant
     )
 
-    // Helper to lookup contract instances. We verify the activeness of
-    // contract instances here. Since we look up every contract that was
-    // an input to a transaction, we do not need to verify the inputs separately.
-    def lookupContract(coid: AbsoluteContractId) = {
-      val (eid, nid) = absoluteContractIdToLogEntryId(coid)
-      val stateKey = absoluteContractIdToStateKey(coid)
-      for {
-        // Fetch the state of the contract so that activeness and visibility can be checked.
-        contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState)).orElse {
-          tracelog(s"lookupContract($coid): Contract state not found!")
-          throw Err.MissingInputState(stateKey)
-        }
-        locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala.toSet
-        divulgedTo = contractState.getDivulgedToList.asScala.toSet
-        submitter = submitterInfo.getSubmitter
-
-        // 1. Verify that the submitter can view the contract.
-        _ <- if (locallyDisclosedTo.contains(submitter) || divulgedTo.contains(submitter))
-          Some(())
-        else {
-          tracelog(s"lookupContract($coid): Contract not visible to submitter $submitter")
-          None
-        }
-
-        // 2. Verify that the contract is active
-        _ <- if (contractState.hasActiveAt && txLet >= parseTimestamp(contractState.getActiveAt))
-          Some(())
-        else {
-          val activeAtStr =
-            if (contractState.hasActiveAt)
-              parseTimestamp(contractState.getActiveAt).toString
-            else "<activeAt missing>"
-          tracelog(
-            s"lookupContract($coid): Contract not active (let=$txLet, activeAt=$activeAtStr).")
-          None
-        }
-
-        // Finally lookup the log entry containing the create node and the contract instance.
-        entry = inputLogEntries
-          .getOrElse(eid, throw Err.MissingInputLogEntry(eid))
-        coinst <- lookupContractInstanceFromLogEntry(eid, entry, nid)
-      } yield (coinst)
+    def contractVisibleToSubmitter(contractState: DamlContractState): Boolean = {
+      val locallyDisclosedTo = contractState.getLocallyDisclosedToList.asScala
+      val divulgedTo = contractState.getDivulgedToList.asScala
+      locallyDisclosedTo.contains(submitter) || divulgedTo.contains(submitter)
     }
 
-    // Helper to lookup package from the state. The package contents
-    // are stored in the [[DamlLogEntry]], which we find by looking up
-    // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
-    def lookupPackage(pkgId: PackageId) = {
-      val stateKey = DamlStateKey.newBuilder.setPackageId(pkgId).build
-      for {
-        value <- inputState
-          .get(stateKey)
-          .flatten
-          .orElse {
-            throw Err.MissingInputState(stateKey)
-          }
-        pkg <- value.getValueCase match {
-          case DamlStateValue.ValueCase.ARCHIVE =>
-            // NOTE(JM): Engine only looks up packages once, compiles and caches,
-            // provided that the engine instance is persisted.
-            Some(Decode.decodeArchive(value.getArchive)._2)
-          case _ =>
-            tracelog(s"lookupPackage($pkgId): value not a DAML-LF archive!")
-            None
-        }
-      } yield pkg
-    }
+    // Pull all keys from referenced contracts. We require this for 'fetchByKey' calls
+    // which are not evidenced in the transaction itself and hence the contract key state is
+    // not included in the inputs.
+    lazy val knownKeys: Map[GlobalKey, AbsoluteContractId] =
+      inputState.toList.collect {
+        case (key, Some(value))
+            if value.hasContractState
+              && value.getContractState.hasContractKey
+              && contractVisibleToSubmitter(value.getContractState) =>
+          Conversions.decodeContractKey(value.getContractState.getContractKey) ->
+            Conversions.stateKeyToContractId(key)
+      }.toMap
 
     // 3. Verify that the submission conforms to the DAML model
     val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
     val modelCheckResult = engine
       .validate(relTx, txLet)
-      .consume(lookupContract, lookupPackage, _ => sys.error("contract keys unimplemented"))
+      .consume(
+        lookupContract(inputState, inputLogEntries, submitter, txLet, _),
+        lookupPackage(inputState, _),
+        lookupKey(inputState, knownKeys, submitter, _))
+
+    // 4. Check for contract key uniqueness violation
+    // This checks against global contracts. Uniqueness checks for multiple creates within
+    // one transaction are done in [[PartialTransaction]].
+    val uniqueContractKeysCheck: Boolean = relTx.fold(GenTransaction.AnyOrder, true) {
+      case (allUnique, (_nodeId, create: NodeCreate[_, VersionedValue[ContractId]]))
+          if create.key.isDefined =>
+        val stateKey = Conversions.contractKeyToStateKey(
+          GlobalKey(
+            create.coinst.template,
+            Conversions.forceAbsoluteContractIds(create.key.get.key)))
+
+        allUnique &&
+        inputState
+          .get(stateKey)
+          .flatten
+          .forall(!_.getContractKeyState.hasContractId)
+
+      case (allUnique, _) => allUnique
+    }
 
     // Compute blinding info to update contract visibility.
     val blindingInfo = Blinding.blind(relTx)
 
-    (dedupCheckResult, letCheckResult, modelCheckResult) match {
-      case (false, _, _) =>
+    (dedupCheckResult, letCheckResult, modelCheckResult, uniqueContractKeysCheck) match {
+      case (false, _, _, _) =>
         tracelog("rejected, duplicate command.")
         buildRejectionLogEntry(recordTime, txEntry, RejectionReason.DuplicateCommand)
 
-      case (_, false, _) =>
+      case (true, false, _, _) =>
         tracelog("rejected, maximum record time exceeded.")
         buildRejectionLogEntry(recordTime, txEntry, RejectionReason.MaximumRecordTimeExceeded)
 
-      case (true, true, Left(err)) =>
+      case (true, true, Left(err), _) =>
         tracelog("rejected, transaction disputed.")
-        buildRejectionLogEntry(recordTime, txEntry, RejectionReason.Disputed(err.msg)) // FIXME(JM): or detailMsg?
+        buildRejectionLogEntry(recordTime, txEntry, RejectionReason.Disputed(err.msg))
 
-      case (true, true, Right(())) =>
+      case (true, true, Right(()), false) =>
+        tracelog("rejected, contract key uniqueness violation.")
+        buildRejectionLogEntry(
+          recordTime,
+          txEntry,
+          RejectionReason.Disputed("DuplicateKey: Contract Key not unique")
+        )
+
+      case (true, true, Right(()), true) =>
         // All checks passed. Return transaction log entry, and update the DAML state
         // with the committed command and the created and consumed contracts.
 
@@ -443,17 +426,28 @@ object KeyValueCommitting {
             inputState(key).getOrElse(throw Err.MissingInputState(key)).getContractState.toBuilder
           cs.setArchivedAt(buildTimestamp(txLet))
           cs.setArchivedByEntry(entryId)
-          stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs.build).build
+          stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs).build
         }
 
         // Add contract state entries to mark contract activeness (checked by step 3 above)
-        effects.createdContracts.foreach { key =>
-          val cs = DamlContractState.newBuilder
-          cs.setActiveAt(buildTimestamp(txLet))
-          val localDisclosure =
-            blindingInfo.localDisclosure(NodeId.unsafeFromIndex(key.getContractId.getNodeId.toInt))
-          cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
-          stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs).build
+        effects.createdContracts.foreach {
+          case (key, createNode) =>
+            val cs = DamlContractState.newBuilder
+            cs.setActiveAt(buildTimestamp(txLet))
+            val localDisclosure =
+              blindingInfo.localDisclosure(
+                NodeId.unsafeFromIndex(key.getContractId.getNodeId.toInt))
+            cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
+            createNode.key.foreach { keyWithMaintainers =>
+              cs.setContractKey(
+                Conversions.encodeContractKey(
+                  GlobalKey(
+                    createNode.coinst.template,
+                    Conversions.forceAbsoluteContractIds(keyWithMaintainers.key)
+                  )
+                ))
+            }
+            stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs).build
         }
 
         // Update contract state of divulged contracts
@@ -466,7 +460,15 @@ object KeyValueCommitting {
               parties.toSet[String] union cs.getDivulgedToList.asScala.toSet
             cs.clearDivulgedTo
             cs.addAllDivulgedTo(partiesCombined.asJava)
-            stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs.build).build
+            stateUpdates += key -> DamlStateValue.newBuilder.setContractState(cs).build
+        }
+
+        // Update contract keys
+        effects.updatedContractKeys.foreach {
+          case (key, contractKeyState) =>
+            stateUpdates += key -> DamlStateValue.newBuilder
+              .setContractKeyState(contractKeyState)
+              .build
         }
 
         tracelog(
@@ -484,6 +486,99 @@ object KeyValueCommitting {
   }
 
   // ------------------------------------------------------
+
+  // Helper to lookup contract instances. We verify the activeness of
+  // contract instances here. Since we look up every contract that was
+  // an input to a transaction, we do not need to verify the inputs separately.
+  private def lookupContract(
+      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      inputLogEntries: Map[DamlLogEntryId, DamlLogEntry],
+      submitter: String,
+      txLet: Timestamp,
+      coid: AbsoluteContractId) = {
+    def isVisibleToSubmitter(cs: DamlContractState): Boolean =
+      cs.getLocallyDisclosedToList.asScala.contains(submitter) || cs.getDivulgedToList.asScala
+        .contains(submitter) || {
+        logger.trace(s"lookupContract($coid): Contract state not found!")
+        false
+      }
+    def isActive(cs: DamlContractState): Boolean = {
+      val activeAt = Option(cs.getActiveAt).map(parseTimestamp)
+      activeAt.exists(txLet >= _) || {
+        val activeAtStr = activeAt.fold("<activeAt missing>")(_.toString)
+        logger.trace(
+          s"lookupContract($coid): Contract not active (let=$txLet, activeAt=$activeAtStr).")
+        false
+      }
+    }
+    val (eid, nid) = absoluteContractIdToLogEntryId(coid)
+    val stateKey = absoluteContractIdToStateKey(coid)
+    for {
+      // Fetch the state of the contract so that activeness and visibility can be checked.
+      contractState <- inputState.get(stateKey).flatMap(_.map(_.getContractState)).orElse {
+        logger.trace(s"lookupContract($coid): Contract state not found!")
+        throw Err.MissingInputState(stateKey)
+      }
+      if isVisibleToSubmitter(contractState) && isActive(contractState)
+      // Finally lookup the log entry containing the create node and the contract instance.
+      entry = inputLogEntries.getOrElse(eid, throw Err.MissingInputLogEntry(eid))
+      contract <- lookupContractInstanceFromLogEntry(eid, entry, nid)
+    } yield contract
+  }
+
+  // Helper to lookup package from the state. The package contents
+  // are stored in the [[DamlLogEntry]], which we find by looking up
+  // the DAML state entry at `DamlStateKey(packageId = pkgId)`.
+  def lookupPackage(inputState: Map[DamlStateKey, Option[DamlStateValue]], pkgId: PackageId) = {
+    val stateKey = DamlStateKey.newBuilder.setPackageId(pkgId).build
+    for {
+      value <- inputState
+        .get(stateKey)
+        .flatten
+        .orElse {
+          throw Err.MissingInputState(stateKey)
+        }
+      pkg <- value.getValueCase match {
+        case DamlStateValue.ValueCase.ARCHIVE =>
+          // NOTE(JM): Engine only looks up packages once, compiles and caches,
+          // provided that the engine instance is persisted.
+          Some(Decode.decodeArchive(value.getArchive)._2)
+        case _ =>
+          logger.trace(s"lookupPackage($pkgId): value not a DAML-LF archive!")
+          None
+      }
+    } yield pkg
+  }
+
+  private def lookupKey(
+      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      knownKeys: Map[GlobalKey, AbsoluteContractId],
+      submitter: String,
+      key: GlobalKey): Option[AbsoluteContractId] = {
+    def isVisibleToSubmitter(cs: DamlContractState, coid: AbsoluteContractId): Boolean = {
+      cs.getLocallyDisclosedToList.asScala.contains(submitter) || cs.getDivulgedToList.asScala
+        .contains(submitter) || {
+        logger.trace(s"lookupKey($key): Contract $coid not visible to submitter $submitter.")
+        false
+      }
+    }
+    inputState
+      .get(Conversions.contractKeyToStateKey(key))
+      .flatMap {
+        _.flatMap { value =>
+          for {
+            contractId <- Option(value.getContractKeyState.getContractId).map(decodeContractId)
+            contractStateKey = absoluteContractIdToStateKey(contractId)
+            contractState <- inputState.get(contractStateKey).flatMap(_.map(_.getContractState))
+            if isVisibleToSubmitter(contractState, contractId)
+          } yield contractId
+        }
+      }
+      // If the key was not in state inputs, then we look whether any of the accessed contracts
+      // has the key we're looking for. This happens with "fetchByKey" where the key lookup
+      // is not evidenced in the transaction.
+      .orElse(knownKeys.get(key))
+  }
 
   private def buildRejectionLogEntry(
       recordTime: Timestamp,

@@ -55,7 +55,7 @@ encodePackageId = TL.fromStrict . unPackageId
 encodeName :: (a -> T.Text) -> a -> TL.Text
 encodeName unwrapName (unwrapName -> unmangled) = case mangleIdentifier unmangled of
    Left err -> error $ "IMPOSSIBLE: could not mangle name " ++ show unmangled ++ ": " ++ err
-   Right x -> TL.fromStrict x
+   Right x -> x
 
 -- | For now, value names are always encoded version using a single segment.
 --
@@ -90,6 +90,9 @@ encodePackageRef interned = Just . \case
             (P.PackageRefSumInternedId . fromIntegral)
             $ interned pkgid
 
+-- NB(SC): May miss some package IDs because packageRefs excludes some members;
+-- see notes for `instance MonoTraversable ModuleRef SourceLoc` in Optics.hs,
+-- and revisit for DAML-LF v2
 internPackageRefIds :: Package -> (PackageRefCtx, [PackageId])
 internPackageRefIds pkg =
       let set = S.fromList $ pkg ^.. packageRefs._PRImport
@@ -137,7 +140,7 @@ encodeKind version = P.Kind . Just . \case
 encodeBuiltinType :: Version -> BuiltinType -> P.Enumerated P.PrimType
 encodeBuiltinType _version = P.Enumerated . Right . \case
     BTInt64 -> P.PrimTypeINT64
-    BTDecimal -> P.PrimTypeDECIMAL
+    BTDecimal -> P.PrimTypeNUMERIC
     BTText -> P.PrimTypeTEXT
     BTTimestamp -> P.PrimTypeTIMESTAMP
     BTParty -> P.PrimTypePARTY
@@ -189,7 +192,7 @@ encodeTypeConApp encctx@EncodeCtx{..} (TypeConApp tycon args) = Just $ P.Type_Co
 encodeBuiltinExpr :: BuiltinExpr -> P.ExprSum
 encodeBuiltinExpr = \case
     BEInt64 x -> lit $ P.PrimLitSumInt64 x
-    BEDecimal dec -> lit $ P.PrimLitSumDecimal (TL.pack (show dec))
+    BEDecimal dec -> lit $ P.PrimLitSumNumeric (TL.pack (show dec))
     BEText x -> lit $ P.PrimLitSumText (TL.fromStrict x)
     BETimestamp x -> lit $ P.PrimLitSumTimestamp x
     BEParty x -> lit $ P.PrimLitSumParty $ TL.fromStrict $ unPartyLiteral x
@@ -202,7 +205,7 @@ encodeBuiltinExpr = \case
 
     BEEqual typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionEQUAL_INT64
-      BTDecimal -> builtin P.BuiltinFunctionEQUAL_DECIMAL
+      BTDecimal -> builtin P.BuiltinFunctionEQUAL_NUMERIC
       BTText -> builtin P.BuiltinFunctionEQUAL_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionEQUAL_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionEQUAL_DATE
@@ -212,7 +215,7 @@ encodeBuiltinExpr = \case
 
     BELessEq typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionLEQ_INT64
-      BTDecimal -> builtin P.BuiltinFunctionLEQ_DECIMAL
+      BTDecimal -> builtin P.BuiltinFunctionLEQ_NUMERIC
       BTText -> builtin P.BuiltinFunctionLEQ_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionLEQ_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionLEQ_DATE
@@ -221,7 +224,7 @@ encodeBuiltinExpr = \case
 
     BELess typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionLESS_INT64
-      BTDecimal -> builtin P.BuiltinFunctionLESS_DECIMAL
+      BTDecimal -> builtin P.BuiltinFunctionLESS_NUMERIC
       BTText -> builtin P.BuiltinFunctionLESS_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionLESS_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionLESS_DATE
@@ -230,7 +233,7 @@ encodeBuiltinExpr = \case
 
     BEGreaterEq typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionGEQ_INT64
-      BTDecimal -> builtin P.BuiltinFunctionGEQ_DECIMAL
+      BTDecimal -> builtin P.BuiltinFunctionGEQ_NUMERIC
       BTText -> builtin P.BuiltinFunctionGEQ_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionGEQ_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionGEQ_DATE
@@ -239,7 +242,7 @@ encodeBuiltinExpr = \case
 
     BEGreater typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionGREATER_INT64
-      BTDecimal -> builtin P.BuiltinFunctionGREATER_DECIMAL
+      BTDecimal -> builtin P.BuiltinFunctionGREATER_NUMERIC
       BTText -> builtin P.BuiltinFunctionGREATER_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionGREATER_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionGREATER_DATE
@@ -248,7 +251,7 @@ encodeBuiltinExpr = \case
 
     BEToText typ -> case typ of
       BTInt64 -> builtin P.BuiltinFunctionTO_TEXT_INT64
-      BTDecimal -> builtin P.BuiltinFunctionTO_TEXT_DECIMAL
+      BTDecimal -> builtin P.BuiltinFunctionTO_TEXT_NUMERIC
       BTText -> builtin P.BuiltinFunctionTO_TEXT_TEXT
       BTTimestamp -> builtin P.BuiltinFunctionTO_TEXT_TIMESTAMP
       BTDate -> builtin P.BuiltinFunctionTO_TEXT_DATE
@@ -257,15 +260,15 @@ encodeBuiltinExpr = \case
     BETextFromCodePoints -> builtin P.BuiltinFunctionTEXT_FROM_CODE_POINTS
     BEPartyFromText -> builtin P.BuiltinFunctionFROM_TEXT_PARTY
     BEInt64FromText -> builtin P.BuiltinFunctionFROM_TEXT_INT64
-    BEDecimalFromText-> builtin P.BuiltinFunctionFROM_TEXT_DECIMAL
+    BEDecimalFromText-> builtin P.BuiltinFunctionFROM_TEXT_NUMERIC
     BETextToCodePoints -> builtin P.BuiltinFunctionTEXT_TO_CODE_POINTS
     BEPartyToQuotedText -> builtin P.BuiltinFunctionTO_QUOTED_TEXT_PARTY
 
-    BEAddDecimal -> builtin P.BuiltinFunctionADD_DECIMAL
-    BESubDecimal -> builtin P.BuiltinFunctionSUB_DECIMAL
-    BEMulDecimal -> builtin P.BuiltinFunctionMUL_DECIMAL
-    BEDivDecimal -> builtin P.BuiltinFunctionDIV_DECIMAL
-    BERoundDecimal -> builtin P.BuiltinFunctionROUND_DECIMAL
+    BEAddDecimal -> builtin P.BuiltinFunctionADD_NUMERIC
+    BESubDecimal -> builtin P.BuiltinFunctionSUB_NUMERIC
+    BEMulDecimal -> builtin P.BuiltinFunctionMUL_NUMERIC
+    BEDivDecimal -> builtin P.BuiltinFunctionDIV_NUMERIC
+    BERoundDecimal -> builtin P.BuiltinFunctionROUND_NUMERIC
 
     BEAddInt64 -> builtin P.BuiltinFunctionADD_INT64
     BESubInt64 -> builtin P.BuiltinFunctionSUB_INT64
@@ -274,8 +277,8 @@ encodeBuiltinExpr = \case
     BEModInt64 -> builtin P.BuiltinFunctionMOD_INT64
     BEExpInt64 -> builtin P.BuiltinFunctionEXP_INT64
 
-    BEInt64ToDecimal -> builtin P.BuiltinFunctionINT64_TO_DECIMAL
-    BEDecimalToInt64 -> builtin P.BuiltinFunctionDECIMAL_TO_INT64
+    BEInt64ToDecimal -> builtin P.BuiltinFunctionINT64_TO_NUMERIC
+    BEDecimalToInt64 -> builtin P.BuiltinFunctionNUMERIC_TO_INT64
 
     BEFoldl -> builtin P.BuiltinFunctionFOLDL
     BEFoldr -> builtin P.BuiltinFunctionFOLDR

@@ -7,6 +7,8 @@ module DA.Daml.LF.Proto3.Archive
   ( decodeArchive
   , encodeArchive
   , encodeArchiveLazy
+  , encodeArchiveAndHash
+  , encodePackageHash
   , ArchiveError(..)
   ) where
 
@@ -57,7 +59,13 @@ decodeArchive bytes = do
 -- | Encode a LFv1 package payload into a DAML-LF archive using the default
 -- hash function.
 encodeArchiveLazy :: LF.Package -> BSL.ByteString
-encodeArchiveLazy package =
+encodeArchiveLazy = fst . encodeArchiveAndHash
+
+encodePackageHash :: LF.Package -> T.Text
+encodePackageHash = snd . encodeArchiveAndHash
+
+encodeArchiveAndHash :: LF.Package -> (BSL.ByteString, T.Text)
+encodeArchiveAndHash package =
     let payload = BSL.toStrict $ Proto.toLazyByteString $ Encode.encodePayload package
         hash = encodeHash (BA.convert (Crypto.hash @_ @Crypto.SHA256 payload) :: BS.ByteString)
         archive =
@@ -66,7 +74,7 @@ encodeArchiveLazy package =
           , ProtoLF.archiveHash    = TL.fromStrict hash
           , ProtoLF.archiveHashFunction = Proto.Enumerated (Right ProtoLF.HashFunctionSHA256)
           }
-    in Proto.toLazyByteString archive
+    in (Proto.toLazyByteString archive, hash)
 
 encodeArchive :: LF.Package -> BS.ByteString
 encodeArchive = BSL.toStrict . encodeArchiveLazy

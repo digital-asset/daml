@@ -238,6 +238,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
             .map(_.withServices(List(resetService))),
         // NOTE(JM): Re-use the same port after reset.
         Option(sandboxState).fold(config.port)(_.apiServerState.port),
+        config.maxInboundMessageSize,
         config.address,
         config.tlsConfig.flatMap(_.server)
       ),

@@ -1,0 +1,73 @@
+cabal-version: 2.4
+name: daml-ledger
+build-type: Simple
+version: 0.1.0
+synopsis: Haskell ledger bindings for DAML
+license: Apache-2.0
+author: Digital Asset
+maintainer: Digital Asset
+copyright: Digital Asset 2019
+homepage: https://github.com/digital-asset/daml#readme
+bug-reports: https://github.com/digital-asset/daml/issues
+
+source-repository head
+    type: git
+    location: https://github.com/digital-asset/daml.git
+
+library
+    default-language: Haskell2010
+    hs-source-dirs: src
+    build-depends:
+      da-hs-base,
+      async,
+      base,
+      bytestring,
+      containers,
+      daml-lf-ast,
+      daml-lf-proto,
+      exceptions,
+      grpc-haskell,
+      ledger-api-haskellpb,
+      proto3-suite,
+      extra,
+      retry,
+      text,
+      time,
+      transformers,
+      unliftio,
+      vector
+    exposed-modules:
+      DA.Ledger
+      DA.Ledger.Convert
+      DA.Ledger.GrpcWrapUtils
+      DA.Ledger.IsLedgerValue
+      DA.Ledger.LedgerService
+      DA.Ledger.PastAndFuture
+      DA.Ledger.Retry
+      DA.Ledger.Services
+      DA.Ledger.Services.ActiveContractsService
+      DA.Ledger.Services.CommandCompletionService
+      DA.Ledger.Services.CommandService
+      DA.Ledger.Services.CommandSubmissionService
+      DA.Ledger.Services.LedgerConfigurationService
+      DA.Ledger.Services.LedgerIdentityService
+      DA.Ledger.Services.PackageManagementService
+      DA.Ledger.Services.PackageService
+      DA.Ledger.Services.PartyManagementService
+      DA.Ledger.Services.ResetService
+      DA.Ledger.Services.TimeService
+      DA.Ledger.Services.TransactionService
+      DA.Ledger.Stream
+      DA.Ledger.Stream.StreamCore
+      DA.Ledger.Stream.StreamExtra
+      DA.Ledger.Trace
+      DA.Ledger.Types
+    default-extensions:
+      GeneralizedNewtypeDeriving
+      LambdaCase
+      NamedFieldPuns
+      NondecreasingIndentation
+      NumericUnderscores
+      OverloadedStrings
+      RecordWildCards
+      ScopedTypeVariables

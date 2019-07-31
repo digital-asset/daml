@@ -2,8 +2,6 @@ parameters:
   name: ''
 
 steps:
-  - checkout: self
-
   - bash: ci/dev-env-install.sh
     displayName: 'Build/Install the Developer Environment'
 

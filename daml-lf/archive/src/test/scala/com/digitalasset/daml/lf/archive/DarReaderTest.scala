@@ -48,7 +48,7 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
           case Some(module) =>
             val actualTypes: Set[String] =
               module.getDataTypesList.asScala.toSet.map((t: DamlLf1.DefDataType) => name(t.getName))
-            actualTypes shouldBe Set("Transfer", "Call2", "CallablePayout", "PayOut")
+            actualTypes should contain allOf ("Transfer", "Call2", "CallablePayout", "PayOut")
         }
 
         val archive2Modules = archive2.getDamlLf1.getModulesList.asScala

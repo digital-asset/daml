@@ -10,8 +10,8 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{
-  Engine,
   Blinding,
+  Engine,
   Result,
   ResultDone,
   ResultError,
@@ -34,6 +34,7 @@ import com.digitalasset.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   CommandSubmissionServiceLogging
 }
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -117,10 +118,13 @@ class DamlOnXSubmissionService private (
     val getContract =
       (coid: AbsoluteContractId) => indexService.lookupActiveContract(commands.submitter, coid)
 
-    consume(engine.submit(commands.commands))(getPackage, getContract)
+    val lookupKey =
+      (key: GlobalKey) => indexService.lookupKey(commands.submitter, key)
+
+    consume(engine.submit(commands.commands))(getPackage, getContract, lookupKey)
       .flatMap {
         case Left(err) =>
-          Future.failed(invalidArgument("error: " + err.detailMsg))
+          Future.failed(invalidArgument("error: " + err.msg))
 
         case Right(updateTx) =>
           // NOTE(JM): Authorizing the transaction here so that we do not submit
@@ -161,7 +165,8 @@ class DamlOnXSubmissionService private (
   private def consume[A](result: Result[A])(
       getPackage: Ref.PackageId => Future[Option[Ast.Package]],
       getContract: Value.AbsoluteContractId => Future[
-        Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]])(
+        Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]],
+      lookupKey: GlobalKey => Future[Option[Value.AbsoluteContractId]])(
       implicit ec: ExecutionContext): Future[Either[DamlLfError, A]] = {
 
     def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] = {
@@ -171,7 +176,7 @@ class DamlOnXSubmissionService private (
         case ResultDone(r) =>
           Future.successful(Right(r))
         case ResultNeedKey(key, resume) =>
-          Future.failed(new IllegalArgumentException("Contract keys not implemented yet"))
+          lookupKey(key).flatMap(optCoid => resolveStep(resume(optCoid)))
         case ResultNeedContract(acoid, resume) =>
           getContract(acoid).flatMap(o => resolveStep(resume(o)))
         case ResultError(err) => Future.successful(Left(err))

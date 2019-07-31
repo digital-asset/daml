@@ -6,9 +6,7 @@
 daml 1.2
 module IouDSL where
 
-import Prelude hiding (Template (..), TemplateKey (..), Choice (..), Archive (..), create, fetch, archive, fetchByKey, lookupByKey, exercise)
 import DA.Assert
-import GenericTemplates
 import ProposalDSL
 
 

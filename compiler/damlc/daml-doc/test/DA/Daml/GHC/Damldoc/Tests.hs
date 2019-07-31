@@ -153,7 +153,7 @@ unitTests =
                                 check $ isNothing $ td_descr t
                                 f1 <- getSingle $ td_payload t
                                 check $ isNothing $ fd_descr f1
-                                ch <- getSingle $ td_choices t
+                                ch <- getSingle $ td_choicesWithoutArchive t
                                 f2 <- getSingle $ cd_fields ch
                                 check $ Just "field" == fd_descr f2))
 
@@ -177,7 +177,7 @@ unitTests =
                    ("Expected two choices in doc, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
                                 check $ isNothing $ td_descr t
-                                cs <- Just $ td_choices t
+                                cs <- Just $ td_choicesWithoutArchive t
                                 check $ length cs == 2
                                 check $ ["DoMore", "DoSomething"] == sort (map cd_name cs)))
 
@@ -207,6 +207,9 @@ unitTests =
         check :: Bool -> Maybe ()
         check True = Just ()
         check False = Nothing
+
+        td_choicesWithoutArchive :: TemplateDoc -> [ChoiceDoc]
+        td_choicesWithoutArchive = filter (\ch -> cd_name ch /= "External:Archive") . td_choices
 
 
 testModule :: String
@@ -283,8 +286,8 @@ fileTest damlFile = do
                 let extension = takeExtension expectation
                 ref <- T.readFileUtf8 expectation
                 case extension of
-                  ".rst"  -> expectEqual extension ref $ renderPage $ renderSimpleRst docs
-                  ".md"   -> expectEqual extension ref $ renderPage $ renderSimpleMD docs
+                  ".rst"  -> expectEqual extension ref $ renderPage renderRst $ renderModule docs
+                  ".md"   -> expectEqual extension ref $ renderPage renderMd $ renderModule docs
                   ".json" -> expectEqual extension ref
                              (T.decodeUtf8 . BS.toStrict $
                                AP.encodePretty' jsonConf docs)

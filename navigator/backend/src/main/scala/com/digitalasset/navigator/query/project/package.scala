@@ -5,6 +5,7 @@ package com.digitalasset.navigator.query
 
 import com.digitalasset.navigator.dotnot._
 import com.digitalasset.navigator.model._
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.ApiValueImplicits._
 import scalaz.Tag
 import scalaz.syntax.tag._
@@ -116,7 +117,7 @@ object project {
     @annotation.tailrec
     def loop(argument: ApiValue, cursor: PropertyCursor): Either[DotNotFailure, ProjectValue] =
       argument match {
-        case ApiRecord(_, fields) =>
+        case V.ValueRecord(_, fields) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("record", cursor, expectedValue))
             case Some(nextCursor) =>
@@ -126,7 +127,7 @@ object project {
                 case None => Left(UnknownProperty("record", nextCursor, expectedValue))
               }
           }
-        case ApiVariant(_, constructor, value) =>
+        case V.ValueVariant(_, constructor, value) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("variant", cursor, expectedValue))
             case Some(nextCursor) =>
@@ -137,7 +138,7 @@ object project {
                 case _ => Left(UnknownProperty("variant", nextCursor, expectedValue))
               }
           }
-        case ApiEnum(_, constructor) =>
+        case V.ValueEnum(_, constructor) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("enum", cursor, expectedValue))
             case Some(nextCursor) =>
@@ -146,7 +147,7 @@ object project {
                 case _ => Left(UnknownProperty("enum", nextCursor, expectedValue))
               }
           }
-        case ApiList(elements) =>
+        case V.ValueList(elements) =>
           cursor.next match {
             case None => Left(MustNotBeLastPart("list", cursor, expectedValue))
             case Some(nextCursor) =>
@@ -156,14 +157,14 @@ object project {
                   Left(TypeCoercionFailure("list index", "int", cursor, cursor.current))
               }
           }
-        case ApiContractId(value) if cursor.isLast => Right(StringValue(value))
-        case ApiInt64(value) if cursor.isLast => Right(NumberValue(value))
-        case ApiDecimal(value) if cursor.isLast => Right(StringValue(value.decimalToString))
-        case ApiText(value) if cursor.isLast => Right(StringValue(value))
-        case ApiParty(value) if cursor.isLast => Right(StringValue(value))
-        case ApiBool(value) if cursor.isLast => Right(BooleanValue(value))
-        case ApiUnit if cursor.isLast => Right(StringValue(""))
-        case ApiOptional(optValue) =>
+        case V.ValueContractId(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueInt64(value) if cursor.isLast => Right(NumberValue(value))
+        case V.ValueDecimal(value) if cursor.isLast => Right(StringValue(value.decimalToString))
+        case V.ValueText(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueParty(value) if cursor.isLast => Right(StringValue(value))
+        case V.ValueBool(value) if cursor.isLast => Right(BooleanValue(value))
+        case V.ValueUnit if cursor.isLast => Right(StringValue(""))
+        case V.ValueOptional(optValue) =>
           (cursor.next, optValue) match {
             case (None, None) => Right(StringValue("None"))
             case (None, Some(_)) => Right(StringValue("Some"))
@@ -173,8 +174,8 @@ object project {
             case (Some(nextCursor), _) =>
               Left(UnknownProperty("optional", nextCursor, expectedValue))
           }
-        case t: ApiTimestamp if cursor.isLast => Right(StringValue(t.toIso8601))
-        case t: ApiDate if cursor.isLast => Right(StringValue(t.toIso8601))
+        case t: V.ValueTimestamp if cursor.isLast => Right(StringValue(t.toIso8601))
+        case t: V.ValueDate if cursor.isLast => Right(StringValue(t.toIso8601))
       }
     loop(rootArgument, cursor.prev.get)
   }

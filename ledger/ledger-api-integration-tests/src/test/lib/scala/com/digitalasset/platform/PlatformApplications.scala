@@ -129,6 +129,7 @@ object PlatformApplications {
       scenario = None,
       tlsConfig = None,
       ledgerIdMode = config.ledgerId,
+      maxInboundMessageSize = SandboxConfig.DefaultMaxInboundMessageSize,
       jdbcUrl = jdbcUrl,
       eagerPackageLoading = false,
       logLevel = Level.INFO

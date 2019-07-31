@@ -114,6 +114,10 @@ object Cli {
           config.tlsConfig.fold(Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
             Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
 
+    opt[Int]("maxInboundMessageSize")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .text(s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
+
     opt[String]("jdbcurl")
       .optional()
       .text("This flag is deprecated -- please use --sql-backend-jdbcurl.")

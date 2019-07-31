@@ -36,9 +36,9 @@ import Data.Maybe
 import qualified Data.Set as S
 import System.Directory
 
-import DAML.Project.Config
-import DAML.Project.Consts
-import DAML.Project.Types
+import DA.Daml.Project.Config
+import DA.Daml.Project.Consts
+import DA.Daml.Project.Types
 
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ScenarioServiceClient.LowLevel as LowLevel

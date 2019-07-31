@@ -23,6 +23,7 @@ import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import Safe
 
 type IsConsuming = Bool
 type InternalChcName = LF.ChoiceName
@@ -61,36 +62,37 @@ startFromUpdate seen world update = case update of
     -- NOTE(MH): The cases below are impossible because they only appear
     -- in dictionaries for the `Template` and `Choice` classes, which we
     -- ignore below.
-    LF.UCreate{}-> error "IMPOSSIBLE"
+    LF.UCreate{} -> error "IMPOSSIBLE"
     LF.UExercise{} -> error "IMPOSSIBLE"
     LF.UFetch{} -> error "IMPOSSIBLE"
     LF.ULookupByKey{} -> error "IMPOSSIBLE"
     LF.UFetchByKey{} -> error "IMPOSSIBLE"
 
-startFromExpr :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World  -> LF.Expr -> Set.Set Action
+startFromExpr :: Set.Set (LF.Qualified LF.ExprValName) -> LF.World -> LF.Expr -> Set.Set Action
 startFromExpr seen world e = case e of
     LF.EVar _ -> Set.empty
-    -- NOTE(MH): We ignore the dictionaries for the `Template` and `Choice`
-    -- classes because they contain too many ledger actions. We detect the
-    -- `create`, `archive` and `exercise` functions which take these
-    -- dictionaries as arguments instead.
+    -- NOTE(MH/RJR): Do not explore the `$fXInstance` dictionary because it
+    -- contains all the ledger actions and therefore creates too many edges
+    -- in the graph. We instead detect calls to the `create`, `archive` and
+    -- `exercise` methods from `Template` and `Choice` instances.
     LF.EVal (LF.Qualified _ _ (LF.ExprValName ref))
-        | "$fTemplate" `T.isPrefixOf` ref || "$fChoice" `T.isPrefixOf` ref -> Set.empty
-    LF.EVal ref ->  case LF.lookupValue ref world of
+        | "$f" `T.isPrefixOf` ref && "Instance" `T.isSuffixOf` ref -> Set.empty
+    LF.EVal ref -> case LF.lookupValue ref world of
         Right LF.DefValue{..}
-            | ref `Set.member` seen  -> Set.empty
-            | otherwise -> startFromExpr (Set.insert ref seen)  world dvalBody
+            | ref `Set.member` seen -> Set.empty
+            | otherwise -> startFromExpr (Set.insert ref seen) world dvalBody
         Left _ -> error "This should not happen"
     LF.EUpdate upd -> startFromUpdate seen world upd
+    -- NOTE(RJR): Look for calls to `create` and `archive` methods from a
+    -- `Template` instance and produce the corresponding edges in the graph.
     EInternalTemplateVal "create" `LF.ETyApp` LF.TCon tpl `LF.ETmApp` _dict
         -> Set.singleton (ACreate tpl)
-    EInternalTemplateVal "exercise" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
-        Set.singleton (AExercise tpl (LF.ChoiceName chc))
-    -- TODO(MH): We need to add a special case for `archive` because it
-    -- currently defined as `archive c = exercise c Archive` and we can't
-    -- handle polymorphic calls to `exercise` like this one.
     EInternalTemplateVal "archive" `LF.ETyApp` LF.TCon tpl `LF.ETmApp` _dict ->
         Set.singleton (AExercise tpl (LF.ChoiceName "Archive"))
+    -- NOTE(RJR): Look for calls to the `exercise` method from a `Choice`
+    -- instance and produce the corresponding edge in the graph.
+    EInternalTemplateVal "exercise" `LF.ETyApp` LF.TCon tpl `LF.ETyApp` LF.TCon (LF.Qualified _ _ (LF.TypeConName [chc])) `LF.ETyApp` _ret `LF.ETmApp` _dict ->
+        Set.singleton (AExercise tpl (LF.ChoiceName chc))
     expr -> Set.unions $ map (startFromExpr seen world) $ children expr
 
 pattern EInternalTemplateVal :: T.Text -> LF.Expr
@@ -123,7 +125,7 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
 tplNameUnqual :: LF.Template -> T.Text
-tplNameUnqual LF.Template {..} = head (LF.unTypeConName tplTypeCon)
+tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" (LF.unTypeConName tplTypeCon)
 
 choiceNameWithId :: [TemplateChoices] -> Map.Map InternalChcName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
@@ -143,7 +145,7 @@ nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
 
 addCreateChoice :: TemplateChoices -> Map.Map LF.ChoiceName ChoiceDetails -> ChoiceDetails
 addCreateChoice TemplateChoices {..} lookupData = nodeIdForChoice lookupData tplNameCreateChoice
-    where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (head (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
+    where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (headNote "addCreateChoice" (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate template
@@ -152,7 +154,7 @@ constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nod
         nodesWithCreate = addCreateChoice tpla lookupData : nodes
 
 tplNamet :: LF.TypeConName -> T.Text
-tplNamet tplConName = head (LF.unTypeConName tplConName)
+tplNamet tplConName = headNote "tplNamet" (LF.unTypeConName tplConName)
 
 actionToChoice :: Action -> LF.ChoiceName
 actionToChoice (ACreate LF.Qualified {..}) = LF.ChoiceName $ tplNamet qualObject <> "_Create"

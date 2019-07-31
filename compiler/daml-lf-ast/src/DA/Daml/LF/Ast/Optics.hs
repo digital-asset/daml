@@ -2,11 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
-{-# LANGUAGE DefaultSignatures #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TypeOperators #-}
 module DA.Daml.LF.Ast.Optics(
     moduleModuleRef,
     unlocate,
@@ -23,13 +21,8 @@ module DA.Daml.LF.Ast.Optics(
 import Control.Lens
 import Control.Lens.Ast
 import Control.Lens.MonoTraversal
-import Data.Fixed (Fixed)
 import Data.Functor.Foldable (cata, embed)
-import Data.Int
-import Data.Text (Text)
 import qualified Data.NameMap as NM
-import GHC.Generics hiding (from, to)
-import GHC.Generics.Lens
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.Recursive
@@ -125,6 +118,7 @@ instance MonoTraversable ModuleRef ModuleName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TypeConName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef TypeVarName where monoTraverse _ = pure
 instance MonoTraversable ModuleRef VariantConName where monoTraverse _ = pure
+instance MonoTraversable ModuleRef Version where monoTraverse _ = pure
 
 -- NOTE(MH): This is an optimization to avoid running into a dead end.
 instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraverse _ = pure
@@ -133,6 +127,15 @@ instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraver
 instance MonoTraversable ModuleRef Kind where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinType where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
+
+-- NOTE(SC): SourceLoc *does* have a ModuleRef in it; however, its main use is
+-- to collect all ModuleRefs in a module or package in order to figure out its
+-- dependencies. Inlining can cause location information to reference the
+-- original source file although there's not a proper dependency; in other
+-- words, with a visible SourceLoc ModuleRef, the dep graph would be somewhere
+-- between the actual dep graph and its transitive closure. See
+-- https://github.com/digital-asset/daml/pull/2327#discussion_r308445649 for
+-- discussion
 instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure
 
 instance MonoTraversable ModuleRef TypeConApp
@@ -163,6 +166,7 @@ instance MonoTraversable ModuleRef Template
 
 instance MonoTraversable ModuleRef FeatureFlags
 instance MonoTraversable ModuleRef Module
+instance MonoTraversable ModuleRef Package
 
 exprPartyLiteral
   :: forall f. Applicative f
@@ -185,97 +189,5 @@ exprValueRef f = cata go
       EValF val -> EVal <$> f val
       e -> embed <$> sequenceA e
 
-class HasPackageRefs' a where
-  packageRefs' :: Traversal' (a p) PackageRef
-
-instance HasPackageRefs' V1 where
-  packageRefs' = _V1
-
-instance HasPackageRefs' U1 where
-  packageRefs' = ignored
-
-instance (HasPackageRefs' f, HasPackageRefs' g) => HasPackageRefs' (f :+: g) where
-  packageRefs' f (L1 v) = L1 <$> packageRefs' f v
-  packageRefs' f (R1 v) = R1 <$> packageRefs' f v
-
-instance (HasPackageRefs' f, HasPackageRefs' g) => HasPackageRefs' (f :*: g) where
-  packageRefs' f (a :*: b) = (:*:) <$> packageRefs' f a <*> packageRefs' f b
-
-instance HasPackageRefs a => HasPackageRefs' (K1 i a) where
-  packageRefs' = _K1 . packageRefs
-
-instance HasPackageRefs' x => HasPackageRefs' (M1 i a x) where
-  packageRefs' = _M1 . packageRefs'
-
-class HasPackageRefs a where
-  packageRefs :: Traversal' a PackageRef
-  default packageRefs :: (Generic a, HasPackageRefs' (Rep a)) => Traversal' a PackageRef
-  packageRefs = generic . packageRefs'
-
-instance HasPackageRefs a => HasPackageRefs (Maybe a) where
-  packageRefs = traverse . packageRefs
-
-instance HasPackageRefs a => HasPackageRefs [a] where
-  packageRefs = traverse . packageRefs
-
-instance (HasPackageRefs a, HasPackageRefs b) => HasPackageRefs (a, b) where
-  packageRefs = beside packageRefs packageRefs
-
-instance HasPackageRefs Int where
-  packageRefs = ignored
-instance HasPackageRefs Int32 where
-  packageRefs = ignored
-instance HasPackageRefs Int64 where
-  packageRefs = ignored
-instance HasPackageRefs Bool where
-  packageRefs = ignored
-instance HasPackageRefs Char where
-  packageRefs = ignored
-instance HasPackageRefs Version where
-  packageRefs = ignored
-instance HasPackageRefs Text where
-  packageRefs = ignored
-instance HasPackageRefs (Fixed r) where
-  packageRefs = ignored
-
-instance (HasPackageRefs a, NM.Named a) => HasPackageRefs (NM.NameMap a) where
-  packageRefs = NM.traverse . packageRefs
-
-instance HasPackageRefs PackageRef where
-  packageRefs = id
-
-instance HasPackageRefs a => HasPackageRefs (Qualified a)
-instance HasPackageRefs Binding
-instance HasPackageRefs BuiltinExpr
-instance HasPackageRefs BuiltinType
-instance HasPackageRefs CaseAlternative
-instance HasPackageRefs CasePattern
-instance HasPackageRefs ChoiceName
-instance HasPackageRefs DataCons
-instance HasPackageRefs DefDataType
-instance HasPackageRefs DefValue
-instance HasPackageRefs Expr
-instance HasPackageRefs ExprValName
-instance HasPackageRefs ExprVarName
-instance HasPackageRefs FeatureFlags
-instance HasPackageRefs FieldName
-instance HasPackageRefs HasNoPartyLiterals
-instance HasPackageRefs IsSerializable
-instance HasPackageRefs IsTest
-instance HasPackageRefs Kind
-instance HasPackageRefs Module
-instance HasPackageRefs ModuleName
-instance HasPackageRefs Package
-instance HasPackageRefs PartyLiteral
-instance HasPackageRefs RetrieveByKey
-instance HasPackageRefs Scenario
-instance HasPackageRefs SourceLoc
-instance HasPackageRefs Template
-instance HasPackageRefs TemplateChoice
-instance HasPackageRefs TemplateKey
-instance HasPackageRefs Type
-instance HasPackageRefs TypeConApp
-instance HasPackageRefs TypeConName
-instance HasPackageRefs TypeVarName
-instance HasPackageRefs Update
-instance HasPackageRefs VariantConName
+packageRefs :: MonoTraversable ModuleRef a => Traversal' a PackageRef
+packageRefs = monoTraverse @ModuleRef . _1

@@ -67,7 +67,7 @@ data Options = Options
   } deriving Show
 
 data HlintUsage
-  = HlintEnabled { hlintUseDataDir::FilePath }
+  = HlintEnabled { hlintUseDataDir::FilePath, hlintAllowOverrides::Bool }
   | HlintDisabled
   deriving Show
 
@@ -108,7 +108,7 @@ mkOptions opts@Options {..} = do
     let defaultPkgDbDir = defaultPkgDb </> "pkg-db_dir"
     pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDbDir, projectPackageDatabase]
     case optHlintUsage of
-      HlintEnabled dir -> checkDirExists dir
+      HlintEnabled dir _ -> checkDirExists dir
       HlintDisabled -> return ()
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
@@ -116,11 +116,14 @@ mkOptions opts@Options {..} = do
           unless ok $ fail $ "Required directory does not exist: " <> f
         versionSuffix = renderPretty optDamlLfVersion
 
--- | Default configuration for the compiler with package database set according to daml-lf version
--- and located runfiles. If the version argument is Nothing it is set to the default daml-lf
--- version.
+-- | Default configuration for the compiler with package database set
+-- according to daml-lf version and located runfiles. If the version
+-- argument is Nothing it is set to the default daml-lf
+-- version. Linting is enabled but not '.dlint.yaml' overrides.
 defaultOptionsIO :: Maybe LF.Version -> IO Options
-defaultOptionsIO mbVersion = mkOptions $ defaultOptions mbVersion
+defaultOptionsIO mbVersion = do
+  hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+  mkOptions $ (defaultOptions mbVersion){optHlintUsage=HlintEnabled hlintDataDir False}
 
 defaultOptions :: Maybe LF.Version -> Options
 defaultOptions mbVersion =

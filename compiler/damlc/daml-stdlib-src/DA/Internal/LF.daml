@@ -38,7 +38,7 @@ module DA.Internal.LF
   , unpackPair
   ) where
 
-import GHC.Types (Opaque, Symbol, magic)
+import GHC.Types (Opaque, Symbol)
 import DA.Internal.Prelude
 
 -- | The `Party` type represents a party to a contract.

@@ -4,18 +4,18 @@
 daml 1.2
 module Self where
 
-data Self = Self {p : Party}
+template Self with
+    p: Party
+  where
+  signatory p
 
-instance Template Self where
-  signatory Self {p} = [p]
-
-data Same = Same (ContractId Self)
-instance Choice Self Same () where
-  choiceController Self{p} _ = [p]
-  choice _ self (Same other) = assert (self == other)
+  controller p can
+    Same : ()
+      with other: ContractId Self
+      do assert (self == other)
 
 main = scenario do
   alice <- getParty "Alice"
   submit alice do
-    cid1 <- create Self{p = alice}
-    exercise cid1 (Same cid1)
+    cid1 <- create Self with p = alice
+    exercise cid1 Same with other = cid1

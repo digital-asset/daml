@@ -20,3 +20,7 @@ HEAD — ongoing
   See `#2068 <https://github.com/digital-asset/daml/issues/2068>`__.
 - [Extractor] **BREAKING CHANGE** Changed schema to accomodate removed field ``ExercisedEvent#contract_creating_event_id``.
   Existing database schemas are not compatible anymore with the newer version. The extractor needs to be run on an empty schema from Ledger Begin.
+- [Sandbox] The active contract service correctly serves stakeholders. See `#2070 <https://github.com/digital-asset/daml/issues/2070>`__.
+- [Sandbox] Added the ``--maxInboundMessageSize`` CLI parameter to set the maximux size of messages received through the Ledger API. If the value is not set the current default is preserved (4 MB).
+- [DAML Compiler] Handwritten instances of ``Template`` and ``Choice`` typeclasses are no longer supported.
+  All template constructs must be defined using declarations inside ``template`` syntax.

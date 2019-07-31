@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.value.json
 
 import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{ApiValue, DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
 import spray.json._
@@ -33,21 +34,21 @@ object ApiCodecCompressed {
   def apiValueToJsValue(value: Model.ApiValue): JsValue = value match {
     case v: Model.ApiRecord => apiRecordToJsValue(v)
     case v: Model.ApiVariant => apiVariantToJsValue(v)
-    case v: Model.ApiEnum => apiEnumToJsValue(v)
+    case v: V.ValueEnum => apiEnumToJsValue(v)
     case v: Model.ApiList => apiListToJsValue(v)
-    case Model.ApiText(v) => JsString(v)
-    case Model.ApiInt64(v) => JsString((v: Long).toString)
-    case Model.ApiDecimal(v) => JsString(v.decimalToString)
-    case Model.ApiBool(v) => JsBoolean(v)
-    case Model.ApiContractId(v) => JsString(v)
-    case t: Model.ApiTimestamp => JsString(t.toIso8601)
-    case d: Model.ApiDate => JsString(d.toIso8601)
-    case Model.ApiParty(v) => JsString(v)
-    case Model.ApiUnit => JsObject.empty
+    case V.ValueText(v) => JsString(v)
+    case V.ValueInt64(v) => JsString((v: Long).toString)
+    case V.ValueDecimal(v) => JsString(v.decimalToString)
+    case V.ValueBool(v) => JsBoolean(v)
+    case V.ValueContractId(v) => JsString(v)
+    case t: V.ValueTimestamp => JsString(t.toIso8601)
+    case d: V.ValueDate => JsString(d.toIso8601)
+    case V.ValueParty(v) => JsString(v)
+    case V.ValueUnit => JsObject.empty
     // Note: Optional needs to be boxed, otherwise the following values are indistinguishable:
     // None, Some(None), Some(Some(None)), ...
-    case Model.ApiOptional(None) => JsObject(fieldNone -> JsObject.empty)
-    case Model.ApiOptional(Some(v)) => JsObject(fieldSome -> apiValueToJsValue(v))
+    case V.ValueOptional(None) => JsObject(fieldNone -> JsObject.empty)
+    case V.ValueOptional(Some(v)) => JsObject(fieldSome -> apiValueToJsValue(v))
     case v: Model.ApiMap =>
       apiMapToJsValue(v)
     case _: Model.ApiImpossible => serializationError("impossible! tuples are not serializable")
@@ -59,7 +60,7 @@ object ApiCodecCompressed {
   private[this] def apiVariantToJsValue(value: Model.ApiVariant): JsValue =
     JsObject(Map((value.variant: String) -> apiValueToJsValue(value.value)))
 
-  private[this] def apiEnumToJsValue(value: Model.ApiEnum): JsValue =
+  private[this] def apiEnumToJsValue(value: V.ValueEnum): JsValue =
     JsString(value.value)
 
   private[this] def apiRecordToJsValue(value: Model.ApiRecord): JsValue =
@@ -91,28 +92,28 @@ object ApiCodecCompressed {
       defs: Model.DamlLfTypeLookup): Model.ApiValue = {
     (value, prim.typ) match {
       case (JsString(v), Model.DamlLfPrimType.Decimal) =>
-        Model.ApiDecimal(assertDE(LfDecimal fromString v))
-      case (JsString(v), Model.DamlLfPrimType.Int64) => Model.ApiInt64(v.toLong)
-      case (JsString(v), Model.DamlLfPrimType.Text) => Model.ApiText(v)
+        V.ValueDecimal(assertDE(LfDecimal fromString v))
+      case (JsString(v), Model.DamlLfPrimType.Int64) => V.ValueInt64(v.toLong)
+      case (JsString(v), Model.DamlLfPrimType.Text) => V.ValueText(v)
       case (JsString(v), Model.DamlLfPrimType.Party) =>
-        Model.ApiParty(assertDE(Ref.Party fromString v))
-      case (JsString(v), Model.DamlLfPrimType.ContractId) => Model.ApiContractId(v)
-      case (JsObject(_), Model.DamlLfPrimType.Unit) => Model.ApiUnit
-      case (JsString(v), Model.DamlLfPrimType.Timestamp) => Model.ApiTimestamp.fromIso8601(v)
-      case (JsString(v), Model.DamlLfPrimType.Date) => Model.ApiDate.fromIso8601(v)
-      case (JsBoolean(v), Model.DamlLfPrimType.Bool) => Model.ApiBool(v)
+        V.ValueParty(assertDE(Ref.Party fromString v))
+      case (JsString(v), Model.DamlLfPrimType.ContractId) => V.ValueContractId(v)
+      case (JsObject(_), Model.DamlLfPrimType.Unit) => V.ValueUnit
+      case (JsString(v), Model.DamlLfPrimType.Timestamp) => V.ValueTimestamp.fromIso8601(v)
+      case (JsString(v), Model.DamlLfPrimType.Date) => V.ValueDate.fromIso8601(v)
+      case (JsBoolean(v), Model.DamlLfPrimType.Bool) => V.ValueBool(v)
       case (JsArray(v), Model.DamlLfPrimType.List) =>
-        Model.ApiList(v.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to[FrontStack])
+        V.ValueList(v.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to[FrontStack])
       case (JsObject(f), Model.DamlLfPrimType.Optional) =>
         f.headOption match {
-          case Some((`fieldNone`, _)) => Model.ApiOptional(None)
+          case Some((`fieldNone`, _)) => V.ValueOptional(None)
           case Some((`fieldSome`, v)) =>
-            Model.ApiOptional(Some(jsValueToApiValue(v, prim.typArgs.head, defs)))
+            V.ValueOptional(Some(jsValueToApiValue(v, prim.typArgs.head, defs)))
           case Some(_) => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
           case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
         }
       case (JsObject(a), Model.DamlLfPrimType.Map) =>
-        Model.ApiMap(SortedLookupList(a.map {
+        V.ValueMap(SortedLookupList(a.map {
           case (k, v) => k -> jsValueToApiValue(v, prim.typArgs.head, defs)
         }))
       case _ => deserializationError(s"Can't read ${value.prettyPrint} as $prim")
@@ -126,7 +127,7 @@ object ApiCodecCompressed {
       defs: Model.DamlLfTypeLookup): Model.ApiValue = {
     (value, dt) match {
       case (JsObject(v), Model.DamlLfRecord(fields)) =>
-        Model.ApiRecord(
+        V.ValueRecord(
           Some(id),
           fields.map { f =>
             val jsField = v
@@ -134,7 +135,7 @@ object ApiCodecCompressed {
                 f._1,
                 deserializationError(
                   s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '${f._1}'"))
-            Model.ApiRecordField(Some(f._1), jsValueToApiValue(jsField, f._2, defs))
+            (Some(f._1), jsValueToApiValue(jsField, f._2, defs))
           }.toImmArray
         )
       case (JsArray(fValues), Model.DamlLfRecord(fields)) =>
@@ -142,7 +143,7 @@ object ApiCodecCompressed {
           deserializationError(
             s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields")
         else
-          Model.ApiRecord(
+          V.ValueRecord(
             Some(id),
             (fields zip fValues).map {
               case ((fName, fTy), fValue) =>
@@ -161,7 +162,7 @@ object ApiCodecCompressed {
           .getOrElse(deserializationError(
             s"Can't read ${value.prettyPrint} as DamlLfVariant $id, unknown constructor ${constructor._1}"))
 
-        Model.ApiVariant(
+        V.ValueVariant(
           Some(id),
           constructorName,
           jsValueToApiValue(constructor._2, constructorType, defs)
@@ -170,7 +171,7 @@ object ApiCodecCompressed {
         cons
           .collectFirst { case kc @ `c` => kc }
           .map(
-            Model.ApiEnum(
+            V.ValueEnum(
               Some(id),
               _
             ))

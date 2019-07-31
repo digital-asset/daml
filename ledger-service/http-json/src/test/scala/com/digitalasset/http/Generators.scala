@@ -3,18 +3,21 @@
 
 package com.digitalasset.http
 
-import com.digitalasset.ledger.api.{v1 => API}
+import com.digitalasset.ledger.api.{v1 => lav1}
 import org.scalacheck.Gen
 
 object Generators {
-  def genApiIdentifier: Gen[API.value.Identifier] =
+  def genApiIdentifier: Gen[lav1.value.Identifier] =
     for {
       p <- Gen.identifier
       m <- Gen.identifier
       e <- Gen.identifier
-    } yield API.value.Identifier(packageId = p, moduleName = m, entityName = e)
+    } yield lav1.value.Identifier(packageId = p, moduleName = m, entityName = e)
 
-  def genTemplateId[A](implicit ev: PackageIdGen[A]): Gen[domain.TemplateId[A]] =
+  def genDomainTemplateId: Gen[domain.TemplateId.RequiredPkg] =
+    genApiIdentifier.map(domain.TemplateId.fromLedgerApi)
+
+  def genDomainTemplateIdO[A](implicit ev: PackageIdGen[A]): Gen[domain.TemplateId[A]] =
     for {
       p <- ev.gen
       m <- Gen.identifier
@@ -24,11 +27,14 @@ object Generators {
   def nonEmptySet[A](gen: Gen[A]): Gen[Set[A]] = Gen.nonEmptyListOf(gen).map(_.toSet)
 
   // Generate Identifiers with unique packageId values, but the same moduleName and entityName.
-  def genDuplicateApiIdentifiers: Gen[List[API.value.Identifier]] =
+  def genDuplicateApiIdentifiers: Gen[List[lav1.value.Identifier]] =
     for {
       id0 <- genApiIdentifier
       otherPackageIds <- nonEmptySet(Gen.identifier.filter(x => x != id0.packageId))
     } yield id0 :: otherPackageIds.map(a => id0.copy(packageId = a)).toList
+
+  def genDuplicateDomainTemplateIdR: Gen[List[domain.TemplateId.RequiredPkg]] =
+    genDuplicateApiIdentifiers.map(xs => xs.map(domain.TemplateId.fromLedgerApi))
 
   trait PackageIdGen[A] {
     def gen: Gen[A]
