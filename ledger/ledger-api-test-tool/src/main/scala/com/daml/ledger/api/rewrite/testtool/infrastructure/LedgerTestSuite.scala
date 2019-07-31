@@ -1,21 +1,21 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.acceptance.infrastructure
+package com.daml.ledger.api.rewrite.testtool.infrastructure
 
-import com.daml.ledger.acceptance.infrastructure.LedgerTestSuite.SkipTestException
+import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuite.SkipTestException
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.value.Identifier
 
 import scala.concurrent.Future
 
-private[acceptance] object LedgerTestSuite {
+private[testtool] object LedgerTestSuite {
 
   final case class SkipTestException(override val getMessage: String) extends RuntimeException
 
 }
 
-private[acceptance] abstract class LedgerTestSuite(val session: LedgerSession) {
+private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
 
   val name: String = getClass.getSimpleName
 

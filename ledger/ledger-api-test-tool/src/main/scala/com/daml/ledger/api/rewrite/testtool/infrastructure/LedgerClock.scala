@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.acceptance.infrastructure
+package com.daml.ledger.api.rewrite.testtool.infrastructure
 
 import java.time.{Clock, Instant, ZoneId}
 import java.util.concurrent.atomic.AtomicReference
@@ -13,7 +13,7 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-private[acceptance] object LedgerClock {
+private[testtool] object LedgerClock {
 
   private def timestampToInstant(t: Timestamp): Instant =
     Instant.EPOCH.plusSeconds(t.seconds).plusNanos(t.nanos.toLong)
@@ -46,7 +46,7 @@ private[acceptance] object LedgerClock {
 
 }
 
-private[acceptance] final class LedgerClock private (t: AtomicReference[Instant]) extends Clock {
+private[testtool] final class LedgerClock private (t: AtomicReference[Instant]) extends Clock {
 
   override def getZone: ZoneId = ZoneId.of("UTC")
 

@@ -1,10 +1,14 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.ledger.acceptance.tests
+package com.daml.ledger.api.rewrite.testtool.tests
 
-import com.daml.ledger.acceptance.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.daml.ledger.acceptance.templates.{Divulgence1, Divulgence2}
+import com.daml.ledger.api.rewrite.testtool.infrastructure.{
+  LedgerSession,
+  LedgerTest,
+  LedgerTestSuite
+}
+import com.daml.ledger.api.rewrite.testtool.templates.{Divulgence1, Divulgence2}
 
 import scala.concurrent.Future
 

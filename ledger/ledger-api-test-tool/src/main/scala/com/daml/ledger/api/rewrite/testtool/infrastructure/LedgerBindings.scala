@@ -1,4 +1,7 @@
-package com.daml.ledger.acceptance.infrastructure
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.daml.ledger.api.rewrite.testtool.infrastructure
 
 import java.time.{Clock, Instant}
 import java.util.UUID
@@ -110,7 +113,7 @@ final class LedgerBindings(channel: Channel)(implicit ec: ExecutionContext) {
     for {
       id <- ledgerId
       let <- time
-      mrt = let.plusSeconds(5)
+      mrt = let.plusSeconds(30)
       a <- service(
         new SubmitAndWaitRequest(
           Some(new Commands(
