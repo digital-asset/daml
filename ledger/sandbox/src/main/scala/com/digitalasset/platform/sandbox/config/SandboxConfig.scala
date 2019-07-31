@@ -51,7 +51,7 @@ final case class CommandConfiguration(
 object SandboxConfig {
 
   val DefaultPort = 6865
-  val DefaultMaxInboundMessageSize = LedgerApiServer.DefaultMaxInboundMessageSize
+  val DefaultMaxInboundMessageSize = 4194304
 
   def default: SandboxConfig =
     SandboxConfig(

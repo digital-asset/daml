@@ -7,8 +7,6 @@ import java.io.File
 
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 
-import com.digitalasset.ledger.server.apiserver.LedgerApiServer
-
 final case class Config(
     port: Int,
     portFile: Option[File],
@@ -19,8 +17,7 @@ final case class Config(
 )
 
 object Config {
-  val DefaultMaxInboundMessageSize = LedgerApiServer.DefaultMaxInboundMessageSize
-
+  val DefaultMaxInboundMessageSize = 4194304
   def default: Config =
-    new Config(0, None, List.empty, DefaultMaxInboundMessageSize, "", None)
+    new Config(0, None, List.empty, 4194304, "", None)
 }
