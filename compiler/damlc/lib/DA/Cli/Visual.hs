@@ -20,6 +20,7 @@ import qualified Data.ByteString as B
 import Data.Generics.Uniplate.Data
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
+import Safe
 
 type IsConsuming = Bool
 type InternalChcName = LF.ChoiceName
@@ -120,7 +121,7 @@ darToWorld manifest pkg = AST.initWorldSelf pkgs pkg
         pkgs = map dalfBytesToPakage (dalfsContent manifest)
 
 tplNameUnqual :: LF.Template -> T.Text
-tplNameUnqual LF.Template {..} = head (LF.unTypeConName tplTypeCon)
+tplNameUnqual LF.Template {..} = headNote "tplNameUnqual" $ (LF.unTypeConName tplTypeCon)
 
 choiceNameWithId :: [TemplateChoices] -> Map.Map InternalChcName ChoiceDetails
 choiceNameWithId tplChcActions = Map.fromList choiceWithIds
@@ -140,7 +141,7 @@ nodeIdForChoice nodeLookUp chc = case Map.lookup chc nodeLookUp of
 
 addCreateChoice :: TemplateChoices -> Map.Map LF.ChoiceName ChoiceDetails -> ChoiceDetails
 addCreateChoice TemplateChoices {..} lookupData = nodeIdForChoice lookupData tplNameCreateChoice
-    where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (head (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
+    where tplNameCreateChoice = LF.ChoiceName $ T.pack $ DAP.renderPretty (headNote "addCreateChoice" (LF.unTypeConName (LF.tplTypeCon template))) ++ "_Create"
 
 constructSubgraphsWithLables :: Map.Map LF.ChoiceName ChoiceDetails -> TemplateChoices -> SubGraph
 constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nodesWithCreate template
@@ -149,7 +150,7 @@ constructSubgraphsWithLables lookupData tpla@TemplateChoices {..} = SubGraph nod
         nodesWithCreate = addCreateChoice tpla lookupData : nodes
 
 tplNamet :: LF.TypeConName -> T.Text
-tplNamet tplConName = head (LF.unTypeConName tplConName)
+tplNamet tplConName = headNote "tplNamet" (LF.unTypeConName tplConName)
 
 actionToChoice :: Action -> LF.ChoiceName
 actionToChoice (ACreate LF.Qualified {..}) = LF.ChoiceName $ tplNamet qualObject <> "_Create"
