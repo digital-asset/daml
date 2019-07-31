@@ -90,6 +90,9 @@ encodePackageRef interned = Just . \case
             (P.PackageRefSumInternedId . fromIntegral)
             $ interned pkgid
 
+-- NB(SC): May miss some package IDs because packageRefs excludes some members;
+-- see notes for `instance MonoTraversable ModuleRef SourceLoc` in Optics.hs,
+-- and revisit for DAML-LF v2
 internPackageRefIds :: Package -> (PackageRefCtx, [PackageId])
 internPackageRefIds pkg =
       let set = S.fromList $ pkg ^.. packageRefs._PRImport
