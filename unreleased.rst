@@ -14,3 +14,4 @@ HEAD — ongoing
 * [Dev Tooling] `daml-sdk-head` now installs current-workdir versions of all the published JARs (as version `100.0.0`) to the local Maven repo (`~/.m2`), to allow local testing of unreleased versions of the SDK against JVM-based applications. (Disable with `--skip-jars`)
 + [DAML Compiler] Enable the language extension ``FlexibleContexts`` by default.
 + [DAML Compiler] **BREAKING CHANGE** Enable the language extension ``MonoLocalBinds`` by default. ``let`` and ``where`` bindings introducing polymorphic functions that are used at different types now need an explicit type annotation. Without the type annotation the type of the first use site will be inferred and use sites at different types will fail with a type mismatch error.
++ [Ledger] H2 Database support in the Ledger API Server.

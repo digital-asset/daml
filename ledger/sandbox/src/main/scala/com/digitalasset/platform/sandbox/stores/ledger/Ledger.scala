@@ -105,7 +105,7 @@ object Ledger {
     new InMemoryLedger(ledgerId, timeProvider, acs, packages, ledgerEntries)
 
   /**
-    * Creates a Postgres backed ledger
+    * Creates a JDBC backed ledger
     *
     * @param jdbcUrl       the jdbc url string containing the username and password as well
     * @param ledgerId      the id to be used for the ledger
@@ -116,7 +116,7 @@ object Ledger {
     * @param startMode     whether the ledger should be reset, or continued where it was
     * @return a Postgres backed Ledger
     */
-  def postgres(
+  def jdbcBacked(
       jdbcUrl: String,
       ledgerId: LedgerId,
       timeProvider: TimeProvider,
@@ -137,14 +137,14 @@ object Ledger {
       startMode)
 
   /**
-    * Creates a Postgres backed read only ledger
+    * Creates a JDBC backed read only ledger
     *
     * @param jdbcUrl       the jdbc url string containing the username and password as well
     * @param ledgerId      the id to be used for the ledger
     * @param timeProvider  the provider of time
-    * @return a Postgres backed Ledger
+    * @return a jdbc backed Ledger
     */
-  def postgresReadOnly(
+  def jdbcBackedReadOnly(
       jdbcUrl: String,
       ledgerId: LedgerId,
   )(implicit mat: Materializer, mm: MetricsManager): Future[ReadOnlyLedger] =

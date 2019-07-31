@@ -74,7 +74,7 @@ object SandboxIndexAndWriteService {
       implicit mat: Materializer,
       mm: MetricsManager): Future[IndexAndWriteService] =
     Ledger
-      .postgres(
+      .jdbcBacked(
         jdbcUrl,
         ledgerId,
         timeProvider,
@@ -353,7 +353,8 @@ abstract class LedgerBackedIndexService(
               Checkpoint(
                 domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
                 c.recordedAt)
-            case (offset, r: LedgerEntry.Rejection) =>
+            case (offset, r: LedgerEntry.Rejection)
+                if r.commandId.nonEmpty && r.applicationId.contains(applicationId.unwrap) =>
               CommandRejected(
                 domain.LedgerOffset.Absolute(Ref.LedgerString.assertFromString(offset.toString)),
                 r.recordTime,

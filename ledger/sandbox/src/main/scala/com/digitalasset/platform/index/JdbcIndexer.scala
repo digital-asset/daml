@@ -30,7 +30,7 @@ import com.digitalasset.platform.sandbox.stores.ledger.sql.SqlLedger.{
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   LedgerDao,
   PersistenceEntry,
-  PostgresLedgerDao
+  JdbcLedgerDao
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
@@ -47,11 +47,11 @@ import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Success}
 
-object PostgresIndexer {
-  private val logger = LoggerFactory.getLogger(classOf[PostgresIndexer])
+object JdbcIndexer {
+  private val logger = LoggerFactory.getLogger(classOf[JdbcIndexer])
   private[index] val asyncTolerance = 30.seconds
 
-  def create(readService: ReadService, jdbcUrl: String): Future[PostgresIndexer] = {
+  def create(readService: ReadService, jdbcUrl: String): Future[JdbcIndexer] = {
     val actorSystem = ActorSystem("postgres-indexer")
     val materializer: ActorMaterializer = ActorMaterializer()(actorSystem)
     val metricsManager = MetricsManager(false)
@@ -70,7 +70,7 @@ object PostgresIndexer {
       ledgerEnd <- ledgerDao.lookupLedgerEnd()
       externalOffset <- ledgerDao.lookupExternalLedgerEnd()
     } yield {
-      new PostgresIndexer(ledgerEnd, externalOffset, ledgerDao)(materializer) {
+      new JdbcIndexer(ledgerEnd, externalOffset, ledgerDao)(materializer) {
         override def close(): Unit = {
           super.close()
           materializer.shutdown()
@@ -82,14 +82,17 @@ object PostgresIndexer {
   }
 
   private def initializeDao(jdbcUrl: String, mm: MetricsManager) = {
-    val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+    val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
+    val dbDispatcher =
+      DbDispatcher(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
     val ledgerDao = LedgerDao.metered(
-      PostgresLedgerDao(
+      JdbcLedgerDao(
         dbDispatcher,
         ContractSerializer,
         TransactionSerializer,
         ValueSerializer,
-        KeyHasher))(mm)
+        KeyHasher,
+        dbType))(mm)
     ledgerDao
   }
 
@@ -123,7 +126,7 @@ object PostgresIndexer {
   * @param beginAfterExternalOffset The last offset received from the read service.
   *                                 This offset has inclusive semantics,
   */
-class PostgresIndexer private (
+class JdbcIndexer private (
     initialInternalOffset: Long,
     beginAfterExternalOffset: Option[LedgerString],
     ledgerDao: LedgerDao)(implicit mat: Materializer)
@@ -175,7 +178,7 @@ class PostgresIndexer private (
 
       case PublicPackageUploaded(archive, sourceDescription, _, _) =>
         val uploadId = UUID.randomUUID().toString
-        val uploadInstant = Instant.now()
+        val uploadInstant = Instant.now() // TODO: use PublicPackageUploaded.recordTime for multi-ledgers (#2635)
         val packages: List[(DamlLf.Archive, v2.PackageDetails)] = List(
           archive -> v2.PackageDetails(
             size = archive.getPayload.size.toLong,

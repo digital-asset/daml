@@ -17,14 +17,14 @@ object StandaloneIndexerServer {
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   def apply(readService: ReadService, jdbcUrl: String): AutoCloseable = {
-    val server = PostgresIndexer.create(readService, jdbcUrl)
+    val server = JdbcIndexer.create(readService, jdbcUrl)
     val indexHandleF = server.flatMap(
       _.subscribe(
         readService,
         t => logger.error("error while processing state updates", t),
         () => logger.info("successfully finished processing state updates")))(DEC)
 
-    val indexFeedHandle = Await.result(indexHandleF, PostgresIndexer.asyncTolerance)
+    val indexFeedHandle = Await.result(indexHandleF, JdbcIndexer.asyncTolerance)
     logger.info("Started Indexer Server")
 
     val closed = new AtomicBoolean(false)
@@ -32,7 +32,7 @@ object StandaloneIndexerServer {
     new AutoCloseable {
       override def close(): Unit = {
         if (closed.compareAndSet(false, true)) {
-          val _ = Await.result(indexFeedHandle.stop(), PostgresIndexer.asyncTolerance)
+          val _ = Await.result(indexFeedHandle.stop(), JdbcIndexer.asyncTolerance)
         }
       }
     }

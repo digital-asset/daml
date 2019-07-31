@@ -24,7 +24,7 @@ import com.digitalasset.platform.sandbox.stores.ActiveContracts.ActiveContract
 import com.digitalasset.platform.sandbox.stores.ledger.sql.dao.{
   LedgerDao,
   LedgerReadDao,
-  PostgresLedgerDao
+  JdbcLedgerDao
 }
 import com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation.{
   ContractSerializer,
@@ -52,14 +52,17 @@ object ReadOnlySqlLedger {
       mm: MetricsManager): Future[ReadOnlyLedger] = {
     implicit val ec: ExecutionContext = DEC
 
-    val dbDispatcher = DbDispatcher(jdbcUrl, noOfShortLivedConnections, noOfStreamingConnections)
+    val dbType = JdbcLedgerDao.jdbcType(jdbcUrl)
+    val dbDispatcher =
+      DbDispatcher(jdbcUrl, dbType, noOfShortLivedConnections, noOfStreamingConnections)
     val ledgerReadDao = LedgerDao.meteredRead(
-      PostgresLedgerDao(
+      JdbcLedgerDao(
         dbDispatcher,
         ContractSerializer,
         TransactionSerializer,
         ValueSerializer,
-        KeyHasher))
+        KeyHasher,
+        dbType))
 
     ReadOnlySqlLedgerFactory(ledgerReadDao).createReadOnlySqlLedger(ledgerId)
   }
