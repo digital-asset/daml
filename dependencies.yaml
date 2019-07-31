@@ -561,6 +561,11 @@ dependencies:
       lang: scala
       version: "1.3.1"
 
+  com.auth0:
+    java-jwt:
+      lang: java
+      version: 3.8.1
+
 # Packages listed here will not be resolved as part of regular dependency
 # resolution. Instead, the generated bazel targets will redirect to whichever
 # target is specified here.
