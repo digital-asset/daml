@@ -138,8 +138,8 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
         BSC.pack $
         unlines
             [ "name: " ++ pName
-            , "id: " ++ pName -- will change to key
-            , "key: " ++ pName -- will change to key
+            , "id: " ++ key
+            , "key: " ++ key
             , "version: " ++ pVersion
             , "exposed: True"
             , "exposed-modules: " ++
