@@ -31,6 +31,8 @@ trait ApiServer extends AutoCloseable {
 }
 
 object LedgerApiServer {
+  val DefaultMaxInboundMessageSize = 4194304
+
   def create(
       createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
       desiredPort: Int,
@@ -53,6 +55,7 @@ object LedgerApiServer {
         private val impl = new LedgerApiServer(
           apiServices,
           desiredPort,
+          maxInboundMessageSize,
           address,
           sslContext
         )
