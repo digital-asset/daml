@@ -6,9 +6,9 @@
 
 > <a name="constr-newtype-nat-99832"></a>[Nat](#constr-newtype-nat-99832)
 > 
-> > | Field | Type  | Description 
-> > | :---- | :---- | :----------------
-> > | unNat | Int   | 
+> > | Field | Type  | Description |
+> > | :---- | :---- | :---------- |
+> > | unNat | Int   |  |
 
 ## Functions
 

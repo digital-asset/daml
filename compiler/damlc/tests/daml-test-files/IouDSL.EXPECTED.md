@@ -4,11 +4,11 @@
 
 <a name="type-ioudsl-iou-73876"></a>**template** [Iou](#type-ioudsl-iou-73876)
 
-> | Field   | Type    | Description 
-> | :------ | :------ | :----------------
-> | issuer  | Party   | 
-> | owner   | Party   | 
-> | amount  | Decimal | 
+> | Field   | Type    | Description |
+> | :------ | :------ | :---------- |
+> | issuer  | Party   |  |
+> | owner   | Party   |  |
+> | amount  | Decimal |  |
 > 
 > * **Choice External:Archive**
 >   

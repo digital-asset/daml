@@ -4,11 +4,11 @@
 
 <a name="type-proposaldsl-proposal-65892"></a>**template** Template t =\> [Proposal](#type-proposaldsl-proposal-65892) t
 
-> | Field     | Type      | Description 
-> | :-------- | :-------- | :----------------
-> | asset     | t         | 
-> | receivers | \[Party\] | 
-> | name      | Text      | 
+> | Field     | Type      | Description |
+> | :-------- | :-------- | :---------- |
+> | asset     | t         |  |
+> | receivers | \[Party\] |  |
+> | name      | Text      |  |
 > 
 > * **Choice Accept**
 >   

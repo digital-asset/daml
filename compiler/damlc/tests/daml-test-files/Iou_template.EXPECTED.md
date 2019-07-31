@@ -4,38 +4,38 @@
 
 <a name="type-ioutemplate-iou-55222"></a>**template** [Iou](#type-ioutemplate-iou-55222)
 
-> | Field      | Type       | Description
-> | :--------- | :--------- | :----------------
-> | issuer     | Party      |
-> | owner      | Party      |
-> | currency   | Text       | only 3-letter symbols are allowed
-> | amount     | Decimal    | must be positive
-> | regulators | \[Party\]  | `regulators` may observe any use of the `Iou`
+> | Field      | Type       | Description |
+> | :--------- | :--------- | :---------- |
+> | issuer     | Party      |  |
+> | owner      | Party      |  |
+> | currency   | Text       | only 3-letter symbols are allowed |
+> | amount     | Decimal    | must be positive |
+> | regulators | \[Party\]  | `regulators` may observe any use of the `Iou` |
 >
 > * **Choice Merge**
 >
 >   merges two "compatible" `Iou`s
 >
->   | Field                                         | Type                                          | Description
->   | :-------------------------------------------- | :-------------------------------------------- | :----------------
->   | otherCid                                      | ContractId [Iou](#type-ioutemplate-iou-55222) | Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original `Iou`.
+>   | Field                                         | Type                                          | Description |
+>   | :-------------------------------------------- | :-------------------------------------------- | :---------- |
+>   | otherCid                                      | ContractId [Iou](#type-ioutemplate-iou-55222) | Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original `Iou`. |
 >
 > * **Choice Split**
 >
 >   splits into two `Iou`s with
 >   smaller amounts
 >
->   | Field       | Type        | Description
->   | :---------- | :---------- | :----------------
->   | splitAmount | Decimal     | must be between zero and original amount
+>   | Field       | Type        | Description |
+>   | :---------- | :---------- | :---------- |
+>   | splitAmount | Decimal     | must be between zero and original amount |
 >
 > * **Choice Transfer**
 >
 >   changes the owner
 >
->   | Field   | Type    | Description
->   | :------ | :------ | :----------------
->   | owner\_ | Party   |
+>   | Field   | Type    | Description |
+>   | :------ | :------ | :---------- |
+>   | owner\_ | Party   |  |
 
 ## Functions
 

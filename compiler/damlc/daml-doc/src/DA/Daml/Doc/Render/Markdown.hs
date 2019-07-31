@@ -114,14 +114,14 @@ renderMdFields env fields = header <> fieldRows
             , adjust fLen "Field"
             , " | "
             , adjust fLen "Type"
-            , " | Description "
+            , " | Description |"
             ]
         , T.concat
             [ "| :"
             , T.replicate (fLen - 1) "-"
             , " | :"
             , T.replicate (fLen - 1) "-"
-            , " | :----------------"
+            , " | :---------- |"
             ]
         ]
 
@@ -133,6 +133,7 @@ renderMdFields env fields = header <> fieldRows
             , adjust fLen ty
             , " | "
             , doc
+            , " |"
             ]
         | (name, ty, doc) <- textFields
         ]
