@@ -4,6 +4,7 @@
 {-# LANGUAGE MultiWayIf #-}
 module DA.Daml.LF.Mangling (mangleIdentifier, unmangleIdentifier) where
 
+import Data.Bits
 import Data.Char
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -74,7 +75,8 @@ mangleIdentifier txt = case T.foldl' f (MangledSize 0 0) txt of
             let poke !j !minj !x
                   | j < minj = pure ()
                   | otherwise = do
-                        let !(!x', !r) = quotRem x 16
+                        let !x' = x `unsafeShiftR` 4
+                        let !r = x .&. 0xF
                         TA.unsafeWrite a j (fromIntegral $ ord $ intToDigit r)
                         poke (j - 1) minj x'
                 go !i !t = case T.uncons t of
