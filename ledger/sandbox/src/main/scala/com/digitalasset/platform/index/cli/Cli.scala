@@ -54,7 +54,8 @@ object Cli {
       .action(cacrtConfig)
     opt[Int]("maxInboundMessageSize")
       .action((x, c) => c.copy(maxInboundMessageSize = x))
-      .text(s"Max inbound message size in bytes. Defaults to ${Config.DefaultMaxInboundMessageSize}.")
+      .text(
+        s"Max inbound message size in bytes. Defaults to ${Config.DefaultMaxInboundMessageSize}.")
     opt[String]("jdbc-url")
       .text("The JDBC URL to the postgres database used for the indexer and the index")
       .action((u, c) => c.copy(jdbcUrl = u))
