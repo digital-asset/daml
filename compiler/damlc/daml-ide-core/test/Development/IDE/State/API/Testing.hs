@@ -511,7 +511,7 @@ timedSection targetDiffTime block = do
 
 
 templateChoicesToProps :: TemplateChoices -> TemplateProp
-templateChoicesToProps tca = TemplateProp choicesInTpl (sum $ map (length . actions ) (choiceAndActions tca))
+templateChoicesToProps tca = TemplateProp choicesInTpl (sum $ map (length . actions) (choiceAndActions tca))
     where choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
 
 graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> Either [TemplateProp] ()
