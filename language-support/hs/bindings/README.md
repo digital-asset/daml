@@ -19,7 +19,7 @@ And then you can import the `DA.Ledger` module in your Haskell code.
 
 You can find some usage examples
 [here](/language-support/hs/bindings/test/DA/Ledger/Tests.hs) and
-[here](/language-support/hs/bindings/examples/chat/src/DA/Chat/ChatLedger.hs).
+[here](/language-support/hs/bindings/examples/chat/src/DA/Ledger/App/Chat/ChatLedger.hs).
 
 Using these bindings **outside of this repository** can be a bit
 tricky since there are quite a few packages required that are not
