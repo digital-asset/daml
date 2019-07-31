@@ -325,11 +325,16 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
     withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
         setFilesOfInterest ide (Set.singleton inputFile)
         runAction ide $ do
-          when (optWriteInterface opts') $ do
-              mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') inputFile
-              void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
           mbDalf <- getDalf inputFile
           dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
+          when (optWriteInterface opts') $ do
+              let pkgId = Archive.encodePackageHash dalf
+              mbIfaces <-
+                  writeIfacesAndHie
+                      (Just $ T.unpack pkgId)
+                      (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts')
+                      inputFile
+              void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
           liftIO $ write dalf
   where
     write bs

@@ -101,7 +101,12 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                      show (S.toList missingExposed)
                  let (dalf, pkgId) = encodeArchiveAndHash pkg
                  -- create the interface files
-                 ifaces <- MaybeT $ writeIfacesAndHie ifDir file
+                 ifaces <-
+                     MaybeT $
+                     writeIfacesAndHie
+                         (Just $ fullPkgName pName pVersion (T.unpack pkgId))
+                         ifDir
+                         file
                  -- get all dalf dependencies.
                  dalfDependencies0 <- getDalfDependencies file
                  let dalfDependencies =

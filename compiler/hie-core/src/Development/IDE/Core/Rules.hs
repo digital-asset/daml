@@ -58,6 +58,7 @@ import Development.IDE.Core.Shake
 import System.Directory
 import System.FilePath
 import MkIface
+import Module
 
 -- | This is useful for rules to convert rules that can only produce errors or
 -- a result into the more general IdeResult type that supports producing
@@ -124,8 +125,11 @@ getParsedModule file = use GetParsedModule file
 
 -- | Write interface files and hie files to the location specified by the given options.
 writeIfacesAndHie ::
-       NormalizedFilePath -> NormalizedFilePath -> Action (Maybe [NormalizedFilePath])
-writeIfacesAndHie ifDir main =
+       Maybe String
+    -> NormalizedFilePath
+    -> NormalizedFilePath
+    -> Action (Maybe [NormalizedFilePath])
+writeIfacesAndHie mbPkgName ifDir main =
     runMaybeT $ do
         files <- transitiveModuleDeps <$> useE GetDependencies main
         tcms <- usesE TypeCheck (main : files)
@@ -141,10 +145,18 @@ writeIfacesAndHie ifDir main =
             createDirectoryIfMissing True (takeDirectory fp)
             let ifaceFp = replaceExtension fp ".hi"
             let hieFp = replaceExtension fp ".hie"
-            writeIfaceFile
-                (hsc_dflags session)
-                ifaceFp
-                (hm_iface $ tmrModInfo tcm)
+            let iface0 = hm_iface $ tmrModInfo tcm
+            let iface =
+                    iface0
+                        { mi_module =
+                              maybe
+                                  (mi_module iface0)
+                                  (\pkgName ->
+                                       (mi_module iface0)
+                                           {moduleUnitId = stringToUnitId pkgName})
+                                  mbPkgName
+                        }
+            writeIfaceFile (hsc_dflags session) ifaceFp iface
             hieFile <-
                 liftIO $
                 runHsc session $
