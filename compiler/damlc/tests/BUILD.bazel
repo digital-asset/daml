@@ -227,7 +227,7 @@ damlc_compile_test(
     srcs = [":bond-trading"],
     heap_limit = "200M" if is_windows else "100M",
     main = "bond-trading/Test.daml",
-    stack_limit = "50K" if is_windows else "35K",
+    stack_limit = "100K" if is_windows else "35K",
 )
 
 filegroup(
