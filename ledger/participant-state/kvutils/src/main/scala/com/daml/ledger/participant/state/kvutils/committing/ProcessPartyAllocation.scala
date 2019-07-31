@@ -13,40 +13,33 @@ case class ProcessPartyAllocation(
     inputState: Map[DamlStateKey, Option[DamlStateValue]]
 ) {
   import Common._
-
-  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
-    (for {
-      // 1. Verify that the party isn't empty
-      _ <- checkPartyValidity
-
-      // 2. Verify that this is not a duplicate party submission.
-      partyKey = DamlStateKey.newBuilder.setParty(party).build
-      _ <- deduplicate(partyKey)
-
-      // Build the new log entry and state.
-      logEntry = DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(recordTime))
-        .setPartyAllocationEntry(partyAllocationEntry)
-        .build
-      newState = Map(
-        partyKey -> DamlStateValue.newBuilder
-          .setParty(
-            DamlPartyAllocation.newBuilder
-              .setParticipantId(partyAllocationEntry.getParticipantId)
-          )
-          .build)
-
-    } yield (logEntry, newState)).fold((_, Map.empty), identity)
+  import Commit._
 
   private val logger = LoggerFactory.getLogger(this.getClass)
   private val submissionId = partyAllocationEntry.getSubmissionId
   private val party: String = partyAllocationEntry.getParty
+  val partyKey = DamlStateKey.newBuilder.setParty(party).build
 
   private def tracelog(msg: String): Unit =
-    logger.trace(
-      s"processPartyAllocation[entryId=${prettyEntryId(entryId)}, submId=$submissionId]: $msg")
+    logger.trace(s"[entryId=${prettyEntryId(entryId)}, submId=$submissionId]: $msg")
 
-  private def checkPartyValidity: CheckResult =
+  def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
+    Commit.run(
+      sequence(
+        validateParty,
+        deduplicate,
+        buildFinalResult
+      )
+    )
+
+  private val buildFinalResult: Commit[Unit] =
+    done(
+      DamlLogEntry.newBuilder
+        .setRecordTime(buildTimestamp(recordTime))
+        .setPartyAllocationEntry(partyAllocationEntry)
+        .build)
+
+  private val validateParty: Commit[Unit] = delay {
     if (party.isEmpty) {
       tracelog(s"Party: $party allocation failed, party string invalid.")
       reject {
@@ -55,13 +48,21 @@ case class ProcessPartyAllocation(
             .setDetails(s"Party string '$party' invalid"))
       }
     } else {
-      pass()
+      pass
     }
+  }
 
-  private def deduplicate(partyKey: DamlStateKey): CheckResult = {
+  private val deduplicate: Commit[Unit] = delay {
     if (inputState(partyKey).isEmpty) {
       tracelog(s"Party: $party allocation committed.")
-      pass()
+      addState(
+        partyKey -> DamlStateValue.newBuilder
+          .setParty(
+            DamlPartyAllocation.newBuilder
+              .setParticipantId(partyAllocationEntry.getParticipantId)
+          )
+          .build
+      )
     } else {
       reject {
         _.setAlreadyExists(
@@ -72,8 +73,8 @@ case class ProcessPartyAllocation(
 
   private def reject(
       addErrorDetails: DamlPartyAllocationRejectionEntry.Builder => DamlPartyAllocationRejectionEntry.Builder
-  ): CheckResult =
-    Left(
+  ): Commit[Unit] =
+    done(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
         .setPartyAllocationRejectionEntry(

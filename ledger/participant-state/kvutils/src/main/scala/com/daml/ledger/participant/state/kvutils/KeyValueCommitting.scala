@@ -28,13 +28,29 @@ object KeyValueCommitting {
     */
   sealed trait Err extends RuntimeException with Product with Serializable
   object Err {
-    final case class InvalidPayload(message: String) extends Err
-    final case class MissingInputLogEntry(entryId: DamlLogEntryId) extends Err
-    final case class MissingInputState(key: DamlStateKey) extends Err
-    final case class NodeMissingFromLogEntry(entryId: DamlLogEntryId, nodeId: Int) extends Err
-    final case class NodeNotACreate(entryId: DamlLogEntryId, nodeId: Int) extends Err
-    final case class ArchiveDecodingFailed(packageId: PackageId, reason: String) extends Err
-    final case class InternalError(message: String) extends Err
+    final case class InvalidPayload(message: String) extends Err {
+      override def getMessage: String = s"Invalid payload: $message"
+    }
+    final case class MissingInputLogEntry(entryId: DamlLogEntryId) extends Err {
+      override def getMessage: String = s"Missing input log entry ${prettyEntryId(entryId)}"
+    }
+    final case class MissingInputState(key: DamlStateKey) extends Err {
+      override def getMessage: String = s"Missing input state for key $key"
+    }
+    final case class NodeMissingFromLogEntry(entryId: DamlLogEntryId, nodeId: Int) extends Err {
+      override def getMessage: String =
+        s"Node $nodeId not found from log entry ${prettyEntryId(entryId)}"
+    }
+    final case class NodeNotACreate(entryId: DamlLogEntryId, nodeId: Int) extends Err {
+      override def getMessage: String =
+        s"Transaction node ${prettyEntryId(entryId)}:$nodeId was not a create node."
+    }
+    final case class ArchiveDecodingFailed(packageId: PackageId, reason: String) extends Err {
+      override def getMessage: String = s"Decoding of DAML-LF archive $packageId failed: $reason"
+    }
+    final case class InternalError(message: String) extends Err {
+      override def getMessage: String = s"Internal error: $message"
+    }
   }
 
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString

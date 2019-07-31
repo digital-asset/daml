@@ -1,10 +1,10 @@
 package com.daml.ledger.participant.state.kvutils.committing
 
 import com.daml.ledger.participant.state.backport.TimeModelChecker
-import com.daml.ledger.participant.state.kvutils.{Conversions, InputsAndEffects}
-import com.daml.ledger.participant.state.kvutils.Conversions._
+import com.daml.ledger.participant.state.kvutils.Conversions.{commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting._
+import com.daml.ledger.participant.state.kvutils.{Conversions, InputsAndEffects}
 import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.value.Value.{
   VersionedValue
 }
 import org.slf4j.LoggerFactory
+
 import scala.collection.JavaConverters._
 
 private[kvutils] case class ProcessTransactionSubmission(
@@ -34,77 +35,16 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   import Common._
 
-  // The result of the transaction submission.
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
-    (for {
-      dedupState <- deduplicateCommand()
-      _ <- verifyLetAndTtl()
-      _ <- modelConformance()
-      _ <- uniqueContractKeys()
-
-      // All checks passed. Produce the log entry and state updates.
-      effects = InputsAndEffects.computeEffects(entryId, relTx)
-      blindingInfo = Blinding.blind(relTx)
-
-      // Update contract state entries to mark contracts as consumed (checked by 'modelConformance' above)
-      consumedStateUpdates = effects.consumedContracts.map { key =>
-        val cs =
-          inputState(key).getOrElse(throw Err.MissingInputState(key)).getContractState.toBuilder
-        cs.setArchivedAt(buildTimestamp(txLet))
-        cs.setArchivedByEntry(entryId)
-        key -> DamlStateValue.newBuilder.setContractState(cs).build
-      }
-
-      // Add contract state entries to mark contract activeness (checked by 'modelConformance' above)
-      createdStateUpdates = effects.createdContracts.map {
-        case (key, createNode) =>
-          val cs = DamlContractState.newBuilder
-          cs.setActiveAt(buildTimestamp(txLet))
-          val localDisclosure =
-            blindingInfo.localDisclosure(NodeId.unsafeFromIndex(key.getContractId.getNodeId.toInt))
-          cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
-          createNode.key.foreach { keyWithMaintainers =>
-            cs.setContractKey(
-              Conversions.encodeContractKey(
-                GlobalKey(
-                  createNode.coinst.template,
-                  Conversions.forceAbsoluteContractIds(keyWithMaintainers.key)
-                )
-              ))
-          }
-          key -> DamlStateValue.newBuilder.setContractState(cs).build
-      }
-
-      // Update contract state of divulged contracts
-      divulgeStateUpdates = blindingInfo.globalImplicitDisclosure.map {
-        case (absCoid, parties) =>
-          val key = absoluteContractIdToStateKey(absCoid)
-          val cs =
-            inputState(key).getOrElse(throw Err.MissingInputState(key)).getContractState.toBuilder
-          val partiesCombined: Set[String] =
-            parties.toSet[String] union cs.getDivulgedToList.asScala.toSet
-          cs.clearDivulgedTo
-          cs.addAllDivulgedTo(partiesCombined.asJava)
-          key -> DamlStateValue.newBuilder.setContractState(cs).build
-      }
-
-      // Update contract keys
-      keyStateUpdates = effects.updatedContractKeys.map {
-        case (key, contractKeyState) =>
-          key -> DamlStateValue.newBuilder
-            .setContractKeyState(contractKeyState)
-            .build
-      }
-
-      finalState = dedupState ++ consumedStateUpdates ++ createdStateUpdates ++
-        divulgeStateUpdates ++ keyStateUpdates
-
-      logEntry = DamlLogEntry.newBuilder
-        .setRecordTime(buildTimestamp(recordTime))
-        .setTransactionEntry(txEntry)
-        .build
-
-    } yield (logEntry, finalState)).fold((_, Map.empty), identity)
+    Commit.run(
+      Commit.sequence(
+        deduplicateCommand,
+        validateLetAndTtl,
+        validateContractKeyUniqueness,
+        validateModelConformance,
+        buildFinalResult
+      )
+    )
 
   // -------------------------------------------------------------------------------
 
@@ -138,11 +78,14 @@ private[kvutils] case class ProcessTransactionSubmission(
           Conversions.stateKeyToContractId(key)
     }
 
-  private def deduplicateCommand(): CheckResult = {
+  /** Deduplicate the submission. If the check passes we save the command deduplication
+    * state.
+    */
+  private def deduplicateCommand(): Commit[Unit] = {
     val dedupKey = commandDedupKey(submitterInfo)
     val dedupEntry = inputState(dedupKey)
     if (dedupEntry.isEmpty) {
-      pass(
+      Commit.addState(
         dedupKey ->
           DamlStateValue.newBuilder
             .setCommandDedup(DamlCommandDedupValue.newBuilder.build)
@@ -151,7 +94,8 @@ private[kvutils] case class ProcessTransactionSubmission(
       reject(RejectionReason.DuplicateCommand)
   }
 
-  private def verifyLetAndTtl(): CheckResult = {
+  /** Validate ledger effective time and the command's time-to-live. */
+  private def validateLetAndTtl(): Commit[Unit] = Commit.delay {
     val timeModelChecker = TimeModelChecker(config.timeModel)
     val givenLET = txLet.toInstant
     val givenMRT = parseTimestamp(txEntry.getSubmitterInfo.getMaximumRecordTime).toInstant
@@ -160,21 +104,22 @@ private[kvutils] case class ProcessTransactionSubmission(
         currentTime = recordTime.toInstant,
         givenLedgerEffectiveTime = givenLET,
         givenMaximumRecordTime = givenMRT)
-      /*&&
-      timeModelChecker.checkTtl(givenLET, givenMRT) */ )
-      pass()
+      &&
+      timeModelChecker.checkTtl(givenLET, givenMRT))
+      Commit.pass
     else
       reject(RejectionReason.MaximumRecordTimeExceeded)
   }
 
-  private def modelConformance(): CheckResult = {
+  /** Validate the submission's conformance to the DAML model */
+  private def validateModelConformance(): Commit[Unit] = Commit.delay {
     engine
       .validate(relTx, txLet)
       .consume(lookupContract, lookupPackage, lookupKey)
-      .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => pass())
+      .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => Commit.pass)
   }
 
-  private def uniqueContractKeys(): CheckResult = {
+  private def validateContractKeyUniqueness(): Commit[Unit] = Commit.delay {
     val allUnique = relTx.fold(GenTransaction.AnyOrder, true) {
       case (allUnique, (_nodeId, create: NodeCreate[_, VersionedValue[ContractId]]))
           if create.key.isDefined =>
@@ -192,9 +137,72 @@ private[kvutils] case class ProcessTransactionSubmission(
       case (allUnique, _) => allUnique
     }
     if (allUnique)
-      pass()
+      Commit.pass
     else
       reject(RejectionReason.Disputed("DuplicateKey: Contract Key not unique"))
+  }
+
+  /** All checks passed. Produce the log entry and contract state updates. */
+  private def buildFinalResult(): Commit[Unit] = Commit.delay {
+    import Commit._
+
+    val effects = InputsAndEffects.computeEffects(entryId, relTx)
+    val blindingInfo = Blinding.blind(relTx)
+
+    sequence(
+      // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
+      addState(effects.consumedContracts.map { key =>
+        val cs =
+          inputState(key).getOrElse(throw Err.MissingInputState(key)).getContractState.toBuilder
+        cs.setArchivedAt(buildTimestamp(txLet))
+        cs.setArchivedByEntry(entryId)
+        key -> DamlStateValue.newBuilder.setContractState(cs).build
+      }),
+      // Add contract state entries to mark contract activeness (checked by 'validateModelConformance')
+      addState(effects.createdContracts.map {
+        case (key, createNode) =>
+          val cs = DamlContractState.newBuilder
+          cs.setActiveAt(buildTimestamp(txLet))
+          val localDisclosure =
+            blindingInfo.localDisclosure(NodeId.unsafeFromIndex(key.getContractId.getNodeId.toInt))
+          cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
+          createNode.key.foreach { keyWithMaintainers =>
+            cs.setContractKey(
+              Conversions.encodeContractKey(
+                GlobalKey(
+                  createNode.coinst.template,
+                  Conversions.forceAbsoluteContractIds(keyWithMaintainers.key)
+                )
+              ))
+          }
+          key -> DamlStateValue.newBuilder.setContractState(cs).build
+      }),
+      // Update contract state of divulged contracts
+      addState(blindingInfo.globalImplicitDisclosure.map {
+        case (absCoid, parties) =>
+          val key = absoluteContractIdToStateKey(absCoid)
+          val cs =
+            inputState(key).getOrElse(throw Err.MissingInputState(key)).getContractState.toBuilder
+          val partiesCombined: Set[String] =
+            parties.toSet[String] union cs.getDivulgedToList.asScala.toSet
+          cs.clearDivulgedTo
+          cs.addAllDivulgedTo(partiesCombined.asJava)
+          key -> DamlStateValue.newBuilder.setContractState(cs).build
+      }),
+      // Update contract keys
+      addState(effects.updatedContractKeys.map {
+        case (key, contractKeyState) =>
+          key -> DamlStateValue.newBuilder
+            .setContractKeyState(contractKeyState)
+            .build
+      }),
+      done(
+        DamlLogEntry.newBuilder
+          .setRecordTime(buildTimestamp(recordTime))
+          .setTransactionEntry(txEntry)
+          .build
+      )
+    )
   }
 
   // Helper to lookup contract instances. We verify the activeness of
@@ -318,7 +326,7 @@ private[kvutils] case class ProcessTransactionSubmission(
       }
   }
 
-  private def reject(reason: RejectionReason): CheckResult = {
+  private def reject[A](reason: RejectionReason): Commit[A] = {
 
     val rejectionEntry = {
       val builder = DamlRejectionEntry.newBuilder
@@ -348,7 +356,7 @@ private[kvutils] case class ProcessTransactionSubmission(
       builder
     }
 
-    Left(
+    Commit.done(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
         .setRejectionEntry(rejectionEntry)
