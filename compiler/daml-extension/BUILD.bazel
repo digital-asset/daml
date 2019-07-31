@@ -96,7 +96,7 @@ genrule(
     ],
     outs = ["daml-bundled.vsix"],
     cmd = """
-        set -x
+        set -euo pipefail
         DIR=$$PWD
         VERSION=$$(cat $(location //:VERSION))
         cd compiler/daml-extension
