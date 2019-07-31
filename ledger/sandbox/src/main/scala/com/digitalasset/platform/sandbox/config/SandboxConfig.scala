@@ -9,7 +9,6 @@ import ch.qos.logback.classic.Level
 import com.digitalasset.ledger.api.tls.TlsConfiguration
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.services.time.{TimeModel, TimeProviderType}
-import com.digitalasset.ledger.server.apiserver.LedgerApiServer
 
 import scala.concurrent.duration._
 
