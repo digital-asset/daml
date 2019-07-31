@@ -3,12 +3,4 @@
 
 package com.daml.ledger.acceptance.infrastructure
 
-import com.digitalasset.platform.sandbox.config.SandboxConfig
-
-private[acceptance] sealed trait LedgerSessionConfiguration
-
-private[acceptance] object LedgerSessionConfiguration {
-
-  final case class Managed(config: SandboxConfig) extends LedgerSessionConfiguration
-
-}
+private[acceptance] final case class LedgerSessionConfiguration(address: String, port: Int)

@@ -11,25 +11,47 @@ import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeS
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
 
-private[acceptance] final class LedgerClock(ledgerId: String, service: TimeService) extends Clock {
+import scala.concurrent.{ExecutionContext, Future, Promise}
 
-  private[this] val ledgerTime = new AtomicReference[Timestamp]()
+private[acceptance] object LedgerClock {
 
-  service.getTime(
-    new GetTimeRequest(ledgerId),
-    new StreamObserver[GetTimeResponse] {
-      override def onNext(value: GetTimeResponse): Unit = ledgerTime.set(value.currentTime.get)
-      override def onError(t: Throwable): Unit = ledgerTime.set(null)
-      override def onCompleted(): Unit = ledgerTime.set(null)
-    }
-  )
+  private def timestampToInstant(t: Timestamp): Instant =
+    Instant.EPOCH.plusSeconds(t.seconds).plusNanos(t.nanos.toLong)
+
+  def apply(ledgerId: String, service: TimeService)(
+      implicit ec: ExecutionContext): Future[Clock] = {
+
+    val ledgerTime = new AtomicReference[Instant]()
+    val clockPromise = Promise[Clock]
+
+    service.getTime(
+      new GetTimeRequest(ledgerId),
+      new StreamObserver[GetTimeResponse] {
+        override def onNext(value: GetTimeResponse): Unit = {
+          ledgerTime.set(LedgerClock.timestampToInstant(value.currentTime.get))
+          val _ = clockPromise.trySuccess(new LedgerClock(ledgerTime))
+        }
+        override def onError(t: Throwable): Unit = {
+          val _ = clockPromise.trySuccess(Clock.systemUTC())
+        }
+        override def onCompleted(): Unit = {
+          val _ = clockPromise.trySuccess(Clock.systemUTC())
+        }
+      }
+    )
+
+    clockPromise.future
+
+  }
+
+}
+
+private[acceptance] final class LedgerClock private (t: AtomicReference[Instant]) extends Clock {
 
   override def getZone: ZoneId = ZoneId.of("UTC")
 
   override def withZone(zoneId: ZoneId): Clock =
     throw new UnsupportedOperationException("The ledger clock timezone cannot be changed")
 
-  override def instant(): Instant =
-    Option(ledgerTime.get()).fold(Clock.systemUTC().instant())(t =>
-      Instant.EPOCH.plusSeconds(t.seconds).plusNanos(t.nanos.toLong))
+  override def instant(): Instant = t.get()
 }

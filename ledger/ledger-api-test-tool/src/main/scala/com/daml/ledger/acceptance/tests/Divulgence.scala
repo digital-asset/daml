@@ -18,7 +18,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           divulgence1 <- Divulgence1(alice, alice)
           divulgence2 <- Divulgence2(bob, bob, alice)
           _ <- divulgence2.archive(alice, divulgence1)
-          transactions <- transactionsSinceStart(bob)
+          transactions <- transactionsSinceTestStarted(bob)
         } yield {
 
           assert(
@@ -43,9 +43,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
   private val acsDivulgence = {
     LedgerTest("Divulged contracts should not be exposed from the active contracts service") {
       implicit context =>
-        Future {
-          ???
-        }
+        Future {}
     }
   }
 

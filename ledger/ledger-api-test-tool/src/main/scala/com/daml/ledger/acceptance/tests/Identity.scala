@@ -9,7 +9,7 @@ final class Identity(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val identity =
     LedgerTest("A ledger should return a non-empty string as its identity") { implicit context =>
-      for (id <- ledgerId()) yield assert(id.nonEmpty, "The returned ledger identifier was empty")
+      for (id <- ledgerId) yield assert(id.nonEmpty, "The returned ledger identifier was empty")
     }
 
   override val tests: Vector[LedgerTest] = Vector(identity)

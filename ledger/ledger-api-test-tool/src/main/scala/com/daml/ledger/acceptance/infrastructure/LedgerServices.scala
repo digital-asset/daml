@@ -15,7 +15,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc.TransactionService
 import io.grpc.Channel
 
-final class LedgerServices(channel: Channel) {
+private[infrastructure] final class LedgerServices(channel: Channel) {
   val cmd: CommandService = CommandServiceGrpc.stub(channel)
   val tx: TransactionService = TransactionServiceGrpc.stub(channel)
   val id: LedgerIdentityService = LedgerIdentityServiceGrpc.stub(channel)

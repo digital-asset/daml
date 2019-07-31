@@ -3,18 +3,30 @@
 
 package com.daml.ledger.acceptance.infrastructure
 
-private[acceptance] sealed trait Result
+private[acceptance] sealed trait Result {
+  def failure: Boolean
+}
 
 private[acceptance] object Result {
 
-  case object Succeeded extends Result
+  case object Succeeded extends Result {
+    val failure: Boolean = false
+  }
 
-  case object TimedOut extends Result
+  case object TimedOut extends Result {
+    val failure: Boolean = true
+  }
 
-  final case class Skipped(reason: String) extends Result
+  final case class Skipped(reason: String) extends Result {
+    val failure: Boolean = false
+  }
 
-  final case class Failed(cause: AssertionError) extends Result
+  final case class Failed(cause: AssertionError) extends Result {
+    val failure: Boolean = true
+  }
 
-  final case class FailedUnexpectedly(cause: Throwable) extends Result
+  final case class FailedUnexpectedly(cause: Throwable) extends Result {
+    val failure: Boolean = true
+  }
 
 }
