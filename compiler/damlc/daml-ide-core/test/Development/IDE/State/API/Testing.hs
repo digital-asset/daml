@@ -10,6 +10,8 @@
 -- | Testing framework for Shake API.
 module Development.IDE.Core.API.Testing
     ( ShakeTest
+    , TemplateProp(..)
+    , ExpectedChoices(..)
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
     , D.DiagnosticSeverity(..)
@@ -35,12 +37,14 @@ module Development.IDE.Core.API.Testing
     , expectNoVirtualResource
     , expectVirtualResourceNote
     , expectNoVirtualResourceNote
+    , expectedTemplatePoperties
     , timedSection
     , example
     ) where
 
 -- * internal dependencies
 import qualified Development.IDE.Core.API         as API
+import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
 import DA.Daml.Compiler.Scenario as SS
@@ -52,6 +56,9 @@ import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))
 import Language.Haskell.LSP.Types
+import DA.Cli.Visual
+import qualified DA.Pretty as DAP
+import qualified DA.Daml.LF.Ast as LF
 
 -- * external dependencies
 import Control.Concurrent.STM
@@ -62,6 +69,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.Vector as V
+import qualified Data.NameMap as NM
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T.IO
 import qualified Data.Set               as Set
@@ -76,6 +84,7 @@ import           Control.Monad.IO.Class (MonadIO (liftIO))
 import           System.IO.Temp         (withSystemTempDirectory)
 import           System.IO.Extra
 import           Control.Monad
+import           Control.Monad.Fail
 import           Data.Maybe
 import           Data.List.Extra
 
@@ -89,9 +98,11 @@ data ShakeTestError
     | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.FileDiagnostic]
+    | ExpectedTemplateProps (Set.Set TemplateProp) (Set.Set TemplateProp)
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
+    | PatternMatchFailure String
     deriving (Eq, Show)
 
 -- | Results of a successful test.
@@ -107,9 +118,21 @@ data ShakeTestEnv = ShakeTestEnv
     , steVirtualResourcesNotes :: TVar (Map VirtualResource T.Text)
     }
 
+data ExpectedChoices = ExpectedChoices
+    { _cName :: String
+    , _consuming :: Bool
+    } deriving (Eq, Ord, Show )
+data TemplateProp = TemplateProp
+    { _choices :: Set.Set ExpectedChoices
+    , _action :: Int
+    } deriving (Eq, Ord, Show)
+
 -- | Monad for specifying Shake API tests. This type is abstract.
 newtype ShakeTest t = ShakeTest (ExceptT ShakeTestError (ReaderT ShakeTestEnv IO) t)
     deriving (Functor, Applicative, Monad, MonadIO, MonadError ShakeTestError)
+
+instance MonadFail ShakeTest where
+    fail =  throwError . PatternMatchFailure
 
 pattern EventVirtualResourceChanged :: VirtualResource -> T.Text -> FromServerMessage
 pattern EventVirtualResourceChanged vr doc <-
@@ -489,6 +512,28 @@ timedSection targetDiffTime block = do
     when (actualDiffTime > targetDiffTime) $ do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
+
+
+templateChoicesToProps :: TemplateChoices -> TemplateProp
+templateChoicesToProps tca = TemplateProp choicesInTpl (sum $ map (length . actions) (choiceAndActions tca))
+    where choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
+
+graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> ShakeTest ()
+graphTest wrld lfPkg expectedProps = do
+    let actual = Set.fromList $ map templateChoicesToProps tplPropsActual
+        tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
+    unless (expectedProps == actual) $
+        throwError $ ExpectedTemplateProps expectedProps actual
+
+expectedTemplatePoperties :: D.NormalizedFilePath -> Set.Set TemplateProp -> ShakeTest ()
+expectedTemplatePoperties damlFilePath expectedProps = do
+    ideState <- ShakeTest $ Reader.asks steService
+    mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
+    expectNoErrors
+    Just lfPkg <- pure mbDalf
+    wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
+    graphTest wrld lfPkg expectedProps
+
 
 -- | Example testing scenario.
 example :: ShakeTest ()

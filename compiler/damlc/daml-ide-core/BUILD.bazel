@@ -82,11 +82,14 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         ":daml-ide-core",
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/hie-core",
         "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
         "//libs-haskell/test-utils",
     ],
 )

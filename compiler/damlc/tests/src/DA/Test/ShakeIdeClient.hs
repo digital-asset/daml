@@ -9,13 +9,14 @@
 -- Some tests cover open issues, these are run with 'testCaseFails'.
 -- Once the issue is resolved, switch it to 'testCase'.
 -- Otherwise this test suite will complain that the test is not failing.
-module DA.Test.ShakeIdeClient (main, ideTests) where
+module DA.Test.ShakeIdeClient (main, ideTests ) where
 
 import qualified Test.Tasty.Extended as Tasty
 import qualified Test.Tasty.HUnit    as Tasty
 import qualified Data.Text.Extended  as T
 
 import Data.Either
+import qualified Data.Set as Set
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
@@ -44,6 +45,7 @@ ideTests mbScenarioService =
         , goToDefinitionTests mbScenarioService
         , onHoverTests mbScenarioService
         , scenarioTests mbScenarioService
+        , visualDamlTests
         ]
 
 -- | Tasty test case from a ShakeTest.
@@ -837,6 +839,49 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
     where
         testCase' = testCase mbScenarioService
 
+
+visualDamlTests :: Tasty.TestTree
+visualDamlTests = Tasty.testGroup "Visual Tests"
+    [   testCase' "Set files of interest" $ do
+            foo <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Delete : ()"
+                , "        do return ()"
+                ]
+            setFilesOfInterest [foo]
+            expectedTemplatePoperties foo $ Set.fromList [TemplateProp (Set.fromList [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True]) 0]
+        , testCase' "Fetch shoud not be an action" $ do
+            fetchTest <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "    amount : Int"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      nonconsuming ReducedCoin : ContractId Coin"
+                , "        with otherCoin : ContractId Coin"
+                , "        do "
+                , "        cn <- fetch otherCoin "
+                , "        create this with amount = cn.amount - 10"
+                ]
+            setFilesOfInterest [fetchTest]
+            expectNoErrors
+            expectedTemplatePoperties fetchTest $ Set.fromList
+                [TemplateProp (Set.fromList
+                    [   ExpectedChoices "Archive" True,
+                        ExpectedChoices "ReducedCoin" False
+                    ])
+                    1
+                ]
+    ]
+    where
+        testCase' = testCase Nothing
 -- | Suppress unused binding warning in case we run out of tests for open issues.
 _suppressUnusedWarning :: ()
 _suppressUnusedWarning = testCaseFails `seq` ()

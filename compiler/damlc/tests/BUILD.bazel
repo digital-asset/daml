@@ -26,34 +26,19 @@ da_haskell_test(
 
 # Tests for damlc visual
 da_haskell_test(
-    name = "damlc-visual",
-    srcs = ["src/DamlcVisual.hs"],
-    data = [
-        ":visual-test-daml.dar",
-        ":visual/Basic.dot",
-    ],
+    name = "daml-lf-reader",
+    srcs = ["src/DarReaderTest.hs"],
     hazel_deps = [
         "tasty",
         "base",
-        "extra",
-        "filepath",
-        "tasty-golden",
         "tasty-hunit",
     ],
-    main_function = "VisualTest.main",
+    main_function = "DarReaderTest.main",
     src_strip_prefix = "tests",
     visibility = ["//visibility:private"],
     deps = [
         "//compiler/daml-lf-reader",
-        "//compiler/damlc:damlc-lib",
-        "//libs-haskell/bazel-runfiles",
     ],
-)
-
-# Test file used in damlc-visual-test
-daml_compile(
-    name = "visual-test-daml",
-    main_src = "visual/Basic.daml",
 )
 
 # Tests for damlc test
@@ -151,6 +136,7 @@ da_haskell_test(
         "directory",
         "tasty-hunit",
         "text",
+        "containers",
     ],
     main_function = "DA.Test.ShakeIdeClient.main",
     src_strip_prefix = "src",

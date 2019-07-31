@@ -4,6 +4,9 @@
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Visual
   ( execVisual
+  , moduleAndTemplates
+  , TemplateChoices(..)
+  , ChoiceAndAction(..)
   ) where
 
 
@@ -32,12 +35,12 @@ data ChoiceAndAction = ChoiceAndAction
     , internalChcName :: InternalChcName -- as we have choices with same name across modules
     , choiceConsuming :: IsConsuming
     , actions :: Set.Set Action
-    }
+    } deriving (Show)
 
 data TemplateChoices = TemplateChoices
     { template :: LF.Template
     , choiceAndActions :: [ChoiceAndAction]
-    }
+    } deriving (Show)
 
 data ChoiceDetails = ChoiceDetails
     { nodeId :: Int
@@ -211,4 +214,3 @@ errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case
   Left err -> ioError $ userError $ unlines [ desc, show err ]
   Right x  -> return x
-
