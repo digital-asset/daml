@@ -3,4 +3,4 @@
 
 package com.daml.ledger.api.rewrite.testtool.infrastructure
 
-private[testtool] final case class LedgerSessionConfiguration(address: String, port: Int)
+private[testtool] final case class LedgerSessionConfiguration(host: String, port: Int)

@@ -7,5 +7,6 @@ import scala.concurrent.Future
 
 final case class LedgerTest(description: String)(test: LedgerTestContext => Future[Unit])
     extends (LedgerTestContext => Future[Unit]) {
-  override final def apply(context: LedgerTestContext): Future[Unit] = test(context)
+  val timeout: Long = 30000L
+  override def apply(context: LedgerTestContext): Future[Unit] = test(context)
 }

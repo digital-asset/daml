@@ -7,12 +7,7 @@ import java.util.concurrent.{ExecutionException, Executors, TimeoutException}
 import java.util.{Timer, TimerTask}
 
 import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuite.SkipTestException
-import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuiteRunner.{
-  Timeout,
-  logger,
-  timer
-}
-import com.digitalasset.grpc.adapter.utils.{DirectExecutionContext => parasitic}
+import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuiteRunner.logger
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -21,39 +16,42 @@ import scala.util.{Failure, Success, Try}
 
 object LedgerTestSuiteRunner {
 
-  final class Timeout[A](p: Promise[A]) extends TimerTask {
-    override def run(): Unit = p.failure(new TimeoutException())
-  }
-
   private val timer = new Timer("ledger-test-suite-runner-timer", true)
 
   private val logger = LoggerFactory.getLogger(classOf[LedgerTestSuiteRunner])
 
-}
+  final class TestTimeout(
+      testPromise: Promise[_],
+      testDescription: String,
+      testTimeoutMs: Long,
+      sessionConfig: LedgerSessionConfiguration)
+      extends TimerTask {
+    override def run(): Unit = {
+      if (testPromise.tryFailure(new TimeoutException())) {
+        val LedgerSessionConfiguration(host, port) = sessionConfig
+        logger.error(s"Timeout of $testTimeoutMs ms for '$testDescription' hit ($host:$port)")
+      }
+    }
+  }
 
-final class LedgerTestSuiteRunner(
-    endpoints: Vector[LedgerSessionConfiguration],
-    suiteConstructors: Vector[LedgerSession => LedgerTestSuite]) {
-
-  private[this] val timeoutMillis: Long = 30000L
-
-  private def start(test: LedgerTest, session: LedgerSession): Future[Unit] = {
-    val execution = Promise[Unit]()
-    val timeout = new Timeout(execution)
-    timer.schedule(timeout, timeoutMillis)
-    logger.info(s"Started $timeoutMillis ms timeout for '${test.description}'...")
+  private def start(test: LedgerTest, session: LedgerSession)(
+      implicit ec: ExecutionContext): Future[Unit] = {
+    val execution = Promise[Unit]
+    val testTimeout = new TestTimeout(execution, test.description, test.timeout, session.config)
+    timer.schedule(testTimeout, test.timeout)
+    logger.info(s"Started ${test.timeout} ms timeout for '${test.description}'...")
     val startedTest = test(session.createTestContext())
     logger.info(s"Started '${test.description}'!")
     startedTest.onComplete { _ =>
+      testTimeout.cancel()
       logger.info(s"Finished '${test.description}")
-      timeout.cancel()
-    }(parasitic)
+    }
     execution.completeWith(startedTest).future
   }
 
-  private def result(startedTest: Future[Unit]): Future[Result] =
+  private def result(startedTest: Future[Unit])(implicit ec: ExecutionContext): Future[Result] =
     startedTest
-      .map[Result](_ => Result.Succeeded)(parasitic)
+      .map[Result](_ => Result.Succeeded)
       .recover[Result] {
         case SkipTestException(reason) =>
           Result.Skipped(reason)
@@ -70,19 +68,25 @@ final class LedgerTestSuiteRunner(
           }
         case NonFatal(exception) =>
           Result.FailedUnexpectedly(exception)
-      }(parasitic)
+      }
 
-  private def summarize(
-      suite: LedgerTestSuite,
-      test: LedgerTest,
-      result: Future[Result]): Future[LedgerTestSummary] =
-    result.map(LedgerTestSummary(suite.name, test.description, suite.session.config, _))(parasitic)
+  private def summarize(suite: LedgerTestSuite, test: LedgerTest, result: Future[Result])(
+      implicit ec: ExecutionContext): Future[LedgerTestSummary] =
+    result.map(LedgerTestSummary(suite.name, test.description, suite.session.config, _))
 
-  private def run(test: LedgerTest, session: LedgerSession): Future[Result] =
+  private def run(test: LedgerTest, session: LedgerSession)(
+      implicit ec: ExecutionContext): Future[Result] =
     result(start(test, session))
 
-  private def run(suite: LedgerTestSuite): Vector[Future[LedgerTestSummary]] =
+  private def run(suite: LedgerTestSuite)(
+      implicit ec: ExecutionContext): Vector[Future[LedgerTestSummary]] =
     suite.tests.map(test => summarize(suite, test, run(test, suite.session)))
+
+}
+
+final class LedgerTestSuiteRunner(
+    endpoints: Vector[LedgerSessionConfiguration],
+    suiteConstructors: Vector[LedgerSession => LedgerTestSuite]) {
 
   def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
 
@@ -107,7 +111,7 @@ final class LedgerTestSuiteRunner(
       for (session <- sessions; suiteConstructor <- suiteConstructors)
         yield suiteConstructor(session)
 
-    Future.sequence(testSuites.flatMap(run)).onComplete(completionCallback)
+    Future.sequence(testSuites.flatMap(LedgerTestSuiteRunner.run)).onComplete(completionCallback)
 
   }
 
