@@ -3,20 +3,23 @@
 
 package com.daml.ledger.api.rewrite.testtool.infrastructure
 
-import java.util.concurrent.{ExecutionException, TimeoutException}
+import java.util.concurrent.{ExecutionException, Executors, TimeoutException}
 import java.util.{Timer, TimerTask}
 
+import com.daml.ledger.api.rewrite.testtool.Config
 import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuite.SkipTestException
 import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuiteRunner.{
   Timeout,
   logger,
   timer
 }
+import com.daml.ledger.api.rewrite.testtool.tests.{Divulgence, Identity}
 import com.digitalasset.grpc.adapter.utils.{DirectExecutionContext => parasitic}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 object LedgerTestSuiteRunner {
 
@@ -30,7 +33,7 @@ object LedgerTestSuiteRunner {
 
 }
 
-final class LedgerTestSuiteRunner(executionContext: ExecutionContext) {
+final class LedgerTestSuiteRunner(config: Config) {
 
   private[this] val timeoutMillis: Long = 30000L
 
@@ -78,7 +81,43 @@ final class LedgerTestSuiteRunner(executionContext: ExecutionContext) {
   private def run(test: LedgerTest, session: LedgerSession): Future[Result] =
     result(start(test, session))
 
-  def run(suite: LedgerTestSuite): Vector[Future[LedgerTestSummary]] =
+  private def run(suite: LedgerTestSuite): Vector[Future[LedgerTestSummary]] =
     suite.tests.map(test => summarize(suite, test, run(test, suite.session)))
+
+  def run(): Future[Vector[LedgerTestSummary]] = {
+
+    implicit val ec: ExecutionContext = {
+      val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+      val _ = sys.addShutdownHook { val _ = ec.shutdownNow() }
+      ec
+    }
+
+    val configurations = Vector(
+      LedgerSessionConfiguration(config.host, config.port)
+    )
+
+    val sessions =
+      configurations.map(LedgerSession.getOrCreate).foldLeft(Vector.empty[LedgerSession]) {
+        (sessions, attempt) =>
+          attempt match {
+            case Failure(NonFatal(cause)) =>
+              logger.error(s"A ledger session could not be started, quitting...", cause)
+              sys.exit(1)
+            case Success(session) => sessions :+ session
+          }
+      }
+
+    // TODO should pick up from cli params
+    val suiteConstructors = Vector(new Divulgence(_), new Identity(_))
+
+    val testSuites =
+      for (session <- sessions; suiteConstructor <- suiteConstructors)
+        yield suiteConstructor(session)
+
+    for {
+      startedTests <- Future.sequence(testSuites.flatMap(run))
+      _ = LedgerSession.closeAll()
+    } yield startedTests
+  }
 
 }
