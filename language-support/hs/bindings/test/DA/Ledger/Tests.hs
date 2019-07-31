@@ -92,16 +92,17 @@ tGetLedgerIdentity withSandbox = testCase "getLedgerIdentity" $ run withSandbox 
 tReset :: SandboxTest
 tReset withSandbox = testCase "reset" $ run withSandbox $ \_ -> do
     lid1 <- getLedgerIdentity
-    Ledger.reset lid1
-    lid2 <- getLedgerIdentity
+    lid2 <- Ledger.reset lid1
+    lid2' <- getLedgerIdentity
     liftIO $ assertBool "lid1 /= lid2" (lid1 /= lid2)
+    liftIO $ assertBool "lid2 == lid2'" (lid2 == lid2')
 
 tMultipleResets :: SandboxTest
 tMultipleResets withSandbox = testCase "multipleResets" $ run withSandbox $ \_pid -> do
     let resetsCount = 20
     lids <- forM [1 .. resetsCount] $ \_ -> do
         lid <- getLedgerIdentity
-        Ledger.reset lid
+        _ <- Ledger.reset lid
         pure lid
     liftIO $ assertEqual "Ledger IDs are unique" resetsCount (Set.size $ Set.fromList lids)
 
@@ -650,8 +651,7 @@ runWithSandbox Sandbox{port} ls = runLedgerService ls timeout (configOfPort port
 resetSandbox :: Sandbox-> IO ()
 resetSandbox sandbox = runWithSandbox sandbox $ do
     lid <- getLedgerIdentity
-    Ledger.reset lid
-    lid2 <- getLedgerIdentity
+    lid2 <- Ledger.reset lid
     unless (lid /= lid2) $ fail "resetSandbox: reset did not change the ledger-id"
 
 ----------------------------------------------------------------------
