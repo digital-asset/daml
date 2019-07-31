@@ -15,7 +15,7 @@ import qualified Data.Text as T
 
 renderMd :: RenderEnv -> RenderOut -> [T.Text]
 renderMd env = \case
-    RenderSpaced chunks -> spaced (map (renderMd env) chunks)
+    RenderSpaced chunks -> renderMdSpaced env chunks
     RenderModuleHeader title -> ["# " <> title]
     RenderSectionHeader title -> ["## " <> title]
     RenderBlock block -> blockquote (renderMd env block)
@@ -23,7 +23,24 @@ renderMd env = \case
     RenderFields fields -> renderMdFields env fields
     RenderPara text -> [renderMdText env text]
     RenderDocs docText -> T.lines . unDocText $ docText
-    RenderAnchor anchor -> ["<a name=\"" <> unAnchor anchor <> "\"></a>"]
+    RenderAnchor anchor -> [anchorTag anchor]
+
+renderMdWithAnchor :: RenderEnv -> Anchor -> RenderOut -> [T.Text]
+renderMdWithAnchor env anchor = \case
+    RenderModuleHeader title -> ["# " <> anchorTag anchor <> title]
+    RenderSectionHeader title -> ["## " <> anchorTag anchor <> title]
+    RenderPara text -> [anchorTag anchor <> renderMdText env text]
+    other -> anchorTag anchor : renderMd env other
+
+renderMdSpaced :: RenderEnv -> [RenderOut] -> [T.Text]
+renderMdSpaced env = spaced . renderMds env
+
+renderMds :: RenderEnv -> [RenderOut] -> [[T.Text]]
+renderMds env = \case
+    RenderAnchor anchor : next : rest ->
+        renderMdWithAnchor env anchor next : renderMds env rest
+    next : rest -> renderMd env next : renderMds env rest
+    [] -> []
 
 renderMdText :: RenderEnv -> RenderText -> T.Text
 renderMdText env = \case
@@ -41,6 +58,9 @@ renderMdText env = \case
                 , ")"]
     RenderDocsInline docText ->
         T.unwords . T.lines . unDocText $ docText
+
+anchorTag :: Anchor -> T.Text
+anchorTag (Anchor anchor) = T.concat ["<a name=\"", anchor, "\"></a>"]
 
 -- Utilities
 

@@ -69,6 +69,7 @@ instance RenderDoc TemplateDoc where
             ]
         , RenderBlock $ mconcat
             [ renderDoc td_descr
+            , fieldTable td_payload
             , RenderList (map renderDoc td_choices)
             ]
         ]

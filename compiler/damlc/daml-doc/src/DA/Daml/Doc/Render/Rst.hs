@@ -46,8 +46,23 @@ renderRstText env = \case
 
 -- Utilities
 
+-- | Put an extra newline in between chunks. Because Rst has support for definition
+-- lists, we *sometimes* don't put a newline in between, in particular when the
+-- next line is indented and looks like a type signature or definition. This
+-- should affect the output very little either way (it's only spacing).
 spaced :: [[T.Text]] -> [T.Text]
-spaced = intercalate [""]
+spaced = intercalate [""] . respace
+  where
+    respace = \case
+        [line1] : (line2 : block) : xs
+            | "`" `T.isPrefixOf` line1
+            || "**type**" `T.isPrefixOf` line1
+            || "**template instance**" `T.isPrefixOf` line1
+            , "  :" `T.isPrefixOf` line2
+            || "  =" `T.isPrefixOf` line2 ->
+                (line1 : line2 : block) : respace xs
+        x : xs -> x : respace xs
+        [] -> []
 
 indent :: [T.Text] -> [T.Text]
 indent = map ("  " <>)
