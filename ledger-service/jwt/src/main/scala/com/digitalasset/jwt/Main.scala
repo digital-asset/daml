@@ -19,21 +19,21 @@ object Main {
       generateKeys: Option[GenerateKeys] = None,
       generateJwt: Option[GenerateJwt] = None)
 
-  final case class GenerateKeys(secret: Option[String] = None)
+  final case class GenerateKeys(name: Option[String] = None)
   final case class GenerateJwt(publicKey: Option[File] = None, privateKey: Option[File] = None)
 
   def main(args: Array[String]): Unit = {
     parseConfig(args) match {
-      case Some(Config(Some(GenerateKeys(Some(secret))), None)) =>
-        KeysGenerator.generate(secret) match {
+      case Some(Config(Some(GenerateKeys(Some(name))), None)) =>
+        RsaKeysGenerator.generate(keyPair(name)) match {
           case Success(a) =>
-            print(s"Generated keys: $a")
+            print(s"Generated keys: ${a: domain.KeyPair}")
           case Failure(e) =>
             e.printStackTrace()
             sys.exit(ErrorCodes.GenerateKeysError)
         }
       case Some(Config(None, Some(GenerateJwt(Some(publicKey), Some(privateKey))))) =>
-        JwtGenerator.generate(domain.Keys(publicKey = publicKey, privateKey = privateKey)) match {
+        JwtGenerator.generate(domain.KeyPair(publicKey = publicKey, privateKey = privateKey)) match {
           case Success(a) =>
             println(s"Generated JWT: $a")
           case Failure(e) =>
@@ -49,6 +49,9 @@ object Main {
     }
   }
 
+  private def keyPair(name: String) =
+    domain.KeyPair(publicKey = new File(s"./$name.pub"), privateKey = new File(s"./$name.pvt"))
+
   private def parseConfig(args: Seq[String]): Option[Config] = {
     configParser.parse(args, Config())
   }
@@ -58,10 +61,10 @@ object Main {
       .text("generate public and private keys")
       .action((_, c) => c.copy(generateKeys = Some(GenerateKeys())))
       .children(
-        opt[String]("secret")
+        opt[String]("name")
           .required()
-          .valueName("<secret string>")
-          .action((x, c) => c.copy(generateKeys = c.generateKeys.map(_.copy(secret = Some(x)))))
+          .valueName("<keys name>")
+          .action((x, c) => c.copy(generateKeys = c.generateKeys.map(_.copy(name = Some(x)))))
       )
 
     cmd("generate-jwt")

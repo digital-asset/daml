@@ -19,6 +19,7 @@ jwt_deps = [
     "//3rdparty/jvm/com/typesafe/scala_logging",
     "//3rdparty/jvm/org/scalaz:scalaz_core",
     "//3rdparty/jvm/com/github/scopt",
+    "//daml-lf/data",
 ]
 
 da_scala_library(
