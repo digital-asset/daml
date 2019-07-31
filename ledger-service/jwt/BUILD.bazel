@@ -14,7 +14,11 @@ hj_scalacopts = [
 ]
 
 jwt_deps = [
-  "//3rdparty/jvm/com/auth0:java_jwt",
+    "//3rdparty/jvm/com/auth0:java_jwt",
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+    "//3rdparty/jvm/com/typesafe/scala_logging",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//3rdparty/jvm/com/github/scopt",
 ]
 
 da_scala_library(
