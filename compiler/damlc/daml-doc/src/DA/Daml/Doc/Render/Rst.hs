@@ -35,8 +35,6 @@ renderRst env = \case
 renderRstText :: RenderEnv -> RenderText -> T.Text
 renderRstText env = \case
     RenderConcat ts -> mconcatMap (renderRstText env) ts
-    RenderUnwords ts -> T.unwords (map (renderRstText env) ts)
-    RenderIntercalate x ts -> T.intercalate x (map (renderRstText env) ts)
     RenderPlain text -> text
     RenderStrong text -> T.concat ["**", text, "**"]
     RenderLink anchor text ->

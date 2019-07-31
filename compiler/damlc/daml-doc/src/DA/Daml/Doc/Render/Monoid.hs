@@ -31,12 +31,10 @@ data RenderOut
 
 data RenderText
     = RenderConcat [RenderText]
-    | RenderUnwords [RenderText]
     | RenderPlain T.Text
     | RenderStrong T.Text
     | RenderLink Anchor T.Text
     | RenderDocsInline DocText
-    | RenderIntercalate T.Text [RenderText]
 
 chunks :: RenderOut -> [RenderOut]
 chunks (RenderSpaced xs) = concatMap chunks xs
@@ -59,6 +57,12 @@ instance Semigroup RenderText where
 instance Monoid RenderText where
     mempty = RenderConcat []
     mconcat = RenderConcat
+
+renderIntercalate :: T.Text -> [RenderText] -> RenderText
+renderIntercalate t xs = mconcat (intersperse (RenderPlain t) xs)
+
+renderUnwords :: [RenderText] -> RenderText
+renderUnwords = renderIntercalate " "
 
 -- | Environment in which to generate final documentation.
 data RenderEnv = RenderEnv

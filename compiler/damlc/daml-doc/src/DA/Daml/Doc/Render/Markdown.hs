@@ -28,8 +28,6 @@ renderMd env = \case
 renderMdText :: RenderEnv -> RenderText -> T.Text
 renderMdText env = \case
     RenderConcat ts -> mconcatMap (renderMdText env) ts
-    RenderUnwords ts -> T.unwords $ map (renderMdText env) ts
-    RenderIntercalate x ts -> T.intercalate x $ map (renderMdText env) ts
     RenderPlain text -> escapeMd text
     RenderStrong text -> T.concat ["**", escapeMd text, "**"]
     RenderLink anchor text ->

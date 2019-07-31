@@ -61,8 +61,8 @@ maybeAnchorLink = maybe RenderPlain RenderLink
 instance RenderDoc TemplateDoc where
     renderDoc TemplateDoc{..} = mconcat
         [ renderDoc td_anchor
-        , RenderPara . RenderUnwords . concat $
-            [ [RenderStrong "template "]
+        , RenderPara . renderUnwords . concat $
+            [ [RenderStrong "template"]
             , renderContext td_super
             , [maybeAnchorLink td_anchor (unTypename td_name)]
             , map RenderPlain td_args
@@ -83,12 +83,12 @@ instance RenderDoc ChoiceDoc where
 instance RenderDoc TemplateInstanceDoc where
     renderDoc TemplateInstanceDoc{..} = mconcat
         [ renderDoc ti_anchor
-        , RenderPara . RenderUnwords $
+        , RenderPara $ renderUnwords
             [ RenderStrong "template instance"
             , maybeAnchorLink ti_anchor (unTypename ti_name)
             ]
         , RenderBlock $ mconcat
-            [ RenderPara $ RenderUnwords
+            [ RenderPara $ renderUnwords
                 [ RenderPlain "="
                 , renderType ti_rhs
                 ]
@@ -99,7 +99,7 @@ instance RenderDoc TemplateInstanceDoc where
 instance RenderDoc ClassDoc where
     renderDoc ClassDoc{..} = mconcat
         [ renderDoc cl_anchor
-        , RenderPara . RenderUnwords . concat $
+        , RenderPara . renderUnwords . concat $
             [ [RenderStrong "class"]
             , renderContext cl_super
             , [maybeAnchorLink cl_anchor (unTypename cl_name)]
@@ -115,12 +115,12 @@ instance RenderDoc ClassDoc where
 instance RenderDoc ADTDoc where
     renderDoc TypeSynDoc{..} = mconcat
         [ renderDoc ad_anchor
-        , RenderPara . RenderUnwords
+        , RenderPara . renderUnwords
             $ RenderStrong "type"
             : maybeAnchorLink ad_anchor (unTypename ad_name)
             : map RenderPlain ad_args
         , RenderBlock $ mconcat
-            [ RenderPara $ RenderUnwords
+            [ RenderPara $ renderUnwords
                 [ RenderPlain "="
                 , renderType ad_rhs
                 ]
@@ -130,7 +130,7 @@ instance RenderDoc ADTDoc where
 
     renderDoc ADTDoc{..} = mconcat
         [ renderDoc ad_anchor
-        , RenderPara . RenderUnwords
+        , RenderPara . renderUnwords
             $ RenderStrong "data"
             : maybeAnchorLink ad_anchor (unTypename ad_name)
             : map RenderPlain ad_args
@@ -143,7 +143,7 @@ instance RenderDoc ADTDoc where
 instance RenderDoc ADTConstr where
     renderDoc PrefixC{..} = mconcat
         [ renderDoc ac_anchor
-        , RenderPara . RenderUnwords
+        , RenderPara . renderUnwords
             $ maybeAnchorLink ac_anchor (wrapOp (unTypename ac_name))
             : map (renderTypePrec 2) ac_args
         , RenderBlock (renderDoc ac_descr)
@@ -166,7 +166,7 @@ instance RenderDoc FunctionDoc where
             $ maybeAnchorLink fct_anchor
                 (wrapOp (unFieldname fct_name))
         , RenderBlock $ mconcat
-            [ RenderPara . RenderUnwords . concat $
+            [ RenderPara . renderUnwords . concat $
                 [ [RenderPlain ":"]
                 , renderContext fct_context
                 , [renderType fct_type]
@@ -198,21 +198,21 @@ renderType = renderTypePrec  0
 renderTypePrec :: Int -> Type -> RenderText
 renderTypePrec prec = \case
     TypeApp anchorM (Typename typename) args ->
-        (if prec >= 2 && notNull args then inParens else id)
-            . RenderUnwords
+        (if prec >= 2 && notNull args then renderInParens else id)
+            . renderUnwords
             $ maybeAnchorLink anchorM typename
             : map (renderTypePrec 2) args
     TypeFun ts ->
-        (if prec >= 1 then inParens else id)
-            . RenderIntercalate " -> "
+        (if prec >= 1 then renderInParens else id)
+            . renderIntercalate " -> "
             $ map (renderTypePrec 1) ts
     TypeList t ->
-        enclose "[" "]" (renderTypePrec 0 t)
+        renderEnclose "[" "]" (renderTypePrec 0 t)
     TypeTuple [t] ->
         renderTypePrec prec t
     TypeTuple ts ->
-        inParens
-            . RenderIntercalate ", "
+        renderInParens
+            . renderIntercalate ", "
             $ map (renderTypePrec 0) ts
 
 -- | Render type context as a list of words. Nothing is rendered as [],
@@ -220,11 +220,11 @@ renderTypePrec prec = \case
 renderContext :: Maybe Type -> [RenderText]
 renderContext = maybe [] (\x -> [renderTypePrec 1 x, RenderPlain "=>"])
 
-inParens :: RenderText -> RenderText
-inParens = enclose "(" ")"
+renderInParens :: RenderText -> RenderText
+renderInParens = renderEnclose "(" ")"
 
-enclose :: T.Text -> T.Text -> RenderText -> RenderText
-enclose lp rp t = RenderConcat
+renderEnclose :: T.Text -> T.Text -> RenderText -> RenderText
+renderEnclose lp rp t = RenderConcat
     [ RenderPlain lp
     , t
     , RenderPlain rp
