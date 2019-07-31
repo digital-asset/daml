@@ -167,6 +167,7 @@ class StandaloneIndexServer(
               SandboxConfig.defaultCommandConfig,
               None)(am, esf),
         config.port,
+        config.maxInboundMessageSize,
         None,
         config.tlsConfig.flatMap(_.server)
       ),

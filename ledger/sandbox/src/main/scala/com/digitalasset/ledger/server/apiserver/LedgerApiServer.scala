@@ -34,6 +34,7 @@ object LedgerApiServer {
   def create(
       createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
       desiredPort: Int,
+      maxInboundMessageSize: Int,
       address: Option[String],
       sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer): Future[ApiServer] = {
 
@@ -75,6 +76,7 @@ object LedgerApiServer {
 private class LedgerApiServer(
     apiServices: ApiServices,
     desiredPort: Int,
+    maxInboundMessageSize: Int,
     address: Option[String],
     sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer)
     extends ApiServer {
@@ -114,6 +116,7 @@ private class LedgerApiServer(
     builder.workerEventLoopGroup(workerEventLoopGroup)
     builder.permitKeepAliveTime(10, TimeUnit.SECONDS)
     builder.permitKeepAliveWithoutCalls(true)
+    builder.maxInboundMessageSize(maxInboundMessageSize)
     val grpcServer = apiServices.services.foldLeft(builder)(_ addService _).build
     try {
       grpcServer.start()
