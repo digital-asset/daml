@@ -514,12 +514,12 @@ templateChoicesToProps :: TemplateChoices -> TemplateProp
 templateChoicesToProps tca = TemplateProp choicesInTpl (sum $ map (length . actions) (choiceAndActions tca))
     where choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
 
-graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> Either [TemplateProp] ()
-graphTest wrld lfPkg expectedProps =
-    if expectedProps == (Set.fromList $ map templateChoicesToProps tplPropsActual)
-        then Right ()
-        else Left $ map templateChoicesToProps tplPropsActual
-    where tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
+graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> ShakeTest ()
+graphTest wrld lfPkg expectedProps = do
+    let actual = Set.fromList $ map templateChoicesToProps tplPropsActual
+        tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
+    unless (expectedProps == actual) $
+        throwError $ ExpectedTemplateProps expectedProps actual
 
 expectedTemplatePoperties :: D.NormalizedFilePath -> Set.Set TemplateProp -> ShakeTest ()
 expectedTemplatePoperties damlFilePath expectedProps = do
@@ -528,10 +528,9 @@ expectedTemplatePoperties damlFilePath expectedProps = do
     case mbDalf of
         Just lfPkg -> do
             wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
-            case graphTest wrld lfPkg expectedProps of
-                Right _ -> pure ()
-                Left actual -> throwError (ExpectedTemplateProps expectedProps (Set.fromList actual))
+            graphTest wrld lfPkg expectedProps
         Nothing -> throwError (ExpectedTemplateProps expectedProps Set.empty)
+
 -- | Example testing scenario.
 example :: ShakeTest ()
 example = do
