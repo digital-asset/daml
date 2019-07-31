@@ -3,7 +3,7 @@
 Module Newtype
 --------------
 
-Data types
+Data Types
 ^^^^^^^^^^
 
 .. _type-newtype-nat-61947:

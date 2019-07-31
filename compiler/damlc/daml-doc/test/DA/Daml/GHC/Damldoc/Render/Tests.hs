@@ -184,7 +184,7 @@ mkExpectRst anchor name descr templates classes adts fcts = T.unlines . concat $
     , if T.null descr then [] else [descr, ""]
     , section "Templates" templates
     , section "Typeclasses" classes
-    , section "Data types" adts
+    , section "Data Types" adts
     , section "Functions" fcts
     ]
   where
@@ -289,7 +289,7 @@ mkExpectMD anchor name descr templates classes adts fcts
       , "", T.unlines classes
       , ""]
   , if null adts then [] else
-      [ "## Data types"
+      [ "## Data Types"
       , "", T.unlines adts
       , ""]
   , if null fcts then [] else

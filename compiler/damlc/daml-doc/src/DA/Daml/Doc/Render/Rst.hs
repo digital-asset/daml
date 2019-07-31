@@ -27,8 +27,8 @@ renderRst env = \case
     RenderSectionHeader title -> header "^" title
     RenderBlock block -> indent (renderRst env block)
     RenderList items -> spaced (map (bullet . renderRst env) items)
-    RenderFields fields -> renderRstFields env fields
-    RenderPara text -> [renderRstText env text]
+    RenderRecordFields fields -> renderRstFields env fields
+    RenderParagraph text -> [renderRstText env text]
     RenderDocs docText -> docTextToRst docText
     RenderAnchor anchor -> [".. _" <> unAnchor anchor <> ":"]
 
@@ -55,11 +55,8 @@ spaced = intercalate [""] . respace
   where
     respace = \case
         [line1] : (line2 : block) : xs
-            | "`" `T.isPrefixOf` line1
-            || "**type**" `T.isPrefixOf` line1
-            || "**template instance**" `T.isPrefixOf` line1
-            , "  :" `T.isPrefixOf` line2
-            || "  =" `T.isPrefixOf` line2 ->
+            | any (`T.isPrefixOf` line1) ["`", "**type**", "**template instance**"]
+            , any (`T.isPrefixOf` line2) ["  :", "  ="] ->
                 (line1 : line2 : block) : respace xs
         x : xs -> x : respace xs
         [] -> []

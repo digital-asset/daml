@@ -20,8 +20,8 @@ renderMd env = \case
     RenderSectionHeader title -> ["## " <> title]
     RenderBlock block -> blockquote (renderMd env block)
     RenderList items -> spaced (map (bullet . renderMd env) items)
-    RenderFields fields -> renderMdFields env fields
-    RenderPara text -> [renderMdText env text]
+    RenderRecordFields fields -> renderMdFields env fields
+    RenderParagraph text -> [renderMdText env text]
     RenderDocs docText -> T.lines . unDocText $ docText
     RenderAnchor anchor -> [anchorTag anchor]
 
@@ -29,7 +29,7 @@ renderMdWithAnchor :: RenderEnv -> Anchor -> RenderOut -> [T.Text]
 renderMdWithAnchor env anchor = \case
     RenderModuleHeader title -> ["# " <> anchorTag anchor <> title]
     RenderSectionHeader title -> ["## " <> anchorTag anchor <> title]
-    RenderPara text -> [anchorTag anchor <> renderMdText env text]
+    RenderParagraph text -> [anchorTag anchor <> renderMdText env text]
     other -> anchorTag anchor : renderMd env other
 
 renderMdSpaced :: RenderEnv -> [RenderOut] -> [T.Text]
@@ -104,7 +104,7 @@ renderMdFields env fields = header <> fieldRows
         | (name, ty, doc) <- fields
         ]
 
-    fLen = maximum $ 5 :
+    fLen = maximum $ T.length "Field" : T.length "Type" :
         [ max (T.length name) (T.length ty)
         | (name, ty, _) <- textFields ]
 

@@ -25,8 +25,8 @@ data RenderOut
     | RenderAnchor Anchor
     | RenderBlock RenderOut
     | RenderList [RenderOut]
-    | RenderFields [(RenderText, RenderText, RenderText)]
-    | RenderPara RenderText
+    | RenderRecordFields [(RenderText, RenderText, RenderText)]
+    | RenderParagraph RenderText
     | RenderDocs DocText
 
 data RenderText
@@ -100,8 +100,8 @@ getRenderAnchors = \case
     RenderAnchor anchor -> Set.singleton anchor
     RenderBlock x -> getRenderAnchors x
     RenderList xs -> mconcatMap getRenderAnchors xs
-    RenderFields _ -> Set.empty
-    RenderPara _ -> Set.empty
+    RenderRecordFields _ -> Set.empty
+    RenderParagraph _ -> Set.empty
     RenderDocs _ -> Set.empty
 
 renderPage :: RenderFormatter -> RenderOut -> T.Text

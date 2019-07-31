@@ -43,7 +43,7 @@ instance RenderDoc ModuleDoc where
         , section "Templates" md_templates
         , section "Template Instances" md_templateInstances
         , section "Typeclasses" md_classes
-        , section "Data types" md_adts
+        , section "Data Types" md_adts
         , section "Functions" md_functions
         ]
       where
@@ -61,7 +61,7 @@ maybeAnchorLink = maybe RenderPlain RenderLink
 instance RenderDoc TemplateDoc where
     renderDoc TemplateDoc{..} = mconcat
         [ renderDoc td_anchor
-        , RenderPara . renderUnwords . concat $
+        , RenderParagraph . renderUnwords . concat $
             [ [RenderStrong "template"]
             , renderContext td_super
             , [maybeAnchorLink td_anchor (unTypename td_name)]
@@ -76,7 +76,7 @@ instance RenderDoc TemplateDoc where
 
 instance RenderDoc ChoiceDoc where
     renderDoc ChoiceDoc{..} = mconcat
-        [ RenderPara $ RenderStrong ("Choice " <> unTypename cd_name)
+        [ RenderParagraph $ RenderStrong ("Choice " <> unTypename cd_name)
         , renderDoc cd_descr
         , fieldTable cd_fields
         ]
@@ -84,12 +84,12 @@ instance RenderDoc ChoiceDoc where
 instance RenderDoc TemplateInstanceDoc where
     renderDoc TemplateInstanceDoc{..} = mconcat
         [ renderDoc ti_anchor
-        , RenderPara $ renderUnwords
+        , RenderParagraph $ renderUnwords
             [ RenderStrong "template instance"
             , maybeAnchorLink ti_anchor (unTypename ti_name)
             ]
         , RenderBlock $ mconcat
-            [ RenderPara $ renderUnwords
+            [ RenderParagraph $ renderUnwords
                 [ RenderPlain "="
                 , renderType ti_rhs
                 ]
@@ -100,7 +100,7 @@ instance RenderDoc TemplateInstanceDoc where
 instance RenderDoc ClassDoc where
     renderDoc ClassDoc{..} = mconcat
         [ renderDoc cl_anchor
-        , RenderPara . renderUnwords . concat $
+        , RenderParagraph . renderUnwords . concat $
             [ [RenderStrong "class"]
             , renderContext cl_super
             , [maybeAnchorLink cl_anchor (unTypename cl_name)]
@@ -116,12 +116,12 @@ instance RenderDoc ClassDoc where
 instance RenderDoc ADTDoc where
     renderDoc TypeSynDoc{..} = mconcat
         [ renderDoc ad_anchor
-        , RenderPara . renderUnwords
+        , RenderParagraph . renderUnwords
             $ RenderStrong "type"
             : maybeAnchorLink ad_anchor (unTypename ad_name)
             : map RenderPlain ad_args
         , RenderBlock $ mconcat
-            [ RenderPara $ renderUnwords
+            [ RenderParagraph $ renderUnwords
                 [ RenderPlain "="
                 , renderType ad_rhs
                 ]
@@ -131,7 +131,7 @@ instance RenderDoc ADTDoc where
 
     renderDoc ADTDoc{..} = mconcat
         [ renderDoc ad_anchor
-        , RenderPara . renderUnwords
+        , RenderParagraph . renderUnwords
             $ RenderStrong "data"
             : maybeAnchorLink ad_anchor (unTypename ad_name)
             : map RenderPlain ad_args
@@ -144,7 +144,7 @@ instance RenderDoc ADTDoc where
 instance RenderDoc ADTConstr where
     renderDoc PrefixC{..} = mconcat
         [ renderDoc ac_anchor
-        , RenderPara . renderUnwords
+        , RenderParagraph . renderUnwords
             $ maybeAnchorLink ac_anchor (wrapOp (unTypename ac_name))
             : map (renderTypePrec 2) ac_args
         , RenderBlock (renderDoc ac_descr)
@@ -152,7 +152,7 @@ instance RenderDoc ADTConstr where
 
     renderDoc RecordC{..} = mconcat
         [ renderDoc ac_anchor
-        , RenderPara
+        , RenderParagraph
             $ maybeAnchorLink ac_anchor (unTypename ac_name)
         , RenderBlock $ mconcat
             [ renderDoc ac_descr
@@ -163,11 +163,11 @@ instance RenderDoc ADTConstr where
 instance RenderDoc FunctionDoc where
     renderDoc FunctionDoc{..} = mconcat
         [ renderDoc fct_anchor
-        , RenderPara
+        , RenderParagraph
             $ maybeAnchorLink fct_anchor
                 (wrapOp (unFieldname fct_name))
         , RenderBlock $ mconcat
-            [ RenderPara . renderUnwords . concat $
+            [ RenderParagraph . renderUnwords . concat $
                 [ [RenderPlain ":"]
                 , renderContext fct_context
                 , [renderType fct_type]
@@ -177,7 +177,7 @@ instance RenderDoc FunctionDoc where
         ]
 
 fieldTable :: [FieldDoc] -> RenderOut
-fieldTable fields = RenderFields
+fieldTable fields = RenderRecordFields
     [ ( RenderPlain (unFieldname fd_name)
       , renderType fd_type
       , maybe mempty RenderDocsInline fd_descr

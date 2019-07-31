@@ -1,6 +1,6 @@
 # <a name="module-newtype-36781"></a>Module Newtype
 
-## Data types
+## Data Types
 
 <a name="type-newtype-nat-61947"></a>**data** [Nat](#type-newtype-nat-61947)
 
