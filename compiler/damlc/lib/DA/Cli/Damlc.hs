@@ -65,7 +65,6 @@ import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
-import MkIface
 import "ghc-lib-parser" Module
 import qualified Network.Socket as NS
 import Options.Applicative.Extended
@@ -80,11 +79,6 @@ import System.FilePath
 import System.IO.Extra
 import System.Process(callCommand)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
-import HscTypes
-import GHC
-import Development.IDE.Core.RuleTypes
-import HieAst
-import HieBin
 
 --------------------------------------------------------------------------------
 -- Commands
@@ -328,14 +322,13 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
     opts' <- mkOptions opts
     withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
         setFilesOfInterest ide (Set.singleton inputFile)
-        res <- runAction ide $ getDalf inputFile
-        case res of
-            Nothing -> do
-                hPutStrLn stderr "ERROR: Compilation failed."
-                exitFailure
-            Just dalf -> write dalf
-
-        writeIfacesAndHie opts' inputFile ide
+        runAction ide $ do
+          when (optWriteInterface opts') $ do
+              mbIfaces <- writeIfacesAndHie (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts') inputFile
+              void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
+          mbDalf <- getDalf inputFile
+          dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
+          liftIO $ write dalf
   where
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs
@@ -369,15 +362,6 @@ execLint inputFile opts =
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
--- | daml.yaml config fields specific to packaging.
-data PackageConfigFields = PackageConfigFields
-    { pName :: String
-    , pMain :: String
-    , pExposedModules :: Maybe [String]
-    , pVersion :: String
-    , pDependencies :: [String]
-    , pSdkVersion :: String
-    }
 
 -- | Parse the daml.yaml for package specific config fields.
 parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
@@ -439,11 +423,12 @@ createProjectPackageDb lfVersion fps = do
                       [".daml", ".hie", ".hi"]
                 ]
         forM_ dalfs $ \dalf -> do
-            write (dbPath </> eRelativePath dalf) (fromEntry dalf)
-        forM_ confFiles $ \conf -> do
-            write
-                (dbPath </> "package.conf.d" </>
-                 (takeFileName $ eRelativePath conf))
+            let path = dbPath </> eRelativePath dalf
+            createDirectoryIfMissing True (takeDirectory path)
+            BSL.writeFile path (fromEntry dalf)
+        forM_ confFiles $ \conf ->
+            BSL.writeFile
+                (dbPath </> "package.conf.d" </> (takeFileName $ eRelativePath conf))
                 (fromEntry conf)
         forM_ srcs $ \src -> do
             let path = dbPath </> eRelativePath src
@@ -462,33 +447,6 @@ createProjectPackageDb lfVersion fps = do
   where
     write fp bs = createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
 
--- | Write interface files and hie files to the location specified by the given options.
-writeIfacesAndHie :: Options -> NormalizedFilePath -> IdeState -> IO ()
-writeIfacesAndHie options main compilerH =
-    when (optWriteInterface options) $ do
-        mbTcModRes <- runAction compilerH $ getTcModuleResults main
-        (tcms, session) <- mbErr "ERROR: Creation of interface files failed." mbTcModRes
-        mapM_ (writeTcm session) tcms
-  where
-    ifDir = fromMaybe ifaceDir (optIfaceDir options)
-    writeTcm session tcm = do
-        let fp =
-                ifDir </>
-                (ms_hspp_file $
-                 pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
-        createDirectoryIfMissing True (takeDirectory fp)
-        writeIfaceFile
-            (hsc_dflags session)
-            (replaceExtension fp ".hi")
-            (hm_iface $ tmrModInfo tcm)
-        hieFile <-
-            liftIO $
-            runHsc session $
-            mkHieFile
-                (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
-                (fst $ tm_internals_ $ tmrModule tcm)
-                (fromJust $ tm_renamed_source $ tmrModule tcm)
-        writeHieFile (replaceExtension fp ".hie") hieFile
 
 -- | Fail with an exit failure and errror message when Nothing is returned.
 mbErr :: String -> Maybe a -> IO a
@@ -497,37 +455,22 @@ mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> InitPkgDb -> IO ()
 execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts $ \_relativize -> do
     execInit (optDamlLfVersion options) projectOpts initPkgDb
-    withPackageConfig $ \PackageConfigFields {..} -> do
-        putStrLn $ "Compiling " <> pMain <> " to a DAR."
-        options' <- mkOptions options
-        let opts = options'
-                    { optMbPackageName = Just pName
-                    , optWriteInterface = True
-                    }
+    withPackageConfig $ \pkgConfig@PackageConfigFields{..} -> do
+        putStrLn $ "Compiling " <> pName <> " to a DAR."
+        opts <- mkOptions options
         loggerH <- getLogger opts "package"
-        let confFile =
-                mkConfFile
-                    pName
-                    pVersion
-                    pExposedModules
-                    pDependencies
-        withDamlIdeState opts loggerH diagnosticsLogger $ \compilerH -> do
-            writeIfacesAndHie opts (toNormalizedFilePath pMain) compilerH
+        withDamlIdeState opts{optMbPackageName = Just pName} loggerH diagnosticsLogger $ \compilerH -> do
             mbDar <-
                 buildDar
                     compilerH
-                    (toNormalizedFilePath pMain)
-                    pExposedModules
-                    pName
-                    pSdkVersion
-                    (\pkg -> [confFile pkg])
+                    pkgConfig
+                    (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts)
                     (FromDalf False)
             dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
             let fp = targetFilePath pName
             createDirectoryIfMissing True $ takeDirectory fp
             B.writeFile fp dar
             putStrLn $ "Created " <> fp <> "."
-
     where
         -- The default output filename is based on Maven coordinates if
         -- the package name is specified via them, otherwise we use the
@@ -537,31 +480,6 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                 [_g, a, v] -> a <> "-" <> v <> ".dar"
                 _otherwise -> name <> ".dar"
         targetFilePath name = fromMaybe (distDir </> defaultDarFile name) mbOutFile
-        mkConfFile ::
-               String
-            -> String
-            -> Maybe [String]
-            -> [FilePath]
-            -> (String, LF.Package)
-            -> (String, B.ByteString)
-        mkConfFile name version exposedMods deps (pkgId, pkg) = (confName, bs)
-          where
-            confName = name ++ ".conf"
-            bs =
-                BSC.pack $
-                unlines
-                    [ "name: " ++ name
-                    , "id: " ++ name
-                    , "key: " ++ name
-                    , "version: " ++ version
-                    , "exposed: True"
-                    , "exposed-modules: " ++ unwords (fromMaybe (map T.unpack $ LF.packageModuleNames pkg) exposedMods)
-                    , "import-dirs: ${pkgroot}" </> intercalate "-" [name, pkgId]
-                    , "library-dirs: ${pkgroot}" </> intercalate "-" [name, pkgId]
-                    , "data-dir: ${pkgroot}" </> intercalate "-" [name, pkgId]
-                    , "depends: " ++
-                      unwords [dropExtension $ takeFileName dep | dep <- deps]
-                    ]
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> IO ()
@@ -594,11 +512,20 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
     filePath <- relativize filePath
     opts' <- mkOptions opts
     withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
-        let path = toNormalizedFilePath filePath
         -- We leave the sdk version blank and the list of exposed modules empty.
         -- This command is being removed anytime now and not present
         -- in the new daml assistant.
-        mbDar <- buildDar ide path Nothing name "" (const []) dalfInput
+        mbDar <- buildDar ide
+                          PackageConfigFields
+                            { pName = fromMaybe (takeBaseName filePath) $ optMbPackageName opts
+                            , pMain = filePath
+                            , pExposedModules = Nothing
+                            , pVersion = ""
+                            , pDependencies = []
+                            , pSdkVersion = ""
+                            }
+                          (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts')
+                          dalfInput
         case mbDar of
           Nothing -> do
               hPutStrLn stderr "ERROR: Creation of DAR file failed."

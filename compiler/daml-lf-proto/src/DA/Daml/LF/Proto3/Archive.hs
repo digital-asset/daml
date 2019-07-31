@@ -9,7 +9,6 @@ module DA.Daml.LF.Proto3.Archive
   , encodeArchiveLazy
   , encodeArchiveAndHash
   , encodePackageHash
-  , encodeHash
   , ArchiveError(..)
   ) where
 
