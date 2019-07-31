@@ -11,11 +11,13 @@ final case class Config(
     port: Int,
     portFile: Option[File],
     archiveFiles: List[File],
+    maxInboundMessageSize: Int,
     jdbcUrl: String,
     tlsConfig: Option[TlsConfiguration]
 )
 
 object Config {
+  val DefaultMaxInboundMessageSize = 4194304
   def default: Config =
-    new Config(0, None, List.empty, "", None)
+    new Config(0, None, List.empty, 4194304, "", None)
 }
