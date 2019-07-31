@@ -6,20 +6,18 @@ package com.daml.ledger.api.rewrite.testtool.infrastructure
 import java.util.concurrent.{ExecutionException, Executors, TimeoutException}
 import java.util.{Timer, TimerTask}
 
-import com.daml.ledger.api.rewrite.testtool.Config
 import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuite.SkipTestException
 import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuiteRunner.{
   Timeout,
   logger,
   timer
 }
-import com.daml.ledger.api.rewrite.testtool.tests.{Divulgence, Identity}
 import com.digitalasset.grpc.adapter.utils.{DirectExecutionContext => parasitic}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.control.NonFatal
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 object LedgerTestSuiteRunner {
 
@@ -33,7 +31,9 @@ object LedgerTestSuiteRunner {
 
 }
 
-final class LedgerTestSuiteRunner(config: Config) {
+final class LedgerTestSuiteRunner(
+    endpoints: Vector[LedgerSessionConfiguration],
+    suiteConstructors: Vector[LedgerSession => LedgerTestSuite]) {
 
   private[this] val timeoutMillis: Long = 30000L
 
@@ -84,7 +84,7 @@ final class LedgerTestSuiteRunner(config: Config) {
   private def run(suite: LedgerTestSuite): Vector[Future[LedgerTestSummary]] =
     suite.tests.map(test => summarize(suite, test, run(test, suite.session)))
 
-  def run(): Future[Vector[LedgerTestSummary]] = {
+  def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
 
     implicit val ec: ExecutionContext = {
       val ec = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
@@ -92,12 +92,8 @@ final class LedgerTestSuiteRunner(config: Config) {
       ec
     }
 
-    val configurations = Vector(
-      LedgerSessionConfiguration(config.host, config.port)
-    )
-
     val sessions =
-      configurations.map(LedgerSession.getOrCreate).foldLeft(Vector.empty[LedgerSession]) {
+      endpoints.map(LedgerSession.getOrCreate).foldLeft(Vector.empty[LedgerSession]) {
         (sessions, attempt) =>
           attempt match {
             case Failure(NonFatal(cause)) =>
@@ -107,17 +103,12 @@ final class LedgerTestSuiteRunner(config: Config) {
           }
       }
 
-    // TODO should pick up from cli params
-    val suiteConstructors = Vector(new Divulgence(_), new Identity(_))
-
     val testSuites =
       for (session <- sessions; suiteConstructor <- suiteConstructors)
         yield suiteConstructor(session)
 
-    for {
-      startedTests <- Future.sequence(testSuites.flatMap(run))
-      _ = LedgerSession.closeAll()
-    } yield startedTests
+    Future.sequence(testSuites.flatMap(run)).onComplete(completionCallback)
+
   }
 
 }
