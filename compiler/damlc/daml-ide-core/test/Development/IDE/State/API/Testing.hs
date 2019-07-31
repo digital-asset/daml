@@ -15,7 +15,6 @@ module Development.IDE.Core.API.Testing
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
     , D.DiagnosticSeverity(..)
-    , expectedPoperties
     , runShakeTest
     , makeFile
     , makeModule
@@ -37,6 +36,7 @@ module Development.IDE.Core.API.Testing
     , expectNoVirtualResource
     , expectVirtualResourceNote
     , expectNoVirtualResourceNote
+    , expectedTemplatePoperties
     , timedSection
     , example
     ) where
@@ -521,8 +521,8 @@ graphTest wrld lfPkg expectedProps =
         else Left $ map templateChoicesToProps tplPropsActual
     where tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
 
-expectedPoperties :: D.NormalizedFilePath -> Set.Set TemplateProp -> ShakeTest ()
-expectedPoperties damlFilePath expectedProps = do
+expectedTemplatePoperties :: D.NormalizedFilePath -> Set.Set TemplateProp -> ShakeTest ()
+expectedTemplatePoperties damlFilePath expectedProps = do
     ideState <- ShakeTest $ Reader.asks steService
     mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
     case mbDalf of

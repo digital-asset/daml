@@ -843,7 +843,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "        do return ()"
                 ]
             setFilesOfInterest [foo]
-            expectedPoperties foo $ Set.fromList [TemplateProp (Set.fromList [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True]) 0]
+            expectedTemplatePoperties foo $ Set.fromList [TemplateProp (Set.fromList [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True]) 0]
         , testCase' "Fetch shoud not be an action" $ do
             fetchTest <- makeModule "F"
                 [ "template Coin"
@@ -861,7 +861,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 ]
             setFilesOfInterest [fetchTest]
             expectNoErrors
-            expectedPoperties fetchTest $ Set.fromList
+            expectedTemplatePoperties fetchTest $ Set.fromList
                 [TemplateProp (Set.fromList
                     [   ExpectedChoices "Archive" True,
                         ExpectedChoices "ReducedCoin" False
