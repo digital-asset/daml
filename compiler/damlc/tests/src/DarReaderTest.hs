@@ -14,12 +14,17 @@ main = defaultMain unitTests
 unitTests :: TestTree
 unitTests = testGroup "testing dar reader for longer manifest lines"
     [
-    testCase "multiline manifest file test" $
+        testCase "multiline manifest file test" $
         assertEqual "content over multiple lines"
             ["Dalfs: stdlib.dalf, prim.dalf", "Main-Dalf: testing.dalf"]
-            (multiLineContent ["Dalfs: stdlib.da", " lf, prim.dalf" , "Main-Dalf: testing.dalf"])
+            (multiLineContent $ unlines [ "Dalfs: stdlib.da"
+                                        , " lf, prim.dalf"
+                                        , "Main-Dalf: testing.dalf"
+                                        ])
     , testCase "multiline manifest file test" $
         assertEqual "all content in the same line"
             ["Dalfs: stdlib.dalf", "Main-Dalf:solution.dalf"]
-            (multiLineContent ["Dalfs: stdlib.dalf" , "Main-Dalf:solution.dalf"])
+            (multiLineContent $ unlines [ "Dalfs: stdlib.dalf"
+                                        , "Main-Dalf:solution.dalf"
+                                        ])
     ]
