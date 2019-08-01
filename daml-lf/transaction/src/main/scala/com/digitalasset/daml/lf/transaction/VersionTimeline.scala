@@ -54,8 +54,8 @@ private[digitalasset] object VersionTimeline {
       That(LanguageVersion(LMV.V1, "5")),
       This(That(TransactionVersion("8"))),
       Both(This(ValueVersion("5")), LanguageVersion(LMV.V1, "6")),
+      // add new versions above this line (but see more notes below)
       That(LanguageVersion(LMV.V1, Dev)),
-      // add new versions above this line
       // do *not* backfill to make more Boths, because such would
       // invalidate the timeline, except to accompany Dev language
       // versions; use This and That instead as needed.
@@ -68,10 +68,8 @@ private[digitalasset] object VersionTimeline {
       // supported by this release".
     )
 
-  def foldRelease[Z: Semigroup](av: AllVersions[\&/])(
-      v: ValueVersion => Z,
-      t: TransactionVersion => Z,
-      l: LanguageVersion => Z): Z =
+  def foldRelease[Z: Semigroup](
+      av: Release)(v: ValueVersion => Z, t: TransactionVersion => Z, l: LanguageVersion => Z): Z =
     av.bifoldMap(_.bifoldMap(v)(t))(l)
 
   final case class SubVersion[A](inject: A => SpecifiedVersion, extract: Release => Option[A])
@@ -140,6 +138,15 @@ private[digitalasset] object VersionTimeline {
 
   private def releasePrecedes(left: SpecifiedVersion, right: SpecifiedVersion): Boolean =
     compareReleaseTime(left, right) contains Ordering.LT
+
+  /** Released versions in ascending order.  Public clients should prefer
+    * `ValueVersions` and `TransactionVersions`' members.
+    */
+  private[lf] def ascendingVersions[A](implicit A: SubVersion[A]): NonEmptyList[A] =
+    inAscendingOrder.list
+      .collect(Function unlift A.extract)
+      .toNel
+      .getOrElse(sys.error("every SubVersion must have at least one entry in the timeline"))
 
   // not antisymmetric, as unknown versions can't be compared
   def maxVersion[A](left: A, right: A)(implicit ev: SubVersion[A]): A =
