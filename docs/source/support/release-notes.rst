@@ -6,6 +6,62 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-16:
+
+0.13.16 - 2019-07-31
+--------------------
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE** Handwritten instances of ``Template`` and ``Choice`` typeclasses are no longer supported.
+  All template constructs must be defined using declarations inside ``template`` syntax.
+
+DAML Docs
+~~~~~~~~~
+
+- The ``damlc docs`` command now produces docs to a folder by default. Use the
+  new ``--combine`` flag to output a single file instead.
+- The ``damlc docs`` flag ``--prefix`` has been replaced with a ``--template``
+  flag which allows for a more flexible template.
+- The ``damlc docs`` flag ``--json`` has been dropped in favor of
+  ``--format=json``.
+
+Extractor
+~~~~~~~~~
+
+- **BREAKING CHANGE** Changed schema to accomodate removed field
+  ``ExercisedEvent#contract_creating_event_id``. Existing database schemas are
+  not compatible anymore with the newer version. The extractor needs to be run
+  on an empty schema from Ledger Begin.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- Add all packages of java bindings to the javadocs. See `#2280
+  <https://github.com/digital-asset/daml/issues/2280>`__.
+- **BREAKING CHANGE** Removed field
+  ``ExercisedEvent#contract_creating_event_id``.  See `#2068
+  <https://github.com/digital-asset/daml/issues/2068>`__.
+
+Ledger API
+~~~~~~~~~~
+
+- **BREAKING CHANGE** Removed field
+  ``ExercisedEvent#contract_creating_event_id``.  See `#2068
+  <https://github.com/digital-asset/daml/issues/2068>`__.
+
+Sandbox
+~~~~~~~
+
+- The active contract service correctly serves stakeholders. See `#2070
+  <https://github.com/digital-asset/daml/issues/2070>`__.
+- Added the ``--maxInboundMessageSize`` CLI parameter to set the maximux size
+  of messages received through the Ledger API. If the value is not set the
+  current default is preserved (4 MB).
+- Makes package uploads idempotent and tolerate partial duplicates. See `#2130
+  <https://github.com/digital-asset/daml/issues/2130>`__.
+
 .. _release-0-13-15:
 
 0.13.15 - 2019-07-25
