@@ -327,15 +327,16 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
         runAction ide $ do
           mbDalf <- getDalf inputFile
           dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
+          let pkgId = T.unpack $ Archive.encodePackageHash dalf
           when (optWriteInterface opts') $ do
-              let pkgId = Archive.encodePackageHash dalf
               mbIfaces <-
                   writeIfacesAndHie
-                      (Just $ T.unpack pkgId)
+                      (Just pkgId)
                       (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts')
                       inputFile
               void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
           liftIO $ write dalf
+          liftIO $ putStrLn $ "Package id: " <> pkgId
   where
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs

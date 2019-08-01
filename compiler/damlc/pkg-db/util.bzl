@@ -31,15 +31,15 @@
 PACKAGE_CONF_TEMPLATE = """
 name: {name}
 version: 1.0.0
-id: {name}
+id: {name}-1.0.0-__PKGID__
 key: {name}-1.0.0-__PKGID__
 copyright: 2015-2018 Digital Asset Holdings
 maintainer: Digital Asset
 exposed: True
 exposed-modules: {modules}
-import-dirs: \$topdir/{name}
-library-dirs: \$topdir/{name}
-data-dir: \$topdir/{name}
+import-dirs: \$topdir/{name}-1.0.0-__PKGID__
+library-dirs: \$topdir/{name}-1.0.0-__PKGID__
+data-dir: \$topdir/{name}-1.0.0-__PKGID__
 depends: {depends}
 """
 
