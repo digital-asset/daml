@@ -48,7 +48,7 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDriven
 
       "work for many, many values in raw format" in forAll(genAddend, minSuccessful(100)) { va =>
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = Arbitrary(va.injgen(genCid))
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
         forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
           va.prj(
             ApiCodecCompressed.jsValueToApiValue(

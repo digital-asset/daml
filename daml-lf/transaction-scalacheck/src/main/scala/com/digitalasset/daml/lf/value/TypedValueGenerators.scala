@@ -13,7 +13,6 @@ import scalaz.Id.Id
 import scalaz.syntax.traverse._
 import scalaz.std.option._
 import org.scalacheck.{Arbitrary, Gen, Shrink}
-import Arbitrary.arbitrary
 
 /** [[ValueGenerators]] produce untyped values; for example, if you use the list gen,
   * you get a heterogeneous list.  The generation target here, on the other hand, is
@@ -32,7 +31,7 @@ object TypedValueGenerators {
     def t: Type
     def inj[Cid]: Inj[Cid] => Value[Cid]
     def prj[Cid]: Value[Cid] => Option[Inj[Cid]]
-    def injgen[Cid](cid: Gen[Cid]): Gen[Inj[Cid]]
+    implicit def injarb[Cid: Arbitrary]: Arbitrary[Inj[Cid]]
     implicit def injshrink[Cid: Shrink]: Shrink[Inj[Cid]]
     final override def toString = s"${classOf[ValueAddend].getSimpleName}{t = ${t.toString}}"
   }
@@ -53,7 +52,7 @@ object TypedValueGenerators {
       override val t = TypePrim(pt, ImmArraySeq.empty)
       override def inj[Cid] = inj0
       override def prj[Cid] = prj0.lift
-      override def injgen[Cid](cid: Gen[Cid]) = arb.arbitrary
+      override def injarb[Cid: Arbitrary] = arb
       override def injshrink[Cid: Shrink] = shr
     }
 
@@ -77,7 +76,7 @@ object TypedValueGenerators {
         case ValueContractId(cid) => Some(cid)
         case _ => None
       }
-      override def injgen[Cid](cid: Gen[Cid]) = cid
+      override def injarb[Cid](implicit cid: Arbitrary[Cid]) = cid
       override def injshrink[Cid](implicit shr: Shrink[Cid]) = shr
     }
 
@@ -91,9 +90,9 @@ object TypedValueGenerators {
         case ValueList(v) => v.toImmArray.toSeq.to[Vector] traverse elt.prj
         case _ => None
       }
-      override def injgen[Cid](cid: Gen[Cid]) = {
-        implicit val ae: Arbitrary[elt.Inj[Cid]] = Arbitrary(elt.injgen(cid))
-        arbitrary[Vector[elt.Inj[Cid]]] // TODO SC propagate smaller size
+      override def injarb[Cid: Arbitrary] = {
+        implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
+        implicitly[Arbitrary[Vector[elt.Inj[Cid]]]]
       }
       override def injshrink[Cid: Shrink] = {
         import elt.injshrink
@@ -109,7 +108,10 @@ object TypedValueGenerators {
         case ValueOptional(v) => v traverse elt.prj
         case _ => None
       }
-      override def injgen[Cid](cid: Gen[Cid]) = Gen.option(elt.injgen(cid))
+      override def injarb[Cid: Arbitrary] = {
+        implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
+        implicitly[Arbitrary[Option[elt.Inj[Cid]]]]
+      }
       override def injshrink[Cid: Shrink] = {
         import elt.injshrink
         implicitly[Shrink[Option[elt.Inj[Cid]]]]
@@ -125,8 +127,11 @@ object TypedValueGenerators {
         case ValueMap(sll) => sll traverse elt.prj
         case _ => None
       }
-      override def injgen[Cid](cid: Gen[Cid]) =
-        Gen.mapOf(Gen.zip(Gen.asciiPrintableStr, elt.injgen(cid))) map (SortedLookupList(_))
+      override def injarb[Cid: Arbitrary] =
+        Arbitrary(
+          Gen
+            .mapOf(Gen.zip(Gen.asciiPrintableStr, elt.injarb[Cid].arbitrary)) map (SortedLookupList(
+            _)))
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
     }
   }
@@ -167,6 +172,6 @@ object TypedValueGenerators {
   def genTypeAndValue[Cid](cid: Gen[Cid]): Gen[(Type, Value[Cid])] =
     for {
       addend <- genAddend
-      value <- addend.injgen(cid)
+      value <- addend.injarb(Arbitrary(cid)).arbitrary
     } yield (addend.t, addend.inj(value))
 }
