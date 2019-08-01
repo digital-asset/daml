@@ -7,6 +7,7 @@ module DA.Cli.Visual
   , moduleAndTemplates
   , TemplateChoices(..)
   , ChoiceAndAction(..)
+  , Action(..)
   ) where
 
 
@@ -27,6 +28,7 @@ import Safe
 
 type IsConsuming = Bool
 type InternalChcName = LF.ChoiceName
+
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
 

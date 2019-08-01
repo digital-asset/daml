@@ -842,7 +842,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
 
 visualDamlTests :: Tasty.TestTree
 visualDamlTests = Tasty.testGroup "Visual Tests"
-    [   testCase' "Set files of interest" $ do
+    [   testCase' "templete with no action (edges) from choices" $ do
             foo <- makeModule "F"
                 [ "template Coin"
                 , "  with"
@@ -854,7 +854,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "        do return ()"
                 ]
             setFilesOfInterest [foo]
-            expectedTemplatePoperties foo $ Set.fromList [TemplateProp (Set.fromList [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True]) 0]
+            expectedTemplatePoperties foo $ Set.fromList [TemplateProp (Set.fromList [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True]) Set.empty]
         , testCase' "Fetch shoud not be an action" $ do
             fetchTest <- makeModule "F"
                 [ "template Coin"
@@ -864,11 +864,11 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "  where"
                 , "    signatory owner"
                 , "    controller owner can"
-                , "      nonconsuming ReducedCoin : ContractId Coin"
+                , "      nonconsuming ReducedCoin : ()"
                 , "        with otherCoin : ContractId Coin"
                 , "        do "
-                , "        cn <- fetch otherCoin "
-                , "        create this with amount = cn.amount - 10"
+                , "        cn <- fetch otherCoin"
+                , "        archive otherCoin"
                 ]
             setFilesOfInterest [fetchTest]
             expectNoErrors
@@ -877,7 +877,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                     [   ExpectedChoices "Archive" True,
                         ExpectedChoices "ReducedCoin" False
                     ])
-                    1
+                    (Set.fromList [(Exercise "F:Coin" "Archive")])
                 ]
     ]
     where
