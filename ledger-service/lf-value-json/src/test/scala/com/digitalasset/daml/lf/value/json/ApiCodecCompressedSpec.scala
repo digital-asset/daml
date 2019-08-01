@@ -5,15 +5,21 @@ package com.digitalasset.daml.lf
 package value.json
 
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{genTypeAndValue, genAddend}
+import value.TypedValueGenerators.{ValueAddend => VA, genAddend, genTypeAndValue}
+import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 
 import org.scalatest.{Matchers, WordSpec}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalacheck.{Arbitrary, Gen}
 
 import scala.util.{Success, Try}
 
-class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
+class ApiCodecCompressedSpec
+    extends WordSpec
+    with Matchers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
 
   /** XXX SC replace when TypedValueGenerators supports TypeCons */
   private val typeLookup: NavigatorModelAliases.DamlLfTypeLookup = _ => None
@@ -50,11 +56,22 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDriven
         import va.injshrink
         implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
         forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
-          va.prj(
-            ApiCodecCompressed.jsValueToApiValue(
-              ApiCodecCompressed.apiValueToJsValue(va.inj(v)),
-              va.t,
-              typeLookup)) should ===(Some(v))
+          va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup)) should ===(
+            Some(v))
+        }
+      }
+
+      "handle nested optionals" in {
+        val va = VA.optional(VA.optional(VA.int64))
+        val cases = Table(
+          "value",
+          None,
+          Some(None),
+          Some(Some(42L)),
+        )
+        forEvery(cases) { ool =>
+          va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(ool)), va.t, typeLookup)) should ===(
+            Some(ool))
         }
       }
       /*
