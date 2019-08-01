@@ -842,7 +842,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
 
 visualDamlTests :: Tasty.TestTree
 visualDamlTests = Tasty.testGroup "Visual Tests"
-    [   testCase' "Set files of interest" $ do
+    [   testCase' "Template with no actions (edges) from choices" $ do
             foo <- makeModule "F"
                 [ "template Coin"
                 , "  with"
@@ -854,7 +854,13 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "        do return ()"
                 ]
             setFilesOfInterest [foo]
-            expectedTemplatePoperties foo $ Set.fromList [TemplateProp (Set.fromList [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True]) 0]
+            expectedTemplatePoperties foo $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                        [ExpectedChoices "Archive" True,
+                        ExpectedChoices "Delete" True])
+                    Set.empty
+                ]
         , testCase' "Fetch shoud not be an action" $ do
             fetchTest <- makeModule "F"
                 [ "template Coin"
@@ -864,20 +870,87 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "  where"
                 , "    signatory owner"
                 , "    controller owner can"
-                , "      nonconsuming ReducedCoin : ContractId Coin"
+                , "      nonconsuming ReducedCoin : ()"
                 , "        with otherCoin : ContractId Coin"
                 , "        do "
-                , "        cn <- fetch otherCoin "
-                , "        create this with amount = cn.amount - 10"
+                , "        cn <- fetch otherCoin"
+                , "        archive otherCoin"
                 ]
             setFilesOfInterest [fetchTest]
             expectNoErrors
             expectedTemplatePoperties fetchTest $ Set.fromList
-                [TemplateProp (Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
                     [   ExpectedChoices "Archive" True,
                         ExpectedChoices "ReducedCoin" False
                     ])
-                    1
+                    (Set.fromList [Exercise "F:Coin" "Archive"])
+                ]
+        , testCase' "excercise sould add new action" $ do
+            exerciseTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Consume : ()"
+                , "        with coinId : ContractId Coin"
+                , "        do exercise coinId Delete"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "        Delete : ()"
+                , "            do return ()"
+                ]
+            setFilesOfInterest [exerciseTest]
+            expectNoErrors
+            expectedTemplatePoperties exerciseTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [   ExpectedChoices "Archive" True,
+                        ExpectedChoices "Delete" True
+                    ])
+                    Set.empty
+                , TemplateProp "TT"
+                    (Set.fromList
+                    [   ExpectedChoices "Consume" True,
+                        ExpectedChoices "Archive" True
+                    ])
+                    (Set.fromList [Exercise "F:Coin" "Delete"])
+                ]
+        , testCase' "create on other template should be edge" $ do
+            createTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      CreateCoin : ContractId Coin"
+                , "        do create Coin with owner"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            setFilesOfInterest [createTest]
+            expectNoErrors
+            expectedTemplatePoperties createTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [   ExpectedChoices "Archive" True])
+                    Set.empty
+                , TemplateProp "TT"
+                    (Set.fromList
+                    [   ExpectedChoices "CreateCoin" True,
+                        ExpectedChoices "Archive" True
+                    ])
+                    (Set.fromList [Create "F:Coin"])
                 ]
     ]
     where
