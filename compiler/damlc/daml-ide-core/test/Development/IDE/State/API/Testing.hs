@@ -521,13 +521,11 @@ timedSection targetDiffTime block = do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
 
-visualActionToExpectedChoiceAction :: V.Action -> ExpectedChoiceAction
-visualActionToExpectedChoiceAction (V.ACreate tcon) = Create (DAP.renderPretty tcon)
-visualActionToExpectedChoiceAction (V.AExercise tcon choice) = Exercise (DAP.renderPretty tcon) (DAP.renderPretty choice)
-
-
 actionsToChoiceActions :: Set.Set V.Action -> [ExpectedChoiceAction]
-actionsToChoiceActions acts = Set.toList $ Set.map visualActionToExpectedChoiceAction acts
+actionsToChoiceActions acts = Set.toList $ Set.map expectedChcAction acts
+        where expectedChcAction  = \case
+                V.ACreate tcon -> Create (DAP.renderPretty tcon)
+                V.AExercise tcon choice -> Exercise (DAP.renderPretty tcon) (DAP.renderPretty choice)
 
 templateChoicesToProps :: V.TemplateChoices -> TemplateProp
 templateChoicesToProps tca = TemplateProp choicesInTpl $ Set.fromList allActions
