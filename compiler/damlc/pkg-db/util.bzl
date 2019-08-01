@@ -43,7 +43,7 @@ data-dir: \$topdir/{name}-1.0.0-__PKGID__
 depends: {depends}
 """
 
-DamlPackage = provider(fields = ["daml_lf_version", "pkg_name", "pkg_conf", "iface_dir", "dalf", "modules"])
+DamlPackage = provider(fields = ["daml_lf_version", "pkg_name", "pkg_id", "pkg_conf", "iface_dir", "dalf", "modules"])
 
 # Compile a DAML file and create the GHC package database
 # for it.
@@ -120,6 +120,7 @@ def _daml_package_rule_impl(ctx):
         DefaultInfo(files = depset([dalf, iface_dir, package_config])),
         DamlPackage(
             pkg_name = ctx.attr.pkg_name,
+            pkg_id = pkg_id,
             daml_lf_version = ctx.attr.daml_lf_version,
             pkg_conf = package_config,
             iface_dir = iface_dir,
@@ -159,7 +160,7 @@ def _daml_package_db_impl(ctx):
     toolchain = ctx.toolchains["@io_tweag_rules_haskell//haskell:toolchain"]
     db_dir = ctx.actions.declare_directory(ctx.attr.name + "_dir")
     ctx.actions.run_shell(
-        inputs = [inp for pkg in ctx.attr.pkgs for inp in [pkg[DamlPackage].pkg_conf, pkg[DamlPackage].iface_dir, pkg[DamlPackage].dalf]],
+        inputs = [inp for pkg in ctx.attr.pkgs for inp in [pkg[DamlPackage].pkg_conf, pkg[DamlPackage].pkg_id, pkg[DamlPackage].iface_dir, pkg[DamlPackage].dalf]],
         tools = [toolchain.tools.ghc_pkg],
         outputs = [db_dir],
         command =
@@ -174,15 +175,18 @@ def _daml_package_db_impl(ctx):
             "".join(
                 [
                     """
-        mkdir -p "{db_dir}/{daml_lf_version}/{pkg_name}"
+        PKG_ID=`cat {pkg_id_file}`
+        FULL_PKG_NAME={pkg_name}-1.0.0-$PKG_ID
+        mkdir -p "{db_dir}/{daml_lf_version}/$FULL_PKG_NAME"
         cp {pkg_conf} "{db_dir}/{daml_lf_version}/package.conf.d/{pkg_name}.conf"
-        cp -aL {iface_dir}/* "{db_dir}/{daml_lf_version}/{pkg_name}/"
-        cp {dalf} "{db_dir}/{daml_lf_version}/{pkg_name}.dalf"
+        cp -aL {iface_dir}/* "{db_dir}/{daml_lf_version}/$FULL_PKG_NAME/"
+        cp {dalf} "{db_dir}/{daml_lf_version}/$FULL_PKG_NAME/{pkg_name}.dalf"
         """.format(
                         daml_lf_version = pkg[DamlPackage].daml_lf_version,
                         pkg_name = pkg[DamlPackage].pkg_name,
                         pkg_conf = pkg[DamlPackage].pkg_conf.path,
                         iface_dir = pkg[DamlPackage].iface_dir.path,
+                        pkg_id_file = pkg[DamlPackage].pkg_id.path,
                         dalf = pkg[DamlPackage].dalf.path,
                         db_dir = db_dir.path,
                     )
