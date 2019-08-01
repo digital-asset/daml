@@ -842,7 +842,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
 
 visualDamlTests :: Tasty.TestTree
 visualDamlTests = Tasty.testGroup "Visual Tests"
-    [   testCase' "Templete with no actions (edges) from choices" $ do
+    [   testCase' "Template with no actions (edges) from choices" $ do
             foo <- makeModule "F"
                 [ "template Coin"
                 , "  with"
