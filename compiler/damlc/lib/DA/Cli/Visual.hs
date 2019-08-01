@@ -5,6 +5,7 @@
 module DA.Cli.Visual
   ( execVisual
   , moduleAndTemplates
+  , tplNameUnqual
   , TemplateChoices(..)
   , ChoiceAndAction(..)
   , Action(..)

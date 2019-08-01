@@ -854,7 +854,13 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "        do return ()"
                 ]
             setFilesOfInterest [foo]
-            expectedTemplatePoperties foo $ Set.fromList [TemplateProp (Set.fromList [ExpectedChoices "Archive" True, ExpectedChoices "Delete" True]) Set.empty]
+            expectedTemplatePoperties foo $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                        [ExpectedChoices "Archive" True,
+                        ExpectedChoices "Delete" True])
+                    Set.empty
+                ]
         , testCase' "Fetch shoud not be an action" $ do
             fetchTest <- makeModule "F"
                 [ "template Coin"
@@ -873,11 +879,48 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             setFilesOfInterest [fetchTest]
             expectNoErrors
             expectedTemplatePoperties fetchTest $ Set.fromList
-                [TemplateProp (Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
                     [   ExpectedChoices "Archive" True,
                         ExpectedChoices "ReducedCoin" False
                     ])
                     (Set.fromList [Exercise "F:Coin" "Archive"])
+                ]
+        , testCase' "excercise sould add new action" $ do
+            exerciseTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Consume : ()"
+                , "        with coinId : ContractId Coin"
+                , "        do exercise coinId Delete"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "        Delete : ()"
+                , "            do return ()"
+                ]
+            setFilesOfInterest [exerciseTest]
+            expectNoErrors
+            expectedTemplatePoperties exerciseTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [   ExpectedChoices "Archive" True,
+                        ExpectedChoices "Delete" True
+                    ])
+                    Set.empty
+                , TemplateProp "TT"
+                    (Set.fromList
+                    [   ExpectedChoices "Consume" True,
+                        ExpectedChoices "Archive" True
+                    ])
+                    (Set.fromList [Exercise "F:Coin" "Delete"])
                 ]
     ]
     where
