@@ -922,6 +922,36 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                     ])
                     (Set.fromList [Exercise "F:Coin" "Delete"])
                 ]
+        , testCase' "create on other template should be edge" $ do
+            createTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      CreateCoin : ContractId Coin"
+                , "        do create Coin with owner"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            setFilesOfInterest [createTest]
+            expectNoErrors
+            expectedTemplatePoperties createTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [   ExpectedChoices "Archive" True])
+                    Set.empty
+                , TemplateProp "TT"
+                    (Set.fromList
+                    [   ExpectedChoices "CreateCoin" True,
+                        ExpectedChoices "Archive" True
+                    ])
+                    (Set.fromList [Create "F:Coin"])
+                ]
     ]
     where
         testCase' = testCase Nothing
