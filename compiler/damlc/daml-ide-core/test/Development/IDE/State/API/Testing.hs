@@ -124,7 +124,7 @@ type ChoiceName = String
 
 data ExpectedChoiceAction
     = Create TemplateName
-    | Exercise TemplateName ChoiceName deriving (Eq, Ord, Show )
+    | Exercise TemplateName ChoiceName deriving (Eq, Ord, Show)
 
 data ExpectedChoices = ExpectedChoices
     { _cName :: String
