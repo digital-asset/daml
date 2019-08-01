@@ -27,6 +27,7 @@ da_haskell_library(
         "ghc-lib",
         "hashable",
         "mtl",
+        "mustache",
         "prettyprinter",
         "text",
         "transformers",

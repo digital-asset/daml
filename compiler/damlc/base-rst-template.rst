@@ -19,4 +19,4 @@ be used straight out of the box. You can import modules from the standard librar
    import DA.Optional
    import DA.Time
 
-__BODY__
+{{{body}}}

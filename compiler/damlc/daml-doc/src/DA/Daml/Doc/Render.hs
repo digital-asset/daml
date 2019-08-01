@@ -28,6 +28,8 @@ import Data.List.Extra
 import Data.Foldable
 import System.Directory
 import System.FilePath
+import System.IO
+import System.Exit
 
 import qualified CMarkGFM as GFM
 import qualified Data.Aeson.Encode.Pretty as AP
@@ -35,7 +37,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as Map
-
+import qualified Text.Mustache as M
 
 -- | centralised JSON configuration for pretty-printing
 jsonConf :: AP.Config
@@ -48,7 +50,9 @@ renderDocs RenderOptions{..} mods = do
                 Rst -> (renderRst, id)
                 Markdown -> (renderMd, id)
                 Html -> (renderMd, GFM.commonmarkToHtml [GFM.optUnsafe] [GFM.extTable])
-        template = fromMaybe (defaultTemplate ro_format) ro_template
+        templateText = fromMaybe (defaultTemplate ro_format) ro_template
+
+    template <- compileTemplate templateText
 
     case ro_mode of
         RenderToFile path -> do
@@ -84,26 +88,34 @@ renderDocs RenderOptions{..} mods = do
                     . postProcessing
                     $ renderedOutput
 
+compileTemplate :: T.Text -> IO M.Template
+compileTemplate templateText =
+    case M.compileTemplate "daml docs template" templateText of
+        Right t -> pure t
+        Left e -> do
+            hPutStrLn stderr ("Error with daml docs template: " <> show e)
+            exitFailure
 
 renderTemplate ::
-    T.Text -- ^ template
+    M.Template -- ^ template
     -> T.Text -- ^ page title
     -> T.Text -- ^ page body
     -> T.Text
-renderTemplate template pageTitle pageBody
-    = T.replace "__BODY__" pageBody
-    . T.replace "__TITLE__" pageTitle
-    $ template
+renderTemplate template pageTitle pageBody =
+    M.substitute template $ M.object
+        [ "title" M.~> pageTitle
+        , "body" M.~> pageBody
+        ]
 
 defaultTemplate :: RenderFormat -> T.Text
 defaultTemplate = \case
     Html -> defaultTemplateHtml
-    _ -> "__BODY__"
+    _ -> "{{{body}}}"
 
 defaultTemplateHtml :: T.Text
 defaultTemplateHtml = T.unlines
     [ "<html>"
-    , "<head><title>__TITLE__</title><meta charset=\"utf-8\"></head>"
-    , "<body>__BODY__</body>"
+    , "<head><title>{{title}}</title><meta charset=\"utf-8\"></head>"
+    , "<body>{{{body}}}</body>"
     , "</html>"
     ]

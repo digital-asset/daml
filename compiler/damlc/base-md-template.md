@@ -13,4 +13,4 @@ import DA.Optional
 import DA.Time
 ```
 
-__BODY__
+{{{body}}}
