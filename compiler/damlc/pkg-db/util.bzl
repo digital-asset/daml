@@ -62,7 +62,6 @@ def _daml_package_rule_impl(ctx):
         # base path...
         modules[".".join(file.path[:-5].split("/")[3:])] = file.path
 
-
     package_db_dir = ctx.attr.package_db[PackageDb].db_dir
 
     ctx.actions.run_shell(
@@ -107,14 +106,14 @@ def _daml_package_rule_impl(ctx):
       PKGID=`cat {pkg_id}`
       sed -i s/__PKGID__/$PKGID/ {package_config_file}
         """.format(
-                pkg_id = pkg_id.path,
-                content = PACKAGE_CONF_TEMPLATE.format(
-                                      name = ctx.attr.pkg_name,
-                                      modules = " ".join(modules.keys()),
-                                      depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
-                                      ),
-                package_config_file = package_config.path
-                )
+            pkg_id = pkg_id.path,
+            content = PACKAGE_CONF_TEMPLATE.format(
+                name = ctx.attr.pkg_name,
+                modules = " ".join(modules.keys()),
+                depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
+            ),
+            package_config_file = package_config.path,
+        ),
     )
 
     return [
