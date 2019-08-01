@@ -26,6 +26,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     Record(..),
     RecordField(..),
     Variant(..),
+    Enum(..),
     Identifier(..),
     Timestamp(..),
 
@@ -41,7 +42,6 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
     CommandId(..),
     PackageId(..),
     ConstructorId(..),
-    VariantId(..),
     Choice(..),
     Party(..),
     ModuleName(..),
@@ -56,6 +56,7 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
 
     ) where
 
+import Prelude hiding(Enum)
 import Data.Map (Map)
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy as Text(unpack)
@@ -187,16 +188,22 @@ data Value
     | VContract ContractId
     | VList [Value]
     | VInt Int
-    | VDecimal Text -- TODO: Maybe use Haskell Decimal type
-    | VString Text
-    | VTimestamp MicroSecondsSinceEpoch
+    | VDecimal Text
+    | VText Text
+    | VTime MicroSecondsSinceEpoch
     | VParty Party
     | VBool Bool
     | VUnit
     | VDate DaysSinceEpoch
     | VOpt (Maybe Value)
     | VMap (Map Text Value)
+    | VEnum Enum
     deriving (Eq,Ord,Show)
+
+data Enum = Enum
+    { eid   :: Maybe Identifier
+    , cons  :: ConstructorId
+    } deriving (Eq,Ord,Show)
 
 data Record
     = Record {
@@ -210,9 +217,9 @@ data RecordField
 
 data Variant
     = Variant {
-        vid         :: VariantId,
-        constructor :: ConstructorId,
-        value       :: Value } deriving (Eq,Ord,Show)
+        vid   :: Maybe Identifier,
+        cons  :: ConstructorId,
+        value :: Value } deriving (Eq,Ord,Show)
 
 data Identifier
     = Identifier {
@@ -220,20 +227,22 @@ data Identifier
         mod :: ModuleName,
         ent :: EntityName } deriving (Eq,Ord,Show)
 
-newtype MicroSecondsSinceEpoch = MicroSecondsSinceEpoch Int deriving (Eq,Ord,Show)-- TODO: Int64?
-newtype DaysSinceEpoch = DaysSinceEpoch Int  deriving (Eq,Ord,Show)
+newtype MicroSecondsSinceEpoch =
+    MicroSecondsSinceEpoch { unMicroSecondsSinceEpoch :: Int }
+    deriving (Eq,Ord,Show)
+
+newtype DaysSinceEpoch =
+    DaysSinceEpoch { unDaysSinceEpoch :: Int }
+    deriving (Eq,Ord,Show)
 
 data Timestamp
     = Timestamp {
-        seconds :: Integer, -- TODO: Int64?
-        nanos   :: Integer }  deriving (Eq,Ord,Show)
+        seconds :: Int,
+        nanos   :: Int }  deriving (Eq,Ord,Show)
 
-newtype TemplateId = TemplateId Identifier -- TODO: remove this wrapping
-    deriving (Eq,Ord,Show)
+newtype TemplateId = TemplateId Identifier deriving (Eq,Ord,Show)
 
 newtype LedgerId = LedgerId { unLedgerId :: Text } deriving (Eq,Ord,Show)
-
--- Text wrappers
 newtype TransactionId = TransactionId { unTransactionId :: Text } deriving (Eq,Ord,Show)
 newtype EventId = EventId { unEventId :: Text } deriving (Eq,Ord,Show)
 newtype ContractId = ContractId { unContractId :: Text } deriving (Eq,Ord,Show)
@@ -242,26 +251,16 @@ newtype ApplicationId = ApplicationId { unApplicationId :: Text } deriving (Eq,O
 newtype CommandId = CommandId { unCommandId :: Text } deriving (Eq,Ord,Show)
 newtype PackageId = PackageId { unPackageId :: Text } deriving (Eq,Ord,Show)
 newtype ConstructorId = ConstructorId { unConstructorId :: Text } deriving (Eq,Ord,Show)
-newtype VariantId = VariantId { unVariantId :: Text } deriving (Eq,Ord,Show)
 
 newtype Choice = Choice { unChoice :: Text } deriving (Eq,Ord,Show)
 
 newtype Party = Party { unParty :: Text } deriving (Eq,Ord)
-instance Show Party where show = Text.unpack . unParty -- TODO: really?
+instance Show Party where show = Text.unpack . unParty
 
 newtype ModuleName = ModuleName { unModuleName :: Text } deriving (Eq,Ord,Show)
 newtype EntityName = EntityName { unEntityName :: Text } deriving (Eq,Ord,Show)
 
 newtype AbsOffset = AbsOffset { unAbsOffset :: Text } deriving (Eq,Ord,Show)
-
--- TODO: .proto message types not yet handled
-{-
-
-message TraceContext {
-message TransactionFilter {
-message Filters {
-message InclusiveFilters {
--}
 
 newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)
 

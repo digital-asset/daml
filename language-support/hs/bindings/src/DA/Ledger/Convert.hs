@@ -1,11 +1,11 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (
     lowerCommands, lowerLedgerOffset, lowerTimestamp,
     Perhaps, perhaps,
+    runRaise,
     raiseList,
     raiseParty,
     raiseTransaction,
@@ -20,6 +20,8 @@ module DA.Ledger.Convert (
     RaiseFailureReason,
     ) where
 
+import Prelude hiding(Enum)
+import Control.Exception (evaluate,try,SomeException)
 import Data.Map(Map)
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
@@ -113,21 +115,45 @@ lowerTimestamp = \case
         }
 
 lowerValue :: Value -> LL.Value
-lowerValue = LL.Value . Just . \case -- TODO: more cases here
+lowerValue = LL.Value . Just . \case
     VRecord r -> (LL.ValueSumRecord . lowerRecord) r
-    VVariant _ -> undefined
+    VVariant v -> (LL.ValueSumVariant . lowerVariant) v
     VContract c -> (LL.ValueSumContractId . unContractId) c
     VList vs -> (LL.ValueSumList . LL.List . Vector.fromList . map lowerValue) vs
     VInt i -> (LL.ValueSumInt64 . fromIntegral) i
     VDecimal t -> LL.ValueSumDecimal t
-    VString t -> LL.ValueSumText t
-    VTimestamp _ -> undefined
+    VText t -> LL.ValueSumText t
+    VTime x -> (LL.ValueSumTimestamp . fromIntegral . unMicroSecondsSinceEpoch) x
     VParty p -> (LL.ValueSumParty . unParty) p
     VBool b -> LL.ValueSumBool b
     VUnit -> LL.ValueSumUnit LL.Empty{}
-    VDate _ -> undefined
+    VDate d -> (LL.ValueSumDate . fromIntegral . unDaysSinceEpoch) d
     VOpt o -> (LL.ValueSumOptional . LL.Optional . fmap lowerValue) o
-    VMap _ -> undefined
+    VMap m -> (LL.ValueSumMap . lowerTextMap) m
+    VEnum e -> (LL.ValueSumEnum . lowerEnum) e
+
+lowerVariant :: Variant -> LL.Variant
+lowerVariant = \case
+    Variant{..} ->
+        LL.Variant
+        { variantVariantId = fmap lowerIdentifier vid
+        , variantConstructor = unConstructorId cons
+        , variantValue = Just $ lowerValue value
+        }
+        
+lowerEnum :: Enum -> LL.Enum
+lowerEnum = \case
+    Enum{..} ->
+        LL.Enum
+        { enumEnumId = fmap lowerIdentifier eid
+        , enumConstructor = unConstructorId cons
+        }
+
+lowerTextMap :: Map Text Value -> LL.Map
+lowerTextMap = LL.Map . Vector.fromList . map lowerTextMapEntry . Map.toList
+
+lowerTextMapEntry :: (Text,Value) -> LL.Map_Entry
+lowerTextMapEntry (key,value) = LL.Map_Entry key (Just $ lowerValue value)
 
 lowerRecord :: Record -> LL.Record
 lowerRecord = \case
@@ -146,7 +172,14 @@ lowerRecordField = \case
 
 -- raise
 
-data RaiseFailureReason = Missing String | Unexpected String deriving Show
+runRaise :: (a -> Perhaps b) -> a -> IO (Perhaps b)
+runRaise raise a = fmap collapseErrors $ try $ evaluate $ raise a
+    where
+        collapseErrors :: Either SomeException (Perhaps a) -> Perhaps a
+        collapseErrors =  either (Left . ThrewException) id
+
+
+data RaiseFailureReason = Missing String | Unexpected String | ThrewException SomeException deriving Show
 
 type Perhaps a = Either RaiseFailureReason a
 
@@ -311,31 +344,55 @@ raiseRecordField = \case
         fieldValue <- perhaps "recordFieldValue" recordFieldValue >>= raiseValue
         return RecordField{label,fieldValue}
 
--- TODO: more cases here
 raiseValue :: LL.Value -> Perhaps Value
 raiseValue = \case
     LL.Value Nothing -> missing "Value"
     LL.Value (Just sum) -> case sum of
         LL.ValueSumRecord r -> (fmap VRecord . raiseRecord) r
-        LL.ValueSumVariant _ -> undefined
-        LL.ValueSumEnum _ -> undefined
+        LL.ValueSumVariant v -> (fmap VVariant . raiseVariant) v
+        LL.ValueSumEnum e -> (fmap VEnum . raiseEnum) e
         LL.ValueSumContractId c -> (return . VContract . ContractId) c
         LL.ValueSumList vs -> (fmap VList . raiseList raiseValue . LL.listElements) vs
         LL.ValueSumInt64 i -> (return . VInt . fromIntegral) i
         LL.ValueSumDecimal t -> (return . VDecimal) t
-        LL.ValueSumText t -> (return . VString) t
-        LL.ValueSumTimestamp _ -> undefined
+        LL.ValueSumText t -> (return . VText) t
+        LL.ValueSumTimestamp x -> (return . VTime . MicroSecondsSinceEpoch . fromIntegral) x
         LL.ValueSumParty p -> (return . VParty . Party) p
         LL.ValueSumBool b -> (return . VBool) b
-        LL.ValueSumUnit _ -> return VUnit
-        LL.ValueSumDate _ -> undefined
+        LL.ValueSumUnit LL.Empty -> return VUnit
+        LL.ValueSumDate x -> (return . VDate . DaysSinceEpoch . fromIntegral) x
         LL.ValueSumOptional o -> (fmap VOpt . raiseOptional) o
-        LL.ValueSumMap _ -> undefined
+        LL.ValueSumMap m -> (fmap VMap . raiseTextMap) m
+
+raiseVariant :: LL.Variant -> Perhaps Variant
+raiseVariant = \case
+    LL.Variant{..} -> do
+        let vid = variantVariantId >>= optional . raiseIdentifier
+        cons <- raiseConstructorId variantConstructor
+        value <- perhaps "value" variantValue >>= raiseValue
+        return Variant{vid,cons,value}
+
+raiseEnum :: LL.Enum -> Perhaps Enum
+raiseEnum = \case
+    LL.Enum{..} -> do
+        let eid = enumEnumId >>= optional . raiseIdentifier
+        cons <- raiseConstructorId enumConstructor
+        return Enum{eid,cons}
 
 raiseOptional :: LL.Optional -> Perhaps (Maybe Value)
 raiseOptional = \case
     LL.Optional Nothing -> return Nothing
     LL.Optional (Just v) -> fmap Just (raiseValue v)
+
+raiseTextMap :: LL.Map -> Perhaps (Map Text Value)
+raiseTextMap m = (fmap Map.fromList . raiseList raiseTextMapEntry . LL.mapEntries) m
+
+raiseTextMapEntry :: LL.Map_Entry -> Perhaps (Text,Value)
+raiseTextMapEntry = \case
+    LL.Map_Entry{..} -> do
+        let key = map_EntryKey
+        value <- perhaps "value" map_EntryValue >>= raiseValue
+        return (key,value)
 
 raiseTimestamp :: LL.Timestamp -> Perhaps Timestamp
 raiseTimestamp = \case
@@ -343,7 +400,6 @@ raiseTimestamp = \case
         return $ Timestamp {seconds = fromIntegral timestampSeconds,
                             nanos = fromIntegral timestampNanos}
 
--- TODO: check that the text matches the spec in ledger_offset.proto
 raiseAbsOffset :: Text -> Perhaps AbsOffset
 raiseAbsOffset = Right . AbsOffset
 
@@ -408,6 +464,9 @@ raiseModuleName = fmap ModuleName . raiseText "ModuleName"
 
 raiseEntityName :: Text -> Perhaps EntityName
 raiseEntityName = fmap EntityName . raiseText "EntityName"
+
+raiseConstructorId :: Text -> Perhaps ConstructorId
+raiseConstructorId = fmap ConstructorId . raiseText "ConstructorId"
 
 raiseText :: String -> Text -> Perhaps Text
 raiseText tag = perhaps tag . \case "" -> Nothing; x -> Just x

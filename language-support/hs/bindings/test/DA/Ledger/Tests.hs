@@ -5,6 +5,7 @@
 
 module DA.Ledger.Tests (main) where
 
+import Prelude hiding(Enum)
 import Control.Concurrent (MVar,newMVar,takeMVar,withMVar)
 import Control.Monad(unless, forM)
 import Control.Monad.IO.Class(liftIO)
@@ -15,18 +16,19 @@ import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,w
 import Data.List (elem,isPrefixOf,isInfixOf,(\\),sort)
 import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
+import System.FilePath
 import System.Random (randomIO)
 import System.Time.Extra (timeout)
-import System.FilePath
 import Test.Tasty as Tasty (TestName,TestTree,testGroup,withResource,defaultMain)
 import Test.Tasty.HUnit as Tasty(assertFailure,assertBool,assertEqual,testCase)
 import qualified Codec.Archive.Zip as Zip
 import qualified DA.Daml.LF.Ast as LF
 import qualified Data.ByteString as BS (readFile)
-import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
-import qualified Data.Text.Lazy as Text(pack,unpack,fromStrict)
+import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
+import qualified Data.Map as Map
 import qualified Data.Set as Set
+import qualified Data.Text.Lazy as Text(pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
 
 import DA.Ledger.Sandbox as Sandbox
@@ -76,6 +78,7 @@ tests = testGroupWithSandbox "Ledger Bindings"
     , tGetParticipantId
     , tListKnownParties
     , tAllocateParty
+    , tValueConversion
     ]
 
 run :: WithSandbox -> (PackageId -> LedgerService ()) -> IO ()
@@ -348,7 +351,7 @@ tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \
                 ent = EntityName "ExtraTemplate"
                 args = Record Nothing [
                     RecordField "owner" (VParty party),
-                    RecordField "message" (VString "Hello extra module")
+                    RecordField "message" (VText "Hello extra module")
                     ]
 
 tListKnownPackages :: SandboxTest
@@ -499,6 +502,75 @@ tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_pid
     list <- listKnownParties
     liftIO $ assertEqual "list" [expected] list
 
+
+bucket :: Value
+bucket = VRecord $ Record Nothing
+    [ RecordField "record" $ VRecord $ Record Nothing
+        [ RecordField "foo" $ VBool False
+        , RecordField "bar" $ VText "sheep"
+        ]
+    , RecordField "variants" $ VList
+        [ VVariant $ Variant Nothing (ConstructorId "B") (VBool True)
+        , VVariant $ Variant Nothing (ConstructorId "I") (VInt 99)
+        ]
+    , RecordField "contract"$ VContract (ContractId "xxxxx")
+    , RecordField "list"    $ VList []
+    , RecordField "int"     $ VInt 42
+    , RecordField "decimal" $ VDecimal "123.456"
+    , RecordField "text"    $ VText "OMG lol"
+    , RecordField "time"    $ VTime (MicroSecondsSinceEpoch $ 1000 * 1000 * 60 * 60 * 24 * 365 * 50)
+    , RecordField "party"   $ VParty $ Party "good time"
+    , RecordField "bool"    $ VBool False
+    , RecordField "unit"      VUnit
+    , RecordField "date"    $ VDate $ DaysSinceEpoch 123
+    , RecordField "opts"    $ VList
+        [ VOpt Nothing
+        , VOpt $ Just $ VText "something"
+        ]
+    , RecordField "map"     $ VMap $ Map.fromList [("one",VInt 1),("two",VInt 2),("three",VInt 3)]
+    , RecordField "enum"    $ VEnum $ Enum Nothing (ConstructorId "Green")
+
+    ]
+
+tValueConversion :: SandboxTest
+tValueConversion withSandbox = testCase "tValueConversion" $ run withSandbox $ \pid -> do
+    let owner = alice
+    let mod = ModuleName "Valuepedia"
+    let tid = TemplateId (Identifier pid mod $ EntityName "HasBucket")
+    let args = Record Nothing [ RecordField "owner" (VParty owner), RecordField "bucket" bucket ]
+    let command = CreateCommand {tid,args}
+    lid <- getLedgerIdentity
+    _::CommandId <- submitCommand lid alice command >>= either (liftIO . assertFailure) return
+    withGetAllTransactions lid alice (Verbosity True) $ \txs -> do
+    Just elem <- liftIO $ timeout 1 (takeStream txs)
+    trList <- either (liftIO . assertFailure . show) return elem
+    [Transaction{events=[CreatedEvent{createArgs=Record{fields}}]}] <- return trList
+    [RecordField{label="owner"},RecordField{label="bucket",fieldValue=bucketReturned}] <- return fields
+    liftIO $ assertEqual "bucket" bucket (detag bucketReturned)
+
+-- Strip the rid,vid,eid tags recusively from record, variant and enum values
+detag :: Value -> Value
+detag = \case
+    VRecord r -> VRecord $ detagRecord r
+    VVariant v -> VVariant $ detagVariant v
+    VEnum e -> VEnum $ detagEnum e
+    VList xs -> VList $ fmap detag xs
+    VOpt opt -> VOpt $ fmap detag opt
+    VMap m -> VMap $ fmap detag m
+    v -> v
+    where
+        detagRecord :: Record -> Record
+        detagRecord r = r { rid = Nothing, fields = map detagField $ fields r }
+
+        detagField :: RecordField -> RecordField
+        detagField f = f { fieldValue = detag $ fieldValue f }
+
+        detagVariant :: Variant -> Variant
+        detagVariant v = v { vid = Nothing, value = detag $ value v }
+
+        detagEnum :: Enum -> Enum
+        detagEnum e = e { eid = Nothing }
+
 ----------------------------------------------------------------------
 -- misc ledger ops/commands
 
@@ -515,7 +587,7 @@ createIOU quickstart party currency quantity = CreateCommand {tid,args}
         args = Record Nothing [
             RecordField "issuer" (VParty party),
             RecordField "owner" (VParty party),
-            RecordField "currency" (VString currency),
+            RecordField "currency" (VText currency),
             RecordField "amount" (VDecimal $ Text.pack $ show quantity),
             RecordField "observers" (VList [])
             ]

@@ -39,5 +39,5 @@ instance IsLedgerValue a => IsLedgerValue [a] where
     fromValue = \case VList vs -> mapM fromValue vs; _ -> Nothing
 
 instance IsLedgerValue Text where
-    toValue = VString
-    fromValue = \case VString x -> Just x; _ -> Nothing
+    toValue = VText
+    fromValue = \case VText x -> Just x; _ -> Nothing
