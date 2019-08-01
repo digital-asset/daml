@@ -27,13 +27,14 @@ object Main {
       case Some(Config(Some(GenerateKeys(Some(name))), None)) =>
         RsaKeysGenerator.generate(keyPair(name)) match {
           case Success(a) =>
-            print(s"Generated keys: ${a: domain.KeyPair}")
+            print(s"Generated keys: ${a: domain.KeyPair[File]}")
           case Failure(e) =>
             e.printStackTrace()
             sys.exit(ErrorCodes.GenerateKeysError)
         }
       case Some(Config(None, Some(GenerateJwt(Some(publicKey), Some(privateKey))))) =>
-        JwtGenerator.generate(domain.KeyPair(publicKey = publicKey, privateKey = privateKey)) match {
+        JwtGenerator.generate(
+          domain.KeyPair(publicKey = Seq.empty[Byte], privateKey = Seq.empty[Byte])) match {
           case Success(a) =>
             println(s"Generated JWT: $a")
           case Failure(e) =>
@@ -50,7 +51,9 @@ object Main {
   }
 
   private def keyPair(name: String) =
-    domain.KeyPair(publicKey = new File(s"./$name.pub"), privateKey = new File(s"./$name.pvt"))
+    domain.KeyPair(
+      publicKey = new File(s"./$name.pub").getAbsoluteFile,
+      privateKey = new File(s"./$name.pvt").getAbsoluteFile)
 
   private def parseConfig(args: Seq[String]): Option[Config] = {
     configParser.parse(args, Config())

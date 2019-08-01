@@ -27,6 +27,7 @@ da_scala_library(
     srcs = glob(["src/main/scala/**/*.scala"]),
     scalacopts = hj_scalacopts,
     tags = ["maven_coordinates=com.digitalasset.ledger-service:jwt:__VERSION__"],
+    visibility = ["//visibility:public"],
     deps = jwt_deps,
 )
 

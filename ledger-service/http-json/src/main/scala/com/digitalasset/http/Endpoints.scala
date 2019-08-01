@@ -5,34 +5,49 @@ package com.digitalasset.http
 
 import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.decode
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
+import com.digitalasset.http.util.FutureUtil
+import com.digitalasset.jwt.JwtValidator.ValidateJwt
+import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
-import scalaz.std.list._
+import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
+import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
-import scalaz.{-\/, Show, \/, \/-}
+import scalaz.{-\/, EitherT, Show, \/, \/-}
 import spray.json._
+import scalaz.std.list._
 
+import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.language.higherKinds
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
+    validateJwt: ValidateJwt,
     commandService: CommandService,
     contractsService: ContractsService,
     encoder: DomainJsonEncoder,
-    decoder: DomainJsonDecoder)(implicit ec: ExecutionContext)
+    decoder: DomainJsonDecoder,
+    maxTimeToCollectRequest: FiniteDuration = FiniteDuration(5, "seconds"))(
+    implicit ec: ExecutionContext,
+    mat: Materializer)
     extends StrictLogging {
 
   import Endpoints._
   import json.JsonProtocol._
+
+  type ET[A] = EitherT[Future, Error, A]
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
@@ -43,20 +58,26 @@ class Endpoints(
 
   lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
-      httpResponse(
-        input(req)
-          .map(decoder.decodeR[domain.CreateCommand])
-          .mapAsync(1) {
-            case -\/(e) => invalidUserInput(e)
-            case \/-(c) => handleFutureFailure(commandService.create(jwtPayload, c))
-          }
-          .map { fa =>
-            fa.flatMap { a: domain.ActiveContract[lav1.value.Value] =>
-              encoder.encodeV(a).leftMap(e => ServerError(e.shows))
-            }
-          }
-          .map(formatResult)
-      )
+      val et: ET[JsValue] = for {
+        input <- FutureUtil.eitherT(input2(req)): ET[(domain.JwtPayload, String)]
+
+        (jwtPayload, reqBody) = input
+
+        cmd <- FutureUtil
+          .either(
+            decoder
+              .decodeR[domain.CreateCommand](reqBody)
+              .leftMap(e => InvalidUserInput(e.shows))): ET[domain.CreateCommand[lav1.value.Record]]
+
+        ac <- FutureUtil.eitherT(handleFutureFailure(commandService.create(jwtPayload, cmd))): ET[
+          domain.ActiveContract[lav1.value.Value]]
+
+        jsVal <- FutureUtil
+          .either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
+
+      } yield jsVal
+
+      httpResponse(et)
 
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
       httpResponse(
@@ -76,6 +97,9 @@ class Endpoints(
           .map(formatResult)
       )
   }
+
+  private def eitherT[F[_], A, Error](a: F[A \/ Error]): EitherT[F, A, Error] =
+    EitherT.eitherT(a)
 
   private def invalidUserInput[A: Show, B](a: A): Future[InvalidUserInput \/ B] =
     Future.successful(-\/(InvalidUserInput(a.shows)))
@@ -101,6 +125,7 @@ class Endpoints(
     case \/-(a) => format(resultJsObject(a: JsValue))
     case -\/(InvalidUserInput(e)) => format(errorsJsObject(StatusCodes.BadRequest)(e))
     case -\/(ServerError(e)) => format(errorsJsObject(StatusCodes.InternalServerError)(e))
+    case -\/(Unauthorized(e)) => format(errorsJsObject(StatusCodes.Unauthorized)(e))
   }
 
   private val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty)
@@ -157,6 +182,11 @@ class Endpoints(
       )
   }
 
+  private def httpResponse(output: ET[JsValue]): HttpResponse = {
+    val f: Future[Error \/ JsValue] = output.run
+    httpResponse(f.map(formatResult))
+  }
+
   private def httpResponse(output: Future[ByteString]): HttpResponse =
     HttpResponse(entity =
       HttpEntity.CloseDelimited(ContentTypes.`application/json`, Source.fromFuture(output)))
@@ -170,6 +200,38 @@ class Endpoints(
 
   private def format(a: JsValue): ByteString =
     ByteString(a.compactPrint)
+
+  private[http] def input(req: HttpRequest): Source[String, _] =
+    req.entity.dataBytes.fold(ByteString.empty)(_ ++ _).map(_.utf8String).take(1L)
+
+  private[http] def input2(
+      req: HttpRequest): Future[Unauthorized \/ (domain.JwtPayload, String)] = {
+    findJwt(req).flatMap(validate) match {
+      case e @ -\/(_) =>
+        req.entity.discardBytes(mat)
+        Future.successful(e)
+      case \/-(p) =>
+        req.entity
+          .toStrict(maxTimeToCollectRequest)
+          .map(b => \/-(p -> b.data.utf8String))
+    }
+  }
+
+  private[http] def findJwt(req: HttpRequest): Unauthorized \/ Jwt =
+    req.headers
+      .collectFirst {
+        case Authorization(OAuth2BearerToken(token)) => Jwt(token)
+      }
+      .toRightDisjunction(Unauthorized("missing Authorization header"))
+
+  private def validate(jwt: Jwt): Unauthorized \/ domain.JwtPayload =
+    for {
+      a <- validateJwt(jwt).leftMap(e => Unauthorized(e.shows)): Unauthorized \/ DecodedJwt[String]
+      b <- parsePayload(a)
+    } yield b
+
+  private def parsePayload(jwt: DecodedJwt[String]): Unauthorized \/ domain.JwtPayload =
+    SprayJson.decode[domain.JwtPayload](jwt.payload).leftMap(e => Unauthorized(e.shows))
 }
 
 object Endpoints {
@@ -178,15 +240,15 @@ object Endpoints {
 
   final case class InvalidUserInput(message: String) extends Error(message)
 
+  final case class Unauthorized(message: String) extends Error(message)
+
   final case class ServerError(message: String) extends Error(message)
 
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
-      case InvalidUserInput(message) => s"InvalidUserInput: ${message: String}"
-      case ServerError(message) => s"ServerError: ${message: String}"
+      case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
+      case ServerError(e) => s"Endpoints.ServerError: ${e: String}"
+      case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
     }
   }
-
-  private[http] def input(req: HttpRequest): Source[String, _] =
-    req.entity.dataBytes.fold(ByteString.empty)(_ ++ _).map(_.utf8String).take(1L)
 }

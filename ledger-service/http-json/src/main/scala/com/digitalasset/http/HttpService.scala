@@ -17,9 +17,10 @@ import com.digitalasset.http.json.{
   DomainJsonEncoder,
   JsValueToApiValueConverter
 }
-import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.http.util.FutureUtil._
+import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
+import com.digitalasset.http.util.FutureUtil.liftET
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
+import com.digitalasset.jwt.HMAC256
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
@@ -47,8 +48,6 @@ object HttpService extends StrictLogging {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[Error \/ ServerBinding] = {
 
-    import EitherT._
-
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
@@ -62,8 +61,9 @@ object HttpService extends StrictLogging {
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
-      packageStore <- eitherT(LedgerReader.createPackageStore(client.packageClient))
-        .leftMap(httpServiceError)
+      packageStore <- FutureUtil
+        .eitherT(LedgerReader.createPackageStore(client.packageClient))
+        .leftMap(e => Error(e))
 
       templateIdMap = PackageService.getTemplateIdMap(packageStore)
 
@@ -78,8 +78,14 @@ object HttpService extends StrictLogging {
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 
+      // TODO(Leo): don't depend on HMAC256, use RSA256
+      jwtValidator <- FutureUtil
+        .either(HMAC256(issuer = "auth0", secret = "secret"))
+        .leftMap(e => Error(e.shows))
+
       endpoints = new Endpoints(
         ledgerId,
+        jwtValidator.validate,
         commandService,
         contractsService,
         encoder,
@@ -101,8 +107,6 @@ object HttpService extends StrictLogging {
 
     bindingF
   }
-
-  private def httpServiceError(e: String): Error = Error(e)
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")
