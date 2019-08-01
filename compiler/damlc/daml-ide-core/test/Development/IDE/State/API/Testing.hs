@@ -532,7 +532,7 @@ actionsToChoiceActions acts = Set.toList $ Set.map visualActionToExpectedChoiceA
 templateChoicesToProps :: V.TemplateChoices -> TemplateProp
 templateChoicesToProps tca = TemplateProp choicesInTpl $ Set.fromList allActions
     where choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoices ( DAP.renderPretty $ V.choiceName ca) (V.choiceConsuming ca)) (V.choiceAndActions tca)
-          allActions = concatMap actionsToChoiceActions $ map V.actions $ V.choiceAndActions tca
+          allActions = concatMap (actionsToChoiceActions . V.actions) $ V.choiceAndActions tca
 
 graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> ShakeTest ()
 graphTest wrld lfPkg expectedProps = do

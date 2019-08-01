@@ -877,7 +877,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                     [   ExpectedChoices "Archive" True,
                         ExpectedChoices "ReducedCoin" False
                     ])
-                    (Set.fromList [(Exercise "F:Coin" "Archive")])
+                    (Set.fromList [Exercise "F:Coin" "Archive"])
                 ]
     ]
     where
