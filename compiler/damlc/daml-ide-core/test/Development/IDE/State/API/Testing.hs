@@ -525,9 +525,9 @@ timedSection targetDiffTime block = do
 
 actionsToChoiceActions :: Set.Set V.Action -> [ExpectedChoiceAction]
 actionsToChoiceActions acts = Set.toList $ Set.map expectedChcAction acts
-        where expectedChcAction  = \case
-                V.ACreate tcon -> Create (DAP.renderPretty tcon)
-                V.AExercise tcon choice -> Exercise (DAP.renderPretty tcon) (DAP.renderPretty choice)
+    where expectedChcAction = \case
+            V.ACreate tcon -> Create (DAP.renderPretty tcon)
+            V.AExercise tcon choice -> Exercise (DAP.renderPretty tcon) (DAP.renderPretty choice)
 
 templateChoicesToProps :: V.TemplateChoices -> TemplateProp
 templateChoicesToProps tca = TemplateProp tName choicesInTpl $ Set.fromList allActions
