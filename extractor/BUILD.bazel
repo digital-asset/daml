@@ -95,6 +95,7 @@ daml_compile(
 
 testDependencies = [
     ":extractor",
+    "//daml-lf/data-scalacheck",
     "//daml-lf/transaction-scalacheck",
     "//ledger/sandbox:sandbox",
     "//ledger-api/testing-utils",
