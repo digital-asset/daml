@@ -55,7 +55,7 @@ class Endpoints(
   lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input2(req)): ET[(domain.JwtPayload, String)]
+        input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
 
         (jwtPayload, reqBody) = input
 
@@ -77,7 +77,7 @@ class Endpoints(
 
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- eitherT(input2(req)): ET[(domain.JwtPayload, String)]
+        input <- eitherT(input(req)): ET[(domain.JwtPayload, String)]
 
         (jwtPayload, reqBody) = input
 
@@ -100,9 +100,6 @@ class Endpoints(
 
       httpResponse(et)
   }
-
-  private def invalidUserInput[A: Show, B](a: A): Future[InvalidUserInput \/ B] =
-    Future.successful(-\/(InvalidUserInput(a.shows)))
 
   private def handleFutureFailure[A: Show, B](fa: Future[A \/ B]): Future[ServerError \/ B] =
     fa.map(a => a.leftMap(e => ServerError(e.shows))).recover {
@@ -133,7 +130,7 @@ class Endpoints(
   lazy val contracts: PartialFunction[HttpRequest, HttpResponse] = {
     case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input2(req)): ET[(domain.JwtPayload, String)]
+        input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
 
         (jwtPayload, reqBody) = input
 
@@ -160,7 +157,7 @@ class Endpoints(
 
     case req @ HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input2(req)): ET[(domain.JwtPayload, String)]
+        input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
 
         (jwtPayload, _) = input
 
@@ -181,7 +178,7 @@ class Endpoints(
 
     case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
       val et: ET[JsValue] = for {
-        input <- FutureUtil.eitherT(input2(req)): ET[(domain.JwtPayload, String)]
+        input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
 
         (jwtPayload, reqBody) = input
 
@@ -214,9 +211,6 @@ class Endpoints(
     HttpResponse(entity =
       HttpEntity.CloseDelimited(ContentTypes.`application/json`, Source.fromFuture(output)))
 
-  private def httpResponse(output: Source[ByteString, _]): HttpResponse =
-    HttpResponse(entity = HttpEntity.CloseDelimited(ContentTypes.`application/json`, output))
-
   lazy val notFound: PartialFunction[HttpRequest, HttpResponse] = {
     case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)
   }
@@ -224,11 +218,7 @@ class Endpoints(
   private def format(a: JsValue): ByteString =
     ByteString(a.compactPrint)
 
-  private[http] def input(req: HttpRequest): Source[String, _] =
-    req.entity.dataBytes.fold(ByteString.empty)(_ ++ _).map(_.utf8String).take(1L)
-
-  private[http] def input2(
-      req: HttpRequest): Future[Unauthorized \/ (domain.JwtPayload, String)] = {
+  private[http] def input(req: HttpRequest): Future[Unauthorized \/ (domain.JwtPayload, String)] = {
     findJwt(req).flatMap(verify) match {
       case e @ -\/(_) =>
         req.entity.discardBytes(mat)
