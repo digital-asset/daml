@@ -58,8 +58,6 @@ class HttpServiceIntegrationTest
       .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
   }
 
-  println(s"---- $jwt")
-
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   "contracts/search test" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
