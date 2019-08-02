@@ -38,7 +38,8 @@ object LedgerApiServer {
       maxInboundMessageSize: Int,
       address: Option[String],
       sslContext: Option[SslContext] = None,
-      interceptors: List[ServerInterceptor] = List.empty)(implicit mat: ActorMaterializer): Future[ApiServer] = {
+      interceptors: List[ServerInterceptor] = List.empty)(
+      implicit mat: ActorMaterializer): Future[ApiServer] = {
 
     val serverEsf = new AkkaExecutionSequencerPool(
       // NOTE(JM): Pick a unique pool name as we want to allow multiple ledger api server

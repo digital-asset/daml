@@ -47,11 +47,13 @@ class SandboxResetService(
       })
   }
 
-  override def interceptCall[ReqT, RespT](serverCall: ServerCall[ReqT, RespT],
-                                 metadata: Metadata,
-                                 serverCallHandler: ServerCallHandler[ReqT, RespT]): Listener[ReqT] = {
+  override def interceptCall[ReqT, RespT](
+      serverCall: ServerCall[ReqT, RespT],
+      metadata: Metadata,
+      serverCallHandler: ServerCallHandler[ReqT, RespT]): Listener[ReqT] = {
     if (resetInitialized.get) {
-      throw new StatusRuntimeException(Status.UNAVAILABLE.withDescription("Sandbox server is currently being resetted"))
+      throw new StatusRuntimeException(
+        Status.UNAVAILABLE.withDescription("Sandbox server is currently being resetted"))
     }
 
     serverCallHandler.startCall(serverCall, metadata)
@@ -61,7 +63,8 @@ class SandboxResetService(
     logger.info("Initiating server reset.")
 
     if (!resetInitialized.compareAndSet(false, true))
-      throw new StatusRuntimeException(Status.FAILED_PRECONDITION.withDescription("Sandbox server is currently being resetted"))
+      throw new StatusRuntimeException(
+        Status.FAILED_PRECONDITION.withDescription("Sandbox server is currently being resetted"))
 
     val servicesAreDown = Promise[Unit]()
     // We need to run this asynchronously since otherwise we have a deadlock: `buildAndStartServer` will block
