@@ -13,7 +13,7 @@ import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.decode
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.FutureUtil
-import com.digitalasset.jwt.JwtValidator.ValidateJwt
+import com.digitalasset.jwt.JwtVerifier.VerifyJwt
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -34,7 +34,7 @@ import scala.util.control.NonFatal
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
-    validateJwt: ValidateJwt,
+    verifyJwt: VerifyJwt,
     commandService: CommandService,
     contractsService: ContractsService,
     encoder: DomainJsonEncoder,
@@ -46,8 +46,6 @@ class Endpoints(
 
   import Endpoints._
   import json.JsonProtocol._
-
-  type ET[A] = EitherT[Future, Error, A]
 
   // TODO(Leo) read it from the header
   private val jwtPayload =
@@ -206,7 +204,7 @@ class Endpoints(
 
   private[http] def input2(
       req: HttpRequest): Future[Unauthorized \/ (domain.JwtPayload, String)] = {
-    findJwt(req).flatMap(validate) match {
+    findJwt(req).flatMap(verify) match {
       case e @ -\/(_) =>
         req.entity.discardBytes(mat)
         Future.successful(e)
@@ -224,9 +222,9 @@ class Endpoints(
       }
       .toRightDisjunction(Unauthorized("missing Authorization header"))
 
-  private def validate(jwt: Jwt): Unauthorized \/ domain.JwtPayload =
+  private def verify(jwt: Jwt): Unauthorized \/ domain.JwtPayload =
     for {
-      a <- validateJwt(jwt).leftMap(e => Unauthorized(e.shows)): Unauthorized \/ DecodedJwt[String]
+      a <- verifyJwt(jwt).leftMap(e => Unauthorized(e.shows)): Unauthorized \/ DecodedJwt[String]
       b <- parsePayload(a)
     } yield b
 
@@ -235,6 +233,8 @@ class Endpoints(
 }
 
 object Endpoints {
+
+  private type ET[A] = EitherT[Future, Error, A]
 
   sealed abstract class Error(message: String) extends Product with Serializable
 
