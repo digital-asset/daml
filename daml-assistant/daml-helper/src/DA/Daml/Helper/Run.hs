@@ -84,8 +84,8 @@ required msg = fromMaybeM (throwIO $ DamlHelperError msg Nothing)
 requiredE :: Exception e => T.Text -> Either e t -> IO t
 requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . displayException)
 
-defaulting :: a -> Either ConfigError (Maybe a) -> IO a
-defaulting a e = fmap (fromMaybe a) $ either throwIO return e
+defaultingE :: Exception e => T.Text -> a -> Either e (Maybe a) -> IO a
+defaultingE msg a e = fmap (fromMaybe a) $ requiredE msg e
 
 data ReplaceExtension
     = ReplaceExtNever
@@ -684,10 +684,8 @@ data HostAndPortFlags = HostAndPortFlags { hostM :: Maybe String, portM :: Maybe
 
 withHostAndPortDefaults :: HostAndPortFlags -> IO HostAndPort
 withHostAndPortDefaults HostAndPortFlags{hostM,portM} = do
-    defaultHost <- getProjectLedgerHost
-    defaultPort <- getProjectLedgerPort
-    let host = fromMaybe defaultHost hostM
-    let port = fromMaybe defaultPort portM
+    host <- fromMaybeM getProjectLedgerHost hostM
+    port <- fromMaybeM getProjectLedgerPort portM
     return HostAndPort {host,port}
 
 runListParties :: HostAndPortFlags -> IO ()
@@ -765,12 +763,14 @@ getProjectLedgerPort :: IO Int
 getProjectLedgerPort = do
     projectConfig <- getProjectConfig
     -- TODO: remove default; insist ledger-port is in the config ?!
-    defaulting 6865 $ queryProjectConfig ["ledger-port"] projectConfig
+    defaultingE "Failed to parse ledger-port" 6865 $
+        queryProjectConfig ["ledger-port"] projectConfig
 
 getProjectLedgerHost :: IO String
 getProjectLedgerHost = do
     projectConfig <- getProjectConfig
-    defaulting "localhost" $ queryProjectConfig ["ledger-host"] projectConfig
+    defaultingE "Failed to parse ledger-host" "localhost" $
+        queryProjectConfig ["ledger-host"] projectConfig
 
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
