@@ -129,11 +129,7 @@ jobs:
       - checkout: self
       - task: CacheBeta@0
         inputs:
-          key: |
-            "stack-cache-v1"
-            $(Agent.OS)
-            $(Build.SourcesDirectory)/compiler/hie-core/stack.yaml
-            $(Build.SourcesDirectory)/compiler/hie-core/hie-core.cabal
+          key: stack-cache-v1 | $(Agent.OS) | $(Build.SourcesDirectory)/compiler/hie-core/stack.yaml | $(Build.SourcesDirectory)/compiler/hie-core/hie-core.cabal
           path: .azure-cache
           cacheHitVar: CACHE_RESTORED
         displayName: "Cache stack artifacts"
