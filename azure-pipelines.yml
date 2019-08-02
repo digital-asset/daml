@@ -40,34 +40,9 @@ jobs:
     steps:
       - template: ci/report-start.yml
       - checkout: self
-      - bash: echo $(git log -n1 --pretty=format:%H dev-env nix azure-pipelines.yml) >> $(cache-key)
-        displayName: cache key
-      - task: CacheBeta@0
-        inputs:
-          key: $(cache-key)
-          path: $(cache-path)
-      - bash: |
-          set -euo pipefail
-          if [[ -e $(cache-path) ]]; then
-              DIR=$(pwd)
-              sudo mkdir /nix && sudo chown $USER /nix
-              cd /nix
-              tar xzf $(cache-path)/nix.tar.gz
-              cd $DIR
-              curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
-          fi
-        displayName: restore cache
       - template: ci/build-unix.yml
         parameters:
           name: macos
-      - bash: |
-          set -euo pipefail
-          if [[ ! -e $(cache-path) ]]; then
-              mkdir -p $(cache-path)
-              cd /nix
-              GZIP=-9 tar czf $(cache-path)/nix.tar.gz store var
-          fi
-        displayName: create cache
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
@@ -115,21 +90,6 @@ jobs:
     steps:
       - template: ci/report-start.yml
       - checkout: self
-      - task: CacheBeta@0
-        inputs:
-          key: |
-            "stack-cache-v1"
-            $(Agent.OS)
-            $(Build.SourcesDirectory)/compiler/hie-core/stack.yaml
-            $(Build.SourcesDirectory)/compiler/hie-core/hie-core.cabal
-          path: .azure-cache
-          cacheHitVar: CACHE_RESTORED
-        displayName: "Cache stack artifacts"
-      - bash: |
-          mkdir -p ~/.stack
-          tar xzf .azure-cache/stack-root.tar.gz -C $HOME
-        displayName: "Unpack cache"
-        condition: eq(variables.CACHE_RESTORED, 'true')
       - bash: |
           sudo apt-get install -y g++ gcc libc6-dev libffi-dev libgmp-dev make zlib1g-dev
           curl -sSL https://get.haskellstack.org/ | sh
@@ -140,12 +100,9 @@ jobs:
         displayName: 'stack build --only-dependencies --test'
       - bash: (cd compiler/hie-core; stack test)
         displayName: 'stack test'
-      - bash: |
-          mkdir -p .azure-cache
-          tar czf .azure-cache/stack-root.tar.gz -C $HOME .stack
-        displayName: "Pack cache"
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
+
   - job: Windows_signing
     # Signing is a separate job so that we can make sure that we only sign on releases.
     # Since the release check is run on Linux, we do not have access to that information
