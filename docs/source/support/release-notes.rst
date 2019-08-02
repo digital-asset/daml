@@ -8,14 +8,15 @@ This page contains release notes for the SDK.
 
 .. _release-0-13-16:
 
-0.13.16 - 2019-07-31
+0.13.16 - 2019-08-01
 --------------------
 
 DAML Compiler
 ~~~~~~~~~~~~~
 
-- **BREAKING CHANGE** Handwritten instances of ``Template`` and ``Choice`` typeclasses are no longer supported.
-  All template constructs must be defined using declarations inside ``template`` syntax.
+- **BREAKING CHANGE** Handwritten instances of ``Template`` and ``Choice``
+  typeclasses are no longer supported. All template constructs must be defined
+  using declarations inside ``template`` syntax.
 
 DAML Docs
 ~~~~~~~~~
