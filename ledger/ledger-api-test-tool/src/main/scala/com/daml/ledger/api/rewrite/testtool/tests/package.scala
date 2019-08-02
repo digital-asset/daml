@@ -8,8 +8,10 @@ import com.daml.ledger.api.rewrite.testtool.infrastructure.{LedgerSession, Ledge
 package object tests {
 
   val all: Map[String, LedgerSession => LedgerTestSuite] = Map(
-    "DivulgenceIT" -> (new Divulgence(_)),
-    "Identity" -> (new Identity(_))
+    "Divulgence" -> (new Divulgence(_)),
+    "Identity" -> (new Identity(_)),
+    "Time" -> (new Time(_)),
+    "SemanticTests" -> (new SemanticTests(_))
   )
 
 }

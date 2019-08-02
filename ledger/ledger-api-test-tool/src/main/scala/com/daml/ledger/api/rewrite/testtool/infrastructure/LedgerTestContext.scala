@@ -3,13 +3,18 @@
 
 package com.daml.ledger.api.rewrite.testtool.infrastructure
 
+import java.time.Instant
+
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerTestContext(applicationId: String, bindings: LedgerBindings)(
+final class LedgerTestContext(val applicationId: String, bindings: LedgerBindings)(
     implicit val ec: ExecutionContext)
     extends ExecutionContext {
 
@@ -22,6 +27,10 @@ final class LedgerTestContext(applicationId: String, bindings: LedgerBindings)(
 
   def allocateParty(): Future[String] =
     bindings.allocateParty()
+
+  def time: Future[Instant] = bindings.time
+
+  def passTime(t: Duration): Future[Unit] = bindings.passTime(t)
 
   def create(party: String, templateId: Identifier, args: Map[String, Value.Sum]): Future[String] =
     bindings.create(party, applicationId, templateId, args)
@@ -42,5 +51,8 @@ final class LedgerTestContext(applicationId: String, bindings: LedgerBindings)(
       since <- offsetAtStart
       txs <- bindings.transactions(since, party, templateIds)
     } yield txs
+
+  def semanticTesterLedger(parties: Set[Ref.Party], packages: Map[Ref.PackageId, Ast.Package]) =
+    new SemanticTesterLedger(bindings)(parties, packages)(this)
 
 }

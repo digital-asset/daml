@@ -3,15 +3,18 @@
 
 package com.daml.ledger.api.rewrite.testtool.infrastructure
 
+import java.time.Instant
+
 import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuite.SkipTestException
 import com.digitalasset.ledger.api.v1.transaction.Transaction
 import com.digitalasset.ledger.api.v1.value.Identifier
 
 import scala.concurrent.Future
+import scala.concurrent.duration.Duration
 
 private[testtool] object LedgerTestSuite {
 
-  final case class SkipTestException(override val getMessage: String) extends RuntimeException
+  final case class SkipTestException(message: String) extends RuntimeException(message)
 
 }
 
@@ -21,10 +24,16 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
 
   val tests: Vector[LedgerTest] = Vector.empty
 
-  final def skip(reason: String): Unit = throw new SkipTestException(reason)
+  final def skip(reason: String): Future[Unit] = Future.failed(new SkipTestException(reason))
 
-  final def skipIf(reason: String)(p: LedgerSessionConfiguration => Boolean): Unit =
-    if (p(session.config)) skip(reason)
+  final def skipIf(reason: String)(p: => Boolean): Future[Unit] =
+    if (p) skip(reason) else Future.successful(())
+
+  final def time()(implicit context: LedgerTestContext): Future[Instant] =
+    context.time
+
+  final def passTime(t: Duration)(implicit context: LedgerTestContext): Future[Unit] =
+    context.passTime(t)
 
   final def ledgerId()(implicit context: LedgerTestContext): Future[String] =
     context.ledgerId
