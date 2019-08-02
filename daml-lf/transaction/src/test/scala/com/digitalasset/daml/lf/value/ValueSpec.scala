@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.value
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Unnatural}
 import com.digitalasset.daml.lf.value.Value._
 
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}

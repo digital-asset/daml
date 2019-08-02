@@ -4,6 +4,11 @@
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Visual
   ( execVisual
+  , moduleAndTemplates
+  , tplNameUnqual
+  , TemplateChoices(..)
+  , ChoiceAndAction(..)
+  , Action(..)
   ) where
 
 
@@ -24,6 +29,7 @@ import Safe
 
 type IsConsuming = Bool
 type InternalChcName = LF.ChoiceName
+
 data Action = ACreate (LF.Qualified LF.TypeConName)
             | AExercise (LF.Qualified LF.TypeConName) LF.ChoiceName deriving (Eq, Ord, Show )
 
@@ -32,12 +38,12 @@ data ChoiceAndAction = ChoiceAndAction
     , internalChcName :: InternalChcName -- as we have choices with same name across modules
     , choiceConsuming :: IsConsuming
     , actions :: Set.Set Action
-    }
+    } deriving (Show)
 
 data TemplateChoices = TemplateChoices
     { template :: LF.Template
     , choiceAndActions :: [ChoiceAndAction]
-    }
+    } deriving (Show)
 
 data ChoiceDetails = ChoiceDetails
     { nodeId :: Int
@@ -211,4 +217,3 @@ errorOnLeft :: Show a => String -> Either a b -> IO b
 errorOnLeft desc = \case
   Left err -> ioError $ userError $ unlines [ desc, show err ]
   Right x  -> return x
-

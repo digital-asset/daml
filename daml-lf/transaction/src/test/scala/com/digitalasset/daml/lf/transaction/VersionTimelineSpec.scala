@@ -12,11 +12,12 @@ import scalaz.{ICons, INil, NonEmptyList}
 import scalaz.std.list._
 import scalaz.syntax.foldable._
 import org.scalacheck.Gen
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Inside, Matchers, WordSpec}
 import org.scalatest.prop.PropertyChecks
+import scalaz.\&/.That
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
-class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
+class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks with Inside {
   import VersionTimeline._
   import VersionTimelineSpec._
 
@@ -59,6 +60,12 @@ class VersionTimelineSpec extends WordSpec with Matchers with PropertyChecks {
 
       forEvery(versions)(v1 =>
         forEvery(versions)(v2 => LanguageVersion.ordering.lt(v1, v2) shouldBe (v1 precedes v2)))
+    }
+
+    "end with a dev version" in {
+      inside(inAscendingOrder.last) {
+        case That(LanguageVersion(_, LanguageMinorVersion.Dev)) =>
+      }
     }
 
   }

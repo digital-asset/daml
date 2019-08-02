@@ -369,20 +369,20 @@ and other similar pitfalls. ::
 
 We can now define all the literals that a program can handle::
 
-  Nat type literals:                                -- LitNatType  
-       n ∈ \d+                                         
-  
-  64-bits integer literals:
-        LitInt64  ∈ (-?)\d+                         -- LitInt64:
+  Nat type literals:                                -- LitNatType
+       n ∈  \d+
+
+  64-bit integer literals:
+        LitInt64  ∈  (-?)\d+                         -- LitInt64:
 
   Numeric literals:
       LitNumeric  ∈  ([+-]?)([1-9]\d+|0).\d*        -- LitNumeric
 
   Date literals:
-         LitDate  ∈  \d{4}-\d{4}-\d{4}               -- LitDate
+         LitDate  ∈  \d{4}-\d{2}-\d{2}               -- LitDate
 
   UTC timestamp literals:
-     LitTimestamp ∈ \d{4}-\d{4}-\d{4}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
+     LitTimestamp ∈  \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(.\d{1,3})?Z
                                                      -- LitTimestamp
   UTF8 string literals:
          LitText ::= String                          -- LitText
@@ -534,7 +534,7 @@ Then we can define our kinds, types, and expressions::
   Types (mnemonic: tau for type)
     τ, σ
       ::= α                                         -- TyVar: Type variable
-       |  n                                         -- TNat: Nat Type
+       |  n                                         -- TyNat: Nat Type
        |  τ σ                                       -- TyApp: Type application
        |  ∀ α : k . τ                               -- TyForall: Universal quantification
        |  BuiltinType                               -- TyBuiltin: Builtin type
@@ -556,13 +556,13 @@ Then we can define our kinds, types, and expressions::
        |  'Cons' @τ e₁ e₂                           -- ExpListCons: Cons list
        |  'None' @τ                                 -- ExpOptionNone: Empty Option
        |  'Some' @τ e                               -- ExpOptionSome: Non-empty Option
-       |  LitInt64                                  -- ExpLitInt64: 64-bit bit literal
+       |  LitInt64                                  -- ExpLitInt64: 64-bit integer literal
        |  LitNumeric                                -- ExpLitNumeric: Numeric literal
        |  LitText                                   -- ExpLitText: UTF-8 string literal
-       |  LitDate                                   -- ExpLitDate: date literal
+       |  LitDate                                   -- ExpLitDate: Date literal
        |  LitTimestamp                              -- ExpLitTimestamp: UTC timestamp literal
-       |  LitParty                                  -- ExpLitParty: party literal
-       |  cid                                       -- ExpLitContractId: contract identifiers
+       |  LitParty                                  -- ExpLitParty: Party literal
+       |  cid                                       -- ExpLitContractId: Contract identifiers
        |  F                                         -- ExpBuiltin: Builtin function
        |  Mod:W                                     -- ExpVal: Defined value
        |  Mod:T @τ₁ … @τₙ { f₁ = e₁, …, fₘ = eₘ }   -- ExpRecCon: Record construction
@@ -731,9 +731,9 @@ First, we formally defined *well-formed types*. ::
     ————————————————————————————————————————————— TyVar
       Γ  ⊢  α  :  k
 
-    ————————————————————————————————————————————— TyVar
+    ————————————————————————————————————————————— TyNat
       Γ  ⊢  n  :  'nat'
-      
+
       Γ  ⊢  τ  :  k₁ → k₂      Γ  ⊢  σ  :  k₂
     ————————————————————————————————————————————— TyApp
       Γ  ⊢  τ σ  :  k₁
@@ -2113,7 +2113,7 @@ Numeric functions
 
 * ``ADD_NUMERIC : ∀ (α : nat) . 'Numeric' α → 'Numeric' α  → 'Numeric' α``
 
-  Adds the two decimals.  The scale of the inputs and the ouput is
+  Adds the two decimals.  The scale of the inputs and the output is
   given by the type parameter `α`.  Throws an error in case of
   overflow.
 
@@ -2868,7 +2868,7 @@ Starting from DAML-LF 1.dev those messages are deserialized to ``nat``
 kind and ``nat`` type respectively. The field ``nat`` of ``Type``
 message must be a positive integer.
 
-Note that despite their is no concrete way to build Nat types in a
+Note that despite there being no concrete way to build Nat types in a
 DAML-LF 1.6 (or earlier) program, those are implicitly generated when
 reading as Numeric type and Numeric builtin as described in the next
 section.
@@ -2879,11 +2879,11 @@ Parametric scaled Decimals
 [*Available since version 1.dev*]
 
 DAML-LF 1.dev is the first version that supports parametric scaled
-decimals. Prior versions have decimal number with a fix scale of 10
+decimals. Prior versions have decimal number with a fixed scale of 10
 called Decimal. Backward compatibility with the current specification
 is achieved by
 
-1. Renaming the fields and the emum values containing "``decimal``" in
+1. Renaming the fields and the enum values containing "``decimal``" in
    the Protocol buffer definition with "``numeric``" instead,
 2. Unconditionally fixing the scale of Numeric literals to ``10`` when
    reading DAML-LF 1.6 (or earlier),
@@ -2891,8 +2891,8 @@ is achieved by
    builtin functions to the Nat type ``10`` when reading DAML-LF
    1.6 (or earlier).
 
-   
-On the one hand, in case of DAML-LF 1.6 (or earlier) archive: 
+
+On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
 
 - The ``numeric`` fields of the ``PrimLit`` message must match the
   regexp::
@@ -2905,7 +2905,7 @@ On the one hand, in case of DAML-LF 1.6 (or earlier) archive:
 
 - ``PrimType`` message with a field ``numeric`` set are translated to
   ``(Numeric 10)`` type when deserialized.
-  
+
 - Any ``BuiltinFunction`` message that corresponds to a numeric
   builtin (all those builtins that contains ``NUMERIC`` within their
   name) are silently applied to the ``nat`` type ``10`` when
@@ -2929,11 +2929,11 @@ On the other hand, starting from DAML-LF 1.dev:
   are straightforwardly translated to the corresponding types or
   expressions without implicit application.
 
-  
 
 
-  
-  
+
+
+
 .. Local Variables:
 .. eval: (flyspell-mode 1)
 .. eval: (set-input-method "TeX")

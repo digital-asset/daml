@@ -9,13 +9,14 @@
 -- Some tests cover open issues, these are run with 'testCaseFails'.
 -- Once the issue is resolved, switch it to 'testCase'.
 -- Otherwise this test suite will complain that the test is not failing.
-module DA.Test.ShakeIdeClient (main, ideTests) where
+module DA.Test.ShakeIdeClient (main, ideTests ) where
 
 import qualified Test.Tasty.Extended as Tasty
 import qualified Test.Tasty.HUnit    as Tasty
 import qualified Data.Text.Extended  as T
 
 import Data.Either
+import qualified Data.Set as Set
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
@@ -44,6 +45,7 @@ ideTests mbScenarioService =
         , goToDefinitionTests mbScenarioService
         , onHoverTests mbScenarioService
         , scenarioTests mbScenarioService
+        , visualDamlTests
         ]
 
 -- | Tasty test case from a ShakeTest.
@@ -837,6 +839,122 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
     where
         testCase' = testCase mbScenarioService
 
+
+visualDamlTests :: Tasty.TestTree
+visualDamlTests = Tasty.testGroup "Visual Tests"
+    [   testCase' "Template with no actions (edges) from choices" $ do
+            foo <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Delete : ()"
+                , "        do return ()"
+                ]
+            setFilesOfInterest [foo]
+            expectedTemplatePoperties foo $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                        [ExpectedChoices "Archive" True,
+                        ExpectedChoices "Delete" True])
+                    Set.empty
+                ]
+        , testCase' "Fetch shoud not be an action" $ do
+            fetchTest <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "    amount : Int"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      nonconsuming ReducedCoin : ()"
+                , "        with otherCoin : ContractId Coin"
+                , "        do "
+                , "        cn <- fetch otherCoin"
+                , "        archive otherCoin"
+                ]
+            setFilesOfInterest [fetchTest]
+            expectNoErrors
+            expectedTemplatePoperties fetchTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [   ExpectedChoices "Archive" True,
+                        ExpectedChoices "ReducedCoin" False
+                    ])
+                    (Set.fromList [Exercise "F:Coin" "Archive"])
+                ]
+        , testCase' "excercise sould add new action" $ do
+            exerciseTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Consume : ()"
+                , "        with coinId : ContractId Coin"
+                , "        do exercise coinId Delete"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "        Delete : ()"
+                , "            do return ()"
+                ]
+            setFilesOfInterest [exerciseTest]
+            expectNoErrors
+            expectedTemplatePoperties exerciseTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [   ExpectedChoices "Archive" True,
+                        ExpectedChoices "Delete" True
+                    ])
+                    Set.empty
+                , TemplateProp "TT"
+                    (Set.fromList
+                    [   ExpectedChoices "Consume" True,
+                        ExpectedChoices "Archive" True
+                    ])
+                    (Set.fromList [Exercise "F:Coin" "Delete"])
+                ]
+        , testCase' "create on other template should be edge" $ do
+            createTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      CreateCoin : ContractId Coin"
+                , "        do create Coin with owner"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            setFilesOfInterest [createTest]
+            expectNoErrors
+            expectedTemplatePoperties createTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [   ExpectedChoices "Archive" True])
+                    Set.empty
+                , TemplateProp "TT"
+                    (Set.fromList
+                    [   ExpectedChoices "CreateCoin" True,
+                        ExpectedChoices "Archive" True
+                    ])
+                    (Set.fromList [Create "F:Coin"])
+                ]
+    ]
+    where
+        testCase' = testCase Nothing
 -- | Suppress unused binding warning in case we run out of tests for open issues.
 _suppressUnusedWarning :: ()
 _suppressUnusedWarning = testCaseFails `seq` ()
