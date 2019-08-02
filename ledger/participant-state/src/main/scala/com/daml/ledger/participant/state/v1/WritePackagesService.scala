@@ -20,7 +20,7 @@ trait WritePackagesService {
     * manner as it is done for transaction submission. It is possible that
     * in some implementations, upload will fail due to authorization etc.
     *
-    * Successful archives upload will result in a [[Update.PublicPackagesUploaded]]
+    * Successful archives upload will result in a [[Update.PublicPackageUploaded]]
     * message. See the comments on [[ReadService.stateUpdates]] and [[Update]] for
     * further details.
     *

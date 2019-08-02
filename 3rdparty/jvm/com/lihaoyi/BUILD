@@ -21,28 +21,10 @@ scala_import(
 scala_import(
     name = "fastparse",
     exports = [
-        "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":fastparse_utils",
         ":sourcecode"
     ],
     jars = [
         "//external:jar/com/lihaoyi/fastparse_2_12"
-    ],
-    visibility = [
-        "//3rdparty/jvm:__subpackages__"
-    ]
-)
-
-
-
-scala_import(
-    name = "fastparse_utils",
-    exports = [
-        "//3rdparty/jvm/org/scala_lang:scala_library",
-        ":sourcecode"
-    ],
-    jars = [
-        "//external:jar/com/lihaoyi/fastparse_utils_2_12"
     ],
     visibility = [
         "//3rdparty/jvm:__subpackages__"

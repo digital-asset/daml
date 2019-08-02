@@ -24,7 +24,10 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
       } else
         v -> TypeSubst(map - v)
       TForall((v1, k), subst1(t))
-    case TTuple(ts) => TTuple(ts.mapValues(apply))
+    case TTuple(ts) =>
+      TTuple(ts.transform { (_, x) =>
+        apply(x)
+      })
   }
 
   private def freshTypeVarName: TypeVarName =
@@ -35,23 +38,23 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
 
   def apply(dataCons: DataCons): DataCons = dataCons match {
     case DataRecord(fields, optTemplate: Option[Template]) =>
-      DataRecord(fields.mapValues(apply), optTemplate.map(apply))
+      DataRecord(fields.transform { (_, x) =>
+        apply(x)
+      }, optTemplate.map(apply))
     case DataVariant(variants) =>
-      DataVariant(variants.mapValues(apply))
+      DataVariant(variants.transform { (_, x) =>
+        apply(x)
+      })
     case dEnum: DataEnum =>
       dEnum
   }
 
   def apply(tmpl: Template): Template = tmpl match {
     case Template(param, precond, signatories, agreementText, choices, observers, mbKey) =>
-      Template(
-        param,
-        apply(precond),
-        apply(signatories),
-        apply(agreementText),
-        choices.mapValues(apply),
-        apply(observers),
-        mbKey.map(apply))
+      Template(param, apply(precond), apply(signatories), apply(agreementText), choices.transform {
+        (_, x) =>
+          apply(x)
+      }, apply(observers), mbKey.map(apply))
   }
 
   def apply(binding: Binding): Binding = binding match {
@@ -113,7 +116,9 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
         EEnumCon(_, _) =>
       expr0
     case ERecCon(tycon, fields) =>
-      ERecCon(apply(tycon), fields.mapValues(apply))
+      ERecCon(apply(tycon), fields.transform { (_, x) =>
+        apply(x)
+      })
     case ERecProj(tycon, field, record) =>
       ERecProj(apply(tycon), field, apply(record))
     case ERecUpd(tycon, field, record, update) =>
@@ -121,7 +126,9 @@ private[validation] case class TypeSubst(map: Map[TypeVarName, Type], private va
     case EVariantCon(tycon, variant, arg) =>
       EVariantCon(apply(tycon), variant, apply(arg))
     case ETupleCon(fields) =>
-      ETupleCon(fields.mapValues(apply))
+      ETupleCon(fields.transform { (_, x) =>
+        apply(x)
+      })
     case ETupleProj(field, tuple) =>
       ETupleProj(field, apply(tuple))
     case ETupleUpd(field, tuple, update) =>

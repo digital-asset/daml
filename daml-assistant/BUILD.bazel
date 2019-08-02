@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
-load("//bazel_tools:packaging/packaging.bzl", "package_app")
+load("//bazel_tools/packaging:packaging.bzl", "package_app")
 load("@os_info//:os_info.bzl", "is_windows")
 
 # This library is intended to be used by applications called by the assistant,
 # e.g., damlc, to get the names of the various environment variables set by the assistant.
 da_haskell_library(
     name = "daml-project-config",
-    srcs = native.glob(["daml-project-config/**/*.hs"]),
+    srcs = glob(["daml-project-config/**/*.hs"]),
     hazel_deps = [
         "base",
         "directory",
@@ -28,11 +28,11 @@ da_haskell_library(
 
 da_haskell_library(
     name = "daml-lib",
-    srcs = native.glob(
+    srcs = glob(
         ["src/**/*.hs"],
         exclude = [
-            "src/DAML/Assistant.hs",
-            "src/DAML/Assistant/Tests.hs",
+            "src/DA/Daml/Assistant.hs",
+            "src/DA/Daml/Assistant/Tests.hs",
         ],
     ),
     hazel_deps = [
@@ -77,18 +77,18 @@ da_haskell_library(
 
 da_haskell_binary(
     name = "daml",
-    srcs = ["exe/DAML/Assistant.hs"],
+    srcs = ["exe/DA/Daml/Assistant.hs"],
     hazel_deps = [
         "base",
         "directory",
         "extra",
         "filepath",
-        "process",
         "safe",
         "safe-exceptions",
+        "typed-process",
         "text",
     ],
-    main_function = "DAML.Assistant.main",
+    main_function = "DA.Daml.Assistant.main",
     src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
@@ -106,7 +106,7 @@ package_app(
 
 da_haskell_test(
     name = "test",
-    srcs = ["test/DAML/Assistant/Tests.hs"],
+    srcs = ["test/DA/Daml/Assistant/Tests.hs"],
     hazel_deps = [
         "base",
         "conduit",
@@ -123,7 +123,7 @@ da_haskell_test(
         "text",
         "unix-compat",
     ],
-    main_function = "DAML.Assistant.Tests.main",
+    main_function = "DA.Daml.Assistant.Tests.main",
     src_strip_prefix = "test",
     visibility = ["//visibility:public"],
     deps = [
@@ -136,10 +136,12 @@ da_haskell_test(
 # Target for da-ghcid, includes everything except integration tests.
 da_haskell_repl(
     name = "repl",
+    testonly = True,
     collect_data = False,
     visibility = ["//visibility:public"],
     deps = [
         "//daml-assistant:daml",
+        "//daml-assistant:test",
         "//daml-assistant/daml-helper",
     ],
 )

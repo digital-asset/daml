@@ -1,0 +1,38 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:haskell.bzl",
+    "da_haskell_library",
+)
+
+da_haskell_library(
+    name = "daml-lf-conversion",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "directory",
+        "extra",
+        "filepath",
+        "haskell-lsp-types",
+        "ghc-lib-parser",
+        "ghc-lib",
+        "lens",
+        "mtl",
+        "recursion-schemes",
+        "safe",
+        "text",
+        "uniplate",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-tools",
+        "//compiler/hie-core",
+        "//libs-haskell/da-hs-base",
+    ],
+)

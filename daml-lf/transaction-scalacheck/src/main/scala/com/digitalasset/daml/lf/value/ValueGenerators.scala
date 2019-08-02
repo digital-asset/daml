@@ -16,7 +16,6 @@ import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
-import scalaz.Equal
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.std.string.parseInt
@@ -76,14 +75,6 @@ object ValueGenerators {
   }
 
   val defaultNidEncode: TransactionCoder.EncodeNid[NodeId] = nid => nid.index.toString
-
-  /** A whose equalIsNatural == false */
-  private[lf] final case class Unnatural[+A](a: A)
-  private[lf] object Unnatural {
-    implicit def arbUA[A: Arbitrary]: Arbitrary[Unnatural[A]] =
-      Arbitrary(Arbitrary.arbitrary[A] map (Unnatural(_)))
-    implicit def eqUA[A: Equal]: Equal[Unnatural[A]] = Equal.equalBy(_.a)
-  }
 
   //generate decimal values
   val decimalGen: Gen[ValueDecimal] = {
@@ -203,7 +194,9 @@ object ValueGenerators {
     val genRel: Gen[ContractId] =
       Arbitrary.arbInt.arbitrary.map(i => RelativeContractId(Transaction.NodeId.unsafeFromIndex(i)))
     val genAbs: Gen[ContractId] =
-      Gen.alphaStr.filter(_.nonEmpty).map(s => AbsoluteContractId(toContractId(s)))
+      Gen.zip(Gen.alphaChar, Gen.alphaStr) map {
+        case (h, t) => AbsoluteContractId(toContractId(h +: t))
+      }
     Gen.frequency((1, genRel), (3, genAbs))
   }
 
@@ -426,4 +419,11 @@ object ValueGenerators {
     stringVersionGen
       .map(TransactionVersion)
       .filter(x => !TransactionVersions.acceptedVersions.contains(x))
+
+  object Implicits {
+    implicit val vdecimalArb: Arbitrary[Decimal] = Arbitrary(decimalGen map (_.value))
+    implicit val vdateArb: Arbitrary[Time.Date] = Arbitrary(dateGen)
+    implicit val vtimestampArb: Arbitrary[Time.Timestamp] = Arbitrary(timestampGen)
+    implicit val vpartyArb: Arbitrary[Ref.Party] = Arbitrary(party)
+  }
 }

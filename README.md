@@ -1,6 +1,6 @@
 [![DAML logo](daml-logo.png)](https://www.daml.com)
 
-[![Download](https://api.bintray.com/packages/digitalassetsdk/DigitalAssetSDK/sdk/images/download.svg)](https://docs.daml.com/getting-started/installation.html)
+[![Download](https://img.shields.io/github/release/digital-asset/daml.svg?label=Download)](https://docs.daml.com/getting-started/installation.html)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/digital-asset/daml/blob/master/LICENSE)
 [![Build](https://dev.azure.com/digitalasset/daml/_apis/build/status/digital-asset.daml?branchName=master&label=Build)](https://dev.azure.com/digitalasset/daml/_build/latest?definitionId=4&branchName=master)
 
@@ -20,7 +20,7 @@ Once installed, to try it out, follow the [quickstart guide](https://docs.daml.c
 If you have questions about how to use DAML or how to build DAML-based solutions, please ask
 them on [StackOverflow using the `daml` tag](https://stackoverflow.com/tags/daml).
 
-## Contribuing to DAML
+## Contributing to DAML
 
 We warmly welcome [contributions](./CONTRIBUTING.md). If you are looking for ideas on how to contribute, please browse our
 [issues](https://github.com/digital-asset/daml/issues). To build and test DAML:
@@ -111,3 +111,10 @@ from the `.bazelrc` file.
 If you work with multiple copies of this repository, you can point all of them to the same disk cache
 by overwriting these configs in either a `.bazelrc.local` file in each copy, or a `~/.bazelrc` file
 in your home directory.
+
+
+### Haskell profiling builds
+
+To build Haskell executables with profiling enabled, pass `-c dbg` to
+Bazel, e.g. `bazel build -c dbg damlc`. If you want to build the whole
+SDK with profiling enabled use `daml-sdk-head --profiling`.

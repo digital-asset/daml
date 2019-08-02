@@ -20,6 +20,7 @@
     "lint": "tslint --project tslint.json"
   },
   "devDependencies": {
+    "@bazel/hide-bazel-files": "0.32.0",
     "@types/async": "2.0.39",
     "@types/babel-core": "^6.25.3",
     "@types/classnames": "0.0.32",
@@ -62,7 +63,7 @@
     "color": "1.0.3",
     "deep-equal": "~1.0.1",
     "es6-promise": "^4.1.1",
-    "lodash": "^4.17.11",
+    "lodash": "^4.17.13",
     "modernizr": "^3.6.0",
     "moment": "^2.23.0",
     "normalize.css": "^7.0.0",

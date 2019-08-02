@@ -21,7 +21,7 @@ generating an xml file containing all the relevant licenses extracted from the m
 
 ### Haskell
 
-The Haskell licensing checks are now done in [../../da-docs-daml-user-guide/licenses/extract.py](daml-foundations/daml-tools/da-docs-daml-user-guide/licenses/extract.py)
+The Haskell licensing checks are now done in [../../da-docs-daml-user-guide/licenses/extract.py](compiler/daml-licenses/licenses/extract.py)
 
 
 ## OSS Compliance in Action

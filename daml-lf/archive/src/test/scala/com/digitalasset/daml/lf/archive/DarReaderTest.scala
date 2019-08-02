@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf.archive
 
 import java.io.File
-import java.util.zip.ZipFile
 
 import com.digitalasset.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.data.Ref
@@ -28,7 +27,7 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
 
   s"should read dar file: $darFile, main archive: DarReaderTest returned first" in {
     val archives: Try[Dar[((Ref.PackageId, DamlLf.ArchivePayload), LanguageMajorVersion)]] =
-      DarReaderWithVersion.readArchive(new ZipFile(darFile))
+      DarReaderWithVersion.readArchiveFromFile(darFile)
 
     inside(archives) {
       case Success(
@@ -49,7 +48,7 @@ class DarReaderTest extends WordSpec with Matchers with Inside with BazelRunfile
           case Some(module) =>
             val actualTypes: Set[String] =
               module.getDataTypesList.asScala.toSet.map((t: DamlLf1.DefDataType) => name(t.getName))
-            actualTypes shouldBe Set("Transfer", "Call2", "CallablePayout", "PayOut")
+            actualTypes should contain allOf ("Transfer", "Call2", "CallablePayout", "PayOut")
         }
 
         val archive2Modules = archive2.getDamlLf1.getModulesList.asScala

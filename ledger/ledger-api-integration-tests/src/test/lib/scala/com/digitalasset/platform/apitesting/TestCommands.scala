@@ -11,7 +11,8 @@ import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils.MockMessages.{
   applicationId,
   ledgerEffectiveTime,
-  maximumRecordTime
+  maximumRecordTime,
+  workflowId
 }
 import com.digitalasset.ledger.api.testing.utils.{MockMessages => M}
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
@@ -43,18 +44,24 @@ class TestCommands(config: PlatformApplications.Config) {
       party: String,
       let: Timestamp = ledgerEffectiveTime,
       maxRecordTime: Timestamp = maximumRecordTime,
-      appId: String = applicationId): SubmitRequest =
+      appId: String = applicationId,
+      workflowId: String = workflowId): SubmitRequest =
     M.submitRequest.update(
       _.commands.commandId := commandId,
       _.commands.ledgerId := ledgerId.unwrap,
       _.commands.applicationId := appId,
+      _.commands.workflowId := workflowId,
       _.commands.party := party,
       _.commands.commands := commands,
       _.commands.ledgerEffectiveTime := let,
       _.commands.maximumRecordTime := maxRecordTime
     )
 
-  def dummyCommands(ledgerId: domain.LedgerId, commandId: String, party: String = "party") =
+  def dummyCommands(
+      ledgerId: domain.LedgerId,
+      commandId: String,
+      party: String = "party",
+      workflowId: String = "") =
     buildRequest(
       ledgerId,
       commandId,
@@ -63,7 +70,8 @@ class TestCommands(config: PlatformApplications.Config) {
         createWithOperator(templateIds.dummyWithParam, party),
         createWithOperator(templateIds.dummyFactory, party)
       ),
-      party
+      party,
+      workflowId = workflowId
     )
 
   def createWithOperator(templateId: Identifier, party: String = "party") =

@@ -4,22 +4,27 @@
 package com.digitalasset.platform.sandbox.stores.ledger.inmemory
 
 import java.time.Instant
+import java.util.concurrent.atomic.AtomicReference
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
-import com.daml.ledger.participant.state.v2.{
+import com.daml.ledger.participant.state.index.v2.PackageDetails
+import com.daml.ledger.participant.state.v1.{
   PartyAllocationResult,
   SubmissionResult,
   SubmittedTransaction,
   SubmitterInfo,
-  TransactionMeta
+  TransactionMeta,
+  UploadPackagesResult
 }
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Party, TransactionIdString}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, TransactionIdString}
 import com.digitalasset.daml.lf.engine.Blinding
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
+import com.digitalasset.daml_lf.DamlLf.Archive
 import com.digitalasset.ledger.api.domain.{
   ApplicationId,
   CommandId,
@@ -30,9 +35,13 @@ import com.digitalasset.ledger.api.domain.{
 import com.digitalasset.platform.sandbox.services.transaction.SandboxEventIdFormatter
 import com.digitalasset.platform.sandbox.stores.deduplicator.Deduplicator
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.{Checkpoint, Rejection}
-import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryWithLedgerEndIncrement
+import com.digitalasset.platform.sandbox.stores.ledger.ScenarioLoader.LedgerEntryOrBump
 import com.digitalasset.platform.sandbox.stores.ledger.{Ledger, LedgerEntry, LedgerSnapshot}
-import com.digitalasset.platform.sandbox.stores.{ActiveContracts, InMemoryActiveContracts}
+import com.digitalasset.platform.sandbox.stores.{
+  ActiveContracts,
+  InMemoryActiveContracts,
+  InMemoryPackageStore
+}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.Future
@@ -45,7 +54,8 @@ class InMemoryLedger(
     val ledgerId: LedgerId,
     timeProvider: TimeProvider,
     acs0: InMemoryActiveContracts,
-    ledgerEntries: ImmArray[LedgerEntryWithLedgerEndIncrement])
+    packageStoreInit: InMemoryPackageStore,
+    ledgerEntries: ImmArray[LedgerEntryOrBump])
     extends Ledger {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
@@ -53,12 +63,17 @@ class InMemoryLedger(
   private val entries = {
     val l = new LedgerEntries[LedgerEntry](_.toString)
     ledgerEntries.foreach {
-      case LedgerEntryWithLedgerEndIncrement(entry, increment) =>
-        l.publishWithLedgerEndIncrement(entry, increment)
+      case LedgerEntryOrBump.Bump(increment) =>
+        l.incrementOffset(increment)
+        ()
+      case LedgerEntryOrBump.Entry(entry) =>
+        l.publish(entry)
         ()
     }
     l
   }
+
+  private val packageStoreRef = new AtomicReference[InMemoryPackageStore](packageStoreInit)
 
   override def ledgerEntries(offset: Option[Long]): Source[(Long, LedgerEntry), NotUsed] =
     entries.getSource(offset)
@@ -121,7 +136,7 @@ class InMemoryLedger(
       transactionMeta: TransactionMeta,
       transaction: SubmittedTransaction): Unit = {
     val recordTime = timeProvider.getCurrentTime
-    if (recordTime.isAfter(submitterInfo.maxRecordTime)) {
+    if (recordTime.isAfter(submitterInfo.maxRecordTime.toInstant)) {
       // This can happen if the DAML-LF computation (i.e. exercise of a choice) takes longer
       // than the time window between LET and MRT allows for.
       // See https://github.com/digital-asset/daml/issues/987
@@ -133,16 +148,13 @@ class InMemoryLedger(
       val toAbsCoid: ContractId => AbsoluteContractId =
         SandboxEventIdFormatter.makeAbsCoid(trId)
 
-      //note, that this cannot fail as it's already validated
-      val blindingInfo = Blinding
-        .checkAuthorizationAndBlind(transaction, Set(submitterInfo.submitter))
-        .fold(authorisationError => sys.error(authorisationError.detailMsg), identity)
+      val blindingInfo = Blinding.blind(transaction)
 
       val mappedTx = transaction.mapContractIdAndValue(toAbsCoid, _.mapContractId(toAbsCoid))
       // 5b. modify the ActiveContracts, while checking that we do not have double
       // spends or timing issues
       val acsRes = acs.addTransaction(
-        transactionMeta.ledgerEffectiveTime,
+        transactionMeta.ledgerEffectiveTime.toInstant,
         trId,
         transactionMeta.workflowId,
         mappedTx,
@@ -171,7 +183,7 @@ class InMemoryLedger(
               Some(submitterInfo.applicationId),
               Some(submitterInfo.submitter),
               transactionMeta.workflowId,
-              transactionMeta.ledgerEffectiveTime,
+              transactionMeta.ledgerEffectiveTime.toInstant,
               recordTime,
               recordTx,
               recordBlinding
@@ -234,4 +246,30 @@ class InMemoryLedger(
         PartyAllocationResult.Ok(details)
       }
     })
+
+  override def listLfPackages(): Future[Map[PackageId, PackageDetails]] =
+    packageStoreRef.get.listLfPackages()
+
+  override def getLfArchive(packageId: PackageId): Future[Option[Archive]] =
+    packageStoreRef.get.getLfArchive(packageId)
+
+  override def getLfPackage(packageId: PackageId): Future[Option[Ast.Package]] =
+    packageStoreRef.get.getLfPackage(packageId)
+
+  override def uploadPackages(
+      knownSince: Instant,
+      sourceDescription: Option[String],
+      payload: List[Archive]): Future[UploadPackagesResult] = {
+    val oldStore = packageStoreRef.get
+    oldStore
+      .withPackages(knownSince, sourceDescription, payload)
+      .fold(
+        err => Future.successful(UploadPackagesResult.InvalidPackage(err)),
+        newStore => {
+          if (packageStoreRef.compareAndSet(oldStore, newStore))
+            Future.successful(UploadPackagesResult.Ok)
+          else uploadPackages(knownSince, sourceDescription, payload)
+        }
+      )
+  }
 }

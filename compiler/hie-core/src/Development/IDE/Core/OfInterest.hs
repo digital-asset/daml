@@ -3,7 +3,6 @@
 
 
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE FlexibleInstances #-}
 
 -- | A Shake implementation of the compiler service, built
@@ -57,7 +56,7 @@ ofInterestRules = do
 
 
 getFilesOfInterest :: Action (Set NormalizedFilePath)
-getFilesOfInterest = use_ GetFilesOfInterest ""
+getFilesOfInterest = useNoFile_ GetFilesOfInterest
 
 
 

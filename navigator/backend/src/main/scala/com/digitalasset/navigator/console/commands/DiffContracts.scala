@@ -5,7 +5,7 @@ package com.digitalasset.navigator.console.commands
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.console._
-import com.digitalasset.navigator.json.ApiCodecCompressed
+import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.navigator.model
 import com.digitalasset.navigator.model.ApiValue
 import spray.json.JsValue

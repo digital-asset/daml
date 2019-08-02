@@ -80,7 +80,8 @@ object Blinding {
     */
   def checkAuthorizationAndBlind(
       tx: Transaction.Transaction,
-      initialAuthorizers: Set[Party]): Either[AuthorizationError, BlindingInfo] =
+      initialAuthorizers: Set[Party],
+  ): Either[AuthorizationError, BlindingInfo] =
     maybeAuthorizeAndBlind(tx, Authorize(initialAuthorizers))
 
   /**

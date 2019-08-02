@@ -4,5 +4,5 @@
 daml 1.2
 module AllTests where
 
-import Stakeholders
-import Wolpertinger
+import Stakeholders()
+import Wolpertinger()

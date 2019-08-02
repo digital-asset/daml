@@ -21,7 +21,7 @@ exports_files(["client_input_file"])
 da_scala_binary(
     name = "server",
     srcs = ["server.scala"],
-    main_class = "Main",
+    main_class = "com.digitalasset.bazeltools.clientservertest.tests.Main",
     deps = [
         "//3rdparty/jvm/com/github/scopt",
     ],
@@ -34,7 +34,7 @@ client_server_test(
     client_args = [
         "--foobar",
         # Use the input file passed in via `data`.
-        "$(location :client_input_file)",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath :client_input_file))",
     ],
 
     # Data files available to both client and server.
@@ -42,4 +42,4 @@ client_server_test(
         ":client_input_file",
     ],
     server = ":server",
-) if not is_windows else None
+)

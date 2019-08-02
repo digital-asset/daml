@@ -60,10 +60,11 @@ genrule(
         ":sdk-config.yaml.tmpl",
         ":install.sh",
         ":install.bat",
+        "//:NOTICES",
         "//:VERSION",
         "//daml-assistant:daml-dist",
-        "//daml-foundations/daml-tools/damlc-app:damlc-dist",
-        "//daml-foundations/daml-tools/daml-extension:dist",
+        "//compiler/damlc:damlc-dist",
+        "//compiler/daml-extension:vsix",
         "//daml-assistant/daml-helper:daml-helper-dist",
         "//ledger/sandbox:sandbox-binary_deploy.jar",
         "//navigator/backend:navigator-binary_deploy.jar",
@@ -77,6 +78,8 @@ genrule(
       OUT=sdk-$$VERSION
       mkdir -p $$OUT
 
+      cp $(location //:NOTICES) $$OUT/NOTICES
+
       cp $(location :install.sh) $$OUT/install.sh
       cp $(location :install.bat) $$OUT/install.bat
 
@@ -87,13 +90,13 @@ genrule(
       tar xf $(location //daml-assistant:daml-dist) --strip-components=1 -C $$OUT/daml
 
       mkdir -p $$OUT/damlc
-      tar xf $(location //daml-foundations/daml-tools/damlc-app:damlc-dist) --strip-components=1 -C $$OUT/damlc
+      tar xf $(location //compiler/damlc:damlc-dist) --strip-components=1 -C $$OUT/damlc
 
       mkdir -p $$OUT/daml-helper
       tar xf $(location //daml-assistant/daml-helper:daml-helper-dist) --strip-components=1 -C $$OUT/daml-helper
 
       mkdir -p $$OUT/studio
-      tar xf $(location //daml-foundations/daml-tools/daml-extension:dist) --strip-components=1 -C $$OUT/studio
+      cp $(location //compiler/daml-extension:vsix) $$OUT/studio/daml-bundled.vsix
 
       mkdir -p $$OUT/sandbox
       cp $(location //ledger/sandbox:sandbox-binary_deploy.jar) $$OUT/sandbox/sandbox.jar

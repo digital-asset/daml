@@ -17,6 +17,7 @@ da_scala_library(
         "//daml-lf:__subpackages__",
         "//extractor:__subpackages__",
         "//language-support:__subpackages__",
+        "//ledger-service:__subpackages__",
         "//navigator:__subpackages__",
     ],
     deps = [

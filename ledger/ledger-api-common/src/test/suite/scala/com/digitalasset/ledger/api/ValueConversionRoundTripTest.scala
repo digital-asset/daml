@@ -5,7 +5,6 @@ package com.digitalasset.ledger.api
 
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.testing.parser.Implicits._
-import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.{
   List => ApiList,
@@ -13,14 +12,11 @@ import com.digitalasset.ledger.api.v1.value.{
   Optional => ApiOptional,
   _
 }
-import com.digitalasset.ledger.api.validation.{CommandsValidator, ValidatorTestUtils}
+import com.digitalasset.ledger.api.validation.{ValueValidator, ValidatorTestUtils}
 import com.digitalasset.platform.participant.util.LfEngineToApi
-import com.digitalasset.platform.server.api.validation.IdentifierResolver
 import com.google.protobuf.empty.Empty
 import org.scalatest.WordSpec
 import org.scalatest.prop.{TableDrivenPropertyChecks, TableFor1}
-
-import scala.concurrent.Future
 
 class ValueConversionRoundTripTest
     extends WordSpec
@@ -28,11 +24,11 @@ class ValueConversionRoundTripTest
     with TableDrivenPropertyChecks {
 
   private val recordId =
-    Identifier(packageId, name = "Mod.Record", moduleName = "Mod", entityName = "Record")
+    Identifier(packageId, moduleName = "Mod", entityName = "Record")
   private val emptyRecordId =
-    Identifier(packageId, name = "Mod.EmptyRecord", moduleName = "Mod", entityName = "EmptyRecord")
+    Identifier(packageId, moduleName = "Mod", entityName = "EmptyRecord")
   private val variantId =
-    Identifier(packageId, name = "Mod.Variant", moduleName = "Mod", entityName = "Variant")
+    Identifier(packageId, moduleName = "Mod", entityName = "Variant")
 
   private val label: String = "label"
 
@@ -54,14 +50,9 @@ class ValueConversionRoundTripTest
          }
          """
 
-  private val commandValidator = new CommandsValidator(
-    LedgerId("ledger-id"),
-    new IdentifierResolver(_ => Future.successful(Some(pkg)))
-  )
-
   private def roundTrip(v: Value): Either[String, Value] =
     for {
-      lfValue <- commandValidator.validateValue(v).left.map(_.getMessage)
+      lfValue <- ValueValidator.validateValue(v).left.map(_.getMessage)
       apiValue <- LfEngineToApi.lfValueToApiValue(true, lfValue)
     } yield apiValue
 
@@ -171,17 +162,6 @@ class ValueConversionRoundTripTest
           roundTrip(Value(Sum.Decimal(input))) shouldEqual Right(Value(Sum.Decimal(expected)))
       }
     }
-  }
-
-  "should return identifier in old and new style " in {
-    val newStyleId = emptyRecordId.copy(name = "")
-    val oldStyleId = emptyRecordId.copy(moduleName = "", entityName = "")
-
-    roundTrip(Value(Sum.Record(Record(Some(newStyleId), List.empty)))) should equal(
-      Right(Value(Sum.Record(Record(Some(emptyRecordId), List.empty)))))
-
-    roundTrip(Value(Sum.Record(Record(Some(oldStyleId), List.empty)))) should equal(
-      Right(Value(Sum.Record(Record(Some(emptyRecordId), List.empty)))))
   }
 
 }

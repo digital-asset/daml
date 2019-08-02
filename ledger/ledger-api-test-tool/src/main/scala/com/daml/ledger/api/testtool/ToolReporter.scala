@@ -64,7 +64,7 @@ class ToolReporter(verbose: Boolean) extends Reporter {
           threadName,
           timeStamp) =>
         testsStarted += 1
-        print(indented(ansiBlue + testText + "... "))
+        print(indented(ansiBlue + "should " + testText + "... "))
 
       case e.TestSucceeded(
           ordinal,
@@ -82,7 +82,7 @@ class ToolReporter(verbose: Boolean) extends Reporter {
           threadName,
           timeStamp) =>
         testsSucceeded += 1
-        println(ansiGreen + "✓")
+        println(ansiGreen + "✓" + ansiReset)
 
       case e.TestCanceled(
           ordinal,
@@ -102,7 +102,19 @@ class ToolReporter(verbose: Boolean) extends Reporter {
           threadName,
           timeStamp) =>
         testsCancelled += 1
-        println(ansiRed + "cancelled.")
+        println(ansiYellow + "cancelled." + ansiReset)
+        throwable match {
+          case None =>
+            println(indented(ansiRed + s"Cancel details missing!", 1, ' '))
+          case Some(e) =>
+            println(indented(s"Cancel details:", 1, ' '))
+            val st = if (verbose) {
+              ExceptionUtils.getStackTrace(e)
+            } else {
+              e.getMessage
+            }
+            println(indented(st, 2, '|'))
+        }
 
       case e.TestFailed(
           ordinal,
@@ -188,12 +200,16 @@ class ToolReporter(verbose: Boolean) extends Reporter {
         println(ansiYellow + "No tests were run" + ansiReset)
       case Statistics(a, s, 0, 0) =>
         println(ansiGreen + s"All ${s}/${a} tests were successful!" + ansiReset)
+      case Statistics(a, 0, c, 0) =>
+        println(ansiYellow + s"All ${c}/${a} tests were cancelled." + ansiReset)
       case Statistics(a, s, c, 0) =>
-        println(ansiYellow + s"${s}/${a} tests were successful, but ${c} were skipped." + ansiReset)
+        println(
+          ansiYellow + s"${s}/${a} tests were successful, but ${c} were cancelled." + ansiReset)
       case Statistics(a, s, 0, f) =>
         println(ansiRed + s"${s} were successful and ${f} failed out of ${a} tests." + ansiReset)
-      case _ =>
-        println("BUG")
+      case Statistics(a, s, c, f) =>
+        println(
+          ansiRed + s"${s} were successful, $c were cancelled, and ${f} failed out of ${a} tests." + ansiReset)
     }
 
   }

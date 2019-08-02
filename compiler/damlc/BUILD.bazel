@@ -1,0 +1,295 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
+load("//rules_daml:daml.bzl", "daml_compile", "daml_doc_test")
+load("@os_info//:os_info.bzl", "is_windows")
+load("//bazel_tools/packaging:packaging.bzl", "package_app")
+
+da_haskell_binary(
+    name = "damlc",
+    srcs = ["exe/Main.hs"],
+
+    # We need to tell the linker to statically link pthread on Windows
+    # otherwise the library is not found at runtime.
+    compiler_flags = [
+        "-optl-static",
+        "-optl-pthread",
+    ] if is_windows else [],
+    data = [
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
+        "//compiler/damlc/pkg-db",
+        "//compiler/scenario-service/server:scenario_service_jar",
+    ],
+    hazel_deps = [
+        "base",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":damlc-lib",
+    ],
+)
+
+# damlc without runfiles. We use that to build the daml-prim and daml-stdlib
+# package databases.
+da_haskell_binary(
+    name = "damlc-bootstrap",
+    srcs = ["exe/Main.hs"],
+
+    # We need to tell the linker to statically link pthread on Windows
+    # otherwise the library is not found at runtime.
+    compiler_flags = [
+        "-optl-static",
+        "-optl-pthread",
+    ] if is_windows else [],
+    hazel_deps = [
+        "base",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        ":damlc-lib",
+    ],
+)
+
+package_app(
+    name = "damlc-dist",
+    binary = ":damlc",
+    resources = [
+        ":ghc-pkg-dist",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
+        "//compiler/damlc/pkg-db",
+        "//compiler/scenario-service/server:scenario_service_jar",
+    ],
+    tags = ["no-cache"],
+    visibility = ["//visibility:public"],
+)
+
+# ghc-pkg is linked dynamically on Linux by default so we need to run it through package_app
+# before we distribute it.
+package_app(
+    name = "ghc-pkg-dist",
+    # bin/ghc-pkg is actually a wrapper script on Unix systems so it is
+    # important that we use lib/ghc-$VERSION/bin/ghc-pkg instead which is the
+    # actual executable.
+    binary = "@io_tweag_rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg",
+    visibility = ["//visibility:public"],
+)
+
+da_haskell_library(
+    name = "damlc-lib",
+    srcs = glob(["lib/**/*.hs"]),
+    extra_srcs = [
+        "//compiler/daml-licenses/licenses:licensing.md",
+    ],
+    hazel_deps = [
+        "aeson-pretty",
+        "aeson",
+        "ansi-wl-pprint",
+        "base",
+        "bytestring",
+        "containers",
+        "cryptonite",
+        "directory",
+        "extra",
+        "file-embed",
+        "filepath",
+        "ghc-lib",
+        "ghc-lib-parser",
+        "gitrev",
+        "haskell-lsp",
+        "lens-aeson",
+        "lens",
+        "memory",
+        "mtl",
+        "network",
+        "optparse-applicative",
+        "prettyprinter",
+        "process",
+        "proto3-suite",
+        "safe",
+        "safe-exceptions",
+        "shake",
+        "split",
+        "tasty-ant-xml",
+        "tasty-hunit",
+        "tasty",
+        "temporary",
+        "text",
+        "vector",
+        "xml",
+        "yaml",
+        "zip-archive",
+        "unordered-containers",
+        "uniplate",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//:sdk-version-hs-lib",
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/daml-lf-tools",
+        "//compiler/damlc/daml-compiler",
+        "//compiler/damlc/daml-doc",
+        "//compiler/damlc/daml-ide",
+        "//compiler/damlc/daml-ide-core",
+        "//compiler/damlc/daml-opts",
+        "//compiler/damlc/daml-opts:daml-opts-types",
+        "//compiler/hie-core",
+        "//compiler/scenario-service/client",
+        "//compiler/scenario-service/protos:scenario_service_haskell_proto",
+        "//daml-assistant:daml-project-config",
+        "//daml-lf/archive:daml_lf_haskell_proto",
+        "//libs-haskell/bazel-runfiles",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+# Generating DAML stdlib docs.
+
+filegroup(
+    name = "daml-base-files",  # DAML files to be included in DAML base docs.
+    srcs = [
+        "//compiler/damlc/daml-prim-src",
+        "//compiler/damlc/daml-stdlib-src",
+    ],
+    visibility = ["__pkg__"],
+)
+
+filegroup(
+    name = "daml-base-hoogle-template",
+    srcs = ["base-hoogle-template.txt"],
+    visibility = ["__pkg__"],
+)
+
+filegroup(
+    name = "daml-base-rst-template",
+    srcs = ["base-rst-template.rst"],
+    visibility = ["__pkg__"],
+)
+
+filegroup(
+    name = "daml-base-md-template",
+    srcs = ["base-md-template.md"],
+    visibility = ["__pkg__"],
+)
+
+genrule(
+    name = "daml-prim-json-docs",
+    srcs = ["//compiler/damlc/daml-prim-src"],
+    outs = ["daml-prim.json"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --package-name=daml-prim \
+            --format=Json \
+            $(locations //compiler/damlc/daml-prim-src)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-stdlib-json-docs",
+    srcs = ["//compiler/damlc/daml-stdlib-src"],
+    outs = ["daml-stdlib.json"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --package-name=daml-stdlib \
+            --format=Json \
+            $(locations //compiler/damlc/daml-stdlib-src)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-base-hoogle-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+        ":daml-base-hoogle-template",
+    ],
+    outs = ["daml-base-hoogle.txt"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=$(OUTS) \
+            --input-format=json \
+            --format=Hoogle \
+            --template=$(location :daml-base-hoogle-template) \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-base-rst-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+        ":daml-base-rst-template",
+    ],
+    outs = ["daml-base.rst"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --combine \
+            --output=$(OUTS) \
+            --input-format=json \
+            --format=Rst \
+            --template=$(location :daml-base-rst-template) \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-base-md-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+        ":daml-base-md-template",
+    ],
+    outs = ["daml-base.md"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --combine \
+            --output=$(OUTS) \
+            --input-format=json \
+            --format=Markdown \
+            --template=$(location :daml-base-md-template) \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "daml-base-html-docs",
+    srcs = [
+        ":daml-prim.json",
+        ":daml-stdlib.json",
+    ],
+    outs = ["daml-base-html.tar.gz"],
+    cmd = """
+        $(location //compiler/damlc) -- docs \
+            --output=daml-base-html \
+            --input-format=json \
+            --format=Html \
+            $(location :daml-stdlib.json) $(location :daml-prim.json)
+        tar czf $(OUTS) daml-base-html
+    """,
+    tools = ["//compiler/damlc"],
+    visibility = ["//visibility:public"],
+)
+
+daml_doc_test(
+    name = "daml-stdlib-doctest",
+    srcs = ["//compiler/damlc/daml-stdlib-src"],
+    damlc_flags = "--package-name=daml-stdlib",
+    ignored_srcs = ["LibraryModules.daml"],
+)

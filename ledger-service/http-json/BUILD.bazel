@@ -1,0 +1,67 @@
+# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "da_scala_test",
+)
+
+hj_scalacopts = [
+    "-Ypartial-unification",
+    "-Xsource:2.13",
+]
+
+http_json_deps = [
+    "//3rdparty/jvm/ch/qos/logback:logback_classic",
+    "//3rdparty/jvm/com/github/pureconfig",
+    "//3rdparty/jvm/com/github/scopt",
+    "//3rdparty/jvm/com/typesafe/akka:akka_http",
+    "//3rdparty/jvm/com/typesafe/akka:akka_http_spray_json",
+    "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
+    "//3rdparty/jvm/com/typesafe/scala_logging",
+    "//3rdparty/jvm/org/scalaz:scalaz_core",
+    "//daml-lf/interface",
+    "//daml-lf/transaction",
+    "//language-support/scala/bindings-akka",
+    "//ledger-api/rs-grpc-bridge",
+    "//ledger-service/lf-value-json",
+    "//ledger-service/utils",
+    "//ledger/ledger-api-common",
+    "//daml-lf/data:data",
+]
+
+da_scala_library(
+    name = "http-json",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    scalacopts = hj_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset.ledger-service:http-json:__VERSION__"],
+    deps = http_json_deps,
+)
+
+da_scala_binary(
+    name = "http-json-bin",
+    srcs = glob(["src/main/scala/**/*.scala"]),
+    main_class = "com.digitalasset.http.Main",
+    scalacopts = hj_scalacopts,
+    deps = [":http-json"] + http_json_deps,
+)
+
+da_scala_test(
+    name = "tests",
+    size = "medium",
+    srcs = glob(["src/test/scala/**/*.scala"]),
+    data = ["//docs:quickstart-model.dar"],
+    resources = glob(["src/test/resources/**/*"]),
+    scalacopts = hj_scalacopts,
+    deps = [
+        ":http-json",
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
+        "//3rdparty/jvm/org/scalatest",
+        "//ledger/sandbox:sandbox",
+        "//ledger/participant-state",
+        "//bazel_tools/runfiles:scala_runfiles",
+    ] + http_json_deps,
+)

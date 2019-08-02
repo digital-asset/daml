@@ -13,6 +13,8 @@ import scala.concurrent.Future
   * [[com.digitalasset.ledger.api.v1.package_service.PackageServiceGrpc.PackageService]]
   */
 trait PackagesService {
+  def listPackageDetails(): Future[Map[PackageId, PackageDetails]]
+
   def listPackages(): Future[Set[PackageId]]
 
   def getPackage(packageId: PackageId): Future[Option[Archive]]

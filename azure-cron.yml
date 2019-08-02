@@ -5,6 +5,12 @@ pr: none
 # Do not run on merge to master
 trigger: none
 # Do run on a schedule (hourly)
+# This feature seems completely broken, so for the time being the schedule has
+# been defined manually in the Azure Pipelines Web UI. Note that Azure
+# Pipelines sometimes spontaneously decides to silently delete that
+# configuration, so someone should keep an eye on that.
+#
+# The setup is kept here in case it suddenly starts to work.
 schedules:
 - cron: "0 * * * *"
   displayName: hourly cron
@@ -56,7 +62,9 @@ jobs:
           eval "$(dev-env/bin/dade-assist)"
 
           echo "Checking for new version..."
-          RELEASES=$(curl https://api.github.com/repos/digital-asset/daml/releases -s | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
+          GH_RESP=$(mktemp)
+          curl https://api.github.com/repos/digital-asset/daml/releases -s > $GH_RESP
+          RELEASES=$(cat $GH_RESP | jq -r '. | map(select(.prerelease == false)) | map(.tag_name)[]')
           GH_VERSIONS=$(mktemp)
           DOCS_VERSIONS=$(mktemp)
           curl -s https://docs.daml.com/versions.json | jq -r 'keys | .[]' | sort > $DOCS_VERSIONS
@@ -101,10 +109,33 @@ jobs:
           aws cloudfront create-invalidation \
                          --distribution-id E1U753I56ERH55 \
                          --paths '/*'
+          echo "Publishing $LATEST to Hubspot..."
+          DESCRIPTION_MD="$(cat $GH_RESP | jq -r '. | map(select(.tag_name="'$LATEST'"))[0].body')"
+          DESCRIPTION=$(curl -s -XPOST 'https://api.github.com/markdown/raw' -H 'Content-Type: text/plain' -d"$DESCRIPTION_MD" | jq -sR .)
+          DATE="$(date -d $(cat $GH_RESP | jq -r '. | map(select(.tag_name="'$LATEST'"))[0].published_at') +%s)000"
+          SUMMARY="Release notes for version ${LATEST#v}."
+          # content_group_id and blog_author_id reference existing items in HubSpot
+          ID=$(curl -s \
+                    -XPOST 'https://api.hubapi.com/content/api/v2/blog-posts?hapikey='$HUBSPOT_TOKEN \
+                    -d'{"name": "Release of DAML SDK '$LATEST'",
+                        "post_body": '"$DESCRIPTION"',
+                        "content_group_id": 11411412838,
+                        "publish_date": '$DATE',
+                        "post_summary": "'"$SUMMARY"'",
+                        "slug": "'${LATEST#v}'",
+                        "blog_author_id": 11513309969,
+                        "meta_description": "'"$SUMMARY"'"}}' \
+                    -H "Content-Type: application/json" \
+               | jq '.id')
+          curl -s \
+               -XPOST 'https://api.hubapi.com/content/api/v2/blog-posts/'$ID'/publish-action?hapikey='$HUBSPOT_TOKEN \
+               -d'{"action": "schedule-publish"}' \
+               -H "Content-Type: application/json"
           echo "Done."
         env:
           AWS_ACCESS_KEY_ID: $(AWS_ACCESS_KEY_ID)
           AWS_SECRET_ACCESS_KEY: $(AWS_SECRET_ACCESS_KEY)
+          HUBSPOT_TOKEN: $(HUBSPOT_TOKEN)
       - task: PublishPipelineArtifact@0
         condition: always()
         inputs:
@@ -176,9 +207,11 @@ jobs:
           if [[ "${GITHUB#v}" != "$MARKET" ]] && git merge-base --is-ancestor 798e96c9b9034eac85ace786b9e1955cf380285c $GITHUB; then
             echo "Publishing $GITHUB to VSCode Marketplace"
             git checkout $GITHUB
-            cd daml-foundations/daml-tools/daml-extension
-            yarn
-            vsce publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
+            cd compiler/daml-extension
+            # This produces out/src/extension.js
+            bazel run @nodejs//:bin/yarn
+            bazel run @nodejs//:bin/yarn compile
+            bazel run --run_under="cd $PWD && " @daml_extension_deps//vsce/bin:vsce -- publish ${GITHUB#v} -p $MARKETPLACE_TOKEN
           else
             if [[ "${GITHUB#v}" == "$MARKET" ]]; then
               echo "Version on marketplace is already the latest ($GITHUB)."
@@ -188,3 +221,24 @@ jobs:
           fi
         env:
           MARKETPLACE_TOKEN: $(VSCODE_MARKETPLACE_TOKEN)
+
+  - job: download_stats
+    timeoutInMinutes: 10
+    pool:
+      name: "linux-pool"
+    steps:
+      - checkout: self
+      - bash: |
+          set -euo pipefail
+
+          eval "$(dev-env/bin/dade-assist)"
+
+          STATS=$(mktemp)
+          curl https://api.github.com/repos/digital-asset/daml/releases -s | gzip -9 > $STATS
+
+          GCS_KEY=$(mktemp)
+          echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+          gcloud auth activate-service-account --key-file=$GCS_KEY
+          BOTO_CONFIG=/dev/null gsutil cp $STATS gs://daml-data/downloads/$(date -u +%Y%m%d_%H%M%SZ).json.gz
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

@@ -99,6 +99,7 @@ da_scala_library(
     deps = [
         ":daml_lf_java_proto",
         "//3rdparty/jvm/com/google/protobuf:protobuf_java",
+        "//3rdparty/jvm/commons_io",
         "//3rdparty/jvm/org/scalaz:scalaz_core",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -112,7 +113,6 @@ da_scala_test_suite(
     data = [
         ":DarReaderTest.dalf",
         ":DarReaderTest.dar",
-        ":DarReaderTest-dev.dalf",
     ],
     scalacopts = lf_scalacopts,
     deps = [
@@ -125,6 +125,7 @@ da_scala_test_suite(
         "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/data",
+        "//daml-lf/data-scalacheck",
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/validation",
@@ -134,12 +135,6 @@ da_scala_test_suite(
 daml_compile(
     name = "DarReaderTest",
     main_src = "src/test/daml/DarReaderTest.daml",
-)
-
-daml_compile(
-    name = "DarReaderTest-dev",
-    main_src = "src/test/daml/DarReaderTest.daml",
-    target = "1.dev",
 )
 
 filegroup(
@@ -195,7 +190,7 @@ genrule(
     ],
     outs = ["daml_lf_archive_java.jar"],
     cmd = """
-    INPUT=$$(echo "$(locations :daml_lf_proto_lib_java)" | cut -d ' ' -f 1)
+    INPUT=$$(echo "$(locations :daml_lf_proto_lib_java)" | tr ' ' '\n' | grep -v '\-src.jar')
     cp -L $$INPUT $@
     chmod u+w $@
     $(location @zip_dev_env//:zip) -g $@ $(locations :proto_srcs)

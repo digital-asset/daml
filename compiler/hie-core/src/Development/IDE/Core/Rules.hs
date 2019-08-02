@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TypeFamilies               #-}
-{-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 
@@ -12,7 +11,10 @@
 module Development.IDE.Core.Rules(
     IdeState, GetDependencies(..), GetParsedModule(..), TransitiveDependencies(..),
     Priority(..),
-    runAction, useE, usesE,
+    priorityTypeCheck,
+    priorityGenerateCore,
+    priorityFilesOfInterest,
+    runAction, useE, useNoFileE, usesE,
     toIdeResult, defineNoFile,
     mainRule,
     getGhcCore,
@@ -20,17 +22,19 @@ module Development.IDE.Core.Rules(
     getDefinition,
     getDependencies,
     getParsedModule,
-    fileFromParsedModule
+    fileFromParsedModule,
+    writeIfacesAndHie,
     ) where
 
 import           Control.Monad.Except
 import Control.Monad.Trans.Maybe
-import qualified Development.IDE.Core.Compile             as Compile
-import qualified Development.IDE.Types.Options as Compile
+import Development.IDE.Core.Compile
+import Development.IDE.Types.Options
+import Development.IDE.Spans.Calculate
 import Development.IDE.Import.DependencyInformation
 import Development.IDE.Import.FindImports
 import           Development.IDE.Core.FileStore
-import           Development.IDE.Types.Diagnostics as Base
+import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Data.Bifunctor
 import Data.Either.Extra
@@ -43,14 +47,18 @@ import           Development.IDE.GHC.Error
 import           Development.Shake                        hiding (Diagnostic, Env, newCache)
 import Development.IDE.Core.RuleTypes
 
-import           GHC
+import           GHC hiding (parseModule, typecheckModule)
 import Development.IDE.GHC.Compat
 import           UniqSupply
 import NameCache
+import HscTypes
 
 import qualified Development.IDE.Spans.AtPoint as AtPoint
 import Development.IDE.Core.Service
 import Development.IDE.Core.Shake
+import System.Directory
+import System.FilePath
+import MkIface
 
 -- | This is useful for rules to convert rules that can only produce errors or
 -- a result into the more general IdeResult type that supports producing
@@ -62,6 +70,9 @@ toIdeResult = either (, Nothing) (([],) . Just)
 -- e.g. getDefinition.
 useE :: IdeRule k v => k -> NormalizedFilePath -> MaybeT Action v
 useE k = MaybeT . use k
+
+useNoFileE :: IdeRule k v => k -> MaybeT Action v
+useNoFileE k = useE k ""
 
 usesE :: IdeRule k v => k -> [NormalizedFilePath] -> MaybeT Action [v]
 usesE k = MaybeT . fmap sequence . uses k
@@ -97,42 +108,74 @@ getAtPoint file pos = fmap join $ runMaybeT $ do
   files <- transitiveModuleDeps <$> useE GetDependencies file
   tms   <- usesE TypeCheck (file : files)
   spans <- useE GetSpanInfo file
-  return $ AtPoint.atPoint opts (map Compile.tmrModule tms) spans pos
+  return $ AtPoint.atPoint opts (map tmrModule tms) spans pos
 
 -- | Goto Definition.
 getDefinition :: NormalizedFilePath -> Position -> Action (Maybe Location)
 getDefinition file pos = fmap join $ runMaybeT $ do
     spans <- useE GetSpanInfo file
-    pkgState <- useE GhcSession ""
+    pkgState <- useNoFileE GhcSession
     opts <- lift getIdeOptions
-    let getHieFile x = use (GetHieFile x) ""
+    let getHieFile x = useNoFile (GetHieFile x)
     lift $ AtPoint.gotoDefinition getHieFile opts pkgState spans pos
 
 -- | Parse the contents of a daml file.
 getParsedModule :: NormalizedFilePath -> Action (Maybe ParsedModule)
 getParsedModule file = use GetParsedModule file
 
+-- | Write interface files and hie files to the location specified by the given options.
+writeIfacesAndHie ::
+       NormalizedFilePath -> NormalizedFilePath -> Action (Maybe [NormalizedFilePath])
+writeIfacesAndHie ifDir main =
+    runMaybeT $ do
+        files <- transitiveModuleDeps <$> useE GetDependencies main
+        tcms <- usesE TypeCheck (main : files)
+        session <- lift $ useNoFile_ GhcSession
+        liftIO $ concat <$> mapM (writeTcm session) tcms
+  where
+    writeTcm session tcm =
+        do
+            let fp =
+                    fromNormalizedFilePath ifDir </>
+                    (ms_hspp_file $
+                     pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+            createDirectoryIfMissing True (takeDirectory fp)
+            let ifaceFp = replaceExtension fp ".hi"
+            let hieFp = replaceExtension fp ".hie"
+            writeIfaceFile
+                (hsc_dflags session)
+                ifaceFp
+                (hm_iface $ tmrModInfo tcm)
+            hieFile <-
+                liftIO $
+                runHsc session $
+                mkHieFile
+                    (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+                    (fst $ tm_internals_ $ tmrModule tcm)
+                    (fromJust $ tm_renamed_source $ tmrModule tcm)
+            writeHieFile hieFp hieFile
+            pure [toNormalizedFilePath ifaceFp, toNormalizedFilePath hieFp]
 
 ------------------------------------------------------------
 -- Rules
 -- These typically go from key to value and are oracles.
 
--- TODO (MK) This should be independent of DAML or move out of hie-core.
--- | We build artefacts based on the following high-to-low priority order.
-data Priority
-    = PriorityTypeCheck
-    | PriorityGenerateDalf
-    | PriorityFilesOfInterest
-  deriving (Eq, Ord, Show, Enum)
+priorityTypeCheck :: Priority
+priorityTypeCheck = Priority 0
 
+priorityGenerateCore :: Priority
+priorityGenerateCore = Priority (-1)
+
+priorityFilesOfInterest :: Priority
+priorityFilesOfInterest = Priority (-2)
 
 getParsedModuleRule :: Rules ()
 getParsedModuleRule =
     define $ \GetParsedModule file -> do
         (_, contents) <- getFileContents file
-        packageState <- use_ GhcSession ""
+        packageState <- useNoFile_ GhcSession
         opt <- getIdeOptions
-        liftIO $ Compile.parseModule opt packageState (fromNormalizedFilePath file) contents
+        liftIO $ parseModule opt packageState (fromNormalizedFilePath file) contents
 
 getLocatedImportsRule :: Rules ()
 getLocatedImportsRule =
@@ -140,11 +183,11 @@ getLocatedImportsRule =
         pm <- use_ GetParsedModule file
         let ms = pm_mod_summary pm
         let imports = ms_textual_imps ms
-        packageState <- use_ GhcSession ""
-        dflags <- liftIO $ Compile.getGhcDynFlags pm packageState
+        env <- useNoFile_ GhcSession
+        let dflags = addRelativeImport pm $ hsc_dflags env
         opt <- getIdeOptions
         xs <- forM imports $ \(mbPkgName, modName) ->
-            (modName, ) <$> locateModule dflags (Compile.optExtensions opt) getFileExists modName mbPkgName
+            (modName, ) <$> locateModule dflags (optExtensions opt) getFileExists modName mbPkgName
         return (concat $ lefts $ map snd xs, Just $ map (second eitherToMaybe) xs)
 
 
@@ -162,11 +205,11 @@ rawDependencyInformation f = go (Set.singleton f) Map.empty Map.empty
                   let modGraph' = Map.insert f (Left ModuleParseError) modGraph
                   in go fs modGraph' pkgs
                 Just imports -> do
-                  packageState <- lift $ use_ GhcSession ""
+                  packageState <- lift $ useNoFile_ GhcSession
                   modOrPkgImports <- forM imports $ \imp -> do
                     case imp of
                       (_modName, Just (PackageImport pkg)) -> do
-                          pkgs <- ExceptT $ liftIO $ Compile.computePackageDeps packageState pkg
+                          pkgs <- ExceptT $ liftIO $ computePackageDeps packageState pkg
                           pure $ Right $ pkg:pkgs
                       (modName, Just (FileImport absFile)) -> pure $ Left (modName, Just absFile)
                       (modName, Nothing) -> pure $ Left (modName, Nothing)
@@ -226,11 +269,10 @@ getDependenciesRule =
 getSpanInfoRule :: Rules ()
 getSpanInfoRule =
     define $ \GetSpanInfo file -> do
-        pm <- use_ GetParsedModule file
         tc <- use_ TypeCheck file
         imports <- use_ GetLocatedImports file
-        packageState <- use_ GhcSession ""
-        x <- liftIO $ Compile.getSrcSpanInfos pm packageState (fileImports imports) tc
+        packageState <- useNoFile_ GhcSession
+        x <- liftIO $ getSrcSpanInfos packageState (fileImports imports) tc
         return ([], Just x)
 
 -- Typechecks a module.
@@ -240,10 +282,9 @@ typeCheckRule =
         pm <- use_ GetParsedModule file
         deps <- use_ GetDependencies file
         tms <- uses_ TypeCheck (transitiveModuleDeps deps)
-        setPriority PriorityTypeCheck
-        packageState <- use_ GhcSession ""
-        opt <- getIdeOptions
-        liftIO $ Compile.typecheckModule opt packageState tms pm
+        setPriority priorityTypeCheck
+        packageState <- useNoFile_ GhcSession
+        liftIO $ typecheckModule packageState tms pm
 
 
 generateCoreRule :: Rules ()
@@ -251,16 +292,15 @@ generateCoreRule =
     define $ \GenerateCore file -> do
         deps <- use_ GetDependencies file
         (tm:tms) <- uses_ TypeCheck (file:transitiveModuleDeps deps)
-        let pm = tm_parsed_module . Compile.tmrModule $ tm
-        setPriority PriorityGenerateDalf
-        packageState <- use_ GhcSession ""
-        liftIO $ Compile.compileModule pm packageState tms tm
+        setPriority priorityGenerateCore
+        packageState <- useNoFile_ GhcSession
+        liftIO $ compileModule packageState tms tm
 
 loadGhcSession :: Rules ()
 loadGhcSession =
     defineNoFile $ \GhcSession -> do
         opts <- getIdeOptions
-        Compile.optGhcSession opts
+        optGhcSession opts
 
 
 getHieFileRule :: Rules ()

@@ -6,8 +6,9 @@ package com.digitalasset.navigator.data
 import java.time.Instant
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
-import com.digitalasset.navigator.json.{ApiCodecCompressed, ApiCodecVerbose}
-import com.digitalasset.navigator.json.ApiCodecCompressed.JsonImplicits._
+import com.digitalasset.navigator.json.ApiCodecVerbose
+import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
+import ApiCodecCompressed.JsonImplicits._
 import com.digitalasset.navigator.model._
 
 import scala.util.{Failure, Try}

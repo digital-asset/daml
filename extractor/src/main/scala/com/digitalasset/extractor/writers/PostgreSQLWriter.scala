@@ -5,8 +5,8 @@ package com.digitalasset.extractor.writers
 
 import com.digitalasset.daml.lf.iface.{Interface, InterfaceType}
 import com.digitalasset.extractor.config.ExtractorConfig
-import com.digitalasset.extractor.ledger.LedgerReader
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.ledger.service.LedgerReader
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.extractor.ledger.types._
 import com.digitalasset.extractor.targets.PostgreSQLTarget
 import com.digitalasset.extractor.Types._
@@ -174,7 +174,7 @@ class PostgreSQLWriter(config: ExtractorConfig, target: PostgreSQLTarget, ledger
     }(scala.collection.breakOut)
 
     val exercisedEvents: List[ExercisedEvent] = transaction.events.values.collect {
-      case e @ ExercisedEvent(_, _, _, _, _, _, _, _, _, _) => e
+      case e @ ExercisedEvent(_, _, _, _, _, _, _, _, _) => e
     }(scala.collection.breakOut)
 
     logger.trace(s"Create events: ${com.digitalasset.extractor.pformat(createdEvents)}")

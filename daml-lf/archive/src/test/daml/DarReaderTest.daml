@@ -4,9 +4,6 @@
 daml 1.2
 module DarReaderTest where
 
-import DA.List (reverse)
-
-
 template PayOut
   with
     receiver: Party
@@ -15,9 +12,8 @@ template PayOut
     signatory receiver
     signatory giver
     agreement
-      toText giver <> " must pay to "
-      <> toText receiver <> " the sum of five pounds."
-
+      show giver <> " must pay to "
+      <> show receiver <> " the sum of five pounds."
 
 template CallablePayout
   with
@@ -32,6 +28,4 @@ template CallablePayout
         with newReceiver: Party
         do create this with receiver = newReceiver
 
-
 reverseCopy = reverse
-

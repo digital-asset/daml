@@ -400,11 +400,15 @@ testDivulgence = test do
 
 testScenario : Scenario ()
 testScenario = do
+  pass (days 10)
   party <- getParty "party"
   submit party (create Dummy with operator = party)
-  pass (days 10)
+  pass (seconds 10)
   submit party (create DummyWithParam with operator = party)
   submit party (create DummyFactory with operator = party)
+  pass (seconds 10)
+  submit party (create DummyContractFactory with operator = party)
+  pass (seconds 10)
   return ()
 
 template Delegated
@@ -430,7 +434,17 @@ template Delegation
         do fetch delegated
 
     controller delegate can
-      nonconsuming LookupDelegated: ()
+      nonconsuming FetchByKeyDelegated: ()
+        with
+          p: Party
+          k: Text
+          expected: Optional (ContractId Delegated)
+        do
+          (cid, _) <- fetchByKey @Delegated (p, k)
+          assertMsg "fetch matches" (expected == Some cid)
+
+    controller delegate can
+      nonconsuming LookupByKeyDelegated: ()
         with
           p: Party
           k: Text

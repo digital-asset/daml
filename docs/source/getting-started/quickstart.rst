@@ -40,7 +40,6 @@ The project contains the following files:
 .. code-block:: none
 
   .
-  ├── daml.yaml
   ├── daml
   │   ├── Iou.daml
   │   ├── IouTrade.daml
@@ -48,17 +47,19 @@ The project contains the following files:
   │   └── Tests
   │       ├── IouTest.daml
   │       └── TradeTest.daml
+  ├── daml.yaml
   ├── frontend-config.js
   ├── pom.xml
-  ├── src
-  │   └── main
-  │       └── java
-  │           └── com
-  │               └── digitalasset
-  │                   └── quickstart
-  │                       └── iou
-  │                           └── IouMain.java
-  └── ui-backend.conf
+  └── src
+      └── main
+          ├── java
+          │   └── com
+          │       └── digitalasset
+          │           └── quickstart
+          │               └── iou
+          │                   └── IouMain.java
+          └── resources
+              └── logback.xml
 
 - ``daml.yaml`` is a DAML project config file used by the SDK to find out how to build the DAML project and how to run it.
 - ``daml`` contains the :ref:`DAML code <quickstart-daml>` specifying the contract model for the ledger.
@@ -115,7 +116,7 @@ In this section, you will run the quickstart application and get introduced to t
 
 #. To compile the DAML model, run ``daml build``
 
-   This creates a DAR package called ``.daml/dist/quickstart.dar``. The output should look like this:
+   This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that DAML compiles to) called ``.daml/dist/quickstart.dar``. The output should look like this:
 
    .. code-block:: none
 
@@ -137,7 +138,7 @@ In this section, you will run the quickstart application and get introduced to t
       _\ \/ _ `/ _ \/ _  / _ \/ _ \\ \ /
       /___/\_,_/_//_/\_,_/_.__/\___/_\_\
 
-      Initialized sandbox version 100.12.10 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
+      Initialized sandbox version 100.13.10 with ledger-id = sandbox-5e12e502-817e-41f9-ad40-1c57b8845f9d, port = 6865, dar file = DamlPackageContainer(List(target/daml/iou.dar),false), time mode = Static, ledger = in-memory, daml-engine = {}
 
    The sandbox is now running, and you can access its :doc:`ledger API </app-dev/index>` on port ``6865``.
 
@@ -147,7 +148,7 @@ In this section, you will run the quickstart application and get introduced to t
 
    .. _quickstart-navigator:
 
-#. Open a new terminal window and navigate to your project directory.
+#. Open a new terminal window and navigate to your project directory, ``quickstart``.
 #. Start the :doc:`Navigator </tools/navigator/index>`, a browser-based leger front-end, by running ``daml navigator server``
 
    The Navigator automatically connects the sandbox. You can access it on port ``4000``.
@@ -168,14 +169,14 @@ Now everything is running, you can try out the quickstart application:
 
    .. figure:: quickstart/images/contracts.png
 
-   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id `#2:2`, created from a *template* called `Iou.Iou@28b...`.
+   This is showing you what contracts are currently active on the sandbox ledger and visible to *Alice*. You can see that there is a single such contract, with Id ``#2:1``, created from a *template* called ``Iou:Iou@ffb...``.
 
 #. On the left-hand side, you can see what the pages the Navigator contains:
 
    - Contracts
    - Templates
-   - Owned Ious
    - Issued Ious
+   - Owned Ious
    - Iou Transfers
    - Trades
 
@@ -189,7 +190,7 @@ Now everything is running, you can try out the quickstart application:
 
    On the far right, you see the number of *contract instances* that you can see for each template.
 
-#. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou.Iou`` row, filling it out as shown below and clicking **Submit**.
+#. Try creating a contract from a template. Issue an Iou to yourself by clicking on the ``Iou:Iou`` row, filling it out as shown below and clicking **Submit**.
 
    .. figure:: quickstart/images/createIou.png
 
@@ -197,7 +198,7 @@ Now everything is running, you can try out the quickstart application:
 #. Now, try transferring this Iou to someone else. Click on your Iou, select **Iou_Transfer**, enter *Bob* as the new owner and hit **Submit**.
 #. Go to the **Owned Ious** page.
 
-   The screen shows the same contract ``#2:2`` that you already saw on the *Contracts* page. It is an Iou for €100, issued by *EUR_Bank*.
+   The screen shows the same contract ``#2:1`` that you already saw on the *Contracts* page. It is an Iou for €100, issued by *EUR_Bank*.
 #. Go to the **Iou Transfers** page. It shows the transfer of your recently issued Iou to Bob, but Bob has not accepted the transfer, so it is not settled.
 
    This is an important part of DAML: nobody can be forced into owning an *Iou*, or indeed agreeing to any other contract. They must explicitly consent.
@@ -208,7 +209,7 @@ Now everything is running, you can try out the quickstart application:
    Go back to *Owned Ious*, open the Iou for €100 and click on the button *Iou_AddObserver*. Submit *Bob* as the *newObserver*.
 
    Contracts in DAML are immutable, meaning they can not be changed, only created and archived. If you head back to the **Owned Ious** screen, you can see that the Iou now has a new Contract ID `#6:1`.
-#. To propose the trade, go to the **Templates** screen. Click on the *IouTrade.IouTrade* template, fill in the form as shown below and submit the transaction.
+#. To propose the trade, go to the **Templates** screen. Click on the *IouTrade:IouTrade* template, fill in the form as shown below and submit the transaction.
 
    .. figure:: quickstart/images/tradeProp.png
 
@@ -219,8 +220,8 @@ Now everything is running, you can try out the quickstart application:
 
    It also shows an *Iou* for $110 issued by *USD_Bank*. This matches the trade proposal you made earlier as Alice.
 
-   Note its *Contract Id* ``#3:2``.
-#. Settle the trade. Go to the **Trades** page, and click on the row of the proposal. Accept the trade by clicking **IouTrade_Accept**. In the popup, enter ``#3:2`` as the *quoteIouCid*, then click **Submit**.
+   Note its *Contract Id* ``#3:1``.
+#. Settle the trade. Go to the **Trades** page, and click on the row of the proposal. Accept the trade by clicking **IouTrade_Accept**. In the popup, enter ``#3:1`` as the *quoteIouCid*, then click **Submit**.
 
    The two legs of the transfer are now settled atomically in a single transaction. The trade either fails or succeeds as a whole.
 #. Privacy is an important feature of DAML. You can check that Alice and Bob's privacy relative to the Banks was preserved.
@@ -353,109 +354,94 @@ After a short time, the text *Scenario results* should appear above the test. Cl
 
 .. figure:: quickstart/images/ledger.png
 
-Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the "Show archived" box at the top. Clicking the adjacent "Show transaction view" button switches to a view of the entire transaction tree.
+Each row shows a contract on the ledger. The first four columns show which parties know of which contracts. The remaining columns show the data on the contracts. You can see past contracts by checking the **Show archived** box at the top. Click the adjacent **Show transaction view** button to switch to a view of the entire transaction tree.
 
-In the transaction view, transaction ``#6`` is of particular intest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
+In the transaction view, transaction ``#6`` is of particular interest, as it shows how the Ious are exchanged atomically in one transaction. The lines starting ``known to (since)`` show that the Banks do indeed not know anything they should not:
 
 .. code-block:: none
 
-  TX #6 1970-01-01T00:00:00Z (unknown source)
+  TX #6 1970-01-01T00:00:00Z (Tests.Trade:61:14)
   #6:0
-  └─> fetch #5:0 (IouTrade.IouTrade)
-
-  #6:1
-  │   known to (since): 'Bob' (#6), 'Alice' (#6)
-  └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade.IouTrade)
+  │   known to (since): 'Alice' (#6), 'Bob' (#6)
+  └─> 'Bob' exercises IouTrade_Accept on #5:0 (IouTrade:IouTrade)
             with
-              quoteIouCid = #3:2
+              quoteIouCid = #3:1
       children:
+      #6:1
+      │   known to (since): 'Alice' (#6), 'Bob' (#6)
+      └─> fetch #4:1 (Iou:Iou)
+      
       #6:2
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #3:2 (Iou.Iou)
-
+      │   known to (since): 'Alice' (#6), 'Bob' (#6)
+      └─> fetch #3:1 (Iou:Iou)
+      
       #6:3
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #3:2 (Iou.Iou)
-
-      #6:4
       │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
-      └─> 'Bob' exercises Iou_Transfer on #3:2 (Iou.Iou)
+      └─> 'Bob' exercises Iou_Transfer on #3:1 (Iou:Iou)
                 with
                   newOwner = 'Alice'
           children:
-          #6:5
-          │   consumed by: #6:7
-          │   referenced by #6:6, #6:7
-          │   known to (since): 'Alice' (#6), 'Bob' (#6), 'USD_Bank' (#6)
-          └─> create Iou.IouTransfer
+          #6:4
+          │   consumed by: #6:5
+          │   referenced by #6:5
+          │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+          └─> create Iou:IouTransfer
               with
                 iou =
-                  (Iou.Iou with
+                  (Iou:Iou with
                      issuer = 'USD_Bank';
                      owner = 'Bob';
                      currency = "USD";
                      amount = 110.0;
                      observers = []);
                 newOwner = 'Alice'
-
-      #6:6
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #6:5 (Iou.IouTransfer)
-
-      #6:7
-      │   known to (since): 'Alice' (#6), 'Bob' (#6), 'USD_Bank' (#6)
-      └─> 'Alice' exercises IouTransfer_Accept on #6:5 (Iou.IouTransfer)
+      
+      #6:5
+      │   known to (since): 'Bob' (#6), 'USD_Bank' (#6), 'Alice' (#6)
+      └─> 'Alice' exercises IouTransfer_Accept on #6:4 (Iou:IouTransfer)
                   with
           children:
-          #6:8
+          #6:6
           │   referenced by #7:0
           │   known to (since): 'Alice' (#6), 'USD_Bank' (#6), 'Bob' (#6)
-          └─> create Iou.Iou
+          └─> create Iou:Iou
               with
                 issuer = 'USD_Bank';
                 owner = 'Alice';
                 currency = "USD";
                 amount = 110.0;
                 observers = []
-
-      #6:9
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #4:2 (Iou.Iou)
-
-      #6:10
+      
+      #6:7
       │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
-      └─> 'Alice' exercises Iou_Transfer on #4:2 (Iou.Iou)
+      └─> 'Alice' exercises Iou_Transfer on #4:1 (Iou:Iou)
                   with
                     newOwner = 'Bob'
           children:
-          #6:11
-          │   consumed by: #6:13
-          │   referenced by #6:12, #6:13
-          │   known to (since): 'Bob' (#6), 'Alice' (#6), 'EUR_Bank' (#6)
-          └─> create Iou.IouTransfer
+          #6:8
+          │   consumed by: #6:9
+          │   referenced by #6:9
+          │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+          └─> create Iou:IouTransfer
               with
                 iou =
-                  (Iou.Iou with
+                  (Iou:Iou with
                      issuer = 'EUR_Bank';
                      owner = 'Alice';
                      currency = "EUR";
                      amount = 100.0;
                      observers = ['Bob']);
                 newOwner = 'Bob'
-
-      #6:12
-      │   known to (since): 'Bob' (#6), 'Alice' (#6)
-      └─> fetch #6:11 (Iou.IouTransfer)
-
-      #6:13
-      │   known to (since): 'Bob' (#6), 'Alice' (#6), 'EUR_Bank' (#6)
-      └─> 'Bob' exercises IouTransfer_Accept on #6:11 (Iou.IouTransfer)
+      
+      #6:9
+      │   known to (since): 'Alice' (#6), 'EUR_Bank' (#6), 'Bob' (#6)
+      └─> 'Bob' exercises IouTransfer_Accept on #6:8 (Iou:IouTransfer)
                 with
           children:
-          #6:14
+          #6:10
           │   referenced by #8:0
           │   known to (since): 'Bob' (#6), 'EUR_Bank' (#6), 'Alice' (#6)
-          └─> create Iou.Iou
+          └─> create Iou:Iou
               with
                 issuer = 'EUR_Bank'; owner = 'Bob'; currency = "EUR"; amount = 100.0; observers = []
 
@@ -534,21 +520,21 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 50-54
+      :lines: 46-50
       :dedent: 8
 
 #. An in-memory contract-store is initialized. This is intended to provide a live view of all active contracts, with mappings between ledger and external Ids.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 62-64
+      :lines: 58-60
       :dedent: 8
 
 #. The Active Contracts Service (ACS) is used to quickly build up the contract-store to a recent state.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 67-78
+      :lines: 63-74
       :dedent: 8
 
    Note the use of ``blockingForEach`` to ensure that the contract store is fully built and the ledger-offset up to which the ACS provides data is known before moving on.
@@ -558,14 +544,14 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 80-96
+      :lines: 76-92
       :dedent: 8
 
 #. Commands are submitted via the Command Submission Service.
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :language: java
-      :lines: 131-141
+      :lines: 127-137
       :dedent: 4
 
    You can find examples of ``ExerciseCommand`` and ``CreateCommand`` instantiation in the bodies of the ``transfer`` and ``iou`` endpoints, respectively.
@@ -573,13 +559,13 @@ It consists of the application in file ``IouMain.java``. It uses the class ``Iou
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :caption: ExerciseCommand
       :language: java
-      :lines: 112-113
+      :lines: 108-109
       :dedent: 12
 
    .. literalinclude:: quickstart/template-root/src/main/java/com/digitalasset/quickstart/iou/IouMain.java
       :caption: CreateCommand
       :language: java
-      :lines: 105-106
+      :lines: 101-102
       :dedent: 12
 
 The rest of the application sets up the REST services using `Spark Java <http://sparkjava.com/>`_, and does dynamic package Id detection using the Package Service. The latter is useful during development when package Ids change frequently.
@@ -594,6 +580,7 @@ Great - you've completed the quickstart guide!
 Some steps you could take next include:
 
 - Explore :doc:`examples </examples/examples>` for guidance and inspiration.
-- :doc:`Learn DAML </daml/reference/index>`.
+- :doc:`Learn DAML </daml/intro/0_Intro>`.
+- :doc:`Language reference </daml/reference/index>`.
 - Learn more about :doc:`application development </app-dev/app-arch>`.
 - Learn about the :doc:`conceptual models </concepts/ledger-model/index>` behind DAML and platform.

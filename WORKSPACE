@@ -1,4 +1,11 @@
-workspace(name = "com_github_digital_asset_daml")
+workspace(
+    name = "com_github_digital_asset_daml",
+    managed_directories = {
+        "@npm": ["node_modules"],
+        "@daml_extension_deps": ["compiler/daml-extension/node_modules"],
+        "@navigator_frontend_deps": ["navigator/frontend/node_modules"],
+    },
+)
 
 load("//:util.bzl", "hazel_ghclibs", "hazel_github", "hazel_github_external", "hazel_hackage")
 
@@ -259,6 +266,11 @@ haskell_register_ghc_nixpkgs(
         "-hide-package=ghc-boot-th",
         "-hide-package=ghc-boot",
     ],
+    compiler_flags_select = {
+        "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
+        "//conditions:default": [],
+    },
+    is_static = True,
     locale_archive = "@glibc_locales//:locale-archive",
     nix_file = "//nix:bazel.nix",
     nix_file_deps = nix_ghc_deps,
@@ -452,12 +464,12 @@ HASKELL_LSP_COMMIT = "d73e2ccb518724e6766833ee3d7e73289cbe0018"
 
 HASKELL_LSP_HASH = "36b92431039e6289eb709b8872f5010a57d4a45e637e1c1c945bdb3128586081"
 
-GHC_LIB_VERSION = "8.8.0.20190616"
+GHC_LIB_VERSION = "8.8.0.20190730.1"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "390d965a5e96f9178fa4867ffbc7e0c8d5d17dea7be1f9e7df644a91588661ca",
+    sha256 = "dcd211cac831609cec546050b342ca94a546cb4e672cf2819189332f49361baf",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -504,9 +516,18 @@ hazel_repositories(
     },
     packages = add_extra_packages(
         extra =
+
             # Read [Working on ghc-lib] for ghc-lib update instructions at
-            # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md
-            hazel_ghclibs(GHC_LIB_VERSION, "390d965a5e96f9178fa4867ffbc7e0c8d5d17dea7be1f9e7df644a91588661ca", "651cc244130c7472e582bb3bf48af837b850a5360477fa52ed3de8095313418b") +
+            # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
+            hazel_ghclibs(GHC_LIB_VERSION, "dcd211cac831609cec546050b342ca94a546cb4e672cf2819189332f49361baf", "6e144d99bc43e861a2895e0c34d73964305db2ad634f14d3e3a41cf0c4523495") +
+
+            # Support for Hlint:
+            #   - Requires haskell-src-exts 1.21.0 so override hazel/packages.bzl.
+            #   - To build the binary : `bazel build @haskell_hlint//:bin`
+            #   - To build the library : `bazel build @haskell_hlint//:lib`
+            # We'll be using it via the library, not the binary.
+            hazel_hackage("haskell-src-exts", "1.21.0", "95dac187824edfa23b6a2363880b5e113df8ce4a641e8a0f76e6d45aaa699ff3") +
+            hazel_github_external("digital-asset", "hlint", "f3d3acad10c9a4418a6fcad002087fc527f15d3d", "dbd091a6d59bf2d3cc387ab4a0ffc50ffad3242b808e7205ccceef49aed682f8") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
@@ -550,7 +571,8 @@ hazel_repositories(
                 "c593ff871f31200e37a3c24c09da314d0ee41a8486defe7af91ac55a26efdc1e",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
-            ),
+            ) +
+            hazel_hackage("typed-process", "0.2.6.0", "31a2a81f33463fedc33cc519ad5b9679787e648fe2ec7efcdebd7d54bdbbc2b1"),
         pkgs = packages,
     ),
 )
@@ -731,16 +753,15 @@ load("@npm//:install_bazel_dependencies.bzl", "install_bazel_dependencies")
 
 install_bazel_dependencies()
 
-# Setup TypeScript toolchain
-load("@build_bazel_rules_typescript//:defs.bzl", "ts_setup_workspace")
+load("@npm_bazel_typescript//:defs.bzl", "ts_setup_workspace")
 
 ts_setup_workspace()
 
 # TODO use fine-grained managed dependency
 yarn_install(
     name = "daml_extension_deps",
-    package_json = "//daml-foundations/daml-tools/daml-extension:package.json",
-    yarn_lock = "//daml-foundations/daml-tools/daml-extension:yarn.lock",
+    package_json = "//compiler/daml-extension:package.json",
+    yarn_lock = "//compiler/daml-extension:yarn.lock",
 )
 
 # TODO use fine-grained managed dependency
@@ -790,6 +811,15 @@ grpc_deps()
 load("@com_github_bazelbuild_buildtools//buildifier:deps.bzl", "buildifier_dependencies")
 
 buildifier_dependencies()
+
+nixpkgs_package(
+    name = "python3_nix",
+    attribute_path = "python3",
+    nix_file_deps = common_nix_file_deps,
+    repositories = dev_env_nix_repos,
+)
+
+register_toolchains("//:nix_python_toolchain") if not is_windows else None
 
 nixpkgs_package(
     name = "postgresql_nix",

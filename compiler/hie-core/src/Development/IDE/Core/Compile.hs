@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE CPP #-}
 
@@ -9,24 +8,22 @@
 --   Given a list of paths to find libraries, and a file to compile, produce a list of 'CoreModule' values.
 module Development.IDE.Core.Compile
   ( TcModuleResult(..)
-  , getGhcDynFlags
   , compileModule
-  , getSrcSpanInfos
   , parseModule
-  , parseFileContents
   , typecheckModule
   , computePackageDeps
+  , addRelativeImport
   ) where
 
-import           Development.IDE.GHC.Warnings
-import           Development.IDE.GHC.CPP
-import           Development.IDE.Types.Diagnostics
-import qualified Development.IDE.Import.FindImports as FindImports
-import           Development.IDE.GHC.Error
-import           Development.IDE.Spans.Calculate
+import Development.IDE.Core.RuleTypes
+import Development.IDE.GHC.CPP
+import Development.IDE.GHC.Error
+import Development.IDE.GHC.Warnings
+import Development.IDE.Types.Diagnostics
 import Development.IDE.GHC.Orphans()
 import Development.IDE.GHC.Util
 import Development.IDE.GHC.Compat
+import qualified GHC.LanguageExtensions.Type as GHC
 import Development.IDE.Types.Options
 import Development.IDE.Types.Location
 
@@ -45,8 +42,8 @@ import           StringBuffer                   as SB
 import           TidyPgm
 import qualified GHC.LanguageExtensions as LangExt
 
-import Control.DeepSeq
 import Control.Monad.Extra
+import Control.Monad.Except
 import Control.Monad.Trans.Except
 import qualified Data.Text as T
 import           Data.IORef
@@ -54,38 +51,9 @@ import           Data.List.Extra
 import           Data.Maybe
 import           Data.Tuple.Extra
 import qualified Data.Map.Strict                          as Map
-import           Development.IDE.Spans.Type
 import           System.FilePath
-import           System.Directory
 import System.IO.Extra
 import Data.Char
-
-
--- | Contains the typechecked module and the OrigNameCache entry for
--- that module.
-data TcModuleResult = TcModuleResult
-    { tmrModule     :: TypecheckedModule
-    , tmrModInfo    :: HomeModInfo
-    }
-instance Show TcModuleResult where
-    show = show . pm_mod_summary . tm_parsed_module . tmrModule
-
-instance NFData TcModuleResult where
-    rnf = rwhnf
-
-
--- | Get source span info, used for e.g. AtPoint and Goto Definition.
-getSrcSpanInfos
-    :: ParsedModule
-    -> HscEnv
-    -> [(Located ModuleName, Maybe NormalizedFilePath)]
-    -> TcModuleResult
-    -> IO [SpanInfo]
-getSrcSpanInfos mod env imports tc =
-    runGhcSession (Just mod) env
-        . getSpanInfo imports
-        $ tmrModule tc
-
 
 -- | Given a string buffer, return a pre-processed @ParsedModule@.
 parseModule
@@ -97,7 +65,7 @@ parseModule
 parseModule IdeOptions{..} env file =
     fmap (either (, Nothing) (second Just)) .
     -- We need packages since imports fail to resolve otherwise.
-    runGhcSession Nothing env . runExceptT . parseFileContents optPreprocessor file
+    runGhcEnv env . runExceptT . parseFileContents optPreprocessor file
 
 
 -- | Given a package identifier, what packages does it depend on
@@ -115,32 +83,30 @@ computePackageDeps env pkg = do
 
 -- | Typecheck a single module using the supplied dependencies and packages.
 typecheckModule
-    :: IdeOptions
-    -> HscEnv
+    :: HscEnv
     -> [TcModuleResult]
     -> ParsedModule
     -> IO ([FileDiagnostic], Maybe TcModuleResult)
-typecheckModule opt packageState deps pm =
+typecheckModule packageState deps pm =
     fmap (either (, Nothing) (second Just)) $
-    runGhcSession (Just pm) packageState $
+    runGhcEnv packageState $
         catchSrcErrors $ do
             setupEnv deps
             (warnings, tcm) <- withWarnings $ \tweak ->
                 GHC.typecheckModule pm{pm_mod_summary = tweak $ pm_mod_summary pm}
-            tcm2 <- mkTcModuleResult (optIfaceDir opt) tcm
+            tcm2 <- mkTcModuleResult tcm
             return (warnings, tcm2)
 
 -- | Compile a single type-checked module to a 'CoreModule' value, or
 -- provide errors.
 compileModule
-    :: ParsedModule
-    -> HscEnv
+    :: HscEnv
     -> [TcModuleResult]
     -> TcModuleResult
     -> IO ([FileDiagnostic], Maybe CoreModule)
-compileModule mod packageState deps tmr =
+compileModule packageState deps tmr =
     fmap (either (, Nothing) (second Just)) $
-    runGhcSession (Just mod) packageState $
+    runGhcEnv packageState $
         catchSrcErrors $ do
             setupEnv (deps ++ [tmr])
 
@@ -164,64 +130,21 @@ compileModule mod packageState deps tmr =
             return (warnings, core)
 
 
-getGhcDynFlags :: ParsedModule -> HscEnv -> IO DynFlags
-getGhcDynFlags mod pkg = runGhcSession (Just mod) pkg getSessionDynFlags
-
--- | Evaluate a GHC session using a new environment constructed with
--- the supplied options.
-runGhcSession
-    :: Maybe ParsedModule
-    -> HscEnv
-    -> Ghc a
-    -> IO a
-runGhcSession modu env act = runGhcEnv env $ do
-    modifyDynFlags $ \x -> x
-        {importPaths = nubOrd $ maybeToList (moduleImportPaths =<< modu) ++ importPaths x}
-    act
-
-
-moduleImportPaths :: GHC.ParsedModule -> Maybe FilePath
-moduleImportPaths pm
-  | rootModDir == "." = Just rootPathDir
-  | otherwise =
-    -- TODO (MK) stripSuffix (normalise rootModDir) (normalise rootPathDir)
-    -- would be a better choice but at the moment we do not consistently
-    -- normalize file paths in the Shake graph so we can end up with the
-    -- same module being represented twice in the Shake graph.
-    Just $ dropTrailingPathSeparator $ dropEnd (length rootModDir) rootPathDir
-  where
-    ms   = GHC.pm_mod_summary pm
-    file = GHC.ms_hspp_file ms
-    mod'  = GHC.ms_mod ms
-    rootPathDir  = takeDirectory file
-    rootModDir   = takeDirectory . moduleNameSlashes . GHC.moduleName $ mod'
-
+addRelativeImport :: ParsedModule -> DynFlags -> DynFlags
+addRelativeImport modu dflags = dflags
+    {importPaths = nubOrd $ maybeToList (moduleImportPaths modu) ++ importPaths dflags}
 
 mkTcModuleResult
     :: GhcMonad m
-    => InterfaceDirectory
-    -> TypecheckedModule
+    => TypecheckedModule
     -> m TcModuleResult
-mkTcModuleResult (InterfaceDirectory mbIfaceDir) tcm = do
-    session   <- getSession
-    (iface,_) <- liftIO $ mkIfaceTc session Nothing Sf_None details tcGblEnv
-    liftIO $ whenJust mbIfaceDir $ \ifaceDir -> do
-        let path = ifaceDir </> file tcm
-        createDirectoryIfMissing True (takeDirectory path)
-        writeIfaceFile (hsc_dflags session) (replaceExtension path ".hi") iface
-        -- For now, we write .hie files whenever we write .hi files which roughly corresponds to
-        -- when we are building a package. It should be easily decoupable if that turns out to be
-        -- useful.
-        hieFile <- runHsc session $ mkHieFile (tcModSummary tcm) tcGblEnv (fromJust $ renamedSource tcm)
-        writeHieFile (replaceExtension path ".hie") hieFile
+mkTcModuleResult tcm = do
+    session <- getSession
+    (iface, _) <- liftIO $ mkIfaceTc session Nothing Sf_None details tcGblEnv
     let mod_info = HomeModInfo iface details Nothing
     return $ TcModuleResult tcm mod_info
   where
-    file = ms_hspp_file . tcModSummary
     (tcGblEnv, details) = tm_internals_ tcm
-
-tcModSummary :: TypecheckedModule -> ModSummary
-tcModSummary = pm_mod_summary . tm_parsed_module
 
 -- | Setup the environment that GHC needs according to our
 -- best understanding (!)
@@ -262,6 +185,35 @@ loadModuleHome tmr = modifySession $ \e ->
     mod_info = tmrModInfo tmr
     mod      = ms_mod_name ms
 
+
+
+-- | GhcMonad function to chase imports of a module given as a StringBuffer. Returns given module's
+-- name and its imports.
+getImportsParsed ::  DynFlags ->
+               GHC.ParsedSource ->
+               Either [FileDiagnostic] (GHC.ModuleName, [(Maybe FastString, Located GHC.ModuleName)])
+getImportsParsed dflags (L loc parsed) = do
+  let modName = maybe (GHC.mkModuleName "Main") GHC.unLoc $ GHC.hsmodName parsed
+
+  -- refuse source imports
+  let srcImports = filter (ideclSource . GHC.unLoc) $ GHC.hsmodImports parsed
+  when (not $ null srcImports) $ Left $
+    concat
+      [ diagFromString mloc ("Illegal source import of " <> GHC.moduleNameString (GHC.unLoc $ GHC.ideclName i))
+      | L mloc i <- srcImports ]
+
+  -- most of these corner cases are also present in https://hackage.haskell.org/package/ghc-8.6.1/docs/src/HeaderInfo.html#getImports
+  -- but we want to avoid parsing the module twice
+  let implicit_prelude = xopt GHC.ImplicitPrelude dflags
+      implicit_imports = Hdr.mkPrelImports modName loc implicit_prelude $ GHC.hsmodImports parsed
+
+  -- filter out imports that come from packages
+  return (modName, [(fmap sl_fs $ ideclPkgQual i, ideclName i)
+    | i <- map GHC.unLoc $ implicit_imports ++ GHC.hsmodImports parsed
+    , GHC.moduleNameString (GHC.unLoc $ ideclName i) /= "GHC.Prim"
+    ])
+
+
 -- | Produce a module summary from a StringBuffer.
 getModSummaryFromBuffer
     :: GhcMonad m
@@ -271,7 +223,7 @@ getModSummaryFromBuffer
     -> GHC.ParsedSource
     -> ExceptT [FileDiagnostic] m ModSummary
 getModSummaryFromBuffer fp contents dflags parsed = do
-  (modName, imports) <- FindImports.getImportsParsed dflags parsed
+  (modName, imports) <- liftEither $ getImportsParsed dflags parsed
 
   let modLoc = ModLocation
           { ml_hs_file  = Just fp
@@ -289,10 +241,10 @@ getModSummaryFromBuffer fp contents dflags parsed = do
     { ms_mod          = mkModule (fsToUnitId unitId) modName
     , ms_location     = modLoc
     , ms_hs_date      = error "Rules should not depend on ms_hs_date"
-    -- ^ When we are working with a virtual file we do not have a file date.
-    -- To avoid silent issues where something is not processed because the date
-    -- has not changed, we make sure that things blow up if they depend on the
-    -- date.
+        -- When we are working with a virtual file we do not have a file date.
+        -- To avoid silent issues where something is not processed because the date
+        -- has not changed, we make sure that things blow up if they depend on the
+        -- date.
     , ms_textual_imps = imports
     , ms_hspp_file    = fp
     , ms_hspp_opts    = dflags

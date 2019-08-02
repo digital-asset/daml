@@ -6,7 +6,7 @@ package com.digitalasset.platform.tests.integration.ledger.api.commands
 import akka.NotUsed
 import akka.stream.scaladsl.{Sink, Source}
 import com.digitalasset.ledger.api.domain
-import com.digitalasset.ledger.api.testing.utils.MockMessages.{applicationId, party}
+import com.digitalasset.ledger.api.testing.utils.MockMessages.applicationId
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   SuiteResourceManagementAroundAll
@@ -47,6 +47,7 @@ import scalaz.syntax.tag._
 import scala.concurrent.Future
 import scala.concurrent.duration._
 
+import com.digitalasset.platform.apitesting.TestParties._
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandCompletionServiceIT
     extends AsyncWordSpec
@@ -71,11 +72,11 @@ class CommandCompletionServiceIT
     "listening for completions" should {
 
       "handle multi party subscriptions" in allFixtures { ctx =>
-        val configuredParties = config.parties.list.toList
+        val configuredParties = config.parties
         for {
           commandClient <- ctx.commandClient(ctx.ledgerId)
           tracker <- commandClient.trackCommands[String](configuredParties)
-          commands = configuredParties.map(p => Ctx(p, ctx.command(p, Nil)))
+          commands = configuredParties.map(p => Ctx(p, ctx.command(p, p, Nil)))
           result <- Source(commands).via(tracker).runWith(Sink.seq)
         } yield {
           val expected = configuredParties.map(p => (p, 0))
@@ -89,7 +90,7 @@ class CommandCompletionServiceIT
             ctx.commandCompletionService,
             ctx.ledgerId,
             applicationId,
-            Seq(party),
+            Seq(Alice),
             Some(LedgerOffset(Boundary(LEDGER_BEGIN))))
 
         val recordTimes = completionService.collect {
@@ -110,7 +111,7 @@ class CommandCompletionServiceIT
 
       "emit checkpoints with exclusive offsets (results for coming back with the same offset will not contain the records)" in allFixtures {
         ctx =>
-          val configuredParties = config.parties.list.toList
+          val configuredParties = config.parties
 
           def completionsFrom(offset: LedgerOffset) =
             completionSource(
@@ -132,7 +133,7 @@ class CommandCompletionServiceIT
             startingOffset = startingOffsetResponse.getOffset
             commandClient <- ctx.commandClient(ctx.ledgerId)
             commands = configuredParties
-              .map(p => ctx.command(p, Nil))
+              .map(p => ctx.command(p, p, Nil))
               .zipWithIndex
               .map { case (req, i) => req.update(_.commands.commandId := s"command-id-$i") }
             _ <- Future.sequence(
@@ -175,13 +176,13 @@ class CommandCompletionServiceIT
               createArguments = Some(
                 Record(
                   fields = Seq(
-                    RecordField("operator", Some(Value(Value.Sum.Party(party))))
+                    RecordField("operator", Some(Value(Value.Sum.Party(Alice))))
                   )
                 ))
             )))
 
         def trackDummyCreation(client: CommandClient, context: LedgerContext, id: String) =
-          client.trackSingleCommand(context.command(id, Seq(createDummyCommand)))
+          client.trackSingleCommand(context.command(id, Alice, Seq(createDummyCommand)))
 
         def trackDummyCreations(client: CommandClient, context: LedgerContext, ids: List[String]) =
           Future.sequence(ids.map(trackDummyCreation(client, context, _)))
@@ -190,12 +191,15 @@ class CommandCompletionServiceIT
         def tailCompletions(
             context: LedgerContext
         ): Future[Completion] = {
-          val (streamObserver, future) = FirstElementObserver[CompletionStreamResponse]
+          val (streamObserver, future) = FirstElementObserver.filter[CompletionStreamResponse] {
+            case CompletionStreamResponse(_, Nil) => false
+            case _ => true
+          }
           context.commandCompletionService.completionStream(
             CompletionStreamRequest(
               context.ledgerId.unwrap,
               applicationId,
-              Seq(party),
+              Seq(Alice),
               offset = None),
             streamObserver)
           future.map(_.get).collect {

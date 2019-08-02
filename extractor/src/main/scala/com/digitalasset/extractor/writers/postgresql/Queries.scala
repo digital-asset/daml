@@ -123,7 +123,6 @@ object Queries {
           ,contract_id TEXT NOT NULL
           ,package_id TEXT NOT NULL
           ,template TEXT NOT NULL
-          ,contract_creating_event_id TEXT NOT NULL
           ,choice TEXT NOT NULL
           ,choice_argument JSONB NOT NULL
           ,acting_parties JSONB NOT NULL
@@ -143,7 +142,6 @@ object Queries {
           ${event.contractId},
           ${event.templateId.packageId},
           ${event.templateId.name},
-          ${event.contractCreatingEventId},
           ${event.choice},
           ${toJsonString(event.choiceArgument)}::jsonb,
           ${toJsonString(event.actingParties)}::jsonb,
@@ -174,7 +172,7 @@ object Queries {
     """
 
     def setContractArchived(
-        eventId: String,
+        contractId: String,
         transactionId: String,
         archivedByEventId: String): Fragment =
       sql"""
@@ -182,7 +180,7 @@ object Queries {
         SET
           archived_by_transaction_id = ${transactionId},
           archived_by_event_id = ${archivedByEventId}
-        WHERE event_id = ${eventId}
+        WHERE contract_id = ${contractId}
       """
 
     def insertContract(event: CreatedEvent, transactionId: String, isRoot: Boolean): Fragment =
@@ -227,13 +225,13 @@ object Queries {
 
     def setContractArchived(
         table: String,
-        eventId: String,
+        contractId: String,
         transactionId: String,
         archivedByEventId: String
     ): Fragment =
       Fragment.const(s"UPDATE ${table} SET ") ++
         fr"_archived_by_transaction_id = ${transactionId}, " ++
-        fr"_archived_by_event_id = ${archivedByEventId} WHERE _event_id = ${eventId}"
+        fr"_archived_by_event_id = ${archivedByEventId} WHERE _contract_id = ${contractId}"
 
     def insertContract(
         table: String,
@@ -288,9 +286,9 @@ object Queries {
             "?::jsonb",
             toJsonString(v)
           )
-        case e @ V.ValueEnum(_, _) =>
-          // FixMe (RH) https://github.com/digital-asset/daml/issues/105
-          throw new NotImplementedError("Enum types not supported")
+
+        case e @ V.ValueEnum(_, constructor) =>
+          Fragment("?", constructor: String)
 
         case o @ V.ValueOptional(_) =>
           Fragment(

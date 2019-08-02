@@ -25,7 +25,19 @@ def _dev_env_package_impl(ctx):
     else:
         tool_home = "../%s" % ctx.attr.nix_label.name
 
-    ctx.symlink(tool_home, ctx.path(ctx.attr.symlink_path))
+    python = ctx.which("python3")
+    if python == None:
+        python = ctx.which("python")
+    if python == None:
+        fail("Cannot find python3 executable")
+    list_contents = ctx.path(Label("//bazel_tools/dev_env_package:dev_env_package.py"))
+    res = ctx.execute([python, list_contents, tool_home])
+    if res.return_code != 0:
+        fail("Failed to list contents\nstdout:{}\nstderr:{}\n".format(res.stdout, res.stderr))
+    for item in res.stdout.splitlines():
+        src = tool_home + "/" + item
+        dst = ctx.path(ctx.attr.symlink_path + "/" + item)
+        ctx.symlink(src, dst)
 
     build_path = ctx.path("BUILD")
     build_content = _dev_env_package_build_template.format(

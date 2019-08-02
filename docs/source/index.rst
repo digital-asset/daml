@@ -18,7 +18,6 @@ DAML SDK documentation
    :caption: Getting started
 
    Installing the SDK <getting-started/installation>
-   getting-started/introduction
    getting-started/quickstart
 
 .. toctree::
@@ -68,6 +67,14 @@ DAML SDK documentation
 
    concepts/glossary
    concepts/ledger-model/index
+
+.. toctree::
+   :titlesonly:
+   :maxdepth: 2
+   :hidden:
+   :caption: Deploying
+
+   deploy/index
 
 .. toctree::
    :titlesonly:

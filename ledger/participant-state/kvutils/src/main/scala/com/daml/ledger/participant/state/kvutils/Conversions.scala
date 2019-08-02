@@ -9,6 +9,7 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{Configuration, SubmittedTransaction, SubmitterInfo}
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import com.digitalasset.daml.lf.transaction.{
   Transaction,
   TransactionOuterClass,
@@ -17,15 +18,15 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
+  ContractId,
   NodeId,
   RelativeContractId,
-  ContractId
+  VersionedValue
 }
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.ValueOuterClass
 import com.digitalasset.daml.lf.transaction.TransactionCoder
 import com.digitalasset.daml.lf.value.ValueCoder
-
 import com.daml.ledger.participant.state.backport.TimeModel
 import com.google.common.io.BaseEncoding
 import com.google.protobuf.ByteString
@@ -79,13 +80,55 @@ private[kvutils] object Conversions {
       entryId: DamlLogEntryId,
       rcoid: RelativeContractId): DamlStateKey =
     DamlStateKey.newBuilder
-      .setContractId(
-        DamlContractId.newBuilder
-          .setEntryId(entryId)
-          .setNodeId(rcoid.txnid.index.toLong)
-          .build
-      )
+      .setContractId(encodeRelativeContractId(entryId, rcoid))
       .build
+
+  def encodeRelativeContractId(entryId: DamlLogEntryId, rcoid: RelativeContractId): DamlContractId =
+    DamlContractId.newBuilder
+      .setEntryId(entryId)
+      .setNodeId(rcoid.txnid.index.toLong)
+      .build
+
+  def decodeContractId(coid: DamlContractId): AbsoluteContractId = {
+    val hexTxId =
+      BaseEncoding.base16.encode(coid.getEntryId.getEntryId.toByteArray)
+    AbsoluteContractId(ContractIdString.assertFromString(s"$hexTxId:${coid.getNodeId}"))
+  }
+
+  def stateKeyToContractId(key: DamlStateKey): AbsoluteContractId = {
+    // FIXME(JM): Graceful error handling
+    decodeContractId(key.getContractId)
+  }
+
+  def encodeContractKey(key: GlobalKey): DamlContractKey = {
+    val encodedValue = valEncoder(key.key)
+      .getOrElse(sys.error(s"contractKeyToStateKey: Cannot encode ${key.key}!"))
+      ._2
+
+    DamlContractKey.newBuilder
+      .setTemplateId(ValueCoder.encodeIdentifier(key.templateId))
+      .setKey(encodedValue)
+      .build
+
+  }
+
+  def decodeContractKey(key: DamlContractKey): GlobalKey = {
+    GlobalKey(
+      ValueCoder
+        .decodeIdentifier(key.getTemplateId)
+        .getOrElse(
+          sys.error(s"decodeContractKey: Cannot decode template id!")
+        ),
+      forceAbsoluteContractIds(
+        valDecoder(key.getKey).getOrElse(sys.error("decodeContractKey: Cannot decode key!")))
+    )
+  }
+
+  def contractKeyToStateKey(key: GlobalKey): DamlStateKey = {
+    DamlStateKey.newBuilder
+      .setContractKey(encodeContractKey(key))
+      .build
+  }
 
   def commandDedupKey(subInfo: DamlSubmitterInfo): DamlStateKey = {
     DamlStateKey.newBuilder
@@ -166,6 +209,13 @@ private[kvutils] object Conversions {
       )
       .fold(err => sys.error(s"decodeTransaction error: $err"), _.transaction)
   }
+
+  def forceAbsoluteContractIds(v: VersionedValue[ContractId]): VersionedValue[AbsoluteContractId] =
+    v.mapContractId {
+      case _: RelativeContractId =>
+        sys.error("Relative contract identifier encountered in contract key!")
+      case acoid: AbsoluteContractId => acoid
+    }
 
   // FIXME(JM): Should we have a well-defined schema for this?
   private val cidEncoder: ValueCoder.EncodeCid[ContractId] = {

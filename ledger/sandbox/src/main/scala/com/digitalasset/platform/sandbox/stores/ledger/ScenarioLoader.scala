@@ -7,7 +7,6 @@ import java.time.Instant
 
 import com.digitalasset.daml.lf.CompiledPackages
 import com.digitalasset.daml.lf.data._
-import com.digitalasset.daml.lf.engine.DeprecatedIdentifier
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast.{DDataType, DValue, Definition}
 import com.digitalasset.daml.lf.speedy.{ScenarioRunner, Speedy}
@@ -18,6 +17,8 @@ import org.slf4j.LoggerFactory
 import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.types.Ledger.ScenarioTransactionId
 import com.digitalasset.platform.sandbox.stores.ledger.LedgerEntry.Transaction
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 import scala.collection.breakOut
 import scala.collection.mutable.ArrayBuffer
@@ -39,7 +40,12 @@ object ScenarioLoader {
     * otherwise we'll get duplicates. See
     * <https://github.com/digital-asset/daml/issues/1079>.
     */
-  case class LedgerEntryWithLedgerEndIncrement(entry: LedgerEntry, increment: Long)
+  sealed abstract class LedgerEntryOrBump extends Serializable with Product
+
+  object LedgerEntryOrBump {
+    final case class Entry(ledgerEntry: LedgerEntry) extends LedgerEntryOrBump
+    final case class Bump(bump: Int) extends LedgerEntryOrBump
+  }
 
   /**
     * @param packages All the packages where we're going to look for the scenario definition.
@@ -54,8 +60,7 @@ object ScenarioLoader {
   def fromScenario(
       packages: InMemoryPackageStore,
       compiledPackages: CompiledPackages,
-      scenario: String)
-    : (InMemoryActiveContracts, ImmArray[LedgerEntryWithLedgerEndIncrement], Instant) = {
+      scenario: String): (InMemoryActiveContracts, ImmArray[LedgerEntryOrBump], Instant) = {
     val (scenarioLedger, scenarioRef) = buildScenarioLedger(packages, compiledPackages, scenario)
     // we store the tx id since later we need to recover how much to bump the
     // ledger end by, and here the transaction id _is_ the ledger end.
@@ -71,22 +76,38 @@ object ScenarioLoader {
     // now decorate the entries with what the next increment is
     @tailrec
     def decorateWithIncrement(
-        processed: BackStack[LedgerEntryWithLedgerEndIncrement],
-        toProcess: ImmArray[(ScenarioTransactionId, LedgerEntry)])
-      : ImmArray[LedgerEntryWithLedgerEndIncrement] =
+        processed: BackStack[LedgerEntryOrBump],
+        toProcess: ImmArray[(ScenarioTransactionId, LedgerEntry)]): ImmArray[LedgerEntryOrBump] = {
+
+      def bumps(entryTxId: ScenarioTransactionId, nextTxId: ScenarioTransactionId) =
+        if ((nextTxId.index - entryTxId.index) == 1)
+          ImmArray.empty
+        else
+          ImmArray(LedgerEntryOrBump.Bump((nextTxId.index - entryTxId.index - 1)))
+
       toProcess match {
         case ImmArray() => processed.toImmArray
+        // we have to bump the offsets when the first one is not zero (passTimes),
+        case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _))
+            if (processed.isEmpty && entryTxId.index > 0) =>
+          val newProcessed = (processed :++ ImmArray(
+            LedgerEntryOrBump.Bump(entryTxId.index),
+            LedgerEntryOrBump.Entry(entry))) :++ bumps(entryTxId, nextTxId)
+
+          decorateWithIncrement(newProcessed, entries)
         // the last one just bumps by 1 -- it does not matter as long as it's
         // positive
         case ImmArrayCons((_, entry), ImmArray()) =>
-          (processed :+ LedgerEntryWithLedgerEndIncrement(entry, 1)).toImmArray
+          (processed :+ LedgerEntryOrBump.Entry(entry)).toImmArray
+
         case ImmArrayCons((entryTxId, entry), entries @ ImmArrayCons((nextTxId, next), _)) =>
-          decorateWithIncrement(
-            processed :+ LedgerEntryWithLedgerEndIncrement(
-              entry,
-              (nextTxId.index - entryTxId.index).toLong),
-            entries)
+          val newProcessed = processed :+ LedgerEntryOrBump.Entry(entry) :++ bumps(
+            entryTxId,
+            nextTxId)
+
+          decorateWithIncrement(newProcessed, entries)
       }
+    }
     (acs, decorateWithIncrement(BackStack.empty, ImmArray(ledgerEntries)), time.toInstant)
   }
 
@@ -95,11 +116,12 @@ object ScenarioLoader {
       compiledPackages: CompiledPackages,
       scenario: String): (L.Ledger, Ref.DefinitionRef) = {
     val scenarioQualName = getScenarioQualifiedName(packages, scenario)
-    val candidateScenarios: List[(Ref.DefinitionRef, Definition)] =
+    val candidateScenarios: List[(Ref.DefinitionRef, LanguageVersion, Definition)] =
       getCandidateScenarios(packages, scenarioQualName)
-    val (scenarioRef, scenarioDef) = identifyScenario(packages, scenario, candidateScenarios)
+    val (scenarioRef, scenarioLfVers, scenarioDef) =
+      identifyScenario(packages, scenario, candidateScenarios)
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
-    val speedyMachine = getSpeedyMachine(scenarioExpr, compiledPackages)
+    val speedyMachine = getSpeedyMachine(scenarioLfVers, scenarioExpr, compiledPackages)
     val scenarioLedger = getScenarioLedger(scenarioRef, speedyMachine)
     (scenarioLedger, scenarioRef)
   }
@@ -115,11 +137,13 @@ object ScenarioLoader {
   }
 
   private def getSpeedyMachine(
+      submissionVersion: LanguageVersion,
       scenarioExpr: Ast.Expr,
       compiledPackages: CompiledPackages): Speedy.Machine = {
     Speedy.Machine.newBuilder(compiledPackages) match {
       case Left(err) => throw new RuntimeException(s"Could not build speedy machine: $err")
-      case Right(build) => build(scenarioExpr)
+      case Right(build) =>
+        build(VersionTimeline.checkSubmitterInMaintainers(submissionVersion), scenarioExpr)
     }
   }
 
@@ -135,8 +159,8 @@ object ScenarioLoader {
   private def identifyScenario(
       packages: InMemoryPackageStore,
       scenario: String,
-      candidateScenarios: List[(Ref.DefinitionRef, Definition)])
-    : (Ref.DefinitionRef, Definition) = {
+      candidateScenarios: List[(Ref.DefinitionRef, LanguageVersion, Definition)])
+    : (Ref.DefinitionRef, LanguageVersion, Definition) = {
     candidateScenarios match {
       case Nil =>
         throw new RuntimeException(
@@ -151,7 +175,7 @@ object ScenarioLoader {
   private def getCandidateScenarios(
       packages: InMemoryPackageStore,
       scenarioQualName: Ref.QualifiedName
-  ): List[(Ref.Identifier, Definition)] = {
+  ): List[(Ref.Identifier, LanguageVersion, Definition)] = {
     packages
       .listLfPackagesSync()
       .flatMap {
@@ -160,7 +184,12 @@ object ScenarioLoader {
             .getLfPackageSync(packageId)
             .getOrElse(sys.error(s"Listed package $packageId not found"))
           pkg.lookupIdentifier(scenarioQualName) match {
-            case Right(x) => List((Ref.Identifier(packageId, scenarioQualName), x))
+            case Right(x) =>
+              List(
+                (
+                  Ref.Identifier(packageId, scenarioQualName),
+                  pkg.modules(scenarioQualName.module).languageVersion,
+                  x))
             case Left(_) => List()
           }
       }(breakOut)
@@ -171,27 +200,9 @@ object ScenarioLoader {
       scenario: String
   ): Ref.QualifiedName = {
     Ref.QualifiedName.fromString(scenario) match {
-      case Left(err) =>
-        logger.warn(
-          "Dot-separated scenario specification is deprecated. Names are Module.Name:Inner.Name, with a colon between module name and the name of the definition. Falling back to deprecated name resolution.")
-        packages
-          .listLfPackagesSync()
-          .iterator
-          .map {
-            case (pkgId, _) =>
-              DeprecatedIdentifier.lookup(
-                packages
-                  .getLfPackageSync(pkgId)
-                  .getOrElse(sys.error(s"Listed package $pkgId not found")),
-                scenario)
-          }
-          .collectFirst {
-            case Right(qualifiedName) => qualifiedName
-          }
-          .getOrElse {
-            throw new RuntimeException(
-              s"Cannot find scenario $scenario in packages ${packages.listLfPackagesSync().keys.mkString("[", ", ", "]")}. Try using Module.Name:Inner.Name style scenario name specification.")
-          }
+      case Left(_) =>
+        throw new RuntimeException(
+          s"Cannot find scenario $scenario in packages ${packages.listLfPackagesSync().keys.mkString("[", ", ", "]")}.")
       case Right(x) => x
     }
   }

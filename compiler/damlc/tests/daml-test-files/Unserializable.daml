@@ -1,0 +1,53 @@
+-- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- Test the serializability checker for DAML LF.
+-- We use the template typeclass and instances directly as otherwise the error
+-- is caught prior due to missing Eq and Show instances.
+
+-- @ERROR expected serializable type
+daml 1.2
+module Unserializable where
+
+data Unserializable = Unserializable with
+    p : Party
+    f : Text -> Text
+
+class UnserializableInstance where
+  signatoryUnserializable : Unserializable -> [Party]
+  signatoryUnserializable this@Unserializable{..} = [p]
+  observerUnserializable : Unserializable -> [Party]
+  observerUnserializable this@Unserializable{..} = []
+  ensureUnserializable : Unserializable -> Bool
+  ensureUnserializable this@Unserializable{..} = True
+  agreementUnserializable : Unserializable -> Text
+  agreementUnserializable this@Unserializable{..} = ""
+  createUnserializable : Unserializable -> Update (ContractId Unserializable)
+  createUnserializable = error "code will be injected by the compiler"
+  fetchUnserializable : ContractId Unserializable -> Update Unserializable
+  fetchUnserializable = error "code will be injected by the compiler"
+  archiveUnserializable : ContractId Unserializable -> Update ()
+  archiveUnserializable cid = exerciseUnserializableArchive cid Archive
+
+  consumptionUnserializableArchive : PreConsuming Unserializable
+  consumptionUnserializableArchive = PreConsuming
+  controllerUnserializableArchive : Unserializable -> Archive -> [Party]
+  controllerUnserializableArchive this@Unserializable{..} arg@Archive = signatoryUnserializable this
+  actionUnserializableArchive : ContractId Unserializable -> Unserializable -> Archive -> Update ()
+  actionUnserializableArchive self this@Unserializable{..} arg@Archive = pure ()
+  exerciseUnserializableArchive : ContractId Unserializable -> Archive -> Update ()
+  exerciseUnserializableArchive = error "code will be injected by the compiler"
+
+instance UnserializableInstance
+
+instance UnserializableInstance => Template Unserializable where
+  signatory = signatoryUnserializable
+  observer = observerUnserializable
+  ensure = ensureUnserializable
+  agreement = agreementUnserializable
+  create = createUnserializable
+  fetch = fetchUnserializable
+  archive = archiveUnserializable
+
+instance Choice Unserializable Archive () where
+  exercise = exerciseUnserializableArchive

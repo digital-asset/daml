@@ -214,12 +214,47 @@ genrule(
     ],
 )
 
+filegroup(
+    name = "ledger-api-protos-fg-admin",
+    srcs = glob(["com/digitalasset/ledger/api/v1/admin/*.proto"]),
+    visibility = ["//visibility:private"],
+)
+
+ledger_api_haskellpb_sources_admin = [
+    "PackageManagementService.hs",
+    "PartyManagementService.hs",
+]
+
+genrule(
+    name = "ledger-api-haskellpb-sources-admin",
+    srcs = [
+        "@com_google_protobuf//:well_known_protos",
+        "@com_github_googleapis_googleapis//google/rpc:status.proto",
+        ":ledger-api-protos-fg-admin",
+    ],
+    outs = ["Com/Digitalasset/Ledger/Api/V1/Admin/" + b for b in ledger_api_haskellpb_sources_admin],
+    cmd = """
+        for src in $(locations :ledger-api-protos-fg-admin); do
+            $(location @haskell_proto3__suite//:compile-proto-file) \
+                --includeDir """ + google_protobuf_src + """ \
+                --includeDir """ + google_rpc_src + """ \
+                --includeDir """ + ledger_api_proto_source_root + """ \
+                --proto com/digitalasset/ledger/api/v1/admin/$$(basename $$src) \
+                --out $(@D)
+        done
+    """,
+    tools = [
+        "@haskell_proto3__suite//:compile-proto-file",
+    ],
+)
+
 da_haskell_library(
     name = "ledger-api-haskellpb",
     srcs = [
         ":google-protobuf-haskellpb-sources",
         ":google-rpc-haskellpb-sources",
         ":ledger-api-haskellpb-sources",
+        ":ledger-api-haskellpb-sources-admin",
         ":ledger-api-haskellpb-sources-testing",
     ],
     compiler_flags = ["-O0"],

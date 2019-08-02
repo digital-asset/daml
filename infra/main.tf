@@ -18,6 +18,10 @@ provider "google-beta" {
   region  = "us-east4"
 }
 
+data "google_project" "current" {
+  project_id = "${local.project}"
+}
+
 locals {
   labels = {
     cost-allocation = "daml-language"

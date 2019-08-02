@@ -3,11 +3,13 @@
 
 package com.digitalasset.platform.tests.integration.ledger.api
 
+import java.util.UUID
+
 import akka.stream.scaladsl.Sink
 import com.digitalasset.ledger.api.domain
 import com.digitalasset.ledger.api.testing.utils._
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
-import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.command_submission_service.SubmitRequest
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset.Value.Absolute
@@ -18,9 +20,13 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 }
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.services.acs.ActiveContractSetClient
-import com.digitalasset.ledger.client.services.commands.SynchronousCommandClient
 import com.digitalasset.ledger.client.services.transactions.TransactionClient
-import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestCommands}
+import com.digitalasset.platform.apitesting.{
+  LedgerContext,
+  MultiLedgerFixture,
+  TestCommands,
+  TestIdsGenerator
+}
 import com.digitalasset.platform.ledger.acs.data.{AcsFutures, AcsTestUtil}
 import io.grpc.Status
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
@@ -41,7 +47,7 @@ class ActiveContractsServiceIT
     with MultiLedgerFixture
     with AcsTestUtil
     with AcsFutures
-    with SuiteResourceManagementAroundEach
+    with SuiteResourceManagementAroundAll
     with ScalaFutures
     with AsyncTimeLimitedTests
     with Matchers
@@ -51,21 +57,16 @@ class ActiveContractsServiceIT
 
   protected val testCommands = new TestCommands(config)
   protected val templateIds = testCommands.templateIds
+  private val testIds = new TestIdsGenerator(config)
 
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(30000, Millis)), scaled(Span(500, Millis)))
 
-  private def client(ctx: LedgerContext): ActiveContractSetClient =
-    new ActiveContractSetClient(ctx.ledgerId, ctx.acsService)
-
-  private def commandClient(ctx: LedgerContext): SynchronousCommandClient =
-    new SynchronousCommandClient(ctx.commandService)
-
   private def transactionClient(ctx: LedgerContext): TransactionClient =
     new TransactionClient(ctx.ledgerId, ctx.transactionService)
 
-  private def submitRequest(ctx: LedgerContext, request: SubmitAndWaitRequest) =
-    commandClient(ctx).submitAndWait(request)
+  private def submitRequest(ctx: LedgerContext, request: SubmitRequest) =
+    ctx.commandClient().flatMap(_.trackSingleCommand(request))
 
   private def extractEvents(response: GetActiveContractsResponse): Set[CreatedEvent] =
     response.activeContracts.toSet
@@ -74,10 +75,11 @@ class ActiveContractsServiceIT
 
   private def validateResponses(
       responses: Seq[GetActiveContractsResponse],
+      workflowId: String,
       parties: List[String] = List("Alice")): Assertion = {
     responses.dropRight(1) foreach { response =>
       response.activeContracts should not be empty
-      response.workflowId shouldEqual MockMessages.workflowId
+      response.workflowId shouldEqual workflowId
       response.offset shouldEqual ""
       response.activeContracts.foreach(_.witnessParties should equal(parties))
     }
@@ -97,10 +99,10 @@ class ActiveContractsServiceIT
       case ce @ CreatedEvent(_, _, Some(`template`), _, _, _, _, _, _) => ce
     }.size should equal(occurrence)
 
-  def threeCommands(ledgerId: domain.LedgerId, commandId: String): SubmitAndWaitRequest =
-    testCommands.toWait(testCommands.dummyCommands(ledgerId, commandId, "Alice"))
+  def threeCommands(ledgerId: domain.LedgerId, workflowId: String): SubmitRequest =
+    testCommands.dummyCommands(ledgerId, uniqueCmdId, "Alice", workflowId)
 
-  private def filter = TransactionFilter(Map(config.parties.head -> Filters()))
+  private def uniqueCmdId = testIds.testCommandId(UUID.randomUUID().toString)
 
   "Active Contract Set Service" when {
     "asked for active contracts" should {
@@ -108,7 +110,7 @@ class ActiveContractsServiceIT
         new ActiveContractSetClient(
           domain.LedgerId(s"not-${context.ledgerId.unwrap}"),
           context.acsService)
-          .getActiveContracts(filter)
+          .getActiveContracts(TransactionFilter(Map("not-relevant" -> Filters())))
           .runWith(Sink.head)(materializer)
           .failed map { ex =>
           IsStatusException(Status.NOT_FOUND.getCode)(ex)
@@ -116,7 +118,13 @@ class ActiveContractsServiceIT
       }
 
       "succeed with empty response" in allFixtures { context =>
-        context.acsClient.getActiveContracts(filter).runWith(Sink.seq)(materializer) map {
+        // using a UUID as party name to make it very likely that the this party doesn't see any
+        // contracts yet. in the future we need to allocate a new party before each run to make this
+        // test useful
+        val filter = TransactionFilter(Map(UUID.randomUUID().toString -> Filters()))
+        context.acsClient
+          .getActiveContracts(filter)
+          .runWith(Sink.seq)(materializer) map {
           // The sandbox sends an empty response, but the ACS app sends a response containing genesis predecessor.
           _.flatMap(_.activeContracts) should be(empty)
         }
@@ -125,17 +133,19 @@ class ActiveContractsServiceIT
 
     "contracts have been created" should {
       "return them in an ACS snapshot" in allFixtures { ctx =>
+        val wfid = testIds.testWorkflowId("created")
         val resultsF = for {
-          _ <- submitRequest(ctx, threeCommands(ctx.ledgerId, "created"))
+          _ <- submitRequest(ctx, threeCommands(ctx.ledgerId, wfid))
           responses <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfid),
             Map("Alice" -> Filters()),
             3)
         } yield responses
 
         resultsF map { responses =>
-          validateResponses(responses)
+          validateResponses(responses, wfid)
 
           val events = responses.flatMap(extractEvents)
           events.size shouldEqual 3
@@ -143,23 +153,28 @@ class ActiveContractsServiceIT
           lookForContract(events, templateIds.dummy)
           lookForContract(events, templateIds.dummyWithParam)
           lookForContract(events, templateIds.dummyFactory)
+
+          every(events.map(_.signatories)) should contain only ("Alice")
+          every(events.map(_.observers)) shouldBe empty
         }
       }
     }
 
     "contracts have been created and filtered by template" should {
       "return them in an ACS snapshot" in allFixtures { ctx =>
+        val wfid = testIds.testWorkflowId("template-test-created")
         val resultsF = for {
-          _ <- submitRequest(ctx, threeCommands(ctx.ledgerId, "template-test-created"))
+          _ <- submitRequest(ctx, threeCommands(ctx.ledgerId, wfid))
           responses <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfid),
             Map("Alice" -> Filters(Some(InclusiveFilters(List(templateIds.dummy))))),
             1)
         } yield responses
 
         resultsF map { responses =>
-          validateResponses(responses)
+          validateResponses(responses, wfid)
 
           val events = responses.flatMap(extractEvents)
           events.size shouldEqual 1
@@ -182,32 +197,36 @@ class ActiveContractsServiceIT
           }.head
         }
 
+        val wfid = testIds.testWorkflowId("acs-exercise-test")
+
         val resultsF = for {
-          _ <- submitRequest(ctx, threeCommands(ctx.ledgerId, "exercise-test-created"))
+          _ <- submitRequest(ctx, threeCommands(ctx.ledgerId, wfid))
           responses1 <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfid),
             Map("Alice" -> Filters(None)),
             3)
           contractId = extractContractId(responses1)
           _ <- submitRequest(
             ctx,
-            testCommands.toWait(
-              testCommands.buildRequest(
-                ctx.ledgerId,
-                "exercise-test-exercised",
-                Seq(testCommands.exerciseWithUnit(templateIds.dummy, contractId, "DummyChoice1")),
-                "Alice"))
+            testCommands.buildRequest(
+              ctx.ledgerId,
+              commandId = uniqueCmdId,
+              Seq(testCommands.exerciseWithUnit(templateIds.dummy, contractId, "DummyChoice1")),
+              "Alice",
+              workflowId = wfid)
           )
           responses2 <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfid),
             Map("Alice" -> Filters(None)),
             2)
         } yield responses2
 
         resultsF map { responses =>
-          validateResponses(responses)
+          validateResponses(responses, wfid)
 
           val events = responses.flatMap(extractEvents)
           events.size shouldEqual 2
@@ -224,41 +243,49 @@ class ActiveContractsServiceIT
         def extractOffset(snapshot: Seq[GetActiveContractsResponse]) =
           snapshot.last.offset
 
+        val wfid1 = testIds.testWorkflowId("workflow1")
+        val wfid2 = testIds.testWorkflowId("workflow2")
+        val cmdId1 = uniqueCmdId
+        val cmdId2 = uniqueCmdId
+
         val resultsF = for {
           _ <- submitRequest(
             ctx,
-            testCommands.toWait(
-              testCommands.buildRequest(
-                ctx.ledgerId,
-                "commandId1",
-                Seq(testCommands.createWithOperator(templateIds.dummy, "Alice")),
-                "Alice")))
+            testCommands.buildRequest(
+              ctx.ledgerId,
+              commandId = cmdId1,
+              Seq(testCommands.createWithOperator(templateIds.dummy, "Alice")),
+              "Alice",
+              workflowId = wfid1)
+          )
           responses1 <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfid1),
             Map("Alice" -> Filters(None)),
             1)
           offset = extractOffset(responses1)
           _ <- submitRequest(
             ctx,
-            testCommands.toWait(
-              testCommands.buildRequest(
-                ctx.ledgerId,
-                "commandId2",
-                Seq(testCommands.createWithOperator(templateIds.dummyWithParam, "Alice")),
-                "Alice"))
+            testCommands.buildRequest(
+              ctx.ledgerId,
+              commandId = cmdId2,
+              Seq(testCommands.createWithOperator(templateIds.dummyWithParam, "Alice")),
+              "Alice",
+              workflowId = wfid2)
           )
           responses2 <- transactionClient(ctx)
             .getTransactions(
               LedgerOffset(Absolute(offset)),
               None,
               TransactionFilter(Map("Alice" -> Filters(None))))
+            .filter(_.workflowId == wfid2)
             .take(1)
             .runWith(Sink.seq)
         } yield responses2
 
         resultsF map { responses =>
-          responses.head.commandId should equal("commandId2")
+          responses.head.commandId shouldEqual cmdId2
 
           val events = responses.head.events.flatMap(extractEvents)
 
@@ -270,11 +297,13 @@ class ActiveContractsServiceIT
 
     "verbosity flag is true" should {
       "disclose field names" in forAllFixtures { ctx =>
+        val wfid = testIds.testWorkflowId("verbose-created")
         for {
-          _ <- submitRequest(ctx.context(), threeCommands(ctx.context().ledgerId, "created"))
+          _ <- submitRequest(ctx.context(), threeCommands(ctx.context().ledgerId, wfid))
           responses <- waitForActiveContracts(
             ctx.context().acsService,
             ctx.context().ledgerId,
+            Set(wfid),
             Map("Alice" -> Filters()),
             3,
             verbose = true)
@@ -288,37 +317,44 @@ class ActiveContractsServiceIT
 
     "multi-party request comes" should {
       "return the correct set of related contracts" in allFixtures { ctx =>
+        val wfidAlice = testIds.testWorkflowId("alice-acsCommand-1")
+        val wfidBob = testIds.testWorkflowId("bob-acsCommand-2")
         val resultsF = for {
           _ <- submitRequest(
             ctx,
-            testCommands.toWait(testCommands.dummyCommands(ctx.ledgerId, "acsCommand-1", "Alice")))
+            testCommands.dummyCommands(ctx.ledgerId, uniqueCmdId, "Alice", wfidAlice))
           _ <- submitRequest(
             ctx,
-            testCommands.toWait(testCommands.dummyCommands(ctx.ledgerId, "acsCommand-2", "Bob")))
+            testCommands.dummyCommands(ctx.ledgerId, uniqueCmdId, "Bob", wfidBob))
           allContractsForAlice <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfidAlice),
             Map("Alice" -> Filters(None)),
             3)
           allContractsForBob <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfidBob),
             Map("Bob" -> Filters(None)),
             3)
           allContractsForAliceAndBob <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfidAlice, wfidBob),
             Map("Alice" -> Filters(None), "Bob" -> Filters(None)),
             6)
           dummyContractsForAlice <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfidAlice),
             Map("Alice" -> Filters(Some(InclusiveFilters(List(templateIds.dummy))))),
             1)
 
           dummyContractsForAliceAndBob <- waitForActiveContracts(
             ctx.acsService,
             ctx.ledgerId,
+            Set(wfidAlice, wfidBob),
             Map(
               "Alice" -> Filters(Some(InclusiveFilters(List(templateIds.dummy)))),
               "Bob" -> Filters(Some(InclusiveFilters(List(templateIds.dummy))))),

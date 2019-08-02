@@ -3,12 +3,15 @@
 
 package com.digitalasset.daml.lf
 
+import scalaz.NonEmptyList
+
 import scala.collection.breakOut
 
-abstract class LfVersions[V](protected val maxVersion: V, previousVersions: List[V])(
-    protoValue: V => String) {
+abstract class LfVersions[V](versionsAscending: NonEmptyList[V])(protoValue: V => String) {
 
-  val acceptedVersions: List[V] = previousVersions :+ maxVersion
+  protected val maxVersion: V = versionsAscending.last
+
+  val acceptedVersions: List[V] = versionsAscending.list.toList
 
   private val acceptedVersionsMap: Map[String, V] =
     acceptedVersions.map(v => (protoValue(v), v))(breakOut)

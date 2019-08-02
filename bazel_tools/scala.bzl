@@ -293,7 +293,7 @@ def _scaladoc_jar_impl(ctx):
                 # which breaks scala macros
 
             elif hasattr(p, "files"):
-                pluginPaths.extend([f for f in p.files if "-sources.jar" not in f.basename])
+                pluginPaths.extend([f for f in p.files.to_list() if "-sources.jar" not in f.basename])
 
         transitive_deps = [dep[JavaInfo].transitive_deps for dep in ctx.attr.deps]
         classpath = depset([], transitive = transitive_deps).to_list()
@@ -306,6 +306,7 @@ def _scaladoc_jar_impl(ctx):
         args.add_joined(classpath, join_with = ":")
         args.add_joined(pluginPaths, join_with = ",", format_joined = "-Xplugin:%s")
         args.add_all(common_scalacopts)
+        args.add_all(ctx.attr.scalacopts)
         args.add_all(srcFiles)
 
         ctx.actions.run(
@@ -348,6 +349,7 @@ scaladoc_jar = rule(
         "doctitle": attr.string(default = ""),
         "plugins": attr.label_list(default = []),
         "srcs": attr.label_list(allow_files = True),
+        "scalacopts": attr.string_list(),
         "_zipper": attr.label(
             default = Label("@bazel_tools//tools/zip:zipper"),
             cfg = "host",
@@ -386,6 +388,7 @@ def _create_scaladoc_jar(**kwargs):
             deps = kwargs["deps"],
             plugins = plugins,
             srcs = kwargs["srcs"],
+            scalacopts = kwargs.get("scalacopts", []),
         )
 
 def da_scala_library(name, **kwargs):

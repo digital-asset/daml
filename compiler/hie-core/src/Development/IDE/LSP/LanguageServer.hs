@@ -1,10 +1,9 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings  #-}
 {-# LANGUAGE ExistentialQuantification  #-}
 
--- WARNING: A copy of DA.Service.Daml.LanguageServer, try to keep them in sync
+-- WARNING: A copy of DA.Daml.LanguageServer, try to keep them in sync
 -- This version removes the daml: handling
 module Development.IDE.LSP.LanguageServer
     ( runLanguageServer

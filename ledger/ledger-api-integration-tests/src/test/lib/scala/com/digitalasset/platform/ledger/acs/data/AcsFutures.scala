@@ -54,6 +54,7 @@ trait AcsFutures extends Matchers with ScalaFutures {
   def waitForActiveContracts(
       service: ActiveContractsService,
       ledgerId: domain.LedgerId,
+      workflowIds: Set[String],
       transactionFilter: Map[String, Filters],
       expectedCount: Int,
       verbose: Boolean = false)(
@@ -68,6 +69,7 @@ trait AcsFutures extends Matchers with ScalaFutures {
           ledgerId.unwrap,
           Some(TransactionFilter(transactionFilter)),
           verbose))
+        .filter(res => workflowIds.contains(res.workflowId) || res.offset.nonEmpty)
         .runWith(Sink.collection) flatMap { seq: Seq[GetActiveContractsResponse] =>
         val contractCount = seq.foldLeft(0)({ case (i, resp) => i + resp.activeContracts.length })
 

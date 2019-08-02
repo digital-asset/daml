@@ -12,3 +12,4 @@ trait IndexService
     with ContractStore
     with IdentityService
     with TimeService
+    with PartyManagementService

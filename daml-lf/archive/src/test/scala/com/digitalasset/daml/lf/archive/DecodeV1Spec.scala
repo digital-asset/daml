@@ -35,7 +35,7 @@ class DecodeV1Spec extends WordSpec with Matchers with Inside with OptionValues 
   "decodeModuleRef" should {
     lazy val ((pkgId, dalfProto), majorVersion) = {
       val dalfFile =
-        Files.newInputStream(Paths.get(rlocation("daml-lf/archive/DarReaderTest-dev.dalf")))
+        Files.newInputStream(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
       try Reader.readArchiveAndVersion(dalfFile)
       finally dalfFile.close()
     }
@@ -59,10 +59,7 @@ class DecodeV1Spec extends WordSpec with Matchers with Inside with OptionValues 
     "take a dalf with interned IDs" in {
       majorVersion should ===(LanguageMajorVersion.V1)
 
-      // when the following line fails, change to !==("dev"),
-      // use DarReaderTest.dalf instead in the val dalfFile above, and
-      // delete the DarReaderTest-dev rule from archive's BUILD.bazel -SC
-      dalfProto.getMinor should ===(DecodeV1.internedIdsVersion.toProtoIdentifier)
+      dalfProto.getMinor should !==("dev")
 
       extId should not be empty
       (extId: String) should !==(pkgId: String)

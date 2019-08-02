@@ -126,9 +126,10 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
   "valid data variant identifier" should {
     "found and return the argument types" in {
       val id = Identifier(basicTestsPkgId, "BasicTests:Tree")
-      val Right((_, DataVariant(variants))) =
+      val Right((params, DataVariant(variants))) =
         PackageLookup.lookupVariant(basicTestsPkg, id.qualifiedName)
-      variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar("a")))
+      params should have length 1
+      variants.find(_._1 == "Leaf") shouldBe Some(("Leaf", TVar(params(0)._1)))
     }
   }
 
@@ -511,8 +512,16 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult =
-      res.flatMap(r =>
-        engine.interpret(Set(party), r, let).consume(lookupContract, lookupPackage, lookupKey))
+      res.flatMap(
+        r =>
+          engine
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(party),
+              commands = r,
+              time = let)
+            .consume(lookupContract, lookupPackage, lookupKey))
     val Right(tx) = interpretResult
 
     "be translated" in {
@@ -599,7 +608,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(Set(alice), r, let)
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(alice),
+              commands = r,
+              time = let)
             .consume(lookupContractWithKey, lookupPackage, lookupKey))
     val tx = result.right.value
 
@@ -661,8 +675,16 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       .consume(lookupContract, lookupPackage, lookupKey)
     res shouldBe 'right
     val interpretResult =
-      res.flatMap(r =>
-        engine.interpret(Set(party), r, let).consume(lookupContract, lookupPackage, lookupKey))
+      res.flatMap(
+        r =>
+          engine
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(party),
+              commands = r,
+              time = let)
+            .consume(lookupContract, lookupPackage, lookupKey))
     val Right(tx) = interpretResult
 
     "be translated" in {
@@ -875,7 +897,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(Set(bob), r, let)
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(bob),
+              commands = r,
+              time = let)
             .consume(lookupContractForPayout, lookupPackage, lookupKey))
     "be translated" in {
       val submitResult = engine
@@ -1072,7 +1099,12 @@ class EngineTest extends WordSpec with Matchers with EitherValues with BazelRunf
       res.flatMap(
         r =>
           engine
-            .interpret(Set(exerciseActor), r, let)
+            .interpret(
+              validating = false,
+              checkSubmitterInMaintainers = true,
+              submitters = Set(exerciseActor),
+              commands = r,
+              time = let)
             .consume(lookupContract, lookupPackage, lookupKey))
 
     }

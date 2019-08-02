@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE OverloadedStrings   #-}
 -- | Gives information about symbols at a given point in DAML files.
 -- These are all pure functions that should execute quickly.
 module Development.IDE.Spans.AtPoint (
@@ -86,7 +85,7 @@ atPoint IdeOptions{..} tcs srcSpans pos = do
     isTypeclassDeclSpan :: SpanInfo -> Bool
     isTypeclassDeclSpan spanInfo =
       case getNameM (spaninfoSource spanInfo) of
-        Just name -> any (`isInfixOf` show name) ["==", "showsPrec"]
+        Just name -> any (`isInfixOf` getOccString name) ["==", "showsPrec"]
         Nothing -> False
 
 locationsAtPoint :: forall m . MonadIO m => (FilePath -> m (Maybe HieFile)) -> IdeOptions -> HscEnv -> Position -> [SpanInfo] -> m [Location]
@@ -124,12 +123,14 @@ locationsAtPoint getHieFile IdeOptions{..} pkgState pos =
 
 spansAtPoint :: Position -> [SpanInfo] -> [SpanInfo]
 spansAtPoint pos = filter atp where
-  line = _line pos + 1
-  cha = _character pos + 1
+  line = _line pos
+  cha = _character pos
   atp SpanInfo{..} =    spaninfoStartLine <= line
                      && spaninfoEndLine >= line
                      && spaninfoStartCol <= cha
-                     && spaninfoEndCol >= cha
+                     -- The end col points to the column after the
+                     -- last character so we use > instead of >=
+                     && spaninfoEndCol > cha
 
 showName :: Outputable a => a -> T.Text
 showName = T.pack . prettyprint

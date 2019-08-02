@@ -19,10 +19,7 @@ import com.digitalasset.ledger.api.validation.TransactionFilterValidator
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
 import com.digitalasset.platform.participant.util.LfEngineToApi
-import com.digitalasset.platform.server.api.validation.{
-  ActiveContractsServiceValidation,
-  IdentifierResolver
-}
+import com.digitalasset.platform.server.api.validation.ActiveContractsServiceValidation
 import io.grpc.{BindableService, ServerServiceDefinition}
 import org.slf4j.LoggerFactory
 
@@ -32,7 +29,6 @@ import scalaz.syntax.tag._
 
 class ApiActiveContractsService private (
     backend: ACSBackend,
-    identifierResolver: IdentifierResolver,
     parallelism: Int = Runtime.getRuntime.availableProcessors)(
     implicit executionContext: ExecutionContext,
     protected val mat: Materializer,
@@ -41,14 +37,12 @@ class ApiActiveContractsService private (
     with GrpcApiService {
 
   private val logger = LoggerFactory.getLogger(this.getClass)
-  private val txFilterValidator = new TransactionFilterValidator(identifierResolver)
-
   @SuppressWarnings(Array("org.wartremover.warts.Option2Iterable"))
   override protected def getActiveContractsSource(
       request: GetActiveContractsRequest): Source[GetActiveContractsResponse, NotUsed] = {
     logger.trace("Serving an Active Contracts request...")
 
-    txFilterValidator
+    TransactionFilterValidator
       .validate(request.getFilter, "filter")
       .fold(
         Source.failed, { filter =>
@@ -79,7 +73,9 @@ class ApiActiveContractsService private (
                                   .lfValueToApiRecord(
                                     verbose = request.verbose,
                                     create.argument.value))),
-                            create.stakeholders.toSeq
+                            create.stakeholders.toSeq,
+                            signatories = create.signatories.map(_.toString)(collection.breakOut),
+                            observers = create.observers.map(_.toString)(collection.breakOut)
                           )
                         )
                       )
@@ -98,13 +94,13 @@ object ApiActiveContractsService {
   type TransactionId = String
   type WorkflowId = String
 
-  def create(ledgerId: LedgerId, backend: ACSBackend, identifierResolver: IdentifierResolver)(
+  def create(ledgerId: LedgerId, backend: ACSBackend)(
       implicit ec: ExecutionContext,
       mat: Materializer,
       esf: ExecutionSequencerFactory)
     : ActiveContractsService with BindableService with ActiveContractsServiceLogging =
     new ActiveContractsServiceValidation(
-      new ApiActiveContractsService(backend, identifierResolver)(ec, mat, esf),
+      new ApiActiveContractsService(backend)(ec, mat, esf),
       ledgerId
     ) with BindableService with ActiveContractsServiceLogging {
       override def bindService(): ServerServiceDefinition =

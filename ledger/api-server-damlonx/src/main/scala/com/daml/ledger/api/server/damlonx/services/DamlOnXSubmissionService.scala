@@ -10,8 +10,8 @@ import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{
-  Engine,
   Blinding,
+  Engine,
   Result,
   ResultDone,
   ResultError,
@@ -29,11 +29,12 @@ import com.digitalasset.ledger.api.domain.{Commands => ApiCommands}
 import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   CommandSubmissionServiceLogging
 }
+import com.digitalasset.daml.lf.transaction.Node.GlobalKey
 import io.grpc.BindableService
 import org.slf4j.LoggerFactory
 import scalaz.syntax.tag._
@@ -42,12 +43,11 @@ import com.digitalasset.daml_lf.DamlLf
 import scala.compat.java8.FutureConverters
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 import scala.util.Try
-import java.util.concurrent.Executors
+import java.util.concurrent.{ExecutorService, Executors}
 
 object DamlOnXSubmissionService {
 
   def create(
-      identifierResolver: IdentifierResolver,
       ledgerId: String,
       indexService: IndexService,
       writeService: WriteService,
@@ -58,8 +58,7 @@ object DamlOnXSubmissionService {
     with CommandSubmissionServiceLogging =
     new GrpcCommandSubmissionService(
       new DamlOnXSubmissionService(indexService, writeService, engine),
-      ApiLedgerId(ledgerId),
-      identifierResolver
+      ApiLedgerId(ledgerId)
     ) with CommandSubmissionServiceLogging
 
 }
@@ -87,8 +86,9 @@ class DamlOnXSubmissionService private (
 
   // NOTE(JM): Dummy caching of archive decoding. Leaving this in
   // as this code dies soon.
+  private val packageLoadExecutorService: ExecutorService = Executors.newFixedThreadPool(1)
   private val packageLoadContext: ExecutionContextExecutor =
-    ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
+    ExecutionContext.fromExecutor(packageLoadExecutorService)
   private val packageCache: scala.collection.mutable.Map[Ref.PackageId, Ast.Package] =
     scala.collection.mutable.Map.empty
 
@@ -118,10 +118,13 @@ class DamlOnXSubmissionService private (
     val getContract =
       (coid: AbsoluteContractId) => indexService.lookupActiveContract(commands.submitter, coid)
 
-    consume(engine.submit(commands.commands))(getPackage, getContract)
+    val lookupKey =
+      (key: GlobalKey) => indexService.lookupKey(commands.submitter, key)
+
+    consume(engine.submit(commands.commands))(getPackage, getContract, lookupKey)
       .flatMap {
         case Left(err) =>
-          Future.failed(invalidArgument("error: " + err.detailMsg))
+          Future.failed(invalidArgument("error: " + err.msg))
 
         case Right(updateTx) =>
           // NOTE(JM): Authorizing the transaction here so that we do not submit
@@ -162,7 +165,8 @@ class DamlOnXSubmissionService private (
   private def consume[A](result: Result[A])(
       getPackage: Ref.PackageId => Future[Option[Ast.Package]],
       getContract: Value.AbsoluteContractId => Future[
-        Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]])(
+        Option[Value.ContractInst[TxValue[Value.AbsoluteContractId]]]],
+      lookupKey: GlobalKey => Future[Option[Value.AbsoluteContractId]])(
       implicit ec: ExecutionContext): Future[Either[DamlLfError, A]] = {
 
     def resolveStep(result: Result[A]): Future[Either[DamlLfError, A]] = {
@@ -172,7 +176,7 @@ class DamlOnXSubmissionService private (
         case ResultDone(r) =>
           Future.successful(Right(r))
         case ResultNeedKey(key, resume) =>
-          Future.failed(new IllegalArgumentException("Contract keys not implemented yet"))
+          lookupKey(key).flatMap(optCoid => resolveStep(resume(optCoid)))
         case ResultNeedContract(acoid, resume) =>
           getContract(acoid).flatMap(o => resolveStep(resume(o)))
         case ResultError(err) => Future.successful(Left(err))
@@ -182,6 +186,6 @@ class DamlOnXSubmissionService private (
     resolveStep(result)
   }
 
-  override def close(): Unit = ()
+  override def close(): Unit = packageLoadExecutorService.shutdown()
 
 }

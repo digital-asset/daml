@@ -28,7 +28,7 @@ dar_to_scala(
     srcs = [
         ":MyMain.dar",
         ":MySecondMain.dar",
-        "//daml-lf/encoder:testing-dar-1.dev",
+        "//daml-lf/encoder:testing-dar-latest",
     ],
     package_prefix = "com.digitalasset.sample",
     srcjar_out = "MyMain.srcjar",

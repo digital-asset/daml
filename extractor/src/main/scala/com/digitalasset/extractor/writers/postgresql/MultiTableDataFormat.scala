@@ -6,7 +6,7 @@ package com.digitalasset.extractor.writers.postgresql
 import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.iface.reader.InterfaceType
 import com.digitalasset.daml.lf.iface.Record
-import com.digitalasset.extractor.ledger.LedgerReader.PackageStore
+import com.digitalasset.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.extractor.ledger.types._
 import com.digitalasset.extractor.Types.{DataIntegrityError, FullyAppliedType}
 import com.digitalasset.extractor.Types.FullyAppliedType._
@@ -28,6 +28,7 @@ class MultiTableDataFormat(
     mergeIdentical: Boolean,
     stripPrefix: Option[String]
 ) extends DataFormat[MultiTableState] {
+
   import Queries._
   import Queries.MultiTable._
 
@@ -84,9 +85,9 @@ class MultiTableDataFormat(
       schemaOrErr.fold(
         e => (state, connection.raiseError[Unit](DataIntegrityError(e))), { schemaOpt =>
           val schema = schemaOpt.getOrElse(singleSchemaName)
-          val tableNames = TableName(s"${schema}.${tableName}", tableName)
+          val tableNames = TableName(s"$schema.$tableName", tableName)
 
-          val io = createIOForTable(tableNames.withSchema, params, id)
+          val io = createIOForTable(tableNames.withSchema, params, id, packageStore)
           val updatedState = state.copy(
             templateToTable = state.templateToTable + (id -> tableNames)
           )
@@ -175,7 +176,7 @@ class MultiTableDataFormat(
         if (event.consuming)
           setContractArchived(
             table.withSchema,
-            event.contractCreatingEventId,
+            event.contractId,
             transaction.transactionId,
             event.eventId).update.run.void
         else
@@ -213,7 +214,8 @@ class MultiTableDataFormat(
   private def createIOForTable(
       tableName: String,
       params: iface.Record.FWT,
-      templateId: Identifier
+      templateId: Identifier,
+      packageStore: PackageStore
   ): ConnectionIO[Unit] = {
     val drop = dropTableIfExists(tableName).update.run
 
@@ -225,7 +227,7 @@ class MultiTableDataFormat(
           uName :: acc
       }
       .reverse
-      .zip(mapColumnTypes(params))
+      .zip(mapColumnTypes(params, packageStore))
 
     val create = createContractTable(tableName, columnsWithTypes).update.run
     val setComment = setTableComment(
@@ -256,15 +258,15 @@ class MultiTableDataFormat(
         case iface.PrimTypeOptional => "JSONB"
         case iface.PrimTypeMap => "JSONB"
       }
-    case TypeCon(_, _) => "JSONB"
+    case TypeCon(_, _, true) => "TEXT"
+    case TypeCon(_, _, _) => "JSONB"
   }
 
-  private def mapColumnTypes(params: iface.Record.FWT): List[String] = {
-    params.fields.toList.map(_._2.fat).map {
+  private def mapColumnTypes(params: iface.Record.FWT, packageStore: PackageStore): List[String] =
+    params.fields.toList.map(_._2.fat(packageStore)).map {
       case TypePrim(iface.PrimTypeOptional, typeArg :: _) => mapSQLType(typeArg) + " NULL"
       case other => mapSQLType(other) + " NOT NULL"
     }
-  }
 
   private def uniqueName(takenNames: Set[String], baseName: String): String = {
     @tailrec

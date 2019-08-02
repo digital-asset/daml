@@ -6,6 +6,336 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-16:
+
+0.13.16 - 2019-07-31
+--------------------
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- **BREAKING CHANGE** Handwritten instances of ``Template`` and ``Choice`` typeclasses are no longer supported.
+  All template constructs must be defined using declarations inside ``template`` syntax.
+
+DAML Docs
+~~~~~~~~~
+
+- The ``damlc docs`` command now produces docs to a folder by default. Use the
+  new ``--combine`` flag to output a single file instead.
+- The ``damlc docs`` flag ``--prefix`` has been replaced with a ``--template``
+  flag which allows for a more flexible template.
+- The ``damlc docs`` flag ``--json`` has been dropped in favor of
+  ``--format=json``.
+
+Extractor
+~~~~~~~~~
+
+- **BREAKING CHANGE** Changed schema to accomodate removed field
+  ``ExercisedEvent#contract_creating_event_id``. Existing database schemas are
+  not compatible anymore with the newer version. The extractor needs to be run
+  on an empty schema from Ledger Begin.
+
+Java Bindings
+~~~~~~~~~~~~~
+
+- Add all packages of java bindings to the javadocs. See `#2280
+  <https://github.com/digital-asset/daml/issues/2280>`__.
+- **BREAKING CHANGE** Removed field
+  ``ExercisedEvent#contract_creating_event_id``.  See `#2068
+  <https://github.com/digital-asset/daml/issues/2068>`__.
+
+Ledger API
+~~~~~~~~~~
+
+- **BREAKING CHANGE** Removed field
+  ``ExercisedEvent#contract_creating_event_id``.  See `#2068
+  <https://github.com/digital-asset/daml/issues/2068>`__.
+
+Sandbox
+~~~~~~~
+
+- The active contract service correctly serves stakeholders. See `#2070
+  <https://github.com/digital-asset/daml/issues/2070>`__.
+- Added the ``--maxInboundMessageSize`` CLI parameter to set the maximux size
+  of messages received through the Ledger API. If the value is not set the
+  current default is preserved (4 MB).
+- Makes package uploads idempotent and tolerate partial duplicates. See `#2130
+  <https://github.com/digital-asset/daml/issues/2130>`__.
+
+.. _release-0-13-15:
+
+0.13.15 - 2019-07-25
+--------------------
+
+DAML Studio
+~~~~~~~~~~~~
+
+- Scenario links no longer disappear if the
+  current file does not compile. The location is adjusted but this is done
+  one a best effort basis and can fail if the scenario itself is modified.
+
+DAML Compiler
+~~~~~~~~~~~~~~
+
+- Support reading of DAML-LF 1.5 again.
+
+Ledger API
+~~~~~~~~~~~
+
+- **BREAKING**: Drop support for legacy identifier. The
+  previously deprecated field ``name`` in ``Identifier`` message is not
+  supported anymore. Use ``module_name`` and ``entity_name`` instead.
+
+Navigator
+~~~~~~~~~
+
+- Fixed an issue when Navigator console did not see any contracts.
+  See `#2271 <https://github.com/digital-asset/daml/issues/2271>`__.
+
+Documentation
+~~~~~~~~~~~~~~
+
+- Improved the Maven pom.xml file for ``quickstart-java`` to better integrate with VS Code.
+  See `#887 <https://github.com/digital-asset/daml/issues/887>`__.
+
+Releases
+~~~~~~~~
+
+- Releases should now be announced on `the releases blog <https://blog.daml.com/release-notes>`__.
+
+.. _release-0-13-14:
+
+0.13.14 - 2019-07-22
+--------------------
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Support reading of DAML-LF 1.5 again.
+
+DAML Studio
+~~~~~~~~~~~
+
+VSCode scenario view improvements. Add a note in the IDE if:
+
+- there is an open scenario view for a scenario that does no longer exist,
+- there is an open scenario view for a scenario in a file that does no longer compile.
+
+.. _release-0-13-13:
+
+0.13.13 - 2019-07-16
+--------------------
+
+DAML Assistant
+~~~~~~~~~~~~~~
+
+- Fix VSCode path for use if not already in PATH on mac
+- **BREAKING**: remove `--replace=newer` option.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Fix a bug where the extension seemed to disappear every other
+  time VS Code was opened.
+- DAML Studio now displays a “Processing” indicator on the bottom
+  left while the IDE is doing work in the background.
+
+Sandbox
+~~~~~~~
+
+- Fixing an issue around handling passTime in scenario loader
+  See `#1953 <https://github.com/digital-asset/daml/issues/1953>`__.
+- Remembering already loaded packages after reset
+  See `#1979 <https://github.com/digital-asset/daml/issues/1979>`__.
+
+DAML-LF
+~~~~~~~
+
+- Release version 1.6. This versions provides:
+
+  + ``enum`` types. See `issue #105
+    <https://github.com/digital-asset/daml/issues/105>`__ and `DAML-LF 1
+    specification <https://github.com/digital-asset/daml/blob/master/daml-lf/spec/daml-lf-1.rst>`__
+    for more details.
+
+  + new builtins for (un)packing strings. See `issue #16
+    <https://github.com/digital-asset/daml/issues/16>`__.
+
+  + intern package IDs. See `issue #1614
+    <https://github.com/digital-asset/daml/pull/1614>`__.
+
+  + **BREAKING CHANGE** Restrict contract key lookups. In short, when looking
+    up or fetching a key, the transaction submitter must be one of the key
+    maintainers. The restriction was done in the DAML-LF development version
+    (``1.dev``) until now.
+    See `issue #1866 <https://github.com/digital-asset/daml/issues/1866>`__.
+    This change is breaking, since this release makes DAML-LF ``1.6`` the
+    default compiler output.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- Add support for DAML-LF ``1.6``. In particular:
+
+  + **BREAKING CHANGE** Add support for ``enum`` types. DAML variant types
+    that look like enumerations (i.e., those variants without type parameters
+    and without arguments) are compiled to the new DAML-LF ``enum`` type when
+    DAML-LF 1.6 target is selected. For instance the daml type declaration of
+    the form::
+
+      data Color = Red | Green | Blue
+
+    will produce a DAML-LF ``enum`` type instead of DAML-LF ``variant`` type.
+    This change is breaking, since this release makes DAML-LF ``1.6`` the
+    default compiler output.
+
+  + Add ``DA.Text.toCodePoints`` and ``DA.Text.fromCodePoints`` primitives to
+    (un)pack strings.
+
+  + Add support for DAML-LF intern package IDs.
+
+- **BREAKING CHANGE** Make DAML-LF 1.6 the default output.
+  This change activates the support of ``enum`` type describes above, and the
+  `restriction about contract key lookup
+  <https://github.com/digital-asset/daml/issues/1866>`__ described in the
+  DAML-LF section
+
+- **BREAKING CHANGE** Drop support for DAML-LF 1.5. Compiling to DAML-LF 1.6 requires some changes regarding enum types to applications using the Ledger API, see above. (The ledger server still supports DAML-LF 1.5.)
+
+Ledger API
+~~~~~~~~~~
+
+- Add support for ``enum`` types. Simple DAML ``variant`` types
+  will be mapped to DAML-LF ``enum`` types when using a DAML-LF ``1.6``
+  archive. Ledger API Value Protobuf provides the new ``Enum`` message.
+  This message must be used to communicate this new data type throught the
+  API.
+
+Java Codegen
+~~~~~~~~~~~~
+
+- Add support for ``enum`` types. ``enum`` types are mapped to
+  standard java enum. See `Generate Java code from DAML
+  <https://github.com/digital-asset/daml/blob/master/docs/source/app-dev/bindings-java/codegen.rst>`__
+  for more details.
+
+Scala Codegen
+~~~~~~~~~~~~~
+
+- Add support for ``enum`` types.
+
+Navigator
+~~~~~~~~~
+
+- Add support for ``enum`` types.
+
+Extractor
+~~~~~~~~~
+
+- Add support for ``enum`` types.
+
+DAML Docs
+~~~~~~~~~
+
+- Added links to type signatures in generated docs. Check out the updated
+  `standard library docs <https://docs.daml.com/daml/reference/base.html>`__.
+
+.. _release-0-13-12:
+
+0.13.12 - 2019-07-09
+--------------------
+
+DAML Assistant
+~~~~~~~~~~~~~~
+- Fix VSCode path for use if not already in PATH on mac.
+- Kill child processes on ``SIGTERM``. This means that killing
+  ``daml sandbox`` will also kill the sandbox process.
+
+DAML-LF
+~~~~~~~
+- Fixed regression that produced an invalid daml-lf-archive artefact.
+  See `#2058 <https://github.com/digital-asset/daml/issues/2058>`__.
+
+DAML Docs
+~~~~~~~~~
+- **BREAKING CHANGE** ``damlc docs`` now typechecks the source files before doc generation, to be able to use type information during doc generation. This may break existing doc builds.
+- Added ``--package-name`` and ``--input-format`` flags to ``damlc docs``.
+
+
+.. _release-0-13-11:
+
+0.13.11 - 2019-07-08
+--------------------
+
+Sandbox
+~~~~~~~
+- The completion stream method of the command completion service uses the ledger end as a default value for the offset. See `#1913 <https://github.com/digital-asset/daml/issues/1913>`__.
+- Fixed an issue when CompletionService returns offsets having inclusive semantics when used for re-subscription.
+  See `#1932 <https://github.com/digital-asset/daml/pull/1932>`__.
+- DAML-LF packages used by the sandbox are now stored in Postgres,
+  allowing users to resume a Postgres sandbox ledger without having to again
+  specify all packages through the CLI.
+  See `#1929 <https://github.com/digital-asset/daml/issues/1929>`__.
+
+Java Bindings
+~~~~~~~~~~~~~
+- Added overloads to the Java bindings ``CompletionStreamRequest`` constructor and the ``CommandCompletionClient`` to accept a request without an explicit ledger offset. See `#1913 <https://github.com/digital-asset/daml/issues/1913>`__.
+- **DEPRECATION**: the ``CompletionStreamRequest#getOffset`` method is deprecated in favor of the non-nullable ``CompletionStreamRequest#getLedgerOffset``. See `#1913 <https://github.com/digital-asset/daml/issues/1913>`__.
+
+Scala Bindings
+~~~~~~~~~~~~~~
+- Contract keys are exposed on CreatedEvent. See `#1681 <https://github.com/digital-asset/daml/issues/1681>`__.
+
+Navigator
+~~~~~~~~~
+- Contract keys are show in the contract details page. See `#1681 <https://github.com/digital-asset/daml/issues/1681>`__.
+
+DAML Standard Library
+~~~~~~~~~~~~~~~~~~~~~
+- **BREAKING CHANGE**: Remove the deprecated modules ``DA.Map``, ``DA.Set``, ``DA.Experimental.Map`` and ``DA.Experimental.Set``. Please use ``DA.Next.Map`` and ``DA.Next.Set`` instead.
+- Add ``Sum`` and ``Product`` newtypes that
+  provide ``Monoid`` instances based on the ``Additive`` and ``Multiplicative``
+  instances of the underlying type.
+- Add ``Min`` and ``Max`` newtypes that
+  provide ``Semigroup`` instances based ``min`` and ``max``.
+
+DAML Compiler
+~~~~~~~~~~~~~
+- The default output path for all artifacts is now in the ``.daml`` directory.
+  In particular, the default output path for .dar files in ``daml build`` is now
+  ``.daml/dist/<projectname>.dar``.
+
+DAML Studio
+~~~~~~~~~~~
+- DAML Studio is now published as an extension in the Visual Studio Code
+  marketplace. The ``daml studio`` command will now install the published extension by
+  default, but will revert to the extension bundled with the DAML SDK if installation
+  fails. You can get the old default behavior of always using the bundled extension
+  by running ``daml studio --replace=newer`` or ``daml studio --replace=always`` instead.
+- You can now configure the gRPC message size limit in
+  ``daml.yaml`` via ``scenario-service: {"grpc-max-message-size": 1000000}``.
+  This will set the limit to 1000000 bytes. This should
+  only be necessary for very large projects.
+- You can now configure the gRPC timeout
+  ``daml.yaml`` via ``scenario-service: {"grpc-timeout": 42}``.
+  This option will set the timeout to 42 seconds. You should
+  only need to set this option for very large projects.
+
+DAML Integration Kit
+~~~~~~~~~~~~~~~~~~~~
+- Make DivulgenceIT properly work when run via the Ledger API Test Tool.
+- The submission service shuts down its ExecutorService upon exit to ensure a smooth shutdown.
+
+DAML-LF
+~~~~~~~
+- The DAML-LF development version (``1.dev``) includes a new, breaking restriction
+  regarding contract key lookups. In short, when looking up or fetching a key,
+  the transaction submitter must be one of the key maintainers.
+  Note that this change is not breaking since the compiler does not produce DAML-LF
+  ``1.dev`` by default. However it will be a breaking change once this restriction
+  makes it into DAML-LF ``1.6`` and once DAML-LF ``1.6`` becomes the default.
+
+
 .. _release-0-13-10:
 
 0.13.10 - 2019-06-28
@@ -14,7 +344,7 @@ This page contains release notes for the SDK.
 Sandbox
 ~~~~~~~
 
-- Added `--log-level` command line flag.   
+- Added `--log-level` command line flag.
 - **BREAKING CHANGE**: The Sandbox no longer supports loading from DALF files. You can now only use DAR files. See `#1610 <https://github.com/digital-asset/daml/issues/1610>`__.
 
 

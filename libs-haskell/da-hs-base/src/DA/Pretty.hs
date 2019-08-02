@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 -- | This library provides the basis for all our pretty-printing. It extends
 -- "Text.PrettyPrint.Annotated.Extended" from 'da-base' with support for

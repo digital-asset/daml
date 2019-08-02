@@ -14,6 +14,7 @@ import io.grpc.netty.NettyServerBuilder
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.handler.ssl.SslContext
 import io.netty.util.concurrent.DefaultThreadFactory
+import io.netty.channel.socket.nio.NioServerSocketChannel
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.{Future, Promise}
@@ -33,6 +34,7 @@ object LedgerApiServer {
   def create(
       createApiServices: (ActorMaterializer, ExecutionSequencerFactory) => Future[ApiServices],
       desiredPort: Int,
+      maxInboundMessageSize: Int,
       address: Option[String],
       sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer): Future[ApiServer] = {
 
@@ -51,6 +53,7 @@ object LedgerApiServer {
         private val impl = new LedgerApiServer(
           apiServices,
           desiredPort,
+          maxInboundMessageSize,
           address,
           sslContext
         )
@@ -74,6 +77,7 @@ object LedgerApiServer {
 private class LedgerApiServer(
     apiServices: ApiServices,
     desiredPort: Int,
+    maxInboundMessageSize: Int,
     address: Option[String],
     sslContext: Option[SslContext] = None)(implicit mat: ActorMaterializer)
     extends ApiServer {
@@ -87,7 +91,9 @@ private class LedgerApiServer(
         cause)
       with NoStackTrace
 
-  private val serverEventLoopGroup = createEventLoopGroup(mat.system.name)
+  private val workerEventLoopGroup = createEventLoopGroup(mat.system.name + "-nio-worker")
+
+  private val bossEventLoopGroup = createEventLoopGroup(mat.system.name + "-nio-boss", 1)
 
   private val (grpcServer, actualPort) = startServer()
 
@@ -106,9 +112,12 @@ private class LedgerApiServer(
       }
 
     builder.directExecutor()
-    builder.workerEventLoopGroup(serverEventLoopGroup)
+    builder.channelType(classOf[NioServerSocketChannel])
+    builder.bossEventLoopGroup(bossEventLoopGroup)
+    builder.workerEventLoopGroup(workerEventLoopGroup)
     builder.permitKeepAliveTime(10, TimeUnit.SECONDS)
     builder.permitKeepAliveWithoutCalls(true)
+    builder.maxInboundMessageSize(maxInboundMessageSize)
     val grpcServer = apiServices.services.foldLeft(builder)(_ addService _).build
     try {
       grpcServer.start()
@@ -120,10 +129,11 @@ private class LedgerApiServer(
     }
   }
 
-  private def createEventLoopGroup(threadPoolName: String): NioEventLoopGroup = {
+  private def createEventLoopGroup(
+      threadPoolName: String,
+      parallelism: Int = Runtime.getRuntime.availableProcessors): NioEventLoopGroup = {
     val threadFactory =
       new DefaultThreadFactory(s"$threadPoolName-grpc-eventloop-${UUID.randomUUID}", true)
-    val parallelism = Runtime.getRuntime.availableProcessors
     new NioEventLoopGroup(parallelism, threadFactory)
   }
 
@@ -152,9 +162,13 @@ private class LedgerApiServer(
     // no quiet period, this can also be 0.
     // See <https://netty.io/4.1/api/io/netty/util/concurrent/EventExecutorGroup.html#shutdownGracefully-long-long-java.util.concurrent.TimeUnit->.
     // The 10 seconds to wait is sort of arbitrary, it's long enough to be noticeable though.
-    val _ = serverEventLoopGroup
-      .shutdownGracefully(0L, 0L, TimeUnit.MILLISECONDS)
-      .await(10L, TimeUnit.SECONDS)
+    val workerEventLoopGroupShutdown =
+      workerEventLoopGroup.shutdownGracefully(0L, 0L, TimeUnit.MILLISECONDS)
+    val bossEventLoopGroupShutdown =
+      bossEventLoopGroup.shutdownGracefully(0L, 0L, TimeUnit.MILLISECONDS)
+
+    val workerShutdownComplete = workerEventLoopGroupShutdown.await(10L, TimeUnit.SECONDS)
+    val bossShutdownComplete = bossEventLoopGroupShutdown.await(10L, TimeUnit.SECONDS)
   }
 
 }

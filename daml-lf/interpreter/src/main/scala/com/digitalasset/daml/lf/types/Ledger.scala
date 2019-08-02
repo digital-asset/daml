@@ -149,7 +149,7 @@ object Ledger {
   /**
     * Translate an EnrichedTransaction to a RichTransaction. EnrichedTransaction's contain relative
     * node id's and contain additional information in the most detailed form suitable for different
-    * consumers. The RichTransaction is the transaction that we serialise in the sandbox to compare
+    * consumers. The RichTransaction is the transaction that we serialize in the sandbox to compare
     * different ledgers. All relative and absolute node id's are translated to absolute node id's of
     * the package format.
     */
@@ -724,8 +724,8 @@ object Ledger {
            to look up a contract by key if you're an observer but not a
            signatory.
 
-         - However, this is problematic since lookups will induce work for
-     *all* maintainers even if only a subset of the maintainers have
+         - However, this is problematic since lookups will induce work for *all*
+           maintainers even if only a subset of the maintainers have
            authorized it, violating the tenet that nobody can be forced to
            perform work.
 
@@ -763,10 +763,9 @@ object Ledger {
            re-interpreting the transaction.
 
            Francesco: yes, but there is a key difference: the above scenario
-           requires a malicious (or at the very least negligent / defective)
-     *participant*, while in this case we are talking about malicious
-     *code* being able to induce work. So the "thread model" is quite
-           different.
+           requires a malicious (or at the very least negligent / defective) *participant*,
+           while in this case we are talking about malicious *code* being
+           able to induce work. So the "threat model" is quite different.
 
       To be able to make a statement of non-existence of a key, it's clear
       that we must authorize against the maintainers, and not the
@@ -977,14 +976,7 @@ object Ledger {
           vs.foreach(collect)
         case ValueContractId(coid) =>
           coids += coid
-        case _: ValueInt64 => ()
-        case _: ValueDecimal => ()
-        case _: ValueText => ()
-        case _: ValueTimestamp => ()
-        case _: ValueParty => ()
-        case _: ValueBool => ()
-        case _: ValueDate => ()
-        case ValueUnit => ()
+        case _: ValueCidlessLeaf => ()
         case ValueOptional(mbV) => mbV.foreach(collect)
         case ValueMap(map) => map.values.foreach(collect)
       }
@@ -1022,15 +1014,7 @@ object Ledger {
         case ValueContractId(coid) =>
           val acoid = contractIdToAbsoluteContractId(commitPrefix, coid)
           ValueContractId(acoid)
-        case vEnum: ValueEnum => vEnum
-        case vlit: ValueInt64 => vlit
-        case vlit: ValueDecimal => vlit
-        case vlit: ValueText => vlit
-        case vlit: ValueTimestamp => vlit
-        case vlit: ValueParty => vlit
-        case vlit: ValueBool => vlit
-        case vlit: ValueDate => vlit
-        case ValueUnit => ValueUnit
+        case vlit: ValueCidlessLeaf => vlit
         case ValueOptional(mbV) => ValueOptional(mbV.map(rewrite))
         case ValueMap(map) => ValueMap(map.mapValue(rewrite))
       }

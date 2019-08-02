@@ -7,7 +7,7 @@
 
 -- | Get information on modules, identifiers, etc.
 
-module Development.IDE.Spans.Calculate(getSpanInfo,listifyAllSpans) where
+module Development.IDE.Spans.Calculate(getSrcSpanInfos,listifyAllSpans) where
 
 import           ConLike
 import           Control.Monad
@@ -27,6 +27,20 @@ import           Development.IDE.GHC.Error (zeroSpan)
 import           Prelude hiding (mod)
 import           TcHsSyn
 import           Var
+import Development.IDE.Core.Compile
+import Development.IDE.GHC.Util
+
+
+-- | Get source span info, used for e.g. AtPoint and Goto Definition.
+getSrcSpanInfos
+    :: HscEnv
+    -> [(Located ModuleName, Maybe NormalizedFilePath)]
+    -> TcModuleResult
+    -> IO [SpanInfo]
+getSrcSpanInfos env imports tc =
+    runGhcEnv env
+        . getSpanInfo imports
+        $ tmrModule tc
 
 -- | Get ALL source spans in the module.
 getSpanInfo :: GhcMonad m
@@ -153,9 +167,11 @@ toSpanInfo :: (SpanSource, SrcSpan, Maybe Type) -> Maybe SpanInfo
 toSpanInfo (name,mspan,typ) =
   case mspan of
     RealSrcSpan spn ->
-      Just (SpanInfo (srcSpanStartLine spn)
+      -- GHC’s line and column numbers are 1-based while LSP’s line and column
+      -- numbers are 0-based.
+      Just (SpanInfo (srcSpanStartLine spn - 1)
                      (srcSpanStartCol spn - 1)
-                     (srcSpanEndLine spn)
+                     (srcSpanEndLine spn - 1)
                      (srcSpanEndCol spn - 1)
                      typ
                      name)

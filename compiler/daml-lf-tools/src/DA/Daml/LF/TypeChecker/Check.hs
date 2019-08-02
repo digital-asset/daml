@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE OverloadedStrings #-}
 -- | This module contains the DAML-LF type checker.
 --
 -- Some notes:
@@ -224,7 +223,6 @@ checkVariantCon typ@(TypeConApp tcon _) con conArg = do
 
 checkEnumCon :: MonadGamma m => Qualified TypeConName -> VariantConName -> m ()
 checkEnumCon tcon con = do
-    checkFeature featureEnumTypes
     defDataType <- inWorld (lookupDataType tcon)
     enumCons <- match _DataEnum (EExpectedEnumType tcon) (dataCons defDataType)
     unless (con `elem` enumCons) $ throwWithContext (EUnknownDataCon con)
@@ -313,7 +311,6 @@ introCasePattern scrutType patn cont = case patn of
     let varType = substitute (Map.fromList subst1) conArgType
     introExprVar var varType cont
   CPEnum patnTCon con -> do
-    checkFeature featureEnumTypes
     defDataType <- inWorld (lookupDataType patnTCon)
     enumCons <- match _DataEnum (EExpectedEnumType patnTCon) (dataCons defDataType)
     unless (con `elem` enumCons) $ throwWithContext (EUnknownDataCon con)
@@ -497,8 +494,8 @@ checkExpr expr typ = void (checkExpr' expr typ)
 
 -- | Check that a type constructor definition is well-formed.
 checkDefDataType :: MonadGamma m => DefDataType -> m ()
-checkDefDataType (DefDataType _loc _name _serializable params dataCons) =
-  -- NOTE(MH): Duplicates in the @params@ list are caught by 'introTypeVar'.
+checkDefDataType (DefDataType _loc _name _serializable params dataCons) = do
+  checkUnique EDuplicateTypeParam $ map fst params
   foldr (uncurry introTypeVar) base params
   where
     base = case dataCons of
@@ -507,7 +504,6 @@ checkDefDataType (DefDataType _loc _name _serializable params dataCons) =
         checkUnique EDuplicateConstructor names
         traverse_ (`checkType` KStar) types
       DataEnum names -> do
-        checkFeature featureEnumTypes
         unless (null params) $ throwWithContext EEnumTypeWithParams
         checkUnique EDuplicateConstructor names
 
@@ -544,8 +540,8 @@ checkTemplate m t@(Template _loc tpl param precond signatories observers text ch
   where
     withPart p = withContext (ContextTemplate m t p)
 
-checkFeature :: MonadGamma m => Feature -> m ()
-checkFeature feature = do
+_checkFeature :: MonadGamma m => Feature -> m ()
+_checkFeature feature = do
     version <- getLfVersion
     unless (version `supports` feature) $
         throwWithContext $ EUnsupportedFeature feature

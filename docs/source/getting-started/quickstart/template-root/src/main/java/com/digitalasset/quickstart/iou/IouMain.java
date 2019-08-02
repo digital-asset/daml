@@ -5,18 +5,14 @@ package com.digitalasset.quickstart.iou;
 
 import com.daml.ledger.rxjava.DamlLedgerClient;
 import com.daml.ledger.rxjava.LedgerClient;
-import com.daml.ledger.rxjava.PackageClient;
 import com.daml.ledger.javaapi.data.*;
 import com.digitalasset.quickstart.model.iou.Iou;
-import com.digitalasset.quickstart.model.iou.Iou_Transfer;
 import com.google.common.collect.BiMap;
 
 import com.google.common.collect.HashBiMap;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
 import com.google.protobuf.Empty;
-import com.google.protobuf.InvalidProtocolBufferException;
-import io.reactivex.Flowable;
 import io.reactivex.disposables.Disposable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

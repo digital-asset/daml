@@ -22,58 +22,71 @@ jobs:
     pool:
       name: 'linux-pool'
     steps:
+      - template: ci/report-start.yml
+      - checkout: self
       - template: ci/build-unix.yml
         parameters:
           name: linux
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* Linux: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
 
   - job: macOS
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
+    variables:
+      cache-key: $(Build.StagingDirectory)/macos-nix-key
+      cache-path: /tmp/cache/
     steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - bash: echo $(git log -n1 --pretty=format:%H dev-env nix azure-pipelines.yml) >> $(cache-key)
+        displayName: cache key
+      - task: CacheBeta@0
+        inputs:
+          key: $(cache-key)
+          path: $(cache-path)
+      - bash: |
+          set -euo pipefail
+          if [[ -e $(cache-path) ]]; then
+              DIR=$(pwd)
+              sudo mkdir /nix && sudo chown $USER /nix
+              cd /nix
+              tar xzf $(cache-path)/nix.tar.gz
+              cd $DIR
+              curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
+          fi
+        displayName: restore cache
       - template: ci/build-unix.yml
         parameters:
           name: macos
       - bash: |
           set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* macOS: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+          if [[ ! -e $(cache-path) ]]; then
+              mkdir -p $(cache-path)
+              cd /nix
+              GZIP=-9 tar czf $(cache-path)/nix.tar.gz store var
+          fi
+        displayName: create cache
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
 
   - job: Windows
     timeoutInMinutes: 360
     pool:
       name: 'windows-pool'
     steps:
+      - template: ci/report-start.yml
       - template: ci/build-windows.yml
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* Windows: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
 
   - job: perf
     timeoutInMinutes: 60
     pool:
       name: 'linux-pool'
     steps:
+      - template: ci/report-start.yml
       - checkout: self
       - bash: ci/dev-env-install.sh
         displayName: 'Build/Install the Developer Environment'
@@ -92,16 +105,47 @@ jobs:
         inputs:
           pathtoPublish: '$(Build.StagingDirectory)'
           artifactName: 'Perf test logs'
-      - bash: |
-          set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* perf: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
 
+  - job: hie_core_stack_86
+    timeoutInMinutes: 60
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - task: CacheBeta@0
+        inputs:
+          key: |
+            "stack-cache-v1"
+            $(Agent.OS)
+            $(Build.SourcesDirectory)/compiler/hie-core/stack.yaml
+            $(Build.SourcesDirectory)/compiler/hie-core/hie-core.cabal
+          path: .azure-cache
+          cacheHitVar: CACHE_RESTORED
+        displayName: "Cache stack artifacts"
+      - bash: |
+          mkdir -p ~/.stack
+          tar xzf .azure-cache/stack-root.tar.gz -C $HOME
+        displayName: "Unpack cache"
+        condition: eq(variables.CACHE_RESTORED, 'true')
+      - bash: |
+          sudo apt-get install -y g++ gcc libc6-dev libffi-dev libgmp-dev make zlib1g-dev
+          curl -sSL https://get.haskellstack.org/ | sh
+        displayName: 'Install Stack'
+      - bash: (cd compiler/hie-core; stack setup)
+        displayName: 'stack setup'
+      - bash: (cd compiler/hie-core; stack build --only-dependencies)
+        displayName: 'stack build --only-dependencies --test'
+      - bash: (cd compiler/hie-core; stack test)
+        displayName: 'stack test'
+      - bash: |
+          mkdir -p .azure-cache
+          tar czf .azure-cache/stack-root.tar.gz -C $HOME .stack
+        displayName: "Pack cache"
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
   - job: Windows_signing
     # Signing is a separate job so that we can make sure that we only sign on releases.
     # Since the release check is run on Linux, we do not have access to that information
@@ -113,6 +157,7 @@ jobs:
     variables:
       unsigned-installer: $[ dependencies.Windows.outputs['publish.artifact-unsigned-windows-installer'] ]
     steps:
+      - template: ci/report-start.yml
       - checkout: self
         persistCredentials: true
       - task: DownloadPipelineArtifact@0
@@ -136,6 +181,9 @@ jobs:
         inputs:
           targetPath: $(Build.StagingDirectory)/$(signing.artifact-windows-installer)
           artifactName: $(signing.artifact-windows-installer)
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
   - job: release
     dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
     pool:
@@ -150,6 +198,7 @@ jobs:
       artifact-windows: $[ dependencies.Windows.outputs['publish.artifact'] ]
       artifact-windows-installer: $[ dependencies.Windows_signing.outputs['signing.artifact-windows-installer'] ]
     steps:
+      - template: ci/report-start.yml
       - checkout: self
         persistCredentials: true
       - bash: |
@@ -184,12 +233,106 @@ jobs:
           assetUploadMode: 'replace'
           addChangeLog: false
           isPrerelease: true
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
+
+  - job: collect_build_data
+    condition: always()
+    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release"]
+    pool:
+      name: "linux-pool"
+    variables:
+      Linux.start: $[ dependencies.Linux.outputs['start.time'] ]
+      Linux.machine: $[ dependencies.Linux.outputs['start.machine'] ]
+      Linux.end: $[ dependencies.Linux.outputs['end.time'] ]
+      Linux.status: $[ dependencies.Linux.result ]
+      macOS.start: $[ dependencies.macOS.outputs['start.time'] ]
+      macOS.machine: $[ dependencies.macOS.outputs['start.machine'] ]
+      macOS.end: $[ dependencies.macOS.outputs['end.time'] ]
+      macOS.status: $[ dependencies.macOS.result ]
+      Windows.start: $[ dependencies.Windows.outputs['start.time'] ]
+      Windows.machine: $[ dependencies.Windows.outputs['start.machine'] ]
+      Windows.end: $[ dependencies.Windows.outputs['end.time'] ]
+      Windows.status: $[ dependencies.Windows.result ]
+      Windows_signing.start: $[ dependencies.Windows_signing.outputs['start.time'] ]
+      Windows_signing.machine: $[ dependencies.Windows_signing.outputs['start.machine'] ]
+      Windows_signing.end: $[ dependencies.Windows_signing.outputs['end.time'] ]
+      Windows_signing.status: $[ dependencies.Windows_signing.result ]
+      perf.start: $[ dependencies.perf.outputs['start.time'] ]
+      perf.machine: $[ dependencies.perf.outputs['start.machine'] ]
+      perf.end: $[ dependencies.perf.outputs['end.time'] ]
+      perf.status: $[ dependencies.perf.result ]
+      release.start: $[ dependencies.release.outputs['start.time'] ]
+      release.machine: $[ dependencies.release.outputs['start.machine'] ]
+      release.end: $[ dependencies.release.outputs['end.time'] ]
+      release.status: $[ dependencies.release.result ]
+    steps:
+      - checkout: self
       - bash: |
           set -euo pipefail
-          MESSAGE=$(git log --pretty=format:%s -n1)
-          curl -XPOST \
-               -i \
-               -H 'Content-type: application/json' \
-               --data "{\"text\":\"<!here> *FAILED* Release: <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|$MESSAGE>\n\"}" \
-               $(Slack.URL)
-        condition: and(failed(), eq(variables['Build.SourceBranchName'], 'master'))
+
+          REPORT=$(mktemp)
+          cat >$REPORT <<END
+          {"jobs": {"Linux": {"start": "$(Linux.start)",
+                              "machine": "$(Linux.machine)",
+                              "end": "$(Linux.end)",
+                              "status": "$(Linux.status)"},
+                    "macOS": {"start": "$(macOS.start)",
+                              "machine": "$(macOS.machine)",
+                              "end": "$(macOS.end)",
+                              "status": "$(macOS.status)"},
+                    "Windows": {"start": "$(Windows.start)",
+                                "machine": "$(Windows.machine)",
+                                "end": "$(Windows.end)",
+                                "status": "$(Windows.status)"},
+                    "Windows_signing": {"start": "$(Windows_signing.start)",
+                                        "machine": "$(Windows_signing.machine)",
+                                        "end": "$(Windows_signing.end)",
+                                        "status": "$(Windows_signing.status)"},
+                    "perf": {"start": "$(perf.start)",
+                             "machine": "$(perf.machine)",
+                             "end": "$(perf.end)",
+                             "status": "$(perf.status)"},
+                    "release": {"start": "$(release.start)",
+                                "machine": "$(release.machine)",
+                                "end": "$(release.end)",
+                                "status": "$(release.status)"}},
+           "id": "$(Build.BuildId)",
+           "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
+           "name": "$(Build.DefinitionName)",
+           "version": "$(Build.DefinitionVersion)",
+           "queued_by": "$(Build.QueuedBy)",
+           "reason": "$(Build.Reason)",
+           "branch": "$(Build.SourceBranch)",
+           "commit_sha": "$(Build.SourceVersion)",
+           "commit_message": "$(Build.SourceVersionMessage)",
+           "is_fork": "$(System.PullRequest.IsFork)",
+           "pr": "$(System.PullRequest.PullRequestNumber)",
+           "pr_url": "https://github.com/digital-asset/daml/pull/$(System.PullRequest.PullRequestNumber)",
+           "pr_source_branch": "$(System.PullRequest.SourceBranch)"}
+          END
+          REPORT_GZ=$(mktemp)
+          cat $REPORT | gzip -9 > $REPORT_GZ
+          GCS_KEY=$(mktemp)
+          # Application credentials will not be set for forks. We give up on
+          # tracking those for now. "Not set" in Azure world means set to the
+          # expression Azure would otherwise substitute, i.e. the literal value
+          # of the string in the `env:` block below.
+          if [[ "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" != '$(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)' ]]; then
+              echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
+              gcloud auth activate-service-account --key-file=$GCS_KEY
+              BOTO_CONFIG=/dev/null gsutil cp $REPORT_GZ gs://daml-data/builds/$(Build.BuildId)_$(date -u +%Y%m%d_%H%M%SZ).json.gz
+          else
+              cat $REPORT
+          fi
+
+          if [[ "$(Linux.status)" == "Canceled"
+              || "$(macOS.status)" == "Canceled"
+              || "$(Windows.status)" == "Canceled"
+              || "$(perf.status)" == "Canceled"
+              || "$(Windows_signing.status)" == "Canceled"
+              || "$(release.status)" == "Canceled" ]]; then
+              exit 1
+          fi
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)

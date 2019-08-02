@@ -19,11 +19,7 @@ import com.digitalasset.ledger.api.v1.transaction_service._
 import com.digitalasset.ledger.api.validation.{PartyNameChecker, TransactionServiceRequestValidator}
 import com.digitalasset.platform.api.grpc.GrpcApiService
 import com.digitalasset.platform.common.util.DirectExecutionContext
-import com.digitalasset.platform.server.api.validation.{
-  ErrorFactories,
-  FieldValidations,
-  IdentifierResolver
-}
+import com.digitalasset.platform.server.api.validation.{ErrorFactories, FieldValidations}
 import com.digitalasset.platform.server.api.{ApiException, ProxyCloseable}
 import io.grpc.{ServerServiceDefinition, Status}
 import org.slf4j.{Logger, LoggerFactory}
@@ -34,12 +30,10 @@ import scala.concurrent.Future
 class GrpcTransactionService(
     protected val service: TransactionService with AutoCloseable,
     val ledgerId: LedgerId,
-    partyNameChecker: PartyNameChecker,
-    identifierResolver: IdentifierResolver)(
+    partyNameChecker: PartyNameChecker)(
     implicit protected val esf: ExecutionSequencerFactory,
     protected val mat: Materializer)
-    extends ApiTransactionService
-    with TransactionServiceAkkaGrpc
+    extends TransactionServiceAkkaGrpc
     with ProxyCloseable
     with GrpcApiService
     with ErrorFactories
@@ -50,7 +44,7 @@ class GrpcTransactionService(
   private type MapStringSet[T] = Map[String, Set[T]]
 
   private val validator =
-    new TransactionServiceRequestValidator(ledgerId, partyNameChecker, identifierResolver)
+    new TransactionServiceRequestValidator(ledgerId, partyNameChecker)
 
   override protected def getTransactionsSource(
       request: GetTransactionsRequest): Source[GetTransactionsResponse, NotUsed] = {

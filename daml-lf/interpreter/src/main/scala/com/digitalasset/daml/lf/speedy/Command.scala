@@ -9,7 +9,9 @@ import com.digitalasset.daml.lf.speedy.SValue._
 // ---------------------
 // Preprocessed commands
 // ---------------------
-sealed abstract class Command extends Product with Serializable
+sealed abstract class Command extends Product with Serializable {
+  val templateId: Identifier
+}
 
 object Command {
 

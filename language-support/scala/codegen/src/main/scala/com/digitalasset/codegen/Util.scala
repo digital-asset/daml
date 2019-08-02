@@ -135,7 +135,7 @@ object Util {
   type FilePlan = String \/ (Option[String], File, Iterable[Tree])
 
   final case class WriteParams[+TmplI](
-      supportedTemplateIds: Map[Ref.Identifier, TmplI],
+      templateIds: Map[Ref.Identifier, TmplI],
       definitions: List[lf.ScopedDataType.FWT])
 
   val reservedNames: Set[String] =

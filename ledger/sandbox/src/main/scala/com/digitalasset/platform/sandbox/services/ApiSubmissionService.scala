@@ -5,14 +5,18 @@ package com.digitalasset.platform.sandbox.services
 import com.digitalasset.ledger.api.v1.command_submission_service.CommandSubmissionServiceLogging
 import akka.stream.ActorMaterializer
 import com.daml.ledger.participant.state.index.v2.ContractStore
-import com.daml.ledger.participant.state.v2.SubmissionResult.{Acknowledged, Overloaded}
-import com.daml.ledger.participant.state.v2.{
+import com.daml.ledger.participant.state.v1.SubmissionResult.{
+  Acknowledged,
+  NotSupported,
+  Overloaded
+}
+import com.daml.ledger.participant.state.v1.{
   SubmissionResult,
   SubmitterInfo,
   TransactionMeta,
   WriteService
 }
-import com.daml.ledger.participant.state.v2._
+import com.daml.ledger.participant.state.v1._
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.daml.lf.engine.{Error => LfError}
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Transaction}
@@ -23,7 +27,7 @@ import com.digitalasset.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.platform.sandbox.stores.ledger.{CommandExecutor, ErrorCause}
 import com.digitalasset.platform.server.api.services.domain.CommandSubmissionService
 import com.digitalasset.platform.server.api.services.grpc.GrpcCommandSubmissionService
-import com.digitalasset.platform.server.api.validation.{ErrorFactories, IdentifierResolver}
+import com.digitalasset.platform.server.api.validation.ErrorFactories
 import com.digitalasset.platform.server.services.command.time.TimeModelValidator
 import io.grpc.{BindableService, Status}
 import org.slf4j.LoggerFactory
@@ -39,7 +43,6 @@ object ApiSubmissionService {
 
   def create(
       ledgerId: LedgerId,
-      identifierResolver: IdentifierResolver,
       contractStore: ContractStore,
       writeService: WriteService,
       timeModel: TimeModel,
@@ -53,8 +56,7 @@ object ApiSubmissionService {
         timeModel,
         timeProvider,
         commandExecutor),
-      ledgerId,
-      identifierResolver
+      ledgerId
     ) with CommandSubmissionServiceLogging
 
   object RecordUpdate {
@@ -106,6 +108,10 @@ class ApiSubmissionService private (
               s"Submission of command {} has failed due to back pressure",
               commands.commandId.unwrap)
             Failure(Status.RESOURCE_EXHAUSTED.asRuntimeException)
+
+          case Success(NotSupported) =>
+            logger.debug(s"Submission of command {} was not supported", commands.commandId.unwrap)
+            Failure(Status.INVALID_ARGUMENT.asRuntimeException)
 
           case Failure(error) =>
             logger.warn(s"Submission of command ${commands.commandId.unwrap} has failed.", error)

@@ -6,7 +6,6 @@
 module DA.Ledger.Services.CommandCompletionService (completionStream, completionEnd) where
 
 import Com.Digitalasset.Ledger.Api.V1.CommandCompletionService hiding (Checkpoint)
-import Control.Concurrent (forkIO)
 import DA.Ledger.Convert
 import DA.Ledger.GrpcWrapUtils
 import DA.Ledger.LedgerService
@@ -15,23 +14,23 @@ import DA.Ledger.Types
 import Network.GRPC.HighLevel.Generated
 import qualified Data.Vector as Vector
 
-type Request = (LedgerId,ApplicationId,[Party],LedgerOffset)
+type Request = (LedgerId,ApplicationId,[Party],Maybe LedgerOffset)
 type Response = (Maybe Checkpoint, [Completion])
 
 completionStream :: Request -> LedgerService (Stream Response)
-completionStream (lid,aid,partys,offset) =
+completionStream (lid,aid,partys,offsetOpt) =
     makeLedgerService $ \timeout config -> do
-    stream <- newStream
-    let request = mkCompletionStreamRequest lid aid partys offset
-    _ <- forkIO $
+    let request = mkCompletionStreamRequest lid aid partys offsetOpt
+    asyncStreamGen $ \stream ->
         withGRPCClient config $ \client -> do
             service <- commandCompletionServiceClient client
             let CommandCompletionService {commandCompletionServiceCompletionStream=rpc} = service
             sendToStream timeout request raiseCompletionStreamResponse stream rpc
-    return stream
 
-mkCompletionStreamRequest :: LedgerId -> ApplicationId -> [Party] -> LedgerOffset -> CompletionStreamRequest
-mkCompletionStreamRequest (LedgerId id) aid parties offset = CompletionStreamRequest {
+
+
+mkCompletionStreamRequest :: LedgerId -> ApplicationId -> [Party] -> Maybe LedgerOffset -> CompletionStreamRequest
+mkCompletionStreamRequest (LedgerId id) aid parties offsetOpt = CompletionStreamRequest {
     completionStreamRequestLedgerId = id,
     completionStreamRequestApplicationId = unApplicationId aid,
     completionStreamRequestParties = Vector.fromList (map unParty parties),
@@ -42,7 +41,7 @@ mkCompletionStreamRequest (LedgerId id) aid parties offset = CompletionStreamReq
     --
     -- which is entirely pointless, as it just results in an empty/closed stream of results
     -- so dont support the optionality in the haskell interface
-    completionStreamRequestOffset = Just (lowerLedgerOffset offset)
+    completionStreamRequestOffset = fmap lowerLedgerOffset offsetOpt
     }
 
 completionEnd :: LedgerId -> LedgerService AbsOffset
@@ -52,8 +51,9 @@ completionEnd lid =
         service <- commandCompletionServiceClient client
         let CommandCompletionService {commandCompletionServiceCompletionEnd=rpc} = service
         let request = CompletionEndRequest (unLedgerId lid) noTrace
-        response <- rpc (ClientNormalRequest request timeout emptyMdm)
-        unwrap response >>= \case
+        rpc (ClientNormalRequest request timeout emptyMdm)
+            >>= unwrap
+            >>= \case
             CompletionEndResponse (Just offset) ->
                 case raiseAbsLedgerOffset offset of
                     Left reason -> fail (show reason)

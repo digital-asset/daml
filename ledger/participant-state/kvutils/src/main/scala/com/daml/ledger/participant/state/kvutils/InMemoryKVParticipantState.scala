@@ -3,6 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.io._
 import java.time.Clock
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
@@ -16,7 +17,7 @@ import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{UploadPackagesResult, _}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.LedgerString
+import com.digitalasset.daml.lf.data.Ref.{LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml_lf.DamlLf.Archive
@@ -29,6 +30,7 @@ import scala.collection.JavaConverters._
 import scala.collection.breakOut
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Try
 
 object InMemoryKVParticipantState {
 
@@ -50,6 +52,18 @@ object InMemoryKVParticipantState {
       // Current ledger configuration.
       config: Configuration
   )
+
+  object State {
+    def empty = State(
+      commitLog = Vector.empty[Commit],
+      recordTime = Timestamp.Epoch,
+      store = Map.empty[ByteString, ByteString],
+      config = Configuration(
+        timeModel = TimeModel.reasonableDefault
+      )
+    )
+
+  }
 
   sealed trait Commit extends Serializable with Product
 
@@ -83,7 +97,10 @@ object InMemoryKVParticipantState {
   * See Akka documentation for information on them:
   * https://doc.akka.io/docs/akka/current/index-actors.html.
   */
-class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer)
+class InMemoryKVParticipantState(
+    val participantId: ParticipantId,
+    val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
+    file: Option[File] = None)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
     with WriteService
     with AutoCloseable {
@@ -93,8 +110,6 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private implicit val ec: ExecutionContext = mat.executionContext
-
-  val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString)
 
   // The ledger configuration
   private val ledgerConfig = Configuration(timeModel = TimeModel.reasonableDefault)
@@ -119,9 +134,6 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     */
   private val HEARTBEAT_INTERVAL = 5.seconds
 
-  // Name of this participant, ultimately pass this info in command-line
-  val participantId = "in-memory-participant"
-
   /** Reference to the latest state of the in-memory ledger.
     * This state is only updated by the [[CommitActor]], which processes submissions
     * sequentially and non-concurrently.
@@ -129,15 +141,26 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     * Reading from the state must happen by first taking the reference (val state = stateRef),
     * as otherwise the reads may cross update boundaries.
     */
-  @volatile private var stateRef: State =
-    State(
-      commitLog = Vector.empty[Commit],
-      recordTime = Timestamp.Epoch,
-      store = Map.empty[ByteString, ByteString],
-      config = Configuration(
-        timeModel = TimeModel.reasonableDefault
-      )
-    )
+  @volatile private var stateRef: State = {
+    val initState = Try(file.map { f =>
+      val is = new ObjectInputStream(new FileInputStream(f))
+      val state = is.readObject().asInstanceOf[State]
+      is.close()
+      state
+    }).toOption.flatten.getOrElse(State.empty)
+    logger.info(s"Starting ledger backend at offset ${initState.commitLog.size}")
+    initState
+  }
+
+  private def updateState(newState: State) = {
+    file.foreach { f =>
+      val os = new ObjectOutputStream(new FileOutputStream(f))
+      os.writeObject(newState)
+      os.flush()
+      os.close()
+    }
+    stateRef = newState
+  }
 
   /** Akka actor that matches the requests for party allocation
     * with asynchronous responses delivered within the log entries.
@@ -206,10 +229,11 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
       case commit @ CommitHeartbeat(newRecordTime) =>
         logger.trace(s"CommitActor: committing heartbeat, recordTime=$newRecordTime")
         // Update the state.
-        stateRef = stateRef.copy(
-          commitLog = stateRef.commitLog :+ commit,
-          recordTime = newRecordTime
-        )
+        updateState(
+          stateRef.copy(
+            commitLog = stateRef.commitLog :+ commit,
+            recordTime = newRecordTime
+          ))
         // Wake up consumers.
         dispatcher.signalNewHead(stateRef.commitLog.size)
 
@@ -249,11 +273,12 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
             s"CommitActor: committing ${KeyValueCommitting.prettyEntryId(entryId)} and ${allUpdates.size} updates to store.")
 
           // Update the state.
-          stateRef = state.copy(
-            recordTime = newRecordTime,
-            commitLog = state.commitLog :+ commit,
-            store = state.store ++ allUpdates
-          )
+          updateState(
+            state.copy(
+              recordTime = newRecordTime,
+              commitLog = state.commitLog :+ commit,
+              store = state.store ++ allUpdates
+            ))
 
           // Wake up consumers.
           dispatcher.signalNewHead(stateRef.commitLog.size)
@@ -293,7 +318,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     * given offset, and the method [[Dispatcher.signalNewHead]] to signal that
     * new elements has been added.
     */
-  private val dispatcher: Dispatcher[Int, Option[Update]] = Dispatcher(
+  private val dispatcher: Dispatcher[Int, List[Update]] = Dispatcher(
     steppingMode = OneAfterAnother(
       (idx: Int, _) => idx + 1,
       (idx: Int) => Future.successful(getUpdate(idx, stateRef))
@@ -305,7 +330,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   /** Helper for [[dispatcher]] to fetch [[DamlLogEntry]] from the
     * state and convert it into [[Update]].
     */
-  private def getUpdate(idx: Int, state: State): Option[Update] = {
+  private def getUpdate(idx: Int, state: State): List[Update] = {
     assert(idx >= 0 && idx < state.commitLog.size)
 
     state.commitLog(idx) match {
@@ -323,7 +348,7 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
           )
 
       case CommitHeartbeat(recordTime) =>
-        Some(Update.Heartbeat(recordTime))
+        List(Update.Heartbeat(recordTime))
     }
   }
 
@@ -334,18 +359,26 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
     * See [[ReadService.stateUpdates]] for full documentation for the properties
     * of this method.
     */
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
+  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] =
     dispatcher
       .startingAt(
         beginAfter
-          .map(_.components.head.toInt + 1) // startingAt is inclusive, so jump over one element.
+          .map(_.components.head.toInt)
           .getOrElse(beginning)
       )
       .collect {
-        case (idx, Some(update)) =>
-          Offset(Array(idx.toLong)) -> update
+        case (offset, updates) =>
+          updates.zipWithIndex.map {
+            case (el, idx) => Offset(Array(offset.toLong, idx.toLong)) -> el
+          }
       }
-  }
+      .mapConcat(identity)
+      .filter {
+        case (offset, _) =>
+          if (beginAfter.isDefined)
+            offset > beginAfter.get
+          else true
+      }
 
   /** Submit a transaction to the ledger.
     *
@@ -391,15 +424,32 @@ class InMemoryKVParticipantState(implicit system: ActorSystem, mat: Materializer
   override def allocateParty(
       hint: Option[String],
       displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
+
+    hint.map(p => Party.fromString(p)) match {
+      case None =>
+        allocatePartyOnLedger(generateRandomId(), displayName)
+      case Some(Right(party)) =>
+        allocatePartyOnLedger(party, displayName)
+      case Some(Left(error)) =>
+        CompletableFuture.completedFuture(PartyAllocationResult.InvalidName(error))
+    }
+  }
+
+  private def allocatePartyOnLedger(
+      party: String,
+      displayName: Option[String]): CompletionStage[PartyAllocationResult] = {
     val sId = submissionId.getAndIncrement().toString
     val cf = new CompletableFuture[PartyAllocationResult]
     matcherActorRef ! AddPartyAllocationRequest(sId, cf)
     commitActorRef ! CommitSubmission(
-      allocateEntryId,
-      KeyValueSubmission.partyToSubmission(sId, hint, displayName, participantId)
+      allocateEntryId(),
+      KeyValueSubmission.partyToSubmission(sId, Some(party), displayName, participantId)
     )
     cf
   }
+
+  private def generateRandomId(): Ref.Party =
+    Ref.Party.assertFromString(s"party-${UUID.randomUUID().toString.take(8)}")
 
   /** Upload DAML-LF packages to the ledger */
   override def uploadPackages(

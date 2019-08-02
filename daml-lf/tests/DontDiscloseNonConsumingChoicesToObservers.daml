@@ -5,35 +5,26 @@ daml 1.2
 
 module DontDiscloseNonConsumingExercisesToObservers where
 
-data NonObservable = NonObservable
-  { p : Party
-  , obs : Party
-  }
+template NonObservable with
+    p : Party
+    obs : Party
+  where
+    signatory p
+    observer obs
 
+    controller p can
+      nonconsuming CreateEvent : ContractId Event
+        do create $ Event p
 
-instance Template NonObservable where
-  signatory NonObservable{..} = [p]
-  observer NonObservable{..} = [obs]
-
-data Event = Event
-  { p : Party
-  }
-
-instance Template Event where
-  signatory Event{..} = [p]
-
-data CreateEvent = CreateEvent {}
-
-instance Choice NonObservable CreateEvent (ContractId Event) where
-  choiceController NonObservable{..} _ = [p]
-  consuming = nonconsuming
-  choice NonObservable{..} _self CreateEvent =
-    create $ Event p
+template Event with
+    p : Party
+  where
+    signatory p
 
 
 -- Bob should not be able to fetch when DontDiscloseNonConsumingExercisesToObservers is set,
 -- because he is only an observer and the choice CreateEventis non-consuming.
-test_DontDiscloseNonConsumingExercisesToObervers = test do
+test_DontDiscloseNonConsumingExercisesToObervers = scenario do
   alice <- getParty "alice"
   bob <- getParty "bob"
   cid <- submit alice $ do
