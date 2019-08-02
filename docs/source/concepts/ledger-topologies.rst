@@ -16,13 +16,24 @@ The real-world topologies of actual ledger implementations differ significantly,
 The topologies can impact both the functional and non-functional properties of the resulting ledger.
 This document:
 
-1. provides one useful categorization of the existing implementations' topologies
-2. describes the general ledger properties of each category.
+1. Provides one useful categorization of the existing implementations' topologies.
+   The categorization is not the only one possible, and it is not always clear-cut.
+   Its main aim is to group the implementations according to their high-level properties.
+
+2. Describes the general ledger properties of each category.
+
+
+.. _centralized-topologies:
+
+Centralized Topologies
+**********************
+
+In these topologies, there exists a single physical or logical system that contains the physical copy of the entire virtual shared ledger accessible through the API.
 
 .. _centralized-topology:
 
 The Fully Centralized Topology
-******************************
+==============================
 
 The simplest topology is the one where the virtual shared ledger is implemented through a single machine containing a physical copy of the shared ledger.
 
@@ -53,7 +64,7 @@ The following two sections describe the partitioning approaches used by several 
 .. _reader-writer-topology:
 
 The Reader-Writer Partitioning Topology
-***************************************
+=======================================
 
 In this topology, the ledger is implemented as a distributed system.
 The system consists of two kinds of nodes:
@@ -90,7 +101,7 @@ Out of the box, scalability is also limited, but can be improved by internally p
 .. _staged-writer-topology:
 
 The Staged Writer Topology
-**************************
+==========================
 
 This topology is a refinement of the previous one.
 The writer is split up into two stages.
@@ -108,11 +119,11 @@ The implementations that use this topology do not provide interoperability acros
 
 .. _decentralized-ledger-topology:
 
-Decentralized Ledger Topology
-*****************************
+Decentralized Ledger Topologies
+*******************************
 
-In this topology, the ledger is again implemented as a distributed system.
-However, unlike the previous topologies, no system node holds a physical copy of the entire shared ledger.
+In these topologies, the ledger is again implemented as a distributed system.
+However, unlike the centralized topologies, no system node holds a physical copy of the entire shared ledger.
 Instead, the participant nodes hold just the part of the ledger (i.e., the :ref:`ledger projection <da-model-projections>`) that is relevant to the parties to whom they serve the Ledger API.
 They jointly extend the ledger by running a distributed commit protocol.
 
