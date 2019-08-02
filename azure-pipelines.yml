@@ -31,7 +31,6 @@ jobs:
       - template: ci/report-end.yml
 
   - job: macOS
-    continueOnError: true
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
@@ -49,11 +48,6 @@ jobs:
           path: $(cache-path)
       - bash: |
           set -euo pipefail
-          echo "##vso[task.setvariable variable=cacheFailed]true"
-          echo "##vso[task.setvariable variable=Agent.JobStatus]Succeeded"
-        condition: failed()
-      - bash: |
-          set -euo pipefail
           if [[ -e $(cache-path) ]]; then
               DIR=$(pwd)
               sudo mkdir /nix && sudo chown $USER /nix
@@ -63,7 +57,6 @@ jobs:
               curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
           fi
         displayName: restore cache
-        condition: not(eq('true', variables['cacheFailed']))
       - template: ci/build-unix.yml
         parameters:
           name: macos
@@ -75,12 +68,8 @@ jobs:
               GZIP=-9 tar czf $(cache-path)/nix.tar.gz store var
           fi
         displayName: create cache
-        condition: not(eq('true', variables['cacheFailed']))
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
-      - bash: |
-          echo "##vso[task.setvariable variable=succeedBeforePostCache;isOutput=true]true"
-        name: cache
 
   - job: Windows
     timeoutInMinutes: 360
@@ -120,7 +109,6 @@ jobs:
       - template: ci/report-end.yml
 
   - job: hie_core_stack_86
-    continueOnError: true
     timeoutInMinutes: 60
     pool:
       vmImage: 'ubuntu-latest'
@@ -133,11 +121,6 @@ jobs:
           path: .azure-cache
           cacheHitVar: CACHE_RESTORED
         displayName: "Cache stack artifacts"
-      - bash: |
-          set -euo pipefail
-          echo "##vso[task.setvariable variable=cacheFailed]true"
-          echo "##vso[task.setvariable variable=Agent.JobStatus]Succeeded"
-        condition: failed()
       - bash: |
           mkdir -p ~/.stack
           tar xzf .azure-cache/stack-root.tar.gz -C $HOME
@@ -157,13 +140,8 @@ jobs:
           mkdir -p .azure-cache
           tar czf .azure-cache/stack-root.tar.gz -C $HOME .stack
         displayName: "Pack cache"
-        condition: not(eq('true', variables['cacheFailed']))
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
-      - bash: |
-          echo "##vso[task.setvariable variable=succeedBeforePostCache;isOutput=true]true"
-        name: cache
-
   - job: Windows_signing
     # Signing is a separate job so that we can make sure that we only sign on releases.
     # Since the release check is run on Linux, we do not have access to that information
@@ -201,27 +179,6 @@ jobs:
           artifactName: $(signing.artifact-windows-installer)
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
-      - bash: |
-          echo "##vsp[task.setvariable variable=succeedBeforePostCache;isOutput=true]true"
-        name: cache
-
-  - job: work_around_broken_cache
-    dependsOn: [ "macOS", "hie_core_stack_86" ]
-    pool:
-      vmImage: "Ubuntu-16.04"
-    variables:
-      mac: $[ dependencies.macOS.outputs['cache.succeedBeforePostCache'] ]
-      hie: $[ dependencies.hie_core_stack_86.outputs['cache.succeedBeforePostCache'] ]
-    steps:
-      - checkout: none
-      - bash: |
-          set -euo pipefail
-          echo "mac: $(mac)"
-          echo "hie: $(hie)"
-          if [[ "$(mac)" != "true" || "$(hie)" != "true" ]]; then
-            exit 1
-          fi
-
 
   - job: release
     dependsOn: [ "Linux", "macOS", "Windows", "Windows_signing", "perf"]
