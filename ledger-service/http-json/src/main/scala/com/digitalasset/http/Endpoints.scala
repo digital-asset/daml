@@ -13,6 +13,7 @@ import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.decode
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.FutureUtil
+import com.digitalasset.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.jwt.JwtVerifier.VerifyJwt
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -26,9 +27,10 @@ import scalaz.{-\/, EitherT, Show, \/, \/-}
 import spray.json._
 import scalaz.std.list._
 
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.higherKinds
+
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -61,39 +63,42 @@ class Endpoints(
 
         (jwtPayload, reqBody) = input
 
-        cmd <- FutureUtil
-          .either(
-            decoder
-              .decodeR[domain.CreateCommand](reqBody)
-              .leftMap(e => InvalidUserInput(e.shows))): ET[domain.CreateCommand[lav1.value.Record]]
+        cmd <- either(
+          decoder
+            .decodeR[domain.CreateCommand](reqBody)
+            .leftMap(e => InvalidUserInput(e.shows))): ET[domain.CreateCommand[lav1.value.Record]]
 
-        ac <- FutureUtil.eitherT(handleFutureFailure(commandService.create(jwtPayload, cmd))): ET[
+        ac <- eitherT(handleFutureFailure(commandService.create(jwtPayload, cmd))): ET[
           domain.ActiveContract[lav1.value.Value]]
 
-        jsVal <- FutureUtil
-          .either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
+        jsVal <- either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
       } yield jsVal
 
       httpResponse(et)
 
     case req @ HttpRequest(POST, Uri.Path("/command/exercise"), _, _, _) =>
-      httpResponse(
-        input(req)
-          .map(decoder.decodeR[domain.ExerciseCommand])
-          .mapAsync(1) {
-            case -\/(e) => invalidUserInput(e)
-            case \/-(c) => handleFutureFailure(commandService.exercise(jwtPayload, c))
-          }
-          .map { fa =>
-            fa.flatMap { as =>
-              as.traverse(a => encoder.encodeV(a))
-                .leftMap(e => ServerError(e.shows))
-                .flatMap(as => encodeList(as))
-            }
-          }
-          .map(formatResult)
-      )
+      val et: ET[JsValue] = for {
+        input <- eitherT(input2(req)): ET[(domain.JwtPayload, String)]
+
+        (jwtPayload, reqBody) = input
+
+        cmd <- either(
+          decoder
+            .decodeR[domain.ExerciseCommand](reqBody)
+            .leftMap(e => InvalidUserInput(e.shows))): ET[domain.ExerciseCommand[lav1.value.Record]]
+
+        as <- eitherT(handleFutureFailure(commandService.exercise(jwtPayload, cmd))): ET[
+          ImmArraySeq[domain.ActiveContract[lav1.value.Value]]]
+
+        jsVal <- either(
+          as.traverse(a => encoder.encodeV(a))
+            .leftMap(e => ServerError(e.shows))
+            .flatMap(as => encodeList(as))): ET[JsValue]
+
+      } yield jsVal
+
+      httpResponse(et)
   }
 
   private def invalidUserInput[A: Show, B](a: A): Future[InvalidUserInput \/ B] =

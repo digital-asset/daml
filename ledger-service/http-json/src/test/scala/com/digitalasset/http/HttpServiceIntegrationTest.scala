@@ -135,7 +135,7 @@ class HttpServiceIntegrationTest
         val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
         val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
 
-        postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson).flatMap {
+        postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson, headersWithAuth).flatMap {
           case (exerciseStatus, exerciseOutput) =>
             exerciseStatus shouldBe StatusCodes.OK
             assertStatus(exerciseOutput, StatusCodes.OK)
@@ -158,7 +158,7 @@ class HttpServiceIntegrationTest
     val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
     val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
 
-    postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson).flatMap {
+    postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson, headersWithAuth).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.InternalServerError)
