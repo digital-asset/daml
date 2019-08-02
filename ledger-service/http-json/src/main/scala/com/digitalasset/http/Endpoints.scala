@@ -96,9 +96,6 @@ class Endpoints(
       )
   }
 
-  private def eitherT[F[_], A, Error](a: F[A \/ Error]): EitherT[F, A, Error] =
-    EitherT.eitherT(a)
-
   private def invalidUserInput[A: Show, B](a: A): Future[InvalidUserInput \/ B] =
     Future.successful(-\/(InvalidUserInput(a.shows)))
 
