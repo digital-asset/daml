@@ -54,22 +54,17 @@ class HttpServiceIntegrationTest
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwtToken)))
 
   "contracts/search test" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
-    Http()
-      .singleRequest(
-        HttpRequest(uri = uri.withPath(Uri.Path("/contracts/search")), headers = headersWithAuth))
-      .flatMap { resp =>
-        resp.status shouldBe StatusCodes.OK
-        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
-        bodyF.flatMap { body =>
-          val jsonAst: JsValue = body.parseJson
-          assertStatus(jsonAst, StatusCodes.OK)
-          inside(jsonAst) {
+    getRequest(uri = uri.withPath(Uri.Path("/contracts/search")), headers = headersWithAuth)
+      .flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.OK
+          assertStatus(output, StatusCodes.OK)
+          inside(output) {
             case JsObject(fields) =>
               inside(fields.get("result")) {
                 case Some(JsArray(result)) => result.length should be > 0
               }
           }
-        }
       }: Future[Assertion]
   }
 
@@ -77,7 +72,7 @@ class HttpServiceIntegrationTest
     val command: domain.CreateCommand[v.Record] = iouCreateCommand
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
-    postJson(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
+    postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
@@ -97,7 +92,7 @@ class HttpServiceIntegrationTest
     val command: domain.CreateCommand[v.Record] = iouCreateCommand
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
-    postJson(uri.withPath(Uri.Path("/command/create")), input, List()).flatMap {
+    postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, List()).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.Unauthorized
         assertStatus(output, StatusCodes.Unauthorized)
@@ -113,7 +108,7 @@ class HttpServiceIntegrationTest
       iouCreateCommand.copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
-    postJson(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
+    postJsonRequest(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.BadRequest
         assertStatus(output, StatusCodes.BadRequest)
@@ -128,30 +123,34 @@ class HttpServiceIntegrationTest
     val create: domain.CreateCommand[v.Record] = iouCreateCommand
     val createJson: JsObject = encoder.encodeR(create).valueOr(e => fail(e.shows))
 
-    postJson(uri.withPath(Uri.Path("/command/create")), createJson, headersWithAuth).flatMap {
-      case (createStatus, createOutput) =>
-        createStatus shouldBe StatusCodes.OK
-        assertStatus(createOutput, StatusCodes.OK)
+    postJsonRequest(uri.withPath(Uri.Path("/command/create")), createJson, headersWithAuth)
+      .flatMap {
+        case (createStatus, createOutput) =>
+          createStatus shouldBe StatusCodes.OK
+          assertStatus(createOutput, StatusCodes.OK)
 
-        val contractId = getContractId(createOutput)
-        val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
-        val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
+          val contractId = getContractId(createOutput)
+          val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
+          val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
 
-        postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson, headersWithAuth)
-          .flatMap {
-            case (exerciseStatus, exerciseOutput) =>
-              exerciseStatus shouldBe StatusCodes.OK
-              assertStatus(exerciseOutput, StatusCodes.OK)
-              println(s"----- exerciseOutput: $exerciseOutput")
-              inside(exerciseOutput) {
-                case JsObject(fields) =>
-                  inside(fields.get("result")) {
-                    case Some(JsArray(Vector(activeContract: JsObject))) =>
-                      assertActiveContract(decoder, activeContract, create, exercise)
-                  }
-              }
-          }
-    }: Future[Assertion]
+          postJsonRequest(
+            uri.withPath(Uri.Path("/command/exercise")),
+            exerciseJson,
+            headersWithAuth)
+            .flatMap {
+              case (exerciseStatus, exerciseOutput) =>
+                exerciseStatus shouldBe StatusCodes.OK
+                assertStatus(exerciseOutput, StatusCodes.OK)
+                println(s"----- exerciseOutput: $exerciseOutput")
+                inside(exerciseOutput) {
+                  case JsObject(fields) =>
+                    inside(fields.get("result")) {
+                      case Some(JsArray(Vector(activeContract: JsObject))) =>
+                        assertActiveContract(decoder, activeContract, create, exercise)
+                    }
+                }
+            }
+      }: Future[Assertion]
   }
 
   "command/exercise IOU_Transfer with unknown contractId should return proper error" in withHttpService(
@@ -161,13 +160,14 @@ class HttpServiceIntegrationTest
     val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
     val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
 
-    postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson, headersWithAuth).flatMap {
-      case (status, output) =>
-        status shouldBe StatusCodes.InternalServerError
-        assertStatus(output, StatusCodes.InternalServerError)
-        expectedOneErrorMessage(output) should include(
-          "couldn't find contract AbsoluteContractId(NonExistentContractId)")
-    }: Future[Assertion]
+    postJsonRequest(uri.withPath(Uri.Path("/command/exercise")), exerciseJson, headersWithAuth)
+      .flatMap {
+        case (status, output) =>
+          status shouldBe StatusCodes.InternalServerError
+          assertStatus(output, StatusCodes.InternalServerError)
+          expectedOneErrorMessage(output) should include(
+            "couldn't find contract AbsoluteContractId(NonExistentContractId)")
+      }: Future[Assertion]
   }
 
   private def assertActiveContract(
@@ -242,14 +242,13 @@ class HttpServiceIntegrationTest
 
   "request non-existent endpoint should return 404 with no data" in withHttpService(dar, testId) {
     (uri: Uri, _, _) =>
-      Http()
-        .singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/contracts/does-not-exist"))))
-        .flatMap { resp =>
-          resp.status shouldBe StatusCodes.NotFound
-          val bodyF: Future[String] = getResponseDataBytes(resp)
-          bodyF.flatMap { body =>
-            body should have length 0
-          }
+      val badUri = uri.withPath(Uri.Path("/contracts/does-not-exist"))
+      getRequest(uri = badUri)
+        .flatMap {
+          case (status, output) =>
+            status shouldBe StatusCodes.NotFound
+            assertStatus(output, StatusCodes.NotFound)
+            expectedOneErrorMessage(output) shouldBe s"${HttpMethods.GET: HttpMethod}, uri: ${badUri: Uri}"
         }: Future[Assertion]
   }
 
@@ -286,7 +285,7 @@ class HttpServiceIntegrationTest
     domain.ExerciseCommand(templateId, contractId, choice, arg, None)
   }
 
-  private def postJson(
+  private def postJsonRequest(
       uri: Uri,
       json: JsValue,
       headers: List[HttpHeader] = Nil): Future[(StatusCode, JsValue)] = {
@@ -298,6 +297,19 @@ class HttpServiceIntegrationTest
           uri = uri,
           headers = headers,
           entity = HttpEntity(ContentTypes.`application/json`, json.prettyPrint))
+      )
+      .flatMap { resp =>
+        val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
+        bodyF.map(body => (resp.status, body.parseJson))
+      }
+  }
+
+  private def getRequest(
+      uri: Uri,
+      headers: List[HttpHeader] = Nil): Future[(StatusCode, JsValue)] = {
+    Http()
+      .singleRequest(
+        HttpRequest(method = HttpMethods.GET, uri = uri, headers = headers)
       )
       .flatMap { resp =>
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)

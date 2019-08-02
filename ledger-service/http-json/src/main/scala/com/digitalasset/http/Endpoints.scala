@@ -7,7 +7,6 @@ import akka.http.scaladsl.model.HttpMethods.{GET, POST}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
-import akka.stream.scaladsl.Source
 import akka.util.ByteString
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.json.ResponseFormats._
@@ -213,6 +212,7 @@ class Endpoints(
       case InvalidUserInput(e) => StatusCodes.BadRequest -> e
       case ServerError(e) => StatusCodes.InternalServerError -> e
       case Unauthorized(e) => StatusCodes.Unauthorized -> e
+      case NotFound(e) => StatusCodes.NotFound -> e
     }
 
     httpResponse(status, errorsJsObject(status, errorMsg))
@@ -224,13 +224,9 @@ class Endpoints(
       entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
   }
 
-  private def httpResponse(output: Future[ByteString]): HttpResponse =
-    HttpResponse(entity =
-      HttpEntity.CloseDelimited(ContentTypes.`application/json`, Source.fromFuture(output)))
-
   lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
-    case HttpRequest(_, _, _, _, _) =>
-      Future.successful(HttpResponse(status = StatusCodes.NotFound))
+    case HttpRequest(method, uri, _, _, _) =>
+      Future.successful(httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}")))
   }
 
   private def format(a: JsValue): ByteString = ByteString(a.compactPrint)
@@ -276,11 +272,14 @@ object Endpoints {
 
   final case class ServerError(message: String) extends Error(message)
 
+  final case class NotFound(message: String) extends Error(message)
+
   object Error {
     implicit val ShowInstance: Show[Error] = Show shows {
       case InvalidUserInput(e) => s"Endpoints.InvalidUserInput: ${e: String}"
       case ServerError(e) => s"Endpoints.ServerError: ${e: String}"
       case Unauthorized(e) => s"Endpoints.Unauthorized: ${e: String}"
+      case NotFound(e) => s"Endpoints.NotFound: ${e: String}"
     }
   }
 }
