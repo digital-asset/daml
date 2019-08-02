@@ -6,7 +6,8 @@ package com.daml.ledger.api.rewrite.testtool
 import com.daml.ledger.api.rewrite.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.api.rewrite.testtool.infrastructure.{
   LedgerSessionConfiguration,
-  LedgerTestSuiteRunner
+  LedgerTestSuiteRunner,
+  LedgerTestSummaries
 }
 import org.slf4j.LoggerFactory
 
@@ -20,17 +21,26 @@ object LedgerApiTestTool {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
+    Thread
+      .currentThread()
+      .setUncaughtExceptionHandler((_, exception) => {
+        logger.error("UNCAUGHT EXCEPTION ON MAIN THREAD", exception)
+        sys.exit(1)
+      })
+
     val runner = new LedgerTestSuiteRunner(
-      Vector(LedgerSessionConfiguration(config.host, config.port)),
+      Vector(
+        LedgerSessionConfiguration(config.host, config.port)
+      ),
       tests.all.values.toVector
     )
 
     runner.run {
-      case Success(summaries) =>
+      case Success(LedgerTestSummaries(summaries, failure)) =>
         new ColorizedPrintStreamReporter(System.out)(summaries)
-        sys.exit(if (summaries.exists(_.result.failure)) 1 else 0)
+        sys.exit(if (failure) 1 else 0)
       case Failure(e) =>
-        logger.error("Unexpected uncaught exception, terminating!", e)
+        logger.error(e.getMessage, e)
         sys.exit(1)
     }
   }

@@ -6,11 +6,16 @@ package com.daml.ledger.api.rewrite.testtool.infrastructure
 import java.time.{Clock, Instant, ZoneId}
 import java.util.concurrent.atomic.AtomicReference
 
-import com.digitalasset.ledger.api.v1.testing.time_service.{GetTimeRequest, GetTimeResponse}
 import com.digitalasset.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeService
+import com.digitalasset.ledger.api.v1.testing.time_service.{
+  GetTimeRequest,
+  GetTimeResponse,
+  SetTimeRequest
+}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
 
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 private[testtool] object LedgerClock {
@@ -18,24 +23,39 @@ private[testtool] object LedgerClock {
   private def timestampToInstant(t: Timestamp): Instant =
     Instant.EPOCH.plusSeconds(t.seconds).plusNanos(t.nanos.toLong)
 
-  def apply(ledgerId: String, service: TimeService)(
-      implicit ec: ExecutionContext): Future[Clock] = {
+  private def instantToTimestamp(t: Instant): Timestamp =
+    new Timestamp(t.getEpochSecond, t.getNano)
 
-    val ledgerTime = new AtomicReference[Instant]()
-    val clockPromise = Promise[Clock]
+  def apply(ledgerId: String, service: TimeService)(
+      implicit ec: ExecutionContext): Future[LedgerClock] = {
+
+    val ledgerTime = new AtomicReference[Option[Instant]](None)
+    val clockPromise = Promise[LedgerClock]
 
     service.getTime(
       new GetTimeRequest(ledgerId),
       new StreamObserver[GetTimeResponse] {
         override def onNext(value: GetTimeResponse): Unit = {
-          ledgerTime.set(LedgerClock.timestampToInstant(value.currentTime.get))
-          val _ = clockPromise.trySuccess(new LedgerClock(ledgerTime))
+          val previous =
+            ledgerTime.getAndUpdate(_ => Some(timestampToInstant(value.currentTime.get)))
+          if (previous.isEmpty) {
+            val _ = clockPromise.trySuccess(new LedgerClock {
+              override def passTime(t: Duration): Future[Unit] = {
+                val now = ledgerTime.get()
+                val currentTime = now.map(instantToTimestamp)
+                val newTime = now.map(_.plusNanos(t.toNanos)).map(instantToTimestamp)
+                service.setTime(new SetTimeRequest(ledgerId, currentTime, newTime)).map(_ => ())
+              }
+
+              override def instant(): Instant = ledgerTime.get().get
+            })
+          }
         }
         override def onError(t: Throwable): Unit = {
-          val _ = clockPromise.trySuccess(Clock.systemUTC())
+          val _ = clockPromise.trySuccess(SystemUTC)
         }
         override def onCompleted(): Unit = {
-          val _ = clockPromise.trySuccess(Clock.systemUTC())
+          val _ = clockPromise.trySuccess(SystemUTC)
         }
       }
     )
@@ -44,14 +64,26 @@ private[testtool] object LedgerClock {
 
   }
 
+  object SystemUTC extends LedgerClock {
+
+    override def instant(): Instant = Clock.systemUTC().instant()
+
+    def passTime(t: Duration): Future[Unit] =
+      Future.failed(
+        new RuntimeException(
+          "Time travel is allowed exclusively if the ledger exposes a TimeService"))
+
+  }
+
 }
 
-private[testtool] final class LedgerClock private (t: AtomicReference[Instant]) extends Clock {
+private[testtool] abstract class LedgerClock private () extends Clock {
 
-  override def getZone: ZoneId = ZoneId.of("UTC")
+  override final def getZone: ZoneId = ZoneId.of("UTC")
 
-  override def withZone(zoneId: ZoneId): Clock =
+  override final def withZone(zoneId: ZoneId): Clock =
     throw new UnsupportedOperationException("The ledger clock timezone cannot be changed")
 
-  override def instant(): Instant = t.get()
+  def passTime(t: Duration): Future[Unit]
+
 }

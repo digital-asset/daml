@@ -5,8 +5,18 @@ package com.daml.ledger.api.rewrite.testtool.infrastructure
 
 import scala.concurrent.Future
 
-final case class LedgerTest(description: String)(test: LedgerTestContext => Future[Unit])
+object LedgerTest {
+
+  def apply(description: String, timeout: Long = 30000L)(
+      test: LedgerTestContext => Future[Unit]): LedgerTest =
+    new LedgerTest(description, timeout, test)
+
+}
+
+final class LedgerTest private (
+    val description: String,
+    val timeout: Long,
+    val test: LedgerTestContext => Future[Unit])
     extends (LedgerTestContext => Future[Unit]) {
-  val timeout: Long = 30000L
   override def apply(context: LedgerTestContext): Future[Unit] = test(context)
 }

@@ -51,8 +51,9 @@ private[testtool] object LedgerSession {
 
   private[this] val channels = TrieMap.empty[LedgerSessionConfiguration, LedgerSession]
 
+  @throws[RuntimeException]
   private def create(config: LedgerSessionConfiguration)(
-      implicit ec: ExecutionContext): Try[LedgerSession] = Try {
+      implicit ec: ExecutionContext): LedgerSession = {
     logger.info(s"Connecting to ledger at ${config.host}:${config.port}...")
     val threadFactoryPoolName = s"grpc-event-loop-${config.host}-${config.port}"
     val daemonThreads = true
@@ -77,7 +78,10 @@ private[testtool] object LedgerSession {
 
   def getOrCreate(configuration: LedgerSessionConfiguration)(
       implicit ec: ExecutionContext): Try[LedgerSession] =
-    Try(channels.getOrElseUpdate(configuration, create(configuration).get))
+    Try(channels.getOrElseUpdate(configuration, create(configuration)))
+
+  def close(configuration: LedgerSessionConfiguration) =
+    channels.get(configuration).foreach(_.close())
 
   def closeAll(): Unit =
     for ((_, session) <- channels) {

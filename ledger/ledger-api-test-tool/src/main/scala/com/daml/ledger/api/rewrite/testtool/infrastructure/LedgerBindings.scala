@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.rewrite.testtool.infrastructure
 
-import java.time.{Clock, Instant}
+import java.time.Instant
 import java.util.UUID
 
 import com.digitalasset.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
@@ -14,7 +14,7 @@ import com.digitalasset.ledger.api.v1.event.Event
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
-import com.digitalasset.ledger.api.v1.transaction.Transaction
+import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
   InclusiveFilters,
@@ -22,6 +22,7 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 }
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
+  GetTransactionByIdRequest,
   GetTransactionsRequest,
   GetTransactionsResponse
 }
@@ -29,6 +30,7 @@ import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Va
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Channel
 
+import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerBindings {
@@ -53,10 +55,12 @@ final class LedgerBindings(channel: Channel)(implicit ec: ExecutionContext) {
       response <- services.id.getLedgerIdentity(new GetLedgerIdentityRequest)
     } yield response.ledgerId
 
-  private[this] val clock: Future[Clock] =
+  private[this] val clock: Future[LedgerClock] =
     for (id <- ledgerId; clock <- LedgerClock(id, services.time)) yield clock
 
-  private def time: Future[Instant] = clock.map(_.instant)
+  def time: Future[Instant] = clock.map(_.instant)
+
+  def passTime(t: Duration): Future[Unit] = clock.flatMap(_.passTime(t))
 
   def allocateParty(): Future[String] =
     services.party.allocateParty(new AllocatePartyRequest()).map(_.partyDetails.get.party)
@@ -87,6 +91,13 @@ final class LedgerBindings(channel: Channel)(implicit ec: ExecutionContext) {
           ))
     } yield txs.flatMap(_.transactions)
 
+  def getTransactionById(transactionId: String, parties: Seq[String]): Future[TransactionTree] =
+    for {
+      id <- ledgerId
+      transaction <- services.tx.getTransactionById(
+        new GetTransactionByIdRequest(id, transactionId, parties))
+    } yield transaction.transaction.get
+
   def create(
       party: String,
       applicationId: String,
@@ -109,7 +120,8 @@ final class LedgerBindings(channel: Channel)(implicit ec: ExecutionContext) {
   private def submitAndWaitCommand[A](service: SubmitAndWaitRequest => Future[A])(
       party: String,
       applicationId: String,
-      command: Command.Command): Future[A] =
+      command: Command.Command,
+      commands: Command.Command*): Future[A] =
     for {
       id <- ledgerId
       let <- time
@@ -123,21 +135,40 @@ final class LedgerBindings(channel: Channel)(implicit ec: ExecutionContext) {
             party = party,
             ledgerEffectiveTime = Some(new Timestamp(let.getEpochSecond, let.getNano)),
             maximumRecordTime = Some(new Timestamp(mrt.getEpochSecond, mrt.getNano)),
-            commands = Seq(new Command(command))
+            commands = new Command(command) +: commands.map(new Command(_))
           ))))
     } yield a
 
-  private def submitAndWait(
+  def submitAndWait(
       party: String,
       applicationId: String,
-      command: Command.Command): Future[Unit] =
-    submitAndWaitCommand(services.cmd.submitAndWait)(party, applicationId, command).map(_ => ())
+      command: Command.Command,
+      commands: Command.Command*): Future[Unit] =
+    submitAndWaitCommand(services.cmd.submitAndWait)(party, applicationId, command, commands: _*)
+      .map(_ => ())
 
-  private def submitAndWaitForTransaction[A](
+  def submitAndWaitForTransactionId(
       party: String,
       applicationId: String,
-      command: Command.Command)(f: Transaction => A): Future[A] =
-    submitAndWaitCommand(services.cmd.submitAndWaitForTransaction)(party, applicationId, command)
+      command: Command.Command,
+      commands: Command.Command*
+  ): Future[String] =
+    submitAndWaitCommand(services.cmd.submitAndWaitForTransactionId)(
+      party,
+      applicationId,
+      command,
+      commands: _*).map(_.transactionId)
+
+  def submitAndWaitForTransaction[A](
+      party: String,
+      applicationId: String,
+      command: Command.Command,
+      commands: Command.Command*)(f: Transaction => A): Future[A] =
+    submitAndWaitCommand(services.cmd.submitAndWaitForTransaction)(
+      party,
+      applicationId,
+      command,
+      commands: _*)
       .map(r => f(r.transaction.get))
 
   private def createCommand(templateId: Identifier, args: Map[String, Value.Sum]): Command.Command =
