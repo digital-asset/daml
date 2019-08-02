@@ -81,7 +81,7 @@ object HttpService extends StrictLogging {
       // TODO(Leo): don't depend on HMAC256, use RSA256.
       // Make it configurable, we can run tests with HMAC256 but in PROD we need RSA256
       jwtValidator <- FutureUtil
-        .either(HMAC256Verifier(issuer = "auth0", secret = "secret"))
+        .either(HMAC256Verifier(secret = "secret"))
         .leftMap(e => Error(e.shows))
 
       endpoints = new Endpoints(

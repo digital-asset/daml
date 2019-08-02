@@ -8,15 +8,28 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.digitalasset.jwt.JwtVerifier.Error
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{Show, \/}
+import scalaz.syntax.traverse._
 
 class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) {
+
+  private val base64decoder = java.util.Base64.getDecoder
+
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     \/.fromTryCatchNonFatal(verifier.verify(jwt.value))
       .bimap(
         e => Error('validate, e.getMessage),
         a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload)
       )
+      .flatMap(base64Decode)
   }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
+    jwt.traverse(base64Decode)
+
+  private def base64Decode(base64str: String): Error \/ String =
+    \/.fromTryCatchNonFatal(new String(base64decoder.decode(base64str))).leftMap(e =>
+      Error('base64Decode, "Cannot base64 decode JWT. Cause: " + e.getMessage))
 }
 
 object JwtVerifier {
@@ -32,13 +45,13 @@ object JwtVerifier {
 
 // HMAC256 validator factory
 object HMAC256Verifier extends StrictLogging {
-  def apply(issuer: String, secret: String): Error \/ JwtVerifier =
+  def apply(secret: String): Error \/ JwtVerifier =
     \/.fromTryCatchNonFatal {
       logger.warn(
         "HMAC256 JWT Validator is NOT recommended for production env, please use RSA256 (WIP)!!!")
 
       val algorithm = Algorithm.HMAC256(secret)
-      val verifier = JWT.require(algorithm).withIssuer(issuer).build()
+      val verifier = JWT.require(algorithm).build()
       new JwtVerifier(verifier)
     }.leftMap(e => Error('HMAC256, e.getMessage))
 }

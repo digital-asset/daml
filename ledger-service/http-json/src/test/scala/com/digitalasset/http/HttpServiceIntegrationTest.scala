@@ -6,6 +6,7 @@ package com.digitalasset.http
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.ActorMaterializer
 import akka.util.ByteString
 import com.digitalasset.daml.bazeltools.BazelRunfiles._
@@ -45,6 +46,13 @@ class HttpServiceIntegrationTest
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 
+  // {"ledgerId": "HttpServiceIntegrationTest", "applicationId": "ledger-service-test", "party": "Alice"}
+  // secret: secret
+  private val jwtToken =
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ikh0dHBTZXJ2aWNlSW50ZWdyYXRpb25UZXN0IiwiYXBwbGljYXRpb25JZCI6ImxlZGdlci1zZXJ2aWNlLXRlc3QiLCJwYXJ0eSI6IkFsaWNlIn0.I344H6d9meS2iTXx6xafbRuBoLTZxjCIp-kaJDkApwc"
+
+  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwtToken)))
+
   "contracts/search test" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
     Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/contracts/search")))).flatMap {
       resp =>
@@ -52,11 +60,9 @@ class HttpServiceIntegrationTest
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
         bodyF.flatMap { body =>
           val jsonAst: JsValue = body.parseJson
+          assertStatus(jsonAst, StatusCodes.OK)
           inside(jsonAst) {
             case JsObject(fields) =>
-              inside(fields.get("status")) {
-                case Some(JsNumber(status)) => status shouldBe BigDecimal("200")
-              }
               inside(fields.get("result")) {
                 case Some(JsArray(result)) => result.length should be > 0
               }
@@ -69,7 +75,7 @@ class HttpServiceIntegrationTest
     val command: domain.CreateCommand[v.Record] = iouCreateCommand
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
-    postJson(uri.withPath(Uri.Path("/command/create")), input).flatMap {
+    postJson(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.OK)
@@ -83,6 +89,21 @@ class HttpServiceIntegrationTest
     }: Future[Assertion]
   }
 
+  "command/create IOU should fail if authorization header is missing" in withHttpService(
+    dar,
+    testId) { (uri, encoder, _) =>
+    val command: domain.CreateCommand[v.Record] = iouCreateCommand
+    val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
+
+    postJson(uri.withPath(Uri.Path("/command/create")), input, List()).flatMap {
+      case (status, output) =>
+        status shouldBe StatusCodes.OK
+        assertStatus(output, StatusCodes.Unauthorized)
+        expectedOneErrorMessage(output) should include(
+          "missing Authorization header with OAuth 2.0 Bearer Token")
+    }: Future[Assertion]
+  }
+
   "command/create IOU with unsupported templateId should return proper error" in withHttpService(
     dar,
     testId) { (uri, encoder, _) =>
@@ -90,22 +111,14 @@ class HttpServiceIntegrationTest
       iouCreateCommand.copy(templateId = domain.TemplateId(None, "Iou", "Dummy"))
     val input: JsObject = encoder.encodeR(command).valueOr(e => fail(e.shows))
 
-    postJson(uri.withPath(Uri.Path("/command/create")), input).flatMap {
+    postJson(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.BadRequest)
-        inside(output) {
-          case JsObject(fields) =>
-            inside(fields.get("errors")) {
-              case Some(JsArray(Vector(JsString(errorMsg)))) =>
-                val unknownTemplateId: domain.TemplateId.NoPkg = domain.TemplateId(
-                  (),
-                  command.templateId.moduleName,
-                  command.templateId.entityName)
-                errorMsg should include(
-                  s"Cannot resolve ${unknownTemplateId: domain.TemplateId.NoPkg}")
-            }
-        }
+        val unknownTemplateId: domain.TemplateId.NoPkg =
+          domain.TemplateId((), command.templateId.moduleName, command.templateId.entityName)
+        expectedOneErrorMessage(output) should include(
+          s"Cannot resolve ${unknownTemplateId: domain.TemplateId.NoPkg}")
     }: Future[Assertion]
   }
 
@@ -113,7 +126,7 @@ class HttpServiceIntegrationTest
     val create: domain.CreateCommand[v.Record] = iouCreateCommand
     val createJson: JsObject = encoder.encodeR(create).valueOr(e => fail(e.shows))
 
-    postJson(uri.withPath(Uri.Path("/command/create")), createJson).flatMap {
+    postJson(uri.withPath(Uri.Path("/command/create")), createJson, headersWithAuth).flatMap {
       case (createStatus, createOutput) =>
         createStatus shouldBe StatusCodes.OK
         assertStatus(createOutput, StatusCodes.OK)
@@ -149,14 +162,8 @@ class HttpServiceIntegrationTest
       case (status, output) =>
         status shouldBe StatusCodes.OK
         assertStatus(output, StatusCodes.InternalServerError)
-        inside(output) {
-          case JsObject(fields) =>
-            inside(fields.get("errors")) {
-              case Some(JsArray(Vector(JsString(errorMsg)))) =>
-                errorMsg should include(
-                  "couldn't find contract AbsoluteContractId(NonExistentContractId)")
-            }
-        }
+        expectedOneErrorMessage(output) should include(
+          "couldn't find contract AbsoluteContractId(NonExistentContractId)")
     }: Future[Assertion]
   }
 
@@ -276,13 +283,17 @@ class HttpServiceIntegrationTest
     domain.ExerciseCommand(templateId, contractId, choice, arg, None)
   }
 
-  private def postJson(uri: Uri, json: JsValue): Future[(StatusCode, JsValue)] = {
+  private def postJson(
+      uri: Uri,
+      json: JsValue,
+      headers: List[HttpHeader] = Nil): Future[(StatusCode, JsValue)] = {
     logger.info(s"postJson: $uri json: $json")
     Http()
       .singleRequest(
         HttpRequest(
           method = HttpMethods.POST,
           uri = uri,
+          headers = headers,
           entity = HttpEntity(ContentTypes.`application/json`, json.prettyPrint))
       )
       .flatMap { resp =>
@@ -308,6 +319,14 @@ class HttpServiceIntegrationTest
             inside(fields.get("contractId")) {
               case Some(JsString(contractId)) => lar.ContractId(contractId)
             }
+        }
+    }
+
+  private def expectedOneErrorMessage(output: JsValue): String =
+    inside(output) {
+      case JsObject(fields) =>
+        inside(fields.get("errors")) {
+          case Some(JsArray(Vector(JsString(errorMsg)))) => errorMsg
         }
     }
 }

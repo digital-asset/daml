@@ -220,7 +220,7 @@ class Endpoints(
       .collectFirst {
         case Authorization(OAuth2BearerToken(token)) => Jwt(token)
       }
-      .toRightDisjunction(Unauthorized("missing Authorization header"))
+      .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
 
   private def verify(jwt: Jwt): Unauthorized \/ domain.JwtPayload =
     for {
