@@ -8,7 +8,6 @@ module DA.Ledger.LedgerService (
     ) where
 
 import Control.Monad.Fail (MonadFail)
-import Control.Monad.Catch (MonadThrow,MonadCatch)
 import Control.Monad.IO.Class (MonadIO)
 import Control.Monad.Trans.Reader (ReaderT(..),runReaderT,ask)
 import DA.Ledger.Retry (ledgerRetry)
@@ -19,7 +18,7 @@ import UnliftIO(MonadUnliftIO)
 type Context = (TimeoutSeconds,ClientConfig)
 
 newtype LedgerService a = LedgerService (ReaderT Context IO a)
-    deriving (Functor,Applicative,Monad,MonadFail,MonadIO,MonadUnliftIO,MonadThrow,MonadCatch)
+    deriving (Functor,Applicative,Monad,MonadFail,MonadIO,MonadUnliftIO)
 
 runLedgerService :: LedgerService a -> TimeoutSeconds -> ClientConfig -> IO a
 runLedgerService (LedgerService r) ts cc = runReaderT r (ts,cc)
