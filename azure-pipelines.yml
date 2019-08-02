@@ -277,7 +277,7 @@ jobs:
 
   - job: collect_build_data
     condition: always()
-    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release"]
+    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release", "hie_core_stack_86"]
     pool:
       name: "linux-pool"
     variables:
@@ -305,6 +305,10 @@ jobs:
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
+      hie_core_stack_86.start: $[ dependencies.hie_core_stack_86.outputs['start.time'] ]
+      hie_core_stack_86.machine: $[ dependencies.hie_core_stack_86.outputs['start.machine'] ]
+      hie_core_stack_86.end: $[ dependencies.hie_core_stack_86.outputs['end.time'] ]
+      hie_core_stack_86.status: $[ dependencies.hie_core_stack_86.result ]
     steps:
       - checkout: self
       - bash: |
@@ -335,7 +339,11 @@ jobs:
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
-                                "status": "$(release.status)"}},
+                                "status": "$(release.status)"},
+                    "hie_core_stack_86": {"start": "$(hie_core_stack_86.start)",
+                                          "machine": "$(hie_core_stack_86.machine)",
+                                          "end": "$(hie_core_stack_86.end)",
+                                          "status": "$(hie_core_stack_86.status)"}},
            "id": "$(Build.BuildId)",
            "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
            "name": "$(Build.DefinitionName)",
