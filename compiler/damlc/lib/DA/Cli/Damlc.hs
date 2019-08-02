@@ -910,7 +910,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     optShakeProfiling :: Parser (Maybe FilePath)
     optShakeProfiling = optional $ strOption $
            metavar "PROFILING-REPORT"
-        <> help "path to Shake profiling report"
+        <> help "Directory for Shake profiling reports"
         <> long "shake-profiling"
 
     -- optparse-applicative does not provide a nice way
