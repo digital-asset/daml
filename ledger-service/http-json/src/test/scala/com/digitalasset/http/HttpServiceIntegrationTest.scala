@@ -54,8 +54,10 @@ class HttpServiceIntegrationTest
   private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwtToken)))
 
   "contracts/search test" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
-    Http().singleRequest(HttpRequest(uri = uri.withPath(Uri.Path("/contracts/search")))).flatMap {
-      resp =>
+    Http()
+      .singleRequest(
+        HttpRequest(uri = uri.withPath(Uri.Path("/contracts/search")), headers = headersWithAuth))
+      .flatMap { resp =>
         resp.status shouldBe StatusCodes.OK
         val bodyF: Future[String] = getResponseDataBytes(resp, debug = true)
         bodyF.flatMap { body =>
@@ -68,7 +70,7 @@ class HttpServiceIntegrationTest
               }
           }
         }
-    }: Future[Assertion]
+      }: Future[Assertion]
   }
 
   "command/create IOU" in withHttpService(dar, testId) { (uri, encoder, decoder) =>
@@ -135,19 +137,20 @@ class HttpServiceIntegrationTest
         val exercise: domain.ExerciseCommand[v.Record] = iouExerciseTransferCommand(contractId)
         val exerciseJson: JsObject = encoder.encodeR(exercise).valueOr(e => fail(e.shows))
 
-        postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson, headersWithAuth).flatMap {
-          case (exerciseStatus, exerciseOutput) =>
-            exerciseStatus shouldBe StatusCodes.OK
-            assertStatus(exerciseOutput, StatusCodes.OK)
-            println(s"----- exerciseOutput: $exerciseOutput")
-            inside(exerciseOutput) {
-              case JsObject(fields) =>
-                inside(fields.get("result")) {
-                  case Some(JsArray(Vector(activeContract: JsObject))) =>
-                    assertActiveContract(decoder, activeContract, create, exercise)
-                }
-            }
-        }
+        postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson, headersWithAuth)
+          .flatMap {
+            case (exerciseStatus, exerciseOutput) =>
+              exerciseStatus shouldBe StatusCodes.OK
+              assertStatus(exerciseOutput, StatusCodes.OK)
+              println(s"----- exerciseOutput: $exerciseOutput")
+              inside(exerciseOutput) {
+                case JsObject(fields) =>
+                  inside(fields.get("result")) {
+                    case Some(JsArray(Vector(activeContract: JsObject))) =>
+                      assertActiveContract(decoder, activeContract, create, exercise)
+                  }
+              }
+          }
     }: Future[Assertion]
   }
 

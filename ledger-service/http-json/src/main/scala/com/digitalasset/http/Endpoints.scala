@@ -21,11 +21,11 @@ import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
-import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 import spray.json._
 import scalaz.std.list._
+import scalaz.syntax.std.option._
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import scala.concurrent.duration.FiniteDuration
@@ -49,10 +49,6 @@ class Endpoints(
   import Endpoints._
   import json.JsonProtocol._
 
-  // TODO(Leo) read it from the header
-  private val jwtPayload =
-    domain.JwtPayload(ledgerId, lar.ApplicationId("applicationId"), lar.Party("Alice"))
-
   lazy val all: PartialFunction[HttpRequest, HttpResponse] =
     command orElse contracts orElse notFound
 
@@ -66,10 +62,12 @@ class Endpoints(
         cmd <- either(
           decoder
             .decodeR[domain.CreateCommand](reqBody)
-            .leftMap(e => InvalidUserInput(e.shows))): ET[domain.CreateCommand[lav1.value.Record]]
+            .leftMap(e => InvalidUserInput(e.shows))
+        ): ET[domain.CreateCommand[lav1.value.Record]]
 
-        ac <- eitherT(handleFutureFailure(commandService.create(jwtPayload, cmd))): ET[
-          domain.ActiveContract[lav1.value.Value]]
+        ac <- eitherT(
+          handleFutureFailure(commandService.create(jwtPayload, cmd))
+        ): ET[domain.ActiveContract[lav1.value.Value]]
 
         jsVal <- either(encoder.encodeV(ac).leftMap(e => ServerError(e.shows))): ET[JsValue]
 
@@ -86,10 +84,12 @@ class Endpoints(
         cmd <- either(
           decoder
             .decodeR[domain.ExerciseCommand](reqBody)
-            .leftMap(e => InvalidUserInput(e.shows))): ET[domain.ExerciseCommand[lav1.value.Record]]
+            .leftMap(e => InvalidUserInput(e.shows))
+        ): ET[domain.ExerciseCommand[lav1.value.Record]]
 
-        as <- eitherT(handleFutureFailure(commandService.exercise(jwtPayload, cmd))): ET[
-          ImmArraySeq[domain.ActiveContract[lav1.value.Value]]]
+        as <- eitherT(
+          handleFutureFailure(commandService.exercise(jwtPayload, cmd))
+        ): ET[ImmArraySeq[domain.ActiveContract[lav1.value.Value]]]
 
         jsVal <- either(
           as.traverse(a => encoder.encodeV(a))
@@ -132,54 +132,77 @@ class Endpoints(
 
   lazy val contracts: PartialFunction[HttpRequest, HttpResponse] = {
     case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
-      httpResponse(
-        input(req)
-          .map(decoder.decodeV[domain.ContractLookupRequest])
-          .mapAsync(1) {
-            case -\/(e) => invalidUserInput(e)
-            case \/-(c) => handleFutureFailure(contractsService.lookup(jwtPayload, c))
-          }
-          .map { fa =>
-            fa.flatMap {
-              case None => \/-(JsObject())
-              case Some(x) => encoder.encodeV(x).leftMap(e => ServerError(e.shows))
-            }
-          }
-          .map(formatResult)
-      )
+      val et: ET[JsValue] = for {
+        input <- FutureUtil.eitherT(input2(req)): ET[(domain.JwtPayload, String)]
 
-    case HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
-      httpResponse(
-        handleFutureFailure(contractsService.search(jwtPayload, emptyGetActiveContractsRequest))
-          .map { fas: Error \/ Seq[domain.GetActiveContractsResponse[lav1.value.Value]] =>
-            fas.flatMap { as =>
-              as.toList
-                .traverse(a => encoder.encodeV(a))
-                .leftMap(e => ServerError(e.shows))
-                .flatMap(js => encodeList(js))
-            }
+        (jwtPayload, reqBody) = input
+
+        cmd <- either(
+          decoder
+            .decodeV[domain.ContractLookupRequest](reqBody)
+            .leftMap(e => InvalidUserInput(e.shows))
+        ): ET[domain.ContractLookupRequest[lav1.value.Value]]
+
+        ac <- eitherT(
+          handleFutureFailure(contractsService.lookup(jwtPayload, cmd))
+        ): ET[Option[domain.ActiveContract[lav1.value.Value]]]
+
+        jsVal <- either(
+          ac match {
+            case None => \/-(JsObject())
+            case Some(x) => encoder.encodeV(x).leftMap(e => ServerError(e.shows))
           }
-          .map(formatResult)
-      )
+        ): ET[JsValue]
+
+      } yield jsVal
+
+      httpResponse(et)
+
+    case req @ HttpRequest(GET, Uri.Path("/contracts/search"), _, _, _) =>
+      val et: ET[JsValue] = for {
+        input <- FutureUtil.eitherT(input2(req)): ET[(domain.JwtPayload, String)]
+
+        (jwtPayload, _) = input
+
+        as <- eitherT(
+          handleFutureFailure(contractsService.search(jwtPayload, emptyGetActiveContractsRequest))
+        ): ET[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
+
+        jsVal <- either(
+          as.toList
+            .traverse(a => encoder.encodeV(a))
+            .leftMap(e => ServerError(e.shows))
+            .flatMap(js => encodeList(js))
+        ): ET[JsValue]
+
+      } yield jsVal
+
+      httpResponse(et)
 
     case req @ HttpRequest(POST, Uri.Path("/contracts/search"), _, _, _) =>
-      httpResponse(
-        input(req)
-          .map(decode[domain.GetActiveContractsRequest])
-          .mapAsync(1) {
-            case -\/(e) => invalidUserInput(e)
-            case \/-(c) => handleFutureFailure(contractsService.search(jwtPayload, c))
-          }
-          .map { fas: Error \/ Seq[domain.GetActiveContractsResponse[lav1.value.Value]] =>
-            fas.flatMap { as =>
-              as.toList
-                .traverse(a => encoder.encodeV(a))
-                .leftMap(e => ServerError(e.shows))
-                .flatMap(js => encodeList(js))
-            }
-          }
-          .map(formatResult)
-      )
+      val et: ET[JsValue] = for {
+        input <- FutureUtil.eitherT(input2(req)): ET[(domain.JwtPayload, String)]
+
+        (jwtPayload, reqBody) = input
+
+        cmd <- either(
+          decode[domain.GetActiveContractsRequest](reqBody).leftMap(e => InvalidUserInput(e.shows))
+        ): ET[domain.GetActiveContractsRequest]
+
+        as <- eitherT(
+          handleFutureFailure(contractsService.search(jwtPayload, cmd))
+        ): ET[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
+
+        jsVal <- either(
+          as.toList
+            .traverse(a => encoder.encodeV(a))
+            .leftMap(e => ServerError(e.shows))
+            .flatMap(js => encodeList(js))
+        ): ET[JsValue]
+
+      } yield jsVal
+
+      httpResponse(et)
   }
 
   private def httpResponse(output: ET[JsValue]): HttpResponse = {
