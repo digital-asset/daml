@@ -80,6 +80,11 @@ DAML Compiler
 
 - Support reading of DAML-LF 1.5 again.
 
+DAML-LF
+~~~~~~~
+
+- **Breaking** Rename ``DECIMAL`` by ``NUMERIC`` in archive Protobuf definition.
+
 Ledger API
 ~~~~~~~~~~~
 
