@@ -8,7 +8,11 @@ module DA.Daml.Helper.Run
     , runJar
     , runListTemplates
     , runStart
+
+    , HostAndPortFlags(..)
     , runDeploy
+    , runAllocateParty
+    , runListParties
 
     , withJar
     , withSandbox
@@ -36,7 +40,6 @@ import Control.Monad.Extra hiding (fromMaybeM)
 import Control.Monad.Loops (untilJust)
 import Data.Maybe
 import Data.List.Extra
-import Data.String(fromString)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.Text as T
@@ -56,12 +59,12 @@ import System.IO
 import System.IO.Extra
 import Web.Browser
 
+import DA.Daml.Helper.Ledger as Ledger
 import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
 
-import qualified DA.Ledger as L
 
 data DamlHelperError = DamlHelperError
     { errMessage :: T.Text
@@ -80,6 +83,9 @@ required msg = fromMaybeM (throwIO $ DamlHelperError msg Nothing)
 
 requiredE :: Exception e => T.Text -> Either e t -> IO t
 requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . displayException)
+
+defaulting :: a -> Either ConfigError (Maybe a) -> IO a
+defaulting a e = fmap (fromMaybe a) $ either throwIO return e
 
 data ReplaceExtension
     = ReplaceExtNever
@@ -610,7 +616,7 @@ runListTemplates = do
           "The following templates are available:" :
           (map ("  " <>) . sort . map takeFileName) templates
 
-newtype SandboxPort = SandboxPort Int -- TODO: rename: LedgerPort?
+newtype SandboxPort = SandboxPort Int
 newtype NavigatorPort = NavigatorPort Int
 
 navigatorPortNavigatorArgs :: NavigatorPort -> [String]
@@ -649,8 +655,10 @@ newtype StartNavigator = StartNavigator Bool
 -- | Whether `daml start` should wait for Ctrl+C or interrupt after starting servers.
 newtype WaitForSignal = WaitForSignal Bool
 
-runStart :: SandboxPort -> StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
-runStart sandboxPort (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
+runStart :: Maybe SandboxPort -> StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
+runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
+    defaultSandboxPort <- getProjectLedgerPort
+    let sandboxPort = fromMaybe (SandboxPort defaultSandboxPort) sandboxPortM
     projectConfig <- getProjectConfig
     darPath <- getDarPath
     mbScenario :: Maybe String <-
@@ -672,23 +680,57 @@ runStart sandboxPort (StartNavigator shouldStartNavigator) (OpenBrowser shouldOp
                   then withNavigator
                   else (\_ _ _ f -> f sandboxPh)
 
-runDeploy :: String -> SandboxPort -> IO ()
-runDeploy host sandboxPort = do
+data HostAndPortFlags = HostAndPortFlags { hostM :: Maybe String, portM :: Maybe Int }
+
+withHostAndPortDefaults :: HostAndPortFlags -> IO HostAndPort
+withHostAndPortDefaults HostAndPortFlags{hostM,portM} = do
+    defaultHost <- getProjectLedgerHost
+    defaultPort <- getProjectLedgerPort
+    let host = fromMaybe defaultHost hostM
+    let port = fromMaybe defaultPort portM
+    return HostAndPort {host,port}
+
+runListParties :: HostAndPortFlags -> IO ()
+runListParties flags = do
+    hp <- withHostAndPortDefaults flags
+    putStrLn $ "Listing parties at " <> show hp
+    xs <- Ledger.listParties hp
+    when (null xs) $ putStrLn "no parties are known"
+    mapM_ print xs
+    exitSuccess
+
+runAllocateParty :: HostAndPortFlags -> String -> IO ()
+runAllocateParty flags name = do
+    hp <- withHostAndPortDefaults flags
+    putStrLn $ "Checking party allocation at " <> show hp
+    allocatePartyIfRequired hp name
+    exitSuccess
+
+runDeploy :: HostAndPortFlags -> IO ()
+runDeploy flags = do
+    hp <- withHostAndPortDefaults flags
+    putStrLn $ "Deploying to " <> show hp
+    parties <- getProjectParties
+    mapM_ (allocatePartyIfRequired hp) parties
     darPath <- getDarPath
     doBuild
-    let SandboxPort port = sandboxPort
-    putStrLn $ "Deploying " <> darPath <> " to ledger on " <> host <> ":" <> show port
+    putStrLn $ "Uploading " <> darPath <> " to " <> show hp
     bytes <- BS.readFile darPath
-    let ls = L.uploadDarFile bytes
-    let timeout = 30 :: L.TimeoutSeconds
-    let ledgerClientConfig = L.configOfHostAndPort (L.Host $ fromString host) (L.Port port)
-    L.runLedgerService ls timeout ledgerClientConfig >>= \case
-        Right () -> do
-            putStrLn "Deploy succeeded."
-            exitSuccess
-        Left e -> do
-            hPutStrLn stderr $ "Deploy failed: " <> e
-            exitFailure
+    Ledger.uploadDarFile hp bytes
+    putStrLn "Deploy succeeded."
+    exitSuccess
+
+
+allocatePartyIfRequired :: HostAndPort -> String -> IO ()
+allocatePartyIfRequired hp name = do
+    party <-
+        Ledger.lookupParty hp name >>= \case
+        Nothing -> do
+            putStrLn $ "Allocating party for '" <> name <> "' at " <> show hp
+            Ledger.allocateParty hp name
+        Just party ->
+            return party
+    putStrLn $ "Allocated " <> show party <> " for '" <> name <> "' at " <> show hp
 
 getDarPath :: IO FilePath
 getDarPath = do
@@ -710,6 +752,26 @@ getProjectName = do
     projectConfig <- getProjectConfig
     requiredE "Project must have a name" $
         queryProjectConfigRequired ["name"] projectConfig
+
+getProjectParties :: IO [String]
+getProjectParties = do
+    projectConfig <- getProjectConfig
+    requiredE "Project must have parties listed" $
+        queryProjectConfigRequired ["parties"] projectConfig
+
+-- TODO: `daml sandbox` should also consult the config for the ledger-port
+-- Have daml-helper wrap the `sandbox` command
+getProjectLedgerPort :: IO Int
+getProjectLedgerPort = do
+    projectConfig <- getProjectConfig
+    -- TODO: remove default; insist ledger-port is in the config ?!
+    defaulting 6865 $ queryProjectConfig ["ledger-port"] projectConfig
+
+getProjectLedgerHost :: IO String
+getProjectLedgerHost = do
+    projectConfig <- getProjectConfig
+    defaulting "localhost" $ queryProjectConfig ["ledger-host"] projectConfig
+
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
 -- Between each connection request it calls `sleep`.

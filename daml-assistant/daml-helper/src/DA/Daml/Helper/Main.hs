@@ -4,7 +4,6 @@ module DA.Daml.Helper.Main (main) where
 
 import Control.Exception
 import Data.Foldable
-import Data.Maybe
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
@@ -25,19 +24,17 @@ main =
          command <- customExecParser parserPrefs (info (commandParser <**> helper) idm)
          runCommand command
 
-
-defaultSandboxPort :: SandboxPort
-defaultSandboxPort = SandboxPort 6865
-
 data Command
     = DamlStudio { replaceExtension :: ReplaceExtension, remainingArguments :: [String] }
     | RunJar { jarPath :: FilePath, remainingArguments :: [String] }
     | New { targetFolder :: FilePath, templateNameM :: Maybe String }
     | Migrate { targetFolder :: FilePath, mainPath :: FilePath, pkgPathFrom :: FilePath, pkgPathTo :: FilePath }
     | Init { targetFolderM :: Maybe FilePath }
-    | Deploy { optHostname :: Maybe String, optSandboxPort :: Maybe SandboxPort }
     | ListTemplates
-    | Start { optSandboxPort :: Maybe SandboxPort, openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
+    | Start { sandboxPortM :: Maybe SandboxPort, openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
+    | Deploy        { flags :: HostAndPortFlags }
+    | ListParties   { flags :: HostAndPortFlags }
+    | AllocateParty { flags :: HostAndPortFlags , party :: String }
 
 commandParser :: Parser Command
 commandParser =
@@ -48,6 +45,8 @@ commandParser =
          , command "init" (info (initCmd <**> helper) idm)
          , command "start" (info (startCmd <**> helper) idm)
          , command "deploy" (info (deployCmd <**> helper) idm)
+         , command "list-parties" (info (listPartiesCmd <**> helper) idm)
+         , command "allocate-party" (info (allocatePartyCmd <**> helper) idm)
          , command "run-jar" (info runJarCmd forwardOptions)
          ]
     where damlStudioCmd = DamlStudio
@@ -79,9 +78,18 @@ commandParser =
                 <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
                 <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
 
-          deployCmd = Deploy
-                <$> optional (option str (long "host" <> metavar "HOST_NAME" <> help "Hostname for a running ledger"))
-                <*> optional (SandboxPort <$> option auto (long "port" <> metavar "PORT_NUM" <> help "Port number for a running ledger"))
+          deployCmd = Deploy <$> hostAndPortFlags
+          listPartiesCmd = ListParties <$> hostAndPortFlags
+          allocatePartyCmd = AllocateParty <$> hostAndPortFlags
+              <*> argument str (metavar "PARTY" <> help "Party to be allocated on the ledger")
+
+          hostAndPortFlags = HostAndPortFlags <$> hostFlag <*> portFlag
+
+          hostFlag :: Parser (Maybe String)
+          hostFlag = optional (option str (long "host" <> metavar "HOST_NAME" <> help "Hostname for the ledger"))
+
+          portFlag :: Parser (Maybe Int)
+          portFlag = optional (option auto (long "port" <> metavar "PORT_NUM" <> help "Port number for the ledger"))
 
           readReplacement :: ReadM ReplaceExtension
           readReplacement = maybeReader $ \case
@@ -97,5 +105,7 @@ runCommand New {..} = runNew targetFolder templateNameM Nothing []
 runCommand Migrate {..} = runMigrate targetFolder mainPath pkgPathFrom pkgPathTo
 runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
-runCommand Start {..} = runStart (fromMaybe defaultSandboxPort optSandboxPort) startNavigator openBrowser onStartM waitForSignal
-runCommand Deploy {..} = runDeploy (fromMaybe "localhost" optHostname) (fromMaybe defaultSandboxPort optSandboxPort)
+runCommand Start {..} = runStart sandboxPortM startNavigator openBrowser onStartM waitForSignal
+runCommand Deploy {..} = runDeploy flags
+runCommand ListParties {..} = runListParties flags
+runCommand AllocateParty {..} = runAllocateParty flags party
