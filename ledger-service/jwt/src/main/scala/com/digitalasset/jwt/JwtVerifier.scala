@@ -28,8 +28,8 @@ class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) {
     jwt.traverse(base64Decode)
 
   private def base64Decode(base64str: String): Error \/ String =
-    \/.fromTryCatchNonFatal(new String(base64decoder.decode(base64str))).leftMap(e =>
-      Error('base64Decode, "Cannot base64 decode JWT. Cause: " + e.getMessage))
+    \/.fromTryCatchNonFatal(new String(base64decoder.decode(base64str)))
+      .leftMap(e => Error('base64Decode, "Cannot base64 decode JWT. Cause: " + e.getMessage))
 }
 
 object JwtVerifier {

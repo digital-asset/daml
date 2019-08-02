@@ -15,6 +15,8 @@ import com.digitalasset.http.HttpServiceTestFixture.{jsonCodecs, withHttpService
 import com.digitalasset.http.domain.TemplateId.OptionalPkg
 import com.digitalasset.http.json._
 import com.digitalasset.http.util.TestUtil.requiredFile
+import com.digitalasset.jwt.JwtSigner
+import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.v1.value.Record
 import com.digitalasset.ledger.api.v1.{value => v}
@@ -46,12 +48,19 @@ class HttpServiceIntegrationTest
   implicit val aesf: ExecutionSequencerFactory = new AkkaExecutionSequencerPool(testId)(asys)
   implicit val ec: ExecutionContext = asys.dispatcher
 
-  // {"ledgerId": "HttpServiceIntegrationTest", "applicationId": "ledger-service-test", "party": "Alice"}
-  // secret: secret
-  private val jwtToken =
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ikh0dHBTZXJ2aWNlSW50ZWdyYXRpb25UZXN0IiwiYXBwbGljYXRpb25JZCI6ImxlZGdlci1zZXJ2aWNlLXRlc3QiLCJwYXJ0eSI6IkFsaWNlIn0.I344H6d9meS2iTXx6xafbRuBoLTZxjCIp-kaJDkApwc"
+  private val jwt: Jwt = {
+    val decodedJwt = DecodedJwt(
+      """{"alg": "HS256", "typ": "JWT"}""",
+      s"""{"ledgerId": "${testId: String}", "applicationId": "ledger-service-test", "party": "Alice"}"""
+    )
+    JwtSigner.HMAC256
+      .sign(decodedJwt, "secret")
+      .fold(e => fail(s"cannot sign a JWT: ${e.shows}"), identity)
+  }
 
-  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwtToken)))
+  println(s"---- $jwt")
+
+  private val headersWithAuth = List(Authorization(OAuth2BearerToken(jwt.value)))
 
   "contracts/search test" in withHttpService(dar, testId) { (uri: Uri, _, _) =>
     getRequest(uri = uri.withPath(Uri.Path("/contracts/search")), headers = headersWithAuth)

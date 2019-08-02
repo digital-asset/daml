@@ -60,6 +60,8 @@ object HttpService extends StrictLogging {
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
+      _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
+
       packageStore <- FutureUtil
         .eitherT(LedgerReader.createPackageStore(client.packageClient))
         .leftMap(e => Error(e))
