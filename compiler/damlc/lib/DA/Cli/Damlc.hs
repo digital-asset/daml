@@ -91,7 +91,7 @@ cmdIde =
         "Start the DAML language server on standard input/output."
     <> fullDesc
   where
-    cmd = execIde <$> telemetryOpt <*> debugOpt <*> enableScenarioOpt
+    cmd = execIde <$> telemetryOpt <*> debugOpt <*> enableScenarioOpt <*> shakeProfilingOpt
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -274,8 +274,9 @@ execLicense = B.putStr licenseData
 execIde :: Telemetry
         -> Debug
         -> EnableScenarioService
+        -> Maybe FilePath
         -> Command
-execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
+execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSocketsDo $ do
     let threshold =
             if debug
             then Logger.Debug
@@ -302,6 +303,7 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
     opts <- pure $ opts
         { optScenarioService = enableScenarioService
         , optScenarioValidation = ScenarioValidationLight
+        , optShakeProfiling = mbProfileDir
         , optThreads = 0
         , optHlintUsage = HlintEnabled hlintDataDir True
         }
@@ -862,7 +864,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure Nothing
     <*> optHideAllPackages
     <*> many optPackage
-    <*> optShakeProfiling
+    <*> shakeProfilingOpt
     <*> optShakeThreads
     <*> lfVersionOpt
     <*> optDebugLog
@@ -907,12 +909,6 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
       long "hide-all-packages" <>
       internal
 
-    optShakeProfiling :: Parser (Maybe FilePath)
-    optShakeProfiling = optional $ strOption $
-           metavar "PROFILING-REPORT"
-        <> help "path to Shake profiling report"
-        <> long "shake-profiling"
-
     -- optparse-applicative does not provide a nice way
     -- to make the argument for -j optional, see
     -- https://github.com/pcapriotti/optparse-applicative/issues/243
@@ -941,6 +937,12 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
         long "ghc-option" <>
         metavar "OPTION" <>
         help "Options to pass to the underlying GHC"
+
+shakeProfilingOpt :: Parser (Maybe FilePath)
+shakeProfilingOpt = optional $ strOption $
+       metavar "PROFILING-REPORT"
+    <> help "Directory for Shake profiling reports"
+    <> long "shake-profiling"
 
 options :: Int -> Parser Command
 options numProcessors =

@@ -71,7 +71,7 @@ documentation = Damldoc
     optTemplate =
         optional . option str
             $ metavar "FILE"
-            <> help "Path to output template for generated files. When generating docs, __TITLE__ and __BODY__ in the template are replaced with doc title and body respectively, before output. (Exception: for hoogle and json output, the template file is a prefix to the body, no replacement occurs.)" -- TODO: make template behavior uniform accross formats
+            <> help "Path to mustache template. The variables 'title' and 'body' in the template are substituted with the doc title and body respectively. (Exception: for hoogle and json output, the template file is a prefix to the body, no replacement occurs.)" -- TODO: make template behavior uniform accross formats
             <> long "template"
             <> short 't'
 
