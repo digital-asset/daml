@@ -8,3 +8,5 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+
++ [DAML Docs] For ``damlc docs``, the ``--template`` argument now takes the path to a Mustache template when generating Markdown, Rst, and HTML output. The template can use ``title`` and ``body`` variables to control the appearance of the docs.
