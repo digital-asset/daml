@@ -99,7 +99,7 @@ class HttpServiceIntegrationTest
 
     postJson(uri.withPath(Uri.Path("/command/create")), input, List()).flatMap {
       case (status, output) =>
-        status shouldBe StatusCodes.OK
+        status shouldBe StatusCodes.Unauthorized
         assertStatus(output, StatusCodes.Unauthorized)
         expectedOneErrorMessage(output) should include(
           "missing Authorization header with OAuth 2.0 Bearer Token")
@@ -115,7 +115,7 @@ class HttpServiceIntegrationTest
 
     postJson(uri.withPath(Uri.Path("/command/create")), input, headersWithAuth).flatMap {
       case (status, output) =>
-        status shouldBe StatusCodes.OK
+        status shouldBe StatusCodes.BadRequest
         assertStatus(output, StatusCodes.BadRequest)
         val unknownTemplateId: domain.TemplateId.NoPkg =
           domain.TemplateId((), command.templateId.moduleName, command.templateId.entityName)
@@ -163,7 +163,7 @@ class HttpServiceIntegrationTest
 
     postJson(uri.withPath(Uri.Path("/command/exercise")), exerciseJson, headersWithAuth).flatMap {
       case (status, output) =>
-        status shouldBe StatusCodes.OK
+        status shouldBe StatusCodes.InternalServerError
         assertStatus(output, StatusCodes.InternalServerError)
         expectedOneErrorMessage(output) should include(
           "couldn't find contract AbsoluteContractId(NonExistentContractId)")

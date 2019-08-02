@@ -9,6 +9,7 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.stream.Materializer
 import akka.stream.scaladsl.Source
 import akka.util.ByteString
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.SprayJson.decode
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
@@ -19,18 +20,16 @@ import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.typesafe.scalalogging.StrictLogging
+import scalaz.std.list._
 import scalaz.std.scalaFuture._
 import scalaz.syntax.show._
+import scalaz.syntax.std.option._
 import scalaz.syntax.traverse._
 import scalaz.{-\/, EitherT, Show, \/, \/-}
 import spray.json._
-import scalaz.std.list._
-import scalaz.syntax.std.option._
 
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
-
 import scala.util.control.NonFatal
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -49,10 +48,10 @@ class Endpoints(
   import Endpoints._
   import json.JsonProtocol._
 
-  lazy val all: PartialFunction[HttpRequest, HttpResponse] =
+  lazy val all: PartialFunction[HttpRequest, Future[HttpResponse]] =
     command orElse contracts orElse notFound
 
-  lazy val command: PartialFunction[HttpRequest, HttpResponse] = {
+  lazy val command: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(POST, Uri.Path("/command/create"), _, _, _) =>
       val et: ET[JsValue] = for {
         input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
@@ -118,16 +117,9 @@ class Endpoints(
   private def encodeList(as: Seq[JsValue]): ServerError \/ JsValue =
     SprayJson.encode(as).leftMap(e => ServerError(e.shows))
 
-  private def formatResult(fa: Error \/ JsValue): ByteString = fa match {
-    case \/-(a) => format(resultJsObject(a: JsValue))
-    case -\/(InvalidUserInput(e)) => format(errorsJsObject(StatusCodes.BadRequest)(e))
-    case -\/(ServerError(e)) => format(errorsJsObject(StatusCodes.InternalServerError)(e))
-    case -\/(Unauthorized(e)) => format(errorsJsObject(StatusCodes.Unauthorized)(e))
-  }
-
   private val emptyGetActiveContractsRequest = domain.GetActiveContractsRequest(Set.empty)
 
-  lazy val contracts: PartialFunction[HttpRequest, HttpResponse] = {
+  lazy val contracts: PartialFunction[HttpRequest, Future[HttpResponse]] = {
     case req @ HttpRequest(GET, Uri.Path("/contracts/lookup"), _, _, _) =>
       val et: ET[JsValue] = for {
         input <- FutureUtil.eitherT(input(req)): ET[(domain.JwtPayload, String)]
@@ -202,17 +194,43 @@ class Endpoints(
       httpResponse(et)
   }
 
-  private def httpResponse(output: ET[JsValue]): HttpResponse = {
-    val f: Future[Error \/ JsValue] = output.run
-    httpResponse(f.map(formatResult))
+  private def httpResponse(output: ET[JsValue]): Future[HttpResponse] = {
+    val fa: Future[Error \/ JsValue] = output.run
+    fa.map {
+        case \/-(a) => httpResponseOk(a)
+        case -\/(e) => httpResponseError(e)
+      }
+      .recover {
+        case NonFatal(e) => httpResponseError(ServerError(e.getMessage))
+      }
+  }
+
+  private def httpResponseOk(data: JsValue): HttpResponse =
+    httpResponse(StatusCodes.OK, resultJsObject(data))
+
+  private def httpResponseError(error: Error): HttpResponse = {
+    val (status, errorMsg): (StatusCode, String) = error match {
+      case InvalidUserInput(e) => StatusCodes.BadRequest -> e
+      case ServerError(e) => StatusCodes.InternalServerError -> e
+      case Unauthorized(e) => StatusCodes.Unauthorized -> e
+    }
+
+    httpResponse(status, errorsJsObject(status, errorMsg))
+  }
+
+  private def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
+    HttpResponse(
+      status = status,
+      entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)))
   }
 
   private def httpResponse(output: Future[ByteString]): HttpResponse =
     HttpResponse(entity =
       HttpEntity.CloseDelimited(ContentTypes.`application/json`, Source.fromFuture(output)))
 
-  lazy val notFound: PartialFunction[HttpRequest, HttpResponse] = {
-    case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)
+  lazy val notFound: PartialFunction[HttpRequest, Future[HttpResponse]] = {
+    case HttpRequest(_, _, _, _, _) =>
+      Future.successful(HttpResponse(status = StatusCodes.NotFound))
   }
 
   private def format(a: JsValue): ByteString = ByteString(a.compactPrint)

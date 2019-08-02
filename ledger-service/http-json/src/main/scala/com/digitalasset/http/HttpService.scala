@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
-import akka.stream.scaladsl.Flow
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.PackageService.TemplateIdMap
@@ -17,9 +16,9 @@ import com.digitalasset.http.json.{
   DomainJsonEncoder,
   JsValueToApiValueConverter
 }
-import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.http.util.FutureUtil.liftET
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
+import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
 import com.digitalasset.jwt.HMAC256Verifier
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -93,8 +92,7 @@ object HttpService extends StrictLogging {
         decoder,
       )
 
-      binding <- liftET[Error](
-        Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))
+      binding <- liftET[Error](Http().bindAndHandleAsync(endpoints.all, "localhost", httpPort))
 
     } yield binding
 
