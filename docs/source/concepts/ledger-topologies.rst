@@ -19,6 +19,8 @@ This document:
 1. provides one useful categorization of the existing implementations' topologies
 2. describes the general ledger properties of each category.
 
+.. _centralized-topology:
+
 The Fully Centralized Topology
 ******************************
 
@@ -48,6 +50,7 @@ However, adding replicas worsens the system's latency and throughput, as well as
 Performance and scaling properties can be improved by partitioning the system.
 The following two sections describe the partitioning approaches used by several implementations.
 
+.. _reader-writer-topology:
 
 The Reader-Writer Partitioning Topology
 ***************************************
@@ -55,10 +58,13 @@ The Reader-Writer Partitioning Topology
 In this topology, the ledger is implemented as a distributed system.
 The system consists of two kinds of nodes:
 
-- a central writer node, which holds the physical shared ledger and can extend it with new commits,
+1. a central writer node, which holds the physical shared ledger and can extend it with new commits,
 
-- **participant nodes**, which serve the ledger API to parties, and only hold a portion of the ledger that is relevant for those parties
-  (i.e., the parties' :ref:`ledger projection <da-model-projections>`).
+.. _participant-node-def:
+
+2. **participant nodes**, which serve the ledger API to a subset of the system parties, which we say are hosted by this participant.
+   A participant node may issue new commits on behalf of the parties it hosts, and holds a portion of the ledger that is relevant for those parties (i.e., the parties' :ref:`ledger projection <da-model-projections>`).
+   In fact, the term "participant node" is also used in the case of a fully centralized topology, where the same machine is the both the writer and the sole participant node.
 
 This setting is visualized below.
 
@@ -81,6 +87,8 @@ DAML on `VMware Concord <https://blogs.vmware.com/blockchain>`__ and DAML on `Hy
 The implementations that use this topology (replicated or not) do not provide interoperability across multiple deployments.
 Out of the box, scalability is also limited, but can be improved by internally partitioning the writer node further, as shown next.
 
+.. _staged-writer-topology:
+
 The Staged Writer Topology
 **************************
 
@@ -97,6 +105,8 @@ This stage is sequential, though it can internally still partition the data and 
 The central writer node is trusted with ensuring the ledger's integrity, and has access to all ledger data.
 DAML on `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__ uses this topology.
 The implementations that use this topology do not provide interoperability across multiple deployments.
+
+.. _decentralized-ledger-topology:
 
 Decentralized Ledger Topology
 *****************************
