@@ -1,7 +1,6 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
 module DA.Daml.Doc.Render
   ( RenderFormat(..)
   , RenderOptions(..)
@@ -32,8 +31,10 @@ import System.IO
 import System.Exit
 
 import qualified CMarkGFM as GFM
+import qualified Data.Aeson.Types as A
 import qualified Data.Aeson.Encode.Pretty as AP
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import qualified Data.Text.Encoding as T
 import qualified Data.ByteString as BS
 import qualified Data.Map.Strict as Map
@@ -90,7 +91,7 @@ renderDocs RenderOptions{..} mods = do
 
 compileTemplate :: T.Text -> IO M.Template
 compileTemplate templateText =
-    case M.compileTemplate "daml docs template" templateText of
+    case M.compileMustacheText "daml docs template" templateText of
         Right t -> pure t
         Left e -> do
             hPutStrLn stderr ("Error with daml docs template: " <> show e)
@@ -102,9 +103,9 @@ renderTemplate ::
     -> T.Text -- ^ page body
     -> T.Text
 renderTemplate template pageTitle pageBody =
-    M.substitute template $ M.object
-        [ "title" M.~> pageTitle
-        , "body" M.~> pageBody
+    TL.toStrict . M.renderMustache template . A.object $
+        [ "title" A..= pageTitle
+        , "body" A..= pageBody
         ]
 
 defaultTemplate :: RenderFormat -> T.Text
