@@ -215,8 +215,7 @@ class Endpoints(
     case HttpRequest(_, _, _, _, _) => HttpResponse(status = StatusCodes.NotFound)
   }
 
-  private def format(a: JsValue): ByteString =
-    ByteString(a.compactPrint)
+  private def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
   private[http] def input(req: HttpRequest): Future[Unauthorized \/ (domain.JwtPayload, String)] = {
     findJwt(req).flatMap(verify) match {
