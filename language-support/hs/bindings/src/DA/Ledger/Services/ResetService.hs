@@ -31,13 +31,13 @@ reset lid = do
 waitForNewLedger :: LedgerId -> Int -> LedgerService LedgerId
 waitForNewLedger _ 0 = fail "waitForNewLedger: out of retries"
 waitForNewLedger oldLid n = do
-  lidOrError <- try (getLedgerIdentity) :: LedgerService (Either SomeException LedgerId)
+  lidOrError <- try getLedgerIdentity :: LedgerService (Either SomeException LedgerId)
   case lidOrError of
     Left _ -> do
         liftIO $ threadDelay (1000 * retryDelayMillis)
         waitForNewLedger oldLid (n-1)
     Right lid -> do
-        if (lid == oldLid)
+        if lid == oldLid
             then do
                 liftIO $ threadDelay (1000 * retryDelayMillis)
                 waitForNewLedger oldLid (n-1)
