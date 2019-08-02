@@ -51,6 +51,6 @@ object JwtSigner {
 
   object Error {
     implicit val showInstance: Show[Error] =
-      Show.shows(e => s"JwtValidator.Error: ${e.what}, ${e.message}")
+      Show.shows(e => s"JwtSigner.Error: ${e.what}, ${e.message}")
   }
 }
