@@ -857,8 +857,8 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             expectedTemplatePoperties foo $ Set.fromList
                 [TemplateProp "Coin"
                     (Set.fromList
-                        [ExpectedChoices "Archive" True,
-                        ExpectedChoices "Delete" True])
+                        [ExpectedChoice "Archive" True,
+                        ExpectedChoice "Delete" True])
                     Set.empty
                 ]
         , testCase' "Fetch shoud not be an action" $ do
@@ -881,8 +881,8 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             expectedTemplatePoperties fetchTest $ Set.fromList
                 [TemplateProp "Coin"
                     (Set.fromList
-                    [   ExpectedChoices "Archive" True,
-                        ExpectedChoices "ReducedCoin" False
+                    [   ExpectedChoice "Archive" True,
+                        ExpectedChoice "ReducedCoin" False
                     ])
                     (Set.fromList [Exercise "F:Coin" "Archive"])
                 ]
@@ -911,14 +911,14 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             expectedTemplatePoperties exerciseTest $ Set.fromList
                 [TemplateProp "Coin"
                     (Set.fromList
-                    [   ExpectedChoices "Archive" True,
-                        ExpectedChoices "Delete" True
+                    [   ExpectedChoice "Archive" True,
+                        ExpectedChoice "Delete" True
                     ])
                     Set.empty
                 , TemplateProp "TT"
                     (Set.fromList
-                    [   ExpectedChoices "Consume" True,
-                        ExpectedChoices "Archive" True
+                    [   ExpectedChoice "Consume" True,
+                        ExpectedChoice "Archive" True
                     ])
                     (Set.fromList [Exercise "F:Coin" "Delete"])
                 ]
@@ -943,12 +943,12 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             expectedTemplatePoperties createTest $ Set.fromList
                 [TemplateProp "Coin"
                     (Set.fromList
-                    [   ExpectedChoices "Archive" True])
+                    [   ExpectedChoice "Archive" True])
                     Set.empty
                 , TemplateProp "TT"
                     (Set.fromList
-                    [   ExpectedChoices "CreateCoin" True,
-                        ExpectedChoices "Archive" True
+                    [   ExpectedChoice "CreateCoin" True,
+                        ExpectedChoice "Archive" True
                     ])
                     (Set.fromList [Create "F:Coin"])
                 ]
