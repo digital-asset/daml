@@ -17,25 +17,49 @@ object LedgerApiTestTool {
 
   private[this] val logger = LoggerFactory.getLogger(getClass.getName.stripSuffix("$"))
 
+  private[this] val uncaughtExceptionErrorMessage =
+    "UNEXPECTED UNCAUGHT EXCEPTION ON MAIN THREAD, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
+
   private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
     if (summaries.exists(_.result.failure) == expectFailure) 0 else 1
+
+  private def printAvailableTests(): Unit = {
+    println("Tests marked with * are run by default.\n")
+    tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
+    tests.optional.keySet.toSeq.sorted.foreach(println(_))
+  }
 
   def main(args: Array[String]): Unit = {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
+    if (config.listTests) {
+      printAvailableTests()
+      sys.exit(0)
+    }
+
+    val included =
+      if (config.allTests) tests.all.keySet
+      else if (config.included.isEmpty) tests.default.keySet
+      else config.included
+
+    val testsToRun = tests.all.filterKeys(included -- config.excluded)
+
+    if (testsToRun.isEmpty) {
+      println("No tests to run.")
+      sys.exit(0)
+    }
+
     Thread
       .currentThread()
       .setUncaughtExceptionHandler((_, exception) => {
-        logger.error("UNCAUGHT EXCEPTION ON MAIN THREAD", exception)
+        logger.error(uncaughtExceptionErrorMessage, exception)
         sys.exit(1)
       })
 
     val runner = new LedgerTestSuiteRunner(
-      Vector(
-        LedgerSessionConfiguration(config.host, config.port, config.tlsConfig)
-      ),
-      tests.all.values.toVector
+      Vector(LedgerSessionConfiguration(config.host, config.port, config.tlsConfig)),
+      testsToRun.values.toVector
     )
 
     runner.run {
