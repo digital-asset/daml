@@ -682,31 +682,30 @@ runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldO
 
 data HostAndPortFlags = HostAndPortFlags { hostM :: Maybe String, portM :: Maybe Int }
 
-withHostAndPortDefaults :: HostAndPortFlags -> IO HostAndPort
-withHostAndPortDefaults HostAndPortFlags{hostM,portM} = do
+getHostAndPortDefaults :: HostAndPortFlags -> IO HostAndPort
+getHostAndPortDefaults HostAndPortFlags{hostM,portM} = do
     host <- fromMaybeM getProjectLedgerHost hostM
     port <- fromMaybeM getProjectLedgerPort portM
     return HostAndPort {host,port}
 
 runListParties :: HostAndPortFlags -> IO ()
 runListParties flags = do
-    hp <- withHostAndPortDefaults flags
+    hp <- getHostAndPortDefaults flags
     putStrLn $ "Listing parties at " <> show hp
     xs <- Ledger.listParties hp
-    when (null xs) $ putStrLn "no parties are known"
-    mapM_ print xs
+    if null xs then putStrLn "no parties are known" else mapM_ print xs
     exitSuccess
 
 runAllocateParty :: HostAndPortFlags -> String -> IO ()
 runAllocateParty flags name = do
-    hp <- withHostAndPortDefaults flags
+    hp <- getHostAndPortDefaults flags
     putStrLn $ "Checking party allocation at " <> show hp
     allocatePartyIfRequired hp name
     exitSuccess
 
 runDeploy :: HostAndPortFlags -> IO ()
 runDeploy flags = do
-    hp <- withHostAndPortDefaults flags
+    hp <- getHostAndPortDefaults flags
     putStrLn $ "Deploying to " <> show hp
     parties <- getProjectParties
     mapM_ (allocatePartyIfRequired hp) parties
@@ -721,13 +720,10 @@ runDeploy flags = do
 
 allocatePartyIfRequired :: HostAndPort -> String -> IO ()
 allocatePartyIfRequired hp name = do
-    party <-
-        Ledger.lookupParty hp name >>= \case
-        Nothing -> do
-            putStrLn $ "Allocating party for '" <> name <> "' at " <> show hp
-            Ledger.allocateParty hp name
-        Just party ->
-            return party
+    partyM <- Ledger.lookupParty hp name
+    party <- flip fromMaybeM partyM $ do
+        putStrLn $ "Allocating party for '" <> name <> "' at " <> show hp
+        Ledger.allocateParty hp name
     putStrLn $ "Allocated " <> show party <> " for '" <> name <> "' at " <> show hp
 
 getDarPath :: IO FilePath
@@ -748,13 +744,13 @@ getProjectConfig = do
 getProjectName :: IO String
 getProjectName = do
     projectConfig <- getProjectConfig
-    requiredE "Project must have a name" $
+    requiredE "Failed to read project name from project config" $
         queryProjectConfigRequired ["name"] projectConfig
 
 getProjectParties :: IO [String]
 getProjectParties = do
     projectConfig <- getProjectConfig
-    requiredE "Project must have parties listed" $
+    requiredE "Failed to read list of parties from project config" $
         queryProjectConfigRequired ["parties"] projectConfig
 
 -- TODO: `daml sandbox` should also consult the config for the ledger-port
