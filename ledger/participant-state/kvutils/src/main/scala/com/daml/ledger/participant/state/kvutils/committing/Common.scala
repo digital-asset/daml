@@ -57,6 +57,7 @@ object Common {
       }
     }
 
+    /** Run the commit computation, producing a log entry and the state. */
     def run(act: Commit[Unit]): (DamlLogEntry, DamlStateMap) =
       act.run(Map.empty) match {
         case Left(done) => done.logEntry -> done.state
@@ -64,6 +65,8 @@ object Common {
           throw Err.InternalError("Commit.run: The commit processing did not terminate!")
       }
 
+    /** A no-op computation that produces no result. Useful when validating,
+      * e.g. if (somethingIsCorrect) pass else done(someFailure). */
     val pass: Commit[Unit] =
       Commit { state =>
         Right(() -> state)
@@ -77,21 +80,24 @@ object Common {
         act.run(state)
       }
 
+    /** Set value(s) in the state. */
     def set(additionalState: (DamlStateKey, DamlStateValue)*): Commit[Unit] =
-      Commit { state =>
-        Right(() -> (state ++ additionalState))
-      }
+      set(additionalState)
 
+    /** Set value(s) in the state. */
     def set(additionalState: Iterable[(DamlStateKey, DamlStateValue)]): Commit[Unit] =
       Commit { state =>
         Right(() -> (state ++ additionalState))
       }
 
+    /** Get a value from the state built up thus far. */
     def get(key: DamlStateKey): Commit[Option[DamlStateValue]] =
       Commit { state =>
         Right(state.get(key) -> state)
       }
 
+    /** Finish the computation and produce a log entry, along with the
+      * state built thus far by the computation. */
     def done[A](logEntry: DamlLogEntry): Commit[A] =
       Commit { finalState =>
         Left(CommitDone(logEntry, finalState))

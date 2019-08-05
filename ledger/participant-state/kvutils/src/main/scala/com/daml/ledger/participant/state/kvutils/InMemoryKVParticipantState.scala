@@ -259,6 +259,13 @@ class InMemoryKVParticipantState(
               .map(key => key -> getDamlState(state, key))(breakOut)
           )
 
+          // Verify that the state updates match the pre-declared outputs.
+          val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
+          if (!(damlStateUpdates.keySet subsetOf expectedStateUpdates)) {
+            sys.error(
+              s"CommitActor: State updates not a subset of expected updates! Keys [${damlStateUpdates.keySet diff expectedStateUpdates}] are unaccounted for!")
+          }
+
           // Combine the abstract log entry and the state updates into concrete updates to the store.
           val allUpdates =
             damlStateUpdates.map {

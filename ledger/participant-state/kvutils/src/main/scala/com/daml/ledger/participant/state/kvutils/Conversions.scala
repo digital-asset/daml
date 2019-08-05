@@ -235,6 +235,26 @@ private[kvutils] object Conversions {
       case acoid: AbsoluteContractId => acoid
     }
 
+  def contractIdStructOrStringToStateKey(
+      entryId: DamlLogEntryId,
+      coidString: String,
+      coidStruct: ValueOuterClass.ContractId): DamlStateKey = {
+    val result =
+      if (coidString.isEmpty)
+        cidDecoder.fromStruct(coidStruct.getContractId, coidStruct.getRelative)
+      else
+        cidDecoder.fromString(coidString)
+
+    result match {
+      case Left(err) =>
+        throw Err.InvalidPayload(s"contractIdStructToStateKey: Cannot decode: $err")
+      case Right(rcoid: RelativeContractId) =>
+        relativeContractIdToStateKey(entryId, rcoid)
+      case Right(acoid: AbsoluteContractId) =>
+        absoluteContractIdToStateKey(acoid)
+    }
+  }
+
   // FIXME(JM): Should we have a well-defined schema for this?
   private val cidEncoder: ValueCoder.EncodeCid[ContractId] = {
     val asStruct: ContractId => (String, Boolean) = {
@@ -243,25 +263,31 @@ private[kvutils] object Conversions {
     }
     ValueCoder.EncodeCid(asStruct(_)._1, asStruct)
   }
-  private val cidDecoder: ValueCoder.DecodeCid[ContractId] = {
+  val cidDecoder: ValueCoder.DecodeCid[ContractId] = {
     def fromString(x: String): Either[DecodeError, ContractId] = {
-      if (x.startsWith("~"))
+      if (x.startsWith("~")) {
         Try(x.tail.toInt).toOption match {
           case None =>
             Left(DecodeError(s"Invalid relative contract id: $x"))
           case Some(i) =>
             Right(RelativeContractId(NodeId.unsafeFromIndex(i)))
-        } else
+        }
+      } else {
         ContractIdString
           .fromString(x)
           .left
           .map(e => DecodeError(s"Invalid absolute contract id: $e"))
           .map(AbsoluteContractId)
+      }
     }
 
     ValueCoder.DecodeCid(
-      fromString,
-      { case (i, _) => fromString(i) }
+      fromString, {
+        case (i, rel) =>
+          val coid = fromString(i)
+          assert(coid.isLeft || rel == coid.right.get.isInstanceOf[RelativeContractId])
+          coid
+      }
     )
   }
   private val absCidEncoder: ValueCoder.EncodeCid[AbsoluteContractId] = {
