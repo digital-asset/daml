@@ -79,7 +79,6 @@ module DA.Daml.LFConversion
     , sourceLocToRange
     ) where
 
-import           DA.Daml.LF.Simplifier (freeVarsStep)
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.UtilGHC
 import           DA.Daml.LFConversion.UtilLF
@@ -88,7 +87,6 @@ import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
 import           Development.IDE.GHC.Util
 
-import           Control.Applicative
 import           Control.Lens
 import           Control.Monad.Except
 import           Control.Monad.Extra
@@ -98,7 +96,6 @@ import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           Data.Data hiding (TyCon)
 import           Data.Foldable (foldlM)
-import           Data.Functor.Foldable
 import           Data.Int
 import           Data.List.Extra
 import qualified Data.Map.Strict as MS
@@ -165,19 +162,6 @@ data Env = Env
     ,envLfVersion :: LF.Version
     ,envNewtypes :: [(GHC.Type, (TyCon, Coercion))]
     }
-
-envFindBind :: Env -> Var -> ConvertM (GHC.Expr Var)
-envFindBind Env{..} var =
-  case MS.lookup var envBindings of
-    Nothing -> conversionError errMsg
-    Just v -> pure v
-    where errMsg = "Looking for local binding failed when looking up " ++ prettyPrint var ++ ", available " ++ prettyPrint (MS.keys envBindings)
-
-envFindChoices :: Env -> String -> [GHC.Expr Var]
-envFindChoices Env{..} x = fromMaybe [] $ MS.lookup x envChoices
-
-envFindKeys :: Env -> String -> [GHC.Expr Var]
-envFindKeys Env{..} x = fromMaybe [] $ MS.lookup x envKeys
 
 -- v is an alias for x
 envInsertAlias :: Var -> LF.Expr -> Env -> Env
@@ -299,29 +283,6 @@ isTypeableInfo (NonRec name _) = any (`isPrefixOf` getOccString name) ["$krep", 
 isTypeableInfo _ = False
 
 
-convertTemplate :: Env -> GHC.Expr Var -> ConvertM [Definition]
-convertTemplate env (Var (QIsTpl "C:Template") `App` Type (TypeCon ty [])
-        `App` ensure `App` signatories `App` observer `App` agreement `App` _create `App` _fetch `App` _archive)
-    = do
-    tplSignatories <- applyTplParam <$> convertExpr env signatories
-    tplChoices <- fmap (\cs -> NM.fromList (archiveChoice tplSignatories : cs)) (choices tplSignatories)
-    tplObservers <- applyTplParam <$> convertExpr env observer
-    tplPrecondition <- applyTplParam <$> convertExpr env ensure
-    tplAgreement <- applyTplParam <$> convertExpr env agreement
-    tplKey <- keys >>= \case
-      [] -> return Nothing
-      [x] -> return (Just x)
-      _:_ -> conversionError ("multiple keys found for template " ++ prettyPrint ty)
-    pure [DTemplate Template{..}]
-    where
-        applyTplParam e = e `ETmApp` EVar tplParam
-        choices signatories = mapM (convertChoice env signatories) $ envFindChoices env $ is ty
-        keys = mapM (convertKey env) $ envFindKeys env $ is ty
-        tplLocation = Nothing
-        tplTypeCon = mkTypeCon [is ty]
-        tplParam = mkVar "this"
-convertTemplate _ x = unsupported "Template definition with unexpected form" x
-
 convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM (Template, LF.Expr)
 convertGenericTemplate env x
     | (dictCon, args) <- collectArgs x
@@ -438,91 +399,10 @@ convertGenericTemplate env x
     res = mkVar "res"
 convertGenericTemplate env x = unhandled "generic template" x
 
-archiveChoice :: LF.Expr -> TemplateChoice
-archiveChoice signatories = TemplateChoice{..}
-    where
-        chcLocation = Nothing
-        chcName = mkChoiceName "Archive"
-        chcReturnType = TUnit
-        chcConsuming = True
-        chcControllers = signatories
-        chcUpdate = EUpdate $ UPure TUnit EUnit
-        chcSelfBinder = mkVar "self"
-        chcArgBinder = (mkVar "arg", TUnit)
-
 data Consuming = PreConsuming
                | NonConsuming
                | PostConsuming
                deriving (Eq)
-
-convertChoice :: Env -> LF.Expr -> GHC.Expr Var -> ConvertM TemplateChoice
-convertChoice env signatories
-  (Var (QIsTpl "C:Choice") `App`
-     Type tmpl@(TypeCon tmplTyCon []) `App`
-       Type (TypeCon chc []) `App`
-         Type result `App`
-           _templateDict `App`
-             consuming `App`
-               Var controller `App`
-                 choice `App` _exercise) = do
-    consumption <- f (10 :: Int) consuming
-    let chcConsuming = consumption == PreConsuming -- Runtime should auto-archive?
-    argType <- convertType env $ TypeCon chc []
-    let chcArgBinder = (mkVar "arg", argType)
-    tmplType <- convertType env tmpl
-    tmplTyCon' <- convertQualified env tmplTyCon
-    chcReturnType <- convertType env result
-    controllerExpr <- envFindBind env controller >>= convertExpr env
-    let chcControllers = case controllerExpr of
-          -- NOTE(MH): We drop the second argument to `controllerExpr` when
-          -- it is unused. This is necessary to make sure that a
-          -- non-flexible controller expression does not mention the choice
-          -- argument `argVar`.
-          ETmLam thisBndr (ETmLam argBndr body)
-            | fst argBndr `Set.notMember` cata freeVarsStep body ->
-              ETmLam thisBndr body `ETmApp` thisVar
-          _ -> controllerExpr `ETmApp` thisVar `ETmApp` argVar
-    expr <- fmap (\u -> u `ETmApp` thisVar `ETmApp` selfVar `ETmApp` argVar) (convertExpr env choice)
-    let chcUpdate =
-          if consumption /= PostConsuming then expr
-          else
-            -- NOTE(SF): Support for 'postconsuming' choices. The idea
-            -- is to evaluate the user provided choice body and
-            -- following that, archive. That is, in pseduo-code, we are
-            -- going for an expression like this:
-            --     expr this self arg >>= \res ->
-            --     archive signatories self >>= \_ ->
-            --     return res
-            let archive = EUpdate $ UExercise tmplTyCon' (mkChoiceName "Archive") selfVar (Just signatories) EUnit
-            in EUpdate $ UBind (Binding (mkVar "res", chcReturnType) expr) $
-               EUpdate $ UBind (Binding (mkVar "_", TUnit) archive) $
-               EUpdate $ UPure chcReturnType (EVar $ mkVar "res")
-    pure TemplateChoice{..}
-    where
-        chcLocation = Nothing
-        chcName = mkChoiceName $ occNameString $ nameOccName $ getName chc
-        chcSelfBinder = mkVar "self"
-        thisVar = EVar (mkVar "this")
-        selfVar = EVar (mkVar "self")
-        argVar = EVar (mkVar "arg")
-
-        f i (App a _) = f i a
-        f i (Tick _ e) = f i e
-        f i (VarIs "$dmconsuming") = pure PreConsuming
-        f i (Var (QIsTpl "preconsuming")) = pure PreConsuming
-        f i (Var (QIsTpl "nonconsuming")) = pure NonConsuming
-        f i (Var (QIsTpl "postconsuming")) = pure PostConsuming
-        f i (Var x) | i > 0 = f (i-1) =<< envFindBind env x -- only required to see through the automatic default
-        f _ x = unsupported "Unexpected definition of 'consuming'. Expected either absent, 'preconsuming', 'postconsuming' or 'nonconsuming'" x
-convertChoice _ _ x = unhandled "Choice body" x
-
-convertKey :: Env -> GHC.Expr Var -> ConvertM TemplateKey
-convertKey env o@(Var (QIsTpl "C:TemplateKey") `App` Type tmpl `App` Type keyType `App` _templateDict `App` Var key `App` Var maintainer `App` _fetch `App` _lookup) = do
-    keyType <- convertType env keyType
-    key <- envFindBind env key >>= convertExpr env
-    maintainer <- envFindBind env maintainer >>= convertExpr env
-    pure $ TemplateKey keyType (key `ETmApp` EVar (mkVar "this")) maintainer
-convertKey _ o = unhandled "Template key definition" o
 
 convertTypeDef :: Env -> TyThing -> ConvertM [Definition]
 convertTypeDef env (ATyCon t)
@@ -589,9 +469,6 @@ convertCtors env (Ctors name tys cs) = do
 
 convertBind :: Env -> CoreBind -> ConvertM [Definition]
 convertBind env (NonRec name x)
-    | DFunId _ <- idDetails name
-    , TypeCon (QIsTpl "Template") [t] <- varType name
-    = withRange (convNameLoc name) $ liftA2 (++) (convertTemplate env x) (convertBind2 env (NonRec name x))
     | DFunId _ <- idDetails name
     , TypeCon (Is tplInst) _ <- varType name
     , "Instance" `isSuffixOf` tplInst
