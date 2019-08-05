@@ -440,7 +440,7 @@ createProjectPackageDb lfVersion fps = do
     callProcess
         (ghcPkgPath </> exe "ghc-pkg")
         [ "recache"
-        -- ghc-pkg insists on using a global package db and will trie
+        -- ghc-pkg insists on using a global package db and will try
         -- to find one automatically if we don’t specify it here.
         , "--global-package-db=" ++ (dbPath </> "package.conf.d")
         , "--expand-pkgroot"
