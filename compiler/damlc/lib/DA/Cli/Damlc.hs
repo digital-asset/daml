@@ -335,8 +335,7 @@ execCompile inputFile outputFile opts =
                             pkgVersion <- optMbPackageVersion opts'
                             Just $
                                 intercalate "-" $
-                                -- there is only one daml-prim in the view of the compiler
-                                if pkgName == unitIdString primUnitId
+                                if pkgName `elem` basePackages
                                     then [pkgName]
                                     else [pkgName, pkgVersion, pkgId]
                     mbIfaces <-
@@ -347,7 +346,6 @@ execCompile inputFile outputFile opts =
                             inputFile
                     void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
                 liftIO $ write dalf
-                liftIO $ putStrLn $ "Package id: " <> pkgId
   where
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs
