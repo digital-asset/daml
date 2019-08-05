@@ -147,7 +147,12 @@ documentation = Damldoc
     optQualifyTypes = option readQualifyTypes $
         long "qualify-types"
         <> metavar "MODE"
-        <> help "Qualify any non-local types in generated docs. Can be set to \"always\" (always qualify non-local types), \"never\" (never qualify non-local types), and \"inpackage\" (qualify non-local types defined in the same package). Defaults to \"never\"."
+        <> help ("Qualify any non-local types in generated docs. " <> 
+            "Can be set to \"always\" (always qualify non-local types), " <>
+            "\"never\" (never qualify non-local types), " <> 
+            "and \"inpackage\" (qualify non-local types defined in the "<> 
+            "same package). Defaults to \"never\".")
+         <> value QualifyTypesNever
 
     readQualifyTypes =
         eitherReader $ \arg ->
