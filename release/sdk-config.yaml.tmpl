@@ -19,10 +19,22 @@ commands:
   path: damlc/damlc
   args: ["build", "--project-check"]
   desc: "Build the DAML project into a DAR file"
+
 - name: deploy
   path: daml-helper/daml-helper
-#  desc: "Build the DAML project and deploy to sandbox"
+  desc: "Build the DAML project and deploy to the ledger"
   args: ["deploy"]
+
+- name: list-parties
+  path: daml-helper/daml-helper
+  desc: "List parties known to the ledger"
+  args: ["list-parties"]
+
+- name: allocate-party
+  path: daml-helper/daml-helper
+  desc: "Allocate named party on the ledger"
+  args: ["allocate-party"]
+
 - name: test
   path: damlc/damlc
   args: ["test"]
