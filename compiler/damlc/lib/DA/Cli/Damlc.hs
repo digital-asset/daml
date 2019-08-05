@@ -318,29 +318,35 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
                 (getDamlIdeState opts mbScenarioService loggerH)
 
 execCompile :: FilePath -> FilePath -> Options -> Command
-execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
-    loggerH <- getLogger opts "compile"
-    inputFile <- toNormalizedFilePath <$> relativize inputFile
-    opts' <- mkOptions opts
-    withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
-        setFilesOfInterest ide (Set.singleton inputFile)
-        runAction ide $ do
-          mbDalf <- getDalf inputFile
-          dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
-          let pkgId = T.unpack $ Archive.encodePackageHash dalf
-          when (optWriteInterface opts') $ do
-              let mbFullPkgName = do
-                      pkgName <- optMbPackageName opts'
-                      pkgVersion <- optMbPackageVersion opts'
-                      Just $ intercalate "-" [pkgName, pkgVersion, pkgId]
-              mbIfaces <-
-                  writeIfacesAndHie
-                      mbFullPkgName
-                      (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts')
-                      inputFile
-              void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
-          liftIO $ write dalf
-          liftIO $ putStrLn $ "Package id: " <> pkgId
+execCompile inputFile outputFile opts =
+    withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
+        loggerH <- getLogger opts "compile"
+        inputFile <- toNormalizedFilePath <$> relativize inputFile
+        opts' <- mkOptions opts
+        withDamlIdeState opts' loggerH diagnosticsLogger $ \ide -> do
+            setFilesOfInterest ide (Set.singleton inputFile)
+            runAction ide $ do
+                mbDalf <- getDalf inputFile
+                dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
+                let pkgId = T.unpack $ Archive.encodePackageHash dalf
+                when (optWriteInterface opts') $ do
+                    let mbFullPkgName = do
+                            pkgName <- optMbPackageName opts'
+                            pkgVersion <- optMbPackageVersion opts'
+                            Just $
+                                intercalate "-" $
+                                if pkgName `elem` [unitIdString primUnitId]
+                                    then [pkgName]
+                                    else [pkgName, pkgVersion, pkgId]
+                    mbIfaces <-
+                        writeIfacesAndHie
+                            mbFullPkgName
+                            (toNormalizedFilePath $
+                             fromMaybe ifaceDir $ optIfaceDir opts')
+                            inputFile
+                    void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
+                liftIO $ write dalf
+                liftIO $ putStrLn $ "Package id: " <> pkgId
   where
     write bs
       | outputFile == "-" = putStrLn $ render Colored $ DA.Pretty.pretty bs

@@ -31,8 +31,7 @@
 PACKAGE_CONF_TEMPLATE = """
 name: {name}
 version: 1.0.0
-id: {name}-1.0.0-__PKGID__
-key: {name}-1.0.0-__PKGID__
+id: {name}{id_suffix}
 copyright: 2015-2018 Digital Asset Holdings
 maintainer: Digital Asset
 exposed: True
@@ -110,6 +109,7 @@ def _daml_package_rule_impl(ctx):
             pkg_id = pkg_id.path,
             content = PACKAGE_CONF_TEMPLATE.format(
                 name = ctx.attr.pkg_name,
+                id_suffix = "" if (ctx.attr.pkg_name == "daml-prim") else "-1.0.0-__PKGID__",
                 modules = " ".join(modules.keys()),
                 depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
             ),
