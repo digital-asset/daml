@@ -735,7 +735,7 @@ allocatePartyIfRequired hp name = do
 -- future, Navigator should fetch the list of parties itself.
 runDeployNavigator :: HostAndPortFlags -> [String] -> IO ()
 runDeployNavigator flags remainingArguments = do
-    hostAndPort <- withHostAndPortDefaults flags
+    hostAndPort <- getHostAndPortDefaults flags
     putStrLn $ "Opening navigator at " <> show hostAndPort
     partyDetails <- Ledger.listParties hostAndPort
 
