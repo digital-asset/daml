@@ -9,7 +9,7 @@ import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
 
-import DA.Daml.Doc.HaddockParse
+import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Render
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Anchor
@@ -252,7 +252,10 @@ damldocExpect importPathM testname input check =
           }
 
     -- run the doc generator on that file
-    mbResult <- runExceptT $ mkDocs (toCompileOpts opts') [toNormalizedFilePath testfile]
+    mbResult <- runExceptT $ extractDocs
+        defaultExtractOptions
+        (toCompileOpts opts')
+        [toNormalizedFilePath testfile]
 
     case mbResult of
       Left err -> assertFailure $ unlines
