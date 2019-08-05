@@ -3,7 +3,7 @@
 
 package com.digitalasset.extractor.targets
 
-abstract class Target
+sealed abstract class Target
 final case class PostgreSQLTarget(
     connectUrl: String,
     user: String,

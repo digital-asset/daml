@@ -28,7 +28,9 @@ class VeryLargeArchiveSpec
 
   private def runWithInboundLimit[Z](bytes: Int)(f: => Z): Z = {
     val config = baseConfig.copy(ledgerPort = getSandboxPort, ledgerInboundMessageSizeMax = bytes)
-    val extractor = new Extractor(config, target, (config, target, ledgerId) => Writer(config, target, ledgerId))
+    val extractor =
+      new Extractor(config, target)((config, target, ledgerId) => Writer(config, target, ledgerId))
+
     Await.result(extractor.run(), Duration.Inf) // as with ExtractorFixture#run
     try f
     finally Await.result(extractor.shutdown(), Duration.Inf) // as with ExtractorFixture#kill
