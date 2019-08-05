@@ -34,7 +34,7 @@ allocateParty :: HostAndPort -> String -> IO Party
 allocateParty hp name = run hp $ do
     let text = Text.pack name
     let request = L.AllocatePartyRequest
-            { partyIdHint = "" -- text -- ???
+            { partyIdHint = text
             , displayName = text }
     PartyDetails{party} <- L.allocateParty request
     return party
