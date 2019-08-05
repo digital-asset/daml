@@ -40,7 +40,7 @@ object LedgerApiTestTool {
 
     runner.run {
       case Success(summaries) =>
-        new ColorizedPrintStreamReporter(System.out)(summaries)
+        new ColorizedPrintStreamReporter(System.out, config.verbose)(summaries)
         sys.exit(exitCode(summaries, config.mustFail))
       case Failure(e) =>
         logger.error(e.getMessage, e)

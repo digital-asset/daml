@@ -13,12 +13,12 @@ private[testtool] object Result {
     val failure: Boolean = false
   }
 
-  case object TimedOut extends Result {
-    val failure: Boolean = true
-  }
-
   final case class Skipped(reason: String) extends Result {
     val failure: Boolean = false
+  }
+
+  case object TimedOut extends Result {
+    val failure: Boolean = true
   }
 
   final case class Failed(cause: AssertionError) extends Result {

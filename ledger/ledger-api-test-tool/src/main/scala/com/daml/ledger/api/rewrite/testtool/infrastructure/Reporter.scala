@@ -21,9 +21,16 @@ object Reporter {
 
     private def render(configuration: LedgerSessionConfiguration): String =
       s"address: ${configuration.host}:${configuration.port}, ssl: ${configuration.ssl.isDefined}"
+
+    private def render(t: Throwable): Seq[String] =
+      s"${t.getClass.getName}: ${t.getMessage}" +: t.getStackTrace.map(render)
+
+    private def render(e: StackTraceElement): String =
+      s"\tat ${e.getClassName}.${e.getMethodName}(${e.getFileName}:${e.getLineNumber})"
   }
 
-  final class ColorizedPrintStreamReporter(s: PrintStream) extends Reporter[Unit] {
+  final class ColorizedPrintStreamReporter(s: PrintStream, printStackTraces: Boolean)
+      extends Reporter[Unit] {
 
     import ColorizedPrintStreamReporter._
 
@@ -47,11 +54,15 @@ object Reporter {
           case Result.Skipped(reason) =>
             s.println(yellow(s"The test was skipped (reason: $reason)"))
           case Result.Failed(cause) =>
-            s.println(red(s"The test FAILED!"))
-            cause.printStackTrace(s)
+            s.println(red(s"The test FAILED: ${cause.getMessage}"))
+            if (printStackTraces) {
+              for (renderedStackTraceLine <- render(cause)) s.println(red(renderedStackTraceLine))
+            }
           case Result.FailedUnexpectedly(cause) =>
-            s.println(red(s"The test FAILED WITH AN EXCEPTION!"))
-            cause.printStackTrace(s)
+            s.println(red(s"The test FAILED DUE TO AN UNEXPECTED EXCEPTION: ${cause.getMessage}"))
+            if (printStackTraces) {
+              for (renderedStackTraceLine <- render(cause)) s.println(red(renderedStackTraceLine))
+            }
         }
       }
     }
