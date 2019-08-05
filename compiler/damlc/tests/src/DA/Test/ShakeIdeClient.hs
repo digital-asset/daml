@@ -858,11 +858,11 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 [TemplateProp "Coin"
                     (Set.fromList
                         [ExpectedChoice "Archive" True Set.empty,
-                        ExpectedChoice "Delete" True Set.empty
+                         ExpectedChoice "Delete" True Set.empty
                         ]
                     )
                 ]
-        , testCase' "Fetch shoud not be an action" $ do
+        , testCase' "Fetch shoud not be an create action" $ do
             fetchTest <- makeModule "F"
                 [ "template Coin"
                 , "  with"
@@ -875,7 +875,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 , "        with otherCoin : ContractId Coin"
                 , "        do "
                 , "        cn <- fetch otherCoin"
-                , "        archive otherCoin"
+                , "        return ()"
                 ]
             setFilesOfInterest [fetchTest]
             expectNoErrors
@@ -883,7 +883,7 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
                 [TemplateProp "Coin"
                     (Set.fromList
                     [   ExpectedChoice "Archive" True Set.empty,
-                        ExpectedChoice "ReducedCoin" False (Set.fromList [Exercise "F:Coin" "Archive"])
+                        ExpectedChoice "ReducedCoin" False Set.empty
                     ])
                 ]
         , testCase' "excercise sould add new action" $ do
