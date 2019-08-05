@@ -169,18 +169,25 @@ collectDocs = go Nothing []
 -- 'TypecheckedModule' by 'buildDocCtx'.
 data DocCtx = DocCtx
     { dc_ghcMod :: GHC.Module
+        -- ^ ghc name for current module
     , dc_modname :: Modulename
+        -- ^ name of the current module
     , dc_tcmod :: TypecheckedModule
+        -- ^ typechecked module
     , dc_decls :: [DeclData]
-
+        -- ^ module declarations
     , dc_tycons :: MS.Map Typename TyCon
+        -- ^ types defined in this module
     , dc_datacons :: MS.Map Typename DataCon
+        -- ^ constructors defined in this module
     , dc_ids :: MS.Map Fieldname Id
-
+        -- ^ values defined in this module
     , dc_templates :: Set.Set Typename
+        -- ^ DAML templates defined in this module
     , dc_choices :: MS.Map Typename (Set.Set Typename)
-        -- ^ choices per template
+        -- ^ choices per DAML template defined in this module
     , dc_extractOptions :: ExtractOptions
+        -- ^ command line options that affect the doc extractor
     }
 
 -- | Parsed declaration with associated docs.
