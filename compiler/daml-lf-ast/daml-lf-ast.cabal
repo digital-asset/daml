@@ -58,4 +58,5 @@ library
       RecordWildCards
       ScopedTypeVariables
       StandaloneDeriving
+      TypeApplications
       ViewPatterns
