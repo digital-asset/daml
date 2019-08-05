@@ -50,12 +50,11 @@ object KeyValueSubmission {
       meta: TransactionMeta,
       tx: SubmittedTransaction): DamlSubmission = {
 
-    val (inputLogEntries, inputDamlStateFromTx) = InputsAndEffects.computeInputs(tx)
+    val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx)
     val encodedSubInfo = buildSubmitterInfo(submitterInfo)
     val inputDamlState = commandDedupKey(encodedSubInfo) :: inputDamlStateFromTx
 
     DamlSubmission.newBuilder
-      .addAllInputLogEntries(inputLogEntries.asJava)
       .addAllInputDamlState(inputDamlState.asJava)
       .setTransactionEntry(
         DamlTransactionEntry.newBuilder

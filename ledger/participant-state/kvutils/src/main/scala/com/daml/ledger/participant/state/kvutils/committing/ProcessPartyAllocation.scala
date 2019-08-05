@@ -32,12 +32,14 @@ case class ProcessPartyAllocation(
       )
     )
 
-  private val buildFinalResult: Commit[Unit] =
+  private val buildFinalResult: Commit[Unit] = delay {
     done(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
         .setPartyAllocationEntry(partyAllocationEntry)
-        .build)
+        .build
+    )
+  }
 
   private val validateParty: Commit[Unit] = delay {
     if (party.isEmpty) {
@@ -55,7 +57,7 @@ case class ProcessPartyAllocation(
   private val deduplicate: Commit[Unit] = delay {
     if (inputState(partyKey).isEmpty) {
       tracelog(s"Party: $party allocation committed.")
-      addState(
+      set(
         partyKey -> DamlStateValue.newBuilder
           .setParty(
             DamlPartyAllocation.newBuilder

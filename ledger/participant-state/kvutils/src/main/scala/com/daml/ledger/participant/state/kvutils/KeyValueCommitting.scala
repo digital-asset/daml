@@ -31,9 +31,6 @@ object KeyValueCommitting {
     final case class InvalidPayload(message: String) extends Err {
       override def getMessage: String = s"Invalid payload: $message"
     }
-    final case class MissingInputLogEntry(entryId: DamlLogEntryId) extends Err {
-      override def getMessage: String = s"Missing input log entry ${prettyEntryId(entryId)}"
-    }
     final case class MissingInputState(key: DamlStateKey) extends Err {
       override def getMessage: String = s"Missing input state for key $key"
     }
@@ -101,7 +98,6 @@ object KeyValueCommitting {
       entryId: DamlLogEntryId,
       recordTime: Timestamp,
       submission: DamlSubmission,
-      inputLogEntries: Map[DamlLogEntryId, DamlLogEntry],
       inputState: Map[DamlStateKey, Option[DamlStateValue]]
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
 
@@ -141,7 +137,6 @@ object KeyValueCommitting {
           entryId,
           recordTime,
           submission.getTransactionEntry,
-          inputLogEntries,
           inputState
         ).run
 

@@ -10,8 +10,9 @@ import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.Err
 object Common {
   type DamlStateMap = Map[DamlStateKey, DamlStateValue]
 
-  /** A computation that represents the process of committing which accumulates
+  /** A monadic computation that represents the process of committing which accumulates
     * ledger state and finishes with the final state and a log entry.
+    * This is essentially State + Except.
     */
   final case class Commit[A](run: DamlStateMap => Either[CommitDone, (A, DamlStateMap)]) {
     def flatMap[A1 >: A](f: A => Commit[A1]): Commit[A1] =
@@ -22,8 +23,9 @@ object Common {
             f(x).run(state2)
         }
       }
-
   }
+
+  /** The terminal state for the commit computation. */
   final case class CommitDone(logEntry: DamlLogEntry, state: DamlStateMap)
 
   object Commit {
@@ -64,22 +66,25 @@ object Common {
         Right(() -> state)
       }
 
+    /** Delay a commit. Useful for delaying expensive computation, e.g.
+      * delay { val foo = someExpensiveComputation; if (foo) done(err) else pass }
+      */
     def delay(act: => Commit[Unit]): Commit[Unit] =
       Commit { state =>
         act.run(state)
       }
 
-    def addState(additionalState: (DamlStateKey, DamlStateValue)*): Commit[Unit] =
+    def set(additionalState: (DamlStateKey, DamlStateValue)*): Commit[Unit] =
       Commit { state =>
         Right(() -> (state ++ additionalState))
       }
 
-    def addState(additionalState: Iterable[(DamlStateKey, DamlStateValue)]): Commit[Unit] =
+    def set(additionalState: Iterable[(DamlStateKey, DamlStateValue)]): Commit[Unit] =
       Commit { state =>
         Right(() -> (state ++ additionalState))
       }
 
-    def getState(key: DamlStateKey): Commit[Option[DamlStateValue]] =
+    def get(key: DamlStateKey): Commit[Option[DamlStateValue]] =
       Commit { state =>
         Right(state.get(key) -> state)
       }

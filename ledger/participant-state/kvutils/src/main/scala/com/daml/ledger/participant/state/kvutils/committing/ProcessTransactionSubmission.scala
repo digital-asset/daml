@@ -30,7 +30,6 @@ private[kvutils] case class ProcessTransactionSubmission(
     entryId: DamlLogEntryId,
     recordTime: Timestamp,
     txEntry: DamlTransactionEntry,
-    inputLogEntries: Map[DamlLogEntryId, DamlLogEntry],
     inputState: Map[DamlStateKey, Option[DamlStateValue]]) {
 
   import Common._
@@ -81,11 +80,11 @@ private[kvutils] case class ProcessTransactionSubmission(
   /** Deduplicate the submission. If the check passes we save the command deduplication
     * state.
     */
-  private def deduplicateCommand(): Commit[Unit] = {
+  private def deduplicateCommand(): Commit[Unit] = Commit.delay {
     val dedupKey = commandDedupKey(submitterInfo)
     val dedupEntry = inputState(dedupKey)
     if (dedupEntry.isEmpty) {
-      Commit.addState(
+      Commit.set(
         dedupKey ->
           DamlStateValue.newBuilder
             .setCommandDedup(DamlCommandDedupValue.newBuilder.build)
@@ -151,7 +150,7 @@ private[kvutils] case class ProcessTransactionSubmission(
 
     sequence(
       // Update contract state entries to mark contracts as consumed (checked by 'validateModelConformance')
-      addState(effects.consumedContracts.map { key =>
+      set(effects.consumedContracts.map { key =>
         val cs =
           inputState(key).getOrElse(throw Err.MissingInputState(key)).getContractState.toBuilder
         cs.setArchivedAt(buildTimestamp(txLet))
@@ -159,13 +158,18 @@ private[kvutils] case class ProcessTransactionSubmission(
         key -> DamlStateValue.newBuilder.setContractState(cs).build
       }),
       // Add contract state entries to mark contract activeness (checked by 'validateModelConformance')
-      addState(effects.createdContracts.map {
+      set(effects.createdContracts.map {
         case (key, createNode) =>
           val cs = DamlContractState.newBuilder
           cs.setActiveAt(buildTimestamp(txLet))
           val localDisclosure =
             blindingInfo.localDisclosure(NodeId.unsafeFromIndex(key.getContractId.getNodeId.toInt))
           cs.addAllLocallyDisclosedTo((localDisclosure: Iterable[String]).asJava)
+          val absCoInst =
+            createNode.coinst.mapValue(_.mapContractId(Conversions.toAbsCoid(entryId, _)))
+          cs.setContractInstance(
+            Conversions.encodeContractInstance(absCoInst)
+          )
           createNode.key.foreach { keyWithMaintainers =>
             cs.setContractKey(
               Conversions.encodeContractKey(
@@ -178,7 +182,7 @@ private[kvutils] case class ProcessTransactionSubmission(
           key -> DamlStateValue.newBuilder.setContractState(cs).build
       }),
       // Update contract state of divulged contracts
-      addState(blindingInfo.globalImplicitDisclosure.map {
+      set(blindingInfo.globalImplicitDisclosure.map {
         case (absCoid, parties) =>
           val key = absoluteContractIdToStateKey(absCoid)
           val cs =
@@ -190,7 +194,7 @@ private[kvutils] case class ProcessTransactionSubmission(
           key -> DamlStateValue.newBuilder.setContractState(cs).build
       }),
       // Update contract keys
-      addState(effects.updatedContractKeys.map {
+      set(effects.updatedContractKeys.map {
         case (key, contractKeyState) =>
           key -> DamlStateValue.newBuilder
             .setContractKeyState(contractKeyState)
@@ -233,9 +237,7 @@ private[kvutils] case class ProcessTransactionSubmission(
         throw Err.MissingInputState(stateKey)
       }
       if isVisibleToSubmitter(contractState) && isActive(contractState)
-      // Finally lookup the log entry containing the create node and the contract instance.
-      entry = inputLogEntries.getOrElse(eid, throw Err.MissingInputLogEntry(eid))
-      contract <- lookupContractInstanceFromLogEntry(eid, entry, nid)
+      contract = Conversions.decodeContractInstance(contractState.getContractInstance)
     } yield contract
   }
   // Helper to lookup package from the state. The package contents

@@ -255,8 +255,6 @@ class InMemoryKVParticipantState(
             entryId,
             newRecordTime,
             submission,
-            submission.getInputLogEntriesList.asScala
-              .map(eid => eid -> getLogEntry(state, eid))(breakOut),
             submission.getInputDamlStateList.asScala
               .map(key => key -> getDamlState(state, key))(breakOut)
           )
