@@ -7,7 +7,7 @@ import com.daml.ledger.api.rewrite.testtool.infrastructure.Reporter.ColorizedPri
 import com.daml.ledger.api.rewrite.testtool.infrastructure.{
   LedgerSessionConfiguration,
   LedgerTestSuiteRunner,
-  LedgerTestSummaries
+  LedgerTestSummary
 }
 import org.slf4j.LoggerFactory
 
@@ -16,6 +16,9 @@ import scala.util.{Failure, Success}
 object LedgerApiTestTool {
 
   private[this] val logger = LoggerFactory.getLogger(getClass.getName.stripSuffix("$"))
+
+  private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
+    if (summaries.exists(_.result.failure) == expectFailure) 0 else 1
 
   def main(args: Array[String]): Unit = {
 
@@ -36,9 +39,9 @@ object LedgerApiTestTool {
     )
 
     runner.run {
-      case Success(LedgerTestSummaries(summaries, failure)) =>
+      case Success(summaries) =>
         new ColorizedPrintStreamReporter(System.out)(summaries)
-        sys.exit(if (failure) 1 else 0)
+        sys.exit(exitCode(summaries, config.mustFail))
       case Failure(e) =>
         logger.error(e.getMessage, e)
         sys.exit(1)

@@ -114,33 +114,27 @@ final class LedgerTestSuiteRunner(
     for (session <- sessions; suiteConstructor <- suiteConstructors)
       yield suiteConstructor(session)
 
-  def run(completionCallback: Try[LedgerTestSummaries] => Unit): Unit = {
+  def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
 
     implicit val ec: ExecutionContextExecutorService =
       ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
 
-    def clean(): Unit = {
+    def cleanUpAndComplete(result: Try[Vector[LedgerTestSummary]]): Unit = {
       ec.shutdown()
       endpoints.foreach(LedgerSession.close)
+      completionCallback(result)
     }
 
     initSessions() match {
 
       case Failure(exception) =>
-        clean()
-        completionCallback(Failure(exception))
+        cleanUpAndComplete(Failure(exception))
 
       case Success(sessions) =>
         Future
           .sequence(initTestSuites(sessions).flatMap(LedgerTestSuiteRunner.run))
-          .transform(
-            summaries => LedgerTestSummaries(summaries),
-            exception => LedgerTestSuiteRunner.UncaughtExceptionError(exception)
-          )
-          .onComplete { results =>
-            clean()
-            completionCallback(results)
-          }
+          .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
+          .onComplete(cleanUpAndComplete)
 
     }
 
