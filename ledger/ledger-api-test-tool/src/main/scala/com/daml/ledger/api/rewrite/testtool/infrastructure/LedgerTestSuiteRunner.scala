@@ -7,6 +7,11 @@ import java.util.concurrent.{ExecutionException, Executors, TimeoutException}
 import java.util.{Timer, TimerTask}
 
 import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuite.SkipTestException
+import com.daml.ledger.api.rewrite.testtool.infrastructure.LedgerTestSuiteRunner.{
+  TestTimeout,
+  logger,
+  timer
+}
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
@@ -34,12 +39,46 @@ object LedgerTestSuiteRunner {
     }
   }
 
+  private[this] val uncaughtExceptionErrorMessage =
+    "UNEXPECTED UNCAUGHT EXCEPTION, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
+
+  private final case class UncaughtExceptionError(cause: Throwable)
+      extends RuntimeException(uncaughtExceptionErrorMessage)
+
+}
+
+final class LedgerTestSuiteRunner(
+    endpoints: Vector[LedgerSessionConfiguration],
+    suiteConstructors: Vector[LedgerSession => LedgerTestSuite],
+    timeoutScaleFactor: Double) {
+
+  private def initSessions()(implicit ec: ExecutionContext): Try[Vector[LedgerSession]] = {
+    @tailrec
+    def go(
+        conf: Vector[LedgerSessionConfiguration],
+        result: Try[Vector[LedgerSession]]): Try[Vector[LedgerSession]] = {
+      (conf, result) match {
+        case (remaining, result) if remaining.isEmpty || result.isFailure => result
+        case (endpoint +: remaining, Success(sessions)) =>
+          val newSession = LedgerSession.getOrCreate(endpoint)
+          val newResult = newSession.map(sessions :+ _)
+          go(remaining, newResult)
+      }
+    }
+    go(endpoints, Try(Vector.empty))
+  }
+
+  private def initTestSuites(sessions: Vector[LedgerSession]): Vector[LedgerTestSuite] =
+    for (session <- sessions; suiteConstructor <- suiteConstructors)
+      yield suiteConstructor(session)
+
   private def start(test: LedgerTest, session: LedgerSession)(
       implicit ec: ExecutionContext): Future[Unit] = {
     val execution = Promise[Unit]
-    val testTimeout = new TestTimeout(execution, test.description, test.timeout, session.config)
-    timer.schedule(testTimeout, test.timeout)
-    logger.info(s"Started ${test.timeout} ms timeout for '${test.description}'...")
+    val scaledTimeout = math.floor(test.timeout * timeoutScaleFactor).toLong
+    val testTimeout = new TestTimeout(execution, test.description, scaledTimeout, session.config)
+    timer.schedule(testTimeout, scaledTimeout)
+    logger.info(s"Started ${scaledTimeout} ms timeout for '${test.description}'...")
     val startedTest = Future(session.createTestContext()).flatMap(test)
     logger.info(s"Started '${test.description}'!")
     startedTest.onComplete { _ =>
@@ -82,38 +121,6 @@ object LedgerTestSuiteRunner {
       implicit ec: ExecutionContext): Vector[Future[LedgerTestSummary]] =
     suite.tests.map(test => summarize(suite, test, run(test, suite.session)))
 
-  private[this] val uncaughtExceptionErrorMessage =
-    "UNEXPECTED UNCAUGHT EXCEPTION, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
-
-  private final case class UncaughtExceptionError(cause: Throwable)
-      extends RuntimeException(uncaughtExceptionErrorMessage)
-
-}
-
-final class LedgerTestSuiteRunner(
-    endpoints: Vector[LedgerSessionConfiguration],
-    suiteConstructors: Vector[LedgerSession => LedgerTestSuite]) {
-
-  private def initSessions()(implicit ec: ExecutionContext): Try[Vector[LedgerSession]] = {
-    @tailrec
-    def go(
-        conf: Vector[LedgerSessionConfiguration],
-        result: Try[Vector[LedgerSession]]): Try[Vector[LedgerSession]] = {
-      (conf, result) match {
-        case (remaining, result) if remaining.isEmpty || result.isFailure => result
-        case (endpoint +: remaining, Success(sessions)) =>
-          val newSession = LedgerSession.getOrCreate(endpoint)
-          val newResult = newSession.map(sessions :+ _)
-          go(remaining, newResult)
-      }
-    }
-    go(endpoints, Try(Vector.empty))
-  }
-
-  private def initTestSuites(sessions: Vector[LedgerSession]): Vector[LedgerTestSuite] =
-    for (session <- sessions; suiteConstructor <- suiteConstructors)
-      yield suiteConstructor(session)
-
   def run(completionCallback: Try[Vector[LedgerTestSummary]] => Unit): Unit = {
 
     implicit val ec: ExecutionContextExecutorService =
@@ -132,7 +139,7 @@ final class LedgerTestSuiteRunner(
 
       case Success(sessions) =>
         Future
-          .sequence(initTestSuites(sessions).flatMap(LedgerTestSuiteRunner.run))
+          .sequence(initTestSuites(sessions).flatMap(run))
           .recover { case NonFatal(e) => throw LedgerTestSuiteRunner.UncaughtExceptionError(e) }
           .onComplete(cleanUpAndComplete)
 
