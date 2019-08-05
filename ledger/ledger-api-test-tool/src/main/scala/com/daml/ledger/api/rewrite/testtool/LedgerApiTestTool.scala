@@ -30,7 +30,7 @@ object LedgerApiTestTool {
 
     val runner = new LedgerTestSuiteRunner(
       Vector(
-        LedgerSessionConfiguration(config.host, config.port)
+        LedgerSessionConfiguration(config.host, config.port, config.tlsConfig)
       ),
       tests.all.values.toVector
     )

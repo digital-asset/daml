@@ -28,7 +28,7 @@ object LedgerTestSuiteRunner {
       extends TimerTask {
     override def run(): Unit = {
       if (testPromise.tryFailure(new TimeoutException())) {
-        val LedgerSessionConfiguration(host, port) = sessionConfig
+        val LedgerSessionConfiguration(host, port, _) = sessionConfig
         logger.error(s"Timeout of $testTimeoutMs ms for '$testDescription' hit ($host:$port)")
       }
     }
@@ -40,7 +40,7 @@ object LedgerTestSuiteRunner {
     val testTimeout = new TestTimeout(execution, test.description, test.timeout, session.config)
     timer.schedule(testTimeout, test.timeout)
     logger.info(s"Started ${test.timeout} ms timeout for '${test.description}'...")
-    val startedTest = test(session.createTestContext())
+    val startedTest = Future(session.createTestContext()).flatMap(test)
     logger.info(s"Started '${test.description}'!")
     startedTest.onComplete { _ =>
       testTimeout.cancel()

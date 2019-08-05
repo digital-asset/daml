@@ -17,8 +17,8 @@ final class Time(session: LedgerSession) extends LedgerTestSuite(session) {
 
   val pass =
     LedgerTest("Advancing time should return the new time") { implicit context =>
+      skip("TimeService not available")
       for {
-        _ <- skip("TimeService not available")
         t1 <- time()
         _ <- passTime(1.second)
         t2 <- time()

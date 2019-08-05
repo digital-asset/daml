@@ -7,7 +7,7 @@ import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import io.grpc.ManagedChannel
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
@@ -66,12 +66,19 @@ private[testtool] object LedgerSession {
       new NioEventLoopGroup(threadCount, threadFactory)
     logger.info(
       s"gRPC event loop thread group instantiated with $threadCount threads using pool '$threadFactoryPoolName'")
-    val managedChannel = NettyChannelBuilder
+    val managedChannelBuilder = NettyChannelBuilder
       .forAddress(config.host, config.port)
       .eventLoopGroup(eventLoopGroup)
-      .usePlaintext()
       .directExecutor()
-      .build()
+      .usePlaintext()
+    for (ssl <- config.ssl; sslContext <- ssl.client) {
+      logger.info("Setting up managed communication channel with transport security")
+      managedChannelBuilder
+        .useTransportSecurity()
+        .sslContext(sslContext)
+        .negotiationType(NegotiationType.TLS)
+    }
+    val managedChannel = managedChannelBuilder.build()
     logger.info(s"Connection to ledger under test open on ${config.host}:${config.port}")
     new LedgerSession(config, managedChannel, eventLoopGroup)
   }

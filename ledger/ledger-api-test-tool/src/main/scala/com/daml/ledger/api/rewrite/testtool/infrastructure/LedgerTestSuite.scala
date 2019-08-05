@@ -24,7 +24,7 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
 
   val tests: Vector[LedgerTest] = Vector.empty
 
-  final def skip(reason: String): Future[Unit] = Future.failed(new SkipTestException(reason))
+  final def skip(reason: String): Future[Unit] = throw new SkipTestException(reason)
 
   final def skipIf(reason: String)(p: => Boolean): Future[Unit] =
     if (p) skip(reason) else Future.successful(())
