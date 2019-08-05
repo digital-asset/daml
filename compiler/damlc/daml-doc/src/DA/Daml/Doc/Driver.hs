@@ -45,6 +45,7 @@ data DamldocOptions = DamldocOptions
     , do_inputFiles :: [NormalizedFilePath]
     , do_docTitle :: Maybe T.Text
     , do_combine :: Bool
+    , do_extractOptions :: ExtractOptions
     }
 
 data InputFormat = InputJson | InputDaml
@@ -82,7 +83,7 @@ inputDocData DamldocOptions{..} = do
             concatMapM (either printAndExit pure) mbData
 
         InputDaml -> onErrorExit . runExceptT $
-            mkDocs do_ideOptions do_inputFiles
+            extractDocs do_extractOptions do_ideOptions do_inputFiles
 
 -- | Output doc data.
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()

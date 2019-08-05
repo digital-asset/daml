@@ -5,7 +5,11 @@
 -- haddock-style comments from the parsed syntax tree and correlating them
 -- with definitions in the typechecked module in order to obtain accurate
 -- type information.
-module DA.Daml.Doc.Extract (mkDocs) where
+module DA.Daml.Doc.Extract
+    ( ExtractOptions (..)
+    , defaultExtractOptions
+    , extractDocs
+    ) where
 
 import DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Anchor as DDoc
@@ -42,13 +46,26 @@ import qualified Data.Text                                 as T
 import           Data.Tuple.Extra                          (second)
 import Data.Either
 
--- | Parse, and process documentation in, a dependency graph of modules.
-mkDocs
-    :: IdeOptions
+-- | Options that affect doc extraction.
+data ExtractOptions = ExtractOptions
+    { eo_qualifyTypes :: Bool
+        -- ^ qualify non-local types
+    }
+
+-- | Default options for doc extraction.
+defaultExtractOptions :: ExtractOptions
+defaultExtractOptions = ExtractOptions
+    { eo_qualifyTypes = False
+    }
+
+-- | Extract documentation in a dependency graph of modules.
+extractDocs ::
+    ExtractOptions
+    -> IdeOptions
     -> [NormalizedFilePath]
     -> Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
-mkDocs opts fp = do
-    modules <- haddockParse opts fp
+extractDocs extractOpts ideOpts fp = do
+    modules <- haddockParse ideOpts fp
     pure $ map mkModuleDocs modules
 
   where
@@ -60,7 +77,7 @@ mkDocs opts fp = do
 
     mkModuleDocs :: Service.TcModuleResult -> ModuleDoc
     mkModuleDocs tmr =
-        let ctx@DocCtx{..} = buildDocCtx (Service.tmrModule tmr)
+        let ctx@DocCtx{..} = buildDocCtx extractOpts (Service.tmrModule tmr)
             typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
             classDocs = mapMaybe (getClsDocs ctx) dc_decls
 
@@ -152,6 +169,7 @@ data DocCtx = DocCtx
     , dc_templates :: Set.Set Typename
     , dc_choices :: MS.Map Typename (Set.Set Typename)
         -- ^ choices per template
+    , dc_extractOptions :: ExtractOptions
     }
 
 -- | Parsed declaration with associated docs.
@@ -160,8 +178,8 @@ data DeclData = DeclData
     , _dd_docs :: Maybe DocText
     }
 
-buildDocCtx :: TypecheckedModule -> DocCtx
-buildDocCtx dc_tcmod  =
+buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
+buildDocCtx dc_extractOptions dc_tcmod  =
   let dc_modname = getModulename . ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
       dc_decls
           = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
@@ -549,7 +567,7 @@ getModulename = Modulename . T.pack . moduleNameString . moduleName
 
 ---------------------------------------------------------------------
 
--- | Create an anchor from a TyCon. Don't make anchors for wired in names.
+-- | Create an anchor from a TyCon.
 tyConAnchor :: DocCtx -> TyCon -> Maybe Anchor
 tyConAnchor DocCtx{..} tycon = do
     let ghcName = tyConName tycon
@@ -559,6 +577,18 @@ tyConAnchor DocCtx{..} tycon = do
             | isClassTyCon tycon = classAnchor
             | otherwise = typeAnchor
     Just (anchorFn mod name)
+
+-- | Extract a potentially qualified typename from a TyCon.
+tyConTypename :: DocCtx -> TyCon -> Typename
+tyConTypename DocCtx{..} tycon =
+    let ExtractOptions{..} = dc_extractOptions
+        ghcName = tyConName tycon
+        moduleM = guard eo_qualifyTypes >> nameModule_maybe ghcName
+        prefix =
+            maybe ""
+                ((<> ".") . T.pack . moduleNameString . moduleName)
+                moduleM
+    in Typename (prefix <> packName ghcName)
 
 ---------------------------------------------------------------------
 
@@ -594,7 +624,7 @@ typeToType ctx = \case
     TyConApp tycon bs ->
         TypeApp
             (tyConAnchor ctx tycon)
-            (Typename . packName . tyConName $ tycon)
+            (tyConTypename ctx tycon)
             (map (typeToType ctx) bs)
 
     AppTy a b ->

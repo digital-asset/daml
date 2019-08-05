@@ -252,7 +252,10 @@ damldocExpect importPathM testname input check =
           }
 
     -- run the doc generator on that file
-    mbResult <- runExceptT $ mkDocs (toCompileOpts opts') [toNormalizedFilePath testfile]
+    mbResult <- runExceptT $ extractDocs
+        defaultExtractOptions
+        (toCompileOpts opts')
+        [toNormalizedFilePath testfile]
 
     case mbResult of
       Left err -> assertFailure $ unlines

@@ -6,6 +6,7 @@ module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc) where
 
 import DA.Cli.Options
 import DA.Daml.Doc.Driver
+import DA.Daml.Doc.Extract
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Types.Location
@@ -35,6 +36,7 @@ documentation = Damldoc
                 <*> optInclude
                 <*> optExclude
                 <*> optCombine
+                <*> optQualifyTypes
                 <*> argMainFiles
   where
     optInputFormat :: Parser InputFormat
@@ -136,6 +138,11 @@ documentation = Damldoc
         long "combine"
         <> help "Combine all generated docs into a single output file (always on for json and hoogle output)."
 
+    optQualifyTypes :: Parser Bool
+    optQualifyTypes = switch $
+        long "qualify-types"
+        <> help "Fully qualify any non-local types in generated docs."
+
 ------------------------------------------------------------
 
 -- Command Execution
@@ -151,6 +158,7 @@ data CmdArgs = Damldoc { cInputFormat :: InputFormat
                        , cIncludeMods :: [String]
                        , cExcludeMods :: [String]
                        , cCombine :: Bool
+                       , cQualifyTypes :: Bool
                        , cMainFiles :: [FilePath]
                        }
              deriving (Eq, Show, Read)
@@ -168,6 +176,9 @@ exec Damldoc{..} = do
         , do_transformOptions = transformOptions
         , do_docTitle = T.pack <$> cPkgName
         , do_combine = cCombine
+        , do_extractOptions = ExtractOptions
+            { eo_qualifyTypes = cQualifyTypes
+            }
         }
 
   where
