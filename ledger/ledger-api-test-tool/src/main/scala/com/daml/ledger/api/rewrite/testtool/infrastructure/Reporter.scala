@@ -20,7 +20,7 @@ object Reporter {
     private def cyan(s: String): String = s"\u001b[36m$s$reset"
 
     private def render(configuration: LedgerSessionConfiguration): String =
-      configuration.toString
+      s"address: ${configuration.host}:${configuration.port}, ssl: ${configuration.ssl.isDefined}"
   }
 
   final class ColorizedPrintStreamReporter(s: PrintStream) extends Reporter[Unit] {

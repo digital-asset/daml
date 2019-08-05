@@ -3,4 +3,9 @@
 
 package com.daml.ledger.api.rewrite.testtool.infrastructure
 
-private[testtool] final case class LedgerSessionConfiguration(host: String, port: Int)
+import com.digitalasset.ledger.api.tls.TlsConfiguration
+
+private[testtool] final case class LedgerSessionConfiguration(
+    host: String,
+    port: Int,
+    ssl: Option[TlsConfiguration])

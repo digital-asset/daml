@@ -184,6 +184,35 @@ client_server_test(
 )
 
 client_server_test(
+    name = "ledger-api-test-tool-rewrite-ssltest",
+    timeout = "short",
+    client = ":ledger-api-test-tool-rewrite",
+    client_args = [
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/client.crt))",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/ca.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath testdata/client.pem))",
+        # See note for same argument in :ledger-api-test-tool-test.
+        "--timeout-scale-factor=10",
+        # See note for same argument in :ledger-api-test-tool-test.
+        "--command-submission-ttl-scale-factor=2",
+    ],
+
+    # Data files available to both client and server.
+    data = [
+        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
+        "//ledger/sandbox:Test.dar",
+    ] + glob(["testdata/*"]),
+    server = "//ledger/api-server-damlonx/reference:reference",
+    server_args = [
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/server.crt))",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/ca.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath testdata/server.pem))",
+    ],
+)
+
+client_server_test(
     name = "test-probe-x-ref",
     client = ":ledger-api-test-tool-rewrite",
     data = [
