@@ -77,7 +77,7 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
-import System.Process(callCommand)
+import System.Process (callProcess)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 
 --------------------------------------------------------------------------------
@@ -437,15 +437,14 @@ createProjectPackageDb lfVersion fps = do
             write path (fromEntry src)
     ghcPkgPath <-
         locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghc-pkg")
-    callCommand $
-        unwords
-            [ ghcPkgPath </> exe "ghc-pkg"
-            , "recache"
-            -- ghc-pkg insists on using a global package db and will trie
-            -- to find one automatically if we don’t specify it here.
-            , "--global-package-db=" ++ (dbPath </> "package.conf.d")
-            , "--expand-pkgroot"
-            ]
+    callProcess
+        (ghcPkgPath </> exe "ghc-pkg")
+        [ "recache"
+        -- ghc-pkg insists on using a global package db and will trie
+        -- to find one automatically if we don’t specify it here.
+        , "--global-package-db=" ++ (dbPath </> "package.conf.d")
+        , "--expand-pkgroot"
+        ]
   where
     write fp bs = createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
 
