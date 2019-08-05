@@ -215,6 +215,9 @@ client_server_test(
 client_server_test(
     name = "test-probe-x-ref",
     client = ":ledger-api-test-tool-rewrite",
+    client_args = [
+        "--timeout-scale-factor=10",
+    ],
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
         "//ledger/sandbox:Test.dar",
