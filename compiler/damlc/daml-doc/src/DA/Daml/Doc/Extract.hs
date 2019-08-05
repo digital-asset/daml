@@ -1,8 +1,11 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
-module DA.Daml.Doc.HaddockParse(mkDocs) where
+-- | This module extracts docs from DAML modules. It does so by reading
+-- haddock-style comments from the parsed syntax tree and correlating them
+-- with definitions in the typechecked module in order to obtain accurate
+-- type information.
+module DA.Daml.Doc.Extract (mkDocs) where
 
 import DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Anchor as DDoc

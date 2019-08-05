@@ -9,7 +9,7 @@ import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
 
-import DA.Daml.Doc.HaddockParse
+import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Render
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Anchor

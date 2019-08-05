@@ -13,7 +13,7 @@ module DA.Daml.Doc.Driver
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render
-import DA.Daml.Doc.HaddockParse
+import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Transform
 
 import Development.IDE.Types.Location
