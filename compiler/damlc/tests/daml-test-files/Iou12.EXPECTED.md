@@ -1,8 +1,8 @@
-# <a name="module-ioutemplate-98694"></a>Module Iou_template
+# <a name="module-iou12-32397"></a>Module Iou12
 
 ## Templates
 
-<a name="type-ioutemplate-iou-55222"></a>**template** [Iou](#type-ioutemplate-iou-55222)
+<a name="type-iou12-iou-45923"></a>**template** [Iou](#type-iou12-iou-45923)
 
 > | Field      | Type       | Description |
 > | :--------- | :--------- | :---------- |
@@ -16,13 +16,17 @@
 >   
 >   (no fields)
 > 
+> * **Choice DoNothing**
+>   
+>   (no fields)
+> 
 > * **Choice Merge**
 >   
 >   merges two "compatible" `Iou`s
 >   
->   | Field                                         | Type                                          | Description |
->   | :-------------------------------------------- | :-------------------------------------------- | :---------- |
->   | otherCid                                      | ContractId [Iou](#type-ioutemplate-iou-55222) | Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original `Iou`. |
+>   | Field                                   | Type                                    | Description |
+>   | :-------------------------------------- | :-------------------------------------- | :---------- |
+>   | otherCid                                | ContractId [Iou](#type-iou12-iou-45923) | Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original `Iou`. |
 > 
 > * **Choice Split**
 >   
@@ -37,13 +41,13 @@
 >   
 >   changes the owner
 >   
->   | Field   | Type    | Description |
->   | :------ | :------ | :---------- |
->   | owner\_ | Party   |  |
+>   | Field    | Type     | Description |
+>   | :------- | :------- | :---------- |
+>   | newOwner | Party    |  |
 
 ## Functions
 
-<a name="function-ioutemplate-main-13221"></a>[main](#function-ioutemplate-main-13221)
+<a name="function-iou12-main-35518"></a>[main](#function-iou12-main-35518)
 
 > : Scenario ()
 > 
