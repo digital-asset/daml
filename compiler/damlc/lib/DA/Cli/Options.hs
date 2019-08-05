@@ -337,10 +337,10 @@ enableScenarioOpt :: Parser EnableScenarioService
 enableScenarioOpt = EnableScenarioService <$>
     flagYesNoAuto "scenarios" True "Enable/disable support for running scenarios" idm
 
-hlintEnabledOpt :: Parser HlintUsage
-hlintEnabledOpt = HlintEnabled
+dlintEnabledOpt :: Parser DlintUsage
+dlintEnabledOpt = DlintEnabled
   <$> strOption
-  ( long "with-hlint"
+  ( long "with-dlint"
     <> metavar "DIR"
     <> help "Enable linting with 'dlint.yaml' directory"
   )
@@ -349,12 +349,12 @@ hlintEnabledOpt = HlintEnabled
     <> help "Allow '.dlint.yaml' configuration overrides"
   )
 
-hlintDisabledOpt :: Parser HlintUsage
-hlintDisabledOpt = flag' HlintDisabled
-  ( long "without-hlint"
-    <> help "Disable hlint"
+dlintDisabledOpt :: Parser DlintUsage
+dlintDisabledOpt = flag' DlintDisabled
+  ( long "without-dlint"
+    <> help "Disable dlint"
   )
 
-hlintUsageOpt :: Parser HlintUsage
-hlintUsageOpt = fmap (fromMaybe HlintDisabled . lastMay) $
-  many (hlintEnabledOpt <|> hlintDisabledOpt)
+dlintUsageOpt :: Parser DlintUsage
+dlintUsageOpt = fmap (fromMaybe DlintDisabled . lastMay) $
+  many (dlintEnabledOpt <|> dlintDisabledOpt)

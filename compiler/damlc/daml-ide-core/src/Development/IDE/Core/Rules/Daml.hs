@@ -3,7 +3,6 @@
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
     , module Development.IDE.Core.Rules.Daml
-    , getHLintDataDir
     ) where
 
 import Control.Concurrent.Extra
@@ -143,8 +142,8 @@ data DalfDependency = DalfDependency
     -- ^ The absolute path to the dalf file.
   }
 
-getHlintIdeas :: NormalizedFilePath -> Action ()
-getHlintIdeas f = use_ GetHlintDiagnostics f
+getDlintIdeas :: NormalizedFilePath -> Action ()
+getDlintIdeas f = use_ GetDlintDiagnostics f
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
@@ -494,14 +493,14 @@ ofInterestRule opts = do
                     sendEvent $ vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
-        let hlintEnabled = case optHlintUsage opts of
-              HlintEnabled _ _ -> True
-              HlintDisabled -> False
+        let dlintEnabled = case optDlintUsage opts of
+              DlintEnabled _ _ -> True
+              DlintDisabled -> False
         let files = Set.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
-        let hlintActions = [use_ GetHlintDiagnostics f | hlintEnabled, f <- files]
+        let dlintActions = [use_ GetDlintDiagnostics f | dlintEnabled, f <- files]
         let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
-        _ <- parallel $ dalfActions <> hlintActions <> runScenarioActions
+        _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
   where
       gc :: Set NormalizedFilePath -> Action ()
@@ -570,10 +569,10 @@ encodeModuleRule =
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
--- hlint
+-- dlint
 
-hlintSettings :: FilePath -> Bool -> IO ([Classify], Hint)
-hlintSettings hlintDataDir enableOverrides = do
+dlintSettings :: FilePath -> Bool -> IO ([Classify], Hint)
+dlintSettings dlintDataDir enableOverrides = do
     curdir <- getCurrentDirectory
     home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
     dlintYaml <- if enableOverrides
@@ -583,7 +582,7 @@ hlintSettings hlintDataDir enableOverrides = do
       else
         return Nothing
     (_, cs, hs) <- foldMapM parseSettings $
-      (hlintDataDir </> "dlint.yaml") : maybeToList dlintYaml
+      (dlintDataDir </> "dlint.yaml") : maybeToList dlintYaml
     return (cs, hs)
     where
       ancestors = init . map joinPath . reverse . inits . splitPath
@@ -598,20 +597,20 @@ hlintSettings hlintDataDir enableOverrides = do
 
 
 
-getHlintSettingsRule :: HlintUsage -> Rules ()
-getHlintSettingsRule usage =
-    defineNoFile $ \GetHlintSettings ->
+getDlintSettingsRule :: DlintUsage -> Rules ()
+getDlintSettingsRule usage =
+    defineNoFile $ \GetDlintSettings ->
       liftIO $ case usage of
-          HlintEnabled dir enableOverrides -> hlintSettings dir enableOverrides
-          HlintDisabled -> fail "linter configuration unspecified"
+          DlintEnabled dir enableOverrides -> dlintSettings dir enableOverrides
+          DlintDisabled -> fail "linter configuration unspecified"
 
-getHlintDiagnosticsRule :: Rules ()
-getHlintDiagnosticsRule =
-    define $ \GetHlintDiagnostics file -> do
+getDlintDiagnosticsRule :: Rules ()
+getDlintDiagnosticsRule =
+    define $ \GetDlintDiagnostics file -> do
         pm <- use_ GetParsedModule file
         let anns = pm_annotations pm
         let modu = pm_parsed_source pm
-        (classify, hint) <- useNoFile_ GetHlintSettings
+        (classify, hint) <- useNoFile_ GetDlintSettings
         let ideas = applyHints classify hint [createModuleEx anns modu]
         return ([diagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
@@ -680,12 +679,12 @@ damlRule opts = do
     runScenariosRule
     getScenarioRootsRule
     getScenarioRootRule
-    getHlintDiagnosticsRule
+    getDlintDiagnosticsRule
     ofInterestRule opts
     encodeModuleRule
     createScenarioContextRule
     getOpenVirtualResourcesRule
-    getHlintSettingsRule (optHlintUsage opts)
+    getDlintSettingsRule (optDlintUsage opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do
