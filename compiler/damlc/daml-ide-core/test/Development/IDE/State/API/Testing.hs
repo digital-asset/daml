@@ -129,12 +129,12 @@ data ExpectedChoiceAction
 data ExpectedChoice = ExpectedChoice
     { _cName :: String
     , _consuming :: Bool
+    , _action :: Set.Set ExpectedChoiceAction
     } deriving (Eq, Ord, Show )
 
 data TemplateProp = TemplateProp
     { _tplName :: T.Text
     , _choices :: Set.Set ExpectedChoice
-    , _action :: Set.Set ExpectedChoiceAction
     } deriving (Eq, Ord, Show)
 
 -- | Monad for specifying Shake API tests. This type is abstract.
@@ -523,17 +523,16 @@ timedSection targetDiffTime block = do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
 
-actionsToChoiceActions :: Set.Set V.Action -> [ExpectedChoiceAction]
-actionsToChoiceActions acts = Set.toList $ Set.map expectedChcAction acts
+actionsToChoiceActions :: Set.Set V.Action -> Set.Set ExpectedChoiceAction
+actionsToChoiceActions acts = Set.map expectedChcAction acts
     where expectedChcAction = \case
             V.ACreate tcon -> Create (DAP.renderPretty tcon)
             V.AExercise tcon choice -> Exercise (DAP.renderPretty tcon) (DAP.renderPretty choice)
 
 templateChoicesToProps :: V.TemplateChoices -> TemplateProp
-templateChoicesToProps tca = TemplateProp tName choicesInTpl $ Set.fromList allActions
+templateChoicesToProps tca = TemplateProp tName choicesInTpl -- $ Set.fromList allActions
     where tName = V.tplNameUnqual (V.template tca)
-          choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoice (DAP.renderPretty $ V.choiceName ca) (V.choiceConsuming ca)) (V.choiceAndActions tca)
-          allActions = concatMap (actionsToChoiceActions . V.actions) $ V.choiceAndActions tca
+          choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoice (DAP.renderPretty $ V.choiceName ca) (V.choiceConsuming ca) (actionsToChoiceActions $ V.actions ca)) (V.choiceAndActions tca)
 
 graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> ShakeTest ()
 graphTest wrld lfPkg expectedProps = do

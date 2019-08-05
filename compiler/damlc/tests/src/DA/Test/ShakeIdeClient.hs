@@ -857,9 +857,10 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             expectedTemplatePoperties foo $ Set.fromList
                 [TemplateProp "Coin"
                     (Set.fromList
-                        [ExpectedChoice "Archive" True,
-                        ExpectedChoice "Delete" True])
-                    Set.empty
+                        [ExpectedChoice "Archive" True Set.empty,
+                        ExpectedChoice "Delete" True Set.empty
+                        ]
+                    )
                 ]
         , testCase' "Fetch shoud not be an action" $ do
             fetchTest <- makeModule "F"
@@ -881,10 +882,9 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             expectedTemplatePoperties fetchTest $ Set.fromList
                 [TemplateProp "Coin"
                     (Set.fromList
-                    [   ExpectedChoice "Archive" True,
-                        ExpectedChoice "ReducedCoin" False
+                    [   ExpectedChoice "Archive" True Set.empty,
+                        ExpectedChoice "ReducedCoin" False (Set.fromList [Exercise "F:Coin" "Archive"])
                     ])
-                    (Set.fromList [Exercise "F:Coin" "Archive"])
                 ]
         , testCase' "excercise sould add new action" $ do
             exerciseTest <- makeModule "F"
@@ -911,16 +911,14 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             expectedTemplatePoperties exerciseTest $ Set.fromList
                 [TemplateProp "Coin"
                     (Set.fromList
-                    [   ExpectedChoice "Archive" True,
-                        ExpectedChoice "Delete" True
+                    [   ExpectedChoice "Archive" True Set.empty,
+                        ExpectedChoice "Delete" True Set.empty
                     ])
-                    Set.empty
                 , TemplateProp "TT"
                     (Set.fromList
-                    [   ExpectedChoice "Consume" True,
-                        ExpectedChoice "Archive" True
+                    [   ExpectedChoice "Consume" True (Set.fromList [Exercise "F:Coin" "Delete"]),
+                        ExpectedChoice "Archive" True Set.empty
                     ])
-                    (Set.fromList [Exercise "F:Coin" "Delete"])
                 ]
         , testCase' "create on other template should be edge" $ do
             createTest <- makeModule "F"
@@ -943,14 +941,12 @@ visualDamlTests = Tasty.testGroup "Visual Tests"
             expectedTemplatePoperties createTest $ Set.fromList
                 [TemplateProp "Coin"
                     (Set.fromList
-                    [   ExpectedChoice "Archive" True])
-                    Set.empty
+                    [ExpectedChoice "Archive" True Set.empty])
                 , TemplateProp "TT"
                     (Set.fromList
-                    [   ExpectedChoice "CreateCoin" True,
-                        ExpectedChoice "Archive" True
+                    [   ExpectedChoice "CreateCoin" True (Set.fromList [Create "F:Coin"]),
+                        ExpectedChoice "Archive" True Set.empty
                     ])
-                    (Set.fromList [Create "F:Coin"])
                 ]
     ]
     where
