@@ -331,7 +331,7 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
           when (optWriteInterface opts') $ do
               mbIfaces <-
                   writeIfacesAndHie
-                      (Just pkgId)
+                      ((<> "-" <> pkgId) <$> optMbPackageName opts')
                       (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts')
                       inputFile
               void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
