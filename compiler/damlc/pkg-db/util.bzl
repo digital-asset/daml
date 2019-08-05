@@ -75,6 +75,7 @@ def _daml_package_rule_impl(ctx):
       # Compile the dalf file
       {damlc_bootstrap} compile \
         --package-name {pkg_name} \
+        --package-version 1.0.0 \
         --package-db {package_db_dir} \
         --write-iface \
         --target {daml_lf_version} \

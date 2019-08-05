@@ -329,9 +329,13 @@ execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (P
           dalf <- liftIO $ mbErr "ERROR: Compilation failed." mbDalf
           let pkgId = T.unpack $ Archive.encodePackageHash dalf
           when (optWriteInterface opts') $ do
+              let mbFullPkgName = do
+                      pkgName <- optMbPackageName opts'
+                      pkgVersion <- optMbPackageVersion opts'
+                      Just $ intercalate "-" [pkgName, pkgVersion, pkgId]
               mbIfaces <-
                   writeIfacesAndHie
-                      ((<> "-" <> pkgId) <$> optMbPackageName opts')
+                      mbFullPkgName
                       (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts')
                       inputFile
               void $ liftIO $ mbErr "ERROR: Compilation failed." mbIfaces
@@ -859,6 +863,12 @@ optPackageName = optional $ strOption $
     <> help "create package artifacts for the given package name"
     <> long "package-name"
 
+optPackageVersion :: Parser (Maybe String)
+optPackageVersion = optional $ strOption $
+       metavar "PACKAGE-VERSION"
+    <> help "create package artifacts for the given package version"
+    <> long "package-version"
+
 -- | Parametrized by the type of pkgname parser since we want that to be different for
 -- "package".
 optionsParser :: Int -> EnableScenarioService -> Parser (Maybe String) -> Parser Options
@@ -866,6 +876,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <$> optImportPath
     <*> optPackageDir
     <*> parsePkgName
+    <*> optPackageVersion
     <*> optWriteIface
     <*> pure Nothing
     <*> optHideAllPackages

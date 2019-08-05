@@ -34,6 +34,9 @@ data Options = Options
     -- ^ package databases that will be loaded
   , optMbPackageName :: Maybe String
     -- ^ compile in the context of the given package name and create interface files
+  , optMbPackageVersion :: Maybe String
+    -- ^ the version of the package we're compiling, used to set correct package names in
+    -- interfaces files
   , optWriteInterface :: Bool
     -- ^ whether to write interface files or not.
   , optIfaceDir :: Maybe FilePath
@@ -131,6 +134,7 @@ defaultOptions mbVersion =
         { optImportPath = []
         , optPackageDbs = []
         , optMbPackageName = Nothing
+        , optMbPackageVersion = Nothing
         , optWriteInterface = False
         , optIfaceDir = Nothing
         , optHideAllPkgs = False
