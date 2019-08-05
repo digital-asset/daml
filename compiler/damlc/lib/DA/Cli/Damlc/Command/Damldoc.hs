@@ -36,7 +36,7 @@ documentation = Damldoc
                 <*> optInclude
                 <*> optExclude
                 <*> optCombine
-                <*> optQualifyTypes
+                <*> optExtractOptions
                 <*> argMainFiles
   where
     optInputFormat :: Parser InputFormat
@@ -138,10 +138,29 @@ documentation = Damldoc
         long "combine"
         <> help "Combine all generated docs into a single output file (always on for json and hoogle output)."
 
-    optQualifyTypes :: Parser Bool
-    optQualifyTypes = switch $
+    optExtractOptions :: Parser ExtractOptions
+    optExtractOptions = ExtractOptions
+        <$> optQualifyTypes
+        <*> optSimplifyQualifiedTypes
+
+    optQualifyTypes :: Parser QualifyTypes
+    optQualifyTypes = option readQualifyTypes $
         long "qualify-types"
-        <> help "Fully qualify any non-local types in generated docs."
+        <> metavar "MODE"
+        <> help "Qualify any non-local types in generated docs. Can be set to \"always\" (always qualify non-local types), \"never\" (never qualify non-local types), and \"inpackage\" (qualify non-local types defined in the same package)."
+
+    readQualifyTypes =
+        eitherReader $ \arg ->
+            case lower arg of
+                "always" -> Right QualifyTypesAlways
+                "inpackage" -> Right QualifyTypesInPackage
+                "never" -> Right QualifyTypesNever
+                _ -> Left "Unknown mode for --qualify-types flag. Expected 'always', 'inpackage', or 'never'."
+
+    optSimplifyQualifiedTypes :: Parser Bool
+    optSimplifyQualifiedTypes = switch $
+        long "simplify-qualified-types"
+        <> help "Simplify qualified types by dropping the common module prefix. See --qualify-types option."
 
 ------------------------------------------------------------
 
@@ -158,7 +177,7 @@ data CmdArgs = Damldoc { cInputFormat :: InputFormat
                        , cIncludeMods :: [String]
                        , cExcludeMods :: [String]
                        , cCombine :: Bool
-                       , cQualifyTypes :: Bool
+                       , cExtractOptions :: ExtractOptions
                        , cMainFiles :: [FilePath]
                        }
              deriving (Eq, Show, Read)
@@ -176,9 +195,7 @@ exec Damldoc{..} = do
         , do_transformOptions = transformOptions
         , do_docTitle = T.pack <$> cPkgName
         , do_combine = cCombine
-        , do_extractOptions = ExtractOptions
-            { eo_qualifyTypes = cQualifyTypes
-            }
+        , do_extractOptions = cExtractOptions
         }
 
   where

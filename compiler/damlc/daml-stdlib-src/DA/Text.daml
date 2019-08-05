@@ -61,7 +61,7 @@ implode : [Text] -> Text
 implode = primitive @"BEImplodeText"
 
 -- | Test for emptiness.
-isEmpty : Text -> Bool
+isEmpty : P.Text -> Bool
 isEmpty = (=="")
 
 -- | Compute the number of symbols in the text.
