@@ -6,7 +6,7 @@ template Foo with
     sigs: [Party]
     id: Text
   where
-    signatory sigs
+    signatory f operator
     key (operator, id): (Party, Text)
     maintainer key._1
     let f p = p :: sigs
