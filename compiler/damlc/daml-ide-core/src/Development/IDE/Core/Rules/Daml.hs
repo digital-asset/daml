@@ -520,7 +520,7 @@ ofInterestRule opts = do
                     -- To guard against buggy dependency info, we add
                     -- the roots even though they should be included.
                     roots `Set.union`
-                    (Set.insert "" $ foldMap (Map.keysSet . depModuleDeps) depInfo)
+                    (Set.insert "" $ Set.unions $ map (Map.keysSet . depModuleDeps) depInfo)
             garbageCollect (`Set.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
