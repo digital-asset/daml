@@ -33,7 +33,7 @@ object LedgerTestSuiteRunner {
       extends TimerTask {
     override def run(): Unit = {
       if (testPromise.tryFailure(new TimeoutException())) {
-        val LedgerSessionConfiguration(host, port, _) = sessionConfig
+        val LedgerSessionConfiguration(host, port, _, _) = sessionConfig
         logger.error(s"Timeout of $testTimeoutMs ms for '$testDescription' hit ($host:$port)")
       }
     }

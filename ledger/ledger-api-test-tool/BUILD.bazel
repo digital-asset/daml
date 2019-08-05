@@ -217,6 +217,7 @@ client_server_test(
     client = ":ledger-api-test-tool-rewrite",
     client_args = [
         "--timeout-scale-factor=10",
+        "--command-submission-ttl-scale-factor=2",
     ],
     data = [
         "//ledger/ledger-api-integration-tests:SemanticTests.dar",
