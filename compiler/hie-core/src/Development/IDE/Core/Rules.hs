@@ -136,36 +136,34 @@ writeIfacesAndHie mbPkgName ifDir main =
         session <- lift $ useNoFile_ GhcSession
         liftIO $ concat <$> mapM (writeTcm session) tcms
   where
-    writeTcm session tcm =
-        do
-            let fp =
-                    fromNormalizedFilePath ifDir </>
-                    (ms_hspp_file $
-                     pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
-            createDirectoryIfMissing True (takeDirectory fp)
-            let ifaceFp = replaceExtension fp ".hi"
-            let hieFp = replaceExtension fp ".hie"
-            let iface0 = hm_iface $ tmrModInfo tcm
-            let iface =
-                    iface0
-                        { mi_module =
-                              maybe
+    writeTcm session tcm = do
+        let fp =
+                fromNormalizedFilePath ifDir </>
+                (ms_hspp_file $
+                 pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+        createDirectoryIfMissing True (takeDirectory fp)
+        let ifaceFp = replaceExtension fp ".hi"
+        let hieFp = replaceExtension fp ".hie"
+        let iface0 = hm_iface $ tmrModInfo tcm
+        let iface =
+                iface0
+                    { mi_module =
+                          case mbPkgName of
+                              Nothing -> mi_module iface0
+                              Just pkgName ->
                                   (mi_module iface0)
-                                  (\pkgName ->
-                                       (mi_module iface0)
-                                           {moduleUnitId = stringToUnitId pkgName})
-                                  mbPkgName
-                        }
-            writeIfaceFile (hsc_dflags session) ifaceFp iface
-            hieFile <-
-                liftIO $
-                runHsc session $
-                mkHieFile
-                    (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
-                    (fst $ tm_internals_ $ tmrModule tcm)
-                    (fromJust $ tm_renamed_source $ tmrModule tcm)
-            writeHieFile hieFp hieFile
-            pure [toNormalizedFilePath ifaceFp, toNormalizedFilePath hieFp]
+                                      {moduleUnitId = stringToUnitId pkgName}
+                    }
+        writeIfaceFile (hsc_dflags session) ifaceFp iface
+        hieFile <-
+            liftIO $
+            runHsc session $
+            mkHieFile
+                (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+                (fst $ tm_internals_ $ tmrModule tcm)
+                (fromJust $ tm_renamed_source $ tmrModule tcm)
+        writeHieFile hieFp hieFile
+        pure [toNormalizedFilePath ifaceFp, toNormalizedFilePath hieFp]
 
 ------------------------------------------------------------
 -- Rules
