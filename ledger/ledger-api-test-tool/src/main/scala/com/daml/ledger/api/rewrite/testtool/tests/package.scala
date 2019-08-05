@@ -7,11 +7,24 @@ import com.daml.ledger.api.rewrite.testtool.infrastructure.{LedgerSession, Ledge
 
 package object tests {
 
-  val all: Map[String, LedgerSession => LedgerTestSuite] = Map(
-    "Divulgence" -> (new Divulgence(_)),
-    "Identity" -> (new Identity(_)),
-    "Time" -> (new Time(_)),
+  val default: Map[String, LedgerSession => LedgerTestSuite] = Map(
     "SemanticTests" -> (new SemanticTests(_))
   )
+
+  /* TODO
+   * CommandTransactionChecksHighLevelIT
+   * CommandTransactionChecksLowLevelIT
+   * PackageManagementServiceIT
+   * PartyManagementServiceIT
+   * TransactionBackpressureIT
+   * TransactionServiceTests
+   */
+  val optional: Map[String, LedgerSession => LedgerTestSuite] = Map(
+    "DivulgenceIT" -> (new Divulgence(_)),
+    "Identity" -> (new Identity(_)),
+    "Time" -> (new Time(_)),
+  )
+
+  val all = default ++ optional
 
 }
