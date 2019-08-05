@@ -13,6 +13,7 @@ module DA.Daml.Helper.Run
     , runDeploy
     , runAllocateParty
     , runListParties
+    , runDeployNavigator
 
     , withJar
     , withSandbox
@@ -43,6 +44,7 @@ import Data.List.Extra
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
 import qualified Data.Yaml as Y
 import qualified Data.Yaml.Pretty as Y
 import qualified Network.HTTP.Client as HTTP
@@ -58,6 +60,8 @@ import System.Process.Typed
 import System.IO
 import System.IO.Extra
 import Web.Browser
+import Data.Aeson
+import Data.Aeson.Text
 
 import DA.Daml.Helper.Ledger as Ledger
 import DA.Daml.Project.Config
@@ -686,7 +690,7 @@ getHostAndPortDefaults :: HostAndPortFlags -> IO HostAndPort
 getHostAndPortDefaults HostAndPortFlags{hostM,portM} = do
     host <- fromMaybeM getProjectLedgerHost hostM
     port <- fromMaybeM getProjectLedgerPort portM
-    return HostAndPort {host,port}
+    return HostAndPort {..}
 
 runListParties :: HostAndPortFlags -> IO ()
 runListParties flags = do
@@ -725,6 +729,47 @@ allocatePartyIfRequired hp name = do
         putStrLn $ "Allocating party for '" <> name <> "' at " <> show hp
         Ledger.allocateParty hp name
     putStrLn $ "Allocated " <> show party <> " for '" <> name <> "' at " <> show hp
+
+-- | Run navigator against `daml deploy` ledger, taking advantage of configured
+-- host and port, and fetching list of parties from the ledger. In the
+-- future, Navigator should fetch the list of parties itself.
+runDeployNavigator :: HostAndPortFlags -> [String] -> IO ()
+runDeployNavigator flags remainingArguments = do
+    hostAndPort <- withHostAndPortDefaults flags
+    putStrLn $ "Opening navigator at " <> show hostAndPort
+    partyDetails <- Ledger.listParties hostAndPort
+
+    withTempDir $ \confDir -> do
+        -- Navigator determines the file format based on the extension so we need a .json file.
+        let navigatorConfPath = confDir </> "navigator-config.json"
+            navigatorArgs = concat
+                [ ["server"]
+                , ["-c", navigatorConfPath]
+                , [host hostAndPort, show (port hostAndPort)]
+                , navigatorPortNavigatorArgs navigatorPort
+                , remainingArguments
+                ]
+        writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
+        withJar navigatorPath navigatorArgs $ \ph -> do
+            putStrLn "Waiting for navigator to start: "
+            -- TODO We need to figure out a sane timeout for this step.
+            waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
+            putStr . unlines $
+                [ "Navigator is running at " <> navigatorURL navigatorPort
+                , "Use Ctrl+C to stop."
+                ]
+            exitWith =<< waitExitCode ph
+
+  where
+    navigatorConfig :: [PartyDetails] -> T.Text
+    navigatorConfig partyDetails =
+        TL.toStrict . encodeToLazyText $ object
+            ["users" .= object
+                [ TL.toStrict displayName .= object [ "party" .= TL.toStrict (unParty party) ]
+                | PartyDetails{..} <- partyDetails
+                ]
+            ]
+    navigatorPort = NavigatorPort 7500
 
 getDarPath :: IO FilePath
 getDarPath = do
