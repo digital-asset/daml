@@ -144,7 +144,6 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
         unlines
             [ "name: " ++ pName
             , "id: " ++ key
-            , "key: " ++ key
             , "version: " ++ pVersion
             , "exposed: True"
             , "exposed-modules: " ++
