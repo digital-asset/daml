@@ -335,7 +335,8 @@ execCompile inputFile outputFile opts =
                             pkgVersion <- optMbPackageVersion opts'
                             Just $
                                 intercalate "-" $
-                                if pkgName `elem` [unitIdString primUnitId]
+                                -- there is only one daml-prim in the view of the compiler
+                                if pkgName == unitIdString primUnitId
                                     then [pkgName]
                                     else [pkgName, pkgVersion, pkgId]
                     mbIfaces <-
