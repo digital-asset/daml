@@ -3,6 +3,8 @@
 
 package com.daml.ledger.participant.state.kvutils
 
+import java.time.Duration
+
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackageUploaded}
 import com.daml.ledger.participant.state.v1._
@@ -40,7 +42,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     submitter = Ref.Party.assertFromString("Alice"),
     applicationId = Ref.LedgerString.assertFromString("tests"),
     commandId = Ref.LedgerString.assertFromString("X"),
-    maxRecordTime = rt.addMicros(100000)
+    maxRecordTime = rt.addMicros(Duration.ofSeconds(10).toNanos / 1000)
   )
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(
