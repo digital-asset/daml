@@ -23,7 +23,7 @@ private[testtool] final class LedgerSession private (
 
   private[this] val logger = LoggerFactory.getLogger(classOf[LedgerSession])
 
-  private[this] val bindings: LedgerBindings = new LedgerBindings(channel)
+  private[this] val bindings: LedgerBindings = new LedgerBindings(channel, config.commandTtlFactor)
 
   private[testtool] def createTestContext(): LedgerTestContext =
     new LedgerTestContext(UUID.randomUUID.toString, bindings)

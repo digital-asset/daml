@@ -58,7 +58,12 @@ object LedgerApiTestTool {
       })
 
     val runner = new LedgerTestSuiteRunner(
-      Vector(LedgerSessionConfiguration(config.host, config.port, config.tlsConfig)),
+      Vector(
+        LedgerSessionConfiguration(
+          config.host,
+          config.port,
+          config.tlsConfig,
+          config.commandSubmissionTtlScaleFactor)),
       testsToRun.values.toVector,
       config.timeoutScaleFactor
     )

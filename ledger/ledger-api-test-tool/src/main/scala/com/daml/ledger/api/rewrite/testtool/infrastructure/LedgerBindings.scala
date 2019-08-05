@@ -46,7 +46,8 @@ object LedgerBindings {
 
 }
 
-final class LedgerBindings(channel: Channel)(implicit ec: ExecutionContext) {
+final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
+    implicit ec: ExecutionContext) {
 
   private[this] val services = new LedgerServices(channel)
 
@@ -125,7 +126,7 @@ final class LedgerBindings(channel: Channel)(implicit ec: ExecutionContext) {
     for {
       id <- ledgerId
       let <- time
-      mrt = let.plusSeconds(30)
+      mrt = let.plusSeconds(math.floor(30 * commandTtlFactor).toLong)
       a <- service(
         new SubmitAndWaitRequest(
           Some(new Commands(
