@@ -40,7 +40,8 @@ class ApiCodecCompressedSpec
     } yield parsed
   }
 
-  private def parsedShouldBe(serialized: String, typ: VA)(expected: typ.Inj[Cid])(implicit pos: source.Position) = {
+  private def parsedShouldBe(serialized: String, typ: VA)(expected: typ.Inj[Cid])(
+      implicit pos: source.Position) = {
     val json = serialized.parseJson
     val parsed = jsValueToApiValue[String](json, typ.t, typeLookup)
     typ.prj(parsed) should ===(Some(expected))
