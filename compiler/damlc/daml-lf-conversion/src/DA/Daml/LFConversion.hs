@@ -103,6 +103,7 @@ import           Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import           Data.Tuple.Extra
 import           Data.Ratio
 import           "ghc-lib" GHC
@@ -1053,8 +1054,8 @@ convertCoercion env co = evalStateT (go env co) 0
     isSatNewTyCon _ _ = Nothing
 
 convertModuleName :: GHC.ModuleName -> LF.ModuleName
-convertModuleName (GHC.moduleNameString -> x)
-    = mkModName $ splitOn "." x
+convertModuleName =
+    ModuleName . T.split (== '.') . T.decodeUtf8 . fastStringToByteString . moduleNameFS
 
 qualify :: Env -> GHC.Module -> a -> ConvertM (Qualified a)
 qualify env m x = do
