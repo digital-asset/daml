@@ -795,35 +795,45 @@ runLedgerNavigator flags remainingArguments = do
     partyDetails <- Ledger.listParties hostAndPort
 
     withTempDir $ \confDir -> do
-        -- Navigator determines the file format based on the extension so we need a .json file.
-        let navigatorConfPath = confDir </> "navigator-config.json"
+        let navigatorConfPath = confDir </> "ui-backend.conf"
             navigatorArgs = concat
                 [ ["server"]
-                , ["-c", navigatorConfPath]
                 , [host hostAndPort, show (port hostAndPort)]
                 , navigatorPortNavigatorArgs navigatorPort
                 , remainingArguments
                 ]
+
         writeFileUTF8 navigatorConfPath (T.unpack $ navigatorConfig partyDetails)
-        withJar navigatorPath navigatorArgs $ \ph -> do
-            putStrLn "Waiting for navigator to start: "
-            -- TODO We need to figure out a sane timeout for this step.
-            waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
-            putStr . unlines $
-                [ "Navigator is running at " <> navigatorURL navigatorPort
-                , "Use Ctrl+C to stop."
-                ]
-            exitWith =<< waitExitCode ph
+        unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
+        withCurrentDirectory confDir $ do
+            withJar navigatorPath navigatorArgs $ \ph -> do
+                putStrLn "Waiting for navigator to start: "
+                -- TODO We need to figure out a sane timeout for this step.
+                waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
+                putStr . unlines $
+                    [ "Navigator is running at " <> navigatorURL navigatorPort
+                    , "Use Ctrl+C to stop."
+                    ]
+                exitWith =<< waitExitCode ph
 
   where
     navigatorConfig :: [PartyDetails] -> T.Text
-    navigatorConfig partyDetails =
-        TL.toStrict . encodeToLazyText $ object
-            ["users" .= object
-                [ TL.toStrict displayName .= object [ "party" .= TL.toStrict (unParty party) ]
-                | PartyDetails{..} <- partyDetails
-                ]
+    navigatorConfig partyDetails = T.unlines . concat $
+        [ ["users", "  {"]
+        , [ T.concat
+            [ "    "
+            , T.pack . show $
+                if TL.null displayName
+                    then unParty party
+                    else displayName
+            , " { party = "
+            , T.pack (show (unParty party))
+            , " }"
             ]
+          | PartyDetails{..} <- partyDetails
+          ]
+        , ["  }"]
+        ]
     navigatorPort = NavigatorPort 7500
 
 getDarPath :: IO FilePath
