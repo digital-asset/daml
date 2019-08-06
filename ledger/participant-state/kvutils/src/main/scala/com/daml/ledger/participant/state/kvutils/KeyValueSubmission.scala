@@ -3,16 +3,7 @@
 
 package com.daml.ledger.participant.state.kvutils
 
-import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
-  DamlConfigurationEntry,
-  DamlPackageUploadEntry,
-  DamlPartyAllocationEntry,
-  DamlSubmission,
-  DamlTimeModel,
-  DamlTransactionEntry,
-  DamlStateKey,
-  DamlLogEntryId
-}
+import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.v1.{
   Configuration,
   SubmittedTransaction,
@@ -22,6 +13,7 @@ import com.daml.ledger.participant.state.v1.{
 import com.digitalasset.daml_lf.DamlLf.Archive
 import com.google.protobuf.ByteString
 import Conversions._
+import com.digitalasset.daml.lf.data.Time.Timestamp
 
 import scala.collection.JavaConverters._
 
@@ -46,7 +38,7 @@ object KeyValueSubmission {
     effects.createdContracts.map(_._1) ++ effects.consumedContracts
   }
 
-  /** Convert a transaction into a submission. */
+  /** Prepare a transaction submission. */
   def transactionToSubmission(
       submitterInfo: SubmitterInfo,
       meta: TransactionMeta,
@@ -54,7 +46,11 @@ object KeyValueSubmission {
 
     val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx)
     val encodedSubInfo = buildSubmitterInfo(submitterInfo)
-    val inputDamlState = commandDedupKey(encodedSubInfo) :: inputDamlStateFromTx
+    val inputDamlState =
+      commandDedupKey(encodedSubInfo) ::
+        configurationStateKey ::
+        partyStateKey(submitterInfo.submitter) ::
+        inputDamlStateFromTx
 
     DamlSubmission.newBuilder
       .addAllInputDamlState(inputDamlState.asJava)
@@ -64,12 +60,11 @@ object KeyValueSubmission {
           .setSubmitterInfo(encodedSubInfo)
           .setLedgerEffectiveTime(buildTimestamp(meta.ledgerEffectiveTime))
           .setWorkflowId(meta.workflowId.getOrElse(""))
-          .build
       )
       .build
   }
 
-  /** Convert an archive into a submission message. */
+  /** Prepare a package upload submission. */
   def archivesToSubmission(
       submissionId: String,
       archives: List[Archive],
@@ -90,47 +85,42 @@ object KeyValueSubmission {
           .addAllArchives(archives.asJava)
           .setSourceDescription(sourceDescription)
           .setParticipantId(participantId)
-          .build
       )
       .build
   }
 
-  /** Convert an archive into a submission message. */
+  /** Prepare a party allocation submission. */
   def partyToSubmission(
       submissionId: String,
       hint: Option[String],
       displayName: Option[String],
       participantId: String): DamlSubmission = {
     val party = hint.getOrElse("")
-    val inputDamlState = List(
-      DamlStateKey.newBuilder
-        .setParty(party)
-        .build)
     DamlSubmission.newBuilder
-      .addAllInputDamlState(inputDamlState.asJava)
+      .addInputDamlState(partyStateKey(party))
       .setPartyAllocationEntry(
         DamlPartyAllocationEntry.newBuilder
           .setSubmissionId(submissionId)
           .setParty(party)
           .setParticipantId(participantId)
           .setDisplayName(displayName.getOrElse(""))
-          .build
       )
       .build
   }
 
-  /** Convert ledger configuratino into a submission message. */
-  def configurationToSubmission(config: Configuration): DamlSubmission = {
-    val tm = config.timeModel
+  /** Prepare a ledger configuration change submission. */
+  def configurationToSubmission(
+      maxRecordTime: Timestamp,
+      currentConfig: Configuration,
+      newConfig: Configuration): DamlSubmission = {
+    val tm = currentConfig.timeModel
     DamlSubmission.newBuilder
-      .setConfigurationEntry(
-        DamlConfigurationEntry.newBuilder
-          .setTimeModel(
-            DamlTimeModel.newBuilder
-              .setMaxClockSkew(buildDuration(tm.maxClockSkew))
-              .setMinTransactionLatency(buildDuration(tm.minTransactionLatency))
-              .setMaxTtl(buildDuration(tm.maxTtl))
-          )
+      .addInputDamlState(configurationStateKey)
+      .setConfiguration(
+        DamlConfigurationSubmission.newBuilder
+          .setMaximumRecordTime(buildTimestamp(maxRecordTime))
+          .setCurrentConfig(buildDamlConfiguration(currentConfig))
+          .setNewConfig(buildDamlConfiguration(newConfig))
       )
       .build
   }

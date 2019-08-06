@@ -6,18 +6,19 @@ package com.daml.ledger.participant.state.kvutils
 import com.daml.ledger.participant.state.kvutils.Conversions._
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.committing.{
+  ProcessConfigSubmission,
   ProcessPackageUpload,
   ProcessPartyAllocation,
   ProcessTransactionSubmission
 }
-import com.daml.ledger.participant.state.v1.Configuration
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass
 import com.digitalasset.daml_lf.DamlLf
 import com.google.common.io.BaseEncoding
-import com.google.protobuf.ByteString
+import com.google.protobuf.{ByteString, Empty}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -85,11 +86,11 @@ object KeyValueCommitting {
     * [[packDamlStateKey]] to [[DamlStateKey]].
     *
     * @param engine: DAML Engine. This instance should be persistent as it caches package compilation.
-    * @param config: Ledger configuration.
     * @param entryId: Log entry id to which this submission is committed.
     * @param recordTime: Record time at which this log entry is committed.
+    * @param defaultConfig: The default configuration that is to be used if no configuration has been committed to state.
     * @param submission: Submission to commit to the ledger.
-    * @param inputLogEntries: Resolved input log entries specified in submission.
+    * @param participantId: The participant from which the submission originates. Expected to be authenticated.
     * @param inputState:
     *   Resolved input state specified in submission. Optional to mark that input state was resolved
     *   but not present. Specifically we require the command de-duplication input to be resolved, but don't
@@ -98,10 +99,11 @@ object KeyValueCommitting {
     */
   def processSubmission(
       engine: Engine,
-      config: Configuration,
       entryId: DamlLogEntryId,
       recordTime: Timestamp,
+      defaultConfig: Configuration,
       submission: DamlSubmission,
+      participantId: ParticipantId,
       inputState: Map[DamlStateKey, Option[DamlStateValue]]
   ): (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) = {
 
@@ -119,27 +121,28 @@ object KeyValueCommitting {
         ProcessPartyAllocation(
           entryId,
           recordTime,
+          participantId,
           submission.getPartyAllocationEntry,
           inputState
         ).run
 
-      case DamlSubmission.PayloadCase.CONFIGURATION_ENTRY =>
-        logger.trace(
-          s"processSubmission[entryId=${prettyEntryId(entryId)}]: New configuration committed.")
-        (
-          DamlLogEntry.newBuilder
-            .setRecordTime(buildTimestamp(recordTime))
-            .setConfigurationEntry(submission.getConfigurationEntry)
-            .build,
-          Map.empty
-        )
+      case DamlSubmission.PayloadCase.CONFIGURATION =>
+        ProcessConfigSubmission(
+          entryId,
+          recordTime,
+          defaultConfig,
+          participantId,
+          submission.getConfiguration,
+          inputState
+        ).run
 
       case DamlSubmission.PayloadCase.TRANSACTION_ENTRY =>
         ProcessTransactionSubmission(
           engine,
-          config,
           entryId,
           recordTime,
+          defaultConfig,
+          participantId,
           submission.getTransactionEntry,
           inputState
         ).run
@@ -229,9 +232,10 @@ object KeyValueCommitting {
           }
         txOutputs.toSet + commandDedupKey(txEntry.getSubmitterInfo)
 
-      case DamlSubmission.PayloadCase.CONFIGURATION_ENTRY =>
-        // FIXME(JM): Add state for configuration.
-        Set.empty
+      case DamlSubmission.PayloadCase.CONFIGURATION =>
+        Set(
+          DamlStateKey.newBuilder.setCurrentConfiguration(Empty.getDefaultInstance).build
+        )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
         throw Err.InvalidPayload("DamlSubmission.payload not set.")

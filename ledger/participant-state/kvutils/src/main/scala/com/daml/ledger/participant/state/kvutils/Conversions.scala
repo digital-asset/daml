@@ -5,17 +5,14 @@ package com.daml.ledger.participant.state.kvutils
 
 import java.time.{Duration, Instant}
 
+import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
+import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.Err
 import com.daml.ledger.participant.state.v1.{Configuration, SubmittedTransaction, SubmitterInfo}
 import com.digitalasset.daml.lf.data.Ref.{ContractIdString, LedgerString, Party}
 import com.digitalasset.daml.lf.data.Time
 import com.digitalasset.daml.lf.transaction.Node.GlobalKey
-import com.digitalasset.daml.lf.transaction.{
-  Transaction,
-  TransactionOuterClass,
-  TransactionVersions,
-  VersionedTransaction
-}
+import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value.{
   AbsoluteContractId,
   ContractId,
@@ -25,11 +22,8 @@ import com.digitalasset.daml.lf.value.Value.{
 }
 import com.digitalasset.daml.lf.value.ValueCoder.DecodeError
 import com.digitalasset.daml.lf.value.{Value, ValueCoder, ValueOuterClass}
-import com.digitalasset.daml.lf.transaction.TransactionCoder
-import com.daml.ledger.participant.state.backport.TimeModel
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.Err
 import com.google.common.io.BaseEncoding
-import com.google.protobuf.ByteString
+import com.google.protobuf.{ByteString, Empty}
 
 import scala.util.Try
 
@@ -37,6 +31,12 @@ import scala.util.Try
   * data structures.
   */
 private[kvutils] object Conversions {
+
+  val configurationStateKey: DamlStateKey =
+    DamlStateKey.newBuilder.setCurrentConfiguration(Empty.getDefaultInstance).build
+
+  def partyStateKey(party: String): DamlStateKey =
+    DamlStateKey.newBuilder.setParty(party).build
 
   def toAbsCoid(txId: DamlLogEntryId, coid: ContractId): AbsoluteContractId = {
     val hexTxId =
@@ -162,15 +162,40 @@ private[kvutils] object Conversions {
       maxRecordTime = parseTimestamp(subInfo.getMaximumRecordTime)
     )
 
-  def parseDamlConfigurationEntry(config: DamlConfigurationEntry): Configuration = {
+  def buildDamlConfiguration(config: Configuration): DamlConfiguration = {
+    val tm = config.timeModel
+    DamlConfiguration.newBuilder
+      .setAuthorizedParticipantId(config.authorizedParticipantId.fold("")(identity))
+      .setOpenWorld(config.openWorld)
+      .setTimeModel(
+        DamlTimeModel.newBuilder
+          .setMaxClockSkew(buildDuration(tm.maxClockSkew))
+          .setMinTransactionLatency(buildDuration(tm.minTransactionLatency))
+          .setMaxTtl(buildDuration(tm.maxTtl))
+      )
+      .build
+  }
+
+  def parseDamlConfiguration(config: DamlConfiguration): Try[Configuration] = {
     val tm = config.getTimeModel
-    Configuration(
-      TimeModel(
+    for {
+      parsedTM <- TimeModel(
         maxClockSkew = parseDuration(tm.getMaxClockSkew),
         minTransactionLatency = parseDuration(tm.getMinTransactionLatency),
         maxTtl = parseDuration(tm.getMaxTtl)
-      ).get // FIXME(JM): handle error
-    )
+      )
+      authPidString = config.getAuthorizedParticipantId
+      authPid <- if (authPidString.isEmpty)
+        Try(None)
+      else
+        Try(Some(LedgerString.assertFromString(config.getAuthorizedParticipantId)))
+
+      parsedConfig = Configuration(
+        timeModel = parsedTM,
+        authorizedParticipantId = authPid,
+        openWorld = config.getOpenWorld
+      )
+    } yield parsedConfig
   }
 
   def buildTimestamp(ts: Time.Timestamp): com.google.protobuf.Timestamp = {

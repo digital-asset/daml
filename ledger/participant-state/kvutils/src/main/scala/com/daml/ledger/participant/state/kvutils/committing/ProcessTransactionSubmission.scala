@@ -8,10 +8,10 @@ import com.daml.ledger.participant.state.kvutils.Conversions.{commandDedupKey, _
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
 import com.daml.ledger.participant.state.kvutils.KeyValueCommitting._
 import com.daml.ledger.participant.state.kvutils.{Conversions, InputsAndEffects}
-import com.daml.ledger.participant.state.v1.{Configuration, RejectionReason}
+import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
@@ -29,28 +29,43 @@ import scala.collection.JavaConverters._
 
 private[kvutils] case class ProcessTransactionSubmission(
     engine: Engine,
-    config: Configuration,
     entryId: DamlLogEntryId,
     recordTime: Timestamp,
+    defaultConfig: Configuration,
+    participantId: ParticipantId,
     txEntry: DamlTransactionEntry,
     inputState: Map[DamlStateKey, Option[DamlStateValue]]) {
 
   import Common._
+  import Commit._
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
-    Commit.run(
-      Commit.sequence(
-        deduplicateCommand,
-        validateLetAndTtl,
-        validateContractKeyUniqueness,
-        validateModelConformance,
-        buildFinalResult
-      )
+    runSequence(
+      authorizeSubmitter,
+      deduplicateCommand,
+      validateLetAndTtl,
+      validateContractKeyUniqueness,
+      validateModelConformance,
+      buildFinalResult
     )
 
   // -------------------------------------------------------------------------------
 
   private val logger = LoggerFactory.getLogger(this.getClass)
+
+  private val config: Configuration =
+    inputState
+      .get(Conversions.configurationStateKey)
+      .flatten
+      .flatMap { v =>
+        Conversions
+          .parseDamlConfiguration(v.getConfiguration)
+          .fold({ err =>
+            logger.error(s"Failed to parse configuration: $err, using default configuration.")
+            None
+          }, Some(_))
+      }
+      .getOrElse(defaultConfig)
 
   private val commandId = txEntry.getSubmitterInfo.getCommandId
   private def tracelog(msg: String) =
@@ -58,7 +73,7 @@ private[kvutils] case class ProcessTransactionSubmission(
 
   private val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
   private val submitterInfo = txEntry.getSubmitterInfo
-  private val submitter = submitterInfo.getSubmitter
+  private val submitter = Party.assertFromString(submitterInfo.getSubmitter)
   private lazy val relTx = Conversions.decodeTransaction(txEntry.getTransaction)
 
   private def contractVisibleToSubmitter(contractState: DamlContractState): Boolean = {
@@ -83,7 +98,7 @@ private[kvutils] case class ProcessTransactionSubmission(
   /** Deduplicate the submission. If the check passes we save the command deduplication
     * state.
     */
-  private def deduplicateCommand(): Commit[Unit] = Commit.delay {
+  private def deduplicateCommand(): Commit[Unit] = delay {
     val dedupKey = commandDedupKey(submitterInfo)
     val dedupEntry = inputState(dedupKey)
     if (dedupEntry.isEmpty) {
@@ -96,8 +111,31 @@ private[kvutils] case class ProcessTransactionSubmission(
       reject(RejectionReason.DuplicateCommand)
   }
 
+  /** Authorize the submission by looking up the party allocation and verifying
+    * that the submitting party is indeed hosted by the submitting participant.
+    *
+    * If the "open world" setting is enabled we allow the submission even if the
+    * party is unallocated.
+    */
+  private def authorizeSubmitter(): Commit[Unit] = delay {
+    inputState.get(partyStateKey(submitter)).flatten match {
+      case Some(partyAllocation) =>
+        if (partyAllocation.getParty.getParticipantId == participantId)
+          pass
+        else
+          reject(
+            RejectionReason.SubmitterCannotActViaParticipant(
+              s"Party '$submitter' not hosted by participant $participantId"))
+      case None =>
+        if (config.openWorld)
+          pass
+        else
+          reject(RejectionReason.PartyNotKnownOnLedger)
+    }
+  }
+
   /** Validate ledger effective time and the command's time-to-live. */
-  private def validateLetAndTtl(): Commit[Unit] = Commit.delay {
+  private def validateLetAndTtl(): Commit[Unit] = delay {
     val timeModelChecker = TimeModelChecker(config.timeModel)
     val givenLET = txLet.toInstant
     val givenMRT = parseTimestamp(txEntry.getSubmitterInfo.getMaximumRecordTime).toInstant
@@ -108,20 +146,20 @@ private[kvutils] case class ProcessTransactionSubmission(
         givenMaximumRecordTime = givenMRT)
       &&
       timeModelChecker.checkTtl(givenLET, givenMRT))
-      Commit.pass
+      pass
     else
       reject(RejectionReason.MaximumRecordTimeExceeded)
   }
 
   /** Validate the submission's conformance to the DAML model */
-  private def validateModelConformance(): Commit[Unit] = Commit.delay {
+  private def validateModelConformance(): Commit[Unit] = delay {
     engine
       .validate(relTx, txLet)
       .consume(lookupContract, lookupPackage, lookupKey)
-      .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => Commit.pass)
+      .fold(err => reject(RejectionReason.Disputed(err.msg)), _ => pass)
   }
 
-  private def validateContractKeyUniqueness(): Commit[Unit] = Commit.delay {
+  private def validateContractKeyUniqueness(): Commit[Unit] = delay {
     val allUnique = relTx.fold(GenTransaction.AnyOrder, true) {
       case (allUnique, (_nodeId, create: NodeCreate[_, VersionedValue[ContractId]]))
           if create.key.isDefined =>
@@ -139,15 +177,13 @@ private[kvutils] case class ProcessTransactionSubmission(
       case (allUnique, _) => allUnique
     }
     if (allUnique)
-      Commit.pass
+      pass
     else
       reject(RejectionReason.Disputed("DuplicateKey: Contract Key not unique"))
   }
 
   /** All checks passed. Produce the log entry and contract state updates. */
-  private def buildFinalResult(): Commit[Unit] = Commit.delay {
-    import Commit._
-
+  private def buildFinalResult(): Commit[Unit] = delay {
     val effects = InputsAndEffects.computeEffects(entryId, relTx)
     val blindingInfo = Blinding.blind(relTx)
 

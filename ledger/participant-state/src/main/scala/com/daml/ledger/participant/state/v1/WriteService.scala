@@ -25,7 +25,7 @@ import java.util.concurrent.CompletionStage
   * - uploading a new package using [[WritePackagesService!.uploadPackages]]
   *
   */
-trait WriteService extends WritePackagesService with WritePartyService {
+trait WriteService extends WritePackagesService with WritePartyService with WriteConfigService {
 
   /** Submit a transaction for acceptance to the ledger.
     *

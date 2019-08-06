@@ -8,5 +8,10 @@ package com.daml.ledger.participant.state.v1
   */
 final case class Configuration(
     /** The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands. */
-    timeModel: TimeModel
+    timeModel: TimeModel,
+    /** The identity of the participant allowed to change the configuration. If not set, any participant
+      * can change the configuration. */
+    authorizedParticipantId: Option[ParticipantId],
+    /** Flag to enable "open world" mode in which submissions from unallocated parties are allowed through. Useful in testing. */
+    openWorld: Boolean
 )

@@ -6,6 +6,7 @@ package com.daml.ledger.participant.state.kvutils
 import java.time.Duration
 
 import akka.stream.scaladsl.Sink
+import com.daml.ledger.participant.state.backport.TimeModel
 import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackageUploaded}
 import com.daml.ledger.participant.state.v1._
 import com.digitalasset.daml.lf.data.Ref
@@ -38,8 +39,8 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       .build
   )
 
-  private def submitterInfo(rt: Timestamp) = SubmitterInfo(
-    submitter = Ref.Party.assertFromString("Alice"),
+  private def submitterInfo(rt: Timestamp, party: String = "Alice") = SubmitterInfo(
+    submitter = Ref.Party.assertFromString(party),
     applicationId = Ref.LedgerString.assertFromString("tests"),
     commandId = Ref.LedgerString.assertFromString("X"),
     maxRecordTime = rt.addMicros(Duration.ofSeconds(10).toNanos / 1000)
@@ -344,6 +345,141 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
       ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction)
       waitForUpdateFuture
+    }
+
+    "correctly implements open world tx submission authorization" in {
+      val ps = new InMemoryKVParticipantState(participantId, openWorld = true)
+      val rt = ps.getNewRecordTime()
+
+      val waitForUpdateFuture =
+        ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq).map { updates =>
+          ps.close()
+          val (offset1, update1) = updates(0)
+          assert(offset1 == Offset(Array(0L, 0L)))
+          assert(update1.isInstanceOf[Update.TransactionAccepted])
+
+          val (offset2, update2) = updates(1)
+          assert(offset2 == Offset(Array(1L, 0L)))
+          assert(update2.isInstanceOf[Update.PartyAddedToParticipant])
+
+          val (offset3, update3) = updates(2)
+          assert(offset3 == Offset(Array(2L, 0L)))
+          assert(update3.isInstanceOf[Update.TransactionAccepted])
+        }
+      val subInfo = submitterInfo(rt)
+
+      for {
+        // Submit without allocation in open world setting, expecting this to succeed.
+        _ <- ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction).toScala
+
+        // Allocate a party and try the submission again with an allocated party.
+        allocResult <- ps
+          .allocateParty(
+            None /* no name hint, implementation decides party name */,
+            Some("Somebody"))
+          .toScala
+        _ <- assert(allocResult.isInstanceOf[PartyAllocationResult.Ok])
+        _ <- ps
+          .submitTransaction(
+            submitterInfo(
+              rt,
+              party = allocResult.asInstanceOf[PartyAllocationResult.Ok].result.party),
+            transactionMeta(rt),
+            emptyTransaction)
+          .toScala
+        r <- waitForUpdateFuture
+      } yield (r)
+    }
+
+    "correctly implements closed world tx submission authorization" in {
+      val ps = new InMemoryKVParticipantState(participantId, openWorld = false)
+      val rt = ps.getNewRecordTime()
+
+      val waitForUpdateFuture =
+        ps.stateUpdates(beginAfter = None).take(3).runWith(Sink.seq).map { updates =>
+          ps.close()
+
+          def takeUpdate(n: Int) = {
+            val (offset, update) = updates(n)
+            assert(offset == Offset(Array(n.toLong, 0L)))
+            update
+          }
+
+          assert(
+            takeUpdate(0)
+              .asInstanceOf[Update.CommandRejected]
+              .reason == RejectionReason.PartyNotKnownOnLedger)
+
+          assert(takeUpdate(1).isInstanceOf[Update.PartyAddedToParticipant])
+          assert(takeUpdate(2).isInstanceOf[Update.TransactionAccepted])
+        }
+
+      for {
+        // Submit without allocation in closed world setting.
+        _ <- ps.submitTransaction(submitterInfo(rt), transactionMeta(rt), emptyTransaction).toScala
+
+        // Allocate a party and try the submission again with an allocated party.
+        allocResult <- ps
+          .allocateParty(
+            None /* no name hint, implementation decides party name */,
+            Some("Somebody"))
+          .toScala
+        _ <- assert(allocResult.isInstanceOf[PartyAllocationResult.Ok])
+        _ <- ps
+          .submitTransaction(
+            submitterInfo(
+              rt,
+              party = allocResult.asInstanceOf[PartyAllocationResult.Ok].result.party),
+            transactionMeta(rt),
+            emptyTransaction)
+          .toScala
+        r <- waitForUpdateFuture
+      } yield (r)
+    }
+  }
+
+  "can submit new configuration" in {
+    val ps = new InMemoryKVParticipantState(participantId)
+    val rt = ps.getNewRecordTime()
+
+    for {
+      lic <- ps.getLedgerInitialConditions.runWith(Sink.head)
+
+      // Submit a configuration change that flips the "open world" flag.
+      _ <- ps
+        .submitConfiguration(
+          maxRecordTime = rt.addMicros(1000000),
+          currentConfig = lic.config,
+          newConfig = lic.config.copy(
+            openWorld = !lic.config.openWorld
+          ))
+        .toScala
+
+      // Submit another configuration change that uses stale "current config".
+      _ <- ps
+        .submitConfiguration(
+          maxRecordTime = rt.addMicros(1000000),
+          currentConfig = lic.config,
+          newConfig = lic.config.copy(
+            timeModel = TimeModel(
+              Duration.ofSeconds(123),
+              Duration.ofSeconds(123),
+              Duration.ofSeconds(123)).get
+          )
+        )
+        .toScala
+
+      updates <- ps.stateUpdates(None).take(2).runWith(Sink.seq)
+    } yield {
+      ps.close
+      // The first submission should change the config.
+      val newConfig = updates(0)._2.asInstanceOf[Update.ConfigurationChanged]
+      assert(newConfig.newConfiguration != lic.config)
+
+      // The second submission should get rejected.
+      assert(
+        updates(1)._2.asInstanceOf[Update.ConfigurationChanged].newConfiguration
+          == newConfig.newConfiguration)
     }
   }
 

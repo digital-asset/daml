@@ -48,19 +48,14 @@ object InMemoryKVParticipantState {
       // Store containing both the [[DamlLogEntry]] and [[DamlStateValue]]s.
       // The store is mutated by applying [[DamlSubmission]]s. The store can
       // be reconstructed from scratch by replaying [[State.commits]].
-      store: Map[ByteString, ByteString],
-      // Current ledger configuration.
-      config: Configuration
+      store: Map[ByteString, ByteString]
   )
 
   object State {
     def empty = State(
       commitLog = Vector.empty[Commit],
       recordTime = Timestamp.Epoch,
-      store = Map.empty[ByteString, ByteString],
-      config = Configuration(
-        timeModel = TimeModel.reasonableDefault
-      )
+      store = Map.empty[ByteString, ByteString]
     )
 
   }
@@ -100,7 +95,8 @@ object InMemoryKVParticipantState {
 class InMemoryKVParticipantState(
     val participantId: ParticipantId,
     val ledgerId: LedgerString.T = Ref.LedgerString.assertFromString(UUID.randomUUID.toString),
-    file: Option[File] = None)(implicit system: ActorSystem, mat: Materializer)
+    file: Option[File] = None,
+    openWorld: Boolean = true)(implicit system: ActorSystem, mat: Materializer)
     extends ReadService
     with WriteService
     with AutoCloseable {
@@ -111,8 +107,12 @@ class InMemoryKVParticipantState(
 
   private implicit val ec: ExecutionContext = mat.executionContext
 
-  // The ledger configuration
-  private val ledgerConfig = Configuration(timeModel = TimeModel.reasonableDefault)
+  // The initial ledger configuration
+  private val initialLedgerConfig = Configuration(
+    timeModel = TimeModel.reasonableDefault,
+    authorizedParticipantId = Some(participantId),
+    openWorld = openWorld
+  )
 
   // DAML Engine for transaction validation.
   private val engine = Engine()
@@ -249,15 +249,21 @@ class InMemoryKVParticipantState(
           logger.trace(
             s"CommitActor: processing submission ${KeyValueCommitting.prettyEntryId(entryId)}...")
           // Process the submission to produce the log entry and the state updates.
-          val (logEntry, damlStateUpdates) = KeyValueCommitting.processSubmission(
-            engine,
-            state.config,
-            entryId,
-            newRecordTime,
-            submission,
+
+          val stateInputs: Map[DamlStateKey, Option[DamlStateValue]] =
             submission.getInputDamlStateList.asScala
               .map(key => key -> getDamlState(state, key))(breakOut)
-          )
+
+          val (logEntry, damlStateUpdates) =
+            KeyValueCommitting.processSubmission(
+              engine,
+              entryId,
+              newRecordTime,
+              initialLedgerConfig,
+              submission,
+              participantId,
+              stateInputs
+            )
 
           // Verify that the state updates match the pre-declared outputs.
           val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
@@ -514,12 +520,28 @@ class InMemoryKVParticipantState(
   /** The initial conditions of the ledger. The initial record time is the instant
     * at which this class has been instantiated.
     */
-  private val initialConditions = LedgerInitialConditions(ledgerId, ledgerConfig, getNewRecordTime)
+  private val initialConditions =
+    LedgerInitialConditions(ledgerId, initialLedgerConfig, getNewRecordTime)
 
   /** Get a new record time for the ledger from the system clock.
     * Public for use from integration tests.
     */
   def getNewRecordTime(): Timestamp =
     Timestamp.assertFromInstant(Clock.systemUTC().instant())
+
+  /** Submit a new configuration to the ledger. */
+  override def submitConfiguration(
+      maxRecordTime: Timestamp,
+      currentConfig: Configuration,
+      newConfig: Configuration): CompletionStage[SubmissionResult] =
+    CompletableFuture.completedFuture({
+      val submission =
+        KeyValueSubmission.configurationToSubmission(maxRecordTime, currentConfig, newConfig)
+      commitActorRef ! CommitSubmission(
+        allocateEntryId,
+        submission
+      )
+      SubmissionResult.Acknowledged
+    })
 
 }

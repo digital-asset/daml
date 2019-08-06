@@ -75,7 +75,8 @@ object KeyValueConsumption {
         List(txEntryToUpdate(entryId, entry.getTransactionEntry, recordTime))
 
       case DamlLogEntry.PayloadCase.CONFIGURATION_ENTRY =>
-        List(Update.ConfigurationChanged(parseDamlConfigurationEntry(entry.getConfigurationEntry)))
+        val newConfig = parseDamlConfiguration(entry.getConfigurationEntry).get
+        List(Update.ConfigurationChanged(newConfig))
 
       case DamlLogEntry.PayloadCase.REJECTION_ENTRY =>
         List(rejectionEntryToUpdate(entry.getRejectionEntry))
@@ -98,11 +99,11 @@ object KeyValueConsumption {
   def logEntryToAsyncResponse(
       entryId: DamlLogEntryId,
       entry: DamlLogEntry,
-      participantName: String): Option[AsyncResponse] = {
+      participantId: String): Option[AsyncResponse] = {
 
     entry.getPayloadCase match {
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_ENTRY =>
-        if (participantName == entry.getPackageUploadEntry.getParticipantId)
+        if (participantId == entry.getPackageUploadEntry.getParticipantId)
           Some(
             PackageUploadResponse(
               entry.getPackageUploadEntry.getSubmissionId,
@@ -112,12 +113,12 @@ object KeyValueConsumption {
         else None
 
       case DamlLogEntry.PayloadCase.PACKAGE_UPLOAD_REJECTION_ENTRY =>
-        if (participantName == entry.getPackageUploadRejectionEntry.getParticipantId)
+        if (participantId == entry.getPackageUploadRejectionEntry.getParticipantId)
           Some(packageRejectionEntryToAsynchResponse(entry.getPackageUploadRejectionEntry))
         else None
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_ENTRY =>
-        if (participantName == entry.getPartyAllocationEntry.getParticipantId)
+        if (participantId == entry.getPartyAllocationEntry.getParticipantId)
           Some(
             PartyAllocationResponse(
               entry.getPartyAllocationEntry.getSubmissionId,
@@ -128,7 +129,7 @@ object KeyValueConsumption {
                     None
                   else
                     Some(entry.getPartyAllocationEntry.getDisplayName),
-                  entry.getPartyAllocationEntry.getParticipantId == participantName
+                  entry.getPartyAllocationEntry.getParticipantId == participantId
                 )
               )
             )
@@ -136,7 +137,7 @@ object KeyValueConsumption {
         else None
 
       case DamlLogEntry.PayloadCase.PARTY_ALLOCATION_REJECTION_ENTRY =>
-        if (participantName == entry.getPartyAllocationRejectionEntry.getParticipantId)
+        if (participantId == entry.getPartyAllocationRejectionEntry.getParticipantId)
           Some(partyRejectionEntryToAsynchResponse(entry.getPartyAllocationRejectionEntry))
         else None
 

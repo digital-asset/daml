@@ -57,12 +57,12 @@ object Common {
       }
     }
 
-    /** Run the commit computation, producing a log entry and the state. */
-    def run(act: Commit[Unit]): (DamlLogEntry, DamlStateMap) =
-      act.run(Map.empty) match {
+    /** Run a sequence of commit computations, producing a log entry and the state. */
+    def runSequence(act: Commit[Unit], acts: Commit[Unit]*): (DamlLogEntry, DamlStateMap) =
+      sequence(act, acts: _*).run(Map.empty) match {
         case Left(done) => done.logEntry -> done.state
         case Right(_) =>
-          throw Err.InternalError("Commit.run: The commit processing did not terminate!")
+          throw Err.InternalError("Commit.runSequence: The commit processing did not terminate!")
       }
 
     /** A no-op computation that produces no result. Useful when validating,
