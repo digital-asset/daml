@@ -13,7 +13,7 @@ import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
 
 private[testtool] final class LedgerSession private (
@@ -25,8 +25,8 @@ private[testtool] final class LedgerSession private (
 
   private[this] val bindings: LedgerBindings = new LedgerBindings(channel, config.commandTtlFactor)
 
-  private[testtool] def createTestContext(): LedgerTestContext =
-    new LedgerTestContext(UUID.randomUUID.toString, bindings)
+  private[testtool] def createTestContext(): Future[LedgerTestContext] =
+    bindings.ledgerEnd.map(new LedgerTestContext(UUID.randomUUID.toString, _, bindings))
 
   private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from ledger at ${config.host}:${config.port}...")

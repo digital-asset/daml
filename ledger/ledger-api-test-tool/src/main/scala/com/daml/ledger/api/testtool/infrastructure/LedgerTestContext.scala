@@ -14,16 +14,16 @@ import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
-final class LedgerTestContext(val applicationId: String, bindings: LedgerBindings)(
-    implicit val ec: ExecutionContext)
+final class LedgerTestContext(
+    val applicationId: String,
+    val offsetAtStart: LedgerOffset,
+    bindings: LedgerBindings)(implicit val ec: ExecutionContext)
     extends ExecutionContext {
 
   override def execute(runnable: Runnable): Unit = ec.execute(runnable)
   override def reportFailure(cause: Throwable): Unit = ec.reportFailure(cause)
 
   val ledgerId: Future[String] = bindings.ledgerId
-
-  val offsetAtStart: Future[LedgerOffset] = bindings.ledgerEnd
 
   def allocateParty(): Future[String] =
     bindings.allocateParty()
@@ -47,10 +47,7 @@ final class LedgerTestContext(val applicationId: String, bindings: LedgerBinding
   def transactionsSinceTestStarted(
       party: String,
       templateIds: Seq[Identifier]): Future[Vector[Transaction]] =
-    for {
-      since <- offsetAtStart
-      txs <- bindings.transactions(since, party, templateIds)
-    } yield txs
+    bindings.transactions(offsetAtStart, party, templateIds)
 
   def semanticTesterLedger(parties: Set[Ref.Party], packages: Map[Ref.PackageId, Ast.Package]) =
     new SemanticTesterLedger(bindings)(parties, packages)(this)
