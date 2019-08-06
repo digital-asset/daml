@@ -53,6 +53,7 @@ da_haskell_library(
         "filepath",
         "mtl",
         "tasty-hunit",
+        "tasty-golden",
         "text",
     ],
     src_strip_prefix = "test",
