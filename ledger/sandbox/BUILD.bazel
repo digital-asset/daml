@@ -84,7 +84,7 @@ da_scala_library(
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
         "//3rdparty/jvm/ch/qos/logback:logback_core",
     ],
-    deps = compileDependencies,
+    deps = compileDependencies + ["//ledger/test-common"],
 )
 
 da_scala_binary(
@@ -136,13 +136,6 @@ alias(
     visibility = ["//visibility:public"],
 )
 
-daml_compile(
-    name = "Test",
-    main_src = "src/test/resources/damls/Test.daml",
-    target = "1.dev",
-    visibility = ["//visibility:public"],
-)
-
 #TODO: generate dynamic BuildInfo.scala
 
 testDependencies = [
@@ -169,7 +162,7 @@ da_scala_test_suite(
         ["src/test/suite/**/*.scala"],
     ),
     data = [
-        "//ledger/sandbox:Test.dar",
+        "//ledger/test-common:Test.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -190,14 +183,14 @@ da_scala_test_suite(
 #        "--all-tests",
 #    ],
 #    data = [
-#        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-#        "//ledger/sandbox:Test.dar",
+#        "//ledger/test-common:SemanticTests.dar",
+#        "//ledger/test-common:Test.dar",
 #    ],
 #    server = "//ledger/sandbox:sandbox-binary",
 #    server_args = [
 #        "-s",
-#        "ledger/ledger-api-integration-tests/SemanticTests.dar",
-#        "ledger/sandbox/Test.dar",
+#        "ledger/test-common/SemanticTests.dar",
+#        "ledger/test-common/Test.dar",
 #    ],
 #    tags = [
 #        "dont-run-on-darwin",
@@ -215,14 +208,14 @@ da_scala_test_suite(
 #        "--exclude SemanticTests",
 #    ],
 #    data = [
-#        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-#        "//ledger/sandbox:Test.dar",
+#        "//ledger/test-common:SemanticTests.dar",
+#        "//ledger/test-common:Test.dar",
 #    ],
 #    server = "//ledger/sandbox:sandbox-binary",
 #    server_args = [
 #        "-w",
-#        "ledger/ledger-api-integration-tests/SemanticTests.dar",
-#        "ledger/sandbox/Test.dar",
+#        "ledger/test-common/SemanticTests.dar",
+#        "ledger/test-common/Test.dar",
 #    ],
 #    tags = [
 #        "dont-run-on-darwin",

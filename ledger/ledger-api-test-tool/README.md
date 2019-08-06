@@ -16,7 +16,7 @@ To build and run the tool, use:
 It wraps
 [SemanticTester.scala](../../daml-lf/testing-tools/src/main/scala/com/digitalasset/daml/lf/engine/testing/SemanticTester.scala)
 into a standalone command line tool with embedded
-`//ledger/ledger-api-integration-tests:SemanticTests.dar`.
+`//ledger/test-common:SemanticTests.dar`.
 
 ### Running standalone
 

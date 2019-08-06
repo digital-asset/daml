@@ -3,355 +3,79 @@
 
 package com.daml.ledger.api.testtool
 
-import java.io.File
-import java.nio.file.{Files, Path, Paths, StandardCopyOption}
-
-import com.digitalasset.platform.PlatformApplications
-import com.digitalasset.platform.PlatformApplications.RemoteApiEndpoint
-import com.digitalasset.platform.common.LedgerIdMode
-import com.digitalasset.platform.semantictest.SandboxSemanticTestsLfRunner
-import com.digitalasset.platform.services.time.TimeProviderType
-import com.digitalasset.platform.testing.LedgerBackend
-import com.digitalasset.platform.tests.integration.ledger.api.commands.{
-  CommandServiceIT,
-  CommandSubmissionTtlIT,
-  CommandTransactionChecksHighLevelIT,
-  CommandTransactionChecksLowLevelIT,
-  ContractKeysIT
+import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
+import com.daml.ledger.api.testtool.infrastructure.{
+  LedgerSessionConfiguration,
+  LedgerTestSuiteRunner,
+  LedgerTestSummary
 }
-import com.digitalasset.platform.tests.integration.ledger.api.transaction.TransactionBackpressureIT
-import com.digitalasset.platform.tests.integration.ledger.api._
-import org.scalatest.time.{Seconds, Span}
-import org.scalatest.{Args, Suite}
+import org.slf4j.LoggerFactory
 
-import scala.util.control.NonFatal
+import scala.util.{Failure, Success}
 
 object LedgerApiTestTool {
-  val semanticTestsResource = "/ledger/ledger-api-integration-tests/SemanticTests.dar"
-  val integrationTestResource = "/ledger/sandbox/Test.dar"
-  val testResources = List(
-    integrationTestResource,
-    semanticTestsResource,
-  )
+
+  private[this] val logger = LoggerFactory.getLogger(getClass.getName.stripSuffix("$"))
+
+  private[this] val uncaughtExceptionErrorMessage =
+    "UNEXPECTED UNCAUGHT EXCEPTION ON MAIN THREAD, GATHER THE STACKTRACE AND OPEN A _DETAILED_ TICKET DESCRIBING THE ISSUE HERE: https://github.com/digital-asset/daml/issues/new"
+
+  private def exitCode(summaries: Vector[LedgerTestSummary], expectFailure: Boolean): Int =
+    if (summaries.exists(_.result.failure) == expectFailure) 0 else 1
+
+  private def printAvailableTests(): Unit = {
+    println("Tests marked with * are run by default.\n")
+    tests.default.keySet.toSeq.sorted.map(_ + " *").foreach(println(_))
+    tests.optional.keySet.toSeq.sorted.foreach(println(_))
+  }
+
   def main(args: Array[String]): Unit = {
 
-    val toolConfig = Cli
-      .parse(args)
-      .getOrElse(sys.exit(1))
+    val config = Cli.parse(args).getOrElse(sys.exit(1))
 
-    if (toolConfig.extract) {
-      extractTestFiles(testResources)
+    if (config.listTests) {
+      printAvailableTests()
       sys.exit(0)
     }
 
-    val commonConfig = PlatformApplications.Config.default
-      .withTimeProvider(TimeProviderType.WallClock)
-      .withLedgerIdMode(LedgerIdMode.Dynamic())
-      .withCommandSubmissionTtlScaleFactor(toolConfig.commandSubmissionTtlScaleFactor)
-      .withUniquePartyIdentifiers(toolConfig.uniquePartyIdentifiers)
-      .withUniqueCommandIdentifiers(toolConfig.uniqueCommandIdentifiers)
-      .withRemoteApiEndpoint(
-        RemoteApiEndpoint.default
-          .withHost(toolConfig.host)
-          .withPort(toolConfig.port)
-          .withTlsConfig(toolConfig.tlsConfig))
+    val included =
+      if (config.allTests) tests.all.keySet
+      else if (config.included.isEmpty) tests.default.keySet
+      else config.included
 
-    val default = defaultTests(commonConfig, toolConfig)
-    val optional = optionalTests(commonConfig, toolConfig)
+    val testsToRun = tests.all.filterKeys(included -- config.excluded)
 
-    val allTests = default ++ optional
-
-    if (toolConfig.listTests) {
-      println("Tests marked with * are run by default.\n")
-      println(default.keySet.toSeq.sorted.map(_ + " *").mkString("\n"))
-      println(optional.keySet.toSeq.sorted.mkString("\n"))
+    if (testsToRun.isEmpty) {
+      println("No tests to run.")
       sys.exit(0)
     }
 
-    var failed = false
-
-    try {
-
-      val includedTests =
-        if (toolConfig.allTests) allTests.keySet
-        else if (toolConfig.included.isEmpty) default.keySet
-        else toolConfig.included
-
-      val testsToRun = includedTests.filterNot(toolConfig.excluded)
-
-      if (testsToRun.isEmpty) {
-        println("No tests to run.")
-        sys.exit(0)
-      }
-
-      val reporter = new ToolReporter(toolConfig.verbose)
-      val sorter = new ToolSorter
-
-      testsToRun
-        .find(n => !allTests.contains(n))
-        .foreach { unknownSuite =>
-          println(s"Unknown Test: $unknownSuite")
-          sys.exit(1)
-        }
-
-      testsToRun.foreach { suiteName =>
-        try {
-          allTests(suiteName)()
-            .run(None, Args(reporter = reporter, distributedTestSorter = Some(sorter)))
-        } catch {
-          case NonFatal(t) =>
-            failed = true
-        }
-        ()
-      }
-
-      failed |= reporter.statistics.testsStarted != reporter.statistics.testsSucceeded
-      reporter.printStatistics
-    } catch {
-      case NonFatal(t) if toolConfig.mustFail =>
-        failed = true
-    }
-
-    if (toolConfig.mustFail) {
-      if (failed) println("One or more scenarios failed as expected.")
-      else
-        throw new RuntimeException(
-          "None of the scenarios failed, yet the --must-fail flag was specified!")
-    } else {
-      if (failed) {
+    Thread
+      .currentThread()
+      .setUncaughtExceptionHandler((_, exception) => {
+        logger.error(uncaughtExceptionErrorMessage, exception)
         sys.exit(1)
-      }
+      })
+
+    val runner = new LedgerTestSuiteRunner(
+      Vector(
+        LedgerSessionConfiguration(
+          config.host,
+          config.port,
+          config.tlsConfig,
+          config.commandSubmissionTtlScaleFactor)),
+      testsToRun.values.toVector,
+      config.timeoutScaleFactor
+    )
+
+    runner.run {
+      case Success(summaries) =>
+        new ColorizedPrintStreamReporter(System.out, config.verbose)(summaries)
+        sys.exit(exitCode(summaries, config.mustFail))
+      case Failure(e) =>
+        logger.error(e.getMessage, e)
+        sys.exit(1)
     }
   }
 
-  private def defaultTests(
-      commonConfig: PlatformApplications.Config,
-      toolConfig: Config): Map[String, () => Suite] = {
-    val semanticTestsRunner = lazyInit(
-      "SemanticTests",
-      name =>
-        new SandboxSemanticTestsLfRunner {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}TestToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override implicit lazy val patienceConfig: PatienceConfig =
-            PatienceConfig(Span(60L, Seconds))
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(semanticTestsResource))
-      }
-    )
-
-    Map(
-      semanticTestsRunner
-    )
-  }
-  private def optionalTests(
-      commonConfig: PlatformApplications.Config,
-      toolConfig: Config): Map[String, () => Suite] = {
-
-    val transactionServiceIT = lazyInit(
-      "TransactionServiceTests",
-      name =>
-        new TransactionServiceIT {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}ToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val transactionBackpressureIT = lazyInit(
-      "TransactionBackpressureIT",
-      name =>
-        new TransactionBackpressureIT {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}ToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val divulgenceIT = lazyInit(
-      "DivulgenceIT",
-      name =>
-        new DivulgenceIT {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}ToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val commandTransactionChecksHighLevelIT = lazyInit(
-      "CommandTransactionChecksHighLevelIT",
-      name =>
-        new CommandTransactionChecksHighLevelIT {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}ToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val commandTransactionChecksLowLevelIT = lazyInit(
-      "CommandTransactionChecksLowLevelIT",
-      name =>
-        new CommandTransactionChecksLowLevelIT {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}ToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val packageManagementServiceIT = lazyInit(
-      "PackageManagementServiceIT",
-      name =>
-        new PackageManagementServiceIT {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}ToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val partyManagementServiceIT = lazyInit(
-      "PartyManagementServiceIT",
-      name =>
-        new PartyManagementServiceIT {
-          override def suiteName: String = name
-          override def actorSystemName = s"${name}ToolActorSystem"
-          override def fixtureIdsEnabled: Set[LedgerBackend] = Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val commandSubmissionTtlIT = lazyInit(
-      "CommandSubmissionTtlIT",
-      name =>
-        new CommandSubmissionTtlIT {
-          override def suiteName: String = name
-          override protected def actorSystemName: String = s"${name}ToolActorSystem"
-          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val commandServiceIT = lazyInit(
-      "CommandServiceIT",
-      name =>
-        new CommandServiceIT {
-          override def suiteName: String = name
-          override protected def actorSystemName: String = s"${name}ToolActorSystem"
-          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val activeContractsServiceIT = lazyInit(
-      "ActiveContractsServiceIT",
-      name =>
-        new ActiveContractsServiceIT {
-          override def suiteName: String = name
-          override protected def actorSystemName: String = s"${name}ToolActorSystem"
-          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val witnessesIT = lazyInit(
-      "WitnessesIT",
-      name =>
-        new WitnessesIT {
-          override def suiteName: String = name
-          override protected def actorSystemName: String = s"${name}ToolActorSystem"
-          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    val contractKeysIT = lazyInit(
-      "ContractKeysIT",
-      name =>
-        new ContractKeysIT {
-          override def suiteName: String = name
-          override protected def actorSystemName: String = s"${name}ToolActorSystem"
-          override protected def fixtureIdsEnabled: Set[LedgerBackend] =
-            Set(LedgerBackend.RemoteApiProxy)
-          override def spanScaleFactor: Double = toolConfig.timeoutScaleFactor
-          override protected def config: Config =
-            commonConfig.withDarFile(resourceAsFile(integrationTestResource))
-      }
-    )
-
-    Map(
-      transactionServiceIT,
-      transactionBackpressureIT,
-      divulgenceIT,
-      commandTransactionChecksHighLevelIT,
-      commandTransactionChecksLowLevelIT,
-      packageManagementServiceIT,
-      partyManagementServiceIT,
-      commandSubmissionTtlIT,
-      commandServiceIT,
-      activeContractsServiceIT,
-      witnessesIT,
-      contractKeysIT
-    )
-  }
-
-  def lazyInit[A](name: String, factory: String => A): (String, () => A) = {
-    (name, () => factory(name))
-  }
-
-  private def resourceAsFile(testResource: String): Path = {
-    val integrationTestResourceStream =
-      Option(getClass.getResourceAsStream(testResource))
-    require(
-      integrationTestResourceStream.isDefined,
-      "Unable to load the required test DAR from resources.")
-    val targetPath: Path = Files.createTempFile("ledger-api-test-tool-", "-test.dar")
-    Files.copy(integrationTestResourceStream.get, targetPath, StandardCopyOption.REPLACE_EXISTING);
-    targetPath
-  }
-
-  private def extractTestFiles(testResources: List[String]): Unit = {
-    val pwd = Paths.get(".").toAbsolutePath
-    println(s"Extracting all DAML resources necessary to run the tests into $pwd.")
-    testResources
-      .foreach { n =>
-        val is = getClass.getResourceAsStream(n)
-        if (is == null) sys.error(s"Could not find $n in classpath")
-        val targetFile = new File(new File(n).getName)
-        Files.copy(is, targetFile.toPath, StandardCopyOption.REPLACE_EXISTING)
-        println(s"Extracted $n to $targetFile")
-      }
-  }
 }

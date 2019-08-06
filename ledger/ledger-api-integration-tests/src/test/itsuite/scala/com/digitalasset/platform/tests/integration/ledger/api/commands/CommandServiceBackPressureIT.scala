@@ -5,20 +5,20 @@ package com.digitalasset.platform.tests.integration.ledger.api.commands
 
 import java.util.UUID
 
+import com.digitalasset.ledger.api.testing.utils.LedgerBackend.SandboxSql
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
   IsStatusException,
   MockMessages,
   SuiteResourceManagementAroundAll
 }
-import com.digitalasset.platform.testing.LedgerBackend.SandboxSql
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture}
 import com.digitalasset.platform.sandbox.config.SandboxConfig
 import com.google.protobuf.empty.Empty
 import io.grpc.Status
 import org.scalatest.{AsyncWordSpec, Inspectors, Matchers}
-
 import scalaz.syntax.tag._
+
 import scala.collection.immutable
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}

@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool
 
 import java.io.File
 
-import com.digitalasset.ledger.api.tls.TlsConfiguration
+import com.daml.ledger.api.testtool.infrastructure.TlsConfiguration
 
 final case class Config(
     host: String,
@@ -20,9 +20,7 @@ final case class Config(
     excluded: Set[String],
     included: Set[String],
     listTests: Boolean,
-    allTests: Boolean,
-    uniquePartyIdentifiers: Boolean,
-    uniqueCommandIdentifiers: Boolean
+    allTests: Boolean
 )
 
 object Config {
@@ -39,8 +37,6 @@ object Config {
     excluded = Set.empty,
     included = Set.empty,
     listTests = false,
-    allTests = false,
-    uniquePartyIdentifiers = true,
-    uniqueCommandIdentifiers = true,
+    allTests = false
   )
 }

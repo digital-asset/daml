@@ -85,11 +85,11 @@ client_server_test(
         # to slowly add and fix tests one after the other.
         "--all-tests",
         # "--include {}".format(",".join(conformance_tests_to_run)),
-        "--exclude SemanticTests",
+        "--exclude SemanticTests,DivulgenceIT,Time",
     ],
     data = [
-        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-        "//ledger/sandbox:Test.dar",
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -97,8 +97,8 @@ client_server_test(
     ],
     server = ":ephemeral-postgres-reference-server",
     server_args = [
-        "ledger/ledger-api-integration-tests/SemanticTests.dar",
-        "ledger/sandbox/Test.dar",
+        "ledger/test-common/SemanticTests.dar",
+        "ledger/test-common/Test.dar",
     ],
     tags = [
         "dont-run-on-darwin",
