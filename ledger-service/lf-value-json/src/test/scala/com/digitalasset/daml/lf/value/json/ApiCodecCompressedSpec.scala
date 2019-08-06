@@ -7,6 +7,7 @@ package value.json
 import value.json.{NavigatorModelAliases => model}
 import value.TypedValueGenerators.{ValueAddend => VA, genAddend, genTypeAndValue}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
+import ApiCodecCompressed.JsonImplicits.StringJsonFormat
 
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
@@ -34,7 +35,7 @@ class ApiCodecCompressedSpec
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
-      parsed <- Try(ApiCodecCompressed.jsValueToApiValue(json, typ, typeLookup))
+      parsed <- Try(jsValueToApiValue[String](json, typ, typeLookup))
     } yield parsed
   }
 
