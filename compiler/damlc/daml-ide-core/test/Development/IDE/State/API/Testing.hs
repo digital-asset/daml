@@ -11,10 +11,11 @@
 module Development.IDE.Core.API.Testing
     ( ShakeTest
     , TemplateProp(..)
-    , ExpectedChoices(..)
+    , ExpectedChoice(..)
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
     , D.DiagnosticSeverity(..)
+    , ExpectedChoiceAction(..)
     , runShakeTest
     , makeFile
     , makeModule
@@ -56,7 +57,7 @@ import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))
 import Language.Haskell.LSP.Types
-import DA.Cli.Visual
+import qualified DA.Cli.Visual as V
 import qualified DA.Pretty as DAP
 import qualified DA.Daml.LF.Ast as LF
 
@@ -118,13 +119,22 @@ data ShakeTestEnv = ShakeTestEnv
     , steVirtualResourcesNotes :: TVar (Map VirtualResource T.Text)
     }
 
-data ExpectedChoices = ExpectedChoices
+type TemplateName = String
+type ChoiceName = String
+
+data ExpectedChoiceAction
+    = Create TemplateName
+    | Exercise TemplateName ChoiceName deriving (Eq, Ord, Show)
+
+data ExpectedChoice = ExpectedChoice
     { _cName :: String
     , _consuming :: Bool
+    , _action :: Set.Set ExpectedChoiceAction
     } deriving (Eq, Ord, Show )
+
 data TemplateProp = TemplateProp
-    { _choices :: Set.Set ExpectedChoices
-    , _action :: Int
+    { _tplName :: T.Text
+    , _choices :: Set.Set ExpectedChoice
     } deriving (Eq, Ord, Show)
 
 -- | Monad for specifying Shake API tests. This type is abstract.
@@ -513,15 +523,21 @@ timedSection targetDiffTime block = do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
 
+actionsToChoiceActions :: Set.Set V.Action -> Set.Set ExpectedChoiceAction
+actionsToChoiceActions acts = Set.map expectedChcAction acts
+    where expectedChcAction = \case
+            V.ACreate tcon -> Create (DAP.renderPretty tcon)
+            V.AExercise tcon choice -> Exercise (DAP.renderPretty tcon) (DAP.renderPretty choice)
 
-templateChoicesToProps :: TemplateChoices -> TemplateProp
-templateChoicesToProps tca = TemplateProp choicesInTpl (sum $ map (length . actions) (choiceAndActions tca))
-    where choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoices ( DAP.renderPretty $ choiceName ca) (choiceConsuming ca)) (choiceAndActions tca)
+templateChoicesToProps :: V.TemplateChoices -> TemplateProp
+templateChoicesToProps tca = TemplateProp tName choicesInTpl
+    where tName = V.tplNameUnqual (V.template tca)
+          choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoice (DAP.renderPretty $ V.choiceName ca) (V.choiceConsuming ca) (actionsToChoiceActions $ V.actions ca)) (V.choiceAndActions tca)
 
 graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> ShakeTest ()
 graphTest wrld lfPkg expectedProps = do
     let actual = Set.fromList $ map templateChoicesToProps tplPropsActual
-        tplPropsActual = concatMap (moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
+        tplPropsActual = concatMap (V.moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
     unless (expectedProps == actual) $
         throwError $ ExpectedTemplateProps expectedProps actual
 

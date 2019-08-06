@@ -5,7 +5,7 @@ module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
     , ScenarioValidation(..)
-    , HlintUsage(..)
+    , DlintUsage(..)
     , defaultOptionsIO
     , defaultOptions
     , mkOptions
@@ -58,17 +58,17 @@ data Options = Options
     -- ^ Controls whether the scenario service server runs all checks
     -- or only a subset of them. This is mostly used to run additional
     -- checks on CI while keeping the IDE fast.
-  , optHlintUsage :: HlintUsage
-  -- ^ Information about hlint usage.
+  , optDlintUsage :: DlintUsage
+  -- ^ Information about dlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
   , optCoreLinting :: Bool
     -- ^ Whether to enable linting of the generated GHC Core. (Used in testing.)
   } deriving Show
 
-data HlintUsage
-  = HlintEnabled { hlintUseDataDir::FilePath, hlintAllowOverrides::Bool }
-  | HlintDisabled
+data DlintUsage
+  = DlintEnabled { dlintUseDataDir :: FilePath, dlintAllowOverrides :: Bool }
+  | DlintDisabled
   deriving Show
 
 data ScenarioValidation
@@ -107,9 +107,9 @@ mkOptions opts@Options {..} = do
     defaultPkgDb <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
     let defaultPkgDbDir = defaultPkgDb </> "pkg-db_dir"
     pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDbDir, projectPackageDatabase]
-    case optHlintUsage of
-      HlintEnabled dir _ -> checkDirExists dir
-      HlintDisabled -> return ()
+    case optDlintUsage of
+      DlintEnabled dir _ -> checkDirExists dir
+      DlintDisabled -> return ()
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
@@ -122,8 +122,8 @@ mkOptions opts@Options {..} = do
 -- version. Linting is enabled but not '.dlint.yaml' overrides.
 defaultOptionsIO :: Maybe LF.Version -> IO Options
 defaultOptionsIO mbVersion = do
-  hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-  mkOptions $ (defaultOptions mbVersion){optHlintUsage=HlintEnabled hlintDataDir False}
+  dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+  mkOptions $ (defaultOptions mbVersion){optDlintUsage=DlintEnabled dlintDataDir False}
 
 defaultOptions :: Maybe LF.Version -> Options
 defaultOptions mbVersion =
@@ -142,7 +142,7 @@ defaultOptions mbVersion =
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optScenarioValidation = ScenarioValidationFull
-        , optHlintUsage = HlintDisabled
+        , optDlintUsage = DlintDisabled
         , optIsGenerated = False
         , optCoreLinting = False
         }

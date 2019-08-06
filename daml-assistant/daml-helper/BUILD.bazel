@@ -24,6 +24,7 @@ da_haskell_library(
         "network",
         "open-browser",
         "optparse-applicative",
+        "process",
         "safe-exceptions",
         "text",
         "typed-process",
@@ -42,6 +43,7 @@ da_haskell_binary(
     srcs = ["src/DA/Daml/Helper/Main.hs"],
     hazel_deps = [
         "base",
+        "extra",
     ],
     main_function = "DA.Daml.Helper.Main.main",
     visibility = ["//visibility:public"],

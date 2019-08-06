@@ -85,7 +85,7 @@ exerciseByKey
 
 .. code-block:: daml
 
-   exercise exerciseByKey @ContractType contractKey NameofChoiceOnContract with choiceArgument1 = value1
+   exerciseByKey @ContractType contractKey NameOfChoiceOnContract with choiceArgument1 = value1
 
 - ``exerciseByKey`` function.
 - Exercises the specified choice on the specified contract.

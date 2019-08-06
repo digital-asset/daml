@@ -1,14 +1,14 @@
-.. _module-ioutemplate-98694:
+.. _module-iou12-32397:
 
-Module Iou_template
--------------------
+Module Iou12
+------------
 
 Templates
 ^^^^^^^^^
 
-.. _type-ioutemplate-iou-55222:
+.. _type-iou12-iou-45923:
 
-**template** `Iou <type-ioutemplate-iou-55222_>`_
+**template** `Iou <type-iou12-iou-45923_>`_
 
   .. list-table::
      :widths: 15 10 30
@@ -36,6 +36,9 @@ Templates
   + **Choice External:Archive**
     
   
+  + **Choice DoNothing**
+    
+  
   + **Choice Merge**
     
     merges two "compatible" ``Iou``s
@@ -48,7 +51,7 @@ Templates
          - Type
          - Description
        * - otherCid
-         - ContractId `Iou <type-ioutemplate-iou-55222_>`_
+         - ContractId `Iou <type-iou12-iou-45923_>`_
          - Must have same owner, issuer, and currency. The regulators may differ, and are taken from the original ``Iou``.
   
   + **Choice Split**
@@ -78,16 +81,16 @@ Templates
        * - Field
          - Type
          - Description
-       * - owner\_
+       * - newOwner
          - Party
          - 
 
 Functions
 ^^^^^^^^^
 
-.. _function-ioutemplate-main-13221:
+.. _function-iou12-main-35518:
 
-`main <function-ioutemplate-main-13221_>`_
+`main <function-iou12-main-35518_>`_
   : Scenario ()
   
   A single test scenario covering all functionality that ``Iou`` implements.

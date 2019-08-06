@@ -58,7 +58,7 @@ import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Shake
 import Development.IDE.Core.Rules
-import Development.IDE.Core.Rules.Daml (getDalf, getHlintIdeas)
+import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
 import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..))
 import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
 import Development.IDE.Types.Diagnostics
@@ -77,7 +77,7 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
-import System.Process(callCommand)
+import System.Process (callProcess)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 
 --------------------------------------------------------------------------------
@@ -91,7 +91,7 @@ cmdIde =
         "Start the DAML language server on standard input/output."
     <> fullDesc
   where
-    cmd = execIde <$> telemetryOpt <*> debugOpt <*> enableScenarioOpt
+    cmd = execIde <$> telemetryOpt <*> debugOpt <*> enableScenarioOpt <*> shakeProfilingOpt
 
 cmdLicense :: Mod CommandFields Command
 cmdLicense =
@@ -274,8 +274,9 @@ execLicense = B.putStr licenseData
 execIde :: Telemetry
         -> Debug
         -> EnableScenarioService
+        -> Maybe FilePath
         -> Command
-execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
+execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSocketsDo $ do
     let threshold =
             if debug
             then Logger.Debug
@@ -297,13 +298,14 @@ execIde telemetry (Debug debug) enableScenarioService = NS.withSocketsDo $ do
                 Logger.GCP.logOptOut gcpState
                 f loggerH
             Undecided -> f loggerH
-    hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+    dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
     opts <- defaultOptionsIO Nothing
     opts <- pure $ opts
         { optScenarioService = enableScenarioService
         , optScenarioValidation = ScenarioValidationLight
+        , optShakeProfiling = mbProfileDir
         , optThreads = 0
-        , optHlintUsage = HlintEnabled hlintDataDir True
+        , optDlintUsage = DlintEnabled dlintDataDir True
         }
     scenarioServiceConfig <- readScenarioServiceConfig
     withLogger $ \loggerH ->
@@ -342,23 +344,23 @@ execLint inputFile opts =
   do
     loggerH <- getLogger opts "lint"
     inputFile <- toNormalizedFilePath <$> relativize inputFile
-    opts <- (setHlintDataDir <=< mkOptions) opts
+    opts <- (setDlintDataDir <=< mkOptions) opts
     withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
         setFilesOfInterest ide (Set.singleton inputFile)
-        runAction ide $ getHlintIdeas inputFile
+        runAction ide $ getDlintIdeas inputFile
         diags <- getDiagnostics ide
         if null diags then
           hPutStrLn stderr "No hints"
         else
           exitFailure
   where
-     setHlintDataDir :: Options -> IO Options
-     setHlintDataDir opts = do
+     setDlintDataDir :: Options -> IO Options
+     setDlintDataDir opts = do
        defaultDir <-locateRunfiles $
          mainWorkspace </> "compiler/damlc/daml-ide-core"
-       return $ case optHlintUsage opts of
-         HlintEnabled _ _ -> opts
-         HlintDisabled  -> opts{optHlintUsage=HlintEnabled defaultDir True}
+       return $ case optDlintUsage opts of
+         DlintEnabled _ _ -> opts
+         DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
@@ -435,15 +437,14 @@ createProjectPackageDb lfVersion fps = do
             write path (fromEntry src)
     ghcPkgPath <-
         locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "ghc-pkg")
-    callCommand $
-        unwords
-            [ ghcPkgPath </> exe "ghc-pkg"
-            , "recache"
-            -- ghc-pkg insists on using a global package db and will trie
-            -- to find one automatically if we don’t specify it here.
-            , "--global-package-db=" ++ (dbPath </> "package.conf.d")
-            , "--expand-pkgroot"
-            ]
+    callProcess
+        (ghcPkgPath </> exe "ghc-pkg")
+        [ "recache"
+        -- ghc-pkg insists on using a global package db and will try
+        -- to find one automatically if we don’t specify it here.
+        , "--global-package-db=" ++ (dbPath </> "package.conf.d")
+        , "--expand-pkgroot"
+        ]
   where
     write fp bs = createDirectoryIfMissing True (takeDirectory fp) >> BSL.writeFile fp bs
 
@@ -469,7 +470,7 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
             dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
             let fp = targetFilePath pName
             createDirectoryIfMissing True $ takeDirectory fp
-            B.writeFile fp dar
+            BSL.writeFile fp dar
             putStrLn $ "Created " <> fp <> "."
     where
         -- The default output filename is based on Maven coordinates if
@@ -532,9 +533,9 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
               exitFailure
           Just dar -> do
             createDirectoryIfMissing True $ takeDirectory targetFilePath
-            B.writeFile targetFilePath dar
+            BSL.writeFile targetFilePath dar
             putStrLn $ "Created " <> targetFilePath <> "."
-            when (unDumpPom dumpPom) $ createPomAndSHA256 dar
+            when (unDumpPom dumpPom) $ createPomAndSHA256 $ dar
   where
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
@@ -578,9 +579,9 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
 
             writeAndAnnounce pomPath pomContent
             writeAndAnnounce (basePath <.> "dar" <.> "sha256")
-              (convertToBase Base16 $ Crypto.hashWith Crypto.SHA256 darContent)
+              (convertToBase Base16 $ Crypto.hashlazy @Crypto.SHA256 darContent)
             writeAndAnnounce (basePath <.> "pom" <.> "sha256")
-              (convertToBase Base16 $ Crypto.hashWith Crypto.SHA256 pomContent)
+              (convertToBase Base16 $ Crypto.hash @B.ByteString @Crypto.SHA256 pomContent)
           _ -> do
             putErrLn $ "ERROR: Not creating pom file as package name '" <> name <> "' is not a valid Maven coordinate (expected '<groupId>:<artifactId>:<version>')"
             exitFailure
@@ -862,14 +863,14 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> pure Nothing
     <*> optHideAllPackages
     <*> many optPackage
-    <*> optShakeProfiling
+    <*> shakeProfilingOpt
     <*> optShakeThreads
     <*> lfVersionOpt
     <*> optDebugLog
     <*> (concat <$> many optGhcCustomOptions)
     <*> pure enableScenarioService
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
-    <*> hlintUsageOpt
+    <*> dlintUsageOpt
     <*> pure False
     <*> pure False
   where
@@ -907,12 +908,6 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
       long "hide-all-packages" <>
       internal
 
-    optShakeProfiling :: Parser (Maybe FilePath)
-    optShakeProfiling = optional $ strOption $
-           metavar "PROFILING-REPORT"
-        <> help "path to Shake profiling report"
-        <> long "shake-profiling"
-
     -- optparse-applicative does not provide a nice way
     -- to make the argument for -j optional, see
     -- https://github.com/pcapriotti/optparse-applicative/issues/243
@@ -941,6 +936,12 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
         long "ghc-option" <>
         metavar "OPTION" <>
         help "Options to pass to the underlying GHC"
+
+shakeProfilingOpt :: Parser (Maybe FilePath)
+shakeProfilingOpt = optional $ strOption $
+       metavar "PROFILING-REPORT"
+    <> help "Directory for Shake profiling reports"
+    <> long "shake-profiling"
 
 options :: Int -> Parser Command
 options numProcessors =

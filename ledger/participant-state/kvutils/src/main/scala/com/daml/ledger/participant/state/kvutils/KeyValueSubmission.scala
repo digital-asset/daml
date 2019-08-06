@@ -38,6 +38,8 @@ object KeyValueSubmission {
     * from committing the given transaction.
     *
     * Useful for implementations that require outputs to be known up-front.
+    *
+    * @deprecated Use [[KeyValueCommitting.submissionOutputs]] instead. This function will be removed in later version.
     */
   def transactionOutputs(entryId: DamlLogEntryId, tx: SubmittedTransaction): List[DamlStateKey] = {
     val effects = InputsAndEffects.computeEffects(entryId, tx)
@@ -50,12 +52,11 @@ object KeyValueSubmission {
       meta: TransactionMeta,
       tx: SubmittedTransaction): DamlSubmission = {
 
-    val (inputLogEntries, inputDamlStateFromTx) = InputsAndEffects.computeInputs(tx)
+    val inputDamlStateFromTx = InputsAndEffects.computeInputs(tx)
     val encodedSubInfo = buildSubmitterInfo(submitterInfo)
     val inputDamlState = commandDedupKey(encodedSubInfo) :: inputDamlStateFromTx
 
     DamlSubmission.newBuilder
-      .addAllInputLogEntries(inputLogEntries.asJava)
       .addAllInputDamlState(inputDamlState.asJava)
       .setTransactionEntry(
         DamlTransactionEntry.newBuilder

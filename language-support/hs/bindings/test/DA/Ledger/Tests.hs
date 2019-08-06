@@ -117,7 +117,7 @@ tGetPackage :: SandboxTest
 tGetPackage withSandbox = testCase "getPackage" $ run withSandbox $ \pid -> do
     lid <-  getLedgerIdentity
     Just package <- getPackage lid pid
-    liftIO $ assertBool "contents" ("IouTransfer_Accept" `isInfixOf` show package)
+    liftIO $ assertBool "contents" ("currency" `isInfixOf` show package)
 
 tGetPackageBad :: SandboxTest
 tGetPackageBad withSandbox = testCase "getPackage/bad" $ run withSandbox $ \_pid -> do
@@ -579,23 +579,22 @@ alice = Party "Alice"
 bob = Party "Bob"
 
 createIOU :: PackageId -> Party -> Text -> Int -> Command
-createIOU quickstart party currency quantity = CreateCommand {tid,args}
+createIOU pid party currency quantity = CreateCommand {tid,args}
     where
-        tid = TemplateId (Identifier quickstart mod ent)
+        tid = TemplateId (Identifier pid mod ent)
         mod = ModuleName "Iou"
         ent = EntityName "Iou"
         args = Record Nothing [
             RecordField "issuer" (VParty party),
             RecordField "owner" (VParty party),
             RecordField "currency" (VText currency),
-            RecordField "amount" (VDecimal $ Text.pack $ show quantity),
-            RecordField "observers" (VList [])
+            RecordField "amount" (VInt quantity)
             ]
 
 createWithKey :: PackageId -> Party -> Int -> Command
-createWithKey quickstart owner n = CreateCommand {tid,args}
+createWithKey pid owner n = CreateCommand {tid,args}
     where
-        tid = TemplateId (Identifier quickstart mod ent)
+        tid = TemplateId (Identifier pid mod ent)
         mod = ModuleName "ContractKeys"
         ent = EntityName "WithKey"
         args = Record Nothing [
@@ -604,9 +603,9 @@ createWithKey quickstart owner n = CreateCommand {tid,args}
             ]
 
 createWithoutKey :: PackageId -> Party -> Int -> Command
-createWithoutKey quickstart owner n = CreateCommand {tid,args}
+createWithoutKey pid owner n = CreateCommand {tid,args}
     where
-        tid = TemplateId (Identifier quickstart mod ent)
+        tid = TemplateId (Identifier pid mod ent)
         mod = ModuleName "ContractKeys"
         ent = EntityName "WithoutKey"
         args = Record Nothing [
@@ -668,9 +667,9 @@ assertTextContains text frag =
 enableSharing :: Bool
 enableSharing = True
 
-createSpecQuickstart :: IO SandboxSpec
-createSpecQuickstart = do
-    dar <- locateRunfiles (mainWorkspace </> "language-support/hs/bindings/quickstart.dar")
+createSpec :: IO SandboxSpec
+createSpec = do
+    dar <- locateRunfiles (mainWorkspace </> "language-support/hs/bindings/for-tests.dar")
     return SandboxSpec {dar}
 
 testGroupWithSandbox :: TestName -> [WithSandbox -> TestTree] -> TestTree
@@ -683,9 +682,9 @@ testGroupWithSandbox name tests =
     else do
         -- runs in it's own freshly (and very slowly!) spun-up sandbox
         let withSandbox' f = do
-                specQuickstart <- createSpecQuickstart
-                pid <- mainPackageId specQuickstart
-                withSandbox specQuickstart $ \sandbox -> f sandbox pid
+                spec <- createSpec
+                pid <- mainPackageId spec
+                withSandbox spec $ \sandbox -> f sandbox pid
         testGroup name $ map (\f -> f withSandbox') tests
 
 mainPackageId :: SandboxSpec -> IO PackageId
@@ -705,9 +704,9 @@ data SharedSandbox = SharedSandbox (MVar (Sandbox, PackageId))
 
 acquireShared :: IO SharedSandbox
 acquireShared = do
-    specQuickstart <- createSpecQuickstart
-    sandbox <- startSandbox specQuickstart
-    pid <- mainPackageId specQuickstart
+    spec <- createSpec
+    sandbox <- startSandbox spec
+    pid <- mainPackageId spec
     mv <- newMVar (sandbox, pid)
     return $ SharedSandbox mv
 

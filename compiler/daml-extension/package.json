@@ -13,8 +13,9 @@
     "private": true,
     "activationEvents": [
         "onLanguage:daml",
-        "onCommand:daml.showResource",
-        "onCommand:daml.openDamlDocs"
+        "onCommand:daml.openDamlDocs",
+        "onCommand:daml.resetTelemetryConsent",
+        "onCommand:daml.showResource"
     ],
     "main": "./out/src/extension",
     "contributes": {

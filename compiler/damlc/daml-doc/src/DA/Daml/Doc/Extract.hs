@@ -1,8 +1,16 @@
 -- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-
-module DA.Daml.Doc.HaddockParse(mkDocs) where
+-- | This module extracts docs from DAML modules. It does so by reading
+-- haddock-style comments from the parsed syntax tree and correlating them
+-- with definitions in the typechecked module in order to obtain accurate
+-- type information.
+module DA.Daml.Doc.Extract
+    ( ExtractOptions (..)
+    , QualifyTypes (..)
+    , defaultExtractOptions
+    , extractDocs
+    ) where
 
 import DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Anchor as DDoc
@@ -39,13 +47,35 @@ import qualified Data.Text                                 as T
 import           Data.Tuple.Extra                          (second)
 import Data.Either
 
--- | Parse, and process documentation in, a dependency graph of modules.
-mkDocs
-    :: IdeOptions
+-- | Options that affect doc extraction.
+data ExtractOptions = ExtractOptions
+    { eo_qualifyTypes :: QualifyTypes
+        -- ^ qualify non-local types
+    , eo_simplifyQualifiedTypes :: Bool
+        -- ^ drop common module prefix when qualifying types
+    } deriving (Eq, Show, Read)
+
+data QualifyTypes
+    = QualifyTypesAlways
+    | QualifyTypesInPackage
+    | QualifyTypesNever
+    deriving (Eq, Show, Read)
+
+-- | Default options for doc extraction.
+defaultExtractOptions :: ExtractOptions
+defaultExtractOptions = ExtractOptions
+    { eo_qualifyTypes = QualifyTypesNever
+    , eo_simplifyQualifiedTypes = False
+    }
+
+-- | Extract documentation in a dependency graph of modules.
+extractDocs ::
+    ExtractOptions
+    -> IdeOptions
     -> [NormalizedFilePath]
     -> Ex.ExceptT [FileDiagnostic] IO [ModuleDoc]
-mkDocs opts fp = do
-    modules <- haddockParse opts fp
+extractDocs extractOpts ideOpts fp = do
+    modules <- haddockParse ideOpts fp
     pure $ map mkModuleDocs modules
 
   where
@@ -57,7 +87,7 @@ mkDocs opts fp = do
 
     mkModuleDocs :: Service.TcModuleResult -> ModuleDoc
     mkModuleDocs tmr =
-        let ctx@DocCtx{..} = buildDocCtx (Service.tmrModule tmr)
+        let ctx@DocCtx{..} = buildDocCtx extractOpts (Service.tmrModule tmr)
             typeMap = MS.fromList $ mapMaybe (getTypeDocs ctx) dc_decls
             classDocs = mapMaybe (getClsDocs ctx) dc_decls
 
@@ -138,17 +168,26 @@ collectDocs = go Nothing []
 -- | Context in which to extract a module's docs. This is created from
 -- 'TypecheckedModule' by 'buildDocCtx'.
 data DocCtx = DocCtx
-    { dc_modname :: Modulename
+    { dc_ghcMod :: GHC.Module
+        -- ^ ghc name for current module
+    , dc_modname :: Modulename
+        -- ^ name of the current module
     , dc_tcmod :: TypecheckedModule
+        -- ^ typechecked module
     , dc_decls :: [DeclData]
-
+        -- ^ module declarations
     , dc_tycons :: MS.Map Typename TyCon
+        -- ^ types defined in this module
     , dc_datacons :: MS.Map Typename DataCon
+        -- ^ constructors defined in this module
     , dc_ids :: MS.Map Fieldname Id
-
+        -- ^ values defined in this module
     , dc_templates :: Set.Set Typename
+        -- ^ DAML templates defined in this module
     , dc_choices :: MS.Map Typename (Set.Set Typename)
-        -- ^ choices per template
+        -- ^ choices per DAML template defined in this module
+    , dc_extractOptions :: ExtractOptions
+        -- ^ command line options that affect the doc extractor
     }
 
 -- | Parsed declaration with associated docs.
@@ -157,9 +196,10 @@ data DeclData = DeclData
     , _dd_docs :: Maybe DocText
     }
 
-buildDocCtx :: TypecheckedModule -> DocCtx
-buildDocCtx dc_tcmod  =
-  let dc_modname = getModulename . ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
+buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
+buildDocCtx dc_extractOptions dc_tcmod  =
+  let dc_ghcMod = ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
+      dc_modname = getModulename dc_ghcMod
       dc_decls
           = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
           . pm_parsed_source . tm_parsed_module $ dc_tcmod
@@ -546,7 +586,7 @@ getModulename = Modulename . T.pack . moduleNameString . moduleName
 
 ---------------------------------------------------------------------
 
--- | Create an anchor from a TyCon. Don't make anchors for wired in names.
+-- | Create an anchor from a TyCon.
 tyConAnchor :: DocCtx -> TyCon -> Maybe Anchor
 tyConAnchor DocCtx{..} tycon = do
     let ghcName = tyConName tycon
@@ -556,6 +596,43 @@ tyConAnchor DocCtx{..} tycon = do
             | isClassTyCon tycon = classAnchor
             | otherwise = typeAnchor
     Just (anchorFn mod name)
+
+-- | Extract a potentially qualified typename from a TyCon.
+tyConTypename :: DocCtx -> TyCon -> Typename
+tyConTypename DocCtx{..} tycon =
+    let ExtractOptions{..} = dc_extractOptions
+        ghcName = tyConName tycon
+        qualify =
+            case eo_qualifyTypes of
+                QualifyTypesAlways -> True
+                QualifyTypesInPackage -> nameIsHomePackageImport dc_ghcMod ghcName
+                QualifyTypesNever -> False
+
+        moduleM = guard qualify >> nameModule_maybe ghcName
+        modNameM = getModulename <$> moduleM
+        simplifyModName
+            | eo_simplifyQualifiedTypes = dropCommonModulePrefix dc_modname
+            | otherwise = id
+        prefix = maybe "" ((<> ".") . unModulename . simplifyModName) modNameM
+    in Typename (prefix <> packName ghcName)
+
+-- | Drop common module name prefix, returning the second module name
+-- sans the module prefix it has in common with the first module name.
+-- This will not return an empty module name however (unless given an
+-- empty module name to start).
+--
+-- This function respects the atomicity of the module names between
+-- periods. For instance @dropCommonModulePrefix "Foo.BarBaz" "Foo.BarSpam"@
+-- will evaluate to @"BarSpam"@, not @"Spam"@.
+dropCommonModulePrefix :: Modulename -> Modulename -> Modulename
+dropCommonModulePrefix (Modulename baseMod) (Modulename targetMod) =
+    Modulename . T.intercalate "." $
+        aux (T.splitOn "." baseMod) (T.splitOn "." targetMod)
+  where
+    aux :: [T.Text] -> [T.Text] -> [T.Text]
+    aux _ [x] = [x]
+    aux (x:xs) (y:ys) | x == y = aux xs ys
+    aux _ p = p
 
 ---------------------------------------------------------------------
 
@@ -591,7 +668,7 @@ typeToType ctx = \case
     TyConApp tycon bs ->
         TypeApp
             (tyConAnchor ctx tycon)
-            (Typename . packName . tyConName $ tycon)
+            (tyConTypename ctx tycon)
             (map (typeToType ctx) bs)
 
     AppTy a b ->

@@ -33,9 +33,9 @@ da_haskell_library(
 )
 
 daml_compile(
-    name = "quickstart",
-    srcs = glob(["test/daml/quickstart/*.daml"]),
-    main_src = "test/daml/quickstart/Main.daml",
+    name = "for-tests",
+    srcs = glob(["test/daml/for-tests/*.daml"]),
+    main_src = "test/daml/for-tests/Main.daml",
 )
 
 daml_compile(
@@ -48,8 +48,8 @@ da_haskell_test(
     name = "test",
     srcs = glob(["test/**/*.hs"]),
     data = [
+        ":for-tests.dar",
         ":for-upload.dar",
-        ":quickstart.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
     flaky = True,  # FIXME Remove this once #1927 is solved

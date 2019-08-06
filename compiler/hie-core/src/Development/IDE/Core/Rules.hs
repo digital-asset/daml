@@ -36,7 +36,6 @@ import Development.IDE.Import.FindImports
 import           Development.IDE.Core.FileStore
 import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import Data.Bifunctor
 import Data.Either.Extra
 import Data.Maybe
 import           Data.Foldable
@@ -186,38 +185,39 @@ getLocatedImportsRule =
         env <- useNoFile_ GhcSession
         let dflags = addRelativeImport pm $ hsc_dflags env
         opt <- getIdeOptions
-        xs <- forM imports $ \(mbPkgName, modName) ->
-            (modName, ) <$> locateModule dflags (optExtensions opt) getFileExists modName mbPkgName
-        return (concat $ lefts $ map snd xs, Just $ map (second eitherToMaybe) xs)
+        (diags, imports') <- fmap unzip $ forM imports $ \(mbPkgName, modName) -> do
+            diagOrImp <- locateModule dflags (optExtensions opt) getFileExists modName mbPkgName
+            case diagOrImp of
+                Left diags -> pure (diags, Left (modName, Nothing))
+                Right (FileImport path) -> pure ([], Left (modName, Just path))
+                Right (PackageImport pkgId) -> liftIO $ do
+                    diagsOrPkgDeps <- computePackageDeps env pkgId
+                    case diagsOrPkgDeps of
+                        Left diags -> pure (diags, Right Nothing)
+                        Right pkgIds -> pure ([], Right $ Just $ pkgId : pkgIds)
+        let (moduleImports, pkgImports) = partitionEithers imports'
+        case sequence pkgImports of
+            Nothing -> pure (concat diags, Nothing)
+            Just pkgImports -> pure (concat diags, Just (moduleImports, Set.fromList $ concat pkgImports))
 
 
 -- | Given a target file path, construct the raw dependency results by following
 -- imports recursively.
 rawDependencyInformation :: NormalizedFilePath -> ExceptT [FileDiagnostic] Action RawDependencyInformation
-rawDependencyInformation f = go (Set.singleton f) Map.empty Map.empty
-  where go fs !modGraph !pkgs =
-          case Set.minView fs of
-            Nothing -> pure (RawDependencyInformation modGraph pkgs)
-            Just (f, fs) -> do
-              importsOrErr <- lift $ use GetLocatedImports f
-              case importsOrErr of
-                Nothing ->
-                  let modGraph' = Map.insert f (Left ModuleParseError) modGraph
-                  in go fs modGraph' pkgs
-                Just imports -> do
-                  packageState <- lift $ useNoFile_ GhcSession
-                  modOrPkgImports <- forM imports $ \imp -> do
-                    case imp of
-                      (_modName, Just (PackageImport pkg)) -> do
-                          pkgs <- ExceptT $ liftIO $ computePackageDeps packageState pkg
-                          pure $ Right $ pkg:pkgs
-                      (modName, Just (FileImport absFile)) -> pure $ Left (modName, Just absFile)
-                      (modName, Nothing) -> pure $ Left (modName, Nothing)
-                  let (modImports, pkgImports) = partitionEithers modOrPkgImports
-                  let newFiles = Set.fromList (mapMaybe snd modImports) Set.\\ Map.keysSet modGraph
-                      modGraph' = Map.insert f (Right modImports) modGraph
-                      pkgs' = Map.insert f (Set.fromList $ concat pkgImports) pkgs
-                  go (fs `Set.union` newFiles) modGraph' pkgs'
+rawDependencyInformation f = go (Set.singleton f) Map.empty
+  where go fs !modGraph =
+            case Set.minView fs of
+                Nothing -> pure $ RawDependencyInformation modGraph
+                Just (f, fs) -> do
+                    importsOrErr <- lift $ use GetLocatedImports f
+                    case importsOrErr of
+                      Nothing ->
+                        let modGraph' = Map.insert f (Left ModuleParseError) modGraph
+                        in go fs modGraph'
+                      Just (modImports, pkgImports) -> do
+                        let newFiles = Set.fromList (mapMaybe snd modImports) Set.\\ Map.keysSet modGraph
+                            modGraph' = Map.insert f (Right $ ModuleImports modImports pkgImports) modGraph
+                        go (newFiles `Set.union` fs) modGraph'
 
 getDependencyInformationRule :: Rules ()
 getDependencyInformationRule =
@@ -270,9 +270,9 @@ getSpanInfoRule :: Rules ()
 getSpanInfoRule =
     define $ \GetSpanInfo file -> do
         tc <- use_ TypeCheck file
-        imports <- use_ GetLocatedImports file
+        (fileImports, _) <- use_ GetLocatedImports file
         packageState <- useNoFile_ GhcSession
-        x <- liftIO $ getSrcSpanInfos packageState (fileImports imports) tc
+        x <- liftIO $ getSrcSpanInfos packageState fileImports tc
         return ([], Just x)
 
 -- Typechecks a module.
@@ -328,11 +328,3 @@ mainRule = do
 
 fileFromParsedModule :: ParsedModule -> NormalizedFilePath
 fileFromParsedModule = toNormalizedFilePath . ms_hspp_file . pm_mod_summary
-
-fileImports ::
-     [(Located ModuleName, Maybe Import)]
-  -> [(Located ModuleName, Maybe NormalizedFilePath)]
-fileImports = mapMaybe $ \case
-    (modName, Nothing) -> Just (modName, Nothing)
-    (modName, Just (FileImport absFile)) -> Just (modName, Just absFile)
-    (_modName, Just (PackageImport _pkg)) -> Nothing
