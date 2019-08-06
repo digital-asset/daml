@@ -530,7 +530,7 @@ actionsToChoiceActions acts = Set.map expectedChcAction acts
             V.AExercise tcon choice -> Exercise (DAP.renderPretty tcon) (DAP.renderPretty choice)
 
 templateChoicesToProps :: V.TemplateChoices -> TemplateProp
-templateChoicesToProps tca = TemplateProp tName choicesInTpl -- $ Set.fromList allActions
+templateChoicesToProps tca = TemplateProp tName choicesInTpl
     where tName = V.tplNameUnqual (V.template tca)
           choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoice (DAP.renderPretty $ V.choiceName ca) (V.choiceConsuming ca) (actionsToChoiceActions $ V.actions ca)) (V.choiceAndActions tca)
 
