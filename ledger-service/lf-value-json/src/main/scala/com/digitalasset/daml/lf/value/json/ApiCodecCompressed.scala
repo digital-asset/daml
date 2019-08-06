@@ -17,7 +17,7 @@ import ApiValueImplicits._
   * The encoded values do not include type information.
   * For example, it is impossible to distinguish party and text values in the encoded format.
   *
-  * Therefore, this JSON format only includes writers, and not readers.
+  * Therefore, this JSON format can only decode given a target type.
   *
   * [[ApiCodecCompressed.apiValueJsonReader]] can create a JSON reader with the necessary type information
   */
@@ -51,7 +51,7 @@ object ApiCodecCompressed {
     case V.ValueOptional(Some(v)) => JsObject(fieldSome -> apiValueToJsValue(v))
     case v: V.ValueMap[Cid] =>
       apiMapToJsValue(v)
-    case _: Model.ApiImpossible => serializationError("impossible! tuples are not serializable")
+    case _: V.ValueTuple[Cid] => serializationError("impossible! tuples are not serializable")
   }
 
   private[this] def apiListToJsValue[Cid: JsonWriter](value: V.ValueList[Cid]): JsValue =

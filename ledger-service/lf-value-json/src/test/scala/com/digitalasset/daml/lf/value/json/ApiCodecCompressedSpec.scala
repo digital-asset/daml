@@ -9,9 +9,11 @@ import value.TypedValueGenerators.{ValueAddend => VA, genAddend, genTypeAndValue
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import ApiCodecCompressed.JsonImplicits.StringJsonFormat
 
+import org.scalactic.source
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalacheck.{Arbitrary, Gen}
+import spray.json._
 
 import scala.util.{Success, Try}
 
@@ -30,13 +32,18 @@ class ApiCodecCompressedSpec
       value: model.ApiValue,
       typ: model.DamlLfType): Try[model.ApiValue] = {
     import ApiCodecCompressed.JsonImplicits._
-    import spray.json._
 
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
       parsed <- Try(jsValueToApiValue[String](json, typ, typeLookup))
     } yield parsed
+  }
+
+  private def parsedShouldBe(serialized: String, typ: VA)(expected: typ.Inj[Cid])(implicit pos: source.Position) = {
+    val json = serialized.parseJson
+    val parsed = jsValueToApiValue[String](json, typ.t, typeLookup)
+    typ.prj(parsed) should ===(Some(expected))
   }
 
   type Cid = String
@@ -95,6 +102,16 @@ class ApiCodecCompressedSpec
         serializeAndParse(C.redV, C.redTC) shouldBe Success(C.redV)
       }
      */
+    }
+
+    "dealing with particular formats" should {
+      "work for String" in {
+        parsedShouldBe("\"abc\"", VA.text)("abc")
+      }
+
+      "work for list" in {
+        parsedShouldBe("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3))
+      }
     }
   }
 }
