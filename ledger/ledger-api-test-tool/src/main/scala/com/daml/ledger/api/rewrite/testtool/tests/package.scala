@@ -11,13 +11,20 @@ package object tests {
     "SemanticTests" -> (new SemanticTests(_))
   )
 
-  /* TODO
-   * CommandTransactionChecksHighLevelIT
-   * CommandTransactionChecksLowLevelIT
-   * PackageManagementServiceIT
-   * PartyManagementServiceIT
-   * TransactionBackpressureIT
-   * TransactionServiceTests
+  /*
+   * TODO
+   *
+   * - transactionServiceIT
+   * - transactionBackpressureIT
+   * - commandTransactionChecksHighLevelIT
+   * - commandTransactionChecksLowLevelIT
+   * - packageManagementServiceIT
+   * - partyManagementServiceIT
+   * - commandSubmissionTtlIT
+   * - commandServiceIT
+   * - activeContractsServiceIT
+   * - witnessesIT
+   * - contractKeysIT
    */
   val optional: Map[String, LedgerSession => LedgerTestSuite] = Map(
     "DivulgenceIT" -> (new Divulgence(_)),
