@@ -16,9 +16,9 @@ import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import io.grpc.Channel
 
 private[infrastructure] final class LedgerServices(channel: Channel) {
-  val cmd: CommandService = CommandServiceGrpc.stub(channel)
-  val tx: TransactionService = TransactionServiceGrpc.stub(channel)
-  val id: LedgerIdentityService = LedgerIdentityServiceGrpc.stub(channel)
-  val party: PartyManagementService = PartyManagementServiceGrpc.stub(channel)
-  val time: TimeService = TimeServiceGrpc.stub(channel)
+  val command: CommandService = CommandServiceGrpc.stub(channel)
+  val transaction: TransactionService = TransactionServiceGrpc.stub(channel)
+  val identity: LedgerIdentityService = LedgerIdentityServiceGrpc.stub(channel)
+  val partyManagement: PartyManagementService = PartyManagementServiceGrpc.stub(channel)
+  val timeManagement: TimeService = TimeServiceGrpc.stub(channel)
 }

@@ -53,23 +53,23 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
 
   val ledgerId: Future[String] =
     for {
-      response <- services.id.getLedgerIdentity(new GetLedgerIdentityRequest)
+      response <- services.identity.getLedgerIdentity(new GetLedgerIdentityRequest)
     } yield response.ledgerId
 
   private[this] val clock: Future[LedgerClock] =
-    ledgerId.flatMap(LedgerClock(_, services.time))
+    ledgerId.flatMap(LedgerClock(_, services.timeManagement))
 
   def time: Future[Instant] = clock.map(_.instant)
 
   def passTime(t: Duration): Future[Unit] = clock.flatMap(_.passTime(t))
 
   def allocateParty(): Future[String] =
-    services.party.allocateParty(new AllocatePartyRequest()).map(_.partyDetails.get.party)
+    services.partyManagement.allocateParty(new AllocatePartyRequest()).map(_.partyDetails.get.party)
 
   def ledgerEnd: Future[LedgerOffset] =
     for {
       id <- ledgerId
-      response <- services.tx.getLedgerEnd(new GetLedgerEndRequest(id))
+      response <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(id))
     } yield response.offset.get
 
   def transactions(
@@ -79,7 +79,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
     for {
       id <- ledgerId
       txs <- FiniteStreamObserver[GetTransactionsResponse](
-        services.tx
+        services.transaction
           .getTransactions(
             new GetTransactionsRequest(
               ledgerId = id,
@@ -95,7 +95,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
   def getTransactionById(transactionId: String, parties: Seq[String]): Future[TransactionTree] =
     for {
       id <- ledgerId
-      transaction <- services.tx.getTransactionById(
+      transaction <- services.transaction.getTransactionById(
         new GetTransactionByIdRequest(id, transactionId, parties))
     } yield transaction.transaction.get
 
@@ -145,7 +145,11 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       applicationId: String,
       command: Command.Command,
       commands: Command.Command*): Future[Unit] =
-    submitAndWaitCommand(services.cmd.submitAndWait)(party, applicationId, command, commands: _*)
+    submitAndWaitCommand(services.command.submitAndWait)(
+      party,
+      applicationId,
+      command,
+      commands: _*)
       .map(_ => ())
 
   def submitAndWaitForTransactionId(
@@ -154,7 +158,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       command: Command.Command,
       commands: Command.Command*
   ): Future[String] =
-    submitAndWaitCommand(services.cmd.submitAndWaitForTransactionId)(
+    submitAndWaitCommand(services.command.submitAndWaitForTransactionId)(
       party,
       applicationId,
       command,
@@ -165,7 +169,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       applicationId: String,
       command: Command.Command,
       commands: Command.Command*)(f: Transaction => A): Future[A] =
-    submitAndWaitCommand(services.cmd.submitAndWaitForTransaction)(
+    submitAndWaitCommand(services.command.submitAndWaitForTransaction)(
       party,
       applicationId,
       command,
