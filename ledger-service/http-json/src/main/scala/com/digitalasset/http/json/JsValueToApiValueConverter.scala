@@ -3,6 +3,7 @@
 
 package com.digitalasset.http.json
 
+import JsonProtocol.AbsoluteContractIdFormat
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.http.json.JsValueToApiValueConverter.LfTypeLookup
@@ -19,9 +20,9 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
 
     for {
       lfValue <- \/.fromTryCatchNonFatal(
-        ApiCodecCompressed.jsValueToApiValue(jsValue, lfId, lfTypeLookup))
+        ApiCodecCompressed
+          .jsValueToApiValue[lf.value.Value.AbsoluteContractId](jsValue, lfId, lfTypeLookup))
         .leftMap(JsonError.toJsonError)
-        .map(toAbsoluteContractId)
 
       apiValue <- \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue))
         .leftMap(JsonError.toJsonError)
@@ -40,11 +41,6 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
     case lav1.value.Value.Sum.Record(b) => \/-(b)
     case _ => -\/(JsonError(s"Expected ${classOf[lav1.value.Value.Sum.Record]}, got: $a"))
   }
-
-  private def toAbsoluteContractId(
-      a: lf.value.Value[String]): lf.value.Value[lf.value.Value.AbsoluteContractId] =
-    a.mapContractId(cid =>
-      lf.value.Value.AbsoluteContractId(lf.data.Ref.ContractIdString.assertFromString(cid)))
 }
 
 object JsValueToApiValueConverter {

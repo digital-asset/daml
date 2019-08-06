@@ -5,6 +5,8 @@ package com.digitalasset.http.json
 
 import java.time.Instant
 
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -31,6 +33,16 @@ object JsonProtocol extends DefaultJsonProtocol {
 
   implicit val ContractIdFormat: JsonFormat[lar.ContractId] =
     taggedJsonFormat[String, lar.ContractIdTag]
+
+  implicit val AbsoluteContractIdFormat: JsonFormat[AbsoluteContractId] =
+    new JsonFormat[AbsoluteContractId] {
+      override def write(obj: AbsoluteContractId) = JsString(obj.coid)
+      override def read(json: JsValue) = json match {
+        case JsString(s) =>
+          Ref.ContractIdString fromString s fold (deserializationError(_), AbsoluteContractId)
+        case _ => deserializationError("ContractId must be a string")
+      }
+    }
 
   implicit val JwtPayloadFormat: RootJsonFormat[domain.JwtPayload] = jsonFormat3(domain.JwtPayload)
 
