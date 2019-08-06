@@ -4,6 +4,7 @@ module DA.Daml.Helper.Main (main) where
 
 import Control.Exception
 import Data.Foldable
+import Data.List.Extra
 import Options.Applicative.Extended
 import System.Environment
 import System.Exit
@@ -32,71 +33,132 @@ data Command
     | Init { targetFolderM :: Maybe FilePath }
     | ListTemplates
     | Start { sandboxPortM :: Maybe SandboxPort, openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
-    | Deploy        { flags :: HostAndPortFlags }
-    | ListParties   { flags :: HostAndPortFlags }
-    | AllocateParty { flags :: HostAndPortFlags , party :: String }
+    | Deploy { flags :: HostAndPortFlags }
+    | LedgerListParties { flags :: HostAndPortFlags }
+    | LedgerAllocateParty { flags :: HostAndPortFlags , party :: String }
+    | LedgerUploadDar { flags :: HostAndPortFlags, darPathM :: Maybe FilePath }
+    | LedgerNavigator { flags :: HostAndPortFlags, remainingArguments :: [String] }
 
 commandParser :: Parser Command
-commandParser =
-    subparser $ fold
-         [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
-         , command "new" (info (newCmd <**> helper) idm)
-         , command "migrate" (info (migrateCmd <**> helper) idm)
-         , command "init" (info (initCmd <**> helper) idm)
-         , command "start" (info (startCmd <**> helper) idm)
-         , command "deploy" (info (deployCmd <**> helper) idm)
-         , command "list-parties" (info (listPartiesCmd <**> helper) idm)
-         , command "allocate-party" (info (allocatePartyCmd <**> helper) idm)
-         , command "run-jar" (info runJarCmd forwardOptions)
-         ]
-    where damlStudioCmd = DamlStudio
-              <$> option readReplacement
-                  (long "replace" <>
-                   help "Whether an existing extension should be overwritten. ('never' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')" <>
-                   value ReplaceExtPublished
-                  )
-              <*> many (argument str (metavar "ARG"))
-          runJarCmd = RunJar
-              <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
-              <*> many (argument str (metavar "ARG"))
-          newCmd = asum
-              [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
-              , New
-                  <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-                  <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
-              ]
-          migrateCmd =  Migrate
-                  <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
-                  <*> argument str (metavar "SOURCE" <> help "Path to the main source file ('source' entry of the project configuration files of the input projects).")
-                  <*> argument str (metavar "FROM_PATH" <> help "Path to the dar-package from which to migrate from")
-                  <*> argument str (metavar "TO_PATH" <> help "Path to the dar-package to which to migrate to")
-          initCmd = Init <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
-          startCmd = Start
-                <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <> help "Port number for the sandbox"))
-                <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
-                <*> (StartNavigator <$> flagYesNoAuto "start-navigator" True "Start navigator after sandbox" idm)
-                <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
-                <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
+commandParser = subparser $ fold
+    [ command "studio" (info (damlStudioCmd <**> helper) forwardOptions)
+    , command "new" (info (newCmd <**> helper) idm)
+    , command "migrate" (info (migrateCmd <**> helper) idm)
+    , command "init" (info (initCmd <**> helper) idm)
+    , command "start" (info (startCmd <**> helper) idm)
+    , command "deploy" (info (deployCmd <**> helper) deployCmdInfo)
+    , command "ledger" (info (ledgerCmd <**> helper) ledgerCmdInfo)
+    , command "run-jar" (info runJarCmd forwardOptions)
+    ]
+  where
 
-          deployCmd = Deploy <$> hostAndPortFlags
-          listPartiesCmd = ListParties <$> hostAndPortFlags
-          allocatePartyCmd = AllocateParty <$> hostAndPortFlags
-              <*> argument str (metavar "PARTY" <> help "Party to be allocated on the ledger")
+    damlStudioCmd = DamlStudio
+        <$> option readReplacement
+            (long "replace" <>
+                help "Whether an existing extension should be overwritten. ('never' or 'always' for bundled extension version, 'published' for official published version of extension, defaults to 'published')" <>
+                value ReplaceExtPublished
+                )
+        <*> many (argument str (metavar "ARG"))
 
-          hostAndPortFlags = HostAndPortFlags <$> hostFlag <*> portFlag
+    readReplacement = maybeReader $ \arg ->
+        case lower arg of
+            "never" -> Just ReplaceExtNever
+            "always" -> Just ReplaceExtAlways
+            "published" -> Just ReplaceExtPublished
+            _ -> Nothing
 
-          hostFlag :: Parser (Maybe String)
-          hostFlag = optional (option str (long "host" <> metavar "HOST_NAME" <> help "Hostname for the ledger"))
+    runJarCmd = RunJar
+        <$> argument str (metavar "JAR" <> help "Path to JAR relative to SDK path")
+        <*> many (argument str (metavar "ARG"))
 
-          portFlag :: Parser (Maybe Int)
-          portFlag = optional (option auto (long "port" <> metavar "PORT_NUM" <> help "Port number for the ledger"))
+    newCmd = asum
+        [ ListTemplates <$ flag' () (long "list" <> help "List the available project templates.")
+        , New
+            <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be located")
+            <*> optional (argument str (metavar "TEMPLATE" <> help ("Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")")))
+        ]
 
-          readReplacement :: ReadM ReplaceExtension
-          readReplacement = maybeReader $ \case
-              "never" -> Just ReplaceExtNever
-              "always" -> Just ReplaceExtAlways
-              "published" -> Just ReplaceExtPublished
-              _ -> Nothing
+    migrateCmd =  Migrate
+        <$> argument str (metavar "TARGET_PATH" <> help "Path where the new project should be   located")
+        <*> argument str (metavar "SOURCE" <> help "Path to the main source file ('source' entry of the project configuration files of the input projects).")
+        <*> argument str (metavar "FROM_PATH" <> help "Path to the dar-package from which to migrate from")
+        <*> argument str (metavar "TO_PATH" <> help "Path to the dar-package to which to migrate to")
+
+    initCmd = Init
+        <$> optional (argument str (metavar "TARGET_PATH" <> help "Project folder to initialize."))
+
+    startCmd = Start
+        <$> optional (SandboxPort <$> option auto (long "sandbox-port" <> metavar "PORT_NUM" <>     help "Port number for the sandbox"))
+        <*> (OpenBrowser <$> flagYesNoAuto "open-browser" True "Open the browser after navigator" idm)
+        <*> (StartNavigator <$> flagYesNoAuto "start-navigator" True "Start navigator after sandbox" idm)
+        <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
+        <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
+
+    deployCmdInfo = progDesc . concat $
+        [ "Deploy the current DAML project to a remote DAML ledger. "
+        , "This will allocate the project's parties on the ledger "
+        , "(if missing) and upload the project's built DAR file. You "
+        , "can specify the ledger in daml.yaml with the ledger.host and "
+        , "ledger.port options, or you can pass the --host and --port "
+        , "flags to this command instead."
+        ]
+
+    deployCmd = Deploy
+        <$> hostAndPortFlags
+
+    ledgerCmdInfo = forwardOptions <>
+        (progDesc . concat $
+            [ "Interact with a remote DAML ledger. You can specify "
+            , "the ledger in daml.yaml with the ledger.host and "
+            , "ledger.port options, or you can pass the --host "
+            , "and --port flags to each command below."
+            ])
+
+    ledgerCmd = subparser $ fold
+        [ command "list-parties" $ info
+            (ledgerListPartiesCmd <**> helper)
+            (progDesc "List parties known to ledger")
+        , command "allocate-party" $ info
+            (ledgerAllocatePartyCmd <**> helper)
+            (progDesc "Allocate a party on ledger")
+        , command "upload-dar" $ info
+            (ledgerUploadDarCmd <**> helper)
+            (progDesc "Upload DAR file to ledger")
+        , command "navigator" $ info
+            (ledgerNavigatorCmd <**> helper)
+            (forwardOptions <> progDesc "Launch Navigator on ledger")
+        ]
+
+    ledgerListPartiesCmd = LedgerListParties
+        <$> hostAndPortFlags
+
+    ledgerAllocatePartyCmd = LedgerAllocateParty
+        <$> hostAndPortFlags
+        <*> argument str (metavar "PARTY" <> help "Party to be allocated on the ledger")
+
+    ledgerUploadDarCmd = LedgerUploadDar
+        <$> hostAndPortFlags
+        <*> optional (argument str (metavar "PATH" <> help "DAR file to upload (defaults to project DAR)"))
+
+    ledgerNavigatorCmd = LedgerNavigator
+        <$> hostAndPortFlags
+        <*> many (argument str (metavar "ARG" <> help "Extra arguments to navigator."))
+
+    hostAndPortFlags = HostAndPortFlags
+        <$> hostFlag
+        <*> portFlag
+
+    hostFlag :: Parser (Maybe String)
+    hostFlag = optional . option str $
+        long "host"
+        <> metavar "HOST_NAME"
+        <> help "Hostname for the ledger"
+
+    portFlag :: Parser (Maybe Int)
+    portFlag = optional . option auto $
+        long "port"
+        <> metavar "PORT_NUM"
+        <> help "Port number for the ledger"
 
 runCommand :: Command -> IO ()
 runCommand DamlStudio {..} = runDamlStudio replaceExtension remainingArguments
@@ -107,5 +169,7 @@ runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
 runCommand Start {..} = runStart sandboxPortM startNavigator openBrowser onStartM waitForSignal
 runCommand Deploy {..} = runDeploy flags
-runCommand ListParties {..} = runListParties flags
-runCommand AllocateParty {..} = runAllocateParty flags party
+runCommand LedgerListParties {..} = runLedgerListParties flags
+runCommand LedgerAllocateParty {..} = runLedgerAllocateParty flags party
+runCommand LedgerUploadDar {..} = runLedgerUploadDar flags darPathM
+runCommand LedgerNavigator {..} = runLedgerNavigator flags remainingArguments
