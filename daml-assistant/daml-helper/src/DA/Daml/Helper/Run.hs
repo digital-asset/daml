@@ -11,9 +11,10 @@ module DA.Daml.Helper.Run
 
     , HostAndPortFlags(..)
     , runDeploy
-    , runAllocateParty
-    , runListParties
-    , runDeployNavigator
+    , runLedgerAllocateParty
+    , runLedgerListParties
+    , runLedgerUploadDar
+    , runLedgerNavigator
 
     , withJar
     , withSandbox
@@ -692,21 +693,8 @@ getHostAndPortDefaults HostAndPortFlags{hostM,portM} = do
     port <- fromMaybeM getProjectLedgerPort portM
     return HostAndPort {..}
 
-runListParties :: HostAndPortFlags -> IO ()
-runListParties flags = do
-    hp <- getHostAndPortDefaults flags
-    putStrLn $ "Listing parties at " <> show hp
-    xs <- Ledger.listParties hp
-    if null xs then putStrLn "no parties are known" else mapM_ print xs
-    exitSuccess
 
-runAllocateParty :: HostAndPortFlags -> String -> IO ()
-runAllocateParty flags name = do
-    hp <- getHostAndPortDefaults flags
-    putStrLn $ "Checking party allocation at " <> show hp
-    allocatePartyIfRequired hp name
-    exitSuccess
-
+-- | Allocate project parties and upload project DAR file to ledger.
 runDeploy :: HostAndPortFlags -> IO ()
 runDeploy flags = do
     hp <- getHostAndPortDefaults flags
@@ -721,7 +709,24 @@ runDeploy flags = do
     putStrLn "Deploy succeeded."
     exitSuccess
 
+-- | Fetch list of parties from ledger.
+runLedgerListParties :: HostAndPortFlags -> IO ()
+runLedgerListParties flags = do
+    hp <- getHostAndPortDefaults flags
+    putStrLn $ "Listing parties at " <> show hp
+    xs <- Ledger.listParties hp
+    if null xs then putStrLn "no parties are known" else mapM_ print xs
+    exitSuccess
 
+-- | Allocate a party on ledger.
+runLedgerAllocateParty :: HostAndPortFlags -> String -> IO ()
+runLedgerAllocateParty flags name = do
+    hp <- getHostAndPortDefaults flags
+    putStrLn $ "Checking party allocation at " <> show hp
+    allocatePartyIfRequired hp name
+    exitSuccess
+
+-- | Allocate a party if it doesn't already exist (by display name).
 allocatePartyIfRequired :: HostAndPort -> String -> IO ()
 allocatePartyIfRequired hp name = do
     partyM <- Ledger.lookupParty hp name
@@ -730,11 +735,24 @@ allocatePartyIfRequired hp name = do
         Ledger.allocateParty hp name
     putStrLn $ "Allocated " <> show party <> " for '" <> name <> "' at " <> show hp
 
--- | Run navigator against `daml deploy` ledger, taking advantage of configured
--- host and port, and fetching list of parties from the ledger. In the
--- future, Navigator should fetch the list of parties itself.
-runDeployNavigator :: HostAndPortFlags -> [String] -> IO ()
-runDeployNavigator flags remainingArguments = do
+-- | Upload a DAR file to the ledger. (Defaults to project DAR)
+runLedgerUploadDar :: HostAndPortFlags -> Maybe FilePath -> IO ()
+runLedgerUploadDar flags darPathM = do
+    hp <- getHostAndPortDefaults flags
+    darPath <- flip fromMaybeM darPathM $ do
+        doBuild
+        getDarPath
+    putStrLn $ "Uploading " <> darPath <> " to " <> show hp
+    bytes <- BS.readFile darPath
+    Ledger.uploadDarFile hp bytes
+    putStrLn "Upload DAR succeeded."
+    exitSuccess
+
+-- | Run navigator against configured ledger. We supply Navigator with
+-- the list of parties from the ledger, but in the future Navigator
+-- should fetch the list of parties itself.
+runLedgerNavigator :: HostAndPortFlags -> [String] -> IO ()
+runLedgerNavigator flags remainingArguments = do
     hostAndPort <- getHostAndPortDefaults flags
     putStrLn $ "Opening navigator at " <> show hostAndPort
     partyDetails <- Ledger.listParties hostAndPort
@@ -804,14 +822,14 @@ getProjectLedgerPort :: IO Int
 getProjectLedgerPort = do
     projectConfig <- getProjectConfig
     -- TODO: remove default; insist ledger-port is in the config ?!
-    defaultingE "Failed to parse ledger-port" 6865 $
-        queryProjectConfig ["ledger-port"] projectConfig
+    defaultingE "Failed to parse ledger.port" 6865 $
+        queryProjectConfig ["ledger", "port"] projectConfig
 
 getProjectLedgerHost :: IO String
 getProjectLedgerHost = do
     projectConfig <- getProjectConfig
-    defaultingE "Failed to parse ledger-host" "localhost" $
-        queryProjectConfig ["ledger-host"] projectConfig
+    defaultingE "Failed to parse ledger.host" "localhost" $
+        queryProjectConfig ["ledger", "host"] projectConfig
 
 
 -- | `waitForConnectionOnPort sleep port` keeps trying to establish a TCP connection on the given port.
