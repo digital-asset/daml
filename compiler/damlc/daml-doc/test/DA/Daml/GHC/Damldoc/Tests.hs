@@ -292,4 +292,4 @@ fileTest damlFile = do
             ".json" -> AP.encodePretty' jsonConf doc
             other -> error $ "Unsupported file extension " <> other
   where
-    diff ref new = ["diff", ref, new]
+    diff ref new = ["diff", "--strip-trailing-cr", ref, new]
