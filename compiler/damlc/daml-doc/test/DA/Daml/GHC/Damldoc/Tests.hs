@@ -261,8 +261,8 @@ runDamldoc testfile importPathM = do
         [toNormalizedFilePath testfile]
 
     case mbResult of
-      Left err -> assertFailure $ unlines
-                  ["Parse error(s) for test file " <> testfile, show err]
+      Left err ->
+        assertFailure $ unlines ["Parse error(s) for test file " <> testfile, show err]
 
       -- first module is the root we started from, so is the one we're testing
       Right docs -> pure $ head docs
