@@ -470,7 +470,7 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
             dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
             let fp = targetFilePath pName
             createDirectoryIfMissing True $ takeDirectory fp
-            B.writeFile fp dar
+            BSL.writeFile fp dar
             putStrLn $ "Created " <> fp <> "."
     where
         -- The default output filename is based on Maven coordinates if
@@ -533,9 +533,9 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
               exitFailure
           Just dar -> do
             createDirectoryIfMissing True $ takeDirectory targetFilePath
-            B.writeFile targetFilePath dar
+            BSL.writeFile targetFilePath dar
             putStrLn $ "Created " <> targetFilePath <> "."
-            when (unDumpPom dumpPom) $ createPomAndSHA256 dar
+            when (unDumpPom dumpPom) $ createPomAndSHA256 $ dar
   where
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
@@ -579,9 +579,9 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
 
             writeAndAnnounce pomPath pomContent
             writeAndAnnounce (basePath <.> "dar" <.> "sha256")
-              (convertToBase Base16 $ Crypto.hashWith Crypto.SHA256 darContent)
+              (convertToBase Base16 $ Crypto.hashlazy @Crypto.SHA256 darContent)
             writeAndAnnounce (basePath <.> "pom" <.> "sha256")
-              (convertToBase Base16 $ Crypto.hashWith Crypto.SHA256 pomContent)
+              (convertToBase Base16 $ Crypto.hash @B.ByteString @Crypto.SHA256 pomContent)
           _ -> do
             putErrLn $ "ERROR: Not creating pom file as package name '" <> name <> "' is not a valid Maven coordinate (expected '<groupId>:<artifactId>:<version>')"
             exitFailure
