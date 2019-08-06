@@ -811,7 +811,8 @@ runLedgerNavigator flags remainingArguments = do
                 -- TODO We need to figure out a sane timeout for this step.
                 waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
                 putStr . unlines $
-                    [ "Navigator is running at " <> navigatorURL navigatorPort
+                    [ ""
+                    , "Navigator is running at " <> navigatorURL navigatorPort
                     , "Use Ctrl+C to stop."
                     ]
                 exitWith =<< waitExitCode ph
