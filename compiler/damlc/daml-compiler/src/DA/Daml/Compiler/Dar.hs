@@ -77,7 +77,7 @@ buildDar ::
     -> PackageConfigFields
     -> NormalizedFilePath
     -> FromDalf
-    -> IO (Maybe BS.ByteString)
+    -> IO (Maybe BSL.ByteString)
 buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
@@ -160,7 +160,7 @@ createArchive ::
     -> [NormalizedFilePath] -- ^ Module dependencies
     -> [(String, BS.ByteString)] -- ^ Data files
     -> [NormalizedFilePath] -- ^ Interface files
-    -> IO BS.ByteString
+    -> IO BSL.ByteString
 createArchive PackageConfigFields {..} pkgId dalf dalfDependencies fileDependencies dataFiles ifaces
  = do
     -- Reads all module source files, and pairs paths (with changed prefix)
@@ -185,7 +185,7 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies fileDependenc
                 , contents)
     let dalfName = pkgName </> pName <> ".dalf"
     let dependencies =
-            [ (pkgName </> T.unpack depName <> ".dalf", BSC.fromStrict bs)
+            [ (pkgName </> T.unpack depName <> ".dalf", BSL.fromStrict bs)
             | (depName, bs) <- dalfDependencies
             ]
     let dataFiles' =
@@ -201,7 +201,7 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies fileDependenc
         mkEntry (filePath, content) = Zip.toEntry filePath 0 content
         zipArchive =
             foldr (Zip.addEntryToArchive . mkEntry) Zip.emptyArchive allFiles
-    pure $ BSL.toStrict $ Zip.fromArchive zipArchive
+    pure $ Zip.fromArchive zipArchive
   where
     pkgName = fullPkgName pName pVersion pkgId
     modRoot = toNormalizedFilePath $ takeDirectory pMain
