@@ -9,7 +9,6 @@ import value.TypedValueGenerators.{ValueAddend => VA, genAddend, genTypeAndValue
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 import ApiCodecCompressed.JsonImplicits.StringJsonFormat
 
-import org.scalactic.source
 import org.scalatest.{Matchers, WordSpec}
 import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalacheck.{Arbitrary, Gen}
@@ -38,13 +37,6 @@ class ApiCodecCompressedSpec
       json <- Try(serialized.parseJson)
       parsed <- Try(jsValueToApiValue[String](json, typ, typeLookup))
     } yield parsed
-  }
-
-  private def parsedShouldBe(serialized: String, typ: VA)(expected: typ.Inj[Cid])(
-      implicit pos: source.Position) = {
-    val json = serialized.parseJson
-    val parsed = jsValueToApiValue[String](json, typ.t, typeLookup)
-    typ.prj(parsed) should ===(Some(expected))
   }
 
   type Cid = String
@@ -105,13 +97,20 @@ class ApiCodecCompressedSpec
      */
     }
 
-    "dealing with particular formats" should {
-      "work for String" in {
-        parsedShouldBe("\"abc\"", VA.text)("abc")
-      }
+    def c(serialized: String, typ: VA)(expected: typ.Inj[Cid]) = (serialized, typ, expected)
 
-      "work for list" in {
-        parsedShouldBe("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3))
+    val successes = Table(
+      ("serialized", "type", "parsed"),
+      c("\"abc\"", VA.text)("abc"),
+      c("\"42\"", VA.int64)(42),
+      c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3)),
+    )
+
+    "dealing with particular formats" should {
+      "succeed in cases" in forEvery(successes) { (serialized, typ, expected) =>
+        val json = serialized.parseJson
+        val parsed = jsValueToApiValue[String](json, typ.t, typeLookup)
+        typ.prj(parsed) should ===(Some(expected))
       }
     }
   }
