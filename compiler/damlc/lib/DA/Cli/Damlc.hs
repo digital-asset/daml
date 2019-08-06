@@ -58,7 +58,7 @@ import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Shake
 import Development.IDE.Core.Rules
-import Development.IDE.Core.Rules.Daml (getDalf, getHlintIdeas)
+import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
 import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..))
 import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
 import Development.IDE.Types.Diagnostics
@@ -298,14 +298,14 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
                 Logger.GCP.logOptOut gcpState
                 f loggerH
             Undecided -> f loggerH
-    hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+    dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
     opts <- defaultOptionsIO Nothing
     opts <- pure $ opts
         { optScenarioService = enableScenarioService
         , optScenarioValidation = ScenarioValidationLight
         , optShakeProfiling = mbProfileDir
         , optThreads = 0
-        , optHlintUsage = HlintEnabled hlintDataDir True
+        , optDlintUsage = DlintEnabled dlintDataDir True
         }
     scenarioServiceConfig <- readScenarioServiceConfig
     withLogger $ \loggerH ->
@@ -344,23 +344,23 @@ execLint inputFile opts =
   do
     loggerH <- getLogger opts "lint"
     inputFile <- toNormalizedFilePath <$> relativize inputFile
-    opts <- (setHlintDataDir <=< mkOptions) opts
+    opts <- (setDlintDataDir <=< mkOptions) opts
     withDamlIdeState opts loggerH diagnosticsLogger $ \ide -> do
         setFilesOfInterest ide (Set.singleton inputFile)
-        runAction ide $ getHlintIdeas inputFile
+        runAction ide $ getDlintIdeas inputFile
         diags <- getDiagnostics ide
         if null diags then
           hPutStrLn stderr "No hints"
         else
           exitFailure
   where
-     setHlintDataDir :: Options -> IO Options
-     setHlintDataDir opts = do
+     setDlintDataDir :: Options -> IO Options
+     setDlintDataDir opts = do
        defaultDir <-locateRunfiles $
          mainWorkspace </> "compiler/damlc/daml-ide-core"
-       return $ case optHlintUsage opts of
-         HlintEnabled _ _ -> opts
-         HlintDisabled  -> opts{optHlintUsage=HlintEnabled defaultDir True}
+       return $ case optDlintUsage opts of
+         DlintEnabled _ _ -> opts
+         DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
 
 newtype DumpPom = DumpPom{unDumpPom :: Bool}
 
@@ -870,7 +870,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> (concat <$> many optGhcCustomOptions)
     <*> pure enableScenarioService
     <*> pure (optScenarioValidation $ defaultOptions Nothing)
-    <*> hlintUsageOpt
+    <*> dlintUsageOpt
     <*> pure False
     <*> pure False
   where
