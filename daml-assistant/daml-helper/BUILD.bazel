@@ -24,6 +24,7 @@ da_haskell_library(
         "network",
         "open-browser",
         "optparse-applicative",
+        "process",
         "safe-exceptions",
         "text",
         "typed-process",

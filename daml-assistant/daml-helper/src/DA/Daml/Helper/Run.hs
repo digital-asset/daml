@@ -54,6 +54,7 @@ import System.Directory.Extra
 import System.Environment hiding (setEnv)
 import System.Exit
 import System.Info.Extra
+import System.Process (showCommandForUser)
 import System.Process.Typed
 import System.IO
 import System.IO.Extra
@@ -87,6 +88,37 @@ requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . disp
 defaultingE :: Exception e => T.Text -> a -> Either e (Maybe a) -> IO a
 defaultingE msg a e = fmap (fromMaybe a) $ requiredE msg e
 
+toShellCommand :: FilePath -> [String] -> ProcessConfig () () ()
+toShellCommand exe args
+    | isWindows = shell $ "\"" <> showCommandForUser exe args <> "\""
+    -- cmd.exe has a terrible behavior where it strips the first and last
+    -- quote under certain conditions, quoting cmd.exe /?:
+    --
+    -- > 1.  If all of the following conditions are met, then quote characters
+    -- >     on the command line are preserved:
+    -- >
+    -- >     - no /S switch
+    -- >     - exactly two quote characters
+    -- >     - no special characters between the two quote characters,
+    -- >       where special is one of: &<>()@^|
+    -- >     - there are one or more whitespace characters between the
+    -- >       the two quote characters
+    -- >     - the string between the two quote characters is the name
+    -- >       of an executable file.
+    -- >
+    -- > 2.  Otherwise, old behavior is to see if the first character is
+    -- >     a quote character and if so, strip the leading character and
+    -- >     remove the last quote character on the command line, preserving
+    -- >     any text after the last quote character.
+    --
+    -- By adding a quote at the beginning and the end, we always fall into 2
+    -- since we have at least 4 quotes
+    -- (we always have 2 quotes surrounding the executable) and the line after
+    -- stripping the first and last quote corresponds to the one we want.
+    --
+    -- We might want to upstream this into `process`.
+    | otherwise = shell $ showCommandForUser exe args
+
 data ReplaceExtension
     = ReplaceExtNever
     -- ^ Never replace an existing extension.
@@ -104,8 +136,8 @@ runVsCodeCommand args = do
             -- prevent setting DAML_SDK_VERSION too early. See issue #1666.
         commandEnv = addVsCodeToPath strippedEnv
             -- ^ Ensure "code" is in PATH before running command.
-        command = unwords ("code" : args)
-        process = setEnv commandEnv (shell command)
+        command = toShellCommand "code" args
+        process = setEnv commandEnv command
     (exit, out, err) <- readProcess process
     pure (exit, UTF8.toString out, UTF8.toString err)
 
@@ -310,7 +342,7 @@ runInit targetFolderM = do
             , "    target = " <> targetFolderRel
             , ""
             , "To create a project directory use daml new instead:"
-            , "    daml new " <> escapePath targetFolderRel
+            , "    " <> showCommandForUser "daml" ["new", targetFolderRel]
             ]
         exitFailure
     targetFolderAbs <- makeAbsolute targetFolder -- necessary to find project roots
@@ -339,7 +371,7 @@ runInit targetFolderM = do
                 , "    DA project root   = " <> projectRootRel
                 , ""
                 , "To proceed with da.yaml migration, please use the project root:"
-                , "    daml init " <> escapePath projectRootRel
+                , "    " <> showCommandForUser "daml" ["init", projectRootRel]
                 ]
             exitFailure
 
@@ -478,7 +510,7 @@ runNew targetFolder templateNameM mbMain pkgDeps = do
             [ "Directory " <> show targetFolder <> " already exists."
             , "Please specify a new directory, or use 'daml init' instead:"
             , ""
-            , "    daml init " <> escapePath targetFolder
+            , "    " <> showCommandForUser "daml" ["init", targetFolder]
             , ""
             ]
         exitFailure
@@ -495,7 +527,7 @@ runNew targetFolder templateNameM mbMain pkgDeps = do
                 [ "Template name " <> projectName <> " was given as project name."
                 , "Please specify a project name separately, for example:"
                 , ""
-                , "    daml new myproject " <> projectName
+                , "    " <> showCommandForUser "daml" ["new", "myproject", projectName]
                 , ""
                 ]
             exitFailure
@@ -517,7 +549,7 @@ runNew targetFolder templateNameM mbMain pkgDeps = do
             [ "Target directory is inside existing DA project " <> show daRoot
             , "Please convert DA project to DAML using 'daml init':"
             , ""
-            , "    daml init " <> escapePath daRoot
+            , "    " <> showCommandForUser "daml" ["init", daRoot]
             , ""
             , "Or specify a new directory outside an existing project."
             ]
@@ -560,8 +592,8 @@ runMigrate targetFolder main pkgPath1 pkgPath2
     -- Call damlc to create the upgrade source files.
     assistant <- getDamlAssistant
     runProcess_
-        (shell $ unwords $
-         assistant :
+        (toShellCommand
+         assistant
          [ "damlc"
          , "migrate"
          , "--srcdir"
@@ -588,16 +620,6 @@ findDaProjectRoot = findAscendantWithFile legacyConfigName
 findAscendantWithFile :: FilePath -> FilePath -> IO (Maybe FilePath)
 findAscendantWithFile filename path =
     findM (\p -> doesFileExist (p </> filename)) (ascendants path)
-
--- | Escape special characters in a filepath so they can be used as a shell
--- argument when displaying a suggested command to user. Do not use this to
--- invoke shell commands directly (there are libraries designed for that).
-escapePath :: FilePath -> FilePath
-escapePath p | isWindows = concat ["\"", p, "\""] -- Windows is a mess
-escapePath p = p >>= \c ->
-    if c `elem` (" \\\"\'$*{}#" :: String)
-        then ['\\', c]
-        else [c]
 
 -- | Our SDK installation is read-only to prevent users from accidentally modifying it.
 -- But when we copy from it in "daml new" we want the result to be writable.
@@ -734,7 +756,7 @@ getDarPath = do
 doBuild :: IO ()
 doBuild = do
     assistant <- getDamlAssistant
-    runProcess_ (shell $ unwords $ assistant : ["build"])
+    runProcess_ (toShellCommand assistant ["build"])
 
 getProjectConfig :: IO ProjectConfig
 getProjectConfig = do
