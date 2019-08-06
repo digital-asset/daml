@@ -34,7 +34,7 @@ data Command
     | ListTemplates
     | Start { sandboxPortM :: Maybe SandboxPort, openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
     | Deploy { flags :: HostAndPortFlags }
-    | LedgerListParties { flags :: HostAndPortFlags }
+    | LedgerListParties { flags :: HostAndPortFlags, json :: JsonFlag }
     | LedgerAllocateParties { flags :: HostAndPortFlags, parties :: [String] }
     | LedgerUploadDar { flags :: HostAndPortFlags, darPathM :: Maybe FilePath }
     | LedgerNavigator { flags :: HostAndPortFlags, remainingArguments :: [String] }
@@ -138,6 +138,7 @@ commandParser = subparser $ fold
 
     ledgerListPartiesCmd = LedgerListParties
         <$> hostAndPortFlags
+        <*> fmap JsonFlag (switch $ long "json" <> help "Output party list in JSON")
 
     ledgerAllocatePartiesCmd = LedgerAllocateParties
         <$> hostAndPortFlags
@@ -181,7 +182,7 @@ runCommand Init {..} = runInit targetFolderM
 runCommand ListTemplates = runListTemplates
 runCommand Start {..} = runStart sandboxPortM startNavigator openBrowser onStartM waitForSignal
 runCommand Deploy {..} = runDeploy flags
-runCommand LedgerListParties {..} = runLedgerListParties flags
+runCommand LedgerListParties {..} = runLedgerListParties flags json
 runCommand LedgerAllocateParties {..} = runLedgerAllocateParties flags parties
 runCommand LedgerUploadDar {..} = runLedgerUploadDar flags darPathM
 runCommand LedgerNavigator {..} = runLedgerNavigator flags remainingArguments

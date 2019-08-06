@@ -10,6 +10,7 @@ module DA.Daml.Helper.Run
     , runStart
 
     , HostAndPortFlags(..)
+    , JsonFlag(..)
     , runDeploy
     , runLedgerAllocateParties
     , runLedgerListParties
@@ -46,6 +47,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Yaml as Y
 import qualified Data.Yaml.Pretty as Y
 import qualified Network.HTTP.Client as HTTP
@@ -729,13 +731,27 @@ runDeploy flags = do
     runLedgerUploadDar flags' Nothing
     putStrLn "Deploy succeeded."
 
+newtype JsonFlag = JsonFlag { unJsonFlag :: Bool }
+
 -- | Fetch list of parties from ledger.
-runLedgerListParties :: HostAndPortFlags -> IO ()
-runLedgerListParties flags = do
+runLedgerListParties :: HostAndPortFlags -> JsonFlag -> IO ()
+runLedgerListParties flags (JsonFlag json) = do
     hp <- getHostAndPortDefaults flags
-    putStrLn $ "Listing parties at " <> show hp
+    unless json . putStrLn $ "Listing parties at " <> show hp
     xs <- Ledger.listParties hp
-    if null xs then putStrLn "no parties are known" else mapM_ print xs
+    if json then do
+        TL.putStrLn . encodeToLazyText . toJSON $
+            [ object
+                [ "party" .= TL.toStrict (unParty party)
+                , "display_name" .= TL.toStrict displayName
+                , "is_local" .= isLocal
+                ]
+            | PartyDetails {..} <- xs
+            ]
+    else if null xs then
+        putStrLn "no parties are known"
+    else
+        mapM_ print xs
 
 -- | Allocate parties on ledger. If list of parties is empty,
 -- defaults to the project parties.
