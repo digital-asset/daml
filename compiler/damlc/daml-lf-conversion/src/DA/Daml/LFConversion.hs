@@ -369,7 +369,9 @@ convertGenericTemplate env x
         Var v -> Just v
         _ -> Nothing
     isSuperClassDict :: Var -> Bool
-    isSuperClassDict v = "$cp" `isPrefixOf` is v
+    -- NOTE(MH): We need the `$f` case since GHC inlines super class
+    -- dictionaries without running the simplifier under some circumstances.
+    isSuperClassDict v = any (`isPrefixOf` is v) ["$cp", "$f"]
     findMonoTyp :: GHC.Type -> Maybe (TyCon, Coercion)
     findMonoTyp t = case t of
         TypeCon tcon [] -> Just (tcon, mkNomReflCo t)
