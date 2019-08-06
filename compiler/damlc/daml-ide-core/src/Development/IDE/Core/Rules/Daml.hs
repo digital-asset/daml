@@ -181,7 +181,7 @@ generateRawDalfRule =
         -- GHC Core to DAML LF
         case convertModule lfVersion pkgMap0 file core of
             Left e -> return ([e], Nothing)
-            Right v -> return ([], Just v)
+            Right v -> return ([], Just $ LF.simplifyModule v)
 
 -- Generates and type checks the DALF for a module.
 generateDalfRule :: Rules ()
@@ -192,8 +192,7 @@ generateDalfRule =
         pkgMap <- useNoFile_ GeneratePackageMap
         let pkgs = map dalfPackagePkg $ Map.elems pkgMap
         let world = LF.initWorldSelf pkgs pkg
-        unsimplifiedRawDalf <- use_ GenerateRawDalf file
-        let rawDalf = LF.simplifyModule unsimplifiedRawDalf
+        rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
         pure $ toIdeResult $ do
             let liftError e = [ideErrorPretty file e]
