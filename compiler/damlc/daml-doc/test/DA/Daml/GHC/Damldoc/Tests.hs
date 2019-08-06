@@ -285,9 +285,11 @@ fileTest damlFile = do
     else do
       doc <- runDamldoc damlFile (Just $ takeDirectory damlFile)
       pure $ flip map expectations $ \expectation ->
-        goldenVsString ("File: " <> expectation) expectation $ pure $
+        goldenVsStringDiff ("File: " <> expectation) diff expectation $ pure $
           case takeExtension expectation of
             ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst $ renderModule doc
             ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd $ renderModule doc
             ".json" -> AP.encodePretty' jsonConf doc
             other -> error $ "Unsupported file extension " <> other
+  where
+    diff ref new = ["diff", ref, new]
