@@ -741,7 +741,7 @@ runLedgerListParties flags (JsonFlag json) = do
     xs <- Ledger.listParties hp
     if json then do
         TL.putStrLn . encodeToLazyText . toJSON $
-            [ object $
+            [ object
                 [ "party" .= TL.toStrict (unParty party)
                 , "display_name" .= TL.toStrict displayName
                 , "is_local" .= isLocal
