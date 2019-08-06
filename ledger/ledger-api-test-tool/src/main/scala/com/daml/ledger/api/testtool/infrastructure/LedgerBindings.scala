@@ -57,7 +57,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
     } yield response.ledgerId
 
   private[this] val clock: Future[LedgerClock] =
-    for (id <- ledgerId; clock <- LedgerClock(id, services.time)) yield clock
+    ledgerId.flatMap(LedgerClock(_, services.time))
 
   def time: Future[Instant] = clock.map(_.instant)
 
