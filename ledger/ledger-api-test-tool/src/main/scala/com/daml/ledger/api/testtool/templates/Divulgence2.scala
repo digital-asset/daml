@@ -37,4 +37,14 @@ sealed abstract case class Divulgence2(
         "div1ToArchive" -> new ContractId(div1ToArchive.contractId)
       )
     )
+  def fetch(div1ToFetch: Divulgence1)(implicit context: LedgerTestContext): Future[Unit] =
+    context.exercise(
+      party,
+      ids.divulgence2,
+      contractId,
+      "Divulgence2Fetch",
+      Map(
+        "div1ToFetch" -> new ContractId(div1ToFetch.contractId)
+      )
+    )
 }

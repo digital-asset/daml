@@ -6,7 +6,8 @@ package com.daml.ledger.api.testtool.infrastructure
 import java.time.Instant
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestException
-import com.digitalasset.ledger.api.v1.transaction.Transaction
+import com.digitalasset.ledger.api.v1.event.CreatedEvent
+import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.value.Identifier
 
 import scala.concurrent.Future
@@ -35,6 +36,10 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   final def passTime(t: Duration)(implicit context: LedgerTestContext): Future[Unit] =
     context.passTime(t)
 
+  final def activeContracts(party: String, templateIds: Identifier*)(
+      implicit context: LedgerTestContext): Future[Vector[CreatedEvent]] =
+    context.activeContracts(party, templateIds)
+
   final def ledgerId()(implicit context: LedgerTestContext): Future[String] =
     context.ledgerId
 
@@ -44,8 +49,12 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   final def allocateParties(n: Int)(implicit context: LedgerTestContext): Future[Vector[String]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
 
-  final def transactionsSinceTestStarted(party: String, templateIds: Identifier*)(
+  final def flatTransactions(party: String, templateIds: Identifier*)(
       implicit context: LedgerTestContext): Future[Vector[Transaction]] =
-    context.transactionsSinceTestStarted(party, templateIds)
+    context.flatTransactions(party, templateIds)
+
+  final def transactionTrees(party: String, templateIds: Identifier*)(
+      implicit context: LedgerTestContext): Future[Vector[TransactionTree]] =
+    context.transactionTrees(party, templateIds)
 
 }

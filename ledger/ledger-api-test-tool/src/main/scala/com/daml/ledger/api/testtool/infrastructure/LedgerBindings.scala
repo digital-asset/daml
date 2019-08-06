@@ -6,11 +6,15 @@ package com.daml.ledger.api.testtool.infrastructure
 import java.time.Instant
 import java.util.UUID
 
+import com.digitalasset.ledger.api.v1.active_contracts_service.{
+  GetActiveContractsRequest,
+  GetActiveContractsResponse
+}
 import com.digitalasset.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create, Exercise}
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.event.Event
+import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
@@ -23,12 +27,12 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
 import com.digitalasset.ledger.api.v1.transaction_service.{
   GetLedgerEndRequest,
   GetTransactionByIdRequest,
-  GetTransactionsRequest,
-  GetTransactionsResponse
+  GetTransactionsRequest
 }
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Channel
+import io.grpc.stub.StreamObserver
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -72,25 +76,55 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       response <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(id))
     } yield response.offset.get
 
-  def transactions(
+  def activeContracts(party: String, templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
+    for {
+      id <- ledgerId
+      contracts <- FiniteStreamObserver[GetActiveContractsResponse](
+        services.activeContracts.getActiveContracts(
+          new GetActiveContractsRequest(
+            ledgerId = id,
+            filter = Some(LedgerBindings.transactionFilter(party, templateIds)),
+            verbose = true
+          ),
+          _
+        )
+      )
+    } yield contracts.flatMap(_.activeContracts)
+
+  private def transactions[Res, Tx](service: (GetTransactionsRequest, StreamObserver[Res]) => Unit)(
+      extract: Res => Seq[Tx])(
+      begin: LedgerOffset,
+      party: String,
+      templateIds: Seq[Identifier]): Future[Vector[Tx]] =
+    for {
+      id <- ledgerId
+      txs <- FiniteStreamObserver[Res](
+        service(
+          new GetTransactionsRequest(
+            ledgerId = id,
+            begin = Some(begin),
+            end = Some(LedgerBindings.end),
+            filter = Some(LedgerBindings.transactionFilter(party, templateIds)),
+            verbose = true
+          ),
+          _
+        ))
+    } yield txs.flatMap(extract)
+
+  def flatTransactions(
       begin: LedgerOffset,
       party: String,
       templateIds: Seq[Identifier]): Future[Vector[Transaction]] =
-    for {
-      id <- ledgerId
-      txs <- FiniteStreamObserver[GetTransactionsResponse](
-        services.transaction
-          .getTransactions(
-            new GetTransactionsRequest(
-              ledgerId = id,
-              begin = Some(begin),
-              end = Some(LedgerBindings.end),
-              filter = Some(LedgerBindings.transactionFilter(party, templateIds)),
-              verbose = true
-            ),
-            _
-          ))
-    } yield txs.flatMap(_.transactions)
+    transactions(services.transaction.getTransactions)(_.transactions)(begin, party, templateIds)
+
+  def transactionTrees(
+      begin: LedgerOffset,
+      party: String,
+      templateIds: Seq[Identifier]): Future[Vector[TransactionTree]] =
+    transactions(services.transaction.getTransactionTrees)(_.transactions)(
+      begin,
+      party,
+      templateIds)
 
   def getTransactionById(transactionId: String, parties: Seq[String]): Future[TransactionTree] =
     for {

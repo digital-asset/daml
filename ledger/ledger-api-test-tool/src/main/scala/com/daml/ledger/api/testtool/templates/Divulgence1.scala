@@ -16,4 +16,9 @@ object Divulgence1 {
       .map(new Divulgence1(_, issuer, div1Party) {})
 }
 
-sealed abstract case class Divulgence1(contractId: String, issuer: String, div1Party: String) {}
+sealed abstract case class Divulgence1(contractId: String, issuer: String, div1Party: String) {
+
+  println(List.fill(3)("#" * 80).mkString("\n"))
+  println(s"CREATED DIVULGENCE1 WITH CONTRACT ID ${contractId}")
+
+}
