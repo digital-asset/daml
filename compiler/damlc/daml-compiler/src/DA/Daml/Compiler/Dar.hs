@@ -5,6 +5,7 @@ module DA.Daml.Compiler.Dar
     , FromDalf(..)
     , breakAt72Chars
     , PackageConfigFields(..)
+    , pkgNameVersion
     ) where
 
 import qualified Codec.Archive.Zip as Zip
@@ -127,6 +128,9 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
 fullPkgName :: String -> String -> String -> String
 fullPkgName n v h = intercalate "-" [n, v, h]
 
+pkgNameVersion :: String -> String -> String
+pkgNameVersion n v = n ++ "-" ++ v
+
 mkConfFile ::
        PackageConfigFields -> [String] -> String -> (String, BS.ByteString)
 mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
@@ -138,8 +142,8 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
         BSC.pack $
         unlines
             [ "name: " ++ pName
-            , "id: " ++ pName -- will change to key
-            , "key: " ++ pName -- will change to key
+            , "id: " ++ pkgNameVersion pName pVersion
+            , "key: " ++ pkgNameVersion pName pVersion
             , "version: " ++ pVersion
             , "exposed: True"
             , "exposed-modules: " ++
@@ -183,7 +187,7 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies fileDependenc
                 ( pkgName </>
                   fromNormalizedFilePath (makeRelative' ifaceRoot mPath)
                 , contents)
-    let dalfName = pkgName </> pName <> ".dalf"
+    let dalfName = pkgName </> pkgNameVersion pName pVersion <.> "dalf"
     let dependencies =
             [ (pkgName </> T.unpack depName <> ".dalf", BSL.fromStrict bs)
             | (depName, bs) <- dalfDependencies
