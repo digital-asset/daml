@@ -35,7 +35,7 @@ data Command
     | Start { sandboxPortM :: Maybe SandboxPort, openBrowser :: OpenBrowser, startNavigator :: StartNavigator, onStartM :: Maybe String, waitForSignal :: WaitForSignal }
     | Deploy { flags :: HostAndPortFlags }
     | LedgerListParties { flags :: HostAndPortFlags }
-    | LedgerAllocateParty { flags :: HostAndPortFlags , party :: String }
+    | LedgerAllocateParties { flags :: HostAndPortFlags, parties :: [String] }
     | LedgerUploadDar { flags :: HostAndPortFlags, darPathM :: Maybe FilePath }
     | LedgerNavigator { flags :: HostAndPortFlags, remainingArguments :: [String] }
 
@@ -114,27 +114,39 @@ commandParser = subparser $ fold
             , "and --port flags to each command below."
             ])
 
-    ledgerCmd = subparser $ fold
-        [ command "list-parties" $ info
-            (ledgerListPartiesCmd <**> helper)
-            (progDesc "List parties known to ledger")
-        , command "allocate-party" $ info
-            (ledgerAllocatePartyCmd <**> helper)
-            (progDesc "Allocate a party on ledger")
-        , command "upload-dar" $ info
-            (ledgerUploadDarCmd <**> helper)
-            (progDesc "Upload DAR file to ledger")
-        , command "navigator" $ info
-            (ledgerNavigatorCmd <**> helper)
-            (forwardOptions <> progDesc "Launch Navigator on ledger")
+    ledgerCmd = asum
+        [ subparser $ fold
+            [ command "list-parties" $ info
+                (ledgerListPartiesCmd <**> helper)
+                (progDesc "List parties known to ledger")
+            , command "allocate-parties" $ info
+                (ledgerAllocatePartiesCmd <**> helper)
+                (progDesc "Allocate parties on ledger")
+            , command "upload-dar" $ info
+                (ledgerUploadDarCmd <**> helper)
+                (progDesc "Upload DAR file to ledger")
+            , command "navigator" $ info
+                (ledgerNavigatorCmd <**> helper)
+                (forwardOptions <> progDesc "Launch Navigator on ledger")
+            ]
+        , subparser $ internal <> fold -- hidden subcommands
+            [ command "allocate-party" $ info
+                (ledgerAllocatePartyCmd <**> helper)
+                (progDesc "Allocate a single party on ledger")
+            ]
         ]
 
     ledgerListPartiesCmd = LedgerListParties
         <$> hostAndPortFlags
 
-    ledgerAllocatePartyCmd = LedgerAllocateParty
+    ledgerAllocatePartiesCmd = LedgerAllocateParties
         <$> hostAndPortFlags
-        <*> argument str (metavar "PARTY" <> help "Party to be allocated on the ledger")
+        <*> many (argument str (metavar "PARTY" <> help "Parties to be allocated on the ledger (defaults to project parties if empty)"))
+
+    -- same as allocate-parties but requires a single party.
+    ledgerAllocatePartyCmd = LedgerAllocateParties
+        <$> hostAndPortFlags
+        <*> fmap (:[]) (argument str (metavar "PARTY" <> help "Party to be allocated on the ledger"))
 
     ledgerUploadDarCmd = LedgerUploadDar
         <$> hostAndPortFlags
@@ -170,6 +182,6 @@ runCommand ListTemplates = runListTemplates
 runCommand Start {..} = runStart sandboxPortM startNavigator openBrowser onStartM waitForSignal
 runCommand Deploy {..} = runDeploy flags
 runCommand LedgerListParties {..} = runLedgerListParties flags
-runCommand LedgerAllocateParty {..} = runLedgerAllocateParty flags party
+runCommand LedgerAllocateParties {..} = runLedgerAllocateParties flags parties
 runCommand LedgerUploadDar {..} = runLedgerUploadDar flags darPathM
 runCommand LedgerNavigator {..} = runLedgerNavigator flags remainingArguments

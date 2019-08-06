@@ -11,7 +11,7 @@ module DA.Daml.Helper.Run
 
     , HostAndPortFlags(..)
     , runDeploy
-    , runLedgerAllocateParty
+    , runLedgerAllocateParties
     , runLedgerListParties
     , runLedgerUploadDar
     , runLedgerNavigator
@@ -722,15 +722,12 @@ runDeploy :: HostAndPortFlags -> IO ()
 runDeploy flags = do
     hp <- getHostAndPortDefaults flags
     putStrLn $ "Deploying to " <> show hp
-    parties <- getProjectParties
-    mapM_ (allocatePartyIfRequired hp) parties
-    darPath <- getDarPath
-    doBuild
-    putStrLn $ "Uploading " <> darPath <> " to " <> show hp
-    bytes <- BS.readFile darPath
-    Ledger.uploadDarFile hp bytes
+    let flags' = HostAndPortFlags
+            { hostM = Just (host hp)
+            , portM = Just (port hp) }
+    runLedgerAllocateParties flags' []
+    runLedgerUploadDar flags' Nothing
     putStrLn "Deploy succeeded."
-    exitSuccess
 
 -- | Fetch list of parties from ledger.
 runLedgerListParties :: HostAndPortFlags -> IO ()
@@ -739,15 +736,17 @@ runLedgerListParties flags = do
     putStrLn $ "Listing parties at " <> show hp
     xs <- Ledger.listParties hp
     if null xs then putStrLn "no parties are known" else mapM_ print xs
-    exitSuccess
 
--- | Allocate a party on ledger.
-runLedgerAllocateParty :: HostAndPortFlags -> String -> IO ()
-runLedgerAllocateParty flags name = do
+-- | Allocate parties on ledger. If list of parties is empty,
+-- defaults to the project parties.
+runLedgerAllocateParties :: HostAndPortFlags -> [String] -> IO ()
+runLedgerAllocateParties flags partiesArg = do
+    parties <- if notNull partiesArg
+        then pure partiesArg
+        else getProjectParties
     hp <- getHostAndPortDefaults flags
     putStrLn $ "Checking party allocation at " <> show hp
-    allocatePartyIfRequired hp name
-    exitSuccess
+    mapM_ (allocatePartyIfRequired hp) parties
 
 -- | Allocate a party if it doesn't already exist (by display name).
 allocatePartyIfRequired :: HostAndPort -> String -> IO ()
@@ -768,8 +767,7 @@ runLedgerUploadDar flags darPathM = do
     putStrLn $ "Uploading " <> darPath <> " to " <> show hp
     bytes <- BS.readFile darPath
     Ledger.uploadDarFile hp bytes
-    putStrLn "Upload DAR succeeded."
-    exitSuccess
+    putStrLn "DAR upload succeeded."
 
 -- | Run navigator against configured ledger. We supply Navigator with
 -- the list of parties from the ledger, but in the future Navigator
