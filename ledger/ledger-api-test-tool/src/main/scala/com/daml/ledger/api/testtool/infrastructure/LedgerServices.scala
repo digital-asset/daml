@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
+import com.digitalasset.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc.ActiveContractsService
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc
 import com.digitalasset.ledger.api.v1.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementService
 import com.digitalasset.ledger.api.v1.command_service.CommandServiceGrpc
@@ -16,9 +18,10 @@ import com.digitalasset.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import io.grpc.Channel
 
 private[infrastructure] final class LedgerServices(channel: Channel) {
+  val activeContracts: ActiveContractsService = ActiveContractsServiceGrpc.stub(channel)
   val command: CommandService = CommandServiceGrpc.stub(channel)
-  val transaction: TransactionService = TransactionServiceGrpc.stub(channel)
   val identity: LedgerIdentityService = LedgerIdentityServiceGrpc.stub(channel)
   val partyManagement: PartyManagementService = PartyManagementServiceGrpc.stub(channel)
+  val transaction: TransactionService = TransactionServiceGrpc.stub(channel)
   val timeManagement: TimeService = TimeServiceGrpc.stub(channel)
 }

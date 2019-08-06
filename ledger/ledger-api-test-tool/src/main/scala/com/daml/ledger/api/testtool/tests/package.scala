@@ -28,8 +28,8 @@ package object tests {
    */
   val optional: Map[String, LedgerSession => LedgerTestSuite] = Map(
     "DivulgenceIT" -> (new Divulgence(_)),
-    "Identity" -> (new Identity(_)),
-    "Time" -> (new Time(_)),
+    "IdentityIT" -> (new Identity(_)),
+    "TimeIT" -> (new Time(_)),
   )
 
   val all = default ++ optional
