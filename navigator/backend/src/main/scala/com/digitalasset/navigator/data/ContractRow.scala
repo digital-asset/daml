@@ -30,7 +30,8 @@ final case class ContractRow(
       tid <- Try(parseOpaqueIdentifier(templateId).get)
       template <- Try(types.template(tid).get)
       recArgAny <- Try(
-        ApiCodecCompressed.jsValueToApiValue(argument.parseJson, tid, types.damlLfDefDataType _))
+        ApiCodecCompressed
+          .jsValueToApiValue[String](argument.parseJson, tid, types.damlLfDefDataType _))
       recArg <- Try(recArgAny.asInstanceOf[ApiRecord])
       sig <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])
       obs <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])

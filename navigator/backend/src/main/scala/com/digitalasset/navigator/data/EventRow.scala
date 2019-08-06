@@ -45,7 +45,7 @@ final case class EventRow(
           recArgJson <- Try(recordArgument.get)
           recArgAny <- Try(
             ApiCodecCompressed
-              .jsValueToApiValue(recArgJson.parseJson, tp, types.damlLfDefDataType _))
+              .jsValueToApiValue[String](recArgJson.parseJson, tp, types.damlLfDefDataType _))
           recArg <- Try(recArgAny.asInstanceOf[ApiRecord])
           template <- types
             .template(tp)
@@ -87,7 +87,7 @@ final case class EventRow(
             t.choices.find(c => ApiTypes.Choice.unwrap(c.name) == chc).get.parameter)
           arg <- Try(
             ApiCodecCompressed
-              .jsValueToApiValue(argJson.parseJson, choiceType, types.damlLfDefDataType _))
+              .jsValueToApiValue[String](argJson.parseJson, choiceType, types.damlLfDefDataType _))
           apJson <- Try(actingParties.get)
           ap <- Try(apJson.parseJson.convertTo[List[ApiTypes.Party]])
           consuming <- Try(isConsuming.get)
