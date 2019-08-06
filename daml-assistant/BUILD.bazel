@@ -63,6 +63,7 @@ da_haskell_library(
         "text",
         "time",
         "tls",
+        "typed-process",
         "unix-compat",
         "utf8-string",
         "yaml",
