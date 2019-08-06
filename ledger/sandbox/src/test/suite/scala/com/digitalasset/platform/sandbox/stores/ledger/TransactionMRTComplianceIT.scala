@@ -14,11 +14,11 @@ import com.digitalasset.daml.lf.transaction.{BlindingInfo, GenTransaction}
 import com.digitalasset.ledger.api.domain.{LedgerId, RejectionReason}
 import com.digitalasset.ledger.api.testing.utils.{
   AkkaBeforeAndAfterAll,
+  MultiResourceBase,
   Resource,
   SuiteResourceManagementAroundEach
 }
 import com.digitalasset.platform.sandbox.{LedgerResource, MetricsAround}
-import com.digitalasset.platform.testing.MultiResourceBase
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.{AsyncWordSpec, Matchers}

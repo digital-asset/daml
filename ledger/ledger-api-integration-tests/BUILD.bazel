@@ -98,8 +98,8 @@ da_scala_test_suite(
         # exclude = ["src/test/itsuite/**/TransactionServiceIT.scala"],
     ),
     data = [
-        "//ledger/sandbox:Test.dar",
         "//ledger/sandbox:Test-1.5.dar",
+        "//ledger/test-common:Test.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -118,16 +118,3 @@ da_scala_test_suite(
         ":ledger-api-integration-tests-lib",
     ] + dependencies,
 )
-
-TEST_FILES = [
-    "SemanticTests",
-]
-
-[
-    daml_compile(
-        name = name,
-        main_src = "src/test/semanticsuite/daml/%s.daml" % name,
-        visibility = ["//visibility:public"],
-    )
-    for name in TEST_FILES
-]

@@ -2,15 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
 )
-
-dependencies = [
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//ledger-api/rs-grpc-akka",
-    "//ledger-api/testing-utils",
-]
 
 da_scala_library(
     name = "test-common",
@@ -18,5 +16,20 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = dependencies,
+    deps = [
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+    ],
+)
+
+daml_compile(
+    name = "SemanticTests",
+    main_src = "src/main/daml/SemanticTests.daml",
+    visibility = ["//visibility:public"],
+)
+
+daml_compile(
+    name = "Test",
+    main_src = "src/main/daml/Test.daml",
+    target = "1.dev",
+    visibility = ["//visibility:public"],
 )
