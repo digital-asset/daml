@@ -47,6 +47,7 @@ import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy.UTF8 as UTF8
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.IO as TL
 import qualified Data.Yaml as Y
 import qualified Data.Yaml.Pretty as Y
 import qualified Network.HTTP.Client as HTTP
@@ -739,7 +740,7 @@ runLedgerListParties flags (JsonFlag json) = do
     unless json . putStrLn $ "Listing parties at " <> show hp
     xs <- Ledger.listParties hp
     if json then do
-        putStr . T.unpack . TL.toStrict . encodeToLazyText . toJSON $
+        TL.putStrLn . encodeToLazyText . toJSON $
             [ object $
                 [ "party" .= TL.toStrict (unParty party)
                 , "display_name" .= TL.toStrict displayName
