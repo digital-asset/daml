@@ -11,8 +11,8 @@ template T with
     signatory p
 
     choice C1 : () with
-        x : ()
-      controller p
+        q : Party
+      controller [p, q]
       do
         pure ()
 
