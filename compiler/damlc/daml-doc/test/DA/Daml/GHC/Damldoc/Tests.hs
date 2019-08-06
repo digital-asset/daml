@@ -14,22 +14,20 @@ import DA.Daml.Doc.Render
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Anchor
 
-import           DA.Test.Util
 import Development.IDE.Types.Location
 
 import           Control.Monad.Except
 import qualified Data.Aeson.Encode.Pretty as AP
-import           Data.Algorithm.Diff (getGroupedDiff)
-import           Data.Algorithm.DiffOutput (ppDiff)
-import qualified Data.ByteString.Lazy.Char8 as BS
 import           Data.List.Extra
 import qualified Data.Text          as T
 import qualified Data.Text.Extended as T
-import qualified Data.Text.Encoding as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TL
 import           System.Directory
 import           System.FilePath
 import           System.IO.Extra
 import qualified Test.Tasty.Extended as Tasty
+import           Test.Tasty.Golden
 import           Test.Tasty.HUnit
 import Data.Maybe
 
@@ -242,7 +240,12 @@ damldocExpect importPathM testname input check =
     let testfile = dir </> testModule <.> "daml"
     -- write input to a file
     T.writeFileUtf8 testfile (T.unlines input)
+    doc <- runDamldoc testfile importPathM
+    check doc
 
+-- | Generate the docs for a given input file and optional import directory.
+runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
+runDamldoc testfile importPathM = do
     opts <- defaultOptionsIO Nothing
 
     let opts' = opts
@@ -259,11 +262,10 @@ damldocExpect importPathM testname input check =
 
     case mbResult of
       Left err -> assertFailure $ unlines
-                  ["Parse error(s) for test file " <> testname, show err]
+                  ["Parse error(s) for test file " <> testfile, show err]
 
-      -- first module is the root we started from, so is the one that must satisfy the invariants
-      Right ms -> check $ head ms
-
+      -- first module is the root we started from, so is the one we're testing
+      Right docs -> pure $ head docs
 
 -- | For the given file <name>.daml (assumed), this test checks if any
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>
@@ -278,37 +280,12 @@ fileTest damlFile = do
 
   expectations <- filterM doesFileExist expected
 
-  if null expectations
-    then pure []
-    else do input <- T.readFileUtf8 damlFile
-            mapM (goldenTest input) expectations
-
-  where goldenTest :: T.Text -> FilePath -> IO Tasty.TestTree
-        goldenTest input expectation =
-          let check docs = do
-                let extension = takeExtension expectation
-                ref <- T.readFileUtf8 expectation
-                case extension of
-                  ".rst"  -> expectEqual extension ref $ renderPage renderRst $ renderModule docs
-                  ".md"   -> expectEqual extension ref $ renderPage renderMd $ renderModule docs
-                  ".json" -> expectEqual extension ref
-                             (T.decodeUtf8 . BS.toStrict $
-                               AP.encodePretty' jsonConf docs)
-                  other  -> error $ "Unsupported file extension " <> other
-
-              expectEqual :: String -> T.Text -> T.Text -> Assertion
-              expectEqual extension ref actual
-                | standardizeEoL ref == standardizeEoL actual = pure ()
-                | otherwise = do
-                    let actualFile = replaceExtensions expectation ("ACTUAL" <> extension)
-                        asLines = lines . T.unpack
-                        diff = ppDiff $ getGroupedDiff (asLines ref) (asLines actual)
-
-                    T.writeFileUtf8 actualFile actual
-                    assertFailure $
-                      "Unexpected difference between " <> expectation <>
-                      " and actual output.\n" <>
-                      "Unexpected output has been written to " <> actualFile <> "\n" <>
-                      "Differences:\n" <> diff
-
-          in pure $  damldocExpect (Just $ takeDirectory damlFile) ("File: " <> expectation) [input] check
+  pure $ flip map expectations $ \expectation ->
+    goldenVsString ("File: " <> expectation) expectation $ do
+      doc <- runDamldoc damlFile (Just $ takeDirectory damlFile)
+      let renderedDoc = case takeExtension expectation of
+            ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst $ renderModule doc
+            ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd $ renderModule doc
+            ".json" -> AP.encodePretty' jsonConf doc
+            other -> error $ "Unsupported file extension " <> other
+      pure renderedDoc

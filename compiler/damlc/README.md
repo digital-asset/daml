@@ -82,6 +82,14 @@ At the moment, commands relying on ghc-pkg, e.g., `damlc build` do not
 work via `bazel run`. For testing, install the SDK with
 `daml-sdk-head` and then use `daml-head damlc`.
 
+
+## Updating daml-doc's golden tests
+
+Simply run
+```
+bazel run //compiler/damlc/tests:daml-doc -- --accept
+```
+
 ## Documentation
 
 Standard library docs are exposed under the bazel rules which you can build with:
