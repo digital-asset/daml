@@ -662,8 +662,7 @@ newtype WaitForSignal = WaitForSignal Bool
 
 runStart :: Maybe SandboxPort -> StartNavigator -> OpenBrowser -> Maybe String -> WaitForSignal -> IO ()
 runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldOpenBrowser) onStartM (WaitForSignal shouldWaitForSignal) = withProjectRoot Nothing (ProjectCheck "daml start" True) $ \_ _ -> do
-    defaultSandboxPort <- getProjectLedgerPort
-    let sandboxPort = fromMaybe (SandboxPort defaultSandboxPort) sandboxPortM
+    let sandboxPort = fromMaybe defaultSandboxPort sandboxPortM
     projectConfig <- getProjectConfig
     darPath <- getDarPath
     mbScenario :: Maybe String <-
@@ -679,11 +678,13 @@ runStart sandboxPortM (StartNavigator shouldStartNavigator) (OpenBrowser shouldO
             when shouldWaitForSignal $
                 void $ race (waitExitCode navigatorPh) (waitExitCode sandboxPh)
 
-    where navigatorPort = NavigatorPort 7500
-          withNavigator' sandboxPh =
-              if shouldStartNavigator
-                  then withNavigator
-                  else (\_ _ _ f -> f sandboxPh)
+    where
+        navigatorPort = NavigatorPort 7500
+        defaultSandboxPort = SandboxPort 6865
+        withNavigator' sandboxPh =
+            if shouldStartNavigator
+                then withNavigator
+                else (\_ _ _ f -> f sandboxPh)
 
 data HostAndPortFlags = HostAndPortFlags { hostM :: Maybe String, portM :: Maybe Int }
 
@@ -816,8 +817,6 @@ getProjectParties = do
     requiredE "Failed to read list of parties from project config" $
         queryProjectConfigRequired ["parties"] projectConfig
 
--- TODO: `daml sandbox` should also consult the config for the ledger-port
--- Have daml-helper wrap the `sandbox` command
 getProjectLedgerPort :: IO Int
 getProjectLedgerPort = do
     projectConfig <- getProjectConfig
