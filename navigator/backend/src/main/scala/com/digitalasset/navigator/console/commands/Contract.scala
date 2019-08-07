@@ -6,7 +6,6 @@ package com.digitalasset.navigator.console.commands
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.console._
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import ApiCodecCompressed.JsonImplicits.StringJsonFormat
 import com.digitalasset.navigator.model
 
 @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))

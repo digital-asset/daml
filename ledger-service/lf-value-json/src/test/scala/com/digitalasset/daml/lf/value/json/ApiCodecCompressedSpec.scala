@@ -8,7 +8,6 @@ import data.{Decimal, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
 import value.TypedValueGenerators.{ValueAddend => VA, genAddend, genTypeAndValue}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
-import ApiCodecCompressed.JsonImplicits.StringJsonFormat
 
 import org.scalactic.source
 import org.scalatest.{Matchers, WordSpec}
@@ -37,7 +36,7 @@ class ApiCodecCompressedSpec
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
-      parsed <- Try(jsValueToApiValue[String](json, typ, typeLookup))
+      parsed <- Try(jsValueToApiValue(json, typ, typeLookup))
     } yield parsed
   }
 
@@ -125,7 +124,7 @@ class ApiCodecCompressedSpec
     "dealing with particular formats" should {
       "succeed in cases" in forEvery(successes) { (_, serialized, typ, expected) =>
         val json = serialized.parseJson
-        val parsed = jsValueToApiValue[Cid](json, typ.t, typeLookup)
+        val parsed = jsValueToApiValue(json, typ.t, typeLookup)
         typ.prj(parsed) should ===(Some(expected))
       }
     }

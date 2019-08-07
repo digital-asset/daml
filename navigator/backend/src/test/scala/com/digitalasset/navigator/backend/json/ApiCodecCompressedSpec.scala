@@ -22,7 +22,7 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers {
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
-      parsed <- Try(ApiCodecCompressed.jsValueToApiValue[String](json, typ, C.allTypes.get _))
+      parsed <- Try(ApiCodecCompressed.jsValueToApiValue(json, typ, C.allTypes.get _))
     } yield parsed
   }
 

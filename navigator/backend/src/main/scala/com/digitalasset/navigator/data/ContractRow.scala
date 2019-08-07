@@ -5,7 +5,7 @@ package com.digitalasset.navigator.data
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import ApiCodecCompressed.JsonImplicits.{ApiRecordJsonFormat, ApiValueJsonFormat}
+import ApiCodecCompressed.JsonImplicits._
 import com.digitalasset.navigator.json.ModelCodec.JsonImplicits._
 import com.digitalasset.navigator.model._
 
@@ -30,8 +30,7 @@ final case class ContractRow(
       tid <- Try(parseOpaqueIdentifier(templateId).get)
       template <- Try(types.template(tid).get)
       recArgAny <- Try(
-        ApiCodecCompressed
-          .jsValueToApiValue[String](argument.parseJson, tid, types.damlLfDefDataType _))
+        ApiCodecCompressed.jsValueToApiValue(argument.parseJson, tid, types.damlLfDefDataType _))
       recArg <- Try(recArgAny.asInstanceOf[ApiRecord])
       sig <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])
       obs <- Try(signatories.parseJson.convertTo[List[ApiTypes.Party]])

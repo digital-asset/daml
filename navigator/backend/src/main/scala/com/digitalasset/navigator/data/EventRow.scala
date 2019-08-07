@@ -5,9 +5,9 @@ package com.digitalasset.navigator.data
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import ApiCodecCompressed.JsonImplicits.{ApiValueJsonFormat, ApiRecordJsonFormat}
+import ApiCodecCompressed.JsonImplicits._
 import com.digitalasset.navigator.json.ModelCodec.JsonImplicits._
-import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits.{StringJsonFormat => _, _}
+import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
 import com.digitalasset.navigator.model._
 
 import scala.util.{Failure, Try}
@@ -45,7 +45,7 @@ final case class EventRow(
           recArgJson <- Try(recordArgument.get)
           recArgAny <- Try(
             ApiCodecCompressed
-              .jsValueToApiValue[String](recArgJson.parseJson, tp, types.damlLfDefDataType _))
+              .jsValueToApiValue(recArgJson.parseJson, tp, types.damlLfDefDataType _))
           recArg <- Try(recArgAny.asInstanceOf[ApiRecord])
           template <- types
             .template(tp)
@@ -87,7 +87,7 @@ final case class EventRow(
             t.choices.find(c => ApiTypes.Choice.unwrap(c.name) == chc).get.parameter)
           arg <- Try(
             ApiCodecCompressed
-              .jsValueToApiValue[String](argJson.parseJson, choiceType, types.damlLfDefDataType _))
+              .jsValueToApiValue(argJson.parseJson, choiceType, types.damlLfDefDataType _))
           apJson <- Try(actingParties.get)
           ap <- Try(apJson.parseJson.convertTo[List[ApiTypes.Party]])
           consuming <- Try(isConsuming.get)

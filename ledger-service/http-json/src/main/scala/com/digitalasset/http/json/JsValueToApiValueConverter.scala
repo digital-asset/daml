@@ -3,9 +3,8 @@
 
 package com.digitalasset.http.json
 
-import JsonProtocol.AbsoluteContractIdFormat
+import JsonProtocol.LfValueCodec
 import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.http.json.JsValueToApiValueConverter.LfTypeLookup
 import com.digitalasset.ledger.api.{v1 => lav1}
 import com.digitalasset.platform.participant.util.LfEngineToApi
@@ -20,8 +19,8 @@ class JsValueToApiValueConverter(lfTypeLookup: LfTypeLookup) {
 
     for {
       lfValue <- \/.fromTryCatchNonFatal(
-        ApiCodecCompressed
-          .jsValueToApiValue[lf.value.Value.AbsoluteContractId](jsValue, lfId, lfTypeLookup))
+        LfValueCodec
+          .jsValueToApiValue(jsValue, lfId, lfTypeLookup))
         .leftMap(JsonError.toJsonError)
 
       apiValue <- \/.fromEither(LfEngineToApi.lfValueToApiValue(verbose = true, lfValue))

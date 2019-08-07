@@ -8,7 +8,6 @@ import java.util.concurrent.TimeUnit
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.console._
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import ApiCodecCompressed.JsonImplicits.StringJsonFormat
 import com.digitalasset.navigator.model
 import com.digitalasset.navigator.store.Store.CreateContract
 import akka.pattern.ask
@@ -58,7 +57,7 @@ case object Create extends SimpleCommand {
           ps <- state.getPartyState ~> s"Unknown party ${state.party}"
           templateId <- model.parseOpaqueIdentifier(templateName) ~> s"Unknown template $templateName"
           apiValue <- Try(
-            ApiCodecCompressed.stringToApiType[String](
+            ApiCodecCompressed.stringToApiType(
               damlA.mkString(" "),
               templateId,
               ps.packageRegistry.damlLfDefDataType _)) ~> "Failed to parse DAML value"
