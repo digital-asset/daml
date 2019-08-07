@@ -41,7 +41,7 @@ The simplest topology is the one where the virtual shared ledger is implemented 
    :width: 80%
    :align: center
 
-The :ref:`DAML Sandbox <sandbox-manual>` uses this topology.
+The :ref:`DAML Sandbox <sandbox-manual>` and the alpha version of DAML on :ref:`Amazon Aurora <https://aws.amazon.com/rds/aurora/>` use this topology.
 While simple, this topology has certain downsides:
 
 - it is not highly available
@@ -57,7 +57,7 @@ While simple, this topology has certain downsides:
 
 Replicating the physical ledger improves the availability properties.
 If the replication algorithm is Byzantine fault tolerant and the number of replicas is high enough, integrity is then also improved.
-However, adding replicas worsens the system's latency and throughput, as well as its privacy properties (since every replica has full insight into the ledger).
+However, adding replicas worsens the system's latency and throughput due to the required synchronization, as well as its privacy properties, since every replica obtains full insight into the ledger.
 Performance and scaling properties can be improved by partitioning the system.
 The following two sections describe the partitioning approaches used by several implementations.
 
@@ -69,13 +69,14 @@ The Reader-Writer Partitioning Topology
 In this topology, the ledger is implemented as a distributed system.
 The system consists of two kinds of nodes:
 
-1. a central writer node, which holds the physical shared ledger and can extend it with new commits,
+1. A central writer node, which holds the physical shared ledger and can extend it with new commits.
+   This node is thus also referred to as the **committer node**.
 
 .. _participant-node-def:
 
-2. **participant nodes**, which serve the ledger API to a subset of the system parties, which we say are hosted by this participant.
+2. **Participant nodes**, which serve the ledger API to a subset of the system parties, which we say are hosted by this participant.
    A participant node may issue new commits on behalf of the parties it hosts, and holds a portion of the ledger that is relevant for those parties (i.e., the parties' :ref:`ledger projection <da-model-projections>`).
-   In fact, the term "participant node" is also used in the case of a fully centralized topology, where the same machine is the both the writer and the sole participant node.
+   In fact, the term "participant node" is also used in the case of a fully centralized topology, where the same machine is the both the committer and the sole participant node.
 
 This setting is visualized below.
 
@@ -85,10 +86,10 @@ This setting is visualized below.
 This topology improves on the last one by improving scaling and performance.
 The participant nodes can handle the user connections, serve the read requests from the ledger, and pre-process the transactions that the users submit (e.g., by performing DAML evaluation).
 Adding new participant nodes increases the capacity of the system.
-These nodes need not be trusted by the other nodes; the final authority for extending the ledger lies with the central writer node.
+These nodes need not be trusted by the other nodes, or by the committer; the participants can be operated by mutually distrusting entities, i.e., belong to different **trust domains**.
 In general, the participant nodes do not necessarily even need to know each other.
-However, they have to be known to and accepted by the central writer node.
-As with the previous topology, the central writer node is trusted with ensuring the ledger's integrity, and has access to all ledger data.
+However, they have to be known to and accepted by the central committer node.
+As with the previous topology, the central committer node is trusted with ensuring the ledger's integrity, and has access to all ledger data.
 Again, the node can be replicated to increase availability and/or distribute the trust needed for integrity, as shown below.
 
 .. image:: ./images/ledger-topologies/replicated-writer-topology.svg
@@ -96,7 +97,7 @@ Again, the node can be replicated to increase availability and/or distribute the
 
 DAML on `VMware Concord <https://blogs.vmware.com/blockchain>`__ and DAML on `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__ are examples of such a replicated setup.
 The implementations that use this topology (replicated or not) do not provide interoperability across multiple deployments.
-Out of the box, scalability is also limited, but can be improved by internally partitioning the writer node further, as shown next.
+Out of the box, scalability is also limited, but can be improved by internally partitioning the committer node further, as shown next.
 
 .. _staged-writer-topology:
 
@@ -104,7 +105,7 @@ The Staged Writer Topology
 ==========================
 
 This topology is a refinement of the previous one.
-The writer is split up into two stages.
+The writer (committer) is split up into two stages.
 The first stage performs the integrity checks that can be parallelized (namely, :ref:`conformance <da-model-conformance>` and :ref:`authorization <da-model-authorization>`).
 Due to parallelization, this stage can be scaled out horizontally.
 The second stage performs the :ref:`consistency <da-model-consistency>` check.
@@ -113,8 +114,9 @@ This stage is sequential, though it can internally still partition the data and 
 .. image:: ./images/ledger-topologies/staged-writer-topology.svg
    :align: center
 
-The central writer node is trusted with ensuring the ledger's integrity, and has access to all ledger data.
-DAML on `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__ uses this topology.
+The central committer node is trusted with ensuring the ledger's integrity, and has access to all ledger data.
+The next version of DAML on `Amazon Aurora <https://aws.amazon.com/rds/aurora/>`__ will use a particular version of this topology: a single logical participant node, operated by the same entity as the committer node.
+This single participant can be scaled out by replication, without paying a synchronization penalty, since it only provides read services.
 The implementations that use this topology do not provide interoperability across multiple deployments.
 
 .. _decentralized-ledger-topology:
