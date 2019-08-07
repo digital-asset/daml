@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import com.digitalasset.ledger.api.tls.TlsConfiguration
+
 private[testtool] final case class LedgerSessionConfiguration(
     host: String,
     port: Int,
