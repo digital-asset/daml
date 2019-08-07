@@ -5,7 +5,7 @@ package com.digitalasset.navigator.data
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import ApiCodecCompressed.JsonImplicits._
+import ApiCodecCompressed.JsonImplicits.{ApiRecordJsonFormat, ApiValueJsonFormat}
 import com.digitalasset.navigator.json.ModelCodec.JsonImplicits._
 import com.digitalasset.navigator.model._
 

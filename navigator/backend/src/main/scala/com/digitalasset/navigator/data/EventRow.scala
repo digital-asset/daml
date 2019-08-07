@@ -5,9 +5,9 @@ package com.digitalasset.navigator.data
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
-import ApiCodecCompressed.JsonImplicits._
+import ApiCodecCompressed.JsonImplicits.{ApiValueJsonFormat, ApiRecordJsonFormat}
 import com.digitalasset.navigator.json.ModelCodec.JsonImplicits._
-import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits._
+import com.digitalasset.navigator.json.DamlLfCodec.JsonImplicits.{StringJsonFormat => _, _}
 import com.digitalasset.navigator.model._
 
 import scala.util.{Failure, Try}
