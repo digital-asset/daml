@@ -98,19 +98,23 @@ class ApiCodecCompressedSpec
      */
     }
 
-    def c(serialized: String, typ: VA)(expected: typ.Inj[Cid])(implicit pos: source.Position) =
-      (pos.lineNumber, serialized, typ, expected)
+    def c(canonical: String, typ: VA)(expected: typ.Inj[Cid], alternates: String*)(
+        implicit pos: source.Position) =
+      (pos.lineNumber, canonical, typ, expected, alternates)
 
     val successes = Table(
-      ("line#", "serialized", "type", "parsed"),
+      ("line#", "serialized", "type", "parsed", "alternates"),
       c("\"123\"", VA.contractId)("123"),
-      c("\"42\"", VA.decimal)(Decimal assertFromString "42"),
-      c("\"42.0\"", VA.decimal)(Decimal assertFromString "42"),
-      // c("42", VA.decimal)(Decimal assertFromString "42"),
-      // c("42.0", VA.decimal)(Decimal assertFromString "42"),
+      c("\"42.0\"", VA.decimal)(Decimal assertFromString "42", "\"42\"" /*, "42", "42.0"*/ ),
       // c("2e3", VA.decimal)(Decimal assertFromString "2000"),
-      c("\"1990-11-09T04:30:23.1234569Z\"", VA.timestamp)(
-        Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z"),
+      c("\"2000.0\"", VA.decimal)(
+        Decimal assertFromString "2000",
+        "\"2000\"" /*, "2000", "2e3" */ ),
+      c("\"0.3\"", VA.decimal)(
+        Decimal assertFromString "0.3" /*, "\"0.30000000000000004\"", "0.30000000000000004", "0.3"*/ ),
+      c("\"1990-11-09T04:30:23.123456Z\"", VA.timestamp)(
+        Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z",
+        "\"1990-11-09T04:30:23.1234569Z\""),
       c("\"42\"", VA.int64)(42),
       c("\"Alice\"", VA.party)(Ref.Party assertFromString "Alice"),
       c("{}", VA.unit)(()),
@@ -122,10 +126,16 @@ class ApiCodecCompressedSpec
     )
 
     "dealing with particular formats" should {
-      "succeed in cases" in forEvery(successes) { (_, serialized, typ, expected) =>
+      "succeed in cases" in forEvery(successes) { (_, serialized, typ, expected, alternates) =>
         val json = serialized.parseJson
         val parsed = jsValueToApiValue(json, typ.t, typeLookup)
         typ.prj(parsed) should ===(Some(expected))
+        apiValueToJsValue(parsed) should ===(json)
+        val tAlternates = Table("alternate", alternates: _*)
+        forEvery(tAlternates) { alternate =>
+          val aJson = alternate.parseJson
+          typ.prj(jsValueToApiValue(aJson, typ.t, typeLookup)) should ===(Some(expected))
+        }
       }
     }
   }
