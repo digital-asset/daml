@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package value.json
 
+import data.{Decimal, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
 import value.TypedValueGenerators.{ValueAddend => VA, genAddend, genTypeAndValue}
 import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
@@ -103,15 +104,28 @@ class ApiCodecCompressedSpec
 
     val successes = Table(
       ("line#", "serialized", "type", "parsed"),
-      c("\"abc\"", VA.text)("abc"),
+      c("\"123\"", VA.contractId)("123"),
+      c("\"42\"", VA.decimal)(Decimal assertFromString "42"),
+      c("\"42.0\"", VA.decimal)(Decimal assertFromString "42"),
+      // c("42", VA.decimal)(Decimal assertFromString "42"),
+      // c("42.0", VA.decimal)(Decimal assertFromString "42"),
+      // c("2e3", VA.decimal)(Decimal assertFromString "2000"),
+      c("\"1990-11-09T04:30:23.1234569Z\"", VA.timestamp)(
+        Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z"),
       c("\"42\"", VA.int64)(42),
+      c("\"Alice\"", VA.party)(Ref.Party assertFromString "Alice"),
+      c("{}", VA.unit)(()),
+      c("\"2019-06-18\"", VA.date)(Time.Date assertFromString "2019-06-18"),
+      c("\"abc\"", VA.text)("abc"),
+      c("true", VA.bool)(true),
       // TODO SC c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3)),
+      c("""{"a": "b", "c": "d"}""", VA.map(VA.text))(SortedLookupList(Map("a" -> "b", "c" -> "d"))),
     )
 
     "dealing with particular formats" should {
       "succeed in cases" in forEvery(successes) { (_, serialized, typ, expected) =>
         val json = serialized.parseJson
-        val parsed = jsValueToApiValue[String](json, typ.t, typeLookup)
+        val parsed = jsValueToApiValue[Cid](json, typ.t, typeLookup)
         typ.prj(parsed) should ===(Some(expected))
       }
     }
