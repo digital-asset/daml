@@ -25,7 +25,8 @@ object HttpCodec {
       complete(
         (
           StatusCodes.BadRequest,
-          ResponseFormats.errorsJsObject(StatusCodes.BadRequest)(
+          ResponseFormats.errorsJsObject(
+            StatusCodes.BadRequest,
             s"JSON parser error: ${e.msg}" +: unfoldCauses(e.cause).map(_.getMessage): _*)))
   }
 

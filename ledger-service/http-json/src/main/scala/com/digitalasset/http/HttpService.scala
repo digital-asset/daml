@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
-import akka.stream.scaladsl.Flow
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.PackageService.TemplateIdMap
@@ -17,9 +16,10 @@ import com.digitalasset.http.json.{
   DomainJsonEncoder,
   JsValueToApiValueConverter
 }
-import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.http.util.FutureUtil._
+import com.digitalasset.http.util.FutureUtil.liftET
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
+import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
+import com.digitalasset.jwt.HMAC256Verifier
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
@@ -47,8 +47,6 @@ object HttpService extends StrictLogging {
       aesf: ExecutionSequencerFactory,
       ec: ExecutionContext): Future[Error \/ ServerBinding] = {
 
-    import EitherT._
-
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
       ledgerIdRequirement = LedgerIdRequirement("", enabled = false),
@@ -62,8 +60,11 @@ object HttpService extends StrictLogging {
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
-      packageStore <- eitherT(LedgerReader.createPackageStore(client.packageClient))
-        .leftMap(httpServiceError)
+      _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
+
+      packageStore <- FutureUtil
+        .eitherT(LedgerReader.createPackageStore(client.packageClient))
+        .leftMap(e => Error(e))
 
       templateIdMap = PackageService.getTemplateIdMap(packageStore)
 
@@ -78,16 +79,22 @@ object HttpService extends StrictLogging {
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 
+      // TODO(Leo): don't depend on HMAC256, use RSA256.
+      // Make it configurable, we can run tests with HMAC256 but in PROD we need RSA256
+      jwtValidator <- FutureUtil
+        .either(HMAC256Verifier(secret = "secret"))
+        .leftMap(e => Error(e.shows))
+
       endpoints = new Endpoints(
         ledgerId,
+        jwtValidator.verify,
         commandService,
         contractsService,
         encoder,
         decoder,
       )
 
-      binding <- liftET[Error](
-        Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))
+      binding <- liftET[Error](Http().bindAndHandleAsync(endpoints.all, "localhost", httpPort))
 
     } yield binding
 
@@ -101,8 +108,6 @@ object HttpService extends StrictLogging {
 
     bindingF
   }
-
-  private def httpServiceError(e: String): Error = Error(e)
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")

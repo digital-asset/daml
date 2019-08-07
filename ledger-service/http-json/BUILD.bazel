@@ -28,6 +28,7 @@ http_json_deps = [
     "//ledger-api/rs-grpc-bridge",
     "//ledger-service/lf-value-json",
     "//ledger-service/utils",
+    "//ledger-service/jwt",
     "//ledger/ledger-api-common",
     "//daml-lf/data:data",
 ]

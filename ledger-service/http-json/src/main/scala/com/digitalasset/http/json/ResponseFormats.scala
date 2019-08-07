@@ -8,7 +8,7 @@ import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 private[http] object ResponseFormats {
-  def errorsJsObject(status: StatusCode)(es: String*): JsObject = {
+  def errorsJsObject(status: StatusCode, es: String*): JsObject = {
     val errors = es.toJson
     JsObject(statusField(status), ("errors", errors))
   }

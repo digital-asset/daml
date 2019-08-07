@@ -12,7 +12,16 @@ module ComposedKey where
 
 import DA.Assert
 import DA.Text
-import GenTemplCompat
+
+template Fact with
+    owner : Party
+    name : Text
+    value : Int
+  where
+    signatory owner
+    key (owner, name) : (Party, Text)
+    maintainer key._1
+
 
 -- For any instantiation, `k` has to be the key type of `t`.
 data Proposal t k = Proposal with

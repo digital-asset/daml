@@ -60,6 +60,7 @@ import System.Environment hiding (setEnv)
 import System.Exit
 import System.Info.Extra
 import System.Process (showCommandForUser)
+import System.Process.Internals (translate)
 import System.Process.Typed
 import System.IO
 import System.IO.Extra
@@ -95,36 +96,49 @@ requiredE msg = fromRightM (throwIO . DamlHelperError msg . Just . T.pack . disp
 defaultingE :: Exception e => T.Text -> a -> Either e (Maybe a) -> IO a
 defaultingE msg a e = fmap (fromMaybe a) $ requiredE msg e
 
-toShellCommand :: FilePath -> [String] -> ProcessConfig () () ()
-toShellCommand exe args
-    | isWindows = shell $ "\"" <> showCommandForUser exe args <> "\""
-    -- cmd.exe has a terrible behavior where it strips the first and last
-    -- quote under certain conditions, quoting cmd.exe /?:
-    --
-    -- > 1.  If all of the following conditions are met, then quote characters
-    -- >     on the command line are preserved:
-    -- >
-    -- >     - no /S switch
-    -- >     - exactly two quote characters
-    -- >     - no special characters between the two quote characters,
-    -- >       where special is one of: &<>()@^|
-    -- >     - there are one or more whitespace characters between the
-    -- >       the two quote characters
-    -- >     - the string between the two quote characters is the name
-    -- >       of an executable file.
-    -- >
-    -- > 2.  Otherwise, old behavior is to see if the first character is
-    -- >     a quote character and if so, strip the leading character and
-    -- >     remove the last quote character on the command line, preserving
-    -- >     any text after the last quote character.
-    --
-    -- By adding a quote at the beginning and the end, we always fall into 2
-    -- since we have at least 4 quotes
-    -- (we always have 2 quotes surrounding the executable) and the line after
-    -- stripping the first and last quote corresponds to the one we want.
-    --
-    -- We might want to upstream this into `process`.
-    | otherwise = shell $ showCommandForUser exe args
+-- [Note cmd.exe and why everything is horrible]
+--
+-- cmd.exe has a terrible behavior where it strips the first and last
+-- quote under certain conditions, quoting cmd.exe /?:
+--
+-- > 1.  If all of the following conditions are met, then quote characters
+-- >     on the command line are preserved:
+-- >
+-- >     - no /S switch
+-- >     - exactly two quote characters
+-- >     - no special characters between the two quote characters,
+-- >       where special is one of: &<>()@^|
+-- >     - there are one or more whitespace characters between the
+-- >       the two quote characters
+-- >     - the string between the two quote characters is the name
+-- >       of an executable file.
+-- >
+-- > 2.  Otherwise, old behavior is to see if the first character is
+-- >     a quote character and if so, strip the leading character and
+-- >     remove the last quote character on the command line, preserving
+-- >     any text after the last quote character.
+--
+-- By adding a quote at the beginning and the end, we always fall into 2
+-- and the line after stripping the first and last quote corresponds to the one we want.
+--
+-- To make things worse that does not seem to be sufficient sadly:
+-- If we quote `"code"` it seems to result in cmd.exe no longer looking
+-- for it in PATH. I was unable to find any documentation or other information
+-- on this behavior.
+
+-- See [Note cmd.exe and why everything is horrible]
+toVsCodeCommand :: [String] -> ProcessConfig () () ()
+toVsCodeCommand args
+    | isWindows = shell $ "\"" <> unwords ("code" : map translate args) <> "\""
+    | otherwise = shell $ showCommandForUser "code" args
+
+-- See [Note cmd.exe and why everything is horrible]
+toAssistantCommand :: [String] -> IO (ProcessConfig () () ())
+toAssistantCommand args = do
+    assistant <- getDamlAssistant
+    pure $ if isWindows
+        then shell $ "\"" <> showCommandForUser assistant args <> "\""
+        else shell $ showCommandForUser assistant args
 
 data ReplaceExtension
     = ReplaceExtNever
@@ -143,7 +157,7 @@ runVsCodeCommand args = do
             -- prevent setting DAML_SDK_VERSION too early. See issue #1666.
         commandEnv = addVsCodeToPath strippedEnv
             -- ^ Ensure "code" is in PATH before running command.
-        command = toShellCommand "code" args
+        command = toVsCodeCommand args
         process = setEnv commandEnv command
     (exit, out, err) <- readProcess process
     pure (exit, UTF8.toString out, UTF8.toString err)
@@ -597,20 +611,18 @@ runMigrate targetFolder main pkgPath1 pkgPath2
     runNew targetFolder (Just "migrate") (Just main) [pkgPath1Abs, pkgPath2Abs]
 
     -- Call damlc to create the upgrade source files.
-    assistant <- getDamlAssistant
-    runProcess_
-        (toShellCommand
-         assistant
-         [ "damlc"
-         , "migrate"
-         , "--srcdir"
-         , "daml"
-         , "--project-root"
-         , targetFolder
-         , "upgrade-pkg"
-         , pkgPath1
-         , pkgPath2
-         ])
+    procConfig <- toAssistantCommand
+        [ "damlc"
+        , "migrate"
+        , "--srcdir"
+        , "daml"
+        , "--project-root"
+        , targetFolder
+        , "upgrade-pkg"
+        , pkgPath1
+        , pkgPath2
+        ]
+    runProcess_ procConfig
 
 defaultProjectTemplate :: String
 defaultProjectTemplate = "skeleton"
@@ -844,8 +856,8 @@ getDarPath = do
 
 doBuild :: IO ()
 doBuild = do
-    assistant <- getDamlAssistant
-    runProcess_ (toShellCommand assistant ["build"])
+    procConfig <- toAssistantCommand ["build"]
+    runProcess_ procConfig
 
 getProjectConfig :: IO ProjectConfig
 getProjectConfig = do
