@@ -25,11 +25,8 @@ private[testtool] final class LedgerSession private (
 
   private[this] val bindings: LedgerBindings = new LedgerBindings(channel, config.commandTtlFactor)
 
-  private[testtool] def createTestContext(): Future[LedgerTestContext] = {
-
-    println(List.fill(3)("$" * 80).mkString("\n"))
+  private[testtool] def createTestContext(): Future[LedgerTestContext] =
     bindings.ledgerEnd.map(new LedgerTestContext(UUID.randomUUID.toString, _, bindings))
-  }
 
   private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from ledger at ${config.host}:${config.port}...")
@@ -59,7 +56,7 @@ private[testtool] object LedgerSession {
       implicit ec: ExecutionContext): LedgerSession = {
     logger.info(s"Connecting to ledger at ${config.host}:${config.port}...")
     val threadFactoryPoolName = s"grpc-event-loop-${config.host}-${config.port}"
-    val daemonThreads = true
+    val daemonThreads = false
     val threadFactory: DefaultThreadFactory =
       new DefaultThreadFactory(threadFactoryPoolName, daemonThreads)
     logger.info(
