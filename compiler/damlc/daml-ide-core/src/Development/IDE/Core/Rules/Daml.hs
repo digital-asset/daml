@@ -21,6 +21,7 @@ import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
 import Data.Foldable
 import Data.List
+import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -509,8 +510,8 @@ ofInterestRule opts = do
         -- dependency information (in particular, no parse errors).
         -- This prevents us from clearing the results for files that are
         -- only temporarily unreachable due to a parse error.
-        whenJust depInfoOrErr $ \depInfo -> do
-          let noErrors = all (Map.null . depErrorNodes) depInfo
+        whenJust depInfoOrErr $ \depInfos -> do
+          let noErrors = all (IntMap.null . depErrorNodes) depInfos
           when noErrors $ do
             -- We insert the empty file path since we use this for rules that do not depend
             -- on the given file.
@@ -518,7 +519,7 @@ ofInterestRule opts = do
                     -- To guard against buggy dependency info, we add
                     -- the roots even though they should be included.
                     roots `Set.union`
-                    (Set.insert "" $ Set.unions $ map (Map.keysSet . depModuleDeps) depInfo)
+                    (Set.insert "" $ Set.fromList $ concatMap reachableModules depInfos)
             garbageCollect (`Set.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
