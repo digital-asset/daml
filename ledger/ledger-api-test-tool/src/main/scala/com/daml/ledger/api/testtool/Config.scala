@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool
 
 import java.io.File
 
-import com.daml.ledger.api.testtool.infrastructure.TlsConfiguration
+import com.digitalasset.ledger.api.tls.TlsConfiguration
 
 final case class Config(
     host: String,
