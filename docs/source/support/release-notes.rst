@@ -6,6 +6,13 @@ Release notes
 
 This page contains release notes for the SDK.
 
+.. _release-0-13-18:
+
+0.13.18 - 2019-08-07
+--------------------
+
+- Fix a bug where ``daml studio`` did not launch VSCode on Windows.
+
 .. _release-0-13-17:
 
 0.13.17 - 2019-08-07
