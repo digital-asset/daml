@@ -121,7 +121,7 @@ class ApiCodecCompressedSpec
       c("\"2019-06-18\"", VA.date)(Time.Date assertFromString "2019-06-18"),
       c("\"abc\"", VA.text)("abc"),
       c("true", VA.bool)(true),
-      // TODO SC c("[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3)),
+      c("[\"1\", \"2\", \"3\"]", VA.list(VA.int64))(Vector(1, 2, 3) /*, "[1, 2, 3]"*/ ),
       c("""{"a": "b", "c": "d"}""", VA.map(VA.text))(SortedLookupList(Map("a" -> "b", "c" -> "d"))),
     )
 
