@@ -19,21 +19,23 @@ testSort6 = scenario do
   assert $ head m == Foo 15 "c"
   assert $ last m == Foo 42 "a"
 
+-- Utility called on by 'testSort4' and 'testSort5'
+check45 n m = do
+    assert $ n == [1, 1, 1, 2, 3]
+    let o = map (flip snd ()) m
+    assert $ o == ["A", "B", "C", "D", "E"]
+
 testSort5 = scenario do
     let l = [ (2, const "D"), (1, const "A"), (1, const "B"), (3, const "E"), (1, const "C") ]
     let m = sortOn fst l
     let n = map fst m
-    assert $ n == [1, 1, 1, 2, 3]
-    let o = map (flip snd ()) m
-    assert $ o == ["A", "B", "C", "D", "E"]
+    check45 n m
 
 testSort4 = scenario do
     let l = [ (2, const "D"), (1, const "A"), (1, const "B"), (3, const "E"), (1, const "C") ]
     let m = sortBy (\x y -> compare (fst x) (fst y)) l
     let n = map fst m
-    assert $ n == [1, 1, 1, 2, 3]
-    let o = map (flip snd ()) m
-    assert $ o == ["A", "B", "C", "D", "E"]
+    check45 n m
 
 testSort3 = scenario do
     let l = [ "C", "A", "E", "D", "B" ]

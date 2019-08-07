@@ -26,6 +26,7 @@ import qualified Data.Set as Set
 import           Data.Tuple.Extra
 import qualified Data.ByteString as BS
 import qualified Data.Text as T
+import qualified Data.Text.Encoding as T
 import Control.Exception
 import GHC.Ptr(Ptr(..))
 import System.IO.Unsafe
@@ -34,27 +35,24 @@ import System.IO.Unsafe
 ----------------------------------------------------------------------
 -- GHC utility functions
 
-is :: NamedThing a => a -> String
-is = getOccString
+getOccText :: NamedThing a => a -> T.Text
+getOccText = fsToText . getOccFS
 
-qis :: NamedThing a => a -> (Maybe String, String)
-qis x = (moduleNameString . moduleName <$> nameModule_maybe (getName x), getOccString x)
+fsToText :: FastString -> T.Text
+fsToText = T.decodeUtf8 . fastStringToByteString
 
-pattern Is :: NamedThing a => String -> a
-pattern Is x <- (is -> x)
+pattern Is :: NamedThing a => FastString -> a
+pattern Is x <- (occNameFS . getOccName -> x)
 
-pattern QIs :: NamedThing a => String -> String -> a
-pattern QIs modName name <- (qis -> (Just modName, name))
-
-pattern VarIs :: String -> GHC.Expr Var
+pattern VarIs :: FastString -> GHC.Expr Var
 pattern VarIs x <- Var (Is x)
 
 pattern TypeCon :: TyCon -> [GHC.Type] -> GHC.Type
 pattern TypeCon c ts <- (splitTyConApp_maybe -> Just (c, ts))
   where TypeCon = mkTyConApp
 
-pattern StrLitTy :: String -> Type
-pattern StrLitTy x <- (fmap unpackFS . isStrLitTy -> Just x)
+pattern StrLitTy :: T.Text -> Type
+pattern StrLitTy x <- (fmap fsToText . isStrLitTy -> Just x)
 
 subst :: [(TyVar, GHC.Type)] -> GHC.Type -> GHC.Type
 subst env = transform $ \t ->
@@ -83,8 +81,8 @@ isSingleConType t = case algTyConRhs t of
     _ -> False
 
 -- Pretty printing is very expensive, so clone the logic for when to add unique suffix
-varPrettyPrint :: Var -> String
-varPrettyPrint (varName -> x) = is x ++ (if isSystemName x then "_" ++ show (nameUnique x) else "")
+varPrettyPrint :: Var -> T.Text
+varPrettyPrint (varName -> x) = getOccText x <> (if isSystemName x then "_" <> T.pack (show $ nameUnique x) else "")
 
 defaultLast :: [Alt Var] -> [Alt Var]
 defaultLast = uncurry (++) . partition ((/=) DEFAULT . fst3)

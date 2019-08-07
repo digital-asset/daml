@@ -15,7 +15,6 @@ azure-cron.yml      @garyverhaegen-da
 
 # Language
 /compiler/          @hurryabit
-/daml-foundations/  @hurryabit
 /libs-haskell/      @hurryabit
 /daml-assistant/    @associahedron
 
@@ -41,4 +40,4 @@ azure-cron.yml      @garyverhaegen-da
 /navigator/         @rautenrieth-da
 
 # Misc
-/docs/              @bethaitman
+/docs/              @bame-da

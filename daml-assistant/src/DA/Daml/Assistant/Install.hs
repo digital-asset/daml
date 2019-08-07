@@ -170,7 +170,7 @@ activateDaml env@InstallEnv{..} targetPath = do
         if isWindows
             then writeFile damlBinaryTargetPath $ unlines
                      [ "@echo off"
-                     , damlBinarySourcePath <> " %*"
+                     , "\"" <> damlBinarySourcePath <> "\" %*"
                      ]
             else createSymbolicLink damlBinarySourcePath damlBinaryTargetPath
 

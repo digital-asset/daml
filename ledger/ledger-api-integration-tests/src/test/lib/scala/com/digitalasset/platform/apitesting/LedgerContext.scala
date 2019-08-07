@@ -180,6 +180,7 @@ object LedgerContext {
           ledgerIdentityService
             .getLedgerIdentity(GetLedgerIdentityRequest())
             .flatMap { resp =>
+              // TODO: compare with current Ledger ID and retry when not changed
               Future.successful(domain.LedgerId(resp.ledgerId))
             }
             .recoverWith {
