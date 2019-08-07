@@ -20,7 +20,11 @@ To deploy a DAML project to a ledger, you will need the ledger's hostname (or IP
 
    $ daml deploy --host=<HOSTNAME> --port=<PORT>
 
-This command will deploy your project to the ledger, meaning it will upload the project's compiled DAR file to the ledger, and allocate the parties specified in the project's ``daml.yaml``.
+This command will deploy your project to the ledger. This has two steps:
+
+#. It will allocate the parties specified in the project's ``daml.yaml`` on the ledger if they are missing. The command looks through the list of parties known to the ledger, sees if any party is missing by comparing display names, and adds any missing party via the party management service of the Ledger API.
+
+#. It will upload the project's compiled DAR file to the ledger via the package management service of the Ledger API. This will make the templates defined in the current project available to the users of the ledger.
 
 Instead of passing ``--host`` and ``--port`` flags to the command above, you can add the following section to the project's ``daml.yaml`` file:
 
