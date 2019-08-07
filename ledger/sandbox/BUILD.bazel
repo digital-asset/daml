@@ -230,10 +230,65 @@ client_server_test(
     ],
 ) if not is_windows else None
 
+client_server_test(
+    name = "conformance-test-static-time-postgres",
+    timeout = "short",
+    client = "//ledger/ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+    ],
+    data = [
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
+    ],
+    server = "//ledger/sandbox:sandbox-ephemeral-postgres",
+    server_args = [
+        "-s",
+        "ledger/test-common/SemanticTests.dar",
+        "ledger/test-common/Test.dar",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+    ],
+) if not is_windows else None
+
+client_server_test(
+    name = "conformance-test-wall-clock-postgres",
+    timeout = "short",
+    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+        "--exclude TimeIT",
+    ],
+    data = [
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
+    ],
+    server = "//ledger/sandbox:sandbox-ephemeral-postgres",
+    server_args = [
+        "-w",
+        "ledger/test-common/SemanticTests.dar",
+        "ledger/test-common/Test.dar",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+    ],
+) if not is_windows else None
+
 test_suite(
     name = "conformance-test",
     tests = [
         "conformance-test-static-time",
+        "conformance-test-static-time-postgres",
         "conformance-test-wall-clock",
+        "conformance-test-wall-clock-postgres",
     ],
 )
