@@ -42,8 +42,12 @@ object LedgerBindings {
   private def filter(templateIds: Seq[Identifier]): Filters =
     new Filters(if (templateIds.isEmpty) None else Some(new InclusiveFilters(templateIds)))
 
-  private def transactionFilter(party: String, templateIds: Seq[Identifier]) =
-    new TransactionFilter(Map(party -> filter(templateIds)))
+  private def transactionFilter(
+      parties: Seq[String],
+      templateIds: Seq[Identifier]): TransactionFilter = {
+    val templateIdFilter = filter(templateIds)
+    new TransactionFilter(Map(parties.map(_ -> templateIdFilter): _*))
+  }
 
   private val end = LedgerOffset(
     LedgerOffset.Value.Boundary(LedgerOffset.LedgerBoundary.LEDGER_END))
@@ -76,14 +80,16 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       response <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(id))
     } yield response.offset.get
 
-  def activeContracts(party: String, templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
+  def activeContracts(
+      parties: Seq[String],
+      templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
     for {
       id <- ledgerId
       contracts <- FiniteStreamObserver[GetActiveContractsResponse](
         services.activeContracts.getActiveContracts(
           new GetActiveContractsRequest(
             ledgerId = id,
-            filter = Some(LedgerBindings.transactionFilter(party, templateIds)),
+            filter = Some(LedgerBindings.transactionFilter(parties, templateIds)),
             verbose = true
           ),
           _
@@ -94,7 +100,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
   private def transactions[Res, Tx](service: (GetTransactionsRequest, StreamObserver[Res]) => Unit)(
       extract: Res => Seq[Tx])(
       begin: LedgerOffset,
-      party: String,
+      parties: Seq[String],
       templateIds: Seq[Identifier]): Future[Vector[Tx]] =
     for {
       id <- ledgerId
@@ -104,7 +110,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
             ledgerId = id,
             begin = Some(begin),
             end = Some(LedgerBindings.end),
-            filter = Some(LedgerBindings.transactionFilter(party, templateIds)),
+            filter = Some(LedgerBindings.transactionFilter(parties, templateIds)),
             verbose = true
           ),
           _
@@ -113,17 +119,17 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
 
   def flatTransactions(
       begin: LedgerOffset,
-      party: String,
+      parties: Seq[String],
       templateIds: Seq[Identifier]): Future[Vector[Transaction]] =
-    transactions(services.transaction.getTransactions)(_.transactions)(begin, party, templateIds)
+    transactions(services.transaction.getTransactions)(_.transactions)(begin, parties, templateIds)
 
   def transactionTrees(
       begin: LedgerOffset,
-      party: String,
+      parties: Seq[String],
       templateIds: Seq[Identifier]): Future[Vector[TransactionTree]] =
     transactions(services.transaction.getTransactionTrees)(_.transactions)(
       begin,
-      party,
+      parties,
       templateIds)
 
   def getTransactionById(transactionId: String, parties: Seq[String]): Future[TransactionTree] =
