@@ -16,7 +16,7 @@ You can deploy to:
 
 To deploy a DAML project to a ledger, you will need the ledger's hostname (or IP) and the port number for the gRPC Ledger API. The default port number is 6865. Then, inside your DAML project folder, run the following command, taking care to substite ``<HOSTNAME>`` and ``<PORT>`` for the ledger's hostname and port:
 
-.. code-block::
+.. code-block:: none
 
    $ daml deploy --host=<HOSTNAME> --port=<PORT>
 
@@ -32,7 +32,7 @@ Instead of passing ``--host`` and ``--port`` flags to the command above, you can
 
 You can also use the ``daml ledger`` command for more fine-grained deployment options, and to interact with the ledger more generally. Try running ``daml ledger --help`` to get a list of available ledger commands:
 
-.. code-block::
+.. code-block:: none
 
    $ daml ledger --help
    Usage: daml ledger COMMAND
