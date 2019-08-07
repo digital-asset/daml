@@ -45,7 +45,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           val createDivulgence2Transaction = bobTrees(0)
           assert(
             createDivulgence2Transaction.rootEventIds.size == 1,
-            s"The transaction where Divulgence2 is created should contain exactly one root event contains ${createDivulgence2Transaction.rootEventIds.size} instead"
+            s"The transaction that creates Divulgence2 should contain exactly one root event, but it contains ${createDivulgence2Transaction.rootEventIds.size} instead"
           )
 
           val createDivulgence2 =
