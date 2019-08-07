@@ -5,7 +5,7 @@ package com.digitalasset.http.util
 
 import scalaz.EitherT.rightT
 import scalaz.syntax.show._
-import scalaz.{-\/, EitherT, Functor, Show, \/, \/-}
+import scalaz.{-\/, Applicative, EitherT, Functor, Show, \/, \/-}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.higherKinds
@@ -26,6 +26,12 @@ object FutureUtil {
   final class LiftET[E](private val ignore: Int) extends AnyVal {
     def apply[F[_]: Functor, A](fa: F[A]): EitherT[F, E, A] = rightT(fa)
   }
+
+  def eitherT[A, B](fa: Future[A \/ B])(implicit ev: Applicative[Future]): EitherT[Future, A, B] =
+    EitherT.eitherT[Future, A, B](fa)
+
+  def either[A, B](d: A \/ B)(implicit ev: Applicative[Future]): EitherT[Future, A, B] =
+    EitherT.either[Future, A, B](d)
 
   def stripLeft[A: Show, B](fa: Future[A \/ B])(implicit ec: ExecutionContext): Future[B] =
     fa.flatMap {
