@@ -33,8 +33,10 @@ final class LedgerTestContext(
 
   def passTime(t: Duration): Future[Unit] = bindings.passTime(t)
 
-  def activeContracts(party: String, templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
-    bindings.activeContracts(party, templateIds)
+  def activeContracts(
+      parties: Seq[String],
+      templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
+    bindings.activeContracts(parties, templateIds)
 
   def create(party: String, templateId: Identifier, args: Map[String, Value.Sum]): Future[String] =
     bindings.create(party, applicationId, templateId, args)
@@ -48,13 +50,15 @@ final class LedgerTestContext(
   ): Future[Unit] =
     bindings.exercise(party, applicationId, templateId, contractId, choice, args)
 
-  def flatTransactions(party: String, templateIds: Seq[Identifier]): Future[Vector[Transaction]] =
-    bindings.flatTransactions(offsetAtStart, party, templateIds)
+  def flatTransactions(
+      parties: Seq[String],
+      templateIds: Seq[Identifier]): Future[Vector[Transaction]] =
+    bindings.flatTransactions(offsetAtStart, parties, templateIds)
 
   def transactionTrees(
-      party: String,
+      parties: Seq[String],
       templateIds: Seq[Identifier]): Future[Vector[TransactionTree]] =
-    bindings.transactionTrees(offsetAtStart, party, templateIds)
+    bindings.transactionTrees(offsetAtStart, parties, templateIds)
 
   def semanticTesterLedger(parties: Set[Ref.Party], packages: Map[Ref.PackageId, Ast.Package]) =
     new SemanticTesterLedger(bindings)(parties, packages)(this)
