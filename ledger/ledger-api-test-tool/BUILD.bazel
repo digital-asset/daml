@@ -69,8 +69,7 @@ client_server_test(
         # therefore, try to bump the ttl
         "--command-submission-ttl-scale-factor=2",
         # "--all-tests",
-        "--include=DivulgenceIT",
-        "--verbose",
+        "--include=DivulgenceIT,IdentityIT,SemanticTests",
     ],
 
     # Data files available to both client and server.
