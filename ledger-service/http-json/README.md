@@ -32,7 +32,35 @@ cd <daml-root>/
 $ bazel run //ledger-service/http-json:http-json-bin -- localhost 6865 7575
 ```
 
-`Alice` party is hardcoded, the below assumes you are Alice:
+### Choosing a party
+
+You specify your party and other settings with JWT.  In testing
+environments, you can use https://jwt.io to generate your token.
+
+The default "header" is fine.  Under "Payload", fill in:
+
+```
+{
+  "ledgerId": "??????",
+  "applicationId": "foobar",
+  "party": "Alice"
+}
+```
+
+Replace `??????` with the ledger ID your server started with, and
+`Alice` with whatever party you want to use.
+
+Under "Verify Signature", put `secret` as the secret (_not_ base64
+encoded); that is the hardcoded secret for testing.
+
+Then the "Encoded" box should have your token; set HTTP header
+`Authorization: Bearer copy-paste-token-here`.
+
+For production use, we have a tool in development for generating proper
+RSA-encrypted tokens locally, which will arrive when the service also
+supports such tokens.
+
+The below examples assume you are Alice:
 
 ### GET http://localhost:7575/contracts/search
 
