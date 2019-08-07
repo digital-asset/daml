@@ -5,6 +5,8 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.io.PrintStream
 
+import scala.util.Try
+
 trait Reporter[A] extends ((Vector[LedgerTestSummary]) => A)
 
 object Reporter {
@@ -27,6 +29,17 @@ object Reporter {
 
     private def render(e: StackTraceElement): String =
       s"\tat ${e.getClassName}.${e.getMethodName}(${e.getFileName}:${e.getLineNumber})"
+
+    private def extractRelevantLineNumberFromAssertionError(
+        assertionError: AssertionError): Option[Int] =
+      assertionError.getStackTrace
+        .find(
+          stackTraceElement =>
+            Try(Class.forName(stackTraceElement.getClassName))
+              .filter(classOf[LedgerTestSuite].isAssignableFrom)
+              .isSuccess)
+        .map(_.getLineNumber)
+
   }
 
   final class ColorizedPrintStreamReporter(s: PrintStream, printStackTraces: Boolean)
@@ -54,7 +67,12 @@ object Reporter {
           case Result.Skipped(reason) =>
             s.println(yellow(s"The test was skipped (reason: $reason)"))
           case Result.Failed(cause) =>
-            s.println(red(s"The test FAILED: ${cause.getMessage}"))
+            val message =
+              extractRelevantLineNumberFromAssertionError(cause).fold(
+                s"The test FAILED: ${cause.getMessage}") { lineHint =>
+                s"The test FAILED at line $lineHint: ${cause.getMessage}"
+              }
+            s.println(red(message))
             if (printStackTraces) {
               for (renderedStackTraceLine <- render(cause)) s.println(red(renderedStackTraceLine))
             }
