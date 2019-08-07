@@ -85,7 +85,7 @@ client_server_test(
         # to slowly add and fix tests one after the other.
         "--all-tests",
         # "--include {}".format(",".join(conformance_tests_to_run)),
-        "--exclude SemanticTests,DivulgenceIT,Time",
+        "--exclude SemanticTests,DivulgenceIT,TimeIT",
     ],
     data = [
         "//ledger/test-common:SemanticTests.dar",
