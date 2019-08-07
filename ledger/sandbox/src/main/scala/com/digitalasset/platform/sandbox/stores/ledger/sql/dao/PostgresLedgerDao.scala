@@ -669,21 +669,20 @@ private class PostgresLedgerDao(
       rejectionDesc: Option[String],
       offset: Long)
 
-  private val EntryParser: RowParser[ParsedEntry] =
-    Macro.parser[ParsedEntry](
-      "typ",
-      "transaction_id",
-      "command_id",
-      "application_id",
-      "submitter",
-      "workflow_id",
-      "effective_at",
-      "recorded_at",
-      "transaction",
-      "rejection_type",
-      "rejection_description",
-      "ledger_offset"
-    )
+  private val EntryParser: RowParser[ParsedEntry] = (
+    str("typ") ~
+      ledgerString("transaction_id").? ~
+      ledgerString("command_id").? ~
+      ledgerString("application_id").? ~
+      party("submitter").? ~
+      ledgerString("workflow_id")(emptyStringToNullColumn).? ~
+      date("effective_at").? ~
+      date("recorded_at").? ~
+      byteArray("transaction").? ~
+      str("rejection_type").? ~
+      str("rejection_description").? ~
+      long("ledger_offset")
+  ) map (flatten) map (ParsedEntry.tupled)
 
   private val DisclosureParser = (ledgerString("event_id") ~ party("party") map (flatten))
 
@@ -695,7 +694,7 @@ private class PostgresLedgerDao(
         commandId,
         applicationId,
         submitter,
-        Some(workflowId),
+        workflowId,
         Some(effectiveAt),
         Some(recordedAt),
         Some(transactionStream),
@@ -713,7 +712,7 @@ private class PostgresLedgerDao(
         transactionId,
         applicationId,
         submitter,
-        Some(workflowId),
+        workflowId,
         effectiveAt.toInstant,
         recordedAt.toInstant,
         transactionSerializer

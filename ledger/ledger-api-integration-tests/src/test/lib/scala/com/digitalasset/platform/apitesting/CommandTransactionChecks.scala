@@ -620,10 +620,11 @@ abstract class CommandTransactionChecks
           _.commands.ledgerId := context.ledgerId.unwrap
         )
 
-      "process valid commands successfully" in allFixtures { c =>
+      def successfulCommands(c: LedgerContext, workflowId: String) = {
         val cmdId = testIdsGenerator.testCommandId("valid-create-and-exercise-cmd")
         val request = newRequest(c, validCreateAndExercise)
           .update(_.commands.commandId := cmdId)
+          .update(_.commands.workflowId := workflowId)
 
         for {
           GetLedgerEndResponse(Some(currentEnd)) <- c.transactionClient.getLedgerEnd
@@ -655,6 +656,15 @@ abstract class CommandTransactionChecks
           exercisedEvent.contractId shouldBe createdEvent.contractId
           exercisedEvent.consuming shouldBe true
         }
+
+      }
+
+      "process valid commands with workflow ids successfully" in allFixtures { c =>
+        successfulCommands(c, workflowId = UUID.randomUUID().toString)
+      }
+
+      "process valid commands with empty workflow ids successfully" in allFixtures { c =>
+        successfulCommands(c, workflowId = "")
       }
 
       "fail for invalid create arguments" in allFixtures { implicit c =>
