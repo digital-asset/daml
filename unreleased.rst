@@ -8,7 +8,3 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
-
-+ [DAML Docs] For ``damlc docs``, the ``--template`` argument now takes the path to a Mustache template when generating Markdown, Rst, and HTML output. The template can use ``title`` and ``body`` variables to control the appearance of the docs.
-+ [DAML Assistant] Spaces in user names or other parts of file names should now be handled correctly.
-+ [DAML Assistant] The ``daml deploy`` and ``daml ledger`` experimental commands were added. Use ``daml deploy --help`` and ``daml ledger --help`` to find out more about them.
