@@ -172,7 +172,6 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
           Some(new Commands(
             ledgerId = id,
             applicationId = applicationId,
-            workflowId = applicationId, // FIXME Workaround, the Postgres-backed sandbox currently fails with an empty workflowId
             commandId = UUID.randomUUID().toString,
             party = party,
             ledgerEffectiveTime = Some(new Timestamp(let.getEpochSecond, let.getNano)),
