@@ -26,6 +26,7 @@ import Data.Map(Map)
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Data.Vector as Vector (Vector,fromList,toList)
+import qualified Data.Text.Lazy as Text (pack,unpack)
 
 import qualified Google.Protobuf.Empty as LL
 import qualified Google.Protobuf.Timestamp as LL
@@ -121,7 +122,7 @@ lowerValue = LL.Value . Just . \case
     VContract c -> (LL.ValueSumContractId . unContractId) c
     VList vs -> (LL.ValueSumList . LL.List . Vector.fromList . map lowerValue) vs
     VInt i -> (LL.ValueSumInt64 . fromIntegral) i
-    VDecimal t -> LL.ValueSumDecimal t
+    VDecimal t -> LL.ValueSumDecimal $ Text.pack $ show t
     VText t -> LL.ValueSumText t
     VTime x -> (LL.ValueSumTimestamp . fromIntegral . unMicroSecondsSinceEpoch) x
     VParty p -> (LL.ValueSumParty . unParty) p
@@ -140,7 +141,7 @@ lowerVariant = \case
         , variantConstructor = unConstructorId cons
         , variantValue = Just $ lowerValue value
         }
-        
+
 lowerEnum :: Enum -> LL.Enum
 lowerEnum = \case
     Enum{..} ->
@@ -176,7 +177,7 @@ runRaise :: (a -> Perhaps b) -> a -> IO (Perhaps b)
 runRaise raise a = fmap collapseErrors $ try $ evaluate $ raise a
     where
         collapseErrors :: Either SomeException (Perhaps a) -> Perhaps a
-        collapseErrors =  either (Left . ThrewException) id
+        collapseErrors = either (Left . ThrewException) id
 
 
 data RaiseFailureReason = Missing String | Unexpected String | ThrewException SomeException deriving Show
@@ -354,7 +355,7 @@ raiseValue = \case
         LL.ValueSumContractId c -> (return . VContract . ContractId) c
         LL.ValueSumList vs -> (fmap VList . raiseList raiseValue . LL.listElements) vs
         LL.ValueSumInt64 i -> (return . VInt . fromIntegral) i
-        LL.ValueSumDecimal t -> (return . VDecimal) t
+        LL.ValueSumDecimal t -> (return . VDecimal . read . Text.unpack) t
         LL.ValueSumText t -> (return . VText) t
         LL.ValueSumTimestamp x -> (return . VTime . MicroSecondsSinceEpoch . fromIntegral) x
         LL.ValueSumParty p -> (return . VParty . Party) p
