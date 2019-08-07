@@ -7,14 +7,13 @@ package value
 import scala.language.higherKinds
 import data.{Decimal, FrontStack, Ref, SortedLookupList, Time}
 import data.ImmArray.ImmArraySeq
+import data.DataArbitrary._
 import iface.{Type, TypePrim, PrimType => PT}
 
 import scalaz.Id.Id
 import scalaz.syntax.traverse._
 import scalaz.std.option._
 import org.scalacheck.{Arbitrary, Gen, Shrink}
-import Arbitrary.arbitrary
-import scalaz.{@@, Tag}
 
 /** [[ValueGenerators]] produce untyped values; for example, if you use the list gen,
   * you get a heterogeneous list.  The generation target here, on the other hand, is
@@ -131,13 +130,7 @@ object TypedValueGenerators {
       }
       override def injarb[Cid: Arbitrary] = {
         implicit val e: Arbitrary[elt.Inj[Cid]] = elt.injarb
-        sealed trait APS
-        implicit val aaps: Arbitrary[String @@ APS] = Tag.subst(Arbitrary(Gen.asciiPrintableStr))
-        Arbitrary(
-          Tag
-            .unsubst[String, Lambda[k => Gen[Map[k, elt.Inj[Cid]]]], APS](
-              arbitrary[Map[String @@ APS, elt.Inj[Cid]]])
-            .map(SortedLookupList(_)))
+        implicitly[Arbitrary[SortedLookupList[elt.Inj[Cid]]]]
       }
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
     }
