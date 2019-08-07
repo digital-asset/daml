@@ -14,7 +14,7 @@ You can deploy to:
 - The Sandbox with persistence. For information on how to do this, see the section on persistence in :doc:`/tools/sandbox` docs
 - Further deployment options which are in development. For information on these options and their stage of development, see the table below.
 
-To deploy a DAML project to a ledger, you will need the ledger's hostname (or IP) and the port number for the gRPC Ledger API. The default port number is 6865. Then, inside your DAML project folder, run the following command, taking care to substite ``<HOSTNAME>`` and ``<PORT>`` for the ledger's hostname and port:
+To deploy a DAML project to a ledger, you will need the ledger's hostname (or IP) and the port number for the gRPC Ledger API. The default port number is 6865. Then, inside your DAML project folder, run the following command, taking care to substitute the ledger's hostname and port for ``<HOSTNAME>`` and ``<PORT>``:
 
 .. code-block:: none
 
