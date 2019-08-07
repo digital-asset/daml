@@ -109,12 +109,18 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           Vector(alice, bob) <- allocateParties(2)
           divulgence1 <- Divulgence1(alice, alice)
           divulgence2 <- Divulgence2(bob, bob, alice)
-          _ <- divulgence2.fetch(divulgence1)
-//          activeForBob <- activeContracts(bob)
-//          activeForAlice <- activeContracts(alice)
+          _ <- divulgence2.fetch(controller = alice, divulgence1)
+          activeForBob <- activeContracts(bob)
+          activeForAlice <- activeContracts(alice)
         } yield {
-//          assert(activeForBob.size == 1)
-//          assert(activeForAlice.size == 2)
+          assert(activeForBob.size == 1)
+          assert(activeForBob.head.contractId == divulgence2.contractId)
+          assert(activeForBob.head.witnessParties == Seq(bob))
+          assert(activeForAlice.size == 2)
+          assert(
+            activeForAlice.map(_.contractId) == Seq(divulgence1.contractId, divulgence2.contractId))
+          assert(activeForAlice(0).witnessParties == Seq(alice))
+          assert(activeForAlice(1).witnessParties == Seq(alice))
         }
     }
   }
