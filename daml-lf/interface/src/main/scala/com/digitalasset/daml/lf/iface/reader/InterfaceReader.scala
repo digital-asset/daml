@@ -70,13 +70,14 @@ object InterfaceReader {
   }
 
   def readInterface(
-      lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
+      lf: DamlLf.Archive
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
     readInterface(() => DamlLfArchiveReader.readPackage(lf))
 
-  def readInterface(lf: (PackageId, DamlLf.ArchivePayload))
-    : (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) = {
+  def readInterface(
+      lf: (PackageId, DamlLf.ArchivePayload)
+  ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
     readInterface(() => DamlLfArchiveReader.readPackage(lf))
-  }
 
   private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
 
@@ -103,7 +104,7 @@ object InterfaceReader {
       es: InterfaceReaderError.Tree): Errors[ErrorLoc, InvalidDataTypeDefinition] =
     es.collectAndPrune { case x: InvalidDataTypeDefinition => x }
 
-  private[reader] def foldModule(module: Ast.Module): State = {
+  private[reader] def foldModule(module: Ast.Module): State =
     (State() /: module.definitions) {
       case (state, (name, Ast.DDataType(true, params, dataType))) =>
         val fullName = QualifiedName(module.name, name)
@@ -127,7 +128,6 @@ object InterfaceReader {
       case (state, _) =>
         state
     }
-  }
 
   private[reader] def recordOrTemplate(
       name: QualifiedName,
