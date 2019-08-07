@@ -166,14 +166,17 @@ object TypedValueGenerators {
     * Scalacheck support surrounding that type.''
     */
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  val genAddend: Gen[ValueAddend] =
+  val genAddend: Gen[ValueAddend] = Gen.sized { sz =>
+    val self = Gen.resize(sz / 2, Gen.lzy(genAddend))
+    val nestSize = sz / 6
     Gen.frequency(
-      (ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
-      (1, Gen.const(ValueAddend.contractId)),
-      (1, Gen.lzy(genAddend).map(ValueAddend.list(_))),
-      (1, Gen.lzy(genAddend).map(ValueAddend.optional(_))),
-      (1, Gen.lzy(genAddend).map(ValueAddend.map(_))),
+      ((sz max 1) * ValueAddend.leafInstances.length, Gen.oneOf(ValueAddend.leafInstances)),
+      (sz max 1, Gen.const(ValueAddend.contractId)),
+      (nestSize, self.map(ValueAddend.list(_))),
+      (nestSize, self.map(ValueAddend.optional(_))),
+      (nestSize, self.map(ValueAddend.map(_))),
     )
+  }
 
   /** Generate a type and value guaranteed to conform to that type. */
   def genTypeAndValue[Cid](cid: Gen[Cid]): Gen[(Type, Value[Cid])] =
