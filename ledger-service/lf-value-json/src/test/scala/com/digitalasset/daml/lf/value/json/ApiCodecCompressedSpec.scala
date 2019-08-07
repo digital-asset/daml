@@ -40,6 +40,9 @@ class ApiCodecCompressedSpec
     } yield parsed
   }
 
+  private def roundtrip(va: VA)(v: va.Inj[Cid]): Option[va.Inj[Cid]] =
+    va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup))
+
   type Cid = String
   private val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map { case (h, t) => h +: t }
 
@@ -58,8 +61,7 @@ class ApiCodecCompressedSpec
         import va.injshrink
         implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
         forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
-          va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup)) should ===(
-            Some(v))
+          roundtrip(va)(v) should ===(Some(v))
         }
       }
 
@@ -72,8 +74,16 @@ class ApiCodecCompressedSpec
           Some(Some(42L)),
         )
         forEvery(cases) { ool =>
-          va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(ool)), va.t, typeLookup)) should ===(
-            Some(ool))
+          roundtrip(va)(ool) should ===(Some(ool))
+        }
+      }
+
+      "handle lists of optionals" in {
+        val va = VA.optional(VA.optional(VA.list(VA.optional(VA.optional(VA.int64)))))
+        import va.injshrink
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+        forAll(minSuccessful(1000)) { v: va.Inj[Cid] =>
+          roundtrip(va)(v) should ===(Some(v))
         }
       }
       /*
