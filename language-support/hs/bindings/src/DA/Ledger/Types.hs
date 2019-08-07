@@ -58,6 +58,9 @@ module DA.Ledger.Types( -- High Level types for communication over Ledger API
 
     ) where
 
+import DA.Daml.LF.Ast.Base (E10)
+import Data.Fixed
+import Data.Int (Int64)
 import Data.Map (Map)
 import Data.Text.Lazy (Text)
 import Prelude hiding(Enum)
@@ -192,7 +195,7 @@ data Value
     | VContract ContractId
     | VList [Value]
     | VInt Int
-    | VDecimal Text
+    | VDecimal (Fixed E10)
     | VText Text
     | VTime MicroSecondsSinceEpoch
     | VParty Party
@@ -248,7 +251,7 @@ data LedgerConfiguration = LedgerConfiguration
     }
     deriving (Eq,Ord,Show)
 
-newtype MicroSecondsSinceEpoch = MicroSecondsSinceEpoch { unMicroSecondsSinceEpoch :: Int}
+newtype MicroSecondsSinceEpoch = MicroSecondsSinceEpoch { unMicroSecondsSinceEpoch :: Int64}
     deriving (Eq,Ord,Show)
 
 newtype DaysSinceEpoch = DaysSinceEpoch { unDaysSinceEpoch :: Int}
@@ -273,6 +276,6 @@ newtype AbsOffset = AbsOffset { unAbsOffset :: Text } deriving (Eq,Ord,Show)
 newtype Choice = Choice { unChoice :: Text } deriving (Eq,Ord,Show)
 
 newtype Party = Party { unParty :: Text } deriving (Eq,Ord)
-instance Show Party where show = Text.unpack . unParty
+instance Show Party where show p = "'" <> (Text.unpack $ unParty p) <> "'"
 
 newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)
