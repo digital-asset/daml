@@ -1,14 +1,14 @@
-.. _module-ioudsl-47944:
+.. _module-proposaliou-96142:
 
-Module IouDSL
--------------
+Module ProposalIou
+------------------
 
 Templates
 ^^^^^^^^^
 
-.. _type-ioudsl-iou-73876:
+.. _type-proposaliou-iou-51326:
 
-**template** `Iou <type-ioudsl-iou-73876_>`_
+**template** `Iou <type-proposaliou-iou-51326_>`_
 
   .. list-table::
      :widths: 15 10 30
@@ -36,7 +36,7 @@ Templates
 Template Instances
 ^^^^^^^^^^^^^^^^^^
 
-.. _type-ioudsl-proposaliou-92778:
+.. _type-proposaliou-proposaliou-81988:
 
-**template instance** `ProposalIou <type-ioudsl-proposaliou-92778_>`_
-  = Proposal `Iou <type-ioudsl-iou-73876_>`_
+**template instance** `ProposalIou <type-proposaliou-proposaliou-81988_>`_
+  = Proposal `Iou <type-proposaliou-iou-51326_>`_
