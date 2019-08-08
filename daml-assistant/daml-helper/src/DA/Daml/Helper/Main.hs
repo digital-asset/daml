@@ -106,7 +106,7 @@ commandParser = subparser $ fold
         , deployFooter
         ]
 
-    deployFooter = footer "See https://docs.daml.com/deploy/index.html for more information on deployment."
+    deployFooter = footer "See https://docs.daml.com/deploy/ for more information on deployment."
 
     deployCmd = Deploy
         <$> hostAndPortFlags
