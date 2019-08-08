@@ -115,21 +115,6 @@ genrule(
     visibility = ["//visibility:public"],
 )
 
-# The sole purpose of this rule is to get the sandbox.jar with version 0.0.0.
-genrule(
-    name = "sandbox-head-tarball",
-    srcs = [":sandbox-binary_deploy.jar"],
-    outs = ["sandbox-head-tarball.tar.gz"],
-    cmd = """
-        mkdir -p sandbox-head-tarball/sandbox
-        cp -L $(location :sandbox-binary_deploy.jar) sandbox-head-tarball/sandbox/sandbox-0.0.0.jar
-        out=$$(realpath $@)
-        cd sandbox-head-tarball
-        tar zcf $$out sandbox
-    """,
-    visibility = ["//visibility:public"],
-)
-
 alias(
     name = "Test-1.5.dar",
     actual = ":historical-dars/Test-1.5.dar",
