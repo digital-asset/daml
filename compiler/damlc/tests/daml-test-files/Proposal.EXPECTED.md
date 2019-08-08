@@ -1,8 +1,8 @@
-# <a name="module-proposaldsl-55246"></a>Module ProposalDSL
+# <a name="module-proposal-60338"></a>Module Proposal
 
 ## Templates
 
-<a name="type-proposaldsl-proposal-65892"></a>**template** Template t =\> [Proposal](#type-proposaldsl-proposal-65892) t
+<a name="type-proposal-proposal-1384"></a>**template** Template t =\> [Proposal](#type-proposal-proposal-1384) t
 
 > | Field     | Type      | Description |
 > | :-------- | :-------- | :---------- |

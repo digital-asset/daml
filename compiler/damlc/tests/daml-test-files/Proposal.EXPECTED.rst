@@ -1,14 +1,14 @@
-.. _module-proposaldsl-55246:
+.. _module-proposal-60338:
 
-Module ProposalDSL
-------------------
+Module Proposal
+---------------
 
 Templates
 ^^^^^^^^^
 
-.. _type-proposaldsl-proposal-65892:
+.. _type-proposal-proposal-1384:
 
-**template** Template t => `Proposal <type-proposaldsl-proposal-65892_>`_ t
+**template** Template t => `Proposal <type-proposal-proposal-1384_>`_ t
 
   .. list-table::
      :widths: 15 10 30
