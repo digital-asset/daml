@@ -10,7 +10,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{CompletableFuture, CompletionStage}
 
 import akka.NotUsed
-import akka.actor.{Actor, ActorSystem, Kill, Props}
+import akka.actor.{Actor, ActorSystem, PoisonPill, Props}
+import akka.pattern.gracefulStop
 import akka.stream.Materializer
 import akka.stream.scaladsl.{Sink, Source}
 import com.daml.ledger.participant.state.backport.TimeModel
@@ -29,7 +30,7 @@ import org.slf4j.LoggerFactory
 import scala.collection.JavaConverters._
 import scala.collection.breakOut
 import scala.concurrent.duration._
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.Try
 
 object InMemoryKVParticipantState {
@@ -486,9 +487,9 @@ class InMemoryKVParticipantState(
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(initialConditions)
 
-  /** Shutdown by killing the [[CommitActor]]. */
+  /** Shutdown the in-memory participant state. */
   override def close(): Unit = {
-    commitActorRef ! Kill
+    val _ = Await.ready(gracefulStop(commitActorRef, 5.seconds, PoisonPill), 6.seconds)
   }
 
   private def getLogEntry(state: State, entryId: DamlLogEntryId): DamlLogEntry = {

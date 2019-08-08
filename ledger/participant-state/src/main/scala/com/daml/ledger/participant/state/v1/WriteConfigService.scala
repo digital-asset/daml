@@ -15,6 +15,9 @@ trait WriteConfigService {
     * The [[Configuration]] contains the identity of the participant that is allowed
     * to further change the configuration. The initial configuration can be submitted
     * by any participant.
+    *
+    * If configuration changes are not supported by the implementation then the
+    * [[SubmissionResult.NotSupported]] should be returned.
     **
     * @param maxRecordTime: The maximum record time after which the request is rejected.
     * @param config: The new ledger configuration.

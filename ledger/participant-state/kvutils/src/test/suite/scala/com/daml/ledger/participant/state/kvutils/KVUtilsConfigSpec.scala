@@ -36,7 +36,7 @@ class KVUtilsConfigSpec extends WordSpec with Matchers {
 
   "configuration" should {
 
-    "can build, pack, unpack and parse" in {
+    "be able to build, pack, unpack and parse" in {
       val subm = KeyValueSubmission.unpackDamlSubmission(
         KeyValueSubmission.packDamlSubmission(
           KeyValueSubmission.configurationToSubmission(

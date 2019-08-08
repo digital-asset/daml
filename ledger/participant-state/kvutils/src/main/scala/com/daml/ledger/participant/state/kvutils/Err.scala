@@ -12,7 +12,6 @@ import com.daml.ledger.participant.state.v1.PackageId
 sealed trait Err extends RuntimeException with Product with Serializable
 
 object Err {
-  // Non-fatal errors
   final case class InvalidSubmission(message: String) extends Err {
     override def getMessage: String = s"Invalid submission: $message"
   }
