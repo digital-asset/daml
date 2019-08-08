@@ -94,25 +94,33 @@ commandParser = subparser $ fold
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
 
-    deployCmdInfo = progDesc . concat $
-        [ "Deploy the current DAML project to a remote DAML ledger. "
-        , "This will allocate the project's parties on the ledger "
-        , "(if missing) and upload the project's built DAR file. You "
-        , "can specify the ledger in daml.yaml with the ledger.host and "
-        , "ledger.port options, or you can pass the --host and --port "
-        , "flags to this command instead."
+    deployCmdInfo = mconcat
+        [ progDesc $ concat
+              [ "Deploy the current DAML project to a remote DAML ledger. "
+              , "This will allocate the project's parties on the ledger "
+              , "(if missing) and upload the project's built DAR file. You "
+              , "can specify the ledger in daml.yaml with the ledger.host and "
+              , "ledger.port options, or you can pass the --host and --port "
+              , "flags to this command instead."
+              ]
+        , deployFooter
         ]
+
+    deployFooter = footer "See https://docs.daml.com/deploy/index.html for more information on deployment."
 
     deployCmd = Deploy
         <$> hostAndPortFlags
 
-    ledgerCmdInfo = forwardOptions <>
-        (progDesc . concat $
-            [ "Interact with a remote DAML ledger. You can specify "
-            , "the ledger in daml.yaml with the ledger.host and "
-            , "ledger.port options, or you can pass the --host "
-            , "and --port flags to each command below."
-            ])
+    ledgerCmdInfo = mconcat
+        [ forwardOptions
+        , progDesc $ concat
+              [ "Interact with a remote DAML ledger. You can specify "
+              , "the ledger in daml.yaml with the ledger.host and "
+              , "ledger.port options, or you can pass the --host "
+              , "and --port flags to each command below."
+              ]
+        , deployFooter
+        ]
 
     ledgerCmd = asum
         [ subparser $ fold
