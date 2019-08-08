@@ -34,5 +34,6 @@ da_haskell_library(
         "//compiler/daml-lf-tools",
         "//compiler/hie-core",
         "//libs-haskell/da-hs-base",
+        "//:sdk-version-hs-lib",
     ],
 )

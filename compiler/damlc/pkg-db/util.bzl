@@ -92,7 +92,7 @@ def _daml_package_rule_impl(ctx):
             content = PACKAGE_CONF_TEMPLATE.format(
                 name = ctx.attr.pkg_name,
                 modules = " ".join(modules.keys()),
-                depends = "-__SDK_VERSION__ ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
+                depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
 
             ),
         )

@@ -141,9 +141,10 @@ genrule(
         COMPONENT_VERSION=$$(cat $(location :component-version))
         cat > $@ <<EOF
 module SdkVersion where
-sdkVersion, componentVersion :: String
+sdkVersion, componentVersion, damlStdlib :: String
 sdkVersion = "$$SDK_VERSION"
 componentVersion = "$$COMPONENT_VERSION"
+damlStdlib = "daml-stdlib-" ++ sdkVersion
 EOF
     """,
 )

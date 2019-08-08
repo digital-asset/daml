@@ -34,5 +34,6 @@ da_haskell_library(
         "//compiler/hie-core",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//:sdk-version-hs-lib",
     ],
 )

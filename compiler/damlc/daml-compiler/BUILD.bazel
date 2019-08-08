@@ -41,5 +41,6 @@ da_haskell_library(
         "//compiler/hie-core",
         "//compiler/scenario-service/client",
         "//libs-haskell/da-hs-base",
+        "//:sdk-version-hs-lib",
     ],
 )
