@@ -130,6 +130,7 @@ class ApiCodecCompressedSpec
       c("\"1990-11-09T04:30:23.123456Z\"", VA.timestamp)(
         Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z",
         "\"1990-11-09T04:30:23.1234569Z\""),
+      c("\"1970-01-01T00:00:00Z\"", VA.timestamp)(Time.Timestamp assertFromLong 0),
       c("\"42\"", VA.int64)(42, "42", "\"+42\""),
       c("\"0\"", VA.int64)(0, "0", "-0", "\"+0\"", "\"-0\""),
       c("\"Alice\"", VA.party)(Ref.Party assertFromString "Alice"),
@@ -148,6 +149,17 @@ class ApiCodecCompressedSpec
       c("""{"Some": {"Some": {"Some": "42"}}}""", VAs.oooi)(Some(Some(Some(42))) /*, "[[42]]"*/ ),
     )
 
+    val failures = Table(
+      ("JSON", "type"),
+      ("42.3", VA.int64),
+      ("9223372036854775808", VA.int64),
+      ("-9223372036854775809", VA.int64),
+      ("\"garbage\"", VA.int64),
+      ("\"   42 \"", VA.int64),
+      ("\"1970-01-01T00:00:00\"", VA.timestamp),
+      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp),
+    )
+
     "dealing with particular formats" should {
       "succeed in cases" in forEvery(successes) { (_, serialized, typ, expected, alternates) =>
         val json = serialized.parseJson
@@ -158,6 +170,13 @@ class ApiCodecCompressedSpec
         forEvery(tAlternates) { alternate =>
           val aJson = alternate.parseJson
           typ.prj(jsValueToApiValue(aJson, typ.t, typeLookup)) should ===(Some(expected))
+        }
+      }
+
+      "fail in cases" in forEvery(failures) { (serialized, typ) =>
+        val json = serialized.parseJson // we don't test *the JSON decoder*
+        a[DeserializationException] shouldBe thrownBy {
+          jsValueToApiValue(json, typ.t, typeLookup)
         }
       }
     }
