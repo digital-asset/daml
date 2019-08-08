@@ -9,9 +9,10 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestExcep
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.value.Identifier
+import io.grpc.{Status, StatusException, StatusRuntimeException}
 
-import scala.concurrent.Future
 import scala.concurrent.duration.Duration
+import scala.concurrent.{ExecutionContext, Future}
 
 private[testtool] object LedgerTestSuite {
 
@@ -69,4 +70,18 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
       implicit context: LedgerTestContext): Future[Vector[TransactionTree]] =
     context.transactionTrees(party +: parties, templateIds)
 
+  final def assertGrpcError[A](t: Throwable, expectedCode: Status.Code, pattern: String)(
+      implicit ec: ExecutionContext): Unit = {
+    assert(
+      t.isInstanceOf[StatusRuntimeException] || t.isInstanceOf[StatusException],
+      "Exception is neither a StatusRuntimeException nor a StatusException")
+    val (actualCode, message) = t match {
+      case sre: StatusRuntimeException => (sre.getStatus.getCode, sre.getStatus.getDescription)
+      case se: StatusException => (se.getStatus.getCode, se.getStatus.getDescription)
+    }
+    assert(actualCode == expectedCode, s"Expected code [$expectedCode], but got [$actualCode].")
+    assert(
+      message.contains(pattern),
+      s"Error message did not contain [$pattern], but was [$message].")
+  }
 }

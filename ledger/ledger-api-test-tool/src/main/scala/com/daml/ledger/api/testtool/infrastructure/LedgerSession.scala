@@ -9,6 +9,7 @@ import java.util.concurrent.TimeUnit
 import io.grpc.ManagedChannel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.util.concurrent.DefaultThreadFactory
 import org.slf4j.LoggerFactory
 
@@ -69,6 +70,7 @@ private[testtool] object LedgerSession {
     val managedChannelBuilder = NettyChannelBuilder
       .forAddress(config.host, config.port)
       .eventLoopGroup(eventLoopGroup)
+      .channelType(classOf[NioSocketChannel])
       .directExecutor()
       .usePlaintext()
     for (ssl <- config.ssl; sslContext <- ssl.client) {

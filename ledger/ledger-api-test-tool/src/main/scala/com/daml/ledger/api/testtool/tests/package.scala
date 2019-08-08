@@ -30,6 +30,7 @@ package object tests {
     "DivulgenceIT" -> (new Divulgence(_)),
     "IdentityIT" -> (new Identity(_)),
     "TimeIT" -> (new Time(_)),
+    "ContractKeysIT" -> (new ContractKeys(_)),
   )
 
   val all = default ++ optional
