@@ -13,9 +13,7 @@ import scalaz.std.list._
 import scalaz.std.option._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
-import com.digitalasset.daml.lf.language.Ast
-import com.digitalasset.daml.lf.language.Ast.TypeVarName
+import com.digitalasset.daml.lf.language.{Ast, Util => AstUtil}
 
 import scala.collection.immutable.Map
 
@@ -26,16 +24,16 @@ object InterfaceReader {
   final case class UnserializableDataType(error: String) extends InterfaceReaderError
   final case class InvalidDataTypeDefinition(error: String) extends InterfaceReaderError
 
-  private def errorMessage(ctx: QualifiedName, reason: String): String =
+  private def errorMessage(ctx: Ref.QualifiedName, reason: String): String =
     s"Invalid data definition: $ctx, reason: $reason"
 
   private def invalidDataTypeDefinition(
-      ctx: QualifiedName,
+      ctx: Ref.QualifiedName,
       reason: String
   ) = -\/(InvalidDataTypeDefinition(errorMessage(ctx, reason)))
 
   private def unserializableDataType(
-      ctx: QualifiedName,
+      ctx: Ref.QualifiedName,
       reason: String
   ) = -\/(UnserializableDataType(errorMessage(ctx, reason)))
 
@@ -50,7 +48,7 @@ object InterfaceReader {
   }
 
   private[reader] final case class State(
-      typeDecls: Map[QualifiedName, iface.InterfaceType] = Map.empty,
+      typeDecls: Map[Ref.QualifiedName, iface.InterfaceType] = Map.empty,
       errors: InterfaceReaderError.Tree = mzero[InterfaceReaderError.Tree]) {
 
     def addTypeDecl(nd: (Ref.QualifiedName, iface.InterfaceType)): State =
@@ -61,7 +59,8 @@ object InterfaceReader {
     def alterErrors(e: InterfaceReaderError.Tree => InterfaceReaderError.Tree): State =
       copy(errors = e(errors))
 
-    def asOut(packageId: PackageId): iface.Interface = iface.Interface(packageId, this.typeDecls)
+    def asOut(packageId: Ref.PackageId): iface.Interface =
+      iface.Interface(packageId, this.typeDecls)
   }
 
   private[reader] object State {
@@ -75,15 +74,15 @@ object InterfaceReader {
     readInterface(() => DamlLfArchiveReader.readPackage(lf))
 
   def readInterface(
-      lf: (PackageId, DamlLf.ArchivePayload)
+      lf: (Ref.PackageId, DamlLf.ArchivePayload)
   ): (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
     readInterface(() => DamlLfArchiveReader.readPackage(lf))
 
-  private val dummyPkgId = PackageId.assertFromString("-dummyPkg-")
+  private val dummyPkgId = Ref.PackageId.assertFromString("-dummyPkg-")
 
   private val dummyInterface = iface.Interface(dummyPkgId, Map.empty)
 
-  def readInterface(f: () => String \/ (PackageId, Ast.Package))
+  def readInterface(f: () => String \/ (Ref.PackageId, Ast.Package))
     : (Errors[ErrorLoc, InvalidDataTypeDefinition], iface.Interface) =
     f() match {
       case -\/(e) =>
@@ -107,8 +106,8 @@ object InterfaceReader {
   private[reader] def foldModule(module: Ast.Module): State =
     (State() /: module.definitions) {
       case (state, (name, Ast.DDataType(true, params, dataType))) =>
-        val fullName = QualifiedName(module.name, name)
-        val tyVars: ImmArraySeq[TypeVarName] = params.map(_._1).toSeq
+        val fullName = Ref.QualifiedName(module.name, name)
+        val tyVars: ImmArraySeq[Ast.TypeVarName] = params.map(_._1).toSeq
 
         val result = dataType match {
           case dfn: Ast.DataRecord =>
@@ -130,8 +129,8 @@ object InterfaceReader {
     }
 
   private[reader] def recordOrTemplate(
-      name: QualifiedName,
-      tyVars: ImmArraySeq[TypeVarName],
+      name: Ref.QualifiedName,
+      tyVars: ImmArraySeq[Ast.TypeVarName],
       record: Ast.DataRecord
   ) =
     for {
@@ -145,7 +144,7 @@ object InterfaceReader {
     } yield decl
 
   private[reader] def template(
-      name: QualifiedName,
+      name: Ref.QualifiedName,
       dfn: Ast.Template,
       fields: ImmArraySeq[(Ast.FieldName, Type)]
   ) =
@@ -157,7 +156,7 @@ object InterfaceReader {
     } yield name -> iface.InterfaceType.Template(Record(fields), DefTemplate(choices.toMap, key))
 
   private def visitChoice(
-      ctx: QualifiedName,
+      ctx: Ref.QualifiedName,
       choice: Ast.TemplateChoice
   ): InterfaceReaderError \/ TemplateChoice[Type] =
     for {
@@ -171,8 +170,8 @@ object InterfaceReader {
       )
 
   private[reader] def variant(
-      name: QualifiedName,
-      tyVars: ImmArraySeq[TypeVarName],
+      name: Ref.QualifiedName,
+      tyVars: ImmArraySeq[Ast.TypeVarName],
       variant: Ast.DataVariant
   ) = {
     for {
@@ -181,8 +180,8 @@ object InterfaceReader {
   }
 
   private[reader] def enum(
-      name: QualifiedName,
-      tyVars: ImmArraySeq[TypeVarName],
+      name: Ref.QualifiedName,
+      tyVars: ImmArraySeq[Ast.TypeVarName],
       enum: Ast.DataEnum) =
     if (tyVars.isEmpty)
       \/-(
@@ -191,12 +190,12 @@ object InterfaceReader {
     else
       invalidDataTypeDefinition(name, "non-empty type parameters for enum type $name")
 
-  private[reader] def fieldsOrCons(ctx: QualifiedName, fields: ImmArray[(Ref.Name, Ast.Type)])
+  private[reader] def fieldsOrCons(ctx: Ref.QualifiedName, fields: ImmArray[(Ref.Name, Ast.Type)])
     : InterfaceReaderError \/ ImmArraySeq[(Ref.Name, Type)] =
     fields.toSeq traverseU { case (fieldName, typ) => type_(ctx, typ).map(x => fieldName -> x) }
 
   private def type_(
-      ctx: QualifiedName,
+      ctx: Ref.QualifiedName,
       a: Ast.Type,
       args: FrontStack[Type] = FrontStack.empty
   ): InterfaceReaderError \/ Type =
@@ -208,16 +207,23 @@ object InterfaceReader {
           unserializableDataType(ctx, "arguments passed to a type parameter")
       case Ast.TTyCon(c) =>
         \/-(TypeCon(TypeConName(c), args.toImmArray.toSeq))
-      case Ast.TBuiltin(bt) =>
-        primitiveType(ctx, bt, args.toImmArray.toSeq)
+      case AstUtil.TNumeric(arg) =>
+        arg match {
+          case Ast.TNat(_) =>
+            \/-(TypePrim(PrimTypeNumeric, ImmArraySeq.empty))
+          case _ =>
+            unserializableDataType(ctx, s"unserializable data type: ${a.pretty}")
+        }
       case Ast.TApp(tyfun, arg) =>
         type_(ctx, arg, FrontStack.empty) flatMap (tArg => type_(ctx, tyfun, tArg +: args))
-      case Ast.TForall(_, _) | Ast.TTuple(_) | Ast.TNat(_) =>
+      case Ast.TBuiltin(bt) =>
+        primitiveType(ctx, bt, args.toImmArray.toSeq)
+      case Ast.TForall(_, _) | Ast.TTuple(_) =>
         unserializableDataType(ctx, s"unserializable data type: ${a.pretty}")
     }
 
   private def primitiveType(
-      ctx: QualifiedName,
+      ctx: Ref.QualifiedName,
       a: Ast.BuiltinType,
       args: ImmArraySeq[Type]
   ): InterfaceReaderError \/ TypePrim =
@@ -226,7 +232,6 @@ object InterfaceReader {
         case Ast.BTUnit => \/-((0, PrimType.Unit))
         case Ast.BTBool => \/-((0, PrimType.Bool))
         case Ast.BTInt64 => \/-((0, PrimType.Int64))
-        case Ast.BTNumeric => \/-((1, PrimType.Numeric))
         case Ast.BTText => \/-((0, PrimType.Text))
         case Ast.BTDate => \/-((0, PrimType.Date))
         case Ast.BTTimestamp => \/-((0, PrimType.Timestamp))
@@ -235,6 +240,8 @@ object InterfaceReader {
         case Ast.BTList => \/-((1, PrimType.List))
         case Ast.BTOptional => \/-((1, PrimType.Optional))
         case Ast.BTMap => \/-((1, PrimType.Map))
+        case Ast.BTNumeric =>
+          unserializableDataType(ctx, s"Unapplied Numeric")
         case Ast.BTUpdate | Ast.BTScenario | Ast.BTArrow =>
           unserializableDataType(ctx, s"Unserializable primitive type: $a")
       }
