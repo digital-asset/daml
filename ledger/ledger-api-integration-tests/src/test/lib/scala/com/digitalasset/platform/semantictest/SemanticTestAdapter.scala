@@ -10,8 +10,8 @@ import akka.stream.scaladsl.Sink
 import com.digitalasset.api.util.TimestampConversion
 import com.digitalasset.daml.lf.command.Commands
 import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.engine.Event
+import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.transaction.Transaction.{Value => TxValue}
 import com.digitalasset.daml.lf.value.Value
@@ -24,8 +24,9 @@ import com.digitalasset.platform.apitesting.LedgerContext
 import com.digitalasset.platform.participant.util.LfEngineToApi
 import com.digitalasset.platform.tests.integration.ledger.api.LedgerTestingHelpers
 import com.google.protobuf.timestamp.Timestamp
-
+import io.grpc.{Status, StatusRuntimeException}
 import scalaz.syntax.tag._
+
 import scala.collection.breakOut
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -94,11 +95,16 @@ class SemanticTestAdapter(
   }
 
   override def currentTime: Future[Time.Timestamp] =
-    getTime.map(
-      apiTimestamp =>
-        Time.Timestamp
-          .fromInstant(TimestampConversion.toInstant(apiTimestamp))
-          .fold((s: String) => throw new RuntimeException(s), identity))
+    getTime
+      .map(
+        apiTimestamp =>
+          Time.Timestamp
+            .fromInstant(TimestampConversion.toInstant(apiTimestamp))
+            .fold((s: String) => throw new RuntimeException(s), identity))
+      .recover {
+        case t: StatusRuntimeException if t.getStatus.getCode == Status.Code.UNIMPLEMENTED =>
+          Time.Timestamp.now()
+      }
 
   private def getTime: Future[Timestamp] = {
     ClientAdapter
