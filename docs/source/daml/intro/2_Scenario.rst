@@ -147,6 +147,8 @@ The lines above and below ``create Token_Test:Token`` give additional informatio
 - ``known to (since): 'Alice' (#0)`` tells you who knows about the contract. The fact that ``'Alice'`` appears in the list is equivalent to a ``x`` in the tabular view. The ``(#0)`` gives you the additional information that ``Alice`` learned about the contract in commit ``#0``.
 - Everything following ``with`` shows the create arguments.
 
+For more on understanding scenario results, revert to :doc:`daml-studio`
+
 Exercises
 ---------
 
