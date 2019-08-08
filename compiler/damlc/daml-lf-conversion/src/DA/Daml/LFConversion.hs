@@ -462,7 +462,7 @@ convertBind env x = convertBind2 env x
 
 convertBind2 :: Env -> CoreBind -> ConvertM [Definition]
 convertBind2 env (NonRec name x)
-    | Just internals <- lookupUFM (internalFunctions $ envLfVersion env) (envGHCModuleName env)
+    | Just internals <- lookupUFM internalFunctions (envGHCModuleName env)
     , getOccFS name `elementOfUniqSet` internals
     = pure []
     -- NOTE(MH): Desugaring `template X` will result in a type class
@@ -513,8 +513,8 @@ convertBind2 env (Rec xs) = concatMapM (\(a, b) -> convertBind env (NonRec a b))
 internalTypes :: UniqSet FastString
 internalTypes = mkUniqSet ["Scenario","Update","ContractId","Time","Date","Party","Pair", "TextMap"]
 
-internalFunctions :: LF.Version -> UniqFM (UniqSet FastString)
-internalFunctions version = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
+internalFunctions :: UniqFM (UniqSet FastString)
+internalFunctions = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
     [ ("DA.Internal.Record",
         [ "getFieldPrim"
         , "setFieldPrim"
@@ -758,7 +758,7 @@ convertExpr env0 e = do
           withTmArg env (varV1, t) args $ \x args ->
             pure (ESome t x, args)
     go env (Var x) args
-        | Just internals <- lookupUFM (internalFunctions $ envLfVersion env) modName
+        | Just internals <- lookupUFM internalFunctions modName
         , getOccFS x `elementOfUniqSet` internals
         = unsupported "Direct call to internal function" x
         | getOccFS x == "()" = fmap (, args) $ pure EUnit
