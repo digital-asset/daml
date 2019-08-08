@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.value.json
 import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
+import com.digitalasset.daml.lf.iface
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
@@ -30,7 +31,6 @@ import scalaz.syntax.std.string._
 abstract class ApiCodecCompressed[Cid](
     val encodeDecimalAsString: Boolean,
     val encodeInt64AsString: Boolean) {
-  import ApiCodecCompressed.{fieldSome, fieldNone}
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -49,10 +49,13 @@ abstract class ApiCodecCompressed[Cid](
     case d: V.ValueDate => JsString(d.toIso8601)
     case V.ValueParty(v) => JsString(v)
     case V.ValueUnit => JsObject.empty
-    // Note: Optional needs to be boxed, otherwise the following values are indistinguishable:
-    // None, Some(None), Some(Some(None)), ...
-    case V.ValueOptional(None) => JsObject(fieldNone -> JsObject.empty)
-    case V.ValueOptional(Some(v)) => JsObject(fieldSome -> apiValueToJsValue(v))
+    case V.ValueOptional(None) => JsNull
+    case V.ValueOptional(Some(v)) =>
+      v match {
+        case V.ValueOptional(None) => JsArray()
+        case V.ValueOptional(Some(_)) => JsArray(apiValueToJsValue(v))
+        case _ => apiValueToJsValue(v)
+      }
     case v: V.ValueMap[Cid] =>
       apiMapToJsValue(v)
     case _: V.ValueTuple[Cid] => serializationError("impossible! tuples are not serializable")
@@ -129,24 +132,34 @@ abstract class ApiCodecCompressed[Cid](
         case JsArray(v) =>
           V.ValueList(v.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to[FrontStack])
       }
-      case Model.DamlLfPrimType.Optional => {
-        case JsObject(f) =>
-          f.headOption match {
-            case Some((`fieldNone`, _)) => V.ValueOptional(None)
-            case Some((`fieldSome`, v)) =>
-              V.ValueOptional(Some(jsValueToApiValue(v, prim.typArgs.head, defs)))
-            case Some(_) => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
-            case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
-          }
-      }
+      case Model.DamlLfPrimType.Optional =>
+        val typArg = prim.typArgs.head
+        val useArray = nestsOptional(prim);
+        {
+          case JsNull => V.ValueOptional(None)
+          case JsArray(ov) if useArray =>
+            ov match {
+              case Seq() => V.ValueOptional(Some(V.ValueOptional(None)))
+              case Seq(v) => V.ValueOptional(Some(jsValueToApiValue(v, typArg, defs)))
+              case _ =>
+                deserializationError(s"Can't read ${value.prettyPrint} as Optional of Optional")
+            }
+          case _ if !useArray => V.ValueOptional(Some(jsValueToApiValue(value, typArg, defs)))
+        }
       case Model.DamlLfPrimType.Map => {
         case JsObject(a) =>
-          V.ValueMap(SortedLookupList(a.map {
-            case (k, v) => k -> jsValueToApiValue(v, prim.typArgs.head, defs)
+          V.ValueMap(SortedLookupList(a.transform { (_, v) =>
+            jsValueToApiValue(v, prim.typArgs.head, defs)
           }))
       }
     }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
   }
+
+  private[this] def nestsOptional(prim: iface.TypePrim): Boolean =
+    prim match {
+      case iface.TypePrim(_, Seq(iface.TypePrim(iface.PrimType.Optional, _))) => true
+      case _ => false
+    }
 
   private[this] def jsValueToApiDataType(
       value: JsValue,
@@ -273,11 +286,6 @@ abstract class ApiCodecCompressed[Cid](
 
 object ApiCodecCompressed
     extends ApiCodecCompressed[String](encodeDecimalAsString = true, encodeInt64AsString = true) {
-  // ------------------------------------------------------------------------------------------------------------------
-  // Constants used in the encoding
-  // ------------------------------------------------------------------------------------------------------------------
-  private final val fieldSome: String = "Some"
-  private final val fieldNone: String = "None"
 
   override protected[this] def apiContractIdToJsValue(v: String): JsValue = JsString(v)
 

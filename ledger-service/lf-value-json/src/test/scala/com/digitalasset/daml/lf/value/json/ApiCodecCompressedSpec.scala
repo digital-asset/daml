@@ -141,13 +141,15 @@ class ApiCodecCompressedSpec
       c("true", VA.bool)(true),
       c("""["1", "2", "3"]""", VA.list(VA.int64))(Vector(1, 2, 3), "[1, 2, 3]"),
       c("""{"a": "b", "c": "d"}""", VA.map(VA.text))(SortedLookupList(Map("a" -> "b", "c" -> "d"))),
-      c("""{"None": {}}""", VAs.ooi)(None /*, "null"*/ ),
-      c("""{"Some": {"None": {}}}""", VAs.ooi)(Some(None) /*, "[]"*/ ),
-      c("""{"Some": {"Some": "42"}}""", VAs.ooi)(Some(Some(42)) /*, """[42]"""*/ ),
-      c("""{"None": {}}""", VAs.oooi)(None /*, "null"*/ ),
-      c("""{"Some": {"None": {}}}""", VAs.oooi)(Some(None) /*, "[]"*/ ),
-      c("""{"Some": {"Some": {"None": {}}}}""", VAs.oooi)(Some(Some(None)) /*, "[[]]"*/ ),
-      c("""{"Some": {"Some": {"Some": "42"}}}""", VAs.oooi)(Some(Some(Some(42))) /*, "[[42]]"*/ ),
+      c("\"42\"", VA.optional(VA.int64))(Some(42)),
+      c("null", VA.optional(VA.int64))(None),
+      c("null", VAs.ooi)(None),
+      c("[]", VAs.ooi)(Some(None), "[null]"),
+      c("""["42"]""", VAs.ooi)(Some(Some(42))),
+      c("null", VAs.oooi)(None),
+      c("[]", VAs.oooi)(Some(None), "[null]"),
+      c("[[]]", VAs.oooi)(Some(Some(None)), "[[null]]"),
+      c("""[["42"]]""", VAs.oooi)(Some(Some(Some(42)))),
     )
 
     val failures = Table(
