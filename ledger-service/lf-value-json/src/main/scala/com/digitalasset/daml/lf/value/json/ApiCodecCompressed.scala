@@ -223,9 +223,7 @@ abstract class ApiCodecCompressed[Cid](
       case prim: Model.DamlLfTypePrim =>
         jsValueToApiPrimitive(value, prim, defs)
       case typeCon: Model.DamlLfTypeCon =>
-        val id = Model.DamlLfIdentifier(
-          typeCon.name.identifier.packageId,
-          typeCon.name.identifier.qualifiedName)
+        val id = typeCon.name.identifier
         // val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
         val dt = Model.damlLfInstantiate(
           typeCon,
