@@ -63,7 +63,6 @@ client_server_test(
         # machine with timeouts, we value lack of flakes on CI.
         "--timeout-scale-factor=10",
     ],
-
     # Data files available to both client and server.
     data = [
         "//ledger/test-common:SemanticTests.dar",
@@ -83,7 +82,7 @@ client_server_test(
         # without competition to avoid flakiness.
         "exclusive",
     ],
-)
+) if not is_windows else None
 
 client_server_test(
     name = "ledger-api-test-tool-ssltest",
@@ -93,18 +92,16 @@ client_server_test(
         "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.crt))",
         "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
         "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.pem))",
-        # See note for same argument in :ledger-api-test-tool-test.
+        # NOTE(GP): our CI has a tendency to be more unpredictable than local
+        # machine with timeouts, we value lack of flakes on CI.
         "--timeout-scale-factor=10",
-        # See note for same argument in :ledger-api-test-tool-test.
-        "--command-submission-ttl-scale-factor=2",
     ],
-
     # Data files available to both client and server.
     data = [
         "//ledger/test-common:SemanticTests.dar",
         "//ledger/test-common:Test.dar",
     ] + glob(["test/main/resources/*"]),
-    server = "//ledger/api-server-damlonx/reference:reference",
+    server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = [
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:SemanticTests.dar))",
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test.dar))",
@@ -117,4 +114,4 @@ client_server_test(
         # without competition to avoid flakiness.
         "exclusive",
     ],
-)
+) if not is_windows else None
