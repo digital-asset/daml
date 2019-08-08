@@ -11,9 +11,11 @@ import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
+import io.grpc.{Status, StatusRuntimeException}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 final class LedgerTestContext(
     val applicationId: String,
@@ -63,4 +65,9 @@ final class LedgerTestContext(
   def semanticTesterLedger(parties: Set[Ref.Party], packages: Map[Ref.PackageId, Ast.Package]) =
     new SemanticTesterLedger(bindings)(parties, packages)(this)
 
+  def extractErrorStatus[A](future: Future[A]): Future[Status.Code] =
+    future.failed
+      .collect {
+        case NonFatal(ex: StatusRuntimeException) => ex.getStatus.getCode
+      }
 }
