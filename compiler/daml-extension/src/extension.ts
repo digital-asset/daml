@@ -12,7 +12,6 @@ import * as cp from 'child_process';
 import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument } from 'vscode-languageclient';
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
 import * as which from 'which';
-import { VisualTaskProvider } from './visualTaskProvider';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 let daSdkPath: string = path.join(os.homedir(), '.da');
@@ -30,7 +29,6 @@ export async function activate(context: vscode.ExtensionContext) {
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
 
-    visualTaskProvider = vscode.tasks.registerTaskProvider("custombuildscript", new VisualTaskProvider)
     const webviewSrc: Uri =
         vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')).
         with({scheme: 'vscode-resource'});
@@ -57,6 +55,7 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     let d2 = vscode.commands.registerCommand('daml.openDamlDocs', openDamlDocs);
+    let d5 = vscode.commands.registerCommand('daml.visual', execVisual);
 
     let highlight = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
@@ -86,7 +85,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     let d4 = vscode.commands.registerCommand("daml.resetTelemetryConsent", resetTelemetryConsent(context));
 
-    context.subscriptions.push(d1, d2, d3, d4);
+    context.subscriptions.push(d1, d2, d3, d4, d5);
 }
 
 
@@ -98,6 +97,24 @@ function getViewColumnForShowResource(): ViewColumn {
         case ViewColumn.Two: return ViewColumn.Three;
         default: return active.viewColumn;
     }
+}
+
+function execVisual() {
+        let cmd = "daml clean && daml build && daml damlc visual .daml/dist/*dar > visual.dot"
+        let workspaceRoot = vscode.workspace.rootPath;
+        let execOpts = {cwd: workspaceRoot}
+		cp.exec(cmd, execOpts, (error, stdout, stderr) => {
+            console.log('stdout: ' + stdout);
+            console.log('stderr: ' + stderr);
+            if (!error) {
+                vscode.window.showInformationMessage("Visual successfully generated, install a graphviz plugin to see image")
+                vscode.workspace.openTextDocument(vscode.workspace.rootPath +"/visual.dot").then( doc =>
+                vscode.window.showTextDocument(doc))
+            }
+            if (error) {
+                vscode.window.showErrorMessage("Error Generating visual" + error)
+            }
+		});
 }
 
 function openDamlDocs() {
