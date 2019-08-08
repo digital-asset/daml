@@ -262,11 +262,15 @@ isTypeableInfo :: Bind Var -> Bool
 isTypeableInfo (NonRec name _) = any (`T.isPrefixOf` getOccText name) ["$krep", "$tc", "$trModule"]
 isTypeableInfo _ = False
 
-
+-- TODO(MH): We should run this on an `LF.Expr` instead of a `GHC.Expr`.
+-- This will avoid a fair bit of repetition.
 convertGenericTemplate :: Env -> GHC.Expr Var -> ConvertM (Template, LF.Expr)
 convertGenericTemplate env x
-    | (dictCon, args) <- collectArgs x
+    | (Var dictCon, args) <- collectArgs x
+    , Just m <- nameModule_maybe $ varName dictCon
+    , Just dictCon <- isDataConId_maybe dictCon
     , (tyArgs, args) <- span isTypeArg args
+    , Just tyArgs <- mapM isType_maybe tyArgs
     , Just (superClassDicts, signatories : observers : ensure : agreement : create : _fetch : archive : keyAndChoices) <- span isSuperClassDict <$> mapM isVar_maybe (dropWhile isTypeArg args)
     , Just (polyType, _) <- splitFunTy_maybe (varType create)
     , Just (monoTyCon, unwrapCo) <- findMonoTyp polyType
@@ -356,11 +360,13 @@ convertGenericTemplate env x
         agreement <- convertExpr env (Var agreement)
         let create = ETmLam (this, polyType) $ EUpdate $ UBind (Binding (self, TContractId monoType) $ EUpdate $ UCreate monoTyCon $ wrapTpl $ EVar this) $ EUpdate $ UPure (TContractId polyType) $ unwrapCid $ EVar self
         let fetch = ETmLam (self, TContractId polyType) $ EUpdate $ UBind (Binding (this, monoType) $ EUpdate $ UFetch monoTyCon $ wrapCid $ EVar self) $ EUpdate $ UPure polyType $ unwrapTpl $ EVar this
-        dictCon <- convertExpr env dictCon
-        tyArgs <- mapM (convertArg env) tyArgs
+        tyArgs <- mapM (convertType env) tyArgs
         -- NOTE(MH): The additional lambda is DICTIONARY SANITIZATION step (3).
-        let tmArgs = map (TmArg . ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive] ++ key ++ concat choices
-        let dict = mkEApps dictCon $ tyArgs ++ tmArgs
+        let tmArgs = map (ETmLam (mkVar "_", TUnit)) $ superClassDicts ++ [signatories, observers, ensure, agreement, create, fetch, archive] ++ key ++ concat choices
+        qTCon <- qualify env m  $ mkTypeCon [getOccText $ dataConTyCon dictCon]
+        let tcon = TypeConApp qTCon tyArgs
+        Ctor _ fldNames _ <- toCtor env dictCon
+        let dict = ERecCon tcon (zip fldNames tmArgs)
         pure (Template{..}, dict)
   where
     isVar_maybe :: GHC.Expr Var -> Maybe Var
