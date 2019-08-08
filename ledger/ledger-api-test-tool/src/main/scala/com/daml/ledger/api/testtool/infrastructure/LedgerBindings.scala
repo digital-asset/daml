@@ -3,7 +3,7 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.time.Instant
+import java.time.{Clock, Instant}
 import java.util.UUID
 
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
@@ -18,6 +18,11 @@ import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
+import com.digitalasset.ledger.api.v1.testing.time_service.{
+  GetTimeRequest,
+  GetTimeResponse,
+  SetTimeRequest
+}
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.transaction_filter.{
   Filters,
@@ -30,13 +35,14 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionsRequest
 }
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
-import com.digitalasset.ledger.client.binding.{Contract, Template, Primitive, ValueDecoder}
+import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Channel
 import io.grpc.stub.StreamObserver
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.control.NonFatal
 
 object LedgerBindings {
 
@@ -65,12 +71,30 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       response <- services.identity.getLedgerIdentity(new GetLedgerIdentityRequest)
     } yield response.ledgerId
 
-  private[this] val clock: Future[LedgerClock] =
-    ledgerId.flatMap(LedgerClock(_, services.time))
+  private def timestampToInstant(t: Timestamp): Instant =
+    Instant.EPOCH.plusSeconds(t.seconds).plusNanos(t.nanos.toLong)
 
-  def time: Future[Instant] = clock.map(_.instant)
+  private def instantToTimestamp(t: Instant): Timestamp =
+    new Timestamp(t.getEpochSecond, t.getNano)
 
-  def passTime(t: Duration): Future[Unit] = clock.flatMap(_.passTime(t))
+  def time: Future[Instant] =
+    for {
+      id <- ledgerId
+      t <- HeadObserver[GetTimeResponse](services.time.getTime(new GetTimeRequest(id), _))
+        .map(_.map(r => timestampToInstant(r.currentTime.get)))
+        .recover {
+          case NonFatal(_) => Some(Clock.systemUTC().instant())
+        }
+    } yield t.get
+
+  def passTime(t: Duration): Future[Unit] =
+    for {
+      id <- ledgerId
+      currentInstant <- time
+      currentTime = Some(instantToTimestamp(currentInstant))
+      newTime = Some(instantToTimestamp(currentInstant.plusNanos(t.toNanos)))
+      result <- services.time.setTime(new SetTimeRequest(id, currentTime, newTime)).map(_ => ())
+    } yield result
 
   def allocateParty(): Future[String] =
     services.partyManagement.allocateParty(new AllocatePartyRequest()).map(_.partyDetails.get.party)

@@ -62,15 +62,7 @@ client_server_test(
         # NOTE(GP): our CI has a tendency to be more unpredictable than local
         # machine with timeouts, we value lack of flakes on CI.
         "--timeout-scale-factor=10",
-        # NOTE(FM): we are witnessing scenarios failing because the requests exceed
-        # the maximum record time:
-        #     2019-06-18T13:58:54.7566840Z       Failure details:
-        #     2019-06-18T13:58:54.7591240Z       | Test failed on fixture RemoteApiProxy with class org.scalatest.exceptions.TestFailedException: The code property had value 10, instead of its expected value 0, on object Status(10,Error: The maximum record time of the command exceeded,List()),
-        #     2019-06-18T13:58:54.7629010Z       | inside Completion(ledger-api-test-tool-Test:consistency_doublespend1-0-0:0--TwBhbmYQ9r,Some(Status(10,Error: The maximum record time of the command exceeded,List())),,None)
-        # therefore, try to bump the ttl
-        "--command-submission-ttl-scale-factor=1",
-        # "--all-tests",
-        "--include=DivulgenceIT,IdentityIT,SemanticTests,ContractKeysIT",
+        "--all-tests",
     ],
 
     # Data files available to both client and server.
