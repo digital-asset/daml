@@ -70,7 +70,7 @@ prettyModuleRef :: (PackageRef, ModuleName) -> Doc ann
 prettyModuleRef (pkgRef, modName) = docPkgRef <> pretty modName
   where
     docPkgRef = case pkgRef of
-      PRSelf -> ""
+      PRSelf -> empty
       PRImport pkgId -> pretty pkgId <> ":"
 
 instance Pretty a => Pretty (Qualified a) where
@@ -80,7 +80,7 @@ instance Pretty a => Pretty (Qualified a) where
 instance Pretty SourceLoc where
   pPrint (SourceLoc mbModRef slin scol elin ecol) =
     hcat
-    [ maybe "" (\modRef -> prettyModuleRef modRef <> ":") mbModRef
+    [ maybe empty (\modRef -> prettyModuleRef modRef <> ":") mbModRef
     , int slin, ":", int scol, "-", int elin, ":", int ecol
     ]
 
@@ -436,7 +436,7 @@ instance Pretty DefDataType where
     where
       lhsDoc =
         serializableDoc <-> pretty tcon <-> hsep (map prettyAndKind params) <-> "="
-      serializableDoc = if serializable then "@serializable" else ""
+      serializableDoc = if serializable then "@serializable" else empty
       prettyVariantCon (name, typ) =
         "|" <-> pretty name <-> pPrintPrec prettyNormal precHighest typ
       prettyEnumCon name = "|" <-> pretty name
@@ -448,7 +448,7 @@ instance Pretty DefValue where
       [ hang (keyword_ kind <-> annot <-> prettyAndType binder <-> "=") 2 (pretty body) ]
     where
       kind = if isTest then "test" else "def"
-      annot = if noParties then "" else "@partyliterals"
+      annot = if noParties then empty else "@partyliterals"
 
 prettyTemplateChoice ::
   ModuleName -> TypeConName -> TemplateChoice -> Doc ann
