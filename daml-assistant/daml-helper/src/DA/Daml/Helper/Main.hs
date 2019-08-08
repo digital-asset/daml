@@ -101,6 +101,7 @@ commandParser = subparser $ fold
         , "can specify the ledger in daml.yaml with the ledger.host and "
         , "ledger.port options, or you can pass the --host and --port "
         , "flags to this command instead."
+        , "Please visit https://docs.daml.com/deploy/ for more info."
         ]
 
     deployCmd = Deploy
