@@ -4,16 +4,25 @@
 package com.digitalasset.daml.lf
 package value.json
 
+import data.{Decimal, Ref, SortedLookupList, Time}
 import value.json.{NavigatorModelAliases => model}
-import value.TypedValueGenerators.{genTypeAndValue, genAddend}
+import value.TypedValueGenerators.{ValueAddend => VA, genAddend, genTypeAndValue}
+import ApiCodecCompressed.{apiValueToJsValue, jsValueToApiValue}
 
+import org.scalactic.source
 import org.scalatest.{Matchers, WordSpec}
-import org.scalatest.prop.GeneratorDrivenPropertyChecks
+import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 import org.scalacheck.{Arbitrary, Gen}
+import spray.json._
 
 import scala.util.{Success, Try}
 
-class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
+@SuppressWarnings(Array("org.wartremover.warts.Any"))
+class ApiCodecCompressedSpec
+    extends WordSpec
+    with Matchers
+    with GeneratorDrivenPropertyChecks
+    with TableDrivenPropertyChecks {
 
   /** XXX SC replace when TypedValueGenerators supports TypeCons */
   private val typeLookup: NavigatorModelAliases.DamlLfTypeLookup = _ => None
@@ -23,14 +32,16 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDriven
       value: model.ApiValue,
       typ: model.DamlLfType): Try[model.ApiValue] = {
     import ApiCodecCompressed.JsonImplicits._
-    import spray.json._
 
     for {
       serialized <- Try(value.toJson.prettyPrint)
       json <- Try(serialized.parseJson)
-      parsed <- Try(ApiCodecCompressed.jsValueToApiValue(json, typ, typeLookup))
+      parsed <- Try(jsValueToApiValue(json, typ, typeLookup))
     } yield parsed
   }
+
+  private def roundtrip(va: VA)(v: va.Inj[Cid]): Option[va.Inj[Cid]] =
+    va.prj(jsValueToApiValue(apiValueToJsValue(va.inj(v)), va.t, typeLookup))
 
   type Cid = String
   private val genCid = Gen.zip(Gen.alphaChar, Gen.alphaStr) map { case (h, t) => h +: t }
@@ -48,13 +59,31 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDriven
 
       "work for many, many values in raw format" in forAll(genAddend, minSuccessful(100)) { va =>
         import va.injshrink
-        implicit val arbInj: Arbitrary[va.Inj[Cid]] = Arbitrary(va.injgen(genCid))
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
         forAll(minSuccessful(20)) { v: va.Inj[Cid] =>
-          va.prj(
-            ApiCodecCompressed.jsValueToApiValue(
-              ApiCodecCompressed.apiValueToJsValue(va.inj(v)),
-              va.t,
-              typeLookup)) should ===(Some(v))
+          roundtrip(va)(v) should ===(Some(v))
+        }
+      }
+
+      "handle nested optionals" in {
+        val va = VA.optional(VA.optional(VA.int64))
+        val cases = Table(
+          "value",
+          None,
+          Some(None),
+          Some(Some(42L)),
+        )
+        forEvery(cases) { ool =>
+          roundtrip(va)(ool) should ===(Some(ool))
+        }
+      }
+
+      "handle lists of optionals" in {
+        val va = VA.optional(VA.optional(VA.list(VA.optional(VA.optional(VA.int64)))))
+        import va.injshrink
+        implicit val arbInj: Arbitrary[va.Inj[Cid]] = va.injarb(Arbitrary(genCid))
+        forAll(minSuccessful(1000)) { v: va.Inj[Cid] =>
+          roundtrip(va)(v) should ===(Some(v))
         }
       }
       /*
@@ -77,6 +106,59 @@ class ApiCodecCompressedSpec extends WordSpec with Matchers with GeneratorDriven
         serializeAndParse(C.redV, C.redTC) shouldBe Success(C.redV)
       }
      */
+    }
+
+    def c(canonical: String, typ: VA)(expected: typ.Inj[Cid], alternates: String*)(
+        implicit pos: source.Position) =
+      (pos.lineNumber, canonical, typ, expected, alternates)
+
+    object VAs {
+      val ooi = VA.optional(VA.optional(VA.int64))
+      val oooi = VA.optional(ooi)
+    }
+
+    val successes = Table(
+      ("line#", "serialized", "type", "parsed", "alternates"),
+      c("\"123\"", VA.contractId)("123"),
+      c("\"42.0\"", VA.decimal)(Decimal assertFromString "42", "\"42\"" /*, "42", "42.0"*/ ),
+      // c("2e3", VA.decimal)(Decimal assertFromString "2000"),
+      c("\"2000.0\"", VA.decimal)(
+        Decimal assertFromString "2000",
+        "\"2000\"" /*, "2000", "2e3" */ ),
+      c("\"0.3\"", VA.decimal)(
+        Decimal assertFromString "0.3" /*, "\"0.30000000000000004\"", "0.30000000000000004", "0.3"*/ ),
+      c("\"1990-11-09T04:30:23.123456Z\"", VA.timestamp)(
+        Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z",
+        "\"1990-11-09T04:30:23.1234569Z\""),
+      c("\"42\"", VA.int64)(42),
+      c("\"Alice\"", VA.party)(Ref.Party assertFromString "Alice"),
+      c("{}", VA.unit)(()),
+      c("\"2019-06-18\"", VA.date)(Time.Date assertFromString "2019-06-18"),
+      c("\"abc\"", VA.text)("abc"),
+      c("true", VA.bool)(true),
+      c("[\"1\", \"2\", \"3\"]", VA.list(VA.int64))(Vector(1, 2, 3) /*, "[1, 2, 3]"*/ ),
+      c("""{"a": "b", "c": "d"}""", VA.map(VA.text))(SortedLookupList(Map("a" -> "b", "c" -> "d"))),
+      c("""{"None": {}}""", VAs.ooi)(None /*, "null"*/ ),
+      c("""{"Some": {"None": {}}}""", VAs.ooi)(Some(None) /*, "[]"*/ ),
+      c("""{"Some": {"Some": "42"}}""", VAs.ooi)(Some(Some(42)) /*, """[42]"""*/ ),
+      c("""{"None": {}}""", VAs.oooi)(None /*, "null"*/ ),
+      c("""{"Some": {"None": {}}}""", VAs.oooi)(Some(None) /*, "[]"*/ ),
+      c("""{"Some": {"Some": {"None": {}}}}""", VAs.oooi)(Some(Some(None)) /*, "[[]]"*/ ),
+      c("""{"Some": {"Some": {"Some": "42"}}}""", VAs.oooi)(Some(Some(Some(42))) /*, "[[42]]"*/ ),
+    )
+
+    "dealing with particular formats" should {
+      "succeed in cases" in forEvery(successes) { (_, serialized, typ, expected, alternates) =>
+        val json = serialized.parseJson
+        val parsed = jsValueToApiValue(json, typ.t, typeLookup)
+        typ.prj(parsed) should ===(Some(expected))
+        apiValueToJsValue(parsed) should ===(json)
+        val tAlternates = Table("alternate", alternates: _*)
+        forEvery(tAlternates) { alternate =>
+          val aJson = alternate.parseJson
+          typ.prj(jsValueToApiValue(aJson, typ.t, typeLookup)) should ===(Some(expected))
+        }
+      }
     }
   }
 }

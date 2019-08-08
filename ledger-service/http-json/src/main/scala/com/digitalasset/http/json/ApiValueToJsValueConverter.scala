@@ -3,8 +3,7 @@
 
 package com.digitalasset.http.json
 
-import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
+import JsonProtocol.LfValueCodec
 import com.digitalasset.http.util.ApiValueToLfValueConverter
 import com.digitalasset.ledger.api.{v1 => lav1}
 import scalaz.std.list._
@@ -17,9 +16,7 @@ class ApiValueToJsValueConverter(apiToLf: ApiValueToLfValueConverter.ApiValueToL
 
   def apiValueToJsValue(a: lav1.value.Value): JsonError \/ JsValue =
     apiToLf(a)
-      .map { b: lf.value.Value[lf.value.Value.AbsoluteContractId] =>
-        ApiCodecCompressed.apiValueToJsValue(lfValueOfString(b))
-      }
+      .map(LfValueCodec.apiValueToJsValue)
       .leftMap(x => JsonError(x.shows))
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -38,8 +35,4 @@ class ApiValueToJsValueConverter(apiToLf: ApiValueToLfValueConverter.ApiValueToL
       case None => \/-(field.label -> JsObject.empty)
       case Some(v) => apiValueToJsValue(v).map(field.label -> _)
     }
-
-  private def lfValueOfString(
-      lfValue: lf.value.Value[lf.value.Value.AbsoluteContractId]): lf.value.Value[String] =
-    lfValue.mapContractId(x => x.coid)
 }
