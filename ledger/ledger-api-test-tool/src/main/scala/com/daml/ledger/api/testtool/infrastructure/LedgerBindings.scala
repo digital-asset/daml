@@ -30,6 +30,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionsRequest
 }
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.digitalasset.ledger.client.binding.{Contract, Template, Primitive, ValueDecoder}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Channel
 import io.grpc.stub.StreamObserver
@@ -65,7 +66,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
     } yield response.ledgerId
 
   private[this] val clock: Future[LedgerClock] =
-    ledgerId.flatMap(LedgerClock(_, services.timeManagement))
+    ledgerId.flatMap(LedgerClock(_, services.time))
 
   def time: Future[Instant] = clock.map(_.instant)
 
@@ -139,6 +140,32 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
         new GetTransactionByIdRequest(id, transactionId, parties))
     } yield transaction.transaction.get
 
+  private def decodeCreated[T <: Template[T]](event: CreatedEvent)(
+      implicit decoder: ValueDecoder[T]): Option[Contract[T]] =
+    for {
+      record <- event.createArguments
+      a <- decoder.read(Value.Sum.Record(record))
+    } yield
+      Contract(
+        Primitive.ContractId(event.contractId),
+        a,
+        event.agreementText,
+        event.signatories,
+        event.observers,
+        event.contractKey)
+
+  def create[T <: Template[T]: ValueDecoder](
+      party: String,
+      applicationId: String,
+      template: Template[T]
+  ): Future[Contract[T]] = {
+    submitAndWaitForTransaction(party, applicationId, template.create.command.command) {
+      _.events.collect {
+        case Event(Created(e)) => decodeCreated(e).get
+      }.head
+    }
+  }
+
   def create(
       party: String,
       applicationId: String,
@@ -157,6 +184,13 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       args: Map[String, Value.Sum]
   ): Future[Unit] =
     submitAndWait(party, applicationId, exerciseCommand(templateId, contractId, choice, args))
+
+  def exercise[T](
+      party: String,
+      applicationId: String,
+      exercise: Primitive.Update[T]
+  ): Future[Unit] =
+    submitAndWait(party, applicationId, exercise.command.command)
 
   private def submitAndWaitCommand[A](service: SubmitAndWaitRequest => Future[A])(
       party: String,

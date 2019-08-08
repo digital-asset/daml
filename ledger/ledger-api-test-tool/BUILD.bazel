@@ -50,6 +50,7 @@ da_scala_binary(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//ledger/test-common",
+        "//ledger/test-common:Test.scala",
     ],
 )
 

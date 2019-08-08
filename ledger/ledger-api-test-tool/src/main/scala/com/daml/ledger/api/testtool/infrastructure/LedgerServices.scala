@@ -23,5 +23,5 @@ private[infrastructure] final class LedgerServices(channel: Channel) {
   val identity: LedgerIdentityService = LedgerIdentityServiceGrpc.stub(channel)
   val partyManagement: PartyManagementService = PartyManagementServiceGrpc.stub(channel)
   val transaction: TransactionService = TransactionServiceGrpc.stub(channel)
-  val timeManagement: TimeService = TimeServiceGrpc.stub(channel)
+  val time: TimeService = TimeServiceGrpc.stub(channel)
 }

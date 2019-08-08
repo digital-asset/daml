@@ -9,6 +9,10 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
 )
+load(
+    "//language-support/scala/codegen:codegen.bzl",
+    "dar_to_scala",
+)
 
 da_scala_library(
     name = "test-common",
@@ -27,9 +31,49 @@ daml_compile(
     visibility = ["//visibility:public"],
 )
 
+dar_to_scala(
+    name = "SemanticTests.scala-codegen",
+    srcs = [
+        ":SemanticTests.dar",
+    ],
+    package_prefix = "com.digitalasset.ledger.test",
+    srcjar_out = "SemanticTests.scala.srcjar",
+    verbosity = 2,
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "SemanticTests.scala",
+    srcs = [":SemanticTests.scala-codegen"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
+)
+
 daml_compile(
     name = "Test",
     main_src = "src/main/daml/Test.daml",
     target = "1.dev",
     visibility = ["//visibility:public"],
+)
+
+dar_to_scala(
+    name = "Test.scala-codegen",
+    srcs = [
+        ":Test.dar",
+    ],
+    package_prefix = "com.digitalasset.ledger.test",
+    srcjar_out = "Test.scala.srcjar",
+    verbosity = 2,
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "Test.scala",
+    srcs = [":Test.scala-codegen"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
 )

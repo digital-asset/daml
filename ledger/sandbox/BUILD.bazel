@@ -198,6 +198,7 @@ client_server_test(
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
+        "--port 0",
         "-s",
         "ledger/test-common/SemanticTests.dar",
         "ledger/test-common/Test.dar",
@@ -221,6 +222,7 @@ client_server_test(
     ],
     server = "//ledger/sandbox:sandbox-binary",
     server_args = [
+        "--port 0",
         "-w",
         "ledger/test-common/SemanticTests.dar",
         "ledger/test-common/Test.dar",
@@ -247,6 +249,7 @@ client_server_test(
     ],
     server = "//ledger/sandbox:sandbox-ephemeral-postgres",
     server_args = [
+        "--port 0",
         "-s",
         "ledger/test-common/SemanticTests.dar",
         "ledger/test-common/Test.dar",
@@ -274,6 +277,7 @@ client_server_test(
     ],
     server = "//ledger/sandbox:sandbox-ephemeral-postgres",
     server_args = [
+        "--port 0",
         "-w",
         "ledger/test-common/SemanticTests.dar",
         "ledger/test-common/Test.dar",

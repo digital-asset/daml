@@ -92,7 +92,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
     implicit context =>
       val keyPrefix = UUID.randomUUID.toString
       val key1 = s"$keyPrefix-some-key"
-      val key2 = s"$keyPrefix-some-key"
+      val key2 = s"$keyPrefix-some-other-key"
       val unknownKey = s"$keyPrefix-unknown-key"
 
       for {

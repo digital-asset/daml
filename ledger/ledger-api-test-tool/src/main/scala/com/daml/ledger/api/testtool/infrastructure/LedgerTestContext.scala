@@ -11,6 +11,7 @@ import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
+import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,6 +39,11 @@ final class LedgerTestContext(
       templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
     bindings.activeContracts(parties, templateIds)
 
+  def create[T <: Template[T]: ValueDecoder](
+      party: String,
+      template: Template[T]): Future[Contract[T]] =
+    bindings.create(party, applicationId, template)
+
   def create(party: String, templateId: Identifier, args: Map[String, Value.Sum]): Future[String] =
     bindings.create(party, applicationId, templateId, args)
 
@@ -49,6 +55,11 @@ final class LedgerTestContext(
       args: Map[String, Value.Sum]
   ): Future[Unit] =
     bindings.exercise(party, applicationId, templateId, contractId, choice, args)
+
+  def exercise[T](
+      party: String,
+      exercise: Primitive.Update[T]
+  ): Future[Unit] = bindings.exercise(party, applicationId, exercise)
 
   def flatTransactions(
       parties: Seq[String],

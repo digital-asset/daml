@@ -4,7 +4,9 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.daml.ledger.api.testtool.templates.{Divulgence1, Divulgence2}
+import com.digitalasset.ledger.client.binding.Primitive
+import com.digitalasset.ledger.test.Test.{Divulgence1, Divulgence2}
+import com.digitalasset.ledger.test.Test.Divulgence2._
 
 final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) {
 
@@ -13,9 +15,11 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
       implicit context =>
         for {
           Vector(alice, bob) <- allocateParties(2)
-          divulgence1 <- Divulgence1(alice, alice)
-          divulgence2 <- Divulgence2(bob, bob, alice)
-          _ <- divulgence2.archive(alice, divulgence1)
+          divulgence1 <- create(Divulgence1(Primitive.Party(alice)))(alice)
+          divulgence2 <- create(Divulgence2(Primitive.Party(bob), Primitive.Party(alice)))(bob)
+          _ <- exercise(
+            divulgence2.contractId
+              .exerciseDivulgence2Archive(Primitive.Party(alice), divulgence1.contractId))(alice)
           bobTransactions <- flatTransactions(bob)
           bobTrees <- transactionTrees(bob)
           transactionsForBoth <- flatTransactions(alice, bob)
@@ -145,9 +149,11 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
       implicit context =>
         for {
           Vector(alice, bob) <- allocateParties(2)
-          divulgence1 <- Divulgence1(alice, alice)
-          divulgence2 <- Divulgence2(bob, bob, alice)
-          _ <- divulgence2.fetch(controller = alice, divulgence1)
+          divulgence1 <- create(Divulgence1(Primitive.Party(alice)))(alice)
+          divulgence2 <- create(Divulgence2(Primitive.Party(bob), Primitive.Party(alice)))(bob)
+          _ <- exercise(
+            divulgence2.contractId
+              .exerciseDivulgence2Fetch(Primitive.Party(alice), divulgence1.contractId))(alice)
           activeForBobOnly <- activeContracts(bob)
           activeForBoth <- activeContracts(alice, bob)
         } yield {
@@ -171,8 +177,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           assert(
             activeForBoth.size == 2,
             s"The active contracts as seen by $alice and $bob should be two but are ${activeForBoth.size} instead")
-          val activeForBothContractIds = activeForBoth.map(_.contractId)
-          val expectedContractIds = Seq(divulgence1.contractId, divulgence2.contractId)
+          val activeForBothContractIds = activeForBoth.map(_.contractId).toSet
+          val expectedContractIds = Set(divulgence1.contractId, divulgence2.contractId)
           assert(
             activeForBothContractIds == expectedContractIds,
             s"${divulgence1.contractId} and ${divulgence2.contractId} are expected to be seen when filtering for $alice and $bob but instead the following contract identifiers are seen: $activeForBothContractIds"

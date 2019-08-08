@@ -10,6 +10,7 @@ import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.value.Identifier
 import io.grpc.{Status, StatusException, StatusRuntimeException}
+import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,6 +54,14 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
 
   final def allocateParties(n: Int)(implicit context: LedgerTestContext): Future[Vector[String]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
+
+  final def create[T <: Template[T]: ValueDecoder](template: Template[T])(party: String)(
+      implicit context: LedgerTestContext): Future[Contract[T]] =
+    context.create(party, template)
+
+  final def exercise[T](exercise: Primitive.Update[T])(party: String)(
+      implicit context: LedgerTestContext): Future[Unit] =
+    context.exercise(party, exercise)
 
   final def flatTransactions(party: String, parties: String*)(
       implicit context: LedgerTestContext): Future[Vector[Transaction]] =
