@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.value.json
 
-import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList}
+import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.value.{Value => V}
@@ -118,7 +118,9 @@ abstract class ApiCodecCompressed[Cid](
         case v => V.ValueContractId(jsValueToApiContractId(v))
       }
       case Model.DamlLfPrimType.Unit => { case JsObject(_) => V.ValueUnit }
-      case Model.DamlLfPrimType.Timestamp => { case JsString(v) => V.ValueTimestamp.fromIso8601(v) }
+      case Model.DamlLfPrimType.Timestamp => {
+        case JsString(v) => V.ValueTimestamp(assertDE(Time.Timestamp fromString v))
+      }
       case Model.DamlLfPrimType.Date => { case JsString(v) => V.ValueDate.fromIso8601(v) }
       case Model.DamlLfPrimType.Bool => { case JsBoolean(v) => V.ValueBool(v) }
       case Model.DamlLfPrimType.List => {
