@@ -286,13 +286,3 @@ client_server_test(
         "dont-run-on-darwin",
     ],
 ) if not is_windows else None
-
-test_suite(
-    name = "conformance-test",
-    tests = [
-        "conformance-test-static-time",
-        "conformance-test-static-time-postgres",
-        "conformance-test-wall-clock",
-        "conformance-test-wall-clock-postgres",
-    ],
-)
