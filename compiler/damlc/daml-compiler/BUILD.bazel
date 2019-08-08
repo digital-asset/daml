@@ -12,6 +12,7 @@ da_haskell_library(
     hazel_deps = [
         "base",
         "bytestring",
+        "conduit",
         "containers",
         "directory",
         "extra",
@@ -27,7 +28,7 @@ da_haskell_library(
         "text",
         "time",
         "transformers",
-        "zip-archive",
+        "zip",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],

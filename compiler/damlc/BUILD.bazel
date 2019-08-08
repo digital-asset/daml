@@ -120,6 +120,7 @@ da_haskell_library(
         "vector",
         "xml",
         "yaml",
+        "zip",
         "zip-archive",
         "unordered-containers",
         "uniplate",

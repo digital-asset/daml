@@ -7,7 +7,8 @@
 -- | Main entry-point of the DAML compiler
 module DA.Cli.Damlc (main) where
 
-import Codec.Archive.Zip
+import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
+import qualified "zip" Codec.Archive.Zip as Zip
 import Control.Exception
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except
@@ -415,37 +416,37 @@ createProjectPackageDb (AllowDifferentSdkVersions allowDiffSdkVersions) lfVersio
     sdkVersions <-
         forM fps0 $ \fp -> do
             bs <- BSL.readFile fp
-            let archive = toArchive bs
+            let archive = ZipArchive.toArchive bs
             manifest <- getEntry "META-INF/MANIFEST.MF" archive
             sdkVersion <- trim <$> getManifestFieldOrErr manifest "Sdk-Version"
             let confFiles =
                     [ e
-                    | e <- zEntries archive
-                    , ".conf" `isExtensionOf` eRelativePath e
+                    | e <- ZipArchive.zEntries archive
+                    , ".conf" `isExtensionOf` ZipArchive.eRelativePath e
                     ]
             let dalfs =
                     [ e
-                    | e <- zEntries archive
-                    , ".dalf" `isExtensionOf` eRelativePath e
+                    | e <- ZipArchive.zEntries archive
+                    , ".dalf" `isExtensionOf` ZipArchive.eRelativePath e
                     ]
             let srcs =
                     [ e
-                    | e <- zEntries archive
-                    , takeExtension (eRelativePath e) `elem`
+                    | e <- ZipArchive.zEntries archive
+                    , takeExtension (ZipArchive.eRelativePath e) `elem`
                           [".daml", ".hie", ".hi"]
                     ]
             forM_ dalfs $ \dalf -> do
-                let path = dbPath </> eRelativePath dalf
+                let path = dbPath </> ZipArchive.eRelativePath dalf
                 createDirectoryIfMissing True (takeDirectory path)
-                BSL.writeFile path (fromEntry dalf)
+                BSL.writeFile path (ZipArchive.fromEntry dalf)
             forM_ confFiles $ \conf ->
                 BSL.writeFile
                     (dbPath </> "package.conf.d" </>
-                     (takeFileName $ eRelativePath conf))
-                    (fromEntry conf)
+                     (takeFileName $ ZipArchive.eRelativePath conf))
+                    (ZipArchive.fromEntry conf)
             forM_ srcs $ \src -> do
-                let path = dbPath </> eRelativePath src
-                write path (fromEntry src)
+                let path = dbPath </> ZipArchive.eRelativePath src
+                write path (ZipArchive.fromEntry src)
             pure sdkVersion
     let uniqSdkVersions = nubSort sdkVersions
     -- if there are no package dependencies, sdkVersions will be empty
@@ -491,7 +492,7 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
             dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
             let fp = targetFilePath $ pkgNameVersion pName pVersion
             createDirectoryIfMissing True $ takeDirectory fp
-            BSL.writeFile fp dar
+            Zip.createArchive fp dar
             putStrLn $ "Created " <> fp <> "."
     where
         targetFilePath name = fromMaybe (distDir </> name <.> "dar") mbOutFile
@@ -546,7 +547,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput = withProjectRoot' pro
               exitFailure
           Just dar -> do
             createDirectoryIfMissing True $ takeDirectory targetFilePath
-            BSL.writeFile targetFilePath dar
+            Zip.createArchive targetFilePath dar
             putStrLn $ "Created " <> targetFilePath <> "."
   where
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
@@ -567,7 +568,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput = withProjectRoot' pro
 execInspect :: FilePath -> FilePath -> Bool -> DA.Pretty.PrettyLevel -> Command
 execInspect inFile outFile jsonOutput lvl = do
     let mainDalf
-            | "dar" `isExtensionOf` inFile = BSL.toStrict . mainDalfContent . manifestFromDar . toArchive . BSL.fromStrict
+            | "dar" `isExtensionOf` inFile = BSL.toStrict . mainDalfContent . manifestFromDar . ZipArchive.toArchive . BSL.fromStrict
             | otherwise = id
     bytes <- mainDalf <$> B.readFile inFile
 
@@ -596,21 +597,21 @@ execInspectDar inFile = do
     bytes <- B.readFile inFile
 
     putStrLn "DAR archive contains the following files: \n"
-    let dar = toArchive $ BSL.fromStrict bytes
-    let files = [eRelativePath e | e <- zEntries dar]
+    let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
+    let files = [ZipArchive.eRelativePath e | e <- ZipArchive.zEntries dar]
     mapM_ putStrLn files
 
     putStrLn "\nDAR archive contains the following packages: \n"
     let dalfEntries =
-            [e | e <- zEntries dar, ".dalf" `isExtensionOf` eRelativePath e]
+            [e | e <- ZipArchive.zEntries dar, ".dalf" `isExtensionOf` ZipArchive.eRelativePath e]
     forM_ dalfEntries $ \dalfEntry -> do
-        let dalf = BSL.toStrict $ fromEntry dalfEntry
+        let dalf = BSL.toStrict $ ZipArchive.fromEntry dalfEntry
         (pkgId, _lfPkg) <-
             errorOnLeft
-                ("Cannot decode package " <> eRelativePath dalfEntry)
+                ("Cannot decode package " <> ZipArchive.eRelativePath dalfEntry)
                 (Archive.decodeArchive dalf)
         putStrLn $
-            (dropExtension $ takeFileName $ eRelativePath dalfEntry) <> " " <>
+            (dropExtension $ takeFileName $ ZipArchive.eRelativePath dalfEntry) <> " " <>
             show (LF.unPackageId pkgId)
 
 execMigrate ::
@@ -694,12 +695,12 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
             forM [inFile1, inFile2] $ \inFile -> do
                 bytes <- B.readFile inFile
                 let pkgName = takeBaseName inFile
-                let dar = toArchive $ BSL.fromStrict bytes
+                let dar = ZipArchive.toArchive $ BSL.fromStrict bytes
                 -- get the main pkg
                 manifest <- getEntry "META-INF/MANIFEST.MF" dar
                 mainDalfPath <- getManifestFieldOrErr manifest "Main-Dalf"
                 mainDalfEntry <- getEntry mainDalfPath dar
-                (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ fromEntry mainDalfEntry
+                (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ ZipArchive.fromEntry mainDalfEntry
                 pure (pkgName, mainPkgId, mainLfPkg)
         -- generate upgrade modules and instances modules
         let eqModNames =
@@ -751,13 +752,13 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         NM.lookup modName $ LF.packageModules pkg
 
 -- | Get an entry from a dar or fail.
-getEntry :: FilePath -> Archive -> IO Entry
+getEntry :: FilePath -> ZipArchive.Archive -> IO ZipArchive.Entry
 getEntry fp dar =
     maybe (fail $ "Package does not contain " <> fp) pure $
-    findEntryByPath fp dar
+    ZipArchive.findEntryByPath fp dar
 
 -- | Parse a manifest field.
-getManifestFieldOrErr :: Entry -> String -> IO String
+getManifestFieldOrErr :: ZipArchive.Entry -> String -> IO String
 getManifestFieldOrErr manifest field =
     mbErr ("Missing field in META-INF/MANIFEST.MD: " ++ field) $
     getManifestField manifest field
@@ -769,29 +770,29 @@ execMergeDars darFp1 darFp2 mbOutFp = do
     let outFp = fromMaybe darFp1 mbOutFp
     bytes1 <- B.readFile darFp1
     bytes2 <- B.readFile darFp2
-    let dar1 = toArchive $ BSL.fromStrict bytes1
-    let dar2 = toArchive $ BSL.fromStrict bytes2
+    let dar1 = ZipArchive.toArchive $ BSL.fromStrict bytes1
+    let dar2 = ZipArchive.toArchive $ BSL.fromStrict bytes2
     mf <- mergeManifests dar1 dar2
     let merged =
-            Archive
-                (nubSortOn eRelativePath $ mf : zEntries dar1 ++ zEntries dar2)
+            ZipArchive.Archive
+                (nubSortOn ZipArchive.eRelativePath $ mf : ZipArchive.zEntries dar1 ++ ZipArchive.zEntries dar2)
                 -- nubSortOn keeps the first occurence
                 Nothing
                 BSL.empty
-    BSL.writeFile outFp $ fromArchive merged
+    BSL.writeFile outFp $ ZipArchive.fromArchive merged
   where
     mergeManifests dar1 dar2 = do
         let mfPath = "META-INF/MANIFEST.MF"
         let dalfNames =
                 nubSort
                     [ takeFileName p
-                    | e <- zEntries dar1 ++ zEntries dar2
-                    , let p = eRelativePath e
+                    | e <- ZipArchive.zEntries dar1 ++ ZipArchive.zEntries dar2
+                    , let p = ZipArchive.eRelativePath e
                     , ".dalf" `isExtensionOf` p
                     ]
         m1 <- getEntry mfPath dar1
         let m' = do
-                l <- lines $ BSC.unpack $ BSL.toStrict $ fromEntry m1
+                l <- lines $ BSC.unpack $ BSL.toStrict $ ZipArchive.fromEntry m1
                 pure $
                     maybe
                         l
@@ -799,7 +800,7 @@ execMergeDars darFp1 darFp2 mbOutFp = do
                          breakAt72Chars $
                          "Dalfs: " <> intercalate ", " dalfNames)
                         (stripPrefix "Dalfs:" l)
-        pure $ toEntry mfPath 0 $ BSL.fromStrict $ BSC.pack $ unlines m'
+        pure $ ZipArchive.toEntry mfPath 0 $ BSL.fromStrict $ BSC.pack $ unlines m'
 
 execDocTest :: Options -> [FilePath] -> IO ()
 execDocTest opts files = do
