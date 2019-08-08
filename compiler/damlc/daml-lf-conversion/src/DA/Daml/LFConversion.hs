@@ -526,15 +526,6 @@ internalFunctions version = listToUFM $ map (bimap mkModuleNameFS mkUniqSet)
         [ "getFieldPrim"
         , "setFieldPrim"
         ])
-    , ("DA.Internal.Template", -- template funcs defined with magic
-        [ "$dminternalFetch"
-        , "$dminternalCreate"
-        , "$dminternalFetchByKey"
-        , "$dminternalLookupByKey"
-        , "$dminternalExercise"
-        , "$dminternalArchive"
-        ]
-      )
     , ("DA.Internal.LF", "unpackPair" : map ("$W" <>) (nonDetEltsUniqSet internalTypes))
     , ("GHC.Base",
         [ "getTag"
@@ -566,37 +557,6 @@ convertExpr env0 e = do
     go env (VarIs "$") (LType _ : LType _ : LExpr x : y : args)
         = go env x (y : args)
 
-    go env (VarIs "$dminternalCreate") (LType t@(TypeCon tmpl []) : _dict : args) = do
-        t' <- convertType env t
-        tmpl' <- convertQualified env tmpl
-        withTmArg env (varV1, t') args $ \x args ->
-            pure (EUpdate $ UCreate tmpl' x, args)
-    go env (VarIs "$dminternalFetch") (LType t@(TypeCon tmpl []) : _dict : args) = do
-        t' <- convertType env t
-        tmpl' <- convertQualified env tmpl
-        withTmArg env (varV1, TContractId t') args $ \x args ->
-            pure (EUpdate $ UFetch tmpl' x, args)
-    go env (VarIs "$dminternalExercise") (LType t@(TypeCon tmpl []) : LType c@(TypeCon chc []) : LType _result : _dict : args) = do
-        t' <- convertType env t
-        c' <- convertType env c
-        tmpl' <- convertQualified env tmpl
-        withTmArg env (varV2, TContractId t') args $ \x2 args ->
-            withTmArg env (varV3, c') args $ \x3 args ->
-                pure (EUpdate $ UExercise tmpl' (mkChoiceName $ getOccText chc) x2 Nothing x3, args)
-    go env (VarIs "$dminternalArchive") (LType t@(TypeCon tmpl []) : _dict : args) = do
-        t' <- convertType env t
-        tmpl' <- convertQualified env tmpl
-        withTmArg env (varV2, TContractId t') args $ \x2 args ->
-            pure (EUpdate $ UExercise tmpl' (mkChoiceName "Archive") x2 Nothing EUnit, args)
-    go env (VarIs f) (LType t@(TypeCon tmpl []) : LType key : _dict : args)
-        | f == "$dminternalFetchByKey" = conv UFetchByKey
-        | f == "$dminternalLookupByKey" = conv ULookupByKey
-        where
-            conv prim = do
-                key' <- convertType env key
-                tmpl' <- convertQualified env tmpl
-                withTmArg env (varV1, key') args $ \x args ->
-                    pure (EUpdate $ prim $ RetrieveByKey tmpl' x, args)
     go env (VarIs "unpackPair") (LType (StrLitTy f1) : LType (StrLitTy f2) : LType t1 : LType t2 : args)
         = fmap (, args) $ do
             t1 <- convertType env t1
