@@ -9,7 +9,6 @@ module ProposalIou where
 import DA.Assert
 import ProposalDSL
 
-
 template Iou with
     issuer : Party
     owner : Party
@@ -24,12 +23,8 @@ template Iou with
       do
         pure ()
 
-
 -- The instantiation of the generic proposal workflow for `Iou`.
-newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou -- ^ TEMPLATE_INSTANCE
-
-instance ProposalInstance Iou where
-
+template instance ProposalIou = Proposal Iou
 
 -- A scenario.
 test = scenario do
@@ -47,7 +42,7 @@ test = scenario do
     lookupByKey @(Proposal Iou) ([bank], "present")
   mbPropId === Some propId
   iouId <- submit alice do
-    exercise propId Accept
+    exercise propId (Accept @Iou)
   iou' <- submit alice do
     fetch iouId
   iou' === iou
