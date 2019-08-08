@@ -159,6 +159,7 @@ class ApiCodecCompressedSpec
       ("\"   42 \"", VA.int64),
       ("\"1970-01-01T00:00:00\"", VA.timestamp),
       ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp),
+      ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp),
     )
 
     "dealing with particular formats" should {
