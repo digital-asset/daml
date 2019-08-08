@@ -276,6 +276,6 @@ newtype AbsOffset = AbsOffset { unAbsOffset :: Text } deriving (Eq,Ord,Show)
 newtype Choice = Choice { unChoice :: Text } deriving (Eq,Ord,Show)
 
 newtype Party = Party { unParty :: Text } deriving (Eq,Ord)
-instance Show Party where show p = "'" <> (Text.unpack $ unParty p) <> "'"
+instance Show Party where show p = "'" <> Text.unpack (unParty p) <> "'"
 
 newtype Verbosity = Verbosity { unVerbosity :: Bool } deriving (Eq,Ord,Show)

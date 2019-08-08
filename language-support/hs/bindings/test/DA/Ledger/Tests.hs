@@ -516,7 +516,7 @@ bucket = VRecord $ Record Nothing
     , RecordField "contract"$ VContract (ContractId "xxxxx")
     , RecordField "list"    $ VList []
     , RecordField "int"     $ VInt 42
-    , RecordField "decimal" $ VDecimal (read "123.456")
+    , RecordField "decimal" $ VDecimal 123.456
     , RecordField "text"    $ VText "OMG lol"
     , RecordField "time"    $ VTime (MicroSecondsSinceEpoch $ 1000 * 1000 * 60 * 60 * 24 * 365 * 50)
     , RecordField "party"   $ VParty $ Party "good time"
