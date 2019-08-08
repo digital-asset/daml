@@ -34,7 +34,7 @@ import qualified Data.Text             as T
 import Data.List
 
 import           Text.PrettyPrint.Annotated.HughesPJ
-          hiding ( (<>), (<+>), empty, style, text, ($+$)
+          hiding ( (<>), (<+>), style, text, ($+$)
                  )
 import qualified Text.PrettyPrint.Annotated.HughesPJ  as PP
 
