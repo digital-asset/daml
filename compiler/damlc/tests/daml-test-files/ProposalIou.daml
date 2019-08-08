@@ -7,7 +7,7 @@ daml 1.2
 module ProposalIou where
 
 import DA.Assert
-import ProposalDSL
+import Proposal
 
 template Iou with
     issuer : Party

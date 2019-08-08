@@ -5,7 +5,7 @@
 -- itself but imported in the `ProposalIou` test.
 -- @SINCE-LF 1.5
 daml 1.2
-module ProposalDSL where
+module Proposal where
 
 import DA.List
 import DA.Text
