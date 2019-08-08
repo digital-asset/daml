@@ -5,6 +5,7 @@ package com.digitalasset.daml.lf.value.json
 
 import com.digitalasset.daml.lf.data.{Decimal => LfDecimal, FrontStack, Ref, SortedLookupList}
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
@@ -97,34 +98,45 @@ abstract class ApiCodecCompressed[Cid](
       value: JsValue,
       prim: Model.DamlLfTypePrim,
       defs: Model.DamlLfTypeLookup): V[Cid] = {
-    (value, prim.typ) match {
-      case (JsString(v), Model.DamlLfPrimType.Decimal) =>
-        V.ValueDecimal(assertDE(LfDecimal fromString v))
-      case (JsString(v), Model.DamlLfPrimType.Int64) => V.ValueInt64(v.toLong)
-      case (JsString(v), Model.DamlLfPrimType.Text) => V.ValueText(v)
-      case (JsString(v), Model.DamlLfPrimType.Party) =>
-        V.ValueParty(assertDE(Ref.Party fromString v))
-      case (v, Model.DamlLfPrimType.ContractId) => V.ValueContractId(jsValueToApiContractId(v))
-      case (JsObject(_), Model.DamlLfPrimType.Unit) => V.ValueUnit
-      case (JsString(v), Model.DamlLfPrimType.Timestamp) => V.ValueTimestamp.fromIso8601(v)
-      case (JsString(v), Model.DamlLfPrimType.Date) => V.ValueDate.fromIso8601(v)
-      case (JsBoolean(v), Model.DamlLfPrimType.Bool) => V.ValueBool(v)
-      case (JsArray(v), Model.DamlLfPrimType.List) =>
-        V.ValueList(v.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to[FrontStack])
-      case (JsObject(f), Model.DamlLfPrimType.Optional) =>
-        f.headOption match {
-          case Some((`fieldNone`, _)) => V.ValueOptional(None)
-          case Some((`fieldSome`, v)) =>
-            V.ValueOptional(Some(jsValueToApiValue(v, prim.typArgs.head, defs)))
-          case Some(_) => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
-          case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
-        }
-      case (JsObject(a), Model.DamlLfPrimType.Map) =>
-        V.ValueMap(SortedLookupList(a.map {
-          case (k, v) => k -> jsValueToApiValue(v, prim.typArgs.head, defs)
-        }))
-      case _ => deserializationError(s"Can't read ${value.prettyPrint} as $prim")
-    }
+    (prim.typ, value).match2 {
+      case Model.DamlLfPrimType.Decimal => {
+        case JsString(v) =>
+          V.ValueDecimal(assertDE(LfDecimal fromString v))
+      }
+      case Model.DamlLfPrimType.Int64 => { case JsString(v) => V.ValueInt64(v.toLong) }
+      case Model.DamlLfPrimType.Text => { case JsString(v) => V.ValueText(v) }
+      case Model.DamlLfPrimType.Party => {
+        case JsString(v) =>
+          V.ValueParty(assertDE(Ref.Party fromString v))
+      }
+      case Model.DamlLfPrimType.ContractId => {
+        case v => V.ValueContractId(jsValueToApiContractId(v))
+      }
+      case Model.DamlLfPrimType.Unit => { case JsObject(_) => V.ValueUnit }
+      case Model.DamlLfPrimType.Timestamp => { case JsString(v) => V.ValueTimestamp.fromIso8601(v) }
+      case Model.DamlLfPrimType.Date => { case JsString(v) => V.ValueDate.fromIso8601(v) }
+      case Model.DamlLfPrimType.Bool => { case JsBoolean(v) => V.ValueBool(v) }
+      case Model.DamlLfPrimType.List => {
+        case JsArray(v) =>
+          V.ValueList(v.map(e => jsValueToApiValue(e, prim.typArgs.head, defs)).to[FrontStack])
+      }
+      case Model.DamlLfPrimType.Optional => {
+        case JsObject(f) =>
+          f.headOption match {
+            case Some((`fieldNone`, _)) => V.ValueOptional(None)
+            case Some((`fieldSome`, v)) =>
+              V.ValueOptional(Some(jsValueToApiValue(v, prim.typArgs.head, defs)))
+            case Some(_) => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
+            case None => deserializationError(s"Can't read ${value.prettyPrint} as Optional")
+          }
+      }
+      case Model.DamlLfPrimType.Map => {
+        case JsObject(a) =>
+          V.ValueMap(SortedLookupList(a.map {
+            case (k, v) => k -> jsValueToApiValue(v, prim.typArgs.head, defs)
+          }))
+      }
+    }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $prim"))
   }
 
   private[this] def jsValueToApiDataType(
@@ -132,61 +144,65 @@ abstract class ApiCodecCompressed[Cid](
       id: DamlLfIdentifier,
       dt: Model.DamlLfDataType,
       defs: Model.DamlLfTypeLookup): V[Cid] = {
-    (value, dt) match {
-      case (JsObject(v), Model.DamlLfRecord(fields)) =>
-        V.ValueRecord(
-          Some(id),
-          fields.map { f =>
-            val jsField = v
-              .getOrElse(
-                f._1,
-                deserializationError(
-                  s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '${f._1}'"))
-            (Some(f._1), jsValueToApiValue(jsField, f._2, defs))
-          }.toImmArray
-        )
-      case (JsArray(fValues), Model.DamlLfRecord(fields)) =>
-        if (fValues.length != fields.length)
-          deserializationError(
-            s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields")
-        else
+    (dt, value).match2 {
+      case Model.DamlLfRecord(fields) => {
+        case JsObject(v) =>
           V.ValueRecord(
             Some(id),
-            (fields zip fValues).map {
-              case ((fName, fTy), fValue) =>
-                (Some(fName), jsValueToApiValue(fValue, fTy, defs))
+            fields.map { f =>
+              val jsField = v
+                .getOrElse(
+                  f._1,
+                  deserializationError(
+                    s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '${f._1}'"))
+              (Some(f._1), jsValueToApiValue(jsField, f._2, defs))
             }.toImmArray
           )
-      case (JsObject(v), Model.DamlLfVariant(cons)) =>
-        val constructor = v.toList match {
-          case x :: Nil => x
-          case _ =>
+        case JsArray(fValues) =>
+          if (fValues.length != fields.length)
             deserializationError(
-              s"Can't read ${value.prettyPrint} as DamlLfVariant $id, single constructor required")
-        }
-        val (constructorName, constructorType) = cons.toList
-          .find(_._1 == constructor._1)
-          .getOrElse(deserializationError(
-            s"Can't read ${value.prettyPrint} as DamlLfVariant $id, unknown constructor ${constructor._1}"))
-
-        V.ValueVariant(
-          Some(id),
-          constructorName,
-          jsValueToApiValue(constructor._2, constructorType, defs)
-        )
-      case (JsString(c), Model.DamlLfEnum(cons)) =>
-        cons
-          .collectFirst { case kc @ `c` => kc }
-          .map(
-            V.ValueEnum(
+              s"Can't read ${value.prettyPrint} as DamlLfRecord $id, wrong number of record fields")
+          else
+            V.ValueRecord(
               Some(id),
-              _
-            ))
-          .getOrElse(deserializationError(
-            s"Can't read ${value.prettyPrint} as DamlLfEnum $id, unknown constructor $c"))
+              (fields zip fValues).map {
+                case ((fName, fTy), fValue) =>
+                  (Some(fName), jsValueToApiValue(fValue, fTy, defs))
+              }.toImmArray
+            )
+      }
+      case Model.DamlLfVariant(cons) => {
+        case JsObject(v) =>
+          val constructor = v.toList match {
+            case x :: Nil => x
+            case _ =>
+              deserializationError(
+                s"Can't read ${value.prettyPrint} as DamlLfVariant $id, single constructor required")
+          }
+          val (constructorName, constructorType) = cons.toList
+            .find(_._1 == constructor._1)
+            .getOrElse(deserializationError(
+              s"Can't read ${value.prettyPrint} as DamlLfVariant $id, unknown constructor ${constructor._1}"))
 
-      case _ => deserializationError(s"Can't read ${value.prettyPrint} as $dt")
-    }
+          V.ValueVariant(
+            Some(id),
+            constructorName,
+            jsValueToApiValue(constructor._2, constructorType, defs)
+          )
+      }
+      case Model.DamlLfEnum(cons) => {
+        case JsString(c) =>
+          cons
+            .collectFirst { case kc @ `c` => kc }
+            .map(
+              V.ValueEnum(
+                Some(id),
+                _
+              ))
+            .getOrElse(deserializationError(
+              s"Can't read ${value.prettyPrint} as DamlLfEnum $id, unknown constructor $c"))
+      }
+    }(fallback = deserializationError(s"Can't read ${value.prettyPrint} as $dt"))
   }
 
   /** Deserialize a value, given the type */
