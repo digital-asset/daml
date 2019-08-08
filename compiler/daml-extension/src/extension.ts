@@ -12,10 +12,12 @@ import * as cp from 'child_process';
 import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument } from 'vscode-languageclient';
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
 import * as which from 'which';
+import { VisualTaskProvider } from './visualTaskProvider';
 
 let damlRoot: string = path.join(os.homedir(), '.daml');
 let daSdkPath: string = path.join(os.homedir(), '.da');
 let daCmdPath: string = path.join(daSdkPath, 'bin', 'da');
+let visualTaskProvider: vscode.Disposable | undefined;
 
 var damlLanguageClient: LanguageClient;
 // Extension activation
@@ -28,6 +30,7 @@ export async function activate(context: vscode.ExtensionContext) {
     damlLanguageClient = createLanguageClient(config, await consent);
     damlLanguageClient.registerProposedFeatures();
 
+    visualTaskProvider = vscode.tasks.registerTaskProvider("custombuildscript", new VisualTaskProvider)
     const webviewSrc: Uri =
         vscode.Uri.file(path.join(context.extensionPath, 'src', 'webview.js')).
         with({scheme: 'vscode-resource'});
@@ -170,6 +173,9 @@ export function deactivate() {
     // Stop keep-alive watchdog and terminate language server.
     stopKeepAliveWatchdog();
     (<any>damlLanguageClient)._childProcess.kill('SIGTERM');
+    if (visualTaskProvider){
+        visualTaskProvider.dispose();
+    }
 }
 
 // Keep alive timer for periodically checking that the server is responding

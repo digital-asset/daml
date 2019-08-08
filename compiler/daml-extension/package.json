@@ -19,6 +19,22 @@
     ],
     "main": "./out/src/extension",
     "contributes": {
+        "taskDefinitions": [
+            {
+                "type": "custombuildscript",
+                "required": [],
+                "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": "Generate visual"
+                    },
+                    "file": {
+                        "type" : "string",
+                        "description": "Customized"
+                    }
+                }
+            }
+        ],
         "languages": [
             {
                 "id": "daml",
