@@ -9,3 +9,4 @@ This page contains release notes for the SDK.
 HEAD — ongoing
 --------------
 
++ [Ledger] Fixed a bug that prevented the ledger from loading transactions with empty workflow ids.
