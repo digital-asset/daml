@@ -67,7 +67,7 @@ client_server_test(
         #     2019-06-18T13:58:54.7591240Z       | Test failed on fixture RemoteApiProxy with class org.scalatest.exceptions.TestFailedException: The code property had value 10, instead of its expected value 0, on object Status(10,Error: The maximum record time of the command exceeded,List()),
         #     2019-06-18T13:58:54.7629010Z       | inside Completion(ledger-api-test-tool-Test:consistency_doublespend1-0-0:0--TwBhbmYQ9r,Some(Status(10,Error: The maximum record time of the command exceeded,List())),,None)
         # therefore, try to bump the ttl
-        "--command-submission-ttl-scale-factor=2",
+        "--command-submission-ttl-scale-factor=1",
         # "--all-tests",
         "--include=DivulgenceIT,IdentityIT,SemanticTests,ContractKeysIT",
     ],
@@ -76,8 +76,12 @@ client_server_test(
     data = [
         "//ledger/test-common:SemanticTests.dar",
         "//ledger/test-common:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ],
-    server = "//ledger/api-server-damlonx/reference:reference",
+    server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = [
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:SemanticTests.dar))",
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test.dar))",
