@@ -94,12 +94,12 @@ commandParser = subparser $ fold
         <*> optional (option str (long "on-start" <> metavar "COMMAND" <> help "Command to run once sandbox and navigator are running."))
         <*> (WaitForSignal <$> flagYesNoAuto "wait-for-signal" True "Wait for Ctrl+C or interrupt after starting servers." idm)
 
-    deployCmdInfo = progDesc . concat $
-        [ "Deploy the current DAML project to a remote DAML ledger. "
-        , "This will allocate the project's parties on the ledger "
-        , "(if missing) and upload the project's built DAR file. You "
-        , "can specify the ledger in daml.yaml with the ledger.host and "
-        , "ledger.port options, or you can pass the --host and --port "
+    deployCmdInfo = progDesc . unwords $
+        [ "Deploy the current DAML project to a remote DAML ledger."
+        , "This will allocate the project's parties on the ledger"
+        , "(if missing) and upload the project's built DAR file. You"
+        , "can specify the ledger in daml.yaml with the ledger.host and"
+        , "ledger.port options, or you can pass the --host and --port"
         , "flags to this command instead."
         , "Please visit https://docs.daml.com/deploy/ for more info."
         ]
