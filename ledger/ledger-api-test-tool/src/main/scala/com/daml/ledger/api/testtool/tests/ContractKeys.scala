@@ -28,13 +28,19 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         showId <- ShowDelegated(owner, delegate)
         _ <- showId.showIt(delegated.contractId)
         _ <- delegation.fetchDelegated(delegated.contractId)
-        fetchByKeyFailureCode <- context.extractErrorStatus(
-          delegation.fetchByKeyDelegated(key, Some(delegated.contractId)))
-        lookupByKeyFailureCode <- context.extractErrorStatus(
-          delegation.lookupByKeyDelegated(key, Some(delegated.contractId)))
+        fetchByKeyFailure <- delegation.fetchByKeyDelegated(key, Some(delegated.contractId)).failed
+        lookupByKeyFailure <- delegation
+          .lookupByKeyDelegated(key, Some(delegated.contractId))
+          .failed
       } yield {
-        assert(fetchByKeyFailureCode == Status.Code.INVALID_ARGUMENT)
-        assert(lookupByKeyFailureCode == Status.Code.INVALID_ARGUMENT)
+        assertGrpcError(
+          fetchByKeyFailure,
+          Status.Code.INVALID_ARGUMENT,
+          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+        assertGrpcError(
+          lookupByKeyFailure,
+          Status.Code.INVALID_ARGUMENT,
+          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
       }
   }
 
@@ -45,16 +51,22 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         Vector(owner, delegate) <- allocateParties(2)
         delegated <- Delegated(owner, key)
         delegation <- Delegation(owner, delegate)
-        fetchFailureCode <- context.extractErrorStatus(
-          delegation.fetchDelegated(delegated.contractId))
-        fetchByKeyFailureCode <- context.extractErrorStatus(
-          delegation.fetchByKeyDelegated(key, None))
-        lookupByKeyFailureCode <- context.extractErrorStatus(
-          delegation.lookupByKeyDelegated(key, None))
+        fetchFailure <- delegation.fetchDelegated(delegated.contractId).failed
+        fetchByKeyFailure <- delegation.fetchByKeyDelegated(key, None).failed
+        lookupByKeyFailure <- delegation.lookupByKeyDelegated(key, None).failed
       } yield {
-        assert(fetchFailureCode == Status.Code.INVALID_ARGUMENT)
-        assert(fetchByKeyFailureCode == Status.Code.INVALID_ARGUMENT)
-        assert(lookupByKeyFailureCode == Status.Code.INVALID_ARGUMENT)
+        assertGrpcError(
+          fetchFailure,
+          Status.Code.INVALID_ARGUMENT,
+          "dependency error: couldn't find contract")
+        assertGrpcError(
+          fetchByKeyFailure,
+          Status.Code.INVALID_ARGUMENT,
+          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+        assertGrpcError(
+          lookupByKeyFailure,
+          Status.Code.INVALID_ARGUMENT,
+          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
       }
     }
 
@@ -68,16 +80,14 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
       for {
         Vector(alice, bob) <- allocateParties(2)
         tk1 <- TextKey(alice, key1, List(bob))
-        duplicateKeyCode <- context.extractErrorStatus(TextKey(alice, key1, List(bob)))
+        duplicateKeyFailure <- TextKey(alice, key1, List(bob)).failed
         aliceTKO <- TextKeyOperations(alice)
         bobTKO <- TextKeyOperations(bob)
 
         // trying to lookup an unauthorized key should fail
-        bobLooksUpTKErrorCode <- context.extractErrorStatus(
-          bobTKO.lookup((alice, key1), Some(tk1.contractId)))
+        bobLooksUpTextKeyFailure <- bobTKO.lookup((alice, key1), Some(tk1.contractId)).failed
         // trying to lookup an unauthorized non-existing key should fail
-        bobLooksUpBogusTKErrorCode <- context.extractErrorStatus(
-          bobTKO.lookup((alice, unknownKey), None))
+        bobLooksUpBogusTextKeyFailure <- bobTKO.lookup((alice, unknownKey), None).failed
 
         // successful, authorized lookup
         _ <- aliceTKO.lookup((alice, key1), Some(tk1.contractId))
@@ -89,8 +99,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         _ <- aliceTKO.lookup((alice, unknownKey), None)
 
         // failing fetch
-        aliceFailedFetchErrorCode <- context.extractErrorStatus(
-          aliceTKO.fetch((alice, unknownKey), tk1.contractId))
+        aliceFailedFetch <- aliceTKO.fetch((alice, unknownKey), tk1.contractId).failed
 
         // now we exercise the contract, thus archiving it, and then verify
         // that we cannot look it up anymore
@@ -101,14 +110,22 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         _ <- aliceTKO.consumeAndLookup((alice, key2), tk2.contractId)
 
         // failing create when a maintainer is not a signatory
-        failedMaintainerNotSignatory <- context.extractErrorStatus(
-          MaintainerNotSignatory(alice, bob))
+        failedMaintainerNotSignatory <- MaintainerNotSignatory(alice, bob).failed
       } yield {
-        assert(duplicateKeyCode == Status.Code.INVALID_ARGUMENT)
-        assert(bobLooksUpTKErrorCode == Status.Code.INVALID_ARGUMENT)
-        assert(bobLooksUpBogusTKErrorCode == Status.Code.INVALID_ARGUMENT)
-        assert(aliceFailedFetchErrorCode == Status.Code.INVALID_ARGUMENT)
-        assert(failedMaintainerNotSignatory == Status.Code.INVALID_ARGUMENT)
+        assertGrpcError(duplicateKeyFailure, Status.Code.INVALID_ARGUMENT, "DuplicateKey")
+        assertGrpcError(
+          bobLooksUpTextKeyFailure,
+          Status.Code.INVALID_ARGUMENT,
+          s"Expected the submitter '$bob' to be in maintainers '$alice'")
+        assertGrpcError(
+          bobLooksUpBogusTextKeyFailure,
+          Status.Code.INVALID_ARGUMENT,
+          s"Expected the submitter '$bob' to be in maintainers '$alice'")
+        assertGrpcError(aliceFailedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
+        assertGrpcError(
+          failedMaintainerNotSignatory,
+          Status.Code.INVALID_ARGUMENT,
+          "are not a subset of the signatories")
       }
   }
 
