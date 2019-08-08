@@ -100,6 +100,10 @@ client_server_test(
     data = [
         "//ledger/test-common:SemanticTests.dar",
         "//ledger/test-common:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ] + glob(["test/main/resources/*"]),
     server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = [
