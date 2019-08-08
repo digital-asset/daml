@@ -18,17 +18,27 @@ import io.grpc.Status
 
 final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session) {
 
-  val fetchDivulgedContract = LedgerTest("Contract keys should fetch a divulged contract") {
-    implicit context =>
+  val fetchDivulgedContract =
+    LedgerTest("Divulged contracts cannot be fetched or looked up by key") { implicit context =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
         Vector(owner, delegate) <- allocateParties(2)
+
+        // create contracts to work with
         delegated <- Delegated(owner, key)
         delegation <- Delegation(owner, delegate)
         showId <- ShowDelegated(owner, delegate)
+
+        // divulge the contract
         _ <- showId.showIt(delegated.contractId)
+
+        // fetch d
         _ <- delegation.fetchDelegated(delegated.contractId)
+
+        // fetch by key delegation is not allowed
         fetchByKeyFailure <- delegation.fetchByKeyDelegated(key, Some(delegated.contractId)).failed
+
+        // lookup by key delegation is not allowed
         lookupByKeyFailure <- delegation
           .lookupByKeyDelegated(key, Some(delegated.contractId))
           .failed
@@ -42,17 +52,25 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           Status.Code.INVALID_ARGUMENT,
           s"Expected the submitter '$delegate' to be in maintainers '$owner'")
       }
-  }
+    }
 
   val rejectFetchingUndisclosedContract =
     LedgerTest("Contract Keys should reject fetching an undisclosed contract") { implicit context =>
       val key = s"${UUID.randomUUID.toString}-key"
       for {
         Vector(owner, delegate) <- allocateParties(2)
+
+        // create contracts to work with
         delegated <- Delegated(owner, key)
         delegation <- Delegation(owner, delegate)
+
+        // fetch should fail
         fetchFailure <- delegation.fetchDelegated(delegated.contractId).failed
+
+        // fetch by key should fail
         fetchByKeyFailure <- delegation.fetchByKeyDelegated(key, None).failed
+
+        // lookup by key should fail
         lookupByKeyFailure <- delegation.lookupByKeyDelegated(key, None).failed
       } yield {
         assertGrpcError(
@@ -79,13 +97,19 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
 
       for {
         Vector(alice, bob) <- allocateParties(2)
+
+        //create contracts to work with
         tk1 <- TextKey(alice, key1, List(bob))
-        duplicateKeyFailure <- TextKey(alice, key1, List(bob)).failed
+        tk2 <- TextKey(alice, key2, List(bob))
         aliceTKO <- TextKeyOperations(alice)
         bobTKO <- TextKeyOperations(bob)
 
+        // creating a contract with a duplicate key should fail
+        duplicateKeyFailure <- TextKey(alice, key1, List(bob)).failed
+
         // trying to lookup an unauthorized key should fail
         bobLooksUpTextKeyFailure <- bobTKO.lookup((alice, key1), Some(tk1.contractId)).failed
+
         // trying to lookup an unauthorized non-existing key should fail
         bobLooksUpBogusTextKeyFailure <- bobTKO.lookup((alice, unknownKey), None).failed
 
@@ -106,11 +130,11 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         _ <- tk1.choice()
         _ <- aliceTKO.lookup((alice, key1), None)
 
-        tk2 <- TextKey(alice, key2, List(bob))
+        // lookup the key, consume it, then verify we cannot look it up anymore
         _ <- aliceTKO.consumeAndLookup((alice, key2), tk2.contractId)
 
         // failing create when a maintainer is not a signatory
-        failedMaintainerNotSignatory <- MaintainerNotSignatory(alice, bob).failed
+        maintainerNotSignatoryFailed <- MaintainerNotSignatory(alice, bob).failed
       } yield {
         assertGrpcError(duplicateKeyFailure, Status.Code.INVALID_ARGUMENT, "DuplicateKey")
         assertGrpcError(
@@ -123,7 +147,7 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           s"Expected the submitter '$bob' to be in maintainers '$alice'")
         assertGrpcError(aliceFailedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
         assertGrpcError(
-          failedMaintainerNotSignatory,
+          maintainerNotSignatoryFailed,
           Status.Code.INVALID_ARGUMENT,
           "are not a subset of the signatories")
       }
