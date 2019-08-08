@@ -460,7 +460,10 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
         putStrLn $ "Compiling " <> pName <> " to a DAR."
         opts <- mkOptions options
         loggerH <- getLogger opts "package"
-        withDamlIdeState opts{optMbPackageName = Just pName} loggerH diagnosticsLogger $ \compilerH -> do
+        withDamlIdeState
+            opts {optMbPackageName = Just $ pkgNameVersion pName pVersion}
+            loggerH
+            diagnosticsLogger $ \compilerH -> do
             mbDar <-
                 buildDar
                     compilerH
