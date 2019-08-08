@@ -196,7 +196,7 @@ cmdInit =
     command "init" $
     info (helper <*> cmd) $ progDesc "Initialize a DAML project" <> fullDesc
   where
-    cmd = execInit <$> lfVersionOpt <*> projectOpts "daml damlc init" <*> pure (InitPkgDb True)
+    cmd = execInit <$> lfVersionOpt <*> projectOpts "daml damlc init"
 
 cmdPackage :: Int -> Mod CommandFields Command
 cmdPackage numProcessors =
@@ -311,7 +311,7 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
     withLogger $ \loggerH ->
         withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
             -- TODO we should allow different LF versions in the IDE.
-            execInit LF.versionDefault (ProjectOpts Nothing (ProjectCheck "" False)) (InitPkgDb True)
+            initPackageDb LF.versionDefault (InitPkgDb True)
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
             Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
             runLanguageServer
@@ -387,10 +387,13 @@ withPackageConfig f = do
 
 -- | If we're in a daml project, read the daml.yaml field and create the project local package
 -- database. Otherwise do nothing.
-execInit :: LF.Version -> ProjectOpts -> InitPkgDb -> IO ()
-execInit lfVersion projectOpts (InitPkgDb shouldInit) =
-    when shouldInit $
-    withProjectRoot' projectOpts $ \_relativize -> do
+execInit :: LF.Version -> ProjectOpts -> IO ()
+execInit lfVersion projectOpts =
+    withProjectRoot' projectOpts $ \_relativize -> initPackageDb lfVersion (InitPkgDb True)
+
+initPackageDb :: LF.Version -> InitPkgDb -> IO ()
+initPackageDb lfVersion (InitPkgDb shouldInit) =
+    when shouldInit $ do
         isProject <- doesFileExist projectConfigName
         when isProject $ do
           project <- readProjectConfig $ ProjectPath "."
@@ -455,7 +458,7 @@ mbErr err = maybe (hPutStrLn stderr err >> exitFailure) pure
 
 execBuild :: ProjectOpts -> Options -> Maybe FilePath -> InitPkgDb -> IO ()
 execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts $ \_relativize -> do
-    execInit (optDamlLfVersion options) projectOpts initPkgDb
+    initPackageDb (optDamlLfVersion options) initPkgDb
     withPackageConfig $ \pkgConfig@PackageConfigFields{..} -> do
         putStrLn $ "Compiling " <> pName <> " to a DAR."
         opts <- mkOptions options
@@ -645,10 +648,10 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
     inFile1 <- makeAbsolute inFile1_
     inFile2 <- makeAbsolute inFile2_
     loggerH <- getLogger opts "migrate"
-    -- initialise the package database
-    execInit (optDamlLfVersion opts) projectOpts (InitPkgDb True)
     withProjectRoot' projectOpts $ \_relativize
      -> do
+        -- initialise the package database
+        initPackageDb (optDamlLfVersion opts) (InitPkgDb True)
         -- for all contained dalfs, generate source, typecheck and generate interface files and
         -- overwrite the existing ones.
         dbPath <- makeAbsolute $

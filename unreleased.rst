@@ -10,3 +10,5 @@ HEAD — ongoing
 --------------
 
 + [Ledger] Fixed a bug that prevented the ledger from loading transactions with empty workflow ids.
++ [DAML Compiler] The ``--project-root`` option now works properly
+  with relative paths in ``daml build`.`
