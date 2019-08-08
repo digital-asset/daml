@@ -16,7 +16,6 @@ import * as which from 'which';
 let damlRoot: string = path.join(os.homedir(), '.daml');
 let daSdkPath: string = path.join(os.homedir(), '.da');
 let daCmdPath: string = path.join(daSdkPath, 'bin', 'da');
-let visualTaskProvider: vscode.Disposable | undefined;
 
 var damlLanguageClient: LanguageClient;
 // Extension activation
@@ -190,9 +189,6 @@ export function deactivate() {
     // Stop keep-alive watchdog and terminate language server.
     stopKeepAliveWatchdog();
     (<any>damlLanguageClient)._childProcess.kill('SIGTERM');
-    if (visualTaskProvider){
-        visualTaskProvider.dispose();
-    }
 }
 
 // Keep alive timer for periodically checking that the server is responding
