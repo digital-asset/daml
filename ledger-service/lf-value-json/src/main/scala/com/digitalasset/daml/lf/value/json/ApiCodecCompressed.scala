@@ -9,8 +9,10 @@ import com.digitalasset.daml.lf.data.ScalazEqual._
 import com.digitalasset.daml.lf.value.{Value => V}
 import com.digitalasset.daml.lf.value.json.{NavigatorModelAliases => Model}
 import Model.{DamlLfIdentifier, DamlLfType, DamlLfTypeLookup}
-import spray.json._
 import ApiValueImplicits._
+
+import spray.json._
+import scalaz.syntax.std.string._
 
 /**
   * A compressed encoding of API values.
@@ -103,7 +105,10 @@ abstract class ApiCodecCompressed[Cid](
         case JsString(v) =>
           V.ValueDecimal(assertDE(LfDecimal fromString v))
       }
-      case Model.DamlLfPrimType.Int64 => { case JsString(v) => V.ValueInt64(v.toLong) }
+      case Model.DamlLfPrimType.Int64 => {
+        case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))
+        case JsNumber(v) if v.isValidLong => V.ValueInt64(v.toLongExact)
+      }
       case Model.DamlLfPrimType.Text => { case JsString(v) => V.ValueText(v) }
       case Model.DamlLfPrimType.Party => {
         case JsString(v) =>
