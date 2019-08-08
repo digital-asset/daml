@@ -104,6 +104,8 @@ abstract class ApiCodecCompressed[Cid](
       case Model.DamlLfPrimType.Decimal => {
         case JsString(v) =>
           V.ValueDecimal(assertDE(LfDecimal fromString v))
+        case JsNumber(v) =>
+          V.ValueDecimal(assertDE(LfDecimal fromBigDecimal v))
       }
       case Model.DamlLfPrimType.Int64 => {
         case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))
