@@ -232,6 +232,10 @@ class PostgresIndexer private (
         // TODO (GS) implement configuration changes
         Future.successful(())
 
+      case _: ConfigurationChangeRejected =>
+        // TODO(JM) implement configuration rejections
+        Future.successful(())
+
       case CommandRejected(submitterInfo, reason) =>
         val rejection = PersistenceEntry.Rejection(
           LedgerEntry.Rejection(

@@ -12,48 +12,17 @@ import com.daml.ledger.participant.state.kvutils.committing.{
   ProcessTransactionSubmission
 }
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId}
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass
 import com.digitalasset.daml_lf.DamlLf
-import com.google.common.io.BaseEncoding
-import com.google.protobuf.{ByteString, Empty}
+import com.google.protobuf.ByteString
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 
 object KeyValueCommitting {
   private val logger = LoggerFactory.getLogger(this.getClass)
-
-  /** Errors that can result from improper calls to processSubmission.
-    * Validation and consistency errors are turned into command rejections.
-    * Note that processSubmission can also fail with a protobuf exception,
-    * e.g. https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/InvalidProtocolBufferException.
-    */
-  sealed trait Err extends RuntimeException with Product with Serializable
-  object Err {
-    final case class InvalidPayload(message: String) extends Err {
-      override def getMessage: String = s"Invalid payload: $message"
-    }
-    final case class MissingInputState(key: DamlStateKey) extends Err {
-      override def getMessage: String = s"Missing input state for key $key"
-    }
-    final case class NodeMissingFromLogEntry(entryId: DamlLogEntryId, nodeId: Int) extends Err {
-      override def getMessage: String =
-        s"Node $nodeId not found from log entry ${prettyEntryId(entryId)}"
-    }
-    final case class NodeNotACreate(entryId: DamlLogEntryId, nodeId: Int) extends Err {
-      override def getMessage: String =
-        s"Transaction node ${prettyEntryId(entryId)}:$nodeId was not a create node."
-    }
-    final case class ArchiveDecodingFailed(packageId: PackageId, reason: String) extends Err {
-      override def getMessage: String = s"Decoding of DAML-LF archive $packageId failed: $reason"
-    }
-    final case class InternalError(message: String) extends Err {
-      override def getMessage: String = s"Internal error: $message"
-    }
-  }
 
   def packDamlStateKey(key: DamlStateKey): ByteString = key.toByteString
   def unpackDamlStateKey(bytes: ByteString): DamlStateKey = DamlStateKey.parseFrom(bytes)
@@ -66,12 +35,6 @@ object KeyValueCommitting {
 
   def packDamlLogEntryId(entry: DamlLogEntryId): ByteString = entry.toByteString
   def unpackDamlLogEntryId(bytes: ByteString): DamlLogEntryId = DamlLogEntryId.parseFrom(bytes)
-
-  /** Pretty-printing of the entry identifier. Uses the same hexadecimal encoding as is used
-    * for absolute contract identifiers.
-    */
-  def prettyEntryId(entryId: DamlLogEntryId): String =
-    BaseEncoding.base16.encode(entryId.getEntryId.toByteArray)
 
   /** Processes a DAML submission, given the allocated log entry id, the submission and its resolved inputs.
     * Produces the log entry to be committed, and DAML state updates.
@@ -97,6 +60,7 @@ object KeyValueCommitting {
     *   expect to be present.
     * @return Log entry to be committed and the DAML state updates to be applied.
     */
+  @throws(classOf[Err])
   def processSubmission(
       engine: Engine,
       entryId: DamlLogEntryId,
@@ -126,13 +90,13 @@ object KeyValueCommitting {
           inputState
         ).run
 
-      case DamlSubmission.PayloadCase.CONFIGURATION =>
+      case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         ProcessConfigSubmission(
           entryId,
           recordTime,
           defaultConfig,
           participantId,
-          submission.getConfiguration,
+          submission.getConfigurationSubmission,
           inputState
         ).run
 
@@ -148,7 +112,7 @@ object KeyValueCommitting {
         ).run
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-        throw Err.InvalidPayload("DamlSubmission.payload not set.")
+        throw Err.InvalidSubmission("DamlSubmission.payload not set.")
     }
   }
 
@@ -227,18 +191,18 @@ object KeyValueCommitting {
                   // so no outputs from lookup node.
                   List.empty
                 case TransactionOuterClass.Node.NodeTypeCase.NODETYPE_NOT_SET =>
-                  throw Err.InvalidPayload(s"submissionOutputs: NODETYPE_NOT_SET")
+                  throw Err.InvalidSubmission(s"submissionOutputs: NODETYPE_NOT_SET")
               }
           }
         txOutputs.toSet + commandDedupKey(txEntry.getSubmitterInfo)
 
-      case DamlSubmission.PayloadCase.CONFIGURATION =>
+      case DamlSubmission.PayloadCase.CONFIGURATION_SUBMISSION =>
         Set(
-          DamlStateKey.newBuilder.setCurrentConfiguration(Empty.getDefaultInstance).build
+          configurationStateKey
         )
 
       case DamlSubmission.PayloadCase.PAYLOAD_NOT_SET =>
-        throw Err.InvalidPayload("DamlSubmission.payload not set.")
+        throw Err.InvalidSubmission("DamlSubmission.payload not set.")
 
     }
   }

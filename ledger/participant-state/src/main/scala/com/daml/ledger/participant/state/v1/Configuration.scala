@@ -7,6 +7,8 @@ package com.daml.ledger.participant.state.v1
   * Emitted in [[com.daml.ledger.participant.state.v1.Update.ConfigurationChanged]].
   */
 final case class Configuration(
+    /* The configuration generation. Monotonically increasing. */
+    generation: Long,
     /** The time model of the ledger. Specifying the time-to-live bounds for Ledger API commands. */
     timeModel: TimeModel,
     /** The identity of the participant allowed to change the configuration. If not set, any participant

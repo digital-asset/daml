@@ -449,8 +449,8 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       _ <- ps
         .submitConfiguration(
           maxRecordTime = rt.addMicros(1000000),
-          currentConfig = lic.config,
-          newConfig = lic.config.copy(
+          config = lic.config.copy(
+            generation = lic.config.generation + 1,
             openWorld = !lic.config.openWorld
           ))
         .toScala
@@ -459,8 +459,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
       _ <- ps
         .submitConfiguration(
           maxRecordTime = rt.addMicros(1000000),
-          currentConfig = lic.config,
-          newConfig = lic.config.copy(
+          config = lic.config.copy(
             timeModel = TimeModel(
               Duration.ofSeconds(123),
               Duration.ofSeconds(123),
@@ -471,15 +470,13 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
 
       updates <- ps.stateUpdates(None).take(2).runWith(Sink.seq)
     } yield {
-      ps.close
+      ps.close()
       // The first submission should change the config.
       val newConfig = updates(0)._2.asInstanceOf[Update.ConfigurationChanged]
       assert(newConfig.newConfiguration != lic.config)
 
       // The second submission should get rejected.
-      assert(
-        updates(1)._2.asInstanceOf[Update.ConfigurationChanged].newConfiguration
-          == newConfig.newConfiguration)
+      assert(updates(1)._2.isInstanceOf[Update.ConfigurationChangeRejected])
     }
   }
 

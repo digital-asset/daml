@@ -30,7 +30,7 @@ message DamlSubmission {
   oneof payload {
     DamlTransactionEntry transaction_entry = 2;
     DamlPackageUploadEntry package_upload_entry = 3;
-    DamlConfigurationSubmission configuration = 4;
+    DamlConfigurationSubmission configuration_submission = 4;
     DamlPartyAllocationEntry party_allocation_entry = 5;
   }
 }
@@ -52,8 +52,8 @@ message DamlLogEntry {
     // Can be converted into `Update.TransactionAccepted`.
     DamlTransactionEntry transaction_entry = 2;
 
-    // A rejected command.
-    DamlRejectionEntry rejection_entry = 3;
+    // A rejected transaction.
+    DamlTransactionRejectionEntry transaction_rejection_entry = 3;
 
     // A collection of DAML-LF archives uploaded together by a participant.
     DamlPackageUploadEntry package_upload_entry = 4;
@@ -64,11 +64,14 @@ message DamlLogEntry {
     // A DAML configuration change.
     DamlConfiguration configuration_entry = 6;
 
+    // A rejected configuration change.
+    DamlConfigurationRejectionEntry configuration_rejection_entry = 7;
+
     // Allocation of a new DAML party and its assignment to a participant
-    DamlPartyAllocationEntry party_allocation_entry = 7;
+    DamlPartyAllocationEntry party_allocation_entry = 8;
 
     // A rejection of party allocation request
-    DamlPartyAllocationRejectionEntry party_allocation_rejection_entry = 8;
+    DamlPartyAllocationRejectionEntry party_allocation_rejection_entry = 9;
   }
 }
 
@@ -118,9 +121,8 @@ message DamlTransactionEntry {
   google.protobuf.Timestamp ledger_effective_time = 4;
 }
 
-// DAML command rejection entry. A failed commit of a submission creates a
-// rejection log entry.
-message DamlRejectionEntry {
+// A transaction rejection entry.
+message DamlTransactionRejectionEntry {
   DamlSubmitterInfo submitter_info = 1;
 
   message Inconsistent {
@@ -199,58 +201,85 @@ message DamlPackageUploadRejectionEntry {
     string details = 1;
   }
 
-  // The participant was not authorized to submit the upload request.
-  message ParticipantNotAuthorized {
-    string details = 1;
-  }
-
   oneof reason {
-
     InvalidPackage invalid_package = 3;
     ParticipantNotAuthorized participant_not_authorized = 4;
   }
 }
 
-// Configuration change request implemented as a compare-and-swap.
+// Configuration change request to change the ledger configuration.
 message DamlConfigurationSubmission {
   // The maximum record time after which the submission will be rejected.
   // Allows submitter to control when the request times out and to retry.
   google.protobuf.Timestamp maximum_record_time = 1;
 
-  // The current configuration as seen by the submitter. Makes the submission
-  // idempotent and safe-guards against duplicate or re-ordered submissions.
-  DamlConfiguration current_config = 2;
-
   // The new configuration that replaces the current configuration.
-  DamlConfiguration new_config = 3;
+  DamlConfiguration configuration = 2;
+}
+
+// A log entry describing a rejected configuration change.
+message DamlConfigurationRejectionEntry {
+  // The new proposed configuration that was rejected.
+  DamlConfiguration configuration = 1;
+
+  // A mismatch in the configuration generation, that is, the
+  // new configuration did not carry a generation that was one
+  // larger than previous generation.
+  message GenerationMismatch {
+    int64 expected_generation = 1;
+  }
+
+  // The provided configuration was invalid, e.g. the time model contained negative or
+  // out-of-bounds values.
+  message InvalidConfiguration {
+    string error = 1;
+  }
+
+  // The request timed out, e.g. record time exceeded maximum record time.
+  message TimedOut {
+    google.protobuf.Timestamp maximum_record_time = 1;
+  }
+
+  oneof reason {
+    ParticipantNotAuthorized participant_not_authorized = 2;
+    GenerationMismatch generation_mismatch = 3;
+    InvalidConfiguration invalid_configuration = 4;
+    TimedOut timed_out = 5;
+  }
 }
 
 message DamlConfiguration {
+  // The configuration generation. If submitting a configuration the new generation
+  // must be one larger than previous configuration. This safe-guards against
+  // configuration changes that are based upon stale data.
+  int64 generation = 1;
+
   // The ledger time model, specifying the bounds for
   // ledger effective time and maximum record time of transactions.
-  DamlTimeModel time_model = 1;
+  DamlTimeModel time_model = 2;
 
   // The identity of the participant that is allowed to change
   // the ledger configuration.
   // If unset the configuration can be changed by anyone.
-  string authorized_participant_id = 2;
+  string authorized_participant_id = 3;
 
   // If the "open world" flag is true, then party allocations are not
   // explicitly required. That is, a submission from a party that is
   // not allocated is allowed. This setting is useful when testing.
-  bool open_world = 3;
+  bool open_world = 4;
 }
+
 
 message DamlTimeModel {
   // The expected minimum latency of a transaction.
-  google.protobuf.Duration minTransactionLatency = 1;
+  google.protobuf.Duration min_transaction_latency = 1;
 
   // The maximum allowed clock skew between the ledger and clients.
-  google.protobuf.Duration maxClockSkew = 2;
+  google.protobuf.Duration max_clock_skew = 2;
 
   // The maximum allowed time to live for a transaction.
   // Must be greater than the derived minimum time to live.
-  google.protobuf.Duration maxTtl = 3;
+  google.protobuf.Duration max_ttl = 3;
 }
 
 // An allocation of party name and assignment of a party to a given
@@ -291,11 +320,6 @@ message DamlPartyAllocationRejectionEntry {
     string details = 1;
   }
 
-  // The participant was not authorized to submit the allocation request.
-  message ParticipantNotAuthorized {
-    string details = 1;
-  }
-
   oneof reason {
     AlreadyExists already_exists = 3;
     InvalidName invalid_name = 4;
@@ -314,7 +338,7 @@ message DamlStateKey {
     DamlCommandDedupKey command_dedup = 3;
     string party = 4;
     DamlContractKey contract_key = 5;
-    google.protobuf.Empty current_configuration = 6;
+    google.protobuf.Empty configuration = 6;
   }
 }
 
@@ -401,4 +425,9 @@ message DamlContractKeyState {
   // The contract to which the key points to.
   // If unset the key is inactive.
   DamlContractId contract_id = 1;
+}
+
+// Participant not authorized to submit the request, a common rejection reason.
+message ParticipantNotAuthorized {
+  string details = 1;
 }

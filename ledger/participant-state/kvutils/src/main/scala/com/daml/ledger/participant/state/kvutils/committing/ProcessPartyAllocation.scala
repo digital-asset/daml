@@ -5,7 +5,7 @@ package com.daml.ledger.participant.state.kvutils.committing
 
 import com.daml.ledger.participant.state.kvutils.Conversions.buildTimestamp
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.prettyEntryId
+import com.daml.ledger.participant.state.kvutils.Pretty
 import com.daml.ledger.participant.state.v1.ParticipantId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.slf4j.LoggerFactory
@@ -26,7 +26,7 @@ private[kvutils] case class ProcessPartyAllocation(
   val partyKey = DamlStateKey.newBuilder.setParty(party).build
 
   private def tracelog(msg: String): Unit =
-    logger.trace(s"[entryId=${prettyEntryId(entryId)}, submId=$submissionId]: $msg")
+    logger.trace(s"[entryId=${Pretty.prettyEntryId(entryId)}, submId=$submissionId]: $msg")
 
   def run: (DamlLogEntry, Map[DamlStateKey, DamlStateValue]) =
     runSequence(
@@ -53,7 +53,7 @@ private[kvutils] case class ProcessPartyAllocation(
         s"Party allocation rejected, participant id ${partyAllocationEntry.getParticipantId} did not match authenticated participant id $participantId.")
       reject {
         _.setParticipantNotAuthorized(
-          DamlPartyAllocationRejectionEntry.ParticipantNotAuthorized.newBuilder
+          ParticipantNotAuthorized.newBuilder
             .setDetails(
               s"Authenticated participant id ($participantId) did not match declared participant id (${partyAllocationEntry.getParticipantId}")
         )

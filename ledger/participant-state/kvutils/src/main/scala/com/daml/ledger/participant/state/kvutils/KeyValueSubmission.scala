@@ -109,18 +109,14 @@ object KeyValueSubmission {
   }
 
   /** Prepare a ledger configuration change submission. */
-  def configurationToSubmission(
-      maxRecordTime: Timestamp,
-      currentConfig: Configuration,
-      newConfig: Configuration): DamlSubmission = {
-    val tm = currentConfig.timeModel
+  def configurationToSubmission(maxRecordTime: Timestamp, config: Configuration): DamlSubmission = {
+    val tm = config.timeModel
     DamlSubmission.newBuilder
       .addInputDamlState(configurationStateKey)
-      .setConfiguration(
+      .setConfigurationSubmission(
         DamlConfigurationSubmission.newBuilder
           .setMaximumRecordTime(buildTimestamp(maxRecordTime))
-          .setCurrentConfig(buildDamlConfiguration(currentConfig))
-          .setNewConfig(buildDamlConfiguration(newConfig))
+          .setConfiguration(buildDamlConfiguration(config))
       )
       .build
   }

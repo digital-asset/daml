@@ -6,23 +6,16 @@ package com.daml.ledger.participant.state.kvutils.committing
 import com.daml.ledger.participant.state.backport.TimeModelChecker
 import com.daml.ledger.participant.state.kvutils.Conversions.{commandDedupKey, _}
 import com.daml.ledger.participant.state.kvutils.DamlKvutils._
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting._
-import com.daml.ledger.participant.state.kvutils.{Conversions, InputsAndEffects}
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err, InputsAndEffects, Pretty}
 import com.daml.ledger.participant.state.v1.{Configuration, ParticipantId, RejectionReason}
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.archive.Reader.ParseError
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.{Blinding, Engine}
+import com.digitalasset.daml.lf.transaction.GenTransaction
 import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, NodeCreate}
-import com.digitalasset.daml.lf.transaction.{GenTransaction, Transaction}
-import com.digitalasset.daml.lf.value.Value.{
-  AbsoluteContractId,
-  ContractId,
-  ContractInst,
-  NodeId,
-  VersionedValue
-}
+import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId, NodeId, VersionedValue}
 import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
@@ -54,22 +47,11 @@ private[kvutils] case class ProcessTransactionSubmission(
   private val logger = LoggerFactory.getLogger(this.getClass)
 
   private val config: Configuration =
-    inputState
-      .get(Conversions.configurationStateKey)
-      .flatten
-      .flatMap { v =>
-        Conversions
-          .parseDamlConfiguration(v.getConfiguration)
-          .fold({ err =>
-            logger.error(s"Failed to parse configuration: $err, using default configuration.")
-            None
-          }, Some(_))
-      }
-      .getOrElse(defaultConfig)
+    Common.getCurrentConfiguration(defaultConfig, inputState, logger)
 
   private val commandId = txEntry.getSubmitterInfo.getCommandId
   private def tracelog(msg: String) =
-    logger.trace(s"[entryId=${prettyEntryId(entryId)}, cmdId=$commandId]: $msg")
+    logger.trace(s"[entryId=${Pretty.prettyEntryId(entryId)}, cmdId=$commandId]: $msg")
 
   private val txLet = parseTimestamp(txEntry.getLedgerEffectiveTime)
   private val submitterInfo = txEntry.getSubmitterInfo
@@ -298,10 +280,10 @@ private[kvutils] case class ProcessTransactionSubmission(
           try {
             Some(Decode.decodeArchive(value.getArchive)._2)
           } catch {
-            case ParseError(err) => throw Err.ArchiveDecodingFailed(pkgId, err)
+            case ParseError(err) => throw Err.DecodeError("Archive", err)
           }
         case _ =>
-          throw Err.InvalidPayload("lookupPackage($pkgId): value not a DAML-LF archive!")
+          throw Err.DecodeError("Archive", "lookupPackage($pkgId): value not a DAML-LF archive!")
       }
     } yield pkg
   }
@@ -332,67 +314,36 @@ private[kvutils] case class ProcessTransactionSubmission(
       .orElse(knownKeys.get(key))
   }
 
-  /** Look up the contract instance from the log entry containing the transaction.
-    *
-    * This currently looks up the contract instance from the transaction stored
-    * in the log entry, which is inefficient as it needs to decode the full transaction
-    * to access a single contract instance.
-    *
-    * See issue https://github.com/digital-asset/daml/issues/734 for future work
-    * to use a more efficient representation for transactions and contract instances.
-    */
-  private def lookupContractInstanceFromLogEntry(
-      entryId: DamlLogEntryId,
-      entry: DamlLogEntry,
-      nodeId: Int
-  ): Option[ContractInst[Transaction.Value[AbsoluteContractId]]] = {
-    val relTx = Conversions.decodeTransaction(entry.getTransactionEntry.getTransaction)
-    relTx.nodes
-      .get(NodeId.unsafeFromIndex(nodeId))
-      .orElse {
-        throw Err.NodeMissingFromLogEntry(entryId, nodeId)
-      }
-      .flatMap { node: Transaction.Node =>
-        node match {
-          case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
-            // FixMe (RH) toAbsCoid can throw an IllegalArgumentException
-            Some(
-              create.coinst.mapValue(
-                _.mapContractId(toAbsCoid(entryId, _))
-              )
-            )
-          case n =>
-            throw Err.NodeNotACreate(entryId, nodeId)
-        }
-      }
-  }
-
   private def reject[A](reason: RejectionReason): Commit[A] = {
 
     val rejectionEntry = {
-      val builder = DamlRejectionEntry.newBuilder
+      val builder = DamlTransactionRejectionEntry.newBuilder
       builder
         .setSubmitterInfo(txEntry.getSubmitterInfo)
 
       reason match {
         case RejectionReason.Inconsistent =>
-          builder.setInconsistent(DamlRejectionEntry.Inconsistent.newBuilder.setDetails(""))
+          builder.setInconsistent(
+            DamlTransactionRejectionEntry.Inconsistent.newBuilder.setDetails(""))
         case RejectionReason.Disputed(disputeReason) =>
-          builder.setDisputed(DamlRejectionEntry.Disputed.newBuilder.setDetails(disputeReason))
+          builder.setDisputed(
+            DamlTransactionRejectionEntry.Disputed.newBuilder.setDetails(disputeReason))
         case RejectionReason.ResourcesExhausted =>
           builder.setResourcesExhausted(
-            DamlRejectionEntry.ResourcesExhausted.newBuilder.setDetails(""))
+            DamlTransactionRejectionEntry.ResourcesExhausted.newBuilder.setDetails(""))
         case RejectionReason.MaximumRecordTimeExceeded =>
           builder.setMaximumRecordTimeExceeded(
-            DamlRejectionEntry.MaximumRecordTimeExceeded.newBuilder.setDetails(""))
+            DamlTransactionRejectionEntry.MaximumRecordTimeExceeded.newBuilder.setDetails(""))
         case RejectionReason.DuplicateCommand =>
-          builder.setDuplicateCommand(DamlRejectionEntry.DuplicateCommand.newBuilder.setDetails(""))
+          builder.setDuplicateCommand(
+            DamlTransactionRejectionEntry.DuplicateCommand.newBuilder.setDetails(""))
         case RejectionReason.PartyNotKnownOnLedger =>
           builder.setPartyNotKnownOnLedger(
-            DamlRejectionEntry.PartyNotKnownOnLedger.newBuilder.setDetails(""))
+            DamlTransactionRejectionEntry.PartyNotKnownOnLedger.newBuilder.setDetails(""))
         case RejectionReason.SubmitterCannotActViaParticipant(details) =>
           builder.setSubmitterCannotActViaParticipant(
-            DamlRejectionEntry.SubmitterCannotActViaParticipant.newBuilder.setDetails(details))
+            DamlTransactionRejectionEntry.SubmitterCannotActViaParticipant.newBuilder
+              .setDetails(details))
       }
       builder
     }
@@ -400,7 +351,7 @@ private[kvutils] case class ProcessTransactionSubmission(
     Commit.done(
       DamlLogEntry.newBuilder
         .setRecordTime(buildTimestamp(recordTime))
-        .setRejectionEntry(rejectionEntry)
+        .setTransactionRejectionEntry(rejectionEntry)
         .build,
     )
   }

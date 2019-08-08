@@ -4,7 +4,7 @@
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
-    "da_scala_test_suite",
+    "da_scala_test",
 )
 load("//bazel_tools:java.bzl", "da_java_proto_library")
 
@@ -37,7 +37,7 @@ da_scala_library(
     ],
 )
 
-da_scala_test_suite(
+da_scala_test(
     name = "kvutils-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
     resources = glob(["src/test/resources/*"]),
@@ -52,7 +52,10 @@ da_scala_test_suite(
         "//daml-lf/archive:daml_lf_archive_scala",
         "//daml-lf/archive:daml_lf_java_proto",
         "//daml-lf/data",
+        "//daml-lf/encoder",
         "//daml-lf/engine",
+        "//daml-lf/language",
+        "//daml-lf/parser",
         "//daml-lf/transaction",
         "//ledger-api/testing-utils",
         "//ledger/ledger-api-common",
@@ -62,7 +65,7 @@ da_scala_test_suite(
 )
 
 proto_library(
-    name = "daml_kvutils_proto",
+    name = "daml_kvutils_proto3",
     srcs = ["src/main/protobuf/daml_kvutils.proto"],
     deps = [
         "//daml-lf/archive:daml_lf_proto",
@@ -77,5 +80,5 @@ proto_library(
 da_java_proto_library(
     name = "daml_kvutils_java_proto",
     tags = ["maven_coordinates=com.daml.ledger:participant-state-kvutils-java-proto:__VERSION__"],
-    deps = [":daml_kvutils_proto"],
+    deps = [":daml_kvutils_proto3"],
 )

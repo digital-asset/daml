@@ -159,4 +159,12 @@ object Update {
       s"Reject command ${submitterInfo.commandId}: $reason"
     }
   }
+
+  /** Signal that a configuration change submitted by this participant was rejected.
+    */
+  final case class ConfigurationChangeRejected( /* FIXME(JM) */ ) extends Update {
+    override def description: String = {
+      s"Configuration change was rejected"
+    }
+  }
 }

@@ -419,7 +419,7 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
     }
   }
 
-  // WritePackageService
+  // WritePackagesService
   override def uploadPackages(
       payload: List[Archive],
       sourceDescription: Option[String]
@@ -430,8 +430,7 @@ class LedgerBackedWriteService(ledger: Ledger, timeProvider: TimeProvider) exten
   // WriteConfigService
   override def submitConfiguration(
       maxRecordTime: Time.Timestamp,
-      currentConfig: Configuration,
-      newConfig: Configuration): CompletionStage[SubmissionResult] =
+      config: Configuration): CompletionStage[SubmissionResult] =
     // FIXME(JM): Implement configuration changes in sandbox.
     CompletableFuture.completedFuture(SubmissionResult.NotSupported)
 }

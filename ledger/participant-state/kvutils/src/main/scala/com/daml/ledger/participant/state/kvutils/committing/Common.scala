@@ -8,7 +8,9 @@ import com.daml.ledger.participant.state.kvutils.DamlKvutils.{
   DamlStateKey,
   DamlStateValue
 }
-import com.daml.ledger.participant.state.kvutils.KeyValueCommitting.Err
+import com.daml.ledger.participant.state.kvutils.{Conversions, Err}
+import com.daml.ledger.participant.state.v1.Configuration
+import org.slf4j.Logger
 
 object Common {
   type DamlStateMap = Map[DamlStateKey, DamlStateValue]
@@ -18,7 +20,7 @@ object Common {
     * This is essentially State + Except.
     */
   final case class Commit[A](run: DamlStateMap => Either[CommitDone, (A, DamlStateMap)]) {
-    def flatMap[A1 >: A](f: A => Commit[A1]): Commit[A1] =
+    def flatMap[A1](f: A => Commit[A1]): Commit[A1] =
       Commit { state =>
         run(state) match {
           case Left(done) => Left(done)
@@ -72,6 +74,12 @@ object Common {
         Right(() -> state)
       }
 
+    /** Lift a pure value into the computation. */
+    def pure[A](a: A): Commit[A] =
+      Commit { state =>
+        Right(a -> state)
+      }
+
     /** Delay a commit. Useful for delaying expensive computation, e.g.
       * delay { val foo = someExpensiveComputation; if (foo) done(err) else pass }
       */
@@ -103,4 +111,22 @@ object Common {
         Left(CommitDone(logEntry, finalState))
       }
   }
+
+  def getCurrentConfiguration(
+      defaultConfig: Configuration,
+      inputState: Map[DamlStateKey, Option[DamlStateValue]],
+      logger: Logger): Configuration =
+    inputState
+      .get(Conversions.configurationStateKey)
+      .flatten
+      .flatMap { v =>
+        Conversions
+          .parseDamlConfiguration(v.getConfiguration)
+          .fold({ err =>
+            logger.error(s"Failed to parse configuration: $err, using default configuration.")
+            None
+          }, Some(_))
+      }
+      .getOrElse(defaultConfig)
+
 }

@@ -109,6 +109,7 @@ class InMemoryKVParticipantState(
 
   // The initial ledger configuration
   private val initialLedgerConfig = Configuration(
+    generation = 0,
     timeModel = TimeModel.reasonableDefault,
     authorizedParticipantId = Some(participantId),
     openWorld = openWorld
@@ -246,8 +247,7 @@ class InMemoryKVParticipantState(
           // client retry submission.
           logger.warn(s"CommitActor: duplicate entry identifier in commit message, ignoring.")
         } else {
-          logger.trace(
-            s"CommitActor: processing submission ${KeyValueCommitting.prettyEntryId(entryId)}...")
+          logger.trace(s"CommitActor: processing submission ${Pretty.prettyEntryId(entryId)}...")
           // Process the submission to produce the log entry and the state updates.
 
           val stateInputs: Map[DamlStateKey, Option[DamlStateValue]] =
@@ -281,7 +281,7 @@ class InMemoryKVParticipantState(
             } + (entryId.getEntryId -> KeyValueCommitting.packDamlLogEntry(logEntry))
 
           logger.trace(
-            s"CommitActor: committing ${KeyValueCommitting.prettyEntryId(entryId)} and ${allUpdates.size} updates to store.")
+            s"CommitActor: committing ${Pretty.prettyEntryId(entryId)} and ${allUpdates.size} updates to store.")
 
           // Update the state.
           updateState(
@@ -354,8 +354,7 @@ class InMemoryKVParticipantState(
               KeyValueConsumption.unpackDamlLogEntry(blob))
           }
           .getOrElse(
-            sys.error(
-              s"getUpdate: ${KeyValueCommitting.prettyEntryId(entryId)} not found from store!")
+            sys.error(s"getUpdate: ${Pretty.prettyEntryId(entryId)} not found from store!")
           )
 
       case CommitHeartbeat(recordTime) =>
@@ -484,7 +483,6 @@ class InMemoryKVParticipantState(
     * connectivity to the underlying ledger. The implementer may assume that
     * this method is called only once, or very rarely.
     */
-  // FIXME(JM): Add configuration to initial conditions!
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(initialConditions)
 
@@ -499,7 +497,7 @@ class InMemoryKVParticipantState(
         state.store
           .getOrElse(
             entryId.getEntryId,
-            sys.error(s"getLogEntry: Cannot find ${KeyValueCommitting.prettyEntryId(entryId)}!")
+            sys.error(s"getLogEntry: Cannot find ${Pretty.prettyEntryId(entryId)}!")
           )
       )
   }
@@ -532,11 +530,10 @@ class InMemoryKVParticipantState(
   /** Submit a new configuration to the ledger. */
   override def submitConfiguration(
       maxRecordTime: Timestamp,
-      currentConfig: Configuration,
-      newConfig: Configuration): CompletionStage[SubmissionResult] =
+      config: Configuration): CompletionStage[SubmissionResult] =
     CompletableFuture.completedFuture({
       val submission =
-        KeyValueSubmission.configurationToSubmission(maxRecordTime, currentConfig, newConfig)
+        KeyValueSubmission.configurationToSubmission(maxRecordTime, config)
       commitActorRef ! CommitSubmission(
         allocateEntryId,
         submission
