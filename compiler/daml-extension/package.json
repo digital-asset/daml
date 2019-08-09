@@ -63,7 +63,7 @@
                 "title": "[DAML Documentation]"
             },
             {
-                "command": "daml.visual",
+                "command": "daml.visualize",
                 "title": "Generate visual for daml project"
             },
             {

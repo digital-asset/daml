@@ -54,7 +54,7 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     let d2 = vscode.commands.registerCommand('daml.openDamlDocs', openDamlDocs);
-    let d5 = vscode.commands.registerCommand('daml.visual', execVisual);
+    let d5 = vscode.commands.registerCommand('daml.visualize', visualize);
 
     let highlight = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
@@ -98,21 +98,31 @@ function getViewColumnForShowResource(): ViewColumn {
     }
 }
 
-function execVisual() {
-    let cmd = "daml clean && daml build && daml damlc visual .daml/dist/*dar > visual.dot"
+function exec(command: string, options: cp.ExecOptions, taskName: String): Promise<{ stdout: string; stderr: string }> {
+	return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+		cp.exec(command, options, (error, stdout, stderr) => {
+			if (error) {
+                reject({ error, stdout, stderr });
+                vscode.window.showErrorMessage("Error Generating visual" + taskName + error)
+            }
+			resolve({ stdout, stderr });
+		});
+	});
+}
+
+async function visualize() {
+    let buildCmd = "daml build -o tempfile"
+    let visualizeCmd = "daml damlc visual tempfile"
     let workspaceRoot = vscode.workspace.rootPath;
     let execOpts = { cwd: workspaceRoot }
-    cp.exec(cmd, execOpts, (error, stdout, stderr) => {
-        // console.log('stdout: ' + stdout); may capturing from stdout might be a good idea
-        if (!error) {
-            vscode.window.showInformationMessage("Visual successfully generated, install a graphviz plugin to see image")
-            vscode.workspace.openTextDocument(vscode.workspace.rootPath + "/visual.dot").then(doc =>
-                vscode.window.showTextDocument(doc))
-        }
-        if (error) {
-            vscode.window.showErrorMessage("Error Generating visual" + error)
-        }
-    });
+    await exec(buildCmd, { cwd: workspaceRoot }, "Daml Build Command");
+    let { stdout, stderr } = await exec(visualizeCmd, execOpts, "Generating dot file")
+    if (stdout) {
+        console.log(stdout)
+        vscode.workspace.openTextDocument({ content: stdout, language: "dot" }).then(doc =>
+            vscode.window.showTextDocument(doc)
+        )
+    }
 }
 
 function openDamlDocs() {
