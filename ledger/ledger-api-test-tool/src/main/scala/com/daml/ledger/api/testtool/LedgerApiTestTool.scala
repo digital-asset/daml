@@ -3,6 +3,9 @@
 
 package com.daml.ledger.api.testtool
 
+import java.io.File
+import java.nio.file.{Files, Paths, StandardCopyOption}
+
 import com.daml.ledger.api.testtool.infrastructure.Reporter.ColorizedPrintStreamReporter
 import com.daml.ledger.api.testtool.infrastructure.{
   LedgerSessionConfiguration,
@@ -29,12 +32,32 @@ object LedgerApiTestTool {
     tests.optional.keySet.toSeq.sorted.foreach(println(_))
   }
 
+  private def extractResources(resources: String*): Unit = {
+    val pwd = Paths.get(".").toAbsolutePath
+    println(s"Extracting all DAML resources necessary to run the tests into $pwd.")
+    for (resource <- resources) {
+      val is = getClass.getResourceAsStream(resource)
+      if (is == null) sys.error(s"Could not find $resource in classpath")
+      val targetFile = new File(new File(resource).getName)
+      Files.copy(is, targetFile.toPath, StandardCopyOption.REPLACE_EXISTING)
+      println(s"Extracted $resource to $targetFile")
+    }
+  }
+
   def main(args: Array[String]): Unit = {
 
     val config = Cli.parse(args).getOrElse(sys.exit(1))
 
     if (config.listTests) {
       printAvailableTests()
+      sys.exit(0)
+    }
+
+    if (config.extract) {
+      extractResources(
+        "/ledger/test-common/SemanticTests.dar",
+        "/ledger/test-common/Test.dar"
+      )
       sys.exit(0)
     }
 
