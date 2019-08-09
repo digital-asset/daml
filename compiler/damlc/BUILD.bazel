@@ -289,7 +289,7 @@ genrule(
 
 daml_doc_test(
     name = "daml-stdlib-doctest",
+    package_name = "daml-stdlib",
     srcs = ["//compiler/damlc/daml-stdlib-src"],
-    damlc_flags = "--package-name=daml-stdlib",
     ignored_srcs = ["LibraryModules.daml"],
 )
