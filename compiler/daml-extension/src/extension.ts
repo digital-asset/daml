@@ -115,7 +115,7 @@ async function visualize() {
     let visualizeCmd = "daml damlc visual tempfile"
     let workspaceRoot = vscode.workspace.rootPath;
     let execOpts = { cwd: workspaceRoot }
-    exec(buildCmd, { cwd: workspaceRoot }, "Daml Build Command").then(_ => {
+    exec(buildCmd, execOpts, "Daml Build Command").then(_ => {
         exec(visualizeCmd, execOpts, "Generating dot file").then(res => {
             if (res.stdout) {
                 vscode.workspace.openTextDocument({ content: res.stdout, language: "dot" }).then(doc =>
