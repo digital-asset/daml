@@ -187,7 +187,7 @@ da_scala_test_suite(
 
 client_server_test(
     name = "conformance-test-static-time",
-    timeout = "short",
+    timeout = "long",
     client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--all-tests",
@@ -210,7 +210,7 @@ client_server_test(
 
 client_server_test(
     name = "conformance-test-wall-clock",
-    timeout = "short",
+    timeout = "long",
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     client_args = [
         "--all-tests",
@@ -234,7 +234,7 @@ client_server_test(
 
 client_server_test(
     name = "conformance-test-static-time-postgres",
-    timeout = "short",
+    timeout = "long",
     client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--all-tests",
@@ -261,7 +261,7 @@ client_server_test(
 
 client_server_test(
     name = "conformance-test-wall-clock-postgres",
-    timeout = "short",
+    timeout = "long",
     client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
     client_args = [
         "--all-tests",
