@@ -12,7 +12,6 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import io.grpc.StatusRuntimeException
 import org.scalatest._
-
 import java.io.File
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -27,7 +26,9 @@ class VeryLargeArchiveSpec
 
   private def runWithInboundLimit[Z](bytes: Int)(f: => Z): Z = {
     val config = baseConfig.copy(ledgerPort = getSandboxPort, ledgerInboundMessageSizeMax = bytes)
-    val extractor = new Extractor(config, target)
+    val extractor =
+      new Extractor(config, target)()
+
     Await.result(extractor.run(), Duration.Inf) // as with ExtractorFixture#run
     try f
     finally Await.result(extractor.shutdown(), Duration.Inf) // as with ExtractorFixture#kill
