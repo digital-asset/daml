@@ -99,21 +99,21 @@ function getViewColumnForShowResource(): ViewColumn {
 }
 
 function execVisual() {
-        let cmd = "daml clean && daml build && daml damlc visual .daml/dist/*dar > visual.dot"
-        let workspaceRoot = vscode.workspace.rootPath;
-        let execOpts = {cwd: workspaceRoot}
-		cp.exec(cmd, execOpts, (error, stdout, stderr) => {
-            console.log('stdout: ' + stdout);
-            console.log('stderr: ' + stderr);
-            if (!error) {
-                vscode.window.showInformationMessage("Visual successfully generated, install a graphviz plugin to see image")
-                vscode.workspace.openTextDocument(vscode.workspace.rootPath +"/visual.dot").then( doc =>
+    let cmd = "daml clean && daml build && daml damlc visual .daml/dist/*dar > visual.dot"
+    let workspaceRoot = vscode.workspace.rootPath;
+    let execOpts = { cwd: workspaceRoot }
+    cp.exec(cmd, execOpts, (error, stdout, stderr) => {
+        console.log('stdout: ' + stdout);
+        console.log('stderr: ' + stderr);
+        if (!error) {
+            vscode.window.showInformationMessage("Visual successfully generated, install a graphviz plugin to see image")
+            vscode.workspace.openTextDocument(vscode.workspace.rootPath + "/visual.dot").then(doc =>
                 vscode.window.showTextDocument(doc))
-            }
-            if (error) {
-                vscode.window.showErrorMessage("Error Generating visual" + error)
-            }
-		});
+        }
+        if (error) {
+            vscode.window.showErrorMessage("Error Generating visual" + error)
+        }
+    });
 }
 
 function openDamlDocs() {
