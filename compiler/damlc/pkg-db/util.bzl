@@ -51,9 +51,9 @@ def _daml_package_rule_impl(ctx):
     name = ctx.attr.name
     pkg_name_version = ctx.actions.declare_file("".join([name, "_pkg_name_version"]))
     ctx.actions.run_shell(
-          outputs = [pkg_name_version],
-          inputs = [ctx.file.sdk_version],
-          command = """
+        outputs = [pkg_name_version],
+        inputs = [ctx.file.sdk_version],
+        command = """
         if [ "daml-prim" = {pkg_name} ]; then
           echo {pkg_name} > {pkg_name_version_file}
         else
@@ -62,8 +62,8 @@ def _daml_package_rule_impl(ctx):
       """.format(
             pkg_name = ctx.attr.pkg_name,
             pkg_name_version_file = pkg_name_version.path,
-            sdk_version_file = ctx.file.sdk_version.path
-         ),
+            sdk_version_file = ctx.file.sdk_version.path,
+        ),
     )
     dalf = ctx.actions.declare_file("{}.dalf".format(name))
     iface_dir = ctx.actions.declare_directory("{}_iface".format(name))
@@ -79,9 +79,9 @@ def _daml_package_rule_impl(ctx):
 
     # Create the package conf file
     ctx.actions.run_shell(
-          outputs = [package_config],
-          inputs = [pkg_name_version, ctx.file.sdk_version],
-          command = """
+        outputs = [package_config],
+        inputs = [pkg_name_version, ctx.file.sdk_version],
+        command = """
         echo "{content}" > {package_config}
         sed -i s/__ID__/`cat {pkg_name_version_file}`/ {package_config}
         sed -i s/__SDK_VERSION__/`cat {sdk_version_file}`/ {package_config}
@@ -93,9 +93,8 @@ def _daml_package_rule_impl(ctx):
                 name = ctx.attr.pkg_name,
                 modules = " ".join(modules.keys()),
                 depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
-
             ),
-        )
+        ),
     )
 
     package_db_dir = ctx.attr.package_db[PackageDb].db_dir
