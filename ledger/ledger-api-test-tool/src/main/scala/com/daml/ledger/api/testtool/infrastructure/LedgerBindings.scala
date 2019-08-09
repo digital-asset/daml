@@ -35,6 +35,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
 }
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
+import com.digitalasset.platform.testing.{FiniteStreamObserver, SingleItemObserver}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Channel
 import io.grpc.stub.StreamObserver
@@ -79,7 +80,8 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
   def time: Future[Instant] =
     for {
       id <- ledgerId
-      t <- HeadObserver[GetTimeResponse](services.time.getTime(new GetTimeRequest(id), _))
+      t <- SingleItemObserver
+        .first[GetTimeResponse](services.time.getTime(new GetTimeRequest(id), _))
         .map(_.map(r => timestampToInstant(r.currentTime.get)))
         .recover {
           case NonFatal(_) => Some(Clock.systemUTC().instant())
