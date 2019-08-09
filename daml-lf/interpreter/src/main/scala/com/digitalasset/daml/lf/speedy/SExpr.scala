@@ -23,11 +23,15 @@ import java.util.ArrayList
   * - multi-argument applications and abstractions.
   * - all update and scenario operations converted to builtin functions.
   */
-sealed trait SExpr {
+sealed abstract class SExpr extends Product with Serializable {
   def apply(args: SExpr*): SExpr =
     SExpr.SEApp(this, args.toArray)
 
   def execute(machine: Machine): Ctrl
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  override def toString: String =
+    productPrefix + productIterator.map(SExpr.prettyPrint).mkString("(", ",", ")")
 }
 
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
@@ -362,5 +366,13 @@ object SExpr {
         )
       )
   }
+
+  private def prettyPrint(x: Any): String =
+    x match {
+      case i: Array[Any] => i.mkString("[", ",", "]")
+      case i: Array[Int] => i.mkString("[", ",", "]")
+      case i: java.util.ArrayList[_] => i.toArray().mkString("[", ",", "]")
+      case other: Any => other.toString
+    }
 
 }
