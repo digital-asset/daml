@@ -88,7 +88,7 @@ object UniversalArchiveReaderWithVersion {
   private def parseDalf(is: InputStream) = Try(Reader.readArchiveAndVersion(is))
 }
 
-private[lf] object SupportedFileType {
+object SupportedFileType {
   def supportedFileType(f: File): Try[SupportedFileType] =
     if (DarFile.matchesFileExtension(f)) Success(DarFile)
     else if (DalfFile.matchesFileExtension(f)) Success(DalfFile)

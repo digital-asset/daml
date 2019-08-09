@@ -3,10 +3,8 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import java.io.File
-
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.daml.bazeltools.BazelRunfiles
+import com.digitalasset.daml.lf.archive.SupportedFileType.DarFile
 import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.engine.testing.SemanticTester.SemanticTesterError
@@ -17,9 +15,12 @@ import scala.util.{Failure, Success, Try}
 final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val loadedPackages = Try {
-    val df =
-      new File(BazelRunfiles.rlocation("ledger/test-common/SemanticTests.dar"))
-    val dar = UniversalArchiveReader().readFile(df).get
+    val dar = UniversalArchiveReader()
+      .readStream(
+        "SemanticTests.dar",
+        getClass.getResourceAsStream("/ledger/test-common/SemanticTests.dar"),
+        DarFile)
+      .get
     dar.main._1 -> Map(dar.all.map {
       case (pkgId, archive) => Decode.readArchivePayloadAndVersion(pkgId, archive)._1
     }: _*)
