@@ -10,10 +10,6 @@ da_haskell_test(
     data = [
         "//compiler/damlc",
     ],
-    # For some reason this test sometimes seems to time out on Windows.
-    # It hits the Bazel timeout rather than the timeout in lsp-tests
-    # so it looks like it locks up somehow.
-    flaky = is_windows,
     hazel_deps = [
         "aeson",
         "base",
