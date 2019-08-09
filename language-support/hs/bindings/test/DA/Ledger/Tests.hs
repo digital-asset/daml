@@ -167,7 +167,7 @@ tSubmitComplete :: SandboxTest
 tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \pid testId -> do
     lid <- getLedgerIdentity
     let command = createIOU pid (alice testId) "A-coin" 100
-    completions <- completionStream (lid,myAid,[(alice testId)],Nothing)
+    completions <- completionStream (lid,myAid,[alice testId],Nothing)
     off0 <- completionEnd lid
     Right cidA1 <- submitCommand lid (alice testId) command
     Right (Just Checkpoint{offset=cp1},[Completion{cid=cidB1}]) <- liftIO $ takeStream completions
@@ -185,8 +185,8 @@ tSubmitComplete withSandbox = testCase "tSubmitComplete" $ run withSandbox $ \pi
         assertEqual "cp1" off1 cp1
         assertEqual "cp2" off2 cp2
 
-    completionsX <- completionStream (lid,myAid,[(alice testId)],Just (LedgerAbsOffset off0))
-    completionsY <- completionStream (lid,myAid,[(alice testId)],Just (LedgerAbsOffset off1))
+    completionsX <- completionStream (lid,myAid,[alice testId],Just (LedgerAbsOffset off0))
+    completionsY <- completionStream (lid,myAid,[alice testId],Just (LedgerAbsOffset off1))
 
     Right (Just Checkpoint{offset=cpX},[Completion{cid=cidX}]) <- liftIO $ takeStream completionsX
     Right (Just Checkpoint{offset=cpY},[Completion{cid=cidY}]) <- liftIO $ takeStream completionsY
@@ -225,7 +225,7 @@ tStakeholders withSandbox = testCase "stakeholders are exposed correctly" $ run 
     _ <- submitCommand lid (alice testId) command
     liftIO $ do
         Just (Right [Transaction{events=[CreatedEvent{signatories,observers}]}]) <- timeout 1 (takeStream txs)
-        assertEqual "the only signatory" signatories [ (alice testId) ]
+        assertEqual "the only signatory" signatories [alice testId]
         assertEqual "observers are empty" observers []
 
 tPastFuture :: SandboxTest
@@ -251,9 +251,9 @@ tGetFlatTransactionByEventId withSandbox = testCase "tGetFlatTransactionByEventI
     Right _ <- submitCommand lid (alice testId) $ createIOU pid (alice testId) "A-coin" 100
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{events=[CreatedEvent{eid}]} <- return txOnStream
-    Just txByEventId <- getFlatTransactionByEventId lid eid [(alice testId)]
+    Just txByEventId <- getFlatTransactionByEventId lid eid [alice testId]
     liftIO $ assertEqual "tx" txOnStream txByEventId
-    Nothing <- getFlatTransactionByEventId lid (EventId "eeeeee") [(alice testId)]
+    Nothing <- getFlatTransactionByEventId lid (EventId "eeeeee") [alice testId]
     return ()
 
 tGetFlatTransactionById :: SandboxTest
@@ -263,9 +263,9 @@ tGetFlatTransactionById withSandbox = testCase "tGetFlatTransactionById" $ run w
     Right _ <- submitCommand lid (alice testId) $ createIOU pid (alice testId) "A-coin" 100
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     Transaction{trid} <- return txOnStream
-    Just txById <- getFlatTransactionById lid trid [(alice testId)]
+    Just txById <- getFlatTransactionById lid trid [alice testId]
     liftIO $ assertEqual "tx" txOnStream txById
-    Nothing <- getFlatTransactionById lid (TransactionId "xxxxx") [(alice testId)]
+    Nothing <- getFlatTransactionById lid (TransactionId "xxxxx") [alice testId]
     return ()
 
 tGetTransactions :: SandboxTest
@@ -291,9 +291,9 @@ tGetTransactionByEventId withSandbox = testCase "tGetTransactionByEventId" $ run
     Right _ <- submitCommand lid (alice testId) $ createIOU pid (alice testId) "A-coin" 100
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{roots=[eid]} <- return txOnStream
-    Just txByEventId <- getTransactionByEventId lid eid [(alice testId)]
+    Just txByEventId <- getTransactionByEventId lid eid [alice testId]
     liftIO $ assertEqual "tx" txOnStream txByEventId
-    Nothing <- getTransactionByEventId lid (EventId "eeeeee") [(alice testId)]
+    Nothing <- getTransactionByEventId lid (EventId "eeeeee") [alice testId]
     return ()
 
 tGetTransactionById :: SandboxTest
@@ -303,9 +303,9 @@ tGetTransactionById withSandbox = testCase "tGetTransactionById" $ run withSandb
     Right _ <- submitCommand lid (alice testId) $ createIOU pid (alice testId) "A-coin" 100
     Just (Right [txOnStream]) <- liftIO $ timeout 1 (takeStream txs)
     TransactionTree{trid} <- return txOnStream
-    Just txById <- getTransactionById lid trid [(alice testId)]
+    Just txById <- getTransactionById lid trid [alice testId]
     liftIO $ assertEqual "tx" txOnStream txById
-    Nothing <- getTransactionById lid (TransactionId "xxxxx") [(alice testId)]
+    Nothing <- getTransactionById lid (TransactionId "xxxxx") [alice testId]
     return ()
 
 tGetActiveContracts :: SandboxTest
@@ -549,7 +549,7 @@ bucket = VRecord $ Record Nothing
 
 tValueConversion :: SandboxTest
 tValueConversion withSandbox = testCase "tValueConversion" $ run withSandbox $ \pid testId -> do
-    let owner = (alice testId)
+    let owner = alice testId
     let mod = ModuleName "Valuepedia"
     let tid = TemplateId (Identifier pid mod $ EntityName "HasBucket")
     let args = Record Nothing [ RecordField "owner" (VParty owner), RecordField "bucket" bucket ]
