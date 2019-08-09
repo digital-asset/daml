@@ -12,6 +12,7 @@ import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
+import com.digitalasset.ledger.client.binding.Primitive.Party
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,7 +39,7 @@ final class LedgerTestContext(
 
   val ledgerId: Future[String] = bindings.ledgerId
 
-  def allocateParty(): Future[String] =
+  def allocateParty(): Future[Party] =
     bindings.allocateParty(nextPartyHintId())
 
   def time: Future[Instant] = bindings.time
@@ -46,20 +47,20 @@ final class LedgerTestContext(
   def passTime(t: Duration): Future[Unit] = bindings.passTime(t)
 
   def activeContracts(
-      parties: Seq[String],
+      parties: Seq[Party],
       templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
     bindings.activeContracts(parties, templateIds)
 
   def create[T <: Template[T]: ValueDecoder](
-      party: String,
+      party: Party,
       template: Template[T]): Future[Contract[T]] =
     bindings.create(party, applicationId, nextCommandId(), template)
 
-  def create(party: String, templateId: Identifier, args: Map[String, Value.Sum]): Future[String] =
+  def create(party: Party, templateId: Identifier, args: Map[String, Value.Sum]): Future[String] =
     bindings.create(party, applicationId, nextCommandId(), templateId, args)
 
   def exercise(
-      party: String,
+      party: Party,
       templateId: Identifier,
       contractId: String,
       choice: String,
@@ -68,17 +69,17 @@ final class LedgerTestContext(
     bindings.exercise(party, applicationId, nextCommandId(), templateId, contractId, choice, args)
 
   def exercise[T](
-      party: String,
+      party: Party,
       exercise: Primitive.Update[T]
   ): Future[Unit] = bindings.exercise(party, applicationId, nextCommandId(), exercise)
 
   def flatTransactions(
-      parties: Seq[String],
+      parties: Seq[Party],
       templateIds: Seq[Identifier]): Future[Vector[Transaction]] =
     bindings.flatTransactions(offsetAtStart, parties, templateIds)
 
   def transactionTrees(
-      parties: Seq[String],
+      parties: Seq[Party],
       templateIds: Seq[Identifier]): Future[Vector[TransactionTree]] =
     bindings.transactionTrees(offsetAtStart, parties, templateIds)
 

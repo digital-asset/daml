@@ -13,6 +13,7 @@ import com.digitalasset.daml.lf.engine.testing.SemanticTester
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.ledger.api.v1.transaction.TransactionTree
+import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.platform.common.PlatformTypes.Events
 import com.digitalasset.platform.participant.util.LfEngineToApi
 
@@ -61,12 +62,12 @@ private[infrastructure] final class SemanticTesterLedger(bindings: LedgerBinding
       apiCommands <- lfCommandToApiCommand(party, lfCommands)
       command +: commands = apiCommands.commands.map(_.command)
       id <- bindings.submitAndWaitForTransactionId(
-        party,
+        Primitive.Party(party),
         context.applicationId,
         s"${context.applicationId}-${UUID.randomUUID}",
         command,
         commands: _*)
-      tree <- bindings.getTransactionById(id, parties.toSeq)
+      tree <- bindings.getTransactionById(id, parties.toSeq.map(Primitive.Party(_: String)))
       events <- apiTransactionToLfEvents(tree)
     } yield events
 

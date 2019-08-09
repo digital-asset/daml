@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.test.Test.{Divulgence1, Divulgence2}
 import com.digitalasset.ledger.test.Test.Divulgence2._
 import scalaz.Tag
@@ -17,11 +16,11 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
       "Divulged contracts should not be exposed by the transaction service") { implicit context =>
       for {
         Vector(alice, bob) <- allocateParties(2)
-        divulgence1 <- create(Divulgence1(Primitive.Party(alice)))(alice)
-        divulgence2 <- create(Divulgence2(Primitive.Party(bob), Primitive.Party(alice)))(bob)
+        divulgence1 <- create(Divulgence1(alice))(alice)
+        divulgence2 <- create(Divulgence2(bob, alice))(bob)
         _ <- exercise(
           divulgence2.contractId
-            .exerciseDivulgence2Archive(Primitive.Party(alice), divulgence1.contractId))(alice)
+            .exerciseDivulgence2Archive(alice, divulgence1.contractId))(alice)
         bobTransactions <- flatTransactions(bob)
         bobTrees <- transactionTrees(bob)
         transactionsForBoth <- flatTransactions(alice, bob)
@@ -153,11 +152,11 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
       implicit context =>
         for {
           Vector(alice, bob) <- allocateParties(2)
-          divulgence1 <- create(Divulgence1(Primitive.Party(alice)))(alice)
-          divulgence2 <- create(Divulgence2(Primitive.Party(bob), Primitive.Party(alice)))(bob)
+          divulgence1 <- create(Divulgence1(alice))(alice)
+          divulgence2 <- create(Divulgence2(bob, alice))(bob)
           _ <- exercise(
             divulgence2.contractId
-              .exerciseDivulgence2Fetch(Primitive.Party(alice), divulgence1.contractId))(alice)
+              .exerciseDivulgence2Fetch(alice, divulgence1.contractId))(alice)
           activeForBobOnly <- activeContracts(bob)
           activeForBoth <- activeContracts(alice, bob)
         } yield {
@@ -198,7 +197,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
             s"The witness parties of the first contract should only include $alice but it is instead $divulgence1Witnesses ($bob)"
           )
           assert(
-            divulgence2Witnesses == Seq(alice, bob).sorted,
+            divulgence2Witnesses == Tag.unsubst(Seq(alice, bob)).sorted,
             s"The witness parties of the second contract should include $alice and $bob but it is instead $divulgence2Witnesses"
           )
         }

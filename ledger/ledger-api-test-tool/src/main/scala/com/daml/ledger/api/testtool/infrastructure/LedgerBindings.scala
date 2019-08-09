@@ -34,11 +34,14 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionsRequest
 }
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
 import com.digitalasset.platform.testing.{FiniteStreamObserver, SingleItemObserver}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.Channel
 import io.grpc.stub.StreamObserver
+import scalaz.Tag
+import scalaz.syntax.tag._
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -97,10 +100,10 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       result <- services.time.setTime(new SetTimeRequest(id, currentTime, newTime)).map(_ => ())
     } yield result
 
-  def allocateParty(partyIdHint: String): Future[String] =
+  def allocateParty(partyIdHint: String): Future[Party] =
     services.partyManagement
       .allocateParty(new AllocatePartyRequest(partyIdHint = partyIdHint))
-      .map(_.partyDetails.get.party)
+      .map(r => Party(r.partyDetails.get.party))
 
   def ledgerEnd: Future[LedgerOffset] =
     for {
@@ -109,7 +112,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
     } yield response.offset.get
 
   def activeContracts(
-      parties: Seq[String],
+      parties: Seq[Party],
       templateIds: Seq[Identifier]): Future[Vector[CreatedEvent]] =
     for {
       id <- ledgerId
@@ -117,7 +120,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
         services.activeContracts.getActiveContracts(
           new GetActiveContractsRequest(
             ledgerId = id,
-            filter = Some(LedgerBindings.transactionFilter(parties, templateIds)),
+            filter = Some(LedgerBindings.transactionFilter(Tag.unsubst(parties), templateIds)),
             verbose = true
           ),
           _
@@ -128,7 +131,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
   private def transactions[Res, Tx](service: (GetTransactionsRequest, StreamObserver[Res]) => Unit)(
       extract: Res => Seq[Tx])(
       begin: LedgerOffset,
-      parties: Seq[String],
+      parties: Seq[Party],
       templateIds: Seq[Identifier]): Future[Vector[Tx]] =
     for {
       id <- ledgerId
@@ -138,7 +141,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
             ledgerId = id,
             begin = Some(begin),
             end = Some(LedgerBindings.end),
-            filter = Some(LedgerBindings.transactionFilter(parties, templateIds)),
+            filter = Some(LedgerBindings.transactionFilter(Tag.unsubst(parties), templateIds)),
             verbose = true
           ),
           _
@@ -147,24 +150,24 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
 
   def flatTransactions(
       begin: LedgerOffset,
-      parties: Seq[String],
+      parties: Seq[Party],
       templateIds: Seq[Identifier]): Future[Vector[Transaction]] =
     transactions(services.transaction.getTransactions)(_.transactions)(begin, parties, templateIds)
 
   def transactionTrees(
       begin: LedgerOffset,
-      parties: Seq[String],
+      parties: Seq[Party],
       templateIds: Seq[Identifier]): Future[Vector[TransactionTree]] =
     transactions(services.transaction.getTransactionTrees)(_.transactions)(
       begin,
       parties,
       templateIds)
 
-  def getTransactionById(transactionId: String, parties: Seq[String]): Future[TransactionTree] =
+  def getTransactionById(transactionId: String, parties: Seq[Party]): Future[TransactionTree] =
     for {
       id <- ledgerId
       transaction <- services.transaction.getTransactionById(
-        new GetTransactionByIdRequest(id, transactionId, parties))
+        new GetTransactionByIdRequest(id, transactionId, Tag.unsubst(parties)))
     } yield transaction.transaction.get
 
   private def decodeCreated[T <: Template[T]](event: CreatedEvent)(
@@ -182,7 +185,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
         event.contractKey)
 
   def create[T <: Template[T]: ValueDecoder](
-      party: String,
+      party: Party,
       applicationId: String,
       commandId: String,
       template: Template[T]
@@ -195,7 +198,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
   }
 
   def create(
-      party: String,
+      party: Party,
       applicationId: String,
       commandId: String,
       templateId: Identifier,
@@ -205,7 +208,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
     }
 
   def exercise(
-      party: String,
+      party: Party,
       applicationId: String,
       commandId: String,
       templateId: Identifier,
@@ -220,7 +223,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       exerciseCommand(templateId, contractId, choice, args))
 
   def exercise[T](
-      party: String,
+      party: Party,
       applicationId: String,
       commandId: String,
       exercise: Primitive.Update[T]
@@ -228,7 +231,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
     submitAndWait(party, applicationId, commandId, exercise.command.command)
 
   private def submitAndWaitCommand[A](service: SubmitAndWaitRequest => Future[A])(
-      party: String,
+      party: Party,
       applicationId: String,
       commandId: String,
       command: Command.Command,
@@ -243,7 +246,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
             ledgerId = id,
             applicationId = applicationId,
             commandId = commandId,
-            party = party,
+            party = party.unwrap,
             ledgerEffectiveTime = Some(new Timestamp(let.getEpochSecond, let.getNano)),
             maximumRecordTime = Some(new Timestamp(mrt.getEpochSecond, mrt.getNano)),
             commands = new Command(command) +: commands.map(new Command(_))
@@ -251,7 +254,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
     } yield a
 
   def submitAndWait(
-      party: String,
+      party: Party,
       applicationId: String,
       commandId: String,
       command: Command.Command,
@@ -265,7 +268,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       .map(_ => ())
 
   def submitAndWaitForTransactionId(
-      party: String,
+      party: Party,
       applicationId: String,
       commandId: String,
       command: Command.Command,
@@ -279,7 +282,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       commands: _*).map(_.transactionId)
 
   def submitAndWaitForTransaction[A](
-      party: String,
+      party: Party,
       applicationId: String,
       commandId: String,
       command: Command.Command,

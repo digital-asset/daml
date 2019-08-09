@@ -9,8 +9,9 @@ import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestExcep
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.value.Identifier
-import io.grpc.{Status, StatusException, StatusRuntimeException}
+import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
+import io.grpc.{Status, StatusException, StatusRuntimeException}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -38,44 +39,44 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   final def passTime(t: Duration)(implicit context: LedgerTestContext): Future[Unit] =
     context.passTime(t)
 
-  final def activeContracts(party: String, parties: String*)(
+  final def activeContracts(party: Party, parties: Party*)(
       implicit context: LedgerTestContext): Future[Vector[CreatedEvent]] =
     context.activeContracts(party +: parties, Seq.empty)
 
-  final def activeContractsByTemplateId(party: String, parties: String*)(templateIds: Identifier*)(
+  final def activeContractsByTemplateId(party: Party, parties: Party*)(templateIds: Identifier*)(
       implicit context: LedgerTestContext): Future[Vector[CreatedEvent]] =
     context.activeContracts(party +: parties, templateIds)
 
   final def ledgerId()(implicit context: LedgerTestContext): Future[String] =
     context.ledgerId
 
-  final def allocateParty()(implicit context: LedgerTestContext): Future[String] =
+  final def allocateParty()(implicit context: LedgerTestContext): Future[Party] =
     context.allocateParty()
 
-  final def allocateParties(n: Int)(implicit context: LedgerTestContext): Future[Vector[String]] =
+  final def allocateParties(n: Int)(implicit context: LedgerTestContext): Future[Vector[Party]] =
     Future.sequence(Vector.fill(n)(allocateParty()))
 
-  final def create[T <: Template[T]: ValueDecoder](template: Template[T])(party: String)(
+  final def create[T <: Template[T]: ValueDecoder](template: Template[T])(party: Party)(
       implicit context: LedgerTestContext): Future[Contract[T]] =
     context.create(party, template)
 
-  final def exercise[T](exercise: Primitive.Update[T])(party: String)(
+  final def exercise[T](exercise: Primitive.Update[T])(party: Party)(
       implicit context: LedgerTestContext): Future[Unit] =
     context.exercise(party, exercise)
 
-  final def flatTransactions(party: String, parties: String*)(
+  final def flatTransactions(party: Party, parties: Party*)(
       implicit context: LedgerTestContext): Future[Vector[Transaction]] =
     context.flatTransactions(party +: parties, Seq.empty)
 
-  final def flatTransactionsByTemplateId(party: String, parties: String*)(templateIds: Identifier*)(
+  final def flatTransactionsByTemplateId(party: Party, parties: Party*)(templateIds: Identifier*)(
       implicit context: LedgerTestContext): Future[Vector[Transaction]] =
     context.flatTransactions(party +: parties, templateIds)
 
-  final def transactionTrees(party: String, parties: String*)(
+  final def transactionTrees(party: Party, parties: Party*)(
       implicit context: LedgerTestContext): Future[Vector[TransactionTree]] =
     context.transactionTrees(party +: parties, Seq.empty)
 
-  final def transactionTreesByTemplateId(party: String, parties: String*)(templateIds: Identifier*)(
+  final def transactionTreesByTemplateId(party: Party, parties: Party*)(templateIds: Identifier*)(
       implicit context: LedgerTestContext): Future[Vector[TransactionTree]] =
     context.transactionTrees(party +: parties, templateIds)
 
