@@ -69,8 +69,8 @@ object LedgerApiServer {
         override def servicesClosed(): Future[Unit] = impl.servicesClosed()
 
         override def close(): Unit = {
-          impl.close()
           serverEsf.close()
+          impl.close()
         }
       }
     }(mat.executionContext)
