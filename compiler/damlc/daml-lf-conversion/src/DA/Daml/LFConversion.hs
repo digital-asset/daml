@@ -421,15 +421,10 @@ convertCtors env (Ctors name flavour tys [o@(Ctor ctor fldNames fldTys)])
         tcon = TypeConApp (Qualified PRSelf (envLFModuleName env) tconName) $ map (TVar . fst) tys
         expr = mkETyLams tys $ mkETmLams (map (first fieldToVar ) flds) $ ERecCon tcon [(l, EVar $ fieldToVar l) | l <- fldNames]
 convertCtors env o@(Ctors name _ _ cs) | isEnumCtors o = do
-    let (ctorNames, funs) = unzip $ map convertEnumCtor cs
-    pure $ (defDataType tconName [] $ DataEnum ctorNames) : funs
+    let ctorNames = map (\(Ctor ctor _ _) -> mkVariantCon $ getOccText ctor) cs
+    pure [defDataType tconName [] $ DataEnum ctorNames]
   where
     tconName = mkTypeCon [getOccText name]
-    tcon = Qualified PRSelf (envLFModuleName env) tconName
-    convertEnumCtor (Ctor ctor _ _) =
-        let ctorName = mkVariantCon $ getOccText ctor
-            def = defValue ctor (mkVal $ "$ctor:" <> getOccText ctor, TCon tcon) $ EEnumCon tcon ctorName
-        in (ctorName, def)
 convertCtors env (Ctors name _ tys cs) = do
     (constrs, funs) <- mapAndUnzipM convertCtor cs
     pure $ [defDataType tconName tys $ DataVariant constrs] ++ concat funs
@@ -744,10 +739,10 @@ convertExpr env0 e = do
                     | Just t' <- T.stripPrefix "$W" t = qualify env m $ f t'
                     | otherwise = qualify env m $ f t
             ctor@(Ctor _ fldNames _) <- toCtor env con
+            let tycon = dataConTyCon con
             -- NOTE(MH): The first case are fully applied record constructors,
             -- the second case is everything else.
-            if  | let tycon = dataConTyCon con
-                , isRecordCtor ctor && isSingleConType tycon
+            if  | isRecordCtor ctor && isSingleConType tycon
                 , let n = length (dataConUnivTyVars con)
                 , let (tyArgs, tmArgs) = splitAt n (map snd args)
                 , length tyArgs == n && length tmArgs == length fldNames
@@ -759,9 +754,13 @@ convertExpr env0 e = do
                     qTCon <- qual (mkTypeCon . pure) $ getOccText (dataConTyCon con)
                     let tcon = TypeConApp qTCon tyArgs
                     pure $ ERecCon tcon (zip fldNames tmArgs)
-                | let tycon = dataConTyCon con
-                , isRecordCtor ctor && isSingleConType tycon
+                | isRecordCtor ctor && isSingleConType tycon
                 -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$W" <> x) $ getOccText x
+                | isEnumerationTyCon tycon && tyConArity tycon == 0
+                -> fmap (, []) $ do
+                    unless (null args) $ unhandled "enum constructor with args" (x, args)
+                    tcon <- qualify env m $ mkTypeCon [getOccText tycon]
+                    pure $ EEnumCon tcon $ mkVariantCon $ getOccText x
                 | otherwise
                 -> fmap (, args) $ fmap EVal $ qual (\x -> mkVal $ "$ctor:" <> x) $ getOccText x
         | Just m <- nameModule_maybe $ varName x = fmap (, args) $
