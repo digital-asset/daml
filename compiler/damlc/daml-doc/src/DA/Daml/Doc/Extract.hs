@@ -104,7 +104,7 @@ extractDocs extractOpts ideOpts fp = do
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc dc_tcmod
             md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
-            md_functions = mapMaybe (getFctDocs ctx) dc_decls
+            md_functions = mapMaybe (getFctDocs ctx Nothing) dc_decls
 
             filteredAdts -- all ADT docs without templates or choices
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
@@ -269,8 +269,8 @@ toDocText docs =
 --   adjacent to a type signature, or to the actual function definition. If
 --   neither a comment nor a function type is in the source, we omit the
 --   function.
-getFctDocs :: DocCtx -> DeclData -> Maybe FunctionDoc
-getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
+getFctDocs :: DocCtx -> Maybe Typename -> DeclData -> Maybe FunctionDoc
+getFctDocs ctx@DocCtx{..} cl_nameM (DeclData decl docs) = do
     (name, keepContext) <- case unLoc decl of
         SigD _ (TypeSig _ (L _ n :_) _) ->
             Just (n, True)
@@ -285,12 +285,17 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
 
     let fct_name = Fieldname (packRdrName name)
     id <- MS.lookup fct_name dc_ids
-    guard (isExportedId id)
+
     let ty = idType id
         fct_context = guard keepContext >> typeToContext ctx ty
         fct_type = typeToType ctx ty
         fct_anchor = Just $ functionAnchor dc_modname fct_name
         fct_descr = docs
+
+    guard $ case cl_nameM of
+        Just cl_name -> exportsField dc_exports cl_name fct_name
+        Nothing -> exportsFunction dc_exports fct_name
+
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
@@ -299,7 +304,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
         tyconMb = MS.lookup cl_name dc_tycons
         cl_anchor = tyConAnchor ctx =<< tyconMb
         cl_descr = docs
-        cl_functions = concatMap f tcdSigs
+        cl_functions = concatMap (f cl_name) tcdSigs
         cl_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
         cl_super = do
             tycon <- tyconMb
@@ -310,12 +315,12 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
     guard (exportsType dc_exports cl_name)
     Just ClassDoc {..}
   where
-    f :: LSig GhcPs -> [FunctionDoc]
-    f (L dloc (ClassOpSig p b names n)) = catMaybes
-      [ getFctDocs ctx (DeclData (L dloc (SigD noExt (ClassOpSig p b [L loc name] n))) (MS.lookup name subdocs))
+    f :: Typename -> LSig GhcPs -> [FunctionDoc]
+    f cl_name (L dloc (ClassOpSig p b names n)) = catMaybes
+      [ getFctDocs ctx (Just cl_name) (DeclData (L dloc (SigD noExt (ClassOpSig p b [L loc name] n))) (MS.lookup name subdocs))
       | L loc name <- names
       ]
-    f _ = []
+    f _ _ = []
     subdocs = memberDocs c
 getClsDocs _ _ = Nothing
 
