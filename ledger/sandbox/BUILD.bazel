@@ -191,6 +191,7 @@ client_server_test(
     client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--all-tests",
+        "--timeout-scale-factor=10",
     ],
     data = [
         "//ledger/test-common:SemanticTests.dar",
@@ -215,6 +216,7 @@ client_server_test(
     client_args = [
         "--all-tests",
         "--exclude TimeIT",
+        "--timeout-scale-factor=10",
     ],
     data = [
         "//ledger/test-common:SemanticTests.dar",
@@ -238,6 +240,7 @@ client_server_test(
     client = "//ledger/ledger-api-test-tool",
     client_args = [
         "--all-tests",
+        "--timeout-scale-factor=10",
     ],
     data = [
         "//ledger/test-common:SemanticTests.dar",
@@ -266,6 +269,7 @@ client_server_test(
     client_args = [
         "--all-tests",
         "--exclude TimeIT",
+        "--timeout-scale-factor=10",
     ],
     data = [
         "//ledger/test-common:SemanticTests.dar",
