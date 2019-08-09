@@ -118,7 +118,6 @@ async function visualize() {
     await exec(buildCmd, { cwd: workspaceRoot }, "Daml Build Command");
     let { stdout, stderr } = await exec(visualizeCmd, execOpts, "Generating dot file")
     if (stdout) {
-        console.log(stdout)
         vscode.workspace.openTextDocument({ content: stdout, language: "dot" }).then(doc =>
             vscode.window.showTextDocument(doc)
         )
