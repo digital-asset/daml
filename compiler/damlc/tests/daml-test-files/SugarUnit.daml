@@ -9,13 +9,19 @@
 daml 1.2
 module SugarUnit where
 
-range : [a] -> (a -> a) -> Int -> [a]
-range xs next n =
-  if n <= 0 then xs
-  else
-    let h0 :: _ = xs
-        h1 = next h0
-    in range (h1 :: xs) next (n - 1)
+data Foo a = Foo a
 
-main = scenario do
-  assert $ range [1] (+1) 2 == [3, 2, 1]
+joinFoo ffx =
+    let Foo (Foo x) = ffx
+    in Foo x
+
+-- range : [a] -> (a -> a) -> Int -> [a]
+-- range xs next n =
+--   if n <= 0 then xs
+--   else
+--     let h0 :: _ = xs
+--         h1 = next h0
+--     in range (h1 :: xs) next (n - 1)
+
+-- main = scenario do
+--   assert $ range [1] (+1) 2 == [3, 2, 1]

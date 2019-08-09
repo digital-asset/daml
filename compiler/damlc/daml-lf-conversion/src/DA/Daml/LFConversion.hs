@@ -1020,7 +1020,7 @@ convertCoercion env co = evalStateT (go env co) 0
         , (tvs, rhs) <- newTyConRhs t
         , length ts == length tvs
         , applyTysX tvs rhs ts `eqType` s
-        , [field] <- ctorLabels flv data_con = Just (t, ts, field, flv)
+        , [field] <- ctorLabels data_con = Just (t, ts, field, flv)
       where
         flv = tyConFlavour t
     isSatNewTyCon _ _ = Nothing
@@ -1197,12 +1197,12 @@ toCtors env t = Ctors (getName t) (tyConFlavour t) <$> mapM convTypeVar (tyConTy
 --   names of newtypes are meant to be meaningless, this is acceptable.
 --
 -- * We add a field for every constraint containt in the thetas.
-ctorLabels :: TyConFlavour -> DataCon -> [FieldName]
-ctorLabels flv con =
-    [mkField $ "$dict" <> T.pack (show i) | i <- [1 .. length thetas]] ++ conFields flv con
+ctorLabels :: DataCon -> [FieldName]
+ctorLabels con =
+    [mkField $ "$dict" <> T.pack (show i) | i <- [1 .. length thetas]] ++ conFields
   where
   thetas = dataConTheta con
-  conFields flv con
+  conFields
     | flv `elem` [ClassFlavour, TupleFlavour Boxed] || isTupleDataCon con
       -- NOTE(MH): The line below is a workaround for ghc issue
       -- https://github.com/ghc/ghc/blob/ae4f1033cfe131fca9416e2993bda081e1f8c152/compiler/types/TyCon.hs#L2030
@@ -1212,6 +1212,7 @@ ctorLabels flv con =
     = [mkField "unpack"]
     | otherwise
     = map convFieldName lbls
+  flv = tyConFlavour (dataConTyCon con)
   lbls = dataConFieldLabels con
 
 toCtor :: Env -> DataCon -> ConvertM Ctor
@@ -1222,7 +1223,7 @@ toCtor env con =
         -- NOTE(MH): This is DICTIONARY SANITIZATION step (1).
         | flv == ClassFlavour = TUnit :-> ty
         | otherwise = ty
-  in Ctor (getName con) (ctorLabels flv con) <$> mapM (fmap sanitize . convertType env) (thetas ++ tys)
+  in Ctor (getName con) (ctorLabels con) <$> mapM (fmap sanitize . convertType env) (thetas ++ tys)
 
 isRecordCtor :: Ctor -> Bool
 isRecordCtor (Ctor _ fldNames fldTys) = not (null fldNames) || null fldTys
