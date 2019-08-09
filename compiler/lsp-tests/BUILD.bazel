@@ -6,6 +6,7 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_test(
     name = "lsp-tests",
+    timeout = "long",
     srcs = glob(["src/**/*.hs"]),
     data = [
         "//compiler/damlc",
