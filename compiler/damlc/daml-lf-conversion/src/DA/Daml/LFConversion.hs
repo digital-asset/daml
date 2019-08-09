@@ -1206,7 +1206,9 @@ ctorLabels con =
     | flv `elem` [ClassFlavour, TupleFlavour Boxed] || isTupleDataCon con
       -- NOTE(MH): The line below is a workaround for ghc issue
       -- https://github.com/ghc/ghc/blob/ae4f1033cfe131fca9416e2993bda081e1f8c152/compiler/types/TyCon.hs#L2030
-      || (getOccFS con == "Unit" && GHC.moduleNameFS (GHC.moduleName (nameModule (getName con))) == "GHC.Tuple")
+      -- If we omit this workaround, `GHC.Tuple.Unit` gets translated into a
+      -- variant rather than a record and the `SugarUnit` test will fail.
+      || (getOccFS con == "Unit" && nameModule (getName con) == gHC_TUPLE)
     = map (mkField . T.cons '_' . T.pack . show) [1..dataConSourceArity con]
     | flv == NewtypeFlavour && null lbls
     = [mkField "unpack"]

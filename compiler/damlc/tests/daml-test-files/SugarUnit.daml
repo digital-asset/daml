@@ -9,13 +9,13 @@
 daml 1.2
 module SugarUnit where
 
-range : [a] -> (a -> a) -> Int -> [a]
-range xs next n =
-  if n <= 0 then xs
-  else
-    let h0 :: _ = xs
-        h1 = next h0
-    in range (h1 :: xs) next (n - 1)
+data Foo a = Foo a
+    deriving (Eq)
 
-main = scenario do
-  assert $ range [1] (+1) 2 == [3, 2, 1]
+joinFoo ffx =
+    -- The desugaring of this nested pattern produces a `GHC.Tuple.Unit`.
+    let Foo (Foo x) = ffx
+    in Foo x
+
+test = scenario do
+    assert $ joinFoo (Foo (Foo 1)) == Foo 1
