@@ -103,8 +103,7 @@ function execVisual() {
     let workspaceRoot = vscode.workspace.rootPath;
     let execOpts = { cwd: workspaceRoot }
     cp.exec(cmd, execOpts, (error, stdout, stderr) => {
-        console.log('stdout: ' + stdout);
-        console.log('stderr: ' + stderr);
+        // console.log('stdout: ' + stdout); may capturing from stdout might be a good idea
         if (!error) {
             vscode.window.showInformationMessage("Visual successfully generated, install a graphviz plugin to see image")
             vscode.workspace.openTextDocument(vscode.workspace.rootPath + "/visual.dot").then(doc =>
