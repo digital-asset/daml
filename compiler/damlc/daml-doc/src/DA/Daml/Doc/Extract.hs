@@ -14,6 +14,8 @@ module DA.Daml.Doc.Extract
 
 import DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Anchor as DDoc
+import DA.Daml.Doc.Extract.Exports
+
 import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service     as Service
@@ -188,6 +190,8 @@ data DocCtx = DocCtx
         -- ^ choices per DAML template defined in this module
     , dc_extractOptions :: ExtractOptions
         -- ^ command line options that affect the doc extractor
+    , dc_exports :: ExportSet
+        -- ^ set of export, unless everything is exported
     }
 
 -- | Parsed declaration with associated docs.
@@ -198,35 +202,37 @@ data DeclData = DeclData
 
 buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
 buildDocCtx dc_extractOptions dc_tcmod  =
-  let dc_ghcMod = ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
-      dc_modname = getModulename dc_ghcMod
-      dc_decls
-          = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
-          . pm_parsed_source . tm_parsed_module $ dc_tcmod
-      (dc_templates, dc_choices)
-          = getTemplateData . tm_parsed_module $ dc_tcmod
+    let dc_ghcMod = ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
+        dc_modname = getModulename dc_ghcMod
+        dc_decls
+            = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
+            . pm_parsed_source . tm_parsed_module $ dc_tcmod
+        (dc_templates, dc_choices)
+            = getTemplateData . tm_parsed_module $ dc_tcmod
 
-      tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
+        tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
 
-      dc_tycons = MS.fromList
-          [ (typename, tycon)
-          | ATyCon tycon <- tythings
-          , let typename = Typename . packName . tyConName $ tycon
-          ]
+        dc_tycons = MS.fromList
+            [ (typename, tycon)
+            | ATyCon tycon <- tythings
+            , let typename = Typename . packName . tyConName $ tycon
+            ]
 
-      dc_datacons = MS.fromList
-          [ (conname, datacon)
-          | AConLike (RealDataCon datacon) <- tythings
-          , let conname = Typename . packName . dataConName $ datacon
-          ]
+        dc_datacons = MS.fromList
+            [ (conname, datacon)
+            | AConLike (RealDataCon datacon) <- tythings
+            , let conname = Typename . packName . dataConName $ datacon
+            ]
 
-      dc_ids = MS.fromList
-          [ (fieldname, id)
-          | AnId id <- tythings
-          , let fieldname = Fieldname . packId $ id
-          ]
+        dc_ids = MS.fromList
+            [ (fieldname, id)
+            | AnId id <- tythings
+            , let fieldname = Fieldname . packId $ id
+            ]
 
-  in DocCtx {..}
+        dc_exports = extractExports . tm_parsed_module $ dc_tcmod
+
+    in DocCtx {..}
 
 -- | Parse and typecheck a module and its dependencies in Haddock mode
 --   (retaining Doc declarations), and return the 'TcModuleResult's in
