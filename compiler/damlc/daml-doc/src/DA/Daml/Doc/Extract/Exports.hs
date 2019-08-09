@@ -71,13 +71,14 @@ extractExportedItem modName (L _ ie) = exportIE ie
   where
     exportIE :: IE GhcPs -> [ExportedItem]
     exportIE = \case
-        IEVar _ (L _ n) -> exportIEW n
-        IEThingAbs _ (L _ n) -> exportIEW n
-        IEThingAll _ (L _ n) -> addTypeAll $ exportIEW n
-        IEThingWith _ (L _ n) (IEWildcard _) _ _ -> addTypeAll $ exportIEW n
+        IEVar _ (L _ n) -> exportIEWrappedWith exportOccName n
+        IEThingAbs _ (L _ n) -> exportIEWrappedWith exportOccName n
+        IEThingAll _ (L _ n) -> addTypeAll $ exportIEWrappedWith exportOccName n
+        IEThingWith _ (L _ n) (IEWildcard _) _ _ ->
+            addTypeAll $ exportIEWrappedWith exportOccName n
         IEThingWith _ (L _ n) NoIEWildcard things fields -> concat
-            [ exportIEW n
-            , concatMap (exportIEW . unLoc) things
+            [ exportIEWrappedWith exportOccName n
+            , concatMap (exportIEWrappedWith exportConstr . unLoc) things
             , [ ExportedFunction . Fieldname . T.pack . unpackFS $ x
               | L _ (FieldLabel x _ _) <- fields
               ]
@@ -88,27 +89,31 @@ extractExportedItem modName (L _ ie) = exportIE ie
         IEDocNamed _ _ -> []
         XIE _ -> []
 
-    exportIEW :: IEWrappedName RdrName -> [ExportedItem]
-    exportIEW = \case
-        IEName (L _ rdrName) -> exportRdrName rdrName
-        IEType (L _ rdrName) -> exportRdrName rdrName
+    exportIEWrappedWith :: (OccName -> [ExportedItem]) -> IEWrappedName RdrName -> [ExportedItem]
+    exportIEWrappedWith f = \case
+        IEName (L _ rdrName) -> exportRdrNameWith f rdrName
+        IEType (L _ rdrName) -> exportRdrNameWith f rdrName
         IEPattern _ -> []
 
-    exportRdrName :: RdrName -> [ExportedItem]
-    exportRdrName = \case
-        Unqual n -> exportOccName n
+    exportRdrNameWith :: (OccName -> [ExportedItem]) -> RdrName -> [ExportedItem]
+    exportRdrNameWith f = \case
+        Unqual n -> f n
         Qual m n ->
             if m == modName
-                then exportOccName n
+                then f n
                 else []
         Orig _ _ -> []
         Exact _ -> []
 
     exportOccName :: OccName -> [ExportedItem]
     exportOccName n
-        | isDataOcc n = [ExportedConstr . Typename . T.pack . occNameString $ n]
         | isVarOcc n = [ExportedFunction . Fieldname . T.pack . occNameString $ n]
         | otherwise = [ExportedType . Typename . T.pack . occNameString $ n]
+
+    exportConstr :: OccName -> [ExportedItem]
+    exportConstr n
+        | isVarOcc n = [ExportedFunction . Fieldname . T.pack . occNameString $ n]
+        | otherwise = [ExportedConstr . Typename . T.pack . occNameString $ n]
 
     addTypeAll :: [ExportedItem] -> [ExportedItem]
     addTypeAll = concatMap $ \case
