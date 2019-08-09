@@ -14,7 +14,7 @@ module DA.Daml.Doc.Extract.Exports
 
 import DA.Daml.Doc.Types as DD
 
-import "ghc-lib" GHC as GHC
+import "ghc-lib" GHC
 import "ghc-lib-parser" RdrName
 import "ghc-lib-parser" OccName
 import "ghc-lib-parser" FieldLabel
