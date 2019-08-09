@@ -7,145 +7,149 @@ import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, L
 import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.ledger.test.Test.{Divulgence1, Divulgence2}
 import com.digitalasset.ledger.test.Test.Divulgence2._
+import scalaz.Tag
 
 final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private val transactionServiceDivulgence =
-    LedgerTest("Divulged contracts should not be exposed by the transaction service") {
-      implicit context =>
-        for {
-          Vector(alice, bob) <- allocateParties(2)
-          divulgence1 <- create(Divulgence1(Primitive.Party(alice)))(alice)
-          divulgence2 <- create(Divulgence2(Primitive.Party(bob), Primitive.Party(alice)))(bob)
-          _ <- exercise(
-            divulgence2.contractId
-              .exerciseDivulgence2Archive(Primitive.Party(alice), divulgence1.contractId))(alice)
-          bobTransactions <- flatTransactions(bob)
-          bobTrees <- transactionTrees(bob)
-          transactionsForBoth <- flatTransactions(alice, bob)
-        } yield {
+    LedgerTest(
+      "DivulgenceTx",
+      "Divulged contracts should not be exposed by the transaction service") { implicit context =>
+      for {
+        Vector(alice, bob) <- allocateParties(2)
+        divulgence1 <- create(Divulgence1(Primitive.Party(alice)))(alice)
+        divulgence2 <- create(Divulgence2(Primitive.Party(bob), Primitive.Party(alice)))(bob)
+        _ <- exercise(
+          divulgence2.contractId
+            .exerciseDivulgence2Archive(Primitive.Party(alice), divulgence1.contractId))(alice)
+        bobTransactions <- flatTransactions(bob)
+        bobTrees <- transactionTrees(bob)
+        transactionsForBoth <- flatTransactions(alice, bob)
+      } yield {
 
-          // Inspecting the flat transaction stream as seen by Bob
+        // Inspecting the flat transaction stream as seen by Bob
 
-          // We expect only one transaction containing only one create event for Divulgence2.
-          // We expect to _not_ see the create or archive for Divulgence1, even if Divulgence1 was divulged
-          // to Bob, and even if the exercise is visible to Bob in the transaction trees.
+        // We expect only one transaction containing only one create event for Divulgence2.
+        // We expect to _not_ see the create or archive for Divulgence1, even if Divulgence1 was divulged
+        // to Bob, and even if the exercise is visible to Bob in the transaction trees.
 
-          assert(
-            bobTransactions.size == 1,
-            s"$bob should see exactly one transaction but sees ${bobTransactions.size} instead")
+        assert(
+          bobTransactions.size == 1,
+          s"$bob should see exactly one transaction but sees ${bobTransactions.size} instead")
 
-          val events = bobTransactions.head.events
-          assert(
-            events.size == 1,
-            s"The transaction should contain exactly one event but contains ${events.size} instead")
+        val events = bobTransactions.head.events
+        assert(
+          events.size == 1,
+          s"The transaction should contain exactly one event but contains ${events.size} instead")
 
-          val event = events.head.event
-          assert(
-            event.isCreated,
-            s"The only event in the transaction was expected to be a created event")
+        val event = events.head.event
+        assert(
+          event.isCreated,
+          s"The only event in the transaction was expected to be a created event")
 
-          val contractId = event.created.get.contractId
-          assert(
-            contractId == divulgence2.contractId,
-            s"The only visible event should be the creation of the second contract (expected ${divulgence2.contractId}, got $contractId instead)"
-          )
+        val contractId = event.created.get.contractId
+        assert(
+          contractId == divulgence2.contractId,
+          s"The only visible event should be the creation of the second contract (expected ${divulgence2.contractId}, got $contractId instead)"
+        )
 
-          // Inspecting the transaction trees as seen by Bob
+        // Inspecting the transaction trees as seen by Bob
 
-          // then what we expect for Bob's tree transactions. note that here we witness the exercise that
-          // caused the archive of div1Cid, even if we did _not_ see the archive event in the flat transaction
-          // stream above
+        // then what we expect for Bob's tree transactions. note that here we witness the exercise that
+        // caused the archive of div1Cid, even if we did _not_ see the archive event in the flat transaction
+        // stream above
 
-          // We expect to see two transactions: one for the second create and one for the exercise.
+        // We expect to see two transactions: one for the second create and one for the exercise.
 
-          assert(
-            bobTrees.size == 2,
-            s"$bob should see exactly two transaction trees but sees ${bobTrees.size} instead")
+        assert(
+          bobTrees.size == 2,
+          s"$bob should see exactly two transaction trees but sees ${bobTrees.size} instead")
 
-          val createDivulgence2Transaction = bobTrees(0)
-          assert(
-            createDivulgence2Transaction.rootEventIds.size == 1,
-            s"The transaction that creates Divulgence2 should contain exactly one root event, but it contains ${createDivulgence2Transaction.rootEventIds.size} instead"
-          )
+        val createDivulgence2Transaction = bobTrees(0)
+        assert(
+          createDivulgence2Transaction.rootEventIds.size == 1,
+          s"The transaction that creates Divulgence2 should contain exactly one root event, but it contains ${createDivulgence2Transaction.rootEventIds.size} instead"
+        )
 
-          val createDivulgence2 =
-            createDivulgence2Transaction.eventsById(createDivulgence2Transaction.rootEventIds(0))
-          assert(
-            createDivulgence2.kind.isCreated,
-            s"Event expected to be a create"
-          )
+        val createDivulgence2 =
+          createDivulgence2Transaction.eventsById(createDivulgence2Transaction.rootEventIds(0))
+        assert(
+          createDivulgence2.kind.isCreated,
+          s"Event expected to be a create"
+        )
 
-          val createDivulgence2ContractId = createDivulgence2.getCreated.contractId
-          assert(
-            createDivulgence2ContractId == divulgence2.contractId,
-            s"The event where Divulgence2 is created should have the same contract identifier as the created contract (expected ${divulgence2.contractId}, got $createDivulgence2ContractId instead)"
-          )
+        val createDivulgence2ContractId = createDivulgence2.getCreated.contractId
+        assert(
+          createDivulgence2ContractId == divulgence2.contractId,
+          s"The event where Divulgence2 is created should have the same contract identifier as the created contract (expected ${divulgence2.contractId}, got $createDivulgence2ContractId instead)"
+        )
 
-          val exerciseOnDivulgence2Transaction = bobTrees(1)
-          assert(
-            exerciseOnDivulgence2Transaction.rootEventIds.size == 1,
-            s"The transaction where a choice is exercised on Divulgence2 should contain exactly one root event contains ${exerciseOnDivulgence2Transaction.rootEventIds.size} instead"
-          )
+        val exerciseOnDivulgence2Transaction = bobTrees(1)
+        assert(
+          exerciseOnDivulgence2Transaction.rootEventIds.size == 1,
+          s"The transaction where a choice is exercised on Divulgence2 should contain exactly one root event contains ${exerciseOnDivulgence2Transaction.rootEventIds.size} instead"
+        )
 
-          val exerciseOnDivulgence2 = exerciseOnDivulgence2Transaction.eventsById(
-            exerciseOnDivulgence2Transaction.rootEventIds(0))
-          assert(
-            exerciseOnDivulgence2.kind.isExercised,
-            s"Expected event to be an exercise"
-          )
+        val exerciseOnDivulgence2 = exerciseOnDivulgence2Transaction.eventsById(
+          exerciseOnDivulgence2Transaction.rootEventIds(0))
+        assert(
+          exerciseOnDivulgence2.kind.isExercised,
+          s"Expected event to be an exercise"
+        )
 
-          assert(exerciseOnDivulgence2.getExercised.contractId == divulgence2.contractId)
+        assert(exerciseOnDivulgence2.getExercised.contractId == divulgence2.contractId)
 
-          assert(exerciseOnDivulgence2.getExercised.childEventIds.size == 1)
+        assert(exerciseOnDivulgence2.getExercised.childEventIds.size == 1)
 
-          val exerciseOnDivulgence1 =
-            exerciseOnDivulgence2Transaction.eventsById(
-              exerciseOnDivulgence2.getExercised.childEventIds(0))
+        val exerciseOnDivulgence1 =
+          exerciseOnDivulgence2Transaction.eventsById(
+            exerciseOnDivulgence2.getExercised.childEventIds(0))
 
-          assert(exerciseOnDivulgence1.kind.isExercised)
+        assert(exerciseOnDivulgence1.kind.isExercised)
 
-          assert(exerciseOnDivulgence1.getExercised.contractId == divulgence1.contractId)
+        assert(exerciseOnDivulgence1.getExercised.contractId == divulgence1.contractId)
 
-          assert(exerciseOnDivulgence1.getExercised.childEventIds.isEmpty)
+        assert(exerciseOnDivulgence1.getExercised.childEventIds.isEmpty)
 
-          // Alice should see:
-          // - create Divulgence1
-          // - create Divulgence2
-          // - archive Divulgence1
-          // Note that we do _not_ see the exercise of Divulgence2 because it is nonconsuming.
+        // Alice should see:
+        // - create Divulgence1
+        // - create Divulgence2
+        // - archive Divulgence1
+        // Note that we do _not_ see the exercise of Divulgence2 because it is nonconsuming.
 
-          assert(
-            transactionsForBoth.size == 3,
-            s"Filtering for both $alice and $bob should result in three transactions seen but ${transactionsForBoth.size} are seen instead"
-          )
+        assert(
+          transactionsForBoth.size == 3,
+          s"Filtering for both $alice and $bob should result in three transactions seen but ${transactionsForBoth.size} are seen instead"
+        )
 
-          val firstTransactionForBoth = transactionsForBoth.head
-          assert(
-            firstTransactionForBoth.events.size == 1,
-            s"The first transaction seen by filtering for both $alice and $bob should contain exactly one event but it contains ${firstTransactionForBoth.events.size} events instead"
-          )
+        val firstTransactionForBoth = transactionsForBoth.head
+        assert(
+          firstTransactionForBoth.events.size == 1,
+          s"The first transaction seen by filtering for both $alice and $bob should contain exactly one event but it contains ${firstTransactionForBoth.events.size} events instead"
+        )
 
-          val firstEventForBoth = transactionsForBoth.head.events.head.event
-          assert(
-            firstEventForBoth.isCreated,
-            s"The first event seen by filtering for both $alice and $bob was expected to be a creation")
+        val firstEventForBoth = transactionsForBoth.head.events.head.event
+        assert(
+          firstEventForBoth.isCreated,
+          s"The first event seen by filtering for both $alice and $bob was expected to be a creation")
 
-          val firstCreationForBoth = firstEventForBoth.created.get
-          assert(
-            firstCreationForBoth.contractId == divulgence1.contractId,
-            s"The creation seen by filtering for both $alice and $bob was expected to be ${divulgence1.contractId} but is ${firstCreationForBoth.contractId} instead"
-          )
+        val firstCreationForBoth = firstEventForBoth.created.get
+        assert(
+          firstCreationForBoth.contractId == divulgence1.contractId,
+          s"The creation seen by filtering for both $alice and $bob was expected to be ${divulgence1.contractId} but is ${firstCreationForBoth.contractId} instead"
+        )
 
-          assert(
-            firstCreationForBoth.witnessParties == Seq(alice),
-            s"The creation seen by filtering for both $alice and $bob was expected to be witnessed by $alice but is instead ${firstCreationForBoth.witnessParties}"
-          )
-        }
+        assert(
+          firstCreationForBoth.witnessParties == Seq(alice),
+          s"The creation seen by filtering for both $alice and $bob was expected to be witnessed by $alice but is instead ${firstCreationForBoth.witnessParties}"
+        )
+      }
     }
 
   private val activeContractServiceDivulgence = {
-    LedgerTest("Divulged contracts should not be exposed by the active contract service") {
+    LedgerTest(
+      "DivulgenceAcs",
+      "Divulged contracts should not be exposed by the active contract service") {
       implicit context =>
         for {
           Vector(alice, bob) <- allocateParties(2)
@@ -177,17 +181,21 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           assert(
             activeForBoth.size == 2,
             s"The active contracts as seen by $alice and $bob should be two but are ${activeForBoth.size} instead")
-          val activeForBothContractIds = activeForBoth.map(_.contractId).toSet
-          val expectedContractIds = Set(divulgence1.contractId, divulgence2.contractId)
+          val divulgence1ContractId = Tag.unwrap(divulgence1.contractId)
+          val divulgence2ContractId = Tag.unwrap(divulgence2.contractId)
+          val activeForBothContractIds = activeForBoth.map(_.contractId).sorted
+          val expectedContractIds = Seq(divulgence1ContractId, divulgence2ContractId).sorted
           assert(
             activeForBothContractIds == expectedContractIds,
             s"${divulgence1.contractId} and ${divulgence2.contractId} are expected to be seen when filtering for $alice and $bob but instead the following contract identifiers are seen: $activeForBothContractIds"
           )
-          val divulgence1Witnesses = activeForBoth(0).witnessParties
-          val divulgence2Witnesses = activeForBoth(1).witnessParties.sorted
+          val divulgence1Witnesses =
+            activeForBoth.find(_.contractId == divulgence1ContractId).get.witnessParties.sorted
+          val divulgence2Witnesses =
+            activeForBoth.find(_.contractId == divulgence2ContractId).get.witnessParties.sorted
           assert(
             divulgence1Witnesses == Seq(alice),
-            s"The witness parties of the first contract should only include $alice but it is instead $divulgence1Witnesses"
+            s"The witness parties of the first contract should only include $alice but it is instead $divulgence1Witnesses ($bob)"
           )
           assert(
             divulgence2Witnesses == Seq(alice, bob).sorted,

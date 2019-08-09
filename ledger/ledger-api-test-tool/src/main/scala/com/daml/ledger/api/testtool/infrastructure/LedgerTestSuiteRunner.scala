@@ -79,7 +79,7 @@ final class LedgerTestSuiteRunner(
     val testTimeout = new TestTimeout(execution, test.description, scaledTimeout, session.config)
     timer.schedule(testTimeout, scaledTimeout)
     logger.info(s"Started ${scaledTimeout} ms timeout for '${test.description}'...")
-    val startedTest = session.createTestContext().flatMap(test)
+    val startedTest = session.createTestContext(test.shortIdentifier).flatMap(test)
     logger.info(s"Started '${test.description}'!")
     startedTest.onComplete { _ =>
       testTimeout.cancel()

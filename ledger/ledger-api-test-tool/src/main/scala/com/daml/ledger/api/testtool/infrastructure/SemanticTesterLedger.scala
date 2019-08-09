@@ -3,6 +3,8 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import java.util.UUID
+
 import com.digitalasset.daml.lf.command.Commands
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{Ref, Time}
@@ -61,6 +63,7 @@ private[infrastructure] final class SemanticTesterLedger(bindings: LedgerBinding
       id <- bindings.submitAndWaitForTransactionId(
         party,
         context.applicationId,
+        s"${context.applicationId}-${UUID.randomUUID}",
         command,
         commands: _*)
       tree <- bindings.getTransactionById(id, parties.toSeq)

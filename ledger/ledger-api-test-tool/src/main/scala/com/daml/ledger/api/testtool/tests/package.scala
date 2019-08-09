@@ -24,7 +24,6 @@ package object tests {
    * - CommandServiceIT
    * - ActiveContractsServiceIT
    * - WitnessesIT
-   * - ContractKeysIT
    */
   val optional: Map[String, LedgerSession => LedgerTestSuite] = Map(
     "DivulgenceIT" -> (new Divulgence(_)),

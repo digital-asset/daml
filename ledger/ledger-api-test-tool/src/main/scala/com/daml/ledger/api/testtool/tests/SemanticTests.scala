@@ -28,13 +28,13 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   override val tests: Vector[LedgerTest] =
     loadedPackages match {
       case Failure(exception) =>
-        Vector(LedgerTest("SemanticTests") { implicit context =>
+        Vector(LedgerTest("SemanticTests", "SemanticTests") { implicit context =>
           Future.failed(
             new RuntimeException("Unable to load the semantic tests package", exception))
         })
       case Success((main, packages)) =>
         for (name <- SemanticTester.scenarios(packages)(main).toVector) yield {
-          LedgerTest(name.toString) { implicit context =>
+          LedgerTest(name.toString, name.toString) { implicit context =>
             val tester =
               new SemanticTester(
                 parties => context.semanticTesterLedger(parties, packages),

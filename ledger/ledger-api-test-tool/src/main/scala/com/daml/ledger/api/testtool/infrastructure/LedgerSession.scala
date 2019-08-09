@@ -3,7 +3,6 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.util.UUID
 import java.util.concurrent.TimeUnit
 
 import io.grpc.ManagedChannel
@@ -26,8 +25,8 @@ private[testtool] final class LedgerSession private (
 
   private[this] val bindings: LedgerBindings = new LedgerBindings(channel, config.commandTtlFactor)
 
-  private[testtool] def createTestContext(): Future[LedgerTestContext] =
-    bindings.ledgerEnd.map(new LedgerTestContext(UUID.randomUUID.toString, _, bindings))
+  private[testtool] def createTestContext(applicationId: String): Future[LedgerTestContext] =
+    bindings.ledgerEnd.map(new LedgerTestContext(applicationId, _, bindings))
 
   private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from ledger at ${config.host}:${config.port}...")

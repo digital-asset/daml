@@ -8,8 +8,9 @@ import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, L
 final class Identity(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val identity =
-    LedgerTest("A ledger should return a non-empty string as its identity") { implicit context =>
-      for (id <- ledgerId) yield assert(id.nonEmpty, "The returned ledger identifier was empty")
+    LedgerTest("IdNotEmpty", "A ledger should return a non-empty string as its identity") {
+      implicit context =>
+        for (id <- ledgerId) yield assert(id.nonEmpty, "The returned ledger identifier was empty")
     }
 
   override val tests: Vector[LedgerTest] = Vector(identity)

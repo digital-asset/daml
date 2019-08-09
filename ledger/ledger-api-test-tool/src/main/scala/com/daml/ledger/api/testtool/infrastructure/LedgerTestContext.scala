@@ -25,10 +25,21 @@ final class LedgerTestContext(
   override def execute(runnable: Runnable): Unit = ec.execute(runnable)
   override def reportFailure(cause: Throwable): Unit = ec.reportFailure(cause)
 
+  private[this] val nextPartyHintId: () => String = {
+    val it = Iterator.from(0).map(n => s"$applicationId-party-$n")
+    () =>
+      it.synchronized(it.next())
+  }
+  private[this] val nextCommandId: () => String = {
+    val it = Iterator.from(0).map(n => s"$applicationId-command-$n")
+    () =>
+      it.synchronized(it.next())
+  }
+
   val ledgerId: Future[String] = bindings.ledgerId
 
   def allocateParty(): Future[String] =
-    bindings.allocateParty()
+    bindings.allocateParty(nextPartyHintId())
 
   def time: Future[Instant] = bindings.time
 
@@ -42,10 +53,10 @@ final class LedgerTestContext(
   def create[T <: Template[T]: ValueDecoder](
       party: String,
       template: Template[T]): Future[Contract[T]] =
-    bindings.create(party, applicationId, template)
+    bindings.create(party, applicationId, nextCommandId(), template)
 
   def create(party: String, templateId: Identifier, args: Map[String, Value.Sum]): Future[String] =
-    bindings.create(party, applicationId, templateId, args)
+    bindings.create(party, applicationId, nextCommandId(), templateId, args)
 
   def exercise(
       party: String,
@@ -54,12 +65,12 @@ final class LedgerTestContext(
       choice: String,
       args: Map[String, Value.Sum]
   ): Future[Unit] =
-    bindings.exercise(party, applicationId, templateId, contractId, choice, args)
+    bindings.exercise(party, applicationId, nextCommandId(), templateId, contractId, choice, args)
 
   def exercise[T](
       party: String,
       exercise: Primitive.Update[T]
-  ): Future[Unit] = bindings.exercise(party, applicationId, exercise)
+  ): Future[Unit] = bindings.exercise(party, applicationId, nextCommandId(), exercise)
 
   def flatTransactions(
       parties: Seq[String],

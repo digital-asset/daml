@@ -3,17 +3,24 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
+import com.digitalasset.daml.lf.data.Ref
+
 import scala.concurrent.Future
 
 object LedgerTest {
 
-  def apply(description: String, timeout: Long = 30000L)(
+  def apply(shortIdentifier: String, description: String, timeout: Long = 30000L)(
       test: LedgerTestContext => Future[Unit]): LedgerTest =
-    new LedgerTest(description, timeout, test)
+    new LedgerTest(
+      Ref.LedgerString.fromString(shortIdentifier).fold(m => throw sys.error(m), identity),
+      description,
+      timeout,
+      test)
 
 }
 
 final class LedgerTest private (
+    val shortIdentifier: Ref.LedgerString,
     val description: String,
     val timeout: Long,
     val test: LedgerTestContext => Future[Unit])

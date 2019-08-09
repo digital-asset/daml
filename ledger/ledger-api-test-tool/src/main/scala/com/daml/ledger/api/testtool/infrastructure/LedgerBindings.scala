@@ -4,7 +4,6 @@
 package com.daml.ledger.api.testtool.infrastructure
 
 import java.time.{Clock, Instant}
-import java.util.UUID
 
 import com.digitalasset.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
@@ -14,8 +13,8 @@ import com.digitalasset.ledger.api.v1.admin.party_management_service.AllocatePar
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create, Exercise}
 import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand, ExerciseCommand}
-import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
+import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.testing.time_service.{
@@ -96,8 +95,10 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       result <- services.time.setTime(new SetTimeRequest(id, currentTime, newTime)).map(_ => ())
     } yield result
 
-  def allocateParty(): Future[String] =
-    services.partyManagement.allocateParty(new AllocatePartyRequest()).map(_.partyDetails.get.party)
+  def allocateParty(partyIdHint: String): Future[String] =
+    services.partyManagement
+      .allocateParty(new AllocatePartyRequest(partyIdHint = partyIdHint))
+      .map(_.partyDetails.get.party)
 
   def ledgerEnd: Future[LedgerOffset] =
     for {
@@ -181,9 +182,10 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
   def create[T <: Template[T]: ValueDecoder](
       party: String,
       applicationId: String,
+      commandId: String,
       template: Template[T]
   ): Future[Contract[T]] = {
-    submitAndWaitForTransaction(party, applicationId, template.create.command.command) {
+    submitAndWaitForTransaction(party, applicationId, commandId, template.create.command.command) {
       _.events.collect {
         case Event(Created(e)) => decodeCreated(e).get
       }.head
@@ -193,32 +195,40 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
   def create(
       party: String,
       applicationId: String,
+      commandId: String,
       templateId: Identifier,
       args: Map[String, Value.Sum]): Future[String] =
-    submitAndWaitForTransaction(party, applicationId, createCommand(templateId, args)) {
+    submitAndWaitForTransaction(party, applicationId, commandId, createCommand(templateId, args)) {
       _.events.collect { case Event(Created(e)) => e.contractId }.head
     }
 
   def exercise(
       party: String,
       applicationId: String,
+      commandId: String,
       templateId: Identifier,
       contractId: String,
       choice: String,
       args: Map[String, Value.Sum]
   ): Future[Unit] =
-    submitAndWait(party, applicationId, exerciseCommand(templateId, contractId, choice, args))
+    submitAndWait(
+      party,
+      applicationId,
+      commandId,
+      exerciseCommand(templateId, contractId, choice, args))
 
   def exercise[T](
       party: String,
       applicationId: String,
+      commandId: String,
       exercise: Primitive.Update[T]
   ): Future[Unit] =
-    submitAndWait(party, applicationId, exercise.command.command)
+    submitAndWait(party, applicationId, commandId, exercise.command.command)
 
   private def submitAndWaitCommand[A](service: SubmitAndWaitRequest => Future[A])(
       party: String,
       applicationId: String,
+      commandId: String,
       command: Command.Command,
       commands: Command.Command*): Future[A] =
     for {
@@ -230,7 +240,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
           Some(new Commands(
             ledgerId = id,
             applicationId = applicationId,
-            commandId = UUID.randomUUID().toString,
+            commandId = commandId,
             party = party,
             ledgerEffectiveTime = Some(new Timestamp(let.getEpochSecond, let.getNano)),
             maximumRecordTime = Some(new Timestamp(mrt.getEpochSecond, mrt.getNano)),
@@ -241,11 +251,13 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
   def submitAndWait(
       party: String,
       applicationId: String,
+      commandId: String,
       command: Command.Command,
       commands: Command.Command*): Future[Unit] =
     submitAndWaitCommand(services.command.submitAndWait)(
       party,
       applicationId,
+      commandId,
       command,
       commands: _*)
       .map(_ => ())
@@ -253,23 +265,27 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
   def submitAndWaitForTransactionId(
       party: String,
       applicationId: String,
+      commandId: String,
       command: Command.Command,
       commands: Command.Command*
   ): Future[String] =
     submitAndWaitCommand(services.command.submitAndWaitForTransactionId)(
       party,
       applicationId,
+      commandId,
       command,
       commands: _*).map(_.transactionId)
 
   def submitAndWaitForTransaction[A](
       party: String,
       applicationId: String,
+      commandId: String,
       command: Command.Command,
       commands: Command.Command*)(f: Transaction => A): Future[A] =
     submitAndWaitCommand(services.command.submitAndWaitForTransaction)(
       party,
       applicationId,
+      commandId,
       command,
       commands: _*)
       .map(r => f(r.transaction.get))
