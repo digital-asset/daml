@@ -1,12 +1,11 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.sandbox
+package com.digitalasset.platform.testing
 
 import com.digitalasset.ledger.api.v1.value.Identifier
 
-// TODO(mthvedt): Delete this old copy when we finish migrating to ledger-api-integration-tests.
-class TestTemplateIdentifiers(testPackageId: String) {
+final case class TestTemplateIdentifiers(testPackageId: String) {
 
   val dummy =
     Identifier(testPackageId, moduleName = "Test", entityName = "Dummy")
@@ -52,8 +51,26 @@ class TestTemplateIdentifiers(testPackageId: String) {
     Identifier(testPackageId, moduleName = "Test", entityName = "TextKey")
   val textKeyOperations =
     Identifier(testPackageId, moduleName = "Test", entityName = "TextKeyOperations")
+  val divulgence1 =
+    Identifier(testPackageId, "Test", "Divulgence1")
+  val divulgence2 =
+    Identifier(testPackageId, "Test", "Divulgence2")
+  val decimalRounding =
+    Identifier(testPackageId, "Test", "DecimalRounding")
+  val delegated =
+    Identifier(testPackageId, moduleName = "Test", entityName = "Delegated")
+  val delegation =
+    Identifier(testPackageId, moduleName = "Test", entityName = "Delegation")
+  val showDelegated =
+    Identifier(testPackageId, moduleName = "Test", entityName = "ShowDelegated")
   val witnesses =
     Identifier(testPackageId, moduleName = "Test", entityName = "Witnesses")
+  val divulgeWitnesses =
+    Identifier(testPackageId, moduleName = "Test", entityName = "DivulgeWitnesses")
+  val maintainerNotSignatory =
+    Identifier(testPackageId, moduleName = "Test", entityName = "MaintainerNotSignatory")
+  val createAndFetch =
+    Identifier(testPackageId, "Test", "CreateAndFetch")
   val allTemplates =
     List(
       dummy,
@@ -66,5 +83,10 @@ class TestTemplateIdentifiers(testPackageId: String) {
       textContainer,
       textKey,
       textKeyOperations,
-      witnesses)
+      divulgence1,
+      divulgence2,
+      witnesses,
+      maintainerNotSignatory,
+      createAndFetch
+    )
 }

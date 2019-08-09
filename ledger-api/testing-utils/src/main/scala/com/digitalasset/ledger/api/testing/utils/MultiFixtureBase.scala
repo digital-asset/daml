@@ -1,21 +1,21 @@
 // Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.platform.testing
+package com.digitalasset.ledger.api.testing.utils
 
 import java.util.concurrent.{Executors, ScheduledExecutorService, TimeUnit}
 
 import com.digitalasset.grpc.adapter.utils.DirectExecutionContext
-import org.scalatest._
 import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScaledTimeSpans}
 import org.scalatest.exceptions.TestCanceledException
 import org.scalatest.time.Span
+import org.scalatest._
 
 import scala.collection.immutable.Iterable
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.{Future, Promise, TimeoutException}
-import scala.concurrent.duration._
 import scala.util.control.{NoStackTrace, NonFatal}
+import scala.concurrent.duration.DurationInt
 
 trait MultiFixtureBase[FixtureId, TestContext]
     extends Assertions

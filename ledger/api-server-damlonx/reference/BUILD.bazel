@@ -52,13 +52,13 @@ client_server_test(
         "--include=SemanticTests,ContractKeysIT",
     ],
     data = [
-        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-        "//ledger/sandbox:Test.dar",
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
     ],
     server = ":reference",
     server_args = [
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:SemanticTests.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test.dar))",
     ],
     tags = [
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.

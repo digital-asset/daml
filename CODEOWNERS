@@ -28,7 +28,7 @@ azure-cron.yml      @garyverhaegen-da
 /daml-lf/validation/    @remyhaemmerle-da
 
 /ledger/      @gerolf-da @rautenrieth-da @stefanobaghino-da
-/ledger-api/  @gerolf-da
+/ledger-api/  @gerolf-da @stefanobaghino-da
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da

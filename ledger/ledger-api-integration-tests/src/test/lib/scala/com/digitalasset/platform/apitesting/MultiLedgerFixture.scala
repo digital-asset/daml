@@ -3,11 +3,10 @@
 
 package com.digitalasset.platform.apitesting
 
-import com.digitalasset.ledger.api.testing.utils.Resource
+import com.digitalasset.ledger.api.testing.utils.{LedgerBackend, MultiResourceBase, Resource}
 import com.digitalasset.platform.PlatformApplications
 import com.digitalasset.platform.apitesting.LedgerFactories.SandboxStore
 import com.digitalasset.platform.esf.TestExecutionSequencerFactory
-import com.digitalasset.platform.testing.{LedgerBackend, MultiResourceBase}
 import org.scalatest.AsyncTestSuite
 
 trait MultiLedgerFixture

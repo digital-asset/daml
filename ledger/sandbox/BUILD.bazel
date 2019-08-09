@@ -84,7 +84,7 @@ da_scala_library(
         "//3rdparty/jvm/ch/qos/logback:logback_classic",
         "//3rdparty/jvm/ch/qos/logback:logback_core",
     ],
-    deps = compileDependencies,
+    deps = compileDependencies + ["//ledger/test-common"],
 )
 
 da_scala_binary(
@@ -94,6 +94,17 @@ da_scala_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox",
+    ],
+)
+
+da_scala_binary(
+    name = "sandbox-ephemeral-postgres",
+    main_class = "com.digitalasset.platform.sandbox.persistence.EphemeralPostgresSandboxMain",
+    resources = ["src/main/resources/logback.xml"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sandbox",
+        ":sandbox-scala-tests-lib",
     ],
 )
 
@@ -118,13 +129,6 @@ genrule(
 alias(
     name = "Test-1.5.dar",
     actual = ":historical-dars/Test-1.5.dar",
-    visibility = ["//visibility:public"],
-)
-
-daml_compile(
-    name = "Test",
-    main_src = "src/test/resources/damls/Test.daml",
-    target = "1.dev",
     visibility = ["//visibility:public"],
 )
 
@@ -154,7 +158,7 @@ da_scala_test_suite(
         ["src/test/suite/**/*.scala"],
     ),
     data = [
-        "//ledger/sandbox:Test.dar",
+        "//ledger/test-common:Test.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -165,53 +169,109 @@ da_scala_test_suite(
         ":sandbox-scala-tests-lib",
     ] + testDependencies,
 )
-### GS: disabling conformance tests until we figure out how to
-###     run sandbox on postgres with ledger-api-test-tool
-#client_server_test(
-#    name = "conformance-test-static-time",
-#    timeout = "short",
-#    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
-#    client_args = [
-#        "--all-tests",
-#    ],
-#    data = [
-#        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-#        "//ledger/sandbox:Test.dar",
-#    ],
-#    server = "//ledger/sandbox:sandbox-binary",
-#    server_args = [
-#        "-s",
-#        "ledger/ledger-api-integration-tests/SemanticTests.dar",
-#        "ledger/sandbox/Test.dar",
-#    ],
-#    tags = [
-#        "dont-run-on-darwin",
-#        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
-#        "exclusive",
-#    ],
-#) if not is_windows else None
-#
-#client_server_test(
-#    name = "conformance-test-wall-clock",
-#    timeout = "short",
-#    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
-#    client_args = [
-#        "--all-tests",
-#        "--exclude SemanticTests",
-#    ],
-#    data = [
-#        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-#        "//ledger/sandbox:Test.dar",
-#    ],
-#    server = "//ledger/sandbox:sandbox-binary",
-#    server_args = [
-#        "-w",
-#        "ledger/ledger-api-integration-tests/SemanticTests.dar",
-#        "ledger/sandbox/Test.dar",
-#    ],
-#    tags = [
-#        "dont-run-on-darwin",
-#        # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
-#        "exclusive",
-#    ],
-#) if not is_windows else None
+
+client_server_test(
+    name = "conformance-test-static-time",
+    timeout = "long",
+    client = "//ledger/ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+        "--timeout-scale-factor=10",
+    ],
+    data = [
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--port 0",
+        "-s",
+        "ledger/test-common/SemanticTests.dar",
+        "ledger/test-common/Test.dar",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+    ],
+) if not is_windows else None
+
+client_server_test(
+    name = "conformance-test-wall-clock",
+    timeout = "long",
+    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+        "--exclude TimeIT",
+        "--timeout-scale-factor=10",
+    ],
+    data = [
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
+    ],
+    server = "//ledger/sandbox:sandbox-binary",
+    server_args = [
+        "--port 0",
+        "-w",
+        "ledger/test-common/SemanticTests.dar",
+        "ledger/test-common/Test.dar",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+    ],
+) if not is_windows else None
+
+client_server_test(
+    name = "conformance-test-static-time-postgres",
+    timeout = "long",
+    client = "//ledger/ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+        "--timeout-scale-factor=10",
+    ],
+    data = [
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
+    ],
+    server = "//ledger/sandbox:sandbox-ephemeral-postgres",
+    server_args = [
+        "--port 0",
+        "-s",
+        "ledger/test-common/SemanticTests.dar",
+        "ledger/test-common/Test.dar",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+    ],
+) if not is_windows else None
+
+client_server_test(
+    name = "conformance-test-wall-clock-postgres",
+    timeout = "long",
+    client = "//ledger/ledger-api-test-tool:ledger-api-test-tool",
+    client_args = [
+        "--all-tests",
+        "--exclude TimeIT",
+        "--timeout-scale-factor=10",
+    ],
+    data = [
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
+    ],
+    server = "//ledger/sandbox:sandbox-ephemeral-postgres",
+    server_args = [
+        "--port 0",
+        "-w",
+        "ledger/test-common/SemanticTests.dar",
+        "ledger/test-common/Test.dar",
+    ],
+    tags = [
+        "dont-run-on-darwin",
+    ],
+) if not is_windows else None

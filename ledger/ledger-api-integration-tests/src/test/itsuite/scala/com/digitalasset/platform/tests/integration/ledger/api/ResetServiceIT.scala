@@ -46,7 +46,7 @@ class ResetServiceIT
   override protected val config: Config =
     Config.default.withLedgerIdMode(LedgerIdMode.Dynamic())
 
-  override protected def darFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
+  override protected def darFile: File = new File(rlocation("ledger/test-common/Test.dar"))
 
   private val allTemplatesForParty = M.transactionFilter
 
