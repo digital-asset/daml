@@ -35,7 +35,7 @@ import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.tag._
 
 class Extractor[T](config: ExtractorConfig, target: T)(
-    writerSupplier: (ExtractorConfig, T, String) => Writer)
+    writerSupplier: (ExtractorConfig, T, String) => Writer = Writer.apply _)
     extends StrictLogging {
 
   implicit val system: ActorSystem = ActorSystem()
