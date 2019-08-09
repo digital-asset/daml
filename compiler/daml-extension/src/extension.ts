@@ -99,15 +99,15 @@ function getViewColumnForShowResource(): ViewColumn {
 }
 
 function exec(command: string, options: cp.ExecOptions, taskName: String): Promise<{ stdout: string; stderr: string }> {
-	return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-		cp.exec(command, options, (error, stdout, stderr) => {
-			if (error) {
+    return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+        cp.exec(command, options, (error, stdout, stderr) => {
+            if (error) {
                 reject({ error, stdout, stderr });
                 vscode.window.showErrorMessage("Error Generating visual" + taskName + error)
             }
-			resolve({ stdout, stderr });
-		});
-	});
+            resolve({ stdout, stderr });
+        });
+    });
 }
 
 async function visualize() {
@@ -115,13 +115,15 @@ async function visualize() {
     let visualizeCmd = "daml damlc visual tempfile"
     let workspaceRoot = vscode.workspace.rootPath;
     let execOpts = { cwd: workspaceRoot }
-    await exec(buildCmd, { cwd: workspaceRoot }, "Daml Build Command");
-    let { stdout, stderr } = await exec(visualizeCmd, execOpts, "Generating dot file")
-    if (stdout) {
-        vscode.workspace.openTextDocument({ content: stdout, language: "dot" }).then(doc =>
-            vscode.window.showTextDocument(doc)
-        )
-    }
+    exec(buildCmd, { cwd: workspaceRoot }, "Daml Build Command").then(_ => {
+        exec(visualizeCmd, execOpts, "Generating dot file").then(res => {
+            if (res.stdout) {
+                vscode.workspace.openTextDocument({ content: res.stdout, language: "dot" }).then(doc =>
+                    vscode.window.showTextDocument(doc)
+                )
+            }
+        });
+    });
 }
 
 function openDamlDocs() {
