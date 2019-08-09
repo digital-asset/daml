@@ -352,7 +352,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
   "Text operations" - {
 
     val strings =
-      Table("string", "", "aa", "ab", "b", "a¶‱😂", "a¶‱😃", "a", "¶", "‱", "😂", "😃", "｡")
+      Table("string", "", "aa", "ab", "b", "a¶‱😂", "a¶‱😃", "a", "¶", "‱", "😂", "😃", "｡", "1.1")
 
     "EXPLODE_TEXT" - {
       "works on full unicode" in {

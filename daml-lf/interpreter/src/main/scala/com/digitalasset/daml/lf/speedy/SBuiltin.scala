@@ -156,14 +156,15 @@ object SBuiltin {
       Numeric.subtract(x, y)
     )
 
-  sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric) extends SBuiltin(2) {
-    final def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
-      machine.ctrl = CtrlValue(
-        (args.get(0), args.get(1)) match {
-          case (SNumeric(a), SNumeric(b)) => SNumeric(op(a, b))
-          case _ => crash(s"type mismatch add: $args")
-        }
-      )
+  sealed abstract class SBBinaryOpNumeric(op: (Numeric, Numeric) => Numeric) extends SBuiltin(3) {
+    final def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val value = (args.get(0), args.get(1), args.get(2)) match {
+        case (STNat(scale), SNumeric(a), SNumeric(b)) if a.scale == scale && b.scale == scale =>
+          SNumeric(op(a, b))
+        case _ => crash(s"type mismatch add: $args")
+      }
+      machine.ctrl = CtrlValue(value)
+    }
   }
 
   final case object SBAddNumeric extends SBBinaryOpNumeric(add)
@@ -228,14 +229,25 @@ object SBuiltin {
       SText(v match {
         case SBool(b) => b.toString
         case SInt64(i) => i.toString
-        case SNumeric(d) => Numeric.toUnscaledString(d)
         case STimestamp(t) => t.toString
         case SText(t) => t
         case SParty(p) => p
         case SUnit(_) => s"<unit>"
         case SDate(date) => date.toString
-        case SContractId(_) => crash("litToText: ContractId not supported")
+        case SContractId(_) | SNumeric(_) => crash("litToText: literal not supported")
       })
+    }
+  }
+
+  final case object SBToTextNumeric extends SBuiltin(2) {
+    override def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val value = (args.get(0), args.get(1)) match {
+        case (STNat(scale), SNumeric(x)) if x.scale == scale =>
+          SText(Numeric.toUnscaledString(x))
+        case _ =>
+          throw SErrorCrash(s"type mismatch FromTextNumeric: $args")
+      }
+      machine.ctrl = CtrlValue(value)
     }
   }
 
@@ -282,19 +294,18 @@ object SBuiltin {
     }
   }
 
-  final case object SBFromTextNumeric extends SBuiltin(1) {
-    private val pattern = """[+-]?\d+(\.\d+)?""".r.pattern
-
+  final case object SBFromTextNumeric extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      val s = args.get(0).asInstanceOf[SText].value
-      val numeric =
-        if (pattern.matcher(s).matches())
+      val num = (args.get(0), args.get(1)) match {
+        case (STNat(scale), SText(s)) =>
           Numeric
-            .fromBigDecimal(Decimal.scale, BigDecimal(s))
+            .fromUnscaledString(s)
+            .flatMap(Numeric.fromBigDecimal(scale, _))
             .fold(_ => None, x => Some(SNumeric(x)))
-        else
-          None
-      machine.ctrl = CtrlValue(SOptional(numeric))
+        case _ =>
+          throw SErrorCrash(s"type mismatch FromTextNumeric: $args")
+      }
+      machine.ctrl = CtrlValue(SOptional(num))
     }
   }
 
@@ -408,33 +419,33 @@ object SBuiltin {
   // Conversions
   //
 
-  final case object SBInt64ToNumeric extends SBuiltin(1) {
+  final case object SBInt64ToNumeric extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue(
-        args.get(0) match {
-          case SInt64(x) =>
-            SNumeric(
-              rightOrArithmeticError(
-                s"overflow when converting $x to (Numeric 10)",
-                Numeric.fromLong(Decimal.scale, x)))
-          case _ => throw SErrorCrash(s"type mismatch int64ToNumeric: $args")
-        }
-      )
+      val value = (args.get(0), args.get(1)) match {
+        case (STNat(scale), SInt64(x)) =>
+          SNumeric(
+            rightOrArithmeticError(
+              s"overflow when converting $x to (Numeric $scale)",
+              Numeric.fromLong(scale, x)))
+        case _ =>
+          throw SErrorCrash(s"type mismatch int64ToNumeric: $args")
+      }
+      machine.ctrl = CtrlValue(value)
     }
   }
 
-  final case object SBNumericToInt64 extends SBuiltin(1) {
+  final case object SBNumericToInt64 extends SBuiltin(2) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue(
-        args.get(0) match {
-          case SNumeric(x) =>
-            SInt64(
-              rightOrArithmeticError(
-                s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
-                Numeric.toLong(x)))
-          case _ => throw SErrorCrash(s"type mismatch NumericToInt64: $args")
-        }
-      )
+      val value = (args.get(0), args.get(1)) match {
+        case (STNat(scale), SNumeric(x)) if x.scale == scale =>
+          SInt64(
+            rightOrArithmeticError(
+              s"Int64 overflow when converting ${Numeric.toString(x)} to Int64",
+              Numeric.toLong(x)))
+        case _ =>
+          throw SErrorCrash(s"type mismatch NumericToInt64: $args")
+      }
+      machine.ctrl = CtrlValue(value)
     }
   }
 
@@ -492,16 +503,18 @@ object SBuiltin {
     }
   }
 
-  final case object SBRoundNumeric extends SBuiltin(2) {
+  final case object SBRoundNumeric extends SBuiltin(3) {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
-      machine.ctrl = CtrlValue((args.get(0), args.get(1)) match {
-        case (SInt64(prec), SNumeric(x)) =>
+      val value = (args.get(0), args.get(1), args.get(2)) match {
+        case (STNat(scale), SInt64(prec), SNumeric(x)) if x.scale == scale =>
           SNumeric(
             rightOrArithmeticError(
-              s"Error while rounding (Numeric ${x.scale})",
+              s"Error while rounding (Numeric $scale)",
               Numeric.round(prec, x)))
-        case _ => throw SErrorCrash(s"type mismatch roundD: $args")
-      })
+        case _ =>
+          throw SErrorCrash(s"type mismatch roundD: $args")
+      }
+      machine.ctrl = CtrlValue(value)
     }
   }
 
@@ -519,7 +532,6 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(SBool((args.get(0), args.get(1)) match {
         case (SInt64(a), SInt64(b)) => pred(a compareTo b)
-        case (SNumeric(a), SNumeric(b)) => pred(Numeric.compareTo(a, b))
         case (STimestamp(a), STimestamp(b)) => pred(a compareTo b)
         case (SText(a), SText(b)) => pred(Utf8.Ordering.compare(a, b))
         case (SDate(a), SDate(b)) => pred(a compareTo b)
@@ -530,10 +542,28 @@ object SBuiltin {
     }
   }
 
+  sealed abstract class SBCompareNumeric(pred: Int => Boolean) extends SBuiltin(3) {
+    def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
+      val value = SBool((args.get(0), args.get(1), args.get(2)) match {
+        case (STNat(scale), SNumeric(a), SNumeric(b)) if a.scale == scale && b.scale == scale =>
+          pred(Numeric.compareTo(a, b))
+        case _ =>
+          crash(s"type mismatch less: $args")
+      })
+      machine.ctrl = CtrlValue(value)
+    }
+  }
+
   final case object SBLess extends SBCompare(_ < 0)
   final case object SBLessEq extends SBCompare(_ <= 0)
   final case object SBGreater extends SBCompare(_ > 0)
   final case object SBGreaterEq extends SBCompare(_ >= 0)
+
+  final case object SBEqualNumeric extends SBCompareNumeric(_ == 0)
+  final case object SBLessNumeric extends SBCompareNumeric(_ < 0)
+  final case object SBLessEqNumeric extends SBCompareNumeric(_ <= 0)
+  final case object SBGreaterNumeric extends SBCompareNumeric(_ > 0)
+  final case object SBGreaterEqNumeric extends SBCompareNumeric(_ >= 0)
 
   /** $consMany[n] :: a -> ... -> List a -> List a */
   final case class SBConsMany(n: Int) extends SBuiltin(1 + n) {
