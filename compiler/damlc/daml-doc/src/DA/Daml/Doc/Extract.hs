@@ -307,6 +307,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
             let theta = classSCTheta cls
             guard (notNull theta)
             Just (TypeTuple $ map (typeToType ctx) theta)
+    guard (exportsType dc_exports cl_name)
     Just ClassDoc {..}
   where
     f :: LSig GhcPs -> [FunctionDoc]
@@ -323,35 +324,36 @@ unknownType = TypeApp Nothing (Typename "_") []
 
 getTypeDocs :: DocCtx -> DeclData -> Maybe (Typename, ADTDoc)
 getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
-  | XTyClDecl{} <- decl =
-      Nothing
-  | ClassDecl{} <- decl =
-      Nothing
-  | FamDecl{}   <- decl =
-      Nothing
+    | XTyClDecl{} <- decl =
+        Nothing
+    | ClassDecl{} <- decl =
+        Nothing
+    | FamDecl{}   <- decl =
+        Nothing
 
-  | SynDecl{..} <- decl = do
-      let ad_name = Typename . packRdrName $ unLoc tcdLName
-          ad_descr = doc
-          ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-          ad_anchor = Just $ typeAnchor dc_modname ad_name
-          ad_rhs = fromMaybe unknownType $ do
-              tycon <- MS.lookup ad_name dc_tycons
-              rhs <- synTyConRhs_maybe tycon
-              Just (typeToType ctx rhs)
+    | SynDecl{..} <- decl = do
+        let ad_name = Typename . packRdrName $ unLoc tcdLName
+            ad_descr = doc
+            ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
+            ad_anchor = Just $ typeAnchor dc_modname ad_name
+            ad_rhs = fromMaybe unknownType $ do
+                tycon <- MS.lookup ad_name dc_tycons
+                rhs <- synTyConRhs_maybe tycon
+                Just (typeToType ctx rhs)
+        guard (exportsType dc_exports ad_name)
+        Just (ad_name, TypeSynDoc {..})
 
-      Just (ad_name, TypeSynDoc {..})
-
-  | DataDecl{..} <- decl = do
-      let ad_name = Typename . packRdrName $ unLoc tcdLName
-          ad_descr = doc
-          ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-          ad_anchor = Just $ typeAnchor dc_modname ad_name
-          ad_constrs = mapMaybe constrDoc . dd_cons $ tcdDataDefn
-      Just (ad_name, ADTDoc {..})
+    | DataDecl{..} <- decl = do
+        let ad_name = Typename . packRdrName $ unLoc tcdLName
+            ad_descr = doc
+            ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
+            ad_anchor = Just $ typeAnchor dc_modname ad_name
+            ad_constrs = mapMaybe (constrDoc ad_name) . dd_cons $ tcdDataDefn
+        guard (exportsType dc_exports ad_name)
+        Just (ad_name, ADTDoc {..})
   where
-    constrDoc :: LConDecl GhcPs -> Maybe ADTConstr
-    constrDoc (L _ con) = do
+    constrDoc :: Typename -> LConDecl GhcPs -> Maybe ADTConstr
+    constrDoc ad_name (L _ con) = do
         let ac_name = Typename . packRdrName . unLoc $ con_name con
             ac_anchor = Just $ constrAnchor dc_modname ac_name
             ac_descr = fmap (docToText . unLoc) $ con_doc con
@@ -365,20 +367,23 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
                     Just datacon ->
                         map (typeToType ctx) (dataConOrigArgTys datacon)
 
+        guard (exportsConstr dc_exports ad_name ac_name)
         Just $ case con_args con of
             PrefixCon _ -> PrefixC {..}
             InfixCon _ _ -> PrefixC {..} -- FIXME: should probably change this!
             RecCon (L _ fs) ->
-              let ac_fields = mapMaybe fieldDoc (zip ac_args fs)
+              let ac_fields = mapMaybe (fieldDoc ad_name) (zip ac_args fs)
               in RecordC {..}
 
-    fieldDoc :: (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
-    fieldDoc (fd_type, L _ ConDeclField{..}) = do
+    fieldDoc :: Typename -> (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
+    fieldDoc ad_name (fd_type, L _ ConDeclField{..}) = do
         let fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names
             fd_anchor = Just $ functionAnchor dc_modname fd_name
             fd_descr = fmap (docToText . unLoc) cd_fld_doc
+        guard (exportsField dc_exports ad_name fd_name)
         Just FieldDoc{..}
-    fieldDoc (_, L _ XConDeclField{}) = Nothing
+    fieldDoc _ (_, L _ XConDeclField{}) = Nothing
+
 getTypeDocs _ _other = Nothing
 
 -- | Build template docs up from ADT and class docs.
