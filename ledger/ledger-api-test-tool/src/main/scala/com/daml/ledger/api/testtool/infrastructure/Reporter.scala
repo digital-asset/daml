@@ -47,6 +47,11 @@ object Reporter {
 
     import ColorizedPrintStreamReporter._
 
+    private def indented(n: Int, msg: String) = {
+      val indent = " " * n
+      msg.lines.map(l => s"$indent$l").mkString("\n")
+    }
+
     override def apply(results: Vector[LedgerTestSummary]): Unit = {
 
       s.println()
@@ -56,32 +61,40 @@ object Reporter {
       s.println(blue("#"))
       s.println(blue("#" * 80))
 
-      for (LedgerTestSummary(suite, test, configuration, result) <- results.sortBy(_.suite)) {
-        s.println()
-        s.println(cyan(suite))
-        s.println(cyan(test))
-        s.println(cyan(render(configuration)))
-        result match {
-          case Result.Succeeded => s.println(green(s"The test was successful."))
-          case Result.TimedOut => s.println(red(s"The test TIMED OUT!"))
-          case Result.Skipped(reason) =>
-            s.println(yellow(s"The test was skipped (reason: $reason)"))
-          case Result.Failed(cause) =>
-            val message =
-              extractRelevantLineNumberFromAssertionError(cause).fold(
-                s"The test FAILED: ${cause.getMessage}") { lineHint =>
-                s"The test FAILED at line $lineHint: ${cause.getMessage}"
-              }
-            s.println(red(message))
-            if (printStackTraces) {
-              for (renderedStackTraceLine <- render(cause)) s.println(red(renderedStackTraceLine))
+      results.groupBy(_.suite).foreach {
+        case (suite, summaries) =>
+          s.println()
+          s.println(cyan(suite))
+
+          for (LedgerTestSummary(_, test, _, result) <- summaries) {
+
+            s.print(cyan(s"- $test ... "))
+            result match {
+              case Result.Succeeded => s.println(green(s"Success"))
+              case Result.TimedOut => s.println(red(s"Timeout"))
+              case Result.Skipped(reason) =>
+                s.println(yellow(s"Skipped (reason: $reason)"))
+              case Result.Failed(cause) =>
+                val message =
+                  extractRelevantLineNumberFromAssertionError(cause).fold(s"Failed") { lineHint =>
+                    s"Failed at line $lineHint"
+                  }
+                s.println(red(message))
+                s.println(red(indented(2, cause.getMessage)))
+                if (printStackTraces) {
+                  for (renderedStackTraceLine <- render(cause))
+                    s.println(red(indented(2, renderedStackTraceLine)))
+                }
+              case Result.FailedUnexpectedly(cause) =>
+                s.println(red("Failed due to an unexpected exception"))
+                s.println(red(indented(2, cause.getMessage)))
+                if (printStackTraces) {
+                  for (renderedStackTraceLine <- render(cause))
+                    s.println(red(indented(2, renderedStackTraceLine)))
+                }
             }
-          case Result.FailedUnexpectedly(cause) =>
-            s.println(red(s"The test FAILED DUE TO AN UNEXPECTED EXCEPTION: ${cause.getMessage}"))
-            if (printStackTraces) {
-              for (renderedStackTraceLine <- render(cause)) s.println(red(renderedStackTraceLine))
-            }
-        }
+
+          }
       }
     }
   }
