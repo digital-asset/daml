@@ -448,7 +448,7 @@ object Pretty {
     }
     def prettySExpr(index: Int)(e: SExpr): Doc =
       e match {
-        case SEVar(i) => char('@') + str(index - i)
+        case SVar(i) => char('@') + str(index - i)
         case SEVal(defId, _) =>
           str(defId)
         case SEValue(lit) =>

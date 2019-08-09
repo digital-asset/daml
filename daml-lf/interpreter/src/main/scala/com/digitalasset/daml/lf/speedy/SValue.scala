@@ -70,6 +70,9 @@ sealed trait SValue {
       case SContractId(coid) =>
         V.ValueContractId(coid)
 
+      case STNat(_) =>
+        throw SErrorCrash("SValue.toValue: unexpected STNat")
+
       case _: SPAP =>
         throw SErrorCrash("SValue.toValue: unexpected SPAP")
 
@@ -111,9 +114,8 @@ sealed trait SValue {
         SMap(value.transform((_, v) => v.mapContractId(f)))
       case SContractId(coid) =>
         SContractId(f(coid))
-      case _: SEnum => this
-      case _: SPrimLit => this
-      case SToken => this
+      case SEnum(_, _) | _: SPrimLit | SToken | STNat(_) => this
+
     }
 
   def equalTo(v2: SValue): Boolean = {
@@ -142,6 +144,8 @@ sealed trait SValue {
         }
       case (x: SPrimLit, y: SPrimLit) =>
         x == y
+      case (STNat(n1), STNat(n2)) =>
+        n1 == n2
       case _ =>
         false
     }
@@ -153,7 +157,9 @@ object SValue {
   /** "Primitives" that can be applied. */
   sealed trait Prim
   final case class PBuiltin(b: SBuiltin) extends Prim
-  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals
+  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals {
+    override def toString: String = s"PClosure($expr, ${closure.mkString("[", ",", "]")})"
+  }
 
   /** A partially (or fully) applied primitive.
     * This is constructed when an argument is applied. When it becomes fully
@@ -161,7 +167,9 @@ object SValue {
     * If the primitive is a closure, the arguments are pushed to the environment and the
     * closure body is entered.
     */
-  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue
+  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue {
+    override def toString: String = s"SPAP($prim, ${args.asScala.mkString("[", ",", "]")}, $arity)"
+  }
 
   final case class SRecord(id: Identifier, fields: Array[Name], values: util.ArrayList[SValue])
       extends SValue
@@ -180,6 +188,8 @@ object SValue {
   final case class SList(list: FrontStack[SValue]) extends SValue
 
   final case class SMap(value: HashMap[String, SValue]) extends SValue
+
+  final case class STNat(n: Int) extends SValue
 
   // NOTE(JM): We are redefining PrimLit here so it can be unified
   // with SValue and we can remove one layer of indirection.

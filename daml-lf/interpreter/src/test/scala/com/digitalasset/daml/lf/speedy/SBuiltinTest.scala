@@ -330,7 +330,7 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
   "Text operations" - {
 
     val strings =
-      Table("string", "", "aa", "ab", "b", "a¶‱😂", "a¶‱😃", "a", "¶", "‱", "😂", "😃", "｡")
+      Table("string", "", "aa", "ab", "b", "a¶‱😂", "a¶‱😃", "a", "¶", "‱", "😂", "😃", "｡", "1.1")
 
     "EXPLODE_TEXT" - {
       "works on full unicode" in {
@@ -736,19 +736,19 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
 
     val almostZero = n10("1E-10")
 
-    "DECIMAL_TO_INT64" - {
+    "NUMERIC_TO_INT64" - {
       "throws exception in case of overflow" in {
-        eval(e"DECIMAL_TO_INT64 ${n10(-BigDecimal(2).pow(63) - 1)}") shouldBe 'left
-        eval(e"DECIMAL_TO_INT64 ${n10(-BigDecimal(2).pow(63) - 1 + almostZero)}") shouldBe Right(
+        eval(e"NUMERIC_TO_INT64 @10 ${n10(-BigDecimal(2).pow(63) - 1)}") shouldBe 'left
+        eval(e"NUMERIC_TO_INT64 @10 ${n10(-BigDecimal(2).pow(63) - 1 + almostZero)}") shouldBe Right(
           SInt64(Long.MinValue))
-        eval(e"DECIMAL_TO_INT64 ${n10(-BigDecimal(2).pow(63))}") shouldBe Right(
+        eval(e"NUMERIC_TO_INT64 @10 ${n10(-BigDecimal(2).pow(63))}") shouldBe Right(
           SInt64(Long.MinValue))
-        eval(e"DECIMAL_TO_INT64 ${n10(BigDecimal(2).pow(63) - 1)}") shouldBe Right(
+        eval(e"NUMERIC_TO_INT64 @10 ${n10(BigDecimal(2).pow(63) - 1)}") shouldBe Right(
           SInt64(Long.MaxValue))
-        eval(e"DECIMAL_TO_INT64 ${n10(BigDecimal(2).pow(63) - almostZero)}") shouldBe Right(
+        eval(e"NUMERIC_TO_INT64 @10 ${n10(BigDecimal(2).pow(63) - almostZero)}") shouldBe Right(
           SInt64(Long.MaxValue))
-        eval(e"DECIMAL_TO_INT64 ${n10(BigDecimal(2).pow(63))}") shouldBe 'left
-        eval(e"DECIMAL_TO_INT64 ${n10(1E22)}") shouldBe 'left
+        eval(e"NUMERIC_TO_INT64 @10 ${n10(BigDecimal(2).pow(63))}") shouldBe 'left
+        eval(e"NUMERIC_TO_INT64 @10 ${n10(1E22)}") shouldBe 'left
       }
 
       "works as expected" in {
@@ -763,8 +763,8 @@ class SBuiltinTest extends FreeSpec with Matchers with TableDrivenPropertyChecks
         )
 
         forEvery(testCases) { (decimal, int64) =>
-          eval(e"DECIMAL_TO_INT64 $decimal") shouldBe Right(SInt64(int64))
-          eval(e"DECIMAL_TO_INT64 ${-decimal}") shouldBe Right(SInt64(-int64))
+          eval(e"NUMERIC_TO_INT64 @10 $decimal") shouldBe Right(SInt64(int64))
+          eval(e"NUMERIC_TO_INT64 @10 ${-decimal}") shouldBe Right(SInt64(-int64))
         }
       }
     }

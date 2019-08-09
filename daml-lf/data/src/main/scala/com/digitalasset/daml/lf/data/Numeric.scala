@@ -74,6 +74,12 @@ object Numeric {
     )
   }
 
+  final def compare(scale: Int, x: BigDecimal, y: BigDecimal): Int = {
+    assertNumeric(scale, x)
+    assertNumeric(scale, y)
+    x compareTo y
+  }
+
   final def fromBigDecimal(scale: Int, x: BigDecimal): Either[String, BigDecimal] =
     checkScale(scale, x).flatMap(checkForOverflow(scale, _))
 
@@ -87,7 +93,9 @@ object Numeric {
       .filter(ExpectedUnscaledFormat.pattern.matcher(_).matches())
       .map(BigDecimal(_))
       .filter(_.precision <= maxPrecision)
-      .toRight(s"""Could not read Numeric string "$s"""")
+      .toRight(
+        s"""Could not read Numeric string "$s""""
+      )
 
   def assertUnscaledFromString(s: String): BigDecimal =
     assertRight(unscaledFromString(s))
@@ -97,18 +105,19 @@ object Numeric {
     if (s.contains(".")) s else s + ".0"
   }
 
-  private val ExpectedScaledFormat = """-?([1-9]\d+|0).(\d*)?""".r
+  private val ExpectedScaledFormat = """-?([1-9]\d*|0).(\d*)?""".r
 
   def scaledFromString(s: String): Either[String, BigDecimal] = {
-    val x = s match {
+    def errMsg =
+      s"""Could not read Numeric string "$s""""
+    s match {
       case ExpectedScaledFormat(intPart, decPart) =>
         val scale = decPart.length
         val precision = if (intPart == "0") scale else intPart.size + scale
-        if (precision <= maxPrecision) Some(BigDecimal(s).setScale(scale)) else None
+        if (precision <= maxPrecision) Right(BigDecimal(s).setScale(scale)) else Left(errMsg)
       case _ =>
-        None
+        Left(errMsg)
     }
-    x.toRight(s"""Could not read Numeric string "$s"""")
   }
 
   def assertScaledFromString(s: String): BigDecimal =

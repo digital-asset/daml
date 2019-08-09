@@ -212,7 +212,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "MOD_INT64" -> BModInt64,
     "EXP_INT64" -> BExpInt64,
     "INT64_TO_NUMERIC" -> BInt64ToNumeric,
-    "DECIMAL_TO_INT64" -> BNumericToInt64,
+    "NUMERIC_TO_INT64" -> BNumericToInt64,
     "DATE_TO_UNIX_DAYS" -> BDateToUnixDays,
     "UNIX_DAYS_TO_DATE" -> BUnixDaysToDate,
     "TIMESTAMP_TO_UNIX_MICROSECONDS" -> BTimestampToUnixMicroseconds,
