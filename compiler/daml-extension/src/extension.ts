@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
+import * as tmp from 'tmp';
 import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument } from 'vscode-languageclient';
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
 import * as which from 'which';
@@ -111,17 +112,20 @@ function exec(command: string, options: cp.ExecOptions, taskName: String): Promi
 }
 
 async function visualize() {
-    let buildCmd = "daml build -o tempfile"
-    let visualizeCmd = "daml damlc visual tempfile"
-    let workspaceRoot = vscode.workspace.rootPath;
-    let execOpts = { cwd: workspaceRoot }
-    exec(buildCmd, execOpts, "Daml Build Command").then(_ => {
-        exec(visualizeCmd, execOpts, "Generating dot file").then(res => {
-            if (res.stdout) {
-                vscode.workspace.openTextDocument({ content: res.stdout, language: "dot" }).then(doc =>
-                    vscode.window.showTextDocument(doc)
-                )
-            }
+    tmp.file(function _tempFileCreated(err, path) {
+        if (err) throw err;
+        let buildCmd = "daml build -o " + path
+        let visualizeCmd = "daml damlc visual " + path
+        let workspaceRoot = vscode.workspace.rootPath;
+        let execOpts = { cwd: workspaceRoot }
+        exec(buildCmd, execOpts, "Daml Build Command").then(_ => {
+            exec(visualizeCmd, execOpts, "Generating dot file").then(res => {
+                if (res.stdout) {
+                    vscode.workspace.openTextDocument({ content: res.stdout, language: "dot" }).then(doc =>
+                        vscode.window.showTextDocument(doc)
+                    )
+                }
+            });
         });
     });
 }
