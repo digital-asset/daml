@@ -122,12 +122,18 @@ async function visualize() {
             exec(visualizeCmd, execOpts, "Generating dot file").then(res => {
                 if (res.stdout) {
                     vscode.workspace.openTextDocument({ content: res.stdout, language: "dot" }).then(doc =>
-                        vscode.window.showTextDocument(doc)
+                        vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true).then(_ => loadPreviewIfAvailable())
                     )
                 }
-            });
+            })
         });
     });
+}
+
+function loadPreviewIfAvailable() {
+    if (vscode.extensions.getExtension("EFanZh.graphviz-preview")) {
+        vscode.commands.executeCommand("graphviz.showPreviewToSide")
+    }
 }
 
 function openDamlDocs() {
