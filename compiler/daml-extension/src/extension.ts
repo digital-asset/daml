@@ -118,8 +118,8 @@ async function visualize() {
         let visualizeCmd = "daml damlc visual " + path
         let workspaceRoot = vscode.workspace.rootPath;
         let execOpts = { cwd: workspaceRoot }
-        exec(buildCmd, execOpts, "Daml Build Command").then(_ => {
-            exec(visualizeCmd, execOpts, "Generating dot file").then(res => {
+        exec(buildCmd, execOpts, "build command").then(_ => {
+            exec(visualizeCmd, execOpts, "generating dot file").then(res => {
                 if (res.stdout) {
                     vscode.workspace.openTextDocument({ content: res.stdout, language: "dot" }).then(doc =>
                         vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true).then(_ => loadPreviewIfAvailable())
