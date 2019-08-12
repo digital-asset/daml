@@ -186,6 +186,7 @@ object SExpr {
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
     def execute(machine: Machine): Ctrl = {
       machine.lastLocation = Some(loc)
+      machine.kont.add(KLocation(loc))
       CtrlExpr(expr)
     }
   }

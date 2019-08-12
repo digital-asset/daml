@@ -15,3 +15,4 @@ HEAD — ongoing
 + [Ledger] Fixed internal shutdown order to avoid dead letter warnings when stopping Sandbox/Ledger API Server.
   See issue `#1886 <https://github.com/digital-asset/daml/issues/1886>`__.
 + [DAML Compiler] Support generic template declarations and instances.
++ [DAML Studio] Print stack trace when a scenario fails.
