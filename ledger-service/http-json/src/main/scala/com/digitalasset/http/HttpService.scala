@@ -19,7 +19,7 @@ import com.digitalasset.http.json.{
 import com.digitalasset.http.util.FutureUtil.liftET
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
-import com.digitalasset.jwt.HMAC256Verifier
+import com.digitalasset.jwt.JwtDecoder
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
@@ -79,15 +79,9 @@ object HttpService extends StrictLogging {
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 
-      // TODO(Leo): don't depend on HMAC256, use RSA256.
-      // Make it configurable, we can run tests with HMAC256 but in PROD we need RSA256
-      jwtValidator <- FutureUtil
-        .either(HMAC256Verifier(secret = "secret"))
-        .leftMap(e => Error(e.shows))
-
       endpoints = new Endpoints(
         ledgerId,
-        jwtValidator.verify,
+        JwtDecoder.decode,
         commandService,
         contractsService,
         encoder,

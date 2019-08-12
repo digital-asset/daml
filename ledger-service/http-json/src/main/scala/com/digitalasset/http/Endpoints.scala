@@ -14,7 +14,7 @@ import com.digitalasset.http.json.SprayJson.decode
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.FutureUtil
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
-import com.digitalasset.jwt.JwtVerifier.VerifyJwt
+import com.digitalasset.jwt.JwtDecoder.DecodeJwt
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -34,7 +34,7 @@ import scala.util.control.NonFatal
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
-    verifyJwt: VerifyJwt,
+    decodeJwt: DecodeJwt,
     commandService: CommandService,
     contractsService: ContractsService,
     encoder: DomainJsonEncoder,
@@ -252,7 +252,7 @@ class Endpoints(
 
   private def verify(jwt: Jwt): Unauthorized \/ domain.JwtPayload =
     for {
-      a <- verifyJwt(jwt).leftMap(e => Unauthorized(e.shows)): Unauthorized \/ DecodedJwt[String]
+      a <- decodeJwt(jwt).leftMap(e => Unauthorized(e.shows)): Unauthorized \/ DecodedJwt[String]
       b <- parsePayload(a)
     } yield b
 

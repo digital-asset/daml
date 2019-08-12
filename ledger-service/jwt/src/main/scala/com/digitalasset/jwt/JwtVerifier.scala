@@ -8,16 +8,15 @@ import com.auth0.jwt.algorithms.Algorithm
 import com.digitalasset.jwt.JwtVerifier.Error
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.{Show, \/}
+import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 
 class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) {
 
-  private val base64decoder = java.util.Base64.getDecoder
-
   def verify(jwt: domain.Jwt): Error \/ domain.DecodedJwt[String] = {
     \/.fromTryCatchNonFatal(verifier.verify(jwt.value))
       .bimap(
-        e => Error('validate, e.getMessage),
+        e => Error('verify, e.getMessage),
         a => domain.DecodedJwt(header = a.getHeader, payload = a.getPayload)
       )
       .flatMap(base64Decode)
@@ -25,11 +24,8 @@ class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) {
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
   private def base64Decode(jwt: domain.DecodedJwt[String]): Error \/ domain.DecodedJwt[String] =
-    jwt.traverse(base64Decode)
+    jwt.traverse(Base64.decode).leftMap(e => Error('base64Decode, e.shows))
 
-  private def base64Decode(base64str: String): Error \/ String =
-    \/.fromTryCatchNonFatal(new String(base64decoder.decode(base64str)))
-      .leftMap(e => Error('base64Decode, "Cannot base64 decode JWT. Cause: " + e.getMessage))
 }
 
 object JwtVerifier {
@@ -39,7 +35,7 @@ object JwtVerifier {
 
   object Error {
     implicit val showInstance: Show[Error] =
-      Show.shows(e => s"JwtValidator.Error: ${e.what}, ${e.message}")
+      Show.shows(e => s"JwtVerifier.Error: ${e.what}, ${e.message}")
   }
 }
 
