@@ -3,6 +3,7 @@
 
 package com.digitalasset.daml.lf.speedy
 
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
@@ -64,7 +65,8 @@ object Speedy {
     def popEnv(count: Int): Unit =
       env.subList(env.size - count, env.size).clear
 
-    def stackTrace(): ArrayList[Location] = {
+    /* Compute a stack trace from the locations in the continuation stack. */
+    def stackTrace(): ImmArray[Location] = {
       val s = new ArrayList[Location]
       kont.forEach { k =>
         k match {
@@ -72,7 +74,7 @@ object Speedy {
           case _ => ()
         }
       }
-      s
+      ImmArray(s.asScala)
     }
 
     /** Perform a single step of the machine execution. */

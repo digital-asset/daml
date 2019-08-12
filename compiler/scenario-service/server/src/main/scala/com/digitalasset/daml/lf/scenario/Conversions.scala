@@ -53,7 +53,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       builder.setCommitLoc(convertLocation(loc))
     }
 
-    builder.addAllStackTrace(machine.stackTrace().asScala.map(convertLocation).toSeq.asJava)
+    builder.addAllStackTrace(machine.stackTrace().map(convertLocation).toSeq.asJava)
 
     builder.setPartialTransaction(
       convertPartialTransaction(machine.ptx)
