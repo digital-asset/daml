@@ -171,7 +171,7 @@ The participants jointly extend the ledger by running a distributed commit proto
 
 The implementations might still rely on trusted third parties to facilitate the commit protocol.
 The required trust in terms of privacy and integrity, however, can generally be lower than in global state topologies.
-Moreover, unlike the previous topologies, the implementations can provide interoperability across trusted parties.
+Moreover, unlike the previous topologies, they support interoperability: even if two transactions are committed with the help of disjoint sets of trusted third parties, their :ref:`output contracts <def-output-contract>` can in general still be used within the same atomic transaction.
 The exact trust assumptions and the degree of supported interoperability are implementation-dependent.
 `Canton <http://canton.io>`__ and DAML on `R3 Corda <https://www.corda.net>`__ are two such implementations.
 The main drawback of this topology is that availability can be influenced by the participant nodes.
