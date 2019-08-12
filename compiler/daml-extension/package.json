@@ -64,7 +64,7 @@
             },
             {
                 "command": "daml.visualize",
-                "title": "Generate visual for daml project"
+                "title": "Visualize daml project"
             },
             {
                 "command": "daml.resetTelemetryConsent",

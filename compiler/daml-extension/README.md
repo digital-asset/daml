@@ -10,7 +10,7 @@ features:
 - Type-information on hover
 - Renaming of symbols
 - DAML snippet support
-- Command to generate visualization for DAML project via command pallate ctrl + p.
+- Command to generate visualization for DAML project via command palette ctrl + p.
 
 Please note that this will only install the VSCode extension. Full use of the
 above features will also require that you have a working DAML SDK installed,

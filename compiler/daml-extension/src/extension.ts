@@ -104,7 +104,7 @@ function exec(command: string, options: cp.ExecOptions, taskName: String): Promi
         cp.exec(command, options, (error, stdout, stderr) => {
             if (error) {
                 reject({ error, stdout, stderr });
-                vscode.window.showErrorMessage("Error Generating visual" + taskName + error)
+                vscode.window.showErrorMessage("Error generating visualization" + taskName + error)
             }
             resolve({ stdout, stderr });
         });
@@ -112,7 +112,7 @@ function exec(command: string, options: cp.ExecOptions, taskName: String): Promi
 }
 
 async function visualize() {
-    tmp.file(function _tempFileCreated(err, path) {
+    tmp.file(((err, path) => {
         if (err) throw err;
         let buildCmd = "daml build -o " + path
         let visualizeCmd = "daml damlc visual " + path
@@ -127,7 +127,7 @@ async function visualize() {
                 }
             })
         });
-    });
+    }))
 }
 
 function loadPreviewIfAvailable() {
