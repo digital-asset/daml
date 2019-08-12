@@ -224,20 +224,17 @@ Version: 1.6
 
   * **Add** intern package IDs in external package references.
 
+Version: 1.dev
+..............
+
   * **Change** Transaction submitter must be in the contract key
     maintainers when performing lookup or fetches by key. See
     `issue #1866 <https://github.com/digital-asset/daml/issues/1866>`_
 
-Version: 1.dev
-..............
+  * **Add** Nat kind and Nat type.
 
-  * Description:
-
-    * **Add** Nat kind and Nat type.
-
-    * **Replace** fixed scaled 'Decimal' type by parametric scaled
-      'Numeric' typer.
-
+  * **Replace** fixed scaled 'Decimal' type by parametricly  scaled
+    'Numeric' type.
 
 Abstract syntax
 ^^^^^^^^^^^^^^^
