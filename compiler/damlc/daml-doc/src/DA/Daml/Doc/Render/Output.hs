@@ -213,7 +213,7 @@ renderTypePrec prec = \case
     TypeApp anchorM (Typename typename) args ->
         (if prec >= 2 && notNull args then renderInParens else id)
             . renderUnwords
-            $ maybeAnchorLink anchorM typename
+            $ maybeAnchorLink anchorM (wrapOp typename)
             : map (renderTypePrec 2) args
     TypeFun ts ->
         (if prec >= 1 then renderInParens else id)
@@ -227,6 +227,8 @@ renderTypePrec prec = \case
         renderInParens
             . renderIntercalate ", "
             $ map (renderTypePrec 0) ts
+    TypeLit lit ->
+        RenderPlain lit
 
 -- | Render type context as a list of words. Nothing is rendered as [],
 -- and Just t is rendered as [render t, "=>"].

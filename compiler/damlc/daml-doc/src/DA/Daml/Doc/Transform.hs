@@ -173,6 +173,7 @@ distributeInstanceDocs docs =
         TypeFun parts -> Set.unions $ map getTypeAnchors parts
         TypeTuple parts -> Set.unions $ map getTypeAnchors parts
         TypeList p -> getTypeAnchors p
+        TypeLit _ -> Set.empty
 
     addInstances :: InstanceMap -> ModuleDoc -> ModuleDoc
     addInstances imap ModuleDoc{..} = ModuleDoc

@@ -34,6 +34,7 @@ data Type = TypeApp !(Maybe Anchor) !Typename [Type] -- ^ Type application
           | TypeFun [Type] -- ^ Function type
           | TypeList Type   -- ^ List syntax
           | TypeTuple [Type] -- ^ Tuple syntax
+          | TypeLit Text -- ^ a literal (e.g. "foo") appearing at the type level
   deriving (Eq, Ord, Show, Generic)
 
 instance Hashable Type where

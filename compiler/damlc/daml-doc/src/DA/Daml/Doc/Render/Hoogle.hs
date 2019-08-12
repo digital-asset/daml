@@ -145,3 +145,4 @@ t2hg _ _ (TypeTuple ts) =
 t2hg _ _ (TypeApp _ n []) = unTypename n
 t2hg _ f (TypeApp _ name args) = f $
     T.unwords (wrapOp (unTypename name) : map (t2hg inParens inParens) args)
+t2hg _ _ (TypeLit lit) = lit

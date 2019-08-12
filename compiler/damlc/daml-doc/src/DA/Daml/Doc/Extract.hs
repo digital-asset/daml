@@ -702,6 +702,13 @@ typeToType ctx = \case
     TyConApp tycon [b] | "[]" == packName (tyConName tycon) ->
         TypeList (typeToType ctx b)
 
+    -- Special case for unsaturated (->) to remove the levity arguments.
+    TyConApp tycon (_:_:bs) | isFunTyCon tycon ->
+        TypeApp
+            Nothing
+            (Typename "->")
+            (map (typeToType ctx) bs)
+
     TyConApp tycon bs ->
         TypeApp
             (tyConAnchor ctx tycon)
@@ -714,6 +721,7 @@ typeToType ctx = \case
             TypeFun _ -> unexpected "function type in a type app"
             TypeList _ -> unexpected "list type in a type app"
             TypeTuple _ -> unexpected "tuple type in a type app"
+            TypeLit _ -> unexpected "type-level literal in a type app"
 
     -- ignore context
     ForAllTy _ b -> typeToType ctx b
@@ -726,7 +734,7 @@ typeToType ctx = \case
             b' -> TypeFun [typeToType ctx a, b']
 
     CastTy a _ -> typeToType ctx a
-    LitTy x -> TypeApp Nothing (Typename $ toText x) []
+    LitTy x -> TypeLit (toText x)
     CoercionTy _ -> unexpected "coercion" -- TODO?
 
   where
