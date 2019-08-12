@@ -6,12 +6,14 @@ package com.daml.ledger.api.testtool.tests
 import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.ledger.test.DA.Types.{Tuple2 => DamlTuple2}
-import com.digitalasset.ledger.test.Test.Delegation._
-import com.digitalasset.ledger.test.Test.ShowDelegated._
-import com.digitalasset.ledger.test.Test.TextKey._
-import com.digitalasset.ledger.test.Test.TextKeyOperations._
-import com.digitalasset.ledger.test.Test._
+// FixMe: https://github.com/digital-asset/daml/issues/2289
+// rename in the following line test_latest byf test_dev once numerics are supported by codegen
+import com.digitalasset.ledger.test_latest.DA.Types.{Tuple2 => DamlTuple2}
+import com.digitalasset.ledger.test_latest.Test.Delegation._
+import com.digitalasset.ledger.test_latest.Test.ShowDelegated._
+import com.digitalasset.ledger.test_latest.Test.TextKey._
+import com.digitalasset.ledger.test_latest.Test.TextKeyOperations._
+import com.digitalasset.ledger.test_latest.Test._
 import io.grpc.Status
 
 final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)

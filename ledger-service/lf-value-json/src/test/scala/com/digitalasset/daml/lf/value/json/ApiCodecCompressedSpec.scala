@@ -120,12 +120,12 @@ class ApiCodecCompressedSpec
     val successes = Table(
       ("line#", "serialized", "type", "parsed", "alternates"),
       c("\"123\"", VA.contractId)("123"),
-      c("\"42.0\"", VA.decimal)(Decimal assertFromString "42", "\"42\"" /*, "42", "42.0"*/ ),
+      c("\"42.0\"", VA.numeric)(Decimal assertFromString "42", "\"42\"" /*, "42", "42.0"*/ ),
       // c("2e3", VA.decimal)(Decimal assertFromString "2000"),
-      c("\"2000.0\"", VA.decimal)(
+      c("\"2000.0\"", VA.numeric)(
         Decimal assertFromString "2000",
         "\"2000\"" /*, "2000", "2e3" */ ),
-      c("\"0.3\"", VA.decimal)(
+      c("\"0.3\"", VA.numeric)(
         Decimal assertFromString "0.3" /*, "\"0.30000000000000004\"", "0.30000000000000004", "0.3"*/ ),
       c("\"1990-11-09T04:30:23.123456Z\"", VA.timestamp)(
         Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z",

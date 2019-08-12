@@ -13,7 +13,8 @@ import org.scalatest.{DoNotDiscover, Matchers, WordSpec}
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 @DoNotDiscover // TODO LedgerPing.dalf is now invalid
 class PackageParserTest extends WordSpec with Matchers {
-  private def getDarStream: InputStream = getClass.getClassLoader.getResourceAsStream("Test.dar")
+  private def getDarStream: InputStream =
+    getClass.getClassLoader.getResourceAsStream("Test-latest.dar")
 
   "PackageParserTest" should {
     "successfully parse DAR file" in {

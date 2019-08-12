@@ -56,8 +56,7 @@ object LedgerApiTestTool {
     if (config.extract) {
       extractResources(
         "/ledger/test-common/SemanticTests.dar",
-        "/ledger/test-common/Test.dar",
-        "/ledger/test-common/Test-1.6.dar"
+        "/ledger/test-common/Test-latest.dar"
       )
       sys.exit(0)
     }

@@ -28,7 +28,9 @@ package object tests {
     "DivulgenceIT" -> (new Divulgence(_)),
     "IdentityIT" -> (new Identity(_)),
     "TimeIT" -> (new Time(_)),
-    "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
+    // FixMe: https://github.com/digital-asset/daml/issues/1866
+    // add back if contract key restriction is enable
+    // "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
     "WitnessesIT" -> (new Witnesses(_))
   )

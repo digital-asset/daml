@@ -33,9 +33,7 @@ daml_compile(
 
 dar_to_scala(
     name = "SemanticTests.scala-codegen",
-    srcs = [
-        ":SemanticTests.dar",
-    ],
+    srcs = [":SemanticTests.dar"],
     package_prefix = "com.digitalasset.ledger.test",
     srcjar_out = "SemanticTests.scala.srcjar",
     verbosity = 2,
@@ -52,26 +50,23 @@ da_scala_library(
 )
 
 daml_compile(
-    name = "Test-1.6",
+    name = "Test-latest",
     main_src = "src/main/daml/Test.daml",
-    target = "1.6",
     visibility = ["//visibility:public"],
 )
 
 dar_to_scala(
-    name = "Test-1.6.scala-codegen",
-    srcs = [
-        ":Test-1.6.dar",
-    ],
-    package_prefix = "com.digitalasset.ledger.test_1_6",
-    srcjar_out = "Test-1.6.scala.srcjar",
+    name = "Test-latest.scala-codegen",
+    srcs = [":Test-latest.dar"],
+    package_prefix = "com.digitalasset.ledger.test_latest",
+    srcjar_out = "Test-latest.scala.srcjar",
     verbosity = 2,
     visibility = ["//visibility:public"],
 )
 
 da_scala_library(
-    name = "Test-1.6.scala",
-    srcs = [":Test-1.6.scala-codegen"],
+    name = "Test-latest.scala",
+    srcs = [":Test-latest.scala-codegen"],
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/scala/bindings",
@@ -79,26 +74,24 @@ da_scala_library(
 )
 
 daml_compile(
-    name = "Test",
+    name = "Test-dev",
     main_src = "src/main/daml/Test.daml",
     target = "1.dev",
     visibility = ["//visibility:public"],
 )
 
 dar_to_scala(
-    name = "Test.scala-codegen",
-    srcs = [
-        ":Test.dar",
-    ],
-    package_prefix = "com.digitalasset.ledger.test",
+    name = "Test-dev.scala-codegen",
+    srcs = [":Test-dev.dar"],
+    package_prefix = "com.digitalasset.ledger.test_dev",
     srcjar_out = "Test.scala.srcjar",
     verbosity = 2,
     visibility = ["//visibility:public"],
 )
 
 da_scala_library(
-    name = "Test.scala",
-    srcs = [":Test.scala-codegen"],
+    name = "Test-dev.scala",
+    srcs = [":Test-dev.scala-codegen"],
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/scala/bindings",

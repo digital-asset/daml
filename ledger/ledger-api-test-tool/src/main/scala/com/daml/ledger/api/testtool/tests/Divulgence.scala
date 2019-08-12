@@ -4,8 +4,8 @@
 package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.ledger.test.Test.{Divulgence1, Divulgence2}
-import com.digitalasset.ledger.test.Test.Divulgence2._
+import com.digitalasset.ledger.test_latest.Test.{Divulgence1, Divulgence2}
+import com.digitalasset.ledger.test_latest.Test.Divulgence2._
 import scalaz.Tag
 
 final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) {

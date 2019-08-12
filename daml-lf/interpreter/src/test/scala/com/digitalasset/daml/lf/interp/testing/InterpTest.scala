@@ -3,23 +3,26 @@
 
 package com.digitalasset.daml.lf.interp.testing
 
+import java.util
+
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.speedy.{SValue, Speedy}
-import com.digitalasset.daml.lf.speedy.SResult
+import com.digitalasset.daml.lf.speedy.{SBuiltin, SResult, SValue, Speedy, TraceLog}
 import com.digitalasset.daml.lf.speedy.SResult._
 import com.digitalasset.daml.lf.speedy.SError._
-import com.digitalasset.daml.lf.speedy.TraceLog
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.speedy.Compiler.CompileError
 import com.digitalasset.daml.lf.speedy.SExpr.LfDefRef
 import org.scalatest.{Matchers, WordSpec}
+import com.digitalasset.daml.lf.testing.parser.Implicits._
+import org.scalatest.prop.TableDrivenPropertyChecks
 
 import scala.language.implicitConversions
 
-class InterpTest extends WordSpec with Matchers {
+class InterpTest extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
   private implicit def id(s: String): Ref.Name.T = Name.assertFromString(s)
 
@@ -88,6 +91,31 @@ class InterpTest extends WordSpec with Matchers {
       val xss2 = ECons(int64List, ImmArray(int64Cons(ImmArray(2, 5, 7), int64Nil)), ENil(int64List))
       runExpr(EApp(concat, xss1)) shouldBe runExpr(EApp(concat, xss2))
     }
+  }
+
+  "compilation and evaluation handle properly nat types" in {
+
+    val testCases = Table(
+      "input",
+      e"""(/\ (n: nat). ROUND_NUMERIC @n 2) @4""",
+      e"""(/\ (n: nat). /\ (n: nat). ROUND_NUMERIC @n 2) @3 @4 """,
+      e"""(/\ (n: nat). /\ (n: nat). \(n: Int64) -> ROUND_NUMERIC @n n) @3 @4 2""",
+      e"""(/\ (n: nat). \(n: Int64) -> /\ (n: nat). ROUND_NUMERIC @n n) @3 2 @4""",
+      e"""(\(n: Int64) -> /\ (n: nat). /\ (n: nat). ROUND_NUMERIC @n n) 2 @3 @4""",
+      e"""(\(n: Int64) -> /\ (n: *). /\ (n: nat). ROUND_NUMERIC @n n) 2 @Int64 @4""",
+    )
+
+    val expectedOutput =
+      SValue.SPAP(
+        SValue.PBuiltin(SBuiltin.SBRoundNumeric),
+        ArrayList(SValue.STNat(4), SValue.SInt64(2)),
+        3
+      )
+
+    forEvery(testCases)(input => runExpr(input) shouldBe expectedOutput)
+
+    an[CompileError] shouldBe thrownBy(
+      runExpr(e"""(/\ (n: nat). /\ (n: *). ROUND_NUMERIC @n n) @4 @Int64"""))
   }
 
   "large lists" should {
@@ -238,6 +266,12 @@ class InterpTest extends WordSpec with Matchers {
       machine.ptx.usedPackages shouldBe Set(dummyPkg)
     }
 
+  }
+
+  private def ArrayList[X](as: X*): util.ArrayList[X] = {
+    val a = new util.ArrayList[X](as.length)
+    as.foreach(a.add)
+    a
   }
 
 }

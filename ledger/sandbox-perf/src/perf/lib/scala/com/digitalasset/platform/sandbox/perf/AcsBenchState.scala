@@ -22,5 +22,5 @@ class AcsBenchState extends PerfBenchState with DummyCommands with InfAwait {
     ()
   }
 
-  override protected def darFile: File = new File(rlocation("ledger/test-common/Test.dar"))
+  override protected def darFile: File = new File(rlocation("ledger/test-common/Test-latest.dar"))
 }
