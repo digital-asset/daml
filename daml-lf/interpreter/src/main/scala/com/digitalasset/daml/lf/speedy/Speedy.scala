@@ -64,6 +64,17 @@ object Speedy {
     def popEnv(count: Int): Unit =
       env.subList(env.size - count, env.size).clear
 
+    def stackTrace(): ArrayList[Location] = {
+      val s = new ArrayList[Location]
+      kont.forEach { k =>
+        k match {
+          case KLocation(location) => { s.add(location); () }
+          case _ => ()
+        }
+      }
+      s
+    }
+
     /** Perform a single step of the machine execution. */
     def step(): SResult =
       try {
@@ -504,6 +515,13 @@ object Speedy {
 
     def execute(v: SValue, machine: Machine) = {
       machine.ctrl = CtrlExpr(fin)
+    }
+  }
+
+  /** A location frame stores a location annotation found in the AST. */
+  final case class KLocation(location: Location) extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      machine.ctrl = CtrlValue(v)
     }
   }
 

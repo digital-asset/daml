@@ -53,9 +53,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       builder.setCommitLoc(convertLocation(loc))
     }
 
-    machine.lastLocation.foreach { loc =>
-      builder.setLastLoc(convertLocation(loc))
-    }
+    builder.addAllStackTrace(machine.stackTrace().asScala.map(convertLocation).toSeq.asJava)
 
     builder.setPartialTransaction(
       convertPartialTransaction(machine.ptx)

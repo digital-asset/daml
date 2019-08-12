@@ -197,8 +197,9 @@ message ScenarioError {
   // Location of the commit/mustFail if applicable.
   Location commit_loc = 5;
 
-  // Last seen location, if any.
-  Location last_loc = 6;
+  // Stack trace of the locations seen during the execution.
+  // The last seen location comes last.
+  repeated Location stack_trace = 6;
 
   // The current partial transaction if any.
   PartialTransaction partial_transaction = 7;

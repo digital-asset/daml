@@ -18,3 +18,4 @@ HEAD — ongoing
 + [DAML Compiler] Support generic template declarations and instances.
 + [DAML Compile] The ``--dump-pom`` flag from ``damlc package`` has been removed as packaging
   has not relied on POM files for a while.
++ [DAML Studio] Print stack trace when a scenario fails.
