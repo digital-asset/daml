@@ -189,11 +189,12 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       applicationId: String,
       commandId: String,
       template: Template[T]
-  ): Future[Contract[T]] = {
+  ): Future[(String, Contract[T])] = {
     submitAndWaitForTransaction(party, applicationId, commandId, template.create.command.command) {
-      _.events.collect {
-        case Event(Created(e)) => decodeCreated(e).get
-      }.head
+      t =>
+        t.transactionId -> t.events.collect {
+          case Event(Created(e)) => decodeCreated(e).get
+        }.head
     }
   }
 
@@ -202,9 +203,10 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       applicationId: String,
       commandId: String,
       templateId: Identifier,
-      args: Map[String, Value.Sum]): Future[String] =
+      args: Map[String, Value.Sum]): Future[(String, String)] =
     submitAndWaitForTransaction(party, applicationId, commandId, createCommand(templateId, args)) {
-      _.events.collect { case Event(Created(e)) => e.contractId }.head
+      t =>
+        t.transactionId -> t.events.collect { case Event(Created(e)) => e.contractId }.head
     }
 
   def exercise(
@@ -215,8 +217,8 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       contractId: String,
       choice: String,
       args: Map[String, Value.Sum]
-  ): Future[Unit] =
-    submitAndWait(
+  ): Future[String] =
+    submitAndWaitForTransactionId(
       party,
       applicationId,
       commandId,
@@ -227,8 +229,8 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       applicationId: String,
       commandId: String,
       exercise: Primitive.Update[T]
-  ): Future[Unit] =
-    submitAndWait(party, applicationId, commandId, exercise.command.command)
+  ): Future[String] =
+    submitAndWaitForTransactionId(party, applicationId, commandId, exercise.command.command)
 
   private def submitAndWaitCommand[A](service: SubmitAndWaitRequest => Future[A])(
       party: Party,

@@ -16,8 +16,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
       "Divulged contracts should not be exposed by the transaction service") { implicit context =>
       for {
         Vector(alice, bob) <- allocateParties(2)
-        divulgence1 <- create(Divulgence1(alice))(alice)
-        divulgence2 <- create(Divulgence2(bob, alice))(bob)
+        (_, divulgence1) <- create(Divulgence1(alice))(alice)
+        (_, divulgence2) <- create(Divulgence2(bob, alice))(bob)
         _ <- exercise(
           divulgence2.contractId
             .exerciseDivulgence2Archive(alice, divulgence1.contractId))(alice)
@@ -152,8 +152,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
       implicit context =>
         for {
           Vector(alice, bob) <- allocateParties(2)
-          divulgence1 <- create(Divulgence1(alice))(alice)
-          divulgence2 <- create(Divulgence2(bob, alice))(bob)
+          (_, divulgence1) <- create(Divulgence1(alice))(alice)
+          (_, divulgence2) <- create(Divulgence2(bob, alice))(bob)
           _ <- exercise(
             divulgence2.contractId
               .exerciseDivulgence2Fetch(alice, divulgence1.contractId))(alice)

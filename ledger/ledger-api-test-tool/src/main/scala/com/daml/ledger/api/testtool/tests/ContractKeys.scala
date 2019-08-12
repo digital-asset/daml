@@ -24,9 +24,9 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           Vector(owner, delegate) <- allocateParties(2)
 
           // create contracts to work with
-          delegated <- create(Delegated(owner, key))(owner)
-          delegation <- create(Delegation(owner, delegate))(owner)
-          showDelegated <- create(ShowDelegated(owner, delegate))(owner)
+          (_, delegated) <- create(Delegated(owner, key))(owner)
+          (_, delegation) <- create(Delegation(owner, delegate))(owner)
+          (_, showDelegated) <- create(ShowDelegated(owner, delegate))(owner)
 
           // divulge the contract
           _ <- exercise(showDelegated.contractId.exerciseShowIt(owner, delegated.contractId))(owner)
@@ -67,8 +67,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         Vector(owner, delegate) <- allocateParties(2)
 
         // create contracts to work with
-        delegated <- create(Delegated(owner, key))(owner)
-        delegation <- create(Delegation(owner, delegate))(owner)
+        (_, delegated) <- create(Delegated(owner, key))(owner)
+        (_, delegation) <- create(Delegation(owner, delegate))(owner)
 
         // fetch should fail
         fetchFailure <- exercise(
@@ -112,10 +112,10 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           Vector(alice, bob) <- allocateParties(2)
 
           //create contracts to work with
-          tk1 <- create(TextKey(alice, key1, List(bob)))(alice)
-          tk2 <- create(TextKey(alice, key2, List(bob)))(alice)
-          aliceTKO <- create(TextKeyOperations(alice))(alice)
-          bobTKO <- create(TextKeyOperations(bob))(bob)
+          (_, tk1) <- create(TextKey(alice, key1, List(bob)))(alice)
+          (_, tk2) <- create(TextKey(alice, key2, List(bob)))(alice)
+          (_, aliceTKO) <- create(TextKeyOperations(alice))(alice)
+          (_, bobTKO) <- create(TextKeyOperations(bob))(bob)
 
           // creating a contract with a duplicate key should fail
           duplicateKeyFailure <- create(TextKey(alice, key1, List(bob)))(alice).failed
