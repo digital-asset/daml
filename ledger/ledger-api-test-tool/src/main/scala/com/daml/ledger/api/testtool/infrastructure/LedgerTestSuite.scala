@@ -82,12 +82,13 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
 
   final def assertGrpcError[A](t: Throwable, expectedCode: Status.Code, pattern: String)(
       implicit ec: ExecutionContext): Unit = {
-    assert(
-      t.isInstanceOf[StatusRuntimeException] || t.isInstanceOf[StatusException],
-      "Exception is neither a StatusRuntimeException nor a StatusException")
+
     val (actualCode, message) = t match {
       case sre: StatusRuntimeException => (sre.getStatus.getCode, sre.getStatus.getDescription)
       case se: StatusException => (se.getStatus.getCode, se.getStatus.getDescription)
+      case _ =>
+        throw new AssertionError(
+          "Exception is neither a StatusRuntimeException nor a StatusException")
     }
     assert(actualCode == expectedCode, s"Expected code [$expectedCode], but got [$actualCode].")
     assert(
