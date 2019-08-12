@@ -490,7 +490,7 @@ stressTests run _runScenarios = testGroup "Stress tests"
             [ "foo100 : Bool"
             , "foo100 = False"
             ]
-        withTimeout 30 $ do
+        withTimeout 90 $ do
             expectDiagnostics [("Foo0.daml", [(DsError, (4, 7), "Couldn't match expected type")])]
             void $ replaceDoc foo0 $ moduleContent "Foo0"
                 [ "import Foo1"

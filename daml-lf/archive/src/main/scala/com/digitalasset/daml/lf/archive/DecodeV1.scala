@@ -27,9 +27,15 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
 
   private def name(s: String): Name = eitherToParseError(Name.fromString(s))
 
-  override def decodePackage(packageId: PackageId, lfPackage: PLF.Package): Package = {
+  override def decodePackage(
+      packageId: PackageId,
+      lfPackage: PLF.Package,
+      onlySerializableDataDefs: Boolean
+  ): Package = {
     val interned = decodeInternedPackageIds(lfPackage.getInternedPackageIdsList.asScala)
-    Package(lfPackage.getModulesList.asScala.map(ModuleDecoder(packageId, interned, _).decode))
+    Package(
+      lfPackage.getModulesList.asScala
+        .map(ModuleDecoder(packageId, interned, _, onlySerializableDataDefs).decode))
   }
 
   type ProtoModule = PLF.Module
@@ -38,7 +44,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
     PLF.Module.parser().parseFrom(cis)
 
   override def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module =
-    ModuleDecoder(packageId, ImmArraySeq.empty, lfModule).decode()
+    ModuleDecoder(packageId, ImmArraySeq.empty, lfModule, onlySerializableDataDefs = false).decode()
 
   private[this] def eitherToParseError[A](x: Either[String, A]): A =
     x.fold(err => throw new ParseError(err), identity)
@@ -58,7 +64,9 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
   case class ModuleDecoder(
       packageId: PackageId,
       internedPackageIds: ImmArraySeq[PackageId],
-      lfModule: PLF.Module) {
+      lfModule: PLF.Module,
+      onlySerializableDataDefs: Boolean
+  ) {
 
     val moduleName = eitherToParseError(
       ModuleName.fromSegments(lfModule.getName.getSegmentsList.asScala))
@@ -71,21 +79,25 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
       val templates = mutable.ArrayBuffer[(DottedName, Template)]()
 
       // collect data types
-      lfModule.getDataTypesList.asScala.foreach { defn =>
-        val defName =
-          eitherToParseError(DottedName.fromSegments(defn.getName.getSegmentsList.asScala))
-        currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
-        val d = decodeDefDataType(defn)
-        defs += (defName -> d)
-      }
+      lfModule.getDataTypesList.asScala
+        .filter(!onlySerializableDataDefs || _.getSerializable)
+        .foreach { defn =>
+          val defName =
+            eitherToParseError(DottedName.fromSegments(defn.getName.getSegmentsList.asScala))
+          currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
+          val d = decodeDefDataType(defn)
+          defs += (defName -> d)
+        }
 
-      // collect values
-      lfModule.getValuesList.asScala.foreach { defn =>
-        val defName =
-          decodeSegments(ImmArray(defn.getNameWithType.getNameList.asScala))
-        currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
-        val d = decodeDefValue(defn)
-        defs += (defName -> d)
+      if (!onlySerializableDataDefs) {
+        // collect values
+        lfModule.getValuesList.asScala.foreach { defn =>
+          val defName =
+            decodeSegments(ImmArray(defn.getNameWithType.getNameList.asScala))
+          currentDefinitionRef = Some(DefinitionRef(packageId, QualifiedName(moduleName, defName)))
+          val d = decodeDefValue(defn)
+          defs += (defName -> d)
+        }
       }
 
       // collect templates

@@ -460,16 +460,16 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "d73e2ccb518724e6766833ee3d7e73289cbe0018"
+HASKELL_LSP_COMMIT = "bfbd8630504ebc57b70948689c37b85cfbe589da"
 
-HASKELL_LSP_HASH = "36b92431039e6289eb709b8872f5010a57d4a45e637e1c1c945bdb3128586081"
+HASKELL_LSP_HASH = "a301d9409c3a19a042bdf5763611c6a60af5cbc1ff0f281acbc19b3ee70dde5f"
 
-GHC_LIB_VERSION = "8.8.0.20190730.1"
+GHC_LIB_VERSION = "8.8.0.20190809"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "dcd211cac831609cec546050b342ca94a546cb4e672cf2819189332f49361baf",
+    sha256 = "8d7774dc830d8e27d20ce0a4f039fcfdf440a3332f2dfce3716743ea30e3589e",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -519,7 +519,7 @@ hazel_repositories(
 
             # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "dcd211cac831609cec546050b342ca94a546cb4e672cf2819189332f49361baf", "6e144d99bc43e861a2895e0c34d73964305db2ad634f14d3e3a41cf0c4523495") +
+            hazel_ghclibs(GHC_LIB_VERSION, "8d7774dc830d8e27d20ce0a4f039fcfdf440a3332f2dfce3716743ea30e3589e", "0a0231b5d98ea60d9987b8b46fd911d7d183b9c4b7e0513640c54515a5de7362") +
 
             # Support for Hlint:
             #   - Requires haskell-src-exts 1.21.0 so override hazel/packages.bzl.
@@ -541,8 +541,6 @@ hazel_repositories(
             ) +
             hazel_hackage("terminal-progress-bar", "0.4.1", "a61ca10c92cacc712dbbe28881dc23f41cc139760b7b2eef66bd0faa60ea5e24") +
             hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
-            # This corresponds to our normalize-uri branch that enforces a consistent
-            # precent-encoding for URIs used as keys.
             hazel_github_external(
                 "alanz",
                 "haskell-lsp",
@@ -557,12 +555,16 @@ hazel_repositories(
                 name = "haskell-lsp-types",
                 directory = "/haskell-lsp-types/",
             ) +
-            # This corresponds to our custom-methods branch which makes
-            # lsp-test work with the custom methods changes in haskell-lsp.
-            hazel_github(
+            # lsp-test’s cabal file relies on haskell-lsp reexporting haskell-lsp-types.
+            # Hazel does not handle that for now, so we patch the cabal file
+            # to add an explicit dependency on haskell-lsp-types.
+            hazel_github_external(
+                "bubba",
                 "lsp-test",
-                "50c43452e19e494d71ccba1f7922d0b3b3fc69c3",
-                "65a56b35ddc8fa4deab10ac42efcdcbd36e875b715bb504d10b020a1e5fffd2c",
+                "d126623dc6895d325e3d204d74e2a22d4f515587",
+                "a2be2d812010eaadd4885fb0228370a5467627bbb6bd43177fd1f6e5a7eb05f8",
+                patch_args = ["-p1"],
+                patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-lsp-test-no-reexport.patch"],
             ) +
             hazel_github_external(
                 "mpickering",

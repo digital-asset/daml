@@ -30,6 +30,7 @@ da_haskell_binary(
     main_function = "DA.Ledger.App.Nim.Main.main",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-ast",
         "//language-support/hs/bindings:hs-ledger",
     ],
 )

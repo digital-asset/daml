@@ -2,10 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "//rules_daml:daml.bzl",
-    "daml_compile",
-)
-load(
     "//bazel_tools:scala.bzl",
     "da_scala_binary",
     "da_scala_library",
@@ -17,46 +13,6 @@ load(
 )
 load("@os_info//:os_info.bzl", "is_windows")
 
-dependencies = [
-    "//3rdparty/jvm/com/github/scopt:scopt",
-    "//3rdparty/jvm/com/google/guava:guava",
-    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
-    "//3rdparty/jvm/com/typesafe/scala_logging:scala_logging",
-    "//3rdparty/jvm/io/grpc:grpc_core",
-    "//3rdparty/jvm/io/grpc:grpc_netty",
-    "//3rdparty/jvm/io/grpc:grpc_services",
-    "//3rdparty/jvm/io/netty:netty_codec_http2",
-    "//3rdparty/jvm/io/netty:netty_handler",
-    "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//3rdparty/jvm/org/scalaz:scalaz_concurrent",
-    "//3rdparty/jvm/org/scalaz:scalaz_core",
-    "//3rdparty/jvm/org/slf4j:slf4j_api",
-    "//bazel_tools/runfiles:scala_runfiles",
-    "//daml-lf/archive:daml_lf_archive_scala",
-    "//daml-lf/archive:daml_lf_java_proto",
-    "//daml-lf/data",
-    "//daml-lf/engine",
-    "//daml-lf/interpreter",
-    "//daml-lf/language",
-    "//daml-lf/scenario-interpreter",
-    "//daml-lf/transaction",
-    "//language-support/scala/bindings",
-    "//ledger-api/rs-grpc-akka",
-    "//ledger-api/rs-grpc-bridge",
-    "//ledger-api/testing-utils",
-    "//ledger/ledger-api-client:ledger-api-client",
-    "//ledger/ledger-api-common:ledger-api-common",
-    "//ledger/ledger-api-domain:ledger-api-domain",
-    "//ledger/ledger-api-scala-logging",
-    "//ledger/sandbox:sandbox",
-    "//ledger/sandbox:sandbox-scala-tests-lib",
-]
-
-# Run with:
-#   bazel run //ledger/ledger-api-test-tool:ledger-api-test-tool
-#
-# This is used to test new ledger backend implementations.
 da_scala_binary(
     name = "ledger-api-test-tool",
     srcs = glob([
@@ -65,8 +21,8 @@ da_scala_binary(
     main_class = "com.daml.ledger.api.testtool.LedgerApiTestTool",
     resources = [
         "src/main/resources/logback.xml",
-        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-        "//ledger/sandbox:Test.dar",
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
     ],
     tags = [
         "maven_coordinates=com.daml.ledger.testtool:ledger-api-test-tool:__VERSION__",
@@ -75,12 +31,25 @@ da_scala_binary(
         "fat_jar",
     ],
     visibility = ["//visibility:public"],
-    deps = dependencies + [
-        "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-lib",
-        "//ledger/ledger-api-integration-tests:ledger-api-integration-tests-as-library",
-        "//ledger/test-common:test-common",
+    deps = [
+        "//3rdparty/jvm/ch/qos/logback:logback_classic",
+        "//3rdparty/jvm/com/github/scopt",
+        "//3rdparty/jvm/io/grpc:grpc_netty",
+        "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
+        "//3rdparty/jvm/org/slf4j:slf4j_api",
+        "//daml-lf/archive:daml_lf_archive_scala",
+        "//daml-lf/archive:daml_lf_java_proto",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
         "//daml-lf/testing-tools",
-        "//3rdparty/jvm/org/apache/commons:commons_lang3",
+        "//daml-lf/transaction",
+        "//language-support/scala/bindings",
+        "//ledger/ledger-api-common",
+        "//ledger/ledger-api-domain",
+        "//ledger/test-common",
+        "//ledger/test-common:Test.scala",
     ],
 )
 
@@ -92,63 +61,60 @@ client_server_test(
         # NOTE(GP): our CI has a tendency to be more unpredictable than local
         # machine with timeouts, we value lack of flakes on CI.
         "--timeout-scale-factor=10",
-        # NOTE(FM): we are witnessing scenarios failing because the requests exceed
-        # the maximum record time:
-        #     2019-06-18T13:58:54.7566840Z       Failure details:
-        #     2019-06-18T13:58:54.7591240Z       | Test failed on fixture RemoteApiProxy with class org.scalatest.exceptions.TestFailedException: The code property had value 10, instead of its expected value 0, on object Status(10,Error: The maximum record time of the command exceeded,List()),
-        #     2019-06-18T13:58:54.7629010Z       | inside Completion(ledger-api-test-tool-Test:consistency_doublespend1-0-0:0--TwBhbmYQ9r,Some(Status(10,Error: The maximum record time of the command exceeded,List())),,None)
-        # therefore, try to bump the ttl
-        "--command-submission-ttl-scale-factor=2",
-        # "--all-tests",
     ],
-
     # Data files available to both client and server.
     data = [
-        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-        "//ledger/sandbox:Test.dar",
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
     ],
-    server = "//ledger/api-server-damlonx/reference:reference",
+    server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = [
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:SemanticTests.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test.dar))",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
-        # without competition to avoid flakyness.
+        # without competition to avoid flakiness.
         "exclusive",
     ],
-)
+) if not is_windows else None
 
 client_server_test(
     name = "ledger-api-test-tool-ssltest",
     timeout = "short",
     client = ":ledger-api-test-tool",
     client_args = [
-        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/client.crt))",
-        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/ca.crt))",
-        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath testdata/client.pem))",
-        # See note for same argument in :ledger-api-test-tool-test.
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.crt))",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/client.pem))",
+        # NOTE(GP): our CI has a tendency to be more unpredictable than local
+        # machine with timeouts, we value lack of flakes on CI.
         "--timeout-scale-factor=10",
-        # See note for same argument in :ledger-api-test-tool-test.
-        "--command-submission-ttl-scale-factor=2",
     ],
-
     # Data files available to both client and server.
     data = [
-        "//ledger/ledger-api-integration-tests:SemanticTests.dar",
-        "//ledger/sandbox:Test.dar",
-    ] + glob(["testdata/*"]),
-    server = "//ledger/api-server-damlonx/reference:reference",
+        "//ledger/test-common:SemanticTests.dar",
+        "//ledger/test-common:Test.dar",
+        "@postgresql_dev_env//:all",
+        "@postgresql_dev_env//:createdb",
+        "@postgresql_dev_env//:initdb",
+        "@postgresql_dev_env//:pg_ctl",
+    ] + glob(["test/main/resources/*"]),
+    server = "//ledger/api-server-damlonx/reference-v2:ephemeral-postgres-reference-server",
     server_args = [
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/ledger-api-integration-tests:SemanticTests.dar))",
-        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/sandbox:Test.dar))",
-        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/server.crt))",
-        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath testdata/ca.crt))",
-        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath testdata/server.pem))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:SemanticTests.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test.dar))",
+        "--crt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.crt))",
+        "--cacrt $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/ca.crt))",
+        "--pem $(rlocation $TEST_WORKSPACE/$(rootpath test/main/resources/server.pem))",
     ],
     tags = [
         # NOTE(JM,GP): As this test is somewhat heavy and has timeouts, run it
-        # without competition to avoid flakyness.
+        # without competition to avoid flakiness.
         "exclusive",
     ],
-)
+) if not is_windows else None

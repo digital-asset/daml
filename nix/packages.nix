@@ -263,7 +263,7 @@ in rec {
       inherit (pkgs.python37Packages)
         pyyaml semver GitPython;
     };
-    # Packages used in command-line tools, e.g. `dade-info`.
+    # Packages used in command-line tools
     cli-tools = {
       inherit (pkgs) coreutils nix-info getopt;
     };

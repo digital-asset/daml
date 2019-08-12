@@ -37,6 +37,7 @@ import "ghc-lib-parser" FastString
 import "ghc-lib-parser" Bag
 import "ghc-lib-parser" TcEvidence (HsWrapper(..))
 import Control.Monad
+import SdkVersion
 
 -- | Generate a module containing generic instances for data types that don't have them already.
 generateGenInstancesModule :: String -> (String, ParsedSource) -> String
@@ -540,7 +541,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
     mkGhcType =
         HsTyVar noExt NotPromoted .
         noLoc . mkOrig gHC_TYPES . mkOccName varName
-    damlStdlibUnitId = stringToUnitId "daml-stdlib"
+    damlStdlibUnitId = stringToUnitId damlStdlib
     mkLfInternalType =
         HsTyVar noExt NotPromoted .
         noLoc .
@@ -627,20 +628,18 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTInt64 -> (primUnitId, translateModName intTyCon)
             LF.BTDecimal -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             LF.BTText -> (primUnitId, LF.ModuleName ["GHC", "Types"])
-            LF.BTTimestamp -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTDate -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTParty -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTTimestamp -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTDate -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTParty -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTUnit -> (primUnitId, translateModName unitTyCon)
             LF.BTBool -> (primUnitId, translateModName boolTyCon)
             LF.BTList -> (primUnitId, translateModName listTyCon)
-            LF.BTUpdate -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTScenario -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTContractId -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTOptional -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
-            LF.BTMap -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTUpdate -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTScenario -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTContractId -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTOptional -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
+            LF.BTMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
-
-    stdlibUnitId = stringToUnitId "daml-stdlib"
 
     translateModName ::
            forall a. NamedThing a
