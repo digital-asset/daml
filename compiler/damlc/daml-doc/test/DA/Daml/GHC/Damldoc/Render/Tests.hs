@@ -32,13 +32,13 @@ cases = [ ("Empty module",
            ModuleDoc Nothing "Empty" Nothing [] [] [] [] [] [])
         , ("Type def with argument",
            ModuleDoc (Just "module-typedef") "Typedef" Nothing [] []
-            [TypeSynDoc (Just "type-typedef-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [TypeApp Nothing "TTT" []]) []]
+            [TypeSynDoc (Just "type-typedef-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [TypeApp Nothing "TTT" []]) Nothing]
             [] [] []
           )
         , ("Two types",
            ModuleDoc (Just "module-twotypes") "TwoTypes" Nothing [] []
-            [ TypeSynDoc (Just "type-twotypes-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" []) []
-            , ADTDoc (Just "data-twotypes-d") "D" Nothing ["d"] [PrefixC (Just "constr-twotypes-d") "D" (Just "D descr") [TypeApp Nothing "a" []]] []
+            [ TypeSynDoc (Just "type-twotypes-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" []) Nothing
+            , ADTDoc (Just "data-twotypes-d") "D" Nothing ["d"] [PrefixC (Just "constr-twotypes-d") "D" (Just "D descr") [TypeApp Nothing "a" []]] Nothing
             ]
             [] [] []
           )
@@ -52,7 +52,7 @@ cases = [ ("Empty module",
           )
         , ("Module with only a type class",
            ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] [] []
-            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (TypeApp Nothing "a" []) Nothing] []] [])
+            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (TypeApp Nothing "a" []) Nothing] Nothing] [])
         , ("Multiline field description",
            ModuleDoc
              (Just "module-multilinefield")
@@ -66,7 +66,7 @@ cases = [ ("Empty module",
                 Nothing
                 []
                 [RecordC (Just "constr-multilinefield-d") "D" Nothing [FieldDoc (Just "function-multilinefield-f") "f" (TypeApp Nothing "T" []) (Just "This is a multiline\nfield description")]]
-                []]
+                Nothing]
              []
              []
              []

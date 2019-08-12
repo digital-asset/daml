@@ -189,14 +189,14 @@ distributeInstanceDocs docs =
 
     addClassInstances :: InstanceMap -> ClassDoc -> ClassDoc
     addClassInstances imap cl = cl
-        { cl_instances = maybe [] Set.toList $ do
+        { cl_instances = Set.toList <$> do
             anchor <- cl_anchor cl
             Map.lookup anchor imap
         }
 
     addTypeInstances :: InstanceMap -> ADTDoc -> ADTDoc
     addTypeInstances imap ad = ad
-        { ad_instances = maybe [] Set.toList $ do
+        { ad_instances = Set.toList <$> do
             anchor <- ad_anchor ad
             Map.lookup anchor imap
         }
