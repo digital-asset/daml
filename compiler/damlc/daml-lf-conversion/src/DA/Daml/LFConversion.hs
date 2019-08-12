@@ -113,6 +113,7 @@ import           "ghc-lib-parser" TysPrim
 import           "ghc-lib-parser" TyCoRep
 import qualified "ghc-lib-parser" Name
 import           Safe.Exact (zipExact, zipExactMay)
+import           SdkVersion
 
 ---------------------------------------------------------------------
 -- FAILURE REPORTING
@@ -1264,7 +1265,7 @@ mkPure env monad dict t x = do
       TBuiltin BTScenario -> pure $ EScenario (SPure t x)
       _ -> do
         dict' <- convertExpr env dict
-        pkgRef <- packageNameToPkgRef env "daml-stdlib"
+        pkgRef <- packageNameToPkgRef env damlStdlib
         pure $ EVal (Qualified pkgRef (mkModName ["DA", "Internal", "Prelude"]) (mkVal "pure"))
           `ETyApp` monad'
           `ETmApp` dict'

@@ -149,10 +149,11 @@ def _daml_doctest_impl(ctx):
       set -eou pipefail
       DAMLC=$(rlocation $TEST_WORKSPACE/{damlc})
       rlocations () {{ for i in $@; do echo $(rlocation $TEST_WORKSPACE/$i); done; }}
-      $DAMLC doctest {damlc_flags} $(rlocations "{files}")
+      $DAMLC doctest --package-name {package_name}-`cat $(rlocation $TEST_WORKSPACE/{version_file})` $(rlocations "{files}")
     """.format(
         damlc = ctx.executable.damlc.short_path,
-        damlc_flags = ctx.attr.damlc_flags,
+        package_name = ctx.attr.package_name,
+        version_file = ctx.file.version.path,
         files = " ".join([
             f.short_path
             for f in ctx.files.srcs
@@ -166,7 +167,7 @@ def _daml_doctest_impl(ctx):
     damlc_runfiles = ctx.attr.damlc[DefaultInfo].data_runfiles
     runfiles = ctx.runfiles(
         collect_data = True,
-        files = ctx.files.srcs,
+        files = ctx.files.srcs + [ctx.file.version],
     ).merge(damlc_runfiles)
     return [DefaultInfo(runfiles = runfiles)]
 
@@ -188,7 +189,11 @@ daml_doc_test = rule(
             allow_files = True,
             default = Label("//compiler/damlc"),
         ),
-        "damlc_flags": attr.string(),
+        "package_name": attr.string(),
+        "version": attr.label(
+            allow_single_file = True,
+            default = "//:VERSION",
+        ),
     },
     test = True,
 )

@@ -32,6 +32,7 @@ import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as IdeLogger
+import SdkVersion
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -137,6 +138,8 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
   where
     confName = pName ++ ".conf"
     key = fullPkgName pName pVersion pkgId
+    sanitizeBaseDeps "daml-stdlib" = damlStdlib
+    sanitizeBaseDeps dep = dep
     bs =
         BSC.toStrict $
         BSC.pack $
@@ -152,7 +155,10 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
             , "library-dirs: ${pkgroot}" </> key
             , "data-dir: ${pkgroot}" </> key
             , "depends: " ++
-              unwords [dropExtension $ takeFileName dep | dep <- pDependencies]
+              unwords
+                  [ sanitizeBaseDeps $ dropExtension $ takeFileName dep
+                  | dep <- pDependencies
+                  ]
             ]
 
 -- | Helper to bundle up all files into a DAR.
