@@ -134,6 +134,9 @@ function loadPreviewIfAvailable() {
     if (vscode.extensions.getExtension("EFanZh.graphviz-preview")) {
         vscode.commands.executeCommand("graphviz.showPreviewToSide")
     }
+    else{
+        vscode.window.showInformationMessage("Install Graphviz Preview (https://marketplace.visualstudio.com/items?itemName=EFanZh.graphviz-preview) plugin to see graph for this dot file")
+    }
 }
 
 function openDamlDocs() {
