@@ -90,6 +90,7 @@ client_server_test(
     data = [
         "//ledger/test-common:SemanticTests.dar",
         "//ledger/test-common:Test.dar",
+        "//ledger/test-common:Test-1.6.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -99,6 +100,7 @@ client_server_test(
     server_args = [
         "ledger/test-common/SemanticTests.dar",
         "ledger/test-common/Test.dar",
+        "ledger/test-common/Test-1.6.dar",
     ],
     tags = [
         "dont-run-on-darwin",
