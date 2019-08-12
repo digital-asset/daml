@@ -88,6 +88,7 @@ data ClassDoc = ClassDoc
   , cl_super :: Maybe Type
   , cl_args :: [Text]
   , cl_functions :: [FunctionDoc]
+  , cl_instances :: [InstanceDoc] -- relevant instances
   }
   deriving (Eq, Show, Generic)
 
@@ -98,6 +99,7 @@ data ADTDoc = ADTDoc
   , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_constrs :: [ADTConstr]  -- allowed to be empty
+  , ad_instances :: [InstanceDoc] -- relevant instances
   }
   | TypeSynDoc
   { ad_anchor :: Maybe Anchor
@@ -105,6 +107,7 @@ data ADTDoc = ADTDoc
   , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_rhs    :: Type
+  , ad_instances :: [InstanceDoc] -- relevant instances
   }
   deriving (Eq, Show, Generic)
 
@@ -159,8 +162,8 @@ data FunctionDoc = FunctionDoc
 
 -- | Documentation on a typeclass instance.
 data InstanceDoc = InstanceDoc
-    { id_context :: Maybe Type
-    , id_type :: Type
+    { id_type :: Type
+    , id_context :: Maybe Type
     } deriving (Eq, Ord, Show, Generic)
 
 -----------------------------------------------------

@@ -26,7 +26,7 @@ data DocOption =
 
 
 applyTransform :: [DocOption] -> [ModuleDoc] -> [ModuleDoc]
-applyTransform opts docs = maybeDoAnnotations opts' docs
+applyTransform opts = distributeInstanceDocs . maybeDoAnnotations opts'
   where
     opts' = nubOrd $ sort opts
 
@@ -139,3 +139,7 @@ instance IsEmpty FieldDoc
 
 instance IsEmpty FunctionDoc
   where isEmpty FunctionDoc{..} = isNothing fct_descr
+
+-- | Add instances to everything.
+distributeInstanceDocs :: [ModuleDoc] -> [ModuleDoc]
+distributeInstanceDocs = id

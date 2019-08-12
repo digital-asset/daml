@@ -318,6 +318,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
             let theta = classSCTheta cls
             guard (notNull theta)
             Just (TypeTuple $ map (typeToType ctx) theta)
+        cl_instances = [] -- filled out later in 'distributeInstanceDocs'
     guard (exportsType dc_exports cl_name)
     Just ClassDoc {..}
   where
@@ -351,6 +352,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
                 tycon <- MS.lookup ad_name dc_tycons
                 rhs <- synTyConRhs_maybe tycon
                 Just (typeToType ctx rhs)
+            ad_instances = [] -- filled out later in 'distributeInstanceDocs'
         guard (exportsType dc_exports ad_name)
         Just (ad_name, TypeSynDoc {..})
 
@@ -360,6 +362,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
             ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
             ad_anchor = Just $ typeAnchor dc_modname ad_name
             ad_constrs = mapMaybe (constrDoc ad_name) . dd_cons $ tcdDataDefn
+            ad_instances = [] -- filled out later in 'distributeInstanceDocs'
         guard (exportsType dc_exports ad_name)
         Just (ad_name, ADTDoc {..})
   where
@@ -443,6 +446,7 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                              , ad_descr   = Nothing
                              , ad_args = []
                              , ad_constrs = []
+                             , ad_instances = []
                              }
     -- Assuming one constructor (record or prefix), extract the fields, if any.
     -- For choices without arguments, GHC returns a prefix constructor, so we
