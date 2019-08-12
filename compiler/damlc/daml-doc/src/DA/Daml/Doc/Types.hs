@@ -164,6 +164,7 @@ data FunctionDoc = FunctionDoc
 data InstanceDoc = InstanceDoc
     { id_type :: Type
     , id_context :: Maybe Type
+    , id_isOrphan :: Bool
     } deriving (Eq, Ord, Show, Generic)
 
 -----------------------------------------------------

@@ -32,6 +32,7 @@ import           "ghc-lib-parser" TyCon
 import           "ghc-lib-parser" ConLike
 import           "ghc-lib-parser" DataCon
 import           "ghc-lib-parser" InstEnv
+import           "ghc-lib-parser" CoreSyn
 import           "ghc-lib-parser" Var
 import           "ghc-lib-parser" Id
 import           "ghc-lib-parser" Name
@@ -556,6 +557,7 @@ getInstanceDocs ctx ClsInst{..} =
     in InstanceDoc
         { id_context = typeToContext ctx ty
         , id_type = typeToType ctx ty
+        , id_isOrphan = isOrphan is_orphan
         }
 
 ------------------------------------------------------------

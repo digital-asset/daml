@@ -43,6 +43,7 @@ instance RenderDoc ModuleDoc where
         , section "Templates" md_templates
         , section "Template Instances" md_templateInstances
         , section "Typeclasses" md_classes
+        , section "Typeclass Instances" (filter id_isOrphan md_instances)
         , section "Data Types" md_adts
         , section "Functions" md_functions
         ]
@@ -110,6 +111,7 @@ instance RenderDoc ClassDoc where
         , RenderBlock $ mconcat
             [ renderDoc cl_descr
             , renderDoc cl_functions
+            , renderDoc cl_instances
             ]
         ]
 
@@ -126,6 +128,7 @@ instance RenderDoc ADTDoc where
                 , renderType ad_rhs
                 ]
             , renderDoc ad_descr
+            , renderDoc ad_instances
             ]
         ]
 
@@ -138,6 +141,7 @@ instance RenderDoc ADTDoc where
         , RenderBlock $ mconcat
             [ renderDoc ad_descr
             , renderDoc ad_constrs
+            , renderDoc ad_instances
             ]
         ]
 
@@ -175,6 +179,14 @@ instance RenderDoc FunctionDoc where
             , renderDoc fct_descr
             ]
         ]
+
+instance RenderDoc InstanceDoc where
+    renderDoc InstanceDoc{..} =
+        RenderParagraph . renderUnwords . concat $
+            [ [RenderStrong "instance"]
+            , renderContext id_context
+            , [renderType id_type]
+            ]
 
 fieldTable :: [FieldDoc] -> RenderOut
 fieldTable fields = RenderRecordFields
