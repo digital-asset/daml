@@ -28,18 +28,23 @@
 
 <a name="type-exportlist-data1-25282"></a>**data** [Data1](#type-exportlist-data1-25282)
 
+> **instance** HasField "field1" [Data1](#type-exportlist-data1-25282) Int
 
 <a name="type-exportlist-data2-68729"></a>**data** [Data2](#type-exportlist-data2-68729)
 
+> **instance** HasField "field2" [Data2](#type-exportlist-data2-68729) Int
 
 <a name="type-exportlist-data3-43604"></a>**data** [Data3](#type-exportlist-data3-43604)
 
 > <a name="constr-exportlist-constr3-90820"></a>[Constr3](#constr-exportlist-constr3-90820)
 > 
 > > (no fields)
+> 
+> **instance** HasField "field3" [Data3](#type-exportlist-data3-43604) Int
 
 <a name="type-exportlist-data4-87051"></a>**data** [Data4](#type-exportlist-data4-87051)
 
+> **instance** HasField "field4" [Data4](#type-exportlist-data4-87051) Int
 
 <a name="type-exportlist-data5-40974"></a>**data** [Data5](#type-exportlist-data5-40974)
 
@@ -48,6 +53,8 @@
 > > | Field  | Type   | Description |
 > > | :----- | :----- | :---------- |
 > > | field5 | Int    |  |
+> 
+> **instance** HasField "field5" [Data5](#type-exportlist-data5-40974) Int
 
 <a name="type-exportlist-data6-26325"></a>**data** [Data6](#type-exportlist-data6-26325)
 
@@ -59,6 +66,8 @@
 > 
 > <a name="constr-exportlist-constr6tick-67971"></a>[Constr6'](#constr-exportlist-constr6tick-67971)
 > 
+> 
+> **instance** HasField "field6" [Data6](#type-exportlist-data6-26325) Int
 
 ## Functions
 

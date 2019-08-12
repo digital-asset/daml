@@ -8,8 +8,8 @@ module DA.Daml.Doc.Types(
     ) where
 
 import Data.Aeson
-import           Data.Text              (Text)
-import           Data.Hashable
+import Data.Text (Text)
+import Data.Hashable
 import GHC.Generics
 import Data.String
 
@@ -57,6 +57,7 @@ data ModuleDoc = ModuleDoc
   -- TODO will later be refactored to contain "documentation sections" with an
   -- optional header, containing groups of templates and ADTs. This can be done
   -- storing just linkIDs for them, the renderer would then search the lists.
+  , md_instances :: [InstanceDoc]
   }
   deriving (Eq, Show, Generic)
 
@@ -87,6 +88,7 @@ data ClassDoc = ClassDoc
   , cl_super :: Maybe Type
   , cl_args :: [Text]
   , cl_functions :: [FunctionDoc]
+  , cl_instances :: Maybe [InstanceDoc] -- relevant instances
   }
   deriving (Eq, Show, Generic)
 
@@ -97,6 +99,7 @@ data ADTDoc = ADTDoc
   , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_constrs :: [ADTConstr]  -- allowed to be empty
+  , ad_instances :: Maybe [InstanceDoc] -- relevant instances
   }
   | TypeSynDoc
   { ad_anchor :: Maybe Anchor
@@ -104,6 +107,7 @@ data ADTDoc = ADTDoc
   , ad_descr  :: Maybe DocText
   , ad_args   :: [Text] -- retain names of type var.s
   , ad_rhs    :: Type
+  , ad_instances :: Maybe [InstanceDoc] -- relevant instances
   }
   deriving (Eq, Show, Generic)
 
@@ -155,6 +159,13 @@ data FunctionDoc = FunctionDoc
   , fct_descr :: Maybe DocText
   }
   deriving (Eq, Show, Generic)
+
+-- | Documentation on a typeclass instance.
+data InstanceDoc = InstanceDoc
+    { id_type :: Type
+    , id_context :: Maybe Type
+    , id_isOrphan :: Bool
+    } deriving (Eq, Ord, Show, Generic)
 
 -----------------------------------------------------
 -- generate JSON instances
@@ -211,6 +222,12 @@ instance ToJSON TemplateInstanceDoc where
     toJSON = genericToJSON aesonOptions
 
 instance FromJSON TemplateInstanceDoc where
+    parseJSON = genericParseJSON aesonOptions
+
+instance ToJSON InstanceDoc where
+    toJSON = genericToJSON aesonOptions
+
+instance FromJSON InstanceDoc where
     parseJSON = genericParseJSON aesonOptions
 
 instance ToJSON ModuleDoc where

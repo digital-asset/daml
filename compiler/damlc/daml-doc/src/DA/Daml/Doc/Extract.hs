@@ -31,6 +31,9 @@ import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" TyCon
 import           "ghc-lib-parser" ConLike
 import           "ghc-lib-parser" DataCon
+import           "ghc-lib-parser" InstEnv
+import           "ghc-lib-parser" CoreSyn
+import           "ghc-lib-parser" Var
 import           "ghc-lib-parser" Id
 import           "ghc-lib-parser" Name
 import           "ghc-lib-parser" RdrName
@@ -105,6 +108,7 @@ extractDocs extractOpts ideOpts fp = do
             md_descr = modDoc dc_tcmod
             md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
             md_functions = mapMaybe (getFctDocs ctx Nothing) dc_decls
+            md_instances = map (getInstanceDocs ctx) dc_insts
 
             filteredAdts -- all ADT docs without templates or choices
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
@@ -178,6 +182,8 @@ data DocCtx = DocCtx
         -- ^ typechecked module
     , dc_decls :: [DeclData]
         -- ^ module declarations
+    , dc_insts :: [ClsInst]
+        -- ^ typeclass instances
     , dc_tycons :: MS.Map Typename TyCon
         -- ^ types defined in this module
     , dc_datacons :: MS.Map Typename DataCon
@@ -211,6 +217,7 @@ buildDocCtx dc_extractOptions dc_tcmod  =
             = getTemplateData . tm_parsed_module $ dc_tcmod
 
         tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
+        dc_insts = modInfoInstances . tm_checked_module_info $ dc_tcmod
 
         dc_tycons = MS.fromList
             [ (typename, tycon)
@@ -312,6 +319,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
             let theta = classSCTheta cls
             guard (notNull theta)
             Just (TypeTuple $ map (typeToType ctx) theta)
+        cl_instances = Nothing -- filled out later in 'distributeInstanceDocs'
     guard (exportsType dc_exports cl_name)
     Just ClassDoc {..}
   where
@@ -345,6 +353,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
                 tycon <- MS.lookup ad_name dc_tycons
                 rhs <- synTyConRhs_maybe tycon
                 Just (typeToType ctx rhs)
+            ad_instances = Nothing -- filled out later in 'distributeInstanceDocs'
         guard (exportsType dc_exports ad_name)
         Just (ad_name, TypeSynDoc {..})
 
@@ -354,6 +363,7 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
             ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
             ad_anchor = Just $ typeAnchor dc_modname ad_name
             ad_constrs = mapMaybe (constrDoc ad_name) . dd_cons $ tcdDataDefn
+            ad_instances = Nothing -- filled out later in 'distributeInstanceDocs'
         guard (exportsType dc_exports ad_name)
         Just (ad_name, ADTDoc {..})
   where
@@ -437,6 +447,7 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                              , ad_descr   = Nothing
                              , ad_args = []
                              , ad_constrs = []
+                             , ad_instances = Nothing
                              }
     -- Assuming one constructor (record or prefix), extract the fields, if any.
     -- For choices without arguments, GHC returns a prefix constructor, so we
@@ -476,7 +487,6 @@ getTemplateInstanceDoc adt
 
     | otherwise
     = Nothing
-
 
 -- recognising Template and Choice instances
 
@@ -538,6 +548,17 @@ isChoice ClsInstDecl{..}
 -- Otherwise returns 'Nothing'.
 stripInstanceSuffix :: Typename -> Maybe Typename
 stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
+
+-- | Get (normal) typeclass instances data. TODO: Correlate with
+-- instance declarations via SrcSpan (like Haddock).
+getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc
+getInstanceDocs ctx ClsInst{..} =
+    let ty = varType is_dfun
+    in InstanceDoc
+        { id_context = typeToContext ctx ty
+        , id_type = typeToType ctx ty
+        , id_isOrphan = isOrphan is_orphan
+        }
 
 ------------------------------------------------------------
 -- Generating doc.s from parsed modules

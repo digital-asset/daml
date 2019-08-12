@@ -14,6 +14,8 @@ import Data.List.Extra
 import System.FilePath (pathSeparator) -- because FilePattern uses it
 import System.FilePattern
 import qualified Data.Text as T
+import qualified Data.Map as Map
+import qualified Data.Set as Set
 
 -- | Documentation filtering options, applied in the order given here
 data DocOption =
@@ -26,7 +28,7 @@ data DocOption =
 
 
 applyTransform :: [DocOption] -> [ModuleDoc] -> [ModuleDoc]
-applyTransform opts docs = maybeDoAnnotations opts' docs
+applyTransform opts = distributeInstanceDocs . maybeDoAnnotations opts'
   where
     opts' = nubOrd $ sort opts
 
@@ -139,3 +141,62 @@ instance IsEmpty FieldDoc
 
 instance IsEmpty FunctionDoc
   where isEmpty FunctionDoc{..} = isNothing fct_descr
+
+type InstanceMap = Map.Map Anchor (Set.Set InstanceDoc)
+
+-- | Add relevant instances to every type and class.
+distributeInstanceDocs :: [ModuleDoc] -> [ModuleDoc]
+distributeInstanceDocs docs =
+    let instanceMap = getInstanceMap docs
+    in map (addInstances instanceMap) docs
+
+  where
+
+    getInstanceMap :: [ModuleDoc] -> InstanceMap
+    getInstanceMap docs =
+        Map.unionsWith Set.union (map getModuleInstanceMap docs)
+
+    getModuleInstanceMap :: ModuleDoc -> InstanceMap
+    getModuleInstanceMap ModuleDoc{..} =
+        Map.unionsWith Set.union (map getInstanceInstanceMap md_instances)
+
+    getInstanceInstanceMap :: InstanceDoc -> InstanceMap
+    getInstanceInstanceMap inst = Map.fromList
+        [ (anchor, Set.singleton inst)
+        | anchor <- Set.toList . getTypeAnchors $ id_type inst ]
+
+    getTypeAnchors :: Type -> Set.Set Anchor
+    getTypeAnchors = \case
+        TypeApp anchorM _ args -> Set.unions
+            $ maybe Set.empty Set.singleton anchorM
+            : map getTypeAnchors args
+        TypeFun parts -> Set.unions $ map getTypeAnchors parts
+        TypeTuple parts -> Set.unions $ map getTypeAnchors parts
+        TypeList p -> getTypeAnchors p
+
+    addInstances :: InstanceMap -> ModuleDoc -> ModuleDoc
+    addInstances imap ModuleDoc{..} = ModuleDoc
+        { md_name = md_name
+        , md_anchor = md_anchor
+        , md_descr = md_descr
+        , md_functions = md_functions
+        , md_templates = md_templates
+        , md_templateInstances = md_templateInstances
+        , md_classes = map (addClassInstances imap) md_classes
+        , md_adts = map (addTypeInstances imap) md_adts
+        , md_instances = md_instances
+        }
+
+    addClassInstances :: InstanceMap -> ClassDoc -> ClassDoc
+    addClassInstances imap cl = cl
+        { cl_instances = Set.toList <$> do
+            anchor <- cl_anchor cl
+            Map.lookup anchor imap
+        }
+
+    addTypeInstances :: InstanceMap -> ADTDoc -> ADTDoc
+    addTypeInstances imap ad = ad
+        { ad_instances = Set.toList <$> do
+            anchor <- ad_anchor ad
+            Map.lookup anchor imap
+        }
