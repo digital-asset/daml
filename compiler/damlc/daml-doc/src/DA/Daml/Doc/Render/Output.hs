@@ -43,7 +43,7 @@ instance RenderDoc ModuleDoc where
         , section "Templates" md_templates
         , section "Template Instances" md_templateInstances
         , section "Typeclasses" md_classes
-        , section "Typeclass Instances" (filter id_isOrphan md_instances)
+        , section "Orphan Typeclass Instances" (filter id_isOrphan md_instances)
         , section "Data Types" md_adts
         , section "Functions" md_functions
         ]
