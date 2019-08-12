@@ -12,6 +12,7 @@ import           DA.Daml.Options.Types
 import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Render
 import DA.Daml.Doc.Types
+import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
 
 import Development.IDE.Types.Location
@@ -265,8 +266,15 @@ runDamldoc testfile importPathM = do
       Left err ->
         assertFailure $ unlines ["Parse error(s) for test file " <> testfile, show err]
 
-      -- first module is the root we started from, so is the one we're testing
-      Right docs -> pure $ head docs
+      Right docs -> do
+          let docs' = applyTransform [] docs
+                -- apply transforms to get instance data
+              name = md_name (head docs)
+                -- first module in docs is the one we're testing,
+                -- we need to find it in docs' because applyTransform
+                -- will reorder the docs
+              docM = find ((== name) . md_name) docs'
+          pure $ fromJust docM
 
 -- | For the given file <name>.daml (assumed), this test checks if any
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>

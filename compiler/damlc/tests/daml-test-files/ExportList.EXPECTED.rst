@@ -46,11 +46,13 @@ Data Types
 
 **data** `Data1 <type-exportlist-data1-25282_>`_
 
+  **instance** HasField "field1" `Data1 <type-exportlist-data1-25282_>`_ Int
 
 .. _type-exportlist-data2-68729:
 
 **data** `Data2 <type-exportlist-data2-68729_>`_
 
+  **instance** HasField "field2" `Data2 <type-exportlist-data2-68729_>`_ Int
 
 .. _type-exportlist-data3-43604:
 
@@ -60,11 +62,14 @@ Data Types
   
   `Constr3 <constr-exportlist-constr3-90820_>`_
   
+  
+  **instance** HasField "field3" `Data3 <type-exportlist-data3-43604_>`_ Int
 
 .. _type-exportlist-data4-87051:
 
 **data** `Data4 <type-exportlist-data4-87051_>`_
 
+  **instance** HasField "field4" `Data4 <type-exportlist-data4-87051_>`_ Int
 
 .. _type-exportlist-data5-40974:
 
@@ -84,6 +89,8 @@ Data Types
        * - field5
          - Int
          - 
+  
+  **instance** HasField "field5" `Data5 <type-exportlist-data5-40974_>`_ Int
 
 .. _type-exportlist-data6-26325:
 
@@ -108,6 +115,8 @@ Data Types
   
   `Constr6' <constr-exportlist-constr6tick-67971_>`_
   
+  
+  **instance** HasField "field6" `Data6 <type-exportlist-data6-26325_>`_ Int
 
 Functions
 ^^^^^^^^^
