@@ -24,28 +24,26 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           Vector(owner, delegate) <- allocateParties(2)
 
           // create contracts to work with
-          (_, delegated) <- create(Delegated(owner, key))(owner)
-          (_, delegation) <- create(Delegation(owner, delegate))(owner)
-          (_, showDelegated) <- create(ShowDelegated(owner, delegate))(owner)
+          delegated <- create(Delegated(owner, key))(owner)
+          delegation <- create(Delegation(owner, delegate))(owner)
+          showDelegated <- create(ShowDelegated(owner, delegate))(owner)
 
           // divulge the contract
-          _ <- exercise(showDelegated.contractId.exerciseShowIt(owner, delegated.contractId))(owner)
+          _ <- exercise(showDelegated.contractId.exerciseShowIt(_, delegated.contractId))(owner)
 
           // fetch delegated
-          _ <- exercise(
-            delegation.contractId.exerciseFetchDelegated(delegate, delegated.contractId))(delegate)
+          _ <- exercise(delegation.contractId.exerciseFetchDelegated(_, delegated.contractId))(
+            delegate)
 
           // fetch by key delegation is not allowed
           fetchByKeyFailure <- exercise(
             delegation.contractId
-              .exerciseFetchByKeyDelegated(delegate, owner, key, Some(delegated.contractId)))(
-            delegate).failed
+              .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated.contractId)))(delegate).failed
 
           // lookup by key delegation is not allowed
           lookupByKeyFailure <- exercise(
             delegation.contractId
-              .exerciseLookupByKeyDelegated(delegate, owner, key, Some(delegated.contractId)))(
-            delegate).failed
+              .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated.contractId)))(delegate).failed
         } yield {
           assertGrpcError(
             fetchByKeyFailure,
@@ -67,23 +65,23 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         Vector(owner, delegate) <- allocateParties(2)
 
         // create contracts to work with
-        (_, delegated) <- create(Delegated(owner, key))(owner)
-        (_, delegation) <- create(Delegation(owner, delegate))(owner)
+        delegated <- create(Delegated(owner, key))(owner)
+        delegation <- create(Delegation(owner, delegate))(owner)
 
         // fetch should fail
         fetchFailure <- exercise(
           delegation.contractId
-            .exerciseFetchDelegated(delegate, delegated.contractId))(delegate).failed
+            .exerciseFetchDelegated(_, delegated.contractId))(delegate).failed
 
         // fetch by key should fail
         fetchByKeyFailure <- exercise(
           delegation.contractId
-            .exerciseFetchByKeyDelegated(delegate, owner, key, None))(delegate).failed
+            .exerciseFetchByKeyDelegated(_, owner, key, None))(delegate).failed
 
         // lookup by key should fail
         lookupByKeyFailure <- exercise(
           delegation.contractId
-            .exerciseLookupByKeyDelegated(delegate, owner, key, None))(delegate).failed
+            .exerciseLookupByKeyDelegated(_, owner, key, None))(delegate).failed
       } yield {
         assertGrpcError(
           fetchFailure,
@@ -112,51 +110,50 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           Vector(alice, bob) <- allocateParties(2)
 
           //create contracts to work with
-          (_, tk1) <- create(TextKey(alice, key1, List(bob)))(alice)
-          (_, tk2) <- create(TextKey(alice, key2, List(bob)))(alice)
-          (_, aliceTKO) <- create(TextKeyOperations(alice))(alice)
-          (_, bobTKO) <- create(TextKeyOperations(bob))(bob)
+          tk1 <- create(TextKey(alice, key1, List(bob)))(alice)
+          tk2 <- create(TextKey(alice, key2, List(bob)))(alice)
+          aliceTKO <- create(TextKeyOperations(alice))(alice)
+          bobTKO <- create(TextKeyOperations(bob))(bob)
 
           // creating a contract with a duplicate key should fail
           duplicateKeyFailure <- create(TextKey(alice, key1, List(bob)))(alice).failed
 
           // trying to lookup an unauthorized key should fail
           bobLooksUpTextKeyFailure <- exercise(
-            bobTKO.contractId.exerciseTKOLookup(bob, Tuple2(alice, key1), Some(tk1.contractId)))(
-            bob).failed
+            bobTKO.contractId
+              .exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1.contractId)))(bob).failed
 
           // trying to lookup an unauthorized non-existing key should fail
           bobLooksUpBogusTextKeyFailure <- exercise(
-            bobTKO.contractId.exerciseTKOLookup(bob, Tuple2(alice, unknownKey), None))(bob).failed
+            bobTKO.contractId.exerciseTKOLookup(_, Tuple2(alice, unknownKey), None))(bob).failed
 
           // successful, authorized lookup
           _ <- exercise(
             aliceTKO.contractId
-              .exerciseTKOLookup(alice, Tuple2(alice, key1), Some(tk1.contractId)))(alice)
+              .exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1.contractId)))(alice)
 
           // successful fetch
           _ <- exercise(
-            aliceTKO.contractId.exerciseTKOFetch(alice, Tuple2(alice, key1), tk1.contractId))(alice)
+            aliceTKO.contractId.exerciseTKOFetch(_, Tuple2(alice, key1), tk1.contractId))(alice)
 
           // successful, authorized lookup of non-existing key
-          _ <- exercise(
-            aliceTKO.contractId.exerciseTKOLookup(alice, Tuple2(alice, unknownKey), None))(alice)
+          _ <- exercise(aliceTKO.contractId.exerciseTKOLookup(_, Tuple2(alice, unknownKey), None))(
+            alice)
 
           // failing fetch
           aliceFailedFetch <- exercise(
-            aliceTKO.contractId.exerciseTKOFetch(alice, Tuple2(alice, unknownKey), tk1.contractId))(
+            aliceTKO.contractId.exerciseTKOFetch(_, Tuple2(alice, unknownKey), tk1.contractId))(
             alice).failed
 
           // now we exercise the contract, thus archiving it, and then verify
           // that we cannot look it up anymore
-          _ <- exercise(tk1.contractId.exerciseTextKeyChoice(alice))(alice)
-          _ <- exercise(aliceTKO.contractId.exerciseTKOLookup(alice, Tuple2(alice, key1), None))(
-            alice)
+          _ <- exercise(tk1.contractId.exerciseTextKeyChoice)(alice)
+          _ <- exercise(aliceTKO.contractId.exerciseTKOLookup(_, Tuple2(alice, key1), None))(alice)
 
           // lookup the key, consume it, then verify we cannot look it up anymore
           _ <- exercise(
             aliceTKO.contractId
-              .exerciseTKOConsumeAndLookup(alice, tk2.contractId, Tuple2(alice, key2)))(alice)
+              .exerciseTKOConsumeAndLookup(_, tk2.contractId, Tuple2(alice, key2)))(alice)
 
           // failing create when a maintainer is not a signatory
           maintainerNotSignatoryFailed <- create(MaintainerNotSignatory(alice, bob))(alice).failed
