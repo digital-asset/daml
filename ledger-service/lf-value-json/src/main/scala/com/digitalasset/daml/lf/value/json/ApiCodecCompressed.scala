@@ -15,6 +15,10 @@ import ApiValueImplicits._
 import spray.json._
 import scalaz.syntax.std.string._
 
+import java.math.MathContext
+
+import scala.math.BigDecimal
+
 /**
   * A compressed encoding of API values.
   *
@@ -106,9 +110,11 @@ abstract class ApiCodecCompressed[Cid](
     (prim.typ, value).match2 {
       case Model.DamlLfPrimType.Decimal => {
         case JsString(v) =>
-          V.ValueDecimal(assertDE(LfDecimal fromString v))
+          V.ValueDecimal(
+            assertDE(LfDecimal checkWithinBoundsAndRound BigDecimal
+              .decimal(new java.math.BigDecimal(v), MathContext.UNLIMITED)))
         case JsNumber(v) =>
-          V.ValueDecimal(assertDE(LfDecimal fromBigDecimal v))
+          V.ValueDecimal(assertDE(LfDecimal checkWithinBoundsAndRound v))
       }
       case Model.DamlLfPrimType.Int64 => {
         case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))
