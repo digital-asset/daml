@@ -99,34 +99,33 @@ function getViewColumnForShowResource(): ViewColumn {
     }
 }
 
-function exec(command: string, options: cp.ExecOptions, taskName: String): Promise<{ stdout: string; stderr: string }> {
-    return new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
-        cp.exec(command, options, (error, stdout, stderr) => {
-            if (error) {
-                reject({ error, stdout, stderr });
-                vscode.window.showErrorMessage("Error generating visualization" + taskName + error)
-            }
-            resolve({ stdout, stderr });
-        });
-    });
-}
-
 async function visualize() {
+    const util = require('util');
+    const exec = util.promisify(require('child_process').exec);
     tmp.file(((err, path) => {
         if (err) throw err;
         let buildCmd = "daml build -o " + path
         let visualizeCmd = "daml damlc visual " + path
         let workspaceRoot = vscode.workspace.rootPath;
         let execOpts = { cwd: workspaceRoot }
-        exec(buildCmd, execOpts, "build command").then(_ => {
-            exec(visualizeCmd, execOpts, "generating dot file").then(res => {
-                if (res.stdout) {
-                    vscode.workspace.openTextDocument({ content: res.stdout, language: "dot" }).then(doc =>
-                        vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true).then(_ => loadPreviewIfAvailable())
-                    )
-                }
-            })
-        });
+        exec(buildCmd, execOpts, ((error: Error, _: string, stderr: string) => {
+            if (error) {
+                vscode.window.showErrorMessage("daml build failed with" + error)
+            }
+            else {
+                exec(visualizeCmd, execOpts, ((error: Error, stdout: string, stderr: string) => {
+                    if (error) {
+                        vscode.window.showErrorMessage("damlc visual command failed with " + error)
+                    }
+                    else {
+                        vscode.workspace.openTextDocument({ content: stdout, language: "dot" })
+                            .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
+                                .then(_ => loadPreviewIfAvailable()))
+                    }
+                }))
+            }
+        }))
+
     }))
 }
 
