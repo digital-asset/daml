@@ -10,7 +10,6 @@ import akka.stream.Materializer
 import akka.util.ByteString
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.http.json.ResponseFormats._
-import com.digitalasset.http.json.SprayJson.decode
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.FutureUtil
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
@@ -174,7 +173,9 @@ class Endpoints(
         (jwtPayload, reqBody) = input
 
         cmd <- either(
-          decode[domain.GetActiveContractsRequest](reqBody).leftMap(e => InvalidUserInput(e.shows))
+          SprayJson
+            .decode[domain.GetActiveContractsRequest](reqBody)
+            .leftMap(e => InvalidUserInput(e.shows))
         ): ET[domain.GetActiveContractsRequest]
 
         as <- eitherT(
@@ -232,7 +233,7 @@ class Endpoints(
   private def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
   private[http] def input(req: HttpRequest): Future[Unauthorized \/ (domain.JwtPayload, String)] = {
-    findJwt(req).flatMap(verify) match {
+    findJwt(req).flatMap(decodeAndParsePayload) match {
       case e @ -\/(_) =>
         req.entity.discardBytes(mat)
         Future.successful(e)
@@ -250,7 +251,7 @@ class Endpoints(
       }
       .toRightDisjunction(Unauthorized("missing Authorization header with OAuth 2.0 Bearer Token"))
 
-  private def verify(jwt: Jwt): Unauthorized \/ domain.JwtPayload =
+  private def decodeAndParsePayload(jwt: Jwt): Unauthorized \/ domain.JwtPayload =
     for {
       a <- decodeJwt(jwt).leftMap(e => Unauthorized(e.shows)): Unauthorized \/ DecodedJwt[String]
       b <- parsePayload(a)
