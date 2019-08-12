@@ -4,18 +4,18 @@
 -- Test that the type `GHC.Tuple.Unit`, which is only produced by ghc's
 -- desugarer, works correctly (cf. DEL-6656).
 -- Test that the generated code actually uses `GHC.Tuple.Unit`.
--- @ QUERY-LF [.modules[] | .values[] | .. | objects | select(has("tycon")) | .tycon | select(.name.segments == ["Unit"]) | .module.module_name.segments == ["GHC", "Tuple"]] | all
+-- @ QUERY-LF [.modules[] | .values[] | .. | objects | select(has("rec_con")) | .rec_con.tycon.tycon | select(.name.segments == ["Unit"] and .module.module_name.segments == ["GHC", "Tuple"])] | any
 
 daml 1.2
 module SugarUnit where
 
-range : [a] -> (a -> a) -> Int -> [a]
-range xs next n =
-  if n <= 0 then xs
-  else
-    let h0 :: _ = xs
-        h1 = next h0
-    in range (h1 :: xs) next (n - 1)
+data Foo a = Foo a
+    deriving (Eq)
 
-main = scenario do
-  assert $ range [1] (+1) 2 == [3, 2, 1]
+joinFoo ffx =
+    -- The desugaring of this nested pattern produces a `GHC.Tuple.Unit`.
+    let Foo (Foo x) = ffx
+    in Foo x
+
+test = scenario do
+    assert $ joinFoo (Foo (Foo 1)) == Foo 1
