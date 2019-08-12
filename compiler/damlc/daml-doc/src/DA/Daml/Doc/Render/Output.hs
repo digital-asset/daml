@@ -227,6 +227,8 @@ renderTypePrec prec = \case
         renderInParens
             . renderIntercalate ", "
             $ map (renderTypePrec 0) ts
+    TypeLit lit ->
+        RenderPlain lit
 
 -- | Render type context as a list of words. Nothing is rendered as [],
 -- and Just t is rendered as [render t, "=>"].
