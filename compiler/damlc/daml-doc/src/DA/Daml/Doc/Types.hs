@@ -160,7 +160,7 @@ data FunctionDoc = FunctionDoc
 -- | Documentation on a typeclass instance.
 data InstanceDoc = InstanceDoc
     { id_context :: Maybe Type
-    , id_rhs :: Type
+    , id_type :: Type
     } deriving (Eq, Ord, Show, Generic)
 
 -----------------------------------------------------

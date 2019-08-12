@@ -31,6 +31,8 @@ import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" TyCon
 import           "ghc-lib-parser" ConLike
 import           "ghc-lib-parser" DataCon
+import           "ghc-lib-parser" InstEnv
+import           "ghc-lib-parser" Var
 import           "ghc-lib-parser" Id
 import           "ghc-lib-parser" Name
 import           "ghc-lib-parser" RdrName
@@ -105,7 +107,7 @@ extractDocs extractOpts ideOpts fp = do
             md_descr = modDoc dc_tcmod
             md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
             md_functions = mapMaybe (getFctDocs ctx Nothing) dc_decls
-            md_instances = []
+            md_instances = map (getInstanceDocs ctx) dc_insts
 
             filteredAdts -- all ADT docs without templates or choices
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
@@ -179,6 +181,8 @@ data DocCtx = DocCtx
         -- ^ typechecked module
     , dc_decls :: [DeclData]
         -- ^ module declarations
+    , dc_insts :: [ClsInst]
+        -- ^ typeclass instances
     , dc_tycons :: MS.Map Typename TyCon
         -- ^ types defined in this module
     , dc_datacons :: MS.Map Typename DataCon
@@ -212,6 +216,7 @@ buildDocCtx dc_extractOptions dc_tcmod  =
             = getTemplateData . tm_parsed_module $ dc_tcmod
 
         tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
+        dc_insts = modInfoInstances . tm_checked_module_info $ dc_tcmod
 
         dc_tycons = MS.fromList
             [ (typename, tycon)
@@ -478,7 +483,6 @@ getTemplateInstanceDoc adt
     | otherwise
     = Nothing
 
-
 -- recognising Template and Choice instances
 
 
@@ -539,6 +543,16 @@ isChoice ClsInstDecl{..}
 -- Otherwise returns 'Nothing'.
 stripInstanceSuffix :: Typename -> Maybe Typename
 stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
+
+-- | Get (normal) typeclass instances data. TODO: Correlate with
+-- instance declarations via SrcSpan (like Haddock).
+getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc
+getInstanceDocs ctx ClsInst{..} =
+    let ty = varType is_dfun
+    in InstanceDoc
+        { id_context = typeToContext ctx ty
+        , id_type = typeToType ctx ty
+        }
 
 ------------------------------------------------------------
 -- Generating doc.s from parsed modules
