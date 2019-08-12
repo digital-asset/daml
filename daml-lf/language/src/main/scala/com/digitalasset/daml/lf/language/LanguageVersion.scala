@@ -35,17 +35,26 @@ object LanguageVersion {
         case (LanguageVersion(leftMajor, _), LanguageVersion(rightMajor, _)) =>
           LanguageMajorVersion.ordering.compare(leftMajor, rightMajor)
     }
-
-  val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, _) =
-    Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
-
   object Features {
 
-    val optionalVersion = v1_1
-    val partyOrderingVersion = v1_1
-    val mapVersion = v1_3
-    val enumVersion = v1_6
-    val internedIdsVersion = v1_6
+    private val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, v1_dev) =
+      Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+
+    val default = v1_0
+    val arrowType = v1_1
+    val optional = v1_1
+    val partyOrdering = v1_1
+    val partyTextConversions = v1_2
+    val shaText = v1_2
+    val contractKeys = v1_3
+    val map = v1_3
+    val complexContactKeys = v1_4
+    val optionalExerciseActor = v1_5
+    val numberParsing = v1_5
+    val coerceContractId = v1_5
+    val textPacking = v1_6
+    val enum = v1_6
+    val internedIds = v1_6
 
     /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
       * compatibility, we introduce a new DAML-LF version where this restriction is in
@@ -55,7 +64,7 @@ object LanguageVersion {
       * * When executing a Ledger API command, we check that the template underpinning
       * said command is at least of that version.
       */
-    val checkSubmitterInMaintainersVersion = LanguageVersion(Major.V1, Minor.Dev)
+    val checkSubmitterInMaintainersVersion = v1_dev
 
   }
 }

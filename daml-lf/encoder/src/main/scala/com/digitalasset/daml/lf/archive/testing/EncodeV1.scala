@@ -176,7 +176,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           builder.setCon(
             PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _))
         case TBuiltin(bType) =>
-          if (bType == BTArrow && LV.ordering.lt(version, LV.v1_1)) {
+          if (bType == BTArrow && LV.ordering.lt(version, LV.Features.arrowType)) {
             args match {
               case ImmArraySnoc(firsts, last) =>
                 builder.setFun(
@@ -271,7 +271,8 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case UpdateFetch(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
         case UpdateExercise(templateId, choice, cid, actors, arg) =>
-          if (actors.isEmpty) assertSince(LV.v1_5, "Update.Exercise.actors optional")
+          if (actors.isEmpty)
+            assertSince(LV.Features.optionalExerciseActor, "Update.Exercise.actors optional")
           builder.setExercise(
             PLF.Update.Exercise
               .newBuilder()
@@ -284,10 +285,10 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case UpdateGetTime =>
           builder.setGetTime(unit)
         case UpdateFetchByKey(rbk) =>
-          assertSince(LV.v1_2, "fetchByKey")
+          assertSince(LV.Features.contractKeys, "fetchByKey")
           builder.setFetchByKey(rbk)
         case UpdateLookupByKey(rbk) =>
-          assertSince(LV.v1_2, "lookupByKey")
+          assertSince(LV.Features.contractKeys, "lookupByKey")
           builder.setLookupByKey(rbk)
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
@@ -348,7 +349,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           builder.setVariant(
             PLF.CaseAlt.Variant.newBuilder().setCon(tyCon).setVariant(variant).setBinder(binder))
         case CPEnum(tyCon, con) =>
-          assertSince(LV.Features.enumVersion, "CaseAlt.Enum")
+          assertSince(LV.Features.enum, "CaseAlt.Enum")
           builder.setEnum(PLF.CaseAlt.Enum.newBuilder().setCon(tyCon).setConstructor(con))
         case CPPrimCon(primCon) =>
           builder.setPrimCon(primCon)
@@ -357,10 +358,10 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
         case CPCons(head, tail) =>
           builder.setCons(PLF.CaseAlt.Cons.newBuilder().setVarHead(head).setVarTail(tail))
         case CPNone =>
-          assertSince(LV.Features.optionalVersion, "CaseAlt.OptionalNone")
+          assertSince(LV.Features.optional, "CaseAlt.OptionalNone")
           builder.setOptionalNone(unit)
         case CPSome(x) =>
-          assertSince(LV.Features.optionalVersion, "CaseAlt.OptionalSome")
+          assertSince(LV.Features.optional, "CaseAlt.OptionalSome")
           builder.setOptionalSome(PLF.CaseAlt.OptionalSome.newBuilder().setVarBody(x))
         case CPDefault =>
           builder.setDefault(unit)
@@ -417,7 +418,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
               .setVariantCon(variant)
               .setVariantArg(arg))
         case EEnumCon(tyCon, con) =>
-          assertSince(LV.Features.enumVersion, "Expr.Enum")
+          assertSince(LV.Features.enum, "Expr.Enum")
           newBuilder.setEnumCon(PLF.Expr.EnumCon.newBuilder().setTycon(tyCon).setEnumCon(con))
         case ETupleCon(fields) =>
           newBuilder.setTupleCon(
@@ -458,10 +459,10 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
               .accumulateLeft(front)(_ addFront _)
               .setTail(tail))
         case ENone(typ) =>
-          assertSince(LV.Features.optionalVersion, "Expr.OptionalNone")
+          assertSince(LV.Features.optional, "Expr.OptionalNone")
           newBuilder.setOptionalNone(PLF.Expr.OptionalNone.newBuilder().setType(typ))
         case ESome(typ, x) =>
-          assertSince(LV.Features.optionalVersion, "Expr.OptionalSome")
+          assertSince(LV.Features.optional, "Expr.OptionalSome")
           newBuilder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
         case ELocation(loc, expr) =>
           encodeExprBuilder(expr).setLocation(loc)
@@ -488,7 +489,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
           builder.setVariant(
             PLF.DefDataType.Fields.newBuilder().accumulateLeft(variants)(_ addFields _))
         case DataEnum(constructors) =>
-          assertSince(LV.Features.enumVersion, "DefDataType.Enum")
+          assertSince(LV.Features.enum, "DefDataType.Enum")
           builder.setEnum(
             PLF.DefDataType.EnumConstructors
               .newBuilder()
