@@ -22,7 +22,7 @@ final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
           witnessesTransaction <- transactionTreeById(witnessesTransactionId, alice, bob, charlie)
 
           // Charlie is not a stakeholder of Witnesses and thus cannot see any such contract unless divulged.
-          // Such contract is divulged by creating a DivulgeWitness with Charlie as a stakeholder and exercising
+          // Such contract is divulged by creating a DivulgeWitness with Charlie as a signatory and exercising
           // a choice as Alice that causes divulgence (in this case, the Witnesses instance previously
           // created is fetched as part of the transaction).
           divulgeWitness <- create(DivulgeWitnesses(alice, charlie))(charlie)
