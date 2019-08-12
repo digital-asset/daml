@@ -10,3 +10,4 @@ HEAD — ongoing
 --------------
 
 + [Ledger] Fixed a bug that prevented the ledger from loading transactions with empty workflow ids.
++ [DAML Extension] DAML visualization from IDE
