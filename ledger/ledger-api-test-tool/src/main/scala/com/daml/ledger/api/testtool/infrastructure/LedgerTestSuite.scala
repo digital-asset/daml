@@ -57,11 +57,15 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
     Future.sequence(Vector.fill(n)(allocateParty()))
 
   final def create[T <: Template[T]: ValueDecoder](template: Template[T])(party: Party)(
-      implicit context: LedgerTestContext): Future[(String, Contract[T])] =
+      implicit context: LedgerTestContext): Future[Contract[T]] =
     context.create(party, template)
 
-  final def exercise[T](exercise: Primitive.Update[T])(party: Party)(
-      implicit context: LedgerTestContext): Future[String] =
+  final def createAndGetTransactionId[T <: Template[T]: ValueDecoder](template: Template[T])(
+      party: Party)(implicit context: LedgerTestContext): Future[(String, Contract[T])] =
+    context.createAndGetTransactionId(party, template)
+
+  final def exercise[T](exercise: Party => Primitive.Update[T])(party: Party)(
+      implicit context: LedgerTestContext): Future[TransactionTree] =
     context.exercise(party, exercise)
 
   final def flatTransactions(party: Party, parties: Party*)(

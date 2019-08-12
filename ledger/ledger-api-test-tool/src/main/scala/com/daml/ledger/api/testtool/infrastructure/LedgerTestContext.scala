@@ -10,9 +10,9 @@ import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
-import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
-import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
+import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.binding.Primitive.Party
+import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -53,28 +53,18 @@ final class LedgerTestContext(
 
   def create[T <: Template[T]: ValueDecoder](
       party: Party,
-      template: Template[T]): Future[(String, Contract[T])] =
+      template: Template[T]): Future[Contract[T]] =
     bindings.create(party, applicationId, nextCommandId(), template)
 
-  def create(
+  def createAndGetTransactionId[T <: Template[T]: ValueDecoder](
       party: Party,
-      templateId: Identifier,
-      args: Map[String, Value.Sum]): Future[(String, String)] =
-    bindings.create(party, applicationId, nextCommandId(), templateId, args)
-
-  def exercise(
-      party: Party,
-      templateId: Identifier,
-      contractId: String,
-      choice: String,
-      args: Map[String, Value.Sum]
-  ): Future[String] =
-    bindings.exercise(party, applicationId, nextCommandId(), templateId, contractId, choice, args)
+      template: Template[T]): Future[(String, Contract[T])] =
+    bindings.createAndGetTransactionId(party, applicationId, nextCommandId(), template)
 
   def exercise[T](
       party: Party,
-      exercise: Primitive.Update[T]
-  ): Future[String] = bindings.exercise(party, applicationId, nextCommandId(), exercise)
+      exercise: Party => Primitive.Update[T]
+  ): Future[TransactionTree] = bindings.exercise(party, applicationId, nextCommandId(), exercise)
 
   def flatTransactions(
       parties: Seq[Party],
