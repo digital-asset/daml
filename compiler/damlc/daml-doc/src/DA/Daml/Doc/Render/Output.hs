@@ -43,6 +43,7 @@ instance RenderDoc ModuleDoc where
         , section "Templates" md_templates
         , section "Template Instances" md_templateInstances
         , section "Typeclasses" md_classes
+        , section "Orphan Typeclass Instances" (filter id_isOrphan md_instances)
         , section "Data Types" md_adts
         , section "Functions" md_functions
         ]
@@ -110,6 +111,7 @@ instance RenderDoc ClassDoc where
         , RenderBlock $ mconcat
             [ renderDoc cl_descr
             , renderDoc cl_functions
+            , renderDoc cl_instances
             ]
         ]
 
@@ -126,6 +128,7 @@ instance RenderDoc ADTDoc where
                 , renderType ad_rhs
                 ]
             , renderDoc ad_descr
+            , renderDoc ad_instances
             ]
         ]
 
@@ -138,6 +141,7 @@ instance RenderDoc ADTDoc where
         , RenderBlock $ mconcat
             [ renderDoc ad_descr
             , renderDoc ad_constrs
+            , renderDoc ad_instances
             ]
         ]
 
@@ -176,6 +180,14 @@ instance RenderDoc FunctionDoc where
             ]
         ]
 
+instance RenderDoc InstanceDoc where
+    renderDoc InstanceDoc{..} =
+        RenderParagraph . renderUnwords . concat $
+            [ [RenderStrong "instance"]
+            , renderContext id_context
+            , [renderType id_type]
+            ]
+
 fieldTable :: [FieldDoc] -> RenderOut
 fieldTable fields = RenderRecordFields
     [ ( RenderPlain (unFieldname fd_name)
@@ -201,7 +213,7 @@ renderTypePrec prec = \case
     TypeApp anchorM (Typename typename) args ->
         (if prec >= 2 && notNull args then renderInParens else id)
             . renderUnwords
-            $ maybeAnchorLink anchorM typename
+            $ maybeAnchorLink anchorM (wrapOp typename)
             : map (renderTypePrec 2) args
     TypeFun ts ->
         (if prec >= 1 then renderInParens else id)
@@ -215,6 +227,8 @@ renderTypePrec prec = \case
         renderInParens
             . renderIntercalate ", "
             $ map (renderTypePrec 0) ts
+    TypeLit lit ->
+        RenderPlain lit
 
 -- | Render type context as a list of words. Nothing is rendered as [],
 -- and Just t is rendered as [render t, "=>"].

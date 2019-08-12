@@ -6,11 +6,14 @@
 -- This is basically unchanged from the Nim example
 module DA.Ledger.App.Chat.ChatLedger (Handle, connect, sendCommand, getTrans) where
 
+import Control.Monad(forM)
+import DA.Ledger as Ledger
 import DA.Ledger.App.Chat.Contracts (ChatContract,extractTransaction,makeLedgerCommand)
 import DA.Ledger.App.Chat.Logging (Logger)
-import DA.Ledger as Ledger
+import Data.List as List
 import Data.Maybe (maybeToList)
 import System.Random (randomIO)
+import qualified DA.Daml.LF.Ast as LF(Package)
 import qualified Data.Text.Lazy as Text (pack)
 import qualified Data.UUID as UUID
 
@@ -31,9 +34,22 @@ run timeout ls  = runLedgerService ls timeout (configOfPort port)
 connect :: Logger -> IO Handle
 connect log = do
     lid <- run 5 getLedgerIdentity
-    ids <- run 5 $ listPackages lid
-    [_,_,pid] <- return ids -- guess which is the Chat package -- TODO: fix this properly!
-    return Handle{log,lid,pid}
+
+    discovery <- run 5 $ do
+        pids <- listPackages lid
+        forM pids $ \pid -> do
+            getPackage lid pid >>= \case
+                Nothing -> return (pid, False)
+                Just package -> do
+                    return (pid, containsChat package)
+
+    case List.filter snd discovery of
+        [] -> fail "cant find package containing Chat"
+        xs@(_:_:_) -> fail $ "found multiple packages containing Chat: " <> show (map fst xs)
+        [(pid,_)] -> return Handle{log,lid,pid}
+
+containsChat :: LF.Package -> Bool
+containsChat package = "Chat" `isInfixOf` show package -- TODO: be more principled
 
 sendCommand :: Party -> Handle -> ChatContract -> IO (Maybe Rejection)
 sendCommand asParty h@Handle{pid} cc = do

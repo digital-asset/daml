@@ -1,0 +1,75 @@
+daml 1.2
+module ExportList
+    ( function1
+    , Data1
+    , Data2 ()
+    , Data3 (Constr3)
+    , Data4 (field4)
+    , Data5 (Constr5, field5)
+    , Data6 (..)
+    , Class1
+    , Class2 ()
+    , Class3 (member3)
+    , Class4 (..)
+    ) where
+
+function0 : Int
+function0 = 10
+
+function1 : Int
+function1 = 10
+
+data Data0
+    = Constr0 with
+        field0 : Int
+    | Constr0'
+
+data Data1
+    = Constr1 with
+        field1 : Int
+    | Constr1'
+
+data Data2
+    = Constr2 with
+        field2 : Int
+    | Constr2'
+
+data Data3
+    = Constr3 with
+        field3 : Int
+    | Constr3'
+
+data Data4
+    = Constr4 with
+        field4 : Int
+    | Constr4'
+
+data Data5
+    = Constr5 with
+        field5 : Int
+    | Constr5'
+
+data Data6
+    = Constr6 with
+        field6 : Int
+    | Constr6'
+
+class Class0 t where
+    member0 : t
+    member0' : t
+
+class Class1 t where
+    member1 : t
+    member1' : t
+
+class Class2 t where
+    member2 : t
+    member2' : t
+
+class Class3 t where
+    member3 : t
+    member3' : t
+
+class Class4 t where
+    member4 : t
+    member4' : t

@@ -89,7 +89,7 @@ throwError msg e = fail (T.unpack $ msg <> " " <> e)
 -- commands outside of the assistant.
 noassistantTests :: FilePath -> TestTree
 noassistantTests damlDir = testGroup "no assistant"
-    [ testCase "damlc build" $ withTempDir $ \projDir -> do
+    [ testCase "damlc build --init-package-db=no" $ withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: a"
@@ -105,6 +105,25 @@ noassistantTests damlDir = testGroup "no assistant"
               ]
           let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
           callProcess damlcPath ["build", "--project-root", projDir, "--init-package-db", "no"]
+    , testCase "damlc build --init-package-db=yes" $ withTempDir $ \tmpDir -> do
+          let projDir = tmpDir </> "foobar"
+          createDirectory projDir
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: a"
+              , "version: \"1.0\""
+              , "source: Main.daml"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (projDir </> "Main.daml") $ unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "a : ()"
+              , "a = ()"
+              ]
+          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
+          withCurrentDirectory tmpDir $
+              callProcess damlcPath ["build", "--project-root", "foobar", "--init-package-db", "yes"]
     ]
 
 packagingTests :: FilePath -> TestTree

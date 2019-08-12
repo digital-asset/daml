@@ -33,10 +33,14 @@ Templates
   + **Choice Burn**
     
 
-Template Instances
-^^^^^^^^^^^^^^^^^^
+Data Types
+^^^^^^^^^^
 
 .. _type-proposaliou-proposaliou-81988:
 
-**template instance** `ProposalIou <type-proposaliou-proposaliou-81988_>`_
-  = Proposal `Iou <type-proposaliou-iou-51326_>`_
+**data** `ProposalIou <type-proposaliou-proposaliou-81988_>`_
+
+  .. _constr-proposaliou-proposaliou-48383:
+  
+  `ProposalIou <constr-proposaliou-proposaliou-48383_>`_ (Proposal `Iou <type-proposaliou-iou-51326_>`_)
+  

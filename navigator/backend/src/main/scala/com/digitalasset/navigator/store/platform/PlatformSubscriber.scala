@@ -23,7 +23,7 @@ import com.digitalasset.util.Ctx
 
 import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
-import scalaz.{Tag, \/-}
+import scalaz.Tag
 import scalaz.syntax.tag._
 
 object PlatformSubscriber {
@@ -297,8 +297,7 @@ class PlatformSubscriber(
     val cos = Reader.damlLfCodedInputStream(res.archivePayload.newInput)
     val payload = DamlLf.ArchivePayload.parseFrom(cos)
     val (errors, out) =
-      InterfaceReader.readInterface(() =>
-        \/-((DamlLfRef.PackageId.assertFromString(res.hash), payload.getDamlLf1)))
+      InterfaceReader.readInterface(DamlLfRef.PackageId.assertFromString(res.hash) -> payload)
     if (!errors.equals(Errors.zeroErrors)) {
       log.error("Errors loading package {}: {}", res.hash, errors.toString)
     }

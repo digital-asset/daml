@@ -98,7 +98,7 @@ object PlatformApplications {
 
   object Config {
     val defaultLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledger-server"))
-    val defaultDarFile = new File(rlocation("ledger/sandbox/Test.dar"))
+    val defaultDarFile = new File(rlocation("ledger/test-common/Test.dar"))
     val defaultParties = TestParties.AllParties
     val defaultTimeProviderType = TimeProviderType.Static
 

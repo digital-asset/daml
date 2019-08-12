@@ -23,6 +23,7 @@ import com.digitalasset.ledger.api.v1.value.Value.Sum
 import com.digitalasset.ledger.api.v1.value.Value.Sum.{Party, Text}
 import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
 import com.digitalasset.platform.PlatformApplications
+import com.digitalasset.platform.testing.TestTemplateIdentifiers
 import com.google.protobuf.timestamp.Timestamp
 import scalaz.syntax.tag._
 

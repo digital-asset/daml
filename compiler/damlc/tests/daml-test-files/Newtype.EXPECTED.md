@@ -9,6 +9,8 @@
 > > | Field | Type  | Description |
 > > | :---- | :---- | :---------- |
 > > | unNat | Int   |  |
+> 
+> **instance** HasField "unNat" [Nat](#type-newtype-nat-61947) Int
 
 ## Functions
 

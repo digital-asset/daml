@@ -18,7 +18,8 @@ object Main extends App with StrictLogging {
 
   logger.trace(s"Parsed config: ${config}")
 
-  val runner = new Extractor(config, target)
+  val runner =
+    new Extractor(config, target)()
 
   runner.run()
 }

@@ -209,10 +209,6 @@ bazel run //compiler/damlc:daml-ghc-test -- --pattern=
 ```
 5. When the tests pass, push your branch to origin and raise a PR.
 
-## `ghc-lib` in CI
-
-At this time we have a pipeline in Jenkins [here](https://ci2.da-int.net/job/daml/job/ghc-lib/). It is run on a cron and can be run on demand.
-
 ## How to rebase `ghc-lib` on upstream master
 
 To keep `ghc-lib` consistent with changes to upstream GHC source code, it is neccessary to rebase our branches on the upstream `master` from time to time. The procedure for doing this is as follows:

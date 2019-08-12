@@ -14,6 +14,8 @@ module DA.Daml.Doc.Extract
 
 import DA.Daml.Doc.Types as DDoc
 import DA.Daml.Doc.Anchor as DDoc
+import DA.Daml.Doc.Extract.Exports
+
 import Development.IDE.Types.Options (IdeOptions(..))
 import Development.IDE.Core.FileStore
 import qualified Development.IDE.Core.Service     as Service
@@ -29,6 +31,9 @@ import           "ghc-lib-parser" TyCoRep
 import           "ghc-lib-parser" TyCon
 import           "ghc-lib-parser" ConLike
 import           "ghc-lib-parser" DataCon
+import           "ghc-lib-parser" InstEnv
+import           "ghc-lib-parser" CoreSyn
+import           "ghc-lib-parser" Var
 import           "ghc-lib-parser" Id
 import           "ghc-lib-parser" Name
 import           "ghc-lib-parser" RdrName
@@ -102,7 +107,8 @@ extractDocs extractOpts ideOpts fp = do
             md_anchor = Just (moduleAnchor md_name)
             md_descr = modDoc dc_tcmod
             md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
-            md_functions = mapMaybe (getFctDocs ctx) dc_decls
+            md_functions = mapMaybe (getFctDocs ctx Nothing) dc_decls
+            md_instances = map (getInstanceDocs ctx) dc_insts
 
             filteredAdts -- all ADT docs without templates or choices
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
@@ -176,6 +182,8 @@ data DocCtx = DocCtx
         -- ^ typechecked module
     , dc_decls :: [DeclData]
         -- ^ module declarations
+    , dc_insts :: [ClsInst]
+        -- ^ typeclass instances
     , dc_tycons :: MS.Map Typename TyCon
         -- ^ types defined in this module
     , dc_datacons :: MS.Map Typename DataCon
@@ -188,6 +196,8 @@ data DocCtx = DocCtx
         -- ^ choices per DAML template defined in this module
     , dc_extractOptions :: ExtractOptions
         -- ^ command line options that affect the doc extractor
+    , dc_exports :: ExportSet
+        -- ^ set of export, unless everything is exported
     }
 
 -- | Parsed declaration with associated docs.
@@ -198,35 +208,38 @@ data DeclData = DeclData
 
 buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
 buildDocCtx dc_extractOptions dc_tcmod  =
-  let dc_ghcMod = ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
-      dc_modname = getModulename dc_ghcMod
-      dc_decls
-          = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
-          . pm_parsed_source . tm_parsed_module $ dc_tcmod
-      (dc_templates, dc_choices)
-          = getTemplateData . tm_parsed_module $ dc_tcmod
+    let dc_ghcMod = ms_mod . pm_mod_summary . tm_parsed_module $ dc_tcmod
+        dc_modname = getModulename dc_ghcMod
+        dc_decls
+            = map (uncurry DeclData) . collectDocs . hsmodDecls . unLoc
+            . pm_parsed_source . tm_parsed_module $ dc_tcmod
+        (dc_templates, dc_choices)
+            = getTemplateData . tm_parsed_module $ dc_tcmod
 
-      tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
+        tythings = modInfoTyThings . tm_checked_module_info $ dc_tcmod
+        dc_insts = modInfoInstances . tm_checked_module_info $ dc_tcmod
 
-      dc_tycons = MS.fromList
-          [ (typename, tycon)
-          | ATyCon tycon <- tythings
-          , let typename = Typename . packName . tyConName $ tycon
-          ]
+        dc_tycons = MS.fromList
+            [ (typename, tycon)
+            | ATyCon tycon <- tythings
+            , let typename = Typename . packName . tyConName $ tycon
+            ]
 
-      dc_datacons = MS.fromList
-          [ (conname, datacon)
-          | AConLike (RealDataCon datacon) <- tythings
-          , let conname = Typename . packName . dataConName $ datacon
-          ]
+        dc_datacons = MS.fromList
+            [ (conname, datacon)
+            | AConLike (RealDataCon datacon) <- tythings
+            , let conname = Typename . packName . dataConName $ datacon
+            ]
 
-      dc_ids = MS.fromList
-          [ (fieldname, id)
-          | AnId id <- tythings
-          , let fieldname = Fieldname . packId $ id
-          ]
+        dc_ids = MS.fromList
+            [ (fieldname, id)
+            | AnId id <- tythings
+            , let fieldname = Fieldname . packId $ id
+            ]
 
-  in DocCtx {..}
+        dc_exports = extractExports . tm_parsed_module $ dc_tcmod
+
+    in DocCtx {..}
 
 -- | Parse and typecheck a module and its dependencies in Haddock mode
 --   (retaining Doc declarations), and return the 'TcModuleResult's in
@@ -263,8 +276,8 @@ toDocText docs =
 --   adjacent to a type signature, or to the actual function definition. If
 --   neither a comment nor a function type is in the source, we omit the
 --   function.
-getFctDocs :: DocCtx -> DeclData -> Maybe FunctionDoc
-getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
+getFctDocs :: DocCtx -> Maybe Typename -> DeclData -> Maybe FunctionDoc
+getFctDocs ctx@DocCtx{..} cl_nameM (DeclData decl docs) = do
     (name, keepContext) <- case unLoc decl of
         SigD _ (TypeSig _ (L _ n :_) _) ->
             Just (n, True)
@@ -279,12 +292,17 @@ getFctDocs ctx@DocCtx{..} (DeclData decl docs) = do
 
     let fct_name = Fieldname (packRdrName name)
     id <- MS.lookup fct_name dc_ids
-    guard (isExportedId id)
+
     let ty = idType id
         fct_context = guard keepContext >> typeToContext ctx ty
         fct_type = typeToType ctx ty
         fct_anchor = Just $ functionAnchor dc_modname fct_name
         fct_descr = docs
+
+    guard $ case cl_nameM of
+        Just cl_name -> exportsField dc_exports cl_name fct_name
+        Nothing -> exportsFunction dc_exports fct_name
+
     Just FunctionDoc {..}
 
 getClsDocs :: DocCtx -> DeclData -> Maybe ClassDoc
@@ -293,7 +311,7 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
         tyconMb = MS.lookup cl_name dc_tycons
         cl_anchor = tyConAnchor ctx =<< tyconMb
         cl_descr = docs
-        cl_functions = concatMap f tcdSigs
+        cl_functions = concatMap (f cl_name) tcdSigs
         cl_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
         cl_super = do
             tycon <- tyconMb
@@ -301,14 +319,16 @@ getClsDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ c@ClassDecl{..})) docs) = do
             let theta = classSCTheta cls
             guard (notNull theta)
             Just (TypeTuple $ map (typeToType ctx) theta)
+        cl_instances = Nothing -- filled out later in 'distributeInstanceDocs'
+    guard (exportsType dc_exports cl_name)
     Just ClassDoc {..}
   where
-    f :: LSig GhcPs -> [FunctionDoc]
-    f (L dloc (ClassOpSig p b names n)) = catMaybes
-      [ getFctDocs ctx (DeclData (L dloc (SigD noExt (ClassOpSig p b [L loc name] n))) (MS.lookup name subdocs))
+    f :: Typename -> LSig GhcPs -> [FunctionDoc]
+    f cl_name (L dloc (ClassOpSig p b names n)) = catMaybes
+      [ getFctDocs ctx (Just cl_name) (DeclData (L dloc (SigD noExt (ClassOpSig p b [L loc name] n))) (MS.lookup name subdocs))
       | L loc name <- names
       ]
-    f _ = []
+    f _ _ = []
     subdocs = memberDocs c
 getClsDocs _ _ = Nothing
 
@@ -317,35 +337,38 @@ unknownType = TypeApp Nothing (Typename "_") []
 
 getTypeDocs :: DocCtx -> DeclData -> Maybe (Typename, ADTDoc)
 getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
-  | XTyClDecl{} <- decl =
-      Nothing
-  | ClassDecl{} <- decl =
-      Nothing
-  | FamDecl{}   <- decl =
-      Nothing
+    | XTyClDecl{} <- decl =
+        Nothing
+    | ClassDecl{} <- decl =
+        Nothing
+    | FamDecl{}   <- decl =
+        Nothing
 
-  | SynDecl{..} <- decl = do
-      let ad_name = Typename . packRdrName $ unLoc tcdLName
-          ad_descr = doc
-          ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-          ad_anchor = Just $ typeAnchor dc_modname ad_name
-          ad_rhs = fromMaybe unknownType $ do
-              tycon <- MS.lookup ad_name dc_tycons
-              rhs <- synTyConRhs_maybe tycon
-              Just (typeToType ctx rhs)
+    | SynDecl{..} <- decl = do
+        let ad_name = Typename . packRdrName $ unLoc tcdLName
+            ad_descr = doc
+            ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
+            ad_anchor = Just $ typeAnchor dc_modname ad_name
+            ad_rhs = fromMaybe unknownType $ do
+                tycon <- MS.lookup ad_name dc_tycons
+                rhs <- synTyConRhs_maybe tycon
+                Just (typeToType ctx rhs)
+            ad_instances = Nothing -- filled out later in 'distributeInstanceDocs'
+        guard (exportsType dc_exports ad_name)
+        Just (ad_name, TypeSynDoc {..})
 
-      Just (ad_name, TypeSynDoc {..})
-
-  | DataDecl{..} <- decl = do
-      let ad_name = Typename . packRdrName $ unLoc tcdLName
-          ad_descr = doc
-          ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
-          ad_anchor = Just $ typeAnchor dc_modname ad_name
-          ad_constrs = mapMaybe constrDoc . dd_cons $ tcdDataDefn
-      Just (ad_name, ADTDoc {..})
+    | DataDecl{..} <- decl = do
+        let ad_name = Typename . packRdrName $ unLoc tcdLName
+            ad_descr = doc
+            ad_args = map (tyVarText . unLoc) $ hsq_explicit tcdTyVars
+            ad_anchor = Just $ typeAnchor dc_modname ad_name
+            ad_constrs = mapMaybe (constrDoc ad_name) . dd_cons $ tcdDataDefn
+            ad_instances = Nothing -- filled out later in 'distributeInstanceDocs'
+        guard (exportsType dc_exports ad_name)
+        Just (ad_name, ADTDoc {..})
   where
-    constrDoc :: LConDecl GhcPs -> Maybe ADTConstr
-    constrDoc (L _ con) = do
+    constrDoc :: Typename -> LConDecl GhcPs -> Maybe ADTConstr
+    constrDoc ad_name (L _ con) = do
         let ac_name = Typename . packRdrName . unLoc $ con_name con
             ac_anchor = Just $ constrAnchor dc_modname ac_name
             ac_descr = fmap (docToText . unLoc) $ con_doc con
@@ -359,20 +382,23 @@ getTypeDocs ctx@DocCtx{..} (DeclData (L _ (TyClD _ decl)) doc)
                     Just datacon ->
                         map (typeToType ctx) (dataConOrigArgTys datacon)
 
+        guard (exportsConstr dc_exports ad_name ac_name)
         Just $ case con_args con of
             PrefixCon _ -> PrefixC {..}
             InfixCon _ _ -> PrefixC {..} -- FIXME: should probably change this!
             RecCon (L _ fs) ->
-              let ac_fields = mapMaybe fieldDoc (zip ac_args fs)
+              let ac_fields = mapMaybe (fieldDoc ad_name) (zip ac_args fs)
               in RecordC {..}
 
-    fieldDoc :: (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
-    fieldDoc (fd_type, L _ ConDeclField{..}) = do
+    fieldDoc :: Typename -> (DDoc.Type, LConDeclField GhcPs) -> Maybe FieldDoc
+    fieldDoc ad_name (fd_type, L _ ConDeclField{..}) = do
         let fd_name = Fieldname . T.concat . map (toText . unLoc) $ cd_fld_names
             fd_anchor = Just $ functionAnchor dc_modname fd_name
             fd_descr = fmap (docToText . unLoc) cd_fld_doc
+        guard (exportsField dc_exports ad_name fd_name)
         Just FieldDoc{..}
-    fieldDoc (_, L _ XConDeclField{}) = Nothing
+    fieldDoc _ (_, L _ XConDeclField{}) = Nothing
+
 getTypeDocs _ _other = Nothing
 
 -- | Build template docs up from ADT and class docs.
@@ -421,6 +447,7 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                              , ad_descr   = Nothing
                              , ad_args = []
                              , ad_constrs = []
+                             , ad_instances = Nothing
                              }
     -- Assuming one constructor (record or prefix), extract the fields, if any.
     -- For choices without arguments, GHC returns a prefix constructor, so we
@@ -460,7 +487,6 @@ getTemplateInstanceDoc adt
 
     | otherwise
     = Nothing
-
 
 -- recognising Template and Choice instances
 
@@ -522,6 +548,17 @@ isChoice ClsInstDecl{..}
 -- Otherwise returns 'Nothing'.
 stripInstanceSuffix :: Typename -> Maybe Typename
 stripInstanceSuffix (Typename t) = Typename <$> T.stripSuffix "Instance" t
+
+-- | Get (normal) typeclass instances data. TODO: Correlate with
+-- instance declarations via SrcSpan (like Haddock).
+getInstanceDocs :: DocCtx -> ClsInst -> InstanceDoc
+getInstanceDocs ctx ClsInst{..} =
+    let ty = varType is_dfun
+    in InstanceDoc
+        { id_context = typeToContext ctx ty
+        , id_type = typeToType ctx ty
+        , id_isOrphan = isOrphan is_orphan
+        }
 
 ------------------------------------------------------------
 -- Generating doc.s from parsed modules
@@ -665,6 +702,13 @@ typeToType ctx = \case
     TyConApp tycon [b] | "[]" == packName (tyConName tycon) ->
         TypeList (typeToType ctx b)
 
+    -- Special case for unsaturated (->) to remove the levity arguments.
+    TyConApp tycon (_:_:bs) | isFunTyCon tycon ->
+        TypeApp
+            Nothing
+            (Typename "->")
+            (map (typeToType ctx) bs)
+
     TyConApp tycon bs ->
         TypeApp
             (tyConAnchor ctx tycon)
@@ -677,6 +721,7 @@ typeToType ctx = \case
             TypeFun _ -> unexpected "function type in a type app"
             TypeList _ -> unexpected "list type in a type app"
             TypeTuple _ -> unexpected "tuple type in a type app"
+            TypeLit _ -> unexpected "type-level literal in a type app"
 
     -- ignore context
     ForAllTy _ b -> typeToType ctx b
@@ -689,7 +734,7 @@ typeToType ctx = \case
             b' -> TypeFun [typeToType ctx a, b']
 
     CastTy a _ -> typeToType ctx a
-    LitTy x -> TypeApp Nothing (Typename $ toText x) []
+    LitTy x -> TypeLit (toText x)
     CoercionTy _ -> unexpected "coercion" -- TODO?
 
   where

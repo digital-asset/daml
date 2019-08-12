@@ -22,6 +22,7 @@ compileDependencies = [
     "//ledger-api/rs-grpc-akka",
     "//language-support/scala/bindings",
     "//ledger/ledger-api-client",
+    "//ledger/ledger-api-common",
     "//ledger/ledger-api-domain",
     "//ledger-service/utils",
     "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",

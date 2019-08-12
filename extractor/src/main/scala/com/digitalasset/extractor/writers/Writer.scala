@@ -23,7 +23,7 @@ object Writer {
   final case class RefreshPackages(missing: Identifier)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def apply[T <: Target](config: ExtractorConfig, target: T, ledgerId: String): Writer =
+  def apply(config: ExtractorConfig, target: Target, ledgerId: String): Writer =
     target match {
       case TextPrintTarget => new SimpleTextWriter(println)
       case t: PrettyPrintTarget => new PrettyPrintWriter(t)

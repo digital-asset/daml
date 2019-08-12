@@ -24,6 +24,8 @@ Data Types
        * - unNat
          - Int
          - 
+  
+  **instance** HasField "unNat" `Nat <type-newtype-nat-61947_>`_ Int
 
 Functions
 ^^^^^^^^^

@@ -2,15 +2,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+)
+load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
 )
-
-dependencies = [
-    "//3rdparty/jvm/org/scalatest:scalatest",
-    "//ledger-api/rs-grpc-akka",
-    "//ledger-api/testing-utils",
-]
+load(
+    "//language-support/scala/codegen:codegen.bzl",
+    "dar_to_scala",
+)
 
 da_scala_library(
     name = "test-common",
@@ -18,5 +20,60 @@ da_scala_library(
     visibility = [
         "//visibility:public",
     ],
-    deps = dependencies,
+    deps = [
+        "//ledger-api/grpc-definitions:ledger-api-scalapb",
+    ],
+)
+
+daml_compile(
+    name = "SemanticTests",
+    main_src = "src/main/daml/SemanticTests.daml",
+    visibility = ["//visibility:public"],
+)
+
+dar_to_scala(
+    name = "SemanticTests.scala-codegen",
+    srcs = [
+        ":SemanticTests.dar",
+    ],
+    package_prefix = "com.digitalasset.ledger.test",
+    srcjar_out = "SemanticTests.scala.srcjar",
+    verbosity = 2,
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "SemanticTests.scala",
+    srcs = [":SemanticTests.scala-codegen"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
+)
+
+daml_compile(
+    name = "Test",
+    main_src = "src/main/daml/Test.daml",
+    target = "1.dev",
+    visibility = ["//visibility:public"],
+)
+
+dar_to_scala(
+    name = "Test.scala-codegen",
+    srcs = [
+        ":Test.dar",
+    ],
+    package_prefix = "com.digitalasset.ledger.test",
+    srcjar_out = "Test.scala.srcjar",
+    verbosity = 2,
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "Test.scala",
+    srcs = [":Test.scala-codegen"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
 )

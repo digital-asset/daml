@@ -3,9 +3,8 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.SBuiltin._
@@ -19,6 +18,7 @@ import com.digitalasset.daml.lf.validation.{
 }
 import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
 
+import scala.annotation.tailrec
 import scala.collection.mutable
 
 /** Compiles LF expressions into Speedy expressions.
@@ -39,11 +39,42 @@ object Compiler {
 
 final case class Compiler(packages: PackageId PartialFunction Package) {
 
-  /** The current absolute position in the environment stack. */
-  private var currentPosition: Int = 0
+  private abstract class VarRef { def name: Ref.Name }
+  private case class EVarRef(name: ExprVarName) extends VarRef
+
+  private case class Env(position: Int = 0, varIndices: List[(VarRef, Option[Int])] = List.empty) {
+    def incrPos: Env = copy(position = position + 1)
+    def addExprVar(name: Option[ExprVarName], index: Int): Env =
+      name.fold(this)(n => copy(varIndices = (EVarRef(n), Some(index)) :: varIndices))
+    def addExprVar(name: ExprVarName, index: Int): Env =
+      addExprVar(Some(name), index)
+    def addExprVar(name: Option[ExprVarName]): Env =
+      incrPos.addExprVar(name, position)
+    def addExprVar(name: ExprVarName): Env =
+      addExprVar(Some(name))
+
+    def vars: List[VarRef] = varIndices.map(_._1)
+
+    def lookUp(varRef: VarRef): Option[Int] =
+      varIndices
+        .find(_._1 == varRef)
+        .flatMap(_._2)
+        // The de Bruijin index for the binder, e.g.
+        // the distance to the binder. The closest binder
+        // is at distance 1.
+        .map(position - _)
+
+    def lookUpExprVar(name: ExprVarName): Int =
+      lookUp(EVarRef(name)) match {
+        case Some(x) => x
+        case None =>
+          throw CompileError(s"Unknown variable: $name. Known: ${env.vars.mkString(",")}")
+      }
+
+  }
 
   /** Environment mapping names into stack positions */
-  private var env = List[(ExprVarName, Int)]()
+  private var env = Env()
 
   def compile(cmds: ImmArray[Command]): SExpr =
     validate(closureConvert(Map.empty, 0, translateCommands(cmds)))
@@ -141,9 +172,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     case SCPCons => 2
   }
 
-  private def translate(expr: Expr): SExpr =
-    expr match {
-      case EVar(name) => SEVar(lookupIndex(name))
+  private def translate(expr0: Expr): SExpr =
+    expr0 match {
+      case EVar(name) => SEVar(env.lookUpExprVar(name))
       case EVal(ref) => SEVal(LfDefRef(ref), None)
       case EBuiltin(bf) =>
         bf match {
@@ -274,14 +305,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           case PLParty(p) => SParty(p)
           case PLDate(d) => SDate(d)
         })
-      case app: EApp =>
-        val (fun, args) = collectApps(app)
-        SEApp(translate(fun), args.map(translate).toArray)
-      case eabs: EAbs =>
-        val (binders, body) = collectAbs(eabs)
-        withBinders(binders) { _ =>
-          SEAbs(binders.length, translate(body))
+      case EAbs(_, _, _) =>
+        withEnv { _ =>
+          translateAbss(expr0)
         }
+      case EApp(_, _) =>
+        translateApps(expr0)
       case ERecCon(tApp, fields) =>
         if (fields.isEmpty)
           SEBuiltin(SBRecCon(tApp.tycon, Name.Array.empty))
@@ -325,7 +354,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             case CaseAlt(pat, expr) =>
               pat match {
                 case CPVariant(tycon, variant, binder) =>
-                  withBinder(binder) { _ =>
+                  withBinders(binder) { _ =>
                     SCaseAlt(SCPVariant(tycon, variant), translate(expr))
                   }
 
@@ -336,7 +365,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   SCaseAlt(SCPNil, translate(expr))
 
                 case CPCons(head, tail) =>
-                  withBinders(Seq(head, tail)) { _ =>
+                  withBinders(head, tail) { _ =>
                     SCaseAlt(SCPCons, translate(expr))
                   }
 
@@ -347,7 +376,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                   SCaseAlt(SCPNone, translate(expr))
 
                 case CPSome(body) =>
-                  withBinder(body) { _ =>
+                  withBinders(body) { _ =>
                     SCaseAlt(SCPSome, translate(expr))
                   }
 
@@ -391,10 +420,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
             bindings.map {
               case Binding(optBinder, _, bound) =>
                 val bound2 = translate(bound)
-                optBinder.foreach { b =>
-                  env = (b -> currentPosition) :: env
-                }
-                currentPosition += 1
+                env = env.addExprVar(optBinder)
                 bound2
             }.toArray,
             translate(body)
@@ -461,10 +487,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 case Some(tplKey) => translate(tplKey.maintainers)
               }
               SELet(key, SEApp(keyMaintainers, Array(SEVar(1)))) in {
-                currentPosition += 1 // key
-                currentPosition += 1 // keyMaintainers
+                env = env.incrPos.incrPos // key, keyMaintainers
                 SEAbs(1) {
-                  currentPosition += 1 // token
+                  env = env.incrPos // token
                   SELet(
                     SBULookupKey(retrieveByKey.templateId)(
                       SEVar(3), // key
@@ -501,12 +526,11 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 case Some(tplKey) => translate(tplKey.maintainers)
               }
               SELet(key, SEApp(keyMaintainers, Array(SEVar(1)))) in {
-                currentPosition += 1 // key
-                currentPosition += 1 // keyMaintainers
+                env = env.incrPos // key
+                .incrPos // keyMaintainers
                 SEAbs(1) {
-                  currentPosition += 1 // token
-                  env = (template.param -> currentPosition) :: env
-                  currentPosition += 1 // argument
+                  env = env.incrPos // token
+                  env = env.addExprVar(template.param)
                   // TODO should we evaluate this before we even construct
                   // the update expression? this might be better for the user
                   val signatories = translate(template.signatories)
@@ -527,7 +551,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                       observers,
                       SEVar(3) // token
                     )
-                  ) in SBTupleCon(Name.Array(Ast.contractIdFieldName, Ast.contractFieldName))(
+                  ) in SBTupleCon(Name.Array(contractIdFieldName, contractFieldName))(
                     SEVar(3), // contract id
                     SEVar(2) // contract
                   )
@@ -544,6 +568,25 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case ELocation(loc, e) =>
         SELocation(loc, translate(e))
+    }
+
+  @tailrec
+  private def translateAbss(expr: Expr, arity: Int = 0): SExpr =
+    expr match {
+      case EAbs((binder, typ @ _), body, ref @ _) =>
+        env = env.addExprVar(binder)
+        translateAbss(body, arity + 1)
+      case _ =>
+        SEAbs(arity, translate(expr))
+    }
+
+  @tailrec
+  private def translateApps(expr: Expr, args: List[SExpr] = List.empty): SExpr =
+    expr match {
+      case EApp(fun, arg) =>
+        translateApps(fun, translate(arg) :: args)
+      case _ =>
+        SEApp(translate(expr), args.toArray)
     }
 
   private def translateScenario(scen: Scenario, optLoc: Option[Location]): SExpr =
@@ -563,10 +606,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         //   in $endCommit[mustFail = false] r token
         withEnv { _ =>
           val party = translate(partyE)
-          currentPosition += 1 // party
+          env = env.incrPos // party
           val update = translate(updateE)
-          currentPosition += 1 // update
-          currentPosition += 1 // $beginCommit
+          env = env.incrPos // update
+          env = env.incrPos // $beginCommit
           SELet(party, update) in
             SEAbs(1) {
               SELet(
@@ -586,9 +629,9 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         //       r = $catch (<updateE> token) true false
         //   in $endCommit[mustFail = true] r token
         withEnv { _ =>
-          currentPosition += 1 // token
+          env = env.incrPos // token
           val party = translate(partyE)
-          currentPosition += 1 // $beginCommit
+          env = env.incrPos // $beginCommit
           val update = translate(updateE)
           SEAbs(1) {
             SELet(
@@ -603,7 +646,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case ScenarioGetParty(e) =>
         withEnv { _ =>
-          currentPosition += 1 // token
+          env = env.incrPos // token
           SEAbs(1) {
             SBSGetParty(translate(e), SEVar(1))
           }
@@ -611,7 +654,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case ScenarioPass(relTimeE) =>
         withEnv { _ =>
-          currentPosition += 1 // token
+          env = env.incrPos // token
           SEAbs(1) {
             SBSPass(translate(relTimeE), SEVar(1))
           }
@@ -622,7 +665,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     }
   private def translateEmbedExpr(expr: Expr): SExpr = {
     withEnv { _ =>
-      currentPosition += 1 // token
+      env = env.incrPos // token
       // EmbedExpr's get wrapped into an extra layer of abstraction
       // to delay evaluation.
       // e.g.
@@ -655,34 +698,28 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     //   in z x y token
     withEnv { _ =>
       val boundHead = translate(bindings.head.bound)
-      currentPosition += 1 // evaluated body of first binding
+      env = env.incrPos // evaluated body of first binding
 
-      val tokenPosition = currentPosition
-      currentPosition += 1 // token
+      val tokenPosition = env.position
+      env = env.incrPos // token
 
       // add the first binding into the environment
       val appBoundHead = SEVar(2)(SEVar(1))
-      bindings.head.binder.foreach { b =>
-        env = (b -> currentPosition) :: env
-      }
-      currentPosition += 1
+      env = env.addExprVar(bindings.head.binder)
 
       // and then the rest
       val boundTail = bindings.tail.toList.map {
         case Binding(optB, _, bound) =>
           val sbound = translate(bound)
-          optB.foreach { b =>
-            env = (b -> currentPosition) :: env
-          }
-          val tokenIndex = currentPosition - tokenPosition
-          currentPosition += 1
+          val tokenIndex = env.position - tokenPosition
+          env = env.addExprVar(optB)
           SEApp(sbound, Array(SEVar(tokenIndex)))
       }
       val allBounds = appBoundHead +: boundTail
       SELet(boundHead) in
         SEAbs(1) {
           SELet(allBounds: _*) in
-            translate(body)(SEVar(currentPosition - tokenPosition))
+            translate(body)(SEVar(env.position - tokenPosition))
         }
     }
   }
@@ -701,20 +738,20 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         Map.empty,
         0,
         withEnv { _ =>
-          val selfBinderPos = currentPosition + 1
-          val choiceArgumentPos = currentPosition + 2
-          currentPosition += 4 // actors, cid, choice argument and token
+          env = env.incrPos // actors
+          val selfBinderPos = env.position
+          env = env.incrPos // cid
+          val choiceArgumentPos = env.position
+          env = env.incrPos // choice argument
+          env = env.incrPos // token
 
           // template argument
-          env = (tmpl.param -> currentPosition) :: env
-          currentPosition += 1
+          env = env.addExprVar(tmpl.param)
 
           val signatories = translate(tmpl.signatories)
           val observers = translate(tmpl.observers)
           // now allow access to the choice argument
-          choice.argBinder._1.foreach { b =>
-            env = (b -> choiceArgumentPos) :: env
-          }
+          env = env.addExprVar(choice.argBinder._1, choiceArgumentPos)
           val controllers = translate(choice.controllers)
           val mbKey: SExpr = tmpl.key match {
             case None => SEValue(SOptional(None))
@@ -724,10 +761,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
                 Array(translate(k.body)),
               )
           }
-          currentPosition += 1 // beginExercise's ()
+          env = env.incrPos // beginExercise's ()
 
           // allow access to the self contract id
-          env = (choice.selfBinder -> selfBinderPos) :: env
+          env = env.addExprVar(choice.selfBinder, selfBinderPos)
           val update = translate(choice.update)
           SEAbs(4) {
             SELet(
@@ -754,44 +791,12 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         }
       ))
 
-  private def lookupIndex(binder: ExprVarName): Int = {
-    val idx =
-      env
-        .find(_._1 == binder)
-        .getOrElse(throw CompileError("Unknown variable: " + binder + ". Known: " + env.toString))
-        ._2
-    // The de Bruijin index for the binder, e.g.
-    // the distance to the binder. The closest binder
-    // is at distance 1.
-    currentPosition - idx
-  }
-
   // ELet(a, ELet(b, body)) => ([a, b], body)
   private def collectLets(expr: Expr): (List[Binding], Expr) =
     expr match {
       case ELet(binding, body) =>
         val (bindings, body2) = collectLets(body)
         (binding :: bindings, body2)
-      case e => (List.empty, e)
-    }
-
-  // EApp(EApp(fun, arg1), arg2) => (fun, [arg1, arg2])
-  private def collectApps(app: Expr): (Expr, List[Expr]) = {
-    def go(expr: Expr): (Expr, List[Expr]) =
-      expr match {
-        case EApp(fun, arg) =>
-          val (fun2, args) = collectApps(fun)
-          (fun2, args :+ arg)
-        case e => (e, List.empty[Expr])
-      }
-    go(app)
-  }
-  // EAbs(binder, EAbs(binder2, ..., ref), ref) => ([binder, binder2], body)
-  private def collectAbs(expr: Expr): (List[ExprVarName], Expr) =
-    expr match {
-      case EAbs((binder, typ @ _), body, ref @ _) =>
-        val (binders, body2) = collectAbs(body)
-        (binder :: binders, body2)
       case e => (List.empty, e)
     }
 
@@ -822,30 +827,18 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       }
       .getOrElse(throw CompileError(s"record type $tapp not found"))
 
-  private def withBinder[A](binder: ExprVarName)(f: Unit => A): A =
-    withBinders(Seq(binder))(f)
-
-  private def withBinders[A](binders: Seq[ExprVarName])(f: Unit => A): A = {
-    val oldEnv = env
-    val oldPosition = currentPosition
-    binders.foreach { binder =>
-      env = (binder -> currentPosition) :: env
-      currentPosition += 1
-    }
-    val x = f(())
-    env = oldEnv
-    currentPosition = oldPosition
-    x
-  }
-
   private def withEnv[A](f: Unit => A): A = {
     val oldEnv = env
-    val oldPosition = currentPosition
     val x = f(())
     env = oldEnv
-    currentPosition = oldPosition
     x
   }
+
+  private def withBinders[A](binders: ExprVarName*)(f: Unit => A): A =
+    withEnv { _ =>
+      env = (env /: binders)(_ addExprVar _)
+      f(())
+    }
 
   def stripLocation(e: SExpr): SExpr =
     e match {
@@ -893,6 +886,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
       case SEAbs(n, body) =>
         val fv = freeVars(body, n).toList.sorted
+
         // remap free variables to new indices.
         // the index is the absolute position in stack.
         val newRemaps = fv.zipWithIndex.map {
@@ -1059,9 +1053,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
   private def compileFetch(tmplId: Identifier, coid: SExpr): SExpr = {
     val tmpl = lookupTemplate(tmplId)
     withEnv { _ =>
-      currentPosition += 1 // token
-      env = (tmpl.param -> currentPosition) :: env
-      currentPosition += 1 // argument
+      env = env.incrPos // token
+      env = env.addExprVar(tmpl.param) // argument
       val signatories = translate(tmpl.signatories)
       val observers = translate(tmpl.observers)
       SELet(coid) in
@@ -1096,25 +1089,24 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     //   $create arg <precond> <agreement text> <signatories> <observers> <token> <key>
     val tmpl = lookupTemplate(tmplId)
     withEnv { _ =>
-      env = (tmpl.param -> currentPosition) :: env
-      currentPosition += 1 // argument
+      env = env.addExprVar(tmpl.param) // argument
 
       val key = tmpl.key match {
         case None => SEValue(SOptional(None))
         case Some(tmplKey) =>
           SELet(translate(tmplKey.body)) in
             SBSome(
-              SBTupleCon(Name.Array(Ast.keyFieldName, Ast.maintainersFieldName))(
+              SBTupleCon(Name.Array(keyFieldName, maintainersFieldName))(
                 SEVar(1), // key
                 SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ ))))
       }
 
-      currentPosition += 1 // key
-      currentPosition += 1 // token
+      env = env.incrPos // key
+      env = env.incrPos // token
 
       val precond = translate(tmpl.precond)
 
-      currentPosition += 1 // unit returned by SBCheckPrecond
+      env = env.incrPos // unit returned by SBCheckPrecond
       val agreement = translate(tmpl.agreementText)
       val signatories = translate(tmpl.signatories)
       val observers = translate(tmpl.observers)
@@ -1180,10 +1172,10 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
         case Some(tplKey) => translate(tplKey.maintainers)
       }
       SELet(key, SEApp(keyMaintainers, Array(SEVar(1)))) in {
-        currentPosition += 1 // key
-        currentPosition += 1 // keyMaintainers
+        env = env.incrPos // key
+        env = env.incrPos // keyMaintainers
         SEAbs(1) {
-          currentPosition += 1 // token
+          env = env.incrPos // token
           SELet(
             SBUFetchKey(tmplId)(SEVar(3), SEVar(2), SEVar(1)),
             SEApp(compileExercise(tmplId, SEVar(1), choiceId, optActors, argument), Array(SEVar(2)))
@@ -1202,7 +1194,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
 
     withEnv { _ =>
       SEAbs(1) {
-        currentPosition += 1 // token
+        env = env.incrPos // token
         SELet(
           SEApp(compileCreate(tmplId, SEValue(createArg)), Array(SEVar(1))),
           SEApp(
@@ -1238,19 +1230,19 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
     else
       withEnv { _ =>
         val boundHead = translateCommand(bindings.head)
-        currentPosition += 1 // evaluated body of first binding
+        env = env.incrPos // evaluated body of first binding
 
-        val tokenPosition = currentPosition
-        currentPosition += 1 // token
+        val tokenPosition = env.position
+        env = env.incrPos // token
 
         // add the first binding into the environment
         val appBoundHead = SEVar(2)(SEVar(1))
-        currentPosition += 1
+        env = env.incrPos
 
         // and then the rest
         val boundTail = bindings.tail.toList.map { cmd =>
-          val tokenIndex = currentPosition - tokenPosition
-          currentPosition += 1
+          val tokenIndex = env.position - tokenPosition
+          env = env.incrPos
           SEApp(translateCommand(cmd), Array(SEVar(tokenIndex)))
         }
         val allBounds = appBoundHead +: boundTail
@@ -1258,7 +1250,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
           SEAbs(1) {
             SELet(allBounds: _*) in
               translate(EUpdate(UpdatePure(TBuiltin(BTUnit), EPrimCon(PCUnit))))(
-                SEVar(currentPosition - tokenPosition))
+                SEVar(env.position - tokenPosition))
           }
       }
   }
