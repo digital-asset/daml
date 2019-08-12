@@ -458,31 +458,28 @@ getTemplateDocs DocCtx{..} typeMap templateInstanceMap =
                       [] -> [] -- catching the dummy case here, see above
                       _other -> error "getFields: found multiple constructors"
 
--- | As per issue #2239, a template instance is desugared into a
--- newtype with a docs marker. For example,
+-- | A template instance is desugared into a newtype with a docs marker.
+-- For example,
 --
 -- @template instance ProposalIou = Proposal Iou@
 --
 -- becomes
 --
--- @newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou -- ^ TEMPLATE_INSTANCE@
+-- @newtype ProposalIou = ProposalIou (Proposal Iou) -- ^ TEMPLATE_INSTANCE@
 --
 -- So the goal of this function is to extract the template instance doc
 -- from the newtype doc if it exists.
---
--- The TEMPLATE_INSTANCE doc marker used here does not exist yet.
--- (See issue #2239 in the daml repo for an up to date status.)
 getTemplateInstanceDoc :: ADTDoc -> Maybe TemplateInstanceDoc
 getTemplateInstanceDoc adt
     | ADTDoc{..} <- adt
-    , [RecordC{..}] <- ad_constrs
-    , [FieldDoc{..}] <- ac_fields
-    , Just (DocText "TEMPLATE_INSTANCE") <- fd_descr
+    , [PrefixC{..}] <- ad_constrs
+    , Just (DocText "TEMPLATE_INSTANCE") <- ac_descr
+    , [argType] <- ac_args
     = Just TemplateInstanceDoc
         { ti_name = ad_name
         , ti_anchor = ad_anchor
         , ti_descr = ad_descr
-        , ti_rhs = fd_type
+        , ti_rhs = argType
         }
 
     | otherwise
