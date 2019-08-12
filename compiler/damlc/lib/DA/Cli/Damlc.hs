@@ -12,7 +12,6 @@ import Control.Exception
 import Control.Exception.Safe (catchIO)
 import Control.Monad.Except
 import Control.Monad.Extra (whenM)
-import qualified "cryptonite" Crypto.Hash as Crypto
 import DA.Bazel.Runfiles
 import DA.Cli.Args
 import DA.Cli.Damlc.Base
@@ -40,7 +39,6 @@ import DA.Daml.Project.Consts
 import DA.Daml.Project.Types (ConfigError, ProjectPath(..))
 import qualified Da.DamlLf as PLF
 import qualified Data.Aeson.Encode.Pretty as Aeson.Pretty
-import Data.ByteArray.Encoding (Base(Base16), convertToBase)
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
@@ -53,7 +51,6 @@ import qualified Data.Map.Strict as MS
 import Data.Maybe
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
-import qualified Data.Text.Encoding as TE
 import Development.IDE.Core.API
 import Development.IDE.Core.Service (runAction)
 import Development.IDE.Core.Shake
@@ -204,13 +201,11 @@ cmdPackage numProcessors =
        progDesc "Compile the DAML program into a DAML Archive (DAR)"
     <> fullDesc
   where
-    dumpPom = fmap DumpPom $ switch $ help "Write out pom and sha256 files" <> long "dump-pom"
     cmd = execPackage
         <$> projectOpts "daml damlc package"
         <*> inputFileOpt
         <*> optionsParser numProcessors (EnableScenarioService False) (Just <$> packageNameOpt)
         <*> optionalOutputFileOpt
-        <*> dumpPom
         <*> optFromDalf
 
     optFromDalf :: Parser FromDalf
@@ -362,9 +357,6 @@ execLint inputFile opts =
          DlintEnabled _ _ -> opts
          DlintDisabled  -> opts{optDlintUsage=DlintEnabled defaultDir True}
 
-newtype DumpPom = DumpPom{unDumpPom :: Bool}
-
-
 -- | Parse the daml.yaml for package specific config fields.
 parseProjectConfig :: ProjectConfig -> Either ConfigError PackageConfigFields
 parseProjectConfig project = do
@@ -511,10 +503,9 @@ execPackage:: ProjectOpts
             -> FilePath -- ^ input file
             -> Options
             -> Maybe FilePath
-            -> DumpPom
             -> FromDalf
             -> IO ()
-execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectRoot' projectOpts $ \relativize -> do
+execPackage projectOpts filePath opts mbOutFile dalfInput = withProjectRoot' projectOpts $ \relativize -> do
     loggerH <- getLogger opts "package"
     filePath <- relativize filePath
     opts' <- mkOptions opts
@@ -541,26 +532,11 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
             createDirectoryIfMissing True $ takeDirectory targetFilePath
             BSL.writeFile targetFilePath dar
             putStrLn $ "Created " <> targetFilePath <> "."
-            when (unDumpPom dumpPom) $ createPomAndSHA256 $ dar
   where
     -- This is somewhat ugly but our CLI parser guarantees that this will always be present.
     -- We could parametrize CliOptions by whether the package name is optional
     -- but I don’t think that is worth the complexity of carrying around a type parameter.
     name = fromMaybe (error "Internal error: Package name was not present") (optMbPackageName opts)
-    pomContents groupId artifactId version =
-        TE.encodeUtf8 $ T.pack $
-          "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
-          \<project xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"\
-          \ xmlns=\"http://maven.apache.org/POM/4.0.0\"\
-          \ xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\">\n\
-          \  <modelVersion>4.0.0</modelVersion>\n\
-          \  <groupId>" <> groupId <> "</groupId>\n\
-          \  <artifactId>" <> artifactId <> "</artifactId>\n\
-          \  <version>" <> version <> "</version>\n\
-          \  <name>" <> artifactId <> "</name>\n\
-          \  <type>dar</type>\n\
-          \  <description>A Digital Asset DAML package</description>\n\
-          \</project>"
 
     -- The default output filename is based on Maven coordinates if
     -- the package name is specified via them, otherwise we use the
@@ -571,28 +547,6 @@ execPackage projectOpts filePath opts mbOutFile dumpPom dalfInput = withProjectR
         _otherwise -> name <> ".dar"
 
     targetFilePath = fromMaybe defaultDarFile mbOutFile
-    targetDir = takeDirectory targetFilePath
-
-    createPomAndSHA256 darContent = do
-      case Split.splitOn ":" name of
-          [g, a, v] -> do
-            let basePath = targetDir </> a <> "-" <> v
-            let pomPath = basePath <.> "pom"
-            let pomContent = pomContents g a v
-            let writeAndAnnounce path content = do
-                  B.writeFile path content
-                  putStrLn $ "Created " <> path <> "."
-
-            writeAndAnnounce pomPath pomContent
-            writeAndAnnounce (basePath <.> "dar" <.> "sha256")
-              (convertToBase Base16 $ Crypto.hashlazy @Crypto.SHA256 darContent)
-            writeAndAnnounce (basePath <.> "pom" <.> "sha256")
-              (convertToBase Base16 $ Crypto.hash @B.ByteString @Crypto.SHA256 pomContent)
-          _ -> do
-            putErrLn $ "ERROR: Not creating pom file as package name '" <> name <> "' is not a valid Maven coordinate (expected '<groupId>:<artifactId>:<version>')"
-            exitFailure
-
-    putErrLn = hPutStrLn stderr
 
 execInspect :: FilePath -> FilePath -> Bool -> Command
 execInspect inFile outFile jsonOutput = do
