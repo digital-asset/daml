@@ -62,31 +62,3 @@ to be set by `dade-common`).
   contains libraries for dev-env usage, assume its immutable.
 * `DADE_NIXPKGS` - points to a GC root which is a symlink to a Nixpkgs snapshot
   used by dev-env, used only in `dade-dump-profile`.
-
-
-## Versioning
-
-We use Nix store paths as versions of dev-env. Briefly, this means
-that non-`da` repositories will have a `dev-env/dev-env.version` file
-with the Nix store path of the desired dev-env version. Please see the
-[design doc of DEL-1294][design-doc] for details.
-
-## Changelog
-
-Notable changes to the dev-env should be added to `UNRELEASED.md`.
-From there, they can be move to `CHANGELOG.md` with the
-`update-changelog` script from ledger. Run the script as:
-
-    $ ../ledger/scripts/update-changelog UNRELEASED.md CHANGELOG.md $(cat VERSION)
-
-This will move the entries from `UNRELEASED.md` to `CHANGELOG.md`.
-Pull request references in the form of `[pr:1234]` and Jira references
-in the form of `[jira:ABC-1234]` are automatically turned into links
-during this process.
-
-## Releases
-
-Run `dade-freeze` to generate a release of dev-env, suitable for consumption in
-other repositories. **Please note** That this is not published by the command.
-Hydra will build new dev-env version from master as soon as it's pushed at:
-http://hydra.da-int.net/job/da/master/cached.x86_64-darwin.dev-env

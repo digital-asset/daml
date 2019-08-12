@@ -39,13 +39,11 @@ as run from the main project root directory (adjust the location of the JAR acco
 
 Sandbox uses models compiled in to the DAR format.
 
-The dar files are the archives containing compiled DAML code. We highly recommend generating the dar files using the new DAML packaging, as described in https://engineering.da-int.net/docs/da-all-docs/packages/daml-project/. This will ensure that you're generating the .dar files correctly. The linked page also gives a good overview of what the dar files are, along with other key concepts.
-
 Note that the new Ledger API only supports DAML 1.0 or above codebases compiled to DAML-LF v1. Again, using the DAML packaging as suggested above will ensure that you are generating dar files that the Sandbox can consume.
 
 # Ledger API
 
-The new Ledger API uses gRPC. You can find the full documentation of all the services involved rendered at http://ci.da-int.net/job/ledger-api/job/build/job/master/lastSuccessfulBuild/artifact/ledger-api/grpc-definitions/target/docs/index.html (save the file locally to get the styling to work). If you just want to create / exercise contracts, I suggest you start by looking at `command_service.proto`, which exposes a synchronous API to the DAML ledger. 
+The new Ledger API uses gRPC. If you just want to create / exercise contracts, I suggest you start by looking at [`command_service.proto`](/ledger-api/grpc-definitions/com/digitalasset/ledger/api/v1/command_service.proto), which exposes a synchronous API to the DAML ledger.
 
 # Logging
 

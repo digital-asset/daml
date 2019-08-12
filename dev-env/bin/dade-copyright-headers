@@ -12,9 +12,6 @@
 # To ignore files under a certain directory and below:
 # $ touch some/directory/NO_AUTO_COPYRIGHT
 # $ git add some/directory/NO_AUTO_COPYRIGHT
-#
-# For more information see the engineering handbook:
-# http://engineering.da-int.net/docs/engineering-handbook/licenses-copyrights.html
 
 import subprocess
 import re
