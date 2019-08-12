@@ -702,6 +702,13 @@ typeToType ctx = \case
     TyConApp tycon [b] | "[]" == packName (tyConName tycon) ->
         TypeList (typeToType ctx b)
 
+    -- Special case for unsaturated (->) to remove the levity arguments.
+    TyConApp tycon (_:_:bs) | isFunTyCon tycon ->
+        TypeApp
+            Nothing
+            (Typename "->")
+            (map (typeToType ctx) bs)
+
     TyConApp tycon bs ->
         TypeApp
             (tyConAnchor ctx tycon)
