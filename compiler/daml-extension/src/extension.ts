@@ -108,7 +108,7 @@ async function visualize() {
         let visualizeCmd = "daml damlc visual " + path
         let workspaceRoot = vscode.workspace.rootPath;
         let execOpts = { cwd: workspaceRoot }
-        exec(buildCmd, execOpts, ((error: Error, _: string, stderr: string) => {
+        exec(buildCmd, execOpts, ((error: Error, stdout: string, stderr: string) => {
             if (error) {
                 vscode.window.showErrorMessage("daml build failed with" + error)
             }
