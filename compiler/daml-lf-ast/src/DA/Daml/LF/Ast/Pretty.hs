@@ -179,7 +179,7 @@ instance Pretty PartyLiteral where
   pPrint = quotes . pretty . unPartyLiteral
 
 instance Pretty BuiltinExpr where
-  pPrintPrec _lvl prec = \case
+  pPrintPrec lvl prec = \case
     BEInt64 n -> pretty (toInteger n)
     BEDecimal dec -> string (show dec)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
@@ -187,12 +187,12 @@ instance Pretty BuiltinExpr where
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BEError -> "ERROR"
-    BEEqual t     -> maybeParens (prec > precEApp) ("EQUAL"      <-> prettyBTyArg t)
-    BELess t      -> maybeParens (prec > precEApp) ("LESS"       <-> prettyBTyArg t)
-    BELessEq t    -> maybeParens (prec > precEApp) ("LESS_EQ"    <-> prettyBTyArg t)
-    BEGreater t   -> maybeParens (prec > precEApp) ("GREATER"    <-> prettyBTyArg t)
-    BEGreaterEq t -> maybeParens (prec > precEApp) ("GREATER_EQ" <-> prettyBTyArg t)
-    BEToText t    -> maybeParens (prec > precEApp) ("TO_TEXT"    <-> prettyBTyArg t)
+    BEEqual t     -> maybeParens (prec > precEApp) ("EQUAL"      <-> prettyBTyArg lvl t)
+    BELess t      -> maybeParens (prec > precEApp) ("LESS"       <-> prettyBTyArg lvl t)
+    BELessEq t    -> maybeParens (prec > precEApp) ("LESS_EQ"    <-> prettyBTyArg lvl t)
+    BEGreater t   -> maybeParens (prec > precEApp) ("GREATER"    <-> prettyBTyArg lvl t)
+    BEGreaterEq t -> maybeParens (prec > precEApp) ("GREATER_EQ" <-> prettyBTyArg lvl t)
+    BEToText t    -> maybeParens (prec > precEApp) ("TO_TEXT"    <-> prettyBTyArg lvl t)
     BEAddDecimal -> "ADD_NUMERIC"
     BESubDecimal -> "SUB_NUMERIC"
     BEMulDecimal -> "MUL_NUMERIC"
@@ -276,22 +276,22 @@ instance Pretty Binding where
   pPrint (Binding binder expr) =
     hang (prettyAndType binder <-> "=") 2 (pretty expr)
 
-prettyTyArg :: Type -> Doc ann
-prettyTyArg t = type_ ("@" <> pPrintPrec prettyNormal precHighest t)
+prettyTyArg :: PrettyLevel -> Type -> Doc ann
+prettyTyArg lvl t = type_ ("@" <> pPrintPrec lvl precHighest t)
 
-prettyBTyArg :: BuiltinType -> Doc ann
-prettyBTyArg = prettyTyArg . TBuiltin
+prettyBTyArg :: PrettyLevel -> BuiltinType -> Doc ann
+prettyBTyArg lvl = prettyTyArg lvl . TBuiltin
 
-prettyTmArg :: Expr -> Doc ann
-prettyTmArg = pPrintPrec prettyNormal (succ precEApp)
+prettyTmArg :: PrettyLevel -> Expr -> Doc ann
+prettyTmArg lvl = pPrintPrec lvl (succ precEApp)
 
 tplArg :: Qualified TypeConName -> Arg
 tplArg tpl = TyArg (TCon tpl)
 
 instance Pretty Arg where
-  pPrint = \case
-    TmArg e -> prettyTmArg e
-    TyArg t -> prettyTyArg t
+  pPrintPrec lvl _prec = \case
+    TmArg e -> prettyTmArg lvl e
+    TyArg t -> prettyTyArg lvl t
 
 prettyAppDoc :: Rational -> Doc ann -> [Arg] -> Doc ann
 prettyAppDoc prec d as = maybeParens (prec > precEApp) $
@@ -300,8 +300,8 @@ prettyAppDoc prec d as = maybeParens (prec > precEApp) $
 prettyAppKeyword :: Rational -> String -> [Arg] -> Doc ann
 prettyAppKeyword prec kw = prettyAppDoc prec (keyword_ kw)
 
-prettyApp :: Rational -> Expr -> [Arg] -> Doc ann
-prettyApp prec f = prettyAppDoc prec (pPrintPrec prettyNormal precEApp f)
+prettyApp :: PrettyLevel -> Rational -> Expr -> [Arg] -> Doc ann
+prettyApp lvl prec f = prettyAppDoc prec (pPrintPrec lvl precEApp f)
 
 instance Pretty Update where
   pPrintPrec _lvl prec = \case
@@ -362,7 +362,7 @@ instance Pretty Expr where
       maybeParens (prec > precEApp) $
         sep $
           pretty tcon
-          : map (nest 2 . prettyTyArg) targs
+          : map (nest 2 . prettyTyArg lvl) targs
           ++ [nest 2 (prettyRecord "=" fields)]
     ERecProj (TypeConApp tcon targs) field rec ->
       prettyAppDoc prec
@@ -372,7 +372,7 @@ instance Pretty Expr where
       maybeParens (prec > precEApp) $
         sep $
           pretty tcon
-          : map (nest 2 . prettyTyArg) targs
+          : map (nest 2 . prettyTyArg lvl) targs
           ++ [nest 2 (braces updDoc)]
       where
         updDoc = sep
@@ -397,8 +397,8 @@ instance Pretty Expr where
           , keyword_ "with"
           , hang (pretty field <-> "=") 2 (pretty update)
           ]
-    e@ETmApp{} -> uncurry (prettyApp prec) (e ^. _EApps)
-    e@ETyApp{} -> uncurry (prettyApp prec) (e ^. _EApps)
+    e@ETmApp{} -> uncurry (prettyApp lvl prec) (e ^. _EApps)
+    e@ETyApp{} -> uncurry (prettyApp lvl prec) (e ^. _EApps)
     e0@ETmLam{} -> maybeParens (prec > precEAbs) $
       let (bs, e1) = view (rightSpine (unlocate _ETmLam)) e0
       in  hang (prettyLambda <> hsep (map (parens . prettyAndType) bs) <> prettyLambdaDot)
@@ -420,7 +420,9 @@ instance Pretty Expr where
       prettyAppKeyword prec "cons" [TyArg elemType, TmArg headExpr, TmArg tailExpr]
     EUpdate upd -> pPrintPrec lvl prec upd
     EScenario scen -> pPrintPrec lvl prec scen
-    ELocation _ x -> pPrintPrec lvl prec x
+    ELocation loc x
+        | lvl >= PrettyLevel 1 -> "@location" <> parens (pretty loc) <-> parens (pPrintPrec lvl 0 x)
+        | otherwise -> pPrintPrec lvl prec x
     ESome typ body -> prettyAppKeyword prec "some" [TyArg typ, TmArg body]
     ENone typ -> prettyAppKeyword prec "none" [TyArg typ]
 
