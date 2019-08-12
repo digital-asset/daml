@@ -213,7 +213,7 @@ renderTypePrec prec = \case
     TypeApp anchorM (Typename typename) args ->
         (if prec >= 2 && notNull args then renderInParens else id)
             . renderUnwords
-            $ maybeAnchorLink anchorM typename
+            $ maybeAnchorLink anchorM (wrapOp typename)
             : map (renderTypePrec 2) args
     TypeFun ts ->
         (if prec >= 1 then renderInParens else id)
