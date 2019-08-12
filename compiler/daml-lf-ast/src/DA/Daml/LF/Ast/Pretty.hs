@@ -133,18 +133,18 @@ instance Pretty BuiltinType where
     BTArrow -> "(->)"
 
 prettyRecord :: (Pretty a) =>
-  Doc ann -> [(FieldName, a)] -> Doc ann
-prettyRecord sept fields =
+  PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
+prettyRecord lvl sept fields =
   braces (sep (punctuate ";" (map prettyField fields)))
   where
-    prettyField (name, thing) = hang (pretty name <-> sept) 2 (pretty thing)
+    prettyField (name, thing) = hang (pretty name <-> sept) 2 (pPrintPrec lvl 0 thing)
 
 prettyTuple :: (Pretty a) =>
-  Doc ann -> [(FieldName, a)] -> Doc ann
-prettyTuple sept fields =
+  PrettyLevel -> Doc ann -> [(FieldName, a)] -> Doc ann
+prettyTuple lvl sept fields =
   "<" <> sep (punctuate ";" (map prettyField fields)) <> ">"
   where
-    prettyField (name, thing) = hang (pretty name <-> sept) 2 (pretty thing)
+    prettyField (name, thing) = hang (pretty name <-> sept) 2 (pPrintPrec lvl 0 thing)
 
 instance Pretty Type where
   pPrintPrec lvl prec = \case
@@ -160,9 +160,9 @@ instance Pretty Type where
     t0@TForall{} ->
       let (vs, t1) = view _TForalls t0
       in  maybeParens (prec > precTForall)
-            (prettyForall <-> hsep (map prettyAndKind vs) <> "."
+            (prettyForall <-> hsep (map (prettyAndKind lvl) vs) <> "."
              <-> pPrintPrec lvl precTForall t1)
-    TTuple fields -> prettyTuple prettyHasType fields
+    TTuple fields -> prettyTuple lvl prettyHasType fields
 
 precEApp, precEAbs :: Rational
 precEApp = 2
@@ -179,7 +179,7 @@ instance Pretty PartyLiteral where
   pPrint = quotes . pretty . unPartyLiteral
 
 instance Pretty BuiltinExpr where
-  pPrintPrec _lvl prec = \case
+  pPrintPrec lvl prec = \case
     BEInt64 n -> pretty (toInteger n)
     BEDecimal dec -> string (show dec)
     BEText t -> string (show t) -- includes the double quotes, and escapes characters
@@ -187,12 +187,12 @@ instance Pretty BuiltinExpr where
     BEUnit -> keyword_ "unit"
     BEBool b -> keyword_ $ case b of { False -> "false"; True -> "true" }
     BEError -> "ERROR"
-    BEEqual t     -> maybeParens (prec > precEApp) ("EQUAL"      <-> prettyBTyArg t)
-    BELess t      -> maybeParens (prec > precEApp) ("LESS"       <-> prettyBTyArg t)
-    BELessEq t    -> maybeParens (prec > precEApp) ("LESS_EQ"    <-> prettyBTyArg t)
-    BEGreater t   -> maybeParens (prec > precEApp) ("GREATER"    <-> prettyBTyArg t)
-    BEGreaterEq t -> maybeParens (prec > precEApp) ("GREATER_EQ" <-> prettyBTyArg t)
-    BEToText t    -> maybeParens (prec > precEApp) ("TO_TEXT"    <-> prettyBTyArg t)
+    BEEqual t     -> maybeParens (prec > precEApp) ("EQUAL"      <-> prettyBTyArg lvl t)
+    BELess t      -> maybeParens (prec > precEApp) ("LESS"       <-> prettyBTyArg lvl t)
+    BELessEq t    -> maybeParens (prec > precEApp) ("LESS_EQ"    <-> prettyBTyArg lvl t)
+    BEGreater t   -> maybeParens (prec > precEApp) ("GREATER"    <-> prettyBTyArg lvl t)
+    BEGreaterEq t -> maybeParens (prec > precEApp) ("GREATER_EQ" <-> prettyBTyArg lvl t)
+    BEToText t    -> maybeParens (prec > precEApp) ("TO_TEXT"    <-> prettyBTyArg lvl t)
     BEAddDecimal -> "ADD_NUMERIC"
     BESubDecimal -> "SUB_NUMERIC"
     BEMulDecimal -> "MUL_NUMERIC"
@@ -246,16 +246,16 @@ instance Pretty BuiltinExpr where
 
       dateToText days = epochToText "%0Y-%m-%d" ((toInteger days * 24 * 60 * 60) Ratio.% 1)
 
-prettyAndKind :: Pretty a => (a, Kind) -> Doc ann
-prettyAndKind (v, k) = case k of
-    KStar -> pretty v
-    _ -> parens (pretty v <-> prettyHasType <-> kind_ (pretty k))
+prettyAndKind :: Pretty a => PrettyLevel -> (a, Kind) -> Doc ann
+prettyAndKind lvl (v, k) = case k of
+    KStar -> pPrintPrec lvl 0 v
+    _ -> parens (pPrintPrec lvl 0 v <-> prettyHasType <-> kind_ (pPrintPrec lvl 0 k))
 
-prettyAndType :: Pretty a => (a, Type) -> Doc ann
-prettyAndType (x, t) = pretty x <-> prettyHasType <-> type_ (pretty t)
+prettyAndType :: Pretty a => PrettyLevel -> (a, Type) -> Doc ann
+prettyAndType lvl (x, t) = pPrintPrec lvl 0 x <-> prettyHasType <-> type_ (pPrintPrec lvl 0 t)
 
 instance Pretty CasePattern where
-  pPrint = \case
+  pPrintPrec _lvl _prec = \case
     CPVariant tcon con var ->
       pretty tcon <> ":" <> pretty con
       <-> pretty var
@@ -269,89 +269,89 @@ instance Pretty CasePattern where
     CPSome bodyVar -> keyword_ "some" <-> pretty bodyVar
 
 instance Pretty CaseAlternative where
-  pPrint (CaseAlternative pat expr) =
-    hang (pretty pat <-> prettyAltArrow) 2 (pretty expr)
+  pPrintPrec lvl _prec (CaseAlternative pat expr) =
+    hang (pPrintPrec lvl 0 pat <-> prettyAltArrow) 2 (pPrintPrec lvl 0 expr)
 
 instance Pretty Binding where
-  pPrint (Binding binder expr) =
-    hang (prettyAndType binder <-> "=") 2 (pretty expr)
+  pPrintPrec lvl _prec (Binding binder expr) =
+    hang (prettyAndType lvl binder <-> "=") 2 (pPrintPrec lvl 0 expr)
 
-prettyTyArg :: Type -> Doc ann
-prettyTyArg t = type_ ("@" <> pPrintPrec prettyNormal precHighest t)
+prettyTyArg :: PrettyLevel -> Type -> Doc ann
+prettyTyArg lvl t = type_ ("@" <> pPrintPrec lvl precHighest t)
 
-prettyBTyArg :: BuiltinType -> Doc ann
-prettyBTyArg = prettyTyArg . TBuiltin
+prettyBTyArg :: PrettyLevel -> BuiltinType -> Doc ann
+prettyBTyArg lvl = prettyTyArg lvl . TBuiltin
 
-prettyTmArg :: Expr -> Doc ann
-prettyTmArg = pPrintPrec prettyNormal (succ precEApp)
+prettyTmArg :: PrettyLevel -> Expr -> Doc ann
+prettyTmArg lvl = pPrintPrec lvl (succ precEApp)
 
 tplArg :: Qualified TypeConName -> Arg
 tplArg tpl = TyArg (TCon tpl)
 
 instance Pretty Arg where
-  pPrint = \case
-    TmArg e -> prettyTmArg e
-    TyArg t -> prettyTyArg t
+  pPrintPrec lvl _prec = \case
+    TmArg e -> prettyTmArg lvl e
+    TyArg t -> prettyTyArg lvl t
 
-prettyAppDoc :: Rational -> Doc ann -> [Arg] -> Doc ann
-prettyAppDoc prec d as = maybeParens (prec > precEApp) $
-  sep (d : map (nest 2 . pretty) as)
+prettyAppDoc :: PrettyLevel -> Rational -> Doc ann -> [Arg] -> Doc ann
+prettyAppDoc lvl prec d as = maybeParens (prec > precEApp) $
+  sep (d : map (nest 2 . pPrintPrec lvl 0) as)
 
-prettyAppKeyword :: Rational -> String -> [Arg] -> Doc ann
-prettyAppKeyword prec kw = prettyAppDoc prec (keyword_ kw)
+prettyAppKeyword :: PrettyLevel -> Rational -> String -> [Arg] -> Doc ann
+prettyAppKeyword lvl prec kw = prettyAppDoc lvl prec (keyword_ kw)
 
-prettyApp :: Rational -> Expr -> [Arg] -> Doc ann
-prettyApp prec f = prettyAppDoc prec (pPrintPrec prettyNormal precEApp f)
+prettyApp :: PrettyLevel -> Rational -> Expr -> [Arg] -> Doc ann
+prettyApp lvl prec f = prettyAppDoc lvl prec (pPrintPrec lvl precEApp f)
 
 instance Pretty Update where
-  pPrintPrec _lvl prec = \case
+  pPrintPrec lvl prec = \case
     UPure typ arg ->
-      prettyAppKeyword prec "upure" [TyArg typ, TmArg arg]
+      prettyAppKeyword lvl prec "upure" [TyArg typ, TmArg arg]
     upd@UBind{} -> maybeParens (prec > precEAbs) $
       let (binds, body) = view (rightSpine (unlocate $ _EUpdate . _UBind)) (EUpdate upd)
-      in  keyword_ "ubind" <-> vcat (map pretty binds)
-          $$ keyword_ "in" <-> pretty body
+      in  keyword_ "ubind" <-> vcat (map (pPrintPrec lvl 0) binds)
+          $$ keyword_ "in" <-> pPrintPrec lvl 0 body
     UCreate tpl arg ->
-      prettyAppKeyword prec "create" [tplArg tpl, TmArg arg]
+      prettyAppKeyword lvl prec "create" [tplArg tpl, TmArg arg]
     UExercise tpl choice cid Nothing arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
-      prettyAppKeyword prec "exercise"
+      prettyAppKeyword lvl prec "exercise"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg arg]
     UExercise tpl choice cid (Just actor) arg ->
       -- NOTE(MH): Converting the choice name into a variable is a bit of a hack.
-      prettyAppKeyword prec "exercise_with_actors"
+      prettyAppKeyword lvl prec "exercise_with_actors"
       [tplArg tpl, TmArg (EVar (ExprVarName (unChoiceName choice))), TmArg cid, TmArg actor, TmArg arg]
     UFetch tpl cid ->
-      prettyAppKeyword prec "fetch" [tplArg tpl, TmArg cid]
+      prettyAppKeyword lvl prec "fetch" [tplArg tpl, TmArg cid]
     UGetTime ->
       keyword_ "get_time"
     UEmbedExpr typ e ->
-      prettyAppKeyword prec "uembed_expr" [TyArg typ, TmArg e]
+      prettyAppKeyword lvl prec "uembed_expr" [TyArg typ, TmArg e]
     UFetchByKey RetrieveByKey{..} ->
-      prettyAppKeyword prec "ufetch_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
+      prettyAppKeyword lvl prec "ufetch_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
     ULookupByKey RetrieveByKey{..} ->
-      prettyAppKeyword prec "ulookup_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
+      prettyAppKeyword lvl prec "ulookup_by_key" [tplArg retrieveByKeyTemplate, TmArg retrieveByKeyKey]
 
 instance Pretty Scenario where
-  pPrintPrec _lvl prec = \case
+  pPrintPrec lvl prec = \case
     SPure typ arg ->
-      prettyAppKeyword prec "spure" [TyArg typ, TmArg arg]
+      prettyAppKeyword lvl prec "spure" [TyArg typ, TmArg arg]
     scen@SBind{} -> maybeParens (prec > precEAbs) $
       let (binds, body) = view (rightSpine (_EScenario . _SBind)) (EScenario scen)
-      in  keyword_ "sbind" <-> vcat (map pretty binds)
-          $$ keyword_ "in" <-> pretty body
+      in  keyword_ "sbind" <-> vcat (map (pPrintPrec lvl 0) binds)
+          $$ keyword_ "in" <-> pPrintPrec lvl 0 body
     SCommit typ actor upd ->
-      prettyAppKeyword prec "commit" [TyArg typ, TmArg actor, TmArg upd]
+      prettyAppKeyword lvl prec "commit" [TyArg typ, TmArg actor, TmArg upd]
     SMustFailAt typ actor upd ->
-      prettyAppKeyword prec "must_fail_at" [TyArg typ, TmArg actor, TmArg upd]
+      prettyAppKeyword lvl prec "must_fail_at" [TyArg typ, TmArg actor, TmArg upd]
     SPass delta ->
-      prettyAppKeyword prec "pass" [TmArg delta]
+      prettyAppKeyword lvl prec "pass" [TmArg delta]
     SGetTime ->
       keyword_ "get_time"
     SGetParty name ->
-      prettyAppKeyword prec "get_party" [TmArg name]
+      prettyAppKeyword lvl prec "get_party" [TmArg name]
     SEmbedExpr typ e ->
-      prettyAppKeyword prec "sembed_expr" [TyArg typ, TmArg e]
+      prettyAppKeyword lvl prec "sembed_expr" [TyArg typ, TmArg e]
 
 instance Pretty Expr where
   pPrintPrec lvl prec = \case
@@ -362,129 +362,131 @@ instance Pretty Expr where
       maybeParens (prec > precEApp) $
         sep $
           pretty tcon
-          : map (nest 2 . prettyTyArg) targs
-          ++ [nest 2 (prettyRecord "=" fields)]
+          : map (nest 2 . prettyTyArg lvl) targs
+          ++ [nest 2 (prettyRecord lvl "=" fields)]
     ERecProj (TypeConApp tcon targs) field rec ->
-      prettyAppDoc prec
+      prettyAppDoc lvl prec
         (pretty tcon <> "." <> pretty field)
         (map TyArg targs ++ [TmArg rec])
     ERecUpd (TypeConApp tcon targs) field record update ->
       maybeParens (prec > precEApp) $
         sep $
           pretty tcon
-          : map (nest 2 . prettyTyArg) targs
+          : map (nest 2 . prettyTyArg lvl) targs
           ++ [nest 2 (braces updDoc)]
       where
         updDoc = sep
-          [ pretty record
+          [ pPrintPrec lvl 0 record
           , keyword_ "with"
-          , hang (pretty field <-> "=") 2 (pretty update)
+          , hang (pretty field <-> "=") 2 (pPrintPrec lvl 0 update)
           ]
     EVariantCon (TypeConApp tcon targs) con arg ->
-      prettyAppDoc prec
+      prettyAppDoc lvl prec
         (pretty tcon <> ":" <> pretty con)
         (map TyArg targs ++ [TmArg arg])
     EEnumCon tcon con ->
       pretty tcon <> ":" <> pretty con
     ETupleCon fields ->
-      prettyTuple "=" fields
+      prettyTuple lvl "=" fields
     ETupleProj field expr -> pPrintPrec lvl precHighest expr <> "." <> pretty field
     ETupleUpd field tuple update ->
           "<" <> updDoc <> ">"
       where
         updDoc = sep
-          [ pretty tuple
+          [ pPrintPrec lvl 0 tuple
           , keyword_ "with"
-          , hang (pretty field <-> "=") 2 (pretty update)
+          , hang (pretty field <-> "=") 2 (pPrintPrec lvl 0 update)
           ]
-    e@ETmApp{} -> uncurry (prettyApp prec) (e ^. _EApps)
-    e@ETyApp{} -> uncurry (prettyApp prec) (e ^. _EApps)
+    e@ETmApp{} -> uncurry (prettyApp lvl prec) (e ^. _EApps)
+    e@ETyApp{} -> uncurry (prettyApp lvl prec) (e ^. _EApps)
     e0@ETmLam{} -> maybeParens (prec > precEAbs) $
       let (bs, e1) = view (rightSpine (unlocate _ETmLam)) e0
-      in  hang (prettyLambda <> hsep (map (parens . prettyAndType) bs) <> prettyLambdaDot)
-            2 (pretty e1)
+      in  hang (prettyLambda <> hsep (map (parens . prettyAndType lvl) bs) <> prettyLambdaDot)
+            2 (pPrintPrec lvl 0 e1)
     e0@ETyLam{} -> maybeParens (prec > precEAbs) $
       let (ts, e1) = view (rightSpine (unlocate _ETyLam)) e0
-      in  hang (prettyTyLambda <> hsep (map prettyAndKind ts) <> prettyTyLambdaDot)
-            2 (pretty e1)
+      in  hang (prettyTyLambda <> hsep (map (prettyAndKind lvl) ts) <> prettyTyLambdaDot)
+            2 (pPrintPrec lvl 0 e1)
     ECase scrut alts -> maybeParens (prec > precEApp) $
-      keyword_ "case" <-> pretty scrut <-> keyword_ "of"
-      $$ nest 2 (vcat (map pretty alts))
+      keyword_ "case" <-> pPrintPrec lvl 0 scrut <-> keyword_ "of"
+      $$ nest 2 (vcat (map (pPrintPrec lvl 0) alts))
     e0@ELet{} -> maybeParens (prec > precEAbs) $
       let (binds, e1) = view (rightSpine (unlocate _ELet)) e0
-      in  keyword_ "let" <-> vcat (map pretty binds)
-          $$ keyword_ "in" <-> pretty e1
+      in  keyword_ "let" <-> vcat (map (pPrintPrec lvl 0) binds)
+          $$ keyword_ "in" <-> pPrintPrec lvl 0 e1
     ENil elemType ->
-      prettyAppKeyword prec "nil" [TyArg elemType]
+      prettyAppKeyword lvl prec "nil" [TyArg elemType]
     ECons elemType headExpr tailExpr ->
-      prettyAppKeyword prec "cons" [TyArg elemType, TmArg headExpr, TmArg tailExpr]
+      prettyAppKeyword lvl prec "cons" [TyArg elemType, TmArg headExpr, TmArg tailExpr]
     EUpdate upd -> pPrintPrec lvl prec upd
     EScenario scen -> pPrintPrec lvl prec scen
-    ELocation _ x -> pPrintPrec lvl prec x
-    ESome typ body -> prettyAppKeyword prec "some" [TyArg typ, TmArg body]
-    ENone typ -> prettyAppKeyword prec "none" [TyArg typ]
+    ELocation loc x
+        | lvl >= PrettyLevel 1 -> sep ["@location" <> parens (pretty loc), nest 2 (parens (pPrintPrec lvl 0 x))]
+        | otherwise -> pPrintPrec lvl prec x
+    ESome typ body -> prettyAppKeyword lvl prec "some" [TyArg typ, TmArg body]
+    ENone typ -> prettyAppKeyword lvl prec "none" [TyArg typ]
 
 instance Pretty DefDataType where
-  pPrint (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =
+  pPrintPrec lvl _prec (DefDataType mbLoc tcon (IsSerializable serializable) params dataCons) =
     withSourceLoc mbLoc $ case dataCons of
     DataRecord fields ->
-      hang (keyword_ "record" <-> lhsDoc) 2 (prettyRecord prettyHasType fields)
+      hang (keyword_ "record" <-> lhsDoc) 2 (prettyRecord lvl prettyHasType fields)
     DataVariant variants ->
       (keyword_ "variant" <-> lhsDoc) $$ nest 2 (vcat (map prettyVariantCon variants))
     DataEnum enums ->
       (keyword_ "enum" <-> lhsDoc) $$ nest 2 (vcat (map prettyEnumCon enums))
     where
       lhsDoc =
-        serializableDoc <-> pretty tcon <-> hsep (map prettyAndKind params) <-> "="
+        serializableDoc <-> pretty tcon <-> hsep (map (prettyAndKind lvl) params) <-> "="
       serializableDoc = if serializable then "@serializable" else empty
       prettyVariantCon (name, typ) =
         "|" <-> pretty name <-> pPrintPrec prettyNormal precHighest typ
       prettyEnumCon name = "|" <-> pretty name
 
 instance Pretty DefValue where
-  pPrint (DefValue mbLoc binder (HasNoPartyLiterals noParties) (IsTest isTest) body) =
+  pPrintPrec lvl _prec (DefValue mbLoc binder (HasNoPartyLiterals noParties) (IsTest isTest) body) =
     withSourceLoc mbLoc $
     vcat
-      [ hang (keyword_ kind <-> annot <-> prettyAndType binder <-> "=") 2 (pretty body) ]
+      [ hang (keyword_ kind <-> annot <-> prettyAndType lvl binder <-> "=") 2 (pPrintPrec lvl 0 body) ]
     where
       kind = if isTest then "test" else "def"
       annot = if noParties then empty else "@partyliterals"
 
 prettyTemplateChoice ::
-  ModuleName -> TypeConName -> TemplateChoice -> Doc ann
-prettyTemplateChoice modName tpl (TemplateChoice mbLoc name isConsuming actor selfBinder argBinder retType update) =
+  PrettyLevel -> ModuleName -> TypeConName -> TemplateChoice -> Doc ann
+prettyTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming actor selfBinder argBinder retType update) =
   withSourceLoc mbLoc $
     vcat
     [ hsep
       [ keyword_ "choice"
       , keyword_ (if isConsuming then "consuming" else "non-consuming")
       , pretty name
-      , parens (prettyAndType (selfBinder, TContractId (TCon (Qualified PRSelf modName tpl))))
-      , parens (prettyAndType argBinder), prettyHasType, pretty retType
+      , parens (prettyAndType lvl (selfBinder, TContractId (TCon (Qualified PRSelf modName tpl))))
+      , parens (prettyAndType lvl argBinder), prettyHasType, pPrintPrec lvl 0 retType
       ]
-    , nest 2 (keyword_ "by" <-> pretty actor)
-    , nest 2 (keyword_ "to" <-> pretty update)
+    , nest 2 (keyword_ "by" <-> pPrintPrec lvl 0 actor)
+    , nest 2 (keyword_ "to" <-> pPrintPrec lvl 0 update)
     ]
 
 prettyTemplate ::
-  ModuleName -> Template -> Doc ann
-prettyTemplate modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey) =
+  PrettyLevel -> ModuleName -> Template -> Doc ann
+prettyTemplate lvl modName (Template mbLoc tpl param precond signatories observers agreement choices mbKey) =
   withSourceLoc mbLoc $
     keyword_ "template" <-> pretty tpl <-> pretty param
     <-> keyword_ "where"
     $$ nest 2 (vcat ([signatoriesDoc, observersDoc, precondDoc, agreementDoc, choicesDoc] ++ mbKeyDoc))
     where
-      signatoriesDoc = keyword_ "signatory" <-> pretty signatories
-      observersDoc = keyword_ "observer" <-> pretty observers
-      precondDoc = keyword_ "ensure" <-> pretty precond
-      agreementDoc = hang (keyword_ "agreement") 2 (pretty agreement)
-      choicesDoc = vcat (map (prettyTemplateChoice modName tpl) (NM.toList choices))
+      signatoriesDoc = keyword_ "signatory" <-> pPrintPrec lvl 0 signatories
+      observersDoc = keyword_ "observer" <-> pPrintPrec lvl 0 observers
+      precondDoc = keyword_ "ensure" <-> pPrintPrec lvl 0 precond
+      agreementDoc = hang (keyword_ "agreement") 2 (pPrintPrec lvl 0 agreement)
+      choicesDoc = vcat (map (prettyTemplateChoice lvl modName tpl) (NM.toList choices))
       mbKeyDoc = toList $ do
         key <- mbKey
         return $ vcat
-          [ keyword_ "key" <-> pretty (tplKeyType key)
-          , nest 2 (keyword_ "body" <-> pretty (tplKeyBody key))
-          , nest 2 (keyword_ "maintainers" <-> pretty (tplKeyMaintainers key))
+          [ keyword_ "key" <-> pPrintPrec lvl 0 (tplKeyType key)
+          , nest 2 (keyword_ "body" <-> pPrintPrec lvl 0 (tplKeyBody key))
+          , nest 2 (keyword_ "maintainers" <-> pPrintPrec lvl 0 (tplKeyMaintainers key))
           ]
 
 prettyFeatureFlags :: FeatureFlags -> Doc ann
@@ -500,13 +502,13 @@ prettyFeatureFlags
       | otherwise = Nothing
 
 instance Pretty Module where
-  pPrint (Module modName _path flags dataTypes values templates) =
+  pPrintPrec lvl _prec (Module modName _path flags dataTypes values templates) =
     vsep $ moduleHeader ++  map (nest 2) defns
     where
       defns = concat
-        [ map pretty (NM.toList dataTypes)
-        , map pretty (NM.toList values)
-        , map (prettyTemplate modName) (NM.toList templates)
+        [ map (pPrintPrec lvl 0) (NM.toList dataTypes)
+        , map (pPrintPrec lvl 0) (NM.toList values)
+        , map (prettyTemplate lvl modName) (NM.toList templates)
         ]
       prettyFlags = prettyFeatureFlags flags
       moduleHeader
@@ -514,8 +516,8 @@ instance Pretty Module where
         | otherwise = [prettyFlags, keyword_ "module" <-> pretty modName <-> keyword_ "where"]
 
 instance Pretty Package where
-  pPrint (Package version modules) =
+  pPrintPrec lvl _prec (Package version modules) =
     vcat
-      [ "daml-lf" <-> pretty version
-      , vsep $ map pretty (NM.toList modules)
+      [ "daml-lf" <-> pPrintPrec lvl 0 version
+      , vsep $ map (pPrintPrec lvl 0) (NM.toList modules)
       ]

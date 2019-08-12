@@ -158,7 +158,10 @@ cmdInspect =
     <> fullDesc
   where
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
-    cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt
+    detailOpt =
+        fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
+            optional $ option auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
+    cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt <*> detailOpt
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
@@ -548,8 +551,8 @@ execPackage projectOpts filePath opts mbOutFile dalfInput = withProjectRoot' pro
 
     targetFilePath = fromMaybe defaultDarFile mbOutFile
 
-execInspect :: FilePath -> FilePath -> Bool -> Command
-execInspect inFile outFile jsonOutput = do
+execInspect :: FilePath -> FilePath -> Bool -> DA.Pretty.PrettyLevel -> Command
+execInspect inFile outFile jsonOutput lvl = do
     bytes <- B.readFile inFile
     if jsonOutput
     then do
@@ -563,7 +566,7 @@ execInspect inFile outFile jsonOutput = do
       writeOutput outFile $ render Plain $
         DA.Pretty.vsep
           [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId) DA.Pretty.<-> DA.Pretty.keyword_ "where"
-          , DA.Pretty.nest 2 (DA.Pretty.pretty lfPkg)
+          , DA.Pretty.nest 2 (DA.Pretty.pPrintPrec lvl 0 lfPkg)
           ]
 
 errorOnLeft :: Show a => String -> Either a b -> IO b
