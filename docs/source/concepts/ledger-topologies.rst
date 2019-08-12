@@ -61,7 +61,7 @@ The first three problems can be solved as follows:
 
 - availability by replication
 
-- trust for integrity by introducing multiple trust domains and distributing trust using Byzantine fault tolerant replication.
+- trust for integrity by introducing multiple trust domains and distributing trust using Byzantine fault tolerant replication, or by maintaining one trust domain but using Trusted Execution Environments or other cryptographic means to enforce or audit ledger integrity without having to trust the operating entity.
 
 The remainder of the section discuses these solutions and their implementations in the different DAML Ledgers.
 As for the remaining problems, the privacy problem is difficult to solve in a centralized topology.
@@ -123,11 +123,11 @@ In these situations, the system typically consists of two types of nodes:
 
 .. _participant-node-def:
 
-2. **Participant nodes**, which serve the ledger API to a subset of the system parties, which we say are hosted by this participant.
+2. **Participant nodes**, (also called Client nodes in some platforms) which serve the ledger API to a subset of the system parties, which we say are hosted by this participant.
    A participant node proposes new commits on behalf of the parties it hosts, and holds a portion of the ledger that is relevant for those parties (i.e., the parties' :ref:`ledger projection <da-model-projections>`).
    The term "participant node" is sometimes also used more generally, for any physical node serving the Ledger API to a party.
 
-The participant nodes need not be trusted by the other nodes, or by the committer; the participants can be operated by mutually distrusting entities, i.e., belong to different trust domains.
+The participant nodes need not be trusted by the other nodes, or by the committer(s); the participants can be operated by mutually distrusting entities, i.e., belong to different trust domains.
 In general, the participant nodes do not necessarily even need to know each other.
 However, they have to be known to and accepted by the committer nodes.
 The central committer nodes are jointly trusted with ensuring the ledger's integrity.
