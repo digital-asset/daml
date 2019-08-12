@@ -23,20 +23,22 @@ This document:
 2. Describes the general ledger properties of each category.
 
 
-.. _centralized-topologies:
+.. _global-state-topologies:
 
-Centralized Topologies
-**********************
+Global State Topologies
+***********************
+
+.. _trust-domain:
 
 We call a system operated by a single real-world entity a **trust domain**.
-In centralized topologies, there exists at least one trust domain (and possibly more) whose systems contain a physical copy of the entire virtual shared ledger that is accessible through the API.
+In global state topologies, there exists at least one trust domain (and possibly more) whose systems contain a physical copy of the entire virtual shared ledger that is accessible through the API.
 
 .. _fully-centralized-ledger:
 
 The Fully Centralized Ledger
 ============================
 
-The simplest topology is the one where the virtual shared ledger is implemented through a single machine containing a physical copy of the shared ledger.
+The simplest global state topology is the one where the virtual shared ledger is implemented through a single machine containing a physical copy of the shared ledger.
 
 .. image:: ./images/ledger-topologies/physical-shared-ledger.svg
    :width: 80%
@@ -55,17 +57,18 @@ While simple, this topology has certain downsides:
 
 - it provides no built-in way to interoperate (transactionally share data) across several deployed ledgers; each deployment defines its own segregated virtual shared ledger.
 
-The first three problems can be solved as follows:
+The first four problems can be solved or mitigated as follows:
 
 - scaling by splitting the system up into separate functional components and parallelizing execution
 
 - availability by replication
 
-- trust for integrity by introducing multiple trust domains and distributing trust using Byzantine fault tolerant replication, or by maintaining one trust domain but using Trusted Execution Environments or other cryptographic means to enforce or audit ledger integrity without having to trust the operating entity.
+- trust for integrity by introducing multiple trust domains and distributing trust using Byzantine fault tolerant replication, or by maintaining one trust domain but using hardware-based Trusted Execution Environments (TEEs) or other cryptographic means to enforce or audit ledger integrity without having to trust the operating entity.
+
+- trust for privacy through TEEs that restrict data access by hardware means.
 
 The remainder of the section discuses these solutions and their implementations in the different DAML Ledgers.
-As for the remaining problems, the privacy problem is difficult to solve in a centralized topology.
-The last problem, interoperability, is inherent when the two deployments are operated by different trust domains: by definition, a topology in which no single trust domain would hold the entire ledger is not centralized.
+The last problem, interoperability, is inherent when the two deployments are operated by different trust domains: by definition, a topology in which no single trust domain would hold the entire ledger is not a global state topology.
 
 .. _scaling-daml-ledgers:
 
@@ -130,23 +133,36 @@ In these situations, the system typically consists of two types of nodes:
 The participant nodes need not be trusted by the other nodes, or by the committer(s); the participants can be operated by mutually distrusting entities, i.e., belong to different trust domains.
 In general, the participant nodes do not necessarily even need to know each other.
 However, they have to be known to and accepted by the committer nodes.
-The central committer nodes are jointly trusted with ensuring the ledger's integrity.
+The committer nodes are jointly trusted with ensuring the ledger's integrity.
 To distribute the trust, the committers nodes must implement a Byzantine fault tolerant replication mechanism.
 For example, the mechanism can ensure that the system preserves integrity even if up to a third of the committer nodes (e.g., 2 out of 7) misbehave in arbitrary ways.
 The resulting topology is visualized below.
+
+.. _replicated-committer-topology:
 
 .. image:: ./images/ledger-topologies/replicated-committer-topology.svg
    :align: center
 
 DAML on `VMware Concord <https://blogs.vmware.com/blockchain>`__ and DAML on `Hyperledger Sawtooth <https://sawtooth.hyperledger.org/>`__ are examples of such a replicated setup.
 
-.. _decentralized-ledger-topology:
+Trusted Execution Environments
+==============================
 
-Decentralized Ledger Topologies
-*******************************
+Integrity and privacy can also be protected using hardware Trusted Execution Environments (TEEs), such as Intel SGX.
+The software implementing the ledger can then be deployed inside of TEE "enclaves", which are code blocks that the processor isolates and protects from the rest of the software stack (even the operating system).
+The hardware ensures that the enclave data never leaves the processor unencrypted, offering privacy.
+Furthermore, hardware-based attestation can guarantee that the operating entities process data using the prescribed code only, guaranteeing integrity.
+The hardware is designed in such a way as to make any potential physical attacks by the operating entity extremely expensive.
+This moves the trust necessary to achieve these properties from the operators of the trust domains that maintain the global state to the hardware manufacturer, who is anyway trusted with correctly producing the hardware.
+Recent security research has, however, found scenarios where the TEE protection mechanisms can be compromised.
+
+.. _partitioned-topologies:
+
+Partitioned Ledger Topologies
+*****************************
 
 In these topologies, the ledger is implemented as a distributed system.
-Unlike the centralized topologies, no single trust domain holds a physical copy of the entire shared ledger.
+Unlike the global state topologies, no single trust domain holds a physical copy of the entire shared ledger.
 Instead, the participant nodes hold just the part of the ledger (i.e., the :ref:`ledger projection <da-model-projections>`) that is relevant to the parties to whom they serve the Ledger API.
 The participants jointly extend the ledger by running a distributed commit protocol.
 
@@ -154,7 +170,7 @@ The participants jointly extend the ledger by running a distributed commit proto
    :align: center
 
 The implementations might still rely on trusted third parties to facilitate the commit protocol.
-The required trust in terms of privacy and integrity, however, can be significantly lowered compared to the previous topologies.
+The required trust in terms of privacy and integrity, however, can generally be lower than in global state topologies.
 Moreover, unlike the previous topologies, the implementations can provide interoperability across trusted parties.
 The exact trust assumptions and the degree of supported interoperability are implementation-dependent.
 `Canton <http://canton.io>`__ and DAML on `R3 Corda <https://www.corda.net>`__ are two such implementations.
