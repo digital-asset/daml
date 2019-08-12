@@ -34,7 +34,7 @@ import scala.math.BigDecimal
   */
 abstract class ApiCodecCompressed[Cid](
     val encodeDecimalAsString: Boolean,
-    val encodeInt64AsString: Boolean) {
+    val encodeInt64AsString: Boolean) { self =>
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -45,8 +45,9 @@ abstract class ApiCodecCompressed[Cid](
     case v: V.ValueEnum => apiEnumToJsValue(v)
     case v: V.ValueList[Cid] => apiListToJsValue(v)
     case V.ValueText(v) => JsString(v)
-    case V.ValueInt64(v) => JsString((v: Long).toString)
-    case V.ValueDecimal(v) => JsString(v.decimalToString)
+    case V.ValueInt64(v) => if (encodeInt64AsString) JsString((v: Long).toString) else JsNumber(v)
+    case V.ValueDecimal(v) =>
+      if (encodeDecimalAsString) JsString(v.decimalToString) else JsNumber(v)
     case V.ValueBool(v) => JsBoolean(v)
     case V.ValueContractId(v) => apiContractIdToJsValue(v)
     case t: V.ValueTimestamp => JsString(t.toIso8601)
@@ -287,6 +288,19 @@ abstract class ApiCodecCompressed[Cid](
 
   private[this] def assertDE[A](ea: Either[String, A]): A =
     ea fold (deserializationError(_), identity)
+
+  private[json] def copy(
+      encodeDecimalAsString: Boolean = this.encodeDecimalAsString,
+      encodeInt64AsString: Boolean = this.encodeInt64AsString): ApiCodecCompressed[Cid] =
+    new ApiCodecCompressed[Cid](
+      encodeDecimalAsString = encodeDecimalAsString,
+      encodeInt64AsString = encodeInt64AsString) {
+      override protected[this] def apiContractIdToJsValue(v: Cid): JsValue =
+        self.apiContractIdToJsValue(v)
+
+      override protected[this] def jsValueToApiContractId(value: JsValue): Cid =
+        self.jsValueToApiContractId(value)
+    }
 
 }
 
