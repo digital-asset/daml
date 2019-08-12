@@ -228,6 +228,7 @@ emptyDocs name =
         md_adts = []
         md_functions = []
         md_classes = []
+        md_instances = []
     in ModuleDoc {..}
 
 -- | Compiles the given input string (in a tmp file) and checks generated doc.s

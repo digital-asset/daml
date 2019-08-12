@@ -29,30 +29,30 @@ mkTestTree = do
 
 cases :: [(String, ModuleDoc)]
 cases = [ ("Empty module",
-           ModuleDoc Nothing "Empty" Nothing [] [] [] [] [])
+           ModuleDoc Nothing "Empty" Nothing [] [] [] [] [] [])
         , ("Type def with argument",
            ModuleDoc (Just "module-typedef") "Typedef" Nothing [] []
             [TypeSynDoc (Just "type-typedef-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [TypeApp Nothing "TTT" []])]
-            [] []
+            [] [] []
           )
         , ("Two types",
            ModuleDoc (Just "module-twotypes") "TwoTypes" Nothing [] []
             [ TypeSynDoc (Just "type-twotypes-t") "T" (Just "T descr") ["a"] (TypeApp Nothing "TT" [])
             , ADTDoc (Just "data-twotypes-d") "D" Nothing ["d"] [PrefixC (Just "constr-twotypes-d") "D" (Just "D descr") [TypeApp Nothing "a" []]]
             ]
-            [] []
+            [] [] []
           )
         , ("Documented function",
            ModuleDoc (Just "module-function1") "Function1" Nothing [] [] []
-            [FunctionDoc (Just "function-function1-f") "f" Nothing (TypeApp Nothing "TheType" []) (Just "the doc")] []
+            [FunctionDoc (Just "function-function1-f") "f" Nothing (TypeApp Nothing "TheType" []) (Just "the doc")] [] []
           )
         , ("Undocumented function",
            ModuleDoc (Just "module-function3") "Function3" Nothing [] [] []
-            [FunctionDoc (Just "function-function3-f") "f" Nothing (TypeApp Nothing "TheType" []) Nothing] []
+            [FunctionDoc (Just "function-function3-f") "f" Nothing (TypeApp Nothing "TheType" []) Nothing] [] []
           )
         , ("Module with only a type class",
            ModuleDoc (Just "module-onlyclass") "OnlyClass" Nothing [] [] [] []
-            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (TypeApp Nothing "a" []) Nothing]])
+            [ClassDoc (Just "class-onlyclass-c") "C" Nothing Nothing ["a"] [FunctionDoc (Just "function-onlyclass-member") "member" Nothing (TypeApp Nothing "a" []) Nothing]] [])
         , ("Multiline field description",
            ModuleDoc
              (Just "module-multilinefield")
@@ -68,6 +68,7 @@ cases = [ ("Empty module",
                 [RecordC (Just "constr-multilinefield-d") "D" Nothing [FieldDoc (Just "function-multilinefield-f") "f" (TypeApp Nothing "T" []) (Just "This is a multiline\nfield description")]]]
              []
              []
+             []
           )
         , ("Functions with context",
            ModuleDoc
@@ -77,7 +78,7 @@ cases = [ ("Empty module",
                 (Just $ TypeTuple [TypeApp Nothing "Eq" [TypeApp Nothing "t" []]])
                 (TypeFun [TypeApp Nothing "t" [], TypeApp Nothing "Bool" []])
                 (Just "function with context")
-            ] []
+            ] [] []
           )
         ]
 

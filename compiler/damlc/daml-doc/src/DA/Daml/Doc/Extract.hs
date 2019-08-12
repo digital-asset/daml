@@ -105,6 +105,7 @@ extractDocs extractOpts ideOpts fp = do
             md_descr = modDoc dc_tcmod
             md_templates = getTemplateDocs ctx typeMap templateInstanceClassMap
             md_functions = mapMaybe (getFctDocs ctx Nothing) dc_decls
+            md_instances = []
 
             filteredAdts -- all ADT docs without templates or choices
                 = MS.elems . MS.withoutKeys typeMap . Set.unions
