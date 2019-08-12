@@ -168,6 +168,7 @@ private[digitalasset] object VersionTimeline {
 
   def checkSubmitterInMaintainers(lfVers: LanguageVersion): Boolean = {
     import Implicits._
-    !(lfVers precedes LanguageVersion.checkSubmitterInMaintainers)
+    !(lfVers precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion)
   }
+
 }

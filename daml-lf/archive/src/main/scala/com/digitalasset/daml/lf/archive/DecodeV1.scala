@@ -9,21 +9,20 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Decimal, ImmArray, Time}
 import ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
 import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageVersion => LV}
+import LV.Features._
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
-
 import com.google.protobuf.CodedInputStream
 
 import scala.collection.JavaConverters._
 import scala.collection.{breakOut, mutable}
 
-private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPackage[PLF.Package] {
+private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Package] {
 
-  import Decode._, DecodeV1._, LanguageMinorVersion.Implicits._
+  import Decode._, DecodeV1._
 
-  private val languageVersion = LanguageVersion(V1, minor)
+  private val languageVersion = LV(LV.Major.V1, minor)
 
   private def name(s: String): Name = eitherToParseError(Name.fromString(s))
 
@@ -120,7 +119,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
         throw new ParseError("Deprecated feature flag settings detected, refusing to parse package")
       }
       FeatureFlags(
-        forbidPartyLiterals = flags.getForbidPartyLiterals,
+        forbidPartyLiterals = flags.getForbidPartyLiterals
       )
     }
 
@@ -182,12 +181,12 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
     private[this] def decodeTemplateKey(
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName): TemplateKey = {
-      assertSince("3", "DefTemplate.DefKey")
+      assertSince(LV.v1_3, "DefTemplate.DefKey")
       val keyExpr = key.getKeyExprCase match {
         case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
           decodeKeyExpr(key.getKey, tplVar)
         case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
-          assertSince("4", "DefTemplate.DefKey.complex_key")
+          assertSince(LV.v1_4, "DefTemplate.DefKey.complex_key")
           decodeExpr(key.getComplexKey)
         }
         case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
@@ -280,7 +279,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
           (TBuiltin(tPrim) /: [Type] prim.getArgsList.asScala)((typ, arg) =>
             TApp(typ, decodeType(arg)))
         case PLF.Type.SumCase.FUN =>
-          assertUntil("0", "Type.Fun")
+          assertUntil(LV.v1_0, "Type.Fun")
           val tFun = lfType.getFun
           val params = tFun.getParamsList.asScala
           assertNonEmpty(params, "params")
@@ -497,11 +496,11 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
           EScenario(decodeScenario(lfExpr.getScenario))
 
         case PLF.Expr.SumCase.OPTIONAL_NONE =>
-          assertSince("1", "Expr.OptionalNone")
+          assertSince(optionalVersion, "Expr.OptionalNone")
           ENone(decodeType(lfExpr.getOptionalNone.getType))
 
         case PLF.Expr.SumCase.OPTIONAL_SOME =>
-          assertSince("1", "Expr.OptionalSome")
+          assertSince(optionalVersion, "Expr.OptionalSome")
           val some = lfExpr.getOptionalSome
           ESome(decodeType(some.getType), decodeExpr(some.getBody))
 
@@ -532,11 +531,11 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
           CPCons(name(cons.getVarHead), name(cons.getVarTail))
 
         case PLF.CaseAlt.SumCase.OPTIONAL_NONE =>
-          assertSince("1", "CaseAlt.OptionalNone")
+          assertSince(optionalVersion, "CaseAlt.OptionalNone")
           CPNone
 
         case PLF.CaseAlt.SumCase.OPTIONAL_SOME =>
-          assertSince("1", "CaseAlt.OptionalSome")
+          assertSince(optionalVersion, "CaseAlt.OptionalSome")
           CPSome(name(lfCaseAlt.getOptionalSome.getVarBody))
 
         case PLF.CaseAlt.SumCase.SUM_NOT_SET =>
@@ -581,7 +580,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
               if (exercise.hasActor)
                 Some(decodeExpr(exercise.getActor))
               else {
-                assertSince("5", "Update.Exercise.actors optional")
+                assertSince(LV.v1_5, "Update.Exercise.actors optional")
                 None
               },
             argE = decodeExpr(exercise.getArg)
@@ -597,11 +596,11 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
             contractId = decodeExpr(fetch.getCid))
 
         case PLF.Update.SumCase.FETCH_BY_KEY =>
-          assertSince("2", "fetchByKey")
+          assertSince(LV.v1_2, "fetchByKey")
           UpdateFetchByKey(decodeRetrieveByKey(lfUpdate.getFetchByKey))
 
         case PLF.Update.SumCase.LOOKUP_BY_KEY =>
-          assertSince("2", "lookupByKey")
+          assertSince(LV.v1_2, "lookupByKey")
           UpdateLookupByKey(decodeRetrieveByKey(lfUpdate.getLookupByKey))
 
         case PLF.Update.SumCase.EMBED_EXPR =>
@@ -635,7 +634,7 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
         case PLF.Scenario.SumCase.BLOCK =>
           val block = lfScenario.getBlock
           ScenarioBlock(
-            bindings = ImmArray(block.getBindingsList.asScala).map(decodeBinding(_)),
+            bindings = ImmArray(block.getBindingsList.asScala).map(decodeBinding),
             body = decodeExpr(block.getBody))
 
         case PLF.Scenario.SumCase.GET_TIME =>
@@ -704,12 +703,12 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
       }
   }
 
-  private def assertUntil(maxMinorVersion: LanguageMinorVersion, description: String): Unit =
-    if (V1.minorVersionOrdering.gt(minor, maxMinorVersion))
+  private def assertUntil(maxVersion: LV, description: String): Unit =
+    if (LV.ordering.gt(languageVersion, maxVersion))
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
-  private def assertSince(minMinorVersion: LanguageMinorVersion, description: String): Unit =
-    if (V1.minorVersionOrdering.lt(minor, minMinorVersion))
+  private def assertSince(minVersion: LV, description: String): Unit =
+    if (LV.ordering.lt(languageVersion, minVersion))
       throw ParseError(s"$description is not supported by DAML-LF 1.$minor")
 
   private def assertNonEmpty(s: Seq[_], description: String): Unit =
@@ -721,114 +720,109 @@ private[archive] class DecodeV1(minor: LanguageMinorVersion) extends Decode.OfPa
 }
 
 private[lf] object DecodeV1 {
-  import LanguageMinorVersion.Implicits._
 
-  private[archive] val enumVersion: LanguageMinorVersion = "6"
-  private val internedIdsVersion: LanguageMinorVersion = "6"
-
-  val primTypeTable: Map[PLF.PrimType, (BuiltinType, LanguageMinorVersion)] = {
-    import PLF.PrimType._
-
+  val primTypeTable: Map[PLF.PrimType, (BuiltinType, LV)] = {
+    import PLF.PrimType._, LV._
     Map(
-      UNIT -> (BTUnit -> "0"),
-      BOOL -> (BTBool -> "0"),
-      TEXT -> (BTText -> "0"),
-      INT64 -> (BTInt64 -> "0"),
-      NUMERIC -> (BTDecimal -> "0"),
-      TIMESTAMP -> (BTTimestamp -> "0"),
-      PARTY -> (BTParty -> "0"),
-      LIST -> (BTList -> "0"),
-      UPDATE -> (BTUpdate -> "0"),
-      SCENARIO -> (BTScenario -> "0"),
-      CONTRACT_ID -> (BTContractId -> "0"),
-      DATE -> (BTDate -> "0"),
-      OPTIONAL -> (BTOptional -> "1"),
-      MAP -> (BTMap -> "3"),
-      ARROW -> (BTArrow -> "1"),
+      UNIT -> (BTUnit -> v1_0),
+      BOOL -> (BTBool -> v1_0),
+      TEXT -> (BTText -> v1_0),
+      INT64 -> (BTInt64 -> v1_0),
+      NUMERIC -> (BTDecimal -> v1_0),
+      TIMESTAMP -> (BTTimestamp -> v1_0),
+      PARTY -> (BTParty -> v1_0),
+      LIST -> (BTList -> v1_0),
+      UPDATE -> (BTUpdate -> v1_0),
+      SCENARIO -> (BTScenario -> v1_0),
+      CONTRACT_ID -> (BTContractId -> v1_0),
+      DATE -> (BTDate -> v1_0),
+      OPTIONAL -> (BTOptional -> optionalVersion),
+      MAP -> (BTMap -> mapVersion),
+      ARROW -> (BTArrow -> v1_1),
     )
   }
 
   val builtinFunctionMap = {
-    import PLF.BuiltinFunction._
+    import PLF.BuiltinFunction._, LV._
 
-    Map[PLF.BuiltinFunction, (Ast.BuiltinFunction, LanguageMinorVersion)](
-      ADD_NUMERIC -> (BAddDecimal -> "0"),
-      SUB_NUMERIC -> (BSubDecimal -> "0"),
-      MUL_NUMERIC -> (BMulDecimal -> "0"),
-      DIV_NUMERIC -> (BDivDecimal -> "0"),
-      ROUND_NUMERIC -> (BRoundDecimal -> "0"),
-      ADD_INT64 -> (BAddInt64 -> "0"),
-      SUB_INT64 -> (BSubInt64 -> "0"),
-      MUL_INT64 -> (BMulInt64 -> "0"),
-      DIV_INT64 -> (BDivInt64 -> "0"),
-      MOD_INT64 -> (BModInt64 -> "0"),
-      EXP_INT64 -> (BExpInt64 -> "0"),
-      INT64_TO_NUMERIC -> (BInt64ToDecimal -> "0"),
-      NUMERIC_TO_INT64 -> (BDecimalToInt64 -> "0"),
-      FOLDL -> (BFoldl -> "0"),
-      FOLDR -> (BFoldr -> "0"),
-      MAP_EMPTY -> (BMapEmpty -> "3"),
-      MAP_INSERT -> (BMapInsert -> "3"),
-      MAP_LOOKUP -> (BMapLookup -> "3"),
-      MAP_DELETE -> (BMapDelete -> "3"),
-      MAP_TO_LIST -> (BMapToList -> "3"),
-      MAP_SIZE -> (BMapSize -> "3"),
-      APPEND_TEXT -> (BAppendText -> "0"),
-      ERROR -> (BError -> "0"),
-      LEQ_INT64 -> (BLessEqInt64 -> "0"),
-      LEQ_NUMERIC -> (BLessEqDecimal -> "0"),
-      LEQ_TEXT -> (BLessEqText -> "0"),
-      LEQ_TIMESTAMP -> (BLessEqTimestamp -> "0"),
-      LEQ_PARTY -> (BLessEqParty -> "1"),
-      GEQ_INT64 -> (BGreaterEqInt64 -> "0"),
-      GEQ_NUMERIC -> (BGreaterEqDecimal -> "0"),
-      GEQ_TEXT -> (BGreaterEqText -> "0"),
-      GEQ_TIMESTAMP -> (BGreaterEqTimestamp -> "0"),
-      GEQ_PARTY -> (BGreaterEqParty -> "1"),
-      LESS_INT64 -> (BLessInt64 -> "0"),
-      LESS_NUMERIC -> (BLessDecimal -> "0"),
-      LESS_TEXT -> (BLessText -> "0"),
-      LESS_TIMESTAMP -> (BLessTimestamp -> "0"),
-      LESS_PARTY -> (BLessParty -> "1"),
-      GREATER_INT64 -> (BGreaterInt64 -> "0"),
-      GREATER_NUMERIC -> (BGreaterDecimal -> "0"),
-      GREATER_TEXT -> (BGreaterText -> "0"),
-      GREATER_TIMESTAMP -> (BGreaterTimestamp -> "0"),
-      GREATER_PARTY -> (BGreaterParty -> "1"),
-      TO_TEXT_INT64 -> (BToTextInt64 -> "0"),
-      TO_TEXT_NUMERIC -> (BToTextDecimal -> "0"),
-      TO_TEXT_TIMESTAMP -> (BToTextTimestamp -> "0"),
-      TO_TEXT_PARTY -> (BToTextParty -> "2"),
-      TO_TEXT_TEXT -> (BToTextText -> "0"),
-      TO_QUOTED_TEXT_PARTY -> (BToQuotedTextParty -> "0"),
-      TEXT_FROM_CODE_POINTS -> (BToTextCodePoints -> "6"),
-      FROM_TEXT_PARTY -> (BFromTextParty -> "2"),
-      FROM_TEXT_INT64 -> (BFromTextInt64 -> "5"),
-      FROM_TEXT_NUMERIC -> (BFromTextDecimal -> "5"),
-      TEXT_TO_CODE_POINTS -> (BFromTextCodePoints -> "6"),
-      SHA256_TEXT -> (BSHA256Text -> "2"),
-      DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> "0"),
-      EXPLODE_TEXT -> (BExplodeText -> "0"),
-      IMPLODE_TEXT -> (BImplodeText -> "0"),
-      GEQ_DATE -> (BGreaterEqDate -> "0"),
-      LEQ_DATE -> (BLessEqDate -> "0"),
-      LESS_DATE -> (BLessDate -> "0"),
-      TIMESTAMP_TO_UNIX_MICROSECONDS -> (BTimestampToUnixMicroseconds -> "0"),
-      TO_TEXT_DATE -> (BToTextDate -> "0"),
-      UNIX_DAYS_TO_DATE -> (BUnixDaysToDate -> "0"),
-      UNIX_MICROSECONDS_TO_TIMESTAMP -> (BUnixMicrosecondsToTimestamp -> "0"),
-      GREATER_DATE -> (BGreaterDate -> "0"),
-      EQUAL_INT64 -> (BEqualInt64 -> "0"),
-      EQUAL_NUMERIC -> (BEqualDecimal -> "0"),
-      EQUAL_TEXT -> (BEqualText -> "0"),
-      EQUAL_TIMESTAMP -> (BEqualTimestamp -> "0"),
-      EQUAL_DATE -> (BEqualDate -> "0"),
-      EQUAL_PARTY -> (BEqualParty -> "0"),
-      EQUAL_BOOL -> (BEqualBool -> "0"),
-      EQUAL_LIST -> (BEqualList -> "0"),
-      EQUAL_CONTRACT_ID -> (BEqualContractId -> "0"),
-      TRACE -> (BTrace -> "0"),
-      COERCE_CONTRACT_ID -> (BCoerceContractId -> "5"),
+    Map[PLF.BuiltinFunction, (Ast.BuiltinFunction, LV)](
+      ADD_NUMERIC -> (BAddDecimal -> v1_0),
+      SUB_NUMERIC -> (BSubDecimal -> v1_0),
+      MUL_NUMERIC -> (BMulDecimal -> v1_0),
+      DIV_NUMERIC -> (BDivDecimal -> v1_0),
+      ROUND_NUMERIC -> (BRoundDecimal -> v1_0),
+      ADD_INT64 -> (BAddInt64 -> v1_0),
+      SUB_INT64 -> (BSubInt64 -> v1_0),
+      MUL_INT64 -> (BMulInt64 -> v1_0),
+      DIV_INT64 -> (BDivInt64 -> v1_0),
+      MOD_INT64 -> (BModInt64 -> v1_0),
+      EXP_INT64 -> (BExpInt64 -> v1_0),
+      INT64_TO_NUMERIC -> (BInt64ToDecimal -> v1_0),
+      NUMERIC_TO_INT64 -> (BDecimalToInt64 -> v1_0),
+      FOLDL -> (BFoldl -> v1_0),
+      FOLDR -> (BFoldr -> v1_0),
+      MAP_EMPTY -> (BMapEmpty -> mapVersion),
+      MAP_INSERT -> (BMapInsert -> mapVersion),
+      MAP_LOOKUP -> (BMapLookup -> mapVersion),
+      MAP_DELETE -> (BMapDelete -> mapVersion),
+      MAP_TO_LIST -> (BMapToList -> mapVersion),
+      MAP_SIZE -> (BMapSize -> mapVersion),
+      APPEND_TEXT -> (BAppendText -> v1_0),
+      ERROR -> (BError -> v1_0),
+      LEQ_INT64 -> (BLessEqInt64 -> v1_0),
+      LEQ_NUMERIC -> (BLessEqDecimal -> v1_0),
+      LEQ_TEXT -> (BLessEqText -> v1_0),
+      LEQ_TIMESTAMP -> (BLessEqTimestamp -> v1_0),
+      LEQ_PARTY -> (BLessEqParty -> partyOrderingVersion),
+      GEQ_INT64 -> (BGreaterEqInt64 -> v1_0),
+      GEQ_NUMERIC -> (BGreaterEqDecimal -> v1_0),
+      GEQ_TEXT -> (BGreaterEqText -> v1_0),
+      GEQ_TIMESTAMP -> (BGreaterEqTimestamp -> v1_0),
+      GEQ_PARTY -> (BGreaterEqParty -> partyOrderingVersion),
+      LESS_INT64 -> (BLessInt64 -> v1_0),
+      LESS_NUMERIC -> (BLessDecimal -> v1_0),
+      LESS_TEXT -> (BLessText -> v1_0),
+      LESS_TIMESTAMP -> (BLessTimestamp -> v1_0),
+      LESS_PARTY -> (BLessParty -> partyOrderingVersion),
+      GREATER_INT64 -> (BGreaterInt64 -> v1_0),
+      GREATER_NUMERIC -> (BGreaterDecimal -> v1_0),
+      GREATER_TEXT -> (BGreaterText -> v1_0),
+      GREATER_TIMESTAMP -> (BGreaterTimestamp -> v1_0),
+      GREATER_PARTY -> (BGreaterParty -> partyOrderingVersion),
+      TO_TEXT_INT64 -> (BToTextInt64 -> v1_0),
+      TO_TEXT_NUMERIC -> (BToTextDecimal -> v1_0),
+      TO_TEXT_TIMESTAMP -> (BToTextTimestamp -> v1_0),
+      TO_TEXT_PARTY -> (BToTextParty -> v1_2),
+      TO_TEXT_TEXT -> (BToTextText -> v1_0),
+      TO_QUOTED_TEXT_PARTY -> (BToQuotedTextParty -> v1_0),
+      TEXT_FROM_CODE_POINTS -> (BToTextCodePoints -> v1_6),
+      FROM_TEXT_PARTY -> (BFromTextParty -> v1_2),
+      FROM_TEXT_INT64 -> (BFromTextInt64 -> v1_5),
+      FROM_TEXT_NUMERIC -> (BFromTextDecimal -> v1_5),
+      TEXT_TO_CODE_POINTS -> (BFromTextCodePoints -> v1_6),
+      SHA256_TEXT -> (BSHA256Text -> v1_2),
+      DATE_TO_UNIX_DAYS -> (BDateToUnixDays -> v1_0),
+      EXPLODE_TEXT -> (BExplodeText -> v1_0),
+      IMPLODE_TEXT -> (BImplodeText -> v1_0),
+      GEQ_DATE -> (BGreaterEqDate -> v1_0),
+      LEQ_DATE -> (BLessEqDate -> v1_0),
+      LESS_DATE -> (BLessDate -> v1_0),
+      TIMESTAMP_TO_UNIX_MICROSECONDS -> (BTimestampToUnixMicroseconds -> v1_0),
+      TO_TEXT_DATE -> (BToTextDate -> v1_0),
+      UNIX_DAYS_TO_DATE -> (BUnixDaysToDate -> v1_0),
+      UNIX_MICROSECONDS_TO_TIMESTAMP -> (BUnixMicrosecondsToTimestamp -> v1_0),
+      GREATER_DATE -> (BGreaterDate -> v1_0),
+      EQUAL_INT64 -> (BEqualInt64 -> v1_0),
+      EQUAL_NUMERIC -> (BEqualDecimal -> v1_0),
+      EQUAL_TEXT -> (BEqualText -> v1_0),
+      EQUAL_TIMESTAMP -> (BEqualTimestamp -> v1_0),
+      EQUAL_DATE -> (BEqualDate -> v1_0),
+      EQUAL_PARTY -> (BEqualParty -> v1_0),
+      EQUAL_BOOL -> (BEqualBool -> v1_0),
+      EQUAL_LIST -> (BEqualList -> v1_0),
+      EQUAL_CONTRACT_ID -> (BEqualContractId -> v1_0),
+      TRACE -> (BTrace -> v1_0),
+      COERCE_CONTRACT_ID -> (BCoerceContractId -> v1_5),
     ).withDefault(_ => throw ParseError("BuiltinFunction.UNRECOGNIZED"))
   }
 

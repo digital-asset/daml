@@ -3,8 +3,6 @@
 
 package com.digitalasset.daml.lf.language
 
-import com.digitalasset.daml.lf.language.{LanguageMajorVersion => LMV}
-
 final case class LanguageVersion(major: LanguageMajorVersion, minor: LanguageMinorVersion) {
   def pretty: String = s"${major.pretty}.${minor.toProtoIdentifier}"
 }
@@ -17,10 +15,10 @@ object LanguageVersion {
   val Minor = LanguageMinorVersion
 
   val defaultV0: LanguageVersion =
-    LanguageVersion(LMV.V0, LMV.V0.maxSupportedStableMinorVersion)
+    LanguageVersion(Major.V0, Major.V0.maxSupportedStableMinorVersion)
 
   val defaultV1: LanguageVersion =
-    LanguageVersion(LMV.V1, LMV.V1.maxSupportedStableMinorVersion)
+    LanguageVersion(Major.V1, Major.V1.maxSupportedStableMinorVersion)
 
   private[lf] def apply(major: LanguageMajorVersion, minor: String): LanguageVersion =
     apply(major, Minor fromProtoIdentifier minor)
@@ -38,13 +36,26 @@ object LanguageVersion {
           LanguageMajorVersion.ordering.compare(leftMajor, rightMajor)
     }
 
-  /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
-    * compatibility, we introduce a new DAML-LF version where this restriction is in
-    * place, and then:
-    * * When committing a scenario, we check that the scenario code is at least of that
-    *   version;
-    * * When executing a Ledger API command, we check that the template underpinning
-    *   said command is at least of that version.
-    */
-  val checkSubmitterInMaintainers = LanguageVersion(LMV.V1, Minor.Dev)
+  val List(v1_0, v1_1, v1_2, v1_3, v1_4, v1_5, v1_6, _) =
+    Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
+
+  object Features {
+
+    val optionalVersion = v1_1
+    val partyOrderingVersion = v1_1
+    val mapVersion = v1_3
+    val enumVersion = v1_6
+    val internedIdsVersion = v1_6
+
+    /** See <https://github.com/digital-asset/daml/issues/1866>. To not break backwards
+      * compatibility, we introduce a new DAML-LF version where this restriction is in
+      * place, and then:
+      * * When committing a scenario, we check that the scenario code is at least of that
+      * version;
+      * * When executing a Ledger API command, we check that the template underpinning
+      * said command is at least of that version.
+      */
+    val checkSubmitterInMaintainersVersion = LanguageVersion(Major.V1, Minor.Dev)
+
+  }
 }
