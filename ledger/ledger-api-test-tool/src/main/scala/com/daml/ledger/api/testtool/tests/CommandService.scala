@@ -1,10 +1,25 @@
+// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
 package com.daml.ledger.api.testtool.tests
 
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import java.util.UUID
+
+import com.daml.ledger.api.testtool.infrastructure.{
+  LedgerSession,
+  LedgerTest,
+  LedgerTestContext,
+  LedgerTestSuite
+}
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.commands.Commands
 import com.digitalasset.ledger.test.Test.Dummy
-//import com.digitalasset.ledger.test.Test.Dummy._
 import com.google.protobuf.empty.Empty
+import com.google.protobuf.timestamp.Timestamp
+import io.grpc.Status
 import scalaz.syntax.tag._
+
+import scala.concurrent.Future
 
 final class CommandService(session: LedgerSession) extends LedgerTestSuite(session) {
   private val submitAndWait = LedgerTest("CSsubmitAndWait", "SubmitAndWait returns empty") {
@@ -199,14 +214,53 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
       }
   }
 
-//  private val submitAndWaitWithInvalidLedgerId = LedgerTest(
-//    "CSsubmitAndWaitInvalidLedgerId",
-//    "SubmitAndWait should fail for invalid ledger ids") { implicit context =>
-//    for {
-//      alice <- allocateParty()
-//      _ <- session.bindings.submitAndWait()
-//    } yield {}
-//  }
+  private def invalidLedgerIdTest[A](method: SubmitAndWaitRequest => Future[A])(
+      implicit context: LedgerTestContext) =
+    for {
+      party <- allocateParty()
+      invalidLedgerId = s"some-wrong-ledger-id-${UUID.randomUUID}"
+      let <- context.time
+      mrt = let.plusSeconds((30 * session.config.commandTtlFactor).toLong)
+      request = SubmitAndWaitRequest(
+        Some(
+          Commands(
+            ledgerId = invalidLedgerId,
+            workflowId = "",
+            applicationId = context.applicationId,
+            commandId = context.nextCommandId(),
+            party = party.unwrap,
+            ledgerEffectiveTime = Some(Timestamp(let.getEpochSecond, let.getNano)),
+            maximumRecordTime = Some(Timestamp(mrt.getEpochSecond, mrt.getNano)),
+            Seq(Dummy(party).create.command)
+          )))
+      failure <- method(request).failed
+    } yield {
+      assertGrpcError(failure, Status.Code.NOT_FOUND, s"Ledger ID '${invalidLedgerId}' not found.")
+    }
+
+  private val submitAndWaitWithInvalidLedgerId = LedgerTest(
+    "CSsubmitAndWaitInvalidLedgerId",
+    "SubmitAndWait should fail for invalid ledger ids") { implicit context =>
+    invalidLedgerIdTest(session.services.command.submitAndWait)
+  }
+
+  private val submitAndWaitForTransactionIdWithInvalidLedgerId = LedgerTest(
+    "CSsubmitAndWaitForTransactionIdInvalidLedgerId",
+    "SubmitAndWaitForTransactionId should fail for invalid ledger ids") { implicit context =>
+    invalidLedgerIdTest(session.services.command.submitAndWaitForTransactionId)
+  }
+
+  private val submitAndWaitForTransactionWithInvalidLedgerId = LedgerTest(
+    "CSsubmitAndWaitForTransactionInvalidLedgerId",
+    "SubmitAndWaitForTransaction should fail for invalid ledger ids") { implicit context =>
+    invalidLedgerIdTest(session.services.command.submitAndWaitForTransaction)
+  }
+
+  private val submitAndWaitForTransactionTreeWithInvalidLedgerId = LedgerTest(
+    "CSsubmitAndWaitForTransactionTreeInvalidLedgerId",
+    "SubmitAndWaitForTransactionTree should fail for invalid ledger ids") { implicit context =>
+    invalidLedgerIdTest(session.services.command.submitAndWaitForTransactionTree)
+  }
 
   override val tests: Vector[LedgerTest] = Vector(
     submitAndWait,
@@ -217,5 +271,9 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     resendingSubmitAndWaitForTransaction,
     resendingSubmitAndWaitForTransactionId,
     resendingSubmitAndWaitForTransactionTree,
+    submitAndWaitWithInvalidLedgerId,
+    submitAndWaitForTransactionIdWithInvalidLedgerId,
+    submitAndWaitForTransactionWithInvalidLedgerId,
+    submitAndWaitForTransactionTreeWithInvalidLedgerId
   )
 }
