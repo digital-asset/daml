@@ -209,11 +209,14 @@ Represented using their string representation, without any quotes::
 Unit
 ----
 
-Represented as {}. Note that {} !== {}, however we think that this is
-the least confusing encoding for Unit since unit is conceptually an
-empty record. Semantically the most compelling encoding is null, but we
-do not want to imply that Unit is used similarly to null in JavaScript
-or None in Python.
+Represented as ``{}``. Note that ``{} !== {}``, however, ``null`` would
+be ambiguous; for the type ``Optional Unit``, ``null`` decodes to
+``None``, but ``{}`` decodes to ``Some ()``.
+
+Additionally, we think that this is the least confusing encoding for
+Unit since unit is conceptually an empty record.  We do not want to
+imply that Unit is used similarly to null in JavaScript or None in
+Python.
 
 Date
 ----
