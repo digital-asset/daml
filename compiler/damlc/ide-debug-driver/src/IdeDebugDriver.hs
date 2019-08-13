@@ -13,6 +13,7 @@ import qualified Data.Yaml as Yaml
 import qualified Language.Haskell.LSP.Test as LSP
 import Language.Haskell.LSP.Messages
 import Language.Haskell.LSP.Types hiding (Command)
+import Language.Haskell.LSP.Types.Capabilities
 import Language.Haskell.LSP.Types.Lens
 import qualified Language.Haskell.LSP.Types.Lens as LSP
 import Options.Applicative
@@ -78,8 +79,9 @@ damlLanguageId = "daml"
 
 runSession :: Verbose -> SessionConfig -> IO ()
 runSession (Verbose verbose) SessionConfig{..} =
-    LSP.runSessionWithConfig cnf ideShellCommand LSP.fullCaps ideRoot $ traverse_ interpretCommand ideCommands
+    LSP.runSessionWithConfig cnf ideShellCommand fullCaps' ideRoot $ traverse_ interpretCommand ideCommands
     where cnf = LSP.defaultConfig { LSP.logStdErr = verbose, LSP.logMessages = verbose }
+          fullCaps' = LSP.fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
 
 progressStart :: LSP.Session ProgressStartNotification
 progressStart = do
