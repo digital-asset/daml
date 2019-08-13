@@ -1,10 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.jwt
 
 import java.io.{File, FileNotFoundException, FileOutputStream}
-import java.util.Base64
 
 import com.digitalasset.daml.lf.data.TryOps.Bracket.bracket
 import scalaz.std.option._
@@ -44,7 +43,7 @@ object RsaKeysGenerator {
   private def writeKey(key: Array[Byte], file: File): Try[File] =
     bracket(Try(new FileOutputStream(file)))(close).flatMap { ostream =>
       for {
-        encoder <- Try(Base64.getEncoder)
+        encoder <- Try(java.util.Base64.getEncoder)
         _ <- Try(ostream.write(encoder.encode(key)))
         _ <- exists(file)
       } yield file

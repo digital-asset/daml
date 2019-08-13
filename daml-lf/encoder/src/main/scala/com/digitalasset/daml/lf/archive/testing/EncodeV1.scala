@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.archive
@@ -7,22 +7,20 @@ package testing
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion.V1
-import com.digitalasset.daml.lf.language.LanguageMinorVersion
+import com.digitalasset.daml.lf.language.{LanguageVersion => LV}
 import com.digitalasset.daml_lf.{DamlLf1 => PLF}
 
 import scala.annotation.tailrec
 import scala.language.implicitConversions
 
 // Important: do not use this in production code. It is designed for testing only.
-private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
+private[digitalasset] class EncodeV1(val minor: LV.Minor) {
 
   import EncodeV1._
   import Encode._
-  import LanguageMinorVersion.Implicits._
   import Name.ordering
 
-  private val enumVersion: LanguageMinorVersion = DecodeV1.enumVersion
+  private val version = LV(LV.Major.V1, minor)
 
   def encodePackage(pkgId: PackageId, pkg: Package): PLF.Package = {
     val moduleEncoder = new ModuleEncoder(pkgId)
@@ -178,7 +176,7 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
           builder.setCon(
             PLF.Type.Con.newBuilder().setTycon(tycon).accumulateLeft(args)(_ addArgs _))
         case TBuiltin(bType) =>
-          if (bType == BTArrow && V1.minorVersionOrdering.lteq(minor, "0")) {
+          if (bType == BTArrow && LV.ordering.lt(version, LV.Features.arrowType)) {
             args match {
               case ImmArraySnoc(firsts, last) =>
                 builder.setFun(
@@ -273,7 +271,8 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
         case UpdateFetch(templateId, contractId) =>
           builder.setFetch(PLF.Update.Fetch.newBuilder().setTemplate(templateId).setCid(contractId))
         case UpdateExercise(templateId, choice, cid, actors, arg) =>
-          if (actors.isEmpty) assertSince("5", "Update.Exercise.actors optional")
+          if (actors.isEmpty)
+            assertSince(LV.Features.optionalExerciseActor, "Update.Exercise.actors optional")
           builder.setExercise(
             PLF.Update.Exercise
               .newBuilder()
@@ -286,10 +285,10 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
         case UpdateGetTime =>
           builder.setGetTime(unit)
         case UpdateFetchByKey(rbk) =>
-          assertSince("2", "fetchByKey")
+          assertSince(LV.Features.contractKeys, "fetchByKey")
           builder.setFetchByKey(rbk)
         case UpdateLookupByKey(rbk) =>
-          assertSince("2", "lookupByKey")
+          assertSince(LV.Features.contractKeys, "lookupByKey")
           builder.setLookupByKey(rbk)
         case UpdateEmbedExpr(typ, body) =>
           builder.setEmbedExpr(PLF.Update.EmbedExpr.newBuilder().setType(typ).setBody(body))
@@ -350,7 +349,7 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
           builder.setVariant(
             PLF.CaseAlt.Variant.newBuilder().setCon(tyCon).setVariant(variant).setBinder(binder))
         case CPEnum(tyCon, con) =>
-          assertSince(enumVersion, "CaseAlt.Enum")
+          assertSince(LV.Features.enum, "CaseAlt.Enum")
           builder.setEnum(PLF.CaseAlt.Enum.newBuilder().setCon(tyCon).setConstructor(con))
         case CPPrimCon(primCon) =>
           builder.setPrimCon(primCon)
@@ -359,10 +358,10 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
         case CPCons(head, tail) =>
           builder.setCons(PLF.CaseAlt.Cons.newBuilder().setVarHead(head).setVarTail(tail))
         case CPNone =>
-          assertSince("1", "CaseAlt.OptionalNone")
+          assertSince(LV.Features.optional, "CaseAlt.OptionalNone")
           builder.setOptionalNone(unit)
         case CPSome(x) =>
-          assertSince("1", "CaseAlt.OptionalSome")
+          assertSince(LV.Features.optional, "CaseAlt.OptionalSome")
           builder.setOptionalSome(PLF.CaseAlt.OptionalSome.newBuilder().setVarBody(x))
         case CPDefault =>
           builder.setDefault(unit)
@@ -419,7 +418,7 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
               .setVariantCon(variant)
               .setVariantArg(arg))
         case EEnumCon(tyCon, con) =>
-          assertSince(enumVersion, "Expr.Enum")
+          assertSince(LV.Features.enum, "Expr.Enum")
           newBuilder.setEnumCon(PLF.Expr.EnumCon.newBuilder().setTycon(tyCon).setEnumCon(con))
         case ETupleCon(fields) =>
           newBuilder.setTupleCon(
@@ -460,10 +459,10 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
               .accumulateLeft(front)(_ addFront _)
               .setTail(tail))
         case ENone(typ) =>
-          assertSince("1", "Expr.OptionalNone")
+          assertSince(LV.Features.optional, "Expr.OptionalNone")
           newBuilder.setOptionalNone(PLF.Expr.OptionalNone.newBuilder().setType(typ))
         case ESome(typ, x) =>
-          assertSince("1", "Expr.OptionalSome")
+          assertSince(LV.Features.optional, "Expr.OptionalSome")
           newBuilder.setOptionalSome(PLF.Expr.OptionalSome.newBuilder().setType(typ).setBody(x))
         case ELocation(loc, expr) =>
           encodeExprBuilder(expr).setLocation(loc)
@@ -490,7 +489,7 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
           builder.setVariant(
             PLF.DefDataType.Fields.newBuilder().accumulateLeft(variants)(_ addFields _))
         case DataEnum(constructors) =>
-          assertSince(enumVersion, "DefDataType.Enum")
+          assertSince(LV.Features.enum, "DefDataType.Enum")
           builder.setEnum(
             PLF.DefDataType.EnumConstructors
               .newBuilder()
@@ -555,8 +554,8 @@ private[digitalasset] class EncodeV1(val minor: LanguageMinorVersion) {
 
   }
 
-  private def assertSince(minMinorVersion: LanguageMinorVersion, description: String): Unit =
-    if (V1.minorVersionOrdering.lt(minor, minMinorVersion))
+  private def assertSince(minVersion: LV, description: String): Unit =
+    if (LV.ordering.lt(version, minVersion))
       throw EncodeError(s"$description is not supported by DAML-LF 1.$minor")
 
 }

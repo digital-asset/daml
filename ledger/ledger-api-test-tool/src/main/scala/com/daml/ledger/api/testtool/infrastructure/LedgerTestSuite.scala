@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -60,8 +60,12 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
       implicit context: LedgerTestContext): Future[Contract[T]] =
     context.create(party, template)
 
-  final def exercise[T](exercise: Primitive.Update[T])(party: Party)(
-      implicit context: LedgerTestContext): Future[Unit] =
+  final def createAndGetTransactionId[T <: Template[T]: ValueDecoder](template: Template[T])(
+      party: Party)(implicit context: LedgerTestContext): Future[(String, Contract[T])] =
+    context.createAndGetTransactionId(party, template)
+
+  final def exercise[T](exercise: Party => Primitive.Update[T])(party: Party)(
+      implicit context: LedgerTestContext): Future[TransactionTree] =
     context.exercise(party, exercise)
 
   final def flatTransactions(party: Party, parties: Party*)(
@@ -76,18 +80,23 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
       implicit context: LedgerTestContext): Future[Vector[TransactionTree]] =
     context.transactionTrees(party +: parties, Seq.empty)
 
+  final def transactionTreeById(transactionId: String, party: Party, parties: Party*)(
+      implicit context: LedgerTestContext): Future[TransactionTree] =
+    context.transactionTreeById(transactionId, party +: parties)
+
   final def transactionTreesByTemplateId(party: Party, parties: Party*)(templateIds: Identifier*)(
       implicit context: LedgerTestContext): Future[Vector[TransactionTree]] =
     context.transactionTrees(party +: parties, templateIds)
 
   final def assertGrpcError[A](t: Throwable, expectedCode: Status.Code, pattern: String)(
       implicit ec: ExecutionContext): Unit = {
-    assert(
-      t.isInstanceOf[StatusRuntimeException] || t.isInstanceOf[StatusException],
-      "Exception is neither a StatusRuntimeException nor a StatusException")
+
     val (actualCode, message) = t match {
       case sre: StatusRuntimeException => (sre.getStatus.getCode, sre.getStatus.getDescription)
       case se: StatusException => (se.getStatus.getCode, se.getStatus.getDescription)
+      case _ =>
+        throw new AssertionError(
+          "Exception is neither a StatusRuntimeException nor a StatusException")
     }
     assert(actualCode == expectedCode, s"Expected code [$expectedCode], but got [$actualCode].")
     assert(

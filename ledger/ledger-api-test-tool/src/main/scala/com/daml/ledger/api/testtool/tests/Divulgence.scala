@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -18,9 +18,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
         Vector(alice, bob) <- allocateParties(2)
         divulgence1 <- create(Divulgence1(alice))(alice)
         divulgence2 <- create(Divulgence2(bob, alice))(bob)
-        _ <- exercise(
-          divulgence2.contractId
-            .exerciseDivulgence2Archive(alice, divulgence1.contractId))(alice)
+        _ <- exercise(divulgence2.contractId.exerciseDivulgence2Archive(_, divulgence1.contractId))(
+          alice)
         bobTransactions <- flatTransactions(bob)
         bobTrees <- transactionTrees(bob)
         transactionsForBoth <- flatTransactions(alice, bob)
@@ -154,9 +153,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           Vector(alice, bob) <- allocateParties(2)
           divulgence1 <- create(Divulgence1(alice))(alice)
           divulgence2 <- create(Divulgence2(bob, alice))(bob)
-          _ <- exercise(
-            divulgence2.contractId
-              .exerciseDivulgence2Fetch(alice, divulgence1.contractId))(alice)
+          _ <- exercise(divulgence2.contractId.exerciseDivulgence2Fetch(_, divulgence1.contractId))(
+            alice)
           activeForBobOnly <- activeContracts(bob)
           activeForBoth <- activeContracts(alice, bob)
         } yield {

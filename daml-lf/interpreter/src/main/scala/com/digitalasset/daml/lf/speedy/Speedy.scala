@@ -1,8 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.speedy
 
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
@@ -63,6 +64,18 @@ object Speedy {
     def getEnv(i: Int): SValue = env.get(env.size - i)
     def popEnv(count: Int): Unit =
       env.subList(env.size - count, env.size).clear
+
+    /* Compute a stack trace from the locations in the continuation stack. */
+    def stackTrace(): ImmArray[Location] = {
+      val s = new ArrayList[Location]
+      kont.forEach { k =>
+        k match {
+          case KLocation(location) => { s.add(location); () }
+          case _ => ()
+        }
+      }
+      ImmArray(s.asScala)
+    }
 
     /** Perform a single step of the machine execution. */
     def step(): SResult =
@@ -504,6 +517,13 @@ object Speedy {
 
     def execute(v: SValue, machine: Machine) = {
       machine.ctrl = CtrlExpr(fin)
+    }
+  }
+
+  /** A location frame stores a location annotation found in the AST. */
+  final case class KLocation(location: Location) extends Kont {
+    def execute(v: SValue, machine: Machine) = {
+      machine.ctrl = CtrlValue(v)
     }
   }
 

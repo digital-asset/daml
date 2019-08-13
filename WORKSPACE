@@ -23,9 +23,9 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 
-haskell_repositories()
+rules_haskell_dependencies()
 
 register_toolchains(
     "//:c2hs-toolchain",
@@ -44,6 +44,11 @@ load("//bazel_tools:os_info.bzl", "os_info")
 os_info(name = "os_info")
 
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("//bazel_tools:ghc_dwarf.bzl", "ghc_dwarf")
+
+ghc_dwarf(name = "ghc_dwarf")
+
+load("@ghc_dwarf//:ghc_dwarf.bzl", "enable_ghc_dwarf")
 
 nixpkgs_local_repository(
     name = "nixpkgs",
@@ -204,11 +209,11 @@ dev_env_tool(
 )
 
 load(
-    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "@rules_haskell//haskell:ghc_bindist.bzl",
     "haskell_register_ghc_bindists",
 )
 load(
-    "@io_tweag_rules_haskell//haskell:nixpkgs.bzl",
+    "@rules_haskell//haskell:nixpkgs.bzl",
     "haskell_register_ghc_nixpkgs",
 )
 
@@ -249,7 +254,7 @@ exports_files(glob(["lib/**/*"]))
 
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStatic",
+    attribute_path = "ghcStaticDwarf" if enable_ghc_dwarf else "ghcStatic",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
@@ -265,7 +270,7 @@ haskell_register_ghc_nixpkgs(
         "-fexternal-dynamic-refs",
         "-hide-package=ghc-boot-th",
         "-hide-package=ghc-boot",
-    ],
+    ] + (["-g3"] if enable_ghc_dwarf else []),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],
@@ -509,10 +514,10 @@ hazel_repositories(
         },
     ),
     ghc_workspaces = {
-        "k8": "@io_tweag_rules_haskell_ghc_nixpkgs",
-        "darwin": "@io_tweag_rules_haskell_ghc_nixpkgs",
+        "k8": "@rules_haskell_ghc_nixpkgs",
+        "darwin": "@rules_haskell_ghc_nixpkgs",
         # although windows is not quite supported yet
-        "x64_windows": "@io_tweag_rules_haskell_ghc_windows_amd64",
+        "x64_windows": "@rules_haskell_ghc_windows_amd64",
     },
     packages = add_extra_packages(
         extra =

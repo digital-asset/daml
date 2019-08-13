@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -16,6 +16,7 @@ import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
 
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options (IdeReportProgress(..))
 
 import           Control.Monad.Except
 import qualified Data.Aeson.Encode.Pretty as AP
@@ -259,7 +260,7 @@ runDamldoc testfile importPathM = do
     -- run the doc generator on that file
     mbResult <- runExceptT $ extractDocs
         defaultExtractOptions
-        (toCompileOpts opts')
+        (toCompileOpts opts' (IdeReportProgress False))
         [toNormalizedFilePath testfile]
 
     case mbResult of

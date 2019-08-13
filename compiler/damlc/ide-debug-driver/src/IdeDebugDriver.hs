@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module IdeDebugDriver (main) where
@@ -13,6 +13,7 @@ import qualified Data.Yaml as Yaml
 import qualified Language.Haskell.LSP.Test as LSP
 import Language.Haskell.LSP.Messages
 import Language.Haskell.LSP.Types hiding (Command)
+import Language.Haskell.LSP.Types.Capabilities
 import Language.Haskell.LSP.Types.Lens
 import qualified Language.Haskell.LSP.Types.Lens as LSP
 import Options.Applicative
@@ -22,6 +23,8 @@ data Command
     = OpenFile FilePath
     | CloseFile FilePath
     | WaitForCompletion
+    | InsertLine FilePath Int T.Text
+    | DeleteLine FilePath Int
     | Repeat Int [Command]
     deriving Show
 
@@ -33,6 +36,8 @@ instance FromJSON Command where
             "close" -> CloseFile <$> o.: "file"
             "wait" -> pure WaitForCompletion
             "repeat" -> Repeat <$> o .: "count" <*> o .: "cmds"
+            "insert-line" -> InsertLine <$> o .: "file" <*> o .: "line" <*> o .: "content"
+            "delete-line" -> DeleteLine <$> o .: "file" <*> o .: "line"
             _ -> fail $ "Unknown command " <> show cmd
 
 data SessionConfig = SessionConfig
@@ -74,8 +79,9 @@ damlLanguageId = "daml"
 
 runSession :: Verbose -> SessionConfig -> IO ()
 runSession (Verbose verbose) SessionConfig{..} =
-    LSP.runSessionWithConfig cnf ideShellCommand LSP.fullCaps ideRoot $ traverse_ interpretCommand ideCommands
+    LSP.runSessionWithConfig cnf ideShellCommand fullCaps' ideRoot $ traverse_ interpretCommand ideCommands
     where cnf = LSP.defaultConfig { LSP.logStdErr = verbose, LSP.logMessages = verbose }
+          fullCaps' = LSP.fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
 
 progressStart :: LSP.Session ProgressStartNotification
 progressStart = do
@@ -103,4 +109,14 @@ interpretCommand = \case
             done <- progressDone
             guard $ done ^. params . LSP.id == start ^. params . LSP.id
     Repeat count cmds -> replicateM_ count $ traverse_ interpretCommand cmds
-
+    InsertLine f l t -> do
+        uri <- LSP.getDocUri f
+        let p = Position l 0
+        LSP.changeDoc (TextDocumentIdentifier uri)
+            [TextDocumentContentChangeEvent (Just $ Range p p) Nothing (t <> "\n")]
+    DeleteLine f l -> do
+        uri <- LSP.getDocUri f
+        let pStart = Position l 0
+        let pEnd = Position (l + 1) 0
+        LSP.changeDoc (TextDocumentIdentifier uri)
+            [TextDocumentContentChangeEvent (Just $ Range pStart pEnd) Nothing ""]

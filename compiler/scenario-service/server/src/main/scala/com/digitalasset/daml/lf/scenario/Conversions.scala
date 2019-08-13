@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.scenario
@@ -53,9 +53,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
       builder.setCommitLoc(convertLocation(loc))
     }
 
-    machine.lastLocation.foreach { loc =>
-      builder.setLastLoc(convertLocation(loc))
-    }
+    builder.addAllStackTrace(machine.stackTrace().map(convertLocation).toSeq.asJava)
 
     builder.setPartialTransaction(
       convertPartialTransaction(machine.ptx)

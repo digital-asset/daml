@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 load("//bazel_tools:haskell.bzl", "da_haskell_test")
 load("@os_info//:os_info.bzl", "is_windows")
@@ -99,6 +99,7 @@ da_haskell_test(
     ],
     deps = [
         "//:sdk-version-hs-lib",
+        "//compiler/damlc/daml-opts:daml-opts-types",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
@@ -56,7 +56,8 @@ object LedgerApiTestTool {
     if (config.extract) {
       extractResources(
         "/ledger/test-common/SemanticTests.dar",
-        "/ledger/test-common/Test.dar"
+        "/ledger/test-common/Test.dar",
+        "/ledger/test-common/Test-1.6.dar"
       )
       sys.exit(0)
     }
@@ -93,7 +94,7 @@ object LedgerApiTestTool {
 
     runner.run {
       case Success(summaries) =>
-        new ColorizedPrintStreamReporter(System.out, config.verbose)(summaries)
+        new ColorizedPrintStreamReporter(System.out, config.verbose).report(summaries)
         sys.exit(exitCode(summaries, config.mustFail))
       case Failure(e) =>
         logger.error(e.getMessage, e)

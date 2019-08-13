@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.speedy
@@ -186,6 +186,7 @@ object SExpr {
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
     def execute(machine: Machine): Ctrl = {
       machine.lastLocation = Some(loc)
+      machine.kont.add(KLocation(loc))
       CtrlExpr(expr)
     }
   }

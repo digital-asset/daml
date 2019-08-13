@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -11,8 +11,7 @@ import com.digitalasset.ledger.api.v1.active_contracts_service.{
 }
 import com.digitalasset.ledger.api.v1.admin.party_management_service.AllocatePartyRequest
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
-import com.digitalasset.ledger.api.v1.commands.Command.Command.{Create, Exercise}
-import com.digitalasset.ledger.api.v1.commands.{Command, Commands, CreateCommand, ExerciseCommand}
+import com.digitalasset.ledger.api.v1.commands.{Command, Commands}
 import com.digitalasset.ledger.api.v1.event.Event.Event.Created
 import com.digitalasset.ledger.api.v1.event.{CreatedEvent, Event}
 import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
@@ -33,7 +32,7 @@ import com.digitalasset.ledger.api.v1.transaction_service.{
   GetTransactionByIdRequest,
   GetTransactionsRequest
 }
-import com.digitalasset.ledger.api.v1.value.{Identifier, Record, RecordField, Value}
+import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
 import com.digitalasset.platform.testing.{FiniteStreamObserver, SingleItemObserver}
@@ -64,7 +63,7 @@ object LedgerBindings {
 
 }
 
-final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
+private[infrastructure] final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
     implicit ec: ExecutionContext) {
 
   private[this] val services = new LedgerServices(channel)
@@ -189,53 +188,49 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       applicationId: String,
       commandId: String,
       template: Template[T]
-  ): Future[Contract[T]] = {
-    submitAndWaitForTransaction(party, applicationId, commandId, template.create.command.command) {
-      _.events.collect {
-        case Event(Created(e)) => decodeCreated(e).get
-      }.head
-    }
-  }
-
-  def create(
-      party: Party,
-      applicationId: String,
-      commandId: String,
-      templateId: Identifier,
-      args: Map[String, Value.Sum]): Future[String] =
-    submitAndWaitForTransaction(party, applicationId, commandId, createCommand(templateId, args)) {
-      _.events.collect { case Event(Created(e)) => e.contractId }.head
-    }
-
-  def exercise(
-      party: Party,
-      applicationId: String,
-      commandId: String,
-      templateId: Identifier,
-      contractId: String,
-      choice: String,
-      args: Map[String, Value.Sum]
-  ): Future[Unit] =
-    submitAndWait(
+  ): Future[Contract[T]] =
+    submitAndWaitForTransaction(
       party,
       applicationId,
       commandId,
-      exerciseCommand(templateId, contractId, choice, args))
+      Seq(template.create.command.command)).map(
+      _.events.collect {
+        case Event(Created(e)) => decodeCreated(e).get
+      }.head
+    )
+
+  def createAndGetTransactionId[T <: Template[T]: ValueDecoder](
+      party: Party,
+      applicationId: String,
+      commandId: String,
+      template: Template[T]
+  ): Future[(String, Contract[T])] =
+    submitAndWaitForTransaction(
+      party,
+      applicationId,
+      commandId,
+      Seq(template.create.command.command)).map(tx =>
+      tx.transactionId -> tx.events.collect {
+        case Event(Created(e)) => decodeCreated(e).get
+      }.head)
 
   def exercise[T](
       party: Party,
       applicationId: String,
       commandId: String,
-      exercise: Primitive.Update[T]
-  ): Future[Unit] =
-    submitAndWait(party, applicationId, commandId, exercise.command.command)
+      exercise: Party => Primitive.Update[T]
+  ): Future[TransactionTree] =
+    submitAndWaitForTransactionTree(
+      party,
+      applicationId,
+      commandId,
+      Seq(exercise(party).command.command))
 
   private def submitAndWaitCommand[A](service: SubmitAndWaitRequest => Future[A])(
       party: Party,
       applicationId: String,
       commandId: String,
-      command: Command.Command,
-      commands: Command.Command*): Future[A] =
+      commands: Seq[Command.Command]): Future[A] =
     for {
       id <- ledgerId
       let <- time
@@ -249,7 +244,7 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
             party = party.unwrap,
             ledgerEffectiveTime = Some(new Timestamp(let.getEpochSecond, let.getNano)),
             maximumRecordTime = Some(new Timestamp(mrt.getEpochSecond, mrt.getNano)),
-            commands = new Command(command) +: commands.map(new Command(_))
+            commands = commands.map(new Command(_))
           ))))
     } yield a
 
@@ -257,77 +252,45 @@ final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
       party: Party,
       applicationId: String,
       commandId: String,
-      command: Command.Command,
-      commands: Command.Command*): Future[Unit] =
-    submitAndWaitCommand(services.command.submitAndWait)(
-      party,
-      applicationId,
-      commandId,
-      command,
-      commands: _*)
+      commands: Seq[Command.Command]
+  ): Future[Unit] =
+    submitAndWaitCommand(services.command.submitAndWait)(party, applicationId, commandId, commands)
       .map(_ => ())
 
   def submitAndWaitForTransactionId(
       party: Party,
       applicationId: String,
       commandId: String,
-      command: Command.Command,
-      commands: Command.Command*
+      commands: Seq[Command.Command]
   ): Future[String] =
     submitAndWaitCommand(services.command.submitAndWaitForTransactionId)(
       party,
       applicationId,
       commandId,
-      command,
-      commands: _*).map(_.transactionId)
+      commands).map(_.transactionId)
 
-  def submitAndWaitForTransaction[A](
+  def submitAndWaitForTransaction(
       party: Party,
       applicationId: String,
       commandId: String,
-      command: Command.Command,
-      commands: Command.Command*)(f: Transaction => A): Future[A] =
+      commands: Seq[Command.Command]
+  ): Future[Transaction] =
     submitAndWaitCommand(services.command.submitAndWaitForTransaction)(
       party,
       applicationId,
       commandId,
-      command,
-      commands: _*)
-      .map(r => f(r.transaction.get))
+      commands).map(_.transaction.get)
 
-  private def createCommand(templateId: Identifier, args: Map[String, Value.Sum]): Command.Command =
-    Create(
-      new CreateCommand(
-        Some(templateId),
-        Some(
-          new Record(
-            fields = args.map {
-              case (label, value) =>
-                new RecordField(label, Some(new Value(value)))
-            }(collection.breakOut)
-          ))
-      )
-    )
-
-  private def exerciseCommand(
-      templateId: Identifier,
-      contractId: String,
-      choice: String,
-      args: Map[String, Value.Sum]): Command.Command =
-    Exercise(
-      new ExerciseCommand(
-        templateId = Some(templateId),
-        contractId = contractId,
-        choice = choice,
-        choiceArgument = Some(
-          new Value(
-            Value.Sum.Record(new Record(
-              fields = args.map {
-                case (label, value) =>
-                  new RecordField(label, Some(new Value(value)))
-              }(collection.breakOut)
-            ))))
-      )
-    )
+  def submitAndWaitForTransactionTree(
+      party: Party,
+      applicationId: String,
+      commandId: String,
+      commands: Seq[Command.Command]
+  ): Future[TransactionTree] =
+    submitAndWaitCommand(services.command.submitAndWaitForTransactionTree)(
+      party,
+      applicationId,
+      commandId,
+      commands).map(_.transaction.get)
 
 }

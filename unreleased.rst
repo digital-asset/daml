@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2019 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Release notes
@@ -16,3 +16,6 @@ HEAD — ongoing
 + [Ledger] Fixed internal shutdown order to avoid dead letter warnings when stopping Sandbox/Ledger API Server.
   See issue `#1886 <https://github.com/digital-asset/daml/issues/1886>`__.
 + [DAML Compiler] Support generic template declarations and instances.
++ [DAML Compile] The ``--dump-pom`` flag from ``damlc package`` has been removed as packaging
+  has not relied on POM files for a while.
++ [DAML Studio] Print stack trace when a scenario fails.

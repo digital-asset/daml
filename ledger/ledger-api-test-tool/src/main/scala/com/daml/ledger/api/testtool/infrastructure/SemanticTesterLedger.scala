@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -60,13 +60,11 @@ private[infrastructure] final class SemanticTesterLedger(bindings: LedgerBinding
     Value.VersionedValue[Value.AbsoluteContractId]]] =
     for {
       apiCommands <- lfCommandToApiCommand(party, lfCommands)
-      command +: commands = apiCommands.commands.map(_.command)
       id <- bindings.submitAndWaitForTransactionId(
         Primitive.Party(party),
         context.applicationId,
         s"${context.applicationId}-${UUID.randomUUID}",
-        command,
-        commands: _*)
+        apiCommands.commands.map(_.command))
       tree <- bindings.getTransactionById(id, parties.toSeq.map(Primitive.Party(_: String)))
       events <- apiTransactionToLfEvents(tree)
     } yield events

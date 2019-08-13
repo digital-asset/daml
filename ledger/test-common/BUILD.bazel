@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -45,6 +45,33 @@ dar_to_scala(
 da_scala_library(
     name = "SemanticTests.scala",
     srcs = [":SemanticTests.scala-codegen"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//language-support/scala/bindings",
+    ],
+)
+
+daml_compile(
+    name = "Test-1.6",
+    main_src = "src/main/daml/Test.daml",
+    target = "1.6",
+    visibility = ["//visibility:public"],
+)
+
+dar_to_scala(
+    name = "Test-1.6.scala-codegen",
+    srcs = [
+        ":Test-1.6.dar",
+    ],
+    package_prefix = "com.digitalasset.ledger.test_1_6",
+    srcjar_out = "Test-1.6.scala.srcjar",
+    verbosity = 2,
+    visibility = ["//visibility:public"],
+)
+
+da_scala_library(
+    name = "Test-1.6.scala",
+    srcs = [":Test-1.6.scala-codegen"],
     visibility = ["//visibility:public"],
     deps = [
         "//language-support/scala/bindings",

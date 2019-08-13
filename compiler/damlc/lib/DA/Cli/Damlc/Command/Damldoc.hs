@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -10,6 +10,7 @@ import DA.Daml.Doc.Extract
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options
 
 import Options.Applicative
 import Data.List.Extra
@@ -194,7 +195,7 @@ exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
     opts <- defaultOptionsIO Nothing
     runDamlDoc DamldocOptions
-        { do_ideOptions = toCompileOpts opts { optMbPackageName = cPkgName }
+        { do_ideOptions = toCompileOpts opts { optMbPackageName = cPkgName } (IdeReportProgress False)
         , do_outputPath = cOutputPath
         , do_outputFormat = cOutputFormat
         , do_inputFormat = cInputFormat

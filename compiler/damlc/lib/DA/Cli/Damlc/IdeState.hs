@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Cli.Damlc.IdeState
@@ -16,6 +16,7 @@ import qualified DA.Daml.Compiler.Scenario as Scenario
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.API
 import qualified Development.IDE.Types.Logger as IdeLogger
+import Development.IDE.Types.Options
 
 getDamlIdeState
     :: Options
@@ -23,11 +24,12 @@ getDamlIdeState
     -> Logger.Handle IO
     -> (LSP.FromServerMessage -> IO ())
     -> VFSHandle
+    -> IdeReportProgress
     -> IO IdeState
-getDamlIdeState compilerOpts mbScenarioService loggerH eventHandler vfs = do
+getDamlIdeState compilerOpts mbScenarioService loggerH eventHandler vfs reportProgress = do
     let rule = mainRule compilerOpts
     damlEnv <- mkDamlEnv compilerOpts mbScenarioService
-    initialise rule eventHandler (toIdeLogger loggerH) damlEnv (toCompileOpts compilerOpts) vfs
+    initialise rule eventHandler (toIdeLogger loggerH) damlEnv (toCompileOpts compilerOpts reportProgress) vfs
 
 -- Wrapper for the common case where the scenario service will be started automatically (if enabled)
 -- and we use the builtin VFSHandle.
@@ -41,7 +43,9 @@ withDamlIdeState opts@Options{..} loggerH eventHandler f = do
     scenarioServiceConfig <- Scenario.readScenarioServiceConfig
     Scenario.withScenarioService' optScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
         vfs <- makeVFSHandle
-        ideState <- getDamlIdeState opts mbScenarioService loggerH eventHandler vfs
+        -- We only use withDamlIdeState outside of the IDE where we do not care about
+        -- progress reporting.
+        ideState <- getDamlIdeState opts mbScenarioService loggerH eventHandler vfs (IdeReportProgress False)
         f ideState
 
 -- | Adapter to the IDE logger module.

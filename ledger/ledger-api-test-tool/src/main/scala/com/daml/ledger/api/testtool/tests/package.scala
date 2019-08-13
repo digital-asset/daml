@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
@@ -23,13 +23,14 @@ package object tests {
    * - CommandSubmissionTtlIT
    * - CommandServiceIT
    * - ActiveContractsServiceIT
-   * - WitnessesIT
    */
   val optional: Map[String, LedgerSession => LedgerTestSuite] = Map(
     "DivulgenceIT" -> (new Divulgence(_)),
     "IdentityIT" -> (new Identity(_)),
     "TimeIT" -> (new Time(_)),
+    "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
+    "WitnessesIT" -> (new Witnesses(_))
   )
 
   val all = default ++ optional

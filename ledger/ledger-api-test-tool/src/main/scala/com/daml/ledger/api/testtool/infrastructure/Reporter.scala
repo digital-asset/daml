@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.infrastructure
@@ -7,7 +7,9 @@ import java.io.PrintStream
 
 import scala.util.Try
 
-trait Reporter[A] extends ((Vector[LedgerTestSummary]) => A)
+trait Reporter[A] {
+  def report(results: Vector[LedgerTestSummary]): A
+}
 
 object Reporter {
 
@@ -52,7 +54,7 @@ object Reporter {
       msg.lines.map(l => s"$indent$l").mkString("\n")
     }
 
-    override def apply(results: Vector[LedgerTestSummary]): Unit = {
+    override def report(results: Vector[LedgerTestSummary]): Unit = {
 
       s.println()
       s.println(blue("#" * 80))

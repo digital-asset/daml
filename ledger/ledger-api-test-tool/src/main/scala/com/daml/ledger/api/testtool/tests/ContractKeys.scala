@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool.tests
@@ -6,18 +6,18 @@ package com.daml.ledger.api.testtool.tests
 import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.ledger.test.DA.Types.Tuple2
-import com.digitalasset.ledger.test.Test.Delegation._
-import com.digitalasset.ledger.test.Test.ShowDelegated._
-import com.digitalasset.ledger.test.Test.TextKey._
-import com.digitalasset.ledger.test.Test.TextKeyOperations._
-import com.digitalasset.ledger.test.Test._
+import com.digitalasset.ledger.test_1_6.DA.Types.Tuple2
+import com.digitalasset.ledger.test_1_6.Test.Delegation._
+import com.digitalasset.ledger.test_1_6.Test.ShowDelegated._
+import com.digitalasset.ledger.test_1_6.Test.TextKey._
+import com.digitalasset.ledger.test_1_6.Test.TextKeyOperations._
+import com.digitalasset.ledger.test_1_6.Test._
 import io.grpc.Status
 
 final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session) {
 
   val fetchDivulgedContract =
-    LedgerTest("CKNoFetchOrLookup", "Divulged contracts cannot be fetched or looked up by key") {
+    LedgerTest("CKFetchOrLookup", "Divulged contracts can be fetched or looked up by key") {
       implicit context =>
         val key = s"${UUID.randomUUID.toString}-key"
         for {
@@ -29,32 +29,24 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           showDelegated <- create(ShowDelegated(owner, delegate))(owner)
 
           // divulge the contract
-          _ <- exercise(showDelegated.contractId.exerciseShowIt(owner, delegated.contractId))(owner)
+          _ <- exercise(showDelegated.contractId.exerciseShowIt(_, delegated.contractId))(owner)
 
           // fetch delegated
-          _ <- exercise(
-            delegation.contractId.exerciseFetchDelegated(delegate, delegated.contractId))(delegate)
+          _ <- exercise(delegation.contractId.exerciseFetchDelegated(_, delegated.contractId))(
+            delegate)
 
           // fetch by key delegation is not allowed
-          fetchByKeyFailure <- exercise(
+          _ <- exercise(
             delegation.contractId
-              .exerciseFetchByKeyDelegated(delegate, owner, key, Some(delegated.contractId)))(
-            delegate).failed
+              .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated.contractId)))(delegate)
 
           // lookup by key delegation is not allowed
-          lookupByKeyFailure <- exercise(
+          _ <- exercise(
             delegation.contractId
-              .exerciseLookupByKeyDelegated(delegate, owner, key, Some(delegated.contractId)))(
-            delegate).failed
+              .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated.contractId)))(delegate)
         } yield {
-          assertGrpcError(
-            fetchByKeyFailure,
-            Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$delegate' to be in maintainers '$owner'")
-          assertGrpcError(
-            lookupByKeyFailure,
-            Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+          // No assertions to make, since all exercises went through as expected
+          ()
         }
     }
 
@@ -73,30 +65,25 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
         // fetch should fail
         fetchFailure <- exercise(
           delegation.contractId
-            .exerciseFetchDelegated(delegate, delegated.contractId))(delegate).failed
+            .exerciseFetchDelegated(_, delegated.contractId))(delegate).failed
 
-        // fetch by key should fail
+        // this fetch still fails even if we do not check that the submitter
+        // is in the lookup maintainer, since we have the visibility check
+        // implement as part of #753.
         fetchByKeyFailure <- exercise(
           delegation.contractId
-            .exerciseFetchByKeyDelegated(delegate, owner, key, None))(delegate).failed
+            .exerciseFetchByKeyDelegated(_, owner, key, None))(delegate).failed
 
-        // lookup by key should fail
-        lookupByKeyFailure <- exercise(
+        // lookup by key should work
+        _ <- exercise(
           delegation.contractId
-            .exerciseLookupByKeyDelegated(delegate, owner, key, None))(delegate).failed
+            .exerciseLookupByKeyDelegated(_, owner, key, None))(delegate)
       } yield {
         assertGrpcError(
           fetchFailure,
           Status.Code.INVALID_ARGUMENT,
           "dependency error: couldn't find contract")
-        assertGrpcError(
-          fetchByKeyFailure,
-          Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
-        assertGrpcError(
-          lookupByKeyFailure,
-          Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+        assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
       }
     }
 
@@ -122,41 +109,40 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
 
           // trying to lookup an unauthorized key should fail
           bobLooksUpTextKeyFailure <- exercise(
-            bobTKO.contractId.exerciseTKOLookup(bob, Tuple2(alice, key1), Some(tk1.contractId)))(
-            bob).failed
+            bobTKO.contractId
+              .exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1.contractId)))(bob).failed
 
           // trying to lookup an unauthorized non-existing key should fail
           bobLooksUpBogusTextKeyFailure <- exercise(
-            bobTKO.contractId.exerciseTKOLookup(bob, Tuple2(alice, unknownKey), None))(bob).failed
+            bobTKO.contractId.exerciseTKOLookup(_, Tuple2(alice, unknownKey), None))(bob).failed
 
           // successful, authorized lookup
           _ <- exercise(
             aliceTKO.contractId
-              .exerciseTKOLookup(alice, Tuple2(alice, key1), Some(tk1.contractId)))(alice)
+              .exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1.contractId)))(alice)
 
           // successful fetch
           _ <- exercise(
-            aliceTKO.contractId.exerciseTKOFetch(alice, Tuple2(alice, key1), tk1.contractId))(alice)
+            aliceTKO.contractId.exerciseTKOFetch(_, Tuple2(alice, key1), tk1.contractId))(alice)
 
           // successful, authorized lookup of non-existing key
-          _ <- exercise(
-            aliceTKO.contractId.exerciseTKOLookup(alice, Tuple2(alice, unknownKey), None))(alice)
+          _ <- exercise(aliceTKO.contractId.exerciseTKOLookup(_, Tuple2(alice, unknownKey), None))(
+            alice)
 
           // failing fetch
           aliceFailedFetch <- exercise(
-            aliceTKO.contractId.exerciseTKOFetch(alice, Tuple2(alice, unknownKey), tk1.contractId))(
+            aliceTKO.contractId.exerciseTKOFetch(_, Tuple2(alice, unknownKey), tk1.contractId))(
             alice).failed
 
           // now we exercise the contract, thus archiving it, and then verify
           // that we cannot look it up anymore
-          _ <- exercise(tk1.contractId.exerciseTextKeyChoice(alice))(alice)
-          _ <- exercise(aliceTKO.contractId.exerciseTKOLookup(alice, Tuple2(alice, key1), None))(
-            alice)
+          _ <- exercise(tk1.contractId.exerciseTextKeyChoice)(alice)
+          _ <- exercise(aliceTKO.contractId.exerciseTKOLookup(_, Tuple2(alice, key1), None))(alice)
 
           // lookup the key, consume it, then verify we cannot look it up anymore
           _ <- exercise(
             aliceTKO.contractId
-              .exerciseTKOConsumeAndLookup(alice, tk2.contractId, Tuple2(alice, key2)))(alice)
+              .exerciseTKOConsumeAndLookup(_, tk2.contractId, Tuple2(alice, key2)))(alice)
 
           // failing create when a maintainer is not a signatory
           maintainerNotSignatoryFailed <- create(MaintainerNotSignatory(alice, bob))(alice).failed
@@ -165,11 +151,11 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           assertGrpcError(
             bobLooksUpTextKeyFailure,
             Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$bob' to be in maintainers '$alice'")
+            "requires authorizers")
           assertGrpcError(
             bobLooksUpBogusTextKeyFailure,
             Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$bob' to be in maintainers '$alice'")
+            "requires authorizers")
           assertGrpcError(aliceFailedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
           assertGrpcError(
             maintainerNotSignatoryFailed,

@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -54,11 +54,13 @@ client_server_test(
     data = [
         "//ledger/test-common:SemanticTests.dar",
         "//ledger/test-common:Test.dar",
+        "//ledger/test-common:Test-1.6.dar",
     ],
     server = ":reference",
     server_args = [
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:SemanticTests.dar))",
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test-1.6.dar))",
     ],
     tags = [
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.
