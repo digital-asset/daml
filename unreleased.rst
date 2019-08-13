@@ -19,3 +19,8 @@ HEAD — ongoing
 + [DAML Compile] The ``--dump-pom`` flag from ``damlc package`` has been removed as packaging
   has not relied on POM files for a while.
 + [DAML Studio] Print stack trace when a scenario fails.
++ [Navigator] ``{"None": {}}`` and ``{"Some": value}``, where previously accepted, are no longer supported or used for DAML ``Optional`` values.
+  Instead, for simple cases, use the plain value for ``Some``, and ``null`` for ``None``.
+  See issue `#2361 <https://github.com/digital-asset/daml/issues/2361>`__ for other cases.
++ [Navigator] [HTTP JSON] A new, more intuitive JSON format for DAML values is supported.
+  See issue `#2361 <https://github.com/digital-asset/daml/issues/2361>`__.
