@@ -29,7 +29,8 @@ package object tests {
     "IdentityIT" -> (new Identity(_)),
     "TimeIT" -> (new Time(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
-    "WitnessesIT" -> (new Witnesses(_))
+    "WitnessesIT" -> (new Witnesses(_)),
+    "CommandServiceIT" -> (new CommandService(_))
   )
 
   val all = default ++ optional
