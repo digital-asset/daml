@@ -240,12 +240,12 @@ The dates must be between the bounds specified by DAML-LF and ISO 8601,
 Text
 ----
 
-Represented as JSON strings.
+Represented as strings.
 
 Bool
 ----
 
-Represented as JSON booleans.
+Represented as booleans.
 
 Record
 ------
@@ -253,7 +253,7 @@ Record
 Input
 ~~~~~
 
-Records can be represented in two ways. As JSON objects::
+Records can be represented in two ways. As objects::
 
     { f₁: v₁, ..., fₙ: vₙ }
 
@@ -280,7 +280,7 @@ _1 = 42, _2 = True }``.
 Output
 ~~~~~~
 
-Records are always encoded as JSON objects.
+Records are always encoded as objects.
 
 List
 ----
@@ -294,7 +294,7 @@ Lists are represented as
 Map
 ---
 
-Maps are represented as JSON objects:
+Maps are represented as objects:
 
 ::
 
@@ -351,10 +351,10 @@ We have
     { foo: [] }      -->  Depth2 { foo: Some None }       :  Depth2
 
 Note that the shortcut for records and Optional fields does not apply to
-Map (which are also represented as JSON objects), since Map relies on
-absence of key to determine what keys are present in the Map to begin
-with.  Nor does it apply to the ``[f₁, ..., fₙ]`` record form; ``Depth1
-None`` in the array notation must be written as ``[null]``.
+Map (which are also represented as objects), since Map relies on absence
+of key to determine what keys are present in the Map to begin with.  Nor
+does it apply to the ``[f₁, ..., fₙ]`` record form; ``Depth1 None`` in
+the array notation must be written as ``[null]``.
 
 Type variables may appear in the DAML-LF language, but are always
 resolved before deciding on a JSON encoding.  So, for example, even
