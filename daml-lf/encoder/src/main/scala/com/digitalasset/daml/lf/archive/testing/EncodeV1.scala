@@ -230,7 +230,7 @@ private[digitalasset] class EncodeV1(val minor: LV.Minor) {
     }
 
     private implicit def encodeLocation(loc: Location): PLF.Location = {
-      val Location(packageId, module, (startLine, startCol), (endLine, endCol)) = loc
+      val Location(packageId, module, definition@_, (startLine, startCol), (endLine, endCol)) = loc
       PLF.Location
         .newBuilder()
         .setModule(packageId -> module)

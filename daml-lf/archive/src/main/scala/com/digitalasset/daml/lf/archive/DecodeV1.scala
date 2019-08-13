@@ -66,6 +66,8 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       onlySerializableDataDefs: Boolean
   ) {
 
+    var definition: String = "<unknown>"
+
     val moduleName = eitherToParseError(
       ModuleName.fromSegments(lfModule.getName.getSegmentsList.asScala))
 
@@ -149,13 +151,15 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private[this] def decodeEnumCons(cons: ImmArray[String]): ImmArray[EnumConName] =
       cons.map(name)
 
-    private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue =
+    private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
+      definition = lfValue.getNameWithType.getNameList.asScala.mkString(".")
       DValue(
         typ = decodeType(lfValue.getNameWithType.getType),
         noPartyLiterals = lfValue.getNoPartyLiterals,
         body = decodeExpr(lfValue.getExpr),
         isTest = lfValue.getIsTest
       )
+    }
 
     private def decodeLocation(lfExpr: PLF.Expr): Option[Location] =
       if (lfExpr.hasLocation && lfExpr.getLocation.hasRange) {
@@ -171,6 +175,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           Location(
             pkgId,
             module,
+            definition,
             (range.getStartLine, range.getStartCol),
             (range.getEndLine, range.getEndCol)))
       } else {
@@ -178,9 +183,11 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
 
     private[this] def decodeTemplateKey(
+        tpl: String,
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName): TemplateKey = {
       assertSince(LV.Features.contractKeys, "DefTemplate.DefKey")
+      definition = s"${tpl}:key"
       val keyExpr = key.getKeyExprCase match {
         case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
           decodeKeyExpr(key.getKey, tplVar)
@@ -191,10 +198,12 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
           throw ParseError("DefKey.KEYEXPR_NOT_SET")
       }
+      definition = s"${tpl}:maintainer"
+      val maintainer = decodeExpr(key.getMaintainers)
       TemplateKey(
         decodeType(key.getType),
         keyExpr,
-        decodeExpr(key.getMaintainers)
+        maintainer
       )
     }
 
@@ -218,31 +227,48 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       }
     }
 
-    private[this] def decodeTemplate(lfTempl: PLF.DefTemplate): Template =
+    private[this] def decodeTemplate(lfTempl: PLF.DefTemplate): Template = {
+      val tpl = lfTempl.getTycon.getSegmentsList.asScala.mkString(".")
+      definition = s"${tpl}:ensure"
+      val precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond) else ETrue
+      definition = s"${tpl}:signatory"
+      val signatories = decodeExpr(lfTempl.getSignatories)
+      definition = s"${tpl}:agreement"
+      val agreementText = decodeExpr(lfTempl.getAgreement)
+      definition = s"${tpl}:observer"
+      val observers = decodeExpr(lfTempl.getObservers)
+
       Template(
         param = name(lfTempl.getParam),
-        precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond) else ETrue,
-        signatories = decodeExpr(lfTempl.getSignatories),
-        agreementText = decodeExpr(lfTempl.getAgreement),
+        precond = precond,
+        signatories = signatories,
+        agreementText = agreementText,
         choices = lfTempl.getChoicesList.asScala
-          .map(decodeChoice)
+          .map(decodeChoice(tpl, _))
           .map(ch => (ch.name, ch)),
-        observers = decodeExpr(lfTempl.getObservers),
+        observers = observers,
         key =
-          if (lfTempl.hasKey) Some(decodeTemplateKey(lfTempl.getKey, name(lfTempl.getParam)))
+          if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, name(lfTempl.getParam)))
           else None
       )
+    }
 
-    private[this] def decodeChoice(lfChoice: PLF.TemplateChoice): TemplateChoice = {
+    private[this] def decodeChoice(tpl: String, lfChoice: PLF.TemplateChoice): TemplateChoice = {
       val (v, t) = decodeBinder(lfChoice.getArgBinder)
+      val chName = lfChoice.getName
+      definition = s"${tpl}:${chName}:controller"
+      val controllers = decodeExpr(lfChoice.getControllers)
+      definition = s"${tpl}:${chName}:choice"
+      val update = decodeExpr(lfChoice.getUpdate)
+
       TemplateChoice(
-        name = name(lfChoice.getName),
+        name = name(chName),
         consuming = lfChoice.getConsuming,
-        controllers = decodeExpr(lfChoice.getControllers),
+        controllers = controllers,
         selfBinder = name(lfChoice.getSelfBinder),
         argBinder = Some(v) -> t,
         returnType = decodeType(lfChoice.getRetType),
-        update = decodeExpr(lfChoice.getUpdate)
+        update = update
       )
     }
 
