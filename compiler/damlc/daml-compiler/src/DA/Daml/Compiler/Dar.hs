@@ -12,6 +12,9 @@ import qualified Codec.Archive.Zip as Zip
 import Control.Monad.Extra
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
+import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.Options.Types
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSC
@@ -20,19 +23,15 @@ import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.Set as S
 import qualified Data.Text as T
-import System.FilePath
-
-import Module (unitIdString)
-
-import qualified DA.Daml.LF.Ast as LF
-import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
-import DA.Daml.Options.Types
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
+import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as IdeLogger
+import Module
 import SdkVersion
+import System.FilePath
 
 ------------------------------------------------------------------------------
 {- | Builds a dar file.
@@ -88,10 +87,15 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
         then liftIO $
              Just <$> do
                  bytes <- BSL.readFile pMain
-                 createArchive pkgConf "" bytes [] [] [] []
+                 createArchive pkgConf "" bytes [] (toNormalizedFilePath ".") [] [] []
         else runAction service $
              runMaybeT $ do
                  WhnfPackage pkg <- useE GeneratePackage file
+                 parsedMain <- useE GetParsedModule file
+                 let srcRoot =
+                         toNormalizedFilePath $
+                         fromMaybe (error "Cannot determine source root") $
+                         moduleImportPaths parsedMain
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
                  let missingExposed =
                          S.fromList (fromMaybe [] pExposedModules) S.\\
@@ -120,6 +124,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                          (T.unpack pkgId)
                          dalf
                          dalfDependencies
+                         srcRoot
                          (file : fileDependencies)
                          dataFiles
                          ifaces
@@ -167,11 +172,12 @@ createArchive ::
     -> String
     -> BSL.ByteString -- ^ DALF
     -> [(T.Text, BS.ByteString)] -- ^ DALF dependencies
+    -> NormalizedFilePath -- ^ Source root directory
     -> [NormalizedFilePath] -- ^ Module dependencies
     -> [(String, BS.ByteString)] -- ^ Data files
     -> [NormalizedFilePath] -- ^ Interface files
     -> IO BSL.ByteString
-createArchive PackageConfigFields {..} pkgId dalf dalfDependencies fileDependencies dataFiles ifaces
+createArchive PackageConfigFields {..} pkgId dalf dalfDependencies srcRoot fileDependencies dataFiles ifaces
  = do
     -- Reads all module source files, and pairs paths (with changed prefix)
     -- with contents as BS. The path must be within the module root path, and
@@ -181,14 +187,14 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies fileDependenc
             contents <- BSL.readFile $ fromNormalizedFilePath mPath
             return
                 ( pkgName </>
-                  fromNormalizedFilePath (makeRelative' modRoot mPath)
+                  fromNormalizedFilePath (makeRelative' srcRoot mPath)
                 , contents)
     ifaceFaceFiles <-
         forM ifaces $ \mPath -> do
             contents <- BSL.readFile $ fromNormalizedFilePath mPath
             let ifaceRoot =
                     toNormalizedFilePath
-                        (ifaceDir </> fromNormalizedFilePath modRoot)
+                        (ifaceDir </> fromNormalizedFilePath srcRoot)
             return
                 ( pkgName </>
                   fromNormalizedFilePath (makeRelative' ifaceRoot mPath)
@@ -214,7 +220,6 @@ createArchive PackageConfigFields {..} pkgId dalf dalfDependencies fileDependenc
     pure $ Zip.fromArchive zipArchive
   where
     pkgName = fullPkgName pName pVersion pkgId
-    modRoot = toNormalizedFilePath $ takeDirectory pMain
     manifestHeader :: FilePath -> [String] -> BSL.ByteString
     manifestHeader location dalfs =
         BSC.pack $
