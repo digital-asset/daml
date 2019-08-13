@@ -256,7 +256,7 @@ Test the business logic with a ledger
 
 In production, your application is going to interact with a DAML model deployed on an actual ledger.
 
-Each model is usually specific to a business need and describes specific protocols.
+Each model is usually specific to a business need and describes specific workflows.
 
 Mocking a ledger response is usually not desirable to test the business logic, because so much of it is encapsulated in the DAML model.
 
