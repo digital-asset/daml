@@ -35,8 +35,8 @@ import Development.IDE.GHC.Util
 import qualified Development.IDE.Types.Options as HieCore
 
 -- | Convert to hie-core’s IdeOptions type.
-toCompileOpts :: Options -> HieCore.IdeOptions
-toCompileOpts options@Options{..} =
+toCompileOpts :: Options -> HieCore.IdeReportProgress -> HieCore.IdeOptions
+toCompileOpts options@Options{..} reportProgress =
     HieCore.IdeOptions
       { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
       , optGhcSession = do
@@ -52,6 +52,7 @@ toCompileOpts options@Options{..} =
       , optExtensions = ["daml"]
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
+      , optReportProgress = reportProgress
       , optLanguageSyntax = "daml"
       , optNewColonConvention = True
       }
