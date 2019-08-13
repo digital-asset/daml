@@ -306,7 +306,7 @@ It may be the case that you are running a very high number of tests, verifying t
 
 If that's the case, the leak of resources caused by the approach to test isolation mentioned above can become counterproductive, causing slow-downs or even crashes as the ledger backing your test suite has to keep track of more parties and more transactions that are actually no longer relevant after the test itself finishes.
 
-As a last resort for these cases, your tests can use a service that ledger implementations can optionally expose, designed exclusively for testing environments: the reset service.
+As a last resort for these cases, your tests can use the reset service, which ledger implementations can optionally expose for testing.
 
 The reset service has a single ``reset`` method that will cause all the accumulated state to be dropped, including all active contracts, the entire history of transactions and all allocated users. Only the DAML packges loaded in the ledger is preserved, possibly saving on the time needed to be loaded as opposed to simply spinning up a new ledger.
 
