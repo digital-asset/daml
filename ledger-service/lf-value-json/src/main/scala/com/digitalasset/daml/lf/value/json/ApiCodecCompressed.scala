@@ -178,13 +178,18 @@ abstract class ApiCodecCompressed[Cid](
         case JsObject(v) =>
           V.ValueRecord(
             Some(id),
-            fields.map { f =>
-              val jsField = v
-                .getOrElse(
-                  f._1,
-                  deserializationError(
-                    s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '${f._1}'"))
-              (Some(f._1), jsValueToApiValue(jsField, f._2, defs))
+            fields.map {
+              case (fName, fTy) =>
+                val fValue = v
+                  .get(fName)
+                  .map(jsValueToApiValue(_, fTy, defs))
+                  .getOrElse(fTy match {
+                    case iface.TypePrim(iface.PrimType.Optional, _) => V.ValueOptional(None)
+                    case _ =>
+                      deserializationError(
+                        s"Can't read ${value.prettyPrint} as DamlLfRecord $id, missing field '$fName'")
+                  })
+                (Some(fName), fValue)
             }.toImmArray
           )
         case JsArray(fValues) =>
