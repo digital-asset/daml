@@ -91,9 +91,10 @@ Input
 ~~~~~
 
 Int64, much like Decimal, can be represented as JSON numbers and as
-strings, with the string representation being [+-]?[0-9]+. The numbers
-must fall within [-9223372036854775808, 9223372036854775807]. Moreover,
-if represented as JSON numbers, they must have no fractional part.
+strings, with the string representation being ``[+-]?[0-9]+``. The
+numbers must fall within [-9223372036854775808,
+9223372036854775807]. Moreover, if represented as JSON numbers, they
+must have no fractional part.
 
 A few valid examples::
 
@@ -120,11 +121,12 @@ Output
 ~~~~~~
 
 If encodeInt64AsString is set, Int64s are encoded as strings, using the
-format -?[0-9]+. If encodeInt64AsString is not set, they are encoded as
-JSON numbers, also using the format -?[0-9]+.
+format ``-?[0-9]+``. If encodeInt64AsString is not set, they are encoded as
+JSON numbers, also using the format ``-?[0-9]+``.
  
 Note that the flag encodeInt64AsString is useful because it lets
-JavaScript consumers consume Int64s safely with the standard JSON.parse.
+JavaScript consumers consume Int64s safely with the standard
+``JSON.parse``.
 
 Timestamp
 ---------
@@ -133,7 +135,7 @@ Input
 ~~~~~
 
 Timestamps are represented as ISO 8601 strings, rendered using the
-format yyyy-mm-ddThh:mm:ss[.ssssss]Z::
+format ``yyyy-mm-ddThh:mm:ss[.ssssss]Z``::
 
     1990-11-09T04:30:23.1234569Z
     1990-11-09T04:30:23Z
@@ -180,7 +182,7 @@ Output
 ~~~~~~
 
 Timestamps are encoded as ISO 8601 strings, rendered using the format
-yyyy-mm-ddThh:mm:ss[.ssssss]Z.
+``yyyy-mm-ddThh:mm:ss[.ssssss]Z``.
 
 The sub-second part will be formatted as follows:
 
@@ -216,7 +218,8 @@ or None in Python.
 Date
 ----
 
-Represented as an ISO 8601 date rendered using the format yyyy-mm-dd::
+Represented as an ISO 8601 date rendered using the format
+``yyyy-mm-dd``::
 
     2019-06-18
     9999-12-31
@@ -245,7 +248,7 @@ Records can be represented in two ways. As JSON objects::
 
     { f1: v1, ..., fn: vn }
 
-And as lists::
+And as arrays::
 
     [ v1, ..., vn ]
 
@@ -255,15 +258,15 @@ Note that DAML-LF record fields are ordered. So if we have
 
     record Foo = {f1: Int64, f2: Bool}
 
-when representing the record as a list the user must specify the fields
-in order::
+when representing the record as an array the user must specify the
+fields in order::
 
     [42, true]
 
-The motivation for the list format for records is to allow specifying
+The motivation for the array format for records is to allow specifying
 tuple types closer to what it looks like in DAML. Note that a DAML
-tuple, i.e. (42, True), will be compiled to a DAML-LF record Tuple2 { _1
-= 42, _2 = True }.
+tuple, i.e. (42, True), will be compiled to a DAML-LF record ``Tuple2 {
+_1 = 42, _2 = True }``.
 
 Output
 ~~~~~~
@@ -294,12 +297,12 @@ Optional
 Input
 ~~~~~
 
-Optionals are encoded using null if the value is None, and with the
-value itself if it's Some. However, this does not let us encode nested
-optionals unambiguously. Therefore nested Optionals are encoded using an
-empty list for None, and a list with one element for Some. Note that
-after the top-level Optional, all the nested ones must be represented
-using the list notation.
+Optionals are encoded using ``null`` if the value is None, and with the
+value itself if it's Some. However, this alone does not let us encode
+nested optionals unambiguously. Therefore, nested Optionals are encoded
+using an empty list for None, and a list with one element for Some. Note
+that after the top-level Optional, all the nested ones must be
+represented using the list notation.
 
 A few examples, using the form
 
@@ -346,7 +349,8 @@ with.
 Output
 ~~~~~~
 
-Encoded as described above, always applying the shortcut for None record fields.
+Encoded as described above, always applying the shortcut for None record
+fields.
 
 Variant
 -------
