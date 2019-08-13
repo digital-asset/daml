@@ -198,13 +198,6 @@ DAML-LF
   + intern package IDs. See `issue #1614
     <https://github.com/digital-asset/daml/pull/1614>`__.
 
-  + **BREAKING CHANGE** Restrict contract key lookups. In short, when looking
-    up or fetching a key, the transaction submitter must be one of the key
-    maintainers. The restriction was done in the DAML-LF development version
-    (``1.dev``) until now.
-    See `issue #1866 <https://github.com/digital-asset/daml/issues/1866>`__.
-    This change is breaking, since this release makes DAML-LF ``1.6`` the
-    default compiler output.
 
 DAML Compiler
 ~~~~~~~~~~~~~
@@ -229,12 +222,11 @@ DAML Compiler
   + Add support for DAML-LF intern package IDs.
 
 - **BREAKING CHANGE** Make DAML-LF 1.6 the default output.
-  This change activates the support of ``enum`` type describes above, and the
-  `restriction about contract key lookup
-  <https://github.com/digital-asset/daml/issues/1866>`__ described in the
-  DAML-LF section
+  This change activates the support of ``enum`` type describes above.
 
-- **BREAKING CHANGE** Drop support for DAML-LF 1.5. Compiling to DAML-LF 1.6 requires some changes regarding enum types to applications using the Ledger API, see above. (The ledger server still supports DAML-LF 1.5.)
+- **BREAKING CHANGE** Drop support for DAML-LF 1.5. Compiling to DAML-LF 1.6
+  requires some changes regarding enum types to applications using the Ledger
+  API, see above. (The ledger server still supports DAML-LF 1.5.)
 
 Ledger API
 ~~~~~~~~~~

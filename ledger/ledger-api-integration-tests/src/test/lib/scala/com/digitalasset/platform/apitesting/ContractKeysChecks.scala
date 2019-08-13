@@ -119,7 +119,7 @@ class ContractKeysChecks
           choice = "FetchDelegated",
           arg = Value(Value.Sum.Record(fetchArg)),
         )
-        _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+        _ <- if (languageVersion precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion) {
           ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("SDVl8"),
             submitter = delegate,
@@ -140,7 +140,7 @@ class ContractKeysChecks
             "Expected the submitter 'Charlie' to be in maintainers 'Bob'",
           )
         }
-        _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+        _ <- if (languageVersion precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion) {
           ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("SDVl9"),
             submitter = delegate,
@@ -216,7 +216,7 @@ class ContractKeysChecks
         // this fetch still fails even if we do not check that the submitter
         // is in the lookup maintainer, since we have the visibility check
         // implement as part of #753.
-        _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+        _ <- if (languageVersion precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion) {
           ctx.testingHelpers.failingExercise(
             testIdsGenerator.testCommandId("TDVl6"),
             submitter = delegate,
@@ -239,7 +239,7 @@ class ContractKeysChecks
             "Expected the submitter 'Charlie' to be in maintainers 'Bob'",
           )
         }
-        _ <- if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+        _ <- if (languageVersion precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion) {
           ctx.testingHelpers.simpleExercise(
             testIdsGenerator.testCommandId("TDVl7"),
             submitter = delegate,
@@ -329,7 +329,7 @@ class ContractKeysChecks
                 RecordField(value = textKeyKey(Alice, key)),
                 RecordField(value = lookupSome(cid1.contractId)))))),
           Code.INVALID_ARGUMENT,
-          if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+          if (languageVersion precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion) {
             "requires authorizers"
           } else {
             "Expected the submitter 'Bob' to be in maintainers 'Alice'"
@@ -348,7 +348,7 @@ class ContractKeysChecks
                 RecordField(value = textKeyKey(Alice, "bogus-key")),
                 RecordField(value = lookupNone))))),
           Code.INVALID_ARGUMENT,
-          if (languageVersion precedes LanguageVersion.checkSubmitterInMaintainers) {
+          if (languageVersion precedes LanguageVersion.Features.checkSubmitterInMaintainersVersion) {
             "requires authorizers"
           } else {
             "Expected the submitter 'Bob' to be in maintainers 'Alice'"
