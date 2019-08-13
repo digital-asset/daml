@@ -2,7 +2,7 @@ package(default_visibility = ["//:__subpackages__"])
 
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 load(
-    "@rules_haskell//haskell:haskell.bzl",
+    "@rules_haskell//haskell:defs.bzl",
     "haskell_toolchain",
 )
 load(

@@ -159,7 +159,7 @@ sets the default visibility property globally for our targets as `public`. This 
 
 The `load` statments
 ```
-load("@rules_haskell//haskell:haskell.bzl",
+load("@rules_haskell//haskell:defs.bzl",
   "haskell_toolchain", "haskell_toolchain_library",
 )
 load("@rules_haskell//haskell:c2hs.bzl",

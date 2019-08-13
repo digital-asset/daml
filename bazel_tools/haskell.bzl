@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "@rules_haskell//haskell:haskell.bzl",
+    "@rules_haskell//haskell:defs.bzl",
     "haskell_binary",
     "haskell_library",
     "haskell_repl",
