@@ -338,7 +338,10 @@ We have
     { foo: null }    -->  Depth2 { foo: None }            :  Depth2
     { foo: [] }      -->  Depth2 { foo: Some None }       :  Depth2
 
-Note that the shortcut for records and Optional fields does not apply to Map (which are also represented as JSON objects), since Map relies on absence of key to determine what keys are present in the Map to begin with.
+Note that the shortcut for records and Optional fields does not apply to
+Map (which are also represented as JSON objects), since Map relies on
+absence of key to determine what keys are present in the Map to begin
+with.
 
 Output
 ~~~~~~
