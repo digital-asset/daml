@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -9,6 +9,7 @@ module DA.Daml.LanguageServer
     ) where
 
 import           Language.Haskell.LSP.Types
+import           Language.Haskell.LSP.Types.Capabilities
 import           Development.IDE.LSP.Server
 import qualified Development.IDE.LSP.LanguageServer as LS
 import Control.Monad.Extra
@@ -97,7 +98,7 @@ withUriDaml _ _ = return ()
 ------------------------------------------------------------------------
 
 runLanguageServer
-    :: ((FromServerMessage -> IO ()) -> VFSHandle -> IO IdeState)
+    :: ((FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
 runLanguageServer getIdeState = do
     let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers

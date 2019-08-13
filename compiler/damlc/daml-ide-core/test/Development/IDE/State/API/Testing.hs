@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -51,6 +51,7 @@ import qualified Development.IDE.Types.Location as D
 import DA.Daml.Compiler.Scenario as SS
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
+import Development.IDE.Types.Options (IdeReportProgress(..))
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
@@ -174,7 +175,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
     damlEnv <- mkDamlEnv options mbScenarioService
-    service <- API.initialise (mainRule options) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options) vfs
+    service <- API.initialise (mainRule options) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service

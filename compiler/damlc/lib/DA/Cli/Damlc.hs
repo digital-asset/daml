@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
@@ -60,6 +60,7 @@ import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..)
 import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
 import "ghc-lib-parser" Module
@@ -309,8 +310,9 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
             initPackageDb LF.versionDefault (InitPkgDb True)
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
             Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-            runLanguageServer
-                (getDamlIdeState opts mbScenarioService loggerH)
+            runLanguageServer $ \sendMsg vfs caps ->
+                getDamlIdeState opts mbScenarioService loggerH sendMsg vfs (clientSupportsProgress caps)
+
 
 execCompile :: FilePath -> FilePath -> Options -> Command
 execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do

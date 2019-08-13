@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE MultiWayIf #-}
@@ -33,6 +33,7 @@ import qualified DA.Daml.Compiler.Scenario as SS
 import qualified DA.Service.Logger.Impl.Pure as Logger
 import qualified Development.IDE.Types.Logger as IdeLogger
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options(IdeReportProgress(..))
 import qualified Data.Aeson as A
 import qualified Data.Aeson.Lens as A
 import           Data.ByteString.Lazy.Char8 (unpack)
@@ -134,7 +135,7 @@ getIntegrationTests registerTODO scenarioService version = do
     damlEnv <- mkDamlEnv opts (Just scenarioService)
     pure $
       withResource
-      (initialise (mainRule opts) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts) vfs)
+      (initialise (mainRule opts) (const $ pure ()) IdeLogger.noLogging damlEnv (toCompileOpts opts (IdeReportProgress False)) vfs)
       shutdown $ \service ->
       withTestArguments $ \args -> testGroup ("Tests for DAML-LF " ++ renderPretty version) $
         map (testCase args version service outdir registerTODO) allTestFiles

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
@@ -19,7 +19,7 @@ import com.digitalasset.http.json.{
 import com.digitalasset.http.util.FutureUtil.liftET
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
 import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
-import com.digitalasset.jwt.HMAC256Verifier
+import com.digitalasset.jwt.JwtDecoder
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
@@ -41,11 +41,17 @@ object HttpService extends StrictLogging {
 
   final case class Error(message: String)
 
-  def start(ledgerHost: String, ledgerPort: Int, applicationId: ApplicationId, httpPort: Int)(
+  def start(
+      ledgerHost: String,
+      ledgerPort: Int,
+      applicationId: ApplicationId,
+      httpPort: Int,
+      validateJwt: Endpoints.ValidateJwt = decodeJwt)(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext): Future[Error \/ ServerBinding] = {
+      ec: ExecutionContext
+  ): Future[Error \/ ServerBinding] = {
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
@@ -79,15 +85,9 @@ object HttpService extends StrictLogging {
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 
-      // TODO(Leo): don't depend on HMAC256, use RSA256.
-      // Make it configurable, we can run tests with HMAC256 but in PROD we need RSA256
-      jwtValidator <- FutureUtil
-        .either(HMAC256Verifier(secret = "secret"))
-        .leftMap(e => Error(e.shows))
-
       endpoints = new Endpoints(
         ledgerId,
-        jwtValidator.verify,
+        validateJwt,
         commandService,
         contractsService,
         encoder,
@@ -113,6 +113,10 @@ object HttpService extends StrictLogging {
     logger.info("Stopping server...")
     f.collect { case \/-(a) => a.unbind() }.join
   }
+
+  // Decode JWT without any validation
+  private val decodeJwt: Endpoints.ValidateJwt =
+    jwt => JwtDecoder.decode(jwt).leftMap(e => Endpoints.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
       ledgerId: lar.LedgerId,

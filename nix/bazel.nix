@@ -4,7 +4,7 @@
 { system ? builtins.currentSystem
 , pkgs ? import ./nixpkgs.nix { inherit system; }
 }:
-rec {
+let shared = rec {
   inherit (pkgs)
     curl
     docker
@@ -99,8 +99,10 @@ rec {
   };
 
   bazel-cc-toolchain = pkgs.callPackage ./tools/bazel-cc-toolchain {};
-} // (if pkgs.stdenv.isLinux then {
+};
+in shared // (if pkgs.stdenv.isLinux then {
   inherit (pkgs)
     glibcLocales
     ;
+  ghcStaticDwarf = shared.ghcStatic.override { enableDwarf = true; };
   } else {})
