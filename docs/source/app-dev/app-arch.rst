@@ -239,7 +239,7 @@ There are some other identifiers that are determined by your client code. These 
 Testing
 =======
 
-Testing is fundamental to ensure correctness and favor maintainability.
+Testing is fundamental to ensure correctness and improve maintainability.
 
 Testing is usually divided into different categories according to its scope and aim:
 
