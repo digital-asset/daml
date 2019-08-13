@@ -60,8 +60,12 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
       implicit context: LedgerTestContext): Future[Contract[T]] =
     context.create(party, template)
 
-  final def exercise[T](exercise: Primitive.Update[T])(party: Party)(
-      implicit context: LedgerTestContext): Future[Unit] =
+  final def createAndGetTransactionId[T <: Template[T]: ValueDecoder](template: Template[T])(
+      party: Party)(implicit context: LedgerTestContext): Future[(String, Contract[T])] =
+    context.createAndGetTransactionId(party, template)
+
+  final def exercise[T](exercise: Party => Primitive.Update[T])(party: Party)(
+      implicit context: LedgerTestContext): Future[TransactionTree] =
     context.exercise(party, exercise)
 
   final def flatTransactions(party: Party, parties: Party*)(
@@ -75,6 +79,10 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   final def transactionTrees(party: Party, parties: Party*)(
       implicit context: LedgerTestContext): Future[Vector[TransactionTree]] =
     context.transactionTrees(party +: parties, Seq.empty)
+
+  final def transactionTreeById(transactionId: String, party: Party, parties: Party*)(
+      implicit context: LedgerTestContext): Future[TransactionTree] =
+    context.transactionTreeById(transactionId, party +: parties)
 
   final def transactionTreesByTemplateId(party: Party, parties: Party*)(templateIds: Identifier*)(
       implicit context: LedgerTestContext): Future[Vector[TransactionTree]] =
