@@ -67,10 +67,6 @@ def daml_deps():
             strip_prefix = "rules_haskell-{}/hazel".format(rules_haskell_version),
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             sha256 = rules_haskell_sha256,
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:haskell-hazel-include-paths.patch",
-            ],
-            patch_args = ["-p2"],
         )
 
     if "com_github_madler_zlib" not in native.existing_rules():
