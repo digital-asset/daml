@@ -41,11 +41,17 @@ object HttpService extends StrictLogging {
 
   final case class Error(message: String)
 
-  def start(ledgerHost: String, ledgerPort: Int, applicationId: ApplicationId, httpPort: Int)(
+  def start(
+      ledgerHost: String,
+      ledgerPort: Int,
+      applicationId: ApplicationId,
+      httpPort: Int,
+      validateJwt: Endpoints.ValidateJwt = decodeJwt)(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext): Future[Error \/ ServerBinding] = {
+      ec: ExecutionContext
+  ): Future[Error \/ ServerBinding] = {
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
@@ -81,7 +87,7 @@ object HttpService extends StrictLogging {
 
       endpoints = new Endpoints(
         ledgerId,
-        JwtDecoder.decode,
+        validateJwt,
         commandService,
         contractsService,
         encoder,
@@ -107,6 +113,10 @@ object HttpService extends StrictLogging {
     logger.info("Stopping server...")
     f.collect { case \/-(a) => a.unbind() }.join
   }
+
+  // Decode JWT without any validation
+  private val decodeJwt: Endpoints.ValidateJwt =
+    jwt => JwtDecoder.decode(jwt).leftMap(e => Endpoints.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
       ledgerId: lar.LedgerId,

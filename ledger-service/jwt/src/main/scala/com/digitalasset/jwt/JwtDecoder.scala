@@ -8,8 +8,6 @@ import scalaz.syntax.show._
 import scalaz.syntax.traverse._
 
 object JwtDecoder {
-  type DecodeJwt = domain.Jwt => Error \/ domain.DecodedJwt[String]
-
   final case class Error(what: Symbol, message: String)
 
   object Error {

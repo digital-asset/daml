@@ -13,7 +13,6 @@ import com.digitalasset.http.json.ResponseFormats._
 import com.digitalasset.http.json.{DomainJsonDecoder, DomainJsonEncoder, SprayJson}
 import com.digitalasset.http.util.FutureUtil
 import com.digitalasset.http.util.FutureUtil.{either, eitherT}
-import com.digitalasset.jwt.JwtDecoder.DecodeJwt
 import com.digitalasset.jwt.domain.{DecodedJwt, Jwt}
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.api.{v1 => lav1}
@@ -33,7 +32,7 @@ import scala.util.control.NonFatal
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class Endpoints(
     ledgerId: lar.LedgerId,
-    decodeJwt: DecodeJwt,
+    decodeJwt: Endpoints.ValidateJwt,
     commandService: CommandService,
     contractsService: ContractsService,
     encoder: DomainJsonEncoder,
@@ -253,7 +252,7 @@ class Endpoints(
 
   private def decodeAndParsePayload(jwt: Jwt): Unauthorized \/ domain.JwtPayload =
     for {
-      a <- decodeJwt(jwt).leftMap(e => Unauthorized(e.shows)): Unauthorized \/ DecodedJwt[String]
+      a <- decodeJwt(jwt): Unauthorized \/ DecodedJwt[String]
       b <- parsePayload(a)
     } yield b
 
@@ -264,6 +263,8 @@ class Endpoints(
 object Endpoints {
 
   private type ET[A] = EitherT[Future, Error, A]
+
+  type ValidateJwt = Jwt => Unauthorized \/ DecodedJwt[String]
 
   sealed abstract class Error(message: String) extends Product with Serializable
 

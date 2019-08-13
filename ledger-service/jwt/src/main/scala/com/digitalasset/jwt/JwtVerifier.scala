@@ -29,8 +29,6 @@ class JwtVerifier(verifier: com.auth0.jwt.interfaces.JWTVerifier) {
 }
 
 object JwtVerifier {
-  type VerifyJwt = domain.Jwt => Error \/ domain.DecodedJwt[String]
-
   final case class Error(what: Symbol, message: String)
 
   object Error {
