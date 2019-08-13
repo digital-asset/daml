@@ -8,12 +8,11 @@ import java.nio.charset.Charset
 import com.auth0.jwt.algorithms.Algorithm
 import scalaz.syntax.traverse._
 import scalaz.{Show, \/}
+import scalaz.syntax.show._
 
 object JwtSigner {
 
   private val charset = Charset.forName("ASCII")
-
-  private val base64encoder = java.util.Base64.getUrlEncoder.withoutPadding()
 
   object HMAC256 {
     def sign(jwt: domain.DecodedJwt[String], secret: String): Error \/ domain.Jwt =
@@ -40,12 +39,12 @@ object JwtSigner {
     a.traverse(base64Encode)
 
   private def base64Encode(str: String): Error \/ Array[Byte] =
-    \/.fromTryCatchNonFatal(base64encoder.encode(str.getBytes))
-      .leftMap(e => Error('base64Encode, "Base64 encoding failed. Cause: " + e.getMessage))
+    base64Encode(str.getBytes)
 
   private def base64Encode(bs: Array[Byte]): Error \/ Array[Byte] =
-    \/.fromTryCatchNonFatal(base64encoder.encode(bs))
-      .leftMap(e => Error('base64Encode, "Base64 encoding failed. Cause: " + e.getMessage))
+    Base64
+      .encodeWithoutPadding(bs)
+      .leftMap(e => Error('base64Encode, e.shows))
 
   final case class Error(what: Symbol, message: String)
 
