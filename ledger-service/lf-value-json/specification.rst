@@ -215,9 +215,9 @@ quotes::
 Unit
 ----
 
-Represented as ``{}``. Note that ``{} !== {}``, however, ``null`` would
-be ambiguous; for the type ``Optional Unit``, ``null`` decodes to
-``None``, but ``{}`` decodes to ``Some ()``.
+Represented as empty object ``{}``. Note that in JavaScript ``{} !==
+{}``; however, ``null`` would be ambiguous; for the type ``Optional
+Unit``, ``null`` decodes to ``None``, but ``{}`` decodes to ``Some ()``.
 
 Additionally, we think that this is the least confusing encoding for
 Unit since unit is conceptually an empty record.  We do not want to
