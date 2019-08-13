@@ -308,6 +308,6 @@ If that's the case, the leak of resources caused by the approach to test isolati
 
 As a last resort for these cases, your tests can use a service that ledger implementations can optionally expose, designed exclusively for testing environments: the reset service.
 
-The reset service has a single ``reset`` method that will cause all the accumulated state to be dropped, including all active contract, the entire history of transactions and all allocated users. Only the code loaded in the ledger is preserved, possibly saving on the time needed to be loaded as opposed to simply spinning up a new ledger.
+The reset service has a single ``reset`` method that will cause all the accumulated state to be dropped, including all active contracts, the entire history of transactions and all allocated users. Only the DAML packges loaded in the ledger is preserved, possibly saving on the time needed to be loaded as opposed to simply spinning up a new ledger.
 
 The reset service momentarily shuts down the gRPC channel it communicates over, so your testing infrastructure must take this into account and, when the ``reset`` is invoked, must ensure that tests are temporarily suspended as attempts to reconnect with the rebooted ledger are performed. There is no guarantee as to how long the reset will take, so this should also be taken into account when attempting to reconnect.
