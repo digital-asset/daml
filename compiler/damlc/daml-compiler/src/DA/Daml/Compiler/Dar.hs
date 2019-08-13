@@ -99,7 +99,7 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                              (splitOn
                                   "."
                                   (moduleNameString $
-                                   moduleName $ ms_mod $ pm_mod_summary $ parsedMain))
+                                   moduleName $ ms_mod $ pm_mod_summary parsedMain))
                              (splitOn "/" $ dropExtension $ fromNormalizedFilePath file)
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
                  let missingExposed =
