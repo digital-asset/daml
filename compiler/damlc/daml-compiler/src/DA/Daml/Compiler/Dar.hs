@@ -26,9 +26,9 @@ import qualified Data.Text as T
 import Development.IDE.Core.API
 import Development.IDE.Core.RuleTypes.Daml
 import Development.IDE.Core.Rules.Daml
+import Development.IDE.GHC.Util
 import Development.IDE.Types.Location
 import qualified Development.IDE.Types.Logger as IdeLogger
-import GHC
 import Module
 import SdkVersion
 import System.FilePath
@@ -94,13 +94,8 @@ buildDar service pkgConf@PackageConfigFields {..} ifDir dalfInput = do
                  parsedMain <- useE GetParsedModule file
                  let srcRoot =
                          toNormalizedFilePath $
-                         intercalate "/" $
-                         dropSuffix
-                             (splitOn
-                                  "."
-                                  (moduleNameString $
-                                   moduleName $ ms_mod $ pm_mod_summary parsedMain))
-                             (splitOn "/" $ dropExtension $ fromNormalizedFilePath file)
+                         fromMaybe (error "Cannot determine source root") $
+                         moduleImportPaths parsedMain
                  let pkgModuleNames = map T.unpack $ LF.packageModuleNames pkg
                  let missingExposed =
                          S.fromList (fromMaybe [] pExposedModules) S.\\
