@@ -28,6 +28,7 @@ package object tests {
     "DivulgenceIT" -> (new Divulgence(_)),
     "IdentityIT" -> (new Identity(_)),
     "TimeIT" -> (new Time(_)),
+    "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
     "WitnessesIT" -> (new Witnesses(_))
   )

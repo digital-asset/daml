@@ -54,11 +54,13 @@ client_server_test(
     data = [
         "//ledger/test-common:SemanticTests.dar",
         "//ledger/test-common:Test.dar",
+        "//ledger/test-common:Test-1.6.dar",
     ],
     server = ":reference",
     server_args = [
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:SemanticTests.dar))",
         "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test.dar))",
+        "$(rlocation $TEST_WORKSPACE/$(rootpath //ledger/test-common:Test-1.6.dar))",
     ],
     tags = [
         # NOTE(JM): As this test is somewhat heavy and has timeouts, run it without competition to avoid flakyness.

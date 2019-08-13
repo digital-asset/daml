@@ -6,18 +6,18 @@ package com.daml.ledger.api.testtool.tests
 import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.ledger.test.DA.Types.Tuple2
-import com.digitalasset.ledger.test.Test.Delegation._
-import com.digitalasset.ledger.test.Test.ShowDelegated._
-import com.digitalasset.ledger.test.Test.TextKey._
-import com.digitalasset.ledger.test.Test.TextKeyOperations._
-import com.digitalasset.ledger.test.Test._
+import com.digitalasset.ledger.test_1_6.DA.Types.Tuple2
+import com.digitalasset.ledger.test_1_6.Test.Delegation._
+import com.digitalasset.ledger.test_1_6.Test.ShowDelegated._
+import com.digitalasset.ledger.test_1_6.Test.TextKey._
+import com.digitalasset.ledger.test_1_6.Test.TextKeyOperations._
+import com.digitalasset.ledger.test_1_6.Test._
 import io.grpc.Status
 
 final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session) {
 
   val fetchDivulgedContract =
-    LedgerTest("CKNoFetchOrLookup", "Divulged contracts cannot be fetched or looked up by key") {
+    LedgerTest("CKFetchOrLookup", "Divulged contracts can be fetched or looked up by key") {
       implicit context =>
         val key = s"${UUID.randomUUID.toString}-key"
         for {
@@ -36,23 +36,17 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
             delegate)
 
           // fetch by key delegation is not allowed
-          fetchByKeyFailure <- exercise(
+          _ <- exercise(
             delegation.contractId
-              .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated.contractId)))(delegate).failed
+              .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated.contractId)))(delegate)
 
           // lookup by key delegation is not allowed
-          lookupByKeyFailure <- exercise(
+          _ <- exercise(
             delegation.contractId
-              .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated.contractId)))(delegate).failed
+              .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated.contractId)))(delegate)
         } yield {
-          assertGrpcError(
-            fetchByKeyFailure,
-            Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$delegate' to be in maintainers '$owner'")
-          assertGrpcError(
-            lookupByKeyFailure,
-            Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+          // No assertions to make, since all exercises went through as expected
+          ()
         }
     }
 
@@ -73,28 +67,23 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           delegation.contractId
             .exerciseFetchDelegated(_, delegated.contractId))(delegate).failed
 
-        // fetch by key should fail
+        // this fetch still fails even if we do not check that the submitter
+        // is in the lookup maintainer, since we have the visibility check
+        // implement as part of #753.
         fetchByKeyFailure <- exercise(
           delegation.contractId
             .exerciseFetchByKeyDelegated(_, owner, key, None))(delegate).failed
 
-        // lookup by key should fail
-        lookupByKeyFailure <- exercise(
+        // lookup by key should work
+        _ <- exercise(
           delegation.contractId
-            .exerciseLookupByKeyDelegated(_, owner, key, None))(delegate).failed
+            .exerciseLookupByKeyDelegated(_, owner, key, None))(delegate)
       } yield {
         assertGrpcError(
           fetchFailure,
           Status.Code.INVALID_ARGUMENT,
           "dependency error: couldn't find contract")
-        assertGrpcError(
-          fetchByKeyFailure,
-          Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
-        assertGrpcError(
-          lookupByKeyFailure,
-          Status.Code.INVALID_ARGUMENT,
-          s"Expected the submitter '$delegate' to be in maintainers '$owner'")
+        assertGrpcError(fetchByKeyFailure, Status.Code.INVALID_ARGUMENT, "couldn't find key")
       }
     }
 
@@ -162,11 +151,11 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
           assertGrpcError(
             bobLooksUpTextKeyFailure,
             Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$bob' to be in maintainers '$alice'")
+            "requires authorizers")
           assertGrpcError(
             bobLooksUpBogusTextKeyFailure,
             Status.Code.INVALID_ARGUMENT,
-            s"Expected the submitter '$bob' to be in maintainers '$alice'")
+            "requires authorizers")
           assertGrpcError(aliceFailedFetch, Status.Code.INVALID_ARGUMENT, "couldn't find key")
           assertGrpcError(
             maintainerNotSignatoryFailed,
