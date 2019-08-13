@@ -347,7 +347,24 @@ We have
 Note that the shortcut for records and Optional fields does not apply to
 Map (which are also represented as JSON objects), since Map relies on
 absence of key to determine what keys are present in the Map to begin
-with.
+with.  Nor does it apply to the ``[f₁, ..., fₙ]`` record form; ``Depth1
+None`` in the array notation must be written as ``[null]``.
+
+Type variables may appear in the DAML-LF language, but are always
+resolved before deciding on a JSON encoding.  So, for example, even
+though ``Oa`` doesn't appear to contain a nested ``Optional``, it may
+contain a nested ``Optional`` by virtue of substituting the type
+variable ``a``::
+
+    record Oa a = { foo: Optional a }
+
+    { foo: 42 }     -->  Oa { foo: Some 42 }        : Oa Int
+    { }             -->  Oa { foo: None }           : Oa Int
+    { foo: [] }     -->  Oa { foo: Some None }      : Oa (Optional Int)
+    { foo: [42] }   -->  Oa { foo: Some (Some 42) } : Oa (Optional Int)
+
+In other words, the correct JSON encoding for any LF value is the one
+you get when you have eliminated all type variables.
 
 Output
 ~~~~~~
