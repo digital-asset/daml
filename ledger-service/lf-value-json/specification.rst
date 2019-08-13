@@ -390,16 +390,10 @@ and then, from JSON
     {"Bar": {"f1": 42, "f2": true}}
     {"Baz": {}}
 
-Note that for variants encoding we have two "reasonable" choices. The
-one explained above, and
+This can be encoded and used in TypeScript, including exhaustiveness
+checking; see `a keyed example`_.
 
-::
-
-    { "constructor": constructor, "argument": argument }
-
-The reason why we chose { constructor: argument } is brevity. Note that
-both versions can be encoded and used in TypeScript, including
-exhaustiveness checking, see keyed vs tagged.
+.. _a keyed example: https://www.typescriptlang.org/play/#src=type%20Foo%20%3D%0D%0A%20%20%20%20%7B%20Bar%3A%20%7B%20f1%3A%20number%2C%20f2%3A%20boolean%20%7D%20%7D%0D%0A%20%20%7C%20%7B%20Baz%3A%20%7B%20f3%3A%20string%20%7D%20%7D%3B%0D%0A%0D%0Afunction%20test(v%3A%20Foo)%20%7B%0D%0A%20%20if%20(%22Bar%22%20in%20v)%20%7B%0D%0A%20%20%20%20console.log(v.Bar.f1%2C%20v.Bar.f2)%3B%0D%0A%20%20%7D%20else%20if%20(%22Baz%22%20in%20v)%20%7B%0D%0A%20%20%20%20console.log(v.Baz.f3)%3B%0D%0A%20%20%7D%20else%20%7B%0D%0A%20%20%20%20const%20_%3A%20never%20%3D%20v%3B%0D%0A%20%20%7D%0D%0A%7D%20%0D%0A
 
 Enum
 ----
