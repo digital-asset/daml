@@ -44,6 +44,11 @@ load("//bazel_tools:os_info.bzl", "os_info")
 os_info(name = "os_info")
 
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("//bazel_tools:ghc_dwarf.bzl", "ghc_dwarf")
+
+ghc_dwarf(name = "ghc_dwarf")
+
+load("@ghc_dwarf//:ghc_dwarf.bzl", "enable_ghc_dwarf")
 
 nixpkgs_local_repository(
     name = "nixpkgs",
@@ -249,7 +254,7 @@ exports_files(glob(["lib/**/*"]))
 
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStatic",
+    attribute_path = "ghcStaticDwarf" if enable_ghc_dwarf else "ghcStatic",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
@@ -265,7 +270,7 @@ haskell_register_ghc_nixpkgs(
         "-fexternal-dynamic-refs",
         "-hide-package=ghc-boot-th",
         "-hide-package=ghc-boot",
-    ],
+    ] + (["-g3"] if enable_ghc_dwarf else []),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],
