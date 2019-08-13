@@ -509,10 +509,10 @@ hazel_repositories(
         },
     ),
     ghc_workspaces = {
-        "k8": "@io_tweag_rules_haskell_ghc_nixpkgs",
-        "darwin": "@io_tweag_rules_haskell_ghc_nixpkgs",
+        "k8": "@rules_haskell_ghc_nixpkgs",
+        "darwin": "@rules_haskell_ghc_nixpkgs",
         # although windows is not quite supported yet
-        "x64_windows": "@io_tweag_rules_haskell_ghc_windows_amd64",
+        "x64_windows": "@rules_haskell_ghc_windows_amd64",
     },
     packages = add_extra_packages(
         extra =
