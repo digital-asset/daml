@@ -99,6 +99,7 @@ da_haskell_test(
     ],
     deps = [
         "//:sdk-version-hs-lib",
+        "//compiler/damlc/daml-opts:daml-opts-types",
         "//daml-assistant/daml-helper:daml-helper-lib",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",

@@ -31,6 +31,7 @@ import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Run
+import DA.Daml.Options.Types
 import SdkVersion
 
 main :: IO ()
@@ -134,19 +135,26 @@ packagingTests tmpDir = testGroup "packaging"
         let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
         let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
         step "Creating project a..."
-        createDirectoryIfMissing True (projectA </> "daml")
+        createDirectoryIfMissing True (projectA </> "daml" </> "Foo" </> "Bar")
         writeFileUTF8 (projectA </> "daml" </> "A.daml") $ unlines
             [ "daml 1.2"
             , "module A (a) where"
             , "a : ()"
             , "a = ()"
             ]
+        writeFileUTF8 (projectA </> "daml" </> "Foo" </> "Bar" </> "Baz.daml") $ unlines
+            [ "daml 1.2"
+            , "module Foo.Bar.Baz (c) where"
+            , "import A (a)"
+            , "c : ()"
+            , "c = a"
+            ]
         writeFileUTF8 (projectA </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
             , "name: a"
             , "version: \"1.0\""
-            , "source: daml/A.daml"
-            , "exposed-modules: [A]"
+            , "source: daml/Foo/Bar/Baz.daml"
+            , "exposed-modules: [A, Foo.Bar.Baz]"
             , "dependencies:"
             , "  - daml-prim"
             , "  - daml-stdlib"
@@ -159,8 +167,11 @@ packagingTests tmpDir = testGroup "packaging"
             [ "daml 1.2"
             , "module B where"
             , "import A"
+            , "import Foo.Bar.Baz"
             , "b : ()"
             , "b = a"
+            , "d : ()"
+            , "d = c"
             ]
         writeFileUTF8 (projectB </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -201,6 +212,7 @@ packagingTests tmpDir = testGroup "packaging"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
+
     , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
@@ -220,8 +232,9 @@ packagingTests tmpDir = testGroup "packaging"
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
         let projectMigrate = tmpDir </> "migrateAB"
-        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
-        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
+        let aDar = projectA </> distDir </> "a.dar"
+        let bDar = projectB </> distDir </> "b.dar"
+        let bUpgradedDar = tmpDir </> "b_upgraded.dar"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
@@ -279,6 +292,17 @@ packagingTests tmpDir = testGroup "packaging"
         callCommandQuiet $ unwords ["daml", "migrate", projectMigrate, "daml/Main.daml", aDar, bDar]
         step "Build migration project"
         withCurrentDirectory projectMigrate $ callCommandQuiet "daml build"
+        step "Merging upgrade dar"
+        withCurrentDirectory tmpDir $
+            callCommandQuiet $
+            unwords
+                [ "daml damlc merge-dars"
+                , projectA </> distDir </> "a.dar"
+                , projectB </> distDir </> "b.dar"
+                , "--dar-name"
+                , "b_upgraded.dar"
+                ]
+        assertBool "b_upgraded.dar was not created." =<< doesFileExist bUpgradedDar
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
