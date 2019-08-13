@@ -173,7 +173,7 @@ object SBuiltin {
   final case object SBMulNumeric extends SBBinaryOpNumeric(multiply)
   final case object SBDivNumeric extends SBBinaryOpNumeric(divide)
 
-  sealed abstract class SBComparisonNumeric(mapCompare: Int => Boolean) extends SBuiltin(2) {
+  sealed abstract class SBComparisonNumeric(mapCompare: Int => Boolean) extends SBuiltin(3) {
     final def execute(args: util.ArrayList[SValue], machine: Machine): Unit =
       machine.ctrl = CtrlValue(
         (args.get(0), args.get(1), args.get(2)) match {

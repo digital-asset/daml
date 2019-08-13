@@ -157,9 +157,7 @@ object SValue {
   /** "Primitives" that can be applied. */
   sealed trait Prim
   final case class PBuiltin(b: SBuiltin) extends Prim
-  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals {
-    override def toString: String = s"PClosure($expr, ${closure.mkString("[", ",", "]")})"
-  }
+  final case class PClosure(expr: SExpr, closure: Array[SValue]) extends Prim with SomeArrayEquals
 
   /** A partially (or fully) applied primitive.
     * This is constructed when an argument is applied. When it becomes fully
@@ -167,9 +165,7 @@ object SValue {
     * If the primitive is a closure, the arguments are pushed to the environment and the
     * closure body is entered.
     */
-  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue {
-    override def toString: String = s"SPAP($prim, ${args.asScala.mkString("[", ",", "]")}, $arity)"
-  }
+  final case class SPAP(prim: Prim, args: util.ArrayList[SValue], arity: Int) extends SValue
 
   final case class SRecord(id: Identifier, fields: Array[Name], values: util.ArrayList[SValue])
       extends SValue

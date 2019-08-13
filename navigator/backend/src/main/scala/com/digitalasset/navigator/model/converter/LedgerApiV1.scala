@@ -403,10 +403,7 @@ case object LedgerApiV1 {
   ): Result[Model.ApiValue] =
     value match {
       case v: V.ValueEnum => fillInEnumTI(v, typ, ctx)
-      case v: V.ValueNumeric =>
-        // FixMe: https://github.com/digital-asset/daml/issues/2289
-        ???
-      case _: V.ValueCidlessLeaf | _: V.ValueContractId[_] => Right(value)
+      case _: V.ValueCidlessLeaf | V.ValueNumeric(_) | _: V.ValueContractId[_] => Right(value)
       case v: Model.ApiOptional => fillInOptionalTI(v, typ, ctx)
       case v: Model.ApiMap => fillInMapTI(v, typ, ctx)
       case v: Model.ApiList => fillInListTI(v, typ, ctx)

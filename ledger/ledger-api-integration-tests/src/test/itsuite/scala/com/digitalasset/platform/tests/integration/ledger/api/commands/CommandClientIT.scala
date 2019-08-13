@@ -33,7 +33,6 @@ import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, Succeeded, TryValues}
 
 import scalaz.syntax.tag._
-
 import scala.concurrent.Future
 import scala.concurrent.duration.FiniteDuration
 import scala.util.Success

@@ -58,7 +58,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
                 fail(s"Got out of bounds type variable $v when replacing parameters")
               case Some(ty) => ty
             }
-          case _: TNat | _: TTyCon | _: TBuiltin => typ
+          case TNat(_) | TTyCon(_) | TBuiltin(_) => typ
           case TApp(tyfun, arg) => TApp(go(tyfun), go(arg))
           case forall: TForall =>
             fail(

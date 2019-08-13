@@ -62,7 +62,7 @@ class DecodeV1Spec
   )
 
   // FixMe: https://github.com/digital-asset/daml/issues/2289
-  //        add stable minor version when numeric are released
+  //        add stable version when numerics are released
   private val postNumericMinVersions = Table(
     "minVersion",
     LV.Minor.Dev
@@ -127,8 +127,6 @@ class DecodeV1Spec
       }
     }
 
-    import DamlLf1.PrimType._
-
     def buildPrimType(primType: DamlLf1.PrimType, args: DamlLf1.Type*) =
       DamlLf1.Type
         .newBuilder()
@@ -137,7 +135,8 @@ class DecodeV1Spec
 
     val TDecimal = TNumeric(Ast.TNat(10))
 
-    "transparently apply TNat(10) to TNumeric if minVersion =< 1.dev" in {
+    "transparently apply TNat(10) to TNumeric if version =< 1.dev" in {
+      import DamlLf1.PrimType._
 
       val testCases = Table(
         "input" -> "expected output",
@@ -158,7 +157,8 @@ class DecodeV1Spec
       }
     }
 
-    "translated TNumeric such as if minVersion > 1.6" in {
+    "translate TNumeric such as if version > 1.6" in {
+      import DamlLf1.PrimType._
 
       val testCases = Table(
         "input" -> "expected output",
@@ -199,7 +199,7 @@ class DecodeV1Spec
         b.protoName == DamlLf1.BuiltinFunction.ADD_INT64 || b.protoName == DamlLf1.BuiltinFunction.APPEND_TEXT)
     assert(nonNumericBuiltins.length == 2)
 
-    "transparently apply TNat(10) to Numeric builtin if minVersion =< 1.dev" in {
+    "transparently apply TNat(10) to Numeric builtins if version =< 1.dev" in {
 
       val positiveTestCases = Table("builtinInfo", numericBuilttins.toSeq: _*)
       val negativeTetsCases = Table("builtinInfo", nonNumericBuiltins.toSeq: _*)
@@ -222,7 +222,7 @@ class DecodeV1Spec
 
     }
 
-    "translated TNumeric such as if minVersion > 1.6" in {
+    "translate TNumeric such as if version > 1.6" in {
 
       val testCases = Table("builtinInfo", (numericBuilttins.toSeq ++ nonNumericBuiltins.toSeq): _*)
 
@@ -237,6 +237,7 @@ class DecodeV1Spec
   }
 
   "decodeModuleRef" should {
+
     lazy val ((pkgId, dalfProto), majorVersion) = {
       val dalfFile =
         Files.newInputStream(Paths.get(rlocation("daml-lf/archive/DarReaderTest.dalf")))
