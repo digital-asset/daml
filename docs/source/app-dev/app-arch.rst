@@ -163,17 +163,6 @@ Scala
 
 The Java libraries above are compatible with Scala and can be used directly.
 
-..  Javascript
-    ==========
-
-    The Javascript bindings provide a callback interface to the Ledger API, similar to the low-level Java bindings. These allow connection to the API and provided access to a similar set of services.
-
-    Events are received using a callback approach, by creating a transaction event service and registering callback that will be called when events arrive. Commands can be sent by creating a Command or Command Submission service endpoint, and calling functions on them with Javascript objects as the required command and arguments.
-
-    All other services are similar to the low-level Java bindings, with data items also as Javascript objects.
-
-    Full details can be seen in the :doc:`Javascript Bindings Tutorial </app-dev/bindings-js/index>` and the `Javascript API Reference documentation </app-dev/bindings-js/static/>`__
-
 gRPC
 ====
 
