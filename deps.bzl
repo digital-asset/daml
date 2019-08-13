@@ -30,8 +30,8 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file"
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
 rules_scala_version = "8092d5f6165a8d9c4797d5f089c1ba4eee3326b1"
-rules_haskell_version = "53b899298cfdc9ce12564be6a8b507ef61bcd8d2"
-rules_haskell_sha256 = "3fda8396503ec65daf315f71562429b1ea20c1044122945d7dd2fc2dab31cbc3"
+rules_haskell_version = "732001fd971b689499532d11283e09ef91345ca6"
+rules_haskell_sha256 = "d30695ebe7f46aa38386fb4fd83882bb2e4b638c46c12dd990812b6ce088cc0c"
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
 def daml_deps():
