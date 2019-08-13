@@ -201,7 +201,8 @@ part, a sub-second part of length 3, or a sub-second part of length 6.
 Party
 -----
 
-Represented using their string representation, without any quotes::
+Represented using their string representation, without any additional
+quotes::
 
     "Alice"
     "Bob"
@@ -249,11 +250,11 @@ Input
 
 Records can be represented in two ways. As JSON objects::
 
-    { f1: v1, ..., fn: vn }
+    { f₁: v₁, ..., fₙ: vₙ }
 
 And as arrays::
 
-    [ v1, ..., vn ]
+    [ v₁, ..., vₙ ]
 
 Note that DAML-LF record fields are ordered. So if we have
 
@@ -283,7 +284,7 @@ Lists are represented as
 
 ::
 
-    [v1, ..., vn]
+    [v₁, ..., vₙ]
 
 Map
 ---
@@ -292,7 +293,7 @@ Maps are represented as JSON objects:
 
 ::
 
-    { k1: v1, ..., kn: vn }
+    { k₁: v₁, ..., kₙ: vₙ }
 
 Optional
 --------
