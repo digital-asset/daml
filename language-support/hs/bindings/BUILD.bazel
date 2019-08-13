@@ -52,6 +52,8 @@ da_haskell_test(
         ":for-upload.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
+    # The gRPC binding sometimes throw assertion on shutdown, see #2520.
+    flaky = True,
     hazel_deps = [
         "async",
         "base",
