@@ -8,3 +8,15 @@ This page contains release notes for the SDK.
 
 HEAD — ongoing
 --------------
+
++ [Ledger] Fixed a bug that prevented the ledger from loading transactions with empty workflow ids.
++ [DAML Extension] DAML visualization from IDE
++ [DAML Compiler] The ``--project-root`` option now works properly
+  with relative paths in ``daml build``.
++ [Ledger] Fixed internal shutdown order to avoid dead letter warnings when stopping Sandbox/Ledger API Server.
+  See issue `#1886 <https://github.com/digital-asset/daml/issues/1886>`__.
++ [DAML Compiler] Support generic template declarations and instances.
++ [DAML Compile] The ``--dump-pom`` flag from ``damlc package`` has been removed as packaging
+  has not relied on POM files for a while.
++ [DAML Studio] Print stack trace when a scenario fails.
++ [Documentation] Added platform-independent tips for testing
