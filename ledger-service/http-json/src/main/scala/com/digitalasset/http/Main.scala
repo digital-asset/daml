@@ -24,14 +24,12 @@ object Main extends StrictLogging {
 
   def main(args: Array[String]): Unit = {
 
-    if (args.length != 3) {
-      logger.error("Usage: LEDGER_HOST LEDGER_PORT HTTP_PORT")
-      System.exit(ErrorCodes.InvalidUsage)
-    }
+    if (args.length != 3)
+      reportInvalidUsageAndExit()
 
-    val ledgerHost = args(0)
-    val ledgerPort = args(1).toInt
-    val httpPort = args(2).toInt
+    val ledgerHost: String = args(0)
+    val ledgerPort: Int = Try(args(1).toInt).fold(e => reportInvalidUsageAndExit(e), identity)
+    val httpPort: Int = Try(args(2).toInt).fold(e => reportInvalidUsageAndExit(e), identity)
 
     logger.info(s"ledgerHost: $ledgerHost, ledgerPort: $ledgerPort, httpPort: $httpPort")
 
@@ -68,5 +66,21 @@ object Main extends StrictLogging {
   private def logFailure[A](msg: String, fa: Try[A]): Unit = fa match {
     case Failure(e) => logger.error(msg, e)
     case _ =>
+  }
+
+  /**
+    * Report usage and exit the program. Guaranteed by type not to terminate.
+    */
+  private def reportInvalidUsageAndExit(): Nothing = {
+    logger.error("Usage: LEDGER_HOST LEDGER_PORT HTTP_PORT")
+    sys.exit(ErrorCodes.InvalidUsage)
+  }
+
+  /**
+    * Print error, report usage and exit the program. Guaranteed by type not to terminate.
+    */
+  private def reportInvalidUsageAndExit(e: Throwable): Nothing = {
+    logger.error("Could not start", e)
+    reportInvalidUsageAndExit()
   }
 }
