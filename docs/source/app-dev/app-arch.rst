@@ -235,3 +235,79 @@ There are some other identifiers that are determined by your client code. These 
 .. |image0| image:: images/BotFlow.png
    :width: 6.5in
    :height: 3.69444in
+
+Testing
+=======
+
+Testing is fundamental to ensure correctness and favor maintainability.
+
+Testing is usually divided in different categories according to its scope and aim:
+
+- unit testing verifies single properties of individual components
+- integration testing verifies that an aggregation of components behaves as expected
+- acceptance testing checks that the overall behavior of a whole system satisfies certain criteria
+
+Both tests in the small scale (unit testing) and large (acceptance testing) tend to be specific to the given component or system under test.
+
+This chapter focuses on providing portable approaches and techniques to perform integration testing between your components and an actual running ledger.
+
+Test the business logic with a ledger
+*************************************
+
+In production, your application is going to interact with a DAML model deployed on an actual ledger.
+
+Each model is usually specific to a business need and describes specific protocols.
+
+Mocking a ledger response is usually not desirable to test the business logic, because so much of it is encapsulated in the DAML model.
+
+This makes integration testing with an actual running ledger fundamental to evaluating the correctness of an application.
+
+This is usually achieved by running a ledger as part of the test process and run several tests against it, possibly coordinated by a test framework.
+
+Since the in-memory sandbox shipped as part of the SDK is a full-fledged implementation of a DAML ledger, it's usually the tool of choice for these tests.
+
+Please note that this does not replace acceptance tests with the actual ledger implementation that your application aims to use in production.
+
+Whatever your choice is, sharing a single ledger to run several tests is a suggested best practice.
+
+Share the ledger
+****************
+
+Booting a ledger and loading DAML code into it takes time. The shorter your tests, the more this overhead is going to impact the running time of the tests.
+
+Given the fundamental need of working against a running ledger to verify the business logic, it's quite common to have integration test that, in appearance, resemble unit tests, in that they check an individual property of a component you wrote, although in an integration test setting.
+
+This means it's quite common to write short tests, which aim, just like unit tests, to give quick feedback to the developer.
+
+In order for this to happen, saving on the need to boot a ledger multiple times can dramatically decrease the time necessary to run a suite of tests.
+
+Since your tests are going to share the same ledger, they must be designed to not interfere with each other.
+
+Design your tests to share the ledger
+*************************************
+
+Both the transaction and the active contract service offer the possibility of filtering by party. Parties can thus be used as a way to isolate tests.
+
+You can use the party management service to allocate new parties and use them to test your application. You can also limit the number of transactions read from the ledger by reading the current offset of the ledger end before the test starts, since no transactions can possibly appear for the newly allocated parties before this time.
+
+In summary:
+
+1. retrieve the current offset of the ledger end before the test starts
+1. use the party management service to allocate the parties needed by the test
+1. whenever you issue a command, issue it as one of the parties allocated for this test
+1. whenever you need to get the set of active contracts or a stream of transactions, always filter by one or more of the parties allocated for this test
+
+This isolation between instances of tests also means that different tests can be run completely in parallel with respect to each other, possibly improving on the overall running time of your test suite.
+
+Reset if you need to
+********************
+
+It may be the case that you are running a very high number of tests, verifying the ins and outs of a very complex application interacting with an equally complex DAML model.
+
+If that's the case, the leak of resources caused by the approach to test isolation mentioned above can become counterproductive, causing slow-downs or even crashes as the ledger backing your test suite has to keep track of more parties and more transactions that are actually no longer relevant after the test itself finishes.
+
+As a last resort for these cases, your tests can use a service that ledger implementations can optionally expose, designed exclusively for testing environments: the reset service.
+
+The reset service has a single ``reset`` method that will cause all the accumulated state to be dropped, including all active contract, the entire history of transactions and all allocated users. Only the code loaded in the ledger is preserved, possibly saving on the time needed to be loaded as opposed to simply spinning up a new ledger.
+
+The reset service momentarily shuts down the gRPC channel it communicates over, so your testing infrastructure must take this into account and, when the ``reset`` is invoked, must ensure that tests are temporarily suspended as attempts to reconnect with the rebooted ledger are performed. There is no guarantee as to how long the reset will take, so this should also be taken into account when attempting to reconnect.
