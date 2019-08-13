@@ -14,6 +14,7 @@ import Data.Foldable (toList)
 import Data.List.Extra
 import qualified Data.Text as T
 import Language.Haskell.LSP.Types
+import Language.Haskell.LSP.Types.Capabilities
 import Language.Haskell.LSP.Types.Lens
 import Network.URI
 import System.Environment.Blank
@@ -26,19 +27,22 @@ import Test.Tasty.HUnit
 import DA.Daml.Lsp.Test.Util
 import qualified Language.Haskell.LSP.Test as LSP
 
+fullCaps' :: ClientCapabilities
+fullCaps' = fullCaps { _window = Just $ WindowClientCapabilities $ Just True }
+
 main :: IO ()
 main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     damlcPath <- locateRunfiles $
         mainWorkspace </> "compiler" </> "damlc" </> exe "damlc"
-    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps dir s
+    let run s = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=no") fullCaps' dir s
         runScenarios s
             -- We are currently seeing issues with GRPC FFI calls which make everything
             -- that uses the scenario service extremely flaky and forces us to disable it on
             -- CI. Once https://github.com/digital-asset/daml/issues/1354 is fixed we can
             -- also run scenario tests on Windows.
             | isWindows = pure ()
-            | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps dir s
+            | otherwise = withTempDir $ \dir -> runSessionWithConfig conf (damlcPath <> " ide --scenarios=yes") fullCaps' dir s
     defaultMain $ testGroup "LSP"
         [ diagnosticTests run runScenarios
         , requestTests run runScenarios
