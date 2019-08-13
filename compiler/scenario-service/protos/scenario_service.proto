@@ -142,13 +142,6 @@ message Location {
   int32 end_col = 6;
 }
 
-message CallStackEntry {
-  Identifier defn = 1;
-  Location location = 2; // optional
-  string binder = 3;
-  Value arg = 4;
-}
-
 // Reference to a contract instance.
 message ContractRef {
   bool relative = 1; // True if the contract id is relative.
