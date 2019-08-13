@@ -108,55 +108,114 @@ class ApiCodecCompressedSpec
      */
     }
 
+    def cn(canonical: String, numerically: String, typ: VA)(
+        expected: typ.Inj[Cid],
+        alternates: String*)(implicit pos: source.Position) =
+      (pos.lineNumber, canonical, numerically, typ, expected, alternates)
+
     def c(canonical: String, typ: VA)(expected: typ.Inj[Cid], alternates: String*)(
         implicit pos: source.Position) =
-      (pos.lineNumber, canonical, typ, expected, alternates)
+      cn(canonical, canonical, typ)(expected, alternates: _*)(pos)
 
     object VAs {
       val ooi = VA.optional(VA.optional(VA.int64))
       val oooi = VA.optional(ooi)
     }
 
+    val numCodec = ApiCodecCompressed.copy(false, false)
+
     val successes = Table(
-      ("line#", "serialized", "type", "parsed", "alternates"),
+      ("line#", "serialized", "serializedNumerically", "type", "parsed", "alternates"),
       c("\"123\"", VA.contractId)("123"),
-      c("\"42.0\"", VA.decimal)(Decimal assertFromString "42", "\"42\"" /*, "42", "42.0"*/ ),
-      // c("2e3", VA.decimal)(Decimal assertFromString "2000"),
-      c("\"2000.0\"", VA.decimal)(
+      cn("\"42.0\"", "42.0", VA.decimal)(
+        Decimal assertFromString "42",
+        "\"42\"",
+        "42",
+        "42.0",
+        "\"+42\""),
+      cn("\"2000.0\"", "2000", VA.decimal)(
         Decimal assertFromString "2000",
-        "\"2000\"" /*, "2000", "2e3" */ ),
-      c("\"0.3\"", VA.decimal)(
-        Decimal assertFromString "0.3" /*, "\"0.30000000000000004\"", "0.30000000000000004", "0.3"*/ ),
+        "\"2000\"",
+        "2000",
+        "2e3"),
+      cn("\"0.3\"", "0.3", VA.decimal)(
+        Decimal assertFromString "0.3",
+        "\"0.30000000000000004\"",
+        "0.30000000000000004"),
+      cn(
+        "\"9999999999999999999999999999.9999999999\"",
+        "9999999999999999999999999999.9999999999",
+        VA.decimal)(Decimal assertFromString "9999999999999999999999999999.9999999999"),
+      cn("\"0.1234512346\"", "0.1234512346", VA.decimal)(
+        Decimal assertFromString "0.1234512346",
+        "0.12345123455",
+        "0.12345123465",
+        "\"0.12345123455\"",
+        "\"0.12345123465\""),
+      cn("\"0.1234512345\"", "0.1234512345", VA.decimal)(
+        Decimal assertFromString "0.1234512345",
+        "0.123451234549",
+        "0.12345123445001",
+        "\"0.123451234549\"",
+        "\"0.12345123445001\""),
       c("\"1990-11-09T04:30:23.123456Z\"", VA.timestamp)(
         Time.Timestamp assertFromString "1990-11-09T04:30:23.123456Z",
         "\"1990-11-09T04:30:23.1234569Z\""),
-      c("\"42\"", VA.int64)(42),
+      c("\"1970-01-01T00:00:00Z\"", VA.timestamp)(Time.Timestamp assertFromLong 0),
+      cn("\"42\"", "42", VA.int64)(42, "\"+42\""),
+      cn("\"0\"", "0", VA.int64)(0, "-0", "\"+0\"", "\"-0\""),
       c("\"Alice\"", VA.party)(Ref.Party assertFromString "Alice"),
       c("{}", VA.unit)(()),
       c("\"2019-06-18\"", VA.date)(Time.Date assertFromString "2019-06-18"),
       c("\"abc\"", VA.text)("abc"),
       c("true", VA.bool)(true),
-      c("[\"1\", \"2\", \"3\"]", VA.list(VA.int64))(Vector(1, 2, 3) /*, "[1, 2, 3]"*/ ),
+      cn("""["1", "2", "3"]""", "[1, 2, 3]", VA.list(VA.int64))(Vector(1, 2, 3)),
       c("""{"a": "b", "c": "d"}""", VA.map(VA.text))(SortedLookupList(Map("a" -> "b", "c" -> "d"))),
-      c("""{"None": {}}""", VAs.ooi)(None /*, "null"*/ ),
-      c("""{"Some": {"None": {}}}""", VAs.ooi)(Some(None) /*, "[]"*/ ),
-      c("""{"Some": {"Some": "42"}}""", VAs.ooi)(Some(Some(42)) /*, """[42]"""*/ ),
-      c("""{"None": {}}""", VAs.oooi)(None /*, "null"*/ ),
-      c("""{"Some": {"None": {}}}""", VAs.oooi)(Some(None) /*, "[]"*/ ),
-      c("""{"Some": {"Some": {"None": {}}}}""", VAs.oooi)(Some(Some(None)) /*, "[[]]"*/ ),
-      c("""{"Some": {"Some": {"Some": "42"}}}""", VAs.oooi)(Some(Some(Some(42))) /*, "[[42]]"*/ ),
+      cn("\"42\"", "42", VA.optional(VA.int64))(Some(42)),
+      c("null", VA.optional(VA.int64))(None),
+      c("null", VAs.ooi)(None),
+      c("[]", VAs.ooi)(Some(None), "[null]"),
+      cn("""["42"]""", "[42]", VAs.ooi)(Some(Some(42))),
+      c("null", VAs.oooi)(None),
+      c("[]", VAs.oooi)(Some(None), "[null]"),
+      c("[[]]", VAs.oooi)(Some(Some(None)), "[[null]]"),
+      cn("""[["42"]]""", "[[42]]", VAs.oooi)(Some(Some(Some(42)))),
+    )
+
+    val failures = Table(
+      ("JSON", "type"),
+      ("42.3", VA.int64),
+      ("\"42.3\"", VA.int64),
+      ("9223372036854775808", VA.int64),
+      ("-9223372036854775809", VA.int64),
+      ("\"garbage\"", VA.int64),
+      ("\"   42 \"", VA.int64),
+      ("\"1970-01-01T00:00:00\"", VA.timestamp),
+      ("\"1970-01-01T00:00:00+01:00\"", VA.timestamp),
+      ("\"1970-01-01T00:00:00+01:00[Europe/Paris]\"", VA.timestamp),
     )
 
     "dealing with particular formats" should {
-      "succeed in cases" in forEvery(successes) { (_, serialized, typ, expected, alternates) =>
-        val json = serialized.parseJson
-        val parsed = jsValueToApiValue(json, typ.t, typeLookup)
-        typ.prj(parsed) should ===(Some(expected))
-        apiValueToJsValue(parsed) should ===(json)
-        val tAlternates = Table("alternate", alternates: _*)
-        forEvery(tAlternates) { alternate =>
-          val aJson = alternate.parseJson
-          typ.prj(jsValueToApiValue(aJson, typ.t, typeLookup)) should ===(Some(expected))
+      "succeed in cases" in forEvery(successes) {
+        (_, serialized, serializedNumerically, typ, expected, alternates) =>
+          val json = serialized.parseJson
+          val numJson = serializedNumerically.parseJson
+          val parsed = jsValueToApiValue(json, typ.t, typeLookup)
+          jsValueToApiValue(numJson, typ.t, typeLookup) should ===(parsed)
+          typ.prj(parsed) should ===(Some(expected))
+          apiValueToJsValue(parsed) should ===(json)
+          numCodec.apiValueToJsValue(parsed) should ===(numJson)
+          val tAlternates = Table("alternate", alternates: _*)
+          forEvery(tAlternates) { alternate =>
+            val aJson = alternate.parseJson
+            typ.prj(jsValueToApiValue(aJson, typ.t, typeLookup)) should ===(Some(expected))
+          }
+      }
+
+      "fail in cases" in forEvery(failures) { (serialized, typ) =>
+        val json = serialized.parseJson // we don't test *the JSON decoder*
+        a[DeserializationException] shouldBe thrownBy {
+          jsValueToApiValue(json, typ.t, typeLookup)
         }
       }
     }
