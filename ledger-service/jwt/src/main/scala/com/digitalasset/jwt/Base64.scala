@@ -5,7 +5,7 @@ package com.digitalasset.jwt
 
 import scalaz.{Show, \/}
 
-object Base64 {
+private object Base64 {
 
   final case class Error(what: Symbol, message: String)
 
