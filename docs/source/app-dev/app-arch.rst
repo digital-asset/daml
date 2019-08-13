@@ -241,7 +241,7 @@ Testing
 
 Testing is fundamental to ensure correctness and favor maintainability.
 
-Testing is usually divided in different categories according to its scope and aim:
+Testing is usually divided into different categories according to its scope and aim:
 
 - unit testing verifies single properties of individual components
 - integration testing verifies that an aggregation of components behaves as expected
