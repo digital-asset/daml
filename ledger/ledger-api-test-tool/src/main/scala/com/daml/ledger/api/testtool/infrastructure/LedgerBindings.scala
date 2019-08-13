@@ -36,8 +36,8 @@ import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
 import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
 import com.digitalasset.platform.testing.{FiniteStreamObserver, SingleItemObserver}
+import com.google.protobuf.empty.Empty
 import com.google.protobuf.timestamp.Timestamp
-import io.grpc.Channel
 import io.grpc.stub.StreamObserver
 import scalaz.Tag
 import scalaz.syntax.tag._
@@ -63,10 +63,9 @@ object LedgerBindings {
 
 }
 
-private[infrastructure] final class LedgerBindings(channel: Channel, commandTtlFactor: Double)(
-    implicit ec: ExecutionContext) {
-
-  private[this] val services = new LedgerServices(channel)
+private[infrastructure] final class LedgerBindings(
+    services: LedgerServices,
+    commandTtlFactor: Double)(implicit ec: ExecutionContext) {
 
   val ledgerId: Future[String] =
     for {
@@ -253,9 +252,8 @@ private[infrastructure] final class LedgerBindings(channel: Channel, commandTtlF
       applicationId: String,
       commandId: String,
       commands: Seq[Command.Command]
-  ): Future[Unit] =
+  ): Future[Empty] =
     submitAndWaitCommand(services.command.submitAndWait)(party, applicationId, commandId, commands)
-      .map(_ => ())
 
   def submitAndWaitForTransactionId(
       party: Party,

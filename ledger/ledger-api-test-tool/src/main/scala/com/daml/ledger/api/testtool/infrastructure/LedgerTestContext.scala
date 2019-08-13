@@ -31,7 +31,7 @@ final class LedgerTestContext(
     () =>
       it.synchronized(it.next())
   }
-  private[this] val nextCommandId: () => String = {
+  val nextCommandId: () => String = {
     val it = Iterator.from(0).map(n => s"$applicationId-command-$n")
     () =>
       it.synchronized(it.next())
