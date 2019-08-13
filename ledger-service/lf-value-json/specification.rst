@@ -315,12 +315,12 @@ A few examples, using the form
 
 to make clear what the target DAML-LF type is::
 
-    null    -->  None              :  Optional Int64
-    null    -->  None              :  Optional (Optional Int64)
-    42      -->  Some 42           :  Optional Int64
-    []      -->  Some None         :  Optional (Optional Int64)
-    [42]    -->  Some (Some 42)    :  Optional (Optional Int64)
-    [[]]    -->  Some (Some None)  :  Optional (Optional (Optional Int64))
+    null    -->  None                  : Optional Int64
+    null    -->  None                  : Optional (Optional Int64)
+    42      -->  Some 42               : Optional Int64
+    []      -->  Some None             : Optional (Optional Int64)
+    [42]    -->  Some (Some 42)        : Optional (Optional Int64)
+    [[]]    -->  Some (Some None)      : Optional (Optional (Optional Int64))
     [[42]]  -->  Some (Some (Some 42)) : Optional (Optional (Optional Int64))
     ...
 
