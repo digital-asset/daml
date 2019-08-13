@@ -152,18 +152,21 @@ The timestamp must be between the bounds specified by DAML-LF and ISO
 JavaScript
 
 ::
+
     > new Date().toISOString()
     '2019-06-18T08:59:34.191Z'
 
 Python
 
 ::
+
     >>> datetime.datetime.utcnow().isoformat() + 'Z'
     '2019-06-18T08:59:08.392764Z'
 
 Java
 
 ::
+
     import java.time.Instant;
     class Main {
         public static void main(String[] args) {
@@ -249,6 +252,7 @@ And as lists::
 Note that DAML-LF record fields are ordered. So if we have
 
 ::
+
     record Foo = {f1: Int64, f2: Bool}
 
 when representing the record as a list the user must specify the fields
@@ -272,6 +276,7 @@ List
 Lists are represented as
 
 ::
+
     [v1, ..., vn]
 
 Map
@@ -280,6 +285,7 @@ Map
 Maps are represented as JSON objects:
 
 ::
+
     { k1: v1, ..., kn: vn }
 
 Optional
@@ -298,6 +304,7 @@ using the list notation.
 A few examples, using the form
 
 ::
+
     JSON  -->  DAML-LF  :  Expected DAML-LF type
 
 to make clear what the target DAML-LF type is::
@@ -315,12 +322,14 @@ Finally, if Optional values appear in records, they can be omitted to
 represent None. Given DAML-LF types
 
 ::
+
     record Depth1 = { foo: Optional Int64 }
     record Depth2 = { foo: Optional (Optional Int64) }
 
 We have
 
 ::
+
     { }              -->  Depth1 { foo: None }            :  Depth1
     { }              -->  Depth2 { foo: None }            :  Depth2
     { foo: 42 }      -->  Depth1 { foo: Some 42 }         :  Depth1
@@ -342,11 +351,13 @@ Variant
 Variants are expressed as
 
 ::
+
     { constructor: argument }
 
 For example, if we have
 
 ::
+
     variant Foo = Bar Int64 | Baz Unit | Quux (Optional 42)
 
 These are all valid JSON encodings for values of type Foo::
@@ -362,17 +373,20 @@ Note that DAML data types with named fields are compiled by factoring
 out the record. So for example if we have
 
 ::
+
     data Foo = Bar {f1: Int64, f2: Bool} | Baz
 
 We'll get in DAML-LF
 
 ::
+
     record Foo.Bar = {f1: Int64, f2: Bool}
     variant Foo = Bar Foo.Bar | Baz Unit
 
 and then, from JSON
 
 ::
+
     {"Bar": {"f1": 42, "f2": true}}
     {"Baz": {}}
 
@@ -380,6 +394,7 @@ Note that for variants encoding we have two "reasonable" choices. The
 one explained above, and
 
 ::
+
     { "constructor": constructor, "argument": argument }
 
 The reason why we chose { constructor: argument } is brevity. Note that
@@ -392,6 +407,7 @@ Enum
 Enums are represented as strings. So if we have
 
 ::
+
     enum Foo = Bar | Baz
 
 There are exactly two valid JSON values for Foo, "Bar" and "Baz".
