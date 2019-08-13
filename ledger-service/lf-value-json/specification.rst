@@ -8,7 +8,7 @@ We describe how to decode and encode DAML-LF values as JSON. For each
 DAML-LF type we explain what JSON inputs we accept (decoding), and what
 JSON output we produce (encoding).
 
-The output format is parametrized by two flags:
+The output format is parameterized by two flags::
 
     encodeDecimalAsString: boolean
     encodeInt64AsString: boolean
@@ -22,9 +22,7 @@ and the expected DAML-LF type is needed to decide which one.
 ContractId
 ----------
 
-Input & Output
-
-Contract ids are expressed as their string representation:
+Contract ids are expressed as their string representation::
 
     "123"
     "XYZ"
@@ -38,7 +36,7 @@ Input
 
 Decimals can be expressed as JSON numbers or as JSON strings. JSON
 strings are accepted using the same format that JSON accepts, and
-treated them as the equivalent JSON number:
+treated them as the equivalent JSON number::
 
     -?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?
 
@@ -54,7 +52,7 @@ Numbers must be within the bounds of Decimal, [–(10³⁸–1)÷10¹⁰,
 inside the bounds will always be accepted, using banker's rounding to
 fit them within the precision supported by Decimal.
 
-A few valid examples:
+A few valid examples::
 
     42 --> 42
     42.0 --> 42
@@ -67,7 +65,7 @@ A few valid examples:
     0.30000000000000004 --> 0.3
     2e3 --> 2000
 
-A few invalid examples:
+A few invalid examples::
 
     "  42  "
     "blah"
@@ -78,9 +76,9 @@ Output
 ~~~~~~
 
 If encodeDecimalAsString is set, decimals are encoded as strings, using
-the format -?[0-9]{1,28}(\.[0-9]{1,10})?. If encodeDecimalAsString is
-not set, they are encoded as JSON numbers, also using the format
--?[0-9]{1,28}(\.[0-9]{1,10})?.
+the format ``-?[0-9]{1,28}(\.[0-9]{1,10})?``. If encodeDecimalAsString
+is not set, they are encoded as JSON numbers, also using the format
+``-?[0-9]{1,28}(\.[0-9]{1,10})?``.
  
 Note that the flag encodeDecimalAsString is useful because it lets
 JavaScript consumers consume Decimals safely with the standard
@@ -97,7 +95,7 @@ strings, with the string representation being [+-]?[0-9]+. The numbers
 must fall within [-9223372036854775808, 9223372036854775807]. Moreover,
 if represented as JSON numbers, they must have no fractional part.
 
-A few valid examples:
+A few valid examples::
 
     42
     "+42"
@@ -109,7 +107,7 @@ A few valid examples:
     -9223372036854775808
     "-9223372036854775808"
 
-A few invalid examples:
+A few invalid examples::
 
     42.3
     +42
@@ -135,7 +133,7 @@ Input
 ~~~~~
 
 Timestamps are represented as ISO 8601 strings, rendered using the
-format yyyy-mm-ddThh:mm:ss[.ssssss]Z:
+format yyyy-mm-ddThh:mm:ss[.ssssss]Z::
 
     1990-11-09T04:30:23.1234569Z
     1990-11-09T04:30:23Z
@@ -152,14 +150,20 @@ The timestamp must be between the bounds specified by DAML-LF and ISO
 8601, [0001-01-01T00:00:00Z, 9999-12-31T23:59:59.999999Z].
 
 JavaScript
+
+::
     > new Date().toISOString()
     '2019-06-18T08:59:34.191Z'
 
 Python
+
+::
     >>> datetime.datetime.utcnow().isoformat() + 'Z'
     '2019-06-18T08:59:08.392764Z'
 
 Java
+
+::
     import java.time.Instant;
     class Main {
         public static void main(String[] args) {
@@ -192,10 +196,7 @@ part, a sub-second part of length 3, or a sub-second part of length 6.
 Party
 -----
 
-Input & Output
-~~~~~~~~~~~~~~
-
-Represented using their string representation, without any quotes:
+Represented using their string representation, without any quotes::
 
     "Alice"
     "Bob"
@@ -212,7 +213,7 @@ or None in Python.
 Date
 ----
 
-Represented as an ISO 8601 date rendered using the format yyyy-mm-dd:
+Represented as an ISO 8601 date rendered using the format yyyy-mm-dd::
 
     2019-06-18
     9999-12-31
@@ -237,19 +238,21 @@ Record
 Input
 ~~~~~
 
-Records can be represented in two ways. As JSON objects:
+Records can be represented in two ways. As JSON objects::
 
     { f1: v1, ..., fn: vn }
 
-And as lists:
+And as lists::
 
     [ v1, ..., vn ]
 
 Note that DAML-LF record fields are ordered. So if we have
 
+::
     record Foo = {f1: Int64, f2: Bool}
 
-when representing the record as a list the user must specify the fields in order:
+when representing the record as a list the user must specify the fields
+in order::
 
     [42, true]
 
@@ -268,6 +271,7 @@ List
 
 Lists are represented as
 
+::
     [v1, ..., vn]
 
 Map
@@ -275,6 +279,7 @@ Map
 
 Maps are represented as JSON objects:
 
+::
     { k1: v1, ..., kn: vn }
 
 Optional
@@ -292,9 +297,10 @@ using the list notation.
 
 A few examples, using the form
 
+::
     JSON  -->  DAML-LF  :  Expected DAML-LF type
 
-to make clear what the target DAML-LF type is:
+to make clear what the target DAML-LF type is::
 
     null    -->  None              :  Optional Int64
     null    -->  None              :  Optional (Optional Int64)
@@ -308,11 +314,13 @@ to make clear what the target DAML-LF type is:
 Finally, if Optional values appear in records, they can be omitted to
 represent None. Given DAML-LF types
 
+::
     record Depth1 = { foo: Optional Int64 }
     record Depth2 = { foo: Optional (Optional Int64) }
 
 We have
 
+::
     { }              -->  Depth1 { foo: None }            :  Depth1
     { }              -->  Depth2 { foo: None }            :  Depth2
     { foo: 42 }      -->  Depth1 { foo: Some 42 }         :  Depth1
@@ -333,13 +341,15 @@ Variant
 
 Variants are expressed as
 
+::
     { constructor: argument }
 
 For example, if we have
 
+::
     variant Foo = Bar Int64 | Baz Unit | Quux (Optional 42)
 
-These are all valid JSON encodings for values of type Foo:
+These are all valid JSON encodings for values of type Foo::
 
     {"Bar": 42}
     {"Baz": {}}
@@ -351,21 +361,25 @@ These are all valid JSON encodings for values of type Foo:
 Note that DAML data types with named fields are compiled by factoring
 out the record. So for example if we have
 
+::
     data Foo = Bar {f1: Int64, f2: Bool} | Baz
 
 We'll get in DAML-LF
 
+::
     record Foo.Bar = {f1: Int64, f2: Bool}
     variant Foo = Bar Foo.Bar | Baz Unit
 
 and then, from JSON
 
+::
     {"Bar": {"f1": 42, "f2": true}}
     {"Baz": {}}
 
 Note that for variants encoding we have two "reasonable" choices. The
 one explained above, and
 
+::
     { "constructor": constructor, "argument": argument }
 
 The reason why we chose { constructor: argument } is brevity. Note that
@@ -377,6 +391,7 @@ Enum
 
 Enums are represented as strings. So if we have
 
+::
     enum Foo = Bar | Baz
 
 There are exactly two valid JSON values for Foo, "Bar" and "Baz".
