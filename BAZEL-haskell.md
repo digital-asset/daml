@@ -38,11 +38,11 @@ http_archive(
 ```
 This defines the workspace [`rules_haskell`](https://github.com/tweag/rules_haskell) (we call this "`rules_haskell`" informally - in short, build rules for Haskell) as an external workspace that is downloaded via http. From here on we can refer to things in that workspace by prefixing them with `@rules_haskell` as in the next command from `WORKSPACE`,
 ```
-load("@rules_haskell//haskell:repositories.bzl", "haskell_repositories")
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 ```
-which has the effect of making the macro `haskell_repositories` available in the environment which provides "all repositories necessary for `rules_haskell` to function":
+which has the effect of making the macro `rules_haskell_dependencies` available in the environment which provides "all repositories necessary for `rules_haskell` to function":
 ```
-haskell_repositories()
+rules_haskell_dependencies()
 ```
 As mentioned earlier, targets of any `BUILD.bazel` file in a package are visible within `WORKSPACE`. In fact, its a rule that [toolchains](https://docs.bazel.build/versions/master/toolchains.html#defining-toolchains) can only be defined in `BUILD.bazel` files and registered in `WORKSPACE` files. [`register_toolchains`](https://docs.Bazel.build/versions/master/skylark/lib/globals.html#register_toolchains) registers a toolchain created with the `toolchain` rule so that it is available for toolchain resolution.
 ```
