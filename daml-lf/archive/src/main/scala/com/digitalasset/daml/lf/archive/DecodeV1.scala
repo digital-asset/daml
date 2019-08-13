@@ -66,8 +66,6 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       onlySerializableDataDefs: Boolean
   ) {
 
-    var definition: String = "<unknown>"
-
     val moduleName = eitherToParseError(
       ModuleName.fromSegments(lfModule.getName.getSegmentsList.asScala))
 
@@ -152,16 +150,16 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
       cons.map(name)
 
     private[this] def decodeDefValue(lfValue: PLF.DefValue): DValue = {
-      definition = lfValue.getNameWithType.getNameList.asScala.mkString(".")
+      val definition = lfValue.getNameWithType.getNameList.asScala.mkString(".")
       DValue(
         typ = decodeType(lfValue.getNameWithType.getType),
         noPartyLiterals = lfValue.getNoPartyLiterals,
-        body = decodeExpr(lfValue.getExpr),
+        body = decodeExpr(lfValue.getExpr, definition),
         isTest = lfValue.getIsTest
       )
     }
 
-    private def decodeLocation(lfExpr: PLF.Expr): Option[Location] =
+    private def decodeLocation(lfExpr: PLF.Expr, definition: String): Option[Location] =
       if (lfExpr.hasLocation && lfExpr.getLocation.hasRange) {
         val loc = lfExpr.getLocation
         val (pkgId, module) =
@@ -187,23 +185,20 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         key: PLF.DefTemplate.DefKey,
         tplVar: ExprVarName): TemplateKey = {
       assertSince(LV.Features.contractKeys, "DefTemplate.DefKey")
-      definition = s"${tpl}:key"
       val keyExpr = key.getKeyExprCase match {
         case PLF.DefTemplate.DefKey.KeyExprCase.KEY =>
           decodeKeyExpr(key.getKey, tplVar)
         case PLF.DefTemplate.DefKey.KeyExprCase.COMPLEX_KEY => {
           assertSince(LV.Features.complexContactKeys, "DefTemplate.DefKey.complex_key")
-          decodeExpr(key.getComplexKey)
+          decodeExpr(key.getComplexKey, s"${tpl}:key")
         }
         case PLF.DefTemplate.DefKey.KeyExprCase.KEYEXPR_NOT_SET =>
           throw ParseError("DefKey.KEYEXPR_NOT_SET")
       }
-      definition = s"${tpl}:maintainer"
-      val maintainer = decodeExpr(key.getMaintainers)
       TemplateKey(
         decodeType(key.getType),
         keyExpr,
-        maintainer
+        maintainers = decodeExpr(key.getMaintainers, s"${tpl}:maintainer")
       )
     }
 
@@ -229,24 +224,17 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
 
     private[this] def decodeTemplate(lfTempl: PLF.DefTemplate): Template = {
       val tpl = lfTempl.getTycon.getSegmentsList.asScala.mkString(".")
-      definition = s"${tpl}:ensure"
-      val precond = if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond) else ETrue
-      definition = s"${tpl}:signatory"
-      val signatories = decodeExpr(lfTempl.getSignatories)
-      definition = s"${tpl}:agreement"
-      val agreementText = decodeExpr(lfTempl.getAgreement)
-      definition = s"${tpl}:observer"
-      val observers = decodeExpr(lfTempl.getObservers)
 
       Template(
         param = name(lfTempl.getParam),
-        precond = precond,
-        signatories = signatories,
-        agreementText = agreementText,
+        precond =
+          if (lfTempl.hasPrecond) decodeExpr(lfTempl.getPrecond, s"${tpl}:ensure") else ETrue,
+        signatories = decodeExpr(lfTempl.getSignatories, s"${tpl}.signatory"),
+        agreementText = decodeExpr(lfTempl.getAgreement, s"${tpl}:agreement"),
         choices = lfTempl.getChoicesList.asScala
           .map(decodeChoice(tpl, _))
           .map(ch => (ch.name, ch)),
-        observers = observers,
+        observers = decodeExpr(lfTempl.getObservers, s"${tpl}:observer"),
         key =
           if (lfTempl.hasKey) Some(decodeTemplateKey(tpl, lfTempl.getKey, name(lfTempl.getParam)))
           else None
@@ -256,19 +244,15 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
     private[this] def decodeChoice(tpl: String, lfChoice: PLF.TemplateChoice): TemplateChoice = {
       val (v, t) = decodeBinder(lfChoice.getArgBinder)
       val chName = lfChoice.getName
-      definition = s"${tpl}:${chName}:controller"
-      val controllers = decodeExpr(lfChoice.getControllers)
-      definition = s"${tpl}:${chName}:choice"
-      val update = decodeExpr(lfChoice.getUpdate)
 
       TemplateChoice(
         name = name(chName),
         consuming = lfChoice.getConsuming,
-        controllers = controllers,
+        controllers = decodeExpr(lfChoice.getControllers, s"${tpl}:${chName}:controller"),
         selfBinder = name(lfChoice.getSelfBinder),
         argBinder = Some(v) -> t,
         returnType = decodeType(lfChoice.getRetType),
-        update = update
+        update = decodeExpr(lfChoice.getUpdate, s"${tpl}:${chName}:choice")
       )
     }
 
@@ -374,13 +358,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         ImmArray(lfTyConApp.getArgsList.asScala.map(decodeType))
       )
 
-    private[this] def decodeExpr(lfExpr: PLF.Expr): Expr =
-      decodeLocation(lfExpr) match {
-        case None => decodeExprBody(lfExpr)
-        case Some(loc) => ELocation(loc, decodeExprBody(lfExpr))
+    private[this] def decodeExpr(lfExpr: PLF.Expr, definition: String): Expr =
+      decodeLocation(lfExpr, definition) match {
+        case None => decodeExprBody(lfExpr, definition)
+        case Some(loc) => ELocation(loc, decodeExprBody(lfExpr, definition))
       }
 
-    private[this] def decodeExprBody(lfExpr: PLF.Expr): Expr =
+    private[this] def decodeExprBody(lfExpr: PLF.Expr, definition: String): Expr =
       lfExpr.getSumCase match {
         case PLF.Expr.SumCase.VAR =>
           EVar(name(lfExpr.getVar))
@@ -410,7 +394,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           ERecCon(
             tycon = decodeTypeConApp(recCon.getTycon),
             fields = ImmArray(recCon.getFieldsList.asScala).map(field =>
-              name(field.getField) -> decodeExpr(field.getExpr))
+              name(field.getField) -> decodeExpr(field.getExpr, definition))
           )
 
         case PLF.Expr.SumCase.REC_PROJ =>
@@ -418,22 +402,23 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           ERecProj(
             tycon = decodeTypeConApp(recProj.getTycon),
             field = name(recProj.getField),
-            record = decodeExpr(recProj.getRecord))
+            record = decodeExpr(recProj.getRecord, definition))
 
         case PLF.Expr.SumCase.REC_UPD =>
           val recUpd = lfExpr.getRecUpd
           ERecUpd(
             tycon = decodeTypeConApp(recUpd.getTycon),
             field = name(recUpd.getField),
-            record = decodeExpr(recUpd.getRecord),
-            update = decodeExpr(recUpd.getUpdate))
+            record = decodeExpr(recUpd.getRecord, definition),
+            update = decodeExpr(recUpd.getUpdate, definition)
+          )
 
         case PLF.Expr.SumCase.VARIANT_CON =>
           val varCon = lfExpr.getVariantCon
           EVariantCon(
             decodeTypeConApp(varCon.getTycon),
             name(varCon.getVariantCon),
-            decodeExpr(varCon.getVariantArg))
+            decodeExpr(varCon.getVariantArg, definition))
 
         case PLF.Expr.SumCase.ENUM_CON =>
           assertSince(LV.Features.enum, "Expr.Enum")
@@ -447,54 +432,55 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val tupleCon = lfExpr.getTupleCon
           ETupleCon(
             ImmArray(tupleCon.getFieldsList.asScala).map(field =>
-              name(field.getField) -> decodeExpr(field.getExpr))
+              name(field.getField) -> decodeExpr(field.getExpr, definition))
           )
 
         case PLF.Expr.SumCase.TUPLE_PROJ =>
           val tupleProj = lfExpr.getTupleProj
-          ETupleProj(name(tupleProj.getField), decodeExpr(tupleProj.getTuple))
+          ETupleProj(name(tupleProj.getField), decodeExpr(tupleProj.getTuple, definition))
 
         case PLF.Expr.SumCase.TUPLE_UPD =>
           val tupleUpd = lfExpr.getTupleUpd
           ETupleUpd(
             field = name(tupleUpd.getField),
-            tuple = decodeExpr(tupleUpd.getTuple),
-            update = decodeExpr(tupleUpd.getUpdate))
+            tuple = decodeExpr(tupleUpd.getTuple, definition),
+            update = decodeExpr(tupleUpd.getUpdate, definition))
 
         case PLF.Expr.SumCase.APP =>
           val app = lfExpr.getApp
           val args = app.getArgsList.asScala
           assertNonEmpty(args, "args")
-          (decodeExpr(app.getFun) /: args)((e, arg) => EApp(e, decodeExpr(arg)))
+          (decodeExpr(app.getFun, definition) /: args)((e, arg) =>
+            EApp(e, decodeExpr(arg, definition)))
 
         case PLF.Expr.SumCase.ABS =>
           val lfAbs = lfExpr.getAbs
           val params = lfAbs.getParamList.asScala
           assertNonEmpty(params, "params")
           // val params = lfAbs.getParamList.asScala.map(decodeBinder)
-          (params :\ decodeExpr(lfAbs.getBody))((param, e) =>
+          (params :\ decodeExpr(lfAbs.getBody, definition))((param, e) =>
             EAbs(decodeBinder(param), e, currentDefinitionRef))
 
         case PLF.Expr.SumCase.TY_APP =>
           val tyapp = lfExpr.getTyApp
           val args = tyapp.getTypesList.asScala
           assertNonEmpty(args, "args")
-          (decodeExpr(tyapp.getExpr) /: args)((e, arg) => ETyApp(e, decodeType(arg)))
+          (decodeExpr(tyapp.getExpr, definition) /: args)((e, arg) => ETyApp(e, decodeType(arg)))
 
         case PLF.Expr.SumCase.TY_ABS =>
           val lfTyAbs = lfExpr.getTyAbs
           val params = lfTyAbs.getParamList.asScala
           assertNonEmpty(params, "params")
-          (params :\ decodeExpr(lfTyAbs.getBody))((param, e) =>
+          (params :\ decodeExpr(lfTyAbs.getBody, definition))((param, e) =>
             ETyAbs(decodeTypeVarWithKind(param), e))
 
         case PLF.Expr.SumCase.LET =>
           val lfLet = lfExpr.getLet
           val bindings = lfLet.getBindingsList.asScala
           assertNonEmpty(bindings, "bindings")
-          (bindings :\ decodeExpr(lfLet.getBody))((binding, e) => {
+          (bindings :\ decodeExpr(lfLet.getBody, definition))((binding, e) => {
             val (v, t) = decodeBinder(binding.getBinder)
-            ELet(Binding(Some(v), t, decodeExpr(binding.getBound)), e)
+            ELet(Binding(Some(v), t, decodeExpr(binding.getBound, definition)), e)
           })
 
         case PLF.Expr.SumCase.NIL =>
@@ -505,20 +491,23 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val front = cons.getFrontList.asScala
           assertNonEmpty(front, "front")
           val typ = decodeType(cons.getType)
-          ECons(typ, ImmArray(front.map(decodeExpr)), decodeExpr(cons.getTail))
+          ECons(
+            typ,
+            ImmArray(front.map(decodeExpr(_, definition))),
+            decodeExpr(cons.getTail, definition))
 
         case PLF.Expr.SumCase.CASE =>
           val case_ = lfExpr.getCase
           ECase(
-            decodeExpr(case_.getScrut),
-            ImmArray(case_.getAltsList.asScala).map(decodeCaseAlt)
+            decodeExpr(case_.getScrut, definition),
+            ImmArray(case_.getAltsList.asScala).map(decodeCaseAlt(_, definition))
           )
 
         case PLF.Expr.SumCase.UPDATE =>
-          EUpdate(decodeUpdate(lfExpr.getUpdate))
+          EUpdate(decodeUpdate(lfExpr.getUpdate, definition))
 
         case PLF.Expr.SumCase.SCENARIO =>
-          EScenario(decodeScenario(lfExpr.getScenario))
+          EScenario(decodeScenario(lfExpr.getScenario, definition))
 
         case PLF.Expr.SumCase.OPTIONAL_NONE =>
           assertSince(LV.Features.optional, "Expr.OptionalNone")
@@ -527,13 +516,13 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.Expr.SumCase.OPTIONAL_SOME =>
           assertSince(LV.Features.optional, "Expr.OptionalSome")
           val some = lfExpr.getOptionalSome
-          ESome(decodeType(some.getType), decodeExpr(some.getBody))
+          ESome(decodeType(some.getType), decodeExpr(some.getBody, definition))
 
         case PLF.Expr.SumCase.SUM_NOT_SET =>
           throw ParseError("Expr.SUM_NOT_SET")
       }
 
-    private[this] def decodeCaseAlt(lfCaseAlt: PLF.CaseAlt): CaseAlt = {
+    private[this] def decodeCaseAlt(lfCaseAlt: PLF.CaseAlt, definition: String): CaseAlt = {
       val pat: CasePat = lfCaseAlt.getSumCase match {
         case PLF.CaseAlt.SumCase.DEFAULT =>
           CPDefault
@@ -566,49 +555,51 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         case PLF.CaseAlt.SumCase.SUM_NOT_SET =>
           throw ParseError("CaseAlt.SUM_NOT_SET")
       }
-      CaseAlt(pat, decodeExpr(lfCaseAlt.getBody))
+      CaseAlt(pat, decodeExpr(lfCaseAlt.getBody, definition))
     }
 
-    private[this] def decodeRetrieveByKey(value: PLF.Update.RetrieveByKey): RetrieveByKey = {
+    private[this] def decodeRetrieveByKey(
+        value: PLF.Update.RetrieveByKey,
+        definition: String): RetrieveByKey = {
       RetrieveByKey(
         decodeTypeConName(value.getTemplate),
-        decodeExpr(value.getKey),
+        decodeExpr(value.getKey, definition),
       )
     }
 
-    private[this] def decodeUpdate(lfUpdate: PLF.Update): Update =
+    private[this] def decodeUpdate(lfUpdate: PLF.Update, definition: String): Update =
       lfUpdate.getSumCase match {
 
         case PLF.Update.SumCase.PURE =>
           val pure = lfUpdate.getPure
-          UpdatePure(decodeType(pure.getType), decodeExpr(pure.getExpr))
+          UpdatePure(decodeType(pure.getType), decodeExpr(pure.getExpr, definition))
 
         case PLF.Update.SumCase.BLOCK =>
           val block = lfUpdate.getBlock
           UpdateBlock(
-            bindings = ImmArray(block.getBindingsList.asScala.map(decodeBinding)),
-            body = decodeExpr(block.getBody))
+            bindings = ImmArray(block.getBindingsList.asScala.map(decodeBinding(_, definition))),
+            body = decodeExpr(block.getBody, definition))
 
         case PLF.Update.SumCase.CREATE =>
           val create = lfUpdate.getCreate
           UpdateCreate(
             templateId = decodeTypeConName(create.getTemplate),
-            arg = decodeExpr(create.getExpr))
+            arg = decodeExpr(create.getExpr, definition))
 
         case PLF.Update.SumCase.EXERCISE =>
           val exercise = lfUpdate.getExercise
           UpdateExercise(
             templateId = decodeTypeConName(exercise.getTemplate),
             choice = name(exercise.getChoice),
-            cidE = decodeExpr(exercise.getCid),
+            cidE = decodeExpr(exercise.getCid, definition),
             actorsE =
               if (exercise.hasActor)
-                Some(decodeExpr(exercise.getActor))
+                Some(decodeExpr(exercise.getActor, definition))
               else {
                 assertSince(LV.Features.optionalExerciseActor, "Update.Exercise.actors optional")
                 None
               },
-            argE = decodeExpr(exercise.getArg)
+            argE = decodeExpr(exercise.getArg, definition)
           )
 
         case PLF.Update.SumCase.GET_TIME =>
@@ -618,62 +609,64 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           val fetch = lfUpdate.getFetch
           UpdateFetch(
             templateId = decodeTypeConName(fetch.getTemplate),
-            contractId = decodeExpr(fetch.getCid))
+            contractId = decodeExpr(fetch.getCid, definition))
 
         case PLF.Update.SumCase.FETCH_BY_KEY =>
           assertSince(LV.Features.contractKeys, "fetchByKey")
-          UpdateFetchByKey(decodeRetrieveByKey(lfUpdate.getFetchByKey))
+          UpdateFetchByKey(decodeRetrieveByKey(lfUpdate.getFetchByKey, definition))
 
         case PLF.Update.SumCase.LOOKUP_BY_KEY =>
           assertSince(LV.Features.contractKeys, "lookupByKey")
-          UpdateLookupByKey(decodeRetrieveByKey(lfUpdate.getLookupByKey))
+          UpdateLookupByKey(decodeRetrieveByKey(lfUpdate.getLookupByKey, definition))
 
         case PLF.Update.SumCase.EMBED_EXPR =>
           val embedExpr = lfUpdate.getEmbedExpr
-          UpdateEmbedExpr(decodeType(embedExpr.getType), decodeExpr(embedExpr.getBody))
+          UpdateEmbedExpr(decodeType(embedExpr.getType), decodeExpr(embedExpr.getBody, definition))
 
         case PLF.Update.SumCase.SUM_NOT_SET =>
           throw ParseError("Update.SUM_NOT_SET")
       }
 
-    private[this] def decodeScenario(lfScenario: PLF.Scenario): Scenario =
+    private[this] def decodeScenario(lfScenario: PLF.Scenario, definition: String): Scenario =
       lfScenario.getSumCase match {
         case PLF.Scenario.SumCase.PURE =>
           val pure = lfScenario.getPure
-          ScenarioPure(decodeType(pure.getType), decodeExpr(pure.getExpr))
+          ScenarioPure(decodeType(pure.getType), decodeExpr(pure.getExpr, definition))
 
         case PLF.Scenario.SumCase.COMMIT =>
           val commit = lfScenario.getCommit
           ScenarioCommit(
-            decodeExpr(commit.getParty),
-            decodeExpr(commit.getExpr),
+            decodeExpr(commit.getParty, definition),
+            decodeExpr(commit.getExpr, definition),
             decodeType(commit.getRetType))
 
         case PLF.Scenario.SumCase.MUSTFAILAT =>
           val commit = lfScenario.getMustFailAt
           ScenarioMustFailAt(
-            decodeExpr(commit.getParty),
-            decodeExpr(commit.getExpr),
+            decodeExpr(commit.getParty, definition),
+            decodeExpr(commit.getExpr, definition),
             decodeType(commit.getRetType))
 
         case PLF.Scenario.SumCase.BLOCK =>
           val block = lfScenario.getBlock
           ScenarioBlock(
-            bindings = ImmArray(block.getBindingsList.asScala).map(decodeBinding),
-            body = decodeExpr(block.getBody))
+            bindings = ImmArray(block.getBindingsList.asScala).map(decodeBinding(_, definition)),
+            body = decodeExpr(block.getBody, definition))
 
         case PLF.Scenario.SumCase.GET_TIME =>
           ScenarioGetTime
 
         case PLF.Scenario.SumCase.PASS =>
-          ScenarioPass(decodeExpr(lfScenario.getPass))
+          ScenarioPass(decodeExpr(lfScenario.getPass, definition))
 
         case PLF.Scenario.SumCase.GET_PARTY =>
-          ScenarioGetParty(decodeExpr(lfScenario.getGetParty))
+          ScenarioGetParty(decodeExpr(lfScenario.getGetParty, definition))
 
         case PLF.Scenario.SumCase.EMBED_EXPR =>
           val embedExpr = lfScenario.getEmbedExpr
-          ScenarioEmbedExpr(decodeType(embedExpr.getType), decodeExpr(embedExpr.getBody))
+          ScenarioEmbedExpr(
+            decodeType(embedExpr.getType),
+            decodeExpr(embedExpr.getBody, definition))
 
         case PLF.Scenario.SumCase.SUM_NOT_SET =>
           throw ParseError("Scenario.SUM_NOT_SET")
@@ -683,9 +676,9 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
         lfTypeVarWithKind: PLF.TypeVarWithKind): (TypeVarName, Kind) =
       name(lfTypeVarWithKind.getVar) -> decodeKind(lfTypeVarWithKind.getKind)
 
-    private[this] def decodeBinding(lfBinding: PLF.Binding): Binding = {
+    private[this] def decodeBinding(lfBinding: PLF.Binding, definition: String): Binding = {
       val (binder, typ) = decodeBinder(lfBinding.getBinder)
-      Binding(Some(binder), typ, decodeExpr(lfBinding.getBound))
+      Binding(Some(binder), typ, decodeExpr(lfBinding.getBound, definition))
     }
 
     private[this] def decodeBinder(lfBinder: PLF.VarWithType): (ExprVarName, Type) =
