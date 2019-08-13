@@ -386,16 +386,14 @@ For example, if we have
 
 ::
 
-    variant Foo = Bar Int64 | Baz Unit | Quux (Optional 42)
+    variant Foo = Bar Int64 | Baz Unit | Quux (Optional Int64)
 
 These are all valid JSON encodings for values of type Foo::
 
     {"Bar": 42}
     {"Baz": {}}
     {"Quux": null}
-    {"Quux": []}
     {"Quux": 42}
-    {"Quux": [42]}
 
 Note that DAML data types with named fields are compiled by factoring
 out the record. So for example if we have
