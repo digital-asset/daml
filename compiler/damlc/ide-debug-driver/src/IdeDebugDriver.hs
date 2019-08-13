@@ -22,6 +22,8 @@ data Command
     = OpenFile FilePath
     | CloseFile FilePath
     | WaitForCompletion
+    | InsertLine FilePath Int T.Text
+    | DeleteLine FilePath Int
     | Repeat Int [Command]
     deriving Show
 
@@ -33,6 +35,8 @@ instance FromJSON Command where
             "close" -> CloseFile <$> o.: "file"
             "wait" -> pure WaitForCompletion
             "repeat" -> Repeat <$> o .: "count" <*> o .: "cmds"
+            "insert-line" -> InsertLine <$> o .: "file" <*> o .: "line" <*> o .: "content"
+            "delete-line" -> DeleteLine <$> o .: "file" <*> o .: "line"
             _ -> fail $ "Unknown command " <> show cmd
 
 data SessionConfig = SessionConfig
@@ -103,4 +107,14 @@ interpretCommand = \case
             done <- progressDone
             guard $ done ^. params . LSP.id == start ^. params . LSP.id
     Repeat count cmds -> replicateM_ count $ traverse_ interpretCommand cmds
-
+    InsertLine f l t -> do
+        uri <- LSP.getDocUri f
+        let p = Position l 0
+        LSP.changeDoc (TextDocumentIdentifier uri)
+            [TextDocumentContentChangeEvent (Just $ Range p p) Nothing (t <> "\n")]
+    DeleteLine f l -> do
+        uri <- LSP.getDocUri f
+        let pStart = Position l 0
+        let pEnd = Position (l + 1) 0
+        LSP.changeDoc (TextDocumentIdentifier uri)
+            [TextDocumentContentChangeEvent (Just $ Range pStart pEnd) Nothing ""]
