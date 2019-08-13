@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import java.util.UUID
 
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
-import com.digitalasset.ledger.test.DA.Types.Tuple2
+import com.digitalasset.ledger.test.DA.Types.{Tuple2 => DamlTuple2}
 import com.digitalasset.ledger.test.Test.Delegation._
 import com.digitalasset.ledger.test.Test.ShowDelegated._
 import com.digitalasset.ledger.test.Test.TextKey._
@@ -123,39 +123,40 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
         // trying to lookup an unauthorized key should fail
         bobLooksUpTextKeyFailure <- exercise(
           bobTKO.contractId
-            .exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1.contractId)))(bob).failed
+            .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1.contractId)))(bob).failed
 
         // trying to lookup an unauthorized non-existing key should fail
         bobLooksUpBogusTextKeyFailure <- exercise(
-          bobTKO.contractId.exerciseTKOLookup(_, Tuple2(alice, unknownKey), None))(bob).failed
+          bobTKO.contractId.exerciseTKOLookup(_, DamlTuple2(alice, unknownKey), None))(bob).failed
 
         // successful, authorized lookup
         _ <- exercise(
           aliceTKO.contractId
-            .exerciseTKOLookup(_, Tuple2(alice, key1), Some(tk1.contractId)))(alice)
+            .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1.contractId)))(alice)
 
         // successful fetch
-        _ <- exercise(aliceTKO.contractId.exerciseTKOFetch(_, Tuple2(alice, key1), tk1.contractId))(
-          alice)
+        _ <- exercise(
+          aliceTKO.contractId.exerciseTKOFetch(_, DamlTuple2(alice, key1), tk1.contractId))(alice)
 
         // successful, authorized lookup of non-existing key
-        _ <- exercise(aliceTKO.contractId.exerciseTKOLookup(_, Tuple2(alice, unknownKey), None))(
-          alice)
+        _ <- exercise(
+          aliceTKO.contractId.exerciseTKOLookup(_, DamlTuple2(alice, unknownKey), None))(alice)
 
         // failing fetch
         aliceFailedFetch <- exercise(
           aliceTKO.contractId
-            .exerciseTKOFetch(_, Tuple2(alice, unknownKey), tk1.contractId))(alice).failed
+            .exerciseTKOFetch(_, DamlTuple2(alice, unknownKey), tk1.contractId))(alice).failed
 
         // now we exercise the contract, thus archiving it, and then verify
         // that we cannot look it up anymore
         _ <- exercise(tk1.contractId.exerciseTextKeyChoice)(alice)
-        _ <- exercise(aliceTKO.contractId.exerciseTKOLookup(_, Tuple2(alice, key1), None))(alice)
+        _ <- exercise(aliceTKO.contractId.exerciseTKOLookup(_, DamlTuple2(alice, key1), None))(
+          alice)
 
         // lookup the key, consume it, then verify we cannot look it up anymore
         _ <- exercise(
           aliceTKO.contractId
-            .exerciseTKOConsumeAndLookup(_, tk2.contractId, Tuple2(alice, key2)))(alice)
+            .exerciseTKOConsumeAndLookup(_, tk2.contractId, DamlTuple2(alice, key2)))(alice)
 
         // failing create when a maintainer is not a signatory
         maintainerNotSignatoryFailed <- create(MaintainerNotSignatory(alice, bob))(alice).failed
