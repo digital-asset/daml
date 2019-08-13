@@ -35,9 +35,9 @@ rules_haskell_sha256 = "d30695ebe7f46aa38386fb4fd83882bb2e4b638c46c12dd990812b6c
 rules_nixpkgs_version = "5ffb8a4ee9a52bc6bc12f95cd64ecbd82a79bc82"
 
 def daml_deps():
-    if "io_tweag_rules_haskell" not in native.existing_rules():
+    if "rules_haskell" not in native.existing_rules():
         http_archive(
-            name = "io_tweag_rules_haskell",
+            name = "rules_haskell",
             strip_prefix = "rules_haskell-%s" % rules_haskell_version,
             urls = ["https://github.com/tweag/rules_haskell/archive/%s.tar.gz" % rules_haskell_version],
             patches = [

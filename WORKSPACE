@@ -23,9 +23,9 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 
-haskell_repositories()
+rules_haskell_dependencies()
 
 register_toolchains(
     "//:c2hs-toolchain",
@@ -204,11 +204,11 @@ dev_env_tool(
 )
 
 load(
-    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "@rules_haskell//haskell:ghc_bindist.bzl",
     "haskell_register_ghc_bindists",
 )
 load(
-    "@io_tweag_rules_haskell//haskell:nixpkgs.bzl",
+    "@rules_haskell//haskell:nixpkgs.bzl",
     "haskell_register_ghc_nixpkgs",
 )
 

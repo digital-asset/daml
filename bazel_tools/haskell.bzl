@@ -2,14 +2,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 load(
-    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "@rules_haskell//haskell:haskell.bzl",
     "haskell_binary",
     "haskell_library",
     "haskell_repl",
     "haskell_test",
 )
 load(
-    "@io_tweag_rules_haskell//haskell:c2hs.bzl",
+    "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_library",
 )
 load(
@@ -253,7 +253,7 @@ def da_haskell_repl(**kwargs):
         experimental_from_binary = ["//nix/..."],
         ghci_repl_wrapper = select({
             "//:hie_bios_ghci": "//bazel_tools:ghci-template.sh",
-            "//conditions:default": "@io_tweag_rules_haskell//haskell:private/ghci_repl_wrapper.sh",
+            "//conditions:default": "@rules_haskell//haskell:private/ghci_repl_wrapper.sh",
         }),
         repl_ghci_args = [
             "-fexternal-interpreter",

@@ -1,4 +1,4 @@
-load("@io_tweag_rules_haskell//haskell:haskell.bzl", "haskell_library")
+load("@rules_haskell//haskell:haskell.bzl", "haskell_library")
 load("@ai_formation_hazel//tools:mangling.bzl", "hazel_library", "hazel_cbits")
 load("@os_info//:os_info.bzl", "is_windows")
 
