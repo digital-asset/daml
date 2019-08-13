@@ -16,7 +16,7 @@ da_haskell_library(
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
-        "@io_tweag_rules_haskell//tools/runfiles",
+        "@rules_haskell//tools/runfiles",
     ],
 )
 

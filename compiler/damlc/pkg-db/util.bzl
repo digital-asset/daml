@@ -146,7 +146,7 @@ def _daml_package_rule_impl(ctx):
 
 daml_package_rule = rule(
     implementation = _daml_package_rule_impl,
-    toolchains = ["@io_tweag_rules_haskell//haskell:toolchain"],
+    toolchains = ["@rules_haskell//haskell:toolchain"],
     attrs = {
         "pkg_name": attr.string(mandatory = True),
         "main": attr.string(default = "LibraryModules"),
@@ -176,7 +176,7 @@ daml_package_rule = rule(
 PackageDb = provider(fields = ["db_dir", "pkgs"])
 
 def _daml_package_db_impl(ctx):
-    toolchain = ctx.toolchains["@io_tweag_rules_haskell//haskell:toolchain"]
+    toolchain = ctx.toolchains["@rules_haskell//haskell:toolchain"]
     db_dir = ctx.actions.declare_directory(ctx.attr.name + "_dir")
     ctx.actions.run_shell(
         inputs = [inp for pkg in ctx.attr.pkgs for inp in [pkg[DamlPackage].pkg_conf, pkg[DamlPackage].iface_dir, pkg[DamlPackage].dalf, pkg[DamlPackage].pkg_name_version]],
@@ -226,7 +226,7 @@ def _daml_package_db_impl(ctx):
 
 daml_package_db = rule(
     implementation = _daml_package_db_impl,
-    toolchains = ["@io_tweag_rules_haskell//haskell:toolchain"],
+    toolchains = ["@rules_haskell//haskell:toolchain"],
     attrs = {
         "pkgs": attr.label_list(
             allow_files = False,

@@ -23,9 +23,9 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 
-haskell_repositories()
+rules_haskell_dependencies()
 
 register_toolchains(
     "//:c2hs-toolchain",
@@ -204,11 +204,11 @@ dev_env_tool(
 )
 
 load(
-    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "@rules_haskell//haskell:ghc_bindist.bzl",
     "haskell_register_ghc_bindists",
 )
 load(
-    "@io_tweag_rules_haskell//haskell:nixpkgs.bzl",
+    "@rules_haskell//haskell:nixpkgs.bzl",
     "haskell_register_ghc_nixpkgs",
 )
 
@@ -509,10 +509,10 @@ hazel_repositories(
         },
     ),
     ghc_workspaces = {
-        "k8": "@io_tweag_rules_haskell_ghc_nixpkgs",
-        "darwin": "@io_tweag_rules_haskell_ghc_nixpkgs",
+        "k8": "@rules_haskell_ghc_nixpkgs",
+        "darwin": "@rules_haskell_ghc_nixpkgs",
         # although windows is not quite supported yet
-        "x64_windows": "@io_tweag_rules_haskell_ghc_windows_amd64",
+        "x64_windows": "@rules_haskell_ghc_windows_amd64",
     },
     packages = add_extra_packages(
         extra =
