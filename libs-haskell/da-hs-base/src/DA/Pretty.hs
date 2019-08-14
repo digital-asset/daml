@@ -21,6 +21,7 @@ module DA.Pretty
   , fcommasep
 
   , Pretty(..)
+  , PrettyLevel(..)
   , prettyNormal
   , pretty
 
