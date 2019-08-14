@@ -47,6 +47,31 @@ main = defaultMain $ testGroup "HIE"
             }
       changeDoc doc [change]
       expectDiagnostics [("Testing.hs", [(DsError, (0, 15), "parse error")])]
+  , testSession "remove required module" $ do
+      let contentA = T.unlines [ "module ModuleA where" ]
+      docA <- openDoc' "ModuleA.hs" "haskell" contentA
+      let contentB = T.unlines
+            [ "module ModuleB where"
+            , "import ModuleA"
+            ]
+      _ <- openDoc' "ModuleB.hs" "haskell" contentB
+      let change = TextDocumentContentChangeEvent
+            { _range = Just (Range (Position 0 0) (Position 0 20))
+            , _rangeLength = Nothing
+            , _text = ""
+            }
+      changeDoc docA [change]
+      expectDiagnostics [("ModuleB.hs", [(DsError, (1, 0), "Could not find module")])]
+  , testSession "add missing module" $ do
+      let contentB = T.unlines
+            [ "module ModuleB where"
+            , "import ModuleA"
+            ]
+      _ <- openDoc' "ModuleB.hs" "haskell" contentB
+      expectDiagnostics [("ModuleB.hs", [(DsError, (1, 7), "Could not find module")])]
+      let contentA = T.unlines [ "module ModuleA where" ]
+      _ <- openDoc' "ModuleA.hs" "haskell" contentA
+      expectDiagnostics [("ModuleB.hs", [])]
   ]
 
 
