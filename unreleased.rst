@@ -20,3 +20,4 @@ HEAD — ongoing
   has not relied on POM files for a while.
 + [DAML Studio] Print stack trace when a scenario fails.
 + [Documentation] Added platform-independent tips for testing
++ [DAML Compiler] Some issues that caused ``damlc test`` to crash on shutdown have been fixed.

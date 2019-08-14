@@ -49,8 +49,6 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
-    # The gRPC binding sometimes crash assertion on shutdown, see #2520.
-    flaky = True,
     hazel_deps = [
         "base",
         "extra",
