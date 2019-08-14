@@ -421,7 +421,7 @@ instance Pretty Expr where
     EUpdate upd -> pPrintPrec lvl prec upd
     EScenario scen -> pPrintPrec lvl prec scen
     ELocation loc x
-        | lvl >= PrettyLevel 1 -> sep ["@location" <> parens (pretty loc), nest 2 (parens (pPrintPrec lvl 0 x))]
+        | lvl >= PrettyLevel 1 -> prettyAppDoc lvl prec ("@location" <> parens (pretty loc)) [TmArg x]
         | otherwise -> pPrintPrec lvl prec x
     ESome typ body -> prettyAppKeyword lvl prec "some" [TyArg typ, TmArg body]
     ENone typ -> prettyAppKeyword lvl prec "none" [TyArg typ]
