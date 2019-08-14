@@ -47,6 +47,34 @@ main = defaultMain $ testGroup "HIE"
             }
       changeDoc doc [change]
       expectDiagnostics [("Testing.hs", [(DsError, (0, 15), "parse error")])]
+  , testSession "variable not in scope" $ do
+      let content = T.unlines
+            [ "module Testing where"
+            , "foo :: Int -> Int -> Int"
+            , "foo a b = a + ab"
+            , "bar :: Int -> Int -> Int"
+            , "bar a b = cd + b"
+            ]
+      _ <- openDoc' "Testing.hs" "haskell" content
+      expectDiagnostics
+        [ ( "Testing.hs"
+          , [ (DsError, (2, 14), "Variable not in scope: ab")
+            , (DsError, (4, 10), "Variable not in scope: cd")
+            ]
+          )
+        ]
+  , testSession "type error" $ do
+      let content = T.unlines
+            [ "module Testing where"
+            , "foo :: Int -> String -> Int"
+            , "foo a b = a + b"
+            ]
+      _ <- openDoc' "Testing.hs" "haskell" content
+      expectDiagnostics
+        [ ( "Testing.hs"
+          , [(DsError, (2, 14), "Couldn't match type '[Char]' with 'Int'")]
+          )
+        ]
   , testSession "remove required module" $ do
       let contentA = T.unlines [ "module ModuleA where" ]
       docA <- openDoc' "ModuleA.hs" "haskell" contentA
@@ -72,22 +100,6 @@ main = defaultMain $ testGroup "HIE"
       let contentA = T.unlines [ "module ModuleA where" ]
       _ <- openDoc' "ModuleA.hs" "haskell" contentA
       expectDiagnostics [("ModuleB.hs", [])]
-  , testSession "variable not in scope" $ do
-      let content = T.unlines
-            [ "module Testing where"
-            , "foo :: Int -> Int -> Int"
-            , "foo a b = a + ab"
-            , "bar :: Int -> Int -> Int"
-            , "bar a b = cd + b"
-            ]
-      _ <- openDoc' "Testing.hs" "haskell" content
-      expectDiagnostics
-        [ ( "Testing.hs"
-          , [ (DsError, (2, 14), "Variable not in scope: ab")
-            , (DsError, (4, 10), "Variable not in scope: cd")
-            ]
-          )
-        ]
   , testSession "cyclic module dependency" $ do
       let contentA = T.unlines
             [ "module ModuleA where"
@@ -119,18 +131,6 @@ main = defaultMain $ testGroup "HIE"
       expectDiagnostics
         [ ( "ModuleB.hs"
           , [(DsWarning, (2, 0), "The import of 'ModuleA' is redundant")]
-          )
-        ]
-  , testSession "type error" $ do
-      let content = T.unlines
-            [ "module Testing where"
-            , "foo :: Int -> String -> Int"
-            , "foo a b = a + b"
-            ]
-      _ <- openDoc' "Testing.hs" "haskell" content
-      expectDiagnostics
-        [ ( "Testing.hs"
-          , [(DsError, (2, 14), "Couldn't match type '[Char]' with 'Int'")]
           )
         ]
   ]
