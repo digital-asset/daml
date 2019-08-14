@@ -48,7 +48,7 @@ import Data.List.Split (splitOn)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import qualified Data.Vector as V
-import Network.GRPC.HighLevel.Client (Client, ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
+import Network.GRPC.HighLevel.Client (ClientError, ClientRequest(..), ClientResult(..), GRPCMethodType(..))
 import Network.GRPC.HighLevel.Generated (withGRPCClient)
 import Network.GRPC.LowLevel (ClientConfig(..), Host(..), Port(..), StatusCode(..))
 import qualified Proto3.Suite as Proto
@@ -74,7 +74,7 @@ data Options = Options
 type TimeoutSeconds = Int
 
 data Handle = Handle
-  { hClient :: Client
+  { hClient :: SS.ScenarioService ClientRequest ClientResult
   , hOptions :: Options
   }
 
@@ -240,58 +240,54 @@ withScenarioService opts@Options{..} f = do
             -- Using 127.0.0.1 instead of localhost helps when our packaging logic falls over
             -- and DNS lookups break, e.g., on Alpine linux.
             let grpcConfig = ClientConfig (Host "127.0.0.1") (Port port) [] Nothing
-            withGRPCClient grpcConfig $ \client ->
+            withGRPCClient grpcConfig $ \client -> do
+                ssClient <- SS.scenarioServiceClient client
                 f Handle
-                    { hClient = client
+                    { hClient = ssClient
                     , hOptions = opts
                     }
 
 newCtx :: Handle -> IO (Either BackendError ContextId)
 newCtx Handle{..} = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceNewContext ssClient)
+      (SS.scenarioServiceNewContext hClient)
       (optRequestTimeout hOptions)
       SS.NewContextRequest
   pure (ContextId . SS.newContextResponseContextId <$> res)
 
 cloneCtx :: Handle -> ContextId -> IO (Either BackendError ContextId)
 cloneCtx Handle{..} (ContextId ctxId) = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceCloneContext ssClient)
+      (SS.scenarioServiceCloneContext hClient)
       (optRequestTimeout hOptions)
       (SS.CloneContextRequest ctxId)
   pure (ContextId . SS.cloneContextResponseContextId <$> res)
 
 deleteCtx :: Handle -> ContextId -> IO (Either BackendError ())
 deleteCtx Handle{..} (ContextId ctxId) = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceDeleteContext ssClient)
+      (SS.scenarioServiceDeleteContext hClient)
       (optRequestTimeout hOptions)
       (SS.DeleteContextRequest ctxId)
   pure (void res)
 
 gcCtxs :: Handle -> [ContextId] -> IO (Either BackendError ())
 gcCtxs Handle{..} ctxIds = do
-    ssClient <- SS.scenarioServiceClient hClient
     res <-
         performRequest
-            (SS.scenarioServiceGCContexts ssClient)
+            (SS.scenarioServiceGCContexts hClient)
             (optRequestTimeout hOptions)
             (SS.GCContextsRequest (V.fromList (map getContextId ctxIds)))
     pure (void res)
 
 updateCtx :: Handle -> ContextId -> ContextUpdate -> IO (Either BackendError ())
 updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceUpdateContext ssClient)
+      (SS.scenarioServiceUpdateContext hClient)
       (optRequestTimeout hOptions) $
       SS.UpdateContextRequest
           ctxId
@@ -316,10 +312,9 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
 
 runScenario :: Handle -> ContextId -> LF.ValueRef -> IO (Either Error SS.ScenarioResult)
 runScenario Handle{..} (ContextId ctxId) name = do
-  ssClient <- SS.scenarioServiceClient hClient
   res <-
     performRequest
-      (SS.scenarioServiceRunScenario ssClient)
+      (SS.scenarioServiceRunScenario hClient)
       (optRequestTimeout hOptions)
       (SS.RunScenarioRequest ctxId (Just (toIdentifier name)))
   pure $ case res of
