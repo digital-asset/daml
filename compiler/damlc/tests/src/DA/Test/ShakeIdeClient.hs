@@ -44,6 +44,7 @@ ideTests mbScenarioService =
         , minimalRebuildTests mbScenarioService
         , goToDefinitionTests mbScenarioService
         , onHoverTests mbScenarioService
+        , dlintSmokeTests mbScenarioService
         , scenarioTests mbScenarioService
         , visualDamlTests
         ]
@@ -267,6 +268,31 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
         testCase' = testCase mbScenarioService
         testCaseFails' = testCaseFails mbScenarioService
 
+dlintSmokeTests :: Maybe SS.Handle -> Tasty.TestTree
+dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
+  [    testCase' "Suggest imports can be simplified" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "import DA.Optional"
+                , "import DA.Optional(fromSome)"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 0) "Warning: Use fewer imports"
+    ,  testCase' "Suggest use fewer pragmas" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "{-# LANGUAGE ScopedTypeVariables, RebindableSyntax #-}"
+                , "{-# LANGUAGE ScopedTypeVariables #-}"
+                , "daml 1.2"
+                , "module Foo where"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 0, 0) "Warning: Use fewer LANGUAGE pragmas"
+  ]
+  where
+      testCase' = testCase mbScenarioService
 
 minimalRebuildTests :: Maybe SS.Handle -> Tasty.TestTree
 minimalRebuildTests mbScenarioService = Tasty.testGroup "Minimal rebuild tests"
@@ -450,17 +476,6 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
             expectGoToDefinition (foo,2,[16..19]) (In "DA.Internal.Compatible") -- "List"
             -- Bool is from GHC.Types which is wired into the compiler
             expectGoToDefinition (foo,2,[20]) Missing
-
-    ,   testCase' "Suggest imports can be simplified" $ do
-            foo <- makeFile "Foo.daml" $ T.unlines
-                [ "daml 1.2"
-                , "module Foo where"
-                , "import DA.Optional"
-                , "import DA.Optional(fromSome)"
-                ]
-            setFilesOfInterest [foo]
-            expectNoErrors
-            expectDiagnostic DsInfo (foo, 2, 0) "Warning: Use fewer imports"
 
     ,   testCase' "Go to definition takes export list to definition" $ do
             foo <- makeFile "Foo.daml" $ T.unlines

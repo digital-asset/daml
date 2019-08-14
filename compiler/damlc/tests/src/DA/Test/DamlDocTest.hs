@@ -105,9 +105,8 @@ doctestHeader =
 shouldGenerate :: [T.Text] -> [T.Text] -> Assertion
 shouldGenerate input expected = withTempFile $ \tmpFile -> do
     T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader <> input
-    opts <- defaultOptionsIO Nothing
+    opts <- fmap (\opts -> opts{optHaddock=Haddock True}) $ defaultOptionsIO Nothing
     vfs <- makeVFSHandle
     ideState <- initialise mainRule (const $ pure ()) noLogging (toCompileOpts opts (IdeReportProgress False)) vfs
     Just pm <- runAction ideState $ use GetParsedModule $ toNormalizedFilePath tmpFile
     genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader <> expected)
-
