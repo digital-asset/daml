@@ -254,21 +254,11 @@ This chapter focuses on providing portable approaches and techniques to perform 
 Test the business logic with a ledger
 *************************************
 
-In production, your application is going to interact with a DAML model deployed on an actual ledger.
+In production, your application is going to interact with a DAML model deployed on an actual ledger. Each model is usually specific to a business need and describes specific workflows.
 
-Each model is usually specific to a business need and describes specific workflows.
+Mocking a ledger response is usually not desirable to test the business logic, because so much of it is encapsulated in the DAML model. This makes integration testing with an actual running ledger fundamental to evaluating the correctness of an application.
 
-Mocking a ledger response is usually not desirable to test the business logic, because so much of it is encapsulated in the DAML model.
-
-This makes integration testing with an actual running ledger fundamental to evaluating the correctness of an application.
-
-This is usually achieved by running a ledger as part of the test process and run several tests against it, possibly coordinated by a test framework.
-
-Since the in-memory sandbox shipped as part of the SDK is a full-fledged implementation of a DAML ledger, it's usually the tool of choice for these tests.
-
-Please note that this does not replace acceptance tests with the actual ledger implementation that your application aims to use in production.
-
-Whatever your choice is, sharing a single ledger to run several tests is a suggested best practice.
+This is usually achieved by running a ledger as part of the test process and run several tests against it, possibly coordinated by a test framework. Since the in-memory sandbox shipped as part of the SDK is a full-fledged implementation of a DAML ledger, it's usually the tool of choice for these tests. Please note that this does not replace acceptance tests with the actual ledger implementation that your application aims to use in production. Whatever your choice is, sharing a single ledger to run several tests is a suggested best practice.
 
 Share the ledger
 ****************
