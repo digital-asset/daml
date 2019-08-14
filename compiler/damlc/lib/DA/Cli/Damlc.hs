@@ -26,6 +26,7 @@ import DA.Daml.Compiler.Scenario
 import DA.Daml.Compiler.Upgrade
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.Proto3.Archive as Archive
+import DA.Daml.LF.Reader
 import DA.Daml.LanguageServer
 import DA.Daml.Options
 import DA.Daml.Options.Types
@@ -155,7 +156,7 @@ runTestsInProjectOrFiles projectOpts (Just inFiles) color mbJUnitOutput cliOptio
 cmdInspect :: Mod CommandFields Command
 cmdInspect =
     command "inspect" $ info (helper <*> cmd)
-      $ progDesc "Inspect a DAML-LF Archive."
+      $ progDesc "Pretty print a DALF file or the main DALF of a DAR file"
     <> fullDesc
   where
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
@@ -555,7 +556,11 @@ execPackage projectOpts filePath opts mbOutFile dalfInput = withProjectRoot' pro
 
 execInspect :: FilePath -> FilePath -> Bool -> DA.Pretty.PrettyLevel -> Command
 execInspect inFile outFile jsonOutput lvl = do
-    bytes <- B.readFile inFile
+    let mainDalf
+            | "dar" `isExtensionOf` inFile = BSL.toStrict . mainDalfContent . manifestFromDar . toArchive . BSL.fromStrict
+            | otherwise = id
+    bytes <- mainDalf <$> B.readFile inFile
+
     if jsonOutput
     then do
       archive :: PLF.ArchivePayload <- errorOnLeft "Cannot decode archive" (PS.fromByteString bytes)
