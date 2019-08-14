@@ -532,7 +532,7 @@ hazel_repositories(
             #   - To build the library : `bazel build @haskell_hlint//:lib`
             # We'll be using it via the library, not the binary.
             hazel_hackage("haskell-src-exts", "1.21.0", "95dac187824edfa23b6a2363880b5e113df8ce4a641e8a0f76e6d45aaa699ff3") +
-            hazel_github_external("digital-asset", "hlint", "35c5857c5d19e1bc502b2ee2f5dd315f8850532a", "5e6155aa5d0a02b8ad34df9403606ccf7284dd9b90b23bcd0c0466c63d91ed21") +
+            hazel_github_external("digital-asset", "hlint", "cc93aa00116cfba8cad7cfbd0de31f6bf3b5b48a", "c9403ec7f1c21ffb0b9b7cb8a4fb71ce1c02dfcf9839122182cb3a0b57288c30") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
