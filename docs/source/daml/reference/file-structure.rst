@@ -19,6 +19,7 @@ File structure
   For a file with path ``./Scenarios/Demo.daml``, use ``module Scenarios.Demo where``.
 
 .. _daml-ref-imports:
+
 Imports
 *******
 
