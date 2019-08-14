@@ -73,6 +73,7 @@ import DA.Daml.Project.Config
 import DA.Daml.Project.Consts
 import DA.Daml.Project.Types
 import DA.Daml.Project.Util
+import DA.Daml.Options.Types
 
 
 data DamlHelperError = DamlHelperError
@@ -280,6 +281,15 @@ runDamlStudio replaceExt remainingArguments = do
     -- Then, open visual studio code.
     projectPathM <- getProjectPath
     let path = fromMaybe "." projectPathM
+
+    -- Call damlc to create the package database if it doesn't exist yet.
+    unlessM (doesDirectoryExist $ path </> projectPackageDatabase) $ do
+        procConfig <- toAssistantCommand
+            [ "damlc"
+            , "init"
+            ]
+        runProcess_ procConfig
+
     (exitCode, _out, err) <- runVsCodeCommand (path : remainingArguments)
     when (exitCode /= ExitSuccess) $ do
         hPutStrLn stderr . unlines $

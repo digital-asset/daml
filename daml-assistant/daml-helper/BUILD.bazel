@@ -35,6 +35,7 @@ da_haskell_library(
     deps = [
         "//daml-assistant:daml-project-config",
         "//language-support/hs/bindings:hs-ledger",
+        "//compiler/damlc/daml-opts:daml-opts-types",
     ],
 )
 
