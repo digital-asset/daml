@@ -280,9 +280,52 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 2, 0) "Warning: Use fewer imports"
+    ,  testCase' "Suggest use camelCase" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "my_fact (n : Int) : Int"
+                , "  | n <= 1    = 1"
+                , "  | otherwise = n * my_fact (n - 1)"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Use camelCase"
+    ,  testCase' "Suggest reduce duplication" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "import DA.List"
+                , "testSort5 = scenario do"
+                , "    let l = [ (2, const \"D\"), (1, const \"A\"), (1, const \"B\"), (3, const \"E\"), (1, const \"C\") ]"
+                , "        m = sortOn fst l"
+                , "        n = map fst m"
+                , "    assert $ n == [1, 1, 1, 2, 3]"
+                , "    let o = map (flip snd ()) m"
+                , "    assert $ o == [\"A\", \"B\", \"C\", \"D\", \"E\"]"
+                , "testSort4 = scenario do"
+                , "    let l = [ (2, const \"D\"), (1, const \"A\"), (1, const \"B\"), (3, const \"E\"), (1, const \"C\") ]"
+                , "        m = sortBy (\\x y -> compare (fst x) (fst y)) l"
+                , "        n = map fst m"
+                , "    assert $ n == [1, 1, 1, 2, 3]"
+                , "    let o = map (flip snd ()) m"
+                , "    assert $ o == [\"A\", \"B\", \"C\", \"D\", \"E\"]"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 7, 4) "Suggestion: Reduce duplication"
+    ,  testCase' "Suggest language pragmas" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "{-# OPTIONS_GHC -XDataKinds #-}"
+                , "daml 1.2"
+                , "module Foo where"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 0, 0) "Warning: Use LANGUAGE pragmas"
     ,  testCase' "Suggest use fewer pragmas" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
-                [ "{-# LANGUAGE ScopedTypeVariables, RebindableSyntax #-}"
+                [ "{-# LANGUAGE ScopedTypeVariables, DataKinds #-}"
                 , "{-# LANGUAGE ScopedTypeVariables #-}"
                 , "daml 1.2"
                 , "module Foo where"
