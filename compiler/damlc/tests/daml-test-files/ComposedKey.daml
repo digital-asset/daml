@@ -5,7 +5,6 @@
 -- of the template it is parameterized over. It is not particularly pretty,
 -- but the best I could come up with in the absence of type families in
 -- DAML-LF.
--- TODO(MH, #1387): Use the new surface syntax.
 -- @SINCE-LF 1.5
 daml 1.2
 module ComposedKey where
