@@ -298,6 +298,8 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
                 Logger.GCP.logOptOut gcpState
                 f loggerH
             Undecided -> f loggerH
+    -- TODO we should allow different LF versions in the IDE.
+    initPackageDb LF.versionDefault (InitPkgDb True)
     dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
     opts <- defaultOptionsIO Nothing
     opts <- pure $ opts
@@ -310,8 +312,6 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
     scenarioServiceConfig <- readScenarioServiceConfig
     withLogger $ \loggerH ->
         withScenarioService' enableScenarioService loggerH scenarioServiceConfig $ \mbScenarioService -> do
-            -- TODO we should allow different LF versions in the IDE.
-            initPackageDb LF.versionDefault (InitPkgDb True)
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
             Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
             runLanguageServer $ \sendMsg vfs caps ->
