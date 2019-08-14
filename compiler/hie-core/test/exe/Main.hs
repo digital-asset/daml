@@ -107,6 +107,20 @@ main = defaultMain $ testGroup "HIE"
           , [(DsError, (1, 7), "Cyclic module dependency between ModuleA, ModuleB")]
           )
         ]
+  , testSession "redundant import" $ do
+      let contentA = T.unlines ["module ModuleA where"]
+      let contentB = T.unlines
+            [ "{-# OPTIONS_GHC -Wunused-imports #-}"
+            , "module ModuleB where"
+            , "import ModuleA"
+            ]
+      _ <- openDoc' "ModuleA.hs" "haskell" contentA
+      _ <- openDoc' "ModuleB.hs" "haskell" contentB
+      expectDiagnostics
+        [ ( "ModuleB.hs"
+          , [(DsWarning, (2, 0), "The import of 'ModuleA' is redundant")]
+          )
+        ]
   ]
 
 
