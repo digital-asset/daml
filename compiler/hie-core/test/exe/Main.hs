@@ -25,7 +25,13 @@ main = defaultMain $ testGroup "HIE"
       void (message :: Session ProgressStartNotification)
       closeDoc doc
       void (message :: Session ProgressDoneNotification)
-  , testSession "fix syntax error" $ do
+  , diagnosticTests
+  ]
+
+
+diagnosticTests :: TestTree
+diagnosticTests = testGroup "diagnostics"
+  [ testSession "fix syntax error" $ do
       let content = T.unlines [ "module Testing wher" ]
       doc <- openDoc' "Testing.hs" "haskell" content
       expectDiagnostics [("Testing.hs", [(DsError, (0, 15), "parse error")])]
