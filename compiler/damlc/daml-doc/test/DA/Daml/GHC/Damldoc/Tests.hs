@@ -249,7 +249,7 @@ damldocExpect importPathM testname input check =
 -- | Generate the docs for a given input file and optional import directory.
 runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
 runDamldoc testfile importPathM = do
-    opts <- defaultOptionsIO Nothing
+    opts <- fmap (\opt -> opt {optHaddock=Haddock True}) $ defaultOptionsIO Nothing
 
     let opts' = opts
           { optImportPath =
