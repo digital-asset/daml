@@ -6,12 +6,15 @@ package com.daml.ledger.api.testtool.infrastructure
 import java.time.Instant
 
 import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite.SkipTestException
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.commands.Command
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.binding.Primitive.Party
 import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
 import io.grpc.{Status, StatusException, StatusRuntimeException}
+import scalapb.lenses.{Lens, Mutation}
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
@@ -28,7 +31,7 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
 
   val tests: Vector[LedgerTest] = Vector.empty
 
-  final def skip(reason: String): Future[Unit] = Future.failed(new SkipTestException(reason))
+  final def skip(reason: String): Future[Unit] = Future.failed(SkipTestException(reason))
 
   final def skipIf(reason: String)(p: => Boolean): Future[Unit] =
     if (p) skip(reason) else Future.successful(())
@@ -87,6 +90,54 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
   final def transactionTreesByTemplateId(party: Party, parties: Party*)(templateIds: Identifier*)(
       implicit context: LedgerTestContext): Future[Vector[TransactionTree]] =
     context.transactionTrees(party +: parties, templateIds)
+
+  def submitAndWait(
+      party: Party,
+      command: Command,
+      pollutants: (
+          Lens[SubmitAndWaitRequest, SubmitAndWaitRequest] => Mutation[SubmitAndWaitRequest])*)(
+      implicit context: LedgerTestContext): Future[Unit] =
+    for {
+      request <- context.prepareSubmission(party, command)
+      polluted = request.update(pollutants: _*)
+      response <- context.submitAndWait(polluted)
+    } yield response
+
+  def submitAndWaitForTransactionId(
+      party: Party,
+      command: Command,
+      pollutants: (
+          Lens[SubmitAndWaitRequest, SubmitAndWaitRequest] => Mutation[SubmitAndWaitRequest])*)(
+      implicit context: LedgerTestContext): Future[String] =
+    for {
+      request <- context.prepareSubmission(party, command)
+      polluted = request.update(pollutants: _*)
+      response <- context.submitAndWaitForTransactionId(polluted)
+    } yield response
+
+  def submitAndWaitForTransaction(
+      party: Party,
+      command: Command,
+      pollutants: (
+          Lens[SubmitAndWaitRequest, SubmitAndWaitRequest] => Mutation[SubmitAndWaitRequest])*)(
+      implicit context: LedgerTestContext): Future[Transaction] =
+    for {
+      request <- context.prepareSubmission(party, command)
+      polluted = request.update(pollutants: _*)
+      response <- context.submitAndWaitForTransaction(polluted)
+    } yield response
+
+  def submitAndWaitForTransactionTree(
+      party: Party,
+      command: Command,
+      pollutants: (
+          Lens[SubmitAndWaitRequest, SubmitAndWaitRequest] => Mutation[SubmitAndWaitRequest])*)(
+      implicit context: LedgerTestContext): Future[TransactionTree] =
+    for {
+      request <- context.prepareSubmission(party, command)
+      polluted = request.update(pollutants: _*)
+      response <- context.submitAndWaitForTransactionTree(polluted)
+    } yield response
 
   final def assertGrpcError[A](t: Throwable, expectedCode: Status.Code, pattern: String)(
       implicit ec: ExecutionContext): Unit = {

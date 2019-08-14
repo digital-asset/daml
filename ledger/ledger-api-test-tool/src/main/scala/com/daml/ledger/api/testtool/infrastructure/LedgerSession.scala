@@ -23,9 +23,9 @@ private[testtool] final class LedgerSession private (
 
   private[this] val logger = LoggerFactory.getLogger(classOf[LedgerSession])
 
-  val services: LedgerServices = new LedgerServices(channel)
+  private[this] val services: LedgerServices = new LedgerServices(channel)
 
-  val bindings: LedgerBindings = new LedgerBindings(services, config.commandTtlFactor)
+  private[this] val bindings: LedgerBindings = new LedgerBindings(services, config.commandTtlFactor)
 
   private[testtool] def createTestContext(applicationId: String): Future[LedgerTestContext] =
     bindings.ledgerEnd.map(new LedgerTestContext(applicationId, _, bindings))

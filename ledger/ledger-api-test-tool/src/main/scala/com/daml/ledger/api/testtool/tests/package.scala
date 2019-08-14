@@ -21,7 +21,6 @@ package object tests {
    * - PackageManagementServiceIT
    * - PartyManagementServiceIT
    * - CommandSubmissionTtlIT
-   * - CommandServiceIT
    * - ActiveContractsServiceIT
    */
   val optional: Map[String, LedgerSession => LedgerTestSuite] = Map(
