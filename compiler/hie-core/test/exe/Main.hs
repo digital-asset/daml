@@ -72,6 +72,22 @@ main = defaultMain $ testGroup "HIE"
       let contentA = T.unlines [ "module ModuleA where" ]
       _ <- openDoc' "ModuleA.hs" "haskell" contentA
       expectDiagnostics [("ModuleB.hs", [])]
+  , testSession "variable not in scope" $ do
+      let content = T.unlines
+            [ "module Testing where"
+            , "foo :: Int -> Int -> Int"
+            , "foo a b = a + ab"
+            , "bar :: Int -> Int -> Int"
+            , "bar a b = cd + b"
+            ]
+      _ <- openDoc' "Testing.hs" "haskell" content
+      expectDiagnostics
+        [ ( "Testing.hs"
+          , [ (DsError, (2, 14), "Variable not in scope: ab")
+            , (DsError, (4, 10), "Variable not in scope: cd")
+            ]
+          )
+        ]
   ]
 
 
