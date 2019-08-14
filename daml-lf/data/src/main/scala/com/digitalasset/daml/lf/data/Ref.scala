@@ -9,7 +9,12 @@ import scalaz.Equal
 object Ref {
 
   /* Location annotation */
-  case class Location(packageId: PackageId, module: ModuleName, start: (Int, Int), end: (Int, Int))
+  case class Location(
+      packageId: PackageId,
+      module: ModuleName,
+      definition: String,
+      start: (Int, Int),
+      end: (Int, Int))
 
   // we do not use String.split because `":foo".split(":")`
   // results in `List("foo")` rather than `List("", "foo")`

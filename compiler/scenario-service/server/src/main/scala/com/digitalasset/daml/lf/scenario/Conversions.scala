@@ -550,6 +550,7 @@ case class Conversions(homePackageId: Ref.PackageId) {
     Location.newBuilder
       .setPackage(convertPackageId(loc.packageId))
       .setModule(loc.module.toString)
+      .setDefinition(loc.definition)
       .setStartLine(sline)
       .setStartCol(scol)
       .setEndLine(eline)

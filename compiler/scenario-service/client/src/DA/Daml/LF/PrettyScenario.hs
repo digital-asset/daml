@@ -149,6 +149,8 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
         vcat
           (map (prettyTraceMessage world)
                (V.toList scenarioErrorTraceLog))
+  let ppStackTraceEntry loc =
+         "-" <-> ltext (locationDefinition loc) <-> parens (prettyLocation world loc)
   pure $
     vsep $ catMaybes
     [ Just $ error_ (text "Scenario execution" <->
@@ -160,7 +162,7 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
 
     , if V.null scenarioErrorStackTrace
       then Nothing
-      else Just $ vcat $ "Stack trace:" : map (\loc -> "-" <-> prettyLocation world loc) (reverse $ V.toList scenarioErrorStackTrace)
+      else Just $ vcat $ "Stack trace:" : map ppStackTraceEntry (reverse $ V.toList scenarioErrorStackTrace)
 
     , Just $ "Ledger time:" <-> prettyTimestamp scenarioErrorLedgerTime
 
@@ -426,7 +428,7 @@ prettyMayLocation :: LF.World -> Maybe Location -> Doc SyntaxClass
 prettyMayLocation world = maybe (text "unknown source") (prettyLocation world)
 
 prettyLocation :: LF.World -> Location -> Doc SyntaxClass
-prettyLocation world (Location mbPkgId modName sline scol eline _ecol) =
+prettyLocation world (Location mbPkgId modName sline scol eline _ecol _definition) =
       maybe id (\path -> linkSC (url path) title)
         (lookupModule world mbPkgId (LF.ModuleName (T.splitOn "." (TL.toStrict modName))) >>= LF.moduleSource)
     $ text title
