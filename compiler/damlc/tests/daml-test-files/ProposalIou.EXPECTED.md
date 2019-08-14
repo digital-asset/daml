@@ -18,9 +18,8 @@
 >   
 >   (no fields)
 
-## Data Types
+## Template Instances
 
-<a name="type-proposaliou-proposaliou-81988"></a>**data** [ProposalIou](#type-proposaliou-proposaliou-81988)
+<a name="type-proposaliou-proposaliou-81988"></a>**template instance** [ProposalIou](#type-proposaliou-proposaliou-81988)
 
-> <a name="constr-proposaliou-proposaliou-48383"></a>[ProposalIou](#constr-proposaliou-proposaliou-48383) (Proposal [Iou](#type-proposaliou-iou-51326))
-> 
+> = Proposal [Iou](#type-proposaliou-iou-51326)

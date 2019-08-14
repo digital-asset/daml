@@ -42,7 +42,7 @@ test = scenario do
     lookupByKey @(Proposal Iou) ([bank], "present")
   mbPropId === Some propId
   iouId <- submit alice do
-    exercise propId (Accept @Iou)
+    exercise propId Accept
   iou' <- submit alice do
     fetch iouId
   iou' === iou
