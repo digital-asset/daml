@@ -843,6 +843,7 @@ optionsParser numProcessors enableScenarioService parsePkgName = Options
     <*> dlintUsageOpt
     <*> pure False
     <*> pure False
+    <*> pure (Haddock False)
   where
     optImportPath :: Parser [FilePath]
     optImportPath =

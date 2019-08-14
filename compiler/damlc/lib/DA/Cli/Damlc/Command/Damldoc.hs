@@ -193,7 +193,7 @@ data CmdArgs = Damldoc { cInputFormat :: InputFormat
 
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
-    opts <- defaultOptionsIO Nothing
+    opts <- fmap (\opts -> opts {optHaddock=Haddock True}) $ defaultOptionsIO Nothing
     runDamlDoc DamldocOptions
         { do_ideOptions = toCompileOpts opts { optMbPackageName = cPkgName } (IdeReportProgress False)
         , do_outputPath = cOutputPath

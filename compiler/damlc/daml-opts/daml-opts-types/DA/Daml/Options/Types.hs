@@ -6,6 +6,7 @@ module DA.Daml.Options.Types
     , EnableScenarioService(..)
     , ScenarioValidation(..)
     , DlintUsage(..)
+    , Haddock(..)
     , defaultOptionsIO
     , defaultOptions
     , mkOptions
@@ -64,7 +65,12 @@ data Options = Options
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
   , optCoreLinting :: Bool
     -- ^ Whether to enable linting of the generated GHC Core. (Used in testing.)
+  , optHaddock :: Haddock
+    -- ^ Whether to enable lexer option `Opt_Haddock` (default is `Haddock False`).
   } deriving Show
+
+newtype Haddock = Haddock Bool
+  deriving Show
 
 data DlintUsage
   = DlintEnabled { dlintUseDataDir :: FilePath, dlintAllowOverrides :: Bool }
@@ -145,6 +151,7 @@ defaultOptions mbVersion =
         , optDlintUsage = DlintDisabled
         , optIsGenerated = False
         , optCoreLinting = False
+        , optHaddock = Haddock False
         }
 
 getBaseDir :: IO FilePath
