@@ -32,8 +32,6 @@ and reuse our DAML Ledger server and DAML interpreter code for
 implementing the DAML Ledger API. For example uses of the integration kit, see
 below.
 
-.. include:: ../deploy/index.rst
-
 .. _status_and_roadmap:
 
 DAML Integration Kit status and roadmap
@@ -55,8 +53,8 @@ ALPHA (current status)
     *administrative DAML ledger access* API is introduced, which is different
     to the uniform *per-party DAML ledger access* that the DAML Ledger API provides.
     We will address this before reaching BETA status.
-  - The architecture is likely to change due to learnings from integrators like you! 
-    Where possible we strive to make these changes backwards compatible. though this 
+  - The architecture is likely to change due to learnings from integrators like you!
+    Where possible we strive to make these changes backwards compatible. though this
     might not always be possible.
   - The documentation might be spotty in some places, and you might have to
     infer some of the documentation from the code.
@@ -90,7 +88,7 @@ BETA
 
 GA
   For us GA (General Availability) means that there are several
-  production-ready DAML ledgers built using the DAML Integration Kit. 
+  production-ready DAML ledgers built using the DAML Integration Kit.
   We expect to reach GA in 2019.
 
   Related links
@@ -146,7 +144,7 @@ to implement your own server and validator:
 1. Implement your architecture; and let the world know about it by creating a
    PR against the
    `digital-asset/daml <https://github.com/digital-asset/daml>`__ repository
-   to add your ledger to the list of `DAML Ledgers built or in development`_.
+   to add your ledger to the list of :ref:`DAML Ledgers built or in development <deploy-ref_in_development>`.
 
 If you need help, then feel free to use the feedback form on this documentation page or GitHub issues on the
 `digital-asset/daml <https://github.com/digital-asset/daml>`__ repository to

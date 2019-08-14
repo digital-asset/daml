@@ -55,6 +55,8 @@ You can also use the ``daml ledger`` command for more fine-grained deployment op
      upload-dar               Upload DAR file to ledger
      navigator                Launch Navigator on ledger
 
+.. _deploy-ref_in_development:
+
 DAML ledgers built or in development
 ====================================
 
