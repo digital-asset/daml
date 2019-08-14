@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -35,6 +35,7 @@ module Development.IDE.Core.API.Testing
     , expectGoToDefinition
     , expectTextOnHover
     , expectVirtualResource
+    , expectVirtualResourceRegex
     , expectNoVirtualResource
     , expectVirtualResourceNote
     , expectNoVirtualResourceNote
@@ -51,6 +52,7 @@ import qualified Development.IDE.Types.Location as D
 import DA.Daml.Compiler.Scenario as SS
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
+import Development.IDE.Types.Options (IdeReportProgress(..))
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
@@ -88,6 +90,8 @@ import           Control.Monad
 import           Control.Monad.Fail
 import           Data.Maybe
 import           Data.List.Extra
+import           Text.Regex.TDFA
+import           Text.Regex.TDFA.Text ()
 
 -- | Short-circuiting errors that may occur during a test.
 data ShakeTestError
@@ -95,6 +99,7 @@ data ShakeTestError
     | FilePathEscapesTestDir FilePath
     | ExpectedDiagnostics [(D.DiagnosticSeverity, Cursor, T.Text)] [D.FileDiagnostic]
     | ExpectedVirtualResource VirtualResource T.Text (Map VirtualResource T.Text)
+    | ExpectedVirtualResourceRegex VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResource VirtualResource (Map VirtualResource T.Text)
     | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
@@ -174,7 +179,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
     damlEnv <- mkDamlEnv options mbScenarioService
-    service <- API.initialise (mainRule options) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options) vfs
+    service <- API.initialise (mainRule options) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
@@ -400,6 +405,16 @@ expectVirtualResource vr content = do
       Just res
         | content `T.isInfixOf` res -> pure ()
       _ -> throwError (ExpectedVirtualResource vr content vrs)
+
+-- | Check that the given virtual resource exists and that its content matches
+-- the regular expression.
+expectVirtualResourceRegex :: VirtualResource -> T.Text -> ShakeTest ()
+expectVirtualResourceRegex vr regex = do
+    vrs <- getVirtualResources
+    case Map.lookup vr vrs of
+      Just res
+        | res =~ regex -> pure ()
+      _ -> throwError (ExpectedVirtualResourceRegex vr regex vrs)
 
 -- | Check that the given virtual resource does not exist.
 expectNoVirtualResource :: VirtualResource -> ShakeTest ()

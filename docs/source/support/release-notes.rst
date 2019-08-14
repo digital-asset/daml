@@ -1,10 +1,55 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2019 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Release notes
 #############
 
 This page contains release notes for the SDK.
+
+.. _release-0-13-19:
+
+0.13.19 - 2019-08-14
+--------------------
+
+Sandbox
+~~~~~~~
+
+- Fixed a bug that prevented the ledger from loading transactions with empty workflow ids.
+- Fixed internal shutdown order to avoid dead letter warnings when
+  stopping Sandbox/Ledger API Server.  See issue `#1886
+  <https://github.com/digital-asset/daml/issues/1886>`__.
+
+DAML Studio
+~~~~~~~~~~~
+
+- Added a new command for visualizing a project in the IDE.
+- Print stack trace when a scenario fails.
+- Various memory leaks have been fixed so long-running sessions should
+  no longer show a significant increase in memory usage.
+
+DAML Compiler
+~~~~~~~~~~~~~
+
+- The ``--project-root`` option now works properly with relative paths
+  in ``daml build``.
+- Support generic template declarations and instances. Documentation
+  for generic templates is still being worked on.
+- The ``--dump-pom`` flag from ``damlc package`` has been removed as
+  packaging has not relied on POM files for a while.
+
+Navigator
+~~~~~~~~~
+
+- ``{"None": {}}`` and ``{"Some": value}``, where previously accepted, are no longer supported or used for DAML ``Optional`` values.
+  Instead, for simple cases, use the plain value for ``Some``, and ``null`` for ``None``.
+  See issue `#2361 <https://github.com/digital-asset/daml/issues/2361>`__ for other cases.
+
+HTTP JSON API
+~~~~~~~~~~~~~
+
+- A new, more intuitive JSON format for DAML values is supported.
+  See issue `#2361 <https://github.com/digital-asset/daml/issues/2361>`__.
+
 
 .. _release-0-13-18:
 

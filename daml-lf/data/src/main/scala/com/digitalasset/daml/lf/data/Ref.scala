@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.data
@@ -9,7 +9,12 @@ import scalaz.Equal
 object Ref {
 
   /* Location annotation */
-  case class Location(packageId: PackageId, module: ModuleName, start: (Int, Int), end: (Int, Int))
+  case class Location(
+      packageId: PackageId,
+      module: ModuleName,
+      definition: String,
+      start: (Int, Int),
+      end: (Int, Int))
 
   // we do not use String.split because `":foo".split(":")`
   // results in `List("foo")` rather than `List("", "foo")`

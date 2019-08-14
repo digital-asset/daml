@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
@@ -49,6 +49,8 @@ da_haskell_test(
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
+    # The gRPC binding sometimes crash assertion on shutdown, see #2520.
+    flaky = True,
     hazel_deps = [
         "base",
         "extra",

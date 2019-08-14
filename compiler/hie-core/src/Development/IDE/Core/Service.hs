@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TypeFamilies               #-}
@@ -51,6 +51,7 @@ initialise mainRule toDiags logger options vfs =
         toDiags
         logger
         (optShakeProfiling options)
+        (optReportProgress options)
         (shakeOptions { shakeThreads = optThreads options
                      , shakeFiles   = "/dev/null"
                      }) $ do

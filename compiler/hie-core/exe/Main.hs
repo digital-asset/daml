@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main(main) where
@@ -64,10 +64,11 @@ main = do
     if argLSP then do
         t <- offsetTime
         hPutStrLn stderr "Starting LSP server..."
-        runLanguageServer def def $ \event vfs -> do
+        runLanguageServer def def $ \event vfs caps -> do
             t <- t
             hPutStrLn stderr $ "Started LSP server in " ++ showDuration t
-            let options = defaultIdeOptions $ liftIO $ newSession' =<< findCradle (dir <> "/")
+            let options = (defaultIdeOptions $ liftIO $ newSession' =<< findCradle (dir <> "/"))
+                    { optReportProgress = clientSupportsProgress caps }
             initialise (mainRule >> action kick) event logger options vfs
     else do
         putStrLn "[1/6] Finding hie-bios cradle"

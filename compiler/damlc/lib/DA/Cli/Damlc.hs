@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TemplateHaskell     #-}
@@ -60,6 +60,7 @@ import Development.IDE.Core.RuleTypes.Daml (DalfPackage(..), GetParsedModule(..)
 import Development.IDE.GHC.Util (fakeDynFlags, moduleImportPaths)
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options (clientSupportsProgress)
 import "ghc-lib-parser" DynFlags
 import GHC.Conc
 import "ghc-lib-parser" Module
@@ -158,7 +159,10 @@ cmdInspect =
     <> fullDesc
   where
     jsonOpt = switch $ long "json" <> help "Output the raw Protocol Buffer structures as JSON"
-    cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt
+    detailOpt =
+        fmap (maybe DA.Pretty.prettyNormal DA.Pretty.PrettyLevel) $
+            optional $ option auto $ long "detail" <> metavar "LEVEL" <> help "Detail level of the pretty printed output (default: 0)"
+    cmd = execInspect <$> inputFileOpt <*> outputFileOpt <*> jsonOpt <*> detailOpt
 
 cmdVisual :: Mod CommandFields Command
 cmdVisual =
@@ -309,8 +313,9 @@ execIde telemetry (Debug debug) enableScenarioService mbProfileDir = NS.withSock
             initPackageDb LF.versionDefault (InitPkgDb True)
             sdkVersion <- getSdkVersion `catchIO` const (pure "Unknown (not started via the assistant)")
             Logger.logInfo loggerH (T.pack $ "SDK version: " <> sdkVersion)
-            runLanguageServer
-                (getDamlIdeState opts mbScenarioService loggerH)
+            runLanguageServer $ \sendMsg vfs caps ->
+                getDamlIdeState opts mbScenarioService loggerH sendMsg vfs (clientSupportsProgress caps)
+
 
 execCompile :: FilePath -> FilePath -> Options -> Command
 execCompile inputFile outputFile opts = withProjectRoot' (ProjectOpts Nothing (ProjectCheck "" False)) $ \relativize -> do
@@ -548,8 +553,8 @@ execPackage projectOpts filePath opts mbOutFile dalfInput = withProjectRoot' pro
 
     targetFilePath = fromMaybe defaultDarFile mbOutFile
 
-execInspect :: FilePath -> FilePath -> Bool -> Command
-execInspect inFile outFile jsonOutput = do
+execInspect :: FilePath -> FilePath -> Bool -> DA.Pretty.PrettyLevel -> Command
+execInspect inFile outFile jsonOutput lvl = do
     bytes <- B.readFile inFile
     if jsonOutput
     then do
@@ -563,7 +568,7 @@ execInspect inFile outFile jsonOutput = do
       writeOutput outFile $ render Plain $
         DA.Pretty.vsep
           [ DA.Pretty.keyword_ "package" DA.Pretty.<-> DA.Pretty.text (LF.unPackageId pkgId) DA.Pretty.<-> DA.Pretty.keyword_ "where"
-          , DA.Pretty.nest 2 (DA.Pretty.pretty lfPkg)
+          , DA.Pretty.nest 2 (DA.Pretty.pPrintPrec lvl 0 lfPkg)
           ]
 
 errorOnLeft :: Show a => String -> Either a b -> IO b

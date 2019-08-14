@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -835,6 +835,20 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
             expectNoVirtualResource vr
             setOpenVirtualResources [vr]
             expectVirtualResource vr "Return value: {}"
+    , testCase' "Failing scenario produces stack trace in correct order" $ do
+          let fooContent = T.unlines
+                 [ "daml 1.2"
+                 , "module Foo where"
+                 , "boom = error \"BOOM\""
+                 , "test : Scenario ()"
+                 , "test = boom"
+                 ]
+
+          foo <- makeFile "Foo.daml" fooContent
+          let vr = VRScenario foo "test"
+          setFilesOfInterest [foo]
+          setOpenVirtualResources [vr]
+          expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:3:1.*- test.*Foo:5:1"
     ]
     where
         testCase' = testCase mbScenarioService
