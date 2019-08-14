@@ -19,5 +19,6 @@ This section contains a reference to writing templates for DAML contracts. It in
    Functions <functions>
    Scenarios <scenarios>
    File structure <file-structure>
+   Packages <packages>
    Contract keys <contract-keys>
 
