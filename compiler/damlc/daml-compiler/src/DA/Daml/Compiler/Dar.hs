@@ -156,9 +156,9 @@ mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
             , "exposed: True"
             , "exposed-modules: " ++
               unwords (fromMaybe pkgModuleNames pExposedModules)
-            , "import-dirs: ${pkgroot}" </> key
-            , "library-dirs: ${pkgroot}" </> key
-            , "data-dir: ${pkgroot}" </> key
+            , "import-dirs: ${pkgroot}" ++ "/" ++ key -- we really want '/' here
+            , "library-dirs: ${pkgroot}" ++ "/" ++ key
+            , "data-dir: ${pkgroot}" ++ "/" ++ key
             , "depends: " ++
               unwords
                   [ sanitizeBaseDeps $ dropExtension $ takeFileName dep
