@@ -596,6 +596,15 @@ onHoverTests mbScenarioService = Tasty.testGroup "On hover tests"
         setFilesOfInterest [f]
         expectTextOnHover (f,8,[6..11]) $ HasType "Update ()" -- Delete choice
         expectTextOnHover (f,10,[6..13]) $ HasType "Party -> Update (ContractId Coin)" -- Transfer choice
+    , testCase' "Haddock comment" $ do
+        f <- makeModule "F"
+            [ "-- | Important docs"
+            , "f : a -> a"
+            , "f x = x"
+            ]
+        setFilesOfInterest [f]
+        expectNoErrors
+        expectTextOnHover (f,4,[0]) $ Contains "Important docs"
     ]
     where
         testCase' = testCase mbScenarioService
