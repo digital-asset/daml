@@ -40,7 +40,13 @@ renderRstText env = \case
     RenderLink anchor text ->
         case lookupAnchor env anchor of
             Nothing -> text
-            Just _ -> T.concat ["`", text, " <", unAnchor anchor, "_>`_"]
+            Just anchorLoc@(External _) ->
+                T.concat
+                    ["`", text, " <"
+                    , anchorHyperlink anchorLoc anchor
+                    , ">`_"]
+            Just _ ->
+                T.concat ["`", text, " <", unAnchor anchor, "_>`_"]
     RenderDocsInline docText ->
         T.unwords (docTextToRst docText)
 

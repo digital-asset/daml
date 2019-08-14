@@ -27,6 +27,7 @@ da_haskell_library(
         "ghc-lib",
         "hashable",
         "mtl",
+        "network-uri",
         "prettyprinter",
         "stache",
         "text",

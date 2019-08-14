@@ -54,7 +54,7 @@ renderMdText env = \case
                 ["["
                 , escapeMd text
                 , "]("
-                , anchorRelativeHyperlink anchorLoc anchor
+                , anchorHyperlink anchorLoc anchor
                 , ")"]
     RenderDocsInline docText ->
         T.unwords . T.lines . unDocText $ docText

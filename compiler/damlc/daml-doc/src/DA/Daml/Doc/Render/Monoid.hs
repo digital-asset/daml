@@ -17,6 +17,7 @@ import System.FilePath
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
+import qualified Network.URI as URI
 
 data RenderOut
     = RenderSpaced [RenderOut]
@@ -78,16 +79,18 @@ data RenderEnv = RenderEnv
 data AnchorLocation
     = SameFile -- ^ anchor is in same file
     | SameFolder FilePath -- ^ anchor is in a file within same folder
-    -- TODO: | External URL -- ^ anchor is in on a page at the given URL
+    | External URI.URI -- ^ anchor at the given URL
 
-
--- | Build relative hyperlink from anchor and anchor location.
-anchorRelativeHyperlink :: AnchorLocation -> Anchor -> T.Text
-anchorRelativeHyperlink anchorLoc (Anchor anchor) =
+-- | Build hyperlink from anchor and anchor location. Hyperlink is
+-- relative for anchors in the same package, absolute for external
+-- packages.
+anchorHyperlink :: AnchorLocation -> Anchor -> T.Text
+anchorHyperlink anchorLoc (Anchor anchor) =
     case anchorLoc of
         SameFile -> "#" <> anchor
         SameFolder fileName -> T.concat [T.pack fileName, "#", anchor]
-
+        External uri -> T.pack . show $
+            uri { URI.uriFragment = "#" <> T.unpack anchor }
 
 
 type RenderFormatter = RenderEnv -> RenderOut -> [T.Text]
