@@ -88,6 +88,25 @@ main = defaultMain $ testGroup "HIE"
             ]
           )
         ]
+  , testSession "cyclic module dependency" $ do
+      let contentA = T.unlines
+            [ "module ModuleA where"
+            , "import ModuleB"
+            ]
+      let contentB = T.unlines
+            [ "module ModuleB where"
+            , "import ModuleA"
+            ]
+      _ <- openDoc' "ModuleA.hs" "haskell" contentA
+      _ <- openDoc' "ModuleB.hs" "haskell" contentB
+      expectDiagnostics
+        [ ( "ModuleA.hs"
+          , [(DsError, (1, 7), "Cyclic module dependency between ModuleA, ModuleB")]
+          )
+        , ( "ModuleB.hs"
+          , [(DsError, (1, 7), "Cyclic module dependency between ModuleA, ModuleB")]
+          )
+        ]
   ]
 
 
