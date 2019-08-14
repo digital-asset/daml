@@ -263,20 +263,9 @@ This is usually achieved by running a ledger as part of the test process and run
 Share the ledger
 ****************
 
-Booting a ledger and loading DAML code into it takes time. The shorter your tests, the more this overhead is going to impact the running time of the tests.
+Sharing a ledger is useful because booting a ledger and loading DAML code into it takes time. Since to properly test your application you need an actual ledger you're likely to have a lot of very short tests whose total running time would suffer from the overhead of running a new ledger for every test.
 
-Given the fundamental need of working against a running ledger to verify the business logic, it's quite common to have integration test that, in appearance, resemble unit tests, in that they check an individual property of a component you wrote, although in an integration test setting.
-
-This means it's quite common to write short tests, which aim, just like unit tests, to give quick feedback to the developer.
-
-In order for this to happen, saving on the need to boot a ledger multiple times can dramatically decrease the time necessary to run a suite of tests.
-
-Since your tests are going to share the same ledger, they must be designed to not interfere with each other.
-
-Design your tests to share the ledger
-*************************************
-
-Both the transaction and the active contract service offer the possibility of filtering by party. Parties can thus be used as a way to isolate tests.
+Tests must thus be designed to not interfere with each other. Both the transaction and the active contract service offer the possibility of filtering by party. Parties can thus be used as a way to isolate tests.
 
 You can use the party management service to allocate new parties and use them to test your application. You can also limit the number of transactions read from the ledger by reading the current offset of the ledger end before the test starts, since no transactions can possibly appear for the newly allocated parties before this time.
 
