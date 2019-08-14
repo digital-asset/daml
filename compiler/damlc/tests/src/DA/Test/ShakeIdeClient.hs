@@ -314,7 +314,7 @@ dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
             setFilesOfInterest [foo]
             expectNoErrors
             expectDiagnostic DsInfo (foo, 7, 4) "Suggestion: Reduce duplication"
-    ,  testCase' "Suggest language pragmas" $ do
+    ,  testCase' "Suggest use language pragmas" $ do
             foo <- makeFile "Foo.daml" $ T.unlines
                 [ "{-# OPTIONS_GHC -XDataKinds #-}"
                 , "daml 1.2"
