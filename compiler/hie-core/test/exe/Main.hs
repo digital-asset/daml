@@ -121,6 +121,18 @@ main = defaultMain $ testGroup "HIE"
           , [(DsWarning, (2, 0), "The import of 'ModuleA' is redundant")]
           )
         ]
+  , testSession "type error" $ do
+      let content = T.unlines
+            [ "module Testing where"
+            , "foo :: Int -> String -> Int"
+            , "foo a b = a + b"
+            ]
+      _ <- openDoc' "Testing.hs" "haskell" content
+      expectDiagnostics
+        [ ( "Testing.hs"
+          , [(DsError, (2, 14), "Couldn't match type '[Char]' with 'Int'")]
+          )
+        ]
   ]
 
 
