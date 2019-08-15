@@ -839,7 +839,7 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
           let fooContent = T.unlines
                  [ "daml 1.2"
                  , "module Foo where"
-                 , "boom = error \"BOOM\""
+                 , "boom = fail \"BOOM\""
                  , "test : Scenario ()"
                  , "test = boom"
                  ]
