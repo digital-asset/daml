@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -59,7 +59,7 @@ encodePackageId = TL.fromStrict . unPackageId
 encodeName :: (a -> T.Text) -> a -> TL.Text
 encodeName unwrapName (unwrapName -> unmangled) = case mangleIdentifier unmangled of
    Left err -> error $ "IMPOSSIBLE: could not mangle name " ++ show unmangled ++ ": " ++ err
-   Right x -> TL.fromStrict x
+   Right x -> x
 
 -- | For now, value names are always encoded version using a single segment.
 --
@@ -97,6 +97,9 @@ encodePackageRef ctx = Just . \case
             (P.PackageRefSumInternedId . fromIntegral)
             $ internPackageId ctx pkgid
 
+-- NB(SC): May miss some package IDs because packageRefs excludes some members;
+-- see notes for `instance MonoTraversable ModuleRef SourceLoc` in Optics.hs,
+-- and revisit for DAML-LF v2
 internPackageRefIds :: Package -> (PackageRefCtx, [PackageId], [ModuleName])
 internPackageRefIds pkg =
   let pkgIdSet = S.fromList $ pkg ^.. packageModuleRef._1._PRImport

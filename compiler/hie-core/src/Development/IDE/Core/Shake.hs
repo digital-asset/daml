@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE ExistentialQuantification  #-}
@@ -62,6 +62,7 @@ import Language.Haskell.LSP.Diagnostics
 import qualified Data.SortedList as SL
 import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options
 import           Control.Concurrent.Extra
 import           Control.Exception
 import           Control.DeepSeq
@@ -211,7 +212,6 @@ type IdeRule k v =
   , NFData v
   )
 
-
 -- | A Shake database plus persistent store. Can be thought of as storing
 --   mappings from @(FilePath, k)@ to @RuleResult k@.
 data IdeState = IdeState
@@ -219,18 +219,16 @@ data IdeState = IdeState
     ,shakeAbort :: Var (IO ()) -- close whoever was running last
     ,shakeClose :: IO ()
     ,shakeExtras :: ShakeExtras
+    ,shakeProfileDir :: Maybe FilePath
     }
-
-profileDir :: Maybe FilePath
-profileDir = Nothing -- set to Just the directory you want profile reports to appear in
 
 
 -- This is debugging code that generates a series of profiles, if the Boolean is true
-shakeRunDatabaseProfile :: ShakeDatabase -> [Action a] -> IO [a]
-shakeRunDatabaseProfile shakeDb acts = do
+shakeRunDatabaseProfile :: Maybe FilePath -> ShakeDatabase -> [Action a] -> IO [a]
+shakeRunDatabaseProfile mbProfileDir shakeDb acts = do
         (time, (res,_)) <- duration $ shakeRunDatabase shakeDb acts
-        whenJust profileDir $ \dir -> do
-            count <- modifyVar profileCounter $ \x -> let y = x+1 in return (y,y)
+        whenJust mbProfileDir $ \dir -> do
+            count <- modifyVar profileCounter $ \x -> let !y = x+1 in return (y,y)
             let file = "ide-" ++ profileStartTime ++ "-" ++ takeEnd 5 ("0000" ++ show count) ++ "-" ++ showDP 2 time <.> "html"
             shakeProfileDatabase shakeDb $ dir </> file
         return res
@@ -250,24 +248,41 @@ setValues :: IdeRule k v
           -> NormalizedFilePath
           -> Value v
           -> IO ()
-setValues state key file val = modifyVar_ state $
-    pure . HMap.insert (file, Key key) (fmap toDyn val)
+setValues state key file val = modifyVar_ state $ \vals -> do
+    -- Force to make sure the old HashMap is not retained
+    evaluate $ HMap.insert (file, Key key) (fmap toDyn val) vals
 
 -- | We return Nothing if the rule has not run and Just Failed if it has failed to produce a value.
 getValues :: forall k v. IdeRule k v => Var Values -> k -> NormalizedFilePath -> IO (Maybe (Value v))
 getValues state key file = do
     vs <- readVar state
-    return $ do
-        v <- HMap.lookup (file, Key key) vs
-        pure $ fmap (fromJust . fromDynamic @v) v
+    case HMap.lookup (file, Key key) vs of
+        Nothing -> pure Nothing
+        Just v -> do
+            let r = fmap (fromJust . fromDynamic @v) v
+            -- Force to make sure we do not retain a reference to the HashMap
+            -- and we blow up immediately if the fromJust should fail
+            -- (which would be an internal error).
+            evaluate (r `seqValue` Just r)
+
+-- | Seq the result stored in the Shake value. This only
+-- evaluates the value to WHNF not NF. We take care of the latter
+-- elsewhere and doing it twice is expensive.
+seqValue :: Value v -> b -> b
+seqValue v b = case v of
+    Succeeded ver v -> rnf ver `seq` v `seq` b
+    Stale ver v -> rnf ver `seq` v `seq` b
+    Failed -> b
 
 -- | Open a 'IdeState', should be shut using 'shakeShut'.
 shakeOpen :: (LSP.FromServerMessage -> IO ()) -- ^ diagnostic handler
           -> Logger
+          -> Maybe FilePath
+          -> IdeReportProgress
           -> ShakeOptions
           -> Rules ()
           -> IO IdeState
-shakeOpen eventer logger opts rules = do
+shakeOpen eventer logger shakeProfileDir (IdeReportProgress reportProgress) opts rules = do
     shakeExtras <- do
         globals <- newVar HMap.empty
         state <- newVar HMap.empty
@@ -280,7 +295,7 @@ shakeOpen eventer logger opts rules = do
         shakeOpenDatabase
             opts
                 { shakeExtra = addShakeExtra shakeExtras $ shakeExtra opts
-                , shakeProgress = lspShakeProgress eventer
+                , shakeProgress = if reportProgress then lspShakeProgress eventer else const (pure ())
                 }
             rules
     shakeAbort <- newVar $ return ()
@@ -336,7 +351,7 @@ shakeRun IdeState{shakeExtras=ShakeExtras{..}, ..} acts = modifyVar shakeAbort $
     logDebug logger $ T.pack $ "Starting shakeRun (aborting the previous one took " ++ showDuration stopTime ++ ")"
     bar <- newBarrier
     start <- offsetTime
-    thread <- forkFinally (shakeRunDatabaseProfile shakeDb acts) $ \res -> do
+    thread <- forkFinally (shakeRunDatabaseProfile shakeProfileDir shakeDb acts) $ \res -> do
         signalBarrier bar res
         runTime <- start
         let res' = case res of
@@ -362,14 +377,16 @@ garbageCollect :: (NormalizedFilePath -> Bool) -> Action ()
 garbageCollect keep = do
     ShakeExtras{state, diagnostics,publishedDiagnostics,positionMapping} <- getShakeExtras
     liftIO $
-        do newState <- modifyVar state $ return . dupe .  HMap.filterWithKey (\(file, _) _ -> keep file)
-           modifyVar_ diagnostics $ return . filterDiagnostics keep
-           modifyVar_ publishedDiagnostics $ return . Map.filterWithKey (\uri _ -> keep (fromUri uri))
+        do newState <- modifyVar state $ \values -> do
+               values <- evaluate $ HMap.filterWithKey (\(file, _) _ -> keep file) values
+               return $! dupe values
+           modifyVar_ diagnostics $ \diags -> return $! filterDiagnostics keep diags
+           modifyVar_ publishedDiagnostics $ \diags -> return $! Map.filterWithKey (\uri _ -> keep (fromUri uri)) diags
            let versionsForFile =
                    Map.fromListWith Set.union $
                    mapMaybe (\((file, _key), v) -> (filePathToUri' file,) . Set.singleton <$> valueVersion v) $
                    HMap.toList newState
-           modifyVar_ positionMapping $ return . filterVersionMap versionsForFile
+           modifyVar_ positionMapping $ \mappings -> return $! filterVersionMap versionsForFile mappings
 define
     :: IdeRule k v
     => (k -> NormalizedFilePath -> Action (IdeResult v)) -> Rules ()
@@ -539,7 +556,9 @@ updateFileDiagnostics fp k ShakeExtras{diagnostics, publishedDiagnostics, state,
         newDiags <- modifyVar diagnostics $ \old -> do
             let newDiagsStore = setStageDiagnostics fp (vfsVersion =<< modTime) (T.pack $ show k) current old
             let newDiags = getFileDiagnostics fp newDiagsStore
-            pure (newDiagsStore, newDiags)
+            _ <- evaluate newDiagsStore
+            _ <- evaluate newDiags
+            pure $! (newDiagsStore, newDiags)
         let uri = filePathToUri' fp
         let delay = if null newDiags then 0.1 else 0
         registerEvent debouncer delay uri $ do
@@ -547,7 +566,7 @@ updateFileDiagnostics fp k ShakeExtras{diagnostics, publishedDiagnostics, state,
                  let lastPublish = Map.findWithDefault [] uri published
                  when (lastPublish /= newDiags) $
                      eventer $ publishDiagnosticsNotification (fromNormalizedUri uri) newDiags
-                 pure (Map.insert uri newDiags published)
+                 pure $! Map.insert uri newDiags published
 
 publishDiagnosticsNotification :: Uri -> [Diagnostic] -> LSP.FromServerMessage
 publishDiagnosticsNotification uri diags =
@@ -652,4 +671,4 @@ updatePositionMapping IdeState{shakeExtras = ShakeExtras{positionMapping}} Versi
         let updatedMapping =
                 Map.insert _version idMapping $
                 Map.map (\oldMapping -> foldl' applyChange oldMapping changes) mappingForUri
-        pure $ Map.insert uri updatedMapping allMappings
+        pure $! Map.insert uri updatedMapping allMappings

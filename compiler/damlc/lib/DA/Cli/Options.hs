@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 module DA.Cli.Options
@@ -337,19 +337,24 @@ enableScenarioOpt :: Parser EnableScenarioService
 enableScenarioOpt = EnableScenarioService <$>
     flagYesNoAuto "scenarios" True "Enable/disable support for running scenarios" idm
 
-hlintEnabledOpt :: Parser HlintUsage
-hlintEnabledOpt = HlintEnabled <$> strOption
-  ( long "with-hlint"
+dlintEnabledOpt :: Parser DlintUsage
+dlintEnabledOpt = DlintEnabled
+  <$> strOption
+  ( long "with-dlint"
     <> metavar "DIR"
-    <> help "Enable hlint with hlint.yaml directory"
+    <> help "Enable linting with 'dlint.yaml' directory"
+  )
+  <*> switch
+  ( long "allow-overrides"
+    <> help "Allow '.dlint.yaml' configuration overrides"
   )
 
-hlintDisabledOpt :: Parser HlintUsage
-hlintDisabledOpt = flag' HlintDisabled
-  ( long "without-hlint"
-    <> help "Disable hlint"
+dlintDisabledOpt :: Parser DlintUsage
+dlintDisabledOpt = flag' DlintDisabled
+  ( long "without-dlint"
+    <> help "Disable dlint"
   )
 
-hlintUsageOpt :: Parser HlintUsage
-hlintUsageOpt = fmap (fromMaybe HlintDisabled . lastMay) $
-  many (hlintEnabledOpt <|> hlintDisabledOpt)
+dlintUsageOpt :: Parser DlintUsage
+dlintUsageOpt = fmap (fromMaybe DlintDisabled . lastMay) $
+  many (dlintEnabledOpt <|> dlintDisabledOpt)

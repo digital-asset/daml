@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_library")
@@ -11,6 +11,7 @@ da_haskell_library(
         "bytestring",
         "extra",
         "filepath",
+        "safe",
         "unordered-containers",
         "utf8-string",
         "zip-archive",

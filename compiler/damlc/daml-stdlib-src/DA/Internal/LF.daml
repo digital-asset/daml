@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -38,12 +38,11 @@ module DA.Internal.LF
   , unpackPair
   ) where
 
-import GHC.Types (Opaque, Symbol, magic)
+import GHC.Types (Opaque, Symbol)
 import DA.Internal.Prelude
 
 -- | The `Party` type represents a party to a contract.
 data Party =
-  -- | HIDE
   Party Opaque
 -- Note that before DAML-LF 1.2 BEToText added single quotes around the party.
 -- now it does not, and the old behavior has been renamed BEPartyToQuotedText.
@@ -91,7 +90,6 @@ getParty = primitive @"SGetParty"
 
 -- | The `Date` type represents a date, for example `date 2007 Apr 5`.
 data Date =
-  -- | HIDE
   Date Opaque
 instance Show Date where show = primitive @"BEToText"
 instance Eq Date where (==) = primitive @"BEEqual"
@@ -100,7 +98,6 @@ instance Ord Date where (<=) = primitive @"BELessEq"
 -- | The `Time` type represents a specific datetime in UTC,
 -- for example `time (date 2007 Apr 5) 14 30 05`.
 data Time =
-  -- | HIDE
   Time Opaque
 instance Show Time where show = primitive @"BEToText"
 instance Eq Time where (==) = primitive @"BEEqual"
@@ -109,13 +106,11 @@ instance Ord Time where (<=) = primitive @"BELessEq"
 -- | The `TextMap a` type represents an associative array from keys of type
 -- `Text` to values of type `a`.
 data TextMap a =
-  -- | HIDE
   TextMap Opaque
 
 -- | The `ContractId a` type represents an ID for a contract created from a template `a`.
 --   You can use the ID to fetch the contract, among other things.
-data ContractId a = 
-  -- | HIDE
+data ContractId a =
   ContractId Opaque
 instance Eq (ContractId a) where (==) = primitive @"BEEqualContractId"
 instance Show (ContractId a) where show _ = "<contract-id>"
@@ -128,7 +123,6 @@ coerceContractId = primitive @"BECoerceContractId"
 -- | The `Update a` type represents an `Action` to update or query the ledger,
 --   before returning a value of type `a`. Examples include `create` and `fetch`.
 data Update a =
-  -- | HIDE
   Update Opaque
 
 instance Functor Update where
@@ -168,7 +162,6 @@ instance CanAbort Scenario where
 -- The type `Scenario a` describes a set of actions taken by various parties during
 -- the simulated scenario, before returning a value of type `a`.
 data Scenario a =
-  -- | HIDE
   Scenario Opaque
 
 instance Functor Scenario where

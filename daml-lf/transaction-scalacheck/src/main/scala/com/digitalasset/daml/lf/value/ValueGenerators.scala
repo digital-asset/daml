@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.value
@@ -16,7 +16,6 @@ import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
-import scalaz.Equal
 import scalaz.syntax.apply._
 import scalaz.scalacheck.ScalaCheckBinding._
 import scalaz.std.string.parseInt
@@ -76,14 +75,6 @@ object ValueGenerators {
   }
 
   val defaultNidEncode: TransactionCoder.EncodeNid[NodeId] = nid => nid.index.toString
-
-  /** A whose equalIsNatural == false */
-  private[lf] final case class Unnatural[+A](a: A)
-  private[lf] object Unnatural {
-    implicit def arbUA[A: Arbitrary]: Arbitrary[Unnatural[A]] =
-      Arbitrary(Arbitrary.arbitrary[A] map (Unnatural(_)))
-    implicit def eqUA[A: Equal]: Equal[Unnatural[A]] = Equal.equalBy(_.a)
-  }
 
   //generate decimal values
   val decimalGen: Gen[ValueDecimal] = {

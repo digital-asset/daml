@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -30,7 +30,7 @@ data Sandbox = Sandbox { port :: Port, proh :: ProcessHandle }
 sandboxProcess :: SandboxSpec -> FilePath -> IO CreateProcess
 sandboxProcess SandboxSpec{dar} portFile = do
     binary <- locateRunfiles (mainWorkspace </> exe "ledger/sandbox/sandbox-binary")
-    pure $ proc binary [ dar, "--port-file", portFile]
+    pure $ proc binary [ dar, "--port-file", portFile, "-p", "0"]
 
 startSandboxProcess :: SandboxSpec -> FilePath -> IO (ProcessHandle,Maybe Handle)
 startSandboxProcess spec portFile = withDevNull $ \devNull -> do

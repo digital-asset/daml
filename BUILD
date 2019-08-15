@@ -2,11 +2,11 @@ package(default_visibility = ["//:__subpackages__"])
 
 load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 load(
-    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "@rules_haskell//haskell:defs.bzl",
     "haskell_toolchain",
 )
 load(
-    "@io_tweag_rules_haskell//haskell:c2hs.bzl",
+    "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_toolchain",
 )
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_repl")
@@ -50,7 +50,7 @@ config_setting(
 )
 
 load(
-    "@io_tweag_rules_haskell//haskell:c2hs.bzl",
+    "@rules_haskell//haskell:c2hs.bzl",
     "c2hs_toolchain",
 )
 
@@ -77,7 +77,7 @@ py_runtime_pair(
 toolchain(
     name = "nix_python_toolchain",
     exec_compatible_with = [
-        "@io_tweag_rules_haskell//haskell/platforms:nixpkgs",
+        "@rules_haskell//haskell/platforms:nixpkgs",
     ],
     toolchain = ":nix_python_runtime_pair",
     toolchain_type = "@bazel_tools//tools/python:toolchain_type",
@@ -141,9 +141,10 @@ genrule(
         COMPONENT_VERSION=$$(cat $(location :component-version))
         cat > $@ <<EOF
 module SdkVersion where
-sdkVersion, componentVersion :: String
+sdkVersion, componentVersion, damlStdlib :: String
 sdkVersion = "$$SDK_VERSION"
 componentVersion = "$$COMPONENT_VERSION"
+damlStdlib = "daml-stdlib-" ++ sdkVersion
 EOF
     """,
 )

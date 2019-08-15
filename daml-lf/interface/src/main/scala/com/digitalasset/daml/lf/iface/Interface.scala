@@ -1,15 +1,15 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.iface
+package com.digitalasset.daml.lf
+package iface
 
-import reader.Errors
-import com.digitalasset.daml_lf.{DamlLf, DamlLf1}
-import scalaz._
 import java.{util => j}
 
 import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import com.digitalasset.daml.lf.data.Ref.{PackageId, QualifiedName}
+import com.digitalasset.daml.lf.iface.reader.Errors
+import com.digitalasset.daml_lf.DamlLf
 
 import scala.collection.JavaConverters._
 import scala.collection.immutable.Map
@@ -49,7 +49,8 @@ final case class Interface(packageId: PackageId, typeDecls: Map[QualifiedName, I
 }
 
 object Interface {
-  import Errors._, reader.InterfaceReader._
+  import Errors._
+  import reader.InterfaceReader._
 
   def read(lf: DamlLf.Archive): (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
@@ -58,7 +59,4 @@ object Interface {
     : (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
     readInterface(lf)
 
-  def read(f: () => String \/ (PackageId, DamlLf1.Package))
-    : (Errors[ErrorLoc, InvalidDataTypeDefinition], Interface) =
-    readInterface(f)
 }

@@ -1,8 +1,8 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE DataKinds         #-}
-{-# LANGUAGE GADTs             #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
 
 module DA.Ledger.GrpcWrapUtils (
     noTrace, emptyMdm,
@@ -17,7 +17,7 @@ import Control.Exception (throwIO)
 import Control.Monad.Fail (fail)
 import Control.Monad.Fix (fix)
 import DA.Ledger.Stream
-import DA.Ledger.Convert(Perhaps)
+import DA.Ledger.Convert (Perhaps,runRaise)
 import Network.GRPC.HighLevel (clientCallCancel)
 import Network.GRPC.HighLevel.Generated
 import qualified Data.Map as Map
@@ -49,30 +49,28 @@ unwrapWithInvalidArgument = \case
     ClientErrorResponse ce -> fail (show ce)
 
 sendToStream :: Show b => Int -> a -> (b -> Perhaps c) -> Stream c -> (ClientRequest 'ServerStreaming a b -> IO (ClientResult 'ServerStreaming b)) -> IO ()
-sendToStream timeout request f stream rpc = do
+sendToStream timeout request convertResponse stream rpc = do
     res <- rpc $
         ClientReaderRequestCC request timeout emptyMdm
         (\cc -> onClose stream $ \_cancel -> clientCallCancel cc)
         $ \_mdm recv -> do
           fix $ \again -> do
             recv >>= \case
-                Left e -> do
-                    writeStream stream (Left (Abnormal (show e)))
-                    return ()
-                Right Nothing -> do
-                    return ()
-                Right (Just b) ->
-                    case f b of
-                        Left reason -> do
-                            let mes = "convert failed: " <> show reason <> ":\n" <> show b
-                            writeStream stream (Left (Abnormal mes))
-                        Right cs -> do
-                            writeStream stream $ Right cs
-                            again
+                Left e ->  failToStream (show e)
+                Right Nothing -> return ()
+                Right (Just b) -> runRaise convertResponse b >>= \case
+                    Left reason ->
+                        failToStream $ show reason
+                    Right c -> do
+                        writeStream stream $ Right c
+                        again
     case res of
-        ClientReaderResponse _meta StatusOk _details -> do
+        ClientReaderResponse _meta StatusOk _details ->
             writeStream stream (Left EOS)
-        ClientReaderResponse _meta code details -> do
-            writeStream stream (Left (Abnormal (show (code,details))))
-        ClientErrorResponse e -> do
-            writeStream stream (Left (Abnormal (show e)))
+        ClientReaderResponse _meta code details ->
+            failToStream $ show (code,details)
+        ClientErrorResponse e ->
+            failToStream $ show e
+  where
+      failToStream :: String -> IO ()
+      failToStream msg = writeStream stream (Left (Abnormal msg))

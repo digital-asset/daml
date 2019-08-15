@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator.model.converter
@@ -302,7 +302,7 @@ case object LedgerApiV1 {
             newVv <- fillInTypeInfo(vv, fieldType, ctx)
           } yield (Some(tn), newVv)
       }
-    } yield Model.ApiRecord(Some(typeCon.name.identifier), fields.toImmArray)
+    } yield V.ValueRecord(Some(typeCon.name.identifier), fields.toImmArray)
 
   private def fillInListTI(
       list: Model.ApiList,
@@ -316,7 +316,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $list as $typ"))
       }
       values <- list.values traverseU (fillInTypeInfo(_, elementType, ctx))
-    } yield Model.ApiList(values)
+    } yield V.ValueList(values)
 
   private def fillInMapTI(
       map: Model.ApiMap,
@@ -330,7 +330,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $map as $typ"))
       }
       values <- map.value traverseU (fillInTypeInfo(_, elementType, ctx))
-    } yield Model.ApiMap(values)
+    } yield V.ValueMap(values)
 
   private def fillInOptionalTI(
       opt: Model.ApiOptional,
@@ -344,7 +344,7 @@ case object LedgerApiV1 {
         case _ => Left(GenericConversionError(s"Cannot read $opt as $typ"))
       }
       value <- opt.value traverseU (fillInTypeInfo(_, optType, ctx))
-    } yield Model.ApiOptional(value)
+    } yield V.ValueOptional(value)
 
   private def asTypeCon(
       typ: Model.DamlLfType,
@@ -378,10 +378,10 @@ case object LedgerApiV1 {
     } yield variant.copy(tycon = Some(typeCon.name.identifier), value = argument)
 
   private def fillInEnumTI(
-      enum: Model.ApiEnum,
+      enum: V.ValueEnum,
       typ: Model.DamlLfType,
       ctx: Context
-  ): Result[Model.ApiEnum] =
+  ): Result[V.ValueEnum] =
     for {
       typeCon <- asTypeCon(typ, enum)
     } yield enum.copy(tycon = Some(typeCon.name.identifier))
@@ -402,7 +402,7 @@ case object LedgerApiV1 {
       ctx: Context
   ): Result[Model.ApiValue] =
     value match {
-      case v: Model.ApiEnum => fillInEnumTI(v, typ, ctx)
+      case v: V.ValueEnum => fillInEnumTI(v, typ, ctx)
       case _: V.ValueCidlessLeaf | _: V.ValueContractId[_] => Right(value)
       case v: Model.ApiOptional => fillInOptionalTI(v, typ, ctx)
       case v: Model.ApiMap => fillInMapTI(v, typ, ctx)

@@ -1,0 +1,50 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- An IOU to be proposed using the generic proposal workflow.
+-- @SINCE-LF 1.5
+daml 1.2
+module ProposalIou where
+
+import DA.Assert
+import Proposal
+
+template Iou with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  where
+    signatory [issuer, owner]
+    ensure amount > 0.0
+    agreement show issuer <> " owns " <> show owner <> " CHF " <> show amount
+
+    choice Burn : ()
+      controller owner
+      do
+        pure ()
+
+-- The instantiation of the generic proposal workflow for `Iou`.
+template instance ProposalIou = Proposal Iou
+
+-- A scenario.
+test = scenario do
+  alice <- getParty "alice"
+  bank <- getParty "bank"
+  let iou = Iou with issuer = bank; owner = alice; amount = 10.0
+  let prop = Proposal with asset = iou; receivers = [alice]; name = "present"
+  propId <- submit bank do
+    create prop
+  (propId', prop') <- submit bank do
+    fetchByKey @(Proposal Iou) ([bank], "present")
+  propId' === propId
+  prop' === prop
+  mbPropId <- submit bank do
+    lookupByKey @(Proposal Iou) ([bank], "present")
+  mbPropId === Some propId
+  iouId <- submit alice do
+    exercise propId Accept
+  iou' <- submit alice do
+    fetch iouId
+  iou' === iou
+  submit alice do
+    exercise iouId Burn

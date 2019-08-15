@@ -1,5 +1,7 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2019 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
+
+.. _deploy-ref_index:
 
 Deploying to DAML ledgers
 *************************
@@ -13,6 +15,47 @@ You can deploy to:
 
 - The Sandbox with persistence. For information on how to do this, see the section on persistence in :doc:`/tools/sandbox` docs
 - Further deployment options which are in development. For information on these options and their stage of development, see the table below.
+
+To deploy a DAML project to a ledger, you will need the ledger's hostname (or IP) and the port number for the gRPC Ledger API. The default port number is 6865. Then, inside your DAML project folder, run the following command, taking care to substitute the ledger's hostname and port for ``<HOSTNAME>`` and ``<PORT>``:
+
+.. code-block:: none
+
+   $ daml deploy --host=<HOSTNAME> --port=<PORT>
+
+This command will deploy your project to the ledger. This has two steps:
+
+#. It will allocate the parties specified in the project's ``daml.yaml`` on the ledger if they are missing. The command looks through the list of parties known to the ledger, sees if any party is missing by comparing display names, and adds any missing party via the party management service of the Ledger API.
+
+#. It will upload the project's compiled DAR file to the ledger via the package management service of the Ledger API. This will make the templates defined in the current project available to the users of the ledger.
+
+Instead of passing ``--host`` and ``--port`` flags to the command above, you can add the following section to the project's ``daml.yaml`` file:
+
+.. code-block:: yaml
+
+   ledger:
+       host: <HOSTNAME>
+       port: <PORT>
+
+You can also use the ``daml ledger`` command for more fine-grained deployment options, and to interact with the ledger more generally. Try running ``daml ledger --help`` to get a list of available ledger commands:
+
+.. code-block:: none
+
+   $ daml ledger --help
+   Usage: daml ledger COMMAND
+     Interact with a remote DAML ledger. You can specify the ledger in daml.yaml
+     with the ledger.host and ledger.port options, or you can pass the --host and
+     --port flags to each command below.
+
+   Available options:
+     -h,--help                Show this help text
+
+   Available commands:
+     list-parties             List parties known to ledger
+     allocate-parties         Allocate parties on ledger
+     upload-dar               Upload DAR file to ledger
+     navigator                Launch Navigator on ledger
+
+.. _deploy-ref_in_development:
 
 DAML ledgers built or in development
 ====================================

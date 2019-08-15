@@ -23,6 +23,7 @@ jobs:
       name: 'linux-pool'
     steps:
       - template: ci/report-start.yml
+      - checkout: self
       - template: ci/build-unix.yml
         parameters:
           name: linux
@@ -33,11 +34,50 @@ jobs:
     timeoutInMinutes: 360
     pool:
       vmImage: 'macOS-10.14'
+    variables:
+      nix-cache-key: $(Build.StagingDirectory)/macos-nix-key
+      nix-cache-path: /tmp/nix-cache/
+      bazel-repo-cache-key: $(Build.StagingDirectory)/bazel-repo-cache-key
+      bazel-repo-cache-path: $(Agent.BuildDirectory)/.bazel-cache/repo
     steps:
       - template: ci/report-start.yml
+      - checkout: self
+      - bash: echo $(git log -n1 --pretty=format:%H dev-env nix azure-pipelines.yml) >> $(nix-cache-key)
+        displayName: nix cache key
+      - task: CacheBeta@0
+        inputs:
+          key: $(nix-cache-key)
+          path: $(nix-cache-path)
+      - bash: |
+          set -euo pipefail
+          if [[ -e $(nix-cache-path) ]]; then
+              DIR=$(pwd)
+              sudo mkdir /nix && sudo chown $USER /nix
+              cd /nix
+              tar xzf $(nix-cache-path)/nix.tar.gz
+              cd $DIR
+              curl -sfL https://nixos.org/releases/nix/nix-2.2.1/install | bash
+          fi
+        displayName: restore cache
+      - bash: echo $(git log -n1 --pretty=format:%H azure-pipelines.yml $(find . -name \*.bazel -or -name \*.bzl -or -name WORKSPACE -or -name BUILD)) >> $(bazel-repo-cache-key)
+        displayName: bazel repo cache key
+      - task: CacheBeta@0
+        inputs:
+          key: $(bazel-repo-cache-key)
+          path: $(bazel-repo-cache-path)
       - template: ci/build-unix.yml
         parameters:
           name: macos
+      - bash: |
+          set -euo pipefail
+          if [[ ! -e $(nix-cache-path) ]]; then
+              mkdir -p $(nix-cache-path)
+              cd /nix
+              GZIP=-9 tar czf $(nix-cache-path)/nix.tar.gz store var
+          fi
+        displayName: create nix cache
+      - bash: mkdir -p $(bazel-repo-cache-path)
+        displayName: ensure bazel repo cache exists
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
@@ -78,6 +118,40 @@ jobs:
       - template: ci/tell-slack-failed.yml
       - template: ci/report-end.yml
 
+  - job: hie_core_stack_86
+    timeoutInMinutes: 60
+    pool:
+      vmImage: 'ubuntu-latest'
+    steps:
+      - template: ci/report-start.yml
+      - checkout: self
+      - task: CacheBeta@0
+        inputs:
+          key: stack-cache-v1 | $(Agent.OS) | $(Build.SourcesDirectory)/compiler/hie-core/stack.yaml | $(Build.SourcesDirectory)/compiler/hie-core/hie-core.cabal
+          path: .azure-cache
+          cacheHitVar: CACHE_RESTORED
+        displayName: "Cache stack artifacts"
+      - bash: |
+          mkdir -p ~/.stack
+          tar xzf .azure-cache/stack-root.tar.gz -C $HOME
+        displayName: "Unpack cache"
+        condition: eq(variables.CACHE_RESTORED, 'true')
+      - bash: |
+          sudo apt-get install -y g++ gcc libc6-dev libffi-dev libgmp-dev make zlib1g-dev
+          curl -sSL https://get.haskellstack.org/ | sh
+        displayName: 'Install Stack'
+      - bash: (cd compiler/hie-core; stack setup)
+        displayName: 'stack setup'
+      - bash: (cd compiler/hie-core; stack build --only-dependencies)
+        displayName: 'stack build --only-dependencies --test'
+      - bash: (cd compiler/hie-core; stack test)
+        displayName: 'stack test'
+      - bash: |
+          mkdir -p .azure-cache
+          tar czf .azure-cache/stack-root.tar.gz -C $HOME .stack
+        displayName: "Pack cache"
+      - template: ci/tell-slack-failed.yml
+      - template: ci/report-end.yml
   - job: Windows_signing
     # Signing is a separate job so that we can make sure that we only sign on releases.
     # Since the release check is run on Linux, we do not have access to that information
@@ -170,7 +244,7 @@ jobs:
 
   - job: collect_build_data
     condition: always()
-    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release"]
+    dependsOn: ["Linux", "macOS", "Windows", "Windows_signing", "perf", "release", "hie_core_stack_86"]
     pool:
       name: "linux-pool"
     variables:
@@ -198,6 +272,10 @@ jobs:
       release.machine: $[ dependencies.release.outputs['start.machine'] ]
       release.end: $[ dependencies.release.outputs['end.time'] ]
       release.status: $[ dependencies.release.result ]
+      hie_core_stack_86.start: $[ dependencies.hie_core_stack_86.outputs['start.time'] ]
+      hie_core_stack_86.machine: $[ dependencies.hie_core_stack_86.outputs['start.machine'] ]
+      hie_core_stack_86.end: $[ dependencies.hie_core_stack_86.outputs['end.time'] ]
+      hie_core_stack_86.status: $[ dependencies.hie_core_stack_86.result ]
     steps:
       - checkout: self
       - bash: |
@@ -228,7 +306,11 @@ jobs:
                     "release": {"start": "$(release.start)",
                                 "machine": "$(release.machine)",
                                 "end": "$(release.end)",
-                                "status": "$(release.status)"}},
+                                "status": "$(release.status)"},
+                    "hie_core_stack_86": {"start": "$(hie_core_stack_86.start)",
+                                          "machine": "$(hie_core_stack_86.machine)",
+                                          "end": "$(hie_core_stack_86.end)",
+                                          "status": "$(hie_core_stack_86.status)"}},
            "id": "$(Build.BuildId)",
            "url": "https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)",
            "name": "$(Build.DefinitionName)",

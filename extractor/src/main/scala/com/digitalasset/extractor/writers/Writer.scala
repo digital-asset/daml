@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor.writers
@@ -23,7 +23,7 @@ object Writer {
   final case class RefreshPackages(missing: Identifier)
 
   @SuppressWarnings(Array("org.wartremover.warts.Any"))
-  def apply[T <: Target](config: ExtractorConfig, target: T, ledgerId: String): Writer =
+  def apply(config: ExtractorConfig, target: Target, ledgerId: String): Writer =
     target match {
       case TextPrintTarget => new SimpleTextWriter(println)
       case t: PrettyPrintTarget => new PrettyPrintWriter(t)

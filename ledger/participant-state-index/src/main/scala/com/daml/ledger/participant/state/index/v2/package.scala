@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.index
@@ -23,7 +23,9 @@ package object v2 {
         argument: Value.VersionedValue[Value.AbsoluteContractId],
         // TODO(JM,SM): understand witnessing parties
         stakeholders: Set[Ref.Party],
-        contractKey: Option[Value.VersionedValue[Value.AbsoluteContractId]]
+        contractKey: Option[Value.VersionedValue[Value.AbsoluteContractId]],
+        signatories: Set[Ref.Party],
+        observers: Set[Ref.Party]
     )
   }
 

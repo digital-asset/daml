@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -127,7 +127,15 @@ instance {-# OVERLAPPING #-} MonoTraversable ModuleRef FilePath where monoTraver
 instance MonoTraversable ModuleRef Kind where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinType where monoTraverse _ = pure
 instance MonoTraversable ModuleRef BuiltinExpr where monoTraverse _ = pure
--- SourceLoc *does* include a ModuleRef, but...we skip it
+
+-- NOTE(SC): SourceLoc *does* have a ModuleRef in it; however, its main use is
+-- to collect all ModuleRefs in a module or package in order to figure out its
+-- dependencies. Inlining can cause location information to reference the
+-- original source file although there's not a proper dependency; in other
+-- words, with a visible SourceLoc ModuleRef, the dep graph would be somewhere
+-- between the actual dep graph and its transitive closure. See
+-- https://github.com/digital-asset/daml/pull/2327#discussion_r308445649 for
+-- discussion
 instance MonoTraversable ModuleRef SourceLoc where monoTraverse _ = pure
 
 instance MonoTraversable ModuleRef TypeConApp
@@ -180,6 +188,9 @@ exprValueRef f = cata go
     go = \case
       EValF val -> EVal <$> f val
       e -> embed <$> sequenceA e
+
+packageRefs :: MonoTraversable ModuleRef a => Traversal' a PackageRef
+packageRefs = monoTraverse @ModuleRef . _1
 
 packageModuleRef :: Traversal' Package ModuleRef
 packageModuleRef = monoTraverse

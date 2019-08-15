@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -17,31 +17,31 @@ import qualified Data.NameMap               as NM
 import qualified Data.Text                  as T
 import           GHC.Stack                  (HasCallStack)
 import Language.Haskell.LSP.Types
-import           Outputable
+import           Outputable (Outputable(..), text)
 
-mkVar :: String -> ExprVarName
-mkVar = ExprVarName . T.pack
+mkVar :: T.Text -> ExprVarName
+mkVar = ExprVarName
 
-mkVal :: String -> ExprValName
-mkVal = ExprValName . T.pack
+mkVal :: T.Text -> ExprValName
+mkVal = ExprValName
 
-mkTypeVar :: String -> TypeVarName
-mkTypeVar = TypeVarName . T.pack
+mkTypeVar :: T.Text -> TypeVarName
+mkTypeVar = TypeVarName
 
-mkModName :: [String] -> ModuleName
-mkModName = ModuleName . map T.pack
+mkModName :: [T.Text] -> ModuleName
+mkModName = ModuleName
 
-mkField :: String -> FieldName
-mkField = FieldName . T.pack
+mkField :: T.Text -> FieldName
+mkField = FieldName
 
-mkVariantCon :: String -> VariantConName
-mkVariantCon = VariantConName . T.pack
+mkVariantCon :: T.Text -> VariantConName
+mkVariantCon = VariantConName
 
-mkChoiceName :: String -> ChoiceName
-mkChoiceName = ChoiceName . T.pack
+mkChoiceName :: T.Text -> ChoiceName
+mkChoiceName = ChoiceName
 
-mkTypeCon :: [String] -> TypeConName
-mkTypeCon = TypeConName . map T.pack
+mkTypeCon :: [T.Text] -> TypeConName
+mkTypeCon = TypeConName
 
 mkIdentity :: Type -> Expr
 mkIdentity t = ETmLam (varV1, t) $ EVar varV1
@@ -134,7 +134,7 @@ ghcTypes = Module
       }
     valCtor con = DefValue
       { dvalLocation = Nothing
-      , dvalBinder = (mkVal ("$ctor:" ++ con), TCon (qual (dataTypeCon dataOrdering)))
+      , dvalBinder = (mkVal ("$ctor:" <> con), TCon (qual (dataTypeCon dataOrdering)))
       , dvalNoPartyLiterals= HasNoPartyLiterals True
       , dvalIsTest = IsTest False
       , dvalBody = EEnumCon (qual (dataTypeCon dataOrdering)) (mkVariantCon con)

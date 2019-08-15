@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.index
@@ -167,6 +167,7 @@ class StandaloneIndexServer(
               SandboxConfig.defaultCommandConfig,
               None)(am, esf),
         config.port,
+        config.maxInboundMessageSize,
         None,
         config.tlsConfig.flatMap(_.server)
       ),

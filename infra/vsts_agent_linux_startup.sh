@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # Agent startup script
@@ -104,6 +104,9 @@ echo "vsts ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers.d/nix_installation
 su --command "sh <(curl https://nixos.org/nix/install) --daemon" --login vsts
 rm /etc/sudoers.d/nix_installation
 
+# Note: the "hydra.da-int.net" string is now part of the name of the key for
+# legacy reasons; it bears no relation to the DNS hostname of the current
+# cache.
 cat <<NIX_CONF > /etc/nix/nix.conf
 binary-cache-public-keys = hydra.da-int.net-1:6Oy2+KYvI7xkAOg0gJisD7Nz/6m8CmyKMbWfSKUe03g= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs=
 binary-caches = https://nix-cache.da-ext.net https://cache.nixos.org

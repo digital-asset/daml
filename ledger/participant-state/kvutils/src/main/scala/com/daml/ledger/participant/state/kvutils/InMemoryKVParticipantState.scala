@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -255,11 +255,16 @@ class InMemoryKVParticipantState(
             entryId,
             newRecordTime,
             submission,
-            submission.getInputLogEntriesList.asScala
-              .map(eid => eid -> getLogEntry(state, eid))(breakOut),
             submission.getInputDamlStateList.asScala
               .map(key => key -> getDamlState(state, key))(breakOut)
           )
+
+          // Verify that the state updates match the pre-declared outputs.
+          val expectedStateUpdates = KeyValueCommitting.submissionOutputs(entryId, submission)
+          if (!(damlStateUpdates.keySet subsetOf expectedStateUpdates)) {
+            sys.error(
+              s"CommitActor: State updates not a subset of expected updates! Keys [${damlStateUpdates.keySet diff expectedStateUpdates}] are unaccounted for!")
+          }
 
           // Combine the abstract log entry and the state updates into concrete updates to the store.
           val allUpdates =

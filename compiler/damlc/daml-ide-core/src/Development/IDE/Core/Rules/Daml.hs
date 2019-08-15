@@ -1,9 +1,8 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Development.IDE.Core.Rules.Daml
     ( module Development.IDE.Core.Rules
     , module Development.IDE.Core.Rules.Daml
-    , getHLintDataDir
     ) where
 
 import Control.Concurrent.Extra
@@ -20,7 +19,9 @@ import Data.Aeson hiding (Options)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
+import Data.Foldable
 import Data.List
+import qualified Data.IntMap.Strict as IntMap
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -32,6 +33,7 @@ import Development.Shake hiding (Diagnostic, Env)
 import "ghc-lib" GHC
 import "ghc-lib-parser" Module (stringToUnitId, UnitId(..), DefUnitId(..))
 import Safe
+import System.IO.Error
 import System.Directory.Extra
 import System.FilePath
 
@@ -141,8 +143,8 @@ data DalfDependency = DalfDependency
     -- ^ The absolute path to the dalf file.
   }
 
-getHlintIdeas :: NormalizedFilePath -> Action ()
-getHlintIdeas f = use_ GetHlintDiagnostics f
+getDlintIdeas :: NormalizedFilePath -> Action ()
+getDlintIdeas f = use_ GetDlintDiagnostics f
 
 ideErrorPretty :: Pretty.Pretty e => NormalizedFilePath -> e -> FileDiagnostic
 ideErrorPretty fp = ideErrorText fp . T.pack . HughesPJPretty.prettyShow
@@ -179,7 +181,7 @@ generateRawDalfRule =
         -- GHC Core to DAML LF
         case convertModule lfVersion pkgMap0 file core of
             Left e -> return ([e], Nothing)
-            Right v -> return ([], Just v)
+            Right v -> return ([], Just $ LF.simplifyModule v)
 
 -- Generates and type checks the DALF for a module.
 generateDalfRule :: Rules ()
@@ -190,8 +192,7 @@ generateDalfRule =
         pkgMap <- useNoFile_ GeneratePackageMap
         let pkgs = map dalfPackagePkg $ Map.elems pkgMap
         let world = LF.initWorldSelf pkgs pkg
-        unsimplifiedRawDalf <- use_ GenerateRawDalf file
-        let rawDalf = LF.simplifyModule unsimplifiedRawDalf
+        rawDalf <- use_ GenerateRawDalf file
         setPriority priorityGenerateDalf
         pure $ toIdeResult $ do
             let liftError e = [ideErrorPretty file e]
@@ -492,14 +493,14 @@ ofInterestRule opts = do
                     sendEvent $ vrNoteSetNotification ovr $ LF.fileWScenarioNoLongerCompilesNote $ T.pack $
                         fromNormalizedFilePath file
 
-        let hlintEnabled = case optHlintUsage opts of
-              HlintEnabled _ -> True
-              HlintDisabled -> False
+        let dlintEnabled = case optDlintUsage opts of
+              DlintEnabled _ _ -> True
+              DlintDisabled -> False
         let files = Set.toList scenarioFiles
         let dalfActions = [notifyOpenVrsOnGetDalfError f | f <- files]
-        let hlintActions = [use_ GetHlintDiagnostics f | hlintEnabled, f <- files]
+        let dlintActions = [use_ GetDlintDiagnostics f | dlintEnabled, f <- files]
         let runScenarioActions = [runScenarios f | shouldRunScenarios, f <- files]
-        _ <- parallel $ dalfActions <> hlintActions <> runScenarioActions
+        _ <- parallel $ dalfActions <> dlintActions <> runScenarioActions
         return ()
   where
       gc :: Set NormalizedFilePath -> Action ()
@@ -509,8 +510,8 @@ ofInterestRule opts = do
         -- dependency information (in particular, no parse errors).
         -- This prevents us from clearing the results for files that are
         -- only temporarily unreachable due to a parse error.
-        whenJust depInfoOrErr $ \depInfo -> do
-          let noErrors = all (Map.null . depErrorNodes) depInfo
+        whenJust depInfoOrErr $ \depInfos -> do
+          let noErrors = all (IntMap.null . depErrorNodes) depInfos
           when noErrors $ do
             -- We insert the empty file path since we use this for rules that do not depend
             -- on the given file.
@@ -518,7 +519,7 @@ ofInterestRule opts = do
                     -- To guard against buggy dependency info, we add
                     -- the roots even though they should be included.
                     roots `Set.union`
-                    (Set.insert "" $ foldMap (Map.keysSet . depModuleDeps) depInfo)
+                    (Set.insert "" $ Set.fromList $ concatMap reachableModules depInfos)
             garbageCollect (`Set.member` reachableFiles)
           DamlEnv{..} <- getDamlServiceEnv
           liftIO $ whenJust envScenarioService $ \scenarioService -> do
@@ -568,33 +569,48 @@ encodeModuleRule =
         let (hash, bs) = SS.encodeModule lfVersion m
         return ([], Just (mconcat $ hash : map fst encodedDeps, bs))
 
--- hlint
+-- dlint
 
-hlintSettings :: FilePath -> IO ([Classify], Hint)
-hlintSettings hlintDataDir = do
-  -- `findSettings` ends up calling `readFilesConfig` which in turn
-  -- calls `readFileConfigYaml` which finally calls `decodeFileEither`
-  -- from the `yaml` library.  Annoyingly that function catches async
-  -- exceptions and in particular, it ends up catching `ThreadKilled`.
-  -- So, we have to mask to stop it from doing that.
-  (_, classify, hints) <- mask $ \unmask ->
-    findSettings (unmask . readSettingsFile (Just hlintDataDir)) Nothing
-  return (classify, hints)
+dlintSettings :: FilePath -> Bool -> IO ([Classify], Hint)
+dlintSettings dlintDataDir enableOverrides = do
+    curdir <- getCurrentDirectory
+    home <- ((:[]) <$> getHomeDirectory) `catchIOError` (const $ return [])
+    dlintYaml <- if enableOverrides
+        then
+          findM System.Directory.Extra.doesFileExist $
+          map (</> ".dlint.yaml") (ancestors curdir ++ home)
+      else
+        return Nothing
+    (_, cs, hs) <- foldMapM parseSettings $
+      (dlintDataDir </> "dlint.yaml") : maybeToList dlintYaml
+    return (cs, hs)
+    where
+      ancestors = init . map joinPath . reverse . inits . splitPath
+      -- `findSettings` calls `readFilesConfig` which in turn calls
+      -- `readFileConfigYaml` which finally calls `decodeFileEither` from
+      -- the `yaml` library.  Annoyingly that function catches async
+      -- exceptions and in particular, it ends up catching
+      -- `ThreadKilled`. So, we have to mask to stop it from doing that.
+      parseSettings f = mask $ \unmask ->
+           findSettings (unmask . const (return (f, Nothing))) (Just f)
+      foldMapM f = foldlM (\acc a -> do w <- f a; return $! mappend acc w) mempty
 
-getHlintSettingsRule :: HlintUsage -> Rules ()
-getHlintSettingsRule usage =
-    defineNoFile $ \GetHlintSettings ->
+
+
+getDlintSettingsRule :: DlintUsage -> Rules ()
+getDlintSettingsRule usage =
+    defineNoFile $ \GetDlintSettings ->
       liftIO $ case usage of
-          HlintEnabled dir -> hlintSettings dir
-          HlintDisabled -> fail "linter configuration unspecified"
+          DlintEnabled dir enableOverrides -> dlintSettings dir enableOverrides
+          DlintDisabled -> fail "linter configuration unspecified"
 
-getHlintDiagnosticsRule :: Rules ()
-getHlintDiagnosticsRule =
-    define $ \GetHlintDiagnostics file -> do
+getDlintDiagnosticsRule :: Rules ()
+getDlintDiagnosticsRule =
+    define $ \GetDlintDiagnostics file -> do
         pm <- use_ GetParsedModule file
         let anns = pm_annotations pm
         let modu = pm_parsed_source pm
-        (classify, hint) <- useNoFile_ GetHlintSettings
+        (classify, hint) <- useNoFile_ GetDlintSettings
         let ideas = applyHints classify hint [createModuleEx anns modu]
         return ([diagnostic file i | i <- ideas, ideaSeverity i /= Ignore], Just ())
     where
@@ -663,12 +679,12 @@ damlRule opts = do
     runScenariosRule
     getScenarioRootsRule
     getScenarioRootRule
-    getHlintDiagnosticsRule
+    getDlintDiagnosticsRule
     ofInterestRule opts
     encodeModuleRule
     createScenarioContextRule
     getOpenVirtualResourcesRule
-    getHlintSettingsRule (optHlintUsage opts)
+    getDlintSettingsRule (optDlintUsage opts)
 
 mainRule :: Options -> Rules ()
 mainRule options = do

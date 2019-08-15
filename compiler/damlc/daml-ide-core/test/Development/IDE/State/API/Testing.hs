@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE GADTs #-}
@@ -10,9 +10,12 @@
 -- | Testing framework for Shake API.
 module Development.IDE.Core.API.Testing
     ( ShakeTest
+    , TemplateProp(..)
+    , ExpectedChoice(..)
     , GoToDefinitionPattern (..)
     , HoverExpectation (..)
     , D.DiagnosticSeverity(..)
+    , ExpectedChoiceAction(..)
     , runShakeTest
     , makeFile
     , makeModule
@@ -26,32 +29,39 @@ module Development.IDE.Core.API.Testing
     , expectOneError
     , expectOnlyErrors
     , expectNoErrors
+    , expectDiagnostic
     , expectOnlyDiagnostics
     , expectNoDiagnostics
     , expectGoToDefinition
     , expectTextOnHover
     , expectVirtualResource
+    , expectVirtualResourceRegex
     , expectNoVirtualResource
     , expectVirtualResourceNote
     , expectNoVirtualResourceNote
+    , expectedTemplatePoperties
     , timedSection
     , example
     ) where
 
 -- * internal dependencies
-import DA.Bazel.Runfiles
 import qualified Development.IDE.Core.API         as API
+import qualified Development.IDE.Core.Rules.Daml  as API
 import qualified Development.IDE.Types.Diagnostics as D
 import qualified Development.IDE.Types.Location as D
 import DA.Daml.Compiler.Scenario as SS
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Types.Logger
+import Development.IDE.Types.Options (IdeReportProgress(..))
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Core.Service.Daml(VirtualResource(..), mkDamlEnv)
 import DA.Test.Util (standardizeQuotes)
 import Language.Haskell.LSP.Messages (FromServerMessage(..))
 import Language.Haskell.LSP.Types
+import qualified DA.Cli.Visual as V
+import qualified DA.Pretty as DAP
+import qualified DA.Daml.LF.Ast as LF
 
 -- * external dependencies
 import Control.Concurrent.STM
@@ -62,6 +72,7 @@ import qualified Data.Map.Strict as Map
 import qualified Data.Aeson as Aeson
 import qualified Data.Aeson.Types as Aeson
 import qualified Data.Vector as V
+import qualified Data.NameMap as NM
 import qualified Data.Text              as T
 import qualified Data.Text.IO           as T.IO
 import qualified Data.Set               as Set
@@ -76,8 +87,11 @@ import           Control.Monad.IO.Class (MonadIO (liftIO))
 import           System.IO.Temp         (withSystemTempDirectory)
 import           System.IO.Extra
 import           Control.Monad
+import           Control.Monad.Fail
 import           Data.Maybe
 import           Data.List.Extra
+import           Text.Regex.TDFA
+import           Text.Regex.TDFA.Text ()
 
 -- | Short-circuiting errors that may occur during a test.
 data ShakeTestError
@@ -85,13 +99,16 @@ data ShakeTestError
     | FilePathEscapesTestDir FilePath
     | ExpectedDiagnostics [(D.DiagnosticSeverity, Cursor, T.Text)] [D.FileDiagnostic]
     | ExpectedVirtualResource VirtualResource T.Text (Map VirtualResource T.Text)
+    | ExpectedVirtualResourceRegex VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResource VirtualResource (Map VirtualResource T.Text)
     | ExpectedVirtualResourceNote VirtualResource T.Text (Map VirtualResource T.Text)
     | ExpectedNoVirtualResourceNote VirtualResource (Map VirtualResource T.Text)
     | ExpectedNoErrors [D.FileDiagnostic]
+    | ExpectedTemplateProps (Set.Set TemplateProp) (Set.Set TemplateProp)
     | ExpectedDefinition Cursor GoToDefinitionPattern (Maybe D.Location)
     | ExpectedHoverText Cursor HoverExpectation [T.Text]
     | TimedSectionTookTooLong Clock.NominalDiffTime Clock.NominalDiffTime
+    | PatternMatchFailure String
     deriving (Eq, Show)
 
 -- | Results of a successful test.
@@ -107,9 +124,30 @@ data ShakeTestEnv = ShakeTestEnv
     , steVirtualResourcesNotes :: TVar (Map VirtualResource T.Text)
     }
 
+type TemplateName = String
+type ChoiceName = String
+
+data ExpectedChoiceAction
+    = Create TemplateName
+    | Exercise TemplateName ChoiceName deriving (Eq, Ord, Show)
+
+data ExpectedChoice = ExpectedChoice
+    { _cName :: String
+    , _consuming :: Bool
+    , _action :: Set.Set ExpectedChoiceAction
+    } deriving (Eq, Ord, Show )
+
+data TemplateProp = TemplateProp
+    { _tplName :: T.Text
+    , _choices :: Set.Set ExpectedChoice
+    } deriving (Eq, Ord, Show)
+
 -- | Monad for specifying Shake API tests. This type is abstract.
 newtype ShakeTest t = ShakeTest (ExceptT ShakeTestError (ReaderT ShakeTestEnv IO) t)
     deriving (Functor, Applicative, Monad, MonadIO, MonadError ShakeTestError)
+
+instance MonadFail ShakeTest where
+    fail =  throwError . PatternMatchFailure
 
 pattern EventVirtualResourceChanged :: VirtualResource -> T.Text -> FromServerMessage
 pattern EventVirtualResourceChanged vr doc <-
@@ -131,8 +169,7 @@ pattern EventVirtualResourceNoteSet vr note <-
 -- | Run shake test on freshly initialised shake service.
 runShakeTest :: Maybe SS.Handle -> ShakeTest () -> IO (Either ShakeTestError ShakeTestResults)
 runShakeTest mbScenarioService (ShakeTest m) = do
-    hlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
-    options <- mkOptions $ (defaultOptions Nothing){optHlintUsage=HlintEnabled hlintDataDir}
+    options <- defaultOptionsIO Nothing
     virtualResources <- newTVarIO Map.empty
     virtualResourcesNotes <- newTVarIO Map.empty
     let eventLogger (EventVirtualResourceChanged vr doc) = do
@@ -142,7 +179,7 @@ runShakeTest mbScenarioService (ShakeTest m) = do
         eventLogger _ = pure ()
     vfs <- API.makeVFSHandle
     damlEnv <- mkDamlEnv options mbScenarioService
-    service <- API.initialise (mainRule options) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options) vfs
+    service <- API.initialise (mainRule options) (atomically . eventLogger) noLogging damlEnv (toCompileOpts options (IdeReportProgress False)) vfs
     result <- withSystemTempDirectory "shake-api-test" $ \testDirPath -> do
         let ste = ShakeTestEnv
                 { steService = service
@@ -369,6 +406,16 @@ expectVirtualResource vr content = do
         | content `T.isInfixOf` res -> pure ()
       _ -> throwError (ExpectedVirtualResource vr content vrs)
 
+-- | Check that the given virtual resource exists and that its content matches
+-- the regular expression.
+expectVirtualResourceRegex :: VirtualResource -> T.Text -> ShakeTest ()
+expectVirtualResourceRegex vr regex = do
+    vrs <- getVirtualResources
+    case Map.lookup vr vrs of
+      Just res
+        | res =~ regex -> pure ()
+      _ -> throwError (ExpectedVirtualResourceRegex vr regex vrs)
+
 -- | Check that the given virtual resource does not exist.
 expectNoVirtualResource :: VirtualResource -> ShakeTest ()
 expectNoVirtualResource vr = do
@@ -490,6 +537,34 @@ timedSection targetDiffTime block = do
     when (actualDiffTime > targetDiffTime) $ do
         throwError $ TimedSectionTookTooLong targetDiffTime actualDiffTime
     return value
+
+actionsToChoiceActions :: Set.Set V.Action -> Set.Set ExpectedChoiceAction
+actionsToChoiceActions acts = Set.map expectedChcAction acts
+    where expectedChcAction = \case
+            V.ACreate tcon -> Create (DAP.renderPretty tcon)
+            V.AExercise tcon choice -> Exercise (DAP.renderPretty tcon) (DAP.renderPretty choice)
+
+templateChoicesToProps :: V.TemplateChoices -> TemplateProp
+templateChoicesToProps tca = TemplateProp tName choicesInTpl
+    where tName = V.tplNameUnqual (V.template tca)
+          choicesInTpl = Set.fromList $ map (\ca -> ExpectedChoice (DAP.renderPretty $ V.choiceName ca) (V.choiceConsuming ca) (actionsToChoiceActions $ V.actions ca)) (V.choiceAndActions tca)
+
+graphTest :: LF.World -> LF.Package -> Set.Set TemplateProp -> ShakeTest ()
+graphTest wrld lfPkg expectedProps = do
+    let actual = Set.fromList $ map templateChoicesToProps tplPropsActual
+        tplPropsActual = concatMap (V.moduleAndTemplates wrld) (NM.toList $ LF.packageModules lfPkg)
+    unless (expectedProps == actual) $
+        throwError $ ExpectedTemplateProps expectedProps actual
+
+expectedTemplatePoperties :: D.NormalizedFilePath -> Set.Set TemplateProp -> ShakeTest ()
+expectedTemplatePoperties damlFilePath expectedProps = do
+    ideState <- ShakeTest $ Reader.asks steService
+    mbDalf <- liftIO $ API.runAction ideState (API.getDalf damlFilePath)
+    expectNoErrors
+    Just lfPkg <- pure mbDalf
+    wrld <- Reader.liftIO $ API.runAction ideState (API.worldForFile damlFilePath)
+    graphTest wrld lfPkg expectedProps
+
 
 -- | Example testing scenario.
 example :: ShakeTest ()

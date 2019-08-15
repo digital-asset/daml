@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -6,9 +6,11 @@ module DA.Cli.Damlc.Command.Damldoc(cmdDamlDoc) where
 
 import DA.Cli.Options
 import DA.Daml.Doc.Driver
+import DA.Daml.Doc.Extract
 import DA.Daml.Options
 import DA.Daml.Options.Types
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options
 
 import Options.Applicative
 import Data.List.Extra
@@ -35,6 +37,7 @@ documentation = Damldoc
                 <*> optInclude
                 <*> optExclude
                 <*> optCombine
+                <*> optExtractOptions
                 <*> argMainFiles
   where
     optInputFormat :: Parser InputFormat
@@ -71,7 +74,7 @@ documentation = Damldoc
     optTemplate =
         optional . option str
             $ metavar "FILE"
-            <> help "Path to output template for generated files. When generating docs, __TITLE__ and __BODY__ in the template are replaced with doc title and body respectively, before output. (Exception: for hoogle and json output, the template file is a prefix to the body, no replacement occurs.)" -- TODO: make template behavior uniform accross formats
+            <> help "Path to mustache template. The variables 'title' and 'body' in the template are substituted with the doc title and body respectively. (Exception: for hoogle and json output, the template file is a prefix to the body, no replacement occurs.)" -- TODO: make template behavior uniform accross formats
             <> long "template"
             <> short 't'
 
@@ -136,6 +139,38 @@ documentation = Damldoc
         long "combine"
         <> help "Combine all generated docs into a single output file (always on for json and hoogle output)."
 
+    optExtractOptions :: Parser ExtractOptions
+    optExtractOptions = ExtractOptions
+        <$> optQualifyTypes
+        <*> optSimplifyQualifiedTypes
+
+    optQualifyTypes :: Parser QualifyTypes
+    optQualifyTypes = option readQualifyTypes $
+        long "qualify-types"
+        <> metavar "MODE"
+        <> help
+            ("Qualify any non-local types in generated docs. "
+            <> "Can be set to \"always\" (always qualify non-local types), "
+            <> "\"never\" (never qualify non-local types), "
+            <> "and \"inpackage\" (qualify non-local types defined in the "
+            <> "same package). Defaults to \"never\".")
+         <> value QualifyTypesNever
+         <> internal
+
+    readQualifyTypes =
+        eitherReader $ \arg ->
+            case lower arg of
+                "always" -> Right QualifyTypesAlways
+                "inpackage" -> Right QualifyTypesInPackage
+                "never" -> Right QualifyTypesNever
+                _ -> Left "Unknown mode for --qualify-types. Expected \"always\", \"never\", or \"inpackage\"."
+
+    optSimplifyQualifiedTypes :: Parser Bool
+    optSimplifyQualifiedTypes = switch $
+        long "simplify-qualified-types"
+        <> help "Simplify qualified types by dropping the common module prefix. See --qualify-types option."
+        <> internal
+
 ------------------------------------------------------------
 
 -- Command Execution
@@ -151,15 +186,16 @@ data CmdArgs = Damldoc { cInputFormat :: InputFormat
                        , cIncludeMods :: [String]
                        , cExcludeMods :: [String]
                        , cCombine :: Bool
+                       , cExtractOptions :: ExtractOptions
                        , cMainFiles :: [FilePath]
                        }
              deriving (Eq, Show, Read)
 
 exec :: CmdArgs -> IO ()
 exec Damldoc{..} = do
-    opts <- defaultOptionsIO Nothing
+    opts <- fmap (\opts -> opts {optHaddock=Haddock True}) $ defaultOptionsIO Nothing
     runDamlDoc DamldocOptions
-        { do_ideOptions = toCompileOpts opts { optMbPackageName = cPkgName }
+        { do_ideOptions = toCompileOpts opts { optMbPackageName = cPkgName } (IdeReportProgress False)
         , do_outputPath = cOutputPath
         , do_outputFormat = cOutputFormat
         , do_inputFormat = cInputFormat
@@ -168,6 +204,7 @@ exec Damldoc{..} = do
         , do_transformOptions = transformOptions
         , do_docTitle = T.pack <$> cPkgName
         , do_combine = cCombine
+        , do_extractOptions = cExtractOptions
         }
 
   where

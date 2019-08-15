@@ -1,0 +1,26 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_library",
+    "lf_scalacopts",
+)
+
+da_scala_library(
+    name = "data-scalacheck",
+    srcs = glob(["src/main/**/*.scala"]),
+    plugins = [
+        "//external:jar/org/spire_math/kind_projector_2_12",
+    ],
+    scalacopts = lf_scalacopts,
+    tags = ["maven_coordinates=com.digitalasset:daml-lf-data-scalacheck:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//3rdparty/jvm/org/scalacheck",
+        "//3rdparty/jvm/org/scalatest",
+        "//3rdparty/jvm/org/scalaz:scalaz_core",
+        "//3rdparty/jvm/org/scalaz:scalaz_scalacheck_binding",
+        "//daml-lf/data",
+    ],
+)

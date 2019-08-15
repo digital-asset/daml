@@ -1,34 +1,25 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
 
 module DontDiscloseNonConsumingExercisesToObservers where
 
-data NonObservable = NonObservable
-  { p : Party
-  , obs : Party
-  }
+template NonObservable with
+    p : Party
+    obs : Party
+  where
+    signatory p
+    observer obs
 
+    controller p can
+      nonconsuming CreateEvent : ContractId Event
+        do create $ Event p
 
-instance Template NonObservable where
-  signatory NonObservable{..} = [p]
-  observer NonObservable{..} = [obs]
-
-data Event = Event
-  { p : Party
-  }
-
-instance Template Event where
-  signatory Event{..} = [p]
-
-data CreateEvent = CreateEvent {}
-
-instance Choice NonObservable CreateEvent (ContractId Event) where
-  choiceController NonObservable{..} _ = [p]
-  consuming = nonconsuming
-  choice NonObservable{..} _self CreateEvent =
-    create $ Event p
+template Event with
+    p : Party
+  where
+    signatory p
 
 
 -- Bob should not be able to fetch when DontDiscloseNonConsumingExercisesToObservers is set,

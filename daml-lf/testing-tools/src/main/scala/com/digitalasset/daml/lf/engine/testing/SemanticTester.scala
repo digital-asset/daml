@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.testing
@@ -67,7 +67,9 @@ class SemanticTester(
               body)
             ScenarioRunner(machine, partyNameMangler = partyNameMangler).run() match {
               case Left((err, _ledger @ _)) =>
-                sys.error(s"error running scenario $err in scenario: $qualifiedName")
+                throw new RuntimeException(
+                  s"error running scenario $err in scenario: $qualifiedName",
+                  err)
               case Right((_time @ _, _steps @ _, ledger)) =>
                 qualifiedName -> ledger
             }
@@ -377,7 +379,7 @@ class SemanticTester(
 }
 
 object SemanticTester {
-  case class SemanticTesterError(reference: String, msg: String)
+  final case class SemanticTesterError(reference: String, msg: String)
       extends RuntimeException(s"Error in $reference: $msg", null, true, false)
 
   // Keep in sync with scenario extracting code in SemanticTester class

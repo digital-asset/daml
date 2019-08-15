@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 'use strict';
@@ -9,6 +9,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
+import * as tmp from 'tmp';
 import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument } from 'vscode-languageclient';
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
 import * as which from 'which';
@@ -54,6 +55,7 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     let d2 = vscode.commands.registerCommand('daml.openDamlDocs', openDamlDocs);
+    let d5 = vscode.commands.registerCommand('daml.visualize', visualize);
 
     let highlight = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
@@ -83,7 +85,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
     let d4 = vscode.commands.registerCommand("daml.resetTelemetryConsent", resetTelemetryConsent(context));
 
-    context.subscriptions.push(d1, d2, d3, d4);
+    context.subscriptions.push(d1, d2, d3, d4, d5);
 }
 
 
@@ -94,6 +96,45 @@ function getViewColumnForShowResource(): ViewColumn {
         case ViewColumn.One: return ViewColumn.Two;
         case ViewColumn.Two: return ViewColumn.Three;
         default: return active.viewColumn;
+    }
+}
+
+async function visualize() {
+    const util = require('util');
+    const exec = util.promisify(require('child_process').exec);
+    tmp.file(((err, path) => {
+        if (err) throw err;
+        let buildCmd = "daml build -o " + path
+        let visualizeCmd = "daml damlc visual " + path
+        let workspaceRoot = vscode.workspace.rootPath;
+        let execOpts = { cwd: workspaceRoot }
+        exec(buildCmd, execOpts, ((error: Error, stdout: string, stderr: string) => {
+            if (error) {
+                vscode.window.showErrorMessage("daml build failed with" + error)
+            }
+            else {
+                exec(visualizeCmd, execOpts, ((error: Error, stdout: string, stderr: string) => {
+                    if (error) {
+                        vscode.window.showErrorMessage("damlc visual command failed with " + error)
+                    }
+                    else {
+                        vscode.workspace.openTextDocument({ content: stdout, language: "dot" })
+                            .then(doc => vscode.window.showTextDocument(doc, vscode.ViewColumn.One, true)
+                                .then(_ => loadPreviewIfAvailable()))
+                    }
+                }))
+            }
+        }))
+
+    }))
+}
+
+function loadPreviewIfAvailable() {
+    if (vscode.extensions.getExtension("EFanZh.graphviz-preview")) {
+        vscode.commands.executeCommand("graphviz.showPreviewToSide")
+    }
+    else{
+        vscode.window.showInformationMessage("Install Graphviz Preview (https://marketplace.visualstudio.com/items?itemName=EFanZh.graphviz-preview) plugin to see graph for this dot file")
     }
 }
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
@@ -49,21 +49,14 @@ private[kvutils] object InputsAndEffects {
     val empty = Effects(List.empty, List.empty, List.empty)
   }
 
-  /** Compute the inputs to a DAML transaction, that is, the referenced contracts
+  /** Compute the inputs to a DAML transaction, that is, the referenced contracts, keys
     * and packages.
     */
-  def computeInputs(tx: SubmittedTransaction): (List[DamlLogEntryId], List[DamlStateKey]) = {
+  def computeInputs(tx: SubmittedTransaction): List[DamlStateKey] = {
     val packageInputs: List[DamlStateKey] = tx.usedPackages.map { pkgId =>
       DamlStateKey.newBuilder.setPackageId(pkgId).build
     }.toList
 
-    def addLogEntryInput(inputs: List[DamlLogEntryId], coid: ContractId): List[DamlLogEntryId] =
-      coid match {
-        case acoid: AbsoluteContractId =>
-          absoluteContractIdToLogEntryId(acoid)._1 :: inputs
-        case _ =>
-          inputs
-      }
     def addStateInput(inputs: List[DamlStateKey], coid: ContractId): List[DamlStateKey] =
       coid match {
         case acoid: AbsoluteContractId =>
@@ -72,36 +65,24 @@ private[kvutils] object InputsAndEffects {
           inputs
       }
 
-    tx.fold(GenTransaction.TopDown, (List.empty[DamlLogEntryId], packageInputs)) {
-      case ((logEntryInputs, stateInputs), (nodeId, node)) =>
+    tx.fold(GenTransaction.TopDown, packageInputs) {
+      case (stateInputs, (nodeId, node)) =>
         node match {
           case fetch: NodeFetch[ContractId] =>
-            (
-              addLogEntryInput(logEntryInputs, fetch.coid),
-              addStateInput(stateInputs, fetch.coid)
-            )
+            addStateInput(stateInputs, fetch.coid)
           case create: NodeCreate[ContractId, VersionedValue[ContractId]] =>
-            (
-              logEntryInputs,
-              create.key.fold(stateInputs) { keyWithM =>
-                contractKeyToStateKey(GlobalKey(
-                  create.coinst.template,
-                  forceAbsoluteContractIds(keyWithM.key))) :: stateInputs
-              }
-            )
+            create.key.fold(stateInputs) { keyWithM =>
+              contractKeyToStateKey(GlobalKey(
+                create.coinst.template,
+                forceAbsoluteContractIds(keyWithM.key))) :: stateInputs
+            }
           case exe: NodeExercises[_, ContractId, _] =>
-            (
-              addLogEntryInput(logEntryInputs, exe.targetCoid),
-              addStateInput(stateInputs, exe.targetCoid)
-            )
+            addStateInput(stateInputs, exe.targetCoid)
           case l: NodeLookupByKey[ContractId, Transaction.Value[ContractId]] =>
-            (
-              logEntryInputs,
-              // We need both the contract key state and the contract state. The latter is used to verify
-              // that the submitter can access the contract.
-              contractKeyToStateKey(GlobalKey(l.templateId, forceAbsoluteContractIds(l.key.key))) ::
-                l.result.fold(stateInputs)(addStateInput(stateInputs, _))
-            )
+            // We need both the contract key state and the contract state. The latter is used to verify
+            // that the submitter can access the contract.
+            contractKeyToStateKey(GlobalKey(l.templateId, forceAbsoluteContractIds(l.key.key))) ::
+              l.result.fold(stateInputs)(addStateInput(stateInputs, _))
         }
     }
   }

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // .proto representation of the first version of the DAML-LF language,
@@ -33,7 +33,7 @@
 //        2019-06-12: Add Package.interned_package_ids and PackageRef.interned_id
 //        2019-07-04: Transaction submitters must be in contract key maintainers when looking up. See #1866.
 // * dev (special staging area for the next version to be released)
-//        2019-07-04: no change yet.
+//        2019-07-29: Rename DECIMAL in NUMERIC. Add nat kind and nat types
 
 syntax = "proto3";
 package daml_lf_1;

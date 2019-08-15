@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox
@@ -26,7 +26,7 @@ import com.digitalasset.platform.services.time.TimeModel
 import scala.concurrent.ExecutionContext
 
 object TestDar {
-  val darFile: File = new File("ledger/sandbox/Test.dar")
+  val darFile: File = new File("ledger/test-common/Test.dar")
   lazy val parsedPackageId = DarReader()
     .readArchiveFromFile(darFile)
     .get

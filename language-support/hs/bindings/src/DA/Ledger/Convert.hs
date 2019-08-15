@@ -1,11 +1,11 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
 
 -- Convert between HL Ledger.Types and the LL types generated from .proto files
 module DA.Ledger.Convert (
     lowerCommands, lowerLedgerOffset, lowerTimestamp,
     Perhaps, perhaps,
+    runRaise,
     raiseList,
     raiseParty,
     raiseTransaction,
@@ -20,10 +20,13 @@ module DA.Ledger.Convert (
     RaiseFailureReason,
     ) where
 
+import Prelude hiding(Enum)
+import Control.Exception (evaluate,try,SomeException)
 import Data.Map(Map)
 import Data.Maybe (fromMaybe)
 import Data.Text.Lazy (Text)
 import Data.Vector as Vector (Vector,fromList,toList)
+import qualified Data.Text.Lazy as Text (pack,unpack)
 
 import qualified Google.Protobuf.Empty as LL
 import qualified Google.Protobuf.Timestamp as LL
@@ -113,21 +116,45 @@ lowerTimestamp = \case
         }
 
 lowerValue :: Value -> LL.Value
-lowerValue = LL.Value . Just . \case -- TODO: more cases here
+lowerValue = LL.Value . Just . \case
     VRecord r -> (LL.ValueSumRecord . lowerRecord) r
-    VVariant _ -> undefined
+    VVariant v -> (LL.ValueSumVariant . lowerVariant) v
     VContract c -> (LL.ValueSumContractId . unContractId) c
     VList vs -> (LL.ValueSumList . LL.List . Vector.fromList . map lowerValue) vs
     VInt i -> (LL.ValueSumInt64 . fromIntegral) i
-    VDecimal t -> LL.ValueSumDecimal t
-    VString t -> LL.ValueSumText t
-    VTimestamp _ -> undefined
+    VDecimal t -> LL.ValueSumDecimal $ Text.pack $ show t
+    VText t -> LL.ValueSumText t
+    VTime x -> (LL.ValueSumTimestamp . fromIntegral . unMicroSecondsSinceEpoch) x
     VParty p -> (LL.ValueSumParty . unParty) p
     VBool b -> LL.ValueSumBool b
     VUnit -> LL.ValueSumUnit LL.Empty{}
-    VDate _ -> undefined
+    VDate d -> (LL.ValueSumDate . fromIntegral . unDaysSinceEpoch) d
     VOpt o -> (LL.ValueSumOptional . LL.Optional . fmap lowerValue) o
-    VMap _ -> undefined
+    VMap m -> (LL.ValueSumMap . lowerTextMap) m
+    VEnum e -> (LL.ValueSumEnum . lowerEnum) e
+
+lowerVariant :: Variant -> LL.Variant
+lowerVariant = \case
+    Variant{..} ->
+        LL.Variant
+        { variantVariantId = fmap lowerIdentifier vid
+        , variantConstructor = unConstructorId cons
+        , variantValue = Just $ lowerValue value
+        }
+
+lowerEnum :: Enum -> LL.Enum
+lowerEnum = \case
+    Enum{..} ->
+        LL.Enum
+        { enumEnumId = fmap lowerIdentifier eid
+        , enumConstructor = unConstructorId cons
+        }
+
+lowerTextMap :: Map Text Value -> LL.Map
+lowerTextMap = LL.Map . Vector.fromList . map lowerTextMapEntry . Map.toList
+
+lowerTextMapEntry :: (Text,Value) -> LL.Map_Entry
+lowerTextMapEntry (key,value) = LL.Map_Entry key (Just $ lowerValue value)
 
 lowerRecord :: Record -> LL.Record
 lowerRecord = \case
@@ -146,7 +173,14 @@ lowerRecordField = \case
 
 -- raise
 
-data RaiseFailureReason = Missing String | Unexpected String deriving Show
+runRaise :: (a -> Perhaps b) -> a -> IO (Perhaps b)
+runRaise raise a = fmap collapseErrors $ try $ evaluate $ raise a
+    where
+        collapseErrors :: Either SomeException (Perhaps a) -> Perhaps a
+        collapseErrors = either (Left . ThrewException) id
+
+
+data RaiseFailureReason = Missing String | Unexpected String | ThrewException SomeException deriving Show
 
 type Perhaps a = Either RaiseFailureReason a
 
@@ -182,7 +216,7 @@ raiseLedgerConfiguration = \case
     LL.LedgerConfiguration{..} -> do
         minTtl <- perhaps "min_ttl" ledgerConfigurationMinTtl
         maxTtl <- perhaps "max_ttl" ledgerConfigurationMaxTtl
-        return $ LedgerConfiguration {..}
+        return $ LedgerConfiguration {minTtl,maxTtl}
 
 raiseGetActiveContractsResponse :: LL.GetActiveContractsResponse -> Perhaps (AbsOffset,Maybe WorkflowId,[Event])
 raiseGetActiveContractsResponse = \case
@@ -209,15 +243,15 @@ raiseCompletion :: LL.Completion -> Perhaps Completion
 raiseCompletion = \case
     LL.Completion{..} -> do
         cid <- raiseCommandId completionCommandId
-        let status = Status --TODO: stop loosing info
-        return Completion{..}
+        let status = completionStatus
+        return Completion{cid,status}
 
 raiseCheckpoint :: LL.Checkpoint -> Perhaps Checkpoint
 raiseCheckpoint = \case
     LL.Checkpoint{..} -> do
         let _ = checkpointRecordTime -- TODO: dont ignore!
         offset <- perhaps "checkpointOffset" checkpointOffset >>= raiseAbsLedgerOffset
-        return Checkpoint{..}
+        return Checkpoint{offset}
 
 raiseAbsLedgerOffset :: LL.LedgerOffset -> Perhaps AbsOffset
 raiseAbsLedgerOffset = \case
@@ -236,7 +270,7 @@ raiseTransactionTree = \case
     offset <- raiseAbsOffset transactionTreeOffset
     events <- raiseMap raiseEventId raiseTreeEvent transactionTreeEventsById
     roots <- raiseList raiseEventId transactionTreeRootEventIds
-    return TransactionTree {..}
+    return TransactionTree {trid,cid,wid,leTime,offset,events,roots}
 
 raiseTreeEvent :: LL.TreeEvent -> Perhaps TreeEvent
 raiseTreeEvent = \case
@@ -252,7 +286,7 @@ raiseTreeEvent = \case
         witness <- raiseList raiseParty exercisedEventWitnessParties
         childEids <- raiseList raiseEventId exercisedEventChildEventIds
         result <- perhaps "exercisedEventExerciseResult" exercisedEventExerciseResult >>= raiseValue
-        return ExercisedTreeEvent{..}
+        return ExercisedTreeEvent{eid,cid,tid,choice,choiceArg,acting,consuming,witness,childEids,result}
 
     LL.TreeEvent(Just (LL.TreeEventKindCreated LL.CreatedEvent{..})) -> do
         eid <- raiseEventId createdEventEventId
@@ -263,7 +297,7 @@ raiseTreeEvent = \case
         witness <- raiseList raiseParty createdEventWitnessParties
         signatories <- raiseList raiseParty createdEventSignatories
         observers <- raiseList raiseParty createdEventObservers
-        return CreatedTreeEvent{..}
+        return CreatedTreeEvent{eid,cid,tid,key,createArgs,witness,signatories,observers}
 
 raiseTransaction :: LL.Transaction -> Perhaps Transaction
 raiseTransaction = \case
@@ -275,7 +309,7 @@ raiseTransaction = \case
     leTime <- perhaps "transactionEffectiveAt" transactionEffectiveAt >>= raiseTimestamp
     events <- raiseList raiseEvent transactionEvents
     offset <- raiseAbsOffset transactionOffset
-    return Transaction {..}
+    return Transaction {trid,cid,wid,leTime,events,offset}
 
 raiseEvent :: LL.Event -> Perhaps Event
 raiseEvent = \case
@@ -285,7 +319,7 @@ raiseEvent = \case
         cid <- raiseContractId archivedEventContractId
         tid <- perhaps "archivedEventTemplateId" archivedEventTemplateId >>= raiseTemplateId
         witness <- raiseList raiseParty archivedEventWitnessParties
-        return ArchivedEvent{..}
+        return ArchivedEvent{eid,cid,tid,witness}
     LL.Event(Just (LL.EventEventCreated LL.CreatedEvent{..})) -> do
         eid <- raiseEventId createdEventEventId
         cid <- raiseContractId createdEventContractId
@@ -295,47 +329,71 @@ raiseEvent = \case
         witness <- raiseList raiseParty createdEventWitnessParties
         signatories <- raiseList raiseParty createdEventSignatories
         observers <- raiseList raiseParty createdEventObservers
-        return CreatedEvent{..}
+        return CreatedEvent{eid,cid,tid,key,createArgs,witness,signatories,observers}
 
 raiseRecord :: LL.Record -> Perhaps Record
 raiseRecord = \case
     LL.Record{..} -> do
         let rid = recordRecordId >>= optional . raiseIdentifier
         fields <- raiseList raiseRecordField recordFields
-        return Record{..}
+        return Record{rid,fields}
 
 raiseRecordField :: LL.RecordField -> Perhaps RecordField
 raiseRecordField = \case
     LL.RecordField{..} -> do
         let label = recordFieldLabel
         fieldValue <- perhaps "recordFieldValue" recordFieldValue >>= raiseValue
-        return RecordField{..}
+        return RecordField{label,fieldValue}
 
--- TODO: more cases here
 raiseValue :: LL.Value -> Perhaps Value
 raiseValue = \case
     LL.Value Nothing -> missing "Value"
     LL.Value (Just sum) -> case sum of
         LL.ValueSumRecord r -> (fmap VRecord . raiseRecord) r
-        LL.ValueSumVariant _ -> undefined
-        LL.ValueSumEnum _ -> undefined
+        LL.ValueSumVariant v -> (fmap VVariant . raiseVariant) v
+        LL.ValueSumEnum e -> (fmap VEnum . raiseEnum) e
         LL.ValueSumContractId c -> (return . VContract . ContractId) c
         LL.ValueSumList vs -> (fmap VList . raiseList raiseValue . LL.listElements) vs
         LL.ValueSumInt64 i -> (return . VInt . fromIntegral) i
-        LL.ValueSumDecimal t -> (return . VDecimal) t
-        LL.ValueSumText t -> (return . VString) t
-        LL.ValueSumTimestamp _ -> undefined
+        LL.ValueSumDecimal t -> (return . VDecimal . read . Text.unpack) t
+        LL.ValueSumText t -> (return . VText) t
+        LL.ValueSumTimestamp x -> (return . VTime . MicroSecondsSinceEpoch . fromIntegral) x
         LL.ValueSumParty p -> (return . VParty . Party) p
         LL.ValueSumBool b -> (return . VBool) b
-        LL.ValueSumUnit _ -> return VUnit
-        LL.ValueSumDate _ -> undefined
+        LL.ValueSumUnit LL.Empty -> return VUnit
+        LL.ValueSumDate x -> (return . VDate . DaysSinceEpoch . fromIntegral) x
         LL.ValueSumOptional o -> (fmap VOpt . raiseOptional) o
-        LL.ValueSumMap _ -> undefined
+        LL.ValueSumMap m -> (fmap VMap . raiseTextMap) m
+
+raiseVariant :: LL.Variant -> Perhaps Variant
+raiseVariant = \case
+    LL.Variant{..} -> do
+        let vid = variantVariantId >>= optional . raiseIdentifier
+        cons <- raiseConstructorId variantConstructor
+        value <- perhaps "value" variantValue >>= raiseValue
+        return Variant{vid,cons,value}
+
+raiseEnum :: LL.Enum -> Perhaps Enum
+raiseEnum = \case
+    LL.Enum{..} -> do
+        let eid = enumEnumId >>= optional . raiseIdentifier
+        cons <- raiseConstructorId enumConstructor
+        return Enum{eid,cons}
 
 raiseOptional :: LL.Optional -> Perhaps (Maybe Value)
 raiseOptional = \case
     LL.Optional Nothing -> return Nothing
     LL.Optional (Just v) -> fmap Just (raiseValue v)
+
+raiseTextMap :: LL.Map -> Perhaps (Map Text Value)
+raiseTextMap m = (fmap Map.fromList . raiseList raiseTextMapEntry . LL.mapEntries) m
+
+raiseTextMapEntry :: LL.Map_Entry -> Perhaps (Text,Value)
+raiseTextMapEntry = \case
+    LL.Map_Entry{..} -> do
+        let key = map_EntryKey
+        value <- perhaps "value" map_EntryValue >>= raiseValue
+        return (key,value)
 
 raiseTimestamp :: LL.Timestamp -> Perhaps Timestamp
 raiseTimestamp = \case
@@ -343,7 +401,6 @@ raiseTimestamp = \case
         return $ Timestamp {seconds = fromIntegral timestampSeconds,
                             nanos = fromIntegral timestampNanos}
 
--- TODO: check that the text matches the spec in ledger_offset.proto
 raiseAbsOffset :: Text -> Perhaps AbsOffset
 raiseAbsOffset = Right . AbsOffset
 
@@ -356,7 +413,7 @@ raiseIdentifier = \case
         pid <- raisePackageId identifierPackageId
         mod <- raiseModuleName identifierModuleName
         ent <- raiseEntityName identifierEntityName
-        return Identifier{..}
+        return Identifier{pid,mod,ent}
 
 raiseList :: (a -> Perhaps b) -> Vector a -> Perhaps [b]
 raiseList f v = loop (Vector.toList v)
@@ -408,6 +465,9 @@ raiseModuleName = fmap ModuleName . raiseText "ModuleName"
 
 raiseEntityName :: Text -> Perhaps EntityName
 raiseEntityName = fmap EntityName . raiseText "EntityName"
+
+raiseConstructorId :: Text -> Perhaps ConstructorId
+raiseConstructorId = fmap ConstructorId . raiseText "ConstructorId"
 
 raiseText :: String -> Text -> Perhaps Text
 raiseText tag = perhaps tag . \case "" -> Nothing; x -> Just x

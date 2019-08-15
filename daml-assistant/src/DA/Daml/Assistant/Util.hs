@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Assistant.Util
@@ -14,6 +14,7 @@ import Control.Exception.Safe
 import Control.Applicative
 import Control.Monad.Extra
 import Data.Either.Extra
+import System.Process.Typed (ExitCodeException(..))
 
 -- | Throw an assistant error.
 throwErr :: Text -> IO a
@@ -24,6 +25,7 @@ throwErr msg = throwIO (assistantError msg)
 wrapErr :: Text -> IO a -> IO a
 wrapErr ctx m = m `catches`
     [ Handler $ throwIO @IO @ExitCode
+    , Handler $ \(ExitCodeException{eceExitCode}) -> exitWith eceExitCode
     , Handler $ throwIO . addErrorContext
     , Handler $ throwIO . wrapException
     ]

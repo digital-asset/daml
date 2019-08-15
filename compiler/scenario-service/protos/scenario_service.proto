@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 syntax = "proto3";
@@ -140,13 +140,7 @@ message Location {
   int32 start_col = 4;
   int32 end_line = 5;
   int32 end_col = 6;
-}
-
-message CallStackEntry {
-  Identifier defn = 1;
-  Location location = 2; // optional
-  string binder = 3;
-  Value arg = 4;
+  string definition = 7;
 }
 
 // Reference to a contract instance.
@@ -197,8 +191,9 @@ message ScenarioError {
   // Location of the commit/mustFail if applicable.
   Location commit_loc = 5;
 
-  // Last seen location, if any.
-  Location last_loc = 6;
+  // Stack trace of the locations seen during the execution.
+  // The last seen location comes last.
+  repeated Location stack_trace = 6;
 
   // The current partial transaction if any.
   PartialTransaction partial_transaction = 7;

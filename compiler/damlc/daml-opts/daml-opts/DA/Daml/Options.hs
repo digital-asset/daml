@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE FlexibleInstances #-}
@@ -35,8 +35,8 @@ import Development.IDE.GHC.Util
 import qualified Development.IDE.Types.Options as HieCore
 
 -- | Convert to hie-core’s IdeOptions type.
-toCompileOpts :: Options -> HieCore.IdeOptions
-toCompileOpts options@Options{..} =
+toCompileOpts :: Options -> HieCore.IdeReportProgress -> HieCore.IdeOptions
+toCompileOpts options@Options{..} reportProgress =
     HieCore.IdeOptions
       { optPreprocessor = if optIsGenerated then noPreprocessor else damlPreprocessor optMbPackageName
       , optGhcSession = do
@@ -52,6 +52,7 @@ toCompileOpts options@Options{..} =
       , optExtensions = ["daml"]
       , optThreads = optThreads
       , optShakeProfiling = optShakeProfiling
+      , optReportProgress = reportProgress
       , optLanguageSyntax = "daml"
       , optNewColonConvention = True
       }
@@ -168,8 +169,7 @@ xExtensionsUnset = [ ]
 -- | Flags set for DAML-1.2 compilation
 xFlagsSet :: Options -> [GeneralFlag]
 xFlagsSet options =
- [ Opt_Haddock
- , Opt_Ticky
+ [Opt_Ticky
  ] ++
  [ Opt_DoCoreLinting | optCoreLinting options ]
 
@@ -203,8 +203,18 @@ wOptsUnset =
 
 adjustDynFlags :: Options -> DynFlags -> DynFlags
 adjustDynFlags options@Options{..} dflags
-  = setImports optImportPath
-  $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId optMbPackageName)
+  =
+  -- Generally, the lexer's "haddock mode" is disabled (`Haddock
+  -- False` is the default option. In this case, we run the lexer in
+  -- "keep raw token stream mode" (meaning basically, harvest all
+  -- comments encountered during parsing). The exception is when
+  -- parsing for daml-doc (c.f. `DA.Cli.Damlc.Command.Damldoc`).
+  (case optHaddock of
+      Haddock True -> flip gopt_set Opt_Haddock
+      Haddock False -> flip gopt_set Opt_KeepRawTokenStream
+  )
+ $ setImports optImportPath
+ $ setThisInstalledUnitId (maybe mainUnitId stringToUnitId optMbPackageName)
   -- once we have package imports working, we want to import the base package and set this to
   -- the default instead of always compiling in the context of ghc-prim.
   $ apply wopt_set wOptsSet

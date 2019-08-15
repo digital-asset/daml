@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.perf
@@ -11,7 +11,7 @@ import org.openjdk.jmh.annotations.Benchmark
 
 class SimpleBench extends DummyCommands with InfAwait {
 
-  override protected def darFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
+  override protected def darFile: File = new File(rlocation("ledger/test-common/Test.dar"))
   @Benchmark
   def ingest10kCommands(state: PerfBenchState): Unit = {
     val commandCount = 10000L

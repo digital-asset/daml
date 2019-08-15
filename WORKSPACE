@@ -23,9 +23,9 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-load("@io_tweag_rules_haskell//haskell:repositories.bzl", "haskell_repositories")
+load("@rules_haskell//haskell:repositories.bzl", "rules_haskell_dependencies")
 
-haskell_repositories()
+rules_haskell_dependencies()
 
 register_toolchains(
     "//:c2hs-toolchain",
@@ -44,6 +44,11 @@ load("//bazel_tools:os_info.bzl", "os_info")
 os_info(name = "os_info")
 
 load("@os_info//:os_info.bzl", "is_linux", "is_windows")
+load("//bazel_tools:ghc_dwarf.bzl", "ghc_dwarf")
+
+ghc_dwarf(name = "ghc_dwarf")
+
+load("@ghc_dwarf//:ghc_dwarf.bzl", "enable_ghc_dwarf")
 
 nixpkgs_local_repository(
     name = "nixpkgs",
@@ -204,11 +209,11 @@ dev_env_tool(
 )
 
 load(
-    "@io_tweag_rules_haskell//haskell:haskell.bzl",
+    "@rules_haskell//haskell:ghc_bindist.bzl",
     "haskell_register_ghc_bindists",
 )
 load(
-    "@io_tweag_rules_haskell//haskell:nixpkgs.bzl",
+    "@rules_haskell//haskell:nixpkgs.bzl",
     "haskell_register_ghc_nixpkgs",
 )
 
@@ -249,7 +254,7 @@ exports_files(glob(["lib/**/*"]))
 
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
-    attribute_path = "ghcStatic",
+    attribute_path = "ghcStaticDwarf" if enable_ghc_dwarf else "ghcStatic",
     build_file = "@io_tweag_rules_nixpkgs//nixpkgs:BUILD.pkg",
 
     # -fexternal-dynamic-refs is required so that we produce position-independent
@@ -265,7 +270,7 @@ haskell_register_ghc_nixpkgs(
         "-fexternal-dynamic-refs",
         "-hide-package=ghc-boot-th",
         "-hide-package=ghc-boot",
-    ],
+    ] + (["-g3"] if enable_ghc_dwarf else []),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
         "//conditions:default": [],
@@ -460,16 +465,16 @@ load("@bazel_skylib//lib:dicts.bzl", "dicts")
 # For the time being we build with GMP. See https://github.com/digital-asset/daml/issues/106
 use_integer_simple = not is_windows
 
-HASKELL_LSP_COMMIT = "d73e2ccb518724e6766833ee3d7e73289cbe0018"
+HASKELL_LSP_COMMIT = "bfbd8630504ebc57b70948689c37b85cfbe589da"
 
-HASKELL_LSP_HASH = "36b92431039e6289eb709b8872f5010a57d4a45e637e1c1c945bdb3128586081"
+HASKELL_LSP_HASH = "a301d9409c3a19a042bdf5763611c6a60af5cbc1ff0f281acbc19b3ee70dde5f"
 
-GHC_LIB_VERSION = "8.8.0.20190723"
+GHC_LIB_VERSION = "8.8.0.20190814"
 
 http_archive(
     name = "haskell_ghc__lib__parser",
     build_file = "//3rdparty/haskell:BUILD.ghc-lib-parser",
-    sha256 = "139c5b58d179a806640f8b56bc3fe8c70a893191dbfd111a593544e7ac71086b",
+    sha256 = "ce14e19bbe2a52289c5fb436941f948678a86bd821c17710082131bbe87d997f",
     strip_prefix = "ghc-lib-parser-{}".format(GHC_LIB_VERSION),
     urls = ["https://digitalassetsdk.bintray.com/ghc-lib/ghc-lib-parser-{}.tar.gz".format(GHC_LIB_VERSION)],
 )
@@ -509,18 +514,17 @@ hazel_repositories(
         },
     ),
     ghc_workspaces = {
-        "k8": "@io_tweag_rules_haskell_ghc_nixpkgs",
-        "darwin": "@io_tweag_rules_haskell_ghc_nixpkgs",
+        "k8": "@rules_haskell_ghc_nixpkgs",
+        "darwin": "@rules_haskell_ghc_nixpkgs",
         # although windows is not quite supported yet
-        "x64_windows": "@io_tweag_rules_haskell_ghc_windows_amd64",
+        "x64_windows": "@rules_haskell_ghc_windows_amd64",
     },
     packages = add_extra_packages(
         extra =
 
-            # Read [Working on ghc-lib] for ghc-lib update
-            # instructions at
+            # Read [Working on ghc-lib] for ghc-lib update instructions at
             # https://github.com/DACH-NY/daml/blob/master/ghc-lib/working-on-ghc-lib.md.
-            hazel_ghclibs(GHC_LIB_VERSION, "139c5b58d179a806640f8b56bc3fe8c70a893191dbfd111a593544e7ac71086b", "7cfbe3bd12fb38685b86096ad666790326020308138eaf49198631b8792f5b2a") +
+            hazel_ghclibs(GHC_LIB_VERSION, "ce14e19bbe2a52289c5fb436941f948678a86bd821c17710082131bbe87d997f", "02482f4fd7691c2e442f9dd4c8d6816325d0bd164f6e03cec6a2db1ef9e65d43") +
 
             # Support for Hlint:
             #   - Requires haskell-src-exts 1.21.0 so override hazel/packages.bzl.
@@ -528,7 +532,7 @@ hazel_repositories(
             #   - To build the library : `bazel build @haskell_hlint//:lib`
             # We'll be using it via the library, not the binary.
             hazel_hackage("haskell-src-exts", "1.21.0", "95dac187824edfa23b6a2363880b5e113df8ce4a641e8a0f76e6d45aaa699ff3") +
-            hazel_github_external("digital-asset", "hlint", "ba2fcd7d926ca6d365a4d0b2c6bc001f84d022b6", "c2693600d7b5912c763907d76eb91fc432a74355e5646313ba1097513340d8fe") +
+            hazel_github_external("digital-asset", "hlint", "c57edffa2bd54605637671f7821a2519d34c37bf", "9c81a0822af933dc13240d74218534308c7e5a2db80bad4a33c72890397275fd") +
             hazel_github_external("awakesecurity", "proto3-wire", "43d8220dbc64ef7cc7681887741833a47b61070f", "1c3a7fbf4ab3308776675c6202583f9750de496757f3ad4815e81edd122d75e1") +
             hazel_github_external("awakesecurity", "proto3-suite", "dd01df7a3f6d0f1ea36125a67ac3c16936b53da0", "59ea7b876b14991347918eefefe24e7f0e064b5c2cc14574ac4ab5d6af6413ca") +
             hazel_hackage("happy", "1.19.10", "22eb606c97105b396e1c7dc27e120ca02025a87f3e44d2ea52be6a653a52caed") +
@@ -542,8 +546,6 @@ hazel_repositories(
             ) +
             hazel_hackage("terminal-progress-bar", "0.4.1", "a61ca10c92cacc712dbbe28881dc23f41cc139760b7b2eef66bd0faa60ea5e24") +
             hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
-            # This corresponds to our normalize-uri branch that enforces a consistent
-            # precent-encoding for URIs used as keys.
             hazel_github_external(
                 "alanz",
                 "haskell-lsp",
@@ -558,12 +560,16 @@ hazel_repositories(
                 name = "haskell-lsp-types",
                 directory = "/haskell-lsp-types/",
             ) +
-            # This corresponds to our custom-methods branch which makes
-            # lsp-test work with the custom methods changes in haskell-lsp.
-            hazel_github(
+            # lsp-test’s cabal file relies on haskell-lsp reexporting haskell-lsp-types.
+            # Hazel does not handle that for now, so we patch the cabal file
+            # to add an explicit dependency on haskell-lsp-types.
+            hazel_github_external(
+                "bubba",
                 "lsp-test",
-                "50c43452e19e494d71ccba1f7922d0b3b3fc69c3",
-                "65a56b35ddc8fa4deab10ac42efcdcbd36e875b715bb504d10b020a1e5fffd2c",
+                "d126623dc6895d325e3d204d74e2a22d4f515587",
+                "a2be2d812010eaadd4885fb0228370a5467627bbb6bd43177fd1f6e5a7eb05f8",
+                patch_args = ["-p1"],
+                patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-lsp-test-no-reexport.patch"],
             ) +
             hazel_github_external(
                 "mpickering",

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to 'db.migration'
@@ -58,7 +58,7 @@ class V3__Recompute_Key_Hash extends BaseJavaMigration {
           qualifiedName = Ref.QualifiedName.assertFromString(rows.getString("template_name"))
         )
         val key = ValueSerializer
-          .deserialiseValue(rows.getBytes("contract_key"))
+          .deserializeValue(rows.getBytes("contract_key"))
           .fold(err => throw new IllegalArgumentException(err.errorMessage), identity)
 
         hasNext = rows.next()

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.config
@@ -32,6 +32,7 @@ final case class SandboxConfig(
     tlsConfig: Option[TlsConfiguration],
     scenario: Option[String],
     ledgerIdMode: LedgerIdMode,
+    maxInboundMessageSize: Int,
     jdbcUrl: Option[String],
     eagerPackageLoading: Boolean,
     logLevel: Level
@@ -49,6 +50,7 @@ final case class CommandConfiguration(
 object SandboxConfig {
 
   val DefaultPort = 6865
+  val DefaultMaxInboundMessageSize = 4194304
 
   def default: SandboxConfig =
     SandboxConfig(
@@ -63,6 +65,7 @@ object SandboxConfig {
       scenario = None,
       ledgerIdMode = LedgerIdMode.Dynamic(),
       jdbcUrl = None,
+      maxInboundMessageSize = DefaultMaxInboundMessageSize,
       eagerPackageLoading = false,
       logLevel = Level.INFO
     )

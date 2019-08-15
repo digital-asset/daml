@@ -1,9 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.value
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Unnatural}
 import com.digitalasset.daml.lf.value.Value._
 
 import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks}

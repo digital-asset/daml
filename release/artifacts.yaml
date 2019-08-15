@@ -28,6 +28,8 @@
   type: jar-proto
 - target: //daml-lf/transaction:transaction
   type: jar-scala
+- target: //daml-lf/data-scalacheck:data-scalacheck
+  type: jar
 - target: //daml-lf/transaction-scalacheck:transaction-scalacheck
   type: jar
 - target: //daml-lf/language:language
@@ -124,4 +126,12 @@
 - target: //ledger/participant-state/kvutils:daml_kvutils_java_proto
   type: jar-proto
 - target: //ledger/participant-state/kvutils:kvutils
+  type: jar-scala
+- target: //ledger-service/lf-value-json:lf-value-json
+  type: jar-scala
+- target: //ledger-service/utils:utils
+  type: jar-scala
+- target: //ledger-service/jwt:jwt
+  type: jar-scala
+- target: //ledger-service/http-json:http-json
   type: jar-scala

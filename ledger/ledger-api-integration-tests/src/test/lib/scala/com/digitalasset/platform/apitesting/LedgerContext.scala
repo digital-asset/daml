@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.apitesting
@@ -180,6 +180,7 @@ object LedgerContext {
           ledgerIdentityService
             .getLedgerIdentity(GetLedgerIdentityRequest())
             .flatMap { resp =>
+              // TODO: compare with current Ledger ID and retry when not changed
               Future.successful(domain.LedgerId(resp.ledgerId))
             }
             .recoverWith {

@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.tests.integration.ledger.api.commands
@@ -38,7 +38,6 @@ import com.digitalasset.ledger.client.services.commands.{
 }
 import com.digitalasset.platform.apitesting.LedgerContextExtensions._
 import com.digitalasset.platform.apitesting.{LedgerContext, MultiLedgerFixture, TestTemplateIds}
-import com.digitalasset.platform.sandbox.utils.FirstElementObserver
 import com.digitalasset.platform.services.time.TimeProviderType.WallClock
 import com.digitalasset.util.Ctx
 import org.scalatest.{AsyncWordSpec, Matchers}
@@ -46,8 +45,8 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.Future
 import scala.concurrent.duration._
-
 import com.digitalasset.platform.apitesting.TestParties._
+import com.digitalasset.platform.testing.SingleItemObserver
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class CommandCompletionServiceIT
     extends AsyncWordSpec
@@ -191,20 +190,22 @@ class CommandCompletionServiceIT
         def tailCompletions(
             context: LedgerContext
         ): Future[Completion] = {
-          val (streamObserver, future) = FirstElementObserver.filter[CompletionStreamResponse] {
-            case CompletionStreamResponse(_, Nil) => false
-            case _ => true
-          }
-          context.commandCompletionService.completionStream(
-            CompletionStreamRequest(
-              context.ledgerId.unwrap,
-              applicationId,
-              Seq(Alice),
-              offset = None),
-            streamObserver)
-          future.map(_.get).collect {
-            case CompletionStreamResponse(_, completion +: _) => completion
-          }
+          SingleItemObserver
+            .find[CompletionStreamResponse] {
+              case CompletionStreamResponse(_, Nil) => false
+              case _ => true
+            }(
+              context.commandCompletionService.completionStream(
+                CompletionStreamRequest(
+                  context.ledgerId.unwrap,
+                  applicationId,
+                  Seq(Alice),
+                  offset = None),
+                _))
+            .map(_.get)
+            .collect {
+              case CompletionStreamResponse(_, completion +: _) => completion
+            }
         }
 
         val arbitraryCommandIds = List.tabulate(10)(_.toString)

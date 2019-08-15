@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2019 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 DAML-LF Governance process
@@ -31,7 +31,7 @@ Overview
   transactions building on top of values.
 
 * Specification documents are provided for DAML-LF values, DAML-LF
-  transactions, and for the DAML-LF language.  
+  transactions, and for the DAML-LF language.
 
 * Every merged change to DAML-LF values, transactions, or language
   *must* come with changes to the appropriate specification
@@ -44,7 +44,7 @@ Overview
   Gerolf Seitz if Stephen is on vacation.  Every change to the DAML-LF
   language *must* be checked for governance rules conformance and
   approved by Rémy Haemmerle and Martin Huschenbett (with Gerolf Seitz
-  as Rémy's vacation backup, and Neil Mitchell as Martin's vacation
+  as Rémy's vacation backup, and Francisco Mota as Martin's vacation
   backup).
 
   These checks are for governance and versioning only; the substance of

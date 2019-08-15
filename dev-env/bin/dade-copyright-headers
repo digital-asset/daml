@@ -12,9 +12,6 @@
 # To ignore files under a certain directory and below:
 # $ touch some/directory/NO_AUTO_COPYRIGHT
 # $ git add some/directory/NO_AUTO_COPYRIGHT
-#
-# For more information see the engineering handbook:
-# http://engineering.da-int.net/docs/engineering-handbook/licenses-copyrights.html
 
 import subprocess
 import re
@@ -129,6 +126,7 @@ def process_file(filename, check_only):
     lines = fp.readlines()
   # Pretend that the file has extra empty line at the end to handle files,
   # which consist only of the copyright notice and nothing else.
+  # label: ADD_BLANK_LINE
   lines.append('\n')
 
   # Process the file:
@@ -212,7 +210,8 @@ def process_file(filename, check_only):
            # copyright header existed, but was out of date, replace it.
           fp.write("".join(before_header))
           fp.write(header)
-          fp.write("".join(after_header))
+          # remove additional blank line added at ADD_BLANK_LINE
+          fp.write("".join(after_header[:-1]))
         elif 'skip' in filetypes[ext]:
           # no copyright header, but file type requires skipping lines
           skip_prefix = filetypes[ext]['skip']

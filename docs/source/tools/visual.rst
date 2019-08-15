@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2019 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Visualizing DAML Contracts
@@ -19,7 +19,7 @@ Here's an example visualization based on the :doc:`quickstart </getting-started/
 
 
 1. Generate the dar using ``daml build``
-2. Generate a dot file ``daml damlc visual dist/quickstart.dar --dot quickstart.dot``
+2. Generate a dot file ``daml damlc visual dist/quickstart-0.0.1.dar --dot quickstart.dot``
 3. Generate the visual graph with Graphviz by running ``dot -Tpng quickstart.dot quickstart.png``
 
 Running the above should produce an image which looks something like this:

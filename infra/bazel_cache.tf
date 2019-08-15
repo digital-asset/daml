@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 // Setup the Bazel Bucket + CDN
@@ -27,6 +27,13 @@ resource "google_storage_bucket_object" "index_bazel_cache" {
   content      = "${file("${path.module}/files/index_bazel_cache.html")}"
   content_type = "text/html"
   depends_on   = ["module.nix_cache"]
+}
+
+// Set ACL for ./index.html
+resource "google_storage_object_acl" "index_bazel_cache-acl" {
+  bucket         = "${module.bazel_cache.bucket_name}"
+  object         = "${google_storage_bucket_object.index_bazel_cache.name}"
+  predefined_acl = "publicRead"
 }
 
 // allow rw access for CI writer (see writer.tf)

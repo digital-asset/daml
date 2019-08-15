@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.value
@@ -6,6 +6,7 @@ package com.digitalasset.daml.lf.value
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.LfVersions
 import com.digitalasset.daml.lf.data.{FrontStack, FrontStackCons, ImmArray}
+import com.digitalasset.daml.lf.transaction.VersionTimeline
 
 import scala.annotation.tailrec
 
@@ -15,9 +16,8 @@ final case class ValueVersion(protoValue: String)
   * Currently supported versions of the DAML-LF value specification.
   */
 object ValueVersions
-    extends LfVersions(
-      maxVersion = ValueVersion("5"),
-      previousVersions = List("1", "2", "3", "4") map ValueVersion)(_.protoValue) {
+    extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[ValueVersion])(
+      _.protoValue) {
 
   private[this] val minVersion = ValueVersion("1")
   private[this] val minOptional = ValueVersion("2")
@@ -26,7 +26,7 @@ object ValueVersions
   private[this] val minEnum = ValueVersion("5")
 
   def assignVersion[Cid](v0: Value[Cid]): Either[String, ValueVersion] = {
-    import com.digitalasset.daml.lf.transaction.VersionTimeline.{maxVersion => maxVV}
+    import VersionTimeline.{maxVersion => maxVV}
 
     @tailrec
     def go(

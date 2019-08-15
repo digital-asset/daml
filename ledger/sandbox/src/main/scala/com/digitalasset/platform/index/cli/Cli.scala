@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.index.cli
@@ -52,6 +52,10 @@ object Cli {
       .optional()
       .text("TLS: The crt file to be used as the the trusted root CA.")
       .action(cacrtConfig)
+    opt[Int]("maxInboundMessageSize")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .text(
+        s"Max inbound message size in bytes. Defaults to ${Config.DefaultMaxInboundMessageSize}.")
     opt[String]("jdbc-url")
       .text("The JDBC URL to the postgres database used for the indexer and the index")
       .action((u, c) => c.copy(jdbcUrl = u))

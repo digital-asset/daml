@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql
@@ -116,7 +116,9 @@ class PostgresDaoSpec
         Set(alice, bob),
         Map(alice -> "trId1", bob -> "trId1"),
         contractInstance,
-        Some(keyWithMaintainers)
+        Some(keyWithMaintainers),
+        Set(alice, bob),
+        Set.empty
       )
 
       val transaction = LedgerEntry.Transaction(
@@ -532,7 +534,7 @@ object PostgresDaoSpec {
       Try(DamlLf.Archive.parseFrom(stream))
     }
     private val Success(dar) =
-      reader.readArchiveFromFile(new File(rlocation("ledger/sandbox/Test.dar")))
+      reader.readArchiveFromFile(new File(rlocation("ledger/test-common/Test.dar")))
     private val now = Instant.now()
 
     val packages =

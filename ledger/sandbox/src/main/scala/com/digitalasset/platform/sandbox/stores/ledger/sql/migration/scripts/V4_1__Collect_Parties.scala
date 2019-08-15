@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to 'db.migration'
@@ -57,7 +57,7 @@ class V4_1__Collect_Parties extends BaseJavaMigration {
         val transaction = TransactionSerializer
           .deserializeTransaction(rows.getBytes("transaction"))
           .getOrElse(
-            sys.error(s"failed to deserialise transaction with ledger offset $ledgerOffset"))
+            sys.error(s"failed to deserialize transaction with ledger offset $ledgerOffset"))
 
         hasNext = rows.next()
 

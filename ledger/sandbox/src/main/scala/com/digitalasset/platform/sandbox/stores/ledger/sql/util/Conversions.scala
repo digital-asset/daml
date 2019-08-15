@@ -1,11 +1,19 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.util
 
 import java.sql.PreparedStatement
 
-import anorm.{Column, ParameterMetaData, RowParser, SqlMappingError, SqlParser, ToStatement}
+import anorm.{
+  Column,
+  MetaDataItem,
+  ParameterMetaData,
+  RowParser,
+  SqlMappingError,
+  SqlParser,
+  ToStatement
+}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{LedgerString, PackageId, Party}
 
@@ -57,6 +65,12 @@ object Conversions {
       implicit strToStm: ToStatement[String]): ToStatement[LedgerString] =
     subStringToStatement(strToStm)
 
+  def emptyStringToNullColumn(implicit c: Column[String]): Column[String] = new Column[String] {
+    override def apply(value: Any, meta: MetaDataItem) = value match {
+      case "" => c(null, meta)
+      case x => c(x, meta)
+    }
+  }
   def ledgerString(columnName: String)(implicit c: Column[String]): RowParser[Ref.LedgerString] =
     SqlParser.get[Ref.LedgerString](columnName)(columnToLedgerString(c))
 

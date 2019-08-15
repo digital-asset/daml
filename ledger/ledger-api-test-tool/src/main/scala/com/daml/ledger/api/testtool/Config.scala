@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
@@ -20,9 +20,7 @@ final case class Config(
     excluded: Set[String],
     included: Set[String],
     listTests: Boolean,
-    allTests: Boolean,
-    uniquePartyIdentifiers: Boolean,
-    uniqueCommandIdentifiers: Boolean
+    allTests: Boolean
 )
 
 object Config {
@@ -39,8 +37,6 @@ object Config {
     excluded = Set.empty,
     included = Set.empty,
     listTests = false,
-    allTests = false,
-    uniquePartyIdentifiers = true,
-    uniqueCommandIdentifiers = true,
+    allTests = false
   )
 }

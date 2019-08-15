@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox
@@ -122,6 +122,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       packageStore: InMemoryPackageStore)
       extends AutoCloseable {
     override def close(): Unit = {
+      // FIXME: extra close - when closed during reset close is called on already closed service causing an exception!
       apiServerState.close()
       infra.close()
     }
@@ -130,6 +131,7 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
       implicit val ec: ExecutionContext = sandboxState.infra.executionContext
       val apiServicesClosed = apiServerState.apiServer.servicesClosed()
       //need to run this async otherwise the callback kills the server under the in-flight reset service request!
+
       Future {
         apiServerState.close // fully tear down the old server
         //TODO: eliminate the state mutation somehow
@@ -148,8 +150,8 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
   def port: Int = sandboxState.apiServerState.port
 
   /** the reset service is special, since it triggers a server shutdown */
-  private val resetService: SandboxResetService = new SandboxResetService(
-    () => sandboxState.apiServerState.ledgerId,
+  private def resetService(ledgerId: LedgerId): SandboxResetService = new SandboxResetService(
+    ledgerId,
     () => sandboxState.infra.executionContext,
     () => sandboxState.resetAndRestartServer()
   )
@@ -235,11 +237,13 @@ class SandboxServer(actorSystemName: String, config: => SandboxConfig) extends A
                     indexAndWriteService.publishHeartbeat
                   ))
             )(am, esf)
-            .map(_.withServices(List(resetService))),
+            .map(_.withServices(List(resetService(ledgerId)))),
         // NOTE(JM): Re-use the same port after reset.
         Option(sandboxState).fold(config.port)(_.apiServerState.port),
+        config.maxInboundMessageSize,
         config.address,
-        config.tlsConfig.flatMap(_.server)
+        config.tlsConfig.flatMap(_.server),
+        List(resetService(ledgerId))
       ),
       asyncTolerance
     )

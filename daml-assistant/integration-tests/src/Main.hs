@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 module Main (main) where
 
@@ -31,6 +31,7 @@ import Test.Tasty.HUnit
 
 import DA.Bazel.Runfiles
 import DA.Daml.Helper.Run
+import DA.Daml.Options.Types
 import SdkVersion
 
 main :: IO ()
@@ -89,7 +90,7 @@ throwError msg e = fail (T.unpack $ msg <> " " <> e)
 -- commands outside of the assistant.
 noassistantTests :: FilePath -> TestTree
 noassistantTests damlDir = testGroup "no assistant"
-    [ testCase "damlc build" $ withTempDir $ \projDir -> do
+    [ testCase "damlc build --init-package-db=no" $ withTempDir $ \projDir -> do
           writeFileUTF8 (projDir </> "daml.yaml") $ unlines
               [ "sdk-version: " <> sdkVersion
               , "name: a"
@@ -105,6 +106,25 @@ noassistantTests damlDir = testGroup "no assistant"
               ]
           let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
           callProcess damlcPath ["build", "--project-root", projDir, "--init-package-db", "no"]
+    , testCase "damlc build --init-package-db=yes" $ withTempDir $ \tmpDir -> do
+          let projDir = tmpDir </> "foobar"
+          createDirectory projDir
+          writeFileUTF8 (projDir </> "daml.yaml") $ unlines
+              [ "sdk-version: " <> sdkVersion
+              , "name: a"
+              , "version: \"1.0\""
+              , "source: Main.daml"
+              , "dependencies: [daml-prim, daml-stdlib]"
+              ]
+          writeFileUTF8 (projDir </> "Main.daml") $ unlines
+              [ "daml 1.2"
+              , "module Main where"
+              , "a : ()"
+              , "a = ()"
+              ]
+          let damlcPath = damlDir </> "sdk" </> sdkVersion </> "damlc" </> "damlc"
+          withCurrentDirectory tmpDir $
+              callProcess damlcPath ["build", "--project-root", "foobar", "--init-package-db", "yes"]
     ]
 
 packagingTests :: FilePath -> TestTree
@@ -112,36 +132,46 @@ packagingTests tmpDir = testGroup "packaging"
     [ testCaseSteps "Build package with dependency" $ \step -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
-        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
-        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
+        let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b-1.0.dar"
         step "Creating project a..."
-        createDirectoryIfMissing True (projectA </> "daml")
+        createDirectoryIfMissing True (projectA </> "daml" </> "Foo" </> "Bar")
         writeFileUTF8 (projectA </> "daml" </> "A.daml") $ unlines
             [ "daml 1.2"
             , "module A (a) where"
             , "a : ()"
             , "a = ()"
             ]
+        writeFileUTF8 (projectA </> "daml" </> "Foo" </> "Bar" </> "Baz.daml") $ unlines
+            [ "daml 1.2"
+            , "module Foo.Bar.Baz (c) where"
+            , "import A (a)"
+            , "c : ()"
+            , "c = a"
+            ]
         writeFileUTF8 (projectA </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
             , "name: a"
             , "version: \"1.0\""
-            , "source: daml/A.daml"
-            , "exposed-modules: [A]"
+            , "source: daml/Foo/Bar/Baz.daml"
+            , "exposed-modules: [A, Foo.Bar.Baz]"
             , "dependencies:"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
         withCurrentDirectory projectA $ callCommandQuiet "daml build"
-        assertBool "a.dar was not created." =<< doesFileExist aDar
+        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
         writeFileUTF8 (projectB </> "daml" </> "B.daml") $ unlines
             [ "daml 1.2"
             , "module B where"
             , "import A"
+            , "import Foo.Bar.Baz"
             , "b : ()"
             , "b = a"
+            , "d : ()"
+            , "d = c"
             ]
         writeFileUTF8 (projectB </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
@@ -178,12 +208,11 @@ packagingTests tmpDir = testGroup "packaging"
           , "  - daml-stdlib"
           ]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
-        let dar = projDir </> ".daml" </> "dist" </> "proj.dar"
+        let dar = projDir </> ".daml" </> "dist" </> "proj-1.0.dar"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
-        -- Note that we really want a forward slash here instead of </> since filepaths in
-        -- zip files use forward slashes.
-        assertBool "A.daml is missing" ("proj/A.daml" `elem` darFiles)
+        assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
+
     , testCase "Project without exposed modules" $ withTempDir $ \projDir -> do
         writeFileUTF8 (projDir </> "A.daml") $ unlines
             [ "daml 1.2"
@@ -203,8 +232,9 @@ packagingTests tmpDir = testGroup "packaging"
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
         let projectMigrate = tmpDir </> "migrateAB"
-        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
-        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
+        let aDar = projectA </> distDir </> "a.dar"
+        let bDar = projectB </> distDir </> "b.dar"
+        let bUpgradedDar = tmpDir </> "b_upgraded.dar"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
@@ -230,7 +260,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callCommandQuiet "daml build"
+        withCurrentDirectory projectA $ callCommandQuiet $ "daml build --output " <> distDir </> "a.dar"
         assertBool "a.dar was not created." =<< doesFileExist aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
@@ -256,12 +286,23 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectB $ callCommandQuiet "daml build"
-        assertBool "a.dar was not created." =<< doesFileExist bDar
+        withCurrentDirectory projectB $ callCommandQuiet $ "daml build --output " <> distDir </> "b.dar"
+        assertBool "b.dar was not created." =<< doesFileExist bDar
         step "Creating migration project"
         callCommandQuiet $ unwords ["daml", "migrate", projectMigrate, "daml/Main.daml", aDar, bDar]
         step "Build migration project"
-        withCurrentDirectory projectMigrate $ callCommandQuiet "daml build"
+        withCurrentDirectory projectMigrate $ callCommandQuiet $ "daml build --output " <> distDir </> "c.dar"
+        step "Merging upgrade dar"
+        withCurrentDirectory tmpDir $
+            callCommandQuiet $
+            unwords
+                [ "daml damlc merge-dars"
+                , projectA </> distDir </> "a.dar"
+                , projectMigrate </> distDir </> "c.dar"
+                , "--dar-name"
+                , "b_upgraded.dar"
+                ]
+        assertBool "b_upgraded.dar was not created." =<< doesFileExist bUpgradedDar
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
@@ -278,7 +319,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show p, ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull }
           withCreateProcess sandboxProc  $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
@@ -304,7 +345,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull1 }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1 }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
@@ -373,7 +414,7 @@ deployTest deployDir = testCase "daml deploy" $ do
                         (shell $ unwords
                             ["daml sandbox"
                             , "--port", show port
-                            , ".daml/dist/proj1.dar"
+                            , ".daml/dist/proj1-0.0.1.dar"
                             ]) { std_out = UseHandle devNull }
                 withCreateProcess sandboxProc  $ \_ _ _ ph ->
                     race_ (waitForProcess' sandboxProc ph) $ do

@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2019 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Reference: updates
@@ -85,7 +85,7 @@ exerciseByKey
 
 .. code-block:: daml
 
-   exercise exerciseByKey @ContractType contractKey NameofChoiceOnContract with choiceArgument1 = value1
+   exerciseByKey @ContractType contractKey NameOfChoiceOnContract with choiceArgument1 = value1
 
 - ``exerciseByKey`` function.
 - Exercises the specified choice on the specified contract.

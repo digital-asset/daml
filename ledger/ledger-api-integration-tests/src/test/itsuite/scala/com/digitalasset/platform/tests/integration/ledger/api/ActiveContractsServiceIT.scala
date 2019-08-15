@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.tests.integration.ledger.api
@@ -153,6 +153,9 @@ class ActiveContractsServiceIT
           lookForContract(events, templateIds.dummy)
           lookForContract(events, templateIds.dummyWithParam)
           lookForContract(events, templateIds.dummyFactory)
+
+          every(events.map(_.signatories)) should contain only ("Alice")
+          every(events.map(_.observers)) shouldBe empty
         }
       }
     }

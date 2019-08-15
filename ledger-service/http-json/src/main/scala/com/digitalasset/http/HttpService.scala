@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http
@@ -7,7 +7,6 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.stream.Materializer
-import akka.stream.scaladsl.Flow
 import com.digitalasset.api.util.TimeProvider
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.PackageService.TemplateIdMap
@@ -17,9 +16,10 @@ import com.digitalasset.http.json.{
   DomainJsonEncoder,
   JsValueToApiValueConverter
 }
-import com.digitalasset.http.util.ApiValueToLfValueConverter
-import com.digitalasset.http.util.FutureUtil._
+import com.digitalasset.http.util.FutureUtil.liftET
 import com.digitalasset.http.util.IdentifierConverters.apiLedgerId
+import com.digitalasset.http.util.{ApiValueToLfValueConverter, FutureUtil}
+import com.digitalasset.jwt.JwtDecoder
 import com.digitalasset.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
 import com.digitalasset.ledger.client.LedgerClient
@@ -41,13 +41,17 @@ object HttpService extends StrictLogging {
 
   final case class Error(message: String)
 
-  def start(ledgerHost: String, ledgerPort: Int, applicationId: ApplicationId, httpPort: Int)(
+  def start(
+      ledgerHost: String,
+      ledgerPort: Int,
+      applicationId: ApplicationId,
+      httpPort: Int,
+      validateJwt: Endpoints.ValidateJwt = decodeJwt)(
       implicit asys: ActorSystem,
       mat: Materializer,
       aesf: ExecutionSequencerFactory,
-      ec: ExecutionContext): Future[Error \/ ServerBinding] = {
-
-    import EitherT._
+      ec: ExecutionContext
+  ): Future[Error \/ ServerBinding] = {
 
     val clientConfig = LedgerClientConfiguration(
       applicationId = ApplicationId.unwrap(applicationId),
@@ -62,8 +66,11 @@ object HttpService extends StrictLogging {
 
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
-      packageStore <- eitherT(LedgerReader.createPackageStore(client.packageClient))
-        .leftMap(httpServiceError)
+      _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")
+
+      packageStore <- FutureUtil
+        .eitherT(LedgerReader.createPackageStore(client.packageClient))
+        .leftMap(e => Error(e))
 
       templateIdMap = PackageService.getTemplateIdMap(packageStore)
 
@@ -80,14 +87,14 @@ object HttpService extends StrictLogging {
 
       endpoints = new Endpoints(
         ledgerId,
+        validateJwt,
         commandService,
         contractsService,
         encoder,
         decoder,
       )
 
-      binding <- liftET[Error](
-        Http().bindAndHandle(Flow.fromFunction(endpoints.all), "localhost", httpPort))
+      binding <- liftET[Error](Http().bindAndHandleAsync(endpoints.all, "localhost", httpPort))
 
     } yield binding
 
@@ -102,12 +109,14 @@ object HttpService extends StrictLogging {
     bindingF
   }
 
-  private def httpServiceError(e: String): Error = Error(e)
-
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")
     f.collect { case \/-(a) => a.unbind() }.join
   }
+
+  // Decode JWT without any validation
+  private val decodeJwt: Endpoints.ValidateJwt =
+    jwt => JwtDecoder.decode(jwt).leftMap(e => Endpoints.Unauthorized(e.shows))
 
   private[http] def buildJsonCodecs(
       ledgerId: lar.LedgerId,

@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 --
 
@@ -27,10 +27,10 @@ import "ghc-lib-parser" PrelNames hiding
     , to_RDR
     , u1DataCon_RDR
     )
-
 import "ghc-lib-parser" RdrName
 import "ghc-lib" TcGenDeriv
 import "ghc-lib-parser" Util
+import SdkVersion
 
 
 -- | Generate a generic instance for data definitions with a `deriving Generic` or `deriving
@@ -122,7 +122,7 @@ extError = error "Can't generate generic instances for extended AST"
 -- definitions coming from ghc-parser PrelNames.
 
 stdlibUnitId :: UnitId
-stdlibUnitId = fsToUnitId (fsLit "daml-stdlib")
+stdlibUnitId = fsToUnitId (fsLit damlStdlib)
 
 mkStdlibModule :: FastString -> Module
 mkStdlibModule m = mkModule stdlibUnitId (mkModuleNameFS m)

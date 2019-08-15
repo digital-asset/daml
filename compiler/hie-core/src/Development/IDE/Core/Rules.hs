@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE TypeFamilies               #-}
@@ -22,8 +22,8 @@ module Development.IDE.Core.Rules(
     getDefinition,
     getDependencies,
     getParsedModule,
-    getTcModuleResults,
-    fileFromParsedModule
+    fileFromParsedModule,
+    writeIfacesAndHie,
     ) where
 
 import           Control.Monad.Except
@@ -36,11 +36,13 @@ import Development.IDE.Import.FindImports
 import           Development.IDE.Core.FileStore
 import           Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
-import Data.Bifunctor
+import Data.Coerce
 import Data.Either.Extra
 import Data.Maybe
 import           Data.Foldable
-import qualified Data.Map.Strict                          as Map
+import qualified Data.IntMap.Strict as IntMap
+import qualified Data.IntSet as IntSet
+import Data.List
 import qualified Data.Set                                 as Set
 import qualified Data.Text                                as T
 import           Development.IDE.GHC.Error
@@ -56,6 +58,9 @@ import HscTypes
 import qualified Development.IDE.Spans.AtPoint as AtPoint
 import Development.IDE.Core.Service
 import Development.IDE.Core.Shake
+import System.Directory
+import System.FilePath
+import MkIface
 
 -- | This is useful for rules to convert rules that can only produce errors or
 -- a result into the more general IdeResult type that supports producing
@@ -120,15 +125,38 @@ getDefinition file pos = fmap join $ runMaybeT $ do
 getParsedModule :: NormalizedFilePath -> Action (Maybe ParsedModule)
 getParsedModule file = use GetParsedModule file
 
--- | Get typechecked module results of a file and all it's transitive dependencies.
-getTcModuleResults :: NormalizedFilePath -> Action (Maybe ([TcModuleResult], HscEnv))
-getTcModuleResults file =
+-- | Write interface files and hie files to the location specified by the given options.
+writeIfacesAndHie ::
+       NormalizedFilePath -> NormalizedFilePath -> Action (Maybe [NormalizedFilePath])
+writeIfacesAndHie ifDir main =
     runMaybeT $ do
-        files <- transitiveModuleDeps <$> useE GetDependencies file
-        tms <- usesE TypeCheck (file : files)
+        files <- transitiveModuleDeps <$> useE GetDependencies main
+        tcms <- usesE TypeCheck (main : files)
         session <- lift $ useNoFile_ GhcSession
-        pure (tms, session)
-
+        liftIO $ concat <$> mapM (writeTcm session) tcms
+  where
+    writeTcm session tcm =
+        do
+            let fp =
+                    fromNormalizedFilePath ifDir </>
+                    (ms_hspp_file $
+                     pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+            createDirectoryIfMissing True (takeDirectory fp)
+            let ifaceFp = replaceExtension fp ".hi"
+            let hieFp = replaceExtension fp ".hie"
+            writeIfaceFile
+                (hsc_dflags session)
+                ifaceFp
+                (hm_iface $ tmrModInfo tcm)
+            hieFile <-
+                liftIO $
+                runHsc session $
+                mkHieFile
+                    (pm_mod_summary $ tm_parsed_module $ tmrModule tcm)
+                    (fst $ tm_internals_ $ tmrModule tcm)
+                    (fromJust $ tm_renamed_source $ tmrModule tcm)
+            writeHieFile hieFp hieFile
+            pure [toNormalizedFilePath ifaceFp, toNormalizedFilePath hieFp]
 
 ------------------------------------------------------------
 -- Rules
@@ -160,57 +188,80 @@ getLocatedImportsRule =
         env <- useNoFile_ GhcSession
         let dflags = addRelativeImport pm $ hsc_dflags env
         opt <- getIdeOptions
-        xs <- forM imports $ \(mbPkgName, modName) ->
-            (modName, ) <$> locateModule dflags (optExtensions opt) getFileExists modName mbPkgName
-        return (concat $ lefts $ map snd xs, Just $ map (second eitherToMaybe) xs)
+        (diags, imports') <- fmap unzip $ forM imports $ \(mbPkgName, modName) -> do
+            diagOrImp <- locateModule dflags (optExtensions opt) getFileExists modName mbPkgName
+            case diagOrImp of
+                Left diags -> pure (diags, Left (modName, Nothing))
+                Right (FileImport path) -> pure ([], Left (modName, Just path))
+                Right (PackageImport pkgId) -> liftIO $ do
+                    diagsOrPkgDeps <- computePackageDeps env pkgId
+                    case diagsOrPkgDeps of
+                        Left diags -> pure (diags, Right Nothing)
+                        Right pkgIds -> pure ([], Right $ Just $ pkgId : pkgIds)
+        let (moduleImports, pkgImports) = partitionEithers imports'
+        case sequence pkgImports of
+            Nothing -> pure (concat diags, Nothing)
+            Just pkgImports -> pure (concat diags, Just (moduleImports, Set.fromList $ concat pkgImports))
 
 
 -- | Given a target file path, construct the raw dependency results by following
 -- imports recursively.
-rawDependencyInformation :: NormalizedFilePath -> ExceptT [FileDiagnostic] Action RawDependencyInformation
-rawDependencyInformation f = go (Set.singleton f) Map.empty Map.empty
-  where go fs !modGraph !pkgs =
-          case Set.minView fs of
-            Nothing -> pure (RawDependencyInformation modGraph pkgs)
+rawDependencyInformation :: NormalizedFilePath -> Action RawDependencyInformation
+rawDependencyInformation f = do
+    let (initialId, initialMap) = getPathId f emptyPathIdMap
+    go (IntSet.singleton $ getFilePathId initialId)
+       (RawDependencyInformation IntMap.empty initialMap)
+  where
+    go fs rawDepInfo =
+        case IntSet.minView fs of
+            -- Queue is empty
+            Nothing -> pure rawDepInfo
+            -- Pop f from the queue and process it
             Just (f, fs) -> do
-              importsOrErr <- lift $ use GetLocatedImports f
-              case importsOrErr of
-                Nothing ->
-                  let modGraph' = Map.insert f (Left ModuleParseError) modGraph
-                  in go fs modGraph' pkgs
-                Just imports -> do
-                  packageState <- lift $ useNoFile_ GhcSession
-                  modOrPkgImports <- forM imports $ \imp -> do
-                    case imp of
-                      (_modName, Just (PackageImport pkg)) -> do
-                          pkgs <- ExceptT $ liftIO $ computePackageDeps packageState pkg
-                          pure $ Right $ pkg:pkgs
-                      (modName, Just (FileImport absFile)) -> pure $ Left (modName, Just absFile)
-                      (modName, Nothing) -> pure $ Left (modName, Nothing)
-                  let (modImports, pkgImports) = partitionEithers modOrPkgImports
-                  let newFiles = Set.fromList (mapMaybe snd modImports) Set.\\ Map.keysSet modGraph
-                      modGraph' = Map.insert f (Right modImports) modGraph
-                      pkgs' = Map.insert f (Set.fromList $ concat pkgImports) pkgs
-                  go (fs `Set.union` newFiles) modGraph' pkgs'
+                let fId = FilePathId f
+                importsOrErr <- use GetLocatedImports $ idToPath (rawPathIdMap rawDepInfo) fId
+                case importsOrErr of
+                  Nothing ->
+                    -- File doesn’t parse
+                    let rawDepInfo' = insertImport fId (Left ModuleParseError) rawDepInfo
+                    in go fs rawDepInfo'
+                  Just (modImports, pkgImports) -> do
+                    let f :: PathIdMap -> (a, Maybe NormalizedFilePath) -> (PathIdMap, (a, Maybe FilePathId))
+                        f pathMap (imp, mbPath) = case mbPath of
+                            Nothing -> (pathMap, (imp, Nothing))
+                            Just path ->
+                                let (pathId, pathMap') = getPathId path pathMap
+                                in (pathMap', (imp, Just pathId))
+                    -- Convert paths in imports to ids and update the path map
+                    let (pathIdMap, modImports') = mapAccumL f (rawPathIdMap rawDepInfo) modImports
+                    -- Files that we haven’t seen before are added to the queue.
+                    let newFiles =
+                            IntSet.fromList (coerce $ mapMaybe snd modImports')
+                            IntSet.\\ IntMap.keysSet (rawImports rawDepInfo)
+                    let rawDepInfo' = insertImport fId (Right $ ModuleImports modImports' pkgImports) rawDepInfo
+                    go (newFiles `IntSet.union` fs) (rawDepInfo' { rawPathIdMap = pathIdMap })
 
 getDependencyInformationRule :: Rules ()
 getDependencyInformationRule =
-    define $ \GetDependencyInformation file -> fmap toIdeResult $ runExceptT $ do
+    define $ \GetDependencyInformation file -> do
        rawDepInfo <- rawDependencyInformation file
-       pure $ processDependencyInformation rawDepInfo
+       pure ([], Just $ processDependencyInformation rawDepInfo)
 
 reportImportCyclesRule :: Rules ()
 reportImportCyclesRule =
     define $ \ReportImportCycles file -> fmap (\errs -> if null errs then ([], Just ()) else (errs, Nothing)) $ do
         DependencyInformation{..} <- use_ GetDependencyInformation file
-        case Map.lookup file depErrorNodes of
+        let fileId = pathToId depPathIdMap file
+        case IntMap.lookup (getFilePathId fileId) depErrorNodes of
             Nothing -> pure []
             Just errs -> do
-                let cycles = mapMaybe (cycleErrorInFile file) (toList errs)
+                let cycles = mapMaybe (cycleErrorInFile fileId) (toList errs)
                 -- Convert cycles of files into cycles of module names
                 forM cycles $ \(imp, files) -> do
-                    modNames <- mapM getModuleName files
-                    pure $ toDiag imp modNames
+                    modNames <- forM files $ \fileId -> do
+                        let file = idToPath depPathIdMap fileId
+                        getModuleName file
+                    pure $ toDiag imp $ sort modNames
     where cycleErrorInFile f (PartOfCycle imp fs)
             | f `elem` fs = Just (imp, fs)
           cycleErrorInFile _ _ = Nothing
@@ -235,7 +286,7 @@ getDependenciesRule :: Rules ()
 getDependenciesRule =
     define $ \GetDependencies file -> do
         depInfo@DependencyInformation{..} <- use_ GetDependencyInformation file
-        let allFiles = Map.keys depModuleDeps <> Map.keys depErrorNodes
+        let allFiles = reachableModules depInfo
         _ <- uses_ ReportImportCycles allFiles
         return ([], transitiveDeps depInfo file)
 
@@ -244,9 +295,9 @@ getSpanInfoRule :: Rules ()
 getSpanInfoRule =
     define $ \GetSpanInfo file -> do
         tc <- use_ TypeCheck file
-        imports <- use_ GetLocatedImports file
+        (fileImports, _) <- use_ GetLocatedImports file
         packageState <- useNoFile_ GhcSession
-        x <- liftIO $ getSrcSpanInfos packageState (fileImports imports) tc
+        x <- liftIO $ getSrcSpanInfos packageState fileImports tc
         return ([], Just x)
 
 -- Typechecks a module.
@@ -302,11 +353,3 @@ mainRule = do
 
 fileFromParsedModule :: ParsedModule -> NormalizedFilePath
 fileFromParsedModule = toNormalizedFilePath . ms_hspp_file . pm_mod_summary
-
-fileImports ::
-     [(Located ModuleName, Maybe Import)]
-  -> [(Located ModuleName, Maybe NormalizedFilePath)]
-fileImports = mapMaybe $ \case
-    (modName, Nothing) -> Just (modName, Nothing)
-    (modName, Just (FileImport absFile)) -> Just (modName, Just absFile)
-    (_modName, Just (PackageImport _pkg)) -> Nothing

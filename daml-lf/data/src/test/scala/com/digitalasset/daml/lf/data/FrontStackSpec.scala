@@ -1,11 +1,10 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.data
 
-import org.scalacheck.Properties
 import org.scalatest.{Matchers, WordSpec}
-import org.scalatest.prop.{Checkers, GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
+import org.scalatest.prop.{GeneratorDrivenPropertyChecks, TableDrivenPropertyChecks}
 
 import scalaz.scalacheck.ScalazProperties
 import scalaz.std.anyVal._
@@ -15,8 +14,8 @@ class FrontStackSpec
     with Matchers
     with GeneratorDrivenPropertyChecks
     with TableDrivenPropertyChecks
-    with Checkers {
-  import ImmArrayTest._, FrontStackSpec._
+    with WordSpecCheckLaws {
+  import DataArbitrary._
 
   "++:" should {
     "yield equal results to +:" in forAll { (ia: ImmArray[Int], fs: FrontStack[Int]) =>
@@ -64,23 +63,6 @@ class FrontStackSpec
   }
 
   "Equal instance" should {
-    import ImmArrayTest._
-    checkLaws(ScalazProperties.equal.laws[FrontStack[IntInt]])
+    checkLaws(ScalazProperties.equal.laws[FrontStack[Unnatural[Int]]])
   }
-
-  private def checkLaws(props: Properties) =
-    props.properties foreach { case (s, p) => s in check(p) }
-}
-
-object FrontStackSpec {
-  import org.scalacheck.Arbitrary
-  import ImmArrayTest._
-
-  implicit def arbFrontStack[A: Arbitrary]: Arbitrary[FrontStack[A]] =
-    Arbitrary(
-      Arbitrary
-        .arbitrary[Vector[(A, Option[ImmArray[A]])]]
-        .map(_.foldRight(FrontStack.empty[A]) {
-          case ((a, oia), acc) => oia.fold(a +: acc)(ia => (ia slowCons a) ++: acc)
-        }))
 }

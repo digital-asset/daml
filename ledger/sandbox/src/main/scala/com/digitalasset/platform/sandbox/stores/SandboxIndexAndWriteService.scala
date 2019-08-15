@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.stores
@@ -194,7 +194,9 @@ abstract class LedgerBackedIndexService(
       ac.contract.template,
       ac.contract.arg,
       ac.witnesses,
-      ac.key.map(_.key)
+      ac.key.map(_.key),
+      ac.signatories,
+      ac.observers
     )
 
   private def getTransactionById(

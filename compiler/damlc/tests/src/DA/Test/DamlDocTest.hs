@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Test.DamlDocTest (main) where
@@ -17,6 +17,7 @@ import Development.IDE.Core.Service
 import Development.IDE.Core.Shake
 import Development.IDE.Types.Location
 import Development.IDE.Types.Logger
+import Development.IDE.Types.Options
 
 main :: IO ()
 main = defaultMain $ testGroup "daml-doctest"
@@ -104,9 +105,8 @@ doctestHeader =
 shouldGenerate :: [T.Text] -> [T.Text] -> Assertion
 shouldGenerate input expected = withTempFile $ \tmpFile -> do
     T.writeFileUtf8 tmpFile $ T.unlines $ testModuleHeader <> input
-    opts <- defaultOptionsIO Nothing
+    opts <- fmap (\opts -> opts{optHaddock=Haddock True}) $ defaultOptionsIO Nothing
     vfs <- makeVFSHandle
-    ideState <- initialise mainRule (const $ pure ()) noLogging (toCompileOpts opts) vfs
+    ideState <- initialise mainRule (const $ pure ()) noLogging (toCompileOpts opts (IdeReportProgress False)) vfs
     Just pm <- runAction ideState $ use GetParsedModule $ toNormalizedFilePath tmpFile
     genModuleContent (getDocTestModule pm) @?= T.unlines (doctestHeader <> expected)
-

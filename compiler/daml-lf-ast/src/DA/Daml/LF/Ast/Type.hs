@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LF.Ast.Type
@@ -9,7 +9,6 @@ module DA.Daml.LF.Ast.Type
   ) where
 
 import           Data.Bifunctor
-import           Data.Functor.Foldable (cata)
 import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import qualified Data.Text as T
@@ -18,19 +17,20 @@ import           Safe (findJust)
 import           Safe.Exact (zipWithExactMay)
 
 import DA.Daml.LF.Ast.Base
-import DA.Daml.LF.Ast.Recursive
 
 -- | Get the free type variables of a type.
 freeVars :: Type -> Set.Set TypeVarName
-freeVars = cata go
+freeVars e = go Set.empty e Set.empty
   where
-    go = \case
-      TVarF v -> Set.singleton v
-      TConF _ -> mempty
-      TAppF s1 s2 -> s1 <> s2
-      TBuiltinF _ -> mempty
-      TForallF (v, _k) s -> v `Set.delete` s
-      TTupleF fs -> foldMap snd fs
+    go !boundVars e !acc = case e of
+        TVar v
+            | v `Set.member` boundVars -> acc
+            | otherwise -> Set.insert v acc
+        TCon _ -> acc
+        TApp s1 s2 -> go boundVars s1 $ go boundVars s2 acc
+        TBuiltin _ -> acc
+        TForall (v, _k) s -> go (Set.insert v boundVars) s acc
+        TTuple fs -> foldl' (\acc (_, t) -> go boundVars t acc) acc fs
 
 -- | Auxiliary data structure to track bound variables in the test for alpha
 -- equivalence.
@@ -84,7 +84,7 @@ type Subst = Map.Map TypeVarName Type
 -- substituting into but not contained in the domain of the substitution, then
 -- both free occurrences refer to the same binder.
 substitute :: Subst -> Type -> Type
-substitute subst = go (foldMap freeVars subst) subst
+substitute subst = go (Map.foldl' (\acc t -> acc `Set.union` freeVars t) Set.empty subst) subst
   where
     -- NOTE(MH): We maintain the invariant that @fvSubst0@ contains the free
     -- variables of @subst0@ or an over-approximation thereof.

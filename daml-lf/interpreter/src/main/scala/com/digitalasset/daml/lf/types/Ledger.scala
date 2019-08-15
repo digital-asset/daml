@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.types
@@ -149,7 +149,7 @@ object Ledger {
   /**
     * Translate an EnrichedTransaction to a RichTransaction. EnrichedTransaction's contain relative
     * node id's and contain additional information in the most detailed form suitable for different
-    * consumers. The RichTransaction is the transaction that we serialise in the sandbox to compare
+    * consumers. The RichTransaction is the transaction that we serialize in the sandbox to compare
     * different ledgers. All relative and absolute node id's are translated to absolute node id's of
     * the package format.
     */

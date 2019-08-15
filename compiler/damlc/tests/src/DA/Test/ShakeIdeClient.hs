@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -9,13 +9,14 @@
 -- Some tests cover open issues, these are run with 'testCaseFails'.
 -- Once the issue is resolved, switch it to 'testCase'.
 -- Otherwise this test suite will complain that the test is not failing.
-module DA.Test.ShakeIdeClient (main, ideTests) where
+module DA.Test.ShakeIdeClient (main, ideTests ) where
 
 import qualified Test.Tasty.Extended as Tasty
 import qualified Test.Tasty.HUnit    as Tasty
 import qualified Data.Text.Extended  as T
 
 import Data.Either
+import qualified Data.Set as Set
 import System.Directory
 import System.Environment.Blank (setEnv)
 import Control.Monad.IO.Class
@@ -43,7 +44,9 @@ ideTests mbScenarioService =
         , minimalRebuildTests mbScenarioService
         , goToDefinitionTests mbScenarioService
         , onHoverTests mbScenarioService
+        , dlintSmokeTests mbScenarioService
         , scenarioTests mbScenarioService
+        , visualDamlTests
         ]
 
 -- | Tasty test case from a ShakeTest.
@@ -265,6 +268,74 @@ basicTests mbScenarioService = Tasty.testGroup "Basic tests"
         testCase' = testCase mbScenarioService
         testCaseFails' = testCaseFails mbScenarioService
 
+dlintSmokeTests :: Maybe SS.Handle -> Tasty.TestTree
+dlintSmokeTests mbScenarioService = Tasty.testGroup "Dlint smoke tests"
+  [    testCase' "Suggest imports can be simplified" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "import DA.Optional"
+                , "import DA.Optional(fromSome)"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 0) "Warning: Use fewer imports"
+    ,  testCase' "Suggest use camelCase" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "my_fact (n : Int) : Int"
+                , "  | n <= 1    = 1"
+                , "  | otherwise = n * my_fact (n - 1)"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 2, 0) "Suggestion: Use camelCase"
+    ,  testCase' "Suggest reduce duplication" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "daml 1.2"
+                , "module Foo where"
+                , "import DA.List"
+                , "testSort5 = scenario do"
+                , "    let l = [ (2, const \"D\"), (1, const \"A\"), (1, const \"B\"), (3, const \"E\"), (1, const \"C\") ]"
+                , "        m = sortOn fst l"
+                , "        n = map fst m"
+                , "    assert $ n == [1, 1, 1, 2, 3]"
+                , "    let o = map (flip snd ()) m"
+                , "    assert $ o == [\"A\", \"B\", \"C\", \"D\", \"E\"]"
+                , "testSort4 = scenario do"
+                , "    let l = [ (2, const \"D\"), (1, const \"A\"), (1, const \"B\"), (3, const \"E\"), (1, const \"C\") ]"
+                , "        m = sortBy (\\x y -> compare (fst x) (fst y)) l"
+                , "        n = map fst m"
+                , "    assert $ n == [1, 1, 1, 2, 3]"
+                , "    let o = map (flip snd ()) m"
+                , "    assert $ o == [\"A\", \"B\", \"C\", \"D\", \"E\"]"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 7, 4) "Suggestion: Reduce duplication"
+    ,  testCase' "Suggest use language pragmas" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "{-# OPTIONS_GHC -XDataKinds #-}"
+                , "daml 1.2"
+                , "module Foo where"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 0, 0) "Warning: Use LANGUAGE pragmas"
+    ,  testCase' "Suggest use fewer pragmas" $ do
+            foo <- makeFile "Foo.daml" $ T.unlines
+                [ "{-# LANGUAGE ScopedTypeVariables, DataKinds #-}"
+                , "{-# LANGUAGE ScopedTypeVariables #-}"
+                , "daml 1.2"
+                , "module Foo where"
+                ]
+            setFilesOfInterest [foo]
+            expectNoErrors
+            expectDiagnostic DsInfo (foo, 0, 0) "Warning: Use fewer LANGUAGE pragmas"
+  ]
+  where
+      testCase' = testCase mbScenarioService
 
 minimalRebuildTests :: Maybe SS.Handle -> Tasty.TestTree
 minimalRebuildTests mbScenarioService = Tasty.testGroup "Minimal rebuild tests"
@@ -459,13 +530,13 @@ goToDefinitionTests mbScenarioService = Tasty.testGroup "Go to definition tests"
                 ]
             setFilesOfInterest [foo]
             expectNoErrors
-            expectOnlyDiagnostics [(DsInfo, (foo, 4, 0), "Suggestion: Use newtype")] -- hlint!
             -- foo
             expectGoToDefinition (foo,1,[13..14]) (At (foo,3,0))
             -- A
             expectGoToDefinition (foo,1,[17..17]) (At (foo,4,0))
             -- B
             expectGoToDefinition (foo,1,[19..19]) (At (foo,4,9))
+
     ,    testCase' "Cross-package goto definition" $ do
             foo <- makeModule "Foo"
                 [ "test = scenario do"
@@ -583,6 +654,15 @@ onHoverTests mbScenarioService = Tasty.testGroup "On hover tests"
         setFilesOfInterest [f]
         expectTextOnHover (f,8,[6..11]) $ HasType "Update ()" -- Delete choice
         expectTextOnHover (f,10,[6..13]) $ HasType "Party -> Update (ContractId Coin)" -- Transfer choice
+    , testCase' "Haddock comment" $ do
+        f <- makeModule "F"
+            [ "-- | Important docs"
+            , "f : a -> a"
+            , "f x = x"
+            ]
+        setFilesOfInterest [f]
+        expectNoErrors
+        expectTextOnHover (f,4,[0]) $ Contains "Important docs"
     ]
     where
         testCase' = testCase mbScenarioService
@@ -822,10 +902,136 @@ scenarioTests mbScenarioService = Tasty.testGroup "Scenario tests"
             expectNoVirtualResource vr
             setOpenVirtualResources [vr]
             expectVirtualResource vr "Return value: {}"
+    , testCase' "Failing scenario produces stack trace in correct order" $ do
+          let fooContent = T.unlines
+                 [ "daml 1.2"
+                 , "module Foo where"
+                 , "boom = fail \"BOOM\""
+                 , "test : Scenario ()"
+                 , "test = boom"
+                 ]
+
+          foo <- makeFile "Foo.daml" fooContent
+          let vr = VRScenario foo "test"
+          setFilesOfInterest [foo]
+          setOpenVirtualResources [vr]
+          expectVirtualResourceRegex vr "Stack trace:.*- boom.*Foo:3:1.*- test.*Foo:5:1"
     ]
     where
         testCase' = testCase mbScenarioService
 
+
+visualDamlTests :: Tasty.TestTree
+visualDamlTests = Tasty.testGroup "Visual Tests"
+    [   testCase' "Template with no actions (edges) from choices" $ do
+            foo <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Delete : ()"
+                , "        do return ()"
+                ]
+            setFilesOfInterest [foo]
+            expectedTemplatePoperties foo $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                        [ExpectedChoice "Archive" True Set.empty,
+                         ExpectedChoice "Delete" True Set.empty
+                        ]
+                    )
+                ]
+        , testCase' "Fetch shoud not be an create action" $ do
+            fetchTest <- makeModule "F"
+                [ "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "    amount : Int"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      nonconsuming ReducedCoin : ()"
+                , "        with otherCoin : ContractId Coin"
+                , "        do "
+                , "        cn <- fetch otherCoin"
+                , "        return ()"
+                ]
+            setFilesOfInterest [fetchTest]
+            expectNoErrors
+            expectedTemplatePoperties fetchTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [   ExpectedChoice "Archive" True Set.empty,
+                        ExpectedChoice "ReducedCoin" False Set.empty
+                    ])
+                ]
+        , testCase' "excercise sould add new action" $ do
+            exerciseTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      Consume : ()"
+                , "        with coinId : ContractId Coin"
+                , "        do exercise coinId Delete"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "        Delete : ()"
+                , "            do return ()"
+                ]
+            setFilesOfInterest [exerciseTest]
+            expectNoErrors
+            expectedTemplatePoperties exerciseTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [   ExpectedChoice "Archive" True Set.empty,
+                        ExpectedChoice "Delete" True Set.empty
+                    ])
+                , TemplateProp "TT"
+                    (Set.fromList
+                    [   ExpectedChoice "Consume" True (Set.fromList [Exercise "F:Coin" "Delete"]),
+                        ExpectedChoice "Archive" True Set.empty
+                    ])
+                ]
+        , testCase' "create on other template should be edge" $ do
+            createTest <- makeModule "F"
+                [ "template TT"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                , "    controller owner can"
+                , "      CreateCoin : ContractId Coin"
+                , "        do create Coin with owner"
+                , "template Coin"
+                , "  with"
+                , "    owner : Party"
+                , "  where"
+                , "    signatory owner"
+                ]
+            setFilesOfInterest [createTest]
+            expectNoErrors
+            expectedTemplatePoperties createTest $ Set.fromList
+                [TemplateProp "Coin"
+                    (Set.fromList
+                    [ExpectedChoice "Archive" True Set.empty])
+                , TemplateProp "TT"
+                    (Set.fromList
+                    [   ExpectedChoice "CreateCoin" True (Set.fromList [Create "F:Coin"]),
+                        ExpectedChoice "Archive" True Set.empty
+                    ])
+                ]
+    ]
+    where
+        testCase' = testCase Nothing
 -- | Suppress unused binding warning in case we run out of tests for open issues.
 _suppressUnusedWarning :: ()
 _suppressUnusedWarning = testCaseFails `seq` ()

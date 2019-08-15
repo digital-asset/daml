@@ -1,23 +1,24 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.LfVersions
 
+import scalaz.NonEmptyList
+
 // an ADT version of the DAML-LF version
 sealed abstract class LanguageMajorVersion(
     val pretty: String,
-    maxSupportedStable: String,
-    previousStable: List[String])
+    stableAscending: NonEmptyList[String])
     extends LfVersions(
-      LanguageMinorVersion.Dev,
-      (previousStable :+ maxSupportedStable) map LanguageMinorVersion.Stable)(_.toProtoIdentifier)
+      stableAscending.map[LanguageMinorVersion](LanguageMinorVersion.Stable) append NonEmptyList(
+        LanguageMinorVersion.Dev))(_.toProtoIdentifier)
     with Product
     with Serializable {
 
   val maxSupportedStableMinorVersion: LanguageMinorVersion.Stable =
-    LanguageMinorVersion.Stable(maxSupportedStable)
+    LanguageMinorVersion.Stable(stableAscending.last)
 
   // do *not* use implicitly unless type `LanguageMinorVersion` becomes
   // indexed by the enclosing major version's singleton type --SC
@@ -34,14 +35,12 @@ sealed abstract class LanguageMajorVersion(
 object LanguageMajorVersion {
 
   // Note that DAML-LF v0 never had and never will have minor versions.
-  case object V0
-      extends LanguageMajorVersion(pretty = "0", maxSupportedStable = "", previousStable = List())
+  case object V0 extends LanguageMajorVersion(pretty = "0", stableAscending = NonEmptyList(""))
 
   case object V1
       extends LanguageMajorVersion(
         pretty = "1",
-        maxSupportedStable = "6",
-        previousStable = List("0", "1", "2", "3", "4", "5"))
+        stableAscending = NonEmptyList("0", "1", "2", "3", "4", "5", "6"))
 
   val All: List[LanguageMajorVersion] = List(V0, V1)
 

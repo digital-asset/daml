@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -77,13 +77,10 @@ class  Show a  where
 
 shows x = showsPrec (I# 0#) x
 
--- hiding because the function signatures aren't even showing up in the docs.
--- | HIDE
 showList__ : (a -> ShowS) ->  [a] -> ShowS
 showList__ _     []     s = "[]" ++ s
 showList__ showx (x::xs) s = "[" ++ showx x (showl showx xs s)
 
--- | HIDE
 showl : (a -> ShowS) -> [a] -> ShowS
 showl showx []      s = "]" ++ s
 showl showx (y::ys) s = "," ++ showx y (showl showx ys s)

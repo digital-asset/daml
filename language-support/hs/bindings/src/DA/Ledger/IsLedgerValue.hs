@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Ledger.IsLedgerValue (
@@ -39,5 +39,5 @@ instance IsLedgerValue a => IsLedgerValue [a] where
     fromValue = \case VList vs -> mapM fromValue vs; _ -> Nothing
 
 instance IsLedgerValue Text where
-    toValue = VString
-    fromValue = \case VString x -> Just x; _ -> Nothing
+    toValue = VText
+    fromValue = \case VText x -> Just x; _ -> Nothing

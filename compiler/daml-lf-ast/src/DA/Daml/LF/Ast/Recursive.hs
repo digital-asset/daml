@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -11,22 +11,12 @@ module DA.Daml.LF.Ast.Recursive(
     UpdateF(..),
     ScenarioF(..),
     BindingF(..),
-    TypeF(..),
     retrieveByKeyFKey
     ) where
 
 import Data.Functor.Foldable
 
 import DA.Daml.LF.Ast.Base
-
-data TypeF typ
-  = TVarF      !TypeVarName
-  | TConF      !(Qualified TypeConName)
-  | TAppF      !typ !typ
-  | TBuiltinF  !BuiltinType
-  | TForallF   !(TypeVarName, Kind) !typ
-  | TTupleF    ![(FieldName, typ)]
-  deriving (Foldable, Functor, Traversable)
 
 data ExprF expr
   = EVarF        !ExprVarName
@@ -86,26 +76,6 @@ data ScenarioF expr
   | SGetPartyF   !expr
   | SEmbedExprF  !Type !expr
   deriving (Foldable, Functor, Traversable)
-
-type instance Base Type = TypeF
-
-instance Recursive Type where
-  project = \case
-    TVar a -> TVarF a
-    TCon a -> TConF a
-    TApp a b -> TAppF a b
-    TBuiltin a -> TBuiltinF a
-    TForall a b -> TForallF a b
-    TTuple a -> TTupleF a
-
-instance Corecursive Type where
-  embed = \case
-    TVarF a -> TVar a
-    TConF a -> TCon a
-    TAppF a b -> TApp a b
-    TBuiltinF a -> TBuiltin a
-    TForallF a b -> TForall a b
-    TTupleF a -> TTuple a
 
 type instance Base Expr = ExprF
 

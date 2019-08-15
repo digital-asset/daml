@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 daml 1.2
@@ -9,25 +9,17 @@ module AuthorizedDivulgence where
 -- Authorized fetch
 ----------------------------------------------------------------------------------------------------
 
-data Secret = Secret
-  { p : Party
-  , mySecret : Text
-  }
+template Secret with
+    p : Party
+    mySecret : Text
+  where
+    signatory p
 
-instance Template Secret where
-  signatory this@Secret{..} = [p]
-  observer this@Secret{..} = []
-  agreement this@Secret{..} = ""
-
-data RevealYourSecret = RevealYourSecret
-  { p : Party
-  , secretCid : ContractId Secret
-  }
-
-instance Template RevealYourSecret where
-  signatory this@RevealYourSecret{..} = [p]
-  observer this@RevealYourSecret{..} = []
-  agreement this@RevealYourSecret{..} = ""
+template RevealYourSecret with
+    p : Party
+    secretCid : ContractId Secret
+  where
+    signatory p
 
 -- This scenario succeeds only if the flag +DontDivulgeContractIdsInCreateArguments is turned on
 test_authorizedFetch = scenario do
@@ -44,75 +36,51 @@ test_authorizedFetch = scenario do
 -- Testing no divulgence of create arguments. We test with the classic swap scenario.
 ----------------------------------------------------------------------------------------------------
 
-data Iou = Iou
-  { owner : Party
-  , obligor : Party
-  }
+template Iou with
+    owner : Party
+    obligor : Party
+  where
+    signatory obligor
+    observer owner
 
+    controller owner can
+      Sell : ContractId Iou
+        with newOwner : Party
+        do create this with owner = newOwner
 
-instance Template Iou where
-  signatory Iou{..} = [obligor]
-  observer Iou{..} = [owner]
-  agreement _ = ""
+template Swap1 with
+    p1 : Party
+    p2 : Party
+  where
+    signatory p1
+    observer p2
 
-data Sell = Sell
-  { newOwner : Party
-  }
+    controller p1 can
+      GoSwap1 : ContractId Swap2
+        with cid1 : ContractId Iou
+        do create Swap2 with p1; p2; cid1
 
-instance Choice Iou Sell (ContractId Iou) where
-  choiceController Iou{..} _ = [owner]
-  choice this@Iou{..} self Sell{..} = create this{owner = newOwner}
+      GoSwap1WithFetch : ContractId Swap2
+        with cid1 : ContractId Iou
+        do
+          fetch cid1
+          create Swap2 with p1; p2; cid1
 
-data Swap1 = Swap1
-  { p1 : Party
-  , p2 : Party
-  }
+template Swap2 with
+    p1 : Party
+    p2 : Party
+    cid1 : ContractId Iou
+  where
+    signatory p1
+    observer p2
 
-instance Template Swap1 where
-  signatory Swap1{..} = [p1]
-  observer Swap1{..} = [p2]
-  agreement _ = ""
-
-data Swap2 = Swap2
-  { p1 : Party
-  , p2 : Party
-  , cid1 : ContractId Iou
-  }
-
-instance Template Swap2 where
-  signatory Swap2{..} = [p1]
-  observer Swap2{..} = [p2]
-  agreement _ = ""
-
-data GoSwap1 = GoSwap1
-  { cid1 : ContractId Iou
-  }
-
-instance Choice Swap1 GoSwap1 (ContractId Swap2) where
-  choiceController Swap1{..} _ = [p1]
-  choice Swap1{..} _self GoSwap1{..} = do
-    create Swap2{p1 = p1, p2 = p2, cid1 = cid1}
-
-data GoSwap1WithFetch = GoSwap1WithFetch
-  { cid1 : ContractId Iou
-  }
-
-instance Choice Swap1 GoSwap1WithFetch (ContractId Swap2) where
-  choiceController Swap1{..} _ = [p1]
-  choice Swap1{..} _self GoSwap1WithFetch{..} = do
-    fetch cid1
-    create Swap2{p1 = p1, p2 = p2, cid1 = cid1}
-
-data GoSwap2 = GoSwap2
-  { cid2 : ContractId Iou
-  }
-
-instance Choice Swap2 GoSwap2  () where
-  choiceController Swap2{..} _ = [p2]
-  choice Swap2{..} _self GoSwap2{..} = do
-    exercise cid1 Sell {newOwner = p2}
-    exercise cid2 Sell {newOwner = p1}
-    pure ()
+    controller p2 can
+      GoSwap2 : ()
+        with cid2 : ContractId Iou
+        do
+          exercise cid1 Sell with newOwner = p2
+          exercise cid2 Sell with newOwner = p1
+          pure ()
 
 -- We're testing the classic swap example.
 -- This scenario should fail now if the DontDivulgeContractIdsInCreateArguments flag is set because

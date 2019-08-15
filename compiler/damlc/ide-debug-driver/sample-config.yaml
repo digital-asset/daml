@@ -1,0 +1,18 @@
+ide-cmd: daml-head ide --debug
+project-root: /home/moritz/quickstart-java
+commands:
+  - cmd: repeat
+    count: 100
+    cmds:
+      - cmd: open
+        file: daml/Iou.daml
+      - cmd: wait
+      - cmd: open
+        file: daml/Main.daml
+      - cmd: wait
+      - cmd: close
+        file: daml/Iou.daml
+      - cmd: wait
+      - cmd: close
+        file: daml/Main.daml
+      - cmd: wait

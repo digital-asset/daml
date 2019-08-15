@@ -1,18 +1,20 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- Abstraction for a Ledger which is hosting the Nim domain model.
 module DA.Ledger.App.Nim.NimLedger(Handle, connect, sendCommand, getTrans) where
 
-import System.Random(randomIO)
-import qualified Data.Text.Lazy as Text (pack)
-import qualified Data.UUID as UUID
-
+import Control.Monad(forM)
 import DA.Ledger as Ledger
 import DA.Ledger.App.Nim.Domain
 import DA.Ledger.App.Nim.Logging
 import DA.Ledger.App.Nim.NimCommand
 import DA.Ledger.App.Nim.NimTrans
+import Data.List as List
+import System.Random(randomIO)
+import qualified DA.Daml.LF.Ast as LF(Package)
+import qualified Data.Text.Lazy as Text (pack)
+import qualified Data.UUID as UUID
 
 data Handle = Handle {
     log :: Logger,
@@ -31,9 +33,22 @@ run timeout ls  = runLedgerService ls timeout (configOfPort port)
 connect :: Logger -> IO Handle
 connect log = do
     lid <- run 5 getLedgerIdentity
-    ids <- run 5 $ listPackages lid
-    [_,pid,_] <- return ids -- guess which is the Nim package -- TODO: fix this properly!
-    return Handle{log,lid,pid}
+
+    discovery <- run 5 $ do
+        pids <- listPackages lid
+        forM pids $ \pid -> do
+            getPackage lid pid >>= \case
+                Nothing -> return (pid, False)
+                Just package -> do
+                    return (pid, containsNim package)
+
+    case List.filter snd discovery of
+        [] -> fail "cant find package containing Nim"
+        xs@(_:_:_) -> fail $ "found multiple packages containing Nim: " <> show (map fst xs)
+        [(pid,_)] -> return Handle{log,lid,pid}
+
+containsNim :: LF.Package -> Bool
+containsNim package = "Nim" `isInfixOf` show package -- TODO: be more principled
 
 sendCommand :: Party -> Handle -> NimCommand -> IO (Maybe Rejection)
 sendCommand asParty h@Handle{pid} xcom = do

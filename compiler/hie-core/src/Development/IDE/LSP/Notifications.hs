@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE DuplicateRecordFields #-}
@@ -32,7 +32,6 @@ setHandlersNotifications = PartialHandlers $ \WithMessage{..} x -> return x
     {LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler x) $
         \_ ide (DidOpenTextDocumentParams TextDocumentItem{_uri,_version}) -> do
             updatePositionMapping ide (VersionedTextDocumentIdentifier _uri (Just _version)) (List [])
-            setSomethingModified ide
             whenUriFile _uri $ \file -> do
                 modifyFilesOfInterest ide (S.insert file)
                 logInfo (ideLogger ide) $ "Opened text document: " <> getUri _uri
@@ -50,7 +49,6 @@ setHandlersNotifications = PartialHandlers $ \WithMessage{..} x -> return x
 
     ,LSP.didCloseTextDocumentNotificationHandler = withNotification (LSP.didCloseTextDocumentNotificationHandler x) $
         \_ ide (DidCloseTextDocumentParams TextDocumentIdentifier{_uri}) -> do
-            setSomethingModified ide
             whenUriFile _uri $ \file -> do
                 modifyFilesOfInterest ide (S.delete file)
                 logInfo (ideLogger ide) $ "Closed text document: " <> getUri _uri

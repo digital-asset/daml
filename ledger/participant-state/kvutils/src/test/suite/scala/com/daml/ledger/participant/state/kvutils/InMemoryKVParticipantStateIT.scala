@@ -1,7 +1,9 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.participant.state.kvutils
+
+import java.time.Duration
 
 import akka.stream.scaladsl.Sink
 import com.daml.ledger.participant.state.v1.Update.{PartyAddedToParticipant, PublicPackageUploaded}
@@ -40,7 +42,7 @@ class InMemoryKVParticipantStateIT extends AsyncWordSpec with AkkaBeforeAndAfter
     submitter = Ref.Party.assertFromString("Alice"),
     applicationId = Ref.LedgerString.assertFromString("tests"),
     commandId = Ref.LedgerString.assertFromString("X"),
-    maxRecordTime = rt.addMicros(100000)
+    maxRecordTime = rt.addMicros(Duration.ofSeconds(10).toNanos / 1000)
   )
 
   private def transactionMeta(let: Timestamp) = TransactionMeta(

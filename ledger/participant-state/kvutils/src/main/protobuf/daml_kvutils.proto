@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 //
@@ -25,13 +25,12 @@ import "daml-lf/transaction/src/main/protobuf/com/digitalasset/daml/lf/value.pro
 // Produced by [[KeyValueSubmission]].
 // Transformed into `DamlLogEntry` when committed.
 message DamlSubmission {
-  repeated DamlLogEntryId input_log_entries = 1;
-  repeated DamlStateKey input_daml_state = 2;
+  repeated DamlStateKey input_daml_state = 1;
   oneof payload {
-    DamlTransactionEntry transaction_entry = 3;
-    DamlPackageUploadEntry package_upload_entry = 4;
-    DamlConfigurationEntry configuration_entry = 5;
-    DamlPartyAllocationEntry party_allocation_entry = 6;
+    DamlTransactionEntry transaction_entry = 2;
+    DamlPackageUploadEntry package_upload_entry = 3;
+    DamlConfigurationEntry configuration_entry = 4;
+    DamlPartyAllocationEntry party_allocation_entry = 5;
   }
 }
 
@@ -334,6 +333,9 @@ message DamlContractState {
 
   // The contract key set by the contract. Optional.
   DamlContractKey contract_key = 6;
+
+  // The contract instance
+  com.digitalasset.daml.lf.transaction.ContractInstance contract_instance = 7;
 }
 
 message DamlContractKey {

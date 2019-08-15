@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
@@ -12,10 +12,10 @@ import com.digitalasset.daml.lf.value.{ValueCoder, ValueOuterClass}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass
 
 trait ContractSerializer {
-  def serialiseContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
+  def serializeContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
     : Either[ValueCoder.EncodeError, Array[Byte]]
 
-  def deserialiseContractInstance(
+  def deserializeContractInstance(
       blob: Array[Byte]): Either[DecodeError, ContractInst[VersionedValue[AbsoluteContractId]]]
 }
 
@@ -24,13 +24,13 @@ trait ContractSerializer {
   */
 object ContractSerializer extends ContractSerializer {
 
-  override def serialiseContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
+  override def serializeContractInstance(coinst: ContractInst[VersionedValue[AbsoluteContractId]])
     : Either[ValueCoder.EncodeError, Array[Byte]] =
     TransactionCoder
       .encodeContractInstance[VersionedValue[AbsoluteContractId]](defaultValEncode, coinst)
       .map(_.toByteArray())
 
-  override def deserialiseContractInstance(
+  override def deserializeContractInstance(
       blob: Array[Byte]): Either[DecodeError, ContractInst[VersionedValue[AbsoluteContractId]]] =
     TransactionCoder
       .decodeContractInstance[VersionedValue[AbsoluteContractId]](

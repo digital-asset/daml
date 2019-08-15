@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.tests.integration.ledger.api
@@ -13,9 +13,11 @@ import com.digitalasset.ledger.api.testing.utils.{
   SuiteResourceManagementAroundEach,
   MockMessages => M
 }
+import com.digitalasset.ledger.api.domain.LedgerId
 import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
+import com.digitalasset.platform.apitesting.LedgerContext
 import com.digitalasset.platform.apitesting.MultiLedgerFixture
 import com.digitalasset.platform.common.LedgerIdMode
 import com.digitalasset.platform.sandbox.services.TestCommands
@@ -25,6 +27,7 @@ import org.scalatest.concurrent.{AsyncTimeLimitedTests, ScalaFutures}
 import org.scalatest.time.Span
 import org.scalatest.time.SpanSugar._
 import org.scalatest.{AsyncWordSpec, Matchers, Suite}
+import scala.concurrent.Future
 
 class ResetServiceIT
     extends AsyncWordSpec
@@ -43,7 +46,7 @@ class ResetServiceIT
   override protected val config: Config =
     Config.default.withLedgerIdMode(LedgerIdMode.Dynamic())
 
-  override protected def darFile: File = new File(rlocation("ledger/sandbox/Test.dar"))
+  override protected def darFile: File = new File(rlocation("ledger/test-common/Test.dar"))
 
   private val allTemplatesForParty = M.transactionFilter
 
@@ -62,6 +65,24 @@ class ResetServiceIT
         } yield {
           lid1 should not equal lid2
           IsStatusException(Status.Code.NOT_FOUND)(throwable)
+        }
+      }
+
+      "return new ledger ID - multiple resets" in allFixtures { initialCtx =>
+        case class Acc(ctx: LedgerContext, lids: List[LedgerId])
+
+        val resets = (1 to 20).foldLeft(Future.successful(Acc(initialCtx, List.empty))) {
+          (eventualAcc, _) =>
+            for {
+              acc <- eventualAcc
+              nCtx <- acc.ctx.reset()
+              lid = nCtx.ledgerId
+              lids = acc.lids :+ lid
+            } yield Acc(nCtx, lids)
+        }
+
+        resets.flatMap { acc =>
+          acc.lids.toSet should have size acc.lids.size.toLong
         }
       }
 

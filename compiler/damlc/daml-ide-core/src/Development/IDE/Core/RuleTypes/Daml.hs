@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# OPTIONS_GHC -Wno-orphans #-}
@@ -158,22 +158,22 @@ data GetOpenVirtualResources = GetOpenVirtualResources
 instance Hashable GetOpenVirtualResources
 instance NFData   GetOpenVirtualResources
 
-data GetHlintSettings = GetHlintSettings
+data GetDlintSettings = GetDlintSettings
     deriving (Eq, Show, Typeable, Generic)
-instance Hashable GetHlintSettings
-instance NFData   GetHlintSettings
+instance Hashable GetDlintSettings
+instance NFData   GetDlintSettings
 instance NFData Hint where rnf = rwhnf
 instance NFData Classify where rnf = rwhnf
 instance Show Hint where show = const "<hint>"
 
-type instance RuleResult GetHlintSettings = ([Classify], Hint)
+type instance RuleResult GetDlintSettings = ([Classify], Hint)
 
-data GetHlintDiagnostics = GetHlintDiagnostics
+data GetDlintDiagnostics = GetDlintDiagnostics
     deriving (Eq, Show, Typeable, Generic)
-instance Hashable GetHlintDiagnostics
-instance NFData   GetHlintDiagnostics
+instance Hashable GetDlintDiagnostics
+instance NFData   GetDlintDiagnostics
 
-type instance RuleResult GetHlintDiagnostics = ()
+type instance RuleResult GetDlintDiagnostics = ()
 
 data GenerateDocTestModule = GenerateDocTestModule
     deriving (Eq, Show, Typeable, Generic)

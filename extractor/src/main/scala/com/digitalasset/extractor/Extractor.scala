@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor
@@ -12,7 +12,6 @@ import com.digitalasset.ledger.service.LedgerReader
 import com.digitalasset.extractor.ledger.types.TransactionTree
 import com.digitalasset.extractor.ledger.types.TransactionTree._
 import com.digitalasset.ledger.service.LedgerReader.PackageStore
-import com.digitalasset.extractor.targets.Target
 import com.digitalasset.extractor.writers.Writer
 import com.digitalasset.extractor.writers.Writer.RefreshPackages
 import com.digitalasset.extractor.helpers.TemplateIds
@@ -35,7 +34,9 @@ import Scalaz._
 import com.typesafe.scalalogging.StrictLogging
 import scalaz.syntax.tag._
 
-class Extractor[T <: Target](config: ExtractorConfig, target: T) extends StrictLogging {
+class Extractor[T](config: ExtractorConfig, target: T)(
+    writerSupplier: (ExtractorConfig, T, String) => Writer = Writer.apply _)
+    extends StrictLogging {
 
   implicit val system: ActorSystem = ActorSystem()
   import system.dispatcher
@@ -56,7 +57,7 @@ class Extractor[T <: Target](config: ExtractorConfig, target: T) extends StrictL
     val result = for {
       client <- createClient
 
-      writer = Writer(config, target, client.ledgerId.unwrap)
+      writer = writerSupplier(config, target, client.ledgerId.unwrap)
 
       _ = logger.info(s"Connected to ledger ${client.ledgerId}\n\n")
 

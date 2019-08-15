@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http.json
@@ -25,7 +25,8 @@ object HttpCodec {
       complete(
         (
           StatusCodes.BadRequest,
-          ResponseFormats.errorsJsObject(StatusCodes.BadRequest)(
+          ResponseFormats.errorsJsObject(
+            StatusCodes.BadRequest,
             s"JSON parser error: ${e.msg}" +: unfoldCauses(e.cause).map(_.getMessage): _*)))
   }
 

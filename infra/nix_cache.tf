@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 // Setup the Nix bucket + CDN
@@ -38,6 +38,13 @@ resource "google_storage_bucket_object" "index_nix_cache" {
   depends_on   = ["module.nix_cache"]
 }
 
+// Set ACL for ./index.html
+resource "google_storage_object_acl" "index_nix_cache-acl" {
+  bucket         = "${module.nix_cache.bucket_name}"
+  object         = "${google_storage_bucket_object.index_nix_cache.name}"
+  predefined_acl = "publicRead"
+}
+
 // provide a nix-cache-info file setting a higher priority
 // than cache.nixos.org, so we prefer it
 resource "google_storage_bucket_object" "nix-cache-info" {
@@ -51,6 +58,13 @@ Priority: 10
   EOF
 
   content_type = "text/plain"
+}
+
+// Set ACL for ./nix-cache-info
+resource "google_storage_object_acl" "nix-cache-info-acl" {
+  bucket         = "${module.nix_cache.bucket_name}"
+  object         = "${google_storage_bucket_object.nix-cache-info.name}"
+  predefined_acl = "publicRead"
 }
 
 output "nix_cache_ip" {

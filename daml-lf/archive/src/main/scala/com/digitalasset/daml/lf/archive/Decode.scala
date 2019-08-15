@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -13,10 +13,14 @@ import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml_lf.DamlLf
 import com.google.protobuf.CodedInputStream
 
-sealed abstract class Decode extends archive.Reader[(PackageId, Package)] {
+sealed class Decode(onlySerializableDataDefs: Boolean)
+    extends archive.Reader[(PackageId, Package)] {
   import Decode._
 
-  private[archive] val decoders: PartialFunction[LanguageVersion, PayloadDecoder]
+  private[lf] val decoders: PartialFunction[LanguageVersion, PayloadDecoder] = {
+    case LanguageVersion(V1, minor) if V1.supportedMinorVersions.contains(minor) =>
+      PayloadDecoder(new DecodeV1(minor))(_.getDamlLf1)
+  }
 
   override protected[this] def readArchivePayloadOfVersion(
       hash: PackageId,
@@ -26,11 +30,11 @@ sealed abstract class Decode extends archive.Reader[(PackageId, Package)] {
     val decoder =
       decoders.lift(version).getOrElse(throw ParseError(s"$version unsupported"))
 
-    (hash, decoder.decoder.decodePackage(hash, decoder.extract(lf)))
+    (hash, decoder.decoder.decodePackage(hash, decoder.extract(lf), onlySerializableDataDefs))
   }
 }
 
-object Decode extends Decode {
+object Decode extends Decode(onlySerializableDataDefs = false) {
   type ParseError = Reader.ParseError
   val ParseError = Reader.ParseError
 
@@ -61,16 +65,14 @@ object Decode extends Decode {
       }
   }
 
-  override private[lf] val decoders: PartialFunction[LanguageVersion, PayloadDecoder] = {
-    case LanguageVersion(V1, minor) if V1.supportedMinorVersions.contains(minor) =>
-      PayloadDecoder(new DecodeV1(minor))(_.getDamlLf1)
-  }
-
   private[lf] trait OfPackage[-Pkg] {
     type ProtoModule
     def protoModule(cis: CodedInputStream): ProtoModule
     @throws[ParseError]
-    def decodePackage(packageId: PackageId, lfPackage: Pkg): Package
+    def decodePackage(
+        packageId: PackageId,
+        lfPackage: Pkg,
+        onlySerializableDataDefs: Boolean = false): Package
     @throws[ParseError]
     def decodeScenarioModule(packageId: PackageId, lfModule: ProtoModule): Module
   }

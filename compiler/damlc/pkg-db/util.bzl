@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 # A DAML package database contains a subdirectory for each DAML-LF
@@ -30,25 +30,41 @@
 
 PACKAGE_CONF_TEMPLATE = """
 name: {name}
-version: 1.0.0
-id: {name}
-key: {name}
+version: __SDK_VERSION__
+id: __ID__
+key: __ID__
 copyright: 2015-2018 Digital Asset Holdings
 maintainer: Digital Asset
 exposed: True
 exposed-modules: {modules}
-import-dirs: $topdir/{name}
-library-dirs: $topdir/{name}
-data-dir: $topdir/{name}
+import-dirs: \$topdir/__ID__
+library-dirs: \$topdir/__ID__
+data-dir: \$topdir/__ID__
 depends: {depends}
 """
 
-DamlPackage = provider(fields = ["daml_lf_version", "pkg_name", "pkg_conf", "iface_dir", "dalf", "modules"])
+DamlPackage = provider(fields = ["daml_lf_version", "pkg_name", "pkg_name_version", "pkg_conf", "iface_dir", "dalf", "modules"])
 
 # Compile a DAML file and create the GHC package database
 # for it.
 def _daml_package_rule_impl(ctx):
     name = ctx.attr.name
+    pkg_name_version = ctx.actions.declare_file("".join([name, "_pkg_name_version"]))
+    ctx.actions.run_shell(
+        outputs = [pkg_name_version],
+        inputs = [ctx.file.sdk_version],
+        command = """
+        if [ "daml-prim" = {pkg_name} ]; then
+          echo {pkg_name} > {pkg_name_version_file}
+        else
+          echo {pkg_name}-`cat {sdk_version_file}` > {pkg_name_version_file}
+        fi
+      """.format(
+            pkg_name = ctx.attr.pkg_name,
+            pkg_name_version_file = pkg_name_version.path,
+            sdk_version_file = ctx.file.sdk_version.path,
+        ),
+    )
     dalf = ctx.actions.declare_file("{}.dalf".format(name))
     iface_dir = ctx.actions.declare_directory("{}_iface".format(name))
     package_config = ctx.actions.declare_file("{}.conf".format(name))
@@ -62,12 +78,22 @@ def _daml_package_rule_impl(ctx):
         modules[".".join(file.path[:-5].split("/")[3:])] = file.path
 
     # Create the package conf file
-    ctx.actions.write(
-        output = package_config,
-        content = PACKAGE_CONF_TEMPLATE.format(
-            name = ctx.attr.pkg_name,
-            modules = " ".join(modules.keys()),
-            depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
+    ctx.actions.run_shell(
+        outputs = [package_config],
+        inputs = [pkg_name_version, ctx.file.sdk_version],
+        command = """
+        echo "{content}" > {package_config}
+        sed -i s/__ID__/`cat {pkg_name_version_file}`/ {package_config}
+        sed -i s/__SDK_VERSION__/`cat {sdk_version_file}`/ {package_config}
+          """.format(
+            package_config = package_config.path,
+            pkg_name_version_file = pkg_name_version.path,
+            sdk_version_file = ctx.file.sdk_version.path,
+            content = PACKAGE_CONF_TEMPLATE.format(
+                name = ctx.attr.pkg_name,
+                modules = " ".join(modules.keys()),
+                depends = " ".join([dep[DamlPackage].pkg_name for dep in ctx.attr.dependencies]),
+            ),
         ),
     )
 
@@ -75,15 +101,16 @@ def _daml_package_rule_impl(ctx):
 
     ctx.actions.run_shell(
         outputs = [dalf, iface_dir],
-        inputs = ctx.files.srcs + [package_db_dir],
+        inputs = ctx.files.srcs + [package_db_dir, pkg_name_version],
         tools = [ctx.executable.damlc_bootstrap],
         progress_message = "Compiling " + name + ".daml to daml-lf " + ctx.attr.daml_lf_version,
         command = """
       set -eou pipefail
+      PKG_NAME=`cat {pkg_name_version_file}`
 
       # Compile the dalf file
       {damlc_bootstrap} compile \
-        --package-name {pkg_name} \
+        --package-name $PKG_NAME \
         --package-db {package_db_dir} \
         --write-iface \
         --target {daml_lf_version} \
@@ -94,14 +121,13 @@ def _daml_package_rule_impl(ctx):
       cp -a .daml/interfaces/{pkg_root}/* {iface_dir}
     """.format(
             main = modules[ctx.attr.main],
-            name = name,
+            pkg_name_version_file = pkg_name_version.path,
             package_db_dir = package_db_dir.path,
             damlc_bootstrap = ctx.executable.damlc_bootstrap.path,
             dalf_file = dalf.path,
             daml_lf_version = ctx.attr.daml_lf_version,
             iface_dir = iface_dir.path,
             pkg_root = ctx.attr.pkg_root,
-            pkg_name = ctx.attr.pkg_name,
         ),
     )
 
@@ -109,6 +135,7 @@ def _daml_package_rule_impl(ctx):
         DefaultInfo(files = depset([dalf, iface_dir, package_config])),
         DamlPackage(
             pkg_name = ctx.attr.pkg_name,
+            pkg_name_version = pkg_name_version,
             daml_lf_version = ctx.attr.daml_lf_version,
             pkg_conf = package_config,
             iface_dir = iface_dir,
@@ -119,7 +146,7 @@ def _daml_package_rule_impl(ctx):
 
 daml_package_rule = rule(
     implementation = _daml_package_rule_impl,
-    toolchains = ["@io_tweag_rules_haskell//haskell:toolchain"],
+    toolchains = ["@rules_haskell//haskell:toolchain"],
     attrs = {
         "pkg_name": attr.string(mandatory = True),
         "main": attr.string(default = "LibraryModules"),
@@ -139,16 +166,20 @@ daml_package_rule = rule(
         "daml_lf_version": attr.string(
             mandatory = True,
         ),
+        "sdk_version": attr.label(
+            allow_single_file = True,
+            default = "//:VERSION",
+        ),
     },
 )
 
 PackageDb = provider(fields = ["db_dir", "pkgs"])
 
 def _daml_package_db_impl(ctx):
-    toolchain = ctx.toolchains["@io_tweag_rules_haskell//haskell:toolchain"]
+    toolchain = ctx.toolchains["@rules_haskell//haskell:toolchain"]
     db_dir = ctx.actions.declare_directory(ctx.attr.name + "_dir")
     ctx.actions.run_shell(
-        inputs = [inp for pkg in ctx.attr.pkgs for inp in [pkg[DamlPackage].pkg_conf, pkg[DamlPackage].iface_dir, pkg[DamlPackage].dalf]],
+        inputs = [inp for pkg in ctx.attr.pkgs for inp in [pkg[DamlPackage].pkg_conf, pkg[DamlPackage].iface_dir, pkg[DamlPackage].dalf, pkg[DamlPackage].pkg_name_version]],
         tools = [toolchain.tools.ghc_pkg],
         outputs = [db_dir],
         command =
@@ -163,13 +194,14 @@ def _daml_package_db_impl(ctx):
             "".join(
                 [
                     """
-        mkdir -p "{db_dir}/{daml_lf_version}/{pkg_name}"
-        cp {pkg_conf} "{db_dir}/{daml_lf_version}/package.conf.d/{pkg_name}.conf"
-        cp -aL {iface_dir}/* "{db_dir}/{daml_lf_version}/{pkg_name}/"
-        cp {dalf} "{db_dir}/{daml_lf_version}/{pkg_name}.dalf"
+        PKG_NAME_VERSION=`cat {pkg_name_version_file}`
+        mkdir -p "{db_dir}/{daml_lf_version}/$PKG_NAME_VERSION"
+        cp {pkg_conf} "{db_dir}/{daml_lf_version}/package.conf.d/$PKG_NAME_VERSION.conf"
+        cp -aL {iface_dir}/* "{db_dir}/{daml_lf_version}/$PKG_NAME_VERSION/"
+        cp {dalf} "{db_dir}/{daml_lf_version}/$PKG_NAME_VERSION.dalf"
         """.format(
                         daml_lf_version = pkg[DamlPackage].daml_lf_version,
-                        pkg_name = pkg[DamlPackage].pkg_name,
+                        pkg_name_version_file = pkg[DamlPackage].pkg_name_version.path,
                         pkg_conf = pkg[DamlPackage].pkg_conf.path,
                         iface_dir = pkg[DamlPackage].iface_dir.path,
                         dalf = pkg[DamlPackage].dalf.path,
@@ -194,7 +226,7 @@ def _daml_package_db_impl(ctx):
 
 daml_package_db = rule(
     implementation = _daml_package_db_impl,
-    toolchains = ["@io_tweag_rules_haskell//haskell:toolchain"],
+    toolchains = ["@rules_haskell//haskell:toolchain"],
     attrs = {
         "pkgs": attr.label_list(
             allow_files = False,

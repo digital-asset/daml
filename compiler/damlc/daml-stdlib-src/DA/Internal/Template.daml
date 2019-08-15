@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE AllowAmbiguousTypes #-}
@@ -6,161 +6,97 @@
 
 daml 1.2
 -- | MOVE Prelude DAML-LF primitives, just templates/contracts
-module DA.Internal.Template(
-    Template(ensure, signatory, observer, agreement),
-    Choice(consuming, choiceController, choice), preconsuming, nonconsuming, postconsuming, NoEvent(..),
-    stakeholder,
-    create, exercise, fetch,
-    archive, Archive(..),
-    lookupByKey, fetchByKey, exerciseByKey,
-    IsParties(toParties),
-    TemplateKey(key, maintainer)
-    ) where
+module DA.Internal.Template where
 
-import GHC.Types (magic)
 import DA.Internal.LF
 import DA.Internal.Prelude
 
--- NOTE: use internalCreate vs create so that people implementing Template can't override create/fetch/exercise
+class Template t where
 
--- | Create a contract based on a template `c`.
-create : Template c => c -> Update (ContractId c)
-create = internalCreate
+  -- | The signatories of a contract.
+  signatory : t -> [Party]
 
--- | Exercise a choice on the contract with the given contract ID.
-exercise : forall c e r . Choice c e r => ContractId c -> e -> Update r
-exercise = internalExercise
+  -- | The observers of a contract.
+  observer : t -> [Party]
 
--- | Fetch the contract data associated with the given contract ID.
--- 
--- If the `ContractId c` supplied is not the contract ID of an active
--- contract, this fails and aborts the entire transaction.
-fetch : Template c => ContractId c -> Update c
-fetch = internalFetch
+  -- | A predicate that must be true, otherwise contract creation will fail.
+  ensure : t -> Bool
 
--- | Archive the contract with the given contract ID.
-archive : Template c => ContractId c -> Update ()
-archive c = exercise c Archive
+  -- | The agreement text of a contract.
+  agreement : t -> Text
+
+  -- | Create a contract based on a template `t`.
+  create : t -> Update (ContractId t)
+
+  -- | Fetch the contract data associated with the given contract ID.
+  -- If the `ContractId t` supplied is not the contract ID of an active
+  -- contract, this fails and aborts the entire transaction.
+  fetch : ContractId t -> Update t
+
+  -- | Archive the contract with the given contract ID.
+  archive : ContractId t -> Update ()
 
 -- | The stakeholders of a contract: its signatories and observers.
-stakeholder : Template c => c -> [Party]
-stakeholder c = signatory c ++ observer c
+stakeholder : Template t => t -> [Party]
+stakeholder t = signatory t ++ observer t
 
--- | Look up the contract ID `c` associated with a given contract key `k`.
---
--- You must pass the `c` using an explicit type application. For
--- instance, if you want to look up a contract of template `Account` by its
--- key `k`, you must call `lookupByKey @Account k`.
-lookupByKey : forall c k. TemplateKey c k => k -> Update (Optional (ContractId c))
-lookupByKey = internalLookupByKey
+class Template t => Choice t c r | t c -> r where
+  -- | Exercise a choice on the contract with the given contract ID.
+  exercise : ContractId t -> c -> Update r
 
--- | Fetch the contract ID and contract data associated with a given
--- contract key.
---
--- You must pass the `c` using an explicit type application. For
--- instance, if you want to fetch a contract of template `Account` by its
--- key `k`, you must call `fetchByKey @Account k`.
-fetchByKey : forall c k. TemplateKey c k => k -> Update (ContractId c, c)
--- NOTE(FM): the motivation for this function to return both the
--- contract ID and the contract instance is that `fetchByKey` results in
--- a fetch node in the transaction structure, and the fetch node
--- contains the contract data, so we might as well include it here.
---
--- The reason why turning it into a fetch node is necessary is that:
--- 1. We want to have it a more relaxed authorization rule than
---    `lookupByKey`, which gets turned into a LookupByKey node;
--- 2. We want it to have the same authorization rules of a normal
---    fetch, and to implement _that_, we need to know what the
---    stakeholders of the fetched contract are, which requires
---    getting the contract instance.
-fetchByKey k = fmap unpackPair (internalFetchByKey k)
+class Template t => TemplateKey t k | t -> k where
+  -- | The key of a contract.
+  key : t -> k
+
+  -- | Look up the contract ID `t` associated with a given contract key `k`.
+  --
+  -- You must pass the `t` using an explicit type application. For
+  -- instance, if you want to look up a contract of template `Account` by its
+  -- key `k`, you must call `lookupByKey @Account k`.
+  lookupByKey : k -> Update (Optional (ContractId t))
+
+  -- | Fetch the contract ID and contract data associated with a given
+  -- contract key.
+  --
+  -- You must pass the `t` using an explicit type application. For
+  -- instance, if you want to fetch a contract of template `Account` by its
+  -- key `k`, you must call `fetchByKey @Account k`.
+  fetchByKey : k -> Update (ContractId t, t)
+  -- NOTE(FM): the motivation for this function to return both the
+  -- contract ID and the contract instance is that `fetchByKey` results in
+  -- a fetch node in the transaction structure, and the fetch node
+  -- contains the contract data, so we might as well include it here.
+  --
+  -- The reason why turning it into a fetch node is necessary is that:
+  -- 1. We want to have it a more relaxed authorization rule than
+  --    `lookupByKey`, which gets turned into a LookupByKey node;
+  -- 2. We want it to have the same authorization rules of a normal
+  --    fetch, and to implement _that_, we need to know what the
+  --    stakeholders of the fetched contract are, which requires
+  --    getting the contract instance.
+
 
 -- | Exercise a choice on the contract associated with the given key.
 --
--- You must pass the `c` using an explicit type application. For
+-- You must pass the `t` using an explicit type application. For
 -- instance, if you want to exercise a choice `Withdraw` on a contract of
 -- template `Account` given by its key `k`, you must call
 -- `exerciseByKey @Account k Withdraw`.
-exerciseByKey : forall c k e r. (TemplateKey c k, Choice c e r) => k -> e -> Update r
-exerciseByKey k e = do
-    (cid, _) <- fetchByKey @c k
-    internalExercise cid e
+exerciseByKey : forall t k c r. (TemplateKey t k, Choice t c r) => k -> c -> Update r
+exerciseByKey k c = do
+    (cid, _) <- fetchByKey @t k
+    exercise cid c
 
-class Template c where
-
-    -- | A predicate that must be true, otherwise contract creation will fail.
-    ensure : c -> Bool
-    ensure _ = True
-
-    -- | The signatories of a contract.
-    signatory : c -> [Party]
-
-    -- | The observers of a contract.
-    observer : c -> [Party]
-    observer _ = []
-
-    -- | The agreement text of a contract.
-    agreement : c -> Text
-    agreement _ = ""
-
-    -- | HIDE
-    internalCreate : c -> Update (ContractId c)
-    internalCreate = magic @"create"
-
-    -- | HIDE
-    internalFetch : ContractId c -> Update c
-    internalFetch = magic @"fetch"
-
-    -- | HIDE
-    internalArchive : ContractId c -> Update ()
-    internalArchive = magic @"archive"
-
-
--- Deliberately not exported.
--- | HIDE
-data Consuming = PreConsuming  -- Archive before executing exercise body.
-               | PostConsuming -- Execute exercise body then archive.
-               | NonConsuming  -- Don't archive.
-
--- | HIDE
-nonconsuming : NoEvent c e -> Consuming
-nonconsuming _ = NonConsuming
-
--- | HIDE
-preconsuming : NoEvent c e -> Consuming
-preconsuming _ = PreConsuming
-
--- | HIDE
-postconsuming : NoEvent c e -> Consuming
-postconsuming _ = PostConsuming
-
-class Template c => Choice c e r | c e -> r where
-    -- | HIDE
-    consuming : NoEvent c e -> Consuming
-    consuming = preconsuming
-    
-    -- | The controller of a choice on a contract.
-    choiceController : c -> e -> [Party]
-    -- | The follow-up update of a choice on a contract.
-    choice : c -> ContractId c -> e -> Update r
-
-    -- | HIDE
-    internalExercise : ContractId c -> e -> Update r
-    internalExercise = magic @"exercise"
-
+data NonConsuming t = NonConsuming {}
+data PreConsuming t = PreConsuming {}
+data PostConsuming t = PostConsuming {}
 
 -- | The data type corresponding to the implicit `Archive`
 -- choice in every template.
-data Archive = Archive
+data Archive = Archive {}
+  deriving (Eq, Show)
 
-instance Template c => Choice c Archive () where
-    choiceController c _ = signatory c
-    choice _ _ _ = return ()
-
-    internalExercise c Archive = internalArchive c
-
--- | HIDE
-data NoEvent c e = NoEvent
+data HasKey t = HasKey {}
 
 -- | Accepted ways to specify a list of parties: either a single party, or a list of parties.
 class IsParties a where
@@ -176,20 +112,3 @@ instance IsParties [Party] where
 instance IsParties (Optional Party) where
   toParties None = []
   toParties (Some p) = [p]
-
-class Template c => TemplateKey c k | c -> k where
-    -- | The key of a contract.
-    key : c -> k
-
-    -- | The maintainers of the contract key. The maintainers guarantee
-    -- that contract keys are unique: this means that keys are only unique
-    -- to the specified maintainers.
-    maintainer : k -> [Party]
-
-    -- | HIDE
-    internalFetchByKey : k -> Update (Pair "contractId" "contract" (ContractId c) c)
-    internalFetchByKey = magic @"fetchByKey"
-
-    -- | HIDE
-    internalLookupByKey : k -> Update (Optional (ContractId c))
-    internalLookupByKey = magic @"lookupByKey"

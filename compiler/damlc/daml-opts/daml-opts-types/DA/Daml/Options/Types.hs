@@ -1,11 +1,12 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.Options.Types
     ( Options(..)
     , EnableScenarioService(..)
     , ScenarioValidation(..)
-    , HlintUsage(..)
+    , DlintUsage(..)
+    , Haddock(..)
     , defaultOptionsIO
     , defaultOptions
     , mkOptions
@@ -58,17 +59,22 @@ data Options = Options
     -- ^ Controls whether the scenario service server runs all checks
     -- or only a subset of them. This is mostly used to run additional
     -- checks on CI while keeping the IDE fast.
-  , optHlintUsage :: HlintUsage
-  -- ^ Information about hlint usage.
+  , optDlintUsage :: DlintUsage
+  -- ^ Information about dlint usage.
   , optIsGenerated :: Bool
     -- ^ Whether we're compiling generated code. Then we allow internal imports.
   , optCoreLinting :: Bool
     -- ^ Whether to enable linting of the generated GHC Core. (Used in testing.)
+  , optHaddock :: Haddock
+    -- ^ Whether to enable lexer option `Opt_Haddock` (default is `Haddock False`).
   } deriving Show
 
-data HlintUsage
-  = HlintEnabled { hlintUseDataDir::FilePath }
-  | HlintDisabled
+newtype Haddock = Haddock Bool
+  deriving Show
+
+data DlintUsage
+  = DlintEnabled { dlintUseDataDir :: FilePath, dlintAllowOverrides :: Bool }
+  | DlintDisabled
   deriving Show
 
 data ScenarioValidation
@@ -107,20 +113,23 @@ mkOptions opts@Options {..} = do
     defaultPkgDb <- locateRunfiles (mainWorkspace </> "compiler" </> "damlc" </> "pkg-db")
     let defaultPkgDbDir = defaultPkgDb </> "pkg-db_dir"
     pkgDbs <- filterM Dir.doesDirectoryExist [defaultPkgDbDir, projectPackageDatabase]
-    case optHlintUsage of
-      HlintEnabled dir -> checkDirExists dir
-      HlintDisabled -> return ()
+    case optDlintUsage of
+      DlintEnabled dir _ -> checkDirExists dir
+      DlintDisabled -> return ()
     pure opts {optPackageDbs = map (</> versionSuffix) $ pkgDbs ++ optPackageDbs}
   where checkDirExists f =
           Dir.doesDirectoryExist f >>= \ok ->
           unless ok $ fail $ "Required directory does not exist: " <> f
         versionSuffix = renderPretty optDamlLfVersion
 
--- | Default configuration for the compiler with package database set according to daml-lf version
--- and located runfiles. If the version argument is Nothing it is set to the default daml-lf
--- version.
+-- | Default configuration for the compiler with package database set
+-- according to daml-lf version and located runfiles. If the version
+-- argument is Nothing it is set to the default daml-lf
+-- version. Linting is enabled but not '.dlint.yaml' overrides.
 defaultOptionsIO :: Maybe LF.Version -> IO Options
-defaultOptionsIO mbVersion = mkOptions $ defaultOptions mbVersion
+defaultOptionsIO mbVersion = do
+  dlintDataDir <-locateRunfiles $ mainWorkspace </> "compiler/damlc/daml-ide-core"
+  mkOptions $ (defaultOptions mbVersion){optDlintUsage=DlintEnabled dlintDataDir False}
 
 defaultOptions :: Maybe LF.Version -> Options
 defaultOptions mbVersion =
@@ -139,9 +148,10 @@ defaultOptions mbVersion =
         , optGhcCustomOpts = []
         , optScenarioService = EnableScenarioService True
         , optScenarioValidation = ScenarioValidationFull
-        , optHlintUsage = HlintDisabled
+        , optDlintUsage = DlintDisabled
         , optIsGenerated = False
         , optCoreLinting = False
+        , optHaddock = Haddock False
         }
 
 getBaseDir :: IO FilePath

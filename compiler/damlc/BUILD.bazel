@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_test")
@@ -17,14 +17,14 @@ da_haskell_binary(
         "-optl-pthread",
     ] if is_windows else [],
     data = [
-        "//compiler/damlc/daml-ide-core:hlint.yaml",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
     hazel_deps = [
         "base",
     ],
-    src_strip_prefix = "src",
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
@@ -46,7 +46,7 @@ da_haskell_binary(
     hazel_deps = [
         "base",
     ],
-    src_strip_prefix = "src",
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
@@ -58,7 +58,7 @@ package_app(
     binary = ":damlc",
     resources = [
         ":ghc-pkg-dist",
-        "//compiler/damlc/daml-ide-core:hlint.yaml",
+        "//compiler/damlc/daml-ide-core:dlint.yaml",
         "//compiler/damlc/pkg-db",
         "//compiler/scenario-service/server:scenario_service_jar",
     ],
@@ -73,7 +73,7 @@ package_app(
     # bin/ghc-pkg is actually a wrapper script on Unix systems so it is
     # important that we use lib/ghc-$VERSION/bin/ghc-pkg instead which is the
     # actual executable.
-    binary = "@io_tweag_rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg",
+    binary = "@rules_haskell_ghc_windows_amd64//:bin/ghc-pkg.exe" if is_windows else "@ghc_nix//:lib/ghc-8.6.5/bin/ghc-pkg",
     visibility = ["//visibility:public"],
 )
 
@@ -124,6 +124,7 @@ da_haskell_library(
         "unordered-containers",
         "uniplate",
     ],
+    src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
@@ -289,7 +290,7 @@ genrule(
 
 daml_doc_test(
     name = "daml-stdlib-doctest",
+    package_name = "daml-stdlib",
     srcs = ["//compiler/damlc/daml-stdlib-src"],
-    damlc_flags = "--package-name=daml-stdlib",
     ignored_srcs = ["LibraryModules.daml"],
 )

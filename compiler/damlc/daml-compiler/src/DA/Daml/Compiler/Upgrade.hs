@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 --
 
@@ -37,6 +37,7 @@ import "ghc-lib-parser" FastString
 import "ghc-lib-parser" Bag
 import "ghc-lib-parser" TcEvidence (HsWrapper(..))
 import Control.Monad
+import SdkVersion
 
 -- | Generate a module containing generic instances for data types that don't have them already.
 generateGenInstancesModule :: String -> (String, ParsedSource) -> String
@@ -231,7 +232,6 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
         noLoc $
         mkRdrQual (mkModuleName "DA.Internal.Template") $
         mkOccName varName "Template" :: LHsType GhcPs
-    sigRdrName = noLoc $ mkRdrUnqual $ mkOccName varName "signatory"
     errTooManyNameComponents cs =
         error $
         "Internal error: Dalf contains type constructors with more than two name components: " <>
@@ -244,6 +244,71 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             , length dataTyCon == 2
             , LF.DataRecord fs <- [dataCons]
             ]
+    templateMethodNames =
+        map mkRdrName
+            [ "signatory"
+            , "observer"
+            , "agreement"
+            , "fetch"
+            , "ensure"
+            , "create"
+            , "archive"
+            ]
+    classMethodStub :: Located RdrName -> LHsBindLR GhcPs GhcPs
+    classMethodStub funName =
+        noLoc $
+        FunBind
+            { fun_ext = noExt
+            , fun_id = funName
+            , fun_matches =
+                  MG
+                      { mg_ext = noExt
+                      , mg_alts =
+                            noLoc
+                                [ noLoc $
+                                  Match
+                                      { m_ext = noExt
+                                      , m_ctxt =
+                                            FunRhs
+                                                { mc_fun = funName
+                                                , mc_fixity = Prefix
+                                                , mc_strictness = NoSrcStrict
+                                                }
+                                      , m_pats = []
+                                      , m_rhs_sig = Nothing
+                                      , m_grhss =
+                                            GRHSs
+                                                { grhssExt = noExt
+                                                , grhssGRHSs =
+                                                      [ noLoc $
+                                                        GRHS
+                                                            noExt
+                                                            []
+                                                            (noLoc $
+                                                             HsApp
+                                                                 noExt
+                                                                 (noLoc $
+                                                                  HsVar
+                                                                      noExt
+                                                                      (noLoc
+                                                                           error_RDR))
+                                                                 (noLoc $
+                                                                  HsLit noExt $
+                                                                  HsString
+                                                                      NoSourceText $
+                                                                  mkFastString
+                                                                      "undefined template class method in generated code"))
+                                                      ]
+                                                , grhssLocalBinds =
+                                                      noLoc emptyLocalBinds
+                                                }
+                                      }
+                                ]
+                      , mg_origin = Generated
+                      }
+            , fun_co_fn = WpHole
+            , fun_tick = []
+            }
     decls =
         concat $ do
             LF.DefDataType {..} <- NM.toList $ LF.moduleDataTypes m
@@ -303,71 +368,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
                                             HsAppTy noExt templateTy $
                                             noLoc $ convType templType
                                       }
-                            , cid_binds =
-                                  listToBag
-                                      [ noLoc $
-                                        FunBind
-                                            { fun_ext = noExt
-                                            , fun_id = sigRdrName
-                                            , fun_matches =
-                                                  MG
-                                                      { mg_ext = noExt
-                                                      , mg_alts =
-                                                            noLoc
-                                                                [ noLoc $
-                                                                  Match
-                                                                      { m_ext =
-                                                                            noExt
-                                                                      , m_ctxt =
-                                                                            FunRhs
-                                                                                { mc_fun =
-                                                                                      sigRdrName
-                                                                                , mc_fixity =
-                                                                                      Prefix
-                                                                                , mc_strictness =
-                                                                                      NoSrcStrict
-                                                                                }
-                                                                      , m_pats = []
-                                                                      , m_rhs_sig =
-                                                                            Nothing
-                                                                      , m_grhss =
-                                                                            GRHSs
-                                                                                { grhssExt =
-                                                                                      noExt
-                                                                                , grhssGRHSs =
-                                                                                      [ noLoc $
-                                                                                        GRHS
-                                                                                            noExt
-                                                                                            [
-                                                                                            ]
-                                                                                            (noLoc $
-                                                                                             HsApp
-                                                                                                 noExt
-                                                                                                 (noLoc $
-                                                                                                  HsVar
-                                                                                                      noExt
-                                                                                                      (noLoc
-                                                                                                           error_RDR))
-                                                                                                 (noLoc $
-                                                                                                  HsLit
-                                                                                                      noExt $
-                                                                                                  HsString
-                                                                                                      NoSourceText $
-                                                                                                  mkFastString
-                                                                                                      "undefined template class method in generated code"))
-                                                                                      ]
-                                                                                , grhssLocalBinds =
-                                                                                      noLoc
-                                                                                      emptyLocalBinds
-                                                                                }
-                                                                      }
-                                                                ]
-                                                      , mg_origin = Generated
-                                                      }
-                                            , fun_co_fn = WpHole
-                                            , fun_tick = []
-                                            }
-                                      ]
+                            , cid_binds = listToBag $ map classMethodStub templateMethodNames
                             , cid_sigs = []
                             , cid_tyfam_insts = []
                             , cid_datafam_insts = []
@@ -540,7 +541,7 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
     mkGhcType =
         HsTyVar noExt NotPromoted .
         noLoc . mkOrig gHC_TYPES . mkOccName varName
-    damlStdlibUnitId = stringToUnitId "daml-stdlib"
+    damlStdlibUnitId = stringToUnitId damlStdlib
     mkLfInternalType =
         HsTyVar noExt NotPromoted .
         noLoc .
@@ -627,20 +628,18 @@ generateSrcFromLf (Qualify qualify) thisPkgId pkgMap m = noLoc mod
             LF.BTInt64 -> (primUnitId, translateModName intTyCon)
             LF.BTDecimal -> (primUnitId, LF.ModuleName ["GHC", "Types"])
             LF.BTText -> (primUnitId, LF.ModuleName ["GHC", "Types"])
-            LF.BTTimestamp -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTDate -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTParty -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTTimestamp -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTDate -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTParty -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTUnit -> (primUnitId, translateModName unitTyCon)
             LF.BTBool -> (primUnitId, translateModName boolTyCon)
             LF.BTList -> (primUnitId, translateModName listTyCon)
-            LF.BTUpdate -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTScenario -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTContractId -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
-            LF.BTOptional -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
-            LF.BTMap -> (stdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTUpdate -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTScenario -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTContractId -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
+            LF.BTOptional -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "Prelude"])
+            LF.BTMap -> (damlStdlibUnitId, LF.ModuleName ["DA", "Internal", "LF"])
             LF.BTArrow -> (primUnitId, translateModName funTyCon)
-
-    stdlibUnitId = stringToUnitId "daml-stdlib"
 
     translateModName ::
            forall a. NamedThing a

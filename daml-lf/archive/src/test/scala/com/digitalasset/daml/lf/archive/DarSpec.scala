@@ -1,15 +1,15 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.archive
 
-import org.scalacheck.{Arbitrary, Gen, Properties}
-import org.scalatest.prop.Checkers
+import com.digitalasset.daml.lf.data.FlatSpecCheckLaws
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.{FlatSpec, Matchers}
 import scalaz.std.anyVal._
 import scalaz.scalacheck.ScalazProperties
 
-class DarSpec extends FlatSpec with Matchers with Checkers {
+class DarSpec extends FlatSpec with Matchers with FlatSpecCheckLaws {
   behavior of s"${Dar.getClass.getSimpleName} Equal"
   checkLaws(ScalazProperties.equal.laws[Dar[Int]])
 
@@ -18,9 +18,6 @@ class DarSpec extends FlatSpec with Matchers with Checkers {
 
   behavior of s"${Dar.getClass.getSimpleName} Functor"
   checkLaws(ScalazProperties.functor.laws[Dar])
-
-  private def checkLaws(props: Properties): Unit =
-    props.properties foreach { case (s, p) => it should s in check(p) }
 
   private def darGen[A: Arbitrary]: Gen[Dar[A]] =
     for {

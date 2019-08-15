@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 package com.digitalasset.platform.sandbox.stores.ledger.sql.serialisation
 
@@ -11,7 +11,7 @@ import com.digitalasset.ledger.EventId
 
 trait TransactionSerializer {
 
-  def serialiseTransaction(
+  def serializeTransaction(
       transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
     : Either[EncodeError, Array[Byte]]
 
@@ -32,7 +32,7 @@ object TransactionSerializer extends TransactionSerializer {
         e => DecodeError(s"cannot decode noid: $e")
       )
 
-  override def serialiseTransaction(
+  override def serializeTransaction(
       transaction: GenTransaction[EventId, AbsoluteContractId, VersionedValue[AbsoluteContractId]])
     : Either[EncodeError, Array[Byte]] =
     TransactionCoder

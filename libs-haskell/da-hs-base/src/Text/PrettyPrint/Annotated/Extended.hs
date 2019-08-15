@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | A version of "Text.PrettyPrinting.Annotated" with combinators that
@@ -34,7 +34,7 @@ import qualified Data.Text             as T
 import Data.List
 
 import           Text.PrettyPrint.Annotated.HughesPJ
-          hiding ( (<>), (<+>), empty, style, text, ($+$)
+          hiding ( (<>), (<+>), style, text, ($+$)
                  )
 import qualified Text.PrettyPrint.Annotated.HughesPJ  as PP
 

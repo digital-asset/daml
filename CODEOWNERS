@@ -15,7 +15,6 @@ azure-cron.yml      @garyverhaegen-da
 
 # Language
 /compiler/          @hurryabit
-/daml-foundations/  @hurryabit
 /libs-haskell/      @hurryabit
 /daml-assistant/    @associahedron
 
@@ -29,7 +28,7 @@ azure-cron.yml      @garyverhaegen-da
 /daml-lf/validation/    @remyhaemmerle-da
 
 /ledger/      @gerolf-da @rautenrieth-da @stefanobaghino-da
-/ledger-api/  @gerolf-da
+/ledger-api/  @gerolf-da @stefanobaghino-da
 
 # Ecosystems
 /language-support/hs/       @nickchapman-da
@@ -41,4 +40,4 @@ azure-cron.yml      @garyverhaegen-da
 /navigator/         @rautenrieth-da
 
 # Misc
-/docs/              @bethaitman
+/docs/              @bame-da

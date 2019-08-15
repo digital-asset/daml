@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -13,12 +13,8 @@ final case class TransactionVersion(protoValue: String)
   * Currently supported versions of the DAML-LF transaction specification.
   */
 object TransactionVersions
-    extends LfVersions(
-      /** NOTE: If you add a new version you will need to add it to
-        * [[VersionTimeline.inAscendingOrder]] as well! */
-      maxVersion = TransactionVersion("8"),
-      previousVersions = List("1", "2", "3", "4", "5", "6", "7") map TransactionVersion
-    )(_.protoValue) {
+    extends LfVersions(versionsAscending = VersionTimeline.ascendingVersions[TransactionVersion])(
+      _.protoValue) {
 
   private[this] val minVersion = TransactionVersion("1")
   private[transaction] val minKeyOrLookupByKey = TransactionVersion("3")

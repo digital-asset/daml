@@ -4,15 +4,10 @@
 daml 1.2
 module EqContractId where
 
-data Foo = Foo{p : Party}
-
-instance Template Foo where
-  signatory Foo{p} = [p]
-
-data Bar = Bar{}
-instance Choice Foo Bar () where
-  choiceController Foo{p} _ = [p]
-  choice _ _ _ = return ()
+template Foo with
+    p: Party
+  where
+  signatory p
 
 main = scenario do
   alice <- getParty "Alice"

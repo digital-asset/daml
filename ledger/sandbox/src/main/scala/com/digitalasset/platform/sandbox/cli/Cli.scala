@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.cli
@@ -113,6 +113,10 @@ object Cli {
         config.copy(tlsConfig =
           config.tlsConfig.fold(Some(TlsConfiguration(true, None, None, Some(new File(path)))))(c =>
             Some(c.copy(trustCertCollectionFile = Some(new File(path)))))))
+
+    opt[Int]("maxInboundMessageSize")
+      .action((x, c) => c.copy(maxInboundMessageSize = x))
+      .text(s"Max inbound message size in bytes. Defaults to ${SandboxConfig.DefaultMaxInboundMessageSize}.")
 
     opt[String]("jdbcurl")
       .optional()

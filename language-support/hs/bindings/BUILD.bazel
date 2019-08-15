@@ -1,8 +1,9 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_library", "da_haskell_repl", "da_haskell_test")
 load("//rules_daml:daml.bzl", "daml_compile")
+load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_library(
     name = "hs-ledger",
@@ -33,9 +34,9 @@ da_haskell_library(
 )
 
 daml_compile(
-    name = "quickstart",
-    srcs = glob(["test/daml/quickstart/*.daml"]),
-    main_src = "test/daml/quickstart/Main.daml",
+    name = "for-tests",
+    srcs = glob(["test/daml/for-tests/*.daml"]),
+    main_src = "test/daml/for-tests/Main.daml",
 )
 
 daml_compile(
@@ -48,11 +49,12 @@ da_haskell_test(
     name = "test",
     srcs = glob(["test/**/*.hs"]),
     data = [
+        ":for-tests.dar",
         ":for-upload.dar",
-        ":quickstart.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
-    flaky = True,  # FIXME Remove this once #1927 is solved
+    # Sometimes, we seem to be seeing segfaults on Windows.
+    flaky = is_windows,
     hazel_deps = [
         "async",
         "base",

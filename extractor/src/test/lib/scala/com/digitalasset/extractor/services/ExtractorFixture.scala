@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.extractor.services
@@ -93,7 +93,7 @@ trait ExtractorFixture extends SandboxFixture with PostgresAround with Types {
   protected def run(): Unit = {
     val config: ExtractorConfig = configureExtractor(baseConfig.copy(ledgerPort = getSandboxPort))
 
-    extractor = new Extractor(config, target)
+    extractor = new Extractor(config, target)()
 
     val res = extractor.run()
 

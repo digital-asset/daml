@@ -1,11 +1,22 @@
 -- Copyright (c) 2019, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+-- Test the serializability checker for DAML LF.
+-- We use the template typeclass and instances directly as otherwise the error
+-- is caught prior due to missing Eq and Show instances.
+
 -- @ERROR expected serializable type
 daml 1.2
 module Unserializable where
 
-data Unserializable = Unserializable{f : Text -> Text}
+newtype Function a b = Function (a -> b)
 
-instance Template Unserializable where
-    signatory Unserializable{} = []
+instance Show (Function a b) where show _ = "<function>"
+
+instance Eq (Function a b) where _ == _ = True
+
+template Unserializable with
+    p : Party
+    f : Function Text Text
+  where
+    signatory p

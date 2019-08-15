@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.sandbox.stores
@@ -118,7 +118,9 @@ class ActiveContractsManager[ACS](initialState: => ACS)(implicit ACS: ACS => Act
                     .getOrElse(nodeId, Set.empty) diff nc.stakeholders).toList
                     .map(p => p -> transactionId)
                     .toMap,
-                  key = nc.key
+                  key = nc.key,
+                  signatories = nc.signatories,
+                  observers = nc.stakeholders.diff(nc.signatories)
                 )
                 activeContract.key match {
                   case None =>
@@ -197,6 +199,8 @@ object ActiveContracts {
       contract: ContractInst[VersionedValue[AbsoluteContractId]],
       witnesses: Set[Party],
       divulgences: Map[Party, TransactionIdString], // for each party, the transaction id at which the contract was divulged
-      key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]])
+      key: Option[KeyWithMaintainers[VersionedValue[AbsoluteContractId]]],
+      signatories: Set[Party],
+      observers: Set[Party])
 
 }

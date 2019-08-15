@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -13,7 +13,7 @@ module DA.Daml.Doc.Driver
 
 import DA.Daml.Doc.Types
 import DA.Daml.Doc.Render
-import DA.Daml.Doc.HaddockParse
+import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Transform
 
 import Development.IDE.Types.Location
@@ -45,6 +45,7 @@ data DamldocOptions = DamldocOptions
     , do_inputFiles :: [NormalizedFilePath]
     , do_docTitle :: Maybe T.Text
     , do_combine :: Bool
+    , do_extractOptions :: ExtractOptions
     }
 
 data InputFormat = InputJson | InputDaml
@@ -82,7 +83,7 @@ inputDocData DamldocOptions{..} = do
             concatMapM (either printAndExit pure) mbData
 
         InputDaml -> onErrorExit . runExceptT $
-            mkDocs do_ideOptions do_inputFiles
+            extractDocs do_extractOptions do_ideOptions do_inputFiles
 
 -- | Output doc data.
 renderDocData :: DamldocOptions -> [ModuleDoc] -> IO ()

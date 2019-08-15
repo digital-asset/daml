@@ -1,0 +1,193 @@
+-- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- This test demonstrates how the desugared form of the generical proposal
+-- workflow and its instantiation for an IOU look like.
+-- @SINCE-LF 1.5
+daml 1.2
+module ProposalDesugared
+  ( main
+  ) where
+
+import DA.Assert
+import DA.List
+import DA.Text
+
+
+-- The generic `Proposal a` template in its desugared form.
+data Proposal t = Proposal with
+    asset : t
+    receivers : [Party]
+    name : Text
+  deriving (Eq, Show)
+
+instance ProposalInstance t => Template (Proposal t) where
+    signatory = _signatoryProposal
+    observer = _observerProposal
+    ensure = _ensureProposal
+    agreement = _agreementProposal
+    create = _createProposal
+    fetch = _fetchProposal
+    archive = _archiveProposal
+
+instance ProposalInstance t => TemplateKey (Proposal t) ([Party], Text) where
+    key = _keyProposal
+    fetchByKey = _fetchByKeyProposal
+    lookupByKey = _lookupByKeyProposal
+
+data Accept = Accept{}
+  deriving (Eq, Show)
+
+instance ProposalInstance t => Choice (Proposal t) Accept (ContractId t) where
+    exercise = _exerciseProposalAccept
+
+instance ProposalInstance t => Choice (Proposal t) Archive () where
+    exercise = _exerciseProposalArchive
+
+class Template t => ProposalInstance t where
+    _signatoryProposal : Proposal t -> [Party]
+    _signatoryProposal this@Proposal{..} = signatory asset \\ receivers
+    _observerProposal : Proposal t -> [Party]
+    _observerProposal this@Proposal{..} = receivers
+    _ensureProposal : Proposal t -> Bool
+    _ensureProposal this@Proposal{..} = True
+    _agreementProposal : Proposal t -> Text
+    _agreementProposal this@Proposal{..} = implode
+        [ "Proposal:\n"
+        , "* proposers: " <> show (signatory this) <> "\n"
+        , "* receivers: " <> show receivers <> "\n"
+        , "* agreement: " <> agreement asset
+        ]
+    _createProposal : Proposal t -> Update (ContractId (Proposal t))
+    _createProposal = error "code will be injected by the compiler"
+    _fetchProposal : ContractId (Proposal t) -> Update (Proposal t)
+    _fetchProposal = error "code will be injected by the compiler"
+    _archiveProposal : ContractId (Proposal t) -> Update ()
+    _archiveProposal cid = _exerciseProposalArchive cid Archive
+
+    _hasKeyProposal : HasKey (Proposal t)
+    _hasKeyProposal = HasKey
+    _keyProposal : Proposal t -> ([Party], Text)
+    _keyProposal this@Proposal{..} = (signatory this, name)
+    _maintainerProposal : HasKey (Proposal t) -> ([Party], Text) -> [Party]
+    _maintainerProposal HasKey key = fst key
+    _fetchByKeyProposal : ([Party], Text) -> Update (ContractId (Proposal t), Proposal t)
+    _fetchByKeyProposal = error "code will be injected by the compiler"
+    _lookupByKeyProposal : ([Party], Text) -> Update (Optional (ContractId (Proposal t)))
+    _lookupByKeyProposal = error "code will be injected by the compiler"
+
+    _consumptionProposalArchive : PreConsuming (Proposal t)
+    _consumptionProposalArchive = PreConsuming
+    _controllerProposalArchive : Proposal t -> Archive -> [Party]
+    _controllerProposalArchive this@Proposal{..} arg@Archive = _signatoryProposal this
+    _actionProposalArchive : ContractId (Proposal t) -> Proposal t -> Archive -> Update ()
+    _actionProposalArchive self this@Proposal{..} arg@Archive = do
+        pure ()
+    _exerciseProposalArchive : ContractId (Proposal t) -> Archive -> Update ()
+    _exerciseProposalArchive = error "code will be injected by the compiler"
+
+    _consumptionProposalAccept : PreConsuming (Proposal t)
+    _consumptionProposalAccept = PreConsuming
+    _controllerProposalAccept : Proposal t -> Accept -> [Party]
+    _controllerProposalAccept this@Proposal{..} arg@Accept = receivers
+    _actionProposalAccept : ContractId (Proposal t) -> Proposal t -> Accept -> Update (ContractId t)
+    _actionProposalAccept self this@Proposal{..} arg@Accept = do
+        create asset
+    _exerciseProposalAccept : ContractId (Proposal t) -> Accept -> Update (ContractId t)
+    _exerciseProposalAccept = error "code will be injected by the compiler"
+
+
+-- The `Iou` template in its desugared form.
+data Iou = Iou with
+    issuer : Party
+    owner : Party
+    amount : Decimal
+  deriving (Eq, Show)
+
+instance IouInstance => Template Iou where
+  signatory = _signatoryIou
+  observer = _observerIou
+  ensure = _ensureIou
+  agreement = _agreementIou
+  create = _createIou
+  fetch = _fetchIou
+  archive = _archiveIou
+
+data Burn = Burn{}
+  deriving (Eq, Show)
+
+instance IouInstance => Choice Iou Burn () where
+  exercise = _exerciseIouBurn
+
+instance IouInstance => Choice Iou Archive () where
+  exercise = _exerciseIouArchive
+
+class IouInstance where
+  _signatoryIou : Iou -> [Party]
+  _signatoryIou this@Iou{..} = [issuer, owner]
+  _observerIou : Iou -> [Party]
+  _observerIou this@Iou{..} = []
+  _ensureIou : Iou -> Bool
+  _ensureIou this@Iou{..} = amount > 0.0
+  _agreementIou : Iou -> Text
+  _agreementIou this@Iou{..} =
+      show issuer <> " owns " <> show owner <> " CHF " <> show amount
+  _createIou : Iou -> Update (ContractId Iou)
+  _createIou = error "code will be injected by the compiler"
+  _fetchIou : ContractId Iou -> Update Iou
+  _fetchIou = error "code will be injected by the compiler"
+  _archiveIou : ContractId Iou -> Update ()
+  _archiveIou cid = _exerciseIouArchive cid Archive
+
+  _consumptionIouArchive : PreConsuming Iou
+  _consumptionIouArchive = PreConsuming
+  _controllerIouArchive : Iou -> Archive -> [Party]
+  _controllerIouArchive this@Iou{..} arg@Archive = _signatoryIou this
+  _actionIouArchive : ContractId Iou -> Iou -> Archive -> Update ()
+  _actionIouArchive self this@Iou{..} arg@Archive = do
+    pure ()
+  _exerciseIouArchive : ContractId Iou -> Archive -> Update ()
+  _exerciseIouArchive = error "code will be injected by the compiler"
+
+  _consumptionIouBurn : PreConsuming Iou
+  _consumptionIouBurn = PreConsuming
+  _controllerIouBurn : Iou -> Burn -> [Party]
+  _controllerIouBurn this@Iou{..} arg@Burn = [owner]
+  _actionIouBurn : ContractId Iou -> Iou -> Burn -> Update ()
+  _actionIouBurn self this@Iou{..} arg@Burn = do
+    pure ()
+  _exerciseIouBurn : ContractId Iou -> Burn -> Update ()
+  _exerciseIouBurn = error "code will be injected by the compiler"
+
+instance IouInstance where
+
+
+-- The instantiation of the generic `Proposal a` template for `a = Iou`
+-- in its deugared form.
+newtype ProposalIou = MkProposalIou with unProposalIou : Proposal Iou -- ^ TEMPLATE_INSTANCE
+
+instance ProposalInstance Iou where
+
+
+-- A scenario.
+main = scenario do
+  alice <- getParty "alice"
+  bank <- getParty "bank"
+  let iou = Iou with issuer = bank; owner = alice; amount = 10.0
+  let prop = Proposal with asset = iou; receivers = [alice]; name = "present"
+  propId <- submit bank do
+    create prop
+  (propId', prop') <- submit bank do
+    fetchByKey @(Proposal Iou) ([bank], "present")
+  propId' === propId
+  prop' === prop
+  mbPropId <- submit bank do
+    lookupByKey @(Proposal Iou) ([bank], "present")
+  mbPropId === Some propId
+  iouId <- submit alice do
+    exercise propId Accept
+  iou' <- submit alice do
+    fetch iouId
+  iou' === iou
+  submit alice do
+    exercise iouId Burn

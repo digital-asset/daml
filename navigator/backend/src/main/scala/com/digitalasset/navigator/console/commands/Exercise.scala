@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.navigator.console.commands
@@ -7,12 +7,13 @@ import java.util.concurrent.TimeUnit
 
 import com.digitalasset.ledger.api.refinements.ApiTypes
 import com.digitalasset.navigator.console._
+import com.digitalasset.daml.lf.value.Value.ValueUnit
 import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.navigator.model
 import com.digitalasset.navigator.store.Store.ExerciseChoice
 import akka.pattern.ask
 import akka.util.Timeout
-import com.digitalasset.navigator.model.{ApiUnit, ApiValue}
+import com.digitalasset.navigator.model.ApiValue
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.concurrent.duration._
@@ -68,7 +69,7 @@ case object Exercise extends SimpleCommand {
         .find(c => ApiTypes.Choice.unwrap(c.name) == choice) ~> s"Unknown choice $choice"
       apiValue <- Try(
         // Use unit value if no argument is given
-        damlA.fold[ApiValue](ApiUnit)(
+        damlA.fold[ApiValue](ValueUnit)(
           arg =>
             ApiCodecCompressed.stringToApiType(
               arg.mkString(" "),

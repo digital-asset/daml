@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -149,6 +149,8 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
         vcat
           (map (prettyTraceMessage world)
                (V.toList scenarioErrorTraceLog))
+  let ppStackTraceEntry loc =
+         "-" <-> ltext (locationDefinition loc) <-> parens (prettyLocation world loc)
   pure $
     vsep $ catMaybes
     [ Just $ error_ (text "Scenario execution" <->
@@ -158,10 +160,9 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
          <-> prettyMayLocation world scenarioErrorCommitLoc <> char ':'))
       $$ nest 2 ppError
 
-    , if isNothing scenarioErrorLastLoc
+    , if V.null scenarioErrorStackTrace
       then Nothing
-      else Just $ label_ "Last source location:"
-                $ prettyMayLocation world scenarioErrorLastLoc
+      else Just $ vcat $ "Stack trace:" : map ppStackTraceEntry (reverse $ V.toList scenarioErrorStackTrace)
 
     , Just $ "Ledger time:" <-> prettyTimestamp scenarioErrorLedgerTime
 
@@ -424,8 +425,10 @@ prettyCommit txid mbLoc Transaction{..} = do
      $$ children
 
 prettyMayLocation :: LF.World -> Maybe Location -> Doc SyntaxClass
-prettyMayLocation _ Nothing = text "unknown source"
-prettyMayLocation world (Just (Location mbPkgId modName sline scol eline _ecol)) =
+prettyMayLocation world = maybe (text "unknown source") (prettyLocation world)
+
+prettyLocation :: LF.World -> Location -> Doc SyntaxClass
+prettyLocation world (Location mbPkgId modName sline scol eline _ecol _definition) =
       maybe id (\path -> linkSC (url path) title)
         (lookupModule world mbPkgId (LF.ModuleName (T.splitOn "." (TL.toStrict modName))) >>= LF.moduleSource)
     $ text title

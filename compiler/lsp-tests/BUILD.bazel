@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load("//bazel_tools:haskell.bzl", "da_haskell_binary", "da_haskell_test")
@@ -6,14 +6,11 @@ load("@os_info//:os_info.bzl", "is_windows")
 
 da_haskell_test(
     name = "lsp-tests",
+    timeout = "long",
     srcs = glob(["src/**/*.hs"]),
     data = [
         "//compiler/damlc",
     ],
-    # For some reason this test sometimes seems to time out on Windows.
-    # It hits the Bazel timeout rather than the timeout in lsp-tests
-    # so it looks like it locks up somehow.
-    flaky = is_windows,
     hazel_deps = [
         "aeson",
         "base",

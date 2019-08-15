@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 // Note: package name must correspond exactly to the flyway 'locations' setting, which defaults to 'db.migration'
@@ -12,11 +12,12 @@ import akka.stream.scaladsl.Source
 import akka.NotUsed
 import anorm.SqlParser._
 import anorm.{BatchSql, Macro, NamedParameter, RowParser, SQL, SqlParser}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Relation.Relation
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.Node.{GlobalKey, KeyWithMaintainers, NodeCreate}
 import com.digitalasset.daml.lf.value.Value.{AbsoluteContractId, ContractId}
 import com.digitalasset.ledger._
 import com.digitalasset.ledger.api.domain.RejectionReason
@@ -165,15 +166,15 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
               "name" -> c.coinst.template.qualifiedName.toString,
               "create_offset" -> offset,
               "contract" -> contractSerializer
-                .serialiseContractInstance(c.coinst)
-                .getOrElse(sys.error(s"failed to serialise contract! cid:${c.contractId.coid}")),
+                .serializeContractInstance(c.coinst)
+                .getOrElse(sys.error(s"failed to serialize contract! cid:${c.contractId.coid}")),
               "key" -> c.key
                 .map(
                   k =>
                     valueSerializer
-                      .serialiseValue(k.key)
+                      .serializeValue(k.key)
                       .getOrElse(sys.error(
-                        s"failed to serialise contract key value! cid:${c.contractId.coid}")))
+                        s"failed to serialize contract key value! cid:${c.contractId.coid}")))
           )
         )
 
@@ -437,8 +438,8 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         "effective_at" -> tx.ledgerEffectiveTime,
         "recorded_at" -> tx.recordedAt,
         "transaction" -> transactionSerializer
-          .serialiseTransaction(tx.transaction)
-          .getOrElse(sys.error(s"failed to serialise transaction! trId: ${tx.transactionId}"))
+          .serializeTransaction(tx.transaction)
+          .getOrElse(sys.error(s"failed to serialize transaction! trId: ${tx.transactionId}"))
       )
       .execute()
 
@@ -550,7 +551,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
         recordedAt.toInstant,
         transactionSerializer
           .deserializeTransaction(transactionStream)
-          .getOrElse(sys.error(s"failed to deserialise transaction! trId: $transactionId")),
+          .getOrElse(sys.error(s"failed to deserialize transaction! trId: $transactionId")),
         disclosure
       )
     case ParsedEntry(
@@ -599,11 +600,12 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
     ~ ledgerString("workflow_id")
     ~ date("recorded_at")
     ~ binaryStream("contract")
-    ~ binaryStream("key").? map (flatten))
+    ~ binaryStream("key").?
+    ~ binaryStream("transaction") map (flatten))
 
   private val SQL_SELECT_CONTRACT =
     SQL(
-      "select c.*, le.recorded_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
+      "select c.*, le.recorded_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where id={contract_id} and archive_offset is null ")
 
   private val SQL_SELECT_WITNESS =
     SQL("select witness from contract_witnesses where contract_id={contract_id}")
@@ -633,29 +635,47 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
           WorkflowId,
           Date,
           InputStream,
-          Option[InputStream]))(implicit conn: Connection) =
+          Option[InputStream],
+          InputStream))(implicit conn: Connection) =
     contractResult match {
-      case (coid, transactionId, workflowId, createdAt, contractStream, keyStreamO) =>
+      case (coid, transactionId, workflowId, createdAt, contractStream, keyStreamO, tx) =>
         val witnesses = lookupWitnesses(coid)
         val divulgences = lookupDivulgences(coid)
+        val absoluteCoid = AbsoluteContractId(coid)
+
+        val (signatories: Set[Ref.Party], observers: Set[Ref.Party]) =
+          transactionSerializer
+            .deserializeTransaction(ByteStreams.toByteArray(tx))
+            .getOrElse(sys.error(s"failed to deserialize transaction! cid:$coid"))
+            .nodes
+            .collectFirst {
+              case (_, NodeCreate(coid, _, _, signatories, stakeholders, _))
+                  if coid == absoluteCoid =>
+                (signatories, stakeholders diff signatories)
+            } getOrElse {
+            logger.warn(s"Unable to read stakeholders for contract $coid, returning empty result")
+            (Set.empty, Set.empty)
+          }
 
         Contract(
-          AbsoluteContractId(coid),
+          absoluteCoid,
           createdAt.toInstant,
           transactionId,
           Some(workflowId),
           witnesses,
           divulgences,
           contractSerializer
-            .deserialiseContractInstance(ByteStreams.toByteArray(contractStream))
-            .getOrElse(sys.error(s"failed to deserialise contract! cid:$coid")),
+            .deserializeContractInstance(ByteStreams.toByteArray(contractStream))
+            .getOrElse(sys.error(s"failed to deserialize contract! cid:$coid")),
           keyStreamO.map(keyStream => {
             val keyMaintainers = lookupKeyMaintainers(coid)
             val keyValue = valueSerializer
-              .deserialiseValue(ByteStreams.toByteArray(keyStream))
-              .getOrElse(sys.error(s"failed to deserialise key value! cid:$coid"))
+              .deserializeValue(ByteStreams.toByteArray(keyStream))
+              .getOrElse(sys.error(s"failed to deserialize key value! cid:$coid"))
             KeyWithMaintainers(keyValue, keyMaintainers)
-          })
+          }),
+          signatories,
+          observers
         )
     }
 
@@ -707,7 +727,7 @@ class V2_1__Rebuild_Acs extends BaseJavaMigration {
 
   private val SQL_SELECT_ACTIVE_CONTRACTS =
     SQL(
-      "select c.*, le.recorded_at from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
+      "select c.*, le.recorded_at, le.transaction from contracts c inner join ledger_entries le on c.transaction_id = le.transaction_id where create_offset <= {offset} and (archive_offset is null or archive_offset > {offset})")
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {

@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE NoImplicitPrelude #-}
@@ -23,7 +23,7 @@ import GHC.Real as GHC (fromRational)
 import GHC.Show as GHC
 import DA.Types as GHC (Either(..))
 import GHC.Tuple()
-import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive)
+import GHC.Types as GHC (Bool (..), Int, Ordering (..), Text, Decimal, ifThenElse, primitive, magic)
 
 infixr 0 $
 -- | Take a function from `a` to `b` and a value of type `a`, and apply the

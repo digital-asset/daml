@@ -4,7 +4,7 @@
 
 ### Start sandbox from a DAML Assistant project directory
 ```
-daml-head sandbox --wall-clock-time ./.daml/dist/quickstart.dar
+daml-head sandbox --wall-clock-time ./.daml/dist/quickstart-0.0.1.dar
 ```
 
 ### Start HTTP service from the DAML project root
@@ -26,13 +26,47 @@ $ cd $HOME
 $ daml-head new iou-quickstart-java quickstart-java
 $ cd iou-quickstart-java/
 $ daml-head build
-$ daml-head sandbox --wall-clock-time ./.daml/dist/quickstart.dar
+$ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 
 cd <daml-root>/
 $ bazel run //ledger-service/http-json:http-json-bin -- localhost 6865 7575
 ```
 
-`Alice` party is hardcoded, the below assumes you are Alice:
+### Choosing a party
+
+You specify your party and other settings with JWT.  In testing
+environments, you can use https://jwt.io to generate your token.
+
+The default "header" is fine.  Under "Payload", fill in:
+
+```
+{
+  "ledgerId": "MyLedger",
+  "applicationId": "foobar",
+  "party": "Alice"
+}
+```
+
+Keep in mind:
+- the value of `ledgerId` payload field has to match `--ledgerid` passed to the sandbox.
+- you can replace `Alice` with whatever party you want to use.
+
+Under "Verify Signature", put `secret` as the secret (_not_ base64
+encoded); that is the hardcoded secret for testing.
+
+Then the "Encoded" box should have your token; set HTTP header
+`Authorization: Bearer copy-paste-token-here`.
+
+Here are two tokens you can use for testing:
+- `{"ledgerId": "MyLedger", "applicationId": "foobar", "party": "Alice"}`
+  `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQWxpY2UifQ.4HYfzjlYr1ApUDot0a6a4zB49zS_jrwRUOCkAiPMqo0`
+
+- `{"ledgerId": "MyLedger", "applicationId": "foobar", "party": "Bob"}`
+  `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsZWRnZXJJZCI6Ik15TGVkZ2VyIiwiYXBwbGljYXRpb25JZCI6ImZvb2JhciIsInBhcnR5IjoiQm9iIn0.2LE3fAvUzLx495JWpuSzHye9YaH3Ddt4d2Pj0L1jSjA`
+  
+For production use, we have a tool in development for generating proper
+RSA-encrypted tokens locally, which will arrive when the service also
+supports such tokens.
 
 ### GET http://localhost:7575/contracts/search
 

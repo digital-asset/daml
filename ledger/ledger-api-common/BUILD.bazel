@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -24,6 +24,7 @@ da_scala_library(
         "//3rdparty/jvm/com/google/guava",
         "//3rdparty/jvm/com/typesafe/akka:akka_stream",
         "//3rdparty/jvm/com/typesafe/scala_logging",
+        "//3rdparty/jvm/io/grpc:grpc_netty",
         "//3rdparty/jvm/io/grpc:grpc_services",
         "//3rdparty/jvm/io/zipkin/brave",
         "//3rdparty/jvm/org/scalaz:scalaz_core",

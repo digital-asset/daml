@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform.tests.integration.ledger.api
@@ -62,7 +62,7 @@ class PackageManagementServiceIT
   private case class LoadedPackage(size: Long, archive: Archive, pkg: Ast.Package)
 
   private def loadTestDar: (Array[Byte], List[LoadedPackage], String) = {
-    val file = new File(rlocation("ledger/sandbox/Test.dar"))
+    val file = new File(rlocation("ledger/test-common/Test.dar"))
 
     val testDarBytes = Files.readAllBytes(file.toPath)
 

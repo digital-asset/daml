@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf
@@ -6,6 +6,8 @@ import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.prop.GeneratorDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
+import scalaz.NonEmptyList
+import scalaz.scalacheck.ScalazArbitrary._
 
 class LfVersionsSpec extends WordSpec with Matchers with GeneratorDrivenPropertyChecks {
 
@@ -13,8 +15,8 @@ class LfVersionsSpec extends WordSpec with Matchers with GeneratorDrivenProperty
     def protoValue: String = value.toString
   }
 
-  class DummyVersions(defaultVersion: DummyVersion, otherVersions: List[DummyVersion])
-      extends LfVersions[DummyVersion](defaultVersion, otherVersions)(_.protoValue)
+  class DummyVersions(versions: NonEmptyList[DummyVersion])
+      extends LfVersions[DummyVersion](versions)(_.protoValue)
 
   case class DummyError(msg: String)
 
@@ -23,42 +25,41 @@ class LfVersionsSpec extends WordSpec with Matchers with GeneratorDrivenProperty
   implicit private val dummyVersionArb: Arbitrary[DummyVersion] = Arbitrary(dummyVersionGen)
 
   "LfVersions.acceptedVersions" should {
-    "be otherVersions + defaultVersion" in forAll {
-      (default: DummyVersion, other: List[DummyVersion]) =>
-        val versions = new DummyVersions(default, other)
-        versions.acceptedVersions shouldBe other :+ default
-        (other :+ default).forall(v => versions.acceptedVersions.contains(v)) shouldBe true
+    "be otherVersions + defaultVersion" in forAll { vs: NonEmptyList[DummyVersion] =>
+      val versions = new DummyVersions(vs)
+      versions.acceptedVersions should ===(vs.list.toList)
+      vs.list.toList.forall(v => versions.acceptedVersions.contains(v)) shouldBe true
     }
   }
 
   "LfVersions.decodeVersion" should {
     "return failure if passed version value is null, don't throw exception" in {
-      val versions = new DummyVersions(DummyVersion(1), List.empty)
+      val versions = new DummyVersions(NonEmptyList(DummyVersion(1)))
       versions.isAcceptedVersion(null) shouldBe None
     }
 
     "return failure if passed version value is an empty string, don't throw exception" in {
-      val versions = new DummyVersions(DummyVersion(1), List.empty)
+      val versions = new DummyVersions(NonEmptyList(DummyVersion(1)))
       versions.isAcceptedVersion("") shouldBe None
     }
 
     "return failure if passed version is not default and not supported" in forAll {
-      (default: DummyVersion, otherVersions: List[DummyVersion], version: DummyVersion) =>
-        whenever(default != version && !otherVersions.contains(version)) {
-          val versions = new DummyVersions(default, otherVersions)
+      (vs: NonEmptyList[DummyVersion], version: DummyVersion) =>
+        whenever(!vs.list.toList.contains(version)) {
+          val versions = new DummyVersions(vs)
           versions.acceptedVersions.contains(version) shouldBe false
           versions.isAcceptedVersion(version.protoValue) shouldBe None
         }
     }
 
     "return success if passed version is default" in forAll { default: DummyVersion =>
-      val versions = new DummyVersions(default, List.empty)
+      val versions = new DummyVersions(NonEmptyList(default))
       versions.isAcceptedVersion(default.protoValue) shouldBe Some(default)
     }
 
     "return success if passed version is one of other versions" in forAll {
-      (default: DummyVersion, other: List[DummyVersion], version: DummyVersion) =>
-        val versions = new DummyVersions(default, other :+ version)
+      (vs: NonEmptyList[DummyVersion], version: DummyVersion) =>
+        val versions = new DummyVersions(version <:: vs)
         versions.acceptedVersions.contains(version) shouldBe true
         versions.isAcceptedVersion(version.protoValue) shouldBe Some(version)
     }

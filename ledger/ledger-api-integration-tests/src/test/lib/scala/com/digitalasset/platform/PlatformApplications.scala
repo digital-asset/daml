@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.platform
@@ -98,7 +98,7 @@ object PlatformApplications {
 
   object Config {
     val defaultLedgerId: LedgerId = LedgerId(Ref.LedgerString.assertFromString("ledger-server"))
-    val defaultDarFile = new File(rlocation("ledger/sandbox/Test.dar"))
+    val defaultDarFile = new File(rlocation("ledger/test-common/Test.dar"))
     val defaultParties = TestParties.AllParties
     val defaultTimeProviderType = TimeProviderType.Static
 
@@ -129,6 +129,7 @@ object PlatformApplications {
       scenario = None,
       tlsConfig = None,
       ledgerIdMode = config.ledgerId,
+      maxInboundMessageSize = SandboxConfig.DefaultMaxInboundMessageSize,
       jdbcUrl = jdbcUrl,
       eagerPackageLoading = false,
       logLevel = Level.INFO

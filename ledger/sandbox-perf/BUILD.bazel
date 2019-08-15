@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -45,6 +45,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//external:io_bazel_rules_scala/dependency/jmh/jmh_core",
+        "//ledger/test-common",
     ] + dependencies,
 )
 
@@ -58,8 +59,8 @@ da_scala_benchmark_jmh(
     name = "sandbox-perf",
     srcs = glob(["src/perf/benches/**/*.scala"]),
     data = [
-        "//ledger/sandbox:Test.dar",
         "//ledger/sandbox-perf:LargeTransaction.dar",
+        "//ledger/test-common:Test.dar",
         "@postgresql_dev_env//:all",
         "@postgresql_dev_env//:createdb",
         "@postgresql_dev_env//:initdb",
@@ -68,6 +69,7 @@ da_scala_benchmark_jmh(
     visibility = ["//visibility:public"],
     deps = [
         ":sandbox-perf-lib",
+        "//ledger/test-common",
         "//ledger/ledger-api-integration-tests:default-it-logback-config",
     ] + dependencies,
 )

@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -145,3 +145,4 @@ t2hg _ _ (TypeTuple ts) =
 t2hg _ _ (TypeApp _ n []) = unTypename n
 t2hg _ f (TypeApp _ name args) = f $
     T.unwords (wrapOp (unTypename name) : map (t2hg inParens inParens) args)
+t2hg _ _ (TypeLit lit) = lit

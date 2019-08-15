@@ -1,10 +1,13 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.http.json
 
 import java.time.Instant
 
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value.AbsoluteContractId
+import com.digitalasset.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.http.domain
 import com.digitalasset.http.json.TaggedJsonFormat._
 import com.digitalasset.ledger.api.refinements.{ApiTypes => lar}
@@ -31,6 +34,18 @@ object JsonProtocol extends DefaultJsonProtocol {
 
   implicit val ContractIdFormat: JsonFormat[lar.ContractId] =
     taggedJsonFormat[String, lar.ContractIdTag]
+
+  object LfValueCodec
+      extends ApiCodecCompressed[AbsoluteContractId](
+        encodeDecimalAsString = true,
+        encodeInt64AsString = true) {
+    protected override def apiContractIdToJsValue(obj: AbsoluteContractId) = JsString(obj.coid)
+    protected override def jsValueToApiContractId(json: JsValue) = json match {
+      case JsString(s) =>
+        Ref.ContractIdString fromString s fold (deserializationError(_), AbsoluteContractId)
+      case _ => deserializationError("ContractId must be a string")
+    }
+  }
 
   implicit val JwtPayloadFormat: RootJsonFormat[domain.JwtPayload] = jsonFormat3(domain.JwtPayload)
 

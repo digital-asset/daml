@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -20,11 +20,18 @@ applyMove = map (foldr1 g) . groupSortOn (modulePriorityKey . md_name) . map f
             | Just new <- isMove md_descr = md{md_name = new, md_descr = Nothing}
             | otherwise = md
 
-        g m1 m2 = m1{md_adts = md_adts m1 ++ md_adts m2
-                    ,md_functions = md_functions m1 ++ md_functions m2
-                    ,md_templates = md_templates m2 ++ md_templates m2
-                    ,md_classes = md_classes m1 ++ md_classes m2
-                    }
+        g m1 m2 = ModuleDoc
+            { md_anchor = md_anchor m1
+            , md_name = md_name m1
+            , md_descr = md_descr m1
+            , md_adts = md_adts m1 ++ md_adts m2
+            , md_functions = md_functions m1 ++ md_functions m2
+            , md_templates = md_templates m2 ++ md_templates m2
+            , md_templateInstances =
+                md_templateInstances m1 ++ md_templateInstances m2
+            , md_classes = md_classes m1 ++ md_classes m2
+            , md_instances = md_instances m1 ++ md_instances m2
+            }
 
         -- Bring Prelude module to the front.
         modulePriorityKey :: Modulename -> (Int,Modulename)

@@ -1,4 +1,4 @@
--- Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 
@@ -9,27 +9,27 @@ import           DA.Bazel.Runfiles
 import           DA.Daml.Options
 import           DA.Daml.Options.Types
 
-import DA.Daml.Doc.HaddockParse
+import DA.Daml.Doc.Extract
 import DA.Daml.Doc.Render
 import DA.Daml.Doc.Types
+import DA.Daml.Doc.Transform
 import DA.Daml.Doc.Anchor
 
-import           DA.Test.Util
 import Development.IDE.Types.Location
+import Development.IDE.Types.Options (IdeReportProgress(..))
 
 import           Control.Monad.Except
 import qualified Data.Aeson.Encode.Pretty as AP
-import           Data.Algorithm.Diff (getGroupedDiff)
-import           Data.Algorithm.DiffOutput (ppDiff)
-import qualified Data.ByteString.Lazy.Char8 as BS
 import           Data.List.Extra
 import qualified Data.Text          as T
 import qualified Data.Text.Extended as T
-import qualified Data.Text.Encoding as T
+import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy.Encoding as TL
 import           System.Directory
 import           System.FilePath
 import           System.IO.Extra
 import qualified Test.Tasty.Extended as Tasty
+import           Test.Tasty.Golden
 import           Test.Tasty.HUnit
 import Data.Maybe
 
@@ -153,7 +153,7 @@ unitTests =
                                 check $ isNothing $ td_descr t
                                 f1 <- getSingle $ td_payload t
                                 check $ isNothing $ fd_descr f1
-                                ch <- getSingle $ td_choices t
+                                ch <- getSingle $ td_choicesWithoutArchive t
                                 f2 <- getSingle $ cd_fields ch
                                 check $ Just "field" == fd_descr f2))
 
@@ -177,7 +177,7 @@ unitTests =
                    ("Expected two choices in doc, got " <> show md)
                    (isJust $ do t  <- getSingle $ md_templates md
                                 check $ isNothing $ td_descr t
-                                cs <- Just $ td_choices t
+                                cs <- Just $ td_choicesWithoutArchive t
                                 check $ length cs == 2
                                 check $ ["DoMore", "DoSomething"] == sort (map cd_name cs)))
 
@@ -208,6 +208,9 @@ unitTests =
         check True = Just ()
         check False = Nothing
 
+        td_choicesWithoutArchive :: TemplateDoc -> [ChoiceDoc]
+        td_choicesWithoutArchive = filter (\ch -> cd_name ch /= "External:Archive") . td_choices
+
 
 testModule :: String
 testModule = "Testfile"
@@ -227,6 +230,7 @@ emptyDocs name =
         md_adts = []
         md_functions = []
         md_classes = []
+        md_instances = []
     in ModuleDoc {..}
 
 -- | Compiles the given input string (in a tmp file) and checks generated doc.s
@@ -239,8 +243,13 @@ damldocExpect importPathM testname input check =
     let testfile = dir </> testModule <.> "daml"
     -- write input to a file
     T.writeFileUtf8 testfile (T.unlines input)
+    doc <- runDamldoc testfile importPathM
+    check doc
 
-    opts <- defaultOptionsIO Nothing
+-- | Generate the docs for a given input file and optional import directory.
+runDamldoc :: FilePath -> Maybe FilePath -> IO ModuleDoc
+runDamldoc testfile importPathM = do
+    opts <- fmap (\opt -> opt {optHaddock=Haddock True}) $ defaultOptionsIO Nothing
 
     let opts' = opts
           { optImportPath =
@@ -249,15 +258,24 @@ damldocExpect importPathM testname input check =
           }
 
     -- run the doc generator on that file
-    mbResult <- runExceptT $ mkDocs (toCompileOpts opts') [toNormalizedFilePath testfile]
+    mbResult <- runExceptT $ extractDocs
+        defaultExtractOptions
+        (toCompileOpts opts' (IdeReportProgress False))
+        [toNormalizedFilePath testfile]
 
     case mbResult of
-      Left err -> assertFailure $ unlines
-                  ["Parse error(s) for test file " <> testname, show err]
+      Left err ->
+        assertFailure $ unlines ["Parse error(s) for test file " <> testfile, show err]
 
-      -- first module is the root we started from, so is the one that must satisfy the invariants
-      Right ms -> check $ head ms
-
+      Right docs -> do
+          let docs' = applyTransform [] docs
+                -- apply transforms to get instance data
+              name = md_name (head docs)
+                -- first module in docs is the one we're testing,
+                -- we need to find it in docs' because applyTransform
+                -- will reorder the docs
+              docM = find ((== name) . md_name) docs'
+          pure $ fromJust docM
 
 -- | For the given file <name>.daml (assumed), this test checks if any
 -- <name>.EXPECTED.<suffix> exists, and produces output according to <suffix>
@@ -274,35 +292,14 @@ fileTest damlFile = do
 
   if null expectations
     then pure []
-    else do input <- T.readFileUtf8 damlFile
-            mapM (goldenTest input) expectations
-
-  where goldenTest :: T.Text -> FilePath -> IO Tasty.TestTree
-        goldenTest input expectation =
-          let check docs = do
-                let extension = takeExtension expectation
-                ref <- T.readFileUtf8 expectation
-                case extension of
-                  ".rst"  -> expectEqual extension ref $ renderPage $ renderSimpleRst docs
-                  ".md"   -> expectEqual extension ref $ renderPage $ renderSimpleMD docs
-                  ".json" -> expectEqual extension ref
-                             (T.decodeUtf8 . BS.toStrict $
-                               AP.encodePretty' jsonConf docs)
-                  other  -> error $ "Unsupported file extension " <> other
-
-              expectEqual :: String -> T.Text -> T.Text -> Assertion
-              expectEqual extension ref actual
-                | standardizeEoL ref == standardizeEoL actual = pure ()
-                | otherwise = do
-                    let actualFile = replaceExtensions expectation ("ACTUAL" <> extension)
-                        asLines = lines . T.unpack
-                        diff = ppDiff $ getGroupedDiff (asLines ref) (asLines actual)
-
-                    T.writeFileUtf8 actualFile actual
-                    assertFailure $
-                      "Unexpected difference between " <> expectation <>
-                      " and actual output.\n" <>
-                      "Unexpected output has been written to " <> actualFile <> "\n" <>
-                      "Differences:\n" <> diff
-
-          in pure $  damldocExpect (Just $ takeDirectory damlFile) ("File: " <> expectation) [input] check
+    else do
+      doc <- runDamldoc damlFile (Just $ takeDirectory damlFile)
+      pure $ flip map expectations $ \expectation ->
+        goldenVsStringDiff ("File: " <> expectation) diff expectation $ pure $
+          case takeExtension expectation of
+            ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst $ renderModule doc
+            ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd $ renderModule doc
+            ".json" -> AP.encodePretty' jsonConf doc
+            other -> error $ "Unsupported file extension " <> other
+  where
+    diff ref new = ["diff", "--strip-trailing-cr", ref, new]

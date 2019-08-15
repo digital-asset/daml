@@ -30,7 +30,7 @@
     <logger name="io.grpc.netty" level="WARN">
             <appender-ref ref="STDERR"/>
     </logger>
-    <logger name="com.digitalasset.platform.sandbox.services" level="INFO">
+    <logger name="com.digitalasset.platform.sandbox.services" level="INFO" additivity="false">
             <appender-ref ref="STDERR"/>
     </logger>
 

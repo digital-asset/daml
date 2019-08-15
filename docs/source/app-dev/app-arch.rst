@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2019 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 Application architecture guide
@@ -163,17 +163,6 @@ Scala
 
 The Java libraries above are compatible with Scala and can be used directly.
 
-..  Javascript
-    ==========
-
-    The Javascript bindings provide a callback interface to the Ledger API, similar to the low-level Java bindings. These allow connection to the API and provided access to a similar set of services.
-
-    Events are received using a callback approach, by creating a transaction event service and registering callback that will be called when events arrive. Commands can be sent by creating a Command or Command Submission service endpoint, and calling functions on them with Javascript objects as the required command and arguments.
-
-    All other services are similar to the low-level Java bindings, with data items also as Javascript objects.
-
-    Full details can be seen in the :doc:`Javascript Bindings Tutorial </app-dev/bindings-js/index>` and the `Javascript API Reference documentation </app-dev/bindings-js/static/>`__
-
 gRPC
 ====
 
@@ -246,3 +235,58 @@ There are some other identifiers that are determined by your client code. These 
 .. |image0| image:: images/BotFlow.png
    :width: 6.5in
    :height: 3.69444in
+
+Testing
+=======
+
+Testing is fundamental to ensure correctness and improve maintainability.
+
+Testing is usually divided into different categories according to its scope and aim:
+
+- unit testing verifies single properties of individual components
+- integration testing verifies that an aggregation of components behaves as expected
+- acceptance testing checks that the overall behavior of a whole system satisfies certain criteria
+
+Both tests in the small scale (unit testing) and large (acceptance testing) tend to be specific to the given component or system under test.
+
+This chapter focuses on providing portable approaches and techniques to perform integration testing between your components and an actual running ledger.
+
+Test the business logic with a ledger
+*************************************
+
+In production, your application is going to interact with a DAML model deployed on an actual ledger. Each model is usually specific to a business need and describes specific workflows.
+
+Mocking a ledger response is usually not desirable to test the business logic, because so much of it is encapsulated in the DAML model. This makes integration testing with an actual running ledger fundamental to evaluating the correctness of an application.
+
+This is usually achieved by running a ledger as part of the test process and run several tests against it, possibly coordinated by a test framework. Since the in-memory sandbox shipped as part of the SDK is a full-fledged implementation of a DAML ledger, it's usually the tool of choice for these tests. Please note that this does not replace acceptance tests with the actual ledger implementation that your application aims to use in production. Whatever your choice is, sharing a single ledger to run several tests is a suggested best practice.
+
+Share the ledger
+****************
+
+Sharing a ledger is useful because booting a ledger and loading DAML code into it takes time. Since to properly test your application you need an actual ledger you're likely to have a lot of very short tests whose total running time would suffer from the overhead of running a new ledger for every test.
+
+Tests must thus be designed to not interfere with each other. Both the transaction and the active contract service offer the possibility of filtering by party. Parties can thus be used as a way to isolate tests.
+
+You can use the party management service to allocate new parties and use them to test your application. You can also limit the number of transactions read from the ledger by reading the current offset of the ledger end before the test starts, since no transactions can possibly appear for the newly allocated parties before this time.
+
+In summary:
+
+1. retrieve the current offset of the ledger end before the test starts
+1. use the party management service to allocate the parties needed by the test
+1. whenever you issue a command, issue it as one of the parties allocated for this test
+1. whenever you need to get the set of active contracts or a stream of transactions, always filter by one or more of the parties allocated for this test
+
+This isolation between instances of tests also means that different tests can be run completely in parallel with respect to each other, possibly improving on the overall running time of your test suite.
+
+Reset if you need to
+********************
+
+It may be the case that you are running a very high number of tests, verifying the ins and outs of a very complex application interacting with an equally complex DAML model.
+
+If that's the case, the leak of resources caused by the approach to test isolation mentioned above can become counterproductive, causing slow-downs or even crashes as the ledger backing your test suite has to keep track of more parties and more transactions that are actually no longer relevant after the test itself finishes.
+
+As a last resort for these cases, your tests can use the reset service, which ledger implementations can optionally expose for testing.
+
+The reset service has a single ``reset`` method that will cause all the accumulated state to be dropped, including all active contracts, the entire history of transactions and all allocated users. Only the DAML packges loaded in the ledger is preserved, possibly saving on the time needed to be loaded as opposed to simply spinning up a new ledger.
+
+The reset service momentarily shuts down the gRPC channel it communicates over, so your testing infrastructure must take this into account and, when the ``reset`` is invoked, must ensure that tests are temporarily suspended as attempts to reconnect with the rebooted ledger are performed. There is no guarantee as to how long the reset will take, so this should also be taken into account when attempting to reconnect.

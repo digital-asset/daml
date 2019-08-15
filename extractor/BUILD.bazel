@@ -1,4 +1,4 @@
-# Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
 load(
@@ -22,6 +22,7 @@ compileDependencies = [
     "//ledger-api/rs-grpc-akka",
     "//language-support/scala/bindings",
     "//ledger/ledger-api-client",
+    "//ledger/ledger-api-common",
     "//ledger/ledger-api-domain",
     "//ledger-service/utils",
     "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",
@@ -95,6 +96,7 @@ daml_compile(
 
 testDependencies = [
     ":extractor",
+    "//daml-lf/data-scalacheck",
     "//daml-lf/transaction-scalacheck",
     "//ledger/sandbox:sandbox",
     "//ledger-api/testing-utils",

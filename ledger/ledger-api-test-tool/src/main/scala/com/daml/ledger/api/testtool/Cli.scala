@@ -1,4 +1,4 @@
-// Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// Copyright (c) 2019 The DAML Authors. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.ledger.api.testtool
@@ -78,20 +78,6 @@ object Cli {
       .abbr("v")
       .action((_, c) => c.copy(verbose = true))
       .text("Prints full stacktraces on failures.")
-
-    opt[Unit]("stable-party-identifiers")
-      .abbr("sp")
-      .action((_, c) => c.copy(uniquePartyIdentifiers = false))
-      .text("""Use the same party identifiers for each run. By default
-          |those are randomized for each execution of the tool to ensure that
-          |the tests are not being failed by command and party deduplication mechanisms.""".stripMargin)
-
-    opt[Unit]("stable-command-identifiers")
-      .abbr("sc")
-      .action((_, c) => c.copy(uniqueCommandIdentifiers = false))
-      .text("""Use the same command identifiers for each run. By default
-          |those are randomized for each execution of the tool to ensure that
-          |the tests are not being failed by command and party deduplication mechanisms.""".stripMargin)
 
     opt[Unit]("must-fail")
       .action((_, c) => c.copy(mustFail = true))
