@@ -12,7 +12,7 @@ sealed abstract class StringModule {
 
   @throws[IllegalArgumentException]
   final def assertFromString(s: String): T =
-    assert(fromString(s))
+    assertRight(fromString(s))
 
   def equalInstance: Equal[T]
 
