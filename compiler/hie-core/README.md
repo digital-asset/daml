@@ -61,10 +61,9 @@ Now openning a `.hs` file should work with `hie-core`.
 
 ### Using with Emacs
 
-The frst step is to install required Emacs packages. If you don't already have [Melpa](https://melpa.org/#/) package installation configured in your `.emacs`, put this stanza at the top.
-
+If you don't already have [Melpa](https://melpa.org/#/) package installation configured in your `.emacs`, put this stanza at the top.
 ```elisp
-;;Melpa packages support
+;; Melpa packages support
 (require 'package)
 (let* ((no-ssl (and (memq system-type '(windows-nt ms-dos))
                     (not (gnutls-available-p))))
@@ -83,36 +82,35 @@ There are two things you can do about this warning:
     ;; For important compatibility libraries like cl-lib
     (add-to-list 'package-archives (cons "gnu" (concat proto "://elpa.gnu.org/packages/")))))
 (package-initialize)
-;; Remember : to avoid package-not-found errors, refresh the package
-;; database now and then with M-x package-refresh-contents.
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+(setq use-package-verbose t)
+(eval-when-compile (require 'use-package))
 ```
 
-When this is in your `.emacs` and evaluated, `M-x package-refresh-contents` to get the package database downloaded and then `M-x package-list-packages` to display the available packages. Click on a package to install it. You'll need to install the following packages:
-
-* `lsp-haskell`
-* `lsp-ui`
-* `flycheck`
-* `yasnippet`
-
-When done with this, add the following lines to your `.emacs`:
-
+Next, add the following lines.
 ```elisp
-;; LSP support for Haskell
-(require 'lsp)
-(require 'lsp-haskell)
-(require 'yasnippet)
-(add-hook 'haskell-mode-hook #'lsp)
-(setq lsp-haskell-process-path-hie "hie-core")
-(setq lsp-haskell-process-args-hie '())
-```
-
-Optionally, you may wish to add the following conveniences:
-
-```elisp
-;; Enable LSP logging (helpful for debugging)
-(setq lsp-log-io t)
-
-;; Keyboard mappings for goto next/previous error
-(define-key flymake-mode-map (kbd "M-n") 'flymake-goto-next-error)
-(define-key flymake-mode-map (kbd "M-p") 'flymake-goto-prev-error)
+;; LSP
+(use-package flycheck
+  :ensure t
+  :init
+  (global-flycheck-mode t))
+(use-package yasnippet
+  :ensure t)
+(use-package lsp-mode
+  :ensure t
+  :hook (haskell-mode . lsp)
+  :commands lsp)
+(use-package lsp-ui
+  :ensure t
+  :commands lsp-ui-mode)
+(use-package lsp-haskell
+ :ensure t
+ :config
+ (setq lsp-haskell-process-path-hie "hie-core")
+ (setq lsp-haskell-process-args-hie '())
+ ;; Comment/uncomment this line to see interactions between lsp client/server.
+ ;;(setq lsp-log-io t)
+)
 ```
