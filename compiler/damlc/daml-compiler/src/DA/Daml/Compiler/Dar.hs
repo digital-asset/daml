@@ -141,7 +141,7 @@ mkConfFile ::
        PackageConfigFields -> [String] -> String -> (String, BS.ByteString)
 mkConfFile PackageConfigFields {..} pkgModuleNames pkgId = (confName, bs)
   where
-    confName = pName ++ ".conf"
+    confName = pkgNameVersion pName pVersion ++ ".conf"
     key = fullPkgName pName pVersion pkgId
     sanitizeBaseDeps "daml-stdlib" = damlStdlib
     sanitizeBaseDeps dep = dep
