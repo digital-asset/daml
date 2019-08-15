@@ -100,7 +100,3 @@ class ContractsService(
     TransactionFilter(Map(lar.Party.unwrap(party) -> filters))
   }
 }
-
-object ContractsService {
-  final case class Error(message: String)
-}
