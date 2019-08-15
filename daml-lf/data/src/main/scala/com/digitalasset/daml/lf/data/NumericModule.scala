@@ -67,7 +67,7 @@ abstract class NumericModule {
   }
 
   /**
-    * Multiplies `x` by `y`. The output has the same scale than the inputs. If rounding must be
+    * Multiplies `x` by `y`. The output has the same scale as the inputs. If rounding must be
     * performed, the [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]]
     * is applied.
     * In case of overflow, returns an error message instead.
@@ -94,7 +94,7 @@ abstract class NumericModule {
 
   /**
     * Returns the integral part of the given decimal, in other words, rounds towards 0.
-    * In case of the result does not fit a lonf, returns an error message instead.
+    * In case the result does not fit into a long, returns an error message instead.
     *
     * ```Requires the scale of `x` and `y` are the same.```
     */
@@ -106,7 +106,7 @@ abstract class NumericModule {
   /**
     * Rounds the `x` to the closest multiple of ``10⁻ˢᶜᵃˡᵉ`` using the
     * [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]].
-    * The output has the same scale than the inputs.
+    * The output has the same scale as the input.
     * In case of overflow, returns an error message instead.
     */
   final def round(newScale: Long, x: Numeric): Either[String, Numeric] =
@@ -127,8 +127,8 @@ abstract class NumericModule {
 
   /**
     * Converts the java BigDecimal `x` to a `(Numeric scale)``.
-    * In case scale is a not a valid Numeric scale or `x` cannot be represented as a
-    * `(Numeric scale)` without or loss of precision, returns an error message instead.
+    * In case scale is not a valid Numeric scale or `x` cannot be represented as a
+    * `(Numeric scale)` without loss of precision, returns an error message instead.
     */
   final def fromBigDecimal(scale: Int, x: BigDecimal): Either[String, Numeric] =
     if (!(0 <= scale && scale <= maxPrecision))
@@ -139,7 +139,7 @@ abstract class NumericModule {
       checkForOverflow(x.setScale(scale, ROUND_UNNECESSARY))
 
   /**
-    * Like `fromBigDec` but with a scala BigDecimal.
+    * Like `fromBigDecimal(Int, BigDecimal)` but with a scala BigDecimal.
     */
   final def fromBigDecimal(scale: Int, x: BigDec): Either[String, Numeric] =
     fromBigDecimal(scale, x.bigDecimal)
@@ -157,10 +157,9 @@ abstract class NumericModule {
    * Returns a canonical decimal string representation of `x`. The output string consists of (in
    * left-to-right order):
    * - An optional negative sign ("-") to indicate if `x` is strictly negative.
-   * - The integral part of `x` if `x` without leading '0' if 'x' is not null, "0" otherwise.
-   * - the decimal point (".") to separated the integral part from the decimal part,
-   * - the decimal part of `x` with possibly trailing '0', the number of digits indicating the scale
-   * of `x`.
+   * - The integral part of `x` without leading '0' if the integral part of `x` is not equal to 0, "0" otherwise.
+   * - the decimal point (".") to separate the integral part from the decimal part,
+   * - the decimal part of `x` with '0' padded to match the scale. The number of decimal digits must be the same as the scale.
    */
   final def toString(x: Numeric): String = {
     val s = x.toPlainString
@@ -168,11 +167,11 @@ abstract class NumericModule {
   }
 
   /*
-   * Given a string representation of a decimal returns the correspond Numeric, where the number of
-   * digit to the right of te decimal point indicates the scale.
+   * Given a string representation of a decimal returns the corresponding Numeric, where the number of
+   * digits to the right of the decimal point indicates the scale.
    * If the input does not match
    *   `-?([1-9]\d*|0).(\d*)`
-   * or if the result of the conversion cannot be mapped into a numerics without loss of precision
+   * or if the result of the conversion cannot be mapped into a numeric without loss of precision
    * returns an error message instead.
    */
   def fromString(s: String): Either[String, Numeric] = {

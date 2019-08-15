@@ -57,7 +57,7 @@ class NumericSpec
       }
     }
 
-    "fail on too Precise inputs" in {
+    "fail on too precise inputs" in {
       val testCases = Table(
         ("scale", "bigDecimal"),
         (0, "0.1"),
@@ -208,7 +208,7 @@ class NumericSpec
       }
     }
 
-    "add two numeric properly" in {
+    "multiply two numeric properly" in {
       val testCases = Table[Numeric, Numeric, Numeric](
         ("numeric", "numeric", "result"),
         ("0.00000", "0.00000", "0.00000"),
@@ -290,7 +290,7 @@ class NumericSpec
       }
     }
 
-    "add two numeric properly" in {
+    "divide two numeric properly" in {
       val testCases = Table[Numeric, Numeric, Numeric](
         ("numeric", "numeric", "result"),
         ("0.00000", "1.00000", "0.00000"),
