@@ -72,7 +72,14 @@ object Speedy {
       val last_index = kont.size() - 1
       val last_kont = if (last_index >= 0) Some(kont.get(last_index)) else None
       last_kont match {
+        // NOTE(MH): If the top of the continuation stack is the monadic token,
+        // we push location information under it to account for the implicit
+        // lambda binding the token.
         case Some(KArg(Array(SEValue(SToken)))) => kont.add(last_index, KLocation(loc))
+        // NOTE(MH): When we use a cached top level value, we need to put the
+        // stack trace it produced back on the continuation stack to get
+        // complete stack trace at the use site. Thus, we store the stack traces
+        // of top level values separately during their execution.
         case Some(KCacheVal(v, stack_trace)) =>
           kont.set(last_index, KCacheVal(v, loc :: stack_trace)); ()
         case _ => kont.add(KLocation(loc)); ()
