@@ -79,9 +79,9 @@ class NumericSpec
     import Numeric.add
     implicit def toNumeric(s: String): Numeric = Numeric.assertFromString(s)
 
-    "throw an exception in case of overflow" in {
+    "return an error in case of overflow" in {
       val testCases = Table[Numeric, Numeric](
-        ("numeric", "numeric"),
+        ("input1", "input2"),
         ("99999999999999999999999999999999999999.", "1."),
         ("-1.", "-99999999999999999999999999999999999999."),
         ("0.99999999999999999999999999999999999999", "0.00000000000000000000000000000000000001"),
@@ -99,7 +99,7 @@ class NumericSpec
 
     "add two numerics properly" in {
       val testCases = Table[Numeric, Numeric, Numeric](
-        ("numeric", "numeric", "result"),
+        ("input1", "input2", "result"),
         ("0.00000", "0.00000", "0.00000"),
         (
           "0.99999999999999999999999999999999999999",
@@ -136,7 +136,7 @@ class NumericSpec
 
     "throw an exception in case of overflow" in {
       val testCases = Table[Numeric, Numeric](
-        ("numeric", "numeric"),
+        ("input1", "input2"),
         ("-99999999999999999999999999999999999999.", "1."),
         ("-1.", "99999999999999999999999999999999999999."),
         ("0.99999999999999999999999999999999999999", "-0.00000000000000000000000000000000000001"),
@@ -154,7 +154,7 @@ class NumericSpec
 
     "subtract two numerics properly" in {
       val testCases = Table[Numeric, Numeric, Numeric](
-        ("numeric", "numeric", "result"),
+        ("input1", "input2", "result"),
         ("0.00000", "0.00000", "0.00000"),
         (
           "0.99999999999999999999999999999999999999",
@@ -190,9 +190,9 @@ class NumericSpec
     implicit def toNumeric(s: String): Numeric =
       Numeric.assertFromString(s)
 
-    "throws an exception in case of overflow" in {
+    "return an error in case of overflow" in {
       val testCases = Table[Numeric, Numeric](
-        ("numeric", "numeric"),
+        ("input1", "input2"),
         ("10000000000000000000.", "10000000000000000000."),
         ("10000000000000000000.0", "-1000000000000000000.0"),
         ("-1000000000000000000.00", "1000000000000000000.00"),
@@ -210,7 +210,7 @@ class NumericSpec
 
     "multiply two numeric properly" in {
       val testCases = Table[Numeric, Numeric, Numeric](
-        ("numeric", "numeric", "result"),
+        ("input1", "input2", "result"),
         ("0.00000", "0.00000", "0.00000"),
         (
           "0.00000000000000000010000000000000000000",
@@ -271,9 +271,9 @@ class NumericSpec
 
     implicit def toNumeric(s: String): Numeric = Numeric.assertFromString(s)
 
-    "throws an exception in case of overflow" in {
+    "return an error in case of overflow" in {
       val testCases = Table[Numeric, Numeric](
-        ("numeric", "numeric"),
+        ("input1", "input2"),
         ("1000000000000000000.0000000000", "0.0000000001"),
         ("-1000000000000000000000000000000000000.0", "0.1"),
         (
@@ -290,9 +290,9 @@ class NumericSpec
       }
     }
 
-    "divide two numeric properly" in {
+    "divide two numerics properly" in {
       val testCases = Table[Numeric, Numeric, Numeric](
-        ("numeric", "numeric", "result"),
+        ("input1", "input2", "result"),
         ("0.00000", "1.00000", "0.00000"),
         (
           "0.00000000000000000010000000000000000000",
@@ -343,6 +343,104 @@ class NumericSpec
 
       forEvery(testCases) { (x, y, z) =>
         divide(x, y) shouldBe Right(z)
+      }
+    }
+  }
+
+  "Numeric.round" should {
+    import Numeric.round
+
+    implicit def toNumeric(s: String): Numeric = Numeric.assertFromString(s)
+
+    "return an error in case of overflow" in {
+      val testCases = Table[Long, Numeric](
+        ("targetScale", "input"),
+        (37, "0.99999999999999999999999999999999999999"),
+        (1, "99999999999999999999999999999999.950000"),
+        (-38, "50000000000000000000000000000000000000."),
+        (36, "-0.99999999999999999999999999999999999996"),
+        (-9, "-9999999999999999999950000000.0000000000"),
+        (0, "-99999999999999999999.678900000000000000"),
+      )
+
+      round(0, "1.5") shouldBe Right("2.0": Numeric)
+
+      forEvery(testCases) { (s, x) =>
+        round(s, x) shouldBe 'left
+      }
+    }
+
+    "round properly" ignore {
+      val testCases = Table[Long, Numeric, Numeric](
+        ("target scale", "input", "result"),
+        (0, "1.0", "1.0"),
+        (5, "0.00000000", "0.00000000"),
+        (1, "0.01000000", "0.00000000"),
+        (1, "-0.0100000000", "0.000000000"),
+        (-1, "5.", "0."),
+        (-3, "150.0", "200.0"),
+        (-1, "-5.00", "0.00"),
+        (-4, "-1500.000", "2000.000"),
+        (0, "999999999999999999999999999999999999.9", "1000000000000000000000000000000000000.0"),
+      )
+
+      forEvery(testCases) { (s, x, r) =>
+        round(s, x) shouldBe Right(r)
+      }
+    }
+  }
+
+  "Numeric.toLong" should {
+    import Numeric.toLong
+
+    implicit def toNumeric(s: String): Numeric = Numeric.assertFromString(s)
+
+    "return an error in case of overflow" in {
+      val testCases = Table[Numeric](
+        "input",
+        "9223372036854775808.", // MaxLong + 1
+        "9223372036854775808.000",
+        "9223372036854775808.000000000000000000",
+        "-9223372036854775809.", // MinLong - 1
+        "-9223372036854775809.000",
+        "-9223372036854775809.000000000000000000",
+        "99999999999999999999999999999999999999.",
+        "999999999999999999999999.99999999999999",
+        "-88888888888888888888888888888888888888.",
+        "-9999999999999999999999999999.999999999",
+        "10000000000000000000.000000",
+        "-10000000000000000000.00000000"
+      )
+
+      toLong("1.0") shouldBe Right(1)
+
+      forEvery(testCases) { x =>
+        toLong(x) shouldBe 'left
+      }
+    }
+
+    "return expected Long" in {
+      val testCases = Table[Numeric, Long](
+        ("input", "result"),
+        ("1.0", 1),
+        ("0.00000000", 0),
+        ("0.00000001", 0),
+        ("-0.000000000001", 0),
+        ("2.5", 2),
+        ("-2.5", -2),
+        ("5678901234567890.12345678901234", 5678901234567890L),
+        ("9223372036854775807.", Long.MaxValue),
+        ("9223372036854775807.001", Long.MaxValue),
+        ("9223372036854775807.555555555555555555", Long.MaxValue),
+        ("9223372036854775807.999999999999999999", Long.MaxValue),
+        ("-9223372036854775808.", Long.MinValue),
+        ("-9223372036854775808.00001", Long.MinValue),
+        ("-9223372036854775808.44444444444", Long.MinValue),
+        ("-9223372036854775808.999999999999999999", Long.MinValue),
+      )
+
+      forEvery(testCases) { (x, r) =>
+        toLong(x) shouldBe Right(r)
       }
     }
   }

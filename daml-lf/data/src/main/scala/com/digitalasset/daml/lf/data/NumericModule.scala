@@ -45,7 +45,7 @@ abstract class NumericModule {
     )
 
   /**
-    * Adds the two Numerics. The output has the same scale than the inputs.
+    * Adds the two Numerics. The output has the same scale as the inputs.
     * In case of overflow, returns an error message instead.
     *
     * ```Requires the scale of `x` and `y` are the same.```
@@ -56,7 +56,7 @@ abstract class NumericModule {
   }
 
   /**
-    * Subtracts `y` to `x`. The output has the same scale than the inputs.
+    * Subtracts `y` to `x`. The output has the same scale as the inputs.
     * In case of overflow, returns an error message instead.
     *
     * ```Requires the scale of `x` and `y` are the same.```
@@ -80,7 +80,7 @@ abstract class NumericModule {
   }
 
   /**
-    * Divides `x` by `y`. The output has the same scale than the inputs. If rounding must be
+    * Divides `x` by `y`. The output has the same scale as the inputs. If rounding must be
     * performed, the [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]]
     * is applied.
     * In case of overflow, returns an error message instead.
@@ -104,19 +104,20 @@ abstract class NumericModule {
     )
 
   /**
-    * Rounds the `x` to the closest multiple of ``10⁻ˢᶜᵃˡᵉ`` using the
+    * Rounds the `x` to the closest multiple of ``10^targetScale`` using the
     * [[https://en.wikipedia.org/wiki/Rounding#Round_half_to_even> banker's rounding convention]].
     * The output has the same scale as the input.
     * In case of overflow, returns an error message instead.
     */
-  final def round(newScale: Long, x: Numeric): Either[String, Numeric] =
-    if (newScale <= x.scale && x.scale - maxPrecision < newScale)
-      checkForOverflow(x.setScale(newScale.toInt, ROUND_HALF_EVEN).setScale(x.scale))
+  final def round(targetScale: Long, x: Numeric): Either[String, Numeric] =
+    if (targetScale <= x.scale && x.scale - maxPrecision < targetScale)
+      checkForOverflow(x.setScale(targetScale.toInt, ROUND_HALF_EVEN).setScale(x.scale))
     else
-      Left(s"Bad scale $newScale, must be between ${x.scale - maxPrecision - 1} and ${x.scale}")
+      Left(s"Bad scale $targetScale, must be between ${x.scale - maxPrecision - 1} and ${x.scale}")
 
   /**
     * Returns -1, 0, or 1 as `x` is numerically less than, equal to, or greater than `y`.
+    *
     *
     * ```Requires the scale of `x` and `y` are the same.```
     */
