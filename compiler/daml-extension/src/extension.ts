@@ -55,7 +55,7 @@ export async function activate(context: vscode.ExtensionContext) {
     );
 
     let d2 = vscode.commands.registerCommand('daml.openDamlDocs', openDamlDocs);
-    let d5 = vscode.commands.registerCommand('daml.visualize', visualize);
+    let d5 = vscode.commands.registerCommand('daml.visualize', visualizeLsp);
 
     let highlight = vscode.window.createTextEditorDecorationType({ backgroundColor: 'rgba(200,200,200,.35)' });
 
@@ -259,7 +259,16 @@ function keepAlive() {
     });
 }
 
+function visualizeLsp() {
+    damlLanguageClient.sendRequest(DamlVisualize.type, null).then(r => {
+        console.log(r);
+    })
+}
 // Custom requests
+
+namespace DamlVisualize {
+    export let type = new RequestType<void, void, void, void>('daml/damlVisualize');
+}
 
 namespace DamlKeepAliveRequest {
     export let type =

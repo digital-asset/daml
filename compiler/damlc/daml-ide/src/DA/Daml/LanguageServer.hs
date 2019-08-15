@@ -68,6 +68,15 @@ setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
     -- $/setTraceNotification which we want to ignore.
     where optionalPrefix = "$/"
 
+setHandlerDamlVisualize :: PartialHandlers
+setHandlerDamlVisualize = PartialHandlers $ \WithMessage{..} x -> return x
+    {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
+        case _method of
+            CustomClientMethod "daml/damlVisualize" -> maybe (return ()) ($ msg) $
+                withResponse RspCustomServer (\_ _ _ -> return $ Aeson.String "Generate Dalf then call visualize")
+            _ -> whenJust (LSP.customRequestHandler x) ($ msg)
+    }
+
 setHandlersVirtualResource :: PartialHandlers
 setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
     {LSP.didOpenTextDocumentNotificationHandler = withNotification (LSP.didOpenTextDocumentNotificationHandler x) $
@@ -101,7 +110,7 @@ runLanguageServer
     :: ((FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
 runLanguageServer getIdeState = do
-    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers
+    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setHandlerDamlVisualize
     LS.runLanguageServer options handlers getIdeState
 
 
