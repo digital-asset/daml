@@ -78,17 +78,20 @@ abstract class ApiCodecCompressed[Cid](
   private[this] def apiEnumToJsValue(value: V.ValueEnum): JsValue =
     JsString(value.value)
 
-  private[ApiCodecCompressed] def apiRecordToJsValue(value: V.ValueRecord[Cid]): JsValue =
-    value match {
-      case FullyNamedApiRecord(_, fields) =>
-        JsObject(fields.toSeq.map {
-          case (flabel, fvalue) => (flabel: String) -> apiValueToJsValue(fvalue)
-        }.toMap)
-      case _ =>
-        JsArray(value.fields.toSeq.map {
-          case (_, fvalue) => apiValueToJsValue(fvalue)
-        }: _*)
+  private[ApiCodecCompressed] def apiRecordToJsValue(value: V.ValueRecord[Cid]): JsValue = {
+    val namedOrNoneFields = value.fields.toSeq collect {
+      case (Some(k), v) => Some((k, v))
+      case (_, V.ValueOptional(None)) => None
     }
+    if (namedOrNoneFields.length == value.fields.length)
+      JsObject(namedOrNoneFields.iterator.collect {
+        case Some((flabel, fvalue)) => (flabel: String) -> apiValueToJsValue(fvalue)
+      }.toMap)
+    else
+      JsArray(value.fields.toSeq.map {
+        case (_, fvalue) => apiValueToJsValue(fvalue)
+      }: _*)
+  }
 
   private[this] def apiMapToJsValue(value: V.ValueMap[Cid]): JsValue =
     JsObject(
