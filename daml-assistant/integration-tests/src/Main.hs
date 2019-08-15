@@ -132,8 +132,8 @@ packagingTests tmpDir = testGroup "packaging"
     [ testCaseSteps "Build package with dependency" $ \step -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
-        let aDar = projectA </> ".daml" </> "dist" </> "a.dar"
-        let bDar = projectB </> ".daml" </> "dist" </> "b.dar"
+        let aDar = projectA </> ".daml" </> "dist" </> "a-1.0.dar"
+        let bDar = projectB </> ".daml" </> "dist" </> "b-1.0.dar"
         step "Creating project a..."
         createDirectoryIfMissing True (projectA </> "daml" </> "Foo" </> "Bar")
         writeFileUTF8 (projectA </> "daml" </> "A.daml") $ unlines
@@ -160,7 +160,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-stdlib"
             ]
         withCurrentDirectory projectA $ callCommandQuiet "daml build"
-        assertBool "a.dar was not created." =<< doesFileExist aDar
+        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
         writeFileUTF8 (projectB </> "daml" </> "B.daml") $ unlines
@@ -208,7 +208,7 @@ packagingTests tmpDir = testGroup "packaging"
           , "  - daml-stdlib"
           ]
         withCurrentDirectory projDir $ callCommandQuiet "daml build"
-        let dar = projDir </> ".daml" </> "dist" </> "proj.dar"
+        let dar = projDir </> ".daml" </> "dist" </> "proj-1.0.dar"
         assertBool "proj.dar was not created." =<< doesFileExist dar
         darFiles <- Zip.filesInArchive . Zip.toArchive <$> BSL.readFile dar
         assertBool "A.daml is missing" (any (\f -> takeFileName f == "A.daml") darFiles)
@@ -260,7 +260,7 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callCommandQuiet "daml build"
+        withCurrentDirectory projectA $ callCommandQuiet $ "daml build --output " <> distDir </> "a.dar"
         assertBool "a.dar was not created." =<< doesFileExist aDar
         step "Creating project b..."
         createDirectoryIfMissing True (projectB </> "daml")
@@ -286,19 +286,19 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectB $ callCommandQuiet "daml build"
-        assertBool "a.dar was not created." =<< doesFileExist bDar
+        withCurrentDirectory projectB $ callCommandQuiet $ "daml build --output " <> distDir </> "b.dar"
+        assertBool "b.dar was not created." =<< doesFileExist bDar
         step "Creating migration project"
         callCommandQuiet $ unwords ["daml", "migrate", projectMigrate, "daml/Main.daml", aDar, bDar]
         step "Build migration project"
-        withCurrentDirectory projectMigrate $ callCommandQuiet "daml build"
+        withCurrentDirectory projectMigrate $ callCommandQuiet $ "daml build --output " <> distDir </> "c.dar"
         step "Merging upgrade dar"
         withCurrentDirectory tmpDir $
             callCommandQuiet $
             unwords
                 [ "daml damlc merge-dars"
                 , projectA </> distDir </> "a.dar"
-                , projectB </> distDir </> "b.dar"
+                , projectMigrate </> distDir </> "c.dar"
                 , "--dar-name"
                 , "b_upgraded.dar"
                 ]
@@ -319,7 +319,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withCurrentDirectory quickstartDir $
       withDevNull $ \devNull -> do
           p :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show p, ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--port", show p, ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull }
           withCreateProcess sandboxProc  $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 100000) p
@@ -345,7 +345,7 @@ quickstartTests quickstartDir mvnDir = testGroup "quickstart"
       withDevNull $ \devNull1 ->
       withDevNull $ \devNull2 -> do
           sandboxPort :: Int <- fromIntegral <$> getFreePort
-          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart.dar"]) { std_out = UseHandle devNull1 }
+          let sandboxProc = (shell $ unwords ["daml", "sandbox", "--", "--port", show sandboxPort, "--", "--scenario", "Main:setup", ".daml/dist/quickstart-0.0.1.dar"]) { std_out = UseHandle devNull1 }
           withCreateProcess sandboxProc $
               \_ _ _ ph -> race_ (waitForProcess' sandboxProc ph) $ do
               waitForConnectionOnPort (threadDelay 500000) sandboxPort
@@ -414,7 +414,7 @@ deployTest deployDir = testCase "daml deploy" $ do
                         (shell $ unwords
                             ["daml sandbox"
                             , "--port", show port
-                            , ".daml/dist/proj1.dar"
+                            , ".daml/dist/proj1-0.0.1.dar"
                             ]) { std_out = UseHandle devNull }
                 withCreateProcess sandboxProc  $ \_ _ _ ph ->
                     race_ (waitForProcess' sandboxProc ph) $ do

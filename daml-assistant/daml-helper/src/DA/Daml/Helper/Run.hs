@@ -852,7 +852,8 @@ runLedgerNavigator flags remainingArguments = do
 getDarPath :: IO FilePath
 getDarPath = do
     projectName <- getProjectName
-    return $ ".daml" </> "dist" </> projectName <> ".dar"
+    projectVersion <- getProjectVersion
+    return $ ".daml" </> "dist" </> projectName <> "-" <> projectVersion <> ".dar"
 
 doBuild :: IO ()
 doBuild = do
@@ -869,6 +870,12 @@ getProjectName = do
     projectConfig <- getProjectConfig
     requiredE "Failed to read project name from project config" $
         queryProjectConfigRequired ["name"] projectConfig
+
+getProjectVersion :: IO String
+getProjectVersion = do
+    projectConfig <- getProjectConfig
+    requiredE "Failed to read project version from project config" $
+        queryProjectConfigRequired ["version"] projectConfig
 
 getProjectParties :: IO [String]
 getProjectParties = do
