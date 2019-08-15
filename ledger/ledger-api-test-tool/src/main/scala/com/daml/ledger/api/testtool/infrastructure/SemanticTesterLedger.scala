@@ -60,11 +60,12 @@ private[infrastructure] final class SemanticTesterLedger(bindings: LedgerBinding
     Value.VersionedValue[Value.AbsoluteContractId]]] =
     for {
       apiCommands <- lfCommandToApiCommand(party, lfCommands)
-      id <- bindings.submitAndWaitForTransactionId(
+      request <- bindings.prepareSubmission(
         Primitive.Party(party),
         context.applicationId,
         s"${context.applicationId}-${UUID.randomUUID}",
-        apiCommands.commands.map(_.command))
+        apiCommands.commands)
+      id <- bindings.submitAndWaitForTransactionId(request)
       tree <- bindings.getTransactionById(id, parties.toSeq.map(Primitive.Party(_: String)))
       events <- apiTransactionToLfEvents(tree)
     } yield events
