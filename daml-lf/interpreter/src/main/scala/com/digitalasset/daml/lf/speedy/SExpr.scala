@@ -52,7 +52,7 @@ object SExpr {
     */
   final case class SEVal(
       ref: SDefinitionRef,
-      var cached: Option[SValue]
+      var cached: Option[(SValue, List[Location])]
   ) extends SExpr {
     def execute(machine: Machine): Ctrl = {
       machine.lookupVal(this)
@@ -185,8 +185,7 @@ object SExpr {
     */
   final case class SELocation(loc: Location, expr: SExpr) extends SExpr {
     def execute(machine: Machine): Ctrl = {
-      machine.lastLocation = Some(loc)
-      machine.kont.add(KLocation(loc))
+      machine.pushLocation(loc)
       CtrlExpr(expr)
     }
   }
