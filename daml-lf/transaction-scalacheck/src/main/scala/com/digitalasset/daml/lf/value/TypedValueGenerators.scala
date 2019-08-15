@@ -8,7 +8,7 @@ import scala.language.higherKinds
 import data.{Decimal, FrontStack, Ref, SortedLookupList, Time}
 import data.ImmArray.ImmArraySeq
 import data.DataArbitrary._
-import iface.{Type, TypePrim, PrimType => PT}
+import iface.{DefDataType, Record, Type, TypeCon, TypeConName, TypePrim, PrimType => PT}
 
 import scalaz.Id.Id
 import scalaz.syntax.traverse._
@@ -133,6 +133,41 @@ object TypedValueGenerators {
         implicitly[Arbitrary[SortedLookupList[elt.Inj[Cid]]]]
       }
       override def injshrink[Cid: Shrink] = Shrink.shrinkAny // XXX descend
+    }
+
+    def record[Rec](name: Ref.Identifier, rec: Rec)(
+        implicit ev: RecordVa[Rec]): (DefDataType.FWT, Aux[ev.Inj]) =
+      (DefDataType(ImmArraySeq.empty, Record(ev.t(rec).to[ImmArraySeq])), new ValueAddend {
+        type Inj[Cid] = ev.Inj[Cid]
+        override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+      })
+
+    sealed abstract class RecordVa[Rec] {
+      type Inj[Cid] <: shapeless.HList
+      def t(rec: Rec): List[(Ref.Name, Type)]
+      def inj[Cid](rec: Rec, v: Inj[Cid]): shapeless.HList
+    }
+
+    object RecordVa {
+      import shapeless.{::, HList, HNil, Witness}
+      import shapeless.labelled.{FieldType => :->>:}
+      type Aux[Rec, Inj0[_]] = RecordVa[Rec] { type Inj[Cid] = Inj0[Cid] }
+      implicit val emptyRVA: Aux[HNil, Lambda[cid => HNil]] = new RecordVa[HNil] {
+        type Inj[Cid] = HNil
+        override def t(rec: HNil) = List.empty
+      }
+
+      implicit def consRVA[K <: Symbol, VA <: ValueAddend, T <: HList](
+          implicit k: Witness.Aux[K],
+          ind: RecordVa[T])
+        : Aux[(K :->>: VA) :: T, Lambda[cid => (K :->>: VA#Inj[cid]) :: ind.Inj[cid]]] =
+        new RecordVa[(K :->>: VA) :: T] {
+          type Inj[Cid] = (K :->>: VA#Inj[Cid]) :: ind.Inj[Cid]
+          override def t(rec: (K :->>: VA) :: T) =
+            (Ref.Name assertFromString k.value.name, rec.head.t) +: ind.t(rec.tail)
+          override def inj[Cid](rec: (K :->>: VA) :: T, v: (K :->>: VA#Inj[Cid]) :: ind.Inj[Cid]) =
+            rec.head.inj(v.head) :: ind.inj(rec.tail, v.tail)
+        }
     }
   }
 
