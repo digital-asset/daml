@@ -9,7 +9,6 @@ load("//bazel_tools/packaging:packaging.bzl", "package_app")
 da_haskell_binary(
     name = "damlc",
     srcs = ["exe/Main.hs"],
-    src_strip_prefix = "exe",
 
     # We need to tell the linker to statically link pthread on Windows
     # otherwise the library is not found at runtime.
@@ -25,6 +24,7 @@ da_haskell_binary(
     hazel_deps = [
         "base",
     ],
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
@@ -36,7 +36,6 @@ da_haskell_binary(
 da_haskell_binary(
     name = "damlc-bootstrap",
     srcs = ["exe/Main.hs"],
-    src_strip_prefix = "exe",
 
     # We need to tell the linker to statically link pthread on Windows
     # otherwise the library is not found at runtime.
@@ -47,6 +46,7 @@ da_haskell_binary(
     hazel_deps = [
         "base",
     ],
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
@@ -80,7 +80,6 @@ package_app(
 da_haskell_library(
     name = "damlc-lib",
     srcs = glob(["lib/**/*.hs"]),
-    src_strip_prefix = "lib",
     extra_srcs = [
         "//compiler/daml-licenses/licenses:licensing.md",
     ],
@@ -125,6 +124,7 @@ da_haskell_library(
         "unordered-containers",
         "uniplate",
     ],
+    src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
