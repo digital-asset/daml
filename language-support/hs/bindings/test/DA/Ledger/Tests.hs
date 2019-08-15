@@ -13,7 +13,7 @@ import DA.Bazel.Runfiles
 import DA.Daml.LF.Proto3.Archive (decodeArchive)
 import DA.Daml.LF.Reader(ManifestData(..),manifestFromDar)
 import DA.Ledger.Sandbox (Sandbox,SandboxSpec(..),startSandbox,shutdownSandbox,withSandbox)
-import Data.List (elem,isPrefixOf,isInfixOf,(\\),sort)
+import Data.List (elem,isPrefixOf,isInfixOf,(\\))
 import Data.Text.Lazy (Text)
 import System.Environment.Blank (setEnv)
 import System.FilePath
@@ -27,6 +27,7 @@ import qualified Data.ByteString as BS (readFile)
 import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.Map as Map
+import qualified Data.Set as Set
 import qualified Data.Text.Lazy as Text(pack,unpack,fromStrict)
 import qualified Data.UUID as UUID (toString)
 
@@ -38,7 +39,6 @@ main = do
     setEnv "TASTY_NUM_THREADS" "1" True
     Tasty.defaultMain $ testGroup "Ledger bindings"
         [ sharedSandboxTests
-        , isolatedSandboxTests
         ]
 
 type SandboxTest = WithSandbox -> TestTree
@@ -78,16 +78,9 @@ sharedSandboxTests = testGroupWithSandbox (ShareSandbox True) "shared sandbox"
     , tSubmitAndWaitForTransactionTree
     , tGetParticipantId
     , tValueConversion
-    ]
 
--- | Party management and package management are annoying to test on a shared sandbox
--- so for now, we use isolated sandboxes for these.
-isolatedSandboxTests :: TestTree
-isolatedSandboxTests = testGroupWithSandbox (ShareSandbox False) "isolated sandbox"
-    [ tUploadDarFileBad
+    , tUploadDarFileBad
     , tUploadDarFile
-    , tListKnownPackages
-    , tListKnownParties
     , tAllocateParty
     ]
 
@@ -350,10 +343,16 @@ tUploadDarFile :: SandboxTest
 tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \_pid testId -> do
     lid <- getLedgerIdentity
     bytes <- liftIO getBytesForUpload
+    before <- listKnownPackages
     pid <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
+    after <- listKnownPackages
+    let getPid PackageDetails{pid} = pid
+    liftIO $ assertEqual "new pids"
+        (Set.fromList (map getPid after) Set.\\ Set.fromList (map getPid before))
+        (Set.singleton pid)
     cidA <- submitCommand lid (alice testId) (createExtra pid (alice testId)) >>= either (liftIO . assertFailure) return
     withGetAllTransactions lid (alice testId) (Verbosity True) $ \txs -> do
-    Just (Right [Transaction{cid=Just cidB}]) <- liftIO $ timeout 1 (takeStream txs)
+    Just (Right [Transaction{cid=Just cidB}]) <- liftIO $ timeout 10 (takeStream txs)
     liftIO $ do assertEqual "cid" cidA cidB
     where
         createExtra :: PackageId -> Party -> Command
@@ -366,21 +365,6 @@ tUploadDarFile withSandbox = testCase "tUploadDarFileGood" $ run withSandbox $ \
                     RecordField "owner" (VParty party),
                     RecordField "message" (VText "Hello extra module")
                     ]
-
-tListKnownPackages :: SandboxTest
-tListKnownPackages withSandbox = testCase "tListKnownPackages" $ run withSandbox $ \_pid _testId -> do
-    known0 <- listKnownPackages
-    let pids0 = map (\PackageDetails{pid} -> pid) known0
-    liftIO $ do assertEqual "#known0" 3 (length known0)
-    bytes <- liftIO getBytesForUpload
-    lid <- getLedgerIdentity
-    pidx <- uploadDarFileGetPid lid bytes >>= either (liftIO . assertFailure) return
-    known1 <- listKnownPackages
-    let pids1 = map (\PackageDetails{pid} -> pid) known1
-    liftIO $ do
-        assertEqual "#known1" 4 (length known1)
-        assertEqual "known1-pids" (sort (pidx:pids0)) (sort pids1)
-
 
 getBytesForUpload :: IO BS.ByteString
 getBytesForUpload = do
@@ -503,23 +487,19 @@ tGetParticipantId withSandbox = testCase "tGetParticipantId" $ run withSandbox $
     id <- getParticipantId
     liftIO $ assertEqual "participant" (ParticipantId "sandbox-participant") id
 
-tListKnownParties :: SandboxTest
-tListKnownParties withSandbox = testCase "tListKnownParties" $ run withSandbox $ \_pid _testId -> do
-    xs <- listKnownParties
-    liftIO $ threadDelay (5 * 10^(6 :: Int))
-    liftIO $ assertEqual "details" [] xs
-
 tAllocateParty :: SandboxTest
-tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_pid _testId -> do
-    let party = Party "me"
+tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_pid (TestId testId) -> do
+    let party = Party (Text.pack $ "me" <> show testId)
+    before <- listKnownParties
     let displayName = "Only Me"
     let request = AllocatePartyRequest { partyIdHint = unParty party, displayName }
     deats <- allocateParty request
     let expected = PartyDetails { party, displayName, isLocal = True }
     liftIO $ assertEqual "deats" expected deats
-    list <- listKnownParties
-    liftIO $ assertEqual "list" [expected] list
-
+    after <- listKnownParties
+    liftIO $ assertEqual "new parties"
+        (Set.fromList after Set.\\ Set.fromList before)
+        (Set.singleton expected)
 
 bucket :: Value
 bucket = VRecord $ Record Nothing
