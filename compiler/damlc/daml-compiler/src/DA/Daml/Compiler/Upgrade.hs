@@ -45,13 +45,14 @@ generateGenInstancesModule qual (pkg, L _l src) =
     unlines $ header ++ map (showSDoc fakeDynFlags . ppr) genericInstances
   where
     modName =
-        moduleNameString $
-        unLoc $ fromMaybe (error "missing module name") $ hsmodName src
+        (moduleNameString $
+         unLoc $ fromMaybe (error "missing module name") $ hsmodName src) ++
+        qual
     header =
         [ "{-# LANGUAGE EmptyCase #-}"
         , "{-# LANGUAGE NoDamlSyntax #-}"
-        , "module " <> modName <> "Instances" <> qual <> " where"
-        , "import \"" <> pkg <> "\" " <> modName
+        , "module " <> modName <> "Instances" <> " where"
+        , "import " <> modName
         , "import DA.Generics"
         ]
     genericInstances =
@@ -76,16 +77,16 @@ generateGenInstancesModule qual (pkg, L _l src) =
 
 -- | Generate non-consuming choices to upgrade all templates defined in the module.
 generateUpgradeModule :: [String] -> String -> String -> String -> String
-generateUpgradeModule templateNames modName pkgA pkgB =
+generateUpgradeModule templateNames modName qualA qualB =
     unlines $ header ++ concatMap upgradeTemplate templateNames
   where
     header =
         [ "daml 1.2"
         , "module " <> modName <> " where"
-        , "import \"" <> pkgA <> "\" " <> modName <> " qualified as A"
-        , "import \"" <> pkgB <> "\" " <> modName <> " qualified as B"
-        , "import " <> modName <> "InstancesA()"
-        , "import " <> modName <> "InstancesB()"
+        , "import " <> modName <> qualA <> " qualified as A"
+        , "import " <> modName <> qualB <> " qualified as B"
+        , "import " <> modName <> "AInstances()"
+        , "import " <> modName <> "BInstances()"
         , "import DA.Next.Set"
         , "import DA.Upgrade"
         ]

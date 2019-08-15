@@ -696,6 +696,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         let eqModNames =
                 (NM.names $ LF.packageModules lfPkg1) `intersect`
                 (NM.names $ LF.packageModules lfPkg2)
+        let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
@@ -705,10 +706,10 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                     ".daml"
             let instancesModPath1 =
                     replaceBaseName upgradeModPath $
-                    takeBaseName upgradeModPath <> "InstancesA"
+                    takeBaseName upgradeModPath <> "AInstances"
             let instancesModPath2 =
                     replaceBaseName upgradeModPath $
-                    takeBaseName upgradeModPath <> "InstancesB"
+                    takeBaseName upgradeModPath <> "BInstances"
             templateNames <-
                 map (T.unpack . T.intercalate "." . LF.unTypeConName) .
                 NM.names . LF.moduleTemplates <$>
@@ -717,8 +718,8 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                     generateUpgradeModule
                         templateNames
                         (T.unpack $ LF.moduleNameString m)
-                        pkgName1
-                        pkgName2
+                        "A"
+                        "B"
             let generatedInstancesMod1 =
                     generateGenInstancesModule "A" (pkgName1, genSrc1)
             let generatedInstancesMod2 =
@@ -730,6 +731,16 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 ] $ \(path, mod) -> do
                 createDirectoryIfMissing True $ takeDirectory path
                 writeFile path mod
+        let buildCmd =
+              unlines
+                  [ "daml build --init-package-db=no" <> " --package '" <>
+                    (show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr])) <>
+                    "'" <>
+                    " --package '" <>
+                    (show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr])) <>
+                    "'"
+                  ]
+        putStrLn $ "Generation of migration project complete. Build with \n" <> buildCmd
   where
     decode dalf =
         errorOnLeft
