@@ -53,8 +53,6 @@ da_haskell_test(
         ":for-upload.dar",
         "//ledger/sandbox:sandbox-binary",
     ],
-    # Sometimes, we seem to be seeing segfaults on Windows.
-    flaky = is_windows,
     hazel_deps = [
         "async",
         "base",

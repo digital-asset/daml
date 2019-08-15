@@ -1,0 +1,45 @@
+diff --git a/haskell/c2hs.bzl b/haskell/c2hs.bzl
+index f4f9f42..9aa9a8c 100644
+--- a/haskell/c2hs.bzl
++++ b/haskell/c2hs.bzl
+@@ -39,6 +39,7 @@ def _c2hs_library_impl(ctx):
+     args.add("-C-includeghcversion.h")
+     args.add_all(["-C" + x for x in cc.cpp_flags])
+     args.add_all(["-C" + x for x in cc.include_args])
++    args.add_all(ctx.attr.extra_args)
+ 
+     dep_chi_files = [
+         dep[C2hsLibraryInfo].chi_file
+@@ -68,12 +69,23 @@ def _c2hs_library_impl(ctx):
+             set.to_depset(version_macro_headers),
+         ]),
+         outputs = [hs_file, chi_file],
+-        command = """
++        command =
++        # cpp (called via c2hs) gets very unhappy if the mingw bin dir is
++        # not in PATH so we add it to PATH explicitely.
++        (
++        """
++        export PATH=$PATH:{cc}/..
++        """.format(cc = cc.tools.cc) if hs.toolchain.is_windows
++        else ""
++        ) +
++        """
+         # Include libdir in include path just like hsc2hs does.
+         libdir=$({ghc} --print-libdir)
++        export PATH=$PATH:{cc}/..
+         {c2hs} -C-I$libdir/include "$@"
+         """.format(
+             ghc = hs.tools.ghc.path,
++            cc = cc.tools.cc,
+             c2hs = c2hs.path,
+         ),
+         mnemonic = "HaskellC2Hs",
+@@ -101,6 +113,7 @@ c2hs_library = rule(
+     attrs = {
+         "deps": attr.label_list(),
+         "srcs": attr.label_list(allow_files = [".chs"]),
++        "extra_args": attr.string_list(),
+         "src_strip_prefix": attr.string(
+             doc = "Directory in which module hierarchy starts.",
+         ),
