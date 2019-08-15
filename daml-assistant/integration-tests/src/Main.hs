@@ -231,11 +231,12 @@ packagingTests tmpDir = testGroup "packaging"
     , testCaseSteps "Build migration package" $ \step -> do
         let projectA = tmpDir </> "a"
         let projectB = tmpDir </> "b"
-        let projectMigrate = tmpDir </> "migrateAB"
-        let aDar = projectA </> distDir </> "a.dar"
-        let bDar = projectB </> distDir </> "b.dar"
-        let bUpgradedDar = tmpDir </> "b_upgraded.dar"
-        step "Creating project a..."
+        let projectUpgrade = tmpDir </> "upgrade"
+        let aDar = projectA </> distDir </> "a-1.0.dar"
+        let bDar = projectB </> distDir </> "a-2.0.dar"
+        let upgradeDar = projectUpgrade </> distDir </> "upgrade-0.0.1.dar"
+        let bWithUpgradesDar = "a-2.0-with-upgrades.dar"
+        step "Creating project a-1.0 ..."
         createDirectoryIfMissing True (projectA </> "daml")
         writeFileUTF8 (projectA </> "daml" </> "Main.daml") $ unlines
             [ "{-# LANGUAGE EmptyCase #-}"
@@ -260,9 +261,9 @@ packagingTests tmpDir = testGroup "packaging"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectA $ callCommandQuiet $ "daml build --output " <> distDir </> "a.dar"
-        assertBool "a.dar was not created." =<< doesFileExist aDar
-        step "Creating project b..."
+        withCurrentDirectory projectA $ callCommandQuiet "daml build"
+        assertBool "a-1.0.dar was not created." =<< doesFileExist aDar
+        step "Creating project a-2.0 ..."
         createDirectoryIfMissing True (projectB </> "daml")
         writeFileUTF8 (projectB </> "daml" </> "Main.daml") $ unlines
             [ "daml 1.2"
@@ -278,31 +279,31 @@ packagingTests tmpDir = testGroup "packaging"
             ]
         writeFileUTF8 (projectB </> "daml.yaml") $ unlines
             [ "sdk-version: " <> sdkVersion
-            , "version: \"1.0\""
-            , "name: b"
+            , "version: \"2.0\""
+            , "name: a"
             , "source: daml/Main.daml"
             , "exposed-modules: [Main]"
             , "dependencies:"
             , "  - daml-prim"
             , "  - daml-stdlib"
             ]
-        withCurrentDirectory projectB $ callCommandQuiet $ "daml build --output " <> distDir </> "b.dar"
-        assertBool "b.dar was not created." =<< doesFileExist bDar
-        step "Creating migration project"
-        callCommandQuiet $ unwords ["daml", "migrate", projectMigrate, "daml/Main.daml", aDar, bDar]
+        withCurrentDirectory projectB $ callCommandQuiet "daml build"
+        assertBool "a-2.0.dar was not created." =<< doesFileExist bDar
+        step "Creating upgrade project"
+        callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, "daml/Main.daml", aDar, bDar]
         step "Build migration project"
-        withCurrentDirectory projectMigrate $ callCommandQuiet $ "daml build --output " <> distDir </> "c.dar"
+        withCurrentDirectory projectUpgrade $ callCommandQuiet "daml build --init-package-db=no --package \'(\"a-1.0\", [(\"Main\", \"MainA\")])\' --package \'(\"a-2.0\", [(\"Main\", \"MainB\")])\'"
+        assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist  upgradeDar
         step "Merging upgrade dar"
-        withCurrentDirectory tmpDir $
-            callCommandQuiet $
-            unwords
-                [ "daml damlc merge-dars"
-                , projectA </> distDir </> "a.dar"
-                , projectMigrate </> distDir </> "c.dar"
-                , "--dar-name"
-                , "b_upgraded.dar"
-                ]
-        assertBool "b_upgraded.dar was not created." =<< doesFileExist bUpgradedDar
+        callCommandQuiet $
+          unwords
+              [ "daml damlc merge-dars"
+              , bDar
+              , upgradeDar
+              , "--dar-name"
+              , bWithUpgradesDar
+              ]
+        assertBool "a-0.2-with-upgrades.dar was not created." =<< doesFileExist bWithUpgradesDar
     ]
 
 quickstartTests :: FilePath -> FilePath -> TestTree
