@@ -64,6 +64,10 @@ object HttpService extends StrictLogging {
       client <- liftET[Error](
         LedgerClient.singleHost(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
 
+      clientChannel <- FutureUtil
+        .either(LedgerClientJwt.singleHostChannel(ledgerHost, ledgerPort, clientConfig)(ec, aesf))
+        .leftMap(e => Error(e.getMessage))
+
       ledgerId = apiLedgerId(client.ledgerId): lar.LedgerId
 
       _ = logger.info(s"Connected to Ledger: ${ledgerId: lar.LedgerId}")

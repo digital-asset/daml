@@ -22,6 +22,9 @@ object FutureUtil {
   def toFuture[A: Show, B](a: A \/ B): Future[B] =
     a.fold(e => Future.failed(new IllegalStateException(e.shows)), a => Future.successful(a))
 
+  def toFuture[A](a: Throwable \/ A): Future[A] =
+    a.fold(e => Future.failed(new IllegalStateException(e)), a => Future.successful(a))
+
   def liftET[E]: LiftET[E] = new LiftET(0)
   final class LiftET[E](private val ignore: Int) extends AnyVal {
     def apply[F[_]: Functor, A](fa: F[A]): EitherT[F, E, A] = rightT(fa)
