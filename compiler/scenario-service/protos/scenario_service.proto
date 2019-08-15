@@ -192,7 +192,7 @@ message ScenarioError {
   Location commit_loc = 5;
 
   // Stack trace of the locations seen during the execution.
-  // The last seen location comes last.
+  // The last seen location comes first.
   repeated Location stack_trace = 6;
 
   // The current partial transaction if any.
