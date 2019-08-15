@@ -116,15 +116,15 @@ In this section, you will run the quickstart application and get introduced to t
 
 #. To compile the DAML model, run ``daml build``
 
-   This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that DAML compiles to) called ``.daml/dist/quickstart.dar``. The output should look like this:
+   This creates a :ref:`DAR file <dar-file-dalf-file>` (DAR is just the format that DAML compiles to) called ``.daml/dist/quickstart-0.0.1.dar``. The output should look like this:
 
    .. code-block:: none
 
-      Created .daml/dist/quickstart.dar.
+      Created .daml/dist/quickstart-0.0.1.dar.
 
    .. _quickstart-sandbox:
 
-#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup .daml/dist/quickstart.dar``
+#. To run the :doc:`sandbox </tools/sandbox>` (a lightweight local version of the ledger), run ``daml sandbox --scenario Main:setup .daml/dist/quickstart-0.0.1.dar``
 
    The output should look like this:
 

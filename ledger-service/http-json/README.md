@@ -4,7 +4,7 @@
 
 ### Start sandbox from a DAML Assistant project directory
 ```
-daml-head sandbox --wall-clock-time ./.daml/dist/quickstart.dar
+daml-head sandbox --wall-clock-time ./.daml/dist/quickstart-0.0.1.dar
 ```
 
 ### Start HTTP service from the DAML project root
@@ -26,7 +26,7 @@ $ cd $HOME
 $ daml-head new iou-quickstart-java quickstart-java
 $ cd iou-quickstart-java/
 $ daml-head build
-$ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart.dar
+$ daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 
 cd <daml-root>/
 $ bazel run //ledger-service/http-json:http-json-bin -- localhost 6865 7575

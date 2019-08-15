@@ -472,19 +472,12 @@ execBuild projectOpts options mbOutFile initPkgDb = withProjectRoot' projectOpts
                     (toNormalizedFilePath $ fromMaybe ifaceDir $ optIfaceDir opts)
                     (FromDalf False)
             dar <- mbErr "ERROR: Creation of DAR file failed." mbDar
-            let fp = targetFilePath pName
+            let fp = targetFilePath $ pkgNameVersion pName pVersion
             createDirectoryIfMissing True $ takeDirectory fp
             BSL.writeFile fp dar
             putStrLn $ "Created " <> fp <> "."
     where
-        -- The default output filename is based on Maven coordinates if
-        -- the package name is specified via them, otherwise we use the
-        -- name.
-        defaultDarFile name =
-            case Split.splitOn ":" name of
-                [_g, a, v] -> a <> "-" <> v <> ".dar"
-                _otherwise -> name <> ".dar"
-        targetFilePath name = fromMaybe (distDir </> defaultDarFile name) mbOutFile
+        targetFilePath name = fromMaybe (distDir </> name <.> "dar") mbOutFile
 
 -- | Remove any build artifacts if they exist.
 execClean :: ProjectOpts -> IO ()
