@@ -1164,7 +1164,7 @@ for the ``DefTemplate`` rule). ::
     ⊢  'val' W : τ ↦ e
 
     'record' T ↦ { f₁ : τ₁, …, fₙ : tₙ }  ∈  〚Ξ〛Mod
-    ε  ⊢  Mod:T  :  ⋆
+    ⊢ₛ  Mod:T
     x : Mod:T  ⊢  eₚ  :  'Bool'
     x : Mod:T  ⊢  eₛ  :  'List' 'Party'
     x : Mod:T  ⊢  eₒ  :  'List' 'Party'
@@ -1187,7 +1187,7 @@ for the ``DefTemplate`` rule). ::
     ⊢ₛ  τ
     ⊢ₛ  σ
     x : Mod:T  ⊢  eₚ  :  'List' 'Party'     x ≠ y                        [DAML-LF < 1.2]
-    y : τ · x : Mod:T  ⊢  eₚ  :  'List' 'Party'                         [DAML-LF ≥ 1.2]
+    y : τ · x : Mod:T  ⊢  eₚ  :  'List' 'Party'                          [DAML-LF ≥ 1.2]
     z : 'ContractId' Mod:T · y : τ · x : Mod:T  ⊢  e  :  'Update' σ
   ——————————————————————————————————————————————————————————————— ChDef
     x : Mod:T  ⊢  'choice' ChKind Ch (y : τ) (z : 'ContractId' Mod:T) : σ 'by' eₚ ↦ e
