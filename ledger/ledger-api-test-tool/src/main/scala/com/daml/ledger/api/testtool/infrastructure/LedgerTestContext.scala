@@ -7,6 +7,8 @@ import java.time.Instant
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.ledger.api.v1.command_service.SubmitAndWaitRequest
+import com.digitalasset.ledger.api.v1.commands.Command
 import com.digitalasset.ledger.api.v1.event.CreatedEvent
 import com.digitalasset.ledger.api.v1.ledger_offset.LedgerOffset
 import com.digitalasset.ledger.api.v1.transaction.{Transaction, TransactionTree}
@@ -31,7 +33,7 @@ final class LedgerTestContext(
     () =>
       it.synchronized(it.next())
   }
-  val nextCommandId: () => String = {
+  private[this] val nextCommandId: () => String = {
     val it = Iterator.from(0).map(n => s"$applicationId-command-$n")
     () =>
       it.synchronized(it.next())
@@ -78,6 +80,21 @@ final class LedgerTestContext(
 
   def transactionTreeById(transactionId: String, parties: Seq[Party]): Future[TransactionTree] =
     bindings.getTransactionById(transactionId, parties)
+
+  def prepareSubmission(party: Party, command: Command): Future[SubmitAndWaitRequest] =
+    bindings.prepareSubmission(party, applicationId, nextCommandId(), Seq(command))
+
+  def submitAndWait(request: SubmitAndWaitRequest): Future[Unit] =
+    bindings.submitAndWait(request)
+
+  def submitAndWaitForTransactionId(request: SubmitAndWaitRequest): Future[String] =
+    bindings.submitAndWaitForTransactionId(request)
+
+  def submitAndWaitForTransaction(request: SubmitAndWaitRequest): Future[Transaction] =
+    bindings.submitAndWaitForTransaction(request)
+
+  def submitAndWaitForTransactionTree(request: SubmitAndWaitRequest): Future[TransactionTree] =
+    bindings.submitAndWaitForTransactionTree(request)
 
   def semanticTesterLedger(parties: Set[Ref.Party], packages: Map[Ref.PackageId, Ast.Package]) =
     new SemanticTesterLedger(bindings)(parties, packages)(this)
