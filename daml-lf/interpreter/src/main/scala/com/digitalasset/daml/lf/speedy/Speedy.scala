@@ -65,7 +65,34 @@ object Speedy {
     def popEnv(count: Int): Unit =
       env.subList(env.size - count, env.size).clear
 
-    /* Compute a stack trace from the locations in the continuation stack. */
+    /** Push a single location to the continuation stack for the sake of
+        maintaining a stack trace. */
+    def pushLocation(loc: Location): Unit = {
+      lastLocation = Some(loc)
+      val last_index = kont.size() - 1
+      val last_kont = if (last_index >= 0) Some(kont.get(last_index)) else None
+      last_kont match {
+        // NOTE(MH): If the top of the continuation stack is the monadic token,
+        // we push location information under it to account for the implicit
+        // lambda binding the token.
+        case Some(KArg(Array(SEValue(SToken)))) => kont.add(last_index, KLocation(loc))
+        // NOTE(MH): When we use a cached top level value, we need to put the
+        // stack trace it produced back on the continuation stack to get
+        // complete stack trace at the use site. Thus, we store the stack traces
+        // of top level values separately during their execution.
+        case Some(KCacheVal(v, stack_trace)) =>
+          kont.set(last_index, KCacheVal(v, loc :: stack_trace)); ()
+        case _ => kont.add(KLocation(loc)); ()
+      }
+    }
+
+    /** Push an entire stack trace to the continuation stack. The first
+        element of the list will be pushed last. */
+    def pushStackTrace(locs: List[Location]): Unit =
+      locs.reverse.foreach(pushLocation)
+
+    /** Compute a stack trace from the locations in the continuation stack.
+        The last seen location will come last. */
     def stackTrace(): ImmArray[Location] = {
       val s = new ArrayList[Location]
       kont.forEach { k =>
@@ -123,11 +150,13 @@ object Speedy {
     def lookupVal(eval: SEVal): Ctrl = {
       ptx = ptx.markPackage(eval.ref.packageId)
       eval.cached match {
-        case Some(v) =>
-          CtrlValue(v.asInstanceOf[SValue])
+        case Some((v, stack_trace)) => {
+          pushStackTrace(stack_trace)
+          CtrlValue(v)
+        }
         case None =>
           val ref = eval.ref
-          kont.add(KCacheVal(eval))
+          kont.add(KCacheVal(eval, Nil))
           compiledPackages.getDefinition(ref) match {
             case Some(body) =>
               CtrlExpr(body)
@@ -502,9 +531,10 @@ object Speedy {
     * accessed. In older compilers which did not use the builtin record and tuple
     * updates this solves the blow-up which would happen when a large record is
     * updated multiple times. */
-  final case class KCacheVal(v: SEVal) extends Kont {
+  final case class KCacheVal(v: SEVal, stack_trace: List[Location]) extends Kont {
     def execute(sv: SValue, machine: Machine) = {
-      v.cached = Some(sv)
+      machine.pushStackTrace(stack_trace)
+      v.cached = Some((sv, stack_trace))
     }
   }
 

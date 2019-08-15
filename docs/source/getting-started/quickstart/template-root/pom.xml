@@ -72,7 +72,7 @@
                                 <argument>${daml-codegen-java.output}</argument>
                                 <argument>-d</argument>
                                 <argument>com.digitalasset.quickstart.iou.TemplateDecoder</argument>
-                                <argument>${project.basedir}/.daml/dist/quickstart.dar=com.digitalasset.quickstart.model</argument>
+                                <argument>${project.basedir}/.daml/dist/quickstart-0.0.1.dar=com.digitalasset.quickstart.model</argument>
                             </arguments>
                         </configuration>
                     </execution>
