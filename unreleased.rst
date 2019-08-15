@@ -10,3 +10,4 @@ HEAD — ongoing
 --------------
 
 + [Documentation] Added platform-independent tips for testing
++ [DAML Compiler] Some issues that caused ``damlc test`` to crash on shutdown have been fixed.
