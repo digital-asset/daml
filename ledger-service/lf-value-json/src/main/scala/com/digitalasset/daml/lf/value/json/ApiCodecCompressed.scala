@@ -95,10 +95,9 @@ abstract class ApiCodecCompressed[Cid](
 
   private[this] def apiMapToJsValue(value: V.ValueMap[Cid]): JsValue =
     JsObject(
-      value.value.toImmArray
-        .map { case (k, v) => k -> apiValueToJsValue(v) }
-        .toSeq
-        .toMap)
+      value.value
+        .mapValue(apiValueToJsValue)
+        .toHashMap)
 
   // ------------------------------------------------------------------------------------------------------------------
   // Decoding - this needs access to DAML-LF types
@@ -216,7 +215,7 @@ abstract class ApiCodecCompressed[Cid](
               deserializationError(
                 s"Can't read ${value.prettyPrint} as DamlLfVariant $id, single constructor required")
           }
-          val (constructorName, constructorType) = cons.toList
+          val (constructorName, constructorType) = cons
             .find(_._1 == constructor._1)
             .getOrElse(deserializationError(
               s"Can't read ${value.prettyPrint} as DamlLfVariant $id, unknown constructor ${constructor._1}"))
