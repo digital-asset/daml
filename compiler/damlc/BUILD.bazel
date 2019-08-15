@@ -24,7 +24,7 @@ da_haskell_binary(
     hazel_deps = [
         "base",
     ],
-    src_strip_prefix = "src",
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
@@ -46,7 +46,7 @@ da_haskell_binary(
     hazel_deps = [
         "base",
     ],
-    src_strip_prefix = "src",
+    src_strip_prefix = "exe",
     visibility = ["//visibility:public"],
     deps = [
         ":damlc-lib",
@@ -124,6 +124,7 @@ da_haskell_library(
         "unordered-containers",
         "uniplate",
     ],
+    src_strip_prefix = "lib",
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-hs-lib",
