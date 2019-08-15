@@ -3,7 +3,6 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.SError._
@@ -31,8 +30,9 @@ object Speedy {
        * once the control has been evaluated.
        */
       var kont: ArrayList[Kont],
-      /* The last encountered location */
-      var lastLocation: Option[Location],
+      /* A stack trace of the locations annotations during execution. The
+         location seen last is the head of the list. */
+      var stackTrace: List[Location],
       /* The current partial transaction */
       var ptx: PartialTransaction,
       /* Committers of the action. */
@@ -65,24 +65,46 @@ object Speedy {
     def popEnv(count: Int): Unit =
       env.subList(env.size - count, env.size).clear
 
+    /** The last seens location, i.e., the top of the stack trace. */
+    def lastLocation(): Option[Location] = stackTrace.headOption
+
     /** Push a single location to the continuation stack for the sake of
         maintaining a stack trace. */
     def pushLocation(loc: Location): Unit = {
-      lastLocation = Some(loc)
-      val last_index = kont.size() - 1
-      val last_kont = if (last_index >= 0) Some(kont.get(last_index)) else None
-      last_kont match {
-        // NOTE(MH): If the top of the continuation stack is the monadic token,
-        // we push location information under it to account for the implicit
-        // lambda binding the token.
-        case Some(KArg(Array(SEValue(SToken)))) => kont.add(last_index, KLocation(loc))
-        // NOTE(MH): When we use a cached top level value, we need to put the
-        // stack trace it produced back on the continuation stack to get
-        // complete stack trace at the use site. Thus, we store the stack traces
-        // of top level values separately during their execution.
-        case Some(KCacheVal(v, stack_trace)) =>
-          kont.set(last_index, KCacheVal(v, loc :: stack_trace)); ()
-        case _ => kont.add(KLocation(loc)); ()
+      def kontAt(index: Int) = if (index >= 0) Some(kont.get(index)) else None
+      stackTrace = loc :: stackTrace
+
+      // popIndex will contain the index of the KPopLocation frame in the
+      // continuation stack.
+      var popIndex = kont.size() - 1
+
+      // NOTE(MH): If the top of the continuation stack is the monadic token,
+      // we push location information under it to account for the implicit
+      // lambda binding the token.
+      kontAt(popIndex) match {
+        case Some(KArg(Array(SEValue(SToken)))) => popIndex -= 1
+        case _ => ()
+      }
+
+      kontAt(popIndex) match {
+        case Some(KPopLocation(n)) => kont.set(popIndex, KPopLocation(n+1))
+        case _ => {
+          popIndex += 1
+          kont.add(popIndex, KPopLocation(1))
+          ()
+        }
+      }
+
+      // NOTE(MH): When we use a cached top level value, we need to put the
+      // stack trace it produced back on the continuation stack to get
+      // complete stack trace at the use site. Thus, we maintain a stack
+      // trace in the KCacheVal frame as well, to which we need to add
+      // whenever it is directly under the KPopLocation frame for this
+      // location.
+      kontAt(popIndex - 1) match {
+        case Some(KCacheVal(v, cacheStackTrace)) =>
+          kont.set(popIndex - 1, KCacheVal(v, loc :: cacheStackTrace)); ()
+        case _ => ()
       }
     }
 
@@ -90,19 +112,6 @@ object Speedy {
         element of the list will be pushed last. */
     def pushStackTrace(locs: List[Location]): Unit =
       locs.reverse.foreach(pushLocation)
-
-    /** Compute a stack trace from the locations in the continuation stack.
-        The last seen location will come last. */
-    def stackTrace(): ImmArray[Location] = {
-      val s = new ArrayList[Location]
-      kont.forEach { k =>
-        k match {
-          case KLocation(location) => { s.add(location); () }
-          case _ => ()
-        }
-      }
-      ImmArray(s.asScala)
-    }
 
     /** Perform a single step of the machine execution. */
     def step(): SResult =
@@ -235,7 +244,7 @@ object Speedy {
         ctrl = null,
         env = emptyEnv,
         kont = new ArrayList[Kont](128),
-        lastLocation = None,
+        stackTrace = Nil,
         ptx = PartialTransaction.initial,
         committers = Set.empty,
         commitLocation = None,
@@ -551,8 +560,9 @@ object Speedy {
   }
 
   /** A location frame stores a location annotation found in the AST. */
-  final case class KLocation(location: Location) extends Kont {
+  final case class KPopLocation(count: Int) extends Kont {
     def execute(v: SValue, machine: Machine) = {
+      machine.stackTrace = machine.stackTrace.drop(count)
       machine.ctrl = CtrlValue(v)
     }
   }

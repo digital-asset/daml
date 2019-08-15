@@ -162,7 +162,7 @@ prettyScenarioError world ScenarioError{..} = runM scenarioErrorNodes world $ do
 
     , if V.null scenarioErrorStackTrace
       then Nothing
-      else Just $ vcat $ "Stack trace:" : map ppStackTraceEntry (reverse $ V.toList scenarioErrorStackTrace)
+      else Just $ vcat $ "Stack trace:" : map ppStackTraceEntry (V.toList scenarioErrorStackTrace)
 
     , Just $ "Ledger time:" <-> prettyTimestamp scenarioErrorLedgerTime
 
