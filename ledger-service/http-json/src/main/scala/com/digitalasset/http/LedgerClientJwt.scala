@@ -3,15 +3,19 @@
 
 package com.digitalasset.http
 
+import akka.stream.scaladsl.{Keep, Source}
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.jwt.domain.Jwt
+import com.digitalasset.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.digitalasset.ledger.api.v1.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitRequest
 }
+import com.digitalasset.ledger.api.v1.transaction_filter.TransactionFilter
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
+import com.digitalasset.util.akkastreams.ExtractMaterializedValue
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.grpc.stub.MetadataUtils
 import io.grpc.{Channel, ClientInterceptors, Metadata}
@@ -23,6 +27,9 @@ object LedgerClientJwt {
 
   type SubmitAndWaitForTransaction =
     (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionResponse]
+
+  type GetActiveContracts =
+    (Jwt, TransactionFilter, Boolean) => Source[GetActiveContractsResponse, Future[String]]
 
   def singleHostChannel(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
@@ -70,7 +77,18 @@ object LedgerClientJwt {
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory): SubmitAndWaitForTransaction =
     (jwt, req) =>
-      LedgerClientJwt
-        .forChannel(jwt, config, channel)
+      forChannel(jwt, config, channel)
         .flatMap(_.commandServiceClient.submitAndWaitForTransaction(req))
+
+  private val exMat = new ExtractMaterializedValue((_: LedgerClient) => None: Option[String])
+
+  @SuppressWarnings(Array("org.wartremover.warts.Any"))
+  def getActiveContracts(config: LedgerClientConfiguration, channel: io.grpc.Channel)(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory): GetActiveContracts =
+    (jwt, filter, flag) =>
+      Source
+        .fromFuture(forChannel(jwt, config, channel))
+        .viaMat(exMat)(Keep.right)
+        .flatMapConcat(client => client.activeContractSetClient.getActiveContracts(filter, flag))
 }

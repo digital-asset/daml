@@ -131,7 +131,7 @@ class Endpoints(
         ): ET[domain.ContractLookupRequest[lav1.value.Value]]
 
         ac <- eitherT(
-          handleFutureFailure(contractsService.lookup(jwtPayload, cmd))
+          handleFutureFailure(contractsService.lookup(jwt, jwtPayload, cmd))
         ): ET[Option[domain.ActiveContract[lav1.value.Value]]]
 
         jsVal <- either(
@@ -152,8 +152,9 @@ class Endpoints(
         (jwt, jwtPayload, _) = input
 
         as <- eitherT(
-          handleFutureFailure(contractsService.search(jwtPayload, emptyGetActiveContractsRequest))
-        ): ET[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
+          handleFutureFailure(
+            contractsService.search(jwt, jwtPayload, emptyGetActiveContractsRequest))): ET[
+          Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
 
         jsVal <- either(
           as.toList
@@ -179,7 +180,7 @@ class Endpoints(
         ): ET[domain.GetActiveContractsRequest]
 
         as <- eitherT(
-          handleFutureFailure(contractsService.search(jwtPayload, cmd))
+          handleFutureFailure(contractsService.search(jwt, jwtPayload, cmd))
         ): ET[Seq[domain.GetActiveContractsResponse[lav1.value.Value]]]
 
         jsVal <- either(

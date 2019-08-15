@@ -87,7 +87,7 @@ object HttpService extends StrictLogging {
 
       contractsService = new ContractsService(
         PackageService.resolveTemplateIds(templateIdMap),
-        client.activeContractSetClient)
+        LedgerClientJwt.getActiveContracts(clientConfig, clientChannel))
 
       (encoder, decoder) = buildJsonCodecs(ledgerId, packageStore, templateIdMap)
 
