@@ -1,4 +1,4 @@
-.. Copyright (c) 2019 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+.. Copyright (c) 2019 The DAML Authors. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
 .. _daml-ledger-topologies:
@@ -8,7 +8,7 @@ DAML Ledger Topologies
 
 The Ledger API provides parties with an abstraction of a virtual shared ledger, visualized as follows.
 
-.. image:: ./ledger-model/images/da-ledger-model.svg
+.. image:: ../concepts/ledger-model/images/da-ledger-model.svg
    :width: 80%
    :align: center
 
@@ -149,7 +149,7 @@ Trusted Execution Environments
 ==============================
 
 Integrity and privacy can also be protected using hardware Trusted Execution Environments (TEEs), such as Intel SGX.
-The software implementing the ledger can then be deployed inside of TEE "enclaves", which are code blocks that the processor isolates and protects from the rest of the software stack (even the operating system).
+The software implementing the ledger can then be deployed inside of TEE **enclaves**, which are code blocks that the processor isolates and protects from the rest of the software stack (even the operating system).
 The hardware ensures that the enclave data never leaves the processor unencrypted, offering privacy.
 Furthermore, hardware-based attestation can guarantee that the operating entities process data using the prescribed code only, guaranteeing integrity.
 The hardware is designed in such a way as to make any potential physical attacks by the operating entity extremely expensive.

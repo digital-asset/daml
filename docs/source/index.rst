@@ -67,7 +67,6 @@ DAML SDK documentation
 
    concepts/glossary
    concepts/ledger-model/index
-   concepts/ledger-topologies
 
 .. toctree::
    :titlesonly:
@@ -76,6 +75,7 @@ DAML SDK documentation
    :caption: Deploying
 
    deploy/index
+   deploy/ledger-topologies
 
 .. toctree::
    :titlesonly:
