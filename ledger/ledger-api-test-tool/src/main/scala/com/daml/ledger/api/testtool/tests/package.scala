@@ -30,7 +30,8 @@ package object tests {
     "ContractKeysSubmitterIsMaintainerIT" -> (new ContractKeysSubmitterIsMaintainer(_)),
     "ContractKeysIT" -> (new ContractKeys(_)),
     "WitnessesIT" -> (new Witnesses(_)),
-    "CommandServiceIT" -> (new CommandService(_))
+    "CommandServiceIT" -> (new CommandService(_)),
+    "ActiveContractsServiceIT" -> (new ActiveContractsService(_))
   )
 
   val all = default ++ optional
