@@ -27,6 +27,9 @@ import Development.IDE.Core.Rules
 import Development.IDE.Core.Rules.Daml
 import Development.IDE.Core.Service.Daml
 
+import Development.IDE.Core.Shake
+import Development.IDE.Core.RuleTypes.Daml
+
 import qualified Network.URI                               as URI
 
 import Language.Haskell.LSP.Messages
@@ -68,14 +71,39 @@ setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
     -- $/setTraceNotification which we want to ignore.
     where optionalPrefix = "$/"
 
-setHandlerDamlVisualize :: PartialHandlers
-setHandlerDamlVisualize = PartialHandlers $ \WithMessage{..} x -> return x
-    {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
-        case _method of
-            CustomClientMethod "daml/damlVisualize" -> maybe (return ()) ($ msg) $
-                withResponse RspCustomServer (\_ _ _ -> return $ Aeson.String "Generate Dalf then call visualize")
-            _ -> whenJust (LSP.customRequestHandler x) ($ msg)
-    }
+onCommand
+    :: IdeState
+    -> ExecuteCommandParams
+    -> IO Aeson.Value
+onCommand ide ExecuteCommandParams{..} = do
+    case _arguments of
+        Nothing -> return $ Aeson.String "Generate Dalf then call visualize file path not set"
+        Just _path -> do
+            mbModMapping <- runAction ide (useWithStale GenerateDalf "")
+            case mbModMapping of
+                Nothing -> logInfo (ideLogger ide) (textShow _path)
+                Just (mod, _mapping) -> logInfo (ideLogger ide) (textShow mod)
+            return $ Aeson.String "Generate Dalf then call visualize"
+
+setCommandHandler ::PartialHandlers
+setCommandHandler = PartialHandlers $ \WithMessage{..} x -> return x {
+    LSP.executeCommandHandler = withResponse RspExecuteCommand $ const onCommand
+}
+
+
+-- setHandlerDamlVisualize :: PartialHandlers
+-- setHandlerDamlVisualize = PartialHandlers $ \WithMessage{..} x -> return x
+--     {LSP.customRequestHandler = Just $ \msg@RequestMessage{_method} ->
+--         case _method of
+--             CustomClientMethod "daml/damlVisualize" -> maybe (return ()) ($ msg) $
+--                 withResponse RspCustomServer (\_ ide _ -> do
+--                     mbModMapping <- runAction ide (useWithStale GenerateDalf "filePath")
+--                     case mbModMapping of
+--                         Nothing ->logInfo (ideLogger ide) "nothing to see"
+--                         Just (mod, _mapping) -> logInfo (ideLogger ide) (textShow mod)
+--                     return $ Aeson.String "Generate Dalf then call visualize")
+--             _ -> whenJust (LSP.customRequestHandler x) ($ msg)
+--     }
 
 setHandlersVirtualResource :: PartialHandlers
 setHandlersVirtualResource = PartialHandlers $ \WithMessage{..} x -> return x
@@ -110,7 +138,7 @@ runLanguageServer
     :: ((FromServerMessage -> IO ()) -> VFSHandle -> ClientCapabilities -> IO IdeState)
     -> IO ()
 runLanguageServer getIdeState = do
-    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setHandlerDamlVisualize
+    let handlers = setHandlersKeepAlive <> setHandlersVirtualResource <> setHandlersCodeLens <> setIgnoreOptionalHandlers <> setCommandHandler
     LS.runLanguageServer options handlers getIdeState
 
 

@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
 import * as tmp from 'tmp';
-import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, RequestType, NotificationType, TextDocumentIdentifier, TextDocument, ExecuteCommandRequest } from 'vscode-languageclient';
 import { Uri, Event, TextDocumentContentProvider, ViewColumn, EventEmitter, window, QuickPickOptions, ExtensionContext, env, WorkspaceConfiguration } from 'vscode'
 import * as which from 'which';
 
@@ -260,15 +260,19 @@ function keepAlive() {
 }
 
 function visualizeLsp() {
-    damlLanguageClient.sendRequest(DamlVisualize.type, null).then(r => {
+    damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
+        {command: "daml/damlVisualize" , arguments : ["this again"]}).then(r => {
         console.log(r);
     })
 }
 // Custom requests
 
-namespace DamlVisualize {
-    export let type = new RequestType<void, void, void, void>('daml/damlVisualize');
-}
+// namespace DamlVisualize {
+//     export let type = new RequestType<void, void, void, void>('daml/damlVisualize');
+
+//     // ExecuteCommandRequest
+//     new RequestType<"{}", any, void, void>
+// }
 
 namespace DamlKeepAliveRequest {
     export let type =

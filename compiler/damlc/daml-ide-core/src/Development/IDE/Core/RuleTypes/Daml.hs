@@ -131,6 +131,14 @@ instance Binary   RunScenarios
 instance Hashable RunScenarios
 instance NFData   RunScenarios
 
+data GenerateVisualization = GenerateVisualization
+    deriving (Eq, Show, Typeable, Generic)
+instance Binary   GenerateVisualization
+instance Hashable GenerateVisualization
+instance NFData   GenerateVisualization
+
+type instance RuleResult GenerateVisualization = BS.ByteString
+
 data EncodeModule = EncodeModule
     deriving (Eq, Show, Typeable, Generic)
 instance Binary   EncodeModule

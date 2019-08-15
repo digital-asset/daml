@@ -201,6 +201,12 @@ generateDalfRule =
             mapLeft liftError $ LF.checkModule world lfVersion dalf
             pure dalf
 
+generateVisualizationRule :: Rules ()
+generateVisualizationRule =
+    define $ \GenerateVisualization file -> do
+        _dalf <- use_ GenerateDalf file
+        pure ([], Just "generating things")
+
 -- | Generate a doctest module based on the doc tests in the given module.
 generateDocTestModuleRule :: Rules ()
 generateDocTestModuleRule =
@@ -678,6 +684,7 @@ damlRule opts = do
     generatePackageDepsRule opts
     runScenariosRule
     getScenarioRootsRule
+    generateVisualizationRule
     getScenarioRootRule
     getDlintDiagnosticsRule
     ofInterestRule opts
