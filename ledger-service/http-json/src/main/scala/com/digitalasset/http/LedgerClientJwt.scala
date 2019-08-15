@@ -6,6 +6,10 @@ package com.digitalasset.http
 import com.digitalasset.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.http.util.FutureUtil.toFuture
 import com.digitalasset.jwt.domain.Jwt
+import com.digitalasset.ledger.api.v1.command_service.{
+  SubmitAndWaitForTransactionResponse,
+  SubmitAndWaitRequest
+}
 import com.digitalasset.ledger.client.LedgerClient
 import com.digitalasset.ledger.client.configuration.LedgerClientConfiguration
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
@@ -16,6 +20,9 @@ import scalaz.\/
 import scala.concurrent.{ExecutionContext, Future}
 
 object LedgerClientJwt {
+
+  type SubmitAndWaitForTransaction =
+    (Jwt, SubmitAndWaitRequest) => Future[SubmitAndWaitForTransactionResponse]
 
   def singleHostChannel(hostIp: String, port: Int, configuration: LedgerClientConfiguration)(
       implicit ec: ExecutionContext,
@@ -38,7 +45,7 @@ object LedgerClientJwt {
     channel
   }
 
-  def forChannel(configuration: LedgerClientConfiguration, channel: Channel)(jwt: Jwt)(
+  def forChannel(jwt: Jwt, configuration: LedgerClientConfiguration, channel: Channel)(
       implicit ec: ExecutionContext,
       esf: ExecutionSequencerFactory
   ): Future[LedgerClient] =
@@ -58,4 +65,12 @@ object LedgerClientJwt {
       val interceptor = MetadataUtils.newAttachHeadersInterceptor(extraHeaders)
       ClientInterceptors.intercept(channel, interceptor)
     }
+
+  def submitAndWaitForTransaction(config: LedgerClientConfiguration, channel: io.grpc.Channel)(
+      implicit ec: ExecutionContext,
+      esf: ExecutionSequencerFactory): SubmitAndWaitForTransaction =
+    (jwt, req) =>
+      LedgerClientJwt
+        .forChannel(jwt, config, channel)
+        .flatMap(_.commandServiceClient.submitAndWaitForTransaction(req))
 }
