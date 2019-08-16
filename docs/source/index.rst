@@ -75,6 +75,7 @@ DAML SDK documentation
    :caption: Deploying
 
    deploy/index
+   deploy/ledger-topologies
 
 .. toctree::
    :titlesonly:
