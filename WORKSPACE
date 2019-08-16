@@ -252,6 +252,12 @@ exports_files(glob(["lib/**/*"]))
     repositories = dev_env_nix_repos,
 ) if not is_windows else None
 
+common_ghc_flags = [
+    "-O1",
+    "-hide-package=ghc-boot-th",
+    "-hide-package=ghc-boot",
+]
+
 # Used by Darwin and Linux
 haskell_register_ghc_nixpkgs(
     attribute_path = "ghcStaticDwarf" if enable_ghc_dwarf else "ghcStatic",
@@ -265,11 +271,8 @@ haskell_register_ghc_nixpkgs(
     # we get a similar behavior on Darwin by default.
     # However, we had to disable split-sections for now as it seems to interact very badly
     # with the GHCi linker to the point where :main takes several minutes rather than several seconds.
-    compiler_flags = [
-        "-O1",
+    compiler_flags = common_ghc_flags + [
         "-fexternal-dynamic-refs",
-        "-hide-package=ghc-boot-th",
-        "-hide-package=ghc-boot",
     ] + (["-g3"] if enable_ghc_dwarf else []),
     compiler_flags_select = {
         "@com_github_digital_asset_daml//:profiling_build": ["-fprof-auto"],
@@ -290,6 +293,7 @@ haskell_register_ghc_nixpkgs(
 
 # Used by Windows
 haskell_register_ghc_bindists(
+    compiler_flags = common_ghc_flags,
     version = "8.6.5",
 ) if is_windows else None
 
