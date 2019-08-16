@@ -90,6 +90,7 @@ compileDependencies = [
     "//3rdparty/jvm/com/typesafe/akka:akka_http",
     "//3rdparty/jvm/com/typesafe/akka:akka_http_spray_json",
     "//3rdparty/jvm/com/typesafe/akka:akka_slf4j",
+    "//3rdparty/jvm/com/typesafe/akka:akka_stream",
     "//3rdparty/jvm/ch/qos/logback:logback_classic",
     "//3rdparty/jvm/com/typesafe/scala_logging",
     "//3rdparty/jvm/io/netty:netty_tcnative_boringssl_static",

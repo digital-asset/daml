@@ -111,7 +111,7 @@ object HttpService extends StrictLogging {
 
   def stop(f: Future[Error \/ ServerBinding])(implicit ec: ExecutionContext): Future[Unit] = {
     logger.info("Stopping server...")
-    f.collect { case \/-(a) => a.unbind() }.join
+    f.collect { case \/-(a) => a.unbind().void }.join
   }
 
   // Decode JWT without any validation
