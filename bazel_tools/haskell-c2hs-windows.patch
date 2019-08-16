@@ -1,5 +1,5 @@
 diff --git a/haskell/c2hs.bzl b/haskell/c2hs.bzl
-index f4f9f42..9aa9a8c 100644
+index f4f9f42..5e12e0e 100644
 --- a/haskell/c2hs.bzl
 +++ b/haskell/c2hs.bzl
 @@ -39,6 +39,7 @@ def _c2hs_library_impl(ctx):
@@ -10,7 +10,7 @@ index f4f9f42..9aa9a8c 100644
  
      dep_chi_files = [
          dep[C2hsLibraryInfo].chi_file
-@@ -68,12 +69,23 @@ def _c2hs_library_impl(ctx):
+@@ -68,7 +69,16 @@ def _c2hs_library_impl(ctx):
              set.to_depset(version_macro_headers),
          ]),
          outputs = [hs_file, chi_file],
@@ -20,22 +20,15 @@ index f4f9f42..9aa9a8c 100644
 +        # not in PATH so we add it to PATH explicitely.
 +        (
 +        """
-+        export PATH=$PATH:{cc}/..
-+        """.format(cc = cc.tools.cc) if hs.toolchain.is_windows
++        export PATH=$PATH:{mingw-bin}
++        """.format(cc = paths.basedir(cc.tools.cc)) if hs.toolchain.is_windows
 +        else ""
 +        ) +
 +        """
          # Include libdir in include path just like hsc2hs does.
          libdir=$({ghc} --print-libdir)
-+        export PATH=$PATH:{cc}/..
          {c2hs} -C-I$libdir/include "$@"
-         """.format(
-             ghc = hs.tools.ghc.path,
-+            cc = cc.tools.cc,
-             c2hs = c2hs.path,
-         ),
-         mnemonic = "HaskellC2Hs",
-@@ -101,6 +113,7 @@ c2hs_library = rule(
+@@ -101,6 +111,7 @@ c2hs_library = rule(
      attrs = {
          "deps": attr.label_list(),
          "srcs": attr.label_list(allow_files = [".chs"]),
