@@ -93,7 +93,7 @@ onCommand ide ExecuteCommandParams{..} = do
         Just path -> do
             mbModMapping <- runAction ide (useWithStale GenerateVisualization (filesFromExecParams path))
             case mbModMapping of
-                Nothing -> logInfo (ideLogger ide) (textShow (filesFromExecParams path))
+                Nothing -> logInfo (ideLogger ide) "Generating dalf failed"
                 Just (mod, _mapping) -> logInfo (ideLogger ide) (textShow mod)
             return $ Aeson.String "Generate Dalf then call visualize"
 

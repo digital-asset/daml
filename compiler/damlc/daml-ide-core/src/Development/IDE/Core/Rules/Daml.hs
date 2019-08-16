@@ -205,12 +205,12 @@ generateDalfRule =
 generateVisualizationRule :: Rules ()
 generateVisualizationRule =
     define $ \GenerateVisualization file -> do
-        _dalf <- use_ GenerateDalf file
+        dalf <- use_ GenerateDalf file
         WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgMap <- useNoFile_ GeneratePackageMap
         let pkgs = map dalfPackagePkg $ Map.elems pkgMap
         let world = LF.initWorldSelf pkgs pkg
-        let dots = T.pack $ Visual.dotFileGen [_dalf] world
+        let dots = T.pack $ Visual.dotFileGen [dalf] world
         pure ([], Just dots)
 
 -- | Generate a doctest module based on the doc tests in the given module.
