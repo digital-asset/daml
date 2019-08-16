@@ -34,6 +34,10 @@ import qualified Network.URI                               as URI
 
 import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as LSP
+import Development.IDE.Types.Location
+-- import Data.Aeson.Types
+-- import qualified Data.Vector as V
+-- import Data.Aeson
 
 
 textShow :: Show a => a -> T.Text
@@ -71,6 +75,16 @@ setIgnoreOptionalHandlers = PartialHandlers $ \WithMessage{..} x -> return x
     -- $/setTraceNotification which we want to ignore.
     where optionalPrefix = "$/"
 
+tt :: Aeson.Value -> T.Text
+tt  (Aeson.String x ) = x
+tt _ = error "this has to be reported in ide"
+
+
+filesFromExecParams :: List Aeson.Value -> NormalizedFilePath
+filesFromExecParams (List files) =  case map tt files of
+    [] -> error "this has to be reported in ide"
+    (h : _) -> toNormalizedFilePath $ T.unpack h
+
 onCommand
     :: IdeState
     -> ExecuteCommandParams
@@ -78,10 +92,10 @@ onCommand
 onCommand ide ExecuteCommandParams{..} = do
     case _arguments of
         Nothing -> return $ Aeson.String "Generate Dalf then call visualize file path not set"
-        Just _path -> do
-            mbModMapping <- runAction ide (useWithStale GenerateDalf "")
+        Just path -> do
+            mbModMapping <- runAction ide (useWithStale GenerateDalf (filesFromExecParams path))
             case mbModMapping of
-                Nothing -> logInfo (ideLogger ide) (textShow _path)
+                Nothing -> logInfo (ideLogger ide) (textShow (filesFromExecParams path))
                 Just (mod, _mapping) -> logInfo (ideLogger ide) (textShow mod)
             return $ Aeson.String "Generate Dalf then call visualize"
 

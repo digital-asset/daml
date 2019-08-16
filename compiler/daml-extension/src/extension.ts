@@ -129,6 +129,17 @@ async function visualize() {
     }))
 }
 
+function visualizeLsp() {
+    if (vscode.window.activeTextEditor){
+        let currentOpenFileName = vscode.window.activeTextEditor.document.fileName
+        // vscode.workspace.rootPath
+        damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
+            {command: "daml/damlVisualize" , arguments : [currentOpenFileName]}).then(r => {
+            console.log(r);
+        })
+    }
+}
+
 function loadPreviewIfAvailable() {
     if (vscode.extensions.getExtension("EFanZh.graphviz-preview")) {
         vscode.commands.executeCommand("graphviz.showPreviewToSide")
@@ -259,12 +270,6 @@ function keepAlive() {
     });
 }
 
-function visualizeLsp() {
-    damlLanguageClient.sendRequest(ExecuteCommandRequest.type,
-        {command: "daml/damlVisualize" , arguments : ["this again"]}).then(r => {
-        console.log(r);
-    })
-}
 // Custom requests
 
 // namespace DamlVisualize {
