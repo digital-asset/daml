@@ -292,7 +292,7 @@ packagingTests tmpDir = testGroup "packaging"
         step "Creating upgrade project"
         callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, "daml/Main.daml", aDar, bDar]
         step "Build migration project"
-        withCurrentDirectory projectUpgrade $ callCommandQuiet "daml build --init-package-db=no --package \'(\"a-1.0\", [(\"Main\", \"MainA\")])\' --package \'(\"a-2.0\", [(\"Main\", \"MainB\")])\'"
+        withCurrentDirectory projectUpgrade $ callCommandQuiet "sh build.sh"
         assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist  upgradeDar
         step "Merging upgrade dar"
         callCommandQuiet $

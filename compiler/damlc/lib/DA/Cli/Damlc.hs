@@ -697,6 +697,16 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 (NM.names $ LF.packageModules lfPkg1) `intersect`
                 (NM.names $ LF.packageModules lfPkg2)
         let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
+        let buildCmd =
+              unlines
+                  [ "#!/bin/sh"
+                    ,"daml build --init-package-db=no" <> " --package '" <>
+                    show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <>
+                    "'" <>
+                    " --package '" <>
+                    show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <>
+                    "'"
+                  ]
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
@@ -728,19 +738,11 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 [ (upgradeModPath, generatedUpgradeMod)
                 , (instancesModPath1, generatedInstancesMod1)
                 , (instancesModPath2, generatedInstancesMod2)
+                , ("build.sh", buildCmd)
                 ] $ \(path, mod) -> do
                 createDirectoryIfMissing True $ takeDirectory path
                 writeFile path mod
-        let buildCmd =
-              unlines
-                  [ "daml build --init-package-db=no" <> " --package '" <>
-                    show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <>
-                    "'" <>
-                    " --package '" <>
-                    show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <>
-                    "'"
-                  ]
-        putStrLn $ "Generation of migration project complete. Build with \n" <> buildCmd
+        putStrLn "Generation of migration project complete."
   where
     decode dalf =
         errorOnLeft
