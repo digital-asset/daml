@@ -266,7 +266,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           (params :\ decodeKind(kArrow.getResult))((param, kind) => KArrow(decodeKind(param), kind))
         case PLF.Kind.SumCase.NAT =>
           // FixMe: https://github.com/digital-asset/daml/issues/2289
-          throw new Error("nat kind not supported")
+          throw ParseError("nat kind not supported")
         case PLF.Kind.SumCase.SUM_NOT_SET =>
           throw ParseError("Kind.SUM_NOT_SET")
       }
@@ -308,7 +308,7 @@ private[archive] class DecodeV1(minor: LV.Minor) extends Decode.OfPackage[PLF.Pa
           )
         case PLF.Type.SumCase.NAT =>
           // FixMe: https://github.com/digital-asset/daml/issues/2289
-          throw new Error("nat type not supported")
+          throw ParseError("nat type not supported")
 
         case PLF.Type.SumCase.SUM_NOT_SET =>
           throw ParseError("Type.SUM_NOT_SET")

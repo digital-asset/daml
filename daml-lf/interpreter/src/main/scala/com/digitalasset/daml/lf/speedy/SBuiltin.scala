@@ -451,7 +451,11 @@ object SBuiltin {
     def execute(args: util.ArrayList[SValue], machine: Machine): Unit = {
       machine.ctrl = CtrlValue(
         args.get(0) match {
-          case SInt64(x) => SDecimal(Decimal.fromLong(x))
+          case SInt64(x) =>
+            SDecimal(
+              rightOrArithmeticError(
+                s"overflow when converting $x to (Numeric 10)",
+                Decimal.fromLong(x)))
           case _ => throw SErrorCrash(s"type mismatch int64ToDecimal: $args")
         }
       )
