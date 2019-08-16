@@ -276,6 +276,7 @@ convertGenericTemplate env x
     , Just (polyType, _) <- splitFunTy_maybe (varType create)
     , Just (monoTyCon, unwrapCo) <- findMonoTyp polyType
     = do
+        let tplLocation = convNameLoc monoTyCon
         polyType <- convertType env polyType
         monoType@(TCon monoTyCon) <- convertTyCon env monoTyCon
         (unwrapTpl, wrapTpl) <- convertCoercion env unwrapCo
@@ -285,7 +286,6 @@ convertGenericTemplate env x
                     ( ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [monoType, polyType]
                     , ETmApp $ mkETyApps (EBuiltin BECoerceContractId) [polyType, monoType]
                     )
-        let tplLocation = Nothing
         let tplTypeCon = qualObject monoTyCon
         let tplParam = this
         let applyThis e = ETmApp e $ unwrapTpl $ EVar this
