@@ -579,18 +579,14 @@ hazel_repositories(
                 "c593ff871f31200e37a3c24c09da314d0ee41a8486defe7af91ac55a26efdc1e",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
-            ) + hazel_hackage("typed-process", "0.2.6.0", "31a2a81f33463fedc33cc519ad5b9679787e648fe2ec7efcdebd7d54bdbbc2b1") + [
-                (
-                    "c2hs",
-                    {
-                        "url": "http://hackage.fpcomplete.com/package/c2hs-0.28.6.tar.gz",
-                        "sha256": "91dd121ac565009f2fc215c50f3365ed66705071a698a545e869041b5d7ff4da",
-                        "stripPrefix": "c2hs-0.28.6",
-                        "patches": ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
-                        "patch_args": ["-p1"],
-                    },
-                ),
-            ],
+            ) + hazel_hackage("typed-process", "0.2.6.0", "31a2a81f33463fedc33cc519ad5b9679787e648fe2ec7efcdebd7d54bdbbc2b1") +
+            hazel_hackage(
+                "c2hs",
+                "0.28.6",
+                "91dd121ac565009f2fc215c50f3365ed66705071a698a545e869041b5d7ff4da",
+                patch_args = ["-p1"],
+                patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
+            ),
         pkgs = packages,
     ),
 )
