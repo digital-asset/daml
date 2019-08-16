@@ -25,8 +25,8 @@ import scalaz.syntax.tag._
 @SuppressWarnings(Array("org.wartremover.warts.Any"))
 class PackageServiceIT
     extends AsyncWordSpec
-    with MultiLedgerFixture
     with AkkaBeforeAndAfterAll
+    with MultiLedgerFixture
     with SuiteResourceManagementAroundAll
     with AsyncTimeLimitedTests
     with Matchers
