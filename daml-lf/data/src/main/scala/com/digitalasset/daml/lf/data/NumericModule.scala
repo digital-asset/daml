@@ -9,6 +9,11 @@ import BigDecimal.{ROUND_DOWN, ROUND_HALF_EVEN, ROUND_UNNECESSARY}
 
 import scala.util.Try
 
+/** The model of our floating point decimal numbers.
+  *
+  *  These are numbers of precision 38 (38 decimal digits), and variable scale (from 0 to 38 bounds
+  *  included).
+  */
 abstract class NumericModule {
 
   /**
@@ -39,7 +44,7 @@ abstract class NumericModule {
     */
   private[data] def checkForOverflow(x: BigDecimal): Either[String, Numeric] =
     Either.cond(
-      x.precision() <= maxPrecision,
+      x.precision <= maxPrecision,
       cast(x),
       s"Out-of-bounds (Numeric ${x.scale}) $x"
     )
@@ -76,7 +81,7 @@ abstract class NumericModule {
     */
   final def multiply(x: Numeric, y: Numeric): Either[String, Numeric] = {
     assert(x.scale == y.scale)
-    checkForOverflow((x multiply y).setScale(x.scale(), ROUND_HALF_EVEN))
+    checkForOverflow((x multiply y).setScale(x.scale, ROUND_HALF_EVEN))
   }
 
   /**
@@ -89,7 +94,7 @@ abstract class NumericModule {
     */
   final def divide(x: Numeric, y: Numeric): Either[String, Numeric] = {
     assert(x.scale == y.scale)
-    checkForOverflow(x.divide(y, x.scale(), ROUND_HALF_EVEN))
+    checkForOverflow(x.divide(y, x.scale, ROUND_HALF_EVEN))
   }
 
   /**
@@ -100,7 +105,7 @@ abstract class NumericModule {
     */
   final def toLong(x: Numeric): Either[String, Long] =
     Try(x.setScale(0, ROUND_DOWN).longValueExact()).toEither.left.map(
-      _ => s"(Numeric ${x.scale()}) $x does not fit into an Int64",
+      _ => s"(Numeric ${x.scale}) $x does not fit into an Int64",
     )
 
   /**
@@ -134,10 +139,18 @@ abstract class NumericModule {
   final def fromBigDecimal(scale: Int, x: BigDecimal): Either[String, Numeric] =
     if (!(0 <= scale && scale <= maxPrecision))
       Left(s"Bad scale $scale, must be between 0 and $maxPrecision")
-    else if (!(x.scale() <= scale))
+    else if (!(x.scale <= scale))
       Left(s"Cannot represent $x as (Numeric $scale) without lost of precision")
     else
       checkForOverflow(x.setScale(scale, ROUND_UNNECESSARY))
+
+  /**
+    * Converts the Long `x` to a `(Numeric scale)``.
+    * In case scale is not a valid Numeric scale or `x` cannot be represented as a
+    * `(Numeric scale)`, returns an error message instead.
+    */
+  final def fromLong(scale: Int, x: Long): Either[String, Numeric] =
+    fromBigDecimal(scale, BigDecimal.valueOf(x))
 
   /**
     * Like `fromBigDecimal(Int, BigDecimal)` but with a scala BigDecimal.

@@ -104,6 +104,19 @@ abstract class ApiCodecCompressed[Cid](
   @throws[DeserializationException]
   protected[this] def jsValueToApiContractId(value: JsValue): Cid
 
+  private val max = BigDecimal.decimal(LfDecimal.MaxValue.bigDecimal, MathContext.UNLIMITED)
+  private val min = BigDecimal.decimal(LfDecimal.MinValue.bigDecimal, MathContext.UNLIMITED)
+
+  // FixMe: checkWithinBoundsAndRound checks fist the bound then round (using bankers'
+  //  rounding). Should we not do the contrary, first round then check for bounds ?
+  private def checkWithinBoundsAndRound(x: BigDecimal): Either[String, LfDecimal] = {
+    if (!(min <= x && x <= max))
+      Left(s"out-of-bounds Decimal $x")
+    else
+      LfDecimal.fromBigDecimal(
+        x.bigDecimal.setScale(LfDecimal.scale, BigDecimal.RoundingMode.HALF_EVEN))
+  }
+
   private[this] def jsValueToApiPrimitive(
       value: JsValue,
       prim: Model.DamlLfTypePrim,
@@ -112,10 +125,10 @@ abstract class ApiCodecCompressed[Cid](
       case Model.DamlLfPrimType.Decimal => {
         case JsString(v) =>
           V.ValueDecimal(
-            assertDE(LfDecimal checkWithinBoundsAndRound BigDecimal
-              .decimal(new java.math.BigDecimal(v), MathContext.UNLIMITED)))
+            assertDE(checkWithinBoundsAndRound(
+              BigDecimal.decimal(new java.math.BigDecimal(v), MathContext.UNLIMITED))))
         case JsNumber(v) =>
-          V.ValueDecimal(assertDE(LfDecimal checkWithinBoundsAndRound v))
+          V.ValueDecimal(assertDE(checkWithinBoundsAndRound(v)))
       }
       case Model.DamlLfPrimType.Int64 => {
         case JsString(v) => V.ValueInt64(assertDE(v.parseLong.leftMap(_.getMessage).toEither))
