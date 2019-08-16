@@ -13,6 +13,14 @@ package object data {
   }
   type Decimal = Decimal.T
 
-  private[data] def assert[X](either: Either[String, X]): X =
+  val Numeric: NumericModule = new NumericModule {
+    override type Numeric = java.math.BigDecimal
+
+    @inline
+    override private[data] def cast(x: java.math.BigDecimal): java.math.BigDecimal = x
+  }
+  type Numeric = Numeric.Numeric
+
+  def assertRight[X](either: Either[String, X]): X =
     either.fold(e => throw new IllegalArgumentException(e), identity)
 }

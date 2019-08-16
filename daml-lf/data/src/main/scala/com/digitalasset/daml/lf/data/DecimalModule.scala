@@ -5,8 +5,6 @@ package com.digitalasset.daml.lf.data
 
 import java.math.MathContext
 
-import scala.math.BigDecimal
-
 /** The model of our floating point decimal numbers.
   *
   *  These are numbers of precision 38 (38 decimal digits), and scale 10 (10 digits after the comma)
@@ -60,7 +58,7 @@ abstract class DecimalModule {
     } yield x2
 
   final def assertFromBigDecimal(x: BigDecimal): T =
-    assert(fromBigDecimal(x))
+    assertRight(fromBigDecimal(x))
 
   final def add(x: T, y: T): Either[String, T] = checkWithinBoundsAndRound(x + y)
 
@@ -96,7 +94,7 @@ abstract class DecimalModule {
 
   @throws[IllegalArgumentException]
   final def assertFromString(s: String): T =
-    assert(fromString(s))
+    assertRight(fromString(s))
 
   final def toString(d: T): String = {
     // Strip the trailing zeros (which BigDecimal keeps if the string
