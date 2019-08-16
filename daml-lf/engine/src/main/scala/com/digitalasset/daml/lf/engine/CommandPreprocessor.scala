@@ -111,7 +111,7 @@ private[engine] class CommandPreprocessor(compiledPackages: ConcurrentCompiledPa
           case (TBuiltin(BTText), ValueText(t)) =>
             ResultDone(SText(t))
           case (TBuiltin(BTDecimal), ValueDecimal(d)) =>
-            ResultDone(SDecimal(d))
+            Numeric.fromBigDecimal(Decimal.scale, d).fold(fail, d => ResultDone(SNumeric(d)))
           case (TBuiltin(BTParty), ValueParty(p)) =>
             ResultDone(SParty(p))
           case (TContractId(typ), ValueContractId(c)) =>

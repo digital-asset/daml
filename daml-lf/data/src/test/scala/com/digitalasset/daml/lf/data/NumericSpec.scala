@@ -29,6 +29,8 @@ class NumericSpec
         (0, "-99999999999999999999999999999999999999."),
         (5, "1.00000"),
         (7, "0."),
+        (1, "0.0000"),
+        (10, "10.01234567890000000"),
         (10, "9999999999999999999999999999.9999999999"),
         (37, "0.0000000000000000000000000000000000001"),
         (38, "0.99999999999999999999999999999999999999"),
@@ -64,7 +66,7 @@ class NumericSpec
         (0, "-0.1"),
         (17, "10000000000000000.000000000000000001"),
         (3, "0.82845"),
-        (38, "0.000000000000000000000000000000000000000"),
+        (38, "0.00000000000000000000000000000000000000000100"),
         (38, "-0.000000000000000000000000000000000000001"),
       )
 
@@ -447,7 +449,7 @@ class NumericSpec
 
   "Numeric.compare" should {
 
-    import Numeric.compare
+    import Numeric.compareTo
 
     implicit def toNumeric(s: String): Numeric = Numeric.assertFromString(s)
 
@@ -485,7 +487,7 @@ class NumericSpec
 
       forEvery(testCases) { numerics =>
         forEvery(numerics) { x =>
-          compare(x, x) shouldBe 0
+          compareTo(x, x) shouldBe 0
         }
       }
 
@@ -495,7 +497,7 @@ class NumericSpec
       forEvery(testCases) { numerics =>
         forEvery(numerics) { x =>
           forEvery(numerics) { y =>
-            compare(x, y) shouldBe -compare(y, x)
+            compareTo(x, y) shouldBe -compareTo(y, x)
           }
         }
       }
@@ -507,8 +509,8 @@ class NumericSpec
         forEvery(numerics) { x =>
           forEvery(numerics) { y =>
             forEvery(numerics) { z =>
-              compare(x, y) == compare(y, z) shouldBe (
-                compare(x, z) == compare(x, y) && compare(x, z) == compare(y, z)
+              compareTo(x, y) == compareTo(y, z) shouldBe (
+                compareTo(x, z) == compareTo(x, y) && compareTo(x, z) == compareTo(y, z)
               )
             }
           }
@@ -521,7 +523,7 @@ class NumericSpec
 
       forEvery(testCases) { numerics =>
         val suffled = random.shuffle(numerics)
-        suffled.sorted(compare).map(BigDec(_)) shouldBe suffled.map(BigDec(_)).sorted
+        suffled.sorted(compareTo).map(BigDec(_)) shouldBe suffled.map(BigDec(_)).sorted
       }
     }
   }
