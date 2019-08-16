@@ -1,0 +1,17 @@
+-- @QUERY-LF .modules[] | .templates[] | select(.tycon.segments == ["A"]) | .location.range | (.start_line == "5.0" and .start_col == "9.0")
+-- @QUERY-LF .modules[] | .templates[] | select(.tycon.segments == ["TA"]) | .location.range | (.start_line == "16.0" and .start_col == "18.0")
+daml 1.2
+module Locations where
+
+template A with
+    p : Party
+  where
+    signatory p
+
+template T a with
+    p : Party
+    x : a
+  where
+    signatory p
+
+template instance TA = T A
