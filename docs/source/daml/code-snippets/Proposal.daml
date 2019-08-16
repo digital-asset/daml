@@ -1,0 +1,22 @@
+-- Copyright (c) 2019 The DAML Authors. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- A generic proposal workflow using generic templates.
+daml 1.2
+module Proposal where
+
+import DA.List
+
+-- start proposal body
+template Template t => Proposal t
+  with
+    asset : t
+    receivers : [Party]
+  where
+    signatory (signatory asset \\ receivers)
+    observer receivers
+
+    controller receivers can
+      Accept : ContractId t
+        do create asset
+-- end proposal body
