@@ -18,8 +18,8 @@ import scala.concurrent.{Future, Promise}
 class ReflectionIT
     extends AsyncWordSpec
     with Matchers
-    with MultiLedgerFixture
     with AkkaBeforeAndAfterAll
+    with MultiLedgerFixture
     with SuiteResourceManagementAroundAll {
   override protected def config: Config = Config.default
 
