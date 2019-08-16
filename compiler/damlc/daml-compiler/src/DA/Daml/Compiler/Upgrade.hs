@@ -78,7 +78,7 @@ generateGenInstancesModule qual (pkg, L _l src) =
 -- | Generate non-consuming choices to upgrade all templates defined in the module.
 generateUpgradeModule :: [String] -> String -> String -> String -> String
 generateUpgradeModule templateNames modName qualA qualB =
-    unlines $ header ++ concatMap upgradeTemplate templateNames
+    unlines $ header ++ concatMap upgradeTemplates templateNames
   where
     header =
         [ "daml 1.2"
@@ -91,8 +91,8 @@ generateUpgradeModule templateNames modName qualA qualB =
         , "import DA.Upgrade"
         ]
 
-upgradeTemplate :: String -> [String]
-upgradeTemplate n =
+upgradeTemplates :: String -> [String]
+upgradeTemplates n =
     [ "template " <> n <> "Upgrade"
     , "    with"
     , "        op : Party"
@@ -101,6 +101,20 @@ upgradeTemplate n =
     , "        nonconsuming choice Upgrade: ContractId B." <> n
     , "            with"
     , "                inC : ContractId A." <> n
+    , "                sigs : [Party]"
+    , "            controller sigs"
+    , "                do"
+    , "                    d <- fetch inC"
+    , "                    assert $ fromList sigs == fromList (signatory d)"
+    , "                    create $ conv d"
+    , "template " <> n <> "Rollback"
+    , "    with"
+    , "        op : Party"
+    , "    where"
+    , "        signatory op"
+    , "        nonconsuming choice Rollback: ContractId A." <> n
+    , "            with"
+    , "                inC : ContractId B." <> n
     , "                sigs : [Party]"
     , "            controller sigs"
     , "                do"
