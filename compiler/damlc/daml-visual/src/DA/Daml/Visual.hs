@@ -9,6 +9,7 @@ module DA.Cli.Visual
   , TemplateChoices(..)
   , ChoiceAndAction(..)
   , Action(..)
+  , dotFileGen
   ) where
 
 

@@ -1,0 +1,31 @@
+# Copyright (c) 2019 The DAML Authors. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library")
+
+da_haskell_library(
+    name = "daml-visual",
+    srcs = glob(["src/**/*.hs"]),
+    hazel_deps = [
+        "base",
+        "bytestring",
+        "containers",
+        "extra",
+        "filepath",
+        "text",
+        "safe",
+        "unordered-containers",
+        "utf8-string",
+        "zip-archive",
+        "uniplate",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto",
+        "//compiler/daml-lf-reader",
+        "//compiler/daml-lf-tools",
+        "//libs-haskell/da-hs-base"
+    ],
+)

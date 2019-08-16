@@ -35,9 +35,7 @@ import qualified Network.URI                               as URI
 import Language.Haskell.LSP.Messages
 import qualified Language.Haskell.LSP.Core as LSP
 import Development.IDE.Types.Location
--- import Data.Aeson.Types
--- import qualified Data.Vector as V
--- import Data.Aeson
+
 
 
 textShow :: Show a => a -> T.Text
@@ -93,7 +91,7 @@ onCommand ide ExecuteCommandParams{..} = do
     case _arguments of
         Nothing -> return $ Aeson.String "Generate Dalf then call visualize file path not set"
         Just path -> do
-            mbModMapping <- runAction ide (useWithStale GenerateDalf (filesFromExecParams path))
+            mbModMapping <- runAction ide (useWithStale GenerateVisualization (filesFromExecParams path))
             case mbModMapping of
                 Nothing -> logInfo (ideLogger ide) (textShow (filesFromExecParams path))
                 Just (mod, _mapping) -> logInfo (ideLogger ide) (textShow mod)

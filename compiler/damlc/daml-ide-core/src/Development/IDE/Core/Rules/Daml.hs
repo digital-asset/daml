@@ -62,6 +62,7 @@ import qualified DA.Daml.LF.ScenarioServiceClient as SS
 import qualified DA.Daml.LF.Simplifier as LF
 import qualified DA.Daml.LF.TypeChecker as LF
 import qualified DA.Pretty as Pretty
+import qualified DA.Cli.Visual as Visual
 
 import qualified Language.Haskell.Exts.SrcLoc as HSE
 import Language.Haskell.HLint4
@@ -205,7 +206,12 @@ generateVisualizationRule :: Rules ()
 generateVisualizationRule =
     define $ \GenerateVisualization file -> do
         _dalf <- use_ GenerateDalf file
-        pure ([], Just "generating things")
+        WhnfPackage pkg <- use_ GeneratePackageDeps file
+        pkgMap <- useNoFile_ GeneratePackageMap
+        let pkgs = map dalfPackagePkg $ Map.elems pkgMap
+        let world = LF.initWorldSelf pkgs pkg
+        let dots = T.pack $ Visual.dotFileGen [_dalf] world
+        pure ([], Just dots)
 
 -- | Generate a doctest module based on the doc tests in the given module.
 generateDocTestModuleRule :: Rules ()
