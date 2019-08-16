@@ -42,4 +42,5 @@ private[testtool] abstract class LedgerTestSuite(val session: LedgerSession) {
       message.contains(pattern),
       s"Error message did not contain [$pattern], but was [$message].")
   }
+
 }

@@ -27,13 +27,12 @@ import com.digitalasset.ledger.api.v1.transaction_filter.{
   TransactionFilter
 }
 import com.digitalasset.ledger.api.v1.transaction_service.{
-  GetLedgerEndRequest,
   GetTransactionByIdRequest,
   GetTransactionsRequest
 }
-import com.digitalasset.ledger.api.v1.value.{Identifier, Value}
+import com.digitalasset.ledger.api.v1.value.Identifier
 import com.digitalasset.ledger.client.binding.Primitive.Party
-import com.digitalasset.ledger.client.binding.{Contract, Primitive, Template, ValueDecoder}
+import com.digitalasset.ledger.client.binding.{Primitive, Template}
 import com.digitalasset.platform.testing.{FiniteStreamObserver, SingleItemObserver}
 import com.google.protobuf.timestamp.Timestamp
 import io.grpc.stub.StreamObserver
@@ -162,20 +161,7 @@ private[infrastructure] final class LedgerTestContext(
       .getTransactionById(new GetTransactionByIdRequest(id, transactionId, Tag.unsubst(parties)))
       .map(_.getTransaction)
 
-  private def decodeCreated[T <: Template[T]](event: CreatedEvent)(
-      implicit decoder: ValueDecoder[T]): Option[Contract[T]] =
-    decoder
-      .read(Value.Sum.Record(event.getCreateArguments))
-      .map(
-        Contract(
-          Primitive.ContractId(event.contractId),
-          _,
-          event.agreementText,
-          event.signatories,
-          event.observers,
-          event.contractKey))
-
-  def create[T <: Template[T]: ValueDecoder](
+  def create[T](
       party: Party,
       template: Template[T]
   ): Future[Primitive.ContractId[T]] =
@@ -185,7 +171,7 @@ private[infrastructure] final class LedgerTestContext(
         case Event(Created(e)) => Primitive.ContractId(e.contractId)
       }.head)
 
-  def createAndGetTransactionId[T <: Template[T]: ValueDecoder](
+  def createAndGetTransactionId[T](
       party: Party,
       template: Template[T]
   ): Future[(String, Primitive.ContractId[T])] =
