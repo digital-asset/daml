@@ -206,10 +206,7 @@ generateVisualizationRule :: Rules ()
 generateVisualizationRule =
     define $ \GenerateVisualization file -> do
         dalf <- use_ GenerateDalf file
-        WhnfPackage pkg <- use_ GeneratePackageDeps file
-        pkgMap <- useNoFile_ GeneratePackageMap
-        let pkgs = map dalfPackagePkg $ Map.elems pkgMap
-        let world = LF.initWorldSelf pkgs pkg
+        world <- worldForFile file
         let dots = T.pack $ Visual.dotFileGen [dalf] world
         pure ([], Just dots)
 
