@@ -547,16 +547,14 @@ hazel_repositories(
                 "2.8.0.0",
                 "c8905268b7e3b4cf624a40245bf11b35274a6dd836a5d4d531b5760075645303",
                 patches = ["@ai_formation_hazel//third_party/haskell:network.patch"],
-            ) +
-            hazel_hackage("terminal-progress-bar", "0.4.1", "a61ca10c92cacc712dbbe28881dc23f41cc139760b7b2eef66bd0faa60ea5e24") +
+            ) + hazel_hackage("terminal-progress-bar", "0.4.1", "a61ca10c92cacc712dbbe28881dc23f41cc139760b7b2eef66bd0faa60ea5e24") +
             hazel_hackage("rope-utf16-splay", "0.3.1.0", "cbf878098355441ed7be445466fcb72d45390073a298b37649d762de2a7f8cc6") +
             hazel_github_external(
                 "alanz",
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
                 HASKELL_LSP_HASH,
-            ) +
-            hazel_github_external(
+            ) + hazel_github_external(
                 "alanz",
                 "haskell-lsp",
                 HASKELL_LSP_COMMIT,
@@ -574,16 +572,21 @@ hazel_repositories(
                 "a2be2d812010eaadd4885fb0228370a5467627bbb6bd43177fd1f6e5a7eb05f8",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-lsp-test-no-reexport.patch"],
-            ) +
-            hazel_github_external(
+            ) + hazel_github_external(
                 "mpickering",
                 "hie-bios",
                 "8427e424a83c2f3d60bdd26c02478c00d2189a73",
                 "c593ff871f31200e37a3c24c09da314d0ee41a8486defe7af91ac55a26efdc1e",
                 patch_args = ["-p1"],
                 patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-hie-bios.patch"],
-            ) +
-            hazel_hackage("typed-process", "0.2.6.0", "31a2a81f33463fedc33cc519ad5b9679787e648fe2ec7efcdebd7d54bdbbc2b1"),
+            ) + hazel_hackage("typed-process", "0.2.6.0", "31a2a81f33463fedc33cc519ad5b9679787e648fe2ec7efcdebd7d54bdbbc2b1") +
+            hazel_hackage(
+                "c2hs",
+                "0.28.6",
+                "91dd121ac565009f2fc215c50f3365ed66705071a698a545e869041b5d7ff4da",
+                patch_args = ["-p1"],
+                patches = ["@com_github_digital_asset_daml//bazel_tools:haskell-c2hs.patch"],
+            ),
         pkgs = packages,
     ),
 )
