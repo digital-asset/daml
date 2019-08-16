@@ -12,11 +12,11 @@ import scala.concurrent.duration.DurationInt
 final class Time(session: LedgerSession) extends LedgerTestSuite(session) {
 
   val pass =
-    LedgerTest("PassTime", "Advancing time should return the new time") { implicit context =>
+    LedgerTest("PassTime", "Advancing time should return the new time") { ledger =>
       for {
-        t1 <- time()
-        _ <- passTime(1.second)
-        t2 <- time()
+        t1 <- ledger.time()
+        _ <- ledger.passTime(1.second)
+        t2 <- ledger.time()
         travel = Duration.between(t1, t2)
       } yield
         assert(

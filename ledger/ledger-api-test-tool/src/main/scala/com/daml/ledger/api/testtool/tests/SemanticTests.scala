@@ -3,7 +3,12 @@
 
 package com.daml.ledger.api.testtool.tests
 
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTest, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.{
+  LedgerSession,
+  LedgerTest,
+  LedgerTestSuite,
+  SemanticTesterLedger
+}
 import com.digitalasset.daml.lf.archive.SupportedFileType.DarFile
 import com.digitalasset.daml.lf.archive.{Decode, UniversalArchiveReader}
 import com.digitalasset.daml.lf.engine.testing.SemanticTester
@@ -29,18 +34,15 @@ final class SemanticTests(session: LedgerSession) extends LedgerTestSuite(sessio
   override val tests: Vector[LedgerTest] =
     loadedPackages match {
       case Failure(exception) =>
-        Vector(LedgerTest("SemanticTests", "SemanticTests") { implicit context =>
+        Vector(LedgerTest("SemanticTests", "SemanticTests") { _ =>
           Future.failed(
             new RuntimeException("Unable to load the semantic tests package", exception))
         })
       case Success((main, packages)) =>
         for (name <- SemanticTester.scenarios(packages)(main).toVector) yield {
-          LedgerTest(name.toString, name.toString) { implicit context =>
+          LedgerTest(name.toString, name.toString) { ledger =>
             val tester =
-              new SemanticTester(
-                parties => context.semanticTesterLedger(parties, packages),
-                main,
-                packages)
+              new SemanticTester(new SemanticTesterLedger(ledger, _, packages), main, packages)
             tester.testScenario(name).recover {
               case error @ SemanticTesterError(_, message) =>
                 throw new AssertionError(message, error)

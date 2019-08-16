@@ -5,6 +5,8 @@ package com.daml.ledger.api.testtool.infrastructure
 
 import java.util.concurrent.TimeUnit
 
+import com.digitalasset.ledger.api.v1.ledger_identity_service.GetLedgerIdentityRequest
+import com.digitalasset.ledger.api.v1.transaction_service.GetLedgerEndRequest
 import io.grpc.ManagedChannel
 import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import io.netty.channel.nio.NioEventLoopGroup
@@ -19,16 +21,17 @@ import scala.util.Try
 private[testtool] final class LedgerSession private (
     val config: LedgerSessionConfiguration,
     channel: ManagedChannel,
-    eventLoopGroup: NioEventLoopGroup)(implicit ec: ExecutionContext) {
+    eventLoopGroup: NioEventLoopGroup)(implicit val executionContext: ExecutionContext) {
 
   private[this] val logger = LoggerFactory.getLogger(classOf[LedgerSession])
 
   private[this] val services: LedgerServices = new LedgerServices(channel)
 
-  private[this] val bindings: LedgerBindings = new LedgerBindings(services, config.commandTtlFactor)
-
   private[testtool] def createTestContext(applicationId: String): Future[LedgerTestContext] =
-    bindings.ledgerEnd.map(new LedgerTestContext(applicationId, _, bindings))
+    for {
+      id <- services.identity.getLedgerIdentity(new GetLedgerIdentityRequest).map(_.ledgerId)
+      end <- services.transaction.getLedgerEnd(new GetLedgerEndRequest(id)).map(_.getOffset)
+    } yield new LedgerTestContext(id, applicationId, end, services, config.commandTtlFactor)
 
   private[testtool] def close(): Unit = {
     logger.info(s"Disconnecting from ledger at ${config.host}:${config.port}...")
