@@ -292,7 +292,10 @@ packagingTests tmpDir = testGroup "packaging"
         step "Creating upgrade project"
         callCommandQuiet $ unwords ["daml", "migrate", projectUpgrade, "daml/Main.daml", aDar, bDar]
         step "Build migration project"
-        withCurrentDirectory projectUpgrade $ callCommandQuiet "sh build.sh"
+        withCurrentDirectory projectUpgrade $
+            if isWindows
+                then callCommandQuiet ".\\build.cmd"
+                else callCommandQuiet "./build.sh"
         assertBool "upgrade-0.0.1.dar was not created" =<< doesFileExist  upgradeDar
         step "Merging upgrade dar"
         callCommandQuiet $

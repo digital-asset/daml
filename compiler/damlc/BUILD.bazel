@@ -117,6 +117,7 @@ da_haskell_library(
         "tasty",
         "temporary",
         "text",
+        "unix",
         "vector",
         "xml",
         "yaml",

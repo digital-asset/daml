@@ -76,6 +76,7 @@ import System.Environment
 import System.Exit
 import System.FilePath
 import System.IO.Extra
+import System.Posix.Files
 import System.Process (callProcess)
 import qualified Text.PrettyPrint.ANSI.Leijen      as PP
 
@@ -698,15 +699,12 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 (NM.names $ LF.packageModules lfPkg2)
         let eqModNamesStr = map (T.unpack . LF.moduleNameString) eqModNames
         let buildCmd =
-              unlines
-                  [ "#!/bin/sh"
-                    ,"daml build --init-package-db=no" <> " --package '" <>
+                    "daml build --init-package-db=no" <> " --package '" <>
                     show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <>
                     "'" <>
                     " --package '" <>
                     show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <>
                     "'"
-                  ]
         forM_ eqModNames $ \m@(LF.ModuleName modName) -> do
             [genSrc1, genSrc2] <-
                 forM [(pkgId1, lfPkg1), (pkgId2, lfPkg2)] $ \(pkgId, pkg) -> do
@@ -738,10 +736,13 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 [ (upgradeModPath, generatedUpgradeMod)
                 , (instancesModPath1, generatedInstancesMod1)
                 , (instancesModPath2, generatedInstancesMod2)
-                , ("build.sh", buildCmd)
+                , ("build.sh", "#!/bin/sh\n" ++ buildCmd)
+                , ("build.cmd", buildCmd)
                 ] $ \(path, mod) -> do
                 createDirectoryIfMissing True $ takeDirectory path
                 writeFile path mod
+
+        setFileMode "build.sh" $ stdFileMode `unionFileModes` ownerExecuteMode
         putStrLn "Generation of migration project complete."
   where
     decode dalf =
