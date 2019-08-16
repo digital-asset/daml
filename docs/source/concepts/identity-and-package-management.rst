@@ -4,9 +4,8 @@
 Identity and Package Management
 ###############################
 
-A DAML Ledger is a software system that enables parties to automate the management of their rights and obligations through smart contract code.
-The :ref:`DA Ledger Model <da-ledgers>` defines the permissible changes to the contracts (the integrity model), as well as the visibility that the different parties should have into such changes (the privacy model).
-This document addresses two additional topics:
+Since DAML Ledgers enable parties to automate the management of their rights and obligations through smart contract code, they also have to provide party and code management functions.
+Hence, this document addresses:
 
 1. Management of parties' digital identifiers in a DAML Ledger.
 
@@ -32,11 +31,11 @@ The applications should thus not rely on the format of the identifier -- even a 
 
 By definition, identifiers identify parties, and are thus unique for a ledger.
 They do not, however, have to be unique across different ledgers.
-That is, two parties with identical identifiers in two different ledgers are not the same party.
+That is, two identical identifiers in two different ledgers do not necessarily identify the same real-world party.
 Moreover, a real-world entity can have multiple identifiers (and thus parties) within the same ledger.
 
 Since the identifiers might be difficult to interpret and manage for humans, the ledger may also accompany each identifier with a user-friendly **display name**.
-Unlike the identifier, the display name is not guaranteed to be unique.
+Unlike the identifier, the display name is not guaranteed to be unique, and two different participant nodes might return different display names for the same party identifier.
 Furthermore, a display name is in general not guaranteed to have any link to real world identities.
 For example, a party with a display name "Attorney of Nigerian Prince" might well be controlled by a real-world entity without a bar exam.
 However, particular ledger deployments might make stronger guarantees about this link.
@@ -114,8 +113,10 @@ Package Formats and Identifiers
 Any code -- i.e., DAML templates -- to be uploaded must compiled down to the :ref:`DAML-LF <daml-lf>` language.
 The unit of packaging for DAML-LF is the :ref:`.dalf <dar-file-dalf-file>` file.
 Each ``.dalf`` file is uniquely identified by its **package identifier**, which is the hash of its contents.
+Templates in a ``.dalf`` file can references templates from other ``.dalf`` files, i.e., ``.dalf`` files can depend on other ``.dalf`` files.
 A :ref:`.dar <dar-file-dalf-file>` file is a simple archive containing multiple ``.dalf`` files, and has no identifier of its own.
-DAML ledgers support uploading only ``.dar`` files.
+The archive provides a convenient way to package ``.dalf`` files together with their dependencies.
+The Ledger API supports only ``.dar`` file uploads.
 
 Package Management API
 ======================
@@ -138,9 +139,7 @@ Package Vetting
 Using a DAML package entails running its DAML code.
 The DAML interpreter ensures that the DAML code cannot interact with the environment of the system on which it is executing.
 However, the operators of the ledger infrastructure nodes may still wish to review and vet any DAML code before allowing it to execute.
-One reason for this is that the DAML interpreter currently lacks a notion of reproducible resource limits.
-Thus, executing a DAML contract might result in high memory or CPU usage.
-Furthermore, security bugs in the DAML interpreter or JVM might enable malicious code to break out of the sandbox.
+One reason for this is that the DAML interpreter currently lacks a notion of reproducible resource limits, and executing a DAML contract might result in high memory or CPU usage.
 
 Thus, DAML Ledgers generally allow some form of vetting a package before running its code on a node.
 Not all nodes in a DAML Ledger must vet all packages, as it is possible that some of them will not execute the code.
