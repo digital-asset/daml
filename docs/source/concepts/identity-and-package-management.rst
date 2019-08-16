@@ -52,7 +52,7 @@ The set of parties of any DAML Ledger is dynamic: new parties may always be adde
 The first step in adding a new party to the ledger is to provision a new identifier for the party.
 The Ledger API provides an ``AllocateParty`` method for this purpose.
 The method, if successful, returns an new party identifier.
-The ``AllocateParty`` call can take the desired identifier and displayed name as optional parameters, but these are merely hints and the ledger implementation may completely ignore them.
+The ``AllocateParty`` call can take the desired identifier and display name as optional parameters, but these are merely hints and the ledger implementation may completely ignore them.
 
 If the call returns a new identifier, the :ref:`participant node <participant-node-def>` serving this call is ready to host the party with this identifier.
 The returned identifier is guaranteed to be **unique** in the ledger; namely, no other call of the ``AllocateParty`` method at this or any other ledger participant may return the same identifier.
@@ -147,7 +147,7 @@ Not all nodes in a DAML Ledger must vet all packages, as it is possible that som
 For example, in :ref:`global state topologies <global-state-topologies>`, every :ref:`trust domain <trust-domain>` that controls how commits are appended to the shared ledger must execute DAML code.
 Thus, the operators of these trust domains will in general be allowed to vet the code before they execute it.
 The exact vetting mechanism is ledger-dependent.
-For example, in the :ref:`DAML Sandbox <sandbox-manual>`, the vetting is implicit: uploading a package through the Ledger API already vets the package, since its assumed that only the system administrator has access to these API facilities.
+For example, in the :ref:`DAML Sandbox <sandbox-manual>`, the vetting is implicit: uploading a package through the Ledger API already vets the package, since it's assumed that only the system administrator has access to these API facilities.
 In a replicated ledger, the vetting might require consent from all or a quorum of replicas.
 The vetting process can be manual, where an administrator inspects each package, or it can be automated, for example, by accepting only packages with a digital signature from a trusted package issuer.
 
@@ -156,11 +156,11 @@ Thus, they only need to approve packages whose templates are used in the ledger 
 For example, in DAML on `R3 Corda <https://www.corda.net>`__, participants only need to approve code for the contracts in their parties' projections.
 If non-validating Corda notaries are used, they do not need to vet code.
 If validating Corda notaries are used, they can also choose which code to vet.
-In `Canton <https://canton.io>`, participant nodes also only need to vet code for the contracts of the parties they host.
+In `Canton <https://canton.io>`__, participant nodes also only need to vet code for the contracts of the parties they host.
 As only participants execute contract code, only they need to vet it.
 The vetting results may also differ at different participants.
 For example, participants ``P1`` and ``P2`` might vet a package containing a ``NewTemplate`` template, whereas ``P3`` might reject it.
-In that case, if Alice is hosted at ``P1``, she can create ``NewTemplate`` instances with stakeholder Bob who is hosted at ``P3``, but not with stakeholder Charlie if he's hosted at ``P3``.
+In that case, if Alice is hosted at ``P1``, she can create ``NewTemplate`` instances with stakeholder Bob who is hosted at ``P2``, but not with stakeholder Charlie if he's hosted at ``P3``.
 
 Package Upgrades
 ================
