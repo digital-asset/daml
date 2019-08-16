@@ -44,7 +44,7 @@ index f4f9f42..f45bc21 100644
 +        (
 +        """
 +        export PATH=$PATH:{mingw-bin}
-+        """.format(cc = paths.basedir(cc.tools.cc)) if hs.toolchain.is_windows
++        """.format(cc = paths.dirname(cc.tools.cc)) if hs.toolchain.is_windows
 +        else ""
 +        ) +
 +        """
