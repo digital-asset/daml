@@ -1,0 +1,35 @@
+{-# LANGUAGE FlexibleContexts #-}
+
+daml 1.2
+module SwapProposal where
+
+template Cash
+  with
+    owner: Party
+    amount: Decimal
+  where
+    signatory owner
+
+    controller owner can
+      Transfer: ContractId Cash
+        with newOwner: Party
+        do create $ Cash newOwner amount
+
+type Transferrable t = Choice t Transfer (ContractId t)
+template (Template t, Eq t, Transferrable t) => SwapProposal t with
+    proposer: Party
+    proposee: Party
+    offeredContract: ContractId t
+    expected: t
+  where
+    signatory proposer
+
+    controller proposee can
+      Accept: (ContractId t, ContractId t)
+        with expectedContract: ContractId t
+        do offered <- fetch offeredContract
+           newCid1 <- exercise offeredContract Transfer with newOwner = proposee
+           exchanged <- fetch expectedContract
+           assert $ exchanged == expected
+           newCid2 <- exercise expectedContract Transfer with newOwner = proposer
+           return (newCid1, newCid2)
