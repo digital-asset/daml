@@ -499,7 +499,7 @@ object Speedy {
               case _ => false
             }
           }
-        case _: SContractId | _: SDate | _: SDecimal | _: SInt64 | _: SParty | _: SText |
+        case _: SContractId | _: SDate | _: SNumeric | _: SInt64 | _: SParty | _: SText |
             _: STimestamp | _: STuple | _: SMap | _: SRecord | _: SPAP | SToken =>
           crash("Match on non-matchable value")
       }

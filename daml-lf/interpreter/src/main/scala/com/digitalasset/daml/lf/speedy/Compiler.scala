@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.speedy
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{Decimal, FrontStack, Numeric, ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompileError, PackageNotFound}
@@ -187,23 +187,23 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BTrace => SBTrace
 
               // Decimal arithmetic
-              case BAddDecimal => SBAdd
-              case BSubDecimal => SBSub
-              case BMulDecimal => SBMul
-              case BDivDecimal => SBDiv
-              case BRoundDecimal => SBRoundDecimal
+              case BAddDecimal => SBAddNumeric
+              case BSubDecimal => SBSubNumeric
+              case BMulDecimal => SBMulNumeric
+              case BDivDecimal => SBDivNumeric
+              case BRoundDecimal => SBRoundNumeric
 
               // Int64 arithmetic
-              case BAddInt64 => SBAdd
-              case BSubInt64 => SBSub
-              case BMulInt64 => SBMul
-              case BModInt64 => SBMod
-              case BDivInt64 => SBDiv
+              case BAddInt64 => SBAddInt64
+              case BSubInt64 => SBSubInt64
+              case BMulInt64 => SBMulInt64
+              case BModInt64 => SBModInt64
+              case BDivInt64 => SBDivInt64
               case BExpInt64 => SBExpInt64
 
               // Conversions
-              case BInt64ToDecimal => SBInt64ToDecimal
-              case BDecimalToInt64 => SBDecimalToInt64
+              case BInt64ToDecimal => SBInt64ToNumeric
+              case BDecimalToInt64 => SBNumericToInt64
               case BDateToUnixDays => SBDateToUnixDays
               case BUnixDaysToDate => SBUnixDaysToDate
               case BTimestampToUnixMicroseconds => SBTimestampToUnixMicroseconds
@@ -224,7 +224,7 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
               case BToTextCodePoints => SBToTextCodePoints
               case BFromTextParty => SBFromTextParty
               case BFromTextInt64 => SBFromTextInt64
-              case BFromTextDecimal => SBFromTextDecimal
+              case BFromTextDecimal => SBFromTextNumeric
               case BFromTextCodePoints => SBFromTextCodePoints
 
               case BSHA256Text => SBSHA256Text
@@ -299,7 +299,8 @@ final case class Compiler(packages: PackageId PartialFunction Package) {
       case EPrimLit(lit) =>
         SEValue(lit match {
           case PLInt64(i) => SInt64(i)
-          case PLDecimal(d) => SDecimal(d)
+          case PLDecimal(d) =>
+            SNumeric(Numeric.assertFromBigDecimal(Decimal.scale, d))
           case PLText(t) => SText(t)
           case PLTimestamp(ts) => STimestamp(ts)
           case PLParty(p) => SParty(p)

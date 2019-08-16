@@ -126,7 +126,7 @@ abstract class NumericModule {
     *
     * ```Requires the scale of `x` and `y` are the same.```
     */
-  final def compare(x: Numeric, y: Numeric): Int = {
+  final def compareTo(x: Numeric, y: Numeric): Int = {
     assert(x.scale == y.scale)
     x compareTo y
   }
@@ -139,7 +139,7 @@ abstract class NumericModule {
   final def fromBigDecimal(scale: Int, x: BigDecimal): Either[String, Numeric] =
     if (!(0 <= scale && scale <= maxPrecision))
       Left(s"Bad scale $scale, must be between 0 and $maxPrecision")
-    else if (!(x.scale <= scale))
+    else if (!(x.stripTrailingZeros.scale <= scale))
       Left(s"Cannot represent $x as (Numeric $scale) without lost of precision")
     else
       checkForOverflow(x.setScale(scale, ROUND_UNNECESSARY))

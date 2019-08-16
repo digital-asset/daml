@@ -30,7 +30,7 @@ sealed trait SValue {
   def toValue: V[V.ContractId] =
     this match {
       case SInt64(x) => V.ValueInt64(x)
-      case SDecimal(x) => V.ValueDecimal(x)
+      case SNumeric(x) => V.ValueDecimal(Decimal.assertFromBigDecimal(x))
       case SText(x) => V.ValueText(x)
       case STimestamp(x) => V.ValueTimestamp(x)
       case SParty(x) => V.ValueParty(x)
@@ -185,7 +185,9 @@ object SValue {
   // with SValue and we can remove one layer of indirection.
   sealed trait SPrimLit extends SValue with Equals
   final case class SInt64(value: Long) extends SPrimLit
-  final case class SDecimal(value: Decimal) extends SPrimLit
+  // FixMe: https://github.com/digital-asset/daml/issues/2289
+  //   SNumeric currently hold only (Numeric 10) aka Decimal
+  final case class SNumeric(value: Numeric) extends SPrimLit
   final case class SText(value: String) extends SPrimLit
   final case class STimestamp(value: Time.Timestamp) extends SPrimLit
   final case class SParty(value: Party) extends SPrimLit
@@ -203,7 +205,13 @@ object SValue {
         SList(vs.map[SValue](fromValue))
       case V.ValueContractId(coid) => SContractId(coid)
       case V.ValueInt64(x) => SInt64(x)
-      case V.ValueDecimal(x) => SDecimal(x)
+      case V.ValueDecimal(x) =>
+        Numeric
+          .fromBigDecimal(Decimal.scale, x)
+          .fold(
+            e => throw SErrorCrash("SValue.fromValue: " + e),
+            SNumeric
+          )
       case V.ValueText(t) => SText(t)
       case V.ValueTimestamp(t) => STimestamp(t)
       case V.ValueParty(p) => SParty(p)
