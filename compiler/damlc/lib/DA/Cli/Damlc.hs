@@ -734,10 +734,10 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
         let buildCmd =
               unlines
                   [ "daml build --init-package-db=no" <> " --package '" <>
-                    (show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr])) <>
+                    show (pkgName1, [(m, m ++ "A") | m <- eqModNamesStr]) <>
                     "'" <>
                     " --package '" <>
-                    (show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr])) <>
+                    show (pkgName2, [(m, m ++ "B") | m <- eqModNamesStr]) <>
                     "'"
                   ]
         putStrLn $ "Generation of migration project complete. Build with \n" <> buildCmd
