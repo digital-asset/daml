@@ -27,7 +27,7 @@ private[testtool] final class SemanticTesterLedger(
   private def lfCommandToApiCommand(party: String, commands: Commands) =
     LfEngineToApi.lfCommandToApiCommand(
       party,
-      ledger.id,
+      ledger.ledgerId,
       commands.commandsReference,
       ledger.applicationId,
       Some(LfEngineToApi.toTimestamp(commands.ledgerEffectiveTime.toInstant)),
@@ -35,7 +35,7 @@ private[testtool] final class SemanticTesterLedger(
       commands
     )
 
-  private val apiScenarioTransform = new ApiScenarioTransform(ledger.id, packages)
+  private val apiScenarioTransform = new ApiScenarioTransform(ledger.ledgerId, packages)
 
   private def apiTransactionToLfEvents(
       tree: TransactionTree): Future[Events[String, Value.AbsoluteContractId]] =

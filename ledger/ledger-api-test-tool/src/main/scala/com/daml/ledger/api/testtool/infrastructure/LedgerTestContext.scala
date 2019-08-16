@@ -70,7 +70,7 @@ object LedgerTestContext {
 }
 
 private[infrastructure] final class LedgerTestContext(
-    val id: String,
+    val ledgerId: String,
     val applicationId: String,
     referenceOffset: LedgerOffset,
     services: LedgerServices,
@@ -94,7 +94,7 @@ private[infrastructure] final class LedgerTestContext(
 
   def time(): Future[Instant] =
     SingleItemObserver
-      .first[GetTimeResponse](services.time.getTime(new GetTimeRequest(id), _))
+      .first[GetTimeResponse](services.time.getTime(new GetTimeRequest(ledgerId), _))
       .map(_.map(r => timestampToInstant(r.getCurrentTime)).get)
       .recover {
         case NonFatal(_) => Clock.systemUTC().instant()
@@ -106,7 +106,7 @@ private[infrastructure] final class LedgerTestContext(
       currentTime = Some(instantToTimestamp(currentInstant))
       newTime = Some(instantToTimestamp(currentInstant.plusNanos(t.toNanos)))
       result <- services.time
-        .setTime(new SetTimeRequest(id, currentTime, newTime))
+        .setTime(new SetTimeRequest(ledgerId, currentTime, newTime))
         .map(_ => ())
     } yield result
 
@@ -123,7 +123,7 @@ private[infrastructure] final class LedgerTestContext(
       contracts <- FiniteStreamObserver[GetActiveContractsResponse](
         services.activeContracts.getActiveContracts(
           new GetActiveContractsRequest(
-            ledgerId = id,
+            ledgerId = ledgerId,
             filter = transactionFilter(Tag.unsubst(parties), Seq.empty),
             verbose = true
           ),
@@ -140,7 +140,7 @@ private[infrastructure] final class LedgerTestContext(
       txs <- FiniteStreamObserver[Res](
         service(
           new GetTransactionsRequest(
-            ledgerId = id,
+            ledgerId = ledgerId,
             begin = Some(referenceOffset),
             end = Some(end),
             filter = transactionFilter(Tag.unsubst(parties), templateIds),
@@ -158,7 +158,8 @@ private[infrastructure] final class LedgerTestContext(
 
   def transactionTreeById(transactionId: String, parties: Party*): Future[TransactionTree] =
     services.transaction
-      .getTransactionById(new GetTransactionByIdRequest(id, transactionId, Tag.unsubst(parties)))
+      .getTransactionById(
+        new GetTransactionByIdRequest(ledgerId, transactionId, Tag.unsubst(parties)))
       .map(_.getTransaction)
 
   def create[T](
@@ -193,7 +194,7 @@ private[infrastructure] final class LedgerTestContext(
       let =>
         new SubmitAndWaitRequest(
           Some(new Commands(
-            ledgerId = id,
+            ledgerId = ledgerId,
             applicationId = applicationId,
             commandId = nextCommandId(),
             party = party.unwrap,
