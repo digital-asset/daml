@@ -43,8 +43,8 @@ index f4f9f42..f45bc21 100644
 +        # not in PATH so we add it to PATH explicitely.
 +        (
 +        """
-+        export PATH=$PATH:{mingw-bin}
-+        """.format(cc = paths.dirname(cc.tools.cc)) if hs.toolchain.is_windows
++        export PATH=$PATH:{mingw_bin}
++        """.format(mingw_bin = paths.dirname(cc.tools.cc)) if hs.toolchain.is_windows
 +        else ""
 +        ) +
 +        """
