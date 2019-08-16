@@ -132,29 +132,25 @@ private[infrastructure] final class LedgerTestContext(
       )
     } yield contracts.flatMap(_.activeContracts)
 
-  private def transactions[Res, Tx](service: (GetTransactionsRequest, StreamObserver[Res]) => Unit)(
-      extract: Res => Seq[Tx])(
+  private def getTransactionsRequest(parties: Seq[Party]): GetTransactionsRequest =
+    new GetTransactionsRequest(
+      ledgerId = ledgerId,
+      begin = Some(referenceOffset),
+      end = Some(end),
+      filter = transactionFilter(Tag.unsubst(parties), Seq.empty),
+      verbose = true
+    )
+
+  private def transactions[Res](
       parties: Seq[Party],
-      templateIds: Seq[Identifier]): Future[Vector[Tx]] =
-    for {
-      txs <- FiniteStreamObserver[Res](
-        service(
-          new GetTransactionsRequest(
-            ledgerId = ledgerId,
-            begin = Some(referenceOffset),
-            end = Some(end),
-            filter = transactionFilter(Tag.unsubst(parties), templateIds),
-            verbose = true
-          ),
-          _
-        ))
-    } yield txs.flatMap(extract)
+      service: (GetTransactionsRequest, StreamObserver[Res]) => Unit): Future[Vector[Res]] =
+    FiniteStreamObserver[Res](service(getTransactionsRequest(parties), _))
 
   def flatTransactions(parties: Party*): Future[Vector[Transaction]] =
-    transactions(services.transaction.getTransactions)(_.transactions)(parties, Seq.empty)
+    transactions(parties, services.transaction.getTransactions).map(_.flatMap(_.transactions))
 
   def transactionTrees(parties: Party*): Future[Vector[TransactionTree]] =
-    transactions(services.transaction.getTransactionTrees)(_.transactions)(parties, Seq.empty)
+    transactions(parties, services.transaction.getTransactionTrees).map(_.flatMap(_.transactions))
 
   def transactionTreeById(transactionId: String, parties: Party*): Future[TransactionTree] =
     services.transaction
