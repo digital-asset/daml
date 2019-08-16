@@ -3,8 +3,6 @@
 
 package com.daml.ledger.api.testtool.infrastructure
 
-import java.util.UUID
-
 import com.digitalasset.daml.lf.command.Commands
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{Ref, Time}
@@ -17,37 +15,31 @@ import com.digitalasset.ledger.client.binding.Primitive
 import com.digitalasset.platform.common.PlatformTypes.Events
 import com.digitalasset.platform.participant.util.LfEngineToApi
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationLong
 
-private[infrastructure] final class SemanticTesterLedger(bindings: LedgerBindings)(
+private[testtool] final class SemanticTesterLedger(
+    ledger: LedgerTestContext,
     parties: Set[Ref.Party],
-    packages: Map[Ref.PackageId, Ast.Package])(implicit context: LedgerTestContext)
+    packages: Map[Ref.PackageId, Ast.Package])(implicit ec: ExecutionContext)
     extends SemanticTester.GenericLedger {
 
   private def lfCommandToApiCommand(party: String, commands: Commands) =
-    for (ledgerId <- context.ledgerId)
-      yield
-        LfEngineToApi.lfCommandToApiCommand(
-          party,
-          ledgerId,
-          commands.commandsReference,
-          context.applicationId,
-          Some(LfEngineToApi.toTimestamp(commands.ledgerEffectiveTime.toInstant)),
-          Some(LfEngineToApi.toTimestamp(commands.ledgerEffectiveTime.toInstant.plusSeconds(30L))),
-          commands
-        )
+    LfEngineToApi.lfCommandToApiCommand(
+      party,
+      ledger.id,
+      commands.commandsReference,
+      ledger.applicationId,
+      Some(LfEngineToApi.toTimestamp(commands.ledgerEffectiveTime.toInstant)),
+      Some(LfEngineToApi.toTimestamp(commands.ledgerEffectiveTime.toInstant.plusSeconds(30L))),
+      commands
+    )
 
-  private val apiScenarioTransform = for (ledgerId <- context.ledgerId)
-    yield new ApiScenarioTransform(ledgerId, packages)
+  private val apiScenarioTransform = new ApiScenarioTransform(ledger.id, packages)
 
   private def apiTransactionToLfEvents(
       tree: TransactionTree): Future[Events[String, Value.AbsoluteContractId]] =
-    for {
-      transform <- apiScenarioTransform
-      result = transform.eventsFromApiTransaction(tree)
-      future <- result.fold(Future.failed, Future.successful)
-    } yield future
+    apiScenarioTransform.eventsFromApiTransaction(tree).fold(Future.failed, Future.successful)
 
   override type EventNodeId = String
 
@@ -59,22 +51,21 @@ private[infrastructure] final class SemanticTesterLedger(bindings: LedgerBinding
     Value.AbsoluteContractId,
     Value.VersionedValue[Value.AbsoluteContractId]]] =
     for {
-      apiCommands <- lfCommandToApiCommand(party, lfCommands)
-      request <- bindings.prepareSubmission(
+      request <- ledger.submitAndWaitRequest(
         Primitive.Party(party),
-        context.applicationId,
-        s"${context.applicationId}-${UUID.randomUUID}",
-        apiCommands.commands)
-      id <- bindings.submitAndWaitForTransactionId(request)
-      tree <- bindings.getTransactionById(id, parties.toSeq.map(Primitive.Party(_: String)))
+        lfCommandToApiCommand(party, lfCommands).commands: _*)
+      id <- ledger.submitAndWaitForTransactionId(request)
+      tree <- ledger.transactionTreeById(id, parties.toSeq.map(Primitive.Party(_: String)): _*)
       events <- apiTransactionToLfEvents(tree)
     } yield events
 
   override def passTime(dtMicros: Long): Future[Unit] =
-    bindings.passTime(dtMicros.micros)
+    ledger.passTime(dtMicros.micros)
 
   override def currentTime: Future[Time.Timestamp] =
-    bindings.time.map(
-      Time.Timestamp.fromInstant(_).fold(reason => throw new RuntimeException(reason), identity))
+    ledger
+      .time()
+      .map(
+        Time.Timestamp.fromInstant(_).fold(reason => throw new RuntimeException(reason), identity))
 
 }

@@ -13,16 +13,17 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
   private val transactionServiceDivulgence =
     LedgerTest(
       "DivulgenceTx",
-      "Divulged contracts should not be exposed by the transaction service") { implicit context =>
+      "Divulged contracts should not be exposed by the transaction service") { ledger =>
       for {
-        Vector(alice, bob) <- allocateParties(2)
-        divulgence1 <- create(Divulgence1(alice))(alice)
-        divulgence2 <- create(Divulgence2(bob, alice))(bob)
-        _ <- exercise(divulgence2.contractId.exerciseDivulgence2Archive(_, divulgence1.contractId))(
-          alice)
-        bobTransactions <- flatTransactions(bob)
-        bobTrees <- transactionTrees(bob)
-        transactionsForBoth <- flatTransactions(alice, bob)
+        Vector(alice, bob) <- ledger.allocateParties(2)
+        divulgence1 <- ledger.create(alice, Divulgence1(alice))
+        divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
+        _ <- ledger.exercise(
+          alice,
+          divulgence2.contractId.exerciseDivulgence2Archive(_, divulgence1.contractId))
+        bobTransactions <- ledger.flatTransactions(bob)
+        bobTrees <- ledger.transactionTrees(bob)
+        transactionsForBoth <- ledger.flatTransactions(alice, bob)
       } yield {
 
         // Inspecting the flat transaction stream as seen by Bob
@@ -147,58 +148,58 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
   private val activeContractServiceDivulgence = {
     LedgerTest(
       "DivulgenceAcs",
-      "Divulged contracts should not be exposed by the active contract service") {
-      implicit context =>
-        for {
-          Vector(alice, bob) <- allocateParties(2)
-          divulgence1 <- create(Divulgence1(alice))(alice)
-          divulgence2 <- create(Divulgence2(bob, alice))(bob)
-          _ <- exercise(divulgence2.contractId.exerciseDivulgence2Fetch(_, divulgence1.contractId))(
-            alice)
-          activeForBobOnly <- activeContracts(bob)
-          activeForBoth <- activeContracts(alice, bob)
-        } yield {
+      "Divulged contracts should not be exposed by the active contract service") { ledger =>
+      for {
+        Vector(alice, bob) <- ledger.allocateParties(2)
+        divulgence1 <- ledger.create(alice, Divulgence1(alice))
+        divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
+        _ <- ledger.exercise(
+          alice,
+          divulgence2.contractId.exerciseDivulgence2Fetch(_, divulgence1.contractId))
+        activeForBobOnly <- ledger.activeContracts(bob)
+        activeForBoth <- ledger.activeContracts(alice, bob)
+      } yield {
 
-          // Bob only sees Divulgence2
-          assert(
-            activeForBobOnly.size == 1,
-            s"$bob should see only one active contract but sees ${activeForBobOnly.size} instead")
-          assert(
-            activeForBobOnly.head.contractId == divulgence2.contractId,
-            s"$bob should see ${divulgence2.contractId} but sees ${activeForBobOnly.head.contractId} instead"
-          )
+        // Bob only sees Divulgence2
+        assert(
+          activeForBobOnly.size == 1,
+          s"$bob should see only one active contract but sees ${activeForBobOnly.size} instead")
+        assert(
+          activeForBobOnly.head.contractId == divulgence2.contractId,
+          s"$bob should see ${divulgence2.contractId} but sees ${activeForBobOnly.head.contractId} instead"
+        )
 
-          // Since we're filtering for Bob only Bob will be the only reported witness even if Alice sees the contract
-          assert(
-            activeForBobOnly.head.witnessParties == Seq(bob),
-            s"The witness parties as seen by $bob should only include him but it is instead ${activeForBobOnly.head.witnessParties}"
-          )
+        // Since we're filtering for Bob only Bob will be the only reported witness even if Alice sees the contract
+        assert(
+          activeForBobOnly.head.witnessParties == Seq(bob),
+          s"The witness parties as seen by $bob should only include him but it is instead ${activeForBobOnly.head.witnessParties}"
+        )
 
-          // Alice sees both
-          assert(
-            activeForBoth.size == 2,
-            s"The active contracts as seen by $alice and $bob should be two but are ${activeForBoth.size} instead")
-          val divulgence1ContractId = Tag.unwrap(divulgence1.contractId)
-          val divulgence2ContractId = Tag.unwrap(divulgence2.contractId)
-          val activeForBothContractIds = activeForBoth.map(_.contractId).sorted
-          val expectedContractIds = Seq(divulgence1ContractId, divulgence2ContractId).sorted
-          assert(
-            activeForBothContractIds == expectedContractIds,
-            s"${divulgence1.contractId} and ${divulgence2.contractId} are expected to be seen when filtering for $alice and $bob but instead the following contract identifiers are seen: $activeForBothContractIds"
-          )
-          val divulgence1Witnesses =
-            activeForBoth.find(_.contractId == divulgence1ContractId).get.witnessParties.sorted
-          val divulgence2Witnesses =
-            activeForBoth.find(_.contractId == divulgence2ContractId).get.witnessParties.sorted
-          assert(
-            divulgence1Witnesses == Seq(alice),
-            s"The witness parties of the first contract should only include $alice but it is instead $divulgence1Witnesses ($bob)"
-          )
-          assert(
-            divulgence2Witnesses == Tag.unsubst(Seq(alice, bob)).sorted,
-            s"The witness parties of the second contract should include $alice and $bob but it is instead $divulgence2Witnesses"
-          )
-        }
+        // Alice sees both
+        assert(
+          activeForBoth.size == 2,
+          s"The active contracts as seen by $alice and $bob should be two but are ${activeForBoth.size} instead")
+        val divulgence1ContractId = Tag.unwrap(divulgence1.contractId)
+        val divulgence2ContractId = Tag.unwrap(divulgence2.contractId)
+        val activeForBothContractIds = activeForBoth.map(_.contractId).sorted
+        val expectedContractIds = Seq(divulgence1ContractId, divulgence2ContractId).sorted
+        assert(
+          activeForBothContractIds == expectedContractIds,
+          s"${divulgence1.contractId} and ${divulgence2.contractId} are expected to be seen when filtering for $alice and $bob but instead the following contract identifiers are seen: $activeForBothContractIds"
+        )
+        val divulgence1Witnesses =
+          activeForBoth.find(_.contractId == divulgence1ContractId).get.witnessParties.sorted
+        val divulgence2Witnesses =
+          activeForBoth.find(_.contractId == divulgence2ContractId).get.witnessParties.sorted
+        assert(
+          divulgence1Witnesses == Seq(alice),
+          s"The witness parties of the first contract should only include $alice but it is instead $divulgence1Witnesses ($bob)"
+        )
+        assert(
+          divulgence2Witnesses == Tag.unsubst(Seq(alice, bob)).sorted,
+          s"The witness parties of the second contract should include $alice and $bob but it is instead $divulgence2Witnesses"
+        )
+      }
     }
   }
 

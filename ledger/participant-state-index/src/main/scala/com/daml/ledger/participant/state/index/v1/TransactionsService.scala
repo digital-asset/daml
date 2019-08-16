@@ -30,7 +30,7 @@ trait TransactionsService {
   def getLedgerEnd(): Future[Offset]
 
   /*
-  def getTransactionById(
+  def transactionTreeById(
       ,
       transactionId: TransactionId,
       requestingParties: Set[Party]
