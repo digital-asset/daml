@@ -59,7 +59,7 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
 
       assert(
         retrievedEvent.kind.isCreated,
-        s"The only event seen should be a created but instead it's ${retrievedEvent}")
+        s"The only event seen should be a created but instead it's $retrievedEvent")
       assert(
         retrievedEvent.getCreated == created,
         s"The retrieved created event does not match the one in the flat transactions: event=$created retrieved=$retrievedEvent"
@@ -122,13 +122,11 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   private val resendingSubmitAndWait = LedgerTest(
     "CSduplicateSubmitAndWait",
     "SubmitAndWait should be idempotent when reusing the same command identifier") { ledger =>
-    val duplicateCommandId = "CSduplicateSubmitAndWait"
     for {
       alice <- ledger.allocateParty()
       request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
-      duplicate = request.update(_.commands.commandId := duplicateCommandId)
-      _ <- ledger.submitAndWait(duplicate)
-      _ <- ledger.submitAndWait(duplicate)
+      _ <- ledger.submitAndWait(request)
+      _ <- ledger.submitAndWait(request)
       transactions <- ledger.flatTransactions(alice)
     } yield {
       assert(
@@ -142,13 +140,11 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "CSduplicateSubmitAndWaitForTransactionId",
     "SubmitAndWaitForTransactionId should be idempotent when reusing the same command identifier") {
     ledger =>
-      val duplicateCommandId = "CSduplicateSubmitAndWaitForTransactionId"
       for {
         alice <- ledger.allocateParty()
         request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
-        duplicate = request.update(_.commands.commandId := duplicateCommandId)
-        transactionId1 <- ledger.submitAndWaitForTransactionId(duplicate)
-        transactionId2 <- ledger.submitAndWaitForTransactionId(duplicate)
+        transactionId1 <- ledger.submitAndWaitForTransactionId(request)
+        transactionId2 <- ledger.submitAndWaitForTransactionId(request)
       } yield {
         assert(
           transactionId1 == transactionId2,
@@ -160,13 +156,11 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "CSduplicateSubmitAndWaitForTransaction",
     "SubmitAndWaitForTransaction should be idempotent when reusing the same command identifier") {
     ledger =>
-      val duplicateCommandId = "CSduplicateSubmitAndWaitForTransaction"
       for {
         alice <- ledger.allocateParty()
         request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
-        duplicate = request.update(_.commands.commandId := duplicateCommandId)
-        transaction1 <- ledger.submitAndWaitForTransaction(duplicate)
-        transaction2 <- ledger.submitAndWaitForTransaction(duplicate)
+        transaction1 <- ledger.submitAndWaitForTransaction(request)
+        transaction2 <- ledger.submitAndWaitForTransaction(request)
       } yield {
         assert(
           transaction1 == transaction2,
@@ -178,13 +172,11 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "CSduplicateSubmitAndWaitForTransactionTree",
     "SubmitAndWaitForTransactionTree should be idempotent when reusing the same command identifier") {
     ledger =>
-      val duplicateCommandId = "CSduplicateSubmitAndWaitForTransactionTree"
       for {
         alice <- ledger.allocateParty()
         request <- ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
-        duplicate = request.update(_.commands.commandId := duplicateCommandId)
-        transactionTree1 <- ledger.submitAndWaitForTransactionTree(duplicate)
-        transactionTree2 <- ledger.submitAndWaitForTransactionTree(duplicate)
+        transactionTree1 <- ledger.submitAndWaitForTransactionTree(request)
+        transactionTree2 <- ledger.submitAndWaitForTransactionTree(request)
       } yield {
         assert(
           transactionTree1 == transactionTree2,
