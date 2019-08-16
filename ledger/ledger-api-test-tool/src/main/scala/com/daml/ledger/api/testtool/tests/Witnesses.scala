@@ -30,16 +30,12 @@ final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
         // a choice as Alice that causes divulgence (in this case, the Witnesses instance previously
         // created is fetched as part of the transaction).
         divulgeWitness <- ledger.create(charlie, DivulgeWitnesses(alice, charlie))
-        _ <- ledger.exercise(
-          alice,
-          divulgeWitness.contractId.exerciseDivulge(_, witnesses.contractId))
+        _ <- ledger.exercise(alice, divulgeWitness.exerciseDivulge(_, witnesses))
 
         // A non-consuming choice is exercised with the expectation
         // that Charlie is now able to exercise a choice on the divulged contract
         // The tree is fetched from the identifier to ensure we get the witnesses as seen by all parties
-        nonConsuming <- ledger.exercise(
-          charlie,
-          witnesses.contractId.exerciseWitnessesNonConsumingChoice)
+        nonConsuming <- ledger.exercise(charlie, witnesses.exerciseWitnessesNonConsumingChoice)
         nonConsumingTree <- ledger.transactionTreeById(
           nonConsuming.transactionId,
           alice,
@@ -49,7 +45,7 @@ final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
         // A consuming choice is exercised with the expectation
         // that Charlie is now able to exercise a choice on the divulged contract
         // The tree is fetched from the identifier to ensure we get the witnesses as seen by all parties
-        consuming <- ledger.exercise(charlie, witnesses.contractId.exerciseWitnessesChoice)
+        consuming <- ledger.exercise(charlie, witnesses.exerciseWitnessesChoice)
         consumingTree <- ledger.transactionTreeById(consuming.transactionId, alice, bob, charlie)
       } yield {
 

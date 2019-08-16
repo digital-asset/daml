@@ -18,9 +18,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
         Vector(alice, bob) <- ledger.allocateParties(2)
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
         divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
-        _ <- ledger.exercise(
-          alice,
-          divulgence2.contractId.exerciseDivulgence2Archive(_, divulgence1.contractId))
+        _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Archive(_, divulgence1))
         bobTransactions <- ledger.flatTransactions(bob)
         bobTrees <- ledger.transactionTrees(bob)
         transactionsForBoth <- ledger.flatTransactions(alice, bob)
@@ -48,8 +46,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
 
         val contractId = event.created.get.contractId
         assert(
-          contractId == divulgence2.contractId,
-          s"The only visible event should be the creation of the second contract (expected ${divulgence2.contractId}, got $contractId instead)"
+          contractId == divulgence2,
+          s"The only visible event should be the creation of the second contract (expected $divulgence2, got $contractId instead)"
         )
 
         // Inspecting the transaction trees as seen by Bob
@@ -79,8 +77,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
 
         val createDivulgence2ContractId = createDivulgence2.getCreated.contractId
         assert(
-          createDivulgence2ContractId == divulgence2.contractId,
-          s"The event where Divulgence2 is created should have the same contract identifier as the created contract (expected ${divulgence2.contractId}, got $createDivulgence2ContractId instead)"
+          createDivulgence2ContractId == divulgence2,
+          s"The event where Divulgence2 is created should have the same contract identifier as the created contract (expected $divulgence2, got $createDivulgence2ContractId instead)"
         )
 
         val exerciseOnDivulgence2Transaction = bobTrees(1)
@@ -96,7 +94,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           s"Expected event to be an exercise"
         )
 
-        assert(exerciseOnDivulgence2.getExercised.contractId == divulgence2.contractId)
+        assert(exerciseOnDivulgence2.getExercised.contractId == divulgence2)
 
         assert(exerciseOnDivulgence2.getExercised.childEventIds.size == 1)
 
@@ -106,7 +104,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
 
         assert(exerciseOnDivulgence1.kind.isExercised)
 
-        assert(exerciseOnDivulgence1.getExercised.contractId == divulgence1.contractId)
+        assert(exerciseOnDivulgence1.getExercised.contractId == divulgence1)
 
         assert(exerciseOnDivulgence1.getExercised.childEventIds.isEmpty)
 
@@ -134,8 +132,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
 
         val firstCreationForBoth = firstEventForBoth.created.get
         assert(
-          firstCreationForBoth.contractId == divulgence1.contractId,
-          s"The creation seen by filtering for both $alice and $bob was expected to be ${divulgence1.contractId} but is ${firstCreationForBoth.contractId} instead"
+          firstCreationForBoth.contractId == divulgence1,
+          s"The creation seen by filtering for both $alice and $bob was expected to be $divulgence1 but is ${firstCreationForBoth.contractId} instead"
         )
 
         assert(
@@ -153,9 +151,7 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
         Vector(alice, bob) <- ledger.allocateParties(2)
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
         divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
-        _ <- ledger.exercise(
-          alice,
-          divulgence2.contractId.exerciseDivulgence2Fetch(_, divulgence1.contractId))
+        _ <- ledger.exercise(alice, divulgence2.exerciseDivulgence2Fetch(_, divulgence1))
         activeForBobOnly <- ledger.activeContracts(bob)
         activeForBoth <- ledger.activeContracts(alice, bob)
       } yield {
@@ -165,8 +161,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
           activeForBobOnly.size == 1,
           s"$bob should see only one active contract but sees ${activeForBobOnly.size} instead")
         assert(
-          activeForBobOnly.head.contractId == divulgence2.contractId,
-          s"$bob should see ${divulgence2.contractId} but sees ${activeForBobOnly.head.contractId} instead"
+          activeForBobOnly.head.contractId == divulgence2,
+          s"$bob should see $divulgence2 but sees ${activeForBobOnly.head.contractId} instead"
         )
 
         // Since we're filtering for Bob only Bob will be the only reported witness even if Alice sees the contract
@@ -179,13 +175,13 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
         assert(
           activeForBoth.size == 2,
           s"The active contracts as seen by $alice and $bob should be two but are ${activeForBoth.size} instead")
-        val divulgence1ContractId = Tag.unwrap(divulgence1.contractId)
-        val divulgence2ContractId = Tag.unwrap(divulgence2.contractId)
+        val divulgence1ContractId = Tag.unwrap(divulgence1)
+        val divulgence2ContractId = Tag.unwrap(divulgence2)
         val activeForBothContractIds = activeForBoth.map(_.contractId).sorted
         val expectedContractIds = Seq(divulgence1ContractId, divulgence2ContractId).sorted
         assert(
           activeForBothContractIds == expectedContractIds,
-          s"${divulgence1.contractId} and ${divulgence2.contractId} are expected to be seen when filtering for $alice and $bob but instead the following contract identifiers are seen: $activeForBothContractIds"
+          s"$divulgence1 and $divulgence2 are expected to be seen when filtering for $alice and $bob but instead the following contract identifiers are seen: $activeForBothContractIds"
         )
         val divulgence1Witnesses =
           activeForBoth.find(_.contractId == divulgence1ContractId).get.witnessParties.sorted

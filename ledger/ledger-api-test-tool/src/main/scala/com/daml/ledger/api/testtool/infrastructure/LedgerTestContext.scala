@@ -178,22 +178,22 @@ private[infrastructure] final class LedgerTestContext(
   def create[T <: Template[T]: ValueDecoder](
       party: Party,
       template: Template[T]
-  ): Future[Contract[T]] =
+  ): Future[Primitive.ContractId[T]] =
     submitAndWaitRequest(party, template.create.command)
       .flatMap(submitAndWaitForTransaction)
       .map(_.events.collect {
-        case Event(Created(e)) => decodeCreated(e).get
+        case Event(Created(e)) => Primitive.ContractId(e.contractId)
       }.head)
 
   def createAndGetTransactionId[T <: Template[T]: ValueDecoder](
       party: Party,
       template: Template[T]
-  ): Future[(String, Contract[T])] =
+  ): Future[(String, Primitive.ContractId[T])] =
     submitAndWaitRequest(party, template.create.command)
       .flatMap(submitAndWaitForTransaction)
       .map(tx =>
         tx.transactionId -> tx.events.collect {
-          case Event(Created(e)) => decodeCreated(e).get
+          case Event(Created(e)) => Primitive.ContractId(e.contractId)
         }.head)
 
   def exercise[T](

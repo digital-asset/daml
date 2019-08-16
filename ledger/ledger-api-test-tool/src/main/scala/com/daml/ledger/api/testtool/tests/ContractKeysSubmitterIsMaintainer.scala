@@ -30,28 +30,24 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
           showDelegated <- ledger.create(owner, ShowDelegated(owner, delegate))
 
           // divulge the contract
-          _ <- ledger.exercise(
-            owner,
-            showDelegated.contractId.exerciseShowIt(_, delegated.contractId))
+          _ <- ledger.exercise(owner, showDelegated.exerciseShowIt(_, delegated))
           // fetch delegated
-          _ <- ledger.exercise(
-            delegate,
-            delegation.contractId.exerciseFetchDelegated(_, delegated.contractId))
+          _ <- ledger.exercise(delegate, delegation.exerciseFetchDelegated(_, delegated))
 
           // fetch by key delegation is not allowed
           fetchByKeyFailure <- ledger
             .exercise(
               delegate,
-              delegation.contractId
-                .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated.contractId)))
+              delegation
+                .exerciseFetchByKeyDelegated(_, owner, key, Some(delegated)))
             .failed
 
           // lookup by key delegation is not allowed
           lookupByKeyFailure <- ledger
             .exercise(
               delegate,
-              delegation.contractId
-                .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated.contractId)))
+              delegation
+                .exerciseLookupByKeyDelegated(_, owner, key, Some(delegated)))
             .failed
         } yield {
           assertGrpcError(
@@ -81,15 +77,15 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
         fetchFailure <- ledger
           .exercise(
             delegate,
-            delegation.contractId
-              .exerciseFetchDelegated(_, delegated.contractId))
+            delegation
+              .exerciseFetchDelegated(_, delegated))
           .failed
 
         // fetch by key should fail
         fetchByKeyFailure <- ledger
           .exercise(
             delegate,
-            delegation.contractId
+            delegation
               .exerciseFetchByKeyDelegated(_, owner, key, None))
           .failed
 
@@ -97,7 +93,7 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
         lookupByKeyFailure <- ledger
           .exercise(
             delegate,
-            delegation.contractId
+            delegation
               .exerciseLookupByKeyDelegated(_, owner, key, None))
           .failed
       } yield {
@@ -141,53 +137,46 @@ final class ContractKeysSubmitterIsMaintainer(session: LedgerSession)
         bobLooksUpTextKeyFailure <- ledger
           .exercise(
             bob,
-            bobTKO.contractId
-              .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1.contractId)))
+            bobTKO
+              .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1)))
           .failed
 
         // trying to lookup an unauthorized non-existing key should fail
         bobLooksUpBogusTextKeyFailure <- ledger
-          .exercise(
-            bob,
-            bobTKO.contractId.exerciseTKOLookup(_, DamlTuple2(alice, unknownKey), None))
+          .exercise(bob, bobTKO.exerciseTKOLookup(_, DamlTuple2(alice, unknownKey), None))
           .failed
 
         // successful, authorized lookup
         _ <- ledger.exercise(
           alice,
-          aliceTKO.contractId
-            .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1.contractId)))
+          aliceTKO
+            .exerciseTKOLookup(_, DamlTuple2(alice, key1), Some(tk1)))
 
         // successful fetch
-        _ <- ledger.exercise(
-          alice,
-          aliceTKO.contractId.exerciseTKOFetch(_, DamlTuple2(alice, key1), tk1.contractId))
+        _ <- ledger.exercise(alice, aliceTKO.exerciseTKOFetch(_, DamlTuple2(alice, key1), tk1))
 
         // successful, authorized lookup of non-existing key
         _ <- ledger.exercise(
           alice,
-          aliceTKO.contractId.exerciseTKOLookup(_, DamlTuple2(alice, unknownKey), None))
+          aliceTKO.exerciseTKOLookup(_, DamlTuple2(alice, unknownKey), None))
 
         // failing fetch
         aliceFailedFetch <- ledger
           .exercise(
             alice,
-            aliceTKO.contractId
-              .exerciseTKOFetch(_, DamlTuple2(alice, unknownKey), tk1.contractId))
+            aliceTKO
+              .exerciseTKOFetch(_, DamlTuple2(alice, unknownKey), tk1))
           .failed
 
         // now we exercise the contract, thus archiving it, and then verify
         // that we cannot look it up anymore
-        _ <- ledger.exercise(alice, tk1.contractId.exerciseTextKeyChoice)
-        _ <- ledger.exercise(
-          alice,
-          aliceTKO.contractId.exerciseTKOLookup(_, DamlTuple2(alice, key1), None))
+        _ <- ledger.exercise(alice, tk1.exerciseTextKeyChoice)
+        _ <- ledger.exercise(alice, aliceTKO.exerciseTKOLookup(_, DamlTuple2(alice, key1), None))
 
         // lookup the key, consume it, then verify we cannot look it up anymore
         _ <- ledger.exercise(
           alice,
-          aliceTKO.contractId
-            .exerciseTKOConsumeAndLookup(_, tk2.contractId, DamlTuple2(alice, key2)))
+          aliceTKO.exerciseTKOConsumeAndLookup(_, tk2, DamlTuple2(alice, key2)))
 
         // failing create when a maintainer is not a signatory
         maintainerNotSignatoryFailed <- ledger
