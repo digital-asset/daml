@@ -4,7 +4,7 @@
 
 ### Start sandbox from a DAML Assistant project directory
 ```
-daml-head sandbox --wall-clock-time ./.daml/dist/quickstart-0.0.1.dar
+daml-head sandbox --wall-clock-time --ledgerid MyLedger ./.daml/dist/quickstart-0.0.1.dar
 ```
 
 ### Start HTTP service from the DAML project root
