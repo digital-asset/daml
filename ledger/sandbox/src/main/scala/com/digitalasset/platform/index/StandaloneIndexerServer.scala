@@ -5,10 +5,13 @@ package com.digitalasset.platform.index
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
+import akka.actor.ActorSystem
+import akka.pattern.after
 import com.daml.ledger.participant.state.v1.ReadService
 import com.digitalasset.platform.common.util.{DirectExecutionContext => DEC}
 import org.slf4j.LoggerFactory
 
+import scala.concurrent.duration._
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.control.NonFatal
 
@@ -16,6 +19,9 @@ import scala.util.control.NonFatal
 // See v2.ReferenceServer for the usage
 object StandaloneIndexerServer {
   private val logger = LoggerFactory.getLogger(this.getClass)
+
+  private[this] val restartDelay: FiniteDuration = 5.seconds
+  private[this] val actorSystem = ActorSystem("StandaloneIndexerServer")
 
   def apply(readService: ReadService, jdbcUrl: String): AutoCloseable = {
 
@@ -38,8 +44,8 @@ object StandaloneIndexerServer {
 
       completedF.recoverWith {
         case NonFatal(t) =>
-          logger.error("Error while processing state updates", t)
-          restart()
+          logger.error(s"Error while running indexer, restart scheduled after $restartDelay", t)
+          after(restartDelay, actorSystem.scheduler)(restart())
       }(DEC)
     }
 
