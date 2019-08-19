@@ -70,7 +70,6 @@ import Options.Applicative.Extended
 import "ghc-lib-parser" Packages
 import qualified Proto3.Suite as PS
 import qualified Proto3.Suite.JSONPB as Proto.JSONPB
-import Safe
 import System.Directory
 import System.Environment
 import System.Exit
@@ -418,7 +417,7 @@ createProjectPackageDb (AllowDifferentSdkVersions allowDiffSdkVersions) lfVersio
             bs <- BSL.readFile fp
             let archive = toArchive bs
             manifest <- getEntry "META-INF/MANIFEST.MF" archive
-            sdkVersion <- trim <$> getManifestField manifest "Sdk-Version"
+            sdkVersion <- trim <$> getManifestFieldOrErr manifest "Sdk-Version"
             let confFiles =
                     [ e
                     | e <- zEntries archive
@@ -698,7 +697,7 @@ execMigrate projectOpts opts0 inFile1_ inFile2_ mbDir = do
                 let dar = toArchive $ BSL.fromStrict bytes
                 -- get the main pkg
                 manifest <- getEntry "META-INF/MANIFEST.MF" dar
-                mainDalfPath <- getManifestField manifest "Main-Dalf"
+                mainDalfPath <- getManifestFieldOrErr manifest "Main-Dalf"
                 mainDalfEntry <- getEntry mainDalfPath dar
                 (mainPkgId, mainLfPkg) <- decode $ BSL.toStrict $ fromEntry mainDalfEntry
                 pure (pkgName, mainPkgId, mainLfPkg)
@@ -758,16 +757,10 @@ getEntry fp dar =
     findEntryByPath fp dar
 
 -- | Parse a manifest field.
-getManifestField :: Entry -> String -> IO String
-getManifestField manifest field =
+getManifestFieldOrErr :: Entry -> String -> IO String
+getManifestFieldOrErr manifest field =
     mbErr ("Missing field in META-INF/MANIFEST.MD: " ++ field) $
-    headMay
-        [ value
-        | l <-
-              lines $
-              replace "\n " "" $ BSC.unpack $ BSL.toStrict $ fromEntry manifest
-        , Just value <- [stripPrefix (field ++ ": ") l]
-        ]
+    getManifestField manifest field
 
 -- | Merge two dars. The idea is that the second dar is a delta. Hence, we take the main in the
 -- manifest from the first.
