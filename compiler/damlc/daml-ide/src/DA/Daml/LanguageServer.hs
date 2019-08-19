@@ -93,10 +93,10 @@ onCommand ide ExecuteCommandParams{..} = do
         Nothing -> return $ Aeson.String "No .daml files where found in the IDE workspace"
         Just path -> do
             case filesFromExecParams path of
-                paths@(x : _xs) -> do
+                (head : rest) -> do
                         logInfo (ideLogger ide) "Generating visualization for current daml project"
-                        mbmodules <- mapM (\f -> runAction ide (useWithStale GenerateDalf f)) paths
-                        Just (WhnfPackage package, _) <- runAction ide (useWithStale GeneratePackage x)
+                        mbmodules <- mapM (\f -> runAction ide (useWithStale GenerateDalf f)) rest
+                        Just (WhnfPackage package, _) <- runAction ide (useWithStale GeneratePackage head)
                         pkgMap <- runAction ide  (useNoFile_ GeneratePackageMap)
                         let extpkgs = map dalfPackagePkg $ Map.elems pkgMap
                         let wrld = LF.initWorldSelf extpkgs package
