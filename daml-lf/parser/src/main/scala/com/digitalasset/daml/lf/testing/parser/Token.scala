@@ -56,7 +56,7 @@ private[parser] object Token {
   final case class ContractId(s: String) extends Token
   final case class Timestamp(value: data.Time.Timestamp) extends Token
   final case class Date(value: data.Time.Date) extends Token
-  final case class Decimal(value: data.Decimal) extends Token
+  final case class Numeric(value: data.Numeric) extends Token
   final case class Number(value: Long) extends Token
   final case class SimpleString(s: String) extends Token
   final case class Text(s: String) extends Token
