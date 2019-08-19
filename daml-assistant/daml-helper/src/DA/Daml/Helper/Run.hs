@@ -811,7 +811,6 @@ runLedgerNavigator flags remainingArguments = do
             navigatorArgs = concat
                 [ ["server"]
                 , [host hostAndPort, show (port hostAndPort)]
-                , navigatorPortNavigatorArgs navigatorPort
                 , remainingArguments
                 ]
 
@@ -819,15 +818,8 @@ runLedgerNavigator flags remainingArguments = do
         unsetEnv "DAML_PROJECT" -- necessary to prevent config contamination
         withCurrentDirectory confDir $ do
             withJar navigatorPath navigatorArgs $ \ph -> do
-                putStrLn "Waiting for navigator to start: "
-                -- TODO We need to figure out a sane timeout for this step.
-                waitForHttpServer (putStr "." *> threadDelay 500000) (navigatorURL navigatorPort)
-                putStr . unlines $
-                    [ ""
-                    , "Navigator is running at " <> navigatorURL navigatorPort
-                    , "Use Ctrl+C to stop."
-                    ]
-                exitWith =<< waitExitCode ph
+                exitCode <- waitExitCode ph
+                exitWith exitCode
 
   where
     navigatorConfig :: [PartyDetails] -> T.Text
@@ -847,7 +839,6 @@ runLedgerNavigator flags remainingArguments = do
           ]
         , ["  }"]
         ]
-    navigatorPort = NavigatorPort 7500
 
 getDarPath :: IO FilePath
 getDarPath = do
